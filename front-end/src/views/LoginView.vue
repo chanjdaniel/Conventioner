@@ -745,7 +745,7 @@ const submitOTPLogin = async () => {
   background: transparent;
 }
 
-/* The choice and its label are one target, as tall as any other on the form (44px on a phone), and
+/* The choice and its label are one target, at least `--target-min` tall (44px on a phone), and
    only as wide as its words, so a tap beside it does not tick it. */
 .remember-me {
   display: inline-flex;

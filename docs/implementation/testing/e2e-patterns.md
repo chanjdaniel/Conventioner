@@ -105,11 +105,11 @@ A stack's interfaces keep changing for a while after `up` returns: each takes an
 Another stack starting or stopping during a run can still abort a request: [CI and the gate](ci-and-the-gate.md#the-no-mistakes-gate) has the lock that keeps two gate runs apart.
 
 **A spec ends an organizer's session on the server**: `mongoEval` unsets the user's `login_id`, so the cookie names a login no account holds and the next request answers 401, as after a password reset; the next sign-in gives the account a new one.
-`context.clearCookies()` ends it only in the browser: the server keeps the session for its length.
+`context.clearCookies()` ends it only in the browser: the stack keeps its sessions on disk, where it stays until it lapses.
 
 **A call made with a page's cookies goes to `APP_API`, never `BACKEND_URL`** (E38/F14/S01).
 The back end holds a session to the client that signed in, its address and browser (Flask-Login's "strong" session protection, [the cookies](../conventions/security-invariants.md#the-cookies)), and on a stack the page reaches it through the dev server's proxy while the back end's own port is another address, so a `page.request` there ends the page's session and deletes its remember-me cookie.
-A request context of its own (the `request` fixture, `withUser()`'s) is a client of its own, and may call either.
+A page of another browser context (`withUser()`'s) is a page too; a request context of its own (the `request` fixture, `playwright.request.newContext()`) is a client of its own, and may call either.
 A request with no cookie at all answers 401; [`a-failure-says-what-to-do.spec.ts`](../../../front-end/e2e/a-failure-says-what-to-do.spec.ts) holds that, from a page of the app's origin that runs none of its code.
 
 **`waitForURL` returns when the route changes, not when the new page has loaded.**

@@ -350,9 +350,9 @@ app = Flask(__name__)
 
 # How long a sign-in lasts (E38/F14/S01): the two lengths are `UsersApi`'s, and the user loader
 # refuses a sign-in older than its own. The session cookie ends with the browser in either store
-# (flask-session's own default is a lasting cookie); a store on disk keeps a session no longer than
-# an unremembered sign-in lasts. The remember-me cookie expires when a remembered sign-in ends, and
-# use does not extend it.
+# (flask-session's own default is a lasting cookie); a store on disk keeps a session for an
+# unremembered sign-in's length from its last change. The remember-me cookie expires when a
+# remembered sign-in ends, and use does not extend it.
 app.config["SESSION_PERMANENT"] = False
 app.config["PERMANENT_SESSION_LIFETIME"] = UsersApi.SIGN_IN_LIFETIME
 app.config["REMEMBER_COOKIE_DURATION"] = UsersApi.REMEMBERED_SIGN_IN_LIFETIME
