@@ -88,6 +88,8 @@ export function seedApplicationWithStatus(
   marketId: string,
   status: string,
   applicantEmail = 'applicant@example.com',
+  /** The answers, when a test reads them back: a name the review shows, say. */
+  formData: Record<string, unknown> = { name: 'Test App', category: 'Crafts' },
 ): string {
   const applicationId = randomUUID();
   mongoEval(
@@ -95,7 +97,7 @@ export function seedApplicationWithStatus(
       id: applicationId,
       market_id: marketId,
       applicant_email: applicantEmail,
-      form_data: { name: 'Test App', category: 'Crafts' },
+      form_data: formData,
       status,
       application_type: 'main',
       submitted_at: new Date().toISOString(),

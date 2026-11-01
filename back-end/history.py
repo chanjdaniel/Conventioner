@@ -76,6 +76,10 @@ IMPORTED = "imported"
 STARTED = "started"
 VERDICT = "verdict"
 VERDICTS = "verdicts"
+#: A verdict, or a follow-up, taken back by its giver within the window (E38/F10/S01); and a
+#: selection's, one entry.
+VERDICT_UNDONE = "verdict_undone"
+VERDICTS_UNDONE = "verdicts_undone"
 FOLLOW_UP_OWNER = "follow_up_owner"
 NOTE = "note"
 REQUEST_HANDLED = "request_handled"

@@ -14,7 +14,8 @@ describes:
   - back-end/tests/test_the_market_keeps_its_own_rows.py
   - back-end/tests/test_changing_a_verdict_is_its_own_row.py
   - back-end/tests/test_a_chosen_reviewer_decides.py
-verified: 2026-10-31
+  - back-end/tests/test_undoing_a_verdict.py
+verified: 2026-11-01
 sources:
   - brain-dump/2026-10-19#22
   - E26/F08/S01
@@ -37,6 +38,7 @@ sources:
   - T142
   - E38/F07/S03
   - E38/F12/S01
+  - E38/F10/S01
 ---
 
 # What each role may do
@@ -58,6 +60,8 @@ An Editor works on the market (the plan, the seats, the review) but takes none o
 A verdict is Editor's (E34/F01/S01): reviewers decide applications, and a verdict records who gave it.
 **Changing one is an Admin's** (E38/F06/S01, the 2026-10-29 walk): a verdict is approved or rejected, and once given, turning it into the other, sending it back to needs follow-up, or overturning an automatic rejection undoes a decision someone already made, so it is the row "Change a verdict, or overturn an automatic rejection", default Admin.
 Deciding a follow-up, approved or rejected, is giving a verdict, not changing one.
+**Undoing a verdict just given is the giver's** (E38/F10/S01, Daniel's decision of 2026-10-31): a verdict is one click or one key, so whoever gave it, an Editor or a chosen Viewer included, takes it back within 2 minutes (`UNDO_WINDOW`, beside the verdict rules in [`back-end/api/applications.py`](../../../back-end/api/applications.py)), while they may still give verdicts and the review is open.
+It is giving, taken back, so it asks the giving row and never the change row; after the window, or for someone else's verdict, changing it stays the change row's.
 **Being chosen as a reviewer lets a Viewer decide** (E38/F07/S03): an Admin or the owner could not put a volunteer or a helper from the organization to work on the review without making them an Editor, a role that also changes the plan, the seats and the notes.
 Being chosen is per review and lost when removed, so it is a privilege of the table rather than a role ([ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)): who may be chosen is the row "Be chosen as a reviewer, and then give verdicts and follow-ups", default Viewer, and the owner raising it to Editor takes the privilege from the chosen Viewers on that market.
 An organization's admins run its markets ([the decision of 2026-10-20](../../records/DECISION_2026-10-20.md)): the admin running a market on the day could read every seat and swap none, because membership gave only Viewer, and giving each admin a role on each market by hand was a step nobody knew to take.
@@ -67,7 +71,7 @@ An organization's admins run its markets ([the decision of 2026-10-20](../../rec
 | Role | May |
 | --- | --- |
 | Viewer | read the market: its applications, its result and tables, the statistics and the CSV exports (the assignment's and the vendors'), the floorplan export, attendance, and the market's history, in Manage market, the assignment history and a vendor's drawer, and what each vendor owes and paid |
-| Editor | everything a Viewer may, and the plan and its floorplan ([who may use the floorplan routes](../../implementation/modules/floorplan-placement.md#who-may-use-the-floorplan-routes)), the form, renaming a draft, allocating tables and assigning, swapping or freeing a seat, highlights, automatic rejections, giving verdicts on open applications and follow-ups, marking and handing on follow-ups, vendor notes, [updating a vendor's info](an-update-is-kept-beside-the-vendors-answer.md), [recording a vendor's payment](../../implementation/data/payments.md) (Daniel, T92 Q15: "editors can"), check-ins at the door |
+| Editor | everything a Viewer may, and the plan and its floorplan ([who may use the floorplan routes](../../implementation/modules/floorplan-placement.md#who-may-use-the-floorplan-routes)), the form, renaming a draft, allocating tables and assigning, swapping or freeing a seat, highlights, automatic rejections, giving verdicts on open applications and follow-ups and undoing their own within 2 minutes, marking and handing on follow-ups, vendor notes, [updating a vendor's info](an-update-is-kept-beside-the-vendors-answer.md), [recording a vendor's payment](../../implementation/data/payments.md) (Daniel, T92 Q15: "editors can"), check-ins at the door |
 | Admin | everything an Editor may, and changing a verdict already given (to the other, or back to needs follow-up) and overturning an [automatic rejection](automatic-rejections.md), phase moves, stopping and taking applications, publishing results, importing, the CSV start, [choosing the reviewers](the-review-is-dealt-among-chosen-reviewers.md), [updating an answer the assignment or a price group reads](an-update-is-kept-beside-the-vendors-answer.md#who-may), changing what a vendor owes and adjusting what they paid (Daniel, T92 Q26: "this number can be changed by the admin"); manage editors and viewers; connect the market to Discord, choose its role and check who is in its server ([the Discord connection](../../implementation/modules/discord.md)) |
 | Owner | everything an Admin may, and manage admins, and delete the market |
 
@@ -122,6 +126,12 @@ See [the organization document](../../implementation/data/organization-document.
   A write that judges the automatic rejections again returns what a rule rejected to open only for someone the row lets overturn it ([automatic rejections](automatic-rejections.md)).
   So a change takes both rows (the change row is asked on top of the giving row, `on_top_of`): with the change row set below the giving row, someone the giving row refuses still changes nothing and overturns nothing, by a verdict or by any write that judges the rules again, and is told the giving row's words.
   [`back-end/tests/test_changing_a_verdict_is_its_own_row.py`](../../../back-end/tests/test_changing_a_verdict_is_its_own_row.py) pins each role and each move, and a market whose owner moved the row.
+- **An undo is the giver's own, asked of the giving row alone** (E38/F10/S01): `POST /markets/<id>/applications/<application_id>/review/undo`, and `.../applications/verdicts/undo` for a selection, pass `_reviewer_on` and never ask the change row.
+  The write lands only for the person whose user id is the verdict's `verdict_by`, within `UNDO_WINDOW` of its `verdict_at` (`undoable_by`), and only while the status and the verdict's time are still those the reviewer saw, a conditional write ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md), [the application document](../../implementation/data/application-document.md#statuses)); it returns the application to what the verdict kept of it (`undo_to`), open, or needs follow-up marked and owned as it was, never to what the request names.
+  A follow-up whose owner the reviewer may no longer hand one to is not brought back: the owner is asked as the review route asks (`follow_up_owner`), and where that route would answer "A follow-up's owner must have a role on this market." (one who lost their role) or "You can hand a follow-up only to someone named in this market's roles." (to someone outside the organization), the undo answers a 400 in its own words, `UNDO_OWNER_REFUSED`, "This verdict can no longer be undone here: the follow-up it closed would come back to an owner you cannot see on this market. An Admin or the market's owner can change it.", since it hands the follow-up to nobody, and a selection skips it with that reason.
+  Past the window, or on someone else's verdict, it is a 403 with "This verdict can no longer be undone here. An Admin or the owner can change it."; a verdict written over since is the 409 a verdict answers, with the application as it stands.
+  An undo never returns an application to a verdict, so it is never a change: a verdict that changed one keeps nothing to return to, so it is never undone, and was given by someone the change row lets change it anyway.
+  [`back-end/tests/test_undoing_a_verdict.py`](../../../back-end/tests/test_undoing_a_verdict.py) pins each role, a chosen Viewer, the window, someone else's verdict, a stale read, a closed review, and a selection.
 - **Being chosen passes the giving row, in the actions module alone** (E38/F07/S03): `refusal` and `role_refusal` answer None for "Give verdicts and follow-ups" to someone the row refuses who is a chosen reviewer (`is_chosen`, by address, off the market's `reviewTeam`) and whose role reaches `review-when-chosen`.
   A write reads it off the market; the market read passes it once, so `actionRefusals`, `readOnlyReason` and `peopleOnMarket` let a chosen Viewer in, and every review write (`_reviewer_on`) does, with no role named anywhere else.
   The change row, asked on top, still refuses them in its own words.
