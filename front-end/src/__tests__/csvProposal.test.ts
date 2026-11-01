@@ -15,6 +15,7 @@ import {
   initialYear,
   ledgerRows,
   proposalCounts,
+  railLines,
   weekdayNote,
   type Proposal,
   type ProposedColumn,
@@ -116,7 +117,75 @@ describe('proposalCounts', () => {
         { check: ["Couldn't reach TypeSafe"] },
       ),
     );
-    expect(counts).toEqual({ toCheck: 3, essential: 1, custom: 1, leftOut: 1 });
+    expect(counts).toEqual({
+      toCheck: 3,
+      applicant: 0,
+      submittedAt: 1,
+      essential: 1,
+      custom: 1,
+      leftOut: 1,
+    });
+  });
+
+  it('counts who applied, so the lines add up to the rows', () => {
+    const counts = proposalCounts(
+      proposal([
+        column(0, { fate: 'submitted_at', field: null }),
+        column(1, { fate: 'applicant_email', field: null }),
+        column(2),
+      ]),
+    );
+    expect(railLines(counts).reduce((sum, line) => sum + line.count, 0)).toBe(3);
+  });
+});
+
+describe('railLines (E38/F15/S02)', () => {
+  const words = (counts: Parameters<typeof railLines>[0]) =>
+    railLines(counts).map((line) => `${line.count} ${line.words}`);
+
+  it('reads a one-column file as one column saying who applied, not 0 / 0 / 0', () => {
+    const counts = proposalCounts(proposal([column(0, { fate: 'applicant_email', field: null })]));
+    expect(words(counts)).toEqual([
+      '1 says who applied',
+      '0 answer essential questions',
+      '0 become your questions',
+      '0 left out',
+    ]);
+  });
+
+  it('says when, alone, and who and when, together', () => {
+    const base = { toCheck: 0, essential: 0, custom: 0, leftOut: 0 };
+    expect(words({ ...base, applicant: 0, submittedAt: 1 })[0]).toBe('1 says when each applied');
+    expect(words({ ...base, applicant: 1, submittedAt: 1 })[0]).toBe('2 say who applied and when');
+    expect(words({ ...base, applicant: 0, submittedAt: 0 })[0]).toBe('0 say who applied and when');
+  });
+
+  it('counts one as one on every line', () => {
+    expect(
+      words({ toCheck: 0, applicant: 1, submittedAt: 1, essential: 1, custom: 1, leftOut: 1 }),
+    ).toEqual([
+      '2 say who applied and when',
+      '1 answers an essential question',
+      '1 becomes your question',
+      '1 left out',
+    ]);
+  });
+
+  it('keys each line for its test id', () => {
+    const counts = {
+      toCheck: 0,
+      applicant: 1,
+      submittedAt: 0,
+      essential: 2,
+      custom: 3,
+      leftOut: 4,
+    };
+    expect(railLines(counts).map((line) => line.key)).toEqual([
+      'who-and-when',
+      'essential',
+      'custom',
+      'left-out',
+    ]);
   });
 });
 
