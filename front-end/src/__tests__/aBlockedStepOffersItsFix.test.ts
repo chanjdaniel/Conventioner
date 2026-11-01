@@ -226,10 +226,21 @@ describe('a remedy or a step is offered only to someone who may take it', () => 
         '/markets/market-1/tools',
       );
 
-    it('a Viewer, who may not check vendors in, is offered no "Go there"', () => {
+    // A Viewer was told to check vendors in, and offered no "Go there" to a page where they could
+    // not. They are told what they may do there, follow who has come, and led to it (E38/F15/S04).
+    it('a Viewer, who may not check vendors in, is told to follow who has come, and led there', () => {
       const rail = door(VIEWER_ANSWERS);
 
-      expect(rail.get(next).text()).toContain('Check vendors in at the door.');
+      expect(rail.get(next).text()).toContain('Follow who has checked in at the door.');
+      expect(rail.get(next).text()).not.toContain('Check vendors in');
+      const link = rail.get(nextLink);
+      expect(link.text()).toBe('Go there');
+      expect(link.getComponent(RouterLinkStub).props('to')).toBe('/markets/market-1/attendance');
+    });
+
+    it('someone the table refuses even a read of the market is led nowhere', () => {
+      const rail = door(answersRefusing(MarketAction.CheckIn, MarketAction.Read));
+
       expect(rail.find(nextLink).exists()).toBe(false);
     });
 
