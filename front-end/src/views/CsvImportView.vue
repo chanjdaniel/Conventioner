@@ -1505,12 +1505,14 @@ function startOver() {
  * mapping step is a full-width ledger with a rail, so no single CONTENT width is right - but a
  * shell that changed width as the organizer pressed Next would read as instability, and the step
  * indicator already says where they are.
+ *
+ * Its sides stand on the frame's `--space-6`, the rail's inset, as every page in the card does.
  */
 .import-view {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  padding: var(--space-6) var(--space-8) calc(var(--space-12) + var(--space-12));
+  padding: var(--space-6) var(--space-6) calc(var(--space-12) + var(--space-12));
   color: var(--mm-black);
 }
 

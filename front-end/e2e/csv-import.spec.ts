@@ -1,5 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL, CsvImportPage } from './fixtures';
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Locator } from '@playwright/test';
 import { ensureTestOrg } from './helpers/seeds';
 import { seedApplicationWithStatus } from './helpers/seedPhaseMarket';
 import { seedApplicantMarket, planSetupObject, PLAN_TIERS } from './helpers/seedApplicantMarket';
@@ -777,6 +777,42 @@ test.describe('CSV vendor import', () => {
     expect(panel.lead, 'the panel is not centred within the shell').toBe(panel.trail);
     expect(panel.lead).toBeGreaterThan(0);
   });
+
+  /**
+   * The import stands on the inset every page inside the market frame keeps (T94 review note 9).
+   *
+   * A page inside the card insets its content `--space-6`, the rail's inset; the import padded
+   * itself `--space-8`, so its heading and every step under it sat 8px right of the rail's stages.
+   */
+  for (const width of [1920, 1440]) {
+    test(`the import's heading starts on the rail's line at ${width}, first and redone`, async ({
+      authenticatedPage: page,
+      request,
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      const seed = await seedPlannedMarket(request);
+      const importPage = new CsvImportPage(page);
+      const left = (locator: Locator) =>
+        locator.first().evaluate((el) => el.getBoundingClientRect().left);
+      const onTheRailsLine = async (title: string) => {
+        await expect(importPage.heading).toHaveText(title);
+        const rail = await left(page.locator('.phase-spine'));
+        expect(Math.abs((await left(importPage.heading)) - rail), title).toBeLessThanOrEqual(1);
+      };
+
+      await openImport(importPage, request, seed.marketId);
+      await onTheRailsLine('Import responses');
+
+      seedApplicationWithStatus(seed.marketId, 'reviewer_approved', 'imported@example.com');
+      const moved = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
+        headers: { 'X-Owner-Email': TEST_USER.email },
+        data: { toPhase: 'applications' },
+      });
+      expect(moved.ok(), await moved.text()).toBeTruthy();
+      await openImport(importPage, request, seed.marketId);
+      await onTheRailsLine('Redo import');
+    });
+  }
 
   test('a day spelled with a comma is one answer, and a date matched twice counts once', async ({
     authenticatedPage: page,
