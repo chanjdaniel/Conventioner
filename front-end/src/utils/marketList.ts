@@ -1,6 +1,6 @@
 import type { LocationQuery, LocationQueryRaw } from 'vue-router';
 import { type Market, MarketPhase } from '@/assets/types/datatypes';
-import { effectivePhase } from '@/utils/phase';
+import { effectivePhase, phaseSpine } from '@/utils/phase';
 
 /**
  * Finding a market on the Markets page (E25/F01/S01): a search, an organization, phases and an
@@ -35,8 +35,16 @@ export const DEFAULT_MARKET_LIST_QUERY: Readonly<MarketListQuery> = Object.freez
   sort: 'date',
 });
 
-/** Every phase, in lifecycle order: the enum is declared in that order. */
-export const PHASES_IN_ORDER: readonly MarketPhase[] = Object.values(MarketPhase);
+const KNOWN_PHASES = new Set<string>(Object.values(MarketPhase));
+
+/**
+ * The phases the filter offers, and the only ones the address may name: the stages the rail draws,
+ * in its order (E38/F15/S03). `offers` is left out, as on the rail, since no market reaches it; an
+ * old bookmark that names it is read as one that names no phase.
+ */
+export const FILTERABLE_PHASES: readonly MarketPhase[] = phaseSpine().filter(
+  (phase): phase is MarketPhase => KNOWN_PHASES.has(phase),
+);
 
 /** Case, accents and surrounding whitespace do not count: "cafe" finds "Café Market". */
 function folded(text: string): string {
@@ -112,8 +120,8 @@ function first(value: LocationQuery[string] | undefined): string {
 
 /**
  * The query the page's address holds. A value that no longer means anything - an organization the
- * organizer has left, a phase this build does not know - is dropped rather than narrowing the list
- * to nothing, so an old bookmark still opens onto markets.
+ * organizer has left, a phase the filter does not offer (`offers` among them) - is dropped rather
+ * than narrowing the list to nothing, so an old bookmark still opens onto markets.
  *
  * `organizationIds` is null when the organizer's organizations are not known (still loading, or
  * failed to load). The address's organization is then kept: dropping it would let the next change
@@ -129,7 +137,7 @@ export function marketListQueryFromRoute(
   return {
     search: first(route.q),
     organizationId: org && (!organizationIds || organizationIds.includes(org)) ? org : null,
-    phases: PHASES_IN_ORDER.filter((phase) => phases.has(phase)),
+    phases: FILTERABLE_PHASES.filter((phase) => phases.has(phase)),
     sort: MARKET_SORTS.some((s) => s.value === sort)
       ? (sort as MarketSort)
       : DEFAULT_MARKET_LIST_QUERY.sort,
@@ -142,7 +150,7 @@ export function marketListQueryToRoute(query: MarketListQuery): LocationQueryRaw
   if (query.search) route.q = query.search;
   if (query.organizationId) route.org = query.organizationId;
   if (query.phases.length) {
-    route.phase = PHASES_IN_ORDER.filter((phase) => query.phases.includes(phase)).join(',');
+    route.phase = FILTERABLE_PHASES.filter((phase) => query.phases.includes(phase)).join(',');
   }
   if (query.sort !== DEFAULT_MARKET_LIST_QUERY.sort) route.sort = query.sort;
   return route;
