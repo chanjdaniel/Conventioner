@@ -899,6 +899,36 @@ test.describe('CSV vendor import', () => {
     );
   });
 
+  test('a file that is not a CSV export stops before the mapping, and the picker takes another', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // E38/F15/S02: a binary named responses.csv went on to the mapping step as "1 columns in this
+    // file", one column headed by garbled characters. An invented binary, never a real export.
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
+    await openImport(importPage, request, seed.marketId);
+
+    const binary = Buffer.from([
+      0x89,
+      0x50,
+      0x4e,
+      0x47,
+      ...Array.from({ length: 256 }, (_, b) => b),
+    ]);
+    await importPage.chooseFile(binary);
+    await expect(importPage.error).toHaveText(
+      'This file does not look like a CSV export. Download the responses again from Google Forms as .csv.',
+    );
+    await expect(importPage.upload).toBeVisible();
+    await expect(importPage.map).toHaveCount(0);
+
+    // A one-column CSV is still a CSV, and its heading counts it as one.
+    await importPage.chooseFile('Email Address\nnadia@ember.test');
+    await expect(importPage.columnCount).toHaveText('1 column in this file');
+    await expect(importPage.error).toHaveCount(0);
+  });
+
   test('a skipped row is not written, and an address that is not one is skipped', async ({
     authenticatedPage: page,
     request,

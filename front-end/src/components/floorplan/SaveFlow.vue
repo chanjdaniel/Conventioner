@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue';
 import { useFloorplanStore } from '@/stores/floorplan';
-import { api } from '@/utils/api';
+import { api, getApiErrorMessage } from '@/utils/api';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 import { useModalRoot } from '@/utils/useModalRoot';
 
@@ -170,11 +170,7 @@ async function handleSave() {
       dialogOpen.value = false;
     }, 1200);
   } catch (err: unknown) {
-    const msg =
-      err && typeof err === 'object' && 'response' in err
-        ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
-        : undefined;
-    error.value = msg || 'Failed to save floorplan. Please try again.';
+    error.value = getApiErrorMessage(err, 'The floorplan was not saved.');
   } finally {
     saving.value = false;
   }

@@ -22,6 +22,7 @@ import MarketFrame from '@/components/MarketFrame.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { getFormattedDate, oneLine } from '@/utils/utils';
 import { importRefusal } from '@/utils/importPhase';
+import { readCsvFile } from '@/utils/csvFile';
 import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
 import ValueFixes from '@/components/ValueFixes.vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
@@ -527,7 +528,11 @@ function takenBy(key: string, columnIndex: number | null, stem: string | null): 
 }
 
 async function onFileChosen(event: Event) {
-  await acceptFile((event.target as HTMLInputElement).files?.[0]);
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  // Cleared, so the same file chosen again after a refusal is read again.
+  input.value = '';
+  await acceptFile(file);
 }
 
 /** True while a file is over the drop zone, so the zone can say it will take it. */
@@ -541,19 +546,20 @@ async function onFileDropped(event: DragEvent) {
 /**
  * Take one file, whichever way it arrived.
  *
- * A file picked and a file dragged land here alike; anything that is not a CSV is refused by name
- * rather than parsed into a wall of nonsense columns. The picker accepts only `.csv`, but a drop
- * has no such filter, so this is where the check belongs.
+ * A file picked and a file dragged land here alike; anything that is not a CSV, by its name or by
+ * what it holds, is refused here rather than parsed into a wall of nonsense columns, and the
+ * upload step stays for another file (`readCsvFile`).
  */
 async function acceptFile(file: File | undefined) {
   if (!file) return;
-  if (!/\.csv$/i.test(file.name) && file.type !== 'text/csv') {
-    error.value = `${file.name} is not a CSV. Export your form responses as CSV and try again.`;
+  const read = await readCsvFile(file);
+  if ('error' in read) {
+    error.value = read.error;
     return;
   }
   error.value = '';
   fileName.value = file.name;
-  csvContent.value = await file.text();
+  csvContent.value = read.text;
   await inspect();
 }
 
@@ -939,7 +945,9 @@ function startOver() {
               since then.
             </span>
           </div>
-          <h2>{{ headers.length }} columns in this file</h2>
+          <h2 data-testid="import-column-count">
+            {{ headers.length }} column{{ headers.length === 1 ? '' : 's' }} in this file
+          </h2>
           <p class="import-help">
             Every column, in file order. Leave a column unmapped to ignore it.
           </p>

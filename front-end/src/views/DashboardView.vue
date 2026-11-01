@@ -148,6 +148,9 @@ const handleSignOut = async () => {
 
 <template>
   <div class="dashboard-view">
+    <!-- The page's title, for a screen reader to land on; the screen itself is plain enough to
+         need none in sight. The card and the buttons sit under it in the outline. -->
+    <h1 class="visually-hidden">Dashboard</h1>
     <div class="main-buttons">
       <!-- The section keeps its space while the answer is in flight, so nothing below it jumps
            when the request lands. What goes inside it is another matter: no claim about the
@@ -158,6 +161,7 @@ const handleSignOut = async () => {
           <MarketSummaryCard
             class="last-market-row"
             :market="lastMarket"
+            :heading-level="2"
             data-testid="dashboard-last-market-card"
             @open="handleLoadLastMarket"
           />
@@ -184,14 +188,14 @@ const handleSignOut = async () => {
           @click="handleMarkets"
           data-testid="dashboard-markets-button"
         >
-          <h3>Markets</h3>
+          <span class="button-label">Markets</span>
         </button>
         <button
           class="button button-half"
           @click="handleOrganizations"
           data-testid="dashboard-organizations-button"
         >
-          <h3>Organizations</h3>
+          <span class="button-label">Organizations</span>
         </button>
       </div>
     </div>
@@ -202,7 +206,7 @@ const handleSignOut = async () => {
         @click="handleSignOut"
         data-testid="dashboard-sign-out-button"
       >
-        <h4>Sign out</h4>
+        <span class="button-small-label">Sign out</span>
       </button>
     </div>
   </div>
@@ -377,12 +381,8 @@ const handleSignOut = async () => {
   opacity: 1;
 }
 
-.button-small h4 {
-  color: var(--mm-text-muted);
-  text-decoration: underline;
-}
-
-h3 {
+/* A button is named by its words: a heading inside one made the dashboard's outline its buttons. */
+.button-label {
   font-family: 'Merge One';
   font-style: normal;
   font-weight: 400;
@@ -391,12 +391,13 @@ h3 {
   margin: 0;
 }
 
-h4 {
+.button-small-label {
   font-style: normal;
   font-weight: 400;
   font-size: var(--text-md);
-  color: white;
   margin: 0;
+  color: var(--mm-text-muted);
+  text-decoration: underline;
 }
 
 .secondary-buttons {

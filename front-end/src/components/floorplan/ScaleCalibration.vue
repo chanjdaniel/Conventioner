@@ -10,7 +10,7 @@ import {
   Text as VText,
 } from 'vue-konva';
 import { useFloorplanStore } from '@/stores/floorplan';
-import { api } from '@/utils/api';
+import { api, getApiErrorMessage } from '@/utils/api';
 import { canvasColor } from '@/utils/canvasColor';
 
 // ── Props & Emits ───────────────────────────────────────────────────
@@ -110,9 +110,8 @@ async function loadImage() {
     }
     bgImage.value = img;
     phase.value = 'idle';
-  } catch (err: any) {
-    const msg = err?.response?.data?.error || err?.message || 'Failed to load floorplan image';
-    errorMsg.value = msg;
+  } catch (err: unknown) {
+    errorMsg.value = getApiErrorMessage(err, 'The floorplan image could not be loaded.');
     phase.value = 'error';
   }
 }
@@ -379,9 +378,8 @@ async function confirmCalibration() {
       },
       length_mm: lengthMm,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     // Store locally even if API call fails
-    const msg = err?.response?.data?.error || err?.message || 'Calibration API call failed';
     console.error('Calibration API call failed:', err);
     calibrationWarning.value =
       'Saved locally but sync to server failed. You may need to recalibrate later.';

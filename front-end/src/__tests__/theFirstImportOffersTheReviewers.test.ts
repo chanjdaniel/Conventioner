@@ -220,7 +220,7 @@ describe('confirming', () => {
     expect(wrapper.get(CONFIRM).attributes('disabled')).toBeUndefined();
   });
 
-  it('an import that fails after the write shows its error as today, and the reviewers stay chosen', async () => {
+  it('an import that fails after the write says so, and the reviewers stay chosen', async () => {
     const shown = ref(market());
     open.refresh.mockImplementation(async () => {
       shown.value = market({
@@ -242,7 +242,9 @@ describe('confirming', () => {
 
     expect(api.put).toHaveBeenCalledTimes(1);
     expect(open.refresh).toHaveBeenCalled();
-    expect(wrapper.get('[data-testid="import-error"]').text()).toBe('The import broke.');
+    expect(wrapper.get('[data-testid="import-error"]').text()).toBe(
+      'Something went wrong on our side. Try again in a moment.',
+    );
     expect(wrapper.find('[data-testid="import-preview"]').exists()).toBe(true);
     expect(
       (wrapper.get(`${SECTION} [data-testid="reviewer-picker-${ANA}"]`).element as HTMLInputElement)

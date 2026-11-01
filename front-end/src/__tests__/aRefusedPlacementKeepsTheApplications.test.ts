@@ -42,6 +42,7 @@ const BOB = {
 
 function refused(message: string) {
   return Object.assign(new Error('Request failed with status code 400'), {
+    isAxiosError: true,
     response: { status: 400, data: { error: message } },
   });
 }

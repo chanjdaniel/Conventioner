@@ -393,21 +393,66 @@ export function planRowsToCheck(
 
 export interface ProposalCounts {
   toCheck: number;
+  applicant: number;
+  submittedAt: number;
   essential: number;
   custom: number;
   leftOut: number;
 }
 
-/** The rail's numbers: the rows still to check, and what the columns become. */
+/**
+ * The rail's numbers: the rows still to check, and what the columns become, every fate counted,
+ * so the lines add up to the ledger's rows.
+ */
 export function proposalCounts(proposal: Proposal, draft?: ProposalDraft): ProposalCounts {
   const rows = draft ? draftRows(proposal, draft) : ledgerRows(proposal);
   const plan = planRowsToCheck(proposal, draft ?? draftFrom(proposal));
+  const counted = (fate: Fate) => rows.filter((r) => r.fate === fate).length;
   return {
     toCheck: rows.filter((r) => r.check.length).length + Object.values(plan).filter(Boolean).length,
-    essential: rows.filter((r) => r.fate === 'essential').length,
-    custom: rows.filter((r) => r.fate === 'custom').length,
-    leftOut: rows.filter((r) => r.fate === 'left_out').length,
+    applicant: counted('applicant_email'),
+    submittedAt: counted('submitted_at'),
+    essential: counted('essential'),
+    custom: counted('custom'),
+    leftOut: counted('left_out'),
   };
+}
+
+/** One line of the rail: how many rows, and what they become, in words that agree with it. */
+export interface RailLine {
+  key: 'who-and-when' | 'essential' | 'custom' | 'left-out';
+  count: number;
+  words: string;
+}
+
+/**
+ * The rail's lines under "to check" (E38/F15/S02): who applied and when first, as the columns
+ * usually stand, then what the rest become. A one-column file read "0 / 0 / 0" with its one
+ * column in no line, and every line read "1 answer essential questions" at one.
+ */
+export function railLines(counts: ProposalCounts): RailLine[] {
+  const whoAndWhen = counts.applicant + counts.submittedAt;
+  const what =
+    counts.applicant && !counts.submittedAt
+      ? 'who applied'
+      : counts.submittedAt && !counts.applicant
+        ? 'when each applied'
+        : 'who applied and when';
+  const one = (count: number, single: string, many: string) => (count === 1 ? single : many);
+  return [
+    { key: 'who-and-when', count: whoAndWhen, words: `${one(whoAndWhen, 'says', 'say')} ${what}` },
+    {
+      key: 'essential',
+      count: counts.essential,
+      words: one(counts.essential, 'answers an essential question', 'answer essential questions'),
+    },
+    {
+      key: 'custom',
+      count: counts.custom,
+      words: one(counts.custom, 'becomes your question', 'become your questions'),
+    },
+    { key: 'left-out', count: counts.leftOut, words: 'left out' },
+  ];
 }
 
 /* ── The year ─────────────────────────────────────────────────────────────────────────────── */
