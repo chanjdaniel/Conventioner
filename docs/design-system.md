@@ -58,6 +58,7 @@ sources:
   - T148
   - E38/F15/S01
   - T181
+  - T180
 ---
 
 # Conventioner's design language
@@ -176,6 +177,7 @@ Some organizer places lift the desktop floor too, by `meta.fitsAPhone`, each wit
 - the dashboard, where sign-in lands on the way to the door (T148);
 - `/markets`, the way to the market an organizer runs from the door (T142);
 - Organizations, the dashboard's other place (T148);
+- the Applications page, the one page of Market Setup's view that fits, with the vendor drawer and Update info over it, where a late application is decided from a phone ([the review](business/flows/review.md)) (T180);
 - the Assignments page, where the vendor drawer's "Change assignment" at the door leads ([placements](implementation/modules/placements.md)) (T142);
 - Vendors, with the [vendor drawer](business/flows/vendor-drawer.md), Update info and the payment dialogs, where a vendor is looked up, paid and corrected from the door ([vendors](business/flows/vendors.md)) (T180);
 - Payments, where who still owes is read on market day ([payments](business/flows/payments.md)) (T180);
@@ -185,7 +187,7 @@ Some organizer places lift the desktop floor too, by `meta.fitsAPhone`, each wit
 
 The setup screens keep the floor, since they are built at a desk before the market and the floorplan and the form builder are drawn for a pointer; one a line:
 
-- Market Setup's plan;
+- Market Setup's plan, a page of the same view as the Applications page, which alone lifts the floor (`meta.fitsAPhone` names the page);
 - the form builder;
 - Settings, the assignment rules;
 - the import;
@@ -197,6 +199,8 @@ The setup screens keep the floor, since they are built at a desk before the mark
 A summary card stacks so whenever it is narrower than its name, its facts and its Manage need side by side (45rem with Manage, 37.5rem without), so a card at 768px stacks too rather than pushing Manage past its edge (T148).
 The Assignments page on a phone narrows its gutter to 16px too: its summary's figures stack, one to a 44px row, and its actions wrap under them; the filters stand in the page's flow rather than pinned, each filling its row and two sharing one where both fit; a half table's two seats stand one under the other, each seat's Change a 44px target; and a dialog's buttons wrap rather than run past its window.
 Vendors on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters, Export and Add a vendor wrapping beneath it, and a vendor's row stacks the name over its chips, which wrap where the Discord state, the badge, "Added" and the date count are wider together than the row.
+The Applications page on a phone narrows its gutter to 16px too: the All view's row is one column, read down, the applicant's name and address, the leading answers, then the status chip and its lines, each the row's width; each row's tick stands in a 44px square beside it, and "Mine" is its label's 44px row; the views switch's and the status filters' buttons are never narrower than the target's minimum, at every width, so 44px wide at least on a phone.
+One by one's card is the page's width, its verdict buttons wrapping inside it; "Include the N follow-ups", the reviewed list's toggle and "Choose what leads the card" are 44px targets, and a reviewer's label in the reviewers picker is a 44px row.
 Payments on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters wrapping beneath it, the market's four figures stand two to a row, and each table lays its rows out as blocks, its row heading (the tier, the date or the vendor) on a line of its own and each value on a line beside its column's heading, since neither table's columns share 343px; the vendors' headings stay above as a row of sort buttons, each a 44px target.
 The dashboard is one column, 716px wide at most and the window's width less a 16px gutter at each side where that is narrower: the remembered market's card, or the sentence and its step, fills it, Markets and Organizations share the row beneath in two equal tiles, and Sign out is under them.
 [Organizations](business/flows/organizations.md) on a phone narrows its gutter to 16px, as `/markets` does, and "New organization" keeps one line, wrapping under the title only when the two cannot share the row; in Manage organization each person's address takes a line of its own with the role and Remove beneath it, and an add row's email field takes the row with Add and Cancel beneath it.
@@ -363,7 +367,7 @@ It keeps the `btn--destructive` class, so [a dialog](implementation/conventions/
 **On a phone every target is 44px**, the size a thumb wants (T82).
 The heights are tokens in `base.css`: `--control-height` (36px) for `.btn`, `.field` and `.add-row`, `--control-height-compact` (28px) for `.btn--compact`, and `--target-min` (24px, WCAG 2.5.8's floor), the least any other target may be: a tab, a link on its own line, a Show toggle, a Copy button, a choice's label.
 At `width <= 640px`, the market frame's phone break, all three are 44px and the banner is at least that tall, so a control that takes its height from a token is a thumb's size there with nothing of its own; a bespoke control takes `min-height: var(--target-min)` (and `min-width` where it is narrow) rather than a phone rule of its own.
-The one exception is `.answer-link--alone`, an answer that is only a link: it takes that minimum in a phone rule, since on a desk the same link sits in a review card's line and a 24px box would move the rows.
+Three exceptions take their minimum in a phone rule, since on a desk a 24px box would move the rows: `.answer-link--alone`, an answer that is only a link, its height, since on a desk the same link sits in a review card's line; the All view's row tick (`.all-tick`), its width, since on a desk a 24px square would push every row 11px right; and One by one's "Choose what leads the card" (`.choose-highlights-toggle`), its height, since on a desk it would push the card's verdicts 9px down.
 A desk keeps its denser 36px and 28px.
 
 **One disabled state**, and it does not rely on text contrast: the control keeps a readable foreground and loses its affordance, so it reads as unavailable rather than as unreadable. The product had four, one of which put white on `--mm-border` at 1.74:1.
@@ -416,7 +420,7 @@ A convention nothing enforces is how the product got here. Six checks, the first
    Its configuration is the `expectAccessible` fixture in `e2e/fixtures.ts`, which also holds the app to exactly one `main` landmark; axe's `color-contrast` rule is off there, since the contrast sweep owns contrast and one defect should fail one check.
    It landed with what it found fixed (T75): an empty `<html lang>`, no `main` landmark, a market row that was a `role="button"` around its own Manage button, a calendar marked as an ARIA grid with no rows, an unnamed close button on the navigation drawer, and buttons whose `aria-label` replaced the words on them ([every control is named](implementation/conventions/every-control-is-named.md#the-rules)).
    An automated check finds some WCAG failures, not all of them: a pass is a floor, not a verdict.
-5. **A layout sweep**, [`e2e/layout-sweep.spec.ts`](../front-end/e2e/layout-sweep.spec.ts), measures every state at each size it ships at (1920x1080 and 1440x900 for an organizer's screen; 1920x1080 and 390x844 for a public page; all three for a route with `meta.fitsAPhone`) with the detectors in [`e2e/helpers/layoutDetectors.ts`](../front-end/e2e/helpers/layoutDetectors.ts) (T79, from T67's trial).
+5. **A layout sweep**, [`e2e/layout-sweep.spec.ts`](../front-end/e2e/layout-sweep.spec.ts), measures every state at each size it ships at (1920x1080 and 1440x900 for an organizer's screen; 1920x1080 and 390x844 for a public page; all three for a screen that fits a phone, the `FITS_A_PHONE` list in [`e2e/helpers/screens.ts`](../front-end/e2e/helpers/screens.ts)) with the detectors in [`e2e/helpers/layoutDetectors.ts`](../front-end/e2e/helpers/layoutDetectors.ts) (T79, from T67's trial).
    It fails on the kinds that raised nothing false over the whole app: the page or an element past the window, a child outside its parent, text clipped by its box, text or controls drawn over each other in one layer, text squeezed into a column (three or more lines of ten characters or fewer), type off the type scale, and a tap target under 44px on a phone, a control's visible label counting toward its target and a link inside a run of text exempt, unless it is drawn as a block of its own (T142).
    Each failure names the state, the size, the element and the measurement.
    It also fails when the market bar stands at a different x or width on one market screen than on the others of its size, which no screen can see alone (bug 12), and when it found the bar on fewer than two market screens of one size, so a renamed test id cannot leave that check passing on nothing.
@@ -429,6 +433,7 @@ A convention nothing enforces is how the product got here. Six checks, the first
    It landed with what it and the newly walked states found fixed: the form's step list hung 8px outside its header, a long web address in an answer ran 108px past a phone, the sign-in and reset fields and their Show buttons were 20px and 15px tall inside their 36px boxes, the standalone back links and the rail's addresses were 18px and 19px tall, and on states the other sweeps had never opened, role badges and "Results Published" on translucent tints, the import's hint on beige, the verification error in raw `red`, an unmarked link in a note, and the start page's coloured words on black.
 6. **A focus sweep**, [`e2e/focus-sweep.spec.ts`](../front-end/e2e/focus-sweep.spec.ts), presses Tab through every state (E38/F01/S01).
    A field it lands on must look as it did unfocused, it and the two boxes around it, and a control must draw no outline and the halo for its ground: white at 35% where the first ancestor with a fill is dark, the green halo elsewhere.
+   It moves the pointer to the window's corner before it reads how the fields look unfocused, since a focus that scrolls a dialog's body can bring the box around the focused field under a pointer left there, and that box's hover fill read as a look focus drew (T180).
    The halo must have rounded corners, no box that clips what lies past its edge may cut it off, and a text control with no fill or border may be no more than 24px wider than its words and its padding, room for a disclosure's marker.
    A menu's items are no Tab stop, so in every state it opens each menu with Enter on its button (`aria-haspopup="menu"`) and judges each item it reaches with the arrow keys.
    It walks each state at a phone's width too, as well as at its first size: an organizer's screens ship at a desk, but a desk zoomed to 400% is that narrow, and there a table too wide for its box scrolls and becomes a keyboard stop of its own; the floorplan beta's wizard steps, which cannot be walked that narrow, are marked `deskOnly`.

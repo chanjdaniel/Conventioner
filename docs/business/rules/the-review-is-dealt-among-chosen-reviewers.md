@@ -10,12 +10,13 @@ describes:
   - front-end/src/components/market/ReviewerPicker.vue
   - front-end/src/utils/reviewTeam.ts
   - front-end/src/utils/reviewers.ts
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - E38/F07
   - E38/F07/S01
   - E38/F07/S02
   - E38/F07/S03
+  - T180
   - T181
 ---
 
@@ -72,6 +73,8 @@ A follow-up the reader owns is in their share ([a follow-up is in its owner's sh
 
 **Each reviewer lands on their own share** (E38/F07/S04): with reviewers chosen, the All view opens a chosen reviewer on their share, and anyone else, an Admin overseeing the review among them, on every application; anyone's share is a choice of its "Assigned to" filter away ([reviewing applications](../flows/review.md#the-all-view)).
 One by one hands a chosen reviewer their own share first, and once it is done says how many applications are left outside it, every one "Help with the others" then walks, and offers to help with them; anyone else walks the whole queue, first come, first served ([reviewing applications](../flows/review.md#i1-work-through-the-queue)).
+
+**The review is dealt and worked from a phone too** (T180): the Applications page fits a phone, so an organizer chooses the reviewers there, each person's label a 44px target in the picker, and a chosen reviewer reads their share and decides it at the phone's own width ([reviewing applications](../flows/review.md)).
 
 ## Where it is kept
 

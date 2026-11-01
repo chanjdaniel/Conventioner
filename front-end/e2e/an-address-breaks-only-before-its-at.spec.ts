@@ -14,10 +14,11 @@ import { VendorsPage } from './pages/VendorsPage';
  * warning on One by one's card and in the All view's drawer, the reviewer line, and a history
  * sentence naming whose share a verdict was each lay it out; no line inside it may end at a hyphen.
  *
- * The Applications page keeps the desk's width at 390 (its route has no `fitsAPhone`), so One by
- * one's card and the All view's rows are as wide there as at a desk, and the address fits on their
- * line; the drawer is a phone's width. So each sentence is also drawn in a line narrower than the
- * address, as a phone's layout would draw it, where the address has to break somewhere.
+ * The Applications page fits a phone (its route names it in `meta.fitsAPhone`, T180), so at 390
+ * One by one's card and the All view's rows are a phone's width, and the drawer is too; but each
+ * of those lines is still wider than the seed's address, which may then move whole to a line of
+ * its own. So each sentence is also drawn in a line narrower than the address, where the address
+ * has to break somewhere.
  */
 
 const SIZES = [

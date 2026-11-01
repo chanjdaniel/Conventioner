@@ -25,6 +25,7 @@ import MarketFormTab from '@/components/market/MarketFormTab.vue';
 import MarketAssignmentTab from '@/components/market/MarketAssignmentTab.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
+import { fitsAPhone } from '@/utils/fitsAPhone';
 
 const router = useRouter();
 
@@ -47,6 +48,12 @@ const activeTab = computed((): SetupViewPage => {
   const page = String(route.params.page ?? '');
   return (SETUP_VIEW_PAGES as readonly string[]).includes(page) ? (page as SetupViewPage) : 'setup';
 });
+
+/**
+ * Whether the page on show lays out on a phone, by the route's own answer (`utils/fitsAPhone.ts`):
+ * the Applications page does (T180); the plan, the form and Settings keep this view's desktop floor.
+ */
+const onAPhoneLayout = computed(() => fitsAPhone(route));
 
 function showTab(page: MarketPage) {
   router.push(marketPath(marketId.value, page));
@@ -413,7 +420,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
 </script>
 
 <template>
-  <div class="market-setup-view">
+  <div class="market-setup-view" :class="{ 'market-setup-view--fits-a-phone': onAPhoneLayout }">
     <ChoosePathOverlay v-if="market && showPathChoice" @select="handlePathChoice" />
     <!-- The frame (E21/F04/S01): the market's bar and the whole phase rail stay put under the
          banner while the page scrolls. Nothing about a market is kept in the browser, so until the
@@ -553,6 +560,11 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
      the viewport, so the market's own header moved as the organizer changed tabs. */
   justify-content: flex-start;
   align-items: center;
+}
+
+/* A page that fits a phone lays out at the window's width below the desk's, as the door does. */
+.market-setup-view--fits-a-phone {
+  min-width: 0;
 }
 
 .settings-body {
