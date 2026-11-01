@@ -229,11 +229,12 @@ const nobodyShown = computed(() => {
 
         <template v-else-if="market">
           <!-- Pricing is optional (E43/F01/S01): without it nothing is owed but an amount set by
-               hand, so the page says where prices are set rather than showing noughts. -->
+               hand or a refund beyond what was paid, so the page says where prices are set rather
+               than showing noughts. -->
           <p v-if="!priced" class="note" data-testid="payments-unpriced">
             {{
               counted
-                ? 'Pricing is off for this market, so a vendor owes only an amount set by hand on their Payment tab.'
+                ? 'Pricing is off for this market, so a vendor owes only an amount set by hand on their Payment tab, or a refund beyond what they paid.'
                 : 'Pricing is off for this market, so nobody owes anything for a table.'
             }}
             <RouterLink :to="marketPath(market.id, 'setup')" data-testid="payments-pricing-link"

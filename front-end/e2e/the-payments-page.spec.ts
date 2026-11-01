@@ -382,7 +382,7 @@ test.describe('the Payments page', () => {
     ).toHaveText('Paid $15 more than owed');
     await expect(page.getByRole('group', { name: 'Show only' })).toBeVisible();
     await expect(page.getByTestId('payments-unpriced')).toContainText(
-      'so a vendor owes only an amount set by hand on their Payment tab.',
+      'so a vendor owes only an amount set by hand on their Payment tab, or a refund beyond what they paid.',
     );
     // The figures are summed by the same rule as the rows (finding 12): Bob's $30 and Carol's $25,
     // owing nothing, count toward "Paid" but not "Paid more than owed", which is Alice's $15 alone.
