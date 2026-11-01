@@ -262,6 +262,48 @@ describe('useInertBehind', () => {
   });
 
   /**
+   * A dialog opened from a dialog is a sibling of the one beneath it, which marked it; the one on
+   * top takes `inert` off its own branch. The modal beneath walks again whenever one of its parts
+   * changes while it is open (T181), and that walk must not put `inert` back on the dialog above.
+   */
+  it('keeps a dialog opened on top live when the modal beneath walks again', async () => {
+    document.body.innerHTML = `
+      <div class="view">
+        <div class="content"><button>Publish Market</button></div>
+        <div class="beneath"><section class="first"></section><section class="second"></section></div>
+        <div class="on-top"><button>Confirm</button></div>
+      </div>
+    `;
+    const content = document.querySelector('.content') as HTMLElement;
+    const onTop = document.querySelector('.on-top') as HTMLElement;
+    const beneathPart = ref(document.querySelector('.first') as HTMLElement);
+    const beneathOpen = ref(true);
+    const onTopOpen = ref(false);
+    mountWith(beneathOpen, () => [beneathPart.value]);
+    mountWith(onTopOpen, () => [onTop]);
+    await nextTick();
+    expect(onTop.hasAttribute('inert')).toBe(true);
+
+    onTopOpen.value = true;
+    await nextTick();
+    expect(onTop.hasAttribute('inert')).toBe(false);
+
+    beneathPart.value = document.querySelector('.second') as HTMLElement;
+    await nextTick();
+    expect(onTop.hasAttribute('inert')).toBe(false);
+    expect(content.hasAttribute('inert')).toBe(true);
+
+    onTopOpen.value = false;
+    await nextTick();
+    expect(onTop.hasAttribute('inert')).toBe(true);
+
+    beneathOpen.value = false;
+    await nextTick();
+    expect(onTop.hasAttribute('inert')).toBe(false);
+    expect(content.hasAttribute('inert')).toBe(false);
+  });
+
+  /**
    * A caller reading a component's `$el` gets `any` from Vue, and a fragment root yields a comment
    * node. Letting one through would put it on the spine and leave the real panel a sibling of it -
    * marked out of play by its own modal.
