@@ -146,6 +146,37 @@ const managingTheOrganization = async (page: Page, seed: TheScreensSeed) => {
   await visible(page, 'manage-org-add-member-input');
 };
 
+/**
+ * Manage organization on the screens' own organization, its member's Remove asking first
+ * (E38/F15/S01): the confirmation names their long address and what they lose.
+ */
+const removingFromTheOrganization = async (page: Page, seed: TheScreensSeed) => {
+  await page.goto('/organizations');
+  await page
+    .getByTestId('organization-card')
+    .filter({ hasText: seed.organization.name })
+    .getByTestId('organizations-manage-button')
+    .click();
+  await visible(page, 'manage-org-member-email');
+  await page.getByTestId('manage-org-remove-member-button').first().click();
+  await visible(page, 'manage-org-remove-consequence');
+};
+
+/**
+ * Manage market on the organization's market, its admin's Editor role's Remove asking first
+ * (E38/F15/S01): the role they lose, and that they still run it through the organization.
+ */
+const removingAMarketRole = async (page: Page, seed: TheScreensSeed) => {
+  await managing('organizationMarket')(page, seed);
+  // The admin's row: its one Remove is the one beneath "Also Editor on this market".
+  await page
+    .getByTestId('manage-market-person')
+    .filter({ has: page.getByTestId('manage-market-also') })
+    .getByTestId('manage-market-remove-user-button')
+    .click();
+  await visible(page, 'manage-market-remove-keeps');
+};
+
 const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
 
 /** The floor plan the floorplan specs upload: an 800x600 hall, fixture data. */
@@ -282,6 +313,13 @@ export const SCREENS: Screen[] = [
     open: managing('organizationMarket'),
   },
   {
+    // Its Remove asking first (E38/F15/S01), on the admin's market role.
+    name: 'the manage-market dialog, removing a market role',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: removingAMarketRole,
+  },
+  {
     // Its History section, loaded, with an entry opened to its before and after (E40/F01/S03).
     name: "the manage-market dialog's history, an entry open",
     who: 'organizer',
@@ -361,6 +399,13 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: FITS_A_PHONE,
     open: managingTheOrganization,
+  },
+  {
+    // Its Remove asking first (E38/F15/S01), on the member with a long address.
+    name: 'the manage-organization dialog, removing a member',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: removingFromTheOrganization,
   },
   {
     name: 'the start page',

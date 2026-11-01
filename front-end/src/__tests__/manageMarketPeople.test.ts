@@ -143,7 +143,10 @@ describe('Users with access', () => {
     );
     expect(admin.find('[data-testid="manage-market-role-select"]').exists()).toBe(false);
 
+    // Remove asks first (E38/F15/S01), then takes only the market role.
     await admin.get('[data-testid="manage-market-remove-user-button"]').trigger('click');
+    expect(api.delete).not.toHaveBeenCalled();
+    await wrapper.get('[data-testid="manage-market-remove-submit-button"]').trigger('submit');
     expect(api.delete).toHaveBeenCalledWith('/markets/market-1/roles/u-admin');
   });
 

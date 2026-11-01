@@ -12,6 +12,12 @@ export class ManageMarketPage {
   readonly window: Locator;
   readonly roleSelects: Locator;
   readonly removeUserButtons: Locator;
+  readonly people: Locator;
+  readonly removeConfirm: Locator;
+  readonly removeConsequence: Locator;
+  readonly removeKeeps: Locator;
+  readonly removeConfirmButton: Locator;
+  readonly removeCancelButton: Locator;
   readonly addUserButton: Locator;
   readonly addUserInput: Locator;
   readonly addUserSelect: Locator;
@@ -50,6 +56,13 @@ export class ManageMarketPage {
     this.window = page.getByTestId('manage-market-window');
     this.roleSelects = page.getByTestId('manage-market-role-select');
     this.removeUserButtons = page.getByTestId('manage-market-remove-user-button');
+    this.people = page.getByTestId('manage-market-people');
+    // Remove asks first (E38/F15/S01): its own destructive dialog, a sibling of Manage market.
+    this.removeConfirm = page.getByTestId('manage-market-remove-window');
+    this.removeConsequence = page.getByTestId('manage-market-remove-consequence');
+    this.removeKeeps = page.getByTestId('manage-market-remove-keeps');
+    this.removeConfirmButton = page.getByTestId('manage-market-remove-submit-button');
+    this.removeCancelButton = page.getByTestId('manage-market-remove-cancel-button');
     this.addUserButton = page.getByTestId('manage-market-add-user-button');
     this.addUserInput = page.getByTestId('manage-market-add-user-input');
     this.addUserSelect = page.getByTestId('manage-market-add-user-select');
@@ -129,8 +142,14 @@ export class ManageMarketPage {
 
   // ── Remove user ──
 
-  async removeFirstUser(): Promise<void> {
-    await this.removeUserButtons.first().click();
+  /** Removes the person whose row holds `email`, through the confirmation Remove opens. */
+  async removeUser(email: string): Promise<void> {
+    await this.page
+      .getByTestId('manage-market-person')
+      .filter({ hasText: email })
+      .getByTestId('manage-market-remove-user-button')
+      .click();
+    await this.removeConfirmButton.click();
   }
 
   // ── Permissions ──

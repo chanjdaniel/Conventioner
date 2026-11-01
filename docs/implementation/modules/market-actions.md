@@ -19,7 +19,7 @@ describes:
   - back-end/tests/test_the_organizations_default.py
   - back-end/api/permissions.py#market_role_of
   - back-end/tests/test_a_chosen_reviewer_decides.py
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - E39
   - E39/F01/S01
@@ -36,13 +36,13 @@ sources:
   - E38/F06/S01
   - E38/F07/S02
   - E46/F01/S02
-  - E46/F01/S05
   - E43/F01/S03
   - E38/F07/S03
   - E44/F01/S01
   - E44/F01/S02
-  - E38/F12/S01
   - E38/F10/S01
+  - E46/F01/S05
+  - E38/F12/S01
 ---
 
 # The market's actions

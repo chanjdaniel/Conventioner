@@ -140,6 +140,16 @@ describe('the primitives exist and own what tokens cannot', () => {
     expect(intents.sort()).toEqual(['compact', 'destructive', 'primary', 'secondary']);
   });
 
+  it("gives a row's destructive action the secondary weight, in the destructive ink", () => {
+    // Not a fourth intent: destructive at secondary weight, so a list of people is not a column of
+    // filled red buttons (E38/F15/S01). Its ink is `--mm-red` on white, 5.44:1 (`contrast.test.ts`).
+    const quiet = '.btn--secondary.btn--destructive';
+    expect(declaration(quiet, 'background')).toBe('white');
+    expect(declaration(quiet, 'color')).toBe('var(--mm-red)');
+    expect(declaration(quiet, 'border-color')).toBe(declaration('.btn--secondary', 'border-color'));
+    expect(declaration(quiet, 'font-weight')).toBe('400');
+  });
+
   it('marks a pressed toggle with the positive tint and its measured ink', () => {
     // A state, not an intent: the phase filter's toggles stay secondary buttons when pressed.
     expect(declaration(".btn[aria-pressed='true']", 'color')).toBe('var(--mm-text-green)');
