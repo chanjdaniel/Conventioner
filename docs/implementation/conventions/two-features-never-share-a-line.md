@@ -53,3 +53,8 @@ Two features still conflict when they insert at the same place: two items whose 
 
 [What each role may do](../../business/rules/what-each-role-may-do.md#who-may), "Who may": one subsection per role, Viewer, Editor, Admin and Owner, each a list of that role's rights, one right a line, in the order of the `ACTIONS` rows.
 A new action's right is one new line in the list of its default role, in its row's place.
+
+### The market store
+
+[The market store](../modules/market-store.md#where-a-screens-permission-comes-from), "Where a screen's permission comes from": one block per screen, its name a bold lead line, then a list, one control and the row it asks a line.
+A new control is one line under its screen; a new screen is a new block beside the nearest screen of its page.
