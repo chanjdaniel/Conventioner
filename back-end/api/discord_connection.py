@@ -789,8 +789,9 @@ def _write(
     requesting_user: str,
 ) -> None:
     # A change of server forgets what was about the old one, and a change of the username question
-    # what the check read against the old one, whatever ``before`` read of them: a check may have
-    # written its fields after ``before`` was loaded.
+    # what the check and the last run read against the old one (``CHECK_FIELDS``), whatever
+    # ``before`` read of them: a check or a run may have written its fields after ``before`` was
+    # loaded.
     if after.guild_id != before.guild_id:
         forgotten: tuple = SERVER_CHOICES
     elif after.username_question != before.username_question:
