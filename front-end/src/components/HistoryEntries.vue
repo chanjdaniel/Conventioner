@@ -5,10 +5,8 @@
  * organization's (`OrganizationHistory.vue`, E40/F02/S01) both draw their entries with it, so the
  * two read alike; each reads its own pages and says when it has none.
  */
-import { onMounted, onUpdated, ref } from 'vue';
+import { computed, onMounted, onUpdated, ref } from 'vue';
 import { RouterLink, type RouteLocationRaw } from 'vue-router';
-import { IntakeMode, type FormField, type RejectionQuestion } from '@/assets/types/datatypes';
-import type { VendorNames } from '@/utils/vendorIdentity';
 import {
   addressParts,
   dotPieces,
@@ -16,6 +14,7 @@ import {
   entryParts,
   entryWhen,
   soleColumn,
+  type HistoryContext,
   type MarketHistoryEntry,
 } from '@/utils/marketHistory';
 
@@ -24,11 +23,10 @@ const props = withDefaults(
     entries: MarketHistoryEntry[];
     /** The prefix of every test id: `market-history`, `org-history`. */
     testid: string;
-    names?: VendorNames;
-    /** Each row of the table by its label, for a change to a row. */
-    labels?: Readonly<Record<string, string>>;
-    /** How the market's vendors arrive, so a phase reads as its other screens name it. */
-    path?: IntakeMode;
+    /** What the entries' words are given: the vendors' names, the table's rows, the market's path,
+     * its questions and form, and the vendor whose own history this is, in their drawer, who is
+     * named by name alone, as text. */
+    context?: HistoryContext;
     /** Where a vendor named in an entry opens; without it a vendor is drawn as text. */
     vendorLink?: (email: string) => RouteLocationRaw;
     /**
@@ -37,24 +35,16 @@ const props = withDefaults(
      * to `vendorLink`, for a new tab.
      */
     openVendor?: (email: string) => void;
-    /** The vendor whose own history this is, in their drawer: named by name alone, as text. */
-    ownVendor?: string;
-    /** The market's choice questions, so a price group's conditions read in the card's words. */
-    questions?: readonly RejectionQuestion[];
-    /** The market's form, whose questions name a vendor's answers. */
-    fields?: readonly FormField[];
   }>(),
   {
-    names: () => ({}),
-    labels: () => ({}),
-    path: IntakeMode.Csv,
+    context: () => ({}),
     vendorLink: undefined,
     openVendor: undefined,
-    ownVendor: '',
-    questions: () => [],
-    fields: () => [],
   },
 );
+
+/** The vendor whose own history this is, if it is one. */
+const ownVendor = computed(() => props.context.own ?? '');
 
 const opened = ref<Set<string>>(new Set());
 
@@ -74,8 +64,7 @@ function toggle(id: string) {
   opened.value = now;
 }
 
-const changesOf = (entry: MarketHistoryEntry) =>
-  entryChanges(entry, props.labels, props.path, props.questions, props.ownVendor, props.fields);
+const changesOf = (entry: MarketHistoryEntry) => entryChanges(entry, props.context);
 
 /** The value columns an entry's table draws: Before and After, or the one an arrival needs. */
 function valueColumns(entry: MarketHistoryEntry): string[] {
@@ -151,10 +140,7 @@ onUpdated(measureFields);
       :data-testid="`${testid}-entry`"
     >
       <p class="history-what" :data-testid="`${testid}-sentence`">
-        <template
-          v-for="(part, index) in entryParts(entry, names, labels, path, ownVendor)"
-          :key="index"
-        >
+        <template v-for="(part, index) in entryParts(entry, context)" :key="index">
           <template v-if="part.kind === 'text'">{{ part.text }}</template>
           <!-- The drawer's head names them with their address, so here the name is enough. -->
           <span
