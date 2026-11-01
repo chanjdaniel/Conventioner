@@ -5,6 +5,7 @@ describes:
   - back-end/essential_fields.py
   - front-end/src/utils/essentialFields.ts
   - front-end/src/components/application/EssentialApplicationFields.vue
+  - front-end/src/components/application/RankedChoiceInput.vue
   - back-end/application_write.py#_asks_nothing
   - back-end/guards.py#FormHasFieldsGuard
   - front-end/src/utils/applicationForm.ts#applicationFormError
@@ -30,6 +31,7 @@ sources:
   - E41/F01/S02
   - E38/F03/S01
   - T123
+  - T181
 ---
 
 # Essential fields
@@ -51,6 +53,8 @@ The import lists its targets in that order and the CSV proposal its unanswered q
 - **Updated by an organizer** ([an update of a vendor's answer](../../business/rules/an-update-is-kept-beside-the-vendors-answer.md)) through `validated_essential_update`, which runs the form's own steps over the update and the answers it leaves, judges only the steps the update touches, and returns the stored answers each updated question writes (`UPDATABLE_ESSENTIAL_QUESTIONS`: the table-share words write the addresses read out of them too).
   A question whose stored answers meet `SOLVER_RELEVANT_KEYS` also asks the row "Update info the assignment or price reads", an Admin's by default; the solver and the other readers read the update through `effective_answers`.
   The dialog asks them with the applicant's own component ([`EssentialApplicationFields.vue`](../../../front-end/src/components/application/EssentialApplicationFields.vue), its `locked` questions read-only and its `after` slot under each), on the offering `marketEssentialOptions` in `essentialFields.ts` mirrors from `effective_essential_options_for_market`.
+  A `locked` question is drawn in the `.field` primitive's one disabled state, as the dialog draws the market's own locked questions: its choice rows and its ranking ([`RankedChoiceInput.vue`](../../../front-end/src/components/application/RankedChoiceInput.vue)'s `locked`) beige with muted ink and a `not-allowed` cursor, the chosen row and the ranks marked by a line rather than the applicant's mint and green.
+  `disabled`, which the Form preview passes, takes every input away and keeps the applicant's look, since the preview shows what a vendor sees; only `locked` changes the look ([`aLockedEssentialLooksLocked.test.ts`](../../../front-end/src/__tests__/aLockedEssentialLooksLocked.test.ts)).
 - **Switched off** is `unaskedEssentials` on the form: a market may declare the two rankings and the request unasked (`UNASKABLE_ESSENTIAL_KEYS`), and nothing else, since only a ranking is a preference the solver never filters on, and a default for a date, a tier or a table choice would answer for the vendor.
 
 **Table type is stubbed to one type** (`STUB_TABLE_TYPE`, "Standard") in every market, whatever floorplans it carries, so the table-type ranking is never asked.

@@ -13,8 +13,9 @@
  * One component for both applicant surfaces and the organizer's preview (`disabled`), for the
  * same no-drift reason as ApplicationFormFields: what the organizer previews must be what the
  * applicant gets. Updating a vendor's info asks the same questions (E41/F01/S02): `locked` shows
- * the answers the person may not update read-only, and the `after` slot sets what the dialog says
- * of each question under it.
+ * the answers the person may not update read-only, in the locked look the dialog's own questions
+ * wear, and the `after` slot sets what the dialog says of each question under it. `disabled` alone
+ * keeps the applicant's look, since the preview shows what a vendor sees.
  */
 import { computed, watch } from 'vue';
 import type { EssentialFormOptions } from '@/assets/types/datatypes';
@@ -88,6 +89,15 @@ defineSlots<{
 
 function isLocked(key: string): boolean {
   return props.disabled || props.locked.includes(key);
+}
+
+/**
+ * Whether a question is drawn in the locked look: the `.field` primitive's one disabled state, as
+ * Update info draws the market's own locked questions (T136). Only `locked` changes the look; the
+ * preview's `disabled` takes the input away and keeps the applicant's white box and mint.
+ */
+function looksLocked(key: string): boolean {
+  return props.locked.includes(key);
 }
 
 const emit = defineEmits<{
@@ -397,12 +407,21 @@ function errorFor(key: string): string {
         :data-testid="`${prefix}-essential-tier-day-${date}`"
       >
         <span class="essential-tier-day-label">{{ formattedEssentialDate(date) }}</span>
-        <div class="essential-choice-list" :class="{ error: errorFor(TIER_PREFERENCE_KEY) }">
+        <div
+          class="essential-choice-list"
+          :class="{
+            error: errorFor(TIER_PREFERENCE_KEY),
+            locked: looksLocked(TIER_PREFERENCE_KEY),
+          }"
+        >
           <label
             v-for="tier in options.tiers"
             :key="tier"
             class="essential-choice"
-            :class="{ checked: tiersOn(date).includes(tier) }"
+            :class="{
+              checked: tiersOn(date).includes(tier),
+              locked: looksLocked(TIER_PREFERENCE_KEY),
+            }"
           >
             <input
               type="checkbox"
@@ -419,7 +438,10 @@ function errorFor(key: string): string {
           <label
             v-if="options.tiers.length"
             class="essential-choice essential-choice--unavailable"
-            :class="{ checked: !tiersOn(date).length }"
+            :class="{
+              checked: !tiersOn(date).length,
+              locked: looksLocked(TIER_PREFERENCE_KEY),
+            }"
           >
             <input
               type="checkbox"
@@ -430,7 +452,11 @@ function errorFor(key: string): string {
             />
             <span>{{ NOT_AVAILABLE_LABEL }}</span>
           </label>
-          <label v-else class="essential-choice" :class="{ checked: availableOn(date) }">
+          <label
+            v-else
+            class="essential-choice"
+            :class="{ checked: availableOn(date), locked: looksLocked(TIER_PREFERENCE_KEY) }"
+          >
             <input
               type="checkbox"
               :checked="availableOn(date)"
@@ -465,12 +491,18 @@ function errorFor(key: string): string {
       <p class="essential-help">
         A table seats two vendors side by side. Say whether you want one to yourself.
       </p>
-      <div class="essential-choice-list" :class="{ error: errorFor(TABLE_CHOICE_KEY) }">
+      <div
+        class="essential-choice-list"
+        :class="{ error: errorFor(TABLE_CHOICE_KEY), locked: looksLocked(TABLE_CHOICE_KEY) }"
+      >
         <label
           v-for="choice in TABLE_CHOICES"
           :key="choice.value"
           class="essential-choice"
-          :class="{ checked: tableChoice === choice.value }"
+          :class="{
+            checked: tableChoice === choice.value,
+            locked: looksLocked(TABLE_CHOICE_KEY),
+          }"
         >
           <input
             type="radio"
@@ -536,6 +568,7 @@ function errorFor(key: string): string {
         :modelValue="sectionRanking"
         :testid="`${prefix}-essential-section-rank`"
         :disabled="isLocked(SECTION_RANKING_KEY)"
+        :locked="looksLocked(SECTION_RANKING_KEY)"
         @update:modelValue="(v: string[]) => setAnswer(SECTION_RANKING_KEY, v)"
       />
       <slot name="after" :question="SECTION_RANKING_KEY" />
@@ -556,6 +589,7 @@ function errorFor(key: string): string {
         :modelValue="tableTypeRanking"
         :testid="`${prefix}-essential-table-type-rank`"
         :disabled="isLocked(TABLE_TYPE_RANKING_KEY)"
+        :locked="looksLocked(TABLE_TYPE_RANKING_KEY)"
         @update:modelValue="(v: string[]) => setAnswer(TABLE_TYPE_RANKING_KEY, v)"
       />
       <slot name="after" :question="TABLE_TYPE_RANKING_KEY" />
@@ -687,6 +721,32 @@ function errorFor(key: string): string {
   height: 20px;
   flex-shrink: 0;
   cursor: pointer;
+}
+
+/*
+ * A locked answer (Update info) reads as the `.field` primitive's one disabled state, as the
+ * dialog's own locked questions do (`ApplicationFormFields.vue`): beige, muted, not taken. The
+ * chosen row keeps its line and its tick, without the applicant's mint, which says "your choice,
+ * change it".
+ */
+.essential-choice-list.locked {
+  background: var(--mm-beige);
+}
+
+.essential-choice.locked,
+.essential-choice.locked input[type='checkbox'],
+.essential-choice.locked input[type='radio'] {
+  color: var(--mm-text-muted-on-beige);
+  cursor: not-allowed;
+}
+
+.essential-choice.locked:hover {
+  background: none;
+}
+
+.essential-choice.locked.checked {
+  background: none;
+  border-color: var(--mm-border);
 }
 
 /* The fields are the `.field` primitive, which owns their box and their one disabled state. */

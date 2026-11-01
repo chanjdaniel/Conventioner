@@ -49,7 +49,11 @@ export interface TheScreensSeed {
   dealt: SeededMarket & { reviewer: string };
   /** In Assignment, with open priority rules and no run yet. */
   assignment: SeededMarket;
-  /** Market days: 36 vendors placed over four dates and three sections, results published. */
+  /**
+   * Market days: 36 vendors placed over four dates and three sections, results published, and
+   * `SCREENS_EDITOR` an Editor on it, so Update info shows them the answers the assignment reads
+   * locked (`signIn`'s `'editor'` in `screens.ts`).
+   */
   big: SeededMarket;
   /** Market days, its priority rules settled. */
   rules: SeededMarket;
@@ -230,6 +234,15 @@ async function walk(
 }
 
 const UP_TO_ASSIGNMENT = ['applications', 'assignment'];
+
+/**
+ * An Editor on `big` and nothing else, who reads in Update info the answers the assignment reads
+ * locked, since updating those is an Admin's (E41/F01/S02); fixture data.
+ */
+export const SCREENS_EDITOR = {
+  email: 'e2e-screens-editor@example.com',
+  password: 'e2epassword123',
+};
 
 /** The other reviewer of `dealt`, a Viewer on that market only; fixture data. */
 const DEALT_REVIEWER = 'e2e-screens-reviewer@example.com';
@@ -478,6 +491,11 @@ export async function seedTheScreens(
   insertApplications(manyVendors(big.marketId, 'vendor', 36, MARKET_DATES));
   await walk(api, backend, email, big.marketId, UP_TO_ASSIGNMENT);
   await assignAndPublish(api, backend, email, big.marketId);
+  ensureVerifiedUser(SCREENS_EDITOR.email, SCREENS_EDITOR.password);
+  const editor = await api.post(`${backend}/markets/${big.marketId}/roles`, {
+    data: { user_email: SCREENS_EDITOR.email, role: 'editor' },
+  });
+  if (!editor.ok()) throw new Error(`Role failed: ${editor.status()} ${await editor.text()}`);
 
   const rules = await createMarket(api, backend, email, uniqueMarketName('Spring Rules'), {
     ...plan(two),

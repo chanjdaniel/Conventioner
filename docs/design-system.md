@@ -57,6 +57,7 @@ sources:
   - T142
   - T148
   - E38/F15/S01
+  - T181
 ---
 
 # Conventioner's design language
@@ -344,6 +345,7 @@ A desk keeps its denser 36px and 28px.
 
 **One disabled state**, and it does not rely on text contrast: the control keeps a readable foreground and loses its affordance, so it reads as unavailable rather than as unreadable. The product had four, one of which put white on `--mm-border` at 1.74:1.
 A control drawn by a component of its own rather than a `.btn` takes the same values, `--mm-text-muted-on-beige` on `--mm-beige` inside a `--mm-border` line, and never opacity, which dims the words with the affordance: the floorplan wizard's Next, Save and Auto-Place and the application form's order arrows sat at 1.87 to 2.72:1 (T162).
+A locked answer in Update info is drawn in the same state, whatever its control: a field, a tick list, the essential questions' choice rows and their ranking, each beige with muted ink, its chosen row marked by a `--mm-border` line rather than the applicant's mint; the Form preview, which shows what a vendor sees, keeps the applicant's look ([essential fields](implementation/modules/essential-fields.md)).
 Such a control drawn with no line of its own carries a transparent 1px one at rest, as `.btn` does, so the line appears when it is disabled and nothing moves: Publish Results drawn with `border: none` was a beige patch beside the bar's Publish Market, which had a line.
 The contrast sweep fails a shown disabled control drawn as a box, with a fill, that draws no line; a control drawn as words with no fill ("Resend code in 30s" on the vendor's sign-in) has no box to line, and a control in a disabled `<fieldset>` is out of it, since a settled plan is read as it stands, its calendar and fields as written.
 
@@ -414,7 +416,7 @@ A convention nothing enforces is how the product got here. Six checks, the first
 
 The sweeps are only worth the states they walk. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog, and T67's layout trial missed the dashboard's squeezed dates until it opened a market before the dashboard; **dialogs, menus, drawers, hover states, disabled controls, empty states and remembered state have to be walked deliberately.**
 All four sweeps walk one list, `SCREENS` in [`e2e/helpers/screens.ts`](../front-end/e2e/helpers/screens.ts), through `walkTheScreens()`, and each passes only its own check, so a state added for one is walked by all.
-The list holds the router's routes, the dialogs, menus and drawers, the dashboard with a market remembered, every phase, the phase rail at 390 in every phase the seed holds, both intake paths among them, `/markets` and the Assignments page with their dialogs at 390, the vendor drawer at the door on each of its tabs at 390, settled rules, the floorplan wizard's steps with a plan uploaded and the signed-out pages, over a stress seed ([`e2e/helpers/seedTheScreens.ts`](../front-end/e2e/helpers/seedTheScreens.ts)) of long names, 40 applications in every review state, a review divided between two reviewers and 36 vendors over four dates and three sections, since a layout that holds on three short names breaks on a real market.
+The list holds the router's routes, the dialogs, menus and drawers, the dashboard with a market remembered, every phase, the phase rail at 390 in every phase the seed holds, both intake paths among them, `/markets` and the Assignments page with their dialogs at 390, the vendor drawer at the door on each of its tabs at 390, an Editor's Update info with its essential questions locked, settled rules, the floorplan wizard's steps with a plan uploaded and the signed-out pages, over a stress seed ([`e2e/helpers/seedTheScreens.ts`](../front-end/e2e/helpers/seedTheScreens.ts)) of long names, 40 applications in every review state, a review divided between two reviewers and 36 vendors over four dates and three sections, since a layout that holds on three short names breaks on a real market.
 Contrast and axe measure each state at its first size, focus at its first size and a phone's width, and the layout sweep at every size.
 
 ## Evidence
