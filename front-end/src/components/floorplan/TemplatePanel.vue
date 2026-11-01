@@ -328,7 +328,8 @@ function formatDate(dateStr: string): string {
   line-height: 1;
   color: #ffffff;
 
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: 5px;
   cursor: pointer;
 

@@ -338,6 +338,8 @@ A desk keeps its denser 36px and 28px.
 
 **One disabled state**, and it does not rely on text contrast: the control keeps a readable foreground and loses its affordance, so it reads as unavailable rather than as unreadable. The product had four, one of which put white on `--mm-border` at 1.74:1.
 A control drawn by a component of its own rather than a `.btn` takes the same values, `--mm-text-muted-on-beige` on `--mm-beige` inside a `--mm-border` line, and never opacity, which dims the words with the affordance: the floorplan wizard's Next, Save and Auto-Place and the application form's order arrows sat at 1.87 to 2.72:1 (T162).
+A control with no line of its own carries a transparent 1px one at rest, as `.btn` does, so the line appears when it is disabled and nothing moves: Publish Results drawn with `border: none` was a beige patch beside the bar's Publish Market, which had a line.
+The contrast sweep fails a shown disabled control that draws no line; a control in a disabled `<fieldset>` is out of it, since a settled plan is read as it stands, its calendar and fields as written.
 
 **A field shows no focus at all**, by Daniel's decision on the 2026-10-29 walk (E38/F01/S01): no outline, ring, glow, or border or fill change on any `input`, `textarea` or `select`, by click or by Tab, and a text field shows its caret.
 A browser treats a focused text field as `:focus-visible` whether it was clicked or tabbed into, so no rule could keep a ring for the keyboard alone, and Daniel chose this knowing a keyboard user loses it too; an accessibility pass does not put it back.

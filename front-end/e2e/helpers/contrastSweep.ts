@@ -1,9 +1,10 @@
 import type { Page } from '@playwright/test';
 
 /**
- * The contrast sweep's measure (E16/F01/S05): every visible text node's contrast against the ground
- * it is composited onto, run in the page. `contrast-sweep.spec.ts` runs it over every screen, and
- * `contrast-measure.spec.ts` shows it fixture pages with each defect it is meant to catch.
+ * The contrast sweep's measures, run in the page: every visible text node's contrast against the
+ * ground it is composited onto (E16/F01/S05), and every disabled control drawing the one disabled
+ * state's line (T162). `contrast-sweep.spec.ts` runs them over every screen, and
+ * `contrast-measure.spec.ts` shows them fixture pages with each defect they are meant to catch.
  */
 
 export const AA_NORMAL = 4.5;
@@ -150,4 +151,50 @@ export async function sweep(page: Page): Promise<Sweep> {
     },
     { normal: AA_NORMAL, large: AA_LARGE },
   );
+}
+
+/**
+ * Every shown disabled control that draws no line around itself, each as `<tag>.<class> "words"`.
+ *
+ * The one disabled state (`.btn:disabled`, `docs/design-system.md`) is beige inside a `--mm-border`
+ * line. A control of a component's own drawn with `border: none` took the beige and the ink and drew
+ * no line, so Publish Results disabled read as a beige patch beside the bar's Publish Market, which
+ * had one (T162). A checkbox, a radio, a range and a file input are drawn by the browser and stay
+ * out of it, and so does a control in a disabled `<fieldset>`: the settled plan is read as it
+ * stands, its calendar and its fields as they were written.
+ */
+export async function disabledWithoutLine(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const ownDrawing = new Set(['checkbox', 'radio', 'range', 'file', 'color', 'hidden']);
+    const transparent = (value: string) => {
+      const parts = value.match(/[\d.]+/g)?.map(Number);
+      return !parts || (parts.length > 3 && parts[3] === 0);
+    };
+    const found: string[] = [];
+    document
+      .querySelectorAll<HTMLElement>(
+        'button:disabled, input:disabled, select:disabled, textarea:disabled',
+      )
+      .forEach((el) => {
+        if (el instanceof HTMLInputElement && ownDrawing.has(el.type)) return;
+        // A form disabled as a whole, as a settled plan is, is a record read as it stands, not a
+        // control that is unavailable among others that are.
+        if (el.closest('fieldset:disabled')) return;
+        const box = el.getBoundingClientRect();
+        if (box.width === 0 || box.height === 0) return;
+        const style = getComputedStyle(el);
+        if (style.visibility === 'hidden') return;
+        const drawn = ['top', 'right', 'bottom', 'left'].every(
+          (side) =>
+            parseFloat(style.getPropertyValue(`border-${side}-width`)) >= 1 &&
+            style.getPropertyValue(`border-${side}-style`) !== 'none' &&
+            !transparent(style.getPropertyValue(`border-${side}-color`)),
+        );
+        if (drawn) return;
+        const words = (el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 40);
+        const name = el.getAttribute('aria-label') ?? el.getAttribute('data-testid') ?? '';
+        found.push(`${el.tagName.toLowerCase()}.${[...el.classList].join('.')} "${words || name}"`);
+      });
+    return found;
+  });
 }

@@ -378,7 +378,8 @@ async function handleSave() {
 
   background: var(--mm-green);
   color: #ffffff;
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
@@ -531,7 +532,8 @@ async function handleSave() {
   height: 40px;
   margin: 0;
   padding: 0;
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
   color: #fff;
@@ -795,7 +797,8 @@ async function handleSave() {
   min-width: 100px;
   height: 36px;
   padding: 0 20px;
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;

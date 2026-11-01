@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { sweep } from './helpers/contrastSweep';
+import { disabledWithoutLine, sweep } from './helpers/contrastSweep';
 import type { Page } from '@playwright/test';
 
 /**
@@ -57,5 +57,43 @@ test.describe('The contrast measure', () => {
     expect(await failuresOn(page, `<p style="color: #999">Too light</p>`)).toEqual([
       '"Too light" 2.85',
     ]);
+  });
+});
+
+test.describe('The disabled line', () => {
+  /** The disabled controls on a fixture page that draw no line. */
+  async function linelessOn(page: Page, html: string): Promise<string[]> {
+    await page.setContent(`<!doctype html><html><head><style>
+      body { margin: 0; font: 14px/20px sans-serif; background: #fff; }
+      button { font: inherit; padding: 8px 16px; background: #f4f0e8; color: #5e5852; }
+    </style></head><body>${html}</body></html>`);
+    return disabledWithoutLine(page);
+  }
+
+  test('a disabled button drawn with no border, or a transparent one, is caught', async ({
+    page,
+  }) => {
+    expect(
+      await linelessOn(
+        page,
+        `<button class="publish-button" style="border: none" disabled>Publish Results</button>
+         <button class="nav-btn" style="border: 1px solid transparent" disabled>Next</button>`,
+      ),
+    ).toEqual(['button.publish-button "Publish Results"', 'button.nav-btn "Next"']);
+  });
+
+  test('a disabled button inside its line, an enabled one with none, a hidden one and a read-only form pass', async ({
+    page,
+  }) => {
+    expect(
+      await linelessOn(
+        page,
+        `<button style="border: 1px solid #d9d4cc" disabled>Save</button>
+         <button style="border: none">Publish Results</button>
+         <button style="border: none; display: none" disabled>Hidden</button>
+         <input type="checkbox" disabled />
+         <fieldset disabled><button style="border: none">12</button><input style="all: unset" value="Gold" /></fieldset>`,
+      ),
+    ).toEqual([]);
   });
 });

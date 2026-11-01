@@ -317,7 +317,8 @@ function onSaved(payload: { market_id: string }) {
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
   line-height: 1;
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: 8px;
   cursor: pointer;
   transition:

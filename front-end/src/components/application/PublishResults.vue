@@ -149,9 +149,11 @@ async function publish() {
 .publish-button {
   background: var(--mm-green);
   color: white;
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: var(--radius-control);
-  padding: var(--space-2) var(--space-4);
+  /* Less the line's 1px, so the button stands as tall as before it had one. */
+  padding: calc(var(--space-2) - 1px) var(--space-4);
   cursor: pointer;
   font-family: 'Merge One';
   font-size: var(--text-sm);

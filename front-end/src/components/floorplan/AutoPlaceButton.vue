@@ -297,7 +297,8 @@ async function triggerAutoPlace() {
 
   background: var(--mm-green);
   color: #ffffff;
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;

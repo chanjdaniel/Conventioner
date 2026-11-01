@@ -841,7 +841,8 @@ onUnmounted(() => {
   min-width: 90px;
   height: 36px;
   padding: 0 16px;
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: 5px;
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);

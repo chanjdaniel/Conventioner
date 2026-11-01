@@ -583,7 +583,8 @@ async function download(): Promise<void> {
   min-width: var(--target-min);
   min-height: var(--target-min);
   padding: 0;
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: var(--radius-control);
   background: none;
   color: var(--mm-text-muted);
@@ -600,7 +601,11 @@ async function download(): Promise<void> {
 }
 
 .export-move:disabled {
-  color: var(--mm-border);
+  /* The primitives' one disabled state (`.btn:disabled`): an arrow in `--mm-border` was all but
+     invisible on white (T162). */
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  border-color: var(--mm-border);
   cursor: not-allowed;
 }
 

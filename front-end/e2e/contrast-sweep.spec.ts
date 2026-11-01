@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import { settle } from './helpers/settle';
 import { walkTheScreens, type Check } from './helpers/screens';
 import type { Page } from '@playwright/test';
-import { sweep } from './helpers/contrastSweep';
+import { disabledWithoutLine, sweep } from './helpers/contrastSweep';
 
 /**
  * Every rendered text node reaches WCAG AA, on the ground it is actually painted on (E16/F01/S05).
@@ -20,6 +20,9 @@ import { sweep } from './helpers/contrastSweep';
  * **A sweep is only worth the states it walks**, so the states are one list, `helpers/screens.ts`,
  * shared with the accessibility and layout sweeps. Contrast does not change with the window, so each
  * state is measured at the first size it ships at.
+ *
+ * Each state is also checked for the one disabled state's line (`expectDisabledLine`), the other
+ * half of how a disabled control reads.
  */
 
 /**
@@ -44,9 +47,23 @@ async function expectAA(page: Page, state: string): Promise<void> {
   );
 }
 
+/**
+ * Every disabled control is drawn in the one disabled state, its line included (T162): a control of
+ * a component's own drawn with `border: none` took the state's beige and ink and no line, so the app
+ * showed two disabled looks side by side, and nothing failed. Its words are measured by `expectAA`.
+ */
+async function expectDisabledLine(page: Page, state: string): Promise<void> {
+  expect(await disabledWithoutLine(page), `${state} has a disabled control with no line`).toEqual(
+    [],
+  );
+}
+
 const contrastTest = test.extend<{ check: Check }>({
   check: async ({ page }, use) => {
-    await use((state) => expectAA(page, state));
+    await use(async (state) => {
+      await expectAA(page, state);
+      await expectDisabledLine(page, state);
+    });
   },
 });
 
