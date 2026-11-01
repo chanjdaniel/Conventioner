@@ -31,6 +31,7 @@ skip_without_real_dependencies()
 
 import app as app_module
 import api.users as UsersApi
+from utils.session_storage import ON_DISK, install_session_storage
 
 
 FIXTURE_EMAIL = "fixture-user@example.com"
@@ -308,6 +309,108 @@ def test_a_restored_session_carried_to_another_browser_is_refused(client, users)
     elsewhere = reopened.get("/check-session", headers={"User-Agent": "another-browser"})
 
     assert elsewhere.status_code == 401
+
+
+def _without_the_user_agent(client, path):
+    """A request whose header block ended before its User-Agent, as a connection cut mid-request
+    delivers one: the server reads what came as the whole request (T177)."""
+    kept = client.environ_base.pop("HTTP_USER_AGENT")
+    try:
+        return client.get(path)
+    finally:
+        client.environ_base["HTTP_USER_AGENT"] = kept
+
+
+@pytest.mark.parametrize("remember", [False, True])
+@pytest.mark.parametrize(
+    "odd_request",
+    [
+        _without_the_user_agent,
+        lambda client, path: client.get(path, headers={"User-Agent": "another-browser"}),
+    ],
+    ids=["without-a-user-agent", "from-another-browser"],
+)
+def test_one_odd_request_is_refused_and_does_not_end_the_sign_in(
+    client, users, remember, odd_request
+):
+    _sign_in(client, remember=remember)
+    assert _signed_in(client)
+
+    # Refused, as "strong" refuses another client, but nothing is deleted: the browser that signed
+    # in is still signed in at its next request, so one request the server could not hold to it
+    # is not a sign-out (T177).
+    odd = odd_request(client, "/check-session")
+
+    assert odd.status_code == 401
+    assert not _set_cookies(odd, "session") and not _set_cookies(odd, REMEMBER_COOKIE)
+    assert [_signed_in(client) for _ in range(2)] == [True, True]
+
+
+def test_a_copied_session_cookie_is_refused_at_every_request(client, users):
+    _sign_in(client)
+    copied = app_module.app.test_client()
+    copied.set_cookie("session", client.get_cookie("session").value)
+
+    assert [
+        copied.get("/check-session", headers={"User-Agent": "another-browser"}).status_code
+        for _ in range(3)
+    ] == [401, 401, 401]
+    assert _signed_in(client)
+
+
+@pytest.fixture
+def on_disk(monkeypatch, tmp_path):
+    """The app keeping its sessions on disk, as a container, the stack and CI do, in ``tmp_path``.
+
+    There the session is a file on the server, so whatever a request does to it holds whether or
+    not anyone reads the answer. Returns the stored session behind a session cookie.
+    """
+    flask_app = app_module.app
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(flask_app, "session_interface", flask_app.session_interface)
+    for key in ("SESSION_TYPE", "SESSION_CACHELIB"):
+        monkeypatch.setitem(flask_app.config, key, None)
+    install_session_storage(flask_app, ON_DISK)
+
+    def stored(sid):
+        interface = flask_app.session_interface
+        return interface._retrieve_session_data(interface._get_store_id(sid))
+
+    return stored
+
+
+@pytest.mark.parametrize("remember", [False, True])
+def test_an_unread_answer_to_one_odd_request_does_not_end_the_sign_in_on_disk(
+    users, on_disk, remember
+):
+    browser = app_module.app.test_client()
+    _sign_in(browser, remember=remember)
+    sid = browser.get_cookie("session").value
+    assert on_disk(sid)["_user_id"]
+
+    # The same cookies arrive without the User-Agent, as a connection cut mid-request delivers
+    # them, and nobody reads the answer: the browser never hears what it said (T177).
+    cut_short = app_module.app.test_client()
+    for name in ("session", REMEMBER_COOKIE):
+        if browser.get_cookie(name) is not None:
+            cut_short.set_cookie(name, browser.get_cookie(name).value)
+    assert _without_the_user_agent(cut_short, "/check-session").status_code == 401
+
+    assert (on_disk(sid) or {}).get("_user_id"), "the stored session was deleted"
+    assert [_signed_in(browser) for _ in range(2)] == [True, True]
+
+
+def test_a_permanent_session_from_another_browser_is_refused_too(client, users):
+    # Flask-Login only marks a permanent session not fresh under "strong"; this app refuses it like
+    # any other, though no sign-in makes one permanent.
+    _sign_in(client)
+    with client.session_transaction() as held:
+        held.permanent = True
+
+    elsewhere = client.get("/check-session", headers={"User-Agent": "another-browser"})
+
+    assert elsewhere.status_code == 401
+    assert _signed_in(client)
 
 
 # What came before, and a password reset.
