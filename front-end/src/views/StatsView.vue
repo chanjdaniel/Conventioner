@@ -89,8 +89,12 @@ const NOBODY: Record<string, string> = {
           :data-testid="`stats-headline-${headline.id}`"
         >
           <RouterLink v-if="headline.to" :to="headline.to" class="stats-headline-link">
-            <strong data-testid="stats-headline-figure">{{ headline.figure }}</strong>
-            {{ headline.words }}
+            <!-- One run of text, so the target can stand taller than its line without parting the
+                 figure from its words. -->
+            <span>
+              <strong data-testid="stats-headline-figure">{{ headline.figure }}</strong>
+              {{ headline.words }}
+            </span>
           </RouterLink>
           <span v-else>
             <strong data-testid="stats-headline-figure">{{ headline.figure }}</strong>
@@ -219,7 +223,11 @@ const NOBODY: Record<string, string> = {
   border-left: 1px solid var(--mm-border);
 }
 
+/* A link on a line of its own, so a target (the design language): its words stay centred in it. */
 .stats-headline-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
   color: var(--mm-black);
   text-decoration: underline;
   text-underline-offset: var(--space-hairline);
@@ -271,6 +279,11 @@ const NOBODY: Record<string, string> = {
   gap: var(--space-1);
 }
 
+/* "All" is a word wide, so the switch's buttons keep a target's width too. */
+.stats-among-switch .btn {
+  min-width: var(--target-min);
+}
+
 /* Beside the switch, not at the frame's far edge: the cards under it may fill only its left. */
 .stats-among-count {
   font-size: var(--text-xs);
@@ -288,5 +301,36 @@ const NOBODY: Record<string, string> = {
   margin: 0;
   color: var(--mm-red);
   font-size: var(--text-sm);
+}
+
+/*
+ * A phone (T180): how the day stands is read at the market, so the page fits the phone it is read
+ * on (`meta.fitsAPhone`). The gutter is the door's, and the headlines stand one to a line, each a
+ * thumb's height, the money set apart by a rule above it rather than beside it.
+ */
+@media (width <= 640px) {
+  .stats {
+    padding: var(--space-4);
+  }
+
+  .stats-headlines {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .stats-headline {
+    display: flex;
+    align-items: center;
+    min-height: var(--target-min);
+  }
+
+  .stats-headline--money:not(:first-child) {
+    margin-top: var(--space-2);
+    padding-top: var(--space-2);
+    padding-left: 0;
+    border-top: 1px solid var(--mm-border);
+    border-left: none;
+  }
 }
 </style>
