@@ -91,6 +91,8 @@ Each check keeps the order it had, so every route answers each person as it did 
 
 **A verdict on an application already approved or rejected asks two rows**: the giving row at `_reviewer_on`, and the change row of each application it writes (E38/F06/S01); the write itself carries `unless_decided`, so a verdict landing between the reviewer's look and the write is the 409 it always was ([what each role may do](../../business/rules/what-each-role-may-do.md#where-it-is-kept)).
 
+**Taking a role asks both roles rows first**: `DELETE /markets/:id/roles/<user_id>` (`remove_market_role`) asks the Editor-and-Viewer row and the Admin row before it looks at the person, so someone both refuse reads the Editor-and-Viewer row's refusal whoever the person is; then it answers someone holding no role as gone, refuses taking the only owner, and asks the row of the role taken.
+
 **The plan write asks two rows**: Market Setup always, and the Assignment row too when the body changes the assignment rules, which ride in the plan; restating them asks only Market Setup.
 
 One block per row, in the `ACTIONS` order: a new action is a block in its place in that order, and a new route or caller one line in its action's "Asked by" list ([two features never share a line](../conventions/two-features-never-share-a-line.md#the-markets-actions)).
@@ -320,6 +322,7 @@ Default: Admin.
 
 Asked by:
 - `/markets/:id/roles` writes on an Editor or a Viewer
+- taking any role, an Admin's or the owner's too, first, beside the Admin row
 - whom the market read names the organization's people to in `peopleWithAccess`, beside the organization's own people (E38/F12/S01)
 
 ### Give and take Admin roles (`manage-admins`)
@@ -328,7 +331,7 @@ Default: Owner, fixed.
 
 Asked by:
 - `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given)
-- taking any role: both roles rows, before it looks at the person, so one refused by both reads the same refusal whoever the person is; then the row of the role taken
+- taking any role, an Editor's or a Viewer's too, first, beside the Editor-and-Viewer row
 
 ### Delete the market (`delete-market`)
 
