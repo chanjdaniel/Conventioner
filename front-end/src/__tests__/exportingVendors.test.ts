@@ -303,8 +303,10 @@ const CHECKED: ExportPreview['offered'] = {
   discordStates: [
     { id: 'has_role', label: 'Has the role' },
     { id: 'in_server', label: 'In the server' },
+    { id: 'possible_match', label: 'Possible match' },
     { id: 'not_found', label: 'Not found' },
     { id: 'no_username', label: 'No username' },
+    { id: 'check_again', label: 'Check again' },
   ],
 };
 
@@ -445,7 +447,8 @@ describe('the dialog', () => {
     expect(box('not_found').checked).toBe(true);
     expect(box('in_server').checked).toBe(false);
     expect(wrapper.get('[data-testid="vendor-export-discord"]').text()).toBe(
-      'Discord (none ticked: any state) Has the role In the server Not found No username',
+      'Discord (none ticked: any state) Has the role In the server Possible match Not found ' +
+        'No username Check again',
     );
     const groups = wrapper.findAll('[data-testid^="vendor-export-group-"]');
     expect(groups.map((g) => g.get('legend').text()).at(-1)).toBe('Discord');

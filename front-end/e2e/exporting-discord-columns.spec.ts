@@ -81,11 +81,12 @@ test('Export from “Not found” downloads exactly the vendors the page shows a
       })} } } })`,
   );
 
+  // What the check finds of each vendor in the fake server, as each row shows it.
   const states: Record<string, string> = {
-    'alice@example.com': 'has_role',
-    'bob@example.com': 'not_found',
-    'e2e-discord-cy@example.com': 'in_server',
-    'e2e-discord-dee@example.com': 'not_found',
+    'alice@example.com': 'Has the role',
+    'bob@example.com': 'Not found',
+    'e2e-discord-cy@example.com': 'In the server',
+    'e2e-discord-dee@example.com': 'Not found',
   };
 
   const vendors = new VendorsPage(page);
@@ -93,6 +94,9 @@ test('Export from “Not found” downloads exactly the vendors the page shows a
   await expect(vendors.vendorListItems).toHaveCount(4, { timeout: 15000 });
   await vendors.checkDiscordButton.click();
   await expect(vendors.discordStates).toHaveCount(4);
+  for (const [email, state] of Object.entries(states)) {
+    await expect(vendors.discordStateOf(email)).toHaveText(`Discord: ${state}`);
+  }
   await vendors.discordFilter.selectOption('not_found');
   await expect(vendors.vendorListItems).toHaveCount(2);
   // The rows the page lists, by the address each shows.

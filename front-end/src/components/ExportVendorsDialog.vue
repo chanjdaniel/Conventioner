@@ -6,10 +6,10 @@
  *
  * It opens on the page's filters (`seed`), shows them and lets them change. The columns are ticked
  * under their headings, where they sit on each date under "Assignment" (S02) and the Discord
- * username, state and invite link under "Discord" (S05), and the ticked ones
- * are put in order beneath, by dragging or with each row's move buttons. Before the download it
- * says how many vendors and columns the file holds and shows its first rows, which the server
- * builds from the same filters as the file.
+ * username, state and invite link under "Discord" (S05), and the ticked ones are put in order
+ * beneath, by dragging or with each row's move buttons. Before the download it says how many
+ * vendors and columns the file holds and shows its first rows, which the server builds from the
+ * same filters as the file.
  */
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import draggable from 'vuedraggable';

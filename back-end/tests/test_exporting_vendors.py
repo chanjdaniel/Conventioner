@@ -815,7 +815,6 @@ class TestTheDiscordColumns:
             _file(filters=filters, columns=["email"])
 
 
-
 def _ben_updated_since_the_check(doc, applications):
     """Ben was checked "Not found" for "benbuns", and an organizer has since updated his username,
     so the Vendors page shows him "Check again" (T156 rereview note 7)."""

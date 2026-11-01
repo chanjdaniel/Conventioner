@@ -278,6 +278,8 @@ def _payment_columns(market: Market) -> List[Column]:
                money(lambda account: account["owedCents"] - account["paidCents"]), "payment",
                as_is=True),
     ]
+
+
 def _discord_columns(market: Market) -> List[Column]:
     """What the market knows of its vendors on Discord (E42/F01/S05): the username its card's
     question holds, as updated and tidied as the check reads it, while the form asks it; the state

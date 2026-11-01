@@ -149,8 +149,7 @@ export interface ColumnGroup {
 /**
  * The columns under their headings, in the market's order: who the vendor is, their answers,
  * where they sit, what they owe and have paid, then Discord. A heading with no column under it, as
- * a form with no question of its own, is
- * left out.
+ * a form with no question of its own, is left out.
  */
 export function columnGroups(offered: Pick<ExportOffered, 'columns' | 'groups'>): ColumnGroup[] {
   return offered.groups
