@@ -226,7 +226,7 @@ test.describe('the Payments page', () => {
     await expect(rows(page)).toHaveCount(1);
     expect(await listedEmails(page)).toEqual([BOB]);
 
-    await page.getByTestId('payments-show-more').click();
+    await page.getByTestId('payments-show-over').click();
     await expect(rows(page)).toHaveCount(1);
     expect(await listedEmails(page)).toEqual([CAROL]);
     const carol = rows(page).first();
@@ -239,7 +239,7 @@ test.describe('the Payments page', () => {
       'true',
     );
     await expect(page.getByTestId('payment-balance')).toHaveText('Paid $7.50 more than owed');
-    await expect(page).toHaveURL(/[?&]show=more/);
+    await expect(page).toHaveURL(/[?&]show=over/);
     await expect(page).toHaveURL(/[?&]vendorTab=payment/);
   });
 

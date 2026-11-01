@@ -9,10 +9,31 @@ import {
   type PaymentsVendor,
 } from '@/utils/paymentsPage';
 
-const ANA: PaymentsVendor = { email: 'ana@example.com', owedCents: 7000, paidCents: 3500 };
-const BEN: PaymentsVendor = { email: 'ben@example.com', owedCents: 3000, paidCents: 3000 };
-const CY: PaymentsVendor = { email: 'cy@example.com', owedCents: 1750, paidCents: 2500 };
-const DEE: PaymentsVendor = { email: 'dee@example.com', owedCents: 0, paidCents: 0 };
+// Each with the state the server read (`balance_state` in back-end/payments.py).
+const ANA: PaymentsVendor = {
+  email: 'ana@example.com',
+  owedCents: 7000,
+  paidCents: 3500,
+  balanceState: 'owes',
+};
+const BEN: PaymentsVendor = {
+  email: 'ben@example.com',
+  owedCents: 3000,
+  paidCents: 3000,
+  balanceState: 'paid',
+};
+const CY: PaymentsVendor = {
+  email: 'cy@example.com',
+  owedCents: 1750,
+  paidCents: 2500,
+  balanceState: 'over',
+};
+const DEE: PaymentsVendor = {
+  email: 'dee@example.com',
+  owedCents: 0,
+  paidCents: 0,
+  balanceState: null,
+};
 const NAMES = { 'ana@example.com': 'Zed Ana', 'cy@example.com': 'Alice Cy' };
 const ALL = [ANA, BEN, CY, DEE];
 
@@ -30,12 +51,19 @@ describe('the Payments page filters', () => {
     // Paid in full is square with something owed; a vendor who owes nothing and paid nothing reads
     // "Nothing owed" on their tab, and is in no filter, as in the export's money filter (E42/F01/S04).
     expect(ALL.filter((v) => vendorShownIn(v, 'paid'))).toEqual([BEN]);
-    expect(ALL.filter((v) => vendorShownIn(v, 'more'))).toEqual([CY]);
+    expect(ALL.filter((v) => vendorShownIn(v, 'over'))).toEqual([CY]);
     expect(ALL.filter((v) => vendorShownIn(v, null))).toEqual(ALL);
   });
 
+  it("lists by the server's state, the one the export's payment filter reads", () => {
+    // The page does not read the amounts again: a state the server sent is the one it lists.
+    const told: PaymentsVendor = { ...ANA, balanceState: 'paid' };
+    expect(vendorShownIn(told, 'paid')).toBe(true);
+    expect(vendorShownIn(told, 'owes')).toBe(false);
+  });
+
   it('puts a vendor who owes nothing and paid nothing in no filter', () => {
-    for (const shown of ['owes', 'paid', 'more'] as const) {
+    for (const shown of ['owes', 'paid', 'over'] as const) {
       expect(vendorShownIn(DEE, shown)).toBe(false);
     }
     expect(vendorShownIn(DEE, null)).toBe(true);
@@ -43,7 +71,8 @@ describe('the Payments page filters', () => {
 
   it('reads the filter from the address, and nothing for anything else', () => {
     expect(paymentsShownFrom('owes')).toBe('owes');
-    expect(paymentsShownFrom('more')).toBe('more');
+    expect(paymentsShownFrom('over')).toBe('over');
+    expect(paymentsShownFrom('more')).toBeNull();
     expect(paymentsShownFrom('refund')).toBeNull();
     expect(paymentsShownFrom(undefined)).toBeNull();
     expect(paymentsShownFrom(['owes'])).toBeNull();

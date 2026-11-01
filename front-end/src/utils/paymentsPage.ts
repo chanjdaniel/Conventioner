@@ -9,14 +9,22 @@
  */
 import type { LocationQuery, LocationQueryValue } from 'vue-router';
 import { api } from '@/utils/api';
-import { balanceState } from '@/utils/payments';
 import { vendorHeadline, vendorMatches, type VendorNames } from '@/utils/vendorIdentity';
 
-/** One vendor on the page: what they owe and what they paid, in cents. */
+/**
+ * How what a vendor paid compares with what they owe, as the server reads it (`balance_state` in
+ * `back-end/payments.py`), the one reading the page's lists and the export's payment filter share:
+ * they owe, paid in full (square, with something owed), or paid more than owed. Null for a vendor
+ * who owes nothing and paid nothing.
+ */
+export type BalanceState = 'owes' | 'paid' | 'over';
+
+/** One vendor on the page: what they owe and what they paid, in cents, and how the two compare. */
 export interface PaymentsVendor {
   email: string;
   owedCents: number;
   paidCents: number;
+  balanceState: BalanceState | null;
 }
 
 /** What the page counts: the amount owed, the amount paid, and the two sides of the difference. */
@@ -45,16 +53,14 @@ export async function loadMarketPayments(marketId: string): Promise<MarketPaymen
 }
 
 /** The list's filters (Q26: "something the organizer can filter for and know to issue refunds"),
- * in the address as `show`. */
-export type PaymentsShown = 'owes' | 'paid' | 'more';
+ * one per state, in the address as `show` by the state's own id. */
+export type PaymentsShown = BalanceState;
 
 export const PAYMENTS_SHOWN: readonly { id: PaymentsShown; label: string }[] = [
   { id: 'owes', label: 'Owes' },
   { id: 'paid', label: 'Paid in full' },
-  { id: 'more', label: 'Paid more than owed' },
+  { id: 'over', label: 'Paid more than owed' },
 ];
-
-const STATE_SHOWN = { owing: 'owes', settled: 'paid', overpaid: 'more' } as const;
 
 type QueryValue = LocationQueryValue | LocationQueryValue[] | undefined;
 
@@ -63,15 +69,13 @@ export function paymentsShownFrom(value: QueryValue): PaymentsShown | null {
 }
 
 /**
- * Whether a vendor is in the state a filter lists, as their Payment tab words it: "Owes $27",
- * "Paid $15 more than owed", or "Paid in full", square with something owed. A vendor who owes
- * nothing and paid nothing ("Nothing owed": every day freed with its price taken off, or set to $0)
- * is in none, the one rule the export's money filter keeps too (E42/F01/S04).
+ * Whether a vendor is in the state a filter lists, the server's state, which the export's payment
+ * filter reads too (E42/F01/S04): "Owes $27", "Paid in full", or "Paid $15 more than owed". A vendor
+ * who owes nothing and paid nothing ("Nothing owed": every day freed with its price taken off, or
+ * set to $0) is in none.
  */
 export function vendorShownIn(vendor: PaymentsVendor, shown: PaymentsShown | null): boolean {
-  if (!shown) return true;
-  if (!vendor.owedCents && !vendor.paidCents) return false;
-  return STATE_SHOWN[balanceState(vendor)] === shown;
+  return !shown || vendor.balanceState === shown;
 }
 
 /** The list's columns, each sortable; in the address as `sort`, and `order=desc`. */
