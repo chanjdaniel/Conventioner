@@ -579,12 +579,35 @@ def _discord_choice(client, world):
 
 def _check_discord(client, world):
     _discord(world, **DISCORD_SERVER, usernameQuestion="discord_username")
-    world.patch(Discord, "server_members", lambda *_a: [])
+    world.patch(Discord, "server_members", lambda *_a, **_k: [])
     world.markets.doc["applicationForm"] = {"fields": [
         {"key": "discord_username", "label": "Discord Username", "type": "text"}]}
     world.applications.insert_one(_application(
         "app-1", VENDOR, form_data={"discord_username": "maple"}))
     return client.post(f"/markets/{MARKET}/discord/check")
+
+
+class _GrantsThatGive:
+    """Discord giving every role asked."""
+
+    def __init__(self, *_args, **_kwargs):
+        pass
+
+    def give(self, _member_id):
+        pass
+
+
+def _give_discord_roles(client, world):
+    _discord(world, **DISCORD_SERVER, usernameQuestion="discord_username", roleId="r-vendor",
+             roleName="Vendor Test")
+    world.markets.doc["assignmentObject"] = _seated(VENDOR)
+    world.patch(Discord, "server_members", lambda *_a, **_k: [Discord.Member("1001", "maple", ())])
+    world.patch(Discord, "RoleGrants", _GrantsThatGive)
+    world.markets.doc["applicationForm"] = {"fields": [
+        {"key": "discord_username", "label": "Discord Username", "type": "text"}]}
+    world.applications.insert_one(_application(
+        "app-1", VENDOR, form_data={"discord_username": "maple"}))
+    return client.post(f"/markets/{MARKET}/discord/role-run")
 
 
 def _decline_discord_match(client, world):
@@ -759,6 +782,9 @@ WRITES = [
     Write("who is in the Discord server", "POST", f"{M}/discord/check", Actions.CONNECT_DISCORD,
           History.DISCORD_CHECKED, _check_discord, vendors=(VENDOR,),
           subject={"application_ids": ["app-1"]}, detail_keys=("counts",)),
+    Write("the Discord role given", "POST", f"{M}/discord/role-run", Actions.CONNECT_DISCORD,
+          History.DISCORD_ROLES_GIVEN, _give_discord_roles, vendors=(VENDOR,),
+          subject={"application_ids": ["app-1"]}, detail_keys=("given", "counts")),
     Write("a possible Discord match declined", "POST",
           f"{M}/discord/possible-matches/<application_id>/declined", Actions.UPDATE_VENDOR_INFO,
           History.DISCORD_MATCH_DECLINED, _decline_discord_match, vendors=(VENDOR,),

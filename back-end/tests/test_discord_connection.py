@@ -6,6 +6,8 @@ is archived. Every write goes through the Flask client as the card sends it, wit
 replaced by fakes of ``discord_client``'s three calls.
 """
 import copy
+import json
+from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
 
@@ -25,11 +27,13 @@ import api.users as UsersApi  # noqa: E402
 import discord_client as Discord  # noqa: E402
 import history as History  # noqa: E402
 from datatypes import MarketPhase, MarketRole  # noqa: E402
+from test_discord_client import FakeDiscord  # noqa: E402
 from test_every_write_records import LiveMarkets  # noqa: E402
 from test_price_groups import GOLD_AND_SILVER  # noqa: E402
 
-#: The client's own list of members, before any test's fake stands in for it.
+#: The client's own calls, before any test's fake stands in for them.
 LIST_MEMBERS = Discord.server_members
+ROLE_GRANTS = Discord.RoleGrants
 
 MARKET = "market-123"
 ADMIN = "admin@example.com"
@@ -69,11 +73,34 @@ def world(monkeypatch, market_records, applications):
     monkeypatch.setattr(Discord, "connected_server", connected_server)
     monkeypatch.setattr(Discord, "server_roles", lambda _values, _guild: discord.roles)
 
-    def server_members(_values, guild):
+    def server_members(_values, guild, deadline=None):
         discord.listed.append(guild)
         return discord.members
 
     monkeypatch.setattr(Discord, "server_members", server_members)
+
+    discord.given = []
+    discord.asked = []
+    #: A refusal to raise when the role is given to a member, by the member's id.
+    discord.refusals = {}
+    #: Each run's audit-log reason.
+    discord.reasons = []
+    #: What happens meanwhile, after each role is given: called with the member's id.
+    discord.on_give = lambda _member_id: None
+
+    class RoleGrants:
+        def __init__(self, _values, guild, role_id, _role_name, *, reason, deadline):
+            self.guild, self.role_id = guild, role_id
+            discord.reasons.append(reason)
+
+        def give(self, member_id):
+            discord.asked.append(member_id)
+            if member_id in discord.refusals:
+                raise discord.refusals[member_id]
+            discord.given.append((self.guild, member_id, self.role_id))
+            discord.on_give(member_id)
+
+    monkeypatch.setattr(Discord, "RoleGrants", RoleGrants)
 
     def market(phase=MarketPhase.DRAFT, role=MarketRole.ADMIN, **overrides):
         monkeypatch.setattr(PermissionsApi, "get_user_market_role", lambda *_a, **_k: role)
@@ -630,7 +657,7 @@ class TestCheckingWhoIsInTheServer:
     def _changed_while_listing(self, world, connection):
         """The card written by another request while the members are read, which on a large
         server, or under a 429, takes seconds."""
-        def server_members(_values, guild):
+        def server_members(_values, guild, deadline=None):
             world.discord.listed.append(guild)
             world.markets.doc["discord"] = connection
             return world.discord.members
@@ -839,6 +866,120 @@ class TestCheckingWhoIsInTheServer:
         assert _states(world) == {maple: "in_server"}
 
 
+def _a_paged_server_on_a_clock(world, pages, seconds_per_page, page_answer=None):
+    """Discord's own API faked under ``discord_client``, on a clock each request and each wait moves
+    on: ``pages`` full pages of members, ``member0`` onwards, and a last short one, each taking
+    ``seconds_per_page``, or the ``timeout`` it was given if that is shorter, as a slow Discord
+    would. ``page_answer(n)`` may answer the n-th page asked, from 1, instead. Each grant takes
+    ``PER_REQUEST`` and is given."""
+    world.patch.setattr(Discord, "server_members", LIST_MEMBERS)
+    world.patch.setattr(Discord, "RoleGrants", ROLE_GRANTS)
+    clock = SimpleNamespace(now=1000.0, started=1000.0, gets=0, waits=[], puts=[], read_by=None)
+    world.patch.setattr(Discord, "clock", lambda: clock.now)
+
+    def wait(seconds):
+        clock.waits.append(seconds)
+        clock.now += seconds
+
+    world.patch.setattr(Discord, "_wait", wait)
+
+    def request(method, url, timeout, **kwargs):
+        if method == "PUT":
+            clock.now += PER_REQUEST
+            clock.puts.append(url)
+            return SimpleNamespace(status_code=204, ok=True, headers={}, json=lambda: None)
+        clock.gets += 1
+        if seconds_per_page > timeout:
+            clock.now += timeout
+            raise Discord.requests.Timeout()
+        clock.now += seconds_per_page
+        answer = page_answer(clock.gets) if page_answer else None
+        if answer is not None:
+            return answer
+        size = Discord.MEMBERS_PAGE if clock.gets <= pages else 1
+        if size < Discord.MEMBERS_PAGE:
+            clock.read_by = clock.now
+        first = (clock.gets - 1) * Discord.MEMBERS_PAGE
+        page = [{"user": {"id": str(10_000 + first + n), "username": f"member{first + n}"},
+                 "roles": []} for n in range(size)]
+        return SimpleNamespace(status_code=200, ok=True, headers={}, json=lambda: page)
+
+    world.patch.setattr(Discord.requests, "request", request)
+    return clock
+
+
+#: How long Discord takes to answer a page of members on a slow day, and how many full pages, of
+#: 1000 members each, are read within ``MEMBERS_READ_SECONDS`` at that pace (T155 rereview, note 6).
+SLOW_PAGE_SECONDS = 0.5
+PAGES_THAT_FIT = 29
+
+
+class TestACheckWithinItsTime:
+    """A check reads the members for ``MEMBERS_READ_SECONDS`` at most, as a run does, and a read
+    that runs out answers ``CHECK_TOO_SLOW`` with nothing written or recorded: the back end is a
+    function its host ends at a time limit, and a check cut off there answers in no words of its
+    own (T155 rereview, finding 5)."""
+
+    def test_a_server_whose_pages_take_four_seconds_each_is_too_slow_to_check(
+        self, client, world,
+    ):
+        """The reviewer's plan, at the read's share: four seconds a page, which unbounded reads
+        the server's five pages for twenty seconds."""
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.applicant("maple@example.com", "maple")
+        clock = _a_paged_server_on_a_clock(world, pages=4, seconds_per_page=4)
+
+        response = _check(client)
+
+        assert response.status_code == Discord.DiscordUnavailable.status, response.get_json()
+        assert response.get_json()["error"] == DiscordConnection.CHECK_TOO_SLOW
+        assert clock.now - clock.started <= DiscordConnection.MEMBERS_READ_SECONDS
+        assert _stored(world) == CONNECTED
+        assert world.history.documents == []
+
+    def test_a_429_asking_past_the_checks_time_is_not_waited_out(self, client, world):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.applicant("maple@example.com", "maple")
+
+        def limited_fourth_page(n):
+            if n == 4:
+                return SimpleNamespace(status_code=429, ok=False, headers={},
+                                       json=lambda: {"retry_after": 8, "global": False})
+            return None
+
+        clock = _a_paged_server_on_a_clock(world, pages=4, seconds_per_page=3,
+                                           page_answer=limited_fourth_page)
+
+        response = _check(client)
+
+        assert response.get_json()["error"] == DiscordConnection.CHECK_TOO_SLOW
+        assert clock.waits == []
+        assert _stored(world) == CONNECTED
+
+    def test_the_pages_that_fit_at_a_slow_pace_are_checked(self, client, world):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        last = PAGES_THAT_FIT * Discord.MEMBERS_PAGE
+        maple = world.applicant("maple@example.com", f"member{last}")
+        clock = _a_paged_server_on_a_clock(world, pages=PAGES_THAT_FIT,
+                                           seconds_per_page=SLOW_PAGE_SECONDS)
+
+        response = _check(client)
+
+        assert response.status_code == 200, response.get_json()
+        assert _states(world) == {maple: "in_server"}
+        assert clock.read_by - clock.started <= DiscordConnection.MEMBERS_READ_SECONDS
+
+    def test_a_page_more_than_fit_at_a_slow_pace_is_too_slow(self, client, world):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.applicant("maple@example.com", "member0")
+        _a_paged_server_on_a_clock(world, pages=PAGES_THAT_FIT + 1,
+                                   seconds_per_page=SLOW_PAGE_SECONDS)
+
+        response = _check(client)
+
+        assert response.get_json()["error"] == DiscordConnection.CHECK_TOO_SLOW
+
+
 class TestTheChecksHistory:
     def test_a_check_is_one_entry_naming_each_vendor_whose_state_changed(self, client, world):
         world.market(discord=CONNECTED, **WITH_THE_FORM)
@@ -929,6 +1070,619 @@ class TestTheChecksHistory:
             "after": {"username_question": "discord_username",
                       "username_question_label": "Discord Username"},
         }
+
+
+ROLE = "r-vendor"
+WITH_THE_ROLE = {**CONNECTED, "roleId": ROLE, "roleName": "Vendor Nov 2026"}
+
+
+def _seats(*emails, date="2026-11-18"):
+    """The stored assignment: each of ``emails`` holding a seat on ``date``."""
+    return {"assignmentObject": {"vendorAssignments": [
+        {"email": email, "date": date, "tableCode": f"A-{n + 1}", "tableChoice": "Full Table",
+         "section": "A", "tier": "Gold", "location": "Atrium", "handPlaced": False}
+        for n, email in enumerate(emails)]}}
+
+
+def _give(client):
+    return client.post(f"/markets/{MARKET}/discord/role-run")
+
+
+def _run(world):
+    return _stored(world)["roleRun"]
+
+
+def _outcomes(world):
+    return {each["applicationId"]: each["outcome"] for each in _run(world)["outcomes"]}
+
+
+class TestGivingTheRole:
+    """Give roles (E46/F01/S04): the market's role to every assigned vendor in the server, in one
+    run, never taking one away."""
+
+    def test_a_run_over_five_assigned_vendors_gives_exactly_two_roles(self, client, world):
+        """Discord's own API faked, under ``discord_client``: what is sent is what Discord gets."""
+        world.patch.setattr(Discord, "server_members", LIST_MEMBERS)
+        world.patch.setattr(Discord, "RoleGrants", ROLE_GRANTS)
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats(
+            "ana@example.com", "ben@example.com", "cy@example.com", "dee@example.com",
+            "eve@example.com"))
+        ana = world.applicant("ana@example.com", "ana.makes")
+        ben = world.applicant("ben@example.com", "@Ben_Prints")
+        cy = world.applicant("cy@example.com", "cy")
+        dee = world.applicant("dee@example.com", "dee.crafts")
+        eve = world.applicant("eve@example.com")
+        # In the server, but holding no seat: never given the role.
+        world.applicant("fay@example.com", "fay")
+        fake = FakeDiscord()
+        fake.answer("GET", f"/guilds/{GUILD}/members", 200, [
+            {"user": {"id": "1001", "username": "ana.makes"}, "roles": []},
+            {"user": {"id": "1002", "username": "ben_prints"}, "roles": ["r-other"]},
+            {"user": {"id": "1003", "username": "cy"}, "roles": [ROLE]},
+            {"user": {"id": "1006", "username": "fay"}, "roles": []},
+        ])
+        for member in ("1001", "1002"):
+            fake.answer("PUT", f"/guilds/{GUILD}/members/{member}/roles/{ROLE}", 204)
+        world.patch.setattr(Discord.requests, "request", fake.request)
+
+        response = _give(client)
+
+        assert response.status_code == 200, response.get_json()
+        assert [(sent.method, sent.url.rsplit("/guilds/", 1)[1]) for sent in fake.sent
+                if sent.method != "GET"] == [
+            ("PUT", f"{GUILD}/members/1001/roles/{ROLE}"),
+            ("PUT", f"{GUILD}/members/1002/roles/{ROLE}"),
+        ]
+        assert _outcomes(world) == {ana: "given", ben: "given", cy: "already_had",
+                                    dee: "not_found", eve: "no_username"}
+        assert response.get_json()["counts"] == {
+            "given": 2, "already_had": 1, "not_found": 1, "no_username": 1, "not_yet": 0,
+            "failed": 0}
+
+    def test_the_run_reads_the_server_once_and_gives_to_assigned_vendors_alone(
+        self, client, world,
+    ):
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
+        world.discord.members = [_member("1001", "ana"), _member("1002", "ben")]
+        world.applicant("ana@example.com", "ana")
+        world.applicant("ben@example.com", "ben")
+
+        _give(client)
+
+        assert world.discord.listed == [GUILD]
+        assert world.discord.given == [(GUILD, "1001", ROLE)]
+
+    def test_assigned_means_a_seat_on_any_date(self, client, world):
+        seats = _seats("ana@example.com", date="2026-11-18")
+        seats["assignmentObject"]["vendorAssignments"] += _seats(
+            "ben@example.com", date="2026-11-20")["assignmentObject"]["vendorAssignments"]
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **seats)
+        world.discord.members = [_member("1001", "ana"), _member("1002", "ben")]
+        world.applicant("Ana@Example.com", "ana")
+        world.applicant("ben@example.com", "ben")
+
+        _give(client)
+
+        assert [member for _, member, _ in world.discord.given] == ["1001", "1002"]
+
+    def test_a_vendor_who_lost_their_seat_keeps_the_role_after_another_run(self, client, world):
+        """A run only gives (Daniel, T92 Q19: "no" to taking a role away)."""
+        world.patch.setattr(Discord, "server_members", LIST_MEMBERS)
+        world.patch.setattr(Discord, "RoleGrants", ROLE_GRANTS)
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ben@example.com"))
+        ana = world.applicant("ana@example.com", "ana")
+        world.applicant("ben@example.com", "ben")
+        fake = FakeDiscord()
+        fake.answer("GET", f"/guilds/{GUILD}/members", 200, [
+            {"user": {"id": "1001", "username": "ana"}, "roles": [ROLE]},
+            {"user": {"id": "1002", "username": "ben"}, "roles": [ROLE]},
+        ])
+        world.patch.setattr(Discord.requests, "request", fake.request)
+
+        response = _give(client)
+
+        assert response.status_code == 200, response.get_json()
+        assert {sent.method for sent in fake.sent} == {"GET"}
+        assert ana not in _outcomes(world)
+        assert _states(world)[ana] == "has_role"
+
+    def test_a_role_above_the_bots_fails_the_rest_with_its_reason_asking_once(
+        self, client, world,
+    ):
+        """Every grant would fail alike, so the run stops asking: 10,000 refused requests in ten
+        minutes block the address."""
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats(
+            "ana@example.com", "ben@example.com"))
+        world.discord.members = [_member("1001", "ana"), _member("1002", "ben")]
+        ana = world.applicant("ana@example.com", "ana")
+        ben = world.applicant("ben@example.com", "ben")
+        reason = Discord.role_above_bot("Vendor Nov 2026")
+        world.discord.refusals["1001"] = Discord.DiscordRefused(reason)
+
+        response = _give(client)
+
+        assert response.status_code == 200, response.get_json()
+        assert world.discord.asked == ["1001"]
+        assert _run(world)["outcomes"] == [
+            {"applicationId": ana, "outcome": "failed", "reason": reason},
+            {"applicationId": ben, "outcome": "failed", "reason": reason},
+        ]
+        assert _states(world) == {ana: "in_server", ben: "in_server"}
+
+    def test_a_member_who_left_meanwhile_fails_alone_and_the_run_goes_on(self, client, world):
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats(
+            "ana@example.com", "ben@example.com"))
+        world.discord.members = [_member("1001", "ana"), _member("1002", "ben")]
+        ana = world.applicant("ana@example.com", "ana")
+        ben = world.applicant("ben@example.com", "ben")
+        world.discord.refusals["1001"] = Discord.MemberGone(Discord.MEMBER_GONE)
+
+        _give(client)
+
+        assert world.discord.given == [(GUILD, "1002", ROLE)]
+        assert _run(world)["outcomes"][0] == {
+            "applicationId": ana, "outcome": "failed", "reason": Discord.MEMBER_GONE}
+        assert _states(world) == {ana: "not_found", ben: "has_role"}
+
+    def test_discord_out_of_reach_midway_keeps_what_was_given(self, client, world):
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats(
+            "ana@example.com", "ben@example.com", "cy@example.com"))
+        world.discord.members = [_member("1001", "ana"), _member("1002", "ben"),
+                                 _member("1003", "cy")]
+        ana = world.applicant("ana@example.com", "ana")
+        ben = world.applicant("ben@example.com", "ben")
+        cy = world.applicant("cy@example.com", "cy")
+        world.discord.refusals["1002"] = Discord.DiscordUnavailable(Discord.SLOW_DOWN)
+
+        response = _give(client)
+
+        assert response.status_code == 200, response.get_json()
+        assert world.discord.asked == ["1001", "1002"]
+        assert _outcomes(world) == {ana: "given", ben: "failed", cy: "failed"}
+        assert {each["reason"] for each in _run(world)["outcomes"][1:]} == {Discord.SLOW_DOWN}
+        [entry] = world.history.documents
+        assert entry["detail"]["given"] == [ana]
+
+    def test_the_states_update_from_the_run(self, client, world):
+        world.patch.setattr(DiscordConnection, "_checked_at", lambda: "2026-10-31T12:00:00+00:00")
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
+        world.discord.members = [_member("1001", "ana"), _member("1002", "ben")]
+        ana = world.applicant("ana@example.com", "ana")
+        ben = world.applicant("ben@example.com", "ben")
+        cy = world.applicant("cy@example.com", "cy")
+
+        _give(client)
+
+        assert _states(world) == {ana: "has_role", ben: "in_server", cy: "not_found"}
+        assert _stored(world)["checkedAt"] == "2026-10-31T12:00:00+00:00"
+
+    def test_the_last_runs_report_is_kept_and_served_to_every_reader(self, client, world):
+        world.patch.setattr(DiscordConnection, "_checked_at", lambda: "2026-10-31T12:00:00+00:00")
+        world.market(_id="mongo-market-123", discord=WITH_THE_ROLE, **WITH_THE_FORM,
+                     **_seats("ana@example.com"))
+        world.discord.members = [_member("1001", "ana")]
+        ana = world.applicant("ana@example.com", "ana")
+        _give(client)
+        world.patch.setattr(PermissionsApi, "get_user_market_role",
+                            lambda *_a, **_k: MarketRole.VIEWER)
+
+        served = client.get(f"/markets/{MARKET}").get_json()["market"]["discord"]["roleRun"]
+
+        assert served == {
+            "ranAt": "2026-10-31T12:00:00+00:00", "roleName": "Vendor Nov 2026",
+            "outcomes": [{"applicationId": ana, "outcome": "given", "reason": None}],
+        }
+
+    def test_a_second_run_replaces_the_report(self, client, world):
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
+        world.discord.members = [_member("1001", "ana")]
+        ana = world.applicant("ana@example.com", "ana")
+        _give(client)
+        world.discord.members = [_member("1001", "ana", [ROLE])]
+
+        _give(client)
+
+        assert _outcomes(world) == {ana: "already_had"}
+
+    def test_no_role_chosen_is_refused_before_discord_is_asked(self, client, world):
+        world.market(discord=CONNECTED, **WITH_THE_FORM, **_seats("ana@example.com"))
+        world.applicant("ana@example.com", "ana")
+
+        response = _give(client)
+
+        assert response.status_code == 400
+        assert response.get_json()["error"] == DiscordConnection.NO_ROLE
+        assert world.discord.listed == [] and world.history.documents == []
+
+    def test_a_username_question_taken_off_the_form_is_refused(self, client, world):
+        world.market(discord=WITH_THE_ROLE, applicationForm={"fields": [SHOP_QUESTION]})
+
+        response = _give(client)
+
+        assert response.status_code == 400
+        assert response.get_json()["error"] == DiscordConnection.USERNAME_QUESTION_GONE
+        assert world.discord.listed == []
+
+    def test_a_market_not_connected_is_refused(self, client, world):
+        world.market(**WITH_THE_FORM)
+
+        response = _give(client)
+
+        assert response.status_code == 400
+        assert response.get_json()["error"] == DiscordConnection.NOT_CONNECTED
+
+    @pytest.mark.parametrize("role", [MarketRole.EDITOR, MarketRole.VIEWER])
+    def test_below_an_admin_is_refused(self, client, world, role):
+        world.market(role=role, discord=WITH_THE_ROLE, **WITH_THE_FORM,
+                     **_seats("ana@example.com"))
+
+        response = _give(client)
+
+        assert response.status_code == 403
+        assert world.discord.listed == [] and world.discord.given == []
+
+    def test_an_archived_market_refuses_it(self, client, world):
+        world.market(phase=MarketPhase.ARCHIVED, discord=WITH_THE_ROLE, **WITH_THE_FORM,
+                     **_seats("ana@example.com"))
+
+        response = _give(client)
+
+        assert response.status_code in (400, 403, 409)
+        assert world.discord.given == []
+
+    def test_connecting_to_another_server_forgets_the_run(self, client, world):
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
+        world.applicant("ana@example.com", "ana")
+        _give(client)
+        world.discord.server = Discord.Server(OTHER_GUILD, "Another server")
+
+        _connect(client)
+
+        assert "roleRun" not in _stored(world)
+
+    def test_disconnecting_forgets_the_run(self, client, world):
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
+        world.applicant("ana@example.com", "ana")
+        _give(client)
+
+        client.delete(f"/markets/{MARKET}/discord/connection")
+
+        assert _stored(world) == {"usernameQuestion": "discord_username"}
+
+    def test_a_card_changed_meanwhile_keeps_it_and_still_records_the_roles_given(
+        self, client, world,
+    ):
+        """The roles are given in Discord before the market is written, so a card changed while
+        the run asked is kept, and what the run did is still in the history."""
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
+        world.discord.members = [_member("1001", "ana")]
+        ana = world.applicant("ana@example.com", "ana")
+        changed = {**WITH_THE_ROLE, "roleId": "r-other", "roleName": "Other"}
+
+        world.discord.on_give = lambda _member: world.markets.doc.update(discord=changed)
+
+        response = _give(client)
+
+        assert response.status_code == 409, response.get_json()
+        assert response.get_json()["error"] == DiscordConnection.CHANGED_WHILE_GIVING
+        assert _stored(world) == changed
+        [entry] = world.history.documents
+        assert entry["detail"]["given"] == [ana]
+        assert entry["vendors"] == ["ana@example.com"]
+
+
+#: How long the fake Discord takes to answer each request, on the fake clock.
+PER_REQUEST = 0.05
+
+
+def _discord_on_a_clock(world, members, put_answer):
+    """Discord's own API faked under ``discord_client``, on a clock that each request and each wait
+    moves on, as the back end's would. ``put_answer(n)`` answers the n-th grant asked, from 1."""
+    world.patch.setattr(Discord, "server_members", LIST_MEMBERS)
+    world.patch.setattr(Discord, "RoleGrants", ROLE_GRANTS)
+    clock = SimpleNamespace(now=1000.0, waits=[], puts=[], started=None)
+    world.patch.setattr(Discord, "clock", lambda: clock.now)
+
+    def wait(seconds):
+        clock.waits.append(seconds)
+        clock.now += seconds
+
+    world.patch.setattr(Discord, "_wait", wait)
+
+    def request(method, url, **kwargs):
+        if clock.started is None:
+            clock.started = clock.now
+        clock.now += PER_REQUEST
+        if method == "GET":
+            return SimpleNamespace(status_code=200, ok=True, headers={}, json=lambda: members)
+        clock.puts.append(SimpleNamespace(url=url, **kwargs))
+        status, body, headers = put_answer(len(clock.puts))
+        return SimpleNamespace(status_code=status, ok=200 <= status < 300, headers=headers,
+                               json=lambda: body)
+
+    world.patch.setattr(Discord.requests, "request", request)
+    return clock
+
+
+def _given(_n):
+    return 204, None, {}
+
+
+class TestARunWithinItsTime:
+    """A run asks Discord for ``ROLE_RUN_SECONDS`` at most, then reports the rest as not given yet
+    and records what it gave: the back end is a function its host ends at a time limit, and a run
+    cut off there would have given roles and recorded nothing (T155 review, finding 1)."""
+
+    def test_the_back_end_keeps_fluid_computes_limit_well_past_the_run(self):
+        """The run's time is sized to Fluid compute's 300 seconds on the Hobby plan: without Fluid
+        the default is 10, and a run of ``ROLE_RUN_SECONDS`` would be ended mid-run."""
+        config = json.loads((Path(__file__).resolve().parents[1] / "vercel.json").read_text())
+
+        assert config.get("fluid") is True
+        assert all(function.get("maxDuration", 300) >= 2 * DiscordConnection.ROLE_RUN_SECONDS
+                   for function in config.get("functions", {}).values())
+        assert DiscordConnection.MEMBERS_READ_SECONDS < DiscordConnection.ROLE_RUN_SECONDS
+
+    def _fifty_four(self, world, has_role=()):
+        emails = [f"vendor{n}@example.com" for n in range(54)]
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats(*emails))
+        ids = [world.applicant(email, f"vendor{n}") for n, email in enumerate(emails)]
+        members = [{"user": {"id": str(2000 + n), "username": f"vendor{n}"},
+                    "roles": [ROLE] if n in has_role else []} for n in range(54)]
+        return ids, members
+
+    def test_every_tenth_grant_meeting_a_429_of_eight_seconds_ends_within_the_runs_time(
+        self, client, world,
+    ):
+        """The reviewer's plan: 54 assigned vendors in the server, every tenth grant answered with
+        a 429 asking eight seconds."""
+        ids, members = self._fifty_four(world)
+
+        def every_tenth_limited(n):
+            if n % 10 == 0:
+                return 429, {"retry_after": 8, "global": False}, {}
+            return 204, None, {}
+
+        clock = _discord_on_a_clock(world, members, every_tenth_limited)
+
+        response = _give(client)
+
+        assert response.status_code == 200, response.get_json()
+        assert clock.now - clock.started <= DiscordConnection.ROLE_RUN_SECONDS + PER_REQUEST
+        outcomes = _outcomes(world)
+        given = [app_id for app_id in ids if outcomes[app_id] == "given"]
+        not_yet = [app_id for app_id in ids if outcomes[app_id] == "not_yet"]
+        assert len(given) + len(not_yet) == 54
+        assert {each["reason"] for each in _run(world)["outcomes"]
+                if each["outcome"] == "not_yet"} <= {DiscordConnection.NOT_GIVEN_YET}
+        [entry] = world.history.documents
+        assert entry["detail"]["given"] == given
+        assert entry["detail"]["counts"]["not_yet"] == len(not_yet)
+        assert all(_states(world)[app_id] == "has_role" for app_id in given)
+        assert all(_states(world)[app_id] == "in_server" for app_id in not_yet)
+
+    def test_a_refill_later_than_the_runs_time_leaves_the_rest_not_given_yet(
+        self, client, world,
+    ):
+        """Discord says the route has no request left until after the run's time: the run stops
+        asking there, rather than wait or meet a 429."""
+        ids, members = self._fifty_four(world)
+
+        def exhausted_at_once(_n):
+            return 204, None, {"X-RateLimit-Remaining": "0",
+                               "X-RateLimit-Reset-After": str(DiscordConnection.ROLE_RUN_SECONDS)}
+
+        clock = _discord_on_a_clock(world, members, exhausted_at_once)
+
+        response = _give(client)
+
+        assert response.status_code == 200, response.get_json()
+        assert len(clock.puts) == 1
+        assert clock.waits == []
+        assert response.get_json()["counts"] == {
+            "given": 1, "already_had": 0, "not_found": 0, "no_username": 0, "not_yet": 53,
+            "failed": 0}
+        assert _run(world)["outcomes"][1] == {
+            "applicationId": ids[1], "outcome": "not_yet",
+            "reason": DiscordConnection.NOT_GIVEN_YET}
+
+    def test_the_pages_that_fit_at_a_slow_pace_are_read_and_the_role_given(self, client, world):
+        """A server of ``PAGES_THAT_FIT`` thousand members read at a slow pace leaves the grants
+        the rest of the run's time."""
+        last = PAGES_THAT_FIT * Discord.MEMBERS_PAGE
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
+        ana = world.applicant("ana@example.com", f"member{last}")
+        clock = _a_paged_server_on_a_clock(world, pages=PAGES_THAT_FIT,
+                                           seconds_per_page=SLOW_PAGE_SECONDS)
+
+        response = _give(client)
+
+        assert response.status_code == 200, response.get_json()
+        assert _outcomes(world) == {ana: "given"}
+        assert clock.read_by - clock.started <= DiscordConnection.MEMBERS_READ_SECONDS
+        assert len(clock.puts) == 1
+
+    def test_a_read_past_its_share_stops_there_not_at_the_runs_end(self, client, world):
+        """A read that runs out answers ``MEMBERS_TOO_SLOW``, with no grant, no write and no
+        history, at the end of its share rather than of the run."""
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
+        world.applicant("ana@example.com", "member0")
+        clock = _a_paged_server_on_a_clock(world, pages=PAGES_THAT_FIT + 1,
+                                           seconds_per_page=SLOW_PAGE_SECONDS)
+
+        response = _give(client)
+
+        assert response.get_json()["error"] == DiscordConnection.MEMBERS_TOO_SLOW
+        assert clock.now - clock.started <= DiscordConnection.MEMBERS_READ_SECONDS
+        assert clock.puts == []
+        assert _stored(world) == WITH_THE_ROLE
+        assert world.history.documents == []
+
+    def test_a_second_run_gives_the_rest(self, client, world):
+        ids, members = self._fifty_four(world, has_role=range(9))
+        clock = _discord_on_a_clock(world, members, _given)
+
+        response = _give(client)
+
+        assert response.status_code == 200, response.get_json()
+        assert len(clock.puts) == 45
+        assert response.get_json()["counts"]["given"] == 45
+        assert response.get_json()["counts"]["already_had"] == 9
+        assert response.get_json()["counts"]["not_yet"] == 0
+
+    def test_the_rate_limit_is_paced_rather_than_met(self, client, world):
+        """Discord says how many grants the route has left: at none, the next waits for the refill
+        within the run's time, and no 429 is met."""
+        ids, members = self._fifty_four(world)
+
+        def a_bucket_of_five(n):
+            left = 5 - (n - 1) % 5 - 1
+            return 204, None, {"X-RateLimit-Remaining": str(left), "X-RateLimit-Reset-After": "0.4"}
+
+        clock = _discord_on_a_clock(world, members, a_bucket_of_five)
+
+        response = _give(client)
+
+        assert response.status_code == 200, response.get_json()
+        assert clock.waits and all(wait == pytest.approx(0.4) for wait in clock.waits)
+        assert len(clock.puts) == response.get_json()["counts"]["given"]
+
+    def test_each_grant_names_conventioner_and_the_market_in_the_audit_log(self, client, world):
+        _ids, members = self._fifty_four(world)
+        clock = _discord_on_a_clock(world, members[:1], _given)
+
+        _give(client)
+
+        assert clock.puts[0].headers["X-Audit-Log-Reason"] == Discord.audit_reason(
+            "Conventioner: Give roles for Test Market")
+
+
+class TestACheckAndARunTogether:
+    """A check and a run that overlap: the run's states stand, since its grants are newer than any
+    member list read before them (T155 review, finding 3)."""
+
+    def test_a_check_that_read_the_server_before_a_run_never_puts_back_its_states(
+        self, client, world,
+    ):
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
+        world.discord.members = [_member("1001", "ana")]
+        ana = world.applicant("ana@example.com", "ana")
+        runs = []
+        reads = []
+
+        def server_members(_values, _guild, deadline=None):
+            reads.append(_guild)
+            members = list(world.discord.members)
+            if len(reads) == 1:
+                # The run lands between the check's read of the members and its write.
+                runs.append(_give(client))
+            return members
+
+        world.patch.setattr(Discord, "server_members", server_members)
+
+        response = _check(client)
+
+        assert runs[0].status_code == 200, runs[0].get_json()
+        assert response.status_code == 409, response.get_json()
+        assert response.get_json()["error"] == DiscordConnection.CHANGED_WHILE_CHECKING
+        assert _states(world) == {ana: "has_role"}
+        assert [entry["kind"] for entry in world.history.documents] == [
+            History.DISCORD_ROLES_GIVEN]
+
+    def test_a_check_landing_while_a_run_asks_is_overwritten_by_the_run(self, client, world):
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
+        world.discord.members = [_member("1001", "ana")]
+        ana = world.applicant("ana@example.com", "ana")
+        checks = []
+
+        def check_meanwhile(_member_id):
+            checks.append(_check(client))
+
+        world.discord.on_give = check_meanwhile
+
+        response = _give(client)
+
+        assert checks[0].status_code == 200, checks[0].get_json()
+        assert response.status_code == 200, response.get_json()
+        assert _states(world) == {ana: "has_role"}
+
+
+class TestTheRunsHistory:
+    def test_a_run_is_one_entry_naming_each_vendor_it_changed(self, client, world):
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats(
+            "ana@example.com", "ben@example.com", "cy@example.com"))
+        world.discord.members = [_member("1001", "ana"), _member("1003", "cy", [ROLE])]
+        ana = world.applicant("ana@example.com", "ana")
+        ben = world.applicant("ben@example.com", "ben")
+        world.applicant("cy@example.com", "cy")
+        _check(client)
+        world.history.documents.clear()
+
+        _give(client)
+
+        [entry] = world.history.documents
+        assert entry["actor"] == ADMIN and entry["at"]
+        assert entry["action"] == Actions.CONNECT_DISCORD.id
+        assert entry["kind"] == History.DISCORD_ROLES_GIVEN
+        assert entry["vendors"] == ["ana@example.com"]
+        assert entry["subject"] == {"application_ids": [ana]}
+        assert entry["detail"] == {
+            "role_name": "Vendor Nov 2026",
+            "given": [ana],
+            "before": {ana: "in_server"},
+            "after": {ana: "has_role"},
+            "addresses": {ana: "ana@example.com"},
+            "counts": {"given": 1, "already_had": 1, "not_found": 1, "no_username": 0, "not_yet": 0,
+                       "failed": 0},
+        }
+        assert ben not in entry["detail"]["before"]
+
+    def test_a_role_given_over_a_stale_has_the_role_is_still_named(self, client, world):
+        """Someone took the role away in Discord since the last check: the state reads the same
+        before and after, but the run gave it."""
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
+        world.discord.members = [_member("1001", "ana", [ROLE])]
+        ana = world.applicant("ana@example.com", "ana")
+        _check(client)
+        world.history.documents.clear()
+        world.discord.members = [_member("1001", "ana")]
+
+        _give(client)
+
+        [entry] = world.history.documents
+        assert entry["vendors"] == ["ana@example.com"]
+        assert entry["detail"]["given"] == [ana]
+        assert entry["detail"]["before"] == {ana: "has_role"}
+
+    def test_a_run_that_changed_nobody_still_says_who_ran_it(self, client, world):
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
+        world.applicant("ana@example.com", "ana")
+        _give(client)
+        world.history.documents.clear()
+
+        _give(client)
+
+        [entry] = world.history.documents
+        assert entry["actor"] == ADMIN
+        assert entry["vendors"] == [] and entry["detail"]["given"] == []
+        assert entry["detail"]["counts"]["not_found"] == 1
+
+    def test_the_vendors_own_history_holds_the_role_given(self, client, world):
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats(
+            "ana@example.com", "ben@example.com"))
+        world.discord.members = [_member("1001", "ana"), _member("1002", "ben")]
+        world.applicant("ana@example.com", "ana")
+        world.applicant("ben@example.com", "ben")
+
+        _give(client)
+
+        # What the drawer's History tab reads: the market's history narrowed to the vendor.
+        mine, _after = History.entries_page(MARKET, vendor="Ben@example.com")
+        [entry] = mine
+        assert entry["kind"] == History.DISCORD_ROLES_GIVEN
+        assert entry["actor"] == ADMIN and entry["at"]
+        everyone, _after = History.entries_page(MARKET)
+        assert [each["kind"] for each in everyone] == [History.DISCORD_ROLES_GIVEN]
 
 
 def _alike(user_id, username, display_name=None, nick=None, roles=()):
@@ -1190,7 +1944,7 @@ class TestPossibleMatches:
         fern = world.applicant("fern@example.com", "Fern Studio")
         _check(client)
 
-        def server_members(_values, _guild):
+        def server_members(_values, _guild, deadline=None):
             assert _decline(client, fern, "fern_studio_42").status_code == 200
             return world.discord.members
 
@@ -1288,6 +2042,31 @@ class TestWhatThePageShows:
                   "moreMatches": 0},
             never: {"state": "no_username", "shown": "no_username", "possibleMatches": [],
                     "moreMatches": 0},
+        }
+
+    def test_a_give_roles_run_keeps_the_offers_and_what_was_declined(self, client, world):
+        """A run writes every vendor's state as a check does (E46/F01/S04), so it offers what a
+        check would: a vendor it gave the role reads "Has the role", not "Check again", and one
+        not found keeps the members offered, the declined left out."""
+        world.market(_id="mongo-market-123", discord={**CONNECTED, "roleId": "r-vendor",
+                                                      "roleName": "Vendor Test"},
+                     **WITH_THE_FORM, **_seats("fern@example.com", "oak@example.com"))
+        world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio"),
+                                 _alike("1003", "fern.studio", nick="Fern Studio"),
+                                 _alike("1002", "oak.and.co")]
+        fern = world.applicant("fern@example.com", "Fern Studio")
+        oak = world.applicant("oak@example.com", "oak.and.co")
+        _check(client)
+        assert _decline(client, fern, "fern.studio").status_code == 200
+
+        assert _give(client).status_code == 200
+
+        assert _shown(client) == {
+            fern: {"state": "not_found", "shown": "possible_match", "moreMatches": 0,
+                   "possibleMatches": [{"username": "fern_studio_42", "displayName": "Fern Studio",
+                                        "nick": None}]},
+            oak: {"state": "has_role", "shown": "has_role", "possibleMatches": [],
+                  "moreMatches": 0},
         }
 
     def test_a_member_declined_is_left_out_and_with_none_left_the_vendor_is_not_found(
@@ -1413,15 +2192,17 @@ class TestWhatThePageShows:
     def test_the_market_contract_declares_what_the_read_serves(self, client, world):
         """``docs/schema.d.ts``, generated from ``MarketSchemaContract``, is the market as the front
         end receives it (T156 rereview note 9): its connection declares no field the read leaves
-        out, and ``discordVendors`` is declared as served."""
+        out, and ``discordVendors`` is declared as served. A "Give roles" run first, so its report
+        is served too."""
         from datatypes import MarketSchemaContract
 
         world.market(_id="mongo-market-123", discord={**CONNECTED, "roleId": "r-vendor",
                                                       "roleName": "Vendor Test",
                                                       "inviteLink": "https://discord.gg/abc123"},
-                     **WITH_THE_FORM)
+                     **WITH_THE_FORM, **_seats("fern@example.com"))
         world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio")]
         fern = world.applicant("fern@example.com", "Fern Studio")
+        assert _give(client).status_code == 200
         _check(client)
         _decline(client, fern, "fern_studio_42")
         world.discord.members.append(_alike("1002", "fernstudio", nick="Fern Studio"))

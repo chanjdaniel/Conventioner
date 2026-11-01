@@ -22,7 +22,8 @@ in the market's history, the fields before and after.
 row: it lists the server's members and matches each vendor's username, as the organizer reads it,
 against their usernames alone, never a display name (Daniel, Q19), then keeps each vendor's state
 with when it was checked. A check is one entry in the history, naming each vendor whose state it
-changed.
+changed. It reads the members for ``MEMBERS_READ_SECONDS`` at most, as a run does, and a read
+that runs out writes and records nothing.
 
 **A vendor "Not found" is offered possible matches** (E46/F01/S05): the members whose username,
 display name or server nickname looks like the username on file, each shown in the vendor's
@@ -31,6 +32,15 @@ ordinary update of the vendor's answer, saving the member's username (``api.vend
 "Update a vendor's info"), so the next check matches them, and declining keeps the member from
 being offered to that vendor again. Never applied by the check itself (Daniel, Q19: never by a
 display name alone).
+
+**"Give roles" gives the card's role to every assigned vendor in the server** (E46/F01/S04), under
+the same row: it reads the members as a check does, asks Discord to give the role to each assigned
+vendor matched who does not hold it, never takes a role away, and keeps the run's report beside the
+states it updates. A run is one entry in the history, naming each vendor it gave the role or whose
+state it changed. It asks Discord for ``ROLE_RUN_SECONDS`` at most, the members read within the
+first ``MEMBERS_READ_SECONDS`` of them, so the back end's function is never ended mid-run with
+roles given and nothing recorded: the vendors it had no time for are "not given yet", and a second
+run gives them.
 """
 import hmac
 import re
@@ -49,13 +59,16 @@ import api.markets as MarketsApi
 import api.vendor_info as VendorInfo
 import discord_client as Discord
 import history as History
+import result_outcome as ResultOutcome
 from assignment.utils import convert_keys_to_camel_case
 from client_errors import BadRequestError, ConflictError
 from datatypes import (
-    ApplicationType, DiscordConnection, DiscordPossibleMatch, DiscordVendorState, Market,
+    ApplicationType, DiscordConnection, DiscordPossibleMatch, DiscordRoleOutcome, DiscordRoleRun,
+    DiscordVendorState, Market,
 )
 from market_documents import market_doc_filter, market_doc_key
 from utils.email import frontend_url
+from utils.email_address import normalized_email
 from utils.request_body import string_field
 
 #: The app's page Discord sends the person back to. Registered as a redirect in the Developer Portal
@@ -85,10 +98,10 @@ USERNAME_QUESTION_GONE = (
 )
 
 #: What a server's connection is, and what is forgotten when the market connects to another one:
-#: the card's choices for that server, and what its check found there.
+#: the card's choices for that server, and what its check and its last run found there.
 SERVER_FIELDS = ("guild_id", "guild_name")
 SERVER_CHOICES = ("role_id", "role_name", "invite_link", "checked_at", "vendor_states",
-                  "declined_matches")
+                  "declined_matches", "role_run")
 #: What a check found, forgotten too when the card's username question changes: the states were
 #: read against the old question's answers.
 CHECK_FIELDS = ("checked_at", "vendor_states")
@@ -101,8 +114,35 @@ RECORDED_FIELDS = ("guild_id", "guild_name", "role_id", "role_name", "invite_lin
 #: read refuses the check's write rather than be undone by it, or carry states read for another.
 CHECKED_AGAINST = ("guild_id", "role_id", "username_question")
 CHANGED_WHILE_CHECKING = (
-    "The Discord card changed while Discord was being checked. Check Discord again."
+    "The Discord card changed, or roles were given, while Discord was being checked. "
+    "Check Discord again."
 )
+
+CHANGED_WHILE_GIVING = (
+    "The Discord card changed while roles were being given. The roles given are in the market's "
+    "history; check Discord again."
+)
+NO_ROLE = "Choose the role to give on the Discord card first, on the market's Tools tab."
+
+#: How long a run may ask Discord, from the route's start. The back end runs as a Vercel function
+#: with Fluid compute (``back-end/vercel.json``), which Vercel ends at its maximum duration: 300
+#: seconds by default, and at most, on the Hobby plan. A run asks for far less, since the organizer
+#: watches "Giving roles…" meanwhile and a connection idle for a minute may be closed on the way;
+#: what it had no time for, a second run gives.
+ROLE_RUN_SECONDS = 50
+#: How long the members are read, from the route's start: a check's whole time, and the share of a
+#: run's that leaves its grants at least 35 seconds. At half a second a page of 1000, a slow pace
+#: for Discord, 29 full pages and a last one fit: a server of fewer than 30,000 members.
+MEMBERS_READ_SECONDS = 15
+NOT_GIVEN_YET = (
+    "A run asks Discord for under a minute, and Discord was still pacing it. "
+    "Give roles again to finish."
+)
+MEMBERS_TOO_SLOW = "Discord was slow to list the server's members. Give roles again."
+CHECK_TOO_SLOW = "Discord was slow to list the server's members. Check Discord again."
+#: The run's grants as the server's audit log names them, so its moderators can tell them from a
+#: role given by hand.
+AUDIT_REASON = "Conventioner: Give roles for {market}"
 
 #: Each vendor as a check finds them, in the order the Vendors page counts them.
 HAS_ROLE = "has_role"
@@ -135,6 +175,13 @@ STATE_LABELS = {
     NO_USERNAME: "No username",
     CHECK_AGAIN: "Check again",
 }
+
+#: Each assigned vendor as a "Give roles" run leaves them, in the order its report counts them.
+GIVEN = "given"
+ALREADY_HAD = "already_had"
+NOT_YET = "not_yet"
+FAILED = "failed"
+OUTCOMES = (GIVEN, ALREADY_HAD, NOT_FOUND, NO_USERNAME, NOT_YET, FAILED)
 
 #: An old Discord tag, "name#1234", from before usernames were unique: its number is not part of
 #: the username a member now has.
@@ -245,69 +292,224 @@ def check(market_id: str, requesting_user: str) -> Dict[str, Any]:
     Every main application of the market is a vendor checked, by its username as the organizer
     reads it (an update in its place, ``effective_answers``). The username question is checked
     again here, since it is checked only when the card saves it and the form may have lost it
-    since.
+    since. The members are read within ``MEMBERS_READ_SECONDS``: a read that runs out writes and
+    records nothing, and answers ``CHECK_TOO_SLOW``.
     """
+    deadline = Discord.clock() + MEMBERS_READ_SECONDS
     market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.CONNECT_DISCORD)
     before = _connection(market)
-    question = before.username_question
-    if not question:
-        raise BadRequestError(NO_USERNAME_QUESTION)
-    if question not in _text_questions(market):
-        raise BadRequestError(USERNAME_QUESTION_GONE)
+    question = _username_question(market, before)
 
-    members = Discord.server_members(Discord.required_credentials(), before.guild_id)
-    roles_by_username: Dict[str, set] = {}
-    for member in members:
-        roles_by_username.setdefault(tidied_username(member.username), set()).update(member.roles)
-
+    try:
+        members = _server_members(before, deadline=deadline)
+    except Discord.OutOfTime:
+        raise Discord.DiscordUnavailable(CHECK_TOO_SLOW)
     vendors = _vendors_usernames(market_id, question)
-    declined = before.declined_matches or {}
-    states = []
-    for app_id, _email, answer, username in vendors:
-        state = _state(username, roles_by_username, before.role_id)
-        offered, more = (_possible_matches(answer, members, declined.get(app_id) or [])
-                         if state == NOT_FOUND else ([], 0))
-        states.append(DiscordVendorState(
-            application_id=app_id, state=state, answer=answer,
-            possible_matches=offered or None, more_matches=more or None))
+    states = _states(vendors, members, before)
     after = before.model_copy(update={"checked_at": _checked_at(), "vendor_states": states})
-    # Only the check's own fields, and only while the card still names what the states were read
-    # against: the members take seconds to read, and a card saved meanwhile is not undone. A
-    # vendor's state leaves out what it does not have: no answer, no offer.
-    discord = market_doc_key("discord")
-    stored = {
-        "checkedAt": after.checked_at,
-        "vendorStates": [convert_keys_to_camel_case(vendor.model_dump(exclude_none=True))
-                         for vendor in states],
-    }
-    unchanged = {f"{discord}.{market_doc_key(field)}": getattr(before, field)
-                 for field in CHECKED_AGAINST}
-    written = MarketsApi.markets_collection.update_one(
-        {**market_doc_filter("id", market.id), **unchanged},
-        {"$set": {f"{discord}.{key}": value for key, value in stored.items()}})
-    if written.matched_count == 0:
+    # A run or another check that wrote since this one began read the members later, and a run's
+    # grants are newer than any list read before them: this check's states are not put back over
+    # theirs.
+    if not _write_found(market, before, after, ("checked_at", "vendor_states"),
+                        unchanged=CHECKED_AGAINST + ("checked_at",)):
         raise ConflictError(CHANGED_WHILE_CHECKING)
 
-    counts = {state: 0 for state in STATES}
-    for vendor in states:
-        counts[vendor.state] = counts.get(vendor.state, 0) + 1
-    was = {vendor.application_id: vendor.state for vendor in before.vendor_states or []}
-    changed = [(app_id, email) for (app_id, email, _, _), now in zip(vendors, states)
-               if was.get(app_id) != now.state]
-    now_by_id = {vendor.application_id: vendor.state for vendor in states}
+    counts = _counts(STATES, (vendor.state for vendor in states))
+    changed = _changed_states(before, states, vendors)
     History.record(
         market.id, requesting_user, Actions.CONNECT_DISCORD, kind=History.DISCORD_CHECKED,
         vendors=[email for _, email in changed],
         subject={"application_ids": [app_id for app_id, _ in changed]},
         # Each vendor's address beside their state, by application id: ``vendors`` leaves out an
         # application with no address, so it does not pair with the ids by position.
-        detail={
-            "before": {app_id: was.get(app_id) for app_id, _ in changed},
-            "after": {app_id: now_by_id[app_id] for app_id, _ in changed},
-            "addresses": {app_id: email for app_id, email in changed},
-            "counts": counts,
-        })
+        detail=_state_detail(before, states, changed, counts))
     return {"counts": counts, "checkedAt": after.checked_at}
+
+
+def give_roles(market_id: str, requesting_user: str) -> Dict[str, Any]:
+    """Give the card's role to every assigned vendor in the server, keep the run's report and each
+    vendor's state as the run found them, and answer how many ended in each outcome.
+
+    Assigned is holding a seat on any date of the stored assignment (``seated_addresses``). A run
+    only ever gives: a vendor who lost their seat keeps the role they have (Daniel, T92 Q19). It
+    reads the server's members once, as a check does, so it updates every vendor's state, and asks
+    Discord to give the role only to an assigned vendor whose username a member has and who does
+    not hold it yet. A refusal of one member (they left meanwhile) is theirs alone; any other
+    refusal would refuse every grant alike, so the run stops asking and the rest fail with it.
+    When its ``ROLE_RUN_SECONDS`` end, it stops asking too, and the rest are not given yet. The
+    members are read within the first ``MEMBERS_READ_SECONDS`` of them, so the grants keep the
+    rest: a read that runs out gives nobody the role and answers ``MEMBERS_TOO_SLOW``.
+
+    Its states are written whatever a check wrote while it asked: its grants are newer than the
+    members that check read.
+    """
+    started = Discord.clock()
+    deadline = started + ROLE_RUN_SECONDS
+    market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.CONNECT_DISCORD)
+    before = _connection(market)
+    if not before.role_id:
+        raise BadRequestError(NO_ROLE)
+    question = _username_question(market, before)
+    values = Discord.required_credentials()
+
+    try:
+        members = _server_members(before, deadline=started + MEMBERS_READ_SECONDS)
+    except Discord.OutOfTime:
+        raise Discord.DiscordUnavailable(MEMBERS_TOO_SLOW)
+    by_username = _by_username(members)
+    vendors = _vendors_usernames(market_id, question)
+    states = {vendor.application_id: vendor for vendor in _states(vendors, members, before)}
+    seated = ResultOutcome.seated_addresses(market)
+    role_name = before.role_name or ""
+    grants = Discord.RoleGrants(values, before.guild_id, before.role_id, role_name,
+                                reason=AUDIT_REASON.format(market=market.name), deadline=deadline)
+    outcomes: List[DiscordRoleOutcome] = []
+    given: List[str] = []
+    #: Once the run stops asking: the outcome and reason of every vendor still to be asked.
+    stopped: Optional[tuple] = None
+    for app_id, email, _answer, username in vendors:
+        if normalized_email(email) not in seated:
+            continue
+        member = by_username.get(username) if username else None
+        reason = None
+        if not username:
+            outcome = NO_USERNAME
+        elif member is None:
+            outcome = NOT_FOUND
+        elif before.role_id in member.roles:
+            outcome = ALREADY_HAD
+        elif stopped:
+            outcome, reason = stopped
+        else:
+            try:
+                grants.give(member.id)
+                outcome = GIVEN
+                given.append(app_id)
+                states[app_id] = states[app_id].model_copy(update={"state": HAS_ROLE})
+            except Discord.MemberGone as gone:
+                outcome, reason = FAILED, str(gone)
+                states[app_id] = states[app_id].model_copy(update={"state": NOT_FOUND})
+            except Discord.OutOfTime:
+                stopped = (NOT_YET, NOT_GIVEN_YET)
+                outcome, reason = stopped
+            except (Discord.DiscordRefused, Discord.DiscordUnavailable) as refused:
+                stopped = (FAILED, str(refused))
+                outcome, reason = stopped
+        outcomes.append(DiscordRoleOutcome(application_id=app_id, outcome=outcome, reason=reason))
+
+    ran_at = _checked_at()
+    counts = _counts(OUTCOMES, (each.outcome for each in outcomes))
+    found = list(states.values())
+    after = before.model_copy(update={
+        "checked_at": ran_at, "vendor_states": found,
+        "role_run": DiscordRoleRun(ran_at=ran_at, role_name=role_name or None, outcomes=outcomes),
+    })
+    written = _write_found(market, before, after, ("checked_at", "vendor_states", "role_run"))
+    # The roles are given in Discord whether or not the market could be written: the history says
+    # so either way, and the states only when they were kept.
+    changed = _changed_states(before, found, vendors) if written else []
+    named = {app_id for app_id, _ in changed} | set(given)
+    named_vendors = [(app_id, email) for app_id, email, *_ in vendors if app_id in named]
+    History.record(
+        market.id, requesting_user, Actions.CONNECT_DISCORD, kind=History.DISCORD_ROLES_GIVEN,
+        vendors=[email for _, email in named_vendors],
+        subject={"application_ids": [app_id for app_id, _ in named_vendors]},
+        detail={"role_name": role_name, "given": given,
+                **_state_detail(before, found, named_vendors, counts)})
+    if not written:
+        raise ConflictError(CHANGED_WHILE_GIVING)
+    return {"counts": counts, "ranAt": ran_at}
+
+
+def _username_question(market: Market, connection: DiscordConnection) -> str:
+    """The card's username question, checked again: the form may have lost it since it was saved."""
+    question = connection.username_question
+    if not question:
+        raise BadRequestError(NO_USERNAME_QUESTION)
+    if question not in _text_questions(market):
+        raise BadRequestError(USERNAME_QUESTION_GONE)
+    return question
+
+
+def _server_members(connection: DiscordConnection, deadline: float) -> List[Discord.Member]:
+    """The server's members, read by ``deadline``."""
+    return Discord.server_members(Discord.required_credentials(), connection.guild_id,
+                                  deadline=deadline)
+
+
+def _by_username(members: List[Discord.Member]) -> Dict[str, Discord.Member]:
+    """The members by their username, tidied as a vendor's is."""
+    by_username: Dict[str, Discord.Member] = {}
+    for member in members:
+        by_username.setdefault(tidied_username(member.username), member)
+    return by_username
+
+
+def _states(vendors: List[tuple], members: List[Discord.Member],
+            connection: DiscordConnection) -> List[DiscordVendorState]:
+    """Each vendor's state as the members read, with the answer it was read for, and a vendor not
+    found offered the members who look like them, leaving out those declined for them."""
+    by_username = _by_username(members)
+    declined = connection.declined_matches or {}
+    states = []
+    for app_id, _email, answer, username in vendors:
+        state = _state(username, by_username, connection.role_id)
+        offered, more = (_possible_matches(answer, members, declined.get(app_id) or [])
+                         if state == NOT_FOUND else ([], 0))
+        states.append(DiscordVendorState(
+            application_id=app_id, state=state, answer=answer,
+            possible_matches=offered or None, more_matches=more or None))
+    return states
+
+
+def _write_found(market: Market, before: DiscordConnection, after: DiscordConnection,
+                 fields: tuple, unchanged: tuple = CHECKED_AGAINST) -> bool:
+    """Write ``fields`` of ``after``, and only while the connection's ``unchanged`` fields are as
+    ``before`` read them: by default the server, the role and the username question the members
+    were read against, since the members take seconds to read and a card saved meanwhile is not
+    undone. A vendor's state leaves out what it does not have: no answer, no offer. Whether it was
+    written."""
+    discord = market_doc_key("discord")
+    stored = convert_keys_to_camel_case(after.model_dump(include=set(fields) - {"vendor_states"}))
+    if "vendor_states" in fields:
+        stored["vendorStates"] = [convert_keys_to_camel_case(vendor.model_dump(exclude_none=True))
+                                  for vendor in after.vendor_states or []]
+    as_read = {f"{discord}.{market_doc_key(field)}": getattr(before, field)
+               for field in unchanged}
+    written = MarketsApi.markets_collection.update_one(
+        {**market_doc_filter("id", market.id), **as_read},
+        {"$set": {f"{discord}.{key}": value for key, value in stored.items()}})
+    return written.matched_count > 0
+
+
+def _counts(kinds: tuple, found: Any) -> Dict[str, int]:
+    counts = {kind: 0 for kind in kinds}
+    for kind in found:
+        counts[kind] = counts.get(kind, 0) + 1
+    return counts
+
+
+def _changed_states(before: DiscordConnection, states: List[DiscordVendorState],
+                    vendors: List[tuple]) -> List[tuple]:
+    """Each vendor whose state is not the one the last check or run kept: id and address."""
+    was = {vendor.application_id: vendor.state for vendor in before.vendor_states or []}
+    now = {vendor.application_id: vendor.state for vendor in states}
+    return [(app_id, email) for app_id, email, *_ in vendors
+            if was.get(app_id) != now.get(app_id)]
+
+
+def _state_detail(before: DiscordConnection, states: List[DiscordVendorState],
+                  changed: List[tuple], counts: Dict[str, int]) -> Dict[str, Any]:
+    """The states of the vendors a check or a run ``changed``, before and after, with each one's
+    address, by application id, and how many it found in each state or outcome."""
+    was = {vendor.application_id: vendor.state for vendor in before.vendor_states or []}
+    now = {vendor.application_id: vendor.state for vendor in states}
+    return {
+        "before": {app_id: was.get(app_id) for app_id, _ in changed},
+        "after": {app_id: now.get(app_id) for app_id, _ in changed},
+        "addresses": {app_id: email for app_id, email in changed},
+        "counts": counts,
+    }
 
 
 def tidied_username(written: str) -> str:
@@ -483,13 +685,13 @@ def decline_match(
                 "nick": offered.nick, "answer": vendor.answer})
 
 
-def _state(username: str, roles_by_username: Dict[str, set], role_id: Optional[str]) -> str:
+def _state(username: str, members: Dict[str, Discord.Member], role_id: Optional[str]) -> str:
     if not username:
         return NO_USERNAME
-    roles = roles_by_username.get(username)
-    if roles is None:
+    member = members.get(username)
+    if member is None:
         return NOT_FOUND
-    return HAS_ROLE if role_id and role_id in roles else IN_SERVER
+    return HAS_ROLE if role_id and role_id in member.roles else IN_SERVER
 
 
 def _vendors_usernames(market_id: str, question: str) -> List[tuple]:

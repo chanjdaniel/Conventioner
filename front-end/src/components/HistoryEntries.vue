@@ -11,6 +11,7 @@ import { IntakeMode, type FormField, type RejectionQuestion } from '@/assets/typ
 import type { VendorNames } from '@/utils/vendorIdentity';
 import {
   addressParts,
+  dotPieces,
   entryChanges,
   entryParts,
   entryWhen,
@@ -190,7 +191,24 @@ onUpdated(measureFields);
           <tbody>
             <tr v-for="row in changesOf(entry).changed" :key="row.field">
               <th scope="row">
-                <span class="history-field-name">{{ row.field }}</span>
+                <!-- A field may be a vendor's address, a check's or a run's row: it breaks, if at
+                     all, only before its "@", as the values do (T137 review note 7). -->
+                <span class="history-field-name"
+                  ><template v-for="(part, p) in addressParts(row.field)" :key="p"
+                    ><template v-if="part.kind === 'text'">{{ part.text }}</template
+                    ><template v-else
+                      ><span class="history-address"
+                        ><template v-for="(piece, d) in dotPieces(part.local)" :key="d"
+                          ><wbr v-if="d" />{{ piece }}</template
+                        ></span
+                      ><wbr /><span class="history-address"
+                        ><template v-for="(piece, d) in dotPieces(part.domain)" :key="d"
+                          ><wbr v-if="d" />{{ piece }}</template
+                        ></span
+                      ></template
+                    ></template
+                  ></span
+                >
               </th>
               <td
                 v-for="(side, s) in valueColumns(entry).length === 1
@@ -211,8 +229,15 @@ onUpdated(measureFields);
                 <template v-for="(part, p) in addressParts(side)" v-else :key="p">
                   <template v-if="part.kind === 'text'">{{ part.text }}</template>
                   <template v-else
-                    ><span class="history-address">{{ part.local }}</span
-                    ><wbr /><span class="history-address">{{ part.domain }}</span></template
+                    ><span class="history-address"
+                      ><template v-for="(piece, d) in dotPieces(part.local)" :key="d"
+                        ><wbr v-if="d" />{{ piece }}</template
+                      ></span
+                    ><wbr /><span class="history-address"
+                      ><template v-for="(piece, d) in dotPieces(part.domain)" :key="d"
+                        ><wbr v-if="d" />{{ piece }}</template
+                      ></span
+                    ></template
                   >
                 </template>
               </td>
@@ -349,8 +374,14 @@ onUpdated(measureFields);
   overflow-wrap: normal;
 }
 
+/* Each part of an address, before its "@" and from it, holds one line where the column has room
+   for it, so the address breaks first at its "@"; a part wider than the column on its own, an
+   address in a phone's Field column, breaks before a dot (`dotPieces`), then at a hyphen, and only
+   then inside a word, rather than running over the next column (T137 review note 7). */
 .history-address {
-  white-space: nowrap;
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .history-table thead th {

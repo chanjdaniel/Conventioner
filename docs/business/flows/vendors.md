@@ -6,6 +6,8 @@ describes:
   - front-end/src/components/ExportVendorsDialog.vue
   - front-end/src/utils/vendorExport.ts
   - back-end/api/vendor_export.py
+  - front-end/src/components/GiveRolesDialog.vue
+  - front-end/src/components/DiscordRoleReport.vue
 verified: 2026-10-31
 sources:
   - wayfinding/claims-and-room/04
@@ -23,7 +25,6 @@ sources:
   - E42/F01/S02
   - E42/F01/S03
   - E42/F01/S04
-  - E42/F01/S05
   - E41/F01/S01
   - E38/F08/S02
   - T139
@@ -31,6 +32,8 @@ sources:
   - E43/F01/S03
   - E46/F01/S05
   - T137
+  - E42/F01/S05
+  - E46/F01/S04
 ---
 
 # Vendors
@@ -110,7 +113,7 @@ On a market connected to a Discord server with a username question chosen ([the 
 
 Each row's columns keep their place down the list at every width: the Discord state, then Assigned, Unassigned or the verdict, then "Added" in a slot of its own while anyone listed was added by hand, then the date count (T137 review note 6: "Added" once stood before the badge and moved a vendor's Discord chip 63px left of every other row's).
 
-A check that cannot run says why under the button: the market lost its username question ("Choose the username question again"), Discord cannot be reached, or the bot is no longer in the server.
+A check that cannot run says why under the button: the market lost its username question ("Choose the username question again"), Discord cannot be reached, Discord took too long to list the server's members ("Check Discord again"), or the bot is no longer in the server.
 Covered by: `who-is-in-the-discord-server.spec.ts`, `whoIsInTheDiscordServer.test.ts`, `back-end/tests/test_discord_connection.py`.
 
 ## J17. Answer a possible Discord match
@@ -127,6 +130,22 @@ For such a vendor it offers the members whose username, display name or server n
 Someone either row refuses reads the members offered with no control.
 Both are in [the market's history](reading-the-markets-history.md) and the vendor's own: the update as every update is, and "said the Discord member @<username> is not <vendor>".
 Covered by: `possible-discord-matches.spec.ts`, `possibleDiscordMatches.test.ts`, `whoMayAnswerADiscordMatch.test.ts`, `back-end/tests/test_discord_connection.py` (`TestPossibleMatches`, `TestWhatThePageShows`).
+
+## J18. Give the market's role to the assigned vendors
+
+**Status:** Works against the stack's fake Discord (E46/F01/S04, `giving-the-discord-role.spec.ts`); not yet walked against a real server.
+On a market connected to a Discord server, with a role and a username question chosen on the Discord card, the organizer gives the market's role to every vendor holding a seat who is in the server, in one run ([the Discord connection](../../implementation/modules/discord.md#giving-the-role)).
+
+1. "Give roles", beside "Check Discord", for an Admin or the owner (the same row), is offered once anyone holds a seat.
+2. It confirms first ([`GiveRolesDialog.vue`](../../../front-end/src/components/GiveRolesDialog.vue)), by the role's name and how many vendors hold a seat on any date: "Give Vendor Nov 2026 to 54 assigned vendors?", saying that it never takes a role away.
+3. The run reads the server's members as a check does, gives the role to each assigned vendor matched who does not hold it, and updates every vendor's Discord state; "Give roles" reads "Giving roles…" meanwhile, and neither it nor "Check Discord" is offered while the other runs.
+   It asks Discord for under a minute: the vendors it had no time for are "Not given yet", and running it again gives them.
+4. Its report ([`DiscordRoleReport.vue`](../../../front-end/src/components/DiscordRoleReport.vue)) stays above the list for everyone who reads the page: "Vendor Nov 2026, last run 5 minutes ago", how many ended in each group ("2 given, 1 already had it, 1 not found, 1 no username"), and "Show who" opens each group's vendors, a failure's reason, or why the rest are not given yet, said once for the vendors it held back.
+   A vendor the run did not find whom the check now offers a possible match ([J17](#j17-answer-a-possible-discord-match)) is counted beside "not found", as their row says it: "1 not found (1 possible match)", and the group says "1 has a possible match to confirm or decline."
+
+**A run only gives**: a vendor who has lost their seat keeps the role they have (Daniel, T92 Q19).
+A run that cannot start says why in the dialog: no role chosen, the username question gone, Discord out of reach, or the bot no longer in the server.
+Covered by: `giving-the-discord-role.spec.ts`, `givingTheDiscordRole.test.ts`, `back-end/tests/test_discord_connection.py`.
 
 ## Superseded
 

@@ -222,6 +222,39 @@ describe('the History section', () => {
     );
   });
 
+  it('breaks an address in the Field column only before its "@", as the values do', async () => {
+    // A check's rows name each vendor in the Field column (T137 review note 7): at 390 an
+    // address ran on unbroken past the column.
+    serve({
+      entries: [
+        {
+          ...assigned('e1', 1),
+          action: 'connect-discord',
+          kind: 'discord_checked',
+          vendors: ['e2e-discord-a-long-address@riverside-makers.example.com'],
+          subject: { application_ids: ['app-ana'] },
+          detail: {
+            before: { 'app-ana': null },
+            after: { 'app-ana': 'not_found' },
+            addresses: { 'app-ana': 'e2e-discord-a-long-address@riverside-makers.example.com' },
+            counts: { not_found: 1 },
+          },
+        },
+      ],
+      next: null,
+    });
+    const wrapper = mountHistory();
+    await flushPromises();
+    await wrapper.get('[data-testid="market-history-toggle"]').trigger('click');
+
+    const field = wrapper.get('[data-testid="market-history-changes"] tbody th');
+    expect(field.findAll('.history-address').map((part) => part.text())).toEqual([
+      'e2e-discord-a-long-address',
+      '@riverside-makers.example.com',
+    ]);
+    expect(field.find('wbr').exists()).toBe(true);
+  });
+
   it('names a permission row by the label the market’s table gives it', async () => {
     serve({
       entries: [
