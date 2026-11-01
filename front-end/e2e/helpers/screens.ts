@@ -742,7 +742,7 @@ export const SCREENS: Screen[] = [
     // are (T181). It opens on `big`, whose plan asks the tiers, the table and the section ranking.
     name: "an Editor's update-info dialog, the essentials locked",
     who: 'editor',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       screen('big', 'vendors'),
       'vendors-list-item',
