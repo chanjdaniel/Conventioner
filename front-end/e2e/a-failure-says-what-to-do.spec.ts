@@ -11,6 +11,7 @@ import {
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
 import { LoginPage } from './pages/LoginPage';
+import { MarketsPage } from './pages/MarketsPage';
 import { MarketSetupPage } from './pages/MarketSetupPage';
 
 /**
@@ -362,7 +363,10 @@ test.describe('a page that could not be opened', () => {
   // A screen's code is fetched the first time it is opened; with no connection the click would do
   // nothing. The shell says why, and Try again opens the page once the connection is back.
   test('says the connection, and Try again opens it', async ({ authenticatedPage: page }) => {
-    await page.goto('/markets');
+    // Stand on a Markets page that has finished loading its code before losing the connection:
+    // taken offline mid-load, the page's own lazy import would fail too and its Try again would
+    // reload Markets instead of the page the navigation named.
+    await new MarketsPage(page).goto();
     await expect(page.getByTestId('markets-read-failed')).toHaveCount(0);
     const code = /\/src\/views\/OrganizationsView\.vue/;
     await page.route(code, (route) => route.abort('internetdisconnected'));
@@ -384,7 +388,7 @@ test.describe('a page that could not be opened', () => {
   test('says the page could not be opened when its code is gone, as after a deploy', async ({
     authenticatedPage: page,
   }) => {
-    await page.goto('/markets');
+    await new MarketsPage(page).goto();
     await expect(page.getByTestId('markets-read-failed')).toHaveCount(0);
     const code = /\/src\/views\/OrganizationsView\.vue/;
     await page.route(code, (route) => route.fulfill({ status: 404, body: '' }));
