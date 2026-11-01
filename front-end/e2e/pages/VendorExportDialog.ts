@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { Locator, Page } from '@playwright/test';
 
 /**
- * Page object for the Export vendors dialog (E42/F01/S01 to S04), wherever it opens from.
+ * Page object for the Export vendors dialog (E42/F01/S01 to S05), wherever it opens from.
  */
 export class VendorExportDialog {
   readonly page: Page;
@@ -34,13 +34,20 @@ export class VendorExportDialog {
     return this.page.getByTestId(`vendor-export-status-${id}`);
   }
 
+  /** A Discord state's box, offered once a check has run (E42/F01/S05). */
+  discordState(
+    id: 'has_role' | 'in_server' | 'possible_match' | 'not_found' | 'no_username' | 'check_again',
+  ): Locator {
+    return this.page.getByTestId(`vendor-export-discord-${id}`);
+  }
+
   /** A column's box, under its heading. */
   column(id: string): Locator {
     return this.page.getByTestId(`vendor-export-column-${id}`);
   }
 
-  /** The heading a column is listed under (E42/F01/S02, its money S04). */
-  group(id: 'vendor' | 'answers' | 'assignment' | 'payment'): Locator {
+  /** The heading a column is listed under (E42/F01/S02, its money S04, its Discord S05). */
+  group(id: 'vendor' | 'answers' | 'assignment' | 'payment' | 'discord'): Locator {
     return this.page.getByTestId(`vendor-export-group-${id}`);
   }
 

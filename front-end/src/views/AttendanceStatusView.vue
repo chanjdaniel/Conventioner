@@ -266,10 +266,10 @@ watch(marketId, loadAttendance, { immediate: true });
             v-for="row in shown"
             :key="rowKey(row)"
             class="door-row"
+            :class="{ 'door-row--read': !canCheckIn }"
             data-testid="attendance-row"
             :data-vendor="row.vendorEmail"
           >
-            <span class="door-table">Table {{ tableInWords(row.tableCode, row.tableChoice) }}</span>
             <VendorNameButton
               class="door-who"
               :email="row.vendorEmail"
@@ -277,12 +277,19 @@ watch(marketId, loadAttendance, { immediate: true });
               testid="attendance-vendor"
               @open="drawer.open(row.vendorEmail)"
             />
-            <span
-              class="chip door-status"
-              :class="row.checkedInAt ? 'chip--positive' : 'chip--attention'"
-              data-testid="attendance-row-status"
-              >{{ status(row) }}</span
-            >
+            <!-- Where they sit and whether they came, one line under the vendor's on a phone, so
+                 neither widens the column the action stands in (E38/F15/S04). -->
+            <span class="door-place">
+              <span class="door-table"
+                >Table {{ tableInWords(row.tableCode, row.tableChoice) }}</span
+              >
+              <span
+                class="chip door-status"
+                :class="row.checkedInAt ? 'chip--positive' : 'chip--attention'"
+                data-testid="attendance-row-status"
+                >{{ status(row) }}</span
+              >
+            </span>
             <span v-if="canCheckIn" class="door-action">
               <button
                 v-if="!row.checkedInAt"
@@ -393,27 +400,48 @@ watch(marketId, loadAttendance, { immediate: true });
   border-radius: var(--radius-card);
 }
 
+/* Someone offered no check-in has no action column, so their status ends the row: an empty 7rem
+   left each chip standing short of the edge with nothing beside it (E38/F15/S04). */
+.door-row--read {
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr) auto;
+}
+
 /* Under the row, the width of it: notes are read standing at the door, not squeezed into a cell. */
 .door-notes {
   grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+/* At a desk the table and the status are cells of the row, the table first: the vendor comes first
+   in the markup, for a phone, so each cell is placed. */
+.door-place {
+  display: contents;
 }
 
 .door-table {
+  grid-column: 1;
+  grid-row: 1;
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
 }
 
 .door-who {
+  grid-column: 2;
+  grid-row: 1;
   justify-self: start;
   min-width: 0;
 }
 
 .door-status {
+  grid-column: 3;
+  grid-row: 1;
   justify-self: start;
   white-space: nowrap;
 }
 
 .door-action {
+  grid-column: 4;
+  grid-row: 1;
   justify-self: end;
 }
 
@@ -430,8 +458,10 @@ watch(marketId, loadAttendance, { immediate: true });
 }
 
 /* A phone at the door: the vendor on top, where they sit and whether they came beneath, and the
-   button within a thumb's reach on the right. The gutter narrows but stays on both sides: without
-   it the rows ran to the card's edges. */
+   button within a thumb's reach on the right. Where they sit and whether they came share a line of
+   their own, the status at its end, or under it when both do not fit: in the action's column a wide
+   status ("9:44 AM by ...") squeezed the vendor's line and broke the address mid-word. The gutter
+   narrows but stays on both sides: without it the rows ran to the card's edges. */
 @media (width <= 640px) {
   .door {
     padding: var(--space-4);
@@ -441,22 +471,38 @@ watch(marketId, loadAttendance, { immediate: true });
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       'who action'
-      'table status'
+      'place place'
       'notes notes';
     gap: var(--space-2) var(--space-3);
+  }
+
+  /* Nothing beside the vendor, so their line is the row's width. */
+  .door-row--read {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'who'
+      'place'
+      'notes';
   }
 
   .door-who {
     grid-area: who;
   }
 
+  .door-place {
+    grid-area: place;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+  }
+
   .door-table {
-    grid-area: table;
+    min-width: 0;
   }
 
   .door-status {
-    grid-area: status;
-    justify-self: end;
+    margin-inline-start: auto;
   }
 
   .door-action {

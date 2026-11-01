@@ -339,6 +339,52 @@ class TestThePaymentFilter:
             _export({"payment": "refund due"})
 
 
+def _checked_on_discord(live, states):
+    """The market connected to a Discord server and checked, each vendor in ``states`` kept in the
+    state named, as the Vendors page shows it."""
+    live.doc["applicationForm"]["fields"].append(
+        {"key": "discord_username", "label": "Discord Username", "type": "text", "order": 99})
+    live.doc["discord"] = {
+        "guildId": "2909267986263572999", "guildName": "Example Makers",
+        "roleId": "2909267986263573001", "roleName": "Vendor",
+        "usernameQuestion": "discord_username", "checkedAt": "2099-04-02T12:00:00Z",
+        "vendorStates": [{"applicationId": f"app-{email}", "state": state}
+                         for email, state in states.items()],
+    }
+
+
+class TestThePaymentAndDiscordFiltersTogether:
+    """"Please pay, and fix your Discord username" is one export: the file keeps only the vendors
+    both filters keep, not those either keeps (T157 rereview note 9)."""
+
+    def test_only_a_vendor_who_owes_and_is_not_found_is_kept(self, market):
+        _checked_on_discord(market, {
+            ANA: "not_found",  # owes, and not found: kept
+            EVE: "in_server",  # owes, but in the server
+            BEN: "not_found",  # not found, but paid in full
+            CY: "no_username",
+            DEE: "has_role",
+        })
+
+        assert set(_by_email(_export({"payment": "owes", "discord": ["not_found"]}))) == {ANA}
+
+    def test_either_filter_alone_keeps_its_own_vendors(self, market):
+        _checked_on_discord(market, {ANA: "not_found", EVE: "in_server", BEN: "not_found"})
+
+        assert set(_by_email(_export({"payment": "owes"}))) == {ANA, EVE}
+        assert set(_by_email(_export({"discord": ["not_found"]}))) == {ANA, BEN}
+
+    def test_the_preview_counts_the_vendors_the_file_holds(self, market):
+        _checked_on_discord(market, {ANA: "not_found", EVE: "in_server", BEN: "not_found"})
+
+        preview, _ = VendorExport.preview(
+            MARKET, {"filters": {"payment": "owes", "discord": ["not_found"]},
+                     "columns": ["email"]}, EDITOR)
+
+        assert preview["count"] == 1
+        assert preview["rows"] == [[ANA]]
+
+
 class TestTheMoneyText:
     @pytest.mark.parametrize("cents, currency, text", [
         (3500, "CAD", "$35"), (1501, "CAD", "$15.01"), (123456750, "CAD", "$1,234,567.50"),

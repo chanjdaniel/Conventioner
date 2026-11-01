@@ -206,6 +206,23 @@ interface GuideRow {
    * with.
    */
   action: MarketAction | null;
+  /**
+   * What the rail says instead to someone who may not take the step - a standing blocker's remedy,
+   * else `action` - where the statement would tell them to do it: what they may do there, read, a
+   * step that leads to `page`. The rail told a Viewer "Check vendors in at the door." just above
+   * the frame's line saying they may change nothing, and every other row a step that was not theirs
+   * either (E38/F15/S04). It never says what they may not: the frame says that, once. It must hold
+   * whether the row's blockers stand or have passed, on either path. A row whose statement is true
+   * for everyone has none.
+   */
+  onlooker?: string;
+  /**
+   * What the rail says to someone who may take `action` but not the step onward (moving the phase,
+   * or a standing blocker's remedy), where the statement would tell them to take it: the work that
+   * is theirs, and who does the rest. An Editor in Assignment may change the seats but publish
+   * neither the results nor the market. A row without one says its statement, or its onlooker's.
+   */
+  helper?: string;
 }
 
 /**
@@ -221,6 +238,23 @@ function stageLead({ path, stopped }: Pick<Standing, 'path' | 'stopped'>): strin
     : 'Applications are open on your application page: review them as they arrive.';
 }
 
+/** The stage as someone who may not decide reads it: nothing in it asks them to review. */
+function watchedStageLead({ path, stopped }: Pick<Standing, 'path' | 'stopped'>): string {
+  if (path === IntakeMode.Csv) return 'Every imported response is here.';
+  return stopped
+    ? 'The application page is not taking applications.'
+    : 'Applications are open on the application page.';
+}
+
+/**
+ * The stage's onlooker sentence. It is read while applications wait and once every one is decided,
+ * so it never says a review is going on.
+ */
+function watchedStage(standing: Pick<Standing, 'path' | 'stopped'>): string {
+  const each = standing.path === IntakeMode.Csv ? 'response' : 'application';
+  return `${watchedStageLead(standing)} Read where each ${each} stands.`;
+}
+
 /**
  * Ticket 02's answer, one row per phase. `currentPage` reads its pages, so the dot, the landing page
  * and the rail's link can never disagree about where a market is worked on.
@@ -233,22 +267,26 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
       path === IntakeMode.Form
         ? 'Plan the market and its application form, then open applications.'
         : "Plan the market, from your Google Form's responses or by hand, then import the responses.",
+    onlooker: 'The market is being planned. Read its plan on Market Setup.',
   }),
   // The application page's address is in the rail beside this, under the same name, with Copy.
   [MarketPhase.Applications]: (standing) => ({
     page: 'applications',
     action: MarketAction.GiveVerdicts,
     statement: `${stageLead(standing)} Every application is decided: Begin Assignment.`,
+    onlooker: watchedStage(standing),
   }),
   // Worked on the rules until there are assignments, and on the assignments after. Once results
   // are published the assignments are settled, and what is left is the move.
-  [MarketPhase.Assignment]: ({ assigned, published }) =>
+  [MarketPhase.Assignment]: ({ assigned, published, path }) =>
     published
       ? {
           page: 'assignments',
           action: MarketAction.MovePhase,
           statement:
             'Results are published, so the assignments are settled. Publish the market to put the check-in page up; that cannot be undone.',
+          onlooker:
+            'Results are published, so the assignments are settled. The check-in page goes up when the market is published.',
         }
       : assigned
         ? {
@@ -256,25 +294,44 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
             action: MarketAction.Assign,
             statement:
               'Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone.',
+            onlooker:
+              'Tables are allocated, and the market is not published yet. Read the assignments.',
+            helper:
+              path === IntakeMode.Form
+                ? 'Check the assignments; the results are published by whoever may publish them.'
+                : 'Check the assignments; the market is published by whoever may publish it.',
           }
         : {
             page: 'settings',
             action: MarketAction.Assign,
             statement: 'Set the rules and allocate tables.',
+            onlooker: 'Tables are not allocated yet. Read the rules they will follow on Settings.',
           },
+  // Nothing sets a market in offers any more, but one left there still has a step onward, whose
+  // blockers are served to everyone; someone who may not assign reads only where to look.
   [MarketPhase.Offers]: ({ assigned, path }) => ({
     page: assigned ? 'assignments' : 'settings',
     action: MarketAction.Assign,
     statement: `This market is in ${pathPhaseLabel(MarketPhase.Offers, path)}.`,
+    onlooker: `This market is in ${pathPhaseLabel(MarketPhase.Offers, path)}. ${
+      assigned ? 'Read the assignments.' : 'Read the rules on Settings.'
+    }`,
   }),
   // Once it has run, what is left is archiving it.
-  [MarketPhase.MarketDays]: ({ ended }) => ({
-    page: 'attendance',
-    action: ended ? MarketAction.MovePhase : MarketAction.CheckIn,
-    statement: ended
-      ? 'The market has run. Archive it to keep it as the record of what happened.'
-      : 'Check vendors in at the door.',
-  }),
+  [MarketPhase.MarketDays]: ({ ended }) =>
+    ended
+      ? {
+          page: 'attendance',
+          action: MarketAction.MovePhase,
+          statement: 'The market has run. Archive it to keep it as the record of what happened.',
+          onlooker: 'The market has run. Who came is on Attendance.',
+        }
+      : {
+          page: 'attendance',
+          action: MarketAction.CheckIn,
+          statement: 'Check vendors in at the door.',
+          onlooker: 'Follow who has checked in at the door.',
+        },
   // One that never ran has nothing to show but its plan.
   [MarketPhase.Archived]: ({ assigned, ran }) => ({
     page: assigned ? 'assignments' : 'setup',
@@ -316,8 +373,9 @@ export function currentPage(phase: string | undefined | null, hasAssignment: boo
 }
 
 /**
- * Where a move into a phase lands (E32/F01/S01): the phase's page, or the flow its work is done in
- * - a Google Form market's importing lands on the import (E32/F02/S01).
+ * Where a move into a phase lands (E32/F01/S01): the phase's page, or the flow a row names its work
+ * as done in (`lands`), though no row names one now, so a move into the stage lands on Applications
+ * on both paths.
  */
 export function landingPage(
   phase: string,
@@ -337,31 +395,35 @@ export function pageForTab(
   return TAB_PAGES[tab].includes(current) ? current : TAB_PAGES[tab][0];
 }
 
-/** The rail's statement for this market, now. */
+/** The guard that holds the stage open while an application is undecided (`guards.py`). */
+const UNDECIDED = 'all_applications_reviewed';
+
+/**
+ * The guards whose refusal, when it names no remedy, is a plain fact that asks nobody to do
+ * anything, so it reads to everyone: `all_applications_reviewed` names none only to say "There are
+ * no applications for this market.". Every other guard the rail can meet that names no remedy has
+ * two, on two pages, and its message ends in them ("Restore the seat in the plan, or move or free
+ * those vendors."), so it reads only to someone who may do the row's work. `no_applications_yet`
+ * names none and is a fact too, but guards only the move back to draft, never the step onward.
+ * Keyed on the guard, never on its words.
+ */
+const FACTS: ReadonlySet<string> = new Set([UNDECIDED]);
+
+/**
+ * The rail's statement for this market, now.
+ *
+ * A step's blockers are served to everyone, so a blocker reads only to someone who may take its
+ * remedy (T142), or, naming none, who may do the row's work, unless it is one of the `FACTS`;
+ * anyone else reads the row's `helper` when they may do the row's work, else its onlooker sentence,
+ * each true whether the blocker stands or not.
+ */
 export function nextStep(market: Market, today: string = calendarToday()): NextStep {
   const phase = String(market.phase ?? MarketPhase.Draft);
   const path = intakeModeOf(market);
   const assigned = hasAssignment(market);
   const forward = forwardFrom(market, today);
   const [blocker] = blockersFor(market, forward);
-  // Before a run, running is the step, and the sentence says so; Publish still waits, disabled with
-  // its own reason. Anywhere else a refused step onward is the next thing to put right.
-  const runFirst = phase === MarketPhase.Assignment && !assigned;
   const stopped = Boolean(market.applicationsStopped);
-  if (forward && blocker && !runFirst) {
-    const stage = phase === MarketPhase.Applications;
-    // Work left to finish leads to the review; none at all is said as what the move waits on.
-    const ask =
-      stage && blocker.id === UNDECIDED && blocker.resolutionLink
-        ? 'Finish deciding'
-        : `To ${pathTransitionLabel(phase, forward, path).toLowerCase()}`;
-    return {
-      text: `${stage ? `${stageLead({ path, stopped })} ` : ''}${ask}: ${blocker.message}`,
-      page: blocker.resolutionLink ?? null,
-      blocker,
-      action: blocker.resolutionAction ?? null,
-    };
-  }
   const row = rowFor(phase, {
     path,
     assigned,
@@ -370,11 +432,49 @@ export function nextStep(market: Market, today: string = calendarToday()): NextS
     published: Boolean(market.resultsPublished),
     stopped,
   });
+  // Before a run, running is the step, and the sentence says so; Publish still waits, disabled with
+  // its own reason. Anywhere else a refused step onward is the next thing to put right.
+  const runFirst = phase === MarketPhase.Assignment && !assigned;
+  const standing = forward && blocker && !runFirst ? blocker : null;
+  const remedy = standing?.resolutionAction ?? null;
+  const theirs = mayTake(market, row.action);
+  // The step is the standing blocker's remedy, else the row's own.
+  const onlooking = Boolean(row.onlooker) && !mayTake(market, remedy ?? row.action);
+  // Someone who may do the row's work, but not what stands in the step's way: its blocker's
+  // remedy, or, with none standing, moving the phase.
+  const helping =
+    Boolean(row.helper) &&
+    theirs &&
+    (standing
+      ? remedy !== null && !mayTake(market, remedy)
+      : !mayTake(market, MarketAction.MovePhase));
+  const blockerReads =
+    standing !== null && !helping && (!onlooking || (!remedy && FACTS.has(standing.id)));
+  if (forward && standing && blockerReads) {
+    const stage = phase === MarketPhase.Applications;
+    const lead = onlooking ? watchedStageLead({ path, stopped }) : stageLead({ path, stopped });
+    // Work left to finish leads to the review; none at all is said as what the move waits on.
+    const ask =
+      stage && standing.id === UNDECIDED && standing.resolutionLink
+        ? 'Finish deciding'
+        : `To ${pathTransitionLabel(phase, forward, path).toLowerCase()}`;
+    return {
+      text: `${stage ? `${lead} ` : ''}${ask}: ${standing.message}`,
+      page: standing.resolutionLink ?? null,
+      blocker: standing,
+      action: remedy,
+    };
+  }
+  const said = helping
+    ? { statement: row.helper!, action: row.action }
+    : onlooking
+      ? { statement: row.onlooker!, action: MarketAction.Read }
+      : { statement: row.statement, action: row.action };
   return {
-    text: row.statement,
-    page: row.action ? landingOf(row) : null,
+    text: said.statement,
+    page: said.action ? landingOf(row) : null,
     blocker: null,
-    action: row.action,
+    action: said.action,
   };
 }
 
@@ -399,9 +499,6 @@ const FORM_STEPS: readonly FormStep[] = [
 export function formSteps(path: IntakeMode): readonly FormStep[] {
   return path === IntakeMode.Form ? FORM_STEPS : FORM_STEPS.filter((step) => step.id !== 'preview');
 }
-
-/** The guard that holds the stage open while an application is undecided (`guards.py`). */
-const UNDECIDED = 'all_applications_reviewed';
 
 /** A tab as the market's own path names it: a CSV market's form is the questions its file maps onto. */
 export function pathTabLabel(

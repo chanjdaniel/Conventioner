@@ -9,7 +9,7 @@ describes:
   - front-end/src/utils/marketPage.ts
   - front-end/src/views/ToolsView.vue
   - front-end/src/views/PaymentsView.vue
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - wayfinding/the-market-frame/map
   - wayfinding/the-market-frame/01
@@ -30,6 +30,7 @@ sources:
   - E46/F01/S02
   - T142
   - E44/F02/S01
+  - E38/F15/S04
 ---
 
 # The market frame
@@ -52,7 +53,9 @@ A screen hands it the market from [the market store](market-store.md) and render
   The note stands in for a tab's pages only, never for a flow the tab holds: a Google Form market's first import is the work its draft Applications tab is waiting on (E38/F04/S01).
 - **Why the person looking may change nothing**, the market read's `readOnlyReason`, once, under the rail and above the page, on every page of the market ([what each role may do](../../business/rules/what-each-role-may-do.md)).
   The server sets it when the market is archived or none of the table's changing actions is the person's ([the market's actions](market-actions.md#what-the-screens-read)); the frame decides nothing about who may.
-  Not on an archived market, which the rail says ([an archived market is read-only](../../business/rules/an-archived-market-is-read-only.md)), and not beside a tab's note, which stands in for the page.
+  Not on an archived market, which the rail says ([an archived market is read-only](../../business/rules/an-archived-market-is-read-only.md)), and not under a tab's note.
+  **A tab's note replaces the read-only line along with the page**, by design: the note says the one thing the page would say, so a Viewer on Attendance before Market Days reads "Opens when the market is published." and no read-only line, which is not the line missing.
+  At the door, in Market Days, the page is there, and so is the line: under the built-in table a Viewer reads it above the roster and is offered no Check in and no Undo, at a phone's width as at a desk's (`a-viewer-at-the-door-reads-why.spec.ts`, E38/F15/S04).
 
 These are the frame's words: the market bar, a tab, the phase rail and a phase; "Market Setup" names a tab, never the page, and the plan is what it edits, each card of it a plan card.
 A tab is a place to look and never a state: the market's state is its phase, on the rail alone.

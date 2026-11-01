@@ -3,6 +3,7 @@ layer: implementation
 kind: module
 describes:
   - back-end/discord_client.py
+  - back-end/discord_fake.py
   - back-end/api/discord_connection.py
   - back-end/datatypes.py#DiscordConnection
   - front-end/src/components/market/MarketDiscordCard.vue
@@ -10,11 +11,10 @@ describes:
   - front-end/src/utils/discordConnected.ts
   - front-end/src/utils/discordQuestion.ts
   - front-end/src/utils/discordCheck.ts
+  - front-end/src/components/VendorDiscordOffer.vue
   - scripts/discord_rest_proof.py
   - front-end/src/utils/discordRoles.ts
   - back-end/datatypes.py#DiscordRoleRun
-  - back-end/discord_fake.py
-  - front-end/src/components/VendorDiscordOffer.vue
 verified: 2026-11-01
 sources:
   - T92
@@ -22,9 +22,10 @@ sources:
   - E46/F01/S01
   - E46/F01/S02
   - E46/F01/S03
-  - E46/F01/S04
   - E46/F01/S05
   - T137
+  - E42/F01/S05
+  - E46/F01/S04
 ---
 
 # The Discord connection
@@ -97,7 +98,7 @@ A read that runs out writes and records nothing and answers "Discord was slow to
 **It writes them only while `checkedAt` is what it read, too**: a "Give roles" run, or another check, that wrote since read the members later, and a run's grants are newer than any list read before them, so the check's states never put "In the server" back over a vendor the run just gave the role; it answers the same 409.
 The page offers neither the check nor "Give roles" while the other runs.
 **The card's writes set only their own fields too**: saving a choice, and connecting to the same server, `$set` only the fields they change, so a check finishing meanwhile is not undone, and their history still records the card's fields before and after as it always did.
-They are about that server, so connecting to another server forgets them as it forgets the role, and disconnecting forgets them, even when a check finished after the connection was read; connecting again to the same server keeps them; the members declined as a possible match (`declinedMatches`) are about it too, and go with them.
+They are about that server and that username question, so connecting to another server forgets them as it forgets the role, choosing another username question forgets them (on the card, or when connecting again chooses afresh because the form lost the old one; `CHECK_FIELDS`), and disconnecting forgets them, each even when a check finished after the connection was read; connecting again to the same server with the same question keeps them; the members declined as a possible match (`declinedMatches`) are about the server, so they go with it, and stay when only the question changes.
 The market read serves every reader each vendor as the pages show them (`discordVendors`, below), so whoever reads the Vendors page reads its Discord column and filter, and only someone the row allows is offered the check.
 Neither the market read nor the Markets list serves `vendorStates` or `declinedMatches` in the connection (`leave_out_what_is_not_served`): they are the inputs of `discordVendors`, which stays the one copy a page reads (T156 rereview note 8).
 The market's contract says the same (`DiscordConnectionContract` and `ServedDiscordVendorContract` in `back-end/datatypes.py`, generated into `docs/schema.d.ts`), and a test pins it to what the read serves (T156 rereview note 9).
@@ -106,6 +107,7 @@ The market's contract says the same (`DiscordConnectionContract` and `ServedDisc
 **The pages show two more than the check keeps, worked out by the server on every market read** (`shown_vendors`, served as `discordVendors`: each vendor's `state`, what is `shown`, the members still offered and `moreMatches`), from the kept states and the applications as the organizer reads them now, so the Vendors page, the drawer and the export say the same (T156 review note 1): `possible_match`, "Possible match", a vendor not found with a member still offered, the declined left out; and `check_again`, "Check again", with nothing offered, a vendor whose answer now reads as another username than the one their state was read for, from an update, a confirmed match, their own edit or a re-import (T137 ticket 28's note: until then a corrected username kept its old state until the next check, with nothing to say so).
 The answers are compared as the check matches them, tidied, so a change of case, spaces, a leading `@` or an old tag reads the same member and keeps the state; "No username" had nothing to read, so any username that tidies to something is new, while one that tidies to nothing (" @ ") keeps it (T156 review note 2); any other state an older build kept, without its `answer`, cannot tell, and reads as it was kept.
 The read lists the market's applications for it only once a check has run, and only each one's id and its answer to the username question (`list_applications_with_answers`), never its whole `form_data`.
+The vendor export reads them as the pages do, through `shown_vendors` over the applications it lists: a Discord state filter of all six and a "Discord state" column, beside the username, tidied as the check reads it and offered while the form still asks its question (`asked_username_question`), and the invite link ([export the vendors](../../business/flows/vendors.md#j15-export-the-vendors-to-a-csv), [`vendor_export.py`](../../../back-end/api/vendor_export.py)), each state in the page's words (`STATE_LABELS`, one for each of `SHOWN`).
 After a check the page reads the market again ([one market, from the server](../conventions/one-market-from-the-server.md)), and after a refusal too, since the card may have changed; a refusal is said under the button in the server's words.
 
 ## Possible matches
@@ -149,7 +151,7 @@ It confirms first, by the role's name and how many vendors hold a seat on any da
 - **The last run's report is kept on the connection** as `roleRun` (`DiscordRoleRun`): `ranAt`, the role's name then, and each assigned vendor's outcome with a failure's reason, by application id; the page counts the groups from them.
   The market read serves it to every reader, so the report stands above the list for anyone who reads the page ([`DiscordRoleReport.vue`](../../../front-end/src/components/DiscordRoleReport.vue)): "Vendor Nov 2026, last run 5 minutes ago", how many in each group, and "Show who" opening each group's vendors, a failure's reason, or the reason the rest are not given yet, said once for the vendors it held back.
   A vendor not found whom the market's `discordVendors` now show as a possible match is counted beside "not found" ("1 not found (1 possible match)"), so the report and their row agree.
-  It is about the server, so connecting to another server or disconnecting forgets it, as it forgets the check.
+  It is about the server and the username question it read against, so connecting to another server, choosing another username question (`CHECK_FIELDS`, on the card or when connecting again chooses afresh) or disconnecting forgets it, as each forgets the check, even when the run finished after the card was read; restating the same question keeps it, and so does a later check, which writes only its own fields.
 
 **The run writes its report, the states and `checkedAt` only while the card still names the server, the role and the username question it read against**, as a check does; but the roles are already given in Discord by then, so a card changed meanwhile is kept, the run is still recorded in the history with the roles it gave, and the answer is a 409, "The Discord card changed while roles were being given. The roles given are in the market's history; check Discord again."
 
