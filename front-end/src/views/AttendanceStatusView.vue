@@ -453,8 +453,8 @@ watch(marketId, loadAttendance, { immediate: true });
 /* A phone at the door: the vendor on top, where they sit and whether they came beneath, and the
    button within a thumb's reach on the right. Where they sit and whether they came share a line of
    their own, the status at its end, or under it when both do not fit: in the action's column a wide
-   status ("9:44 AM by ...") squeezed the vendor's line and broke the address mid-word. The gutter narrows but stays on both sides: without
-   it the rows ran to the card's edges. */
+   status ("9:44 AM by ...") squeezed the vendor's line and broke the address mid-word. The gutter
+   narrows but stays on both sides: without it the rows ran to the card's edges. */
 @media (width <= 640px) {
   .door {
     padding: var(--space-4);

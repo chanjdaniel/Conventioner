@@ -161,7 +161,8 @@ describe('no fix is offered', () => {
 /*
  * The rail offers a remedy or a step only to someone who may take the action it leads to (T142):
  * the rail told a Viewer "Pick market dates", a link to a page where every control was disabled.
- * The sentence still says where the market stands, for everyone.
+ * The blocker's sentence is an instruction too ("Pick them on Market Setup."), so someone who may
+ * not take its remedy reads what they may do there instead, and is led to read it (E38/F15/S04).
  */
 describe('a remedy or a step is offered only to someone who may take it', () => {
   const NO_DATES: PreconditionResult = {
@@ -177,12 +178,17 @@ describe('a remedy or a step is offered only to someone who may take it', () => 
   const draftMissingDates = (actionRefusals: Record<string, string | null>) =>
     railFor([NO_DATES], { actionRefusals }, '/markets/market-1/tools');
 
-  it('a Viewer reads where a draft missing dates stands, and is offered no step', () => {
+  it('a Viewer reads what they may do in a draft missing dates, and is offered no fix', () => {
     const rail = draftMissingDates(VIEWER_ANSWERS);
 
-    expect(rail.get(next).text()).toContain('no dates');
+    expect(rail.get(next).text()).toContain(
+      'The market is being planned. Read its plan on Market Setup.',
+    );
+    expect(rail.get(next).text()).not.toContain('Pick them');
     expect(rail.find(fix).exists()).toBe(false);
-    expect(rail.find(nextLink).exists()).toBe(false);
+    const link = rail.get(nextLink);
+    expect(link.text()).toBe('Go there');
+    expect(link.getComponent(RouterLinkStub).props('to')).toBe('/markets/market-1/setup');
   });
 
   it('an Editor, who may change the setup, is still led to pick the dates', () => {
@@ -201,12 +207,12 @@ describe('a remedy or a step is offered only to someone who may take it', () => 
     expect(rail.find(nextLink).exists()).toBe(false);
   });
 
-  it('an Admin whose table refuses the setup is offered neither the fix nor the link', () => {
+  it('an Admin whose table refuses the setup is offered neither the fix nor its link', () => {
     const rail = draftMissingDates(answersRefusing(MarketAction.ChangeSetup));
 
-    expect(rail.get(next).text()).toContain('no dates');
+    expect(rail.get(next).text()).not.toContain('Pick them');
     expect(rail.find(fix).exists()).toBe(false);
-    expect(rail.find(nextLink).exists()).toBe(false);
+    expect(rail.get(nextLink).text()).not.toBe('Pick market dates');
     expect(rail.get(move).attributes('disabled')).toBeDefined();
   });
 

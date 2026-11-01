@@ -39,7 +39,7 @@ The stage is stored as `applications` and named by the path ([ADR 0016](../../ad
 The online path enters the stage by opening applications; the Google Form path by its first import, confirmed and written, which takes the move itself.
 
 The rail offers the one next step as its main button, and every other move behind "More…".
-A move the server would refuse is drawn disabled before the click, with its first blocker as the rail's sentence and beside the move in the menu.
+A move the server would refuse is drawn disabled before the click, with its first blocker beside the move in the menu, and as the rail's sentence for someone who may put it right.
 When that blocker names a page that fixes it, the main button becomes the fix ("Add a location") and leads there, with the move beside it as the step after.
 The fix is offered only to someone the market's table lets take the remedy's action ([what each role may do](../rules/what-each-role-may-do.md), T142).
 A move that loses a race with another change still answers with a red "Cannot proceed:" panel under the rail.
@@ -92,7 +92,8 @@ When the server would refuse that step, the sentence is its first blocker instea
 | Market Days | "Check vendors in at the door.", and once every date has passed "The market has run. Archive it to keep it as the record of what happened." | as the online path |
 | Archived | "Archived: the record of what happened stays on its check-in page." for a market that ran, else "Archived: this market is the record of what happened." | as the online path |
 
-Someone whose role the step is not reads instead what they may do there, and is led to it: a Viewer in Draft reads "The market is being planned. Read its plan on Market Setup.", in the stage "Follow the review as they are decided." after what the stage is, in Assignment that tables are not allocated yet or are, or that results are published, at the door "Follow who has checked in at the door.", and once every date has passed "The market has run. Who came is on Attendance." (E38/F15/S04).
+Someone whose role the step is not reads instead what they may do there, and is led to it: a Viewer in Draft reads "The market is being planned. Read its plan on Market Setup.", in the stage what the stage is and "Read where each application stands." (on the Google Form path, "each response"), in Assignment that tables are not allocated yet or are, or that results are published, at the door "Follow who has checked in at the door.", and once every date has passed "The market has run. Who came is on Attendance." (E38/F15/S04).
+This holds while the step is refused too: what would refuse it, such as an application still waiting or a form market's results not yet published, is told only to someone who may put it right.
 It never says what they may not: the line under the rail says that once.
 Each sentence, word for word, is in [the market guide](../../implementation/modules/market-guide.md).
 

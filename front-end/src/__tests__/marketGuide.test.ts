@@ -244,21 +244,21 @@ describe('what the rail tells someone the step is not theirs', () => {
       'applications, open',
       viewer(MarketPhase.Applications),
       TODAY,
-      'Applications are open on the application page. Follow the review as they are decided.',
+      'Applications are open on the application page. Read where each application stands.',
       'applications',
     ],
     [
       'applications, stopped',
       viewer(MarketPhase.Applications, { applicationsStopped: true } as Partial<Market>),
       TODAY,
-      'The application page is not taking applications. Follow the review as they are decided.',
+      'The application page is not taking applications. Read where each application stands.',
       'applications',
     ],
     [
       'review',
       viewer(MarketPhase.Applications, { intakeMode: IntakeMode.Csv }),
       TODAY,
-      'Every imported response is here. Follow the review as they are decided.',
+      'Every imported response is here. Read where each response stands.',
       'applications',
     ],
     [
@@ -307,6 +307,142 @@ describe('what the rail tells someone the step is not theirs', () => {
       );
     });
   }
+
+  /*
+   * The server serves a step's blockers to everyone, so a refused step onward is the common case:
+   * the stage while an application waits, Assignment until a form market's results are published.
+   * Someone who may not take the blocker's remedy reads the row's onlooker sentence instead, and
+   * that sentence holds whether the blocker stands or has passed, on either path.
+   */
+  const UNDECIDED_BLOCKER = {
+    id: 'all_applications_reviewed',
+    passed: false,
+    message:
+      '1 application is still awaiting review. Every application must be approved or rejected before the market can enter Assignment.',
+    resolutionLink: 'applications',
+    resolutionLabel: 'Finish deciding',
+    resolutionAction: MarketAction.GiveVerdicts,
+  };
+  const UNPUBLISHED_BLOCKER = {
+    id: 'results_published',
+    passed: false,
+    message:
+      'Applicants have not been told whether they have a table. Publish the results before the market goes live.',
+    resolutionLink: 'applications',
+    resolutionLabel: 'Publish results',
+    resolutionAction: MarketAction.PublishResults,
+  };
+  const NOT_THEIRS = /review them|Finish deciding|Publish the results|Begin Assignment|To /;
+
+  it('the stage, an application still waiting: never asks a Viewer to review', () => {
+    const waiting = viewer(MarketPhase.Applications, {
+      transitionBlockers: { assignment: [UNDECIDED_BLOCKER], draft: [] },
+    });
+    const said = nextStep(waiting, TODAY);
+    expect(said.text).not.toMatch(NOT_THEIRS);
+    expect(said).toMatchObject({
+      text: 'Applications are open on the application page. Read where each application stands.',
+      page: 'applications',
+      blocker: null,
+      action: MarketAction.Read,
+    });
+  });
+
+  it('the stage, every response decided: never says the review is still going on', () => {
+    const decided = viewer(MarketPhase.Applications, {
+      intakeMode: IntakeMode.Csv,
+      transitionBlockers: { assignment: [], draft: [] },
+    });
+    const said = nextStep(decided, TODAY);
+    expect(said.text).not.toMatch(/as they|are decided|Follow the review/);
+    expect(said).toMatchObject({
+      text: 'Every imported response is here. Read where each response stands.',
+      page: 'applications',
+      action: MarketAction.Read,
+    });
+  });
+
+  it('the stage with no applications: says the fact, in words that ask nobody to review', () => {
+    // Its guard names no remedy, so the blocker is everyone's to read (T142).
+    const none = viewer(MarketPhase.Applications, {
+      transitionBlockers: {
+        assignment: [
+          {
+            id: 'all_applications_reviewed',
+            passed: false,
+            message:
+              'There are no applications for this market. At least one application must exist before the market can enter Assignment.',
+            resolutionLink: null,
+          },
+        ],
+        draft: [],
+      },
+    } as unknown as Partial<Market>);
+    expect(nextStep(none, TODAY).text).toBe(
+      'Applications are open on the application page. To begin assignment: There are no applications for this market. At least one application must exist before the market can enter Assignment.',
+    );
+  });
+
+  it('Assignment on a form market, results not published: never asks a Viewer to publish', () => {
+    const unpublished = viewer(MarketPhase.Assignment, {
+      ...ASSIGNED,
+      transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER], applications: [] },
+    } as Partial<Market>);
+    const said = nextStep(unpublished, TODAY);
+    expect(said.text).not.toMatch(NOT_THEIRS);
+    expect(said).toMatchObject({
+      text: 'Tables are allocated, and the market is not published yet. Read the assignments.',
+      page: 'assignments',
+      blocker: null,
+      action: MarketAction.Read,
+    });
+  });
+
+  it('Assignment on a CSV market, whose guard passes: the same sentence', () => {
+    const csv = viewer(MarketPhase.Assignment, {
+      ...ASSIGNED,
+      intakeMode: IntakeMode.Csv,
+      transitionBlockers: { market_days: [], applications: [] },
+    } as Partial<Market>);
+    expect(nextStep(csv, TODAY)).toMatchObject({
+      text: 'Tables are allocated, and the market is not published yet. Read the assignments.',
+      page: 'assignments',
+      action: MarketAction.Read,
+    });
+  });
+
+  it('reads the blocker to whoever may take its remedy, exactly as T142 decided', () => {
+    const waiting = market(MarketPhase.Applications, {
+      transitionBlockers: { assignment: [UNDECIDED_BLOCKER], draft: [] },
+    });
+    expect(nextStep(waiting, TODAY)).toMatchObject({
+      text: `Applications are open on your application page: review them as they arrive. Finish deciding: ${UNDECIDED_BLOCKER.message}`,
+      blocker: { id: 'all_applications_reviewed' },
+      action: MarketAction.GiveVerdicts,
+    });
+    const unpublished = market(MarketPhase.Assignment, {
+      ...ASSIGNED,
+      transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER], applications: [] },
+    } as Partial<Market>);
+    expect(nextStep(unpublished, TODAY)).toMatchObject({
+      text: `To publish market: ${UNPUBLISHED_BLOCKER.message}`,
+      blocker: { id: 'results_published' },
+      action: MarketAction.PublishResults,
+    });
+  });
+
+  it('reads an Editor, who may assign but not publish results, the onlooker sentence there', () => {
+    const unpublished = market(MarketPhase.Assignment, {
+      ...ASSIGNED,
+      actionRefusals: EDITOR_ANSWERS,
+      transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER], applications: [] },
+    } as Partial<Market>);
+    expect(nextStep(unpublished, TODAY)).toMatchObject({
+      text: 'Tables are allocated, and the market is not published yet. Read the assignments.',
+      blocker: null,
+      action: MarketAction.Read,
+    });
+  });
 
   it('says the step to whoever may take it, an Editor at the door and a chosen Viewer in review', () => {
     expect(

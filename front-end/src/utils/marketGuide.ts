@@ -207,11 +207,13 @@ interface GuideRow {
    */
   action: MarketAction | null;
   /**
-   * What the rail says instead to someone who may not take `action`, where the statement would tell
-   * them to do it: what they may do there, read, a step that leads to `page`. The rail told a Viewer
-   * "Check vendors in at the door." just above the frame's line saying they may change nothing, and
-   * every other row a step that was not theirs either (E38/F15/S04). It never says what they may
-   * not: the frame says that, once. A row whose statement is true for everyone has none.
+   * What the rail says instead to someone who may not take the step - a standing blocker's remedy,
+   * else `action` - where the statement would tell them to do it: what they may do there, read, a
+   * step that leads to `page`. The rail told a Viewer "Check vendors in at the door." just above
+   * the frame's line saying they may change nothing, and every other row a step that was not theirs
+   * either (E38/F15/S04). It never says what they may not: the frame says that, once. It must hold
+   * whether the row's blockers stand or have passed, on either path. A row whose statement is true
+   * for everyone has none.
    */
   onlooker?: string;
 }
@@ -238,6 +240,15 @@ function watchedStageLead({ path, stopped }: Pick<Standing, 'path' | 'stopped'>)
 }
 
 /**
+ * The stage's onlooker sentence. It is read while applications wait and once every one is decided,
+ * so it never says a review is going on.
+ */
+function watchedStage(standing: Pick<Standing, 'path' | 'stopped'>): string {
+  const each = standing.path === IntakeMode.Csv ? 'response' : 'application';
+  return `${watchedStageLead(standing)} Read where each ${each} stands.`;
+}
+
+/**
  * Ticket 02's answer, one row per phase. `currentPage` reads its pages, so the dot, the landing page
  * and the rail's link can never disagree about where a market is worked on.
  */
@@ -256,7 +267,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
     page: 'applications',
     action: MarketAction.GiveVerdicts,
     statement: `${stageLead(standing)} Every application is decided: Begin Assignment.`,
-    onlooker: `${watchedStageLead(standing)} Follow the review as they are decided.`,
+    onlooker: watchedStage(standing),
   }),
   // Worked on the rules until there are assignments, and on the assignments after. Once results
   // are published the assignments are settled, and what is left is the move.
@@ -347,8 +358,9 @@ export function currentPage(phase: string | undefined | null, hasAssignment: boo
 }
 
 /**
- * Where a move into a phase lands (E32/F01/S01): the phase's page, or the flow its work is done in
- * - a Google Form market's importing lands on the import (E32/F02/S01).
+ * Where a move into a phase lands (E32/F01/S01): the phase's page, or the flow a row names its work
+ * as done in (`lands`), though no row names one now, so a move into the stage lands on Applications
+ * on both paths.
  */
 export function landingPage(
   phase: string,
@@ -368,31 +380,20 @@ export function pageForTab(
   return TAB_PAGES[tab].includes(current) ? current : TAB_PAGES[tab][0];
 }
 
-/** The rail's statement for this market, now. */
+/**
+ * The rail's statement for this market, now.
+ *
+ * A step's blockers are served to everyone, so a blocker reads only to someone who may take its
+ * remedy (T142); anyone else reads the row's onlooker sentence, which is true whether the blocker
+ * stands or not. A blocker that names no remedy is a fact, and reads to everyone.
+ */
 export function nextStep(market: Market, today: string = calendarToday()): NextStep {
   const phase = String(market.phase ?? MarketPhase.Draft);
   const path = intakeModeOf(market);
   const assigned = hasAssignment(market);
   const forward = forwardFrom(market, today);
   const [blocker] = blockersFor(market, forward);
-  // Before a run, running is the step, and the sentence says so; Publish still waits, disabled with
-  // its own reason. Anywhere else a refused step onward is the next thing to put right.
-  const runFirst = phase === MarketPhase.Assignment && !assigned;
   const stopped = Boolean(market.applicationsStopped);
-  if (forward && blocker && !runFirst) {
-    const stage = phase === MarketPhase.Applications;
-    // Work left to finish leads to the review; none at all is said as what the move waits on.
-    const ask =
-      stage && blocker.id === UNDECIDED && blocker.resolutionLink
-        ? 'Finish deciding'
-        : `To ${pathTransitionLabel(phase, forward, path).toLowerCase()}`;
-    return {
-      text: `${stage ? `${stageLead({ path, stopped })} ` : ''}${ask}: ${blocker.message}`,
-      page: blocker.resolutionLink ?? null,
-      blocker,
-      action: blocker.resolutionAction ?? null,
-    };
-  }
   const row = rowFor(phase, {
     path,
     assigned,
@@ -401,10 +402,31 @@ export function nextStep(market: Market, today: string = calendarToday()): NextS
     published: Boolean(market.resultsPublished),
     stopped,
   });
-  const said =
-    row.onlooker && !mayTake(market, row.action)
-      ? { statement: row.onlooker, action: MarketAction.Read }
-      : { statement: row.statement, action: row.action };
+  // Before a run, running is the step, and the sentence says so; Publish still waits, disabled with
+  // its own reason. Anywhere else a refused step onward is the next thing to put right.
+  const runFirst = phase === MarketPhase.Assignment && !assigned;
+  const standing = forward && blocker && !runFirst ? blocker : null;
+  const remedy = standing?.resolutionAction ?? null;
+  // The step is the standing blocker's remedy, else the row's own.
+  const onlooking = Boolean(row.onlooker) && !mayTake(market, remedy ?? row.action);
+  if (forward && standing && !(remedy && onlooking)) {
+    const stage = phase === MarketPhase.Applications;
+    const lead = onlooking ? watchedStageLead({ path, stopped }) : stageLead({ path, stopped });
+    // Work left to finish leads to the review; none at all is said as what the move waits on.
+    const ask =
+      stage && standing.id === UNDECIDED && standing.resolutionLink
+        ? 'Finish deciding'
+        : `To ${pathTransitionLabel(phase, forward, path).toLowerCase()}`;
+    return {
+      text: `${stage ? `${lead} ` : ''}${ask}: ${standing.message}`,
+      page: standing.resolutionLink ?? null,
+      blocker: standing,
+      action: remedy,
+    };
+  }
+  const said = onlooking
+    ? { statement: row.onlooker!, action: MarketAction.Read }
+    : { statement: row.statement, action: row.action };
   return {
     text: said.statement,
     page: said.action ? landingOf(row) : null,
