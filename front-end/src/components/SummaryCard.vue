@@ -143,7 +143,9 @@ defineEmits<{ select: [] }>();
 }
 
 /* One line, so every card in a list is one height; a name longer than its column is shortened,
-   and the slot gives it its whole name as hover text (bug 14). */
+   and the slot gives it its whole name as hover text (bug 14). One look at either level: the
+   name is an `h2` under a page's title and an `h3` under a dialog's. */
+.summary-card-name :slotted(h2),
 .summary-card-name :slotted(h3) {
   margin: 0;
   min-width: 0;

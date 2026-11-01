@@ -267,6 +267,7 @@ function handleNewClose() {
             :key="market.id"
             :market="market"
             showManage
+            :heading-level="2"
             @open="handleOpen(market)"
             @manage="handleManage(market)"
           />

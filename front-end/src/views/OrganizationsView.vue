@@ -130,7 +130,7 @@ function handleManageChanged() {
           data-testid="organization-card"
         >
           <template #name>
-            <h3 :title="org.name">{{ org.name }}</h3>
+            <h2 :title="org.name">{{ org.name }}</h2>
           </template>
           <template #badge>
             <span
