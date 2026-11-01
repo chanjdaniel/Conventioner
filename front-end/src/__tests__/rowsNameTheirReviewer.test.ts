@@ -21,7 +21,7 @@ const ME = 'ana@example.com';
 const SAM = 'sam@example.com';
 const WARNING = `This application is dealt to ${SAM}. If you decide it, its history will say you decided it for them.`;
 
-/** The reviewer's address, drawn so it breaks only before its "@" (T181): its two parts. */
+/** The reviewer's address, drawn so it breaks only before its "@" or a dot (T181): its parts. */
 const SAMS_PARTS = ['sam', '@example.com'];
 const addressPartsOf = (element: { findAll(selector: string): Array<{ text(): string }> }) =>
   element.findAll('.email-address').map((part) => part.text());

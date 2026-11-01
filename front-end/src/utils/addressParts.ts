@@ -62,7 +62,7 @@ export function hyphenRuns(piece: string): HyphenRun[] {
   return runs;
 }
 
-/** The words the parts draw, as one string: what a screen reader reads, and a test compares. */
+/** The words the parts draw, as one string: what the accessible name reads, and a test compares. */
 export function partsText(parts: readonly AddressPart[]): string {
   return parts
     .map((part) => (part.kind === 'text' ? part.text : part.local + part.domain))

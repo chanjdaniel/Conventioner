@@ -222,7 +222,7 @@ describe('the History section', () => {
     );
   });
 
-  it('breaks an address in the Field column only before its "@", as the values do', async () => {
+  it('breaks an address in the Field column only before its "@" or a dot, as the values do', async () => {
     // A check's rows name each vendor in the Field column (T137 review note 7): at 390 an
     // address ran on unbroken past the column.
     serve({
@@ -268,7 +268,7 @@ describe('the History section', () => {
     expect(field.find('wbr').exists()).toBe(false);
   });
 
-  it('breaks an address in an entry’s sentence only before its "@", as the table does', async () => {
+  it('breaks an address in an entry’s sentence only before its "@" or a dot, as the table does', async () => {
     // A verdict on someone else's share names whose it was (T127 review note 35): at 390 the
     // sentence broke the address at its hyphen.
     serve({
@@ -301,7 +301,7 @@ describe('the History section', () => {
       'rv-sam-lee',
       '@ember.test',
     ]);
-    // Read as before, each address one word: nothing added, nothing hidden.
+    // The text reads as before, each address one word: nothing added, nothing hidden.
     expect(sentence.text()).toBe(
       'dana-lee@ember.test set Ana Rivera ana@ember.test to Approved, dealt to rv-sam-lee@ember.test',
     );

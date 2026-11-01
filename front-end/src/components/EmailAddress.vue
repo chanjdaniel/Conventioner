@@ -5,7 +5,7 @@
  * The history's table and sentences and the review's warnings and reviewer lines draw their
  * addresses with it.
  *
- * A screen reader reads each address as one word, and a copy of it is the address: every piece is
+ * Each address is one word in the accessible name, and a copy of it is the address: every piece is
  * an inline span, so nothing is added between them, and the break before a piece is a zero-width
  * space drawn by CSS with no alternative text; nothing is hidden. A `<wbr>` or an inline-block
  * piece would each read as a space in Chrome's accessible name.

@@ -732,7 +732,7 @@ describe('how a before and after is drawn', () => {
     expect(soleColumn(entry({}), [])).toBeNull();
   });
 
-  it('marks each address in a value, so it breaks, if at all, only before its @', () => {
+  it('marks each address in a value, so it breaks, if at all, only before its @ or a dot', () => {
     expect(addressParts('Dealt to rv-ana@example.com, and bo@x.test')).toEqual([
       { kind: 'text', text: 'Dealt to ' },
       { kind: 'address', local: 'rv-ana', domain: '@example.com' },

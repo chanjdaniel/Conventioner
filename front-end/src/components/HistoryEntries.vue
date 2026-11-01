@@ -201,7 +201,7 @@ onUpdated(measureFields);
             <tr v-for="row in changesOf(entry).changed" :key="row.field">
               <th scope="row">
                 <!-- A field may be a vendor's address, a check's or a run's row: it breaks, if at
-                     all, only before its "@", as the values do (T137 review note 7). -->
+                     all, only before its "@" or a dot, as the values do (T137 review note 7). -->
                 <span class="history-field-name"><EmailAddress :words="row.field" /></span>
               </th>
               <td
@@ -219,7 +219,7 @@ onUpdated(measureFields);
                     >{{ line }}</span
                   >
                 </template>
-                <!-- An address breaks, if at all, only before its "@". -->
+                <!-- An address breaks, if at all, only before its "@" or a dot. -->
                 <EmailAddress v-else :words="side" />
               </td>
             </tr>

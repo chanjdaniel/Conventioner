@@ -42,7 +42,7 @@ function application(
   };
 }
 
-/** The reviewer line's words, as one string, as a screen reader reads them; null when none. */
+/** The reviewer line's words, as one string, as their accessible name reads; null when none. */
 const line = (...args: Parameters<typeof reviewerLine>) => {
   const parts = reviewerLine(...args);
   return parts && partsText(parts);

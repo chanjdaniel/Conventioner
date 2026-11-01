@@ -87,8 +87,8 @@ function breaksIn(locator: Locator, address: string, narrow: boolean): Promise<s
 }
 
 /**
- * The address in `locator` breaks, if at all, only before its "@" or before a dot, and a screen
- * reader reads it as one word. `narrow` draws the words in a line narrower than the address, where
+ * The address in `locator` breaks, if at all, only before its "@" or before a dot, and its
+ * accessible name keeps it one word. `narrow` draws the words in a line narrower than the address, where
  * it must break.
  */
 async function expectWholeAddress(locator: Locator, address: string, narrow = false) {
@@ -136,7 +136,7 @@ for (const size of SIZES) {
   });
 }
 
-test('in a line narrower than the address, each sentence breaks it only before its "@"', async ({
+test('in a line narrower than the address, each sentence breaks it only before its "@" or a dot', async ({
   authenticatedPage: page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
