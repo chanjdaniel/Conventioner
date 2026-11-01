@@ -101,7 +101,7 @@ export function reviewQueue(applications: Application[], includeFollowUps: boole
 }
 
 /**
- * Reviewed: everything the queue is done with, whatever became of it since.
+ * Reviewed: everything the queue is done with, whatever became of it since, newest verdict first.
  *
  * Deliberately "neither awaiting nor followed up" rather than "approved or rejected". An
  * application does not stay at its reviewer verdict: assignment carries it to `assigned` or
@@ -110,9 +110,26 @@ export function reviewQueue(applications: Application[], includeFollowUps: boole
  * moment the market moved on.
  */
 export function reviewed(applications: Application[]): Application[] {
-  return applications.filter(
-    (a) => !AWAITING.includes(a.status) && a.status !== ApplicationStatus.NeedsFollowUp,
+  return newestVerdictFirst(
+    applications.filter(
+      (a) => !AWAITING.includes(a.status) && a.status !== ApplicationStatus.NeedsFollowUp,
+    ),
   );
+}
+
+/**
+ * Newest verdict first (E38/F10/S01): the reviewed list in arrival order put the verdict just given
+ * at the bottom of a closed list, so the way back from a slip was the hardest one to find. Those with
+ * no verdict time (an application carried on by the market, or decided before the time was kept)
+ * go last, in the order they arrived.
+ */
+export function newestVerdictFirst<T extends Pick<Application, 'verdictAt' | 'submittedAt'>>(
+  apps: T[],
+): T[] {
+  const time = (app: T) => (app.verdictAt ? Date.parse(app.verdictAt) : NaN);
+  const timed = apps.filter((app) => !Number.isNaN(time(app)));
+  const untimed = apps.filter((app) => Number.isNaN(time(app)));
+  return [...timed.sort((x, y) => time(y) - time(x)), ...inArrivalOrder(untimed)];
 }
 
 /**

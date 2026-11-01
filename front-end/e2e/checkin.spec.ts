@@ -164,9 +164,10 @@ test.describe('Public vendor check-in', () => {
     const pill = checkinPage.confirmationPills.first();
     await expect(pill).toBeVisible({ timeout: 10000 });
 
-    // "9/15/2026, 7:20:18 AM" was a machine's idea of a time. No seconds, and a named month.
+    // "9/15/2026, 7:20:18 AM" was a machine's idea of a time. No seconds, and a named month. The
+    // time keeps "AM" on its line by a no-break space, which a regular expression reads as `\s`.
     await expect(pill).toHaveText(
-      /Checked in .* [A-Z][a-z]{2} \d{1,2}, \d{4} at \d{1,2}:\d{2} (AM|PM)/,
+      /Checked in .* [A-Z][a-z]{2} \d{1,2}, \d{4} at \d{1,2}:\d{2}\s(AM|PM)/,
     );
   });
 

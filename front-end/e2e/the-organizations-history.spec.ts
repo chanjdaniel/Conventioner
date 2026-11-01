@@ -93,7 +93,7 @@ test('an admin added and the organization renamed each read back with who and wh
   ]);
   const day = await today(page);
   for (const when of await orgs.historyEntries.getByTestId('org-history-when').all()) {
-    await expect(when).toHaveText(new RegExp(`^${day} at \\d{1,2}:\\d{2} [AP]M$`));
+    await expect(when).toHaveText(new RegExp(`^${day} at \\d{1,2}:\\d{2}\\s[AP]M$`));
   }
 
   const rename = await orgs.openHistoryEntry(0);
