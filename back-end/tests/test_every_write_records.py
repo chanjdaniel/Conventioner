@@ -8,6 +8,7 @@ action no write records fails ``test_every_action_in_the_table_records_or_says_w
 write cannot be permitted without being recorded unless someone says here why it is not a change.
 """
 import copy
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any, Callable, Dict, Optional, Tuple
@@ -369,6 +370,34 @@ def _changed_verdict(client, world):
                       json={"status": "reviewer_rejected"})
 
 
+def _just_given(app_id, email):
+    """An application the signed-in owner rejected a moment ago, theirs to undo (E38/F10/S01): the
+    verdict kept that it was open."""
+    return _application(app_id, email, status="reviewer_rejected",
+                        verdict_at=datetime.now(timezone.utc).isoformat(),
+                        verdict_by={"kind": "person", "user_id": "user-owner", "email": OWNER},
+                        undo_to={"status": "open", "verdict_by": None, "verdict_at": None,
+                                 "follow_up_owner": None})
+
+
+def _undone_verdict(client, world):
+    world.market(MarketPhase.APPLICATIONS)
+    doc = _just_given("app-1", VENDOR)
+    world.applications.insert_one(doc)
+    return client.post(f"/markets/{MARKET}/applications/app-1/review/undo", json={
+        "seen": {"status": doc["status"], "verdictAt": doc["verdict_at"]}})
+
+
+def _undone_verdicts(client, world):
+    world.market(MarketPhase.APPLICATIONS)
+    docs = [_just_given("app-1", VENDOR), _just_given("app-2", "ben@example.com")]
+    for doc in docs:
+        world.applications.insert_one(doc)
+    return client.post(f"/markets/{MARKET}/applications/verdicts/undo", json={"applications": [
+        {"id": doc["id"], "seen": {"status": doc["status"], "verdictAt": doc["verdict_at"]}}
+        for doc in docs]})
+
+
 def _follow_up_owner(client, world):
     world.market(MarketPhase.APPLICATIONS)
     world.applications.insert_one(_application(
@@ -681,6 +710,12 @@ WRITES = [
     Write("a verdict changed", "PUT", f"{M}/applications/<application_id>/review",
           Actions.CHANGE_VERDICTS, History.VERDICT, _changed_verdict, vendors=(VENDOR,),
           subject={"application_id": "app-1"}),
+    Write("a verdict undone", "POST", f"{M}/applications/<application_id>/review/undo",
+          Actions.GIVE_VERDICTS, History.VERDICT_UNDONE, _undone_verdict, vendors=(VENDOR,),
+          subject={"application_id": "app-1"}),
+    Write("a selection's verdict undone", "POST", f"{M}/applications/verdicts/undo",
+          Actions.GIVE_VERDICTS, History.VERDICTS_UNDONE, _undone_verdicts,
+          vendors=(VENDOR, "ben@example.com"), subject={"application_ids": ["app-1", "app-2"]}),
     Write("a follow-up handed on", "PUT", f"{M}/applications/<application_id>/follow-up-owner",
           Actions.GIVE_VERDICTS, History.FOLLOW_UP_OWNER, _follow_up_owner, vendors=(VENDOR,),
           subject={"application_id": "app-1"}),

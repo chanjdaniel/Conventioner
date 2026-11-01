@@ -623,6 +623,31 @@ export function entryParts(
       });
       return parts;
     }
+    // A verdict taken back by its giver within the window (E38/F10/S01): what it was, and what the
+    // application went back to.
+    case 'give-verdicts/verdict_undone':
+      return [
+        actor,
+        text('undid their verdict on '),
+        vendor,
+        text(
+          `: ${statusLabel(str(before.status))} back to ${statusLabel(str(after.status))}` +
+            dealtTo(entry, detail.dealt_to),
+        ),
+      ];
+    case 'give-verdicts/verdicts_undone': {
+      const parts: MarketHistoryPart[] = [
+        actor,
+        text(
+          `undid their verdicts on ${plural(entry.vendors.length, 'application', 'applications')}: `,
+        ),
+      ];
+      entry.vendors.forEach((email, index) => {
+        if (index) parts.push(text(', '));
+        parts.push(who(email));
+      });
+      return parts;
+    }
     case 'give-verdicts/follow_up_owner':
       return [
         actor,
