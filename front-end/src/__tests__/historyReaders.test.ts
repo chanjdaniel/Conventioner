@@ -25,6 +25,7 @@ import * as payments from '@/utils/historyReaders/payments';
 import * as people from '@/utils/historyReaders/people';
 import * as setup from '@/utils/historyReaders/setup';
 import * as vendors from '@/utils/historyReaders/vendors';
+import { PLACEMENT_KINDS } from '@/utils/placementHistory';
 
 const AREAS = [
   applications,
@@ -178,6 +179,12 @@ describe('the history readers', () => {
     expect(() => merged('reader', { door: one.readers, people: other.readers })).toThrow(
       'The history\'s reader "check-in/checked_in" is defined by both door and people',
     );
+  });
+
+  it('words every placement kind of assign in the placement trail’s words', () => {
+    const parts = [...PLACEMENT_KINDS].map((kind) => HISTORY_READERS[`assign/${kind}`]?.parts);
+    expect(parts.every((one) => typeof one === 'function')).toBe(true);
+    expect(new Set(parts).size).toBe(1);
   });
 
   it('names and words the stored values the areas name and word', () => {

@@ -2,10 +2,9 @@
  * The Assignment group's words: a placement, in the placement trail's own words, and the rules.
  *
  * Reads:
- * - `assign/placed`, its sentence and its rows
- * - `assign/freed`
- * - `assign/swapped`
- * - `assign/assigned`
+ * - `assign/<kind>` for each kind of `PLACEMENT_KINDS` (`placed`, `freed`, `swapped`, `assigned`),
+ *   its sentence
+ * - `assign/placed`, its rows
  * - `assign/rules`
  *
  * `assign/owed_taken_back` is Payments'.
@@ -14,6 +13,7 @@ import type { MarketHistoryEntry, MarketHistoryPart } from '@/utils/marketHistor
 import {
   historyDate,
   historyParts,
+  PLACEMENT_KINDS,
   type PlacementHistoryEntry,
   type PlacementHistoryKind,
 } from '@/utils/placementHistory';
@@ -86,6 +86,10 @@ function placement(entry: MarketHistoryEntry, context: HistoryContext): MarketHi
 }
 
 export const readers: HistoryReaders = {
+  // One key a placement kind, so a kind added to `PLACEMENT_KINDS` is worded with no other change.
+  ...Object.fromEntries(
+    [...PLACEMENT_KINDS].map((kind) => [`assign/${kind}`, { parts: placement }]),
+  ),
   'assign/placed': {
     parts: placement,
     changes(entry) {
@@ -97,9 +101,6 @@ export const readers: HistoryReaders = {
       };
     },
   },
-  'assign/freed': { parts: placement },
-  'assign/swapped': { parts: placement },
-  'assign/assigned': { parts: placement },
   'assign/rules': {
     parts(entry, context) {
       const { actor, text } = sentence(entry, context);
