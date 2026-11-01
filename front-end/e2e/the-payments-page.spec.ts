@@ -299,7 +299,7 @@ test.describe('the Payments page', () => {
     );
   });
 
-  test('a Viewer reads the page, and a market without prices says pricing is off', async ({
+  test('a Viewer reads the page, and a market without prices says pricing is off, with no filter', async ({
     browser,
     request,
   }) => {
@@ -315,6 +315,13 @@ test.describe('the Payments page', () => {
       await paymentsPage(page, unpriced);
       await expect(page.getByTestId('payments-unpriced')).toContainText('Pricing is off');
       await expect(page.getByTestId('payments-totals')).toHaveCount(0);
+      // Nobody owes there, so no payment filter is offered (the refunds one would be everyone),
+      // and one in the address narrows nothing; the search stays.
+      await expect(page.getByRole('group', { name: 'Show only' })).toHaveCount(0);
+      await expect(page.getByTestId('payments-search')).toBeVisible();
+      await paymentsPage(page, unpriced, '?show=over');
+      await expect(rows(page)).toHaveCount(3);
+      await expect(page.getByTestId('payments-summary')).toHaveText(/^\s*3\s+vendors\s*$/);
       await page.getByTestId('payments-pricing-link').click();
       await expect(page).toHaveURL(new RegExp(`/markets/${unpriced}/setup$`));
       await expect(page.getByTestId('plan-card-pricing')).toBeVisible({ timeout: 15000 });

@@ -64,8 +64,23 @@ export const PAYMENTS_SHOWN: readonly { id: PaymentsShown; label: string }[] = [
 
 type QueryValue = LocationQueryValue | LocationQueryValue[] | undefined;
 
-export function paymentsShownFrom(value: QueryValue): PaymentsShown | null {
-  return PAYMENTS_SHOWN.find((f) => f.id === value)?.id ?? null;
+/**
+ * The filters a market offers: none where it sets no prices (`currency` null), since nothing is
+ * owed there and whoever paid would all be "Paid more than owed", the refunds filter everyone
+ * (Daniel, T153 review finding 3).
+ */
+export function paymentsFilters(
+  currency: string | null,
+): readonly { id: PaymentsShown; label: string }[] {
+  return currency == null ? [] : PAYMENTS_SHOWN;
+}
+
+/** The filter the address asks for, where the market offers it. */
+export function paymentsShownFrom(
+  value: QueryValue,
+  currency: string | null,
+): PaymentsShown | null {
+  return paymentsFilters(currency).find((f) => f.id === value)?.id ?? null;
 }
 
 /**

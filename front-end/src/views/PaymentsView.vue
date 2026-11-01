@@ -21,8 +21,8 @@ import { hasAssignment } from '@/utils/marketPage';
 import { useOpenMarket } from '@/utils/openMarket';
 import { balanceState, balanceText, money } from '@/utils/payments';
 import {
-  PAYMENTS_SHOWN,
   loadMarketPayments,
+  paymentsFilters,
   paymentsShownFrom,
   paymentsSortFrom,
   paymentsSortQuery,
@@ -106,7 +106,8 @@ const breakdowns = computed(() => {
 });
 
 /** The list's filter, search and sort, each in the address. */
-const shown = computed(() => paymentsShownFrom(route.query.show));
+const filters = computed(() => paymentsFilters(found.value?.currency ?? null));
+const shown = computed(() => paymentsShownFrom(route.query.show, found.value?.currency ?? null));
 const search = computed(() => String(route.query.search ?? ''));
 const sort = computed(() => paymentsSortFrom(route.query));
 
@@ -142,7 +143,7 @@ const listed = computed(() =>
 const counts = computed(
   () =>
     new Map(
-      PAYMENTS_SHOWN.map((f) => [f.id, vendors.value.filter((v) => vendorShownIn(v, f.id)).length]),
+      filters.value.map((f) => [f.id, vendors.value.filter((v) => vendorShownIn(v, f.id)).length]),
     ),
 );
 const narrowed = computed(() => !!shown.value || !!search.value.trim());
@@ -194,9 +195,10 @@ const nobodyShown = computed(() => {
             data-testid="payments-search"
             @input="setSearch(($event.target as HTMLInputElement).value)"
           />
-          <div class="payments-shown" role="group" aria-label="Show only">
+          <!-- No filter where pricing is off: nobody owes, so the refunds one would be everyone. -->
+          <div v-if="filters.length" class="payments-shown" role="group" aria-label="Show only">
             <button
-              v-for="filter in PAYMENTS_SHOWN"
+              v-for="filter in filters"
               :key="filter.id"
               type="button"
               class="btn btn--secondary btn--compact"

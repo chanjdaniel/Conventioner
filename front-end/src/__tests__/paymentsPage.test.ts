@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   PAYMENTS_SHOWN,
+  paymentsFilters,
   paymentsShownFrom,
   paymentsSortFrom,
   paymentsSortQuery,
@@ -69,13 +70,25 @@ describe('the Payments page filters', () => {
     expect(vendorShownIn(DEE, null)).toBe(true);
   });
 
+  it('offers no filter on a market without prices (Daniel, finding 3)', () => {
+    // Nothing is owed there, so whoever paid would all be "Paid more than owed": the refunds
+    // filter would be everyone.
+    expect(paymentsFilters('CAD')).toEqual(PAYMENTS_SHOWN);
+    expect(paymentsFilters(null)).toEqual([]);
+  });
+
+  it('ignores a filter in the address on a market without prices', () => {
+    expect(paymentsShownFrom('over', null)).toBeNull();
+    expect(paymentsShownFrom('over', 'CAD')).toBe('over');
+  });
+
   it('reads the filter from the address, and nothing for anything else', () => {
-    expect(paymentsShownFrom('owes')).toBe('owes');
-    expect(paymentsShownFrom('over')).toBe('over');
-    expect(paymentsShownFrom('more')).toBeNull();
-    expect(paymentsShownFrom('refund')).toBeNull();
-    expect(paymentsShownFrom(undefined)).toBeNull();
-    expect(paymentsShownFrom(['owes'])).toBeNull();
+    expect(paymentsShownFrom('owes', 'CAD')).toBe('owes');
+    expect(paymentsShownFrom('over', 'CAD')).toBe('over');
+    expect(paymentsShownFrom('more', 'CAD')).toBeNull();
+    expect(paymentsShownFrom('refund', 'CAD')).toBeNull();
+    expect(paymentsShownFrom(undefined, 'CAD')).toBeNull();
+    expect(paymentsShownFrom(['owes'], 'CAD')).toBeNull();
   });
 });
 
