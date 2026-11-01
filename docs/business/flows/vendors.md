@@ -60,19 +60,30 @@ The page fits a phone, so a vendor is looked up, paid and corrected from the doo
 When the server cannot say where vendors sit, the page shows its reason above the list and says nothing of who is placed: "N vendors", the whole list counted before a run or after, each row its verdict and no date count, and no "Unassigned only" or filter by where they sit, one in the address ignored and Export opening on neither; the names and the search by name still hold, from the applications (T123).
 
 Before a run the page lists the vendors and says nothing is assigned yet.
-Covered by: `vendors.spec.ts`, `vendors-and-limits.spec.ts`, `placing-someone-not-approved.spec.ts`, the open row's look `the-open-vendor-reads-as-selected.spec.ts`, the refused read `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`, and on a phone and at a desk `the-market-on-a-phone.spec.ts` (the page, every tab of the drawer, a payment recorded and an Editor's Update info).
+Covered by:
+- `placing-someone-not-approved.spec.ts`
+- `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`, the refused read
+- `the-market-on-a-phone.spec.ts`, on a phone and at a desk: the page, every tab of the drawer, a payment recorded and an Editor's Update info
+- `the-open-vendor-reads-as-selected.spec.ts`, the open row's look
+- `vendors-and-limits.spec.ts`
+- `vendors.spec.ts`
 
 **Adding a vendor who never applied.**
 From Assignment on, "Add a vendor" opens "Add a vendor": "For someone who never applied. They are added as approved, and you assign them on the Assignments page.", with Name and Email, each marked required; on a market whose price groups read questions of its own form, "Their price is set by these answers." and each of those questions, required, a checkbox's unticked state its answer; "Add vendor", offered once each is answered.
 They are listed as "Added" and Unassigned until seated, offered under "Added by hand" in the place dialog ([J6](placing-by-hand.md#j6-place-a-vendor-in-an-empty-seat)), and never placed by a run ([adding a vendor who never applied](../rules/adding-a-vendor-who-never-applied.md)).
-Covered by: `adding-a-vendor.spec.ts`, `an-added-vendor-is-unassigned.spec.ts`, `the-price-answers.spec.ts`.
+Covered by:
+- `adding-a-vendor.spec.ts`
+- `an-added-vendor-is-unassigned.spec.ts`
+- `the-price-answers.spec.ts`
 
 ## J12. Find out why a vendor was not placed
 
 **Status:** Works (walked live); a vendor at their date limit, or at the market's ceiling, is told so (bug 33).
 On the drawer's Assignments tab each date the vendor did not get states why, in words: "Not available on this date", "Already has as many dates as they asked for", "Already has as many dates as the market allows per vendor", "No table at a tier they accept", "Every table they accept is taken", or "A table is free - they could be assigned".
 Only the last offers "Assign them", which opens the Assignments page on that date, searched for them; a date stopped by a limit offers no placing.
-Covered by: `vendors.spec.ts` ("an unplaced vendor is opened from the payoff screen and told why"), `vendors-and-limits.spec.ts`.
+Covered by:
+- `vendors-and-limits.spec.ts`
+- `vendors.spec.ts` ("an unplaced vendor is opened from the payoff screen and told why")
 
 ## J15. Export the vendors to a CSV
 
@@ -102,7 +113,15 @@ Every cell but an amount is written so a spreadsheet shows it as text: one begin
 An amount is the server's own, written from whole cents, so it is left as it is: "-$15" reaches the spreadsheet as the number it is, where the quote would make it text and show.
 Where a minus would lead a currency's letters, as "-A$15", "-US$15" or "-NZ$15" would, each a minus and a cell reference that Excel evaluates, the amount is written with the minus sign "−" (U+2212) instead, which no spreadsheet reads as a formula.
 No column set is saved between exports yet.
-Covered by: `exporting-vendors.spec.ts`, `exporting-placements-by-date.spec.ts`, `exporting-from-the-applications-tab.spec.ts`, `exporting-a-payment-reminder.spec.ts` ("Owes" gives exactly the vendors whose Payment tab reads "Owes", with what it says they owe, and the Payments page's "Owes" list), `exporting-discord-columns.spec.ts` ("Not found" gives exactly the vendors the Vendors page shows as not found), `back-end/tests/test_exporting_vendors.py`, `back-end/tests/test_the_exports_money_columns.py`, `exportingVendors.test.ts`.
+Covered by:
+- `back-end/tests/test_exporting_vendors.py`
+- `back-end/tests/test_the_exports_money_columns.py`
+- `exporting-a-payment-reminder.spec.ts` ("Owes" gives exactly the vendors whose Payment tab reads "Owes", with what it says they owe, and the Payments page's "Owes" list)
+- `exporting-discord-columns.spec.ts` ("Not found" gives exactly the vendors the Vendors page shows as not found)
+- `exporting-from-the-applications-tab.spec.ts`
+- `exporting-placements-by-date.spec.ts`
+- `exporting-vendors.spec.ts`
+- `exportingVendors.test.ts`
 
 ## J16. See who is in the Discord server
 
@@ -117,7 +136,10 @@ On a market connected to a Discord server with a username question chosen ([the 
 Each row's columns keep their place down the list at every width: the Discord state, then Assigned, Unassigned or the verdict, then "Added" in a slot of its own while anyone listed was added by hand, then the date count (T137 review note 6: "Added" once stood before the badge and moved a vendor's Discord chip 63px left of every other row's).
 
 A check that cannot run says why under the button: the market lost its username question ("Choose the username question again"), Discord cannot be reached, Discord took too long to list the server's members ("Check Discord again"), or the bot is no longer in the server.
-Covered by: `who-is-in-the-discord-server.spec.ts`, `whoIsInTheDiscordServer.test.ts`, `back-end/tests/test_discord_connection.py`.
+Covered by:
+- `back-end/tests/test_discord_connection.py`
+- `who-is-in-the-discord-server.spec.ts`
+- `whoIsInTheDiscordServer.test.ts`
 
 ## J17. Answer a possible Discord match
 
@@ -132,7 +154,11 @@ For such a vendor it offers the members whose username, display name or server n
 
 Someone either row refuses reads the members offered with no control.
 Both are in [the market's history](reading-the-markets-history.md) and the vendor's own: the update as every update is, and "said the Discord member @<username> is not <vendor>".
-Covered by: `possible-discord-matches.spec.ts`, `possibleDiscordMatches.test.ts`, `whoMayAnswerADiscordMatch.test.ts`, `back-end/tests/test_discord_connection.py` (`TestPossibleMatches`, `TestWhatThePageShows`).
+Covered by:
+- `back-end/tests/test_discord_connection.py` (`TestPossibleMatches`, `TestWhatThePageShows`)
+- `possible-discord-matches.spec.ts`
+- `possibleDiscordMatches.test.ts`
+- `whoMayAnswerADiscordMatch.test.ts`
 
 ## J18. Give the market's role to the assigned vendors
 
@@ -148,7 +174,10 @@ On a market connected to a Discord server, with a role and a username question c
 
 **A run only gives**: a vendor who has lost their seat keeps the role they have (Daniel, T92 Q19).
 A run that cannot start says why in the dialog: no role chosen, the username question gone, Discord out of reach, or the bot no longer in the server.
-Covered by: `giving-the-discord-role.spec.ts` (the report and the rows' Discord states laid out at 390 and Give roles inside the window there), `givingTheDiscordRole.test.ts`, `back-end/tests/test_discord_connection.py`.
+Covered by:
+- `back-end/tests/test_discord_connection.py`
+- `giving-the-discord-role.spec.ts` (the report and the rows' Discord states laid out at 390, and Give roles inside the window there)
+- `givingTheDiscordRole.test.ts`
 
 ## Superseded
 
@@ -163,4 +192,4 @@ Covered by: `giving-the-discord-role.spec.ts` (the report and the rows' Discord 
 - [Why a vendor was not placed](../rules/why-a-vendor-was-not-placed.md): the reasons a date was not given, and which one offers a seat.
 - [The ceiling on dates per vendor](../rules/max-assignments-ceiling.md) and [tier filters, section prefers](../rules/tier-filters-section-prefers.md): the limits two of those reasons name.
 
-Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

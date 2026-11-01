@@ -51,4 +51,4 @@ Only this path's market has applicant pages, so a vendor brought in by an import
 - [Publish Results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md).
 - [An applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md).
 
-The lifecycle it walks is [the lifecycle](lifecycle.md); its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+The lifecycle it walks is [the lifecycle](lifecycle.md); its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

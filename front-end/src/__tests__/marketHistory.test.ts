@@ -43,7 +43,7 @@ function said(parts: MarketHistoryPart[]): string {
 }
 
 function sentence(overrides: Partial<MarketHistoryEntry>, labels = {}): string {
-  return said(entryParts(entry(overrides), NAMES, labels));
+  return said(entryParts(entry(overrides), { names: NAMES, labels }));
 }
 
 describe('what an entry says', () => {
@@ -219,10 +219,10 @@ describe('what an entry says', () => {
       vendors: [],
       detail: { before: { phase: 'applications' }, after: { phase: 'assignment' } },
     });
-    expect(said(entryParts(move, NAMES, {}, IntakeMode.Csv))).toBe(
+    expect(said(entryParts(move, { names: NAMES, path: IntakeMode.Csv }))).toBe(
       'dana@ember.test moved the market from Review to Assignment',
     );
-    expect(said(entryParts(move, NAMES, {}, IntakeMode.Form))).toBe(
+    expect(said(entryParts(move, { names: NAMES, path: IntakeMode.Form }))).toBe(
       'dana@ember.test moved the market from Applications to Assignment',
     );
   });
@@ -393,7 +393,7 @@ describe('what an entry says', () => {
   it('draws a vendor with no name as their address', () => {
     const [, , vendor] = entryParts(
       entry({ vendors: ['cy@ember.test'], detail: { table_code: 'A1' } }),
-      NAMES,
+      { names: NAMES },
     );
     expect(vendor).toEqual({ kind: 'vendor', name: '', email: 'cy@ember.test' });
   });
@@ -429,43 +429,45 @@ describe('who reviews which application (E38/F07/S02)', () => {
   }
 
   it('words a first choice of reviewers by who was chosen', () => {
-    expect(said(entryParts(reviewers([], ['a@x.test', 'b@x.test', 'c@x.test']), NAMES))).toBe(
-      'dana@ember.test chose the reviewers: a@x.test, b@x.test and c@x.test',
-    );
+    expect(
+      said(entryParts(reviewers([], ['a@x.test', 'b@x.test', 'c@x.test']), { names: NAMES })),
+    ).toBe('dana@ember.test chose the reviewers: a@x.test, b@x.test and c@x.test');
   });
 
   it('words a change of reviewers by who was added and who was removed', () => {
     expect(
-      said(entryParts(reviewers(['a@x.test', 'b@x.test'], ['b@x.test', 'c@x.test']), NAMES)),
+      said(
+        entryParts(reviewers(['a@x.test', 'b@x.test'], ['b@x.test', 'c@x.test']), { names: NAMES }),
+      ),
     ).toBe('dana@ember.test changed the reviewers: added c@x.test, removed a@x.test');
-    expect(said(entryParts(reviewers(['a@x.test'], ['a@x.test', 'c@x.test']), NAMES))).toBe(
-      'dana@ember.test changed the reviewers: added c@x.test',
-    );
+    expect(
+      said(entryParts(reviewers(['a@x.test'], ['a@x.test', 'c@x.test']), { names: NAMES })),
+    ).toBe('dana@ember.test changed the reviewers: added c@x.test');
   });
 
   it('words taking every reviewer away as such', () => {
-    expect(said(entryParts(reviewers(['a@x.test'], []), NAMES))).toBe(
+    expect(said(entryParts(reviewers(['a@x.test'], []), { names: NAMES }))).toBe(
       'dana@ember.test removed every reviewer',
     );
   });
 
   it('words a deal of one application by the vendor and whom it went to', () => {
-    expect(said(entryParts(dealt([SAM]), NAMES))).toBe(
+    expect(said(entryParts(dealt([SAM]), { names: NAMES }))).toBe(
       `dana@ember.test dealt the application of [Ana Rivera] to ${SAM}`,
     );
   });
 
   it('words a deal of many by how many and among how many reviewers', () => {
-    expect(said(entryParts(dealt([SAM, KAI, SAM]), NAMES))).toBe(
+    expect(said(entryParts(dealt([SAM, KAI, SAM]), { names: NAMES }))).toBe(
       'dana@ember.test dealt 3 open applications among 2 reviewers',
     );
   });
 
   it('words a deal back to first come, first served as such', () => {
-    expect(said(entryParts(dealt([null, null], [SAM, KAI]), NAMES))).toBe(
+    expect(said(entryParts(dealt([null, null], [SAM, KAI]), { names: NAMES }))).toBe(
       'dana@ember.test returned 2 open applications to first come, first served',
     );
-    expect(said(entryParts(dealt([null], [SAM]), NAMES))).toBe(
+    expect(said(entryParts(dealt([null], [SAM]), { names: NAMES }))).toBe(
       'dana@ember.test returned the application of [Ana Rivera] to first come, first served',
     );
   });
@@ -473,12 +475,16 @@ describe('who reviews which application (E38/F07/S02)', () => {
   it('words a deal of many as the vendor’s own line in their own history', () => {
     const many = dealt([SAM, KAI, SAM]);
 
-    expect(said(entryParts(many, NAMES, {}, IntakeMode.Csv, 'ben@ember.test'))).toBe(
-      `dana@ember.test dealt the application to ${KAI}`,
-    );
+    expect(
+      said(entryParts(many, { names: NAMES, path: IntakeMode.Csv, own: 'ben@ember.test' })),
+    ).toBe(`dana@ember.test dealt the application to ${KAI}`);
     expect(
       said(
-        entryParts(dealt([null, null], [SAM, KAI]), NAMES, {}, IntakeMode.Csv, 'BEN@ember.test'),
+        entryParts(dealt([null, null], [SAM, KAI]), {
+          names: NAMES,
+          path: IntakeMode.Csv,
+          own: 'BEN@ember.test',
+        }),
       ),
     ).toBe('dana@ember.test returned the application to first come, first served');
   });
@@ -493,7 +499,7 @@ describe('who reviews which application (E38/F07/S02)', () => {
       ],
       recorded: [],
     });
-    expect(entryChanges(many, {}, IntakeMode.Csv, [], 'ben@ember.test').changed).toEqual([
+    expect(entryChanges(many, { path: IntakeMode.Csv, own: 'ben@ember.test' }).changed).toEqual([
       { field: 'Reviewer', before: SAM, after: KAI },
     ]);
   });
@@ -510,18 +516,18 @@ describe('who reviews which application (E38/F07/S02)', () => {
       },
     };
 
-    expect(said(entryParts(arrived, NAMES))).toBe(
+    expect(said(entryParts(arrived, { names: NAMES }))).toBe(
       `The application of [Ana Rivera] was dealt to ${SAM} as it arrived`,
     );
-    expect(said(entryParts(arrived, NAMES, {}, IntakeMode.Csv, 'ana@ember.test'))).toBe(
-      `The application was dealt to ${SAM} as it arrived`,
-    );
+    expect(
+      said(entryParts(arrived, { names: NAMES, path: IntakeMode.Csv, own: 'ana@ember.test' })),
+    ).toBe(`The application was dealt to ${SAM} as it arrived`);
   });
 
   it('words an organizer’s write that dealt what arrived by who made it', () => {
     const imported = { ...dealt([SAM, KAI]), action: 'import-applications' };
 
-    expect(said(entryParts(imported, NAMES))).toBe(
+    expect(said(entryParts(imported, { names: NAMES }))).toBe(
       'dana@ember.test dealt 2 open applications among 2 reviewers',
     );
   });
@@ -542,7 +548,7 @@ describe('who reviews which application (E38/F07/S02)', () => {
   }
 
   it('words a deal that handed on a follow-up by both counts', () => {
-    expect(said(entryParts(handedOn(), NAMES))).toBe(
+    expect(said(entryParts(handedOn(), { names: NAMES }))).toBe(
       'dana@ember.test dealt 1 open application and 1 follow-up among 1 reviewer',
     );
   });
@@ -554,13 +560,15 @@ describe('who reviews which application (E38/F07/S02)', () => {
       subject: { application_ids: ['app-1'] },
     };
 
-    expect(said(entryParts(one, NAMES))).toBe(
+    expect(said(entryParts(one, { names: NAMES }))).toBe(
       `dana@ember.test dealt the follow-up of [Ben Okafor] from ${KAI} to ${SAM}`,
     );
-    expect(said(entryParts(handedOn(), NAMES, {}, IntakeMode.Csv, 'ben@ember.test'))).toBe(
-      `dana@ember.test dealt the follow-up from ${KAI} to ${SAM}`,
-    );
-    expect(entryChanges(handedOn(), {}, IntakeMode.Csv, [], 'ben@ember.test').changed).toEqual([
+    expect(
+      said(entryParts(handedOn(), { names: NAMES, path: IntakeMode.Csv, own: 'ben@ember.test' })),
+    ).toBe(`dana@ember.test dealt the follow-up from ${KAI} to ${SAM}`);
+    expect(
+      entryChanges(handedOn(), { path: IntakeMode.Csv, own: 'ben@ember.test' }).changed,
+    ).toEqual([
       { field: 'Reviewer', before: KAI, after: SAM },
       { field: 'Follow-up owner', before: KAI, after: SAM },
     ]);
@@ -602,7 +610,7 @@ describe('an applicant’s answers, before and after', () => {
     });
 
   it('names each question as the form asks it, and reads each answer as a person would', () => {
-    const { changed } = entryChanges(applied(), {}, IntakeMode.Form, [], '', FIELDS);
+    const { changed } = entryChanges(applied(), { path: IntakeMode.Form, fields: FIELDS });
 
     // As the form asks them: the essential questions first, then the organizer's own.
     expect(changed.map((row) => row.field)).toEqual([
@@ -637,19 +645,15 @@ describe('an applicant’s answers, before and after', () => {
     });
 
     expect(
-      entryChanges(answers, {}, IntakeMode.Form, [], '', fields).changed.map((row) => row.field),
+      entryChanges(answers, { path: IntakeMode.Form, fields }).changed.map((row) => row.field),
     ).toEqual(['Full name', 'What do you sell?', 'Shop', 'Gone']);
   });
 
   it('reads an organizer’s update of a vendor’s info the same way', () => {
-    const { changed } = entryChanges(
-      applied('update-vendor-info', null),
-      {},
-      IntakeMode.Form,
-      [],
-      '',
-      FIELDS,
-    );
+    const { changed } = entryChanges(applied('update-vendor-info', null), {
+      path: IntakeMode.Form,
+      fields: FIELDS,
+    });
 
     expect(changed.at(-1)).toEqual({
       field: 'Business name',
@@ -681,7 +685,7 @@ describe('a vendor added by hand', () => {
       },
     });
 
-    expect(entryChanges(added, {}, IntakeMode.Form, [], '', fields).changed).toEqual([
+    expect(entryChanges(added, { path: IntakeMode.Form, fields }).changed).toEqual([
       { field: 'Name', before: 'none', after: 'Walk-in Wares' },
       { field: 'Status', before: 'none', after: 'Approved' },
       { field: 'Student or alumni?', before: 'none', after: 'Student' },
@@ -706,7 +710,7 @@ describe('a vendor added by hand', () => {
       },
     });
 
-    expect(entryChanges(added, {}, IntakeMode.Form, [], '', fields).changed).toEqual([
+    expect(entryChanges(added, { path: IntakeMode.Form, fields }).changed).toEqual([
       { field: 'Name', before: 'none', after: 'Walk-in Wares' },
       { field: 'Status', before: 'none', after: 'Approved' },
       { field: 'Student or staff?', before: 'none', after: 'Student' },
@@ -769,19 +773,21 @@ describe('a verdict on an application dealt to a reviewer (E38/F07/S02)', () => 
     });
 
   it('names whose share it was when someone else decided it', () => {
-    expect(said(entryParts(verdict(SAM), NAMES))).toBe(
+    expect(said(entryParts(verdict(SAM), { names: NAMES }))).toBe(
       `dana@ember.test set [Ana Rivera] to Approved, dealt to ${SAM}`,
     );
-    expect(said(entryParts(verdict(SAM), NAMES, {}, IntakeMode.Csv, 'ana@ember.test'))).toBe(
-      `dana@ember.test set [Ana Rivera] to Approved, dealt to ${SAM}`,
-    );
+    expect(
+      said(entryParts(verdict(SAM), { names: NAMES, path: IntakeMode.Csv, own: 'ana@ember.test' })),
+    ).toBe(`dana@ember.test set [Ana Rivera] to Approved, dealt to ${SAM}`);
   });
 
   it('adds nothing when the reviewer decided their own, or it was never dealt', () => {
-    expect(said(entryParts(verdict('dana@ember.test'), NAMES))).toBe(
+    expect(said(entryParts(verdict('dana@ember.test'), { names: NAMES }))).toBe(
       'dana@ember.test set [Ana Rivera] to Approved',
     );
-    expect(said(entryParts(verdict(), NAMES))).toBe('dana@ember.test set [Ana Rivera] to Approved');
+    expect(said(entryParts(verdict(), { names: NAMES }))).toBe(
+      'dana@ember.test set [Ana Rivera] to Approved',
+    );
   });
 
   it('names it on a change of verdict too', () => {
@@ -796,7 +802,7 @@ describe('a verdict on an application dealt to a reviewer (E38/F07/S02)', () => 
               dealt_to: SAM,
             },
           },
-          NAMES,
+          { names: NAMES },
         ),
       ),
     ).toBe(`dana@ember.test changed [Ana Rivera] from Rejected to Approved, dealt to ${SAM}`);
@@ -815,7 +821,7 @@ describe('a verdict on an application dealt to a reviewer (E38/F07/S02)', () => 
       },
     });
 
-    expect(said(entryParts(selection, NAMES))).toBe(
+    expect(said(entryParts(selection, { names: NAMES }))).toBe(
       `dana@ember.test set 2 applications to Rejected: [Ana Rivera] (dealt to ${SAM}), [Ben Okafor]`,
     );
     expect(entryChanges(selection).recorded).toEqual([
@@ -1074,10 +1080,10 @@ describe('what an entry opens to', () => {
       vendors: [],
       detail: { before: { phase: 'applications' }, after: { phase: 'assignment' } },
     });
-    expect(entryChanges(move, {}, IntakeMode.Csv).changed).toEqual([
+    expect(entryChanges(move, { path: IntakeMode.Csv }).changed).toEqual([
       { field: 'Phase', before: 'Review', after: 'Assignment' },
     ]);
-    expect(entryChanges(move, {}, IntakeMode.Form).changed).toEqual([
+    expect(entryChanges(move, { path: IntakeMode.Form }).changed).toEqual([
       { field: 'Phase', before: 'Applications', after: 'Assignment' },
     ]);
   });
@@ -1122,7 +1128,7 @@ describe('what an entry opens to', () => {
             after: { 'check-in': { role: 'admin', source: 'organization' } },
           },
         }),
-        { 'check-in': 'Check vendors in' },
+        { labels: { 'check-in': 'Check vendors in' } },
       ).changed,
     ).toEqual([
       {
@@ -1151,7 +1157,7 @@ describe('what an entry opens to', () => {
             },
           },
         }),
-        { 'check-in': 'Check vendors in' },
+        { labels: { 'check-in': 'Check vendors in' } },
       ),
     ).toEqual({
       changed: [
@@ -1226,9 +1232,7 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
         subject: { currency },
         detail,
       }),
-      {},
-      IntakeMode.Csv,
-      QUESTIONS,
+      { path: IntakeMode.Csv, questions: QUESTIONS },
     ).changed;
 
   const group = (name: string, conditions: unknown[], gold = 1500) => ({
@@ -1523,7 +1527,7 @@ describe("a vendor's payments, as the drawer's History and Manage market's say t
       subject: { date: '2099-05-08', ...CAD },
       detail: { before: { owed_cents: 0 }, after: { owed_cents: 1500 } },
     });
-    expect(said(entryParts(takenBack, NAMES))).toBe(
+    expect(said(entryParts(takenBack, { names: NAMES }))).toBe(
       'dana@ember.test seated [Ana Rivera] again on May 8, 2099, taking back the $0 set when the table was freed',
     );
     expect(entryChanges(takenBack).changed).toEqual([
@@ -1583,10 +1587,16 @@ describe('the Discord card and its check, in words (E46/F01/S02, S03)', () => {
 
   it('words connecting and disconnecting by the server’s name, never its id', () => {
     expect(
-      said(entryParts(discord('discord_connected', { before: NONE, after: SERVER }), NAMES)),
+      said(
+        entryParts(discord('discord_connected', { before: NONE, after: SERVER }), { names: NAMES }),
+      ),
     ).toBe('dana@ember.test connected the market to the Discord server “Market Vendors”');
     expect(
-      said(entryParts(discord('discord_disconnected', { before: SERVER, after: NONE }), NAMES)),
+      said(
+        entryParts(discord('discord_disconnected', { before: SERVER, after: NONE }), {
+          names: NAMES,
+        }),
+      ),
     ).toBe('dana@ember.test disconnected the market from the Discord server “Market Vendors”');
   });
 
@@ -1595,7 +1605,7 @@ describe('the Discord card and its check, in words (E46/F01/S02, S03)', () => {
       before: { role_id: null, role_name: null, invite_link: null },
       after: { role_id: 'r-vendor', role_name: 'Vendor', invite_link: 'https://discord.gg/abc' },
     };
-    expect(said(entryParts(discord('discord', detail), NAMES))).toBe(
+    expect(said(entryParts(discord('discord', detail), { names: NAMES }))).toBe(
       'dana@ember.test changed the Discord card: role and invite link',
     );
   });
@@ -1627,7 +1637,7 @@ describe('the Discord card and its check, in words (E46/F01/S02, S03)', () => {
       after: { username_question: key },
     });
     const question = (key: string) =>
-      entryChanges(discord('discord', detail(key)), {}, IntakeMode.Csv, [], '', FORM).changed;
+      entryChanges(discord('discord', detail(key)), { path: IntakeMode.Csv, fields: FORM }).changed;
     expect(question('discord_username')).toEqual([
       { field: 'Username question', before: 'none', after: 'Discord Username' },
     ]);
@@ -1650,16 +1660,16 @@ describe('the Discord card and its check, in words (E46/F01/S02, S03)', () => {
   });
 
   it('words a check by how many it found in each state', () => {
-    expect(said(entryParts(check, NAMES))).toBe(
+    expect(said(entryParts(check, { names: NAMES }))).toBe(
       'dana@ember.test checked who is in the Discord server: 1 has the role, 2 in the server, 1 not found',
     );
   });
 
   it('words a check as the vendor’s own line in their own history', () => {
-    expect(said(entryParts(check, NAMES, {}, IntakeMode.Csv, 'ben@ember.test'))).toBe(
-      'dana@ember.test checked who is in the Discord server: Has the role',
-    );
-    expect(entryChanges(check, {}, IntakeMode.Csv, [], 'Ana@ember.test').changed).toEqual([
+    expect(
+      said(entryParts(check, { names: NAMES, path: IntakeMode.Csv, own: 'ben@ember.test' })),
+    ).toBe('dana@ember.test checked who is in the Discord server: Has the role');
+    expect(entryChanges(check, { path: IntakeMode.Csv, own: 'Ana@ember.test' }).changed).toEqual([
       { field: 'Discord', before: 'not checked', after: 'Not found' },
     ]);
   });
@@ -1671,7 +1681,7 @@ describe('the Discord card and its check, in words (E46/F01/S02, S03)', () => {
       detail: { ...check.detail, addresses: { 'app-ana': '', 'app-ben': 'ben@ember.test' } },
     });
     expect(
-      entryChanges(withoutAnAddress, {}, IntakeMode.Csv, [], 'ben@ember.test').changed,
+      entryChanges(withoutAnAddress, { path: IntakeMode.Csv, own: 'ben@ember.test' }).changed,
     ).toEqual([{ field: 'Discord', before: 'In the server', after: 'Has the role' }]);
     expect(entryChanges(withoutAnAddress).changed).toEqual([
       { field: 'A vendor with no address', before: 'not checked', after: 'Not found' },
@@ -1695,22 +1705,24 @@ describe('the Discord card and its check, in words (E46/F01/S02, S03)', () => {
   });
 
   it('words a run by its role and how many ended in each outcome', () => {
-    expect(said(entryParts(run, NAMES))).toBe(
+    expect(said(entryParts(run, { names: NAMES }))).toBe(
       'dana@ember.test gave the Discord role “Vendor Nov 2026”: 1 given, 2 already had it, 1 not found',
     );
-    expect(said(entryParts(entry({ ...run, detail: { ...run.detail, counts: {} } }), NAMES))).toBe(
-      'dana@ember.test gave the Discord role “Vendor Nov 2026”: no assigned vendors',
-    );
+    expect(
+      said(entryParts(entry({ ...run, detail: { ...run.detail, counts: {} } }), { names: NAMES })),
+    ).toBe('dana@ember.test gave the Discord role “Vendor Nov 2026”: no assigned vendors');
   });
 
   it('words a run as the vendor’s own line: given them, or what it found of them', () => {
-    expect(said(entryParts(run, NAMES, {}, IntakeMode.Csv, 'Ana@ember.test'))).toBe(
-      'dana@ember.test gave the Discord role “Vendor Nov 2026”',
-    );
-    expect(said(entryParts(run, NAMES, {}, IntakeMode.Csv, 'ben@ember.test'))).toBe(
+    expect(
+      said(entryParts(run, { names: NAMES, path: IntakeMode.Csv, own: 'Ana@ember.test' })),
+    ).toBe('dana@ember.test gave the Discord role “Vendor Nov 2026”');
+    expect(
+      said(entryParts(run, { names: NAMES, path: IntakeMode.Csv, own: 'ben@ember.test' })),
+    ).toBe(
       'dana@ember.test gave the Discord role “Vendor Nov 2026” to the assigned vendors: Not found',
     );
-    expect(entryChanges(run, {}, IntakeMode.Csv, [], 'ana@ember.test').changed).toEqual([
+    expect(entryChanges(run, { path: IntakeMode.Csv, own: 'ana@ember.test' }).changed).toEqual([
       { field: 'Discord', before: 'In the server', after: 'Given the role' },
     ]);
   });
@@ -1745,7 +1757,7 @@ describe('the Discord card and its check, in words (E46/F01/S02, S03)', () => {
   });
 
   it('words a possible match declined by the member and the vendor (E46/F01/S05)', () => {
-    expect(said(entryParts(declined, NAMES))).toBe(
+    expect(said(entryParts(declined, { names: NAMES }))).toBe(
       'dana@ember.test said the Discord member @fern_studio_42 is not [Ana Rivera]',
     );
     expect(entryChanges(declined)).toEqual({

@@ -27,8 +27,8 @@ import {
   str,
   valueText,
   type HistoryArea,
-  type HistoryContext,
   type HistoryReaders,
+  type ReaderContext,
 } from './shared';
 
 /** One application a deal moved: its vendor, and whom it was dealt to before and after. */
@@ -96,7 +96,7 @@ function dealtTo(entry: MarketHistoryEntry, reviewer: unknown): string {
 
 /** A selection's verdicts, given or changed: how many, to what when they are all alike, and each
  * vendor, with whose share it was when someone else's. */
-function verdicts(entry: MarketHistoryEntry, context: HistoryContext): MarketHistoryPart[] {
+function verdicts(entry: MarketHistoryEntry, context: ReaderContext): MarketHistoryPart[] {
   const { actor, text, who, detail, after } = sentence(entry, context);
   const statuses = Object.values(after).map((state) => statusLabel(str(asDetail(state).status)));
   const parts: MarketHistoryPart[] = [
