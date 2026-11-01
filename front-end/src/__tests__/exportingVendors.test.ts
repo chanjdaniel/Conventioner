@@ -22,6 +22,7 @@ import {
   type ExportPreview,
 } from '@/utils/vendorExport';
 import { filenameFrom } from '@/utils/download';
+import type { DiscordShown } from '@/utils/discordCheck';
 import type { ResultFilters } from '@/utils/resultFilters';
 import { ApplicationStatus } from '@/assets/types/datatypes';
 
@@ -111,6 +112,15 @@ describe('the seed the Vendors page gives the export', () => {
     expect(
       vendorsPageSeed({ shown: null, filters: NOTHING, search: '', discord: 'not_found' }),
     ).toEqual({ ...NO_FILTERS, discord: ['not_found'] });
+  });
+
+  it('carries a state only the page works out: possible match and check again', () => {
+    // T156 rereview note 7: the page's `?discord=` holds any state it shows.
+    const seed = (discord: DiscordShown) =>
+      vendorsPageSeed({ shown: null, filters: NOTHING, search: '', discord }).discord;
+
+    expect(seed('possible_match')).toEqual(['possible_match']);
+    expect(seed('check_again')).toEqual(['check_again']);
   });
 
   it('carries the Discord state beside "Unassigned only" and where they are placed', () => {

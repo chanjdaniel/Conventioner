@@ -820,6 +820,88 @@ class TestTheDiscordColumns:
             _file(filters=filters, columns=["email"])
 
 
+
+def _ben_updated_since_the_check(doc, applications):
+    """Ben was checked "Not found" for "benbuns", and an organizer has since updated his username,
+    so the Vendors page shows him "Check again" (T156 rereview note 7)."""
+    _connected(doc, applications)
+    for state in doc["discord"]["vendorStates"]:
+        if state["applicationId"] == "app-ben@example.com":
+            state["answer"] = "benbuns"
+    ben = next(a for a in applications.documents if a["applicant_email"] == "ben@example.com")
+    ben["answer_updates"] = {"discord_username": {
+        "value": "ben.okafor", "by": ADDED_BY, "at": "2099-07-31T09:00:00Z", "over": "benbuns"}}
+
+
+def _ana_offered_a_possible_match(doc, applications):
+    """Ana was not found, and the check offered a member whose name looks like hers."""
+    _connected(doc, applications, states={
+        "ana@example.com": "not_found", "ben@example.com": "in_server",
+        "cy@example.com": "no_username", "dee@example.com": "has_role"})
+    for state in doc["discord"]["vendorStates"]:
+        if state["applicationId"] == "app-ana@example.com":
+            state["answer"] = "ana.makes"
+            state["possibleMatches"] = [
+                {"username": "anamakes", "displayName": "Ana Makes"}]
+
+
+class TestTheDiscordStateAsThePageShowsIt:
+    """The export reads each vendor as the Vendors page shows them (``shown_vendors``), so a vendor
+    updated since the check, or offered a possible match, exports and filters as the page says
+    (T156 rereview note 7)."""
+
+    def test_a_vendor_updated_since_the_check_exports_as_check_again(
+            self, market, applications):
+        _ben_updated_since_the_check(market(), applications)
+
+        content, _ = _file(filters={"search": "ben"}, columns=["email", "discordState"])
+
+        assert _rows(content)[1:] == [["ben@example.com", "Check again"]]
+
+    def test_not_found_leaves_out_a_vendor_updated_since_the_check(self, market, applications):
+        _ben_updated_since_the_check(market(), applications)
+
+        not_found, _ = _file(filters={"discord": ["not_found"]}, columns=["email"])
+        check_again, _ = _file(filters={"discord": ["check_again"]}, columns=["email"])
+
+        assert "ben@example.com" not in _emails(not_found, at=0)
+        assert _emails(check_again, at=0) == ["ben@example.com"]
+
+    def test_a_vendor_offered_a_possible_match_exports_and_filters_as_one(
+            self, market, applications):
+        _ana_offered_a_possible_match(market(), applications)
+
+        content, _ = _file(filters={"discord": ["possible_match"]},
+                           columns=["email", "discordState"])
+        not_found, _ = _file(filters={"discord": ["not_found"]}, columns=["email"])
+
+        assert _rows(content)[1:] == [["ana@example.com", "Possible match"]]
+        assert "ana@example.com" not in _emails(not_found, at=0)
+
+    def test_the_filter_offers_every_state_the_page_can_show_in_its_words(
+            self, market, applications):
+        _connected(market(), applications)
+
+        assert _preview()["offered"]["discordStates"] == [
+            {"id": "has_role", "label": "Has the role"},
+            {"id": "in_server", "label": "In the server"},
+            {"id": "possible_match", "label": "Possible match"},
+            {"id": "not_found", "label": "Not found"},
+            {"id": "no_username", "label": "No username"},
+            {"id": "check_again", "label": "Check again"},
+        ]
+
+    @pytest.mark.parametrize("state", ["possible_match", "check_again"])
+    def test_a_state_the_page_links_to_is_a_filter_the_export_accepts(
+            self, market, applications, state):
+        """The page's ``?discord=possible_match`` and ``?discord=check_again`` seed the export."""
+        _connected(market(), applications)
+
+        content, _ = _file(filters={"discord": [state]}, columns=["email"])
+
+        assert _rows(content) == [["Email"]]
+
+
 def test_an_application_another_market_holds_is_not_exported(market, applications):
     market()
     applications.documents.append({
