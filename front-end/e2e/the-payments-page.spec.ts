@@ -362,6 +362,30 @@ test.describe('the Payments page', () => {
     await expect(dialog.window).toBeVisible();
     await expect(dialog.summary).toContainText('vendors');
     await expect(dialog.payment).toHaveCount(0);
+
+    // The reading follows the account, not the market (finding 10): Alice set to owe $20 by hand
+    // has paid $15 more than owed, a refund to issue, and the page and the export filter for it.
+    await call(
+      request,
+      'put',
+      `/markets/${unpriced}/payments/${encodeURIComponent(ALICE)}/owed/${SEED_MARKET_DATE}`,
+      { cents: 2000 },
+    );
+    await paymentsPage(page, unpriced, '?show=over');
+    await expect.poll(() => listedEmails(page)).toEqual([ALICE]);
+    await expect(
+      page.locator(`[data-email="${ALICE}"]`).getByTestId('payments-row-balance'),
+    ).toHaveText('Paid $15 more than owed');
+    await expect(page.getByRole('group', { name: 'Show only' })).toBeVisible();
+    await expect(page.getByTestId('payments-unpriced')).toContainText(
+      'a table owes only an amount set by hand',
+    );
+    await vendors.goto(unpriced);
+    await vendors.exportButton.click();
+    await expect(dialog.window).toBeVisible();
+    await expect(dialog.payment).toBeVisible();
+    await dialog.payment.selectOption({ label: 'Paid more than owed' });
+    await expect(dialog.summary).toHaveText(/^1 vendor,/);
   });
 
   /**

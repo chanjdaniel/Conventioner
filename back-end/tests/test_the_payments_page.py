@@ -202,6 +202,19 @@ class TestTheTotals:
         assert {v["email"]: v["balanceState"] for v in page()["vendors"]} == {
             ANA: None, BEN: None, CY: None, DEE: None}
 
+    @pytest.mark.parametrize("owed, state", [(2000, Payments.PAID_MORE), (4000, Payments.OWES),
+                                             (3000, Payments.PAID_IN_FULL)])
+    def test_an_amount_set_by_hand_on_a_market_with_no_prices_reads_as_anywhere(
+            self, market, owed, state):
+        # The reading follows the account, not the market (finding 10): Ben paid $30, and an
+        # amount owed set by hand holds on a market with no prices, so he owes, is square, or paid
+        # more than owed like anyone; the others, owing nothing, are in no state.
+        market.doc["setupObject"]["pricing"] = None
+        Payments.set_amount_owed(MARKET, BEN, SAT, owed, "admin@example.com")
+
+        assert {v["email"]: v["balanceState"] for v in page()["vendors"]} == {
+            ANA: None, BEN: state, CY: None, DEE: None}
+
     def test_a_market_with_nobody_reads_empty(self, market, market_records):
         market_records.payments.documents.clear()
         market.doc["assignmentObject"] = {"vendorAssignments": [], "assignmentStatistics": None}

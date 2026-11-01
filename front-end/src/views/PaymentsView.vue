@@ -22,6 +22,7 @@ import { useOpenMarket } from '@/utils/openMarket';
 import { balanceChip, balanceText, money } from '@/utils/payments';
 import {
   loadMarketPayments,
+  owingCounted,
   paymentsFilters,
   paymentsShownFrom,
   paymentsSortFrom,
@@ -73,6 +74,8 @@ async function loadAll(): Promise<void> {
 watch(marketId, () => void loadAll(), { immediate: true });
 
 const priced = computed(() => found.value?.currency != null);
+/** Whether there is money owed to count: prices, or an amount set by hand on a market without. */
+const counted = computed(() => owingCounted(found.value));
 const amount = (cents: number) => money(cents, { currency: found.value?.currency ?? null });
 
 /** The four figures, in the order the page reads them. */
@@ -106,8 +109,8 @@ const breakdowns = computed(() => {
 });
 
 /** The list's filter, search and sort, each in the address. */
-const filters = computed(() => paymentsFilters(found.value?.currency ?? null));
-const shown = computed(() => paymentsShownFrom(route.query.show, found.value?.currency ?? null));
+const filters = computed(() => paymentsFilters(found.value));
+const shown = computed(() => paymentsShownFrom(route.query.show, found.value));
 const search = computed(() => String(route.query.search ?? ''));
 const sort = computed(() => paymentsSortFrom(route.query));
 
@@ -224,10 +227,14 @@ const nobodyShown = computed(() => {
         <p v-else-if="!found" class="payments-note">Loading payments…</p>
 
         <template v-else-if="market">
-          <!-- Pricing is optional (E43/F01/S01): without it nothing is owed, so the page says
-               where prices are set rather than showing noughts. -->
+          <!-- Pricing is optional (E43/F01/S01): without it nothing is owed but an amount set by
+               hand, so the page says where prices are set rather than showing noughts. -->
           <p v-if="!priced" class="note" data-testid="payments-unpriced">
-            Pricing is off for this market, so nobody owes anything for a table.
+            {{
+              counted
+                ? 'Pricing is off for this market, so a table owes only an amount set by hand.'
+                : 'Pricing is off for this market, so nobody owes anything for a table.'
+            }}
             <RouterLink :to="marketPath(market.id, 'setup')" data-testid="payments-pricing-link"
               >Set prices on Market Setup's Pricing card</RouterLink
             >.

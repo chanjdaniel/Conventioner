@@ -68,6 +68,14 @@ describe('how what they paid compares with what they owe', () => {
     expect(balanceText(account(0, 0, null))).toBe('Nothing owed');
   });
 
+  it('reads an amount owed set by hand on a market without prices as anywhere', () => {
+    // The reading follows the account, not the market (finding 10).
+    expect(balanceText(account(2000, 3500, null))).toBe('Paid $15 more than owed');
+    expect(balanceChip(account(2000, 3500, null))).toBe('chip--informational');
+    expect(balanceText(account(2000, 1000, null))).toBe('Owes $10');
+    expect(balanceChip(account(2000, 1000, null))).toBe('chip--attention');
+  });
+
   it('tones the comparison as it reads', () => {
     expect(balanceChip(account(7000, 4300))).toBe('chip--attention');
     expect(balanceChip(account(7000, 7000))).toBe('chip--positive');

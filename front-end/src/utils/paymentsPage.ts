@@ -64,23 +64,29 @@ export const PAYMENTS_SHOWN: readonly { id: PaymentsShown; label: string }[] = [
 
 type QueryValue = LocationQueryValue | LocationQueryValue[] | undefined;
 
+type Owing = Pick<MarketPayments, 'currency' | 'vendors'> | null | undefined;
+
 /**
- * The filters a market offers: none where it sets no prices (`currency` null), since nothing is
- * owed there and whoever paid would all be "Paid more than owed", the refunds filter everyone
- * (Daniel, T153 review finding 3).
+ * Whether the market has money owed to count: always where it sets prices, and where it sets none
+ * (`currency` null) only where some vendor owes an amount set by hand. Elsewhere nothing is owed,
+ * so nobody is in a payment state (`balance_state` in `back-end/payments.py`): the reading follows
+ * each vendor's account, not the market (T153 review finding 10).
  */
-export function paymentsFilters(
-  currency: string | null,
-): readonly { id: PaymentsShown; label: string }[] {
-  return currency == null ? [] : PAYMENTS_SHOWN;
+export function owingCounted(payments: Owing): boolean {
+  return !!payments && (payments.currency != null || payments.vendors.some((v) => v.owedCents > 0));
+}
+
+/**
+ * The filters a market offers: none where nothing is owed, since whoever paid would all be "Paid
+ * more than owed" there, the refunds filter everyone (Daniel, T153 review finding 3).
+ */
+export function paymentsFilters(payments: Owing): readonly { id: PaymentsShown; label: string }[] {
+  return owingCounted(payments) ? PAYMENTS_SHOWN : [];
 }
 
 /** The filter the address asks for, where the market offers it. */
-export function paymentsShownFrom(
-  value: QueryValue,
-  currency: string | null,
-): PaymentsShown | null {
-  return paymentsFilters(currency).find((f) => f.id === value)?.id ?? null;
+export function paymentsShownFrom(value: QueryValue, payments: Owing): PaymentsShown | null {
+  return paymentsFilters(payments).find((f) => f.id === value)?.id ?? null;
 }
 
 /**

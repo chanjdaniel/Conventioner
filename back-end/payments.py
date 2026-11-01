@@ -314,10 +314,12 @@ BALANCE_STATES = {OWES: "Owes", PAID_IN_FULL: "Paid in full", PAID_MORE: "Paid m
 
 
 def balance_state(vendor_account: Mapping[str, Any]) -> Optional[str]:
-    """Which of ``BALANCE_STATES`` an ``account`` is in, or None for nothing owed and none paid,
-    and on a market without prices (no ``currency``), where nothing is priced, so a payment is not
-    "more than owed" and nobody is in a state for the page or the export to filter by."""
-    if vendor_account["currency"] is None:
+    """Which of ``BALANCE_STATES`` an ``account`` is in, or None for nothing owed and none paid.
+
+    On a market without prices (no ``currency``) an account owing nothing is in none either,
+    whatever was paid: nothing is priced, so a payment is not "more than owed". One owing an
+    amount set by hand reads as anywhere: the reading follows the account, not the market."""
+    if vendor_account["currency"] is None and not vendor_account["owedCents"]:
         return None
     balance = vendor_account["owedCents"] - vendor_account["paidCents"]
     if balance > 0:

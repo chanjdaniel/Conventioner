@@ -37,6 +37,12 @@ const DEE: PaymentsVendor = {
 };
 const NAMES = { 'ana@example.com': 'Zed Ana', 'cy@example.com': 'Alice Cy' };
 const ALL = [ANA, BEN, CY, DEE];
+const priced = { currency: 'CAD', vendors: ALL };
+/** A market without prices: nobody owes, whatever they paid. */
+const unpriced = {
+  currency: null,
+  vendors: ALL.map((v) => ({ ...v, owedCents: 0, balanceState: null })),
+};
 
 describe('the Payments page filters', () => {
   it('names each in the words of the Payment tab', () => {
@@ -70,25 +76,32 @@ describe('the Payments page filters', () => {
     expect(vendorShownIn(DEE, null)).toBe(true);
   });
 
-  it('offers no filter on a market without prices (Daniel, finding 3)', () => {
+  it('offers no filter on a market without prices where nobody owes (Daniel, finding 3)', () => {
     // Nothing is owed there, so whoever paid would all be "Paid more than owed": the refunds
     // filter would be everyone.
-    expect(paymentsFilters('CAD')).toEqual(PAYMENTS_SHOWN);
-    expect(paymentsFilters(null)).toEqual([]);
+    expect(paymentsFilters(priced)).toEqual(PAYMENTS_SHOWN);
+    expect(paymentsFilters(unpriced)).toEqual([]);
   });
 
-  it('ignores a filter in the address on a market without prices', () => {
-    expect(paymentsShownFrom('over', null)).toBeNull();
-    expect(paymentsShownFrom('over', 'CAD')).toBe('over');
+  it('offers the filters on a market without prices where an amount owed was set by hand', () => {
+    // The reading follows the account, not the market (finding 10).
+    const setByHand = { currency: null, vendors: [{ ...DEE, owedCents: 2000 }] };
+    expect(paymentsFilters(setByHand)).toEqual(PAYMENTS_SHOWN);
+    expect(paymentsShownFrom('owes', setByHand)).toBe('owes');
+  });
+
+  it('ignores a filter in the address on a market without prices where nobody owes', () => {
+    expect(paymentsShownFrom('over', unpriced)).toBeNull();
+    expect(paymentsShownFrom('over', priced)).toBe('over');
   });
 
   it('reads the filter from the address, and nothing for anything else', () => {
-    expect(paymentsShownFrom('owes', 'CAD')).toBe('owes');
-    expect(paymentsShownFrom('over', 'CAD')).toBe('over');
-    expect(paymentsShownFrom('more', 'CAD')).toBeNull();
-    expect(paymentsShownFrom('refund', 'CAD')).toBeNull();
-    expect(paymentsShownFrom(undefined, 'CAD')).toBeNull();
-    expect(paymentsShownFrom(['owes'], 'CAD')).toBeNull();
+    expect(paymentsShownFrom('owes', priced)).toBe('owes');
+    expect(paymentsShownFrom('over', priced)).toBe('over');
+    expect(paymentsShownFrom('more', priced)).toBeNull();
+    expect(paymentsShownFrom('refund', priced)).toBeNull();
+    expect(paymentsShownFrom(undefined, priced)).toBeNull();
+    expect(paymentsShownFrom(['owes'], priced)).toBeNull();
   });
 });
 
