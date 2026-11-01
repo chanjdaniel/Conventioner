@@ -1349,6 +1349,61 @@ class TestGivingTheRole:
 
         assert _stored(world) == {"usernameQuestion": "discord_username"}
 
+    def test_choosing_another_username_question_forgets_the_run(self, client, world):
+        """Its outcomes were read against the old question's answers, so the report would name
+        vendors as not found for a username they may since have given (T157 rereview finding 11)."""
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
+        world.applicant("ana@example.com", "ana")
+        _give(client)
+        assert "roleRun" in _stored(world)
+
+        response = client.put(f"/markets/{MARKET}/discord", json={"usernameQuestion": "shop"})
+
+        assert response.status_code == 200, response.get_json()
+        assert "roleRun" not in _stored(world)
+
+    def test_restating_the_username_question_keeps_the_run(self, client, world):
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
+        ana = world.applicant("ana@example.com", "ana")
+        _give(client)
+
+        client.put(f"/markets/{MARKET}/discord",
+                   json={"usernameQuestion": "discord_username", "inviteLink": ""})
+
+        assert _outcomes(world) == {ana: "not_found"}
+
+    def test_a_run_finishing_while_another_question_is_chosen_is_forgotten(self, client, world):
+        """The card's write must forget the run's report whatever the connection it read held."""
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
+        ana = world.applicant("ana@example.com", "ana")
+        load = MarketsApi._load_market_to_change
+
+        def loaded_then_run(*args, **kwargs):
+            market = load(*args, **kwargs)
+            world.markets.doc["discord"] = {
+                **WITH_THE_ROLE, "roleRun": {
+                    "ranAt": "2026-10-31T12:00:00+00:00", "roleName": "Vendor Nov 2026",
+                    "outcomes": [{"applicationId": ana, "outcome": "not_found"}]}}
+            return market
+
+        world.patch.setattr(MarketsApi, "_load_market_to_change", loaded_then_run)
+
+        client.put(f"/markets/{MARKET}/discord", json={"usernameQuestion": "shop"})
+
+        assert _stored(world)["usernameQuestion"] == "shop"
+        assert "roleRun" not in _stored(world)
+
+    def test_reconnecting_with_the_question_gone_forgets_the_run(self, client, world):
+        world.market(discord={**WITH_THE_ROLE, "usernameQuestion": "gone", "roleRun": {
+            "ranAt": "2026-10-31T12:00:00+00:00", "roleName": "Vendor Nov 2026",
+            "outcomes": [{"applicationId": "app-ana", "outcome": "not_found"}]}},
+            **WITH_THE_FORM)
+
+        assert _connect(client).status_code == 200
+
+        assert _stored(world)["usernameQuestion"] == "discord_username"
+        assert "roleRun" not in _stored(world)
+
     def test_a_card_changed_meanwhile_keeps_it_and_still_records_the_roles_given(
         self, client, world,
     ):
