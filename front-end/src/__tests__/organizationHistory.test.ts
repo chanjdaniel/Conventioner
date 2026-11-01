@@ -31,7 +31,7 @@ function entry(overrides: Partial<MarketHistoryEntry>): MarketHistoryEntry {
 }
 
 function sentence(overrides: Partial<MarketHistoryEntry>, labels = {}): string {
-  return entryParts(entry(overrides), {}, labels)
+  return entryParts(entry(overrides), { labels })
     .map((part) => (part.kind === 'text' ? part.text : part.email))
     .join('');
 }
@@ -218,7 +218,7 @@ describe('what an organization’s entry says', () => {
     expect(sentence(reset(['check-in', 'export-csv']), labels)).toBe(
       'olive@ember.test reset Check vendors in and Export CSV for new markets to their built-in defaults',
     );
-    expect(entryChanges(entry(reset(['check-in'])), labels).changed).toEqual([
+    expect(entryChanges(entry(reset(['check-in'])), { labels }).changed).toEqual([
       {
         field: 'Check vendors in',
         before: 'Admin, The organization’s default',

@@ -36,7 +36,9 @@ Nothing is written until the organizer confirms, and the file is not stored ([th
 The confirm also saves the import's column mapping, so the first import of the same file opens "Mapped when your form was started from this file."
 It keeps, too, what the file said of each question and each column left out, as far as it names nobody (answers at least 3 applicants gave, holding no address, link, handle, phone number or street address), so the Questions tab can fill a question's options from it, or add a left-out column as a question, after the start ([building the application form](form-tab.md#f2-custom-questions)).
 Only column headings and the shape of their answers are sent to TypeSafe, and the upload step says so; no applicant's answer leaves Conventioner.
-Covered by: `start-from-csv.spec.ts`, `where-a-form-starts.spec.ts`.
+Covered by:
+- `start-from-csv.spec.ts`
+- `where-a-form-starts.spec.ts`
 
 ## G1. From the create-market dialog
 
@@ -100,4 +102,4 @@ The ledger is the import's because the later import opens on the same one, so th
 - [The setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md): the file gives dates and tiers, and the market needs a location and tables before it leaves Draft.
 - [What each role may do](../rules/what-each-role-may-do.md): the start is an Admin's.
 
-Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

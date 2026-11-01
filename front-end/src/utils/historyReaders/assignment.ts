@@ -18,7 +18,7 @@ import {
   type PlacementHistoryKind,
 } from '@/utils/placementHistory';
 import type { VendorNames } from '@/utils/vendorIdentity';
-import { asDetail, day, sentence, str, type HistoryContext, type HistoryReaders } from './shared';
+import { asDetail, day, sentence, str, type HistoryReaders, type ReaderContext } from './shared';
 
 function table(value: unknown): string {
   const at = asDetail(value);
@@ -80,7 +80,7 @@ function placementParts(
 }
 
 /** A placement's sentence: who made it, then the trail's words. Its key names a placement kind. */
-function placement(entry: MarketHistoryEntry, context: HistoryContext): MarketHistoryPart[] {
+function placement(entry: MarketHistoryEntry, context: ReaderContext): MarketHistoryPart[] {
   const { actor } = sentence(entry, context);
   return [actor, ...placementParts(entry, entry.kind as PlacementHistoryKind, context.names)];
 }

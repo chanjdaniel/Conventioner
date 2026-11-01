@@ -20,6 +20,7 @@ import { vendorMatches, type VendorNames } from '@/utils/vendorIdentity';
 import {
   dayEnds,
   dayStarts,
+  type HistoryContext,
   type MarketHistoryEntry,
   type MarketHistoryGroup,
 } from '@/utils/marketHistory';
@@ -77,6 +78,16 @@ const to = ref('');
 const labels = computed(() => ({
   ...Object.fromEntries(groups.value.flatMap((g) => g.actions.map((a) => [a.id, a.label]))),
   ...props.rowLabels,
+}));
+
+/** What the entries' words are given, one input a line. */
+const context = computed<HistoryContext>(() => ({
+  names: vendorNames.value,
+  labels: labels.value,
+  path: props.path,
+  own: ownVendor.value,
+  questions: props.questions,
+  fields: props.fields,
 }));
 
 /**
@@ -329,14 +340,9 @@ const emptyText = computed(() => {
       :key="firstPages"
       :entries="entries"
       testid="market-history"
-      :names="vendorNames"
-      :labels="labels"
-      :path="path"
+      :context="context"
       :vendor-link="vendorLink"
       :open-vendor="openVendor"
-      :own-vendor="ownVendor"
-      :questions="questions"
-      :fields="fields"
     />
 
     <p v-if="loadError && entries.length" class="form-error" data-testid="market-history-error">

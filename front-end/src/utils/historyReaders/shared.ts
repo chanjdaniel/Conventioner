@@ -33,21 +33,48 @@ import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 
 export type Detail = Record<string, unknown>;
 
-/** What a reader words an entry with, besides the entry: built by `entryParts` and `entryChanges`
- * from their parameters. */
+/**
+ * What the history's words are given besides the entry, which `entryParts` and `entryChanges`
+ * take and each screen builds, one input a line. An input a screen leaves out reads as its default
+ * in `CONTEXT_DEFAULTS`. A new input is one property here, its default there, and one line where
+ * each screen that has it builds its context.
+ */
 export interface HistoryContext {
   /** The vendors' names, by address, so a vendor reads by name. */
-  names: VendorNames;
-  /** Each of the table's actions by its label. */
-  labels: Readonly<Record<string, string>>;
-  /** How the market's vendors arrive, so a phase reads as that market's other screens name it. */
-  path: IntakeMode;
-  /** The vendor whose own history this is, if it is one. */
-  own: string;
+  names?: VendorNames;
+  /** Each of the table's actions by its label: for a change to a row, and for a change no reader
+   * has words for yet. */
+  labels?: Readonly<Record<string, string>>;
+  /** How the market's vendors arrive, so a phase reads as that market's other screens name it
+   * ("Review" on a Google Form market). */
+  path?: IntakeMode;
+  /** The vendor whose own history this is, if it is one: an entry about many vendors reads as that
+   * vendor's line, and a deal as that vendor's reviewer alone. */
+  own?: string;
   /** The market's choice questions (`rejectionQuestions`), which a price group's conditions name. */
-  questions: readonly RejectionQuestion[];
+  questions?: readonly RejectionQuestion[];
   /** The market's form, whose questions name a vendor's answers. */
-  fields: readonly FormField[];
+  fields?: readonly FormField[];
+}
+
+/** The context as a reader gets it: every input there, its default where the screen gave none. */
+export type ReaderContext = Required<HistoryContext>;
+
+/** Each input's default. Absent, `path` is a Google Form market's, as `intakeModeOf` reads a
+ * market with none. */
+export const CONTEXT_DEFAULTS: Readonly<ReaderContext> = {
+  names: {},
+  labels: {},
+  path: IntakeMode.Csv,
+  own: '',
+  questions: [],
+  fields: [],
+};
+
+/** A screen's context with each input it left out, or gave as undefined, at its default. */
+export function readerContext(context: HistoryContext): ReaderContext {
+  const given = Object.entries(context).filter(([, value]) => value !== undefined);
+  return { ...CONTEXT_DEFAULTS, ...Object.fromEntries(given) };
 }
 
 /** An entry's before-and-after rows, and whatever else it recorded. */
@@ -58,8 +85,8 @@ export interface EntryChanges {
 
 /** One area's words for its entries: the sentence, and the before-and-after rows. */
 export interface HistoryReader {
-  parts?(entry: MarketHistoryEntry, context: HistoryContext): MarketHistoryPart[];
-  changes?(entry: MarketHistoryEntry, context: HistoryContext): EntryChanges | undefined;
+  parts?(entry: MarketHistoryEntry, context: ReaderContext): MarketHistoryPart[];
+  changes?(entry: MarketHistoryEntry, context: ReaderContext): EntryChanges | undefined;
 }
 
 // Keyed `action/kind` (`kind` empty when the entry has none), `*/kind` for a kind worded alike
@@ -100,7 +127,7 @@ export function listed(words: string[]): string {
  * a link to their drawer, who made the change, the entry's first vendor, its detail and the detail's
  * two sides, and a day as " on <day>".
  */
-export function sentence(entry: MarketHistoryEntry, context: HistoryContext) {
+export function sentence(entry: MarketHistoryEntry, context: ReaderContext) {
   const text = (words: string): MarketHistoryPart => ({ kind: 'text', text: words });
   const who = (email: unknown): MarketHistoryPart => ({
     kind: 'vendor',
@@ -126,7 +153,7 @@ export function rowLabel(
 }
 
 /** A role given, a market's or an organization's. */
-export function roleGiven(entry: MarketHistoryEntry, context: HistoryContext): MarketHistoryPart[] {
+export function roleGiven(entry: MarketHistoryEntry, context: ReaderContext): MarketHistoryPart[] {
   const { actor, text, after } = sentence(entry, context);
   return [
     actor,
@@ -137,7 +164,7 @@ export function roleGiven(entry: MarketHistoryEntry, context: HistoryContext): M
 /** A role changed, a market's or an organization's. */
 export function roleChanged(
   entry: MarketHistoryEntry,
-  context: HistoryContext,
+  context: ReaderContext,
 ): MarketHistoryPart[] {
   const { actor, text, before, after } = sentence(entry, context);
   return [
@@ -150,7 +177,7 @@ export function roleChanged(
 }
 
 /** A role taken, a market's or an organization's. */
-export function roleTaken(entry: MarketHistoryEntry, context: HistoryContext): MarketHistoryPart[] {
+export function roleTaken(entry: MarketHistoryEntry, context: ReaderContext): MarketHistoryPart[] {
   const { actor, text, before } = sentence(entry, context);
   return [
     actor,
@@ -166,7 +193,7 @@ function permissionState(value: unknown): string {
 
 /** A whole table reset, a market's or an organization's default, or a market's replaced by its
  * organization's default: each row it changed, by its label. */
-export function permissionRows(entry: MarketHistoryEntry, context: HistoryContext): EntryChanges {
+export function permissionRows(entry: MarketHistoryEntry, context: ReaderContext): EntryChanges {
   const { labels } = context;
   const detail = asDetail(entry.detail);
   const before = asDetail(detail.before);
@@ -319,7 +346,7 @@ function eachDealtTo(entry: MarketHistoryEntry, dealt: Detail): string {
  * question's three storage keys as one answer in the vendor's words, and never a stored key or
  * JSON (E38/F07/S02, E41/F01/S02). An answer that reads the same on both sides is no change.
  */
-export function vendorAnswers(entry: MarketHistoryEntry, context: HistoryContext): EntryChanges {
+export function vendorAnswers(entry: MarketHistoryEntry, context: ReaderContext): EntryChanges {
   const { path, fields } = context;
   const detail = asDetail(entry.detail);
   const before = asDetail(detail.before);

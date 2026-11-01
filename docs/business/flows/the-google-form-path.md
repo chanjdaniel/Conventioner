@@ -79,6 +79,8 @@ The other four exports were not re-walked live; synthetic files of their shapes 
 | Everything after | as P1 from "Go to the review" |
 
 Intended at the import: every row that answers the required questions imports, "Full table" and "Half table" match the table choices, and ticked certification boxes read as ticked.
+Covered by:
+- `start-from-csv.spec.ts`, which walks P2's seam from the confirm to the first import
 
 ## The rules it obeys
 
@@ -89,7 +91,7 @@ Intended at the import: every row that answers the required questions imports, "
 - [What an import may leave unasked](../rules/what-an-import-may-leave-unasked.md): a file with no "how many days" column imports with no personal limit.
 - [A gated market answers as absent](../rules/a-gated-market-answers-as-absent.md): this market has no applicant pages.
 
-Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
 
 ## Superseded
 

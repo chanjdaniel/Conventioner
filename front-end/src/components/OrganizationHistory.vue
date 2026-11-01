@@ -5,10 +5,10 @@
  * and its floorplan templates, worded as the market's history words them and read a page at a
  * time, as `MarketHistory.vue` reads; an organization's changes are few, so it is not filtered.
  */
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import HistoryEntries from '@/components/HistoryEntries.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
-import type { MarketHistoryEntry } from '@/utils/marketHistory';
+import type { HistoryContext, MarketHistoryEntry } from '@/utils/marketHistory';
 
 const props = defineProps<{
   orgId: string;
@@ -30,6 +30,11 @@ const labels = ref<Record<string, string>>({});
 const loading = ref(false);
 const loadingMore = ref(false);
 const loadError = ref('');
+
+/** What the entries' words are given, one input a line. */
+const context = computed<HistoryContext>(() => ({
+  labels: labels.value,
+}));
 
 async function read(before: string | null): Promise<HistoryPage> {
   const asked = before ? `?${new URLSearchParams({ before })}` : '';
@@ -97,7 +102,7 @@ watch(() => props.changesMade, load);
       v-if="!loading && entries.length"
       :entries="entries"
       testid="org-history"
-      :labels="labels"
+      :context="context"
     />
 
     <p v-if="loadError && entries.length" class="form-error" data-testid="org-history-error">

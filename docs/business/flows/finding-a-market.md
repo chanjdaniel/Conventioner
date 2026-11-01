@@ -57,7 +57,9 @@ The dashboard says a market is gone once, then forgets it, so the next visit is 
 
 "Markets" and "Organizations" lead to those lists.
 The dashboard fits a phone, since sign-in lands there on the way to the door (T148): at 390px nothing scrolls sideways or zooms out, the card or the sentence fills the window less a 16px gutter at each side, Markets and Organizations stand side by side under it, every action is a 44px target, and for a returning organizer the tiles hold still while the markets answer is on its way.
-Covered by: `dashboard-market-count.spec.ts`, `sign-in-fits-a-phone.spec.ts`.
+Covered by:
+- `dashboard-market-count.spec.ts`
+- `sign-in-fits-a-phone.spec.ts`
 
 ## C2. The markets list
 
@@ -67,7 +69,10 @@ Above the list a finder narrows it: "Search" by market name as it is typed (case
 The finder's choices are held in the page's address; a value there that no longer means anything (an organization the organizer has left, a phase the finder does not offer, `offers` included) is dropped, so an old bookmark opens onto markets.
 Clicking a card opens the market; "Manage", shown to anyone who may read the market, opens the Manage market dialog ([L3 to L5](ending-and-managing-a-market.md#l3-manage-who-has-access)), where each control asks its own row and everyone reads [who may do what](ending-and-managing-a-market.md#l3a-set-who-may-do-what) (E39/F01/S04).
 The list fits a phone, since an organizer at the door finds the market there first (T142): at 390px nothing scrolls sideways, every control is a 44px target, and Manage market and the create-market dialog open inside the window.
-Covered by: `dashboard-market-count.spec.ts`, `finding-a-market.spec.ts`, `access-control.spec.ts`.
+Covered by:
+- `access-control.spec.ts`
+- `dashboard-market-count.spec.ts`
+- `finding-a-market.spec.ts`
 
 ## C3. Open a market by its address
 
@@ -78,13 +83,17 @@ Covered by: `dashboard-market-count.spec.ts`, `finding-a-market.spec.ts`, `acces
 3. Old addresses redirect: `/markets/<id>/tables` and `/result` to `/assignments`, `/markets/<id>/assignment` to `/settings`, `setup?tab=<page>` to that page, `/market-setup` and the other id-less paths to `/markets`, `/floorplan-editor?marketId=<id>` to the floorplan flow.
 4. An id you cannot reach shows "This market does not exist, or you do not have access to it." with "Choose a market".
 
-Covered by: `every-market-page-has-an-address.spec.ts`, `one-market-from-the-server.spec.ts`, `the-frame-stays-put.spec.ts`.
+Covered by:
+- `every-market-page-has-an-address.spec.ts`
+- `one-market-from-the-server.spec.ts`
+- `the-frame-stays-put.spec.ts`
 
 ## C4. The navigation menu
 
 **Status:** Works (walked live).
 The menu button top left opens Markets, Organizations, "Market vendors" (only while a market is open; goes to its Vendors page) and Sign out.
-Covered by: `the-way-in-lines-up.spec.ts`.
+Covered by:
+- `the-way-in-lines-up.spec.ts`
 
 ## C5. The old start screen
 
@@ -92,4 +101,4 @@ Covered by: `the-way-in-lines-up.spec.ts`.
 Two buttons, "Set Up New Market" (opens the create-market dialog) and "Load Existing Market" (a market picker).
 Nothing links to it; it predates the Markets list.
 
-The rule on who sees which markets is [what each role may do](../rules/what-each-role-may-do.md); its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+The rule on who sees which markets is [what each role may do](../rules/what-each-role-may-do.md); its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
