@@ -2,6 +2,7 @@
 Organization API functions for CRUD operations and role management.
 """
 import uuid
+from collections import Counter
 from typing import Optional, Dict, Any, List
 from pymongo.results import UpdateResult, DeleteResult
 import api.market_actions as Actions
@@ -16,7 +17,7 @@ from datatypes import (
     phase_label,
 )
 from db_config import get_database
-from market_documents import market_doc_filter, market_doc_key
+from market_documents import market_doc_field, market_doc_filter, market_doc_key
 import deletion_trail as DeletionTrail
 import history as History
 import market_deletion as MarketDeletion
@@ -74,6 +75,27 @@ def get_organization(org_id: str) -> Optional[Dict[str, Any]]:
     return org
 
 
+def _what_removing_takes(org: Dict[str, Any]) -> Dict[str, Any]:
+    """What Manage organization's Remove says a person loses (E38/F15/S01).
+
+    ``marketCount``: the markets it holds, counted from the markets themselves, since its own
+    ``markets`` list is kept in step only at best effort. ``marketsWithOwnRole``: for each admin and
+    member who holds a role of their own on some of them, how many, since removing them from the
+    organization leaves those roles, and so those markets.
+    """
+    documents = list(markets_collection.find(
+        market_doc_filter("organization_id", org["id"]), {market_doc_key("roles"): 1}
+    ))
+    held = Counter(
+        user_id for document in documents for user_id in (market_doc_field(document, "roles") or {})
+    )
+    people = [*org.get("admins", []), *org.get("members", [])]
+    return {
+        "marketCount": len(documents),
+        "marketsWithOwnRole": {user_id: held[user_id] for user_id in people if held[user_id]},
+    }
+
+
 def get_organizations_for_user(user_email: str) -> List[Dict[str, Any]]:
     """Get all organizations where user is owner, admin, or member."""
     user = UsersApi.get_user(user_email)
@@ -115,6 +137,7 @@ def get_organizations_for_user(user_email: str) -> List[Dict[str, Any]]:
         org["member_emails"] = member_emails
         # The rows it sets for the markets it will hold, each read as the markets copy it.
         org["defaultPermissionTable"] = Actions.default_table(org.get(DEFAULT_PERMISSIONS))
+        org.update(_what_removing_takes(org))
         # Add user's role so frontend can show Manage button for owner/admin
         if org.get("owner") == user_id:
             org["userRole"] = "owner"

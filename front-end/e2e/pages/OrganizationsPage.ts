@@ -34,6 +34,12 @@ export class OrganizationsPage {
   readonly addMemberSubmit: Locator;
   readonly removeUserButtons: Locator;
   readonly removeMemberButtons: Locator;
+  readonly admins: Locator;
+  readonly members: Locator;
+  readonly removeConfirm: Locator;
+  readonly removeConsequence: Locator;
+  readonly removeConfirmButton: Locator;
+  readonly removeCancelButton: Locator;
   readonly deleteButton: Locator;
   readonly deleteConfirmButton: Locator;
   readonly deleteCancelButton: Locator;
@@ -88,6 +94,13 @@ export class OrganizationsPage {
     this.addMemberSubmit = page.getByTestId('manage-org-add-member-submit');
     this.removeUserButtons = page.getByTestId('manage-org-remove-user-button');
     this.removeMemberButtons = page.getByTestId('manage-org-remove-member-button');
+    this.admins = page.getByTestId('manage-org-admins');
+    this.members = page.getByTestId('manage-org-members');
+    // Remove asks first (E38/F15/S01): its own destructive dialog, a sibling of Manage organization.
+    this.removeConfirm = page.getByTestId('manage-org-remove-window');
+    this.removeConsequence = page.getByTestId('manage-org-remove-consequence');
+    this.removeConfirmButton = page.getByTestId('manage-org-remove-submit-button');
+    this.removeCancelButton = page.getByTestId('manage-org-remove-cancel-button');
     this.deleteButton = page.getByTestId('manage-org-delete-button');
     this.deleteConfirmButton = page.getByTestId('delete-org-submit-button');
     this.deleteCancelButton = page.getByTestId('delete-org-cancel-button');
@@ -200,12 +213,9 @@ export class OrganizationsPage {
 
   // ── Remove users ──
 
-  async removeFirstAdmin(): Promise<void> {
-    await this.removeUserButtons.first().click();
-  }
-
-  async removeFirstMember(): Promise<void> {
-    await this.removeMemberButtons.first().click();
+  /** Confirms the confirmation a row's Remove opened; nothing is removed until then. */
+  async confirmRemove(): Promise<void> {
+    await this.removeConfirmButton.click();
   }
 
   // ── History ──

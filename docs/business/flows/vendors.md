@@ -24,16 +24,16 @@ sources:
   - E42/F01/S01
   - E42/F01/S02
   - E42/F01/S03
-  - E42/F01/S04
   - E41/F01/S01
   - E38/F08/S02
   - T139
   - E46/F01/S03
   - E43/F01/S03
+  - E46/F01/S04
+  - E42/F01/S04
   - E46/F01/S05
   - T137
   - E42/F01/S05
-  - E46/F01/S04
 ---
 
 # Vendors
@@ -50,6 +50,7 @@ The Vendors page ([`VendorsView.vue`](../../../front-end/src/views/VendorsView.v
 
 1. "Search vendors" ("Filter by name or email…") finds a vendor by name or address; each row names the vendor, with their address beside.
 2. "N of M vendors assigned" counts the vendors who need a table, the approved applicants and the vendors added by hand, and never a rejected applicant (bug 10); a filter or search reads "N of M vendors shown".
+   The line is in the muted ink and its counts in the brand green, each at AA on white; it once dimmed the whole line with opacity, which took the counts to 3.2:1 (T162 review).
 3. Each row of a vendor who needs a table shows Assigned or Unassigned and "N of M dates", against the dates they could have had; a vendor added by hand needs a table on every market day, and shows "Added" beside it; a rejected applicant shows "Rejected".
 4. "Unassigned only" lists the vendors who need a table and hold none, and with a date chosen those with none that day, a vendor added by hand included (E38/F08/S02); it and "Rejected only", shown when anyone was rejected, narrow the list, each cleared with its "×"; the Assignments page's filters (Date, Section, Tier, Table) narrow it to where vendors are placed, and are kept across the two pages.
 5. The Assignments page's "N unassigned" link opens this list filtered, as "Unassigned only", and counts the same vendors.

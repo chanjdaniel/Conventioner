@@ -203,14 +203,17 @@ useInertBehind(
  * does (`docs/implementation/conventions/dialogs.md`): the row or name that opened it is
  * inert behind the drawer, and closing unmounts the drawer's controls, which dropped focus to
  * `<body>`. It opens on its close, its first control, since what follows may be a verdict or a note.
- * Only opening moves focus: another vendor shown in the open drawer leaves it where it is.
+ * Another vendor shown in the open drawer is a fresh start too, so focus moves to its close again:
+ * a vendor named in the History tab is shown in place, and the name that was focused goes with the
+ * panel it sat in, which left focus on `<body>` (T162). Closing still gives focus back to what
+ * opened the drawer.
  */
 const closeButton = ref<HTMLButtonElement | null>(null);
 useFocusGoesBack(() => open.value);
 watch(
-  open,
-  async (opened) => {
-    if (!opened) return;
+  () => props.email,
+  async (shown) => {
+    if (shown === null) return;
     await nextTick();
     closeButton.value?.focus();
   },

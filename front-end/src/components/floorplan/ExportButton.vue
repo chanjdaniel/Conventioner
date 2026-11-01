@@ -117,7 +117,8 @@ function toggleDropdown() {
 
   background: var(--mm-green);
   color: #ffffff;
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
@@ -136,7 +137,10 @@ function toggleDropdown() {
 }
 
 .export-btn:disabled {
-  opacity: 0.6;
+  /* The primitives' one disabled state (`.btn:disabled`): readable, never dimmed by opacity. */
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  border-color: var(--mm-border);
   cursor: not-allowed;
 }
 
@@ -231,7 +235,8 @@ function toggleDropdown() {
 
   background: var(--mm-green);
   color: #ffffff;
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
@@ -250,7 +255,10 @@ function toggleDropdown() {
 }
 
 .export-action-btn:disabled {
-  opacity: 0.6;
+  /* The primitives' one disabled state (`.btn:disabled`): readable, never dimmed by opacity. */
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  border-color: var(--mm-border);
   cursor: not-allowed;
 }
 

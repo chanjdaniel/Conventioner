@@ -717,7 +717,8 @@ function deleteType(tt: TableTypeObject) {
   font-size: var(--text-sm);
   line-height: 1;
   color: #ffffff;
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: 5px;
   cursor: pointer;
   transition:
@@ -730,7 +731,10 @@ function deleteType(tt: TableTypeObject) {
 }
 
 .tt-btn:disabled {
-  opacity: 0.45;
+  /* The primitives' one disabled state (`.btn:disabled`): readable, never dimmed by opacity. */
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  border-color: var(--mm-border);
   cursor: not-allowed;
 }
 
@@ -738,9 +742,12 @@ function deleteType(tt: TableTypeObject) {
   background: var(--mm-green);
 }
 
+/* As a secondary `.btn` is drawn: a grey `--mm-border` fill with no line read duller than the
+   disabled Save beside it (T162). */
 .tt-btn--secondary {
-  background: var(--mm-border);
+  background: white;
   color: var(--mm-black);
+  border-color: var(--mm-border);
 }
 
 /* ── Transitions ─────────────────────────────────────────────── */

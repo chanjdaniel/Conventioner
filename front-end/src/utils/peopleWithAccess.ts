@@ -27,3 +27,27 @@ export function alsoWords(person: PersonWithAccess, organizationName: string): s
     `are ${place} of ${organizationName}.`
   );
 }
+
+/**
+ * What Manage market's Remove asks, and what the person loses (E38/F15/S01): Remove takes only the
+ * market's own role, so a place in the organization stays, and is said, as the market's
+ * organization line says it: its admins run it, its members can view it.
+ */
+export function marketRemoval(
+  person: PersonWithAccess,
+  marketName: string,
+  organizationName: string,
+): { title: string; loses: string; keeps: string } {
+  const role = getRoleDisplayName(person.marketRole ?? person.role);
+  const keeps =
+    person.organizationRole === 'admin'
+      ? `They can still run it as an admin of ${organizationName}.`
+      : person.organizationRole === 'member'
+        ? `They can still view it as a member of ${organizationName}.`
+        : '';
+  return {
+    title: `Remove ${person.email} from ${marketName}?`,
+    loses: `They lose their ${role} role on it.`,
+    keeps,
+  };
+}

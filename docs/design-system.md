@@ -14,6 +14,8 @@ describes:
   - front-end/e2e/layout-detectors.spec.ts
   - front-end/e2e/helpers/screens.ts
   - front-end/e2e/helpers/layoutDetectors.ts
+  - front-end/e2e/contrast-measure.spec.ts
+  - front-end/e2e/helpers/contrastSweep.ts
 verified: 2026-11-01
 sources:
   - wayfinding/claims-and-room/map
@@ -54,6 +56,7 @@ sources:
   - T123
   - T142
   - T148
+  - E38/F15/S01
 ---
 
 # Conventioner's design language
@@ -324,9 +327,14 @@ The placement dialog's two vendor pickers are its first use.
 
 | | Variants | Notes |
 | --- | --- | --- |
-| `.btn` | `--primary`, `--secondary`, `--destructive`, `--compact` | One standard height (36px) and one compact (28px), and no third, both 44px on a phone. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. |
+| `.btn` | `--primary`, `--secondary`, `--destructive`, `--compact` | One standard height (36px) and one compact (28px), and no third, both 44px on a phone. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. `--secondary` with `--destructive` is a row's destructive action, below. |
 | `.field` | `--select`, `--textarea` | Left-aligned always - 18 of 27 controls on Market Setup were centred. `--select` carries `min-width: 0`: a select fills its column and never pushes past it, in Firefox as in Chromium. A column that must fit a select's options sizes its own track. |
 | `.chip` | `--neutral`, `--positive`, `--attention`, `--informational`, `--destructive` | One shape, one size, sentence case. Tint with coloured ink rather than a solid fill: a list of six solid pills competes with the content it labels. The tint is an opaque `--mm-chip-*` ground, so a chip reads the same on beige as on white. A status is a chip; the action beside it is a button. |
+
+**A row's destructive action is quiet; the confirmation's is filled** (E38/F15/S01).
+`.btn--secondary.btn--destructive` is the destructive intent at the secondary weight: red ink (`--mm-red`, 5.44:1 on white) on the secondary button's white and border, at 400, not a fourth intent.
+A list of people with a filled red Remove on every row shouted the one action nobody came for; each such Remove now asks first, and the confirmation's own button is the filled `--destructive` one: Manage organization's and Manage market's people ([removing a person](business/flows/organizations.md#b3-remove-a-person), [managing who has access](business/flows/ending-and-managing-a-market.md#l3-manage-who-has-access)).
+It keeps the `btn--destructive` class, so [a dialog](implementation/conventions/dialogs.md) still never opens on it.
 
 **On a phone every target is 44px**, the size a thumb wants (T82).
 The heights are tokens in `base.css`: `--control-height` (36px) for `.btn`, `.field` and `.add-row`, `--control-height-compact` (28px) for `.btn--compact`, and `--target-min` (24px, WCAG 2.5.8's floor), the least any other target may be: a tab, a link on its own line, a Show toggle, a Copy button, a choice's label.
@@ -335,6 +343,9 @@ The one exception is `.answer-link--alone`, an answer that is only a link: it ta
 A desk keeps its denser 36px and 28px.
 
 **One disabled state**, and it does not rely on text contrast: the control keeps a readable foreground and loses its affordance, so it reads as unavailable rather than as unreadable. The product had four, one of which put white on `--mm-border` at 1.74:1.
+A control drawn by a component of its own rather than a `.btn` takes the same values, `--mm-text-muted-on-beige` on `--mm-beige` inside a `--mm-border` line, and never opacity, which dims the words with the affordance: the floorplan wizard's Next, Save and Auto-Place and the application form's order arrows sat at 1.87 to 2.72:1 (T162).
+Such a control drawn with no line of its own carries a transparent 1px one at rest, as `.btn` does, so the line appears when it is disabled and nothing moves: Publish Results drawn with `border: none` was a beige patch beside the bar's Publish Market, which had a line.
+The contrast sweep fails a shown disabled control drawn as a box, with a fill, that draws no line; a control drawn as words with no fill ("Resend code in 30s" on the vendor's sign-in) has no box to line, and a control in a disabled `<fieldset>` is out of it, since a settled plan is read as it stands, its calendar and fields as written.
 
 **A field shows no focus at all**, by Daniel's decision on the 2026-10-29 walk (E38/F01/S01): no outline, ring, glow, or border or fill change on any `input`, `textarea` or `select`, by click or by Tab, and a text field shows its caret.
 A browser treats a focused text field as `:focus-visible` whether it was clicked or tabbed into, so no rule could keep a ring for the keyboard alone, and Daniel chose this knowing a keyboard user loses it too; an accessibility pass does not put it back.
@@ -371,6 +382,9 @@ A convention nothing enforces is how the product got here. Six checks, the first
 2. **A custom-property resolution check**, `src/__tests__/everyTokenResolves.test.ts`, fails the build when any `var(--x)` references a property nothing defines. This is the one that matters: `var(--mm-text-red)` is not a raw value, it is a well-formed reference to nothing, and it rendered the market-archive confirmation button as white text on a white dialog with no border for as long as it existed. Stylelint cannot see that.
    **Never write `var(--mm-x, #fallback)`**, and the same test refuses one: a fallback on a defined token is a second definition waiting to drift, and on an undefined one it hides the bug.
 3. **A rendered-usage contrast sweep**, [`e2e/contrast-sweep.spec.ts`](../front-end/e2e/contrast-sweep.spec.ts), walks each screen and fails on any text node below its AA threshold. The token test stays as well - it fails in milliseconds with a precise message when `base.css` changes, where the sweep would only say "something on the Applications screen went dark".
+   It measures text as it is drawn: the colour's own alpha times every opacity up the chain, laid over the ground, since a line dimmed with `opacity: 0.8` drew the Vendors page's 4.59:1 green counts at 3.2:1 and passed while the sweep read colours alone (T162).
+   On each screen it also fails a disabled control drawn as a box that draws no line ([one disabled state](#the-primitive-layer)).
+   The measures are in [`e2e/helpers/contrastSweep.ts`](../front-end/e2e/helpers/contrastSweep.ts), and [`e2e/contrast-measure.spec.ts`](../front-end/e2e/contrast-measure.spec.ts) shows them fixture pages, each defect they are meant to catch and its quiet twin.
    `contrast.test.ts` asserts tokens, not usages, and that gap has been occupied: a token exempt from the contract because it never carries text (`--mm-border`) was used as a button fill under white text at 1.74:1.
 4. **An accessibility sweep**, [`e2e/accessibility-sweep.spec.ts`](../front-end/e2e/accessibility-sweep.spec.ts), runs axe (`@axe-core/playwright`) over the same states and fails on any WCAG 2.0, 2.1 or 2.2 A or AA violation it can see, naming each one's rule, impact and target.
    Its configuration is the `expectAccessible` fixture in `e2e/fixtures.ts`, which also holds the app to exactly one `main` landmark; axe's `color-contrast` rule is off there, since the contrast sweep owns contrast and one defect should fail one check.

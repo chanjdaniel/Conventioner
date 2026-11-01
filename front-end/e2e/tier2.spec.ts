@@ -73,7 +73,9 @@ test.describe('Tier 2 - Organization CRUD', () => {
 
     const memberRemove = orgsPage.removeMemberButtons.first();
     await expect(memberRemove).toBeVisible({ timeout: 5000 });
+    // Remove asks first (E38/F15/S01).
     await memberRemove.click();
+    await orgsPage.confirmRemove();
     await expect(orgsPage.memberEmails.filter({ hasText: THIRD_USER.email })).toHaveCount(0, {
       timeout: 5000,
     });
@@ -177,8 +179,9 @@ test.describe('Tier 2 - Market role management', () => {
       .locator('.user-card')
       .filter({ hasText: SECOND_USER.email })
       .getByTestId('manage-market-remove-user-button');
+    // Remove asks first (E38/F15/S01).
     await removeButton.click();
-    await page.waitForTimeout(1000);
+    await page.getByTestId('manage-market-remove-submit-button').click();
 
     await expect(page.locator('.user-card').filter({ hasText: SECOND_USER.email })).not.toBeVisible(
       { timeout: 5000 },

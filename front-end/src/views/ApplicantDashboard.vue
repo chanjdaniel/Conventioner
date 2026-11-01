@@ -310,9 +310,9 @@ function logout() {
   font-family: 'Merge One';
 }
 
+/* In the card's own ink, which is measured on its ground: dimmed by opacity it read 3.3:1. */
 .status-date {
   font-size: var(--text-xs);
-  opacity: 0.8;
 }
 
 /* Where they sit, one line a date, under the outcome (E36/F05/S02). */

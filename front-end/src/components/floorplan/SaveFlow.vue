@@ -374,7 +374,8 @@ async function handleSave() {
 
   background: var(--mm-green);
   color: #ffffff;
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
@@ -411,12 +412,12 @@ async function handleSave() {
 
 .save-button.is-disabled,
 .save-button:disabled {
-  background: var(--mm-border);
+  /* The primitives' one disabled state (`.btn:disabled`): readable, never dimmed by opacity. */
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  border-color: var(--mm-border);
   cursor: not-allowed;
-  opacity: 0.55;
   box-shadow: none;
-  /* White on this fill is 1.67. --mm-black on it is 9.31. */
-  color: var(--mm-black);
 }
 
 /* ── Toast ──────────────────────────────────────────────────── */
@@ -527,7 +528,8 @@ async function handleSave() {
   height: 40px;
   margin: 0;
   padding: 0;
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
   color: #fff;
@@ -544,7 +546,10 @@ async function handleSave() {
 }
 
 .save-dialog-close:disabled {
-  opacity: 0.4;
+  /* The primitives' one disabled state (`.btn:disabled`): readable, never dimmed by opacity. */
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  border-color: var(--mm-border);
   cursor: not-allowed;
 }
 
@@ -713,8 +718,8 @@ async function handleSave() {
 
 .save-section-card-label {
   font-size: var(--text-xs);
-  color: var(--mm-black);
-  opacity: 0.6;
+  /* On the card's beige: dimmed by opacity it read 3.89:1. */
+  color: var(--mm-text-muted-on-beige);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   padding-left: 2px;
@@ -734,7 +739,9 @@ async function handleSave() {
 }
 
 .save-section-card-input:disabled {
-  opacity: 0.55;
+  /* The primitives' disabled field (`.field:disabled`): readable, never dimmed by opacity. */
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
   cursor: not-allowed;
 }
 
@@ -747,8 +754,8 @@ async function handleSave() {
 
 .save-section-card-tables {
   font-size: var(--text-xs);
-  color: var(--mm-black);
-  opacity: 0.55;
+  /* On the card's beige: dimmed by opacity it read 3.38:1. */
+  color: var(--mm-text-muted-on-beige);
   white-space: nowrap;
 }
 
@@ -786,7 +793,8 @@ async function handleSave() {
   min-width: 100px;
   height: 36px;
   padding: 0 20px;
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
@@ -800,7 +808,10 @@ async function handleSave() {
 }
 
 .save-dialog-btn:disabled {
-  opacity: 0.5;
+  /* The primitives' one disabled state (`.btn:disabled`): readable, never dimmed by opacity. */
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  border-color: var(--mm-border);
   cursor: not-allowed;
 }
 
