@@ -177,6 +177,23 @@ test.describe('Finding a market', () => {
     await expect(markets.sortSelect).toHaveValue('date');
   });
 
+  // No market reaches Offers, so the filter offers the stages the rail draws, and an old bookmark
+  // that names it opens onto every market under "All phases" (E38/F15/S03).
+  test('the phase filter offers only the phases a market can reach', async ({ page }) => {
+    const markets = new MarketsPage(page);
+    await markets.goto('?phase=offers');
+    await markets.expectNames([TEST_FAIR, CAFE, WINTER, ATTIC]);
+    await expect(markets.allPhasesToggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(markets.phaseToggle('offers')).toHaveCount(0);
+    expect(await markets.offeredPhases()).toEqual([
+      'draft',
+      'applications',
+      'assignment',
+      'market_days',
+      'archived',
+    ]);
+  });
+
   // The way to the market an organizer runs from the door on a phone (T142). Under a phone's own
   // emulation a page wider than the window does not scroll sideways: it widens the layout viewport
   // and zooms out, and a dialog opens off screen. The 1000px floor did exactly that here.
