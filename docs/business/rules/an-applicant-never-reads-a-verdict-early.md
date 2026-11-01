@@ -30,7 +30,7 @@ Applying, and changing one's answers, is open only while the market is in `appli
 
 An organizer must not leak a half-finished review, and must keep the freedom to change their mind until anyone is told.
 The automatic rules judge an application in the request that saves it, so a status beside "Submitted" told an applicant a rule had rejected them the moment they submitted, and editing their answers flipped it back (E36/F05/S01).
-Publication is the single, deliberate moment anything more is told ([Publish Results waits for the allocation](publish-results-waits-for-the-allocation.md)); why the seat and not the verdict is what an applicant reads is [ADR 0013](../../adr/0013-verdicts-settle-with-the-review-and-results-settle-the-allocation.md).
+Publication is the single, deliberate moment anything more is told ([Publish results waits for the allocation](publish-results-waits-for-the-allocation.md)); why the seat and not the verdict is what an applicant reads is [ADR 0013](../../adr/0013-verdicts-settle-with-the-review-and-results-settle-the-allocation.md).
 
 **The outcome is read off the stored seats, never the verdict** (E36/F05/S02).
 A rejected applicant seated by hand has a table, and an approved one the run could not place has none; so rejected and approved-without-a-seat read the same, and no reason is given to either.

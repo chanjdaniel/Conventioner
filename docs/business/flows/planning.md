@@ -129,7 +129,7 @@ Covered by:
 
 **Status:** Works, as changed by E31/F01: the setup no longer changes after Draft (read from the code: `setup_lock_reason` in `back-end/api/markets.py`; `what-to-show-and-when.spec.ts`, "past draft the setup is settled, and a form market imports nothing").
 Once the market leaves Draft every card on Market Setup is disabled under one line: "The setup is settled: it cannot change once applications have opened, because applicants and the table allocation rely on it." (on the Google Form path, "once its responses have been imported").
-While nobody has applied it adds the way back: "While no one has applied, go back to draft to change it: Reopen for Editing, under More… on the phase rail."
+While nobody has applied it adds the way back: "While no one has applied, go back to draft to change it: Reopen for editing, under More… on the phase rail."
 The Application form card is not shown past Draft.
 On an archived market every page is read only, and says so (bug 30).
 A person who may change nothing finds every card disabled too, and reads why once, above the page ([what each role may do](../rules/what-each-role-may-do.md)); the plan's own line says only that the setup settled (T15).
@@ -162,7 +162,7 @@ Optional: a market with no prices shows no price anywhere ([a price follows the 
    "Add a group" adds a row above it, its name field focused, with a column "In the group when" beside its prices: name it ("Example College student + club member"), add a condition on one of the form's questions with answers to choose ("Do you belong to any of these clubs? includes any of", then tick the answers that meet it), as many as must all hold, and price it per tier.
    A group with another group's name says "Another group is called this.", and one left with no name "Name this group."; either way the plan waits to save until it is fixed; "Remove group", under the name, takes the row away.
    A vendor pays the cheapest group they are in at their table's tier, and "Everyone else" when they are in none ([a price follows the table](../rules/a-price-follows-the-table.md#price-groups)).
-   A condition on a question the form no longer asks, or an answer it no longer offers, is drawn red with what is missing, headed "A question no longer on the form" where the question is gone, and until it is fixed Open Applications waits, the rail naming the group, and from another page of the market the rail offers "Fix the price groups".
+   A condition on a question the form no longer asks, or an answer it no longer offers, is drawn red with what is missing, headed "A question no longer on the form" where the question is gone, and until it is fixed Open applications waits, the rail naming the group, and from another page of the market the rail offers "Fix the price groups".
    A form that asks no question with answers to choose offers no group: the card says every vendor pays "Everyone else".
 2. "Half table costs [50] % of a full table" sets a half table's share, a whole number from 0 to 100.
 3. "Currency" is the market's one currency, "CAD - Canadian dollars" until another is picked.

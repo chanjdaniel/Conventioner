@@ -127,7 +127,7 @@ class TestTheAction:
 
 
 class TestAStopBelongsToItsStay:
-    """Reopen for Editing, then Open Applications, opens applications: a stop made before does not
+    """Reopen for editing, then Open applications, opens applications: a stop made before does not
     leave the form shut (review of T94, finding 2)."""
 
     def _move(self, monkeypatch, phase, to_phase, stopped=True):

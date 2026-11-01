@@ -123,7 +123,7 @@ test.describe('Phase state machine - full walk', () => {
       `db.applications.updateMany({market_id: ${JSON.stringify(seed.marketId)}, status: "reviewer_approved"}, {$set: {status: "assigned"}})`,
     );
 
-    // The rail never offers this move: nothing sets `assignment_sent`, so "Send Offers" could only
+    // The rail never offers this move: nothing sets `assignment_sent`, so "Send offers" could only
     // ever refuse (E30/F01/S04). The edge is real on the server, and a market can still be in it.
     await transitionViaPage(page, seed.marketId, 'offers');
     await page.reload();
@@ -136,7 +136,7 @@ test.describe('Phase state machine - full walk', () => {
     // exists (E03/F03) - publishing puts the check-in page on the air, and a market with no
     // placements serves a page that can tell nobody where to stand.
     seedStoredAssignment(seed.marketId);
-    // And a form market tells its applicants before it goes live (E36/F04/S02). Publish Results is
+    // And a form market tells its applicants before it goes live (E36/F04/S02). Publish results is
     // offered in assignment only, and this walk took the legacy road through offers.
     mongoEval(
       `db.markets.updateOne({id: ${JSON.stringify(seed.marketId)}}, {$set: {resultsPublished: true}})`,
@@ -151,7 +151,7 @@ test.describe('Phase state machine - full walk', () => {
     // question about a feature MVP does not have; it names the consequence now (E10/F04/S02).
     const publishDialog = page.getByTestId('sweep-confirm-window');
     await expect(publishDialog).toBeVisible({ timeout: 5000 });
-    await expect(publishDialog).toContainText('Publish Market');
+    await expect(publishDialog).toContainText('Publish market');
     await expect(publishDialog).toContainText('check-in page on the air');
     await page.screenshot({
       path: `${SCREENSHOT_DIR}/06b-publish-confirmation.png`,

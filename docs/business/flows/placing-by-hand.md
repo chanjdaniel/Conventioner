@@ -103,8 +103,8 @@ Covered by:
 **Status:** Works (`placement-pins.spec.ts`, `orphaned-pin-in-assignment.spec.ts`; bug 31).
 A pin whose seat the plan no longer has is orphaned, never deleted.
 The setup settles on leaving Draft ([the setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md)), so a pin is orphaned only by changing a settled plan in the database, as these specs do.
-It blocks Begin Assignment ([I5](review.md#i5-begin-assignment)) until moved or freed.
-In Assignment its table is marked "No longer in the plan - move or free this vendor", the vendor's drawer says "This table is no longer in the plan. Move them or free the seat before publishing.", and Publish Market is refused until it is re-placed or freed.
+It blocks Begin assignment ([I5](review.md#i5-begin-assignment)) until moved or freed.
+In Assignment its table is marked "No longer in the plan - move or free this vendor", the vendor's drawer says "This table is no longer in the plan. Move them or free the seat before publishing.", and Publish market is refused until it is re-placed or freed.
 Covered by:
 - `orphaned-pin-in-assignment.spec.ts`
 - `placement-pins.spec.ts`

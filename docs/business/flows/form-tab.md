@@ -125,7 +125,7 @@ Covered by:
 ## F5. Reopen the market to fix the form
 
 **Status:** Works (walked live).
-From Applications, More…, "Reopen for Editing" returns the market to Draft and lands on Market Setup, so the form can be edited; then leave Draft again.
+From Applications, More…, "Reopen for editing" returns the market to Draft and lands on Market Setup, so the form can be edited; then leave Draft again.
 A Google Form market is a draft until its first import, so its form is edited in place; once anything is imported there is no way back.
 Refused once any application exists: "N applications are already in, so this market cannot return to draft. The questions are fixed once anyone has applied or been imported."
 The first import offers the same fix without leaving the page ([H2e](import.md#h2e-add-a-question-for-a-column-with-nowhere-to-go), [H2f](import.md#h2f-stop-asking-a-preference-the-form-never-asked)), through [the form amendment](../../implementation/modules/form-amendment.md).

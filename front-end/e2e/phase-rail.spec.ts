@@ -335,8 +335,8 @@ test.describe("The rail's end wraps only when it must", () => {
     seedApplication(openSeed.marketId);
 
     // Three actions before More…, on a row a phone cannot fit them on: a draft with no market
-    // dates (Pick market dates, Open Applications), and the CSV path's Review with one still to
-    // decide (Finish deciding, Begin Assignment).
+    // dates (Pick market dates, Open applications), and the CSV path's Review with one still to
+    // decide (Finish deciding, Begin assignment).
     draftSeed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
     await savePlan(request, BACKEND_URL, TEST_USER.email, draftSeed.marketId, {
       ...PLAN,

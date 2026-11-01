@@ -1,6 +1,6 @@
 """Results wait for the allocation (E36/F04/S01).
 
-Publish Results is its own button, an admin's, on a market whose vendors apply on its page. It is
+Publish results is its own button, an admin's, on a market whose vendors apply on its page. It is
 available in assignment once a run is stored and current, and its confirmation says how many will
 read each outcome: a table, or none.
 """

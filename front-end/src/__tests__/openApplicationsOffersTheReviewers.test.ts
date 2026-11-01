@@ -1,5 +1,5 @@
 /**
- * "Open Applications" offers the reviewers (E38/F07/S02).
+ * "Open applications" offers the reviewers (E38/F07/S02).
  *
  * On a market whose vendors apply on its own page, the review is divided from the first submission
  * only if the reviewers are chosen before applications open. So the rail's move opens a dialog with
@@ -101,7 +101,7 @@ describe('who meets the dialog', () => {
     expect(dialog.find('[data-testid="reviewer-picker"]').exists()).toBe(true);
     expect(dialog.text()).toContain('Choose no one and everyone reviews first come, first served.');
     expect(wrapper.get('[data-testid="open-applications-submit-button"]').text()).toBe(
-      'Open Applications',
+      'Open applications',
     );
     expect(ticked(wrapper)).toEqual([]);
     expect(api.post).not.toHaveBeenCalled();

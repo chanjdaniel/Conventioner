@@ -62,16 +62,16 @@ sources:
 **Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md).
 
 Applications arrive and are reviewed in one phase, shown as Review on a Google Form market and Applications on one whose vendors apply on its page ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
-Verdicts are open from the first application until the market enters Assignment, so reviewing starts as soon as applications arrive and must be finished before Begin Assignment ([verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md)).
+Verdicts are open from the first application until the market enters Assignment, so reviewing starts as soon as applications arrive and must be finished before Begin assignment ([verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md)).
 A line above the review says where the market stands, in words: what arrives ("Every response you imported from your Google Form is here.", "This market is open for applications. New ones keep arriving here." or "This market is not taking applications. No new ones will arrive."); from Assignment on "The review is closed: every verdict settled when the market entered Assignment. …".
-How many are left to decide is the rail's to say, as the blocker on Begin Assignment.
+How many are left to decide is the rail's to say, as the blocker on Begin assignment.
 The page offers no import on either path ([review needs an import](../rules/review-needs-an-import.md)).
 The page has two views ([`MarketApplicationsTab.vue`](../../../front-end/src/components/market/MarketApplicationsTab.vue)), chosen under "How do you want to review?" with a line on what each is: "All" ([`ApplicationsAll.vue`](../../../front-end/src/components/application/ApplicationsAll.vue)), first and the default, and "One by one" ([`ApplicationMonitor.vue`](../../../front-end/src/components/application/ApplicationMonitor.vue)).
 The choice is kept in the address: no `view` is All, and a saved `?view=all` still opens it; One by one is `?view=one`, and so is a link to one application (`?application=<id>`, as the Assignment tab's refusal links to it), which opens on its card.
 Choosing All drops both `view` and `application`.
 Both views say when their list was last read from the server, "Updated just now" or "Updated N minutes ago", ageing on screen, with "Refresh" beside it to read it again at once ([`ListFreshness.vue`](../../../front-end/src/components/application/ListFreshness.vue)).
 A refresh is a re-read, not a reset: the All view keeps the ticks of rows still shown, One by one keeps the card up while it is still to decide and moves on from one decided elsewhere, and a refresh that fails says "Could not refresh. The list is as it was last read." and keeps the list.
-The page fits a phone, in every phase it is shown in, as the plan, the form and Settings do not ([the design language](../../design-system.md#layout), T180): on a phone the All view's row reads down, the name and address, the leading answers, then the status lines, each row's tick a 44px square, and the vendor drawer and Update info open inside the window; One by one's card is the window less its gutters, its verdict buttons wrapping inside it, "Include the N follow-ups", the reviewed list's toggle and "Choose what leads the card" are 44px targets, and the follow-up, reviewers, Open Applications and Publish Results dialogs open inside the window (`the-market-on-a-phone.spec.ts`).
+The page fits a phone, in every phase it is shown in, as the plan, the form and Settings do not ([the design language](../../design-system.md#layout), T180): on a phone the All view's row reads down, the name and address, the leading answers, then the status lines, each row's tick a 44px square, and the vendor drawer and Update info open inside the window; One by one's card is the window less its gutters, its verdict buttons wrapping inside it, "Include the N follow-ups", the reviewed list's toggle and "Choose what leads the card" are 44px targets, and the follow-up, reviewers, Open applications and Publish results dialogs open inside the window (`the-market-on-a-phone.spec.ts`).
 A first read that fails says what went wrong (the connection, the server, or the server's own reason), with "Try again" to read it once more ([`ReadFailed.vue`](../../../front-end/src/components/ReadFailed.vue)).
 Both views give verdicts and mark follow-ups through one composable ([`front-end/src/utils/verdictActions.ts`](../../../front-end/src/utils/verdictActions.ts)), so they cannot treat one differently.
 Every verdict records who gave it and when, and the review shows it: "Approved by <email>, <date and time>", or "Rejected automatically: <reason>" for one an [automatic rejection](form-tab.md#f3-what-a-reviewer-reads-first) gave as the application arrived.
@@ -186,7 +186,7 @@ The list is read again every 30 seconds while the tab is in view, quietly, which
 **Status:** Works (read from the code as of E38/F07/S04: `choosing-reviewers-deals-the-open-applications.spec.ts`, `removing-a-reviewer.spec.ts`, `each-arrival-is-dealt.spec.ts`, `a-chosen-reviewer-decides.spec.ts`, `rows-name-their-reviewer.spec.ts`, `the-all-view-opens-on-my-share.spec.ts`, `one-by-one-hands-out-my-share-first.spec.ts`).
 The rule is [the review is dealt among chosen reviewers](../rules/the-review-is-dealt-among-chosen-reviewers.md).
 
-1. A "Reviewers" panel sits between the line on where the market stands and Publish Results while the review is open, and is gone from Assignment on ([`ReviewersPanel.vue`](../../../front-end/src/components/market/ReviewersPanel.vue)).
+1. A "Reviewers" panel sits between the line on where the market stands and Publish results while the review is open, and is gone from Assignment on ([`ReviewersPanel.vue`](../../../front-end/src/components/market/ReviewersPanel.vue)).
    It lists the chosen reviewers' addresses, "(you)" beside the reader's own and "Can no longer review here" beside one who no longer holds a role on the market, or whose role the market's table no longer lets be chosen, or says "No reviewers chosen. Everyone reviews first come, first served."
 2. Someone who may choose reviewers (an Admin or the owner, by default) is offered "Choose reviewers", or "Change reviewers" once some are chosen; anyone else reads the panel without it.
 3. It opens a dialog: "Saving deals every open application again among the reviewers you choose. Decided applications stay where they are, and so do follow-ups, unless their owner is no longer a reviewer.", then a checkbox for each person the reader may choose, their own marked "(you)", the current reviewers ticked and no one else, and the hint "Choose no one and everyone reviews first come, first served. You can choose reviewers later from the Applications tab." ([`ReviewerPicker.vue`](../../../front-end/src/components/market/ReviewerPicker.vue)).
@@ -210,7 +210,7 @@ Covered by:
 ## I4. Enter the review
 
 **Status:** Works (read from the code as of E38/F04/S01 and E38/F07/S02: `market-journey.spec.ts`, `every-move-lands.spec.ts`, `open-applications-offers-the-reviewers.spec.ts`, `the-first-import-offers-the-reviewers.spec.ts`).
-An own-form market enters by "Open Applications", which offers someone who may choose reviewers the choice in the same step, so the review is divided from the first application ([taking applications](taking-applications.md#h1-open-applications)); a Google Form market by its first import, confirmed and written, whose preview step offers the same choice of reviewers ([the import](import.md#h2a-first-import-everything-maps)), and which takes the move itself, so the import's done step reads "This market is now in Review: …" and leads to the review with "Go to the review" ([review needs an import](../rules/review-needs-an-import.md)).
+An own-form market enters by "Open applications", which offers someone who may choose reviewers the choice in the same step, so the review is divided from the first application ([taking applications](taking-applications.md#h1-open-applications)); a Google Form market by its first import, confirmed and written, whose preview step offers the same choice of reviewers ([the import](import.md#h2a-first-import-everything-maps)), and which takes the move itself, so the import's done step reads "This market is now in Review: …" and leads to the review with "Go to the review" ([review needs an import](../rules/review-needs-an-import.md)).
 Covered by:
 - `every-move-lands.spec.ts`
 - `market-journey.spec.ts`
@@ -220,7 +220,7 @@ Covered by:
 ## I5. Begin assignment
 
 **Status:** Works (walked live; the follow-up blocker read from the code as of E34/F02/S01).
-From Review or Applications, "Begin Assignment", disabled before the click with the rail naming the first blocker:
+From Review or Applications, "Begin assignment", disabled before the click with the rail naming the first blocker:
 
 - any application undecided or needing a follow-up: "N applications are still awaiting review and N applications need a follow-up. Every application must be approved or rejected before the market can enter Assignment.", with "Finish deciding" leading back to the review;
 - none at all: "There are no applications for this market. …";

@@ -93,7 +93,7 @@ The market's lifecycle:
 - Before changing the application form builder or its lock, read [the form locks at the first application](docs/business/rules/the-form-locks-at-the-first-application.md) and [essential fields](docs/implementation/modules/essential-fields.md).
 - Before changing who reviews which application, read [the review is dealt among chosen reviewers](docs/business/rules/the-review-is-dealt-among-chosen-reviewers.md) and [ADR 0020](docs/adr/0020-an-application-is-dealt-to-one-reviewer.md).
 - Before changing a verdict or when review closes, read [verdicts settle on entering assignment](docs/business/rules/verdicts-settle-on-entering-assignment.md).
-- Before changing Publish Results or what an applicant sees of it, read [Publish Results waits for the allocation](docs/business/rules/publish-results-waits-for-the-allocation.md) and [an applicant never reads a verdict early](docs/business/rules/an-applicant-never-reads-a-verdict-early.md).
+- Before changing Publish results or what an applicant sees of it, read [Publish results waits for the allocation](docs/business/rules/publish-results-waits-for-the-allocation.md) and [an applicant never reads a verdict early](docs/business/rules/an-applicant-never-reads-a-verdict-early.md).
 
 Vendors coming in:
 

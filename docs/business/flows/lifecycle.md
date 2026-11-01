@@ -51,31 +51,31 @@ Every rule about moving a market lives with [the guards](../../implementation/mo
 ```mermaid
 stateDiagram-v2
     [*] --> draft : Create market
-    draft --> applications : Open Applications / the first import
-    applications --> draft : Reopen for Editing
-    applications --> assignment : Begin Assignment
-    assignment --> market_days : Publish Market
-    assignment --> offers : Send Offers (planned, E05)
-    offers --> market_days : Publish Market
-    market_days --> archived : Archive Market
-    note right of archived : Every phase except archived can go straight to Archive Market
+    draft --> applications : Open applications / the first import
+    applications --> draft : Reopen for editing
+    applications --> assignment : Begin assignment
+    assignment --> market_days : Publish market
+    assignment --> offers : Send offers (planned, E05)
+    offers --> market_days : Publish market
+    market_days --> archived : Archive market
+    note right of archived : Every phase except archived can go straight to Archive market
 ```
 
-On the Google Form path the move into Review waits on an import, so the rail's main button in Draft is the fix "Import responses", with "Begin Review" disabled beside it; the import takes the move once its rows are written ([review needs an import](../rules/review-needs-an-import.md)).
+On the Google Form path the move into Review waits on an import, so the rail's main button in Draft is the fix "Import responses", with "Begin review" disabled beside it; the import takes the move once its rows are written ([review needs an import](../rules/review-needs-an-import.md)).
 Inside the stage, More… also offers what is not a move: "Redo import" on the Google Form path, and "Stop taking applications" or "Take applications again" on the online path ([taking applications](taking-applications.md)).
 
 ## The phases
 
 | Phase (online path / Google Form path) | What happens here | Page it opens on | Forward step | More… |
 | --- | --- | --- | --- | --- |
-| Draft / Draft | Plan the market, build the form | Market Setup | Open Applications / Import responses (the fix), then Begin Review | Archive Market |
-| Applications / Review | Online applications arrive and are reviewed as they do / every imported response is reviewed | Applications | Begin Assignment | Stop taking applications or Take applications again / Redo import; Reopen for Editing, Archive Market |
-| Assignment / Assignment | Set the rules, run, adjust by hand; on the online path, publish results | Settings, then Assignments once run | Publish Market | Archive Market |
-| Offers (planned) | Vendors accept or refuse | Assignments once run, else Settings | Publish Market | Archive Market |
-| Market Days / Market Days | Vendors check in | Attendance | Archive Market, once every date has passed | Archive Market, until then |
+| Draft / Draft | Plan the market, build the form | Market Setup | Open applications / Import responses (the fix), then Begin review | Archive market |
+| Applications / Review | Online applications arrive and are reviewed as they do / every imported response is reviewed | Applications | Begin assignment | Stop taking applications or Take applications again / Redo import; Reopen for editing, Archive market |
+| Assignment / Assignment | Set the rules, run, adjust by hand; on the online path, publish results | Settings, then Assignments once run | Publish market | Archive market |
+| Offers (planned) | Vendors accept or refuse | Assignments once run, else Settings | Publish market | Archive market |
+| Market Days / Market Days | Vendors check in | Attendance | Archive market, once every date has passed | Archive market, until then |
 | Archived / Archived | Read only | Assignments if it was assigned, else Market Setup | none | none |
 
-"Send Offers" is never offered: Offers is a planned phase off the rail, which draws it only for a market actually in it.
+"Send offers" is never offered: Offers is a planned phase off the rail, which draws it only for a market actually in it.
 
 ## What the rail says
 
@@ -85,7 +85,7 @@ When the server would refuse that step, the sentence is its first blocker for so
 | Phase | Online path | Google Form path |
 | --- | --- | --- |
 | Draft | "Plan the market and its application form, then open applications." | "To begin review: Nothing has been imported yet. Import your Google Form's responses first.", once the plan is complete |
-| Applications / Review | "Applications are open on your application page: review them as they arrive. Every application is decided: Begin Assignment.", or, stopped, "Your application page is not taking applications. …" | "Every imported response is here. Every application is decided: Begin Assignment." |
+| Applications / Review | "Applications are open on your application page: review them as they arrive. Every application is decided: Begin assignment.", or, stopped, "Your application page is not taking applications. …" | "Every imported response is here. Every application is decided: Begin assignment." |
 | Assignment, nothing run | "Set the rules and allocate tables." | as the online path |
 | Assignment, run | "Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone." | as the online path |
 | Assignment, results published | "Results are published, so the assignments are settled. Publish the market to put the check-in page up; that cannot be undone." | none: nothing is published to applicants |
@@ -110,7 +110,7 @@ Each refusal is a blocker line under the rail and beside the move, before the cl
 
 | Move | Refused when | It says |
 | --- | --- | --- |
-| Leaving Draft (Open Applications, the first import) | The plan has no dates, or a date has passed | "This market has no market dates. Pick them on Market Setup's calendar." / "N of this market's dates have already passed: …" |
+| Leaving Draft (Open applications, the first import) | The plan has no dates, or a date has passed | "This market has no market dates. Pick them on Market Setup's calendar." / "N of this market's dates have already passed: …" |
 | Leaving Draft | The plan has no location | "This market has no location. Add one on Market Setup." |
 | Leaving Draft | The plan has no tables, or a tier has none | "This market has no tables yet. Add a section with tables on Market Setup." / "Tier X has no tables. …" |
 | Leaving Draft | The form asks nothing: no custom field, and the plan offers no dates, no tiers and fewer than 2 sections | "The application form asks nothing. …" |
@@ -123,7 +123,7 @@ Each refusal is a blocker line under the rail and beside the move, before the cl
 | Into Market Days | No assignment is stored | "No tables have been allocated for this market, so its check-in page could not tell anyone where to stand. Allocate tables first." |
 | Into Market Days, on the online path | Results are not published | "Applicants have not been told whether they have a table. Publish the results before the market goes live." |
 
-Moves that cannot be undone (Publish Market, Archive Market) open a confirmation dialog focused on Cancel.
+Moves that cannot be undone (Publish market, Archive market) open a confirmation dialog focused on Cancel.
 Every other move fires on one click.
 Covered by:
 - `phase-state-machine.spec.ts`
@@ -154,7 +154,7 @@ The assignment rules (priority and options) and Assign belong to the Assignment 
 
 - Every earlier stage was to stay editable in later phases, the plan included (wayfinding/the-order-of-the-work/01); the setup settles on leaving draft instead ([the setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md), E31/F01).
 - The Google Form path was to say "Start Collecting" and "Done Collecting" and stop in Applications Open and Applications Closed, with Import still open in both (wayfinding/what-to-show-and-when/02); it then stopped in Import, left Draft with "Import responses" and stepped through Applications Closed into Review (E32/F02/S01).
-- Applications Open, Applications Closed and Review were three phases, with Close Applications, Begin Review, Reopen Applications and Import more responses between them; they are one stage, closing applications is a fact about the form, and a late export is a Redo import (E38/F04, [ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
+- Applications Open, Applications Closed and Review were three phases, with Close Applications, Begin review, Reopen Applications and Import more responses between them; they are one stage, closing applications is a fact about the form, and a late export is a Redo import (E38/F04, [ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
 - Every tab out of its phase was to carry a read-only line of its own, such as "Fixed when applications opened" on Market Setup and "Decided; the assignment works from these" on Applications (wayfinding/what-to-show-and-when/02); the phase alone gives a line only to Applications and Attendance, and the locks the server owns say so where they apply.
 
 ## The rules it obeys
@@ -163,7 +163,7 @@ The assignment rules (priority and options) and Assign belong to the Assignment 
 - [The form locks at the first application](../rules/the-form-locks-at-the-first-application.md): the way back to Draft closes at the first application.
 - [Intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md): which path, and so which names and moves.
 - [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md).
-- [Publish Results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md): the last blocker into Market Days.
+- [Publish results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md): the last blocker into Market Days.
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md), and [an archived market that ran stays a record](../rules/an-archived-market-that-ran-stays-a-record.md).
 
 The paths that walk this lifecycle are [the Google Form path](the-google-form-path.md), [the online path](the-online-path.md) and [the mixed path](the-mixed-path.md); its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

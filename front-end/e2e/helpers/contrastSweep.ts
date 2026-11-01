@@ -158,7 +158,7 @@ export async function sweep(page: Page): Promise<Sweep> {
  *
  * The one disabled state (`.btn:disabled`, `docs/design-system.md`) is beige inside a `--mm-border`
  * line. A control of a component's own drawn with `border: none` took the beige and the ink and drew
- * no line, so Publish Results disabled read as a beige patch beside the bar's Publish Market, which
+ * no line, so Publish results disabled read as a beige patch beside the bar's Publish market, which
  * had one (T162). A checkbox, a radio, a range and a file input are drawn by the browser and stay
  * out of it, as does a control drawn as words with no fill (a link's look, as "Resend code in 30s"
  * is), and a control in a disabled `<fieldset>`: the settled plan is read as it stands, its

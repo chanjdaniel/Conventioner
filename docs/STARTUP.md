@@ -337,7 +337,7 @@ Every step is reachable from the UI; none of it needs the API.
    and a market that offers nothing has nothing to ask anybody about.
 5. **Import the vendors**, while the market is a draft: "Import responses" on the phase rail at
    the top of the market opens the import (a market whose vendors apply on its own page instead
-   enters its applications with "Open Applications").
+   enters its applications with "Open applications").
    Upload the CSV your Google Form produced, map its columns onto the questions the solver reads,
    resolve any cell value the market does not recognise, then preview and confirm.
    Nothing is written until you confirm, and the preview says exactly what will happen.

@@ -18,7 +18,7 @@ import { withUser } from './helpers/withUser';
  * Skip recorded nothing, so an application waiting on its applicant looked like one nobody had
  * opened. S marks it now: the reviewer owns it unless they hand it to someone else on the market,
  * and what is needed goes in the vendor's notes. It leaves the queue unless asked for, and holds
- * Begin Assignment, which says so.
+ * Begin assignment, which says so.
  */
 const EDITOR = { email: 'e2e-follow-up-editor@example.com', password: 'e2efollowupeditor1' };
 const ORG_ADMIN = {
@@ -85,7 +85,7 @@ test('a follow-up is marked, waits out of the queue, holds the market, and is ha
     verdict_by: { email: TEST_USER.email },
   });
 
-  // It holds Begin Assignment as an undecided application would, and the rail says why.
+  // It holds Begin assignment as an undecided application would, and the rail says why.
   await monitor.approve('theo@thistle.test');
   await expect(page.getByTestId('phase-rail-next')).toContainText(
     '1 application needs a follow-up',

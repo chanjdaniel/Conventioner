@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * "Open Applications" on a market whose vendors apply on its own page (E38/F07/S02): the reviewers
+ * "Open applications" on a market whose vendors apply on its own page (E38/F07/S02): the reviewers
  * are offered in the same step, so the review is divided from the first submission. The rail opens
  * this only for someone the table's "Choose reviewers" row lets choose.
  *
@@ -64,7 +64,7 @@ async function confirm() {
     :open="open"
     title="Open applications"
     testid="open-applications"
-    :confirm-label="saving ? 'Saving…' : 'Open Applications'"
+    :confirm-label="saving ? 'Saving…' : 'Open applications'"
     :confirm-disabled="saving || moving"
     :error="error"
     anchored

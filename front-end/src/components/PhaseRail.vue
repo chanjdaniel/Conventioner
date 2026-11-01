@@ -4,7 +4,7 @@
  *
  * This replaces `PhaseControlPanel`, which floated above the card as a strip of coloured pills
  * with an invisible "Current Phase:" label beside them, and drew every transition as an advance -
- * including `Reopen for Editing`, the one unambiguously backwards edge in the machine.
+ * including `Reopen for editing`, the one unambiguously backwards edge in the machine.
  *
  * Three parts:
  *
@@ -277,7 +277,7 @@ const availableTransitions = computed(() =>
   props.market && mayTake(props.market, MarketAction.MovePhase)
     ? movesOf(props.market).filter(
         // The moves the server judged. Never into a phase the spine leaves out: nothing can get a
-        // market there, so "Send Offers" sat in the menu and always refused (E30/F01/S04). A
+        // market there, so "Send offers" sat in the menu and always refused (E30/F01/S04). A
         // market in one keeps its ways out, which are not into it.
         (to) => !OFF_SPINE_PHASES.includes(to),
       )
@@ -692,7 +692,7 @@ function cancelPending() {
                   "
                 >
                   {{ transitionLabel(toPhase) }}
-                  <!-- Why not, said in the menu itself: "Reopen for Editing" was offered with
+                  <!-- Why not, said in the menu itself: "Reopen for editing" was offered with
                      sixteen applications in and refused only after the click (E31/F02/S01). -->
                   <span
                     v-if="firstBlocker(toPhase)"
@@ -758,9 +758,9 @@ function cancelPending() {
          question the organizer never asked, about a feature the product does not have. -->
     <AppDialog
       :open="showingPublishConfirm"
-      title="Publish Market?"
+      title="Publish market?"
       testid="sweep-confirm"
-      confirm-label="Publish Market"
+      confirm-label="Publish market"
       :confirm-disabled="transitioning"
       @close="cancelPending"
       @submit="confirmPending"
@@ -941,7 +941,7 @@ function cancelPending() {
   flex: 0 0 auto;
   /* No narrower than the address's floor beside the actions, so a row that cannot hold them moves
      the whole end onto a row of its own. At 0 it stayed beside the spine and its buttons ran out of
-     the card: a form market assigning, with Allocate tables, Publish Market and More beside the
+     the card: a form market assigning, with Allocate tables, Publish market and More beside the
      application page, lost More off the edge at 1440. */
   min-width: min-content;
   margin-left: auto;
@@ -1096,7 +1096,7 @@ function cancelPending() {
 }
 
 /* On a phone each action wraps on its own (the move with More…, below), beside the addresses where
-   it fits and at the row's end: a draft's Pick market dates, Open Applications and More… ran 33px
+   it fits and at the row's end: a draft's Pick market dates, Open applications and More… ran 33px
    past a 390px window on one line, and wrapped as one group they left More… alone under two
    buttons that had room beside the application page (T142). */
 @media (width <= 640px) {
@@ -1162,7 +1162,7 @@ function cancelPending() {
 }
 
 /* Destructive reads as destructive wherever it appears, and going back does not read as going
-   on: `Reopen for Editing` was drawn as an advance. */
+   on: `Reopen for editing` was drawn as an advance. */
 .rail-menu-item--end {
   color: var(--mm-red);
 }

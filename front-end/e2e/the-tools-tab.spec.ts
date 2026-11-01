@@ -122,7 +122,7 @@ test('the Tools tab fits a phone, a draft with its three rail actions included',
   await page.setViewportSize({ width: 390, height: 844 });
   await tools.goto(marketId);
   await expect(tools.discordCard).toBeVisible({ timeout: 15000 });
-  // A draft's rail offers Pick market dates, Open Applications and More, which ran past the window.
+  // A draft's rail offers Pick market dates, Open applications and More, which ran past the window.
   await expect(page.getByTestId('phase-rail-menu-button')).toBeVisible();
 
   const overflow = await page.evaluate(

@@ -33,7 +33,7 @@ One line per node, sorted by file name.
 - [Needs follow-up](needs-follow-up.md) - a stored status with an owner, out of the queue, blocking assignment like an undecided application
 - [No question is inferred required](no-question-is-inferred-required.md) - a market started from a CSV proposes every question optional; only the organizer marks one required
 - [Priority and tie-breaks](priority-and-tie-breaks.md) - the order of turns: fewest dates, the organizer's rules, most constrained, earliest, address
-- [Publish Results waits for the allocation](publish-results-waits-for-the-allocation.md) - a form market publishes in assignment once a current run is stored, which settles it
+- [Publish results waits for the allocation](publish-results-waits-for-the-allocation.md) - a form market publishes in assignment once a current run is stored, which settles it
 - [Review highlights](review-highlights.md) - the market marks the answers a reviewer reads first; on the market, never the form, so they change after it locks
 - [Review needs an import](review-needs-an-import.md) - on the Google Form path the first import is the way into Review, and a late export is a Redo import
 - [Table-share pairing](table-share-pairing.md) - one-way is enough, a person's own request outranks one about them, the first applicant named

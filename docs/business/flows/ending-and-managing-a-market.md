@@ -64,7 +64,7 @@ Covered by:
 
 **Status:** Works (re-walked live on 2026-10-03; archiving as the step onward and the landing read from the code as of E31/F02/S03 and E32/F01/S01).
 
-1. Once every market date has passed, "Archive Market" is the rail's main button and the rail says "The market has run. Archive it to keep it as the record of what happened."; until then it is under More….
+1. Once every market date has passed, "Archive market" is the rail's main button and the rail says "The market has run. Archive it to keep it as the record of what happened."; until then it is under More….
 2. "Archive this market?": "Archiving is permanent. Once archived, a market cannot be returned to an active phase. This action cannot be undone." and "Its check-in page stays up as a record: vendors can still look up where they were assigned, but nobody can check in."; focus on Cancel; "Archive".
 3. Expect the rail frozen with "This market is archived. It was published and ran its market days." (bug 8), landing on Assignments; every page is read only (bug 30), and Attendance keeps the record, every vendor who never checked in reading "Did not come".
 4. The check-in page stays up as a record: "This market has ended. You can still look up where you were placed, and when you checked in.", each date "Checked in" or "Not checked in", and no check-in (bug 9).
@@ -77,7 +77,7 @@ Covered by:
 ## L2. Abandon a market early
 
 **Status:** Works (walked live; the notes' words read from the code, `PhaseRail.vue`).
-More…, "Archive Market" from any earlier phase, with the same confirmation less the check-in line.
+More…, "Archive market" from any earlier phase, with the same confirmation less the check-in line.
 It is read only, lands on Assignments if it was assigned and on Market Setup if not, and no check-in page is served.
 The rail's note says how far it got: "It was abandoned before it opened applications.", "It opened applications but never allocated tables." or "Its tables were allocated but it was never published, so no check-in page went on the air."; a market older than the phase record says only what it can prove ("It opened applications.", "Its tables were allocated.").
 Its Attendance tab says "This market was archived without being published, so nobody checked in."

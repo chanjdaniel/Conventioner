@@ -108,7 +108,7 @@ def test_the_way_back_names_the_move_on_either_path(applications, intake_mode):
     reason = MarketsApi.setup_lock_reason(market)
 
     assert "go back to draft" in reason
-    assert ": Reopen for Editing, under More… on the phase rail." in reason
+    assert ": Reopen for editing, under More… on the phase rail." in reason
 
 
 @pytest.mark.parametrize("intake_mode, words", [

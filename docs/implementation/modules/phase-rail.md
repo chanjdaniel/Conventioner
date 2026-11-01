@@ -45,7 +45,7 @@ What it says comes from [the market guide](market-guide.md); which moves exist a
 **The rail says no before the click.**
 `GET /markets/:id` serves `transitionBlockers`: every move open from the market's phase, each judged by the same guards the move runs (`transition_verdicts` in [`back-end/guards.py`](../../../back-end/guards.py)).
 A refused move is drawn disabled, with its first blocker as its reason: in the menu beside it, and for the forward step as the rail's sentence, to someone who may take the blocker's remedy (the guide's `nextStep`); when that blocker names a page that resolves it, the rail's main button becomes the fix ("Add a location") and leads there, with the move beside it as the step after.
-The fix is the move's own first blocker, the one its disabled state is read from, named by the guard that refuses it (`resolutionLabel`), so before a run Publish Market offers "Allocate tables"; on the page that resolves it no fix is drawn, since the work is already in front of the organizer, and the move stays disabled with its reason.
+The fix is the move's own first blocker, the one its disabled state is read from, named by the guard that refuses it (`resolutionLabel`), so before a run Publish market offers "Allocate tables"; on the page that resolves it no fix is drawn, since the work is already in front of the organizer, and the move stays disabled with its reason.
 The 409 from `POST /markets/:id/transition` stays for races and renders its blockers under the rail.
 Never decide a move's verdict on the front end.
 
@@ -59,12 +59,12 @@ Where the step, or the remedy of the blocker refusing it, is not theirs, the sen
 **Both paths draw the same five stages, named by the path.**
 The rail's moves are the keys of `transitionBlockers`, and the browser keeps no copy of them.
 The stage where applications arrive and are reviewed is `applications`, drawn "Review" on a Google Form market and "Applications" on the other (`pathPhaseLabel`, [ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
-A Google Form market's draft offers the fix "Import responses" as its main button, with "Begin Review" disabled beside it: the import takes that move once its rows are written.
+A Google Form market's draft offers the fix "Import responses" as its main button, with "Begin review" disabled beside it: the import takes that move once its rows are written.
 
 **More… holds the stage's actions beside its moves.**
 `stageActions` in [the market guide](market-guide.md) gives a Google Form market in Review "Redo import", which opens the import and moves nothing, and an own-form market in Applications "Stop taking applications" or "Take applications again", a write to `POST /markets/:id/applications-stopped` after which the store re-reads the market (E38/F04/S02, S03).
 They come first in the menu, as `phase-rail-action-<id>`, offered only to an Admin and, for the stop, only when the read's `applicationsStopReason` is null.
-The moves follow them, any back edge first and Archive Market last, so the destructive move is never in the middle.
+The moves follow them, any back edge first and Archive market last, so the destructive move is never in the middle.
 
 **The spine is derived, never listed.**
 `phaseSpine()` in [`front-end/src/utils/phase.ts`](../../../front-end/src/utils/phase.ts) walks `VALID_TRANSITIONS` (the front end's mirror of the server's table) forward from `draft`, taking at each step the one edge to somewhere new that is not `archived`, and appends `archived`.
@@ -78,7 +78,7 @@ The menu's box clips its items to its rounded corners, so a focused item wears i
 Choosing an item also closes it and hands focus back to `phase-rail-menu-button`, before the Publish or Archive confirm opens, so that confirm gives focus back there when it closes ([dialogs](../conventions/dialogs.md)).
 A spec that clicks `phase-transition-<phase>` for a back or destructive edge opens that menu first.
 A move that cannot be undone (`transitionNeedsConfirmation`, derived from the table: today `market_days` and `archived`) asks first in a dialog.
-"Open Applications" out of an own-form draft, for someone the table's Choose reviewers row lets choose (`offersReviewers`), opens [`OpenApplicationsDialog.vue`](../../../front-end/src/components/market/OpenApplicationsDialog.vue) instead: the reviewer picker, whose confirm saves the reviewers when the choice differs from the stored team (`sameTeam` in [`reviewTeam.ts`](../../../front-end/src/utils/reviewTeam.ts), which the first import's preview step uses alike) and then hands the move back to the rail ([taking applications](../../business/flows/taking-applications.md#h1-open-applications), [the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)).
+"Open applications" out of an own-form draft, for someone the table's Choose reviewers row lets choose (`offersReviewers`), opens [`OpenApplicationsDialog.vue`](../../../front-end/src/components/market/OpenApplicationsDialog.vue) instead: the reviewer picker, whose confirm saves the reviewers when the choice differs from the stored team (`sameTeam` in [`reviewTeam.ts`](../../../front-end/src/utils/reviewTeam.ts), which the first import's preview step uses alike) and then hands the move back to the rail ([taking applications](../../business/flows/taking-applications.md#h1-open-applications), [the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)).
 A save the server refuses keeps that dialog open with its error and makes no move; a move refused after a save re-reads the market, so the rail and a second try show the reviewers chosen.
 A Google Form market's way into the stage is its first import, so its rail offers no picker, and nor does it to someone who may move the phase but not choose reviewers.
 Someone the table's Move the phase row refuses (`mayTake(market, MarketAction.MovePhase)`, E39/F01/S02) is offered no move at all, and the rail still says where the market stands ([what each role may do](../../business/rules/what-each-role-may-do.md)).

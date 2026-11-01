@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Publish Results, over both of the review's views (E38/F05/S01).
+ * Publish results, over both of the review's views (E38/F05/S01).
  *
  * It was in the one-by-one review's header, and the rail's "Publish results" leads to the
  * Applications page: with All the page's default, it would have led to a page without it. It is a
@@ -96,7 +96,7 @@ async function publish() {
       data-testid="applications-publish-button"
       @click="confirming = true"
     >
-      {{ loading ? 'Publishing...' : 'Publish Results' }}
+      {{ loading ? 'Publishing…' : 'Publish results' }}
     </button>
     <span
       v-if="!published && publishReason"

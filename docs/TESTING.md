@@ -306,7 +306,7 @@ The page objects in `front-end/e2e/pages/` are these, one a line, sorted by clas
 - `MarketSetupPage`
 - `MarketsPage`
 - `NewMarketPage`
-- `OpenApplicationsDialog` (the rail's Open Applications dialog, choosing reviewers)
+- `OpenApplicationsDialog` (the rail's Open applications dialog, choosing reviewers)
 - `OrganizationsPage`
 - `PasswordResetPage`
 - `ResultPage`

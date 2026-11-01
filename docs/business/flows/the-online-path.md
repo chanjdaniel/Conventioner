@@ -48,7 +48,7 @@ Only this path's market has applicant pages, so a vendor brought in by an import
 - [Intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md).
 - [A vendor signs in before they have applied](../rules/a-vendor-signs-in-before-applying.md).
 - [The form locks at the first application](../rules/the-form-locks-at-the-first-application.md).
-- [Publish Results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md).
+- [Publish results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md).
 - [An applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md).
 
 The lifecycle it walks is [the lifecycle](lifecycle.md); its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

@@ -37,7 +37,7 @@ A mistake is fixed with seats: an applicant the review rejected is placed by han
 The automatic rejections settle on the same rule (`review_is_open` in [`back-end/api/markets.py`](../../back-end/api/markets.py)), since a rule and a reviewer judge the same applications.
 
 **Results settle the allocation.**
-On a market whose vendors apply on its own page, Publish Results is its own act, offered in `assignment` once a run is stored and up to date, behind a confirmation that counts who will read each outcome ([Publish Results waits for the allocation](../business/rules/publish-results-waits-for-the-allocation.md)).
+On a market whose vendors apply on its own page, Publish results is its own act, offered in `assignment` once a run is stored and up to date, behind a confirmation that counts who will read each outcome ([Publish results waits for the allocation](../business/rules/publish-results-waits-for-the-allocation.md)).
 Publishing ends re-runs (`assign_refusal` in [`back-end/api/placements.py`](../../back-end/api/placements.py)) and locks the assignment rules; seats change only by hand after it, and the market cannot go live before it.
 A market that imports its vendors has nobody to tell, and neither publishes nor waits.
 

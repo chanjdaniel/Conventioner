@@ -24,7 +24,7 @@ function buildPage() {
     <div class="app">
       <header><button id="nav">Menu</button></header>
       <div class="view">
-        <div class="content"><button id="publish">Publish Market</button></div>
+        <div class="content"><button id="publish">Publish market</button></div>
         <div class="scrim"></div>
         <aside class="panel"><button id="close">Close</button></aside>
       </div>
@@ -147,7 +147,7 @@ describe('useInertBehind', () => {
     function mountOpenModal(isOpen: Ref<boolean>) {
       document.body.innerHTML = `
         <header><button id="nav">Menu</button></header>
-        <main><button id="publish">Publish Market</button></main>
+        <main><button id="publish">Publish market</button></main>
         <div id="host"></div>
       `;
       const wrapper = mount(
@@ -217,7 +217,7 @@ describe('useInertBehind', () => {
     it("holds the page behind the floorplan's choose-a-path overlay", async () => {
       document.body.innerHTML = `
         <header><button id="nav">Menu</button></header>
-        <main><button id="rail">Open Applications</button></main>
+        <main><button id="rail">Open applications</button></main>
         <div id="host"></div>
       `;
       const wrapper = mount(ChoosePathOverlay, { attachTo: '#host' });
@@ -269,7 +269,7 @@ describe('useInertBehind', () => {
   it('keeps a dialog opened on top live when the modal beneath walks again', async () => {
     document.body.innerHTML = `
       <div class="view">
-        <div class="content"><button>Publish Market</button></div>
+        <div class="content"><button>Publish market</button></div>
         <div class="beneath"><section class="first"></section><section class="second"></section></div>
         <div class="on-top"><button>Confirm</button></div>
       </div>

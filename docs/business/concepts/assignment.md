@@ -22,7 +22,7 @@ verified: 2026-10-22
 - [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md): from then on a seat, not a verdict, is changed.
 - [Adding a vendor who never applied](../rules/adding-a-vendor-who-never-applied.md): seated by hand, never in the run.
 - [Why a vendor was not placed](../rules/why-a-vendor-was-not-placed.md): every date with no table says why, read off the assignment as it stands.
-- [Publish Results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md) and [an applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md): what applicants learn of the assignment, and when.
+- [Publish results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md) and [an applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md): what applicants learn of the assignment, and when.
 - [What a correct assignment is](../rules/what-a-correct-assignment-is.md): the five things a real market's result is judged by.
 
 ## Flows

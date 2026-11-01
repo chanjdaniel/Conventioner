@@ -59,11 +59,11 @@ describe('the words a CSV market wears', () => {
   it('names the moves for what the organizer does on each path', () => {
     const draft = MarketPhase.Draft;
     const stage = MarketPhase.Applications;
-    expect(pathTransitionLabel(draft, stage, IntakeMode.Csv)).toBe('Begin Review');
-    expect(pathTransitionLabel(draft, stage, IntakeMode.Form)).toBe('Open Applications');
-    expect(pathTransitionLabel(stage, draft, IntakeMode.Form)).toBe('Reopen for Editing');
+    expect(pathTransitionLabel(draft, stage, IntakeMode.Csv)).toBe('Begin review');
+    expect(pathTransitionLabel(draft, stage, IntakeMode.Form)).toBe('Open applications');
+    expect(pathTransitionLabel(stage, draft, IntakeMode.Form)).toBe('Reopen for editing');
     expect(pathTransitionLabel(stage, MarketPhase.Assignment, IntakeMode.Csv)).toBe(
-      'Begin Assignment',
+      'Begin assignment',
     );
   });
 
@@ -332,7 +332,7 @@ describe('what the rail tells someone the step is not theirs', () => {
     resolutionLabel: 'Publish results',
     resolutionAction: MarketAction.PublishResults,
   };
-  const NOT_THEIRS = /review them|Finish deciding|Publish the results|Begin Assignment|To /;
+  const NOT_THEIRS = /review them|Finish deciding|Publish the results|Begin assignment|To /;
 
   it('the stage, an application still waiting: never asks a Viewer to review', () => {
     const waiting = viewer(MarketPhase.Applications, {

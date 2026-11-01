@@ -76,10 +76,10 @@ test.describe('The disabled line', () => {
     expect(
       await linelessOn(
         page,
-        `<button class="publish-button" style="border: none" disabled>Publish Results</button>
+        `<button class="publish-button" style="border: none" disabled>Publish results</button>
          <button class="nav-btn" style="border: 1px solid transparent" disabled>Next</button>`,
       ),
-    ).toEqual(['button.publish-button "Publish Results"', 'button.nav-btn "Next"']);
+    ).toEqual(['button.publish-button "Publish results"', 'button.nav-btn "Next"']);
   });
 
   test('a disabled button inside its line, an enabled one with none, a hidden one, a link-styled one and a read-only form pass', async ({
@@ -89,7 +89,7 @@ test.describe('The disabled line', () => {
       await linelessOn(
         page,
         `<button style="border: 1px solid #d9d4cc" disabled>Save</button>
-         <button style="border: none">Publish Results</button>
+         <button style="border: none">Publish results</button>
          <button style="border: none; display: none" disabled>Hidden</button>
          <input type="checkbox" disabled />
          <button style="border: none; background: none; padding: 0" disabled>Resend code in 30s</button>

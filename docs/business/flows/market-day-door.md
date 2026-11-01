@@ -36,8 +36,8 @@ Both read the stored assignment, so a vendor placed, swapped or freed by hand is
 **Status:** Works (re-walked live on 2026-10-03; its refusals, the landing and the tab read from the code as of E31/F03/S02, E32/F01/S01 and E36/F04/S02).
 **Task:** "Your assignment is final. Make it live so vendors can find their tables."
 
-1. Rail: "Publish Market", the main button in Assignment.
-2. "Publish Market?": "Publishing puts this market's check-in page on the air: every vendor you assigned can look themselves up and check in on the day. The tables they see are the ones you have now." and "A published market cannot be returned to an earlier phase."; focus starts on Cancel.
+1. Rail: "Publish market", the main button in Assignment.
+2. "Publish market?": "Publishing puts this market's check-in page on the air: every vendor you assigned can look themselves up and check in on the day. The tables they see are the ones you have now." and "A published market cannot be returned to an earlier phase."; focus starts on Cancel.
 3. Expect Market Days, landing on Attendance, and "Check-in page" with its address and "Copy" in the rail; the rail says "Check vendors in at the door."
 
 Disabled before the click, with the rail naming the first blocker:
@@ -105,7 +105,7 @@ Covered by:
 
 ## The rules it obeys
 
-- [Publish Results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md): a market whose vendors apply on its page goes live only after its applicants are told.
+- [Publish results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md): a market whose vendors apply on its page goes live only after its applicants are told.
 - [Intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md): check-in is served on both paths.
 - [An archived market that ran stays a record](../rules/an-archived-market-that-ran-stays-a-record.md): the check-in page after the market ([L1](ending-and-managing-a-market.md#l1-archive-after-market-days)).
 - [What each role may do](../rules/what-each-role-may-do.md): publishing is an Admin's, checking in at the door an Editor's.

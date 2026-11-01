@@ -64,7 +64,7 @@ describe('the spine', () => {
 
     expect(rail.get('[data-phase="applications"]').text()).toBe('Review');
     expect(rail.text()).not.toContain('Applications');
-    expect(rail.get('[data-testid="phase-transition-applications"]').text()).toBe('Begin Review');
+    expect(rail.get('[data-testid="phase-transition-applications"]').text()).toBe('Begin review');
   });
 });
 
@@ -72,7 +72,7 @@ describe('the actions', () => {
   it('puts the one step onward on the rail itself', () => {
     const rail = railFor(MarketPhase.Applications);
 
-    expect(rail.get('[data-testid="phase-transition-assignment"]').text()).toBe('Begin Assignment');
+    expect(rail.get('[data-testid="phase-transition-assignment"]').text()).toBe('Begin assignment');
   });
 
   it('does not present reopening for editing as an advance', async () => {
@@ -85,7 +85,22 @@ describe('the actions', () => {
     await rail.get('[data-testid="phase-rail-menu-button"]').trigger('click');
     const reopen = rail.get('[data-testid="phase-transition-draft"]');
     expect(reopen.attributes('data-direction')).toBe('back');
-    expect(reopen.text()).toBe('Reopen for Editing');
+    expect(reopen.text()).toBe('Reopen for editing');
+  });
+
+  it('names its moves and their confirmations in sentence case (T181)', async () => {
+    const rail = railFor(MarketPhase.Assignment, { intakeMode: IntakeMode.Form });
+
+    const publish = rail.get('[data-testid="phase-transition-market_days"]');
+    expect(publish.text()).toBe('Publish market');
+    await rail.get('[data-testid="phase-rail-menu-button"]').trigger('click');
+    expect(rail.get('[data-testid="phase-transition-archived"]').text()).toBe('Archive market');
+
+    await publish.trigger('click');
+    await flushPromises();
+    const confirm = rail.get('[data-testid="sweep-confirm-window"]');
+    expect(confirm.get('h2').text()).toBe('Publish market?');
+    expect(rail.get('[data-testid="sweep-confirm-submit-button"]').text()).toBe('Publish market');
   });
 
   it('ends the menu with archiving, after the moves back', async () => {
@@ -371,7 +386,7 @@ describe('a phase the lifecycle does not draw', () => {
   });
 
   it('is never offered as a move, since nothing can ever get a market there (E30/F01/S04)', async () => {
-    // "Send Offers" sat in the assignment menu on both paths and always refused: nothing moves an
+    // "Send offers" sat in the assignment menu on both paths and always refused: nothing moves an
     // application past approved.
     const rail = railFor(MarketPhase.Assignment);
     await rail.get('[data-testid="phase-rail-menu-button"]').trigger('click');

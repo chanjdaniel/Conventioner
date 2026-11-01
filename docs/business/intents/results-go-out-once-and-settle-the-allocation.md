@@ -21,7 +21,7 @@ And an applicant who learned that a rule had rejected them the moment they submi
 
 ## Rules
 
-- [Publish Results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md): published in assignment, once a current run is stored, which it then settles.
+- [Publish results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md): published in assignment, once a current run is stored, which it then settles.
 - [An applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md): "Submitted" until then, a table or none after.
 - [Assign runs only in assignment](../rules/assign-runs-only-in-assignment.md): the run is refused once results are published.
 - [The assignment rules close with the assignment](../rules/the-assignment-rules-close-with-the-assignment.md): so do the rules.

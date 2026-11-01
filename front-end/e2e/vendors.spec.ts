@@ -235,7 +235,7 @@ test.describe('Vendor browsing and search', () => {
     await expect(vendorsPage.vendorListItems.first()).toBeVisible({ timeout: 10000 });
 
     // The rail's one forward action, named by the testid it carries rather than taken by position.
-    // From `assignment` that is `market_days`, labelled "Publish Market": `offers` is a valid edge
+    // From `assignment` that is `market_days`, labelled "Publish market": `offers` is a valid edge
     // but sits off the spine, so it is not the forward step.
     const railForward = page.getByTestId('phase-transition-market_days');
     await expect(railForward).toBeVisible();

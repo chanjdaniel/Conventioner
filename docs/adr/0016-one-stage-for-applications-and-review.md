@@ -32,9 +32,9 @@ Daniel's 2026-10-29 QC walk read that tab as the review with an import left over
 It is named by the intake path, never stored twice: "Review" on a Google Form market, "Applications" on one whose vendors apply on its page (`phase_label` on the server, `CSV_PHASE_LABELS` and `PHASE_LABELS` on the front end).
 
 - **The way in differs by path; the phase does not.**
-  An own-form market enters by Open Applications.
+  An own-form market enters by Open applications.
   A Google Form market enters by its first import: the move waits on `ResponsesImportedGuard`, whose fix is "Import responses", and the import runs in draft and takes the move through `take_move` once its rows are written, so leaving the import first keeps the market a draft and Market Setup settles at that moment.
-- **The way out is Begin Assignment**, guarded by every application being decided, and it closes the applicant form: applying is the stage's alone.
+- **The way out is Begin assignment**, guarded by every application being decided, and it closes the applicant form: applying is the stage's alone.
   The way back to draft stays open while nobody has applied.
 - **Stopping applications is a fact about the form, not a phase**: `applicationsStopped` on the market, set by "Stop taking applications" and "Take applications again" on the rail's More… (E38/F04/S02).
   While it is set the applicant form refuses in the words a closed market used, and reviewing goes on; the phase writer clears it on entering draft and on entering the stage, so a stop never outlives its stay.
@@ -46,7 +46,7 @@ It is named by the intake path, never stored twice: "Review" on a Google Form ma
 ## Consequences
 
 - The rail reads five stages on both paths, and its More… holds actions that are not moves beside the moves that are.
-- Verdicts are open from the first application to Begin Assignment on both paths, as they already were; the phase gate on verdicts the walk first planned for the Google Form path was not built.
+- Verdicts are open from the first application to Begin assignment on both paths, as they already were; the phase gate on verdicts the walk first planned for the Google Form path was not built.
 - **For one release this build reads the three old names as the migration would leave them** (`LEGACY_STAGE_PHASES`, `phase_from_market_document`): the stage, a form market whose applications had closed as stopped, and a Google Form market that imported nothing as draft, writing nothing back, while a move writes the new name.
   So the deploy goes first and the migration after it, whenever the operator likes, and the deploy can be rolled back until the migration runs; a later release drops the aliases ([`docs/RELEASING.md`](../RELEASING.md#pre-deploy-database-migrations)).
 

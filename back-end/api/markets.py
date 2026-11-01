@@ -466,7 +466,7 @@ def price_facts(market: Market) -> Dict[str, Any]:
 
 # The menu's own name for the move back to draft (``pathTransitionLabel`` in
 # ``front-end/src/utils/marketGuide.ts``).
-_WAY_BACK = "Reopen for Editing"
+_WAY_BACK = "Reopen for editing"
 
 
 def _since_leaving_draft(market: Market) -> str:
@@ -1888,7 +1888,7 @@ def finalization_update(
 def taking_applications_update(to_phase: str) -> Dict[str, Any]:
     """A stop belongs to the one stay in the stage it was made in (E38/F04/S02).
 
-    Reopen for Editing and then Open Applications is opening applications, so a stop made before
+    Reopen for editing and then Open applications is opening applications, so a stop made before
     must not leave the form shut; cleared on entering draft and on entering the stage, in the
     update that moves the phase. Elsewhere it is left alone: past the stage the phase closes the
     form whatever the flag says.
