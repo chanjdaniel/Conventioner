@@ -736,9 +736,10 @@ def _undo_one(
     Asked in this order: an application of another market is not there; one changed since the
     reviewer's verdict is stale, never written over; one that is not their own verdict within the
     window, or kept nothing to return to, is refused; a follow-up whose owner the reviewer may no
-    longer hand one to is refused in the undo's own words. It returns to what the verdict kept (``undo_to``), never to what a request
-    names. The write is conditional on the status and the verdict's time the reviewer saw, so a
-    verdict landing between this read and the write is the stale answer too.
+    longer hand one to is refused in the undo's own words. It returns to what the verdict kept
+    (``undo_to``), never to what a request names. The write is conditional on the status and the
+    verdict's time the reviewer saw, so a verdict landing between this read and the write is the
+    stale answer too.
     """
     app_id, seen = asked
     doc = ApplicationsApi.find_application_by_id(app_id)
@@ -766,12 +767,12 @@ def undo_verdict(
     """Undo the verdict, or the follow-up, this reviewer gave an application (E38/F10/S01).
 
     Theirs alone, within ``UNDO_WINDOW``, while they may still give verdicts (the caller asks
-    ``verdict_refusal``) - giving, taken back, so never the change row. It returns the application to
-    what the verdict found it as, open, or needs follow-up marked and owned as it was, and leaves
-    whom it was dealt to as it is. Refused with ``UNDO_REFUSED`` (403) once it is not theirs to
-    undo, with ``UNDO_OWNER_REFUSED`` (400) for a follow-up whose owner it may no longer hand one to, and
-    with the stale-verdict sentence and the application as it stands (409) when someone wrote over
-    it since.
+    ``verdict_refusal``) - giving, taken back, so never the change row. It returns the application
+    to what the verdict found it as, open, or needs follow-up marked and owned as it was, and
+    leaves whom it was dealt to as it is. Refused with ``UNDO_REFUSED`` (403) once it is not theirs
+    to undo, with ``UNDO_OWNER_REFUSED`` (400) for a follow-up whose owner it may no longer hand
+    one to, and with the stale-verdict sentence and the application as it stands (409) when someone
+    wrote over it since.
     """
     was, now, refused = _undo_one(market_id, asked, by, owner_offered)
     if refused:
