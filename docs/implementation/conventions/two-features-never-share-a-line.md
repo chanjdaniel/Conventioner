@@ -73,3 +73,14 @@ A new page object is one line in its sorted place.
 
 [The market document](../data/market-document.md#the-discord-connection-is-discord), "The Discord connection is `discord`": the `discord` row of "The fields that matter" is one short line pointing to its own block below the table, whose subfields are a list, one a line, grouped by what wrote them, in the order `DiscordConnection` declares them, and whose writing routes and what each change forgets are lists in the same order.
 A new subfield is one line in its place in each list it belongs in; the table's row stays as it is.
+
+### The market's history
+
+[The market's history](../data/history.md#what-each-write-records), "What each write records" and "What an organization records": one block per action, its id a bold lead line, in the order of the actions table's rows and then the history's own `apply` (the organization's in the order of their constants in `history.py`), then a list, one kind a line, each with its vendors, subject and detail as a list in turn.
+A new kind is one item at the end of its action's block; a new action is a new block in its row's place.
+An entry written under several actions, `dealt`, is one block, where its row stood.
+
+### The history's kinds
+
+[`back-end/history.py`](../../../back-end/history.py)'s kind constants: one block per group of the actions table, in its order, then the organization's and the applicant's own, each block opening with a one-line comment naming its group, blocks apart by a blank line.
+A new kind is one constant at the end of the group of the action that records it.
