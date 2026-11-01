@@ -1,5 +1,5 @@
-import type { APIRequestContext, Locator, Page } from '@playwright/test';
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import type { APIRequestContext, Browser, Locator, Page } from '@playwright/test';
+import { test, expect, TEST_USER, BACKEND_URL, LoginPage } from './fixtures';
 import { ManageMarketPage } from './pages/ManageMarketPage';
 import { OrganizationsPage } from './pages/OrganizationsPage';
 import { loginViaApi } from './helpers/seeds';
@@ -13,6 +13,9 @@ import { uniqueMarketName } from './helpers/uniqueName';
  * button on every row: one click took a member's access to every market of the organization. Each
  * now opens a confirmation naming the person and what they lose; Cancel and Escape leave everything
  * as it was, and confirming removes in place with the dialog open and focus on the list.
+ *
+ * Confirming the removal of someone another organizer removed meanwhile, in a window of their own,
+ * is done as well (T181): the confirmation closes and the row is gone, with nothing said of it.
  */
 const PASSWORD = 'e2eremoveasks123';
 const ADMIN = 'e2e-remove-asks-admin@example.com';
@@ -272,3 +275,78 @@ test.describe('Removing someone asks first, on a phone', () => {
     await expect(manage.removeConfirm).toHaveCount(0);
   });
 });
+
+/** The organization's admin, signed in in a window of their own, as another organizer would be. */
+async function anotherOrganizer(browser: Browser, viewport: { width: number; height: number }) {
+  const context = await browser.newContext({ viewport });
+  const page = await context.newPage();
+  await new LoginPage(page).login(ADMIN, PASSWORD);
+  await page.waitForURL('**/dashboard');
+  return { page, close: () => context.close() };
+}
+
+for (const viewport of [
+  { width: 1440, height: 900 },
+  { width: 390, height: 844 },
+]) {
+  test.describe(`Removing someone already removed in another window, at ${viewport.width}`, () => {
+    test.use({ viewport });
+
+    test('Manage organization reads it as removed: the confirmation closes and the row is gone', async ({
+      authenticatedPage: page,
+      request,
+      browser,
+    }) => {
+      const { orgId } = await seed(request);
+      const orgs = await openManageOrganization(page, orgId);
+      await memberRow(page, MEMBER).getByTestId('manage-org-remove-member-button').click();
+      await expect(orgs.removeConfirm).toBeVisible();
+
+      const other = await anotherOrganizer(browser, viewport);
+      try {
+        const theirs = await openManageOrganization(other.page, orgId);
+        await memberRow(other.page, MEMBER).getByTestId('manage-org-remove-member-button').click();
+        await theirs.confirmRemove();
+        await expect(theirs.memberEmails.filter({ hasText: MEMBER })).toHaveCount(0);
+      } finally {
+        await other.close();
+      }
+
+      await orgs.confirmRemove();
+      await expect(orgs.removeConfirm).toHaveCount(0);
+      await expect(orgs.memberEmails.filter({ hasText: MEMBER })).toHaveCount(0);
+      await expect(orgs.memberEmails.filter({ hasText: KEEPER })).toHaveCount(1);
+      await expect(orgs.manageWindow).toBeVisible();
+      await expect(orgs.members).toBeFocused();
+      await expect(orgs.manageError).toHaveCount(0);
+    });
+
+    test('Manage market reads a role taken meanwhile as taken: the confirmation closes and the row is gone', async ({
+      authenticatedPage: page,
+      request,
+      browser,
+    }) => {
+      const { marketName } = await seed(request);
+      const manage = await openManageMarket(page, marketName);
+      await person(page, OUTSIDER).getByTestId('manage-market-remove-user-button').click();
+      await expect(manage.removeConfirm).toBeVisible();
+
+      const other = await anotherOrganizer(browser, viewport);
+      try {
+        const theirs = await openManageMarket(other.page, marketName);
+        await theirs.removeUser(OUTSIDER);
+        await expect(person(other.page, OUTSIDER)).toHaveCount(0);
+      } finally {
+        await other.close();
+      }
+
+      await manage.confirmRemove();
+      await expect(manage.removeConfirm).toHaveCount(0);
+      await expect(person(page, OUTSIDER)).toHaveCount(0);
+      await expect(person(page, KEEPER)).toHaveCount(1);
+      await expect(manage.window).toBeVisible();
+      await expect(manage.people).toBeFocused();
+      await expect(manage.error).toHaveCount(0);
+    });
+  });
+}

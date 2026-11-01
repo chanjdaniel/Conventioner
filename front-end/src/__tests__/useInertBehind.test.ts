@@ -4,6 +4,8 @@ import { defineComponent, h, ref, nextTick, type Ref } from 'vue';
 import { mount } from '@vue/test-utils';
 
 import { useInertBehind } from '@/utils/useInertBehind';
+import { useModalRoot } from '@/utils/useModalRoot';
+import ChoosePathOverlay from '@/components/floorplan/ChoosePathOverlay.vue';
 
 /**
  * The page shape this exists for: the app's own header sits in a different branch from the view's
@@ -136,6 +138,105 @@ describe('useInertBehind', () => {
   });
 
   /**
+   * The shape every real modal has: its root is a template ref, which binds only once the
+   * component has mounted. A `v-if` dialog with `:open="true"` (the change-placement dialog, the
+   * floorplan's choose-a-path overlay) is open from setup, so the first walk ran before the ref
+   * existed, found no parts, and nothing came to run it again (T181).
+   */
+  describe('a modal mounted already open, its root bound by template ref', () => {
+    function mountOpenModal(isOpen: Ref<boolean>) {
+      document.body.innerHTML = `
+        <header><button id="nav">Menu</button></header>
+        <main><button id="publish">Publish Market</button></main>
+        <div id="host"></div>
+      `;
+      const wrapper = mount(
+        defineComponent({
+          setup() {
+            const root = useModalRoot(isOpen);
+            return () => h('div', { ref: root, class: 'modal' }, [h('button', 'Close')]);
+          },
+        }),
+        { attachTo: '#host' },
+      );
+      return {
+        wrapper,
+        header: document.querySelector('header') as HTMLElement,
+        main: document.querySelector('main') as HTMLElement,
+        modal: () => document.querySelector('.modal') as HTMLElement,
+      };
+    }
+
+    it('marks the page once it has mounted', async () => {
+      const page = mountOpenModal(ref(true));
+      await nextTick();
+
+      expect(page.main.hasAttribute('inert')).toBe(true);
+      expect(page.header.hasAttribute('inert')).toBe(true);
+      expect(page.modal().hasAttribute('inert')).toBe(false);
+    });
+
+    it('gives the page back when it closes', async () => {
+      const open = ref(true);
+      const page = mountOpenModal(open);
+      await nextTick();
+
+      open.value = false;
+      await nextTick();
+
+      expect(page.main.hasAttribute('inert')).toBe(false);
+      expect(page.header.hasAttribute('inert')).toBe(false);
+    });
+
+    it('gives the page back when it unmounts while still open', async () => {
+      const page = mountOpenModal(ref(true));
+      await nextTick();
+
+      page.wrapper.unmount();
+
+      expect(page.main.hasAttribute('inert')).toBe(false);
+      expect(page.header.hasAttribute('inert')).toBe(false);
+    });
+
+    it('holds the page again when it reopens', async () => {
+      const open = ref(true);
+      const page = mountOpenModal(open);
+      await nextTick();
+      open.value = false;
+      await nextTick();
+
+      open.value = true;
+      await nextTick();
+
+      expect(page.main.hasAttribute('inert')).toBe(true);
+      page.wrapper.unmount();
+      expect(page.main.hasAttribute('inert')).toBe(false);
+    });
+
+    /** The floorplan beta's choose-a-path overlay mounts with `v-if` and `:open="true"` too. */
+    it("holds the page behind the floorplan's choose-a-path overlay", async () => {
+      document.body.innerHTML = `
+        <header><button id="nav">Menu</button></header>
+        <main><button id="rail">Open Applications</button></main>
+        <div id="host"></div>
+      `;
+      const wrapper = mount(ChoosePathOverlay, { attachTo: '#host' });
+      await nextTick();
+
+      const header = document.querySelector('header') as HTMLElement;
+      const main = document.querySelector('main') as HTMLElement;
+      expect(main.hasAttribute('inert')).toBe(true);
+      expect(header.hasAttribute('inert')).toBe(true);
+      expect(wrapper.find('[data-testid="choose-path-window"]').exists()).toBe(true);
+      expect(wrapper.element.closest('[inert]')).toBeNull();
+
+      wrapper.unmount();
+      expect(main.hasAttribute('inert')).toBe(false);
+      expect(header.hasAttribute('inert')).toBe(false);
+    });
+  });
+
+  /**
    * Two modals can be open at once, and their marked sets overlap. With a per-instance flag the
    * first to close hands the page back while the second still needs it held.
    */
@@ -158,6 +259,48 @@ describe('useInertBehind', () => {
     outer.value = false;
     await nextTick();
     expect(page.content.hasAttribute('inert')).toBe(false);
+  });
+
+  /**
+   * A dialog opened from a dialog is a sibling of the one beneath it, which marked it; the one on
+   * top takes `inert` off its own branch. The modal beneath walks again whenever one of its parts
+   * changes while it is open (T181), and that walk must not put `inert` back on the dialog above.
+   */
+  it('keeps a dialog opened on top live when the modal beneath walks again', async () => {
+    document.body.innerHTML = `
+      <div class="view">
+        <div class="content"><button>Publish Market</button></div>
+        <div class="beneath"><section class="first"></section><section class="second"></section></div>
+        <div class="on-top"><button>Confirm</button></div>
+      </div>
+    `;
+    const content = document.querySelector('.content') as HTMLElement;
+    const onTop = document.querySelector('.on-top') as HTMLElement;
+    const beneathPart = ref(document.querySelector('.first') as HTMLElement);
+    const beneathOpen = ref(true);
+    const onTopOpen = ref(false);
+    mountWith(beneathOpen, () => [beneathPart.value]);
+    mountWith(onTopOpen, () => [onTop]);
+    await nextTick();
+    expect(onTop.hasAttribute('inert')).toBe(true);
+
+    onTopOpen.value = true;
+    await nextTick();
+    expect(onTop.hasAttribute('inert')).toBe(false);
+
+    beneathPart.value = document.querySelector('.second') as HTMLElement;
+    await nextTick();
+    expect(onTop.hasAttribute('inert')).toBe(false);
+    expect(content.hasAttribute('inert')).toBe(true);
+
+    onTopOpen.value = false;
+    await nextTick();
+    expect(onTop.hasAttribute('inert')).toBe(true);
+
+    beneathOpen.value = false;
+    await nextTick();
+    expect(onTop.hasAttribute('inert')).toBe(false);
+    expect(content.hasAttribute('inert')).toBe(false);
   });
 
   /**

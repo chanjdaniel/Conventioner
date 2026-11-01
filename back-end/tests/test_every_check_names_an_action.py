@@ -350,7 +350,13 @@ class TestRolesAskTheirRows:
             with pytest.raises(ForbiddenError):
                 MarketsApi.remove_market_role("market-123", "target", "u@x.test")
             assert roles()["target"] == role.value
-        assert asked == [Actions.roles_row(role)]
+        # Both roles rows first, so a requester who may take no role learns nothing of what the
+        # person holds (T181); then, for anyone either row lets in, the row of the role taken.
+        either = [Actions.MANAGE_EDITORS_AND_VIEWERS, Actions.MANAGE_ADMINS]
+        assert asked[:2] == either
+        assert asked[2:] in ([], [Actions.roles_row(role)])
+        assert (asked[2:] == []) == (not _managed_before_the_table(asker, MarketRole.EDITOR)
+                                     and not _managed_before_the_table(asker, MarketRole.ADMIN))
 
     @pytest.mark.parametrize("asker", LADDER, ids=str)
     @pytest.mark.parametrize("taken,given", [
@@ -392,7 +398,7 @@ _RANKING = ("user_has_permission", "can_manage_roles", "ROLE_RANK")
 #: role modules call them, and the functions below, which serve the role itself to the client:
 #: each by its module and its name, so a function of the same name elsewhere is searched.
 _RESOLVERS = ("get_user_market_role", "organization_market_role", "higher_role")
-_SERVE_THE_ROLE = {("api/markets.py", "get_market_for_user"), ("api/markets.py", "_summary_role")}
+_SERVE_THE_ROLE = {("api/markets.py", "get_market_for_user")}
 
 
 def _named(node: ast.AST) -> str:

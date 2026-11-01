@@ -498,8 +498,8 @@ class TestTheOrganizationAndRoleRoutes:
     def test_removing_a_role_nobody_holds(self, client):
         response = client.delete("/markets/market-123/roles/user-9")
 
-        assert response.status_code == 400
-        assert response.get_json() == {"error": "User does not have a role in this market"}
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "They no longer have a role on this market."}
 
     def test_the_owners_role_cannot_be_changed(self, client):
         response = client.put(f"/markets/market-123/roles/{OWNER_ID}", json={"role": "viewer"})

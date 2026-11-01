@@ -6,14 +6,19 @@
  * undrivable in tests, while "1 is your first choice" plus arrows is self-explaining. The list
  * always contains every offered option (rankings are total - see essentialFields.ts), so the
  * applicant's only job is ordering, never remembering what exists.
+ *
+ * `disabled` takes the arrows away, as the organizer's preview does, and keeps the applicant's
+ * look; `locked` draws the list in the locked look too, for an answer Update info shows read-only.
  */
 const props = withDefaults(
   defineProps<{
     modelValue: string[];
     testid: string;
     disabled?: boolean;
+    /** Drawn in the `.field` primitive's one disabled state, as a locked answer in Update info. */
+    locked?: boolean;
   }>(),
-  { disabled: false },
+  { disabled: false, locked: false },
 );
 
 const emit = defineEmits<{
@@ -37,6 +42,7 @@ function move(index: number, delta: number) {
       v-for="(option, index) in modelValue"
       :key="option"
       class="ranked-item"
+      :class="{ locked }"
       :data-testid="`${testid}-item-${index}`"
     >
       <span class="ranked-position" aria-hidden="true">{{ index + 1 }}</span>
@@ -118,6 +124,26 @@ function move(index: number, delta: number) {
   border-radius: var(--radius-card);
   padding: var(--space-hairline) var(--space-2);
   white-space: nowrap;
+}
+
+/*
+ * A locked ranking reads as the `.field` primitive's one disabled state, as every locked answer in
+ * Update info does: beige, muted, not taken, its rank and first choice in a line, not the green.
+ */
+.ranked-item.locked {
+  background: var(--mm-beige);
+  cursor: not-allowed;
+}
+
+.ranked-item.locked .ranked-name {
+  color: var(--mm-text-muted-on-beige);
+}
+
+.ranked-item.locked .ranked-position,
+.ranked-item.locked .ranked-first-badge {
+  background: none;
+  border: 1px solid var(--mm-border);
+  color: var(--mm-text-muted-on-beige);
 }
 
 .ranked-controls {

@@ -19,6 +19,7 @@ describes:
   - back-end/tests/test_the_organizations_default.py
   - back-end/api/permissions.py#market_role_of
   - back-end/tests/test_a_chosen_reviewer_decides.py
+  - back-end/api/markets.py#read_refused
 verified: 2026-11-01
 sources:
   - E39
@@ -43,6 +44,7 @@ sources:
   - E38/F10/S01
   - E46/F01/S05
   - E38/F12/S01
+  - T181
 ---
 
 # The market's actions
@@ -61,7 +63,8 @@ A market keeps the rows it differs on, and its owner changes them (E39/F01/S03, 
 **One question answers every check**: `refusal(row, user_email, market, organization)` is None when the person may, or the row's sentence when they may not; `may(...)` is the same as a bool.
 The row asks the role `minimum_role(row, market)` gives: the market's own row where it holds one, else the row's default (below).
 The person's role is the one `get_user_market_role` resolves (the market's own and the one its organization gives, the higher counting, [the organization document](../data/organization-document.md#what-a-person-may-do-on-a-market)), and `refusal` ranks it through `user_has_permission` in [`back-end/api/permissions.py`](../../../back-end/api/permissions.py), which nothing else calls.
-`role_refusal(row, role, rows, chosen)` asks a row of a role already resolved, on a market holding `rows`, for the market read, which resolves the person's role once, and the markets list, which resolves each entry's role from the documents it holds (`_summary_role`) and passes the document's stored rows; both rank through `role_reaches`, the one ranking.
+`role_refusal(row, role, rows, chosen)` asks a row of a role already resolved, on a market holding `rows`, for the market read, which resolves the person's role once, and the markets list, which resolves each entry's role from the market and the organization its memo holds (`_summary_role`) and passes the rows of the market as the read parses it; both rank through `role_reaches`, the one ranking.
+Both ask the read row the same way, through `read_refused` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), so the list leaves out every market the read answers as absent ([the organization document](../data/organization-document.md#what-a-person-may-do-on-a-market)).
 
 **Being chosen as a reviewer passes the giving row** (E38/F07/S03, [ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)): `refusal` and `role_refusal` answer None for `give-verdicts` to someone its role refuses when they are a chosen reviewer and their role reaches `review-when-chosen`.
 `refusal` reads it off the market's team by address (`is_chosen`); `role_refusal` takes it as `chosen`, which the market read passes once (the markets list passes none, since no card asks the giving row).
@@ -87,6 +90,8 @@ Each check keeps the order it had, so every route answers each person as it did 
 ## Each route's row
 
 **A verdict on an application already approved or rejected asks two rows**: the giving row at `_reviewer_on`, and the change row of each application it writes (E38/F06/S01); the write itself carries `unless_decided`, so a verdict landing between the reviewer's look and the write is the 409 it always was ([what each role may do](../../business/rules/what-each-role-may-do.md#where-it-is-kept)).
+
+**Taking a role asks both roles rows first**: `DELETE /markets/:id/roles/<user_id>` (`remove_market_role`) asks the Editor-and-Viewer row and the Admin row before it looks at the person, so someone both refuse reads the Editor-and-Viewer row's refusal whoever the person is; then it answers someone holding no role as gone, refuses taking the only owner, and asks the row of the role taken.
 
 **The plan write asks two rows**: Market Setup always, and the Assignment row too when the body changes the assignment rules, which ride in the plan; restating them asks only Market Setup.
 
@@ -317,6 +322,7 @@ Default: Admin.
 
 Asked by:
 - `/markets/:id/roles` writes on an Editor or a Viewer
+- taking any role, an Admin's or the owner's too, first, beside the Admin row
 - whom the market read names the organization's people to in `peopleWithAccess`, beside the organization's own people (E38/F12/S01)
 
 ### Give and take Admin roles (`manage-admins`)
@@ -325,6 +331,7 @@ Default: Owner, fixed.
 
 Asked by:
 - `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given)
+- taking any role, an Editor's or a Viewer's too, first, beside the Editor-and-Viewer row
 
 ### Delete the market (`delete-market`)
 
@@ -398,9 +405,9 @@ So the read serves them for one more release, each its row's answer and then the
 
 ## Sharp edges
 
-**No source outside this module and `permissions.py` names a role threshold**: `test_no_check_outside_the_actions_module_names_a_role` in [`back-end/tests/test_every_check_names_an_action.py`](../../../back-end/tests/test_every_check_names_an_action.py) searches every other server source for any use of `user_has_permission`, `can_manage_roles` or `ROLE_RANK`, and of the role resolvers `get_user_market_role`, `organization_market_role` and `higher_role` outside the two functions that serve the role itself to the client (`get_market_for_user`, `_summary_role`), and fails on any.
+**No source outside this module and `permissions.py` names a role threshold**: `test_no_check_outside_the_actions_module_names_a_role` in [`back-end/tests/test_every_check_names_an_action.py`](../../../back-end/tests/test_every_check_names_an_action.py) searches every other server source for any use of `user_has_permission`, `can_manage_roles` or `ROLE_RANK`, and of the role resolvers `get_user_market_role`, `organization_market_role` and `higher_role` outside the one function that serves the role itself to the client (`get_market_for_user`), and fails on any; the list's `_summary_role` takes its role from `market_role_of`, which is not one of the three.
 Holding a role is how a check would compare one, so searching for the resolvers catches a comparison in any shape, inline, against a tuple, through an annotated name or kept on an attribute, and an import of any of these names by name is flagged too, since an alias (`from api.permissions import ROLE_RANK as R`) would hide every later use; `test_the_search_finds_a_check_that_names_a_role` pins each shape.
-The two functions that serve the role are allowed by module and name, so a function of the same name elsewhere is still searched.
+The function that serves the role is allowed by module and name, so a function of the same name elsewhere is still searched.
 The search cannot see a raw read of `market.roles` or `organization.admins`: comparing a stored role there looks, by syntax, exactly like keeping the one-owner invariant (`add_market_role` refusing a second owner), so such a read is for review to catch.
 The same file pins every row's default, label, group and fixed flag against the epic's table, and for each row that its default role may, that every role above may, and that the role below is refused with its sentence; and which row each loader-backed write and read asks.
 
