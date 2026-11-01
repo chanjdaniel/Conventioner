@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import { phaseSpine } from '@/utils/phase';
 import { movesServedFrom } from './support/servedMoves';
-import { answersRefusing } from './support/servedAnswers';
+import { answersRefusing, EDITOR_ANSWERS, VIEWER_ANSWERS } from './support/servedAnswers';
 import { MarketAction } from '@/utils/marketActions';
 import {
   currentPage,
@@ -219,23 +219,114 @@ describe('the next step', () => {
     });
     expect(nextStep(market(MarketPhase.MarketDays), '2099-06-01').text).toMatch(/Archive it/);
   });
+});
 
-  // The rail told a Viewer "Check vendors in at the door." just above the frame's line saying they
-  // may change nothing (E38/F15/S04). Someone who may not check in is told what they may do there:
-  // read who has come, a step every role may take, so the rail leads them to the door.
-  it('tells someone who may not check vendors in to follow who has come', () => {
-    const watching = market(MarketPhase.MarketDays, {
-      actionRefusals: answersRefusing(MarketAction.CheckIn),
+/*
+ * The rail told a Viewer "Check vendors in at the door." just above the frame's line saying they may
+ * change nothing, and on every other row a step that was not theirs either (E38/F15/S04). Someone
+ * the row's action refuses is told what they may do there, read, and led to it; never what they may
+ * not, which the frame says once.
+ */
+describe('what the rail tells someone the step is not theirs', () => {
+  const ASSIGNED = { assignmentObject: { vendorAssignments: [{ email: 'a@example.com' }] } };
+  const viewer = (phase: MarketPhase, overrides: Partial<Market> = {}) =>
+    market(phase, { actionRefusals: VIEWER_ANSWERS, ...overrides });
+
+  const rows: [string, Market, string, string, string][] = [
+    [
+      'draft',
+      viewer(MarketPhase.Draft),
+      TODAY,
+      'The market is being planned. Read its plan on Market Setup.',
+      'setup',
+    ],
+    [
+      'applications, open',
+      viewer(MarketPhase.Applications),
+      TODAY,
+      'Applications are open on the application page. Follow the review as they are decided.',
+      'applications',
+    ],
+    [
+      'applications, stopped',
+      viewer(MarketPhase.Applications, { applicationsStopped: true } as Partial<Market>),
+      TODAY,
+      'The application page is not taking applications. Follow the review as they are decided.',
+      'applications',
+    ],
+    [
+      'review',
+      viewer(MarketPhase.Applications, { intakeMode: IntakeMode.Csv }),
+      TODAY,
+      'Every imported response is here. Follow the review as they are decided.',
+      'applications',
+    ],
+    [
+      'assignment, not assigned',
+      viewer(MarketPhase.Assignment),
+      TODAY,
+      'Tables are not allocated yet. Read the rules they will follow on Settings.',
+      'settings',
+    ],
+    [
+      'assignment, assigned',
+      viewer(MarketPhase.Assignment, ASSIGNED as Partial<Market>),
+      TODAY,
+      'Tables are allocated, and the market is not published yet. Read the assignments.',
+      'assignments',
+    ],
+    [
+      'assignment, results published',
+      viewer(MarketPhase.Assignment, { ...ASSIGNED, resultsPublished: true } as Partial<Market>),
+      TODAY,
+      'Results are published, so the assignments are settled. The check-in page goes up when the market is published.',
+      'assignments',
+    ],
+    [
+      'market days, a date to come',
+      viewer(MarketPhase.MarketDays),
+      TODAY,
+      'Follow who has checked in at the door.',
+      'attendance',
+    ],
+    [
+      'market days, every date over',
+      viewer(MarketPhase.MarketDays),
+      '2099-06-01',
+      'The market has run. Who came is on Attendance.',
+      'attendance',
+    ],
+  ];
+
+  for (const [standing, m, today, text, page] of rows) {
+    it(`${standing}: says what a Viewer may do there, and leads them to it`, () => {
+      expect(nextStep(m, today)).toMatchObject({ text, page, action: MarketAction.Read });
+      // Nothing that is not theirs: no step to take, and not the frame's line again.
+      expect(nextStep(m, today).text).not.toMatch(
+        /review them|allocate tables|then publish|Publish the market|Archive|Check vendors|Plan the|import the|\bchange\b|\bview\b/i,
+      );
     });
-    expect(nextStep(watching, TODAY)).toMatchObject({
-      text: 'Follow who has checked in at the door.',
-      page: 'attendance',
-      action: MarketAction.Read,
+  }
+
+  it('says the step to whoever may take it, an Editor at the door and a chosen Viewer in review', () => {
+    expect(
+      nextStep(market(MarketPhase.MarketDays, { actionRefusals: EDITOR_ANSWERS }), TODAY).text,
+    ).toBe('Check vendors in at the door.');
+    const chosen = market(MarketPhase.Applications, {
+      actionRefusals: { ...VIEWER_ANSWERS, [MarketAction.GiveVerdicts]: null },
     });
-    // It says nothing of what they may not do: the frame says that, once.
-    expect(nextStep(watching, TODAY).text).not.toMatch(/change|view/i);
-    // Once every date has passed the step is archiving, whoever is looking.
-    expect(nextStep(watching, '2099-06-01').text).toMatch(/Archive it/);
+    expect(nextStep(chosen, TODAY).text).toMatch(/review them as they arrive/);
+    expect(nextStep(chosen, TODAY).action).toBe(MarketAction.GiveVerdicts);
+  });
+
+  it("says what is true to everyone where nothing is anyone's to do: offers, and an archive", () => {
+    expect(nextStep(viewer(MarketPhase.Offers), TODAY).text).toBe(
+      nextStep(market(MarketPhase.Offers), TODAY).text,
+    );
+    expect(nextStep(viewer(MarketPhase.Archived), TODAY)).toMatchObject({
+      text: nextStep(market(MarketPhase.Archived), TODAY).text,
+      action: null,
+    });
   });
 });
 

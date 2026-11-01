@@ -3,7 +3,7 @@ layer: implementation
 kind: module
 describes:
   - front-end/src/utils/marketGuide.ts
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - wayfinding/what-to-show-and-when/02
   - wayfinding/what-to-show-and-when/map
@@ -30,7 +30,7 @@ A CSV market's vendors apply on the organizer's own Google Form, so nothing it s
 - **The page a market is worked on in its phase** (`currentPage`): the page carrying the bar's dot, where `/markets/:marketId` lands, and where the rail's sentence links.
   Only the phase and whether an assignment is stored decide it, so the three can never disagree.
   A phase this build does not recognise gets Market Setup, the one page that is never wrong to show.
-- **Where a move into a phase lands** (`landingPage`): that page, or the flow the phase's work is done in; a move into the stage lands on Applications on both paths.
+- **Where a move into a phase lands** (`landingPage`): that page; a row may name a flow its work is done in instead (`lands`), but none does now, so a move into the stage lands on Applications on both paths.
 - **The page a tab opens** (`pageForTab`): the one carrying the dot when the tab holds it, else its first.
 - **The rail's sentence** (`nextStep`): one sentence naming the one next step, linking to where it is done.
   When the server would refuse that step, the sentence is its first blocker from `transitionBlockers` instead, except before an assignment is run, when running it is the step.
@@ -50,9 +50,11 @@ A CSV market's vendors apply on the organizer's own Google Form, so nothing it s
   | archived | none | none: the sentence leads nowhere |
 
   A row with no action is one whose sentence links nowhere; a blocker with none, as from an older server, gives the step none.
-- **What someone the step's action refuses is told instead** (`GuideRow.onlooker`), where the row's sentence would tell them to do it: in market days with a date to come, someone who may not check vendors in, a Viewer by the built-in table, reads "Follow who has checked in at the door.", a step taking `read` that leads to Attendance (E38/F15/S04).
-  It says what they may do, never what they may not, which [the market frame](market-frame.md)'s read-only line says once; the rail had told a Viewer "Check vendors in at the door." just above it.
-  A row without one says its sentence to everyone, linked only for whoever may take its action.
+- **What someone the step's action refuses is told instead** (`GuideRow.onlooker`), where the row's sentence would tell them to do it: what they may do there, a step taking `read` that leads to the row's page (E38/F15/S04).
+  It never says what they may not, which [the market frame](market-frame.md)'s read-only line says once; the rail had told a Viewer "Check vendors in at the door." just above it, and on every other row a step that was not theirs either.
+  By the built-in table a Viewer reads, in draft, "The market is being planned. Read its plan on Market Setup."; in the stage, what the stage is (in words that ask nobody to review) and "Follow the review as they are decided."; in Assignment, "Tables are not allocated yet. Read the rules they will follow on Settings.", "Tables are allocated, and the market is not published yet. Read the assignments." or, once results are published, "Results are published, so the assignments are settled. The check-in page goes up when the market is published."; at the door "Follow who has checked in at the door.", and once every date has passed "The market has run. Who came is on Attendance."
+  The sentence goes with the answer, not the role: a chosen Viewer may give verdicts, so reads the stage's own sentence, and an Editor reads the onlooker's where the step is moving the phase.
+  Offers and an archive have none, since their sentence is true for everyone.
 - **The step onward** (`forwardFrom`): read off the spine; once every date of a running market has passed, the step onward is archiving it, and before then archiving stays in the menu.
 - **The moves open to the market** (`movesOf`): the keys of `transitionBlockers` as the read served them; the browser keeps no copy of which moves a path has.
 - **The spine a market is drawn on** (`spineFor`): the lifecycle, with a phase it leaves out, such as `offers`, put where the table places it when the market is actually in it.

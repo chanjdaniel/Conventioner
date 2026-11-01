@@ -208,11 +208,12 @@ interface GuideRow {
   action: MarketAction | null;
   /**
    * What the rail says instead to someone who may not take `action`, where the statement would tell
-   * them to do it, and the action that step takes. The rail told a Viewer "Check vendors in at the
-   * door." just above the frame's line saying they may change nothing (E38/F15/S04). It says what
-   * they may do there, never what they may not: the frame says that, once.
+   * them to do it: what they may do there, read, a step that leads to `page`. The rail told a Viewer
+   * "Check vendors in at the door." just above the frame's line saying they may change nothing, and
+   * every other row a step that was not theirs either (E38/F15/S04). It never says what they may
+   * not: the frame says that, once. A row whose statement is true for everyone has none.
    */
-  onlooker?: { statement: string; action: MarketAction };
+  onlooker?: string;
 }
 
 /**
@@ -228,6 +229,14 @@ function stageLead({ path, stopped }: Pick<Standing, 'path' | 'stopped'>): strin
     : 'Applications are open on your application page: review them as they arrive.';
 }
 
+/** The stage as someone who may not decide reads it: nothing in it asks them to review. */
+function watchedStageLead({ path, stopped }: Pick<Standing, 'path' | 'stopped'>): string {
+  if (path === IntakeMode.Csv) return 'Every imported response is here.';
+  return stopped
+    ? 'The application page is not taking applications.'
+    : 'Applications are open on the application page.';
+}
+
 /**
  * Ticket 02's answer, one row per phase. `currentPage` reads its pages, so the dot, the landing page
  * and the rail's link can never disagree about where a market is worked on.
@@ -240,12 +249,14 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
       path === IntakeMode.Form
         ? 'Plan the market and its application form, then open applications.'
         : "Plan the market, from your Google Form's responses or by hand, then import the responses.",
+    onlooker: 'The market is being planned. Read its plan on Market Setup.',
   }),
   // The application page's address is in the rail beside this, under the same name, with Copy.
   [MarketPhase.Applications]: (standing) => ({
     page: 'applications',
     action: MarketAction.GiveVerdicts,
     statement: `${stageLead(standing)} Every application is decided: Begin Assignment.`,
+    onlooker: `${watchedStageLead(standing)} Follow the review as they are decided.`,
   }),
   // Worked on the rules until there are assignments, and on the assignments after. Once results
   // are published the assignments are settled, and what is left is the move.
@@ -256,6 +267,8 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
           action: MarketAction.MovePhase,
           statement:
             'Results are published, so the assignments are settled. Publish the market to put the check-in page up; that cannot be undone.',
+          onlooker:
+            'Results are published, so the assignments are settled. The check-in page goes up when the market is published.',
         }
       : assigned
         ? {
@@ -263,12 +276,16 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
             action: MarketAction.Assign,
             statement:
               'Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone.',
+            onlooker:
+              'Tables are allocated, and the market is not published yet. Read the assignments.',
           }
         : {
             page: 'settings',
             action: MarketAction.Assign,
             statement: 'Set the rules and allocate tables.',
+            onlooker: 'Tables are not allocated yet. Read the rules they will follow on Settings.',
           },
+  // True for everyone: nothing sets a market in offers any more.
   [MarketPhase.Offers]: ({ assigned, path }) => ({
     page: assigned ? 'assignments' : 'settings',
     action: MarketAction.Assign,
@@ -281,15 +298,13 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
           page: 'attendance',
           action: MarketAction.MovePhase,
           statement: 'The market has run. Archive it to keep it as the record of what happened.',
+          onlooker: 'The market has run. Who came is on Attendance.',
         }
       : {
           page: 'attendance',
           action: MarketAction.CheckIn,
           statement: 'Check vendors in at the door.',
-          onlooker: {
-            statement: 'Follow who has checked in at the door.',
-            action: MarketAction.Read,
-          },
+          onlooker: 'Follow who has checked in at the door.',
         },
   // One that never ran has nothing to show but its plan.
   [MarketPhase.Archived]: ({ assigned, ran }) => ({
@@ -388,7 +403,7 @@ export function nextStep(market: Market, today: string = calendarToday()): NextS
   });
   const said =
     row.onlooker && !mayTake(market, row.action)
-      ? row.onlooker
+      ? { statement: row.onlooker, action: MarketAction.Read }
       : { statement: row.statement, action: row.action };
   return {
     text: said.statement,

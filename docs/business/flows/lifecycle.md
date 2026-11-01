@@ -89,8 +89,12 @@ When the server would refuse that step, the sentence is its first blocker instea
 | Assignment, nothing run | "Set the rules and allocate tables." | as the online path |
 | Assignment, run | "Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone." | as the online path |
 | Assignment, results published | "Results are published, so the assignments are settled. Publish the market to put the check-in page up; that cannot be undone." | none: nothing is published to applicants |
-| Market Days | "Check vendors in at the door.", to someone who may not check vendors in "Follow who has checked in at the door.", and once every date has passed "The market has run. Archive it to keep it as the record of what happened." | as the online path |
+| Market Days | "Check vendors in at the door.", and once every date has passed "The market has run. Archive it to keep it as the record of what happened." | as the online path |
 | Archived | "Archived: the record of what happened stays on its check-in page." for a market that ran, else "Archived: this market is the record of what happened." | as the online path |
+
+Someone whose role the step is not reads instead what they may do there, and is led to it: a Viewer in Draft reads "The market is being planned. Read its plan on Market Setup.", in the stage "Follow the review as they are decided." after what the stage is, in Assignment that tables are not allocated yet or are, or that results are published, at the door "Follow who has checked in at the door.", and once every date has passed "The market has run. Who came is on Attendance." (E38/F15/S04).
+It never says what they may not: the line under the rail says that once.
+Each sentence, word for word, is in [the market guide](../../implementation/modules/market-guide.md).
 
 Every tab stays on the bar from Draft to the end, on both paths.
 A tab whose page has no work yet says when it will: Applications in Draft ("Applications arrive here once they open.", or on the Google Form path "Responses arrive here with your first import, which begins review."), and Attendance until the market is published ("Opens when the market is published.").
