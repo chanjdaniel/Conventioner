@@ -606,10 +606,12 @@ async function download(): Promise<void> {
   min-width: var(--target-min);
   min-height: var(--target-min);
   padding: 0;
-  border: none;
+  /* Drawn as the application form's order arrows are (`RankedChoiceInput.vue`), so the app has one
+     order control, and its disabled beige reads the quieter of the two (T162). */
+  border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
-  background: none;
-  color: var(--mm-text-muted);
+  background: white;
+  color: var(--mm-black);
   cursor: pointer;
 }
 
@@ -619,11 +621,16 @@ async function download(): Promise<void> {
 }
 
 .export-move:hover:not(:disabled) {
-  color: var(--mm-black);
+  border-color: var(--mm-green);
+  color: var(--mm-green);
 }
 
 .export-move:disabled {
-  color: var(--mm-border);
+  /* The primitives' one disabled state (`.btn:disabled`): an arrow in `--mm-border` was all but
+     invisible on white (T162). */
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  border-color: var(--mm-border);
   cursor: not-allowed;
 }
 
