@@ -142,7 +142,7 @@ const router = createRouter({
       path: '/markets/:marketId/vendors',
       name: 'vendors',
       component: () => import('@/views/VendorsView.vue'),
-      // A vendor is looked up, paid and corrected from the door's own list on market day (T180),
+      // On market day a vendor is looked up, paid and corrected here, one tap from the door (T180),
       // so the page and its drawer fit a phone, as the door does.
       meta: { fitsAPhone: true },
     },

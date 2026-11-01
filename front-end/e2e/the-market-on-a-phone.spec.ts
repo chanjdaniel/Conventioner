@@ -140,10 +140,7 @@ for (const size of PHONE_AND_DESK) {
 
       // The search and its filters wrap in the window, each a thumb's target.
       await expectTargets(page.getByTestId('payments-search'), 'the search');
-      await expectTargets(
-        page.getByRole('group', { name: 'Show only' }).getByRole('button'),
-        'a filter',
-      );
+      await expectTargets(page.getByTestId('payments-shown').getByRole('button'), 'a filter');
 
       // The figures, and every table, read inside the window.
       for (const figure of await page.getByTestId('payments-totals').locator('> div').all()) {
@@ -164,7 +161,9 @@ for (const size of PHONE_AND_DESK) {
       await expect(drawer).toBeInViewport({ ratio: 1 });
       await expectInside(drawer, 'the drawer');
       expect(
-        await drawer.locator('.detail-content').evaluate((el) => el.scrollWidth - el.clientWidth),
+        await drawer
+          .getByTestId('vendors-detail-content')
+          .evaluate((el) => el.scrollWidth - el.clientWidth),
         'the Payment tab scrolls sideways',
       ).toBe(0);
       await expectFits(page, 'Payments, the drawer open');
@@ -196,10 +195,7 @@ for (const size of PHONE_AND_DESK) {
       // The search takes its row, and the filters, Export and Add a vendor wrap beneath it, each a
       // thumb's target.
       await expectTargets(page.getByTestId('vendors-search-input'), 'the search');
-      await expectTargets(
-        page.getByRole('group', { name: 'Show only' }).getByRole('button'),
-        'a filter',
-      );
+      await expectTargets(page.getByTestId('vendors-shown').getByRole('button'), 'a filter');
       await expectTargets(page.getByTestId('vendors-export-button'), 'Export');
       await expectTargets(page.getByTestId('vendors-add-button'), 'Add a vendor');
       await expectAcross(page.getByTestId('vendors-summary'), 'the count');
@@ -221,11 +217,13 @@ for (const size of PHONE_AND_DESK) {
         );
         await expectInside(drawer, `the drawer on its ${tab} tab`);
         expect(
-          await drawer.locator('.detail-content').evaluate((el) => el.scrollWidth - el.clientWidth),
+          await drawer
+            .getByTestId('vendors-detail-content')
+            .evaluate((el) => el.scrollWidth - el.clientWidth),
           `the drawer's ${tab} tab scrolls sideways`,
         ).toBe(0);
         await expectTargets(
-          drawer.locator('.detail-content').getByRole('button'),
+          drawer.getByTestId('vendors-detail-content').getByRole('button'),
           `a button on the ${tab} tab`,
         );
       }
@@ -242,8 +240,8 @@ for (const size of PHONE_AND_DESK) {
       await expect(drawer.getByTestId('payment-paid')).toContainText('35');
       await expectFits(page, 'Vendors, the drawer open');
 
-      // An Editor at the door corrects an answer: Update info opens inside the window, a field a
-      // row, and saves.
+      // An Editor at the door corrects an answer: Update info opens inside the window, its answer
+      // and Save and Cancel inside it, and saves.
       await withUser(
         browser,
         EDITOR.email,

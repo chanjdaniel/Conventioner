@@ -44,7 +44,7 @@ sources:
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
 
 The Vendors page ([`VendorsView.vue`](../../../front-end/src/views/VendorsView.vue)) lists every applicant of the market, one row each, and a row opens that vendor's [drawer](vendor-drawer.md), behind which it reads as selected ([a selected row](../../design-system.md#the-primitive-layer)); what the page counts is the vendors who need a table: the run's own, and the vendors added by hand.
-The page fits a phone, so a vendor is looked up, paid and corrected from the door on market day (T180): the search takes its row with the filters, Export and Add a vendor beneath it, each row stacks the name over its chips, and the drawer and every dialog open inside the window ([the design language](../../design-system.md#layout)).
+The page fits a phone, so a vendor is looked up, paid and corrected from the door on market day (T180): the search takes its row with the filters, Export and Add a vendor beneath it, each row stacks the name over its chips, and the drawer, Add a vendor, Export and Give roles open inside the window ([the design language](../../design-system.md#layout)).
 
 ## J11. Browse by vendor
 

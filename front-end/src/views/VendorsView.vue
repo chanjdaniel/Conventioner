@@ -299,6 +299,7 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
             class="vendors-shown"
             role="group"
             aria-label="Show only"
+            data-testid="vendors-shown"
           >
             <button
               v-if="!placementsRefused"
@@ -864,9 +865,12 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
   }
 
   /* Under the name, the columns keep their order and widths, starting at the name's edge, and the
-     date count holds the right. */
+     date count holds the right. The Discord state, the badge, "Added" and the date count are wider
+     together than a phone's row, so they wrap there (T180). */
   .vendor-meta {
     width: 100%;
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
   }
 
   .vendor-discord,
@@ -900,13 +904,6 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
 
   .vendors-body {
     padding: var(--space-4);
-  }
-
-  /* The Discord state, the badge, "Added" and the date count are wider together than a phone's
-     row: they wrap, the date count still holding the right. */
-  .vendor-meta {
-    flex-wrap: wrap;
-    row-gap: var(--space-2);
   }
 }
 </style>

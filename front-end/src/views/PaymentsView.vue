@@ -190,7 +190,13 @@ const nobodyShown = computed(() => {
             @input="setSearch(($event.target as HTMLInputElement).value)"
           />
           <!-- No filter where pricing is off: nobody owes, so the refunds one would be everyone. -->
-          <div v-if="filters.length" class="payments-shown" role="group" aria-label="Show only">
+          <div
+            v-if="filters.length"
+            class="payments-shown"
+            role="group"
+            aria-label="Show only"
+            data-testid="payments-shown"
+          >
             <button
               v-for="filter in filters"
               :key="filter.id"

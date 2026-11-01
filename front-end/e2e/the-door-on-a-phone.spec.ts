@@ -130,7 +130,7 @@ for (const size of PHONE_AND_DESK) {
         await press(tabs.getByRole('tab', { name: tab }));
         await expect(page.getByRole('tabpanel').getByTestId(shown).first()).toBeVisible();
         const sideways = await drawer
-          .locator('.detail-content')
+          .getByTestId('vendors-detail-content')
           .evaluate((el) => el.scrollWidth - el.clientWidth);
         expect(sideways, `the ${tab} tab scrolls sideways`).toBe(0);
         if (!size.phone) continue;
