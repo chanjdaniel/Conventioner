@@ -97,11 +97,14 @@ test('the market chooser fits a 1440px window', async ({ authenticatedPage: page
     innerWidth: window.innerWidth,
   }));
   expect(scrollWidth).toBeLessThanOrEqual(innerWidth);
-  for (const button of buttons) {
-    const b = await box(button);
+  const [left, right] = [await box(buttons[0]), await box(buttons[1])];
+  for (const b of [left, right]) {
     expect(b.x).toBeGreaterThanOrEqual(0);
     expect(b.x + b.width).toBeLessThanOrEqual(innerWidth);
   }
+  // One row: side by side at the same height, so a wrap or a stack fails.
+  expect(Math.abs(right.y - left.y)).toBeLessThanOrEqual(1);
+  expect(right.x).toBeGreaterThanOrEqual(left.x + left.width);
 });
 
 /**
