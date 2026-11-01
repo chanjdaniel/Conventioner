@@ -20,6 +20,7 @@ export class LoginPage {
   readonly errorMessage: Locator;
   readonly submitButton: Locator;
   readonly forgotPasswordLink: Locator;
+  readonly rememberMe: Locator;
 
   // Register form
   readonly registerForm: Locator;
@@ -39,6 +40,7 @@ export class LoginPage {
   readonly otpSuccessMessage: Locator;
   readonly otpSubmitButton: Locator;
   readonly otpDifferentEmailLink: Locator;
+  readonly otpRememberMe: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -54,6 +56,7 @@ export class LoginPage {
     this.errorMessage = page.getByTestId('login-error-message');
     this.submitButton = page.getByTestId('login-submit-button');
     this.forgotPasswordLink = page.getByTestId('login-forgot-password-link');
+    this.rememberMe = page.getByTestId('login-remember-me');
 
     this.registerForm = page.getByTestId('login-register-form');
     this.registerEmailInput = page.getByTestId('login-register-email-input');
@@ -71,6 +74,7 @@ export class LoginPage {
     this.otpSuccessMessage = page.getByTestId('login-otp-success-message');
     this.otpSubmitButton = page.getByTestId('login-otp-submit-button');
     this.otpDifferentEmailLink = page.getByTestId('login-otp-different-email-link');
+    this.otpRememberMe = page.getByTestId('login-otp-remember-me');
   }
 
   async goto(): Promise<void> {
