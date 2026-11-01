@@ -22,7 +22,7 @@ When two lanes' rows share a line, that merge conflicts though nothing disagrees
 - **An enumeration that features grow is a Markdown list, one item to a line.**
   Never a sentence ("A, B and C") and never a table cell, because each new item rewrites the one line.
 - **The order is stated, once, in the line above the list.**
-  Items with no order of their own (specs, page objects) are sorted by name; items the code orders (actions and the rights of each role, in the `ACTIONS` order of [`back-end/api/market_actions.py`](../../../back-end/api/market_actions.py)) follow the code; a list whose doc names another order (the seed helpers, each beside the helper it builds on) follows that order.
+  Items with no order of their own (specs, page objects) are sorted by name; items the code orders (actions and the rights of each role, in the `ACTIONS` order of [`back-end/api/market_actions.py`](../../../back-end/api/market_actions.py)) follow the code; a list whose doc names another order (the seed helpers, each beside the helper it builds on; the sweep's states, each beside the state it is most like; the history's examples, in the order of its blocks) follows that order.
   A sorted list puts two new items in different places unless their names sort side by side; a list in the code's order conflicts exactly when the code itself would.
 - **A table whose rows features edit becomes one block per row**, each block apart from the next by a blank line, because git conflicts on edits to adjacent lines and a table's rows are adjacent.
   A block opens with the row's name as a heading or a bold lead, then its facts, with any enumeration inside it a list in turn.
@@ -106,3 +106,13 @@ A new spec is one line in its sorted place in the list of each step it walks, an
 
 [The market's actions](../modules/market-actions.md#each-routes-row), "Each route's row": one block per row of the table, in the `ACTIONS` order of [`back-end/api/market_actions.py`](../../../back-end/api/market_actions.py), headed by its label and id, then its default, then "Asked by:" and a list, one route or caller a line, any enumeration inside one a list in turn.
 A new action is a new block in its `ACTIONS` place; a new route or caller of an existing action is one line in its action's "Asked by" list, beside the route it is most like.
+
+### Reading the market's history
+
+[Reading the market's history](../../business/flows/reading-the-markets-history.md#l6-read-the-markets-history), step 2 of L6: the step's own sentence, then a list, one kind's example a line, in the order of the blocks of [what each write records](../data/history.md#what-each-write-records), an example of several kinds' sentences a list in turn; the fallback's sentence stays after the list.
+A new kind's example is one line in its block's place.
+
+### The design language
+
+[The design language](../../design-system.md#what-keeps-this-true), "What keeps this true": the states the sweeps walk are a list, one state a line, each beside the state it is most like, and the stress seed's description is a sentence after it.
+A new state is one line beside the state it is most like, not at the list's end, where every lane would add its own.
