@@ -3,6 +3,8 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/StartFromCsvView.vue
+  - front-end/src/utils/csvProposal.ts
+  - front-end/src/components/csvProposal/ProposalLedger.vue
 verified: 2026-11-01
 sources:
   - wayfinding/the-form-started-from-a-csv/05
@@ -77,7 +79,7 @@ The review is the import's own ledger, a table of "CSV column", "First answers" 
    Rare options are unticked by default ("chosen by 2 - keep?").
    Rare means fewer than 3 applicants, or, for a multi-select, under a set share of its answers, so an option chosen by 4 can be unticked too.
    A question the organizer made required, whose unticked options would leave applicants with no answer, says how many ("N applicants answered only options that are left out, so their applications would not import."); "Show all answers" lists every one and "Keep all" ticks them (bug 4).
-5. The side panel, "Your proposal", sticks beside the ledger and counts "to check", then the rows by what they become, adding up to the rows under "Every column, in your file's order": "say who applied and when" ("say who applied" when only the address column is there, "say when each applied" when only the timestamp column is), "answer essential questions", "become your questions" and "left out", each worded for one at one ("1 answers an essential question", "1 says who applied"); it says "Nothing is written until you confirm.", and holds "Create the form and plan" and "Cancel".
+5. The side panel, "Your proposal" ([`ProposalLedger.vue`](../../../front-end/src/components/csvProposal/ProposalLedger.vue)), sticks beside the ledger and counts "to check", then the rows by what they become (`proposalCounts` and `railLines` in [`csvProposal.ts`](../../../front-end/src/utils/csvProposal.ts)), adding up to the rows under "Every column, in your file's order": "say who applied and when" ("say who applied" when only the address column is there, "say when each applied" when only the timestamp column is), "answer essential questions", "become your questions" and "left out", each worded for one at one ("1 answers an essential question", "1 says who applied"); it says "Nothing is written until you confirm.", and holds "Create the form and plan" and "Cancel".
 
 The ledger is the import's because the later import opens on the same one, so the organizer learns one screen, and file order is how they know their own Google Form; sorting the columns by what they become, or listing only the rows to check, were tried and not taken.
 
