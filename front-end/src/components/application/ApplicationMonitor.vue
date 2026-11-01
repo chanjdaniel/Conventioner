@@ -1217,11 +1217,13 @@ function submittedOn(app: Application): string {
   color: var(--mm-text-muted-on-beige);
 }
 
-/* Beside the tally, so it stays put whatever the progress line says. */
+/* Beside the tally, so it stays put whatever the progress line says. Its label is the target, the
+   box inside it. */
 .include-follow-ups {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  min-height: var(--target-min);
   margin-left: auto;
   font-size: var(--text-xs);
   color: var(--mm-black);
@@ -1295,6 +1297,14 @@ function submittedOn(app: Application): string {
   color: var(--mm-black);
 }
 
+/* A thumb's target on a phone (T180). Its minimum is a phone rule, since on a desk a 24px box would
+   push the card's verdicts 9px down. */
+@media (width <= 640px) {
+  .choose-highlights-toggle {
+    min-height: var(--target-min);
+  }
+}
+
 .choose-highlights-body {
   margin-top: var(--space-3);
   padding: var(--space-3);
@@ -1361,6 +1371,7 @@ function submittedOn(app: Application): string {
 }
 
 .decided-toggle {
+  min-height: var(--target-min);
   background: none;
   border: none;
   padding: 0;

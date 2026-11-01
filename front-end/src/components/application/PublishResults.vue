@@ -147,6 +147,7 @@ async function publish() {
 }
 
 .publish-button {
+  min-height: var(--target-min);
   background: var(--mm-green);
   color: white;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */

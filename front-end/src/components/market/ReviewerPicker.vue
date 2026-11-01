@@ -86,11 +86,12 @@ function toggle(address: string, on: boolean) {
   border-block: 1px solid var(--mm-border);
 }
 
+/* The label is the target, the box inside it: 32px at a desk, a thumb's 44px on a phone. */
 .reviewer-picker-choice {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 2rem;
+  min-height: max(2rem, var(--target-min));
   font-size: var(--text-sm);
   color: var(--mm-black);
   cursor: pointer;

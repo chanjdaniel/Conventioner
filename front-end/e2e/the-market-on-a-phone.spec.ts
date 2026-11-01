@@ -1,6 +1,8 @@
 import type { APIRequestContext, Locator } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { marketScreenPath } from './helpers/marketScreens';
+import { marketScreenPath, oneByOnePath } from './helpers/marketScreens';
+import { planSetupObject, seedApplicantMarket } from './helpers/seedApplicantMarket';
+import { seedApprovedVendor } from './helpers/seedApplication';
 import {
   seedApplicationWithStatus,
   seedPhaseMarket,
@@ -29,6 +31,10 @@ import {
  *
  * Vendors is one tap from the door's own list: the organizer looks a vendor up, reads every tab of
  * their drawer, takes their payment, and an Editor corrects an answer with Update info.
+ *
+ * On the Applications page a reviewer works the queue One by one, the organizer deals the review
+ * to a chosen reviewer who then decides their share, and results are published, each at the
+ * phone's own width.
  */
 
 const OWES = 'alice@example.com';
@@ -39,6 +45,13 @@ const EDITOR = { email: 'e2e-phone-editor@example.com', password: 'e2epassword12
 const VIEWER = { email: 'e2e-phone-viewer@example.com', password: 'e2epassword123' };
 /** The one application of the Applications leg's market, still open. */
 const APPLICANT = 'phone-applicant@example.com';
+/** The One by one leg's queue, in the order it arrives, and the follow-up waiting beside it. */
+const QUEUE = [
+  'phone-queue-1@example.com',
+  'phone-queue-2@example.com',
+  'phone-queue-3@example.com',
+];
+const FOLLOW_UP = 'phone-follow-up@example.com';
 /** The vendor drawer's tabs, in its order. */
 const DRAWER_TABS = ['application', 'assignments', 'payment', 'history'] as const;
 
@@ -66,6 +79,53 @@ async function aMarketInReview(request: APIRequestContext): Promise<string> {
     name: 'Alexandria Montgomery-Featherstonehaugh',
     category: 'Ceramics',
   });
+  return marketId;
+}
+
+/**
+ * A market taking applications on its own form, with a queue of three open applications, a
+ * follow-up waiting on its applicant, and the Editor and Viewer the review may be dealt to.
+ */
+async function aQueueToReview(request: APIRequestContext): Promise<string> {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
+  for (const [i, email] of QUEUE.entries()) {
+    seedApplicationWithStatus(marketId, 'open', email, {
+      name: `Bartholomew Featherstonehaugh-Montgomery ${i + 1}`,
+      category: 'Ceramics',
+    });
+  }
+  seedApplicationWithStatus(marketId, 'needs_follow_up', FOLLOW_UP);
+  ensureVerifiedUser(EDITOR.email, EDITOR.password);
+  await grantMarketRole(request, marketId, EDITOR, 'editor');
+  ensureVerifiedUser(VIEWER.email, VIEWER.password);
+  await grantMarketRole(request, marketId, VIEWER, 'viewer');
+  return marketId;
+}
+
+/** A form market in assignment with a current run, so its results wait to be published. */
+async function aMarketToPublish(request: APIRequestContext): Promise<string> {
+  const date = '2099-08-01';
+  const { marketId } = await seedApplicantMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { setupObject: planSetupObject([date]) },
+  );
+  seedApprovedVendor(marketId, 'phone-seated@example.com', {
+    dates: [date],
+    tiers: ['Gold'],
+    sections: ['Main Hall', 'Garden'],
+  });
+  await call(request, 'post', `/markets/${marketId}/transition`, { toPhase: 'assignment' });
+  await call(request, 'post', `/markets/${marketId}/assignment`, {});
   return marketId;
 }
 
@@ -184,6 +244,27 @@ for (const size of PHONE_AND_DESK) {
         );
       }
       await expectAcross(row.getByTestId('applications-all-status'), 'the status');
+    }
+
+    /**
+     * The review card in the window: on a phone it is the window less the frame's and the page's
+     * gutters, 32px a side as every page that fits a phone, and its verdicts wrap inside it rather
+     * than run past it.
+     */
+    async function expectCard(card: Locator): Promise<void> {
+      const box = (await card.boundingBox())!;
+      if (size.phone) {
+        expect(box.x, 'the card starts at the gutter').toBe(32);
+        expect(box.width, 'the card is the window less its gutters').toBe(width - 64);
+      }
+      await expectAcross(card, 'the card');
+      for (const verdict of await card.getByTestId(/^app-monitor-.*-button$/).all()) {
+        const v = (await verdict.boundingBox())!;
+        expect(v.x, 'a verdict starts inside the card').toBeGreaterThanOrEqual(box.x);
+        expect(v.x + v.width, 'a verdict ends inside the card').toBeLessThanOrEqual(
+          box.x + box.width,
+        );
+      }
     }
 
     test('Payments: who still owes, and their drawer', async ({
@@ -461,6 +542,121 @@ for (const size of PHONE_AND_DESK) {
         },
         size.use,
       );
+    });
+
+    test('One by one: a verdict, the next card, and the review dealt to a reviewer', async ({
+      authenticatedPage: page,
+      browser,
+      request,
+    }) => {
+      test.slow();
+      const marketId = await aQueueToReview(request);
+      await page.goto(oneByOnePath(marketId));
+      const card = page.getByTestId('app-monitor-card');
+      await expect(card).toBeVisible({ timeout: 15000 });
+      await expectFits(page, 'One by one');
+      await expectCard(card);
+
+      // The queue's own controls are a thumb's targets: the follow-ups' label, the highlights.
+      await expectLabelTarget(
+        page.getByTestId('app-monitor-include-follow-ups'),
+        'Include the follow-up',
+      );
+      await expectTargets(page.getByTestId('app-monitor-choose-highlights'), 'Choose highlights');
+      await expectAcross(page.getByTestId('applications-refresh'), 'Refresh');
+
+      // The follow-up dialog opens inside the window, and is put away.
+      await press(page.getByTestId('app-monitor-follow-up-button'));
+      const followUp = page.getByTestId('follow-up-window');
+      await expect(followUp).toBeVisible();
+      await expectInside(followUp, 'the follow-up dialog');
+      await expectInside(page.getByTestId('follow-up-submit-button'), "the follow-up's confirm");
+      await press(page.getByTestId('follow-up-cancel-button'));
+      await expect(followUp).toHaveCount(0);
+
+      // A verdict: the next card stands in the window, the undo line over it, and the reviewed
+      // list's toggle beside the counts; the list opens inside the window.
+      const first = await page.getByTestId('app-monitor-email').innerText();
+      await press(page.getByTestId('app-monitor-approve-button'));
+      await expect(page.getByTestId('app-monitor-email')).not.toHaveText(first);
+      await expectCard(card);
+      await expectAcross(page.getByTestId('app-monitor-undo'), 'the undo line');
+      const toggle = page.getByTestId('app-monitor-decided-toggle');
+      await expectTargets(toggle, "the reviewed list's toggle");
+      await press(toggle);
+      for (const row of await page.getByTestId('app-monitor-decided-row').all()) {
+        await expectAcross(row, 'a reviewed row');
+      }
+      await expectFits(page, 'One by one, a verdict given');
+
+      // The organizer deals the review to the Editor from the reviewers dialog, every choice a
+      // thumb's target.
+      await press(page.getByTestId('reviewers-change'));
+      const dealing = page.getByTestId('reviewers-dialog-window');
+      await expect(dealing).toBeVisible();
+      await expectInside(dealing, 'the reviewers dialog');
+      for (const choice of await dealing.getByTestId(/^reviewer-picker-/).all()) {
+        await expectLabelTarget(choice, 'a reviewer');
+      }
+      await press(dealing.getByTestId(`reviewer-picker-${EDITOR.email}`));
+      const save = page.getByTestId('reviewers-dialog-submit-button');
+      await expectInside(save, 'Save reviewers');
+      await press(save);
+      await expect(dealing).toHaveCount(0);
+      await expect(page.getByTestId('reviewers-person')).toHaveText([EDITOR.email]);
+      await expectFits(page, 'One by one, the review dealt');
+
+      // The chosen reviewer reads their share, then decides it One by one, at the window.
+      await withUser(
+        browser,
+        EDITOR.email,
+        EDITOR.password,
+        async (editor) => {
+          const { expectFits: fits, press: tap } = inTheWindow(size);
+          await editor.goto(marketScreenPath(marketId, 'applications'));
+          await expect(editor.getByTestId('applications-all-row')).toHaveCount(2, {
+            timeout: 15000,
+          });
+          await fits(editor, "the reviewer's share");
+          for (const row of await editor.getByTestId('applications-all-row').all()) {
+            await expectAcross(row, 'a row of the share');
+          }
+          await editor.goto(oneByOnePath(marketId));
+          const theirs = editor.getByTestId('app-monitor-card');
+          await expect(theirs).toBeVisible({ timeout: 15000 });
+          await fits(editor, "One by one, the reviewer's share");
+          await expectCard(theirs);
+          await tap(editor.getByTestId('app-monitor-approve-button'));
+          // The share's last card is open on the organizer's page, so the reviewer reads that.
+          await expect(editor.getByTestId('app-monitor-all-held')).toBeVisible();
+          await expectAcross(editor.getByTestId('app-monitor-undo'), 'the undo line');
+          await expectAcross(editor.getByTestId('app-monitor-look-again'), 'Look again');
+          await fits(editor, "One by one, the reviewer's share decided");
+        },
+        size.use,
+      );
+    });
+
+    test('Publish Results: its dialog opens inside the window', async ({
+      authenticatedPage: page,
+      request,
+    }) => {
+      const marketId = await aMarketToPublish(request);
+      await page.goto(marketScreenPath(marketId, 'applications'));
+      const publish = page.getByTestId('applications-publish-button');
+      await expect(publish).toBeEnabled({ timeout: 15000 });
+      await expectFits(page, 'the Applications page in assignment');
+      await expectTargets(publish, 'Publish Results');
+      await press(publish);
+      const confirm = page.getByTestId('publish-results-window');
+      await expect(confirm).toBeVisible();
+      await expectInside(confirm, 'the publish results dialog');
+      await expectInside(page.getByTestId('publish-results-submit-button'), 'its confirm');
+      await expectInside(page.getByTestId('publish-results-cancel-button'), 'its cancel');
+      await press(page.getByTestId('publish-results-submit-button'));
+      await expect(confirm).toHaveCount(0);
+      await expect(page.getByTestId('applications-published-badge')).toBeVisible();
+      await expectFits(page, 'the Applications page, results published');
     });
   });
 }

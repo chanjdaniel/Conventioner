@@ -62,8 +62,9 @@ const PUBLIC = [DESKTOP, PHONE];
  * - Organizations (T148);
  * - Vendors (T180), with its drawer and dialogs, so a vendor is looked up and corrected at the door;
  * - Payments (T180), so who still owes is read at the door;
- * - the Applications page (T180), the one page of Market Setup's view that fits, with its drawer
- *   and dialogs, so a late application is decided and a vendor's answer corrected from a phone.
+ * - the Applications page (T180), the one page of Market Setup's view that fits, both its views,
+ *   its drawer and dialogs, so a late application is decided, the review dealt and a vendor's
+ *   answer corrected from a phone.
  */
 const FITS_A_PHONE = [DESKTOP, LAPTOP, PHONE];
 
@@ -462,6 +463,17 @@ export const SCREENS: Screen[] = [
     ]),
   },
   {
+    // The same dialog from the rail over the draft's Applications page, which fits a phone while
+    // the plan keeps the desk floor (T180): the organizer deals the review from a phone.
+    name: 'opening applications from the applications page, choosing reviewers',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(setup('draft', 'applications'), 'market-tab-note', [
+      'phase-transition-applications',
+      'open-applications-window',
+    ]),
+  },
+  {
     name: 'a CSV draft, starting from a Google Form',
     who: 'organizer',
     sizes: ORGANIZER,
@@ -472,14 +484,14 @@ export const SCREENS: Screen[] = [
   {
     name: 'applications open, one by one',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(oneByOne('open'), 'app-monitor-card'),
   },
   {
     // A status is a tinted chip, on the card's own beige ground as well as on white (bug 43).
     name: 'a review card, and the verdicts already given',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(oneByOne('open'), 'app-monitor-card', [
       'app-monitor-decided-toggle',
       'app-monitor-decided-row',
@@ -488,7 +500,7 @@ export const SCREENS: Screen[] = [
   {
     name: 'the follow-up dialog',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(oneByOne('open'), 'app-monitor-card', [
       'app-monitor-follow-up-button',
       'follow-up-window',
@@ -517,7 +529,7 @@ export const SCREENS: Screen[] = [
     // Who reviews which application, chosen from the panel over the views (E38/F07/S02).
     name: 'the reviewers dialog',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(setup('open', 'applications'), 'applications-all-tick', [
       'reviewers-change',
       'reviewers-dialog-window',
@@ -544,13 +556,13 @@ export const SCREENS: Screen[] = [
   {
     name: 'the review divided, my share done',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(oneByOne('dealt'), 'app-monitor-share-done'),
   },
   {
     name: "the review divided, helping with another's share",
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(oneByOne('dealt'), 'app-monitor-share-done', [
       'app-monitor-help-others',
       'app-monitor-dealt-warning',
@@ -571,13 +583,13 @@ export const SCREENS: Screen[] = [
   {
     name: 'not taking applications',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(oneByOne('closed'), 'app-monitor-card'),
   },
   {
     name: 'a Google Form market in review',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(oneByOne('review'), 'app-monitor-card'),
   },
   {
