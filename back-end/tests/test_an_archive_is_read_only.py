@@ -173,6 +173,8 @@ DISCORD_WRITES = [
     ("post", "/markets/market-123/discord/connection", {"code": "c", "state": "s"}),
     ("put", "/markets/market-123/discord", {"roleId": "r-vendor"}),
     ("delete", "/markets/market-123/discord/connection", None),
+    ("post", "/markets/market-123/discord/check", None),
+    ("post", "/markets/market-123/discord/role-run", None),
 ]
 
 

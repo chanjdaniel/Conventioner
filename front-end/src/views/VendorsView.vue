@@ -12,6 +12,8 @@ import NothingAssigned from '@/components/NothingAssigned.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
 import AddVendorDialog from '@/components/AddVendorDialog.vue';
 import ExportVendorsDialog from '@/components/ExportVendorsDialog.vue';
+import GiveRolesDialog from '@/components/GiveRolesDialog.vue';
+import DiscordRoleReport from '@/components/DiscordRoleReport.vue';
 import { hasAssignment } from '@/utils/marketPage';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
 import {
@@ -43,6 +45,7 @@ import {
   discordVendors,
   mayCheckDiscord,
 } from '@/utils/discordCheck';
+import { mayGiveRoles } from '@/utils/discordRoles';
 
 const router = useRouter();
 const route = useRoute();
@@ -164,6 +167,44 @@ async function runCheck(): Promise<void> {
   } finally {
     checking.value = false;
   }
+}
+
+/**
+ * "Give roles" (E46/F01/S04), the same row: confirmed by the role's name and how many hold a seat
+ * on any date, offered once anyone does. Its last run's report is the market's, read by everyone.
+ */
+const mayGive = computed(() => assigned.value && mayGiveRoles(market.value));
+const giving = ref(false);
+/**
+ * While a run asks Discord, and while a check does, the other is not offered: a check that read
+ * the members before a run's grants would be refused by the server anyway.
+ */
+const runningRoles = ref(false);
+const seatedCount = computed(() =>
+  placementsRefused.value ? null : vendors.value.filter((v) => v.assignedDateCount > 0).length,
+);
+const roleRun = computed(() => market.value?.discord?.roleRun ?? null);
+const offeredMatches = computed(
+  () =>
+    new Set(
+      [...discordByApplication.value]
+        .filter(([, vendor]) => vendor.shown === 'possible_match')
+        .map(([applicationId]) => applicationId),
+    ),
+);
+const addressesById = computed(
+  () => new Map(vendors.value.map((v) => [v.applicationId, v.displayEmail])),
+);
+function rolesGiven(): void {
+  giving.value = false;
+  runningRoles.value = false;
+  // The report and the states are the market's, so the market is read again.
+  void useMarketStore().refresh();
+}
+function rolesRefused(): void {
+  runningRoles.value = false;
+  // A refusal may mean the card changed meanwhile, so the page reads what it is now.
+  void useMarketStore().refresh();
 }
 
 /** "Checked 5 minutes ago" ages as the page sits, a turn of the minute within seconds of it. */
@@ -329,7 +370,7 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
         <NothingAssigned v-if="market && !assigned" :market="market" testid="vendors-empty" />
 
         <!-- Who is in the Discord server (E46/F01/S03): the filter once a check has run, when it
-             ran, and the check itself for whoever the row allows. -->
+             ran, and the check and "Give roles" (S04) for whoever the row allows. -->
         <div
           v-if="market?.discord?.guildId && (discordChecked || mayCheck)"
           class="vendors-discord"
@@ -362,16 +403,35 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
             v-if="mayCheck"
             type="button"
             class="btn btn--secondary"
-            :disabled="checking"
+            :disabled="checking || runningRoles"
             data-testid="vendors-discord-check"
             @click="runCheck"
           >
             {{ checking ? 'Checking Discord…' : 'Check Discord' }}
           </button>
+          <button
+            v-if="mayGive"
+            type="button"
+            class="btn btn--secondary"
+            :disabled="checking || runningRoles"
+            data-testid="vendors-discord-give"
+            @click="giving = true"
+          >
+            {{ runningRoles ? 'Giving roles…' : 'Give roles' }}
+          </button>
           <p v-if="checkError" class="error-text" role="alert" data-testid="vendors-discord-error">
             {{ checkError }}
           </p>
         </div>
+
+        <DiscordRoleReport
+          v-if="market?.discord?.guildId && roleRun"
+          :run="roleRun"
+          :addresses="addressesById"
+          :names="vendorNames"
+          :now="now"
+          :offered="offeredMatches"
+        />
 
         <ResultFilterBar
           v-if="assigned && tableRows.length"
@@ -486,6 +546,17 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
       :price-reads="market?.priceReads ?? []"
       @close="adding = false"
       @added="vendorAdded"
+    />
+    <GiveRolesDialog
+      :open="giving"
+      :market-id="marketId"
+      :role-name="market?.discord?.roleName ?? ''"
+      :server-name="market?.discord?.guildName ?? ''"
+      :assigned="seatedCount"
+      @close="giving = false"
+      @giving="runningRoles = true"
+      @given="rolesGiven"
+      @refused="rolesRefused"
     />
     <ExportVendorsDialog
       :open="exporting"
