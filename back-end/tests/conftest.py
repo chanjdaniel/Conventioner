@@ -83,15 +83,14 @@ def skip_without_real_dependencies():
 def sessions_load_through_get_user(monkeypatch):
     """Load a test's session through its own ``UsersApi.get_user``, by the address it wrote.
 
-    The app loads a session by the account's login id. A test that signs in by writing
-    ``session["_user_id"] = <address>`` and patching ``UsersApi.get_user`` uses the address as its
-    fake account's login id, so the loader is pointed at that patch, whenever it is made.
+    The app loads a session by its sign-in id, which names the account's login id and when it
+    signed in. A test that signs in by writing ``session["_user_id"] = <address>`` and patching
+    ``UsersApi.get_user`` uses the address as its fake account's sign-in, so the loader is pointed
+    at that patch, whenever it is made.
     """
     import api.users as UsersApi
 
-    monkeypatch.setattr(
-        UsersApi, "get_user_by_login_id", lambda login_id: UsersApi.get_user(login_id)
-    )
+    monkeypatch.setattr(UsersApi, "signed_in_account", lambda sign_in: UsersApi.get_user(sign_in))
 
 
 if _needs_stub("pymongo"):

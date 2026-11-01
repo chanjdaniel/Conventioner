@@ -11,6 +11,8 @@ sources:
   - T148
   - E38/F11/S01
   - T161
+  - E38/F14/S01
+  - T169
 ---
 
 # Accounts
@@ -49,24 +51,27 @@ From the verification page, ask for another link.
 **Task:** "Sign in, then sign out."
 
 1. At `/login`, Sign in tab, enter email and password, choose "Sign in".
+   "Remember me" under the password is unticked: the sign-in then ends when the browser closes, and at the latest 12 hours after it; ticked, it lasts 30 days from signing in, however the browser is used.
+   Either way it lasts only as long as the browser's address and the browser stay the same: a phone that moves from the venue's wifi to cellular is signed out, an E47 follow-up ([the cookies](../../implementation/conventions/security-invariants.md#the-cookies)).
 2. Expect the dashboard (`/dashboard`), or the page the address carried in `next` (E38/F11/S01).
 3. Choose "Sign out" on the dashboard or in the navigation menu ([C4](finding-a-market.md#c4-the-navigation-menu)); expect `/login`.
 
 Branches: wrong password, unverified account, "Show" password toggle, visiting an organizer URL while signed out (redirects to `/login`, which returns there after signing in), visiting `/login` while signed in (redirects to that `next`, else the dashboard).
 A market link opened while signed out returns there after sign-in, by password or by code, rather than to the dashboard.
 A session that ends mid-work lands on sign-in saying "Your session has ended. Sign in again.", and signing in returns to the page it was on.
-Covered by: `auth.spec.ts`, `smoke.spec.ts`, `sign-in-fits-a-phone.spec.ts`, `a-failure-says-what-to-do.spec.ts`.
+A browser closed and reopened is signed out unless "Remember me" was ticked.
+Covered by: `auth.spec.ts`, `smoke.spec.ts`, `sign-in-fits-a-phone.spec.ts`, `a-failure-says-what-to-do.spec.ts`, `remember-me.spec.ts`.
 
 ## A3. Sign in with an emailed code
 
 **Status:** Works as far as it can be walked without a mailer (walked live).
 
 1. At `/login`, choose the "Sign-in code" tab, enter email, choose "Send code".
-2. Enter the code from the email and choose "Sign in".
+2. Enter the code from the email, tick "Remember me" or leave it, and choose "Sign in"; the choice is the Sign in tab's, kept between the two (A2).
 3. "Use a different email" returns to step 1.
 
 Branches: a wrong code ("That code is not right"), too many wrong codes.
-Covered by: `auth.spec.ts` ("shows error for invalid OTP code"), which stubs the send and walks only a wrong code; `sign-in-fits-a-phone.spec.ts`.
+Covered by: `auth.spec.ts` ("shows error for invalid OTP code"), which stubs the send and walks only a wrong code; `a-failure-says-what-to-do.spec.ts` and `remember-me.spec.ts`, which stub the send and set the code where the server keeps it, then sign in with it; `sign-in-fits-a-phone.spec.ts`.
 
 ## A4. Reset a forgotten password
 

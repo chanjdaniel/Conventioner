@@ -1,4 +1,4 @@
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, APP_API } from './fixtures';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket, type AssignedSeedResult } from './helpers/seedAssignedMarket';
 import { seedApplication } from './helpers/seedApplication';
@@ -39,7 +39,7 @@ test.describe('The phase rail', () => {
   });
 
   async function openMarket(page: import('@playwright/test').Page, path: string) {
-    const res = await page.request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
+    const res = await page.request.get(`${APP_API}/markets/${seed.marketId}`, {
       headers: { 'X-Owner-Email': TEST_USER.email },
     });
     const { market } = (await res.json()) as { market: Record<string, unknown> };
@@ -73,7 +73,7 @@ test.describe('The phase rail', () => {
     // labels paint over each other while the row still fits.
     await page.setViewportSize({ width: 1920, height: 1080 });
 
-    await page.request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
+    await page.request.post(`${APP_API}/markets/${seed.marketId}/transition`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: { toPhase: 'market_days' },
     });
@@ -134,18 +134,15 @@ test.describe('The phase rail', () => {
     // mode is chosen while a market is a draft and fixed after, so this is a market of its own.
     const formMarket = await seedPhaseMarket(
       page.request,
-      BACKEND_URL,
+      APP_API,
       TEST_USER.email,
       TEST_USER.password,
     );
-    await savePlan(page.request, BACKEND_URL, TEST_USER.email, formMarket.marketId, PLAN, 'form');
-    const opened = await page.request.post(
-      `${BACKEND_URL}/markets/${formMarket.marketId}/transition`,
-      {
-        headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-        data: { toPhase: 'applications' },
-      },
-    );
+    await savePlan(page.request, APP_API, TEST_USER.email, formMarket.marketId, PLAN, 'form');
+    const opened = await page.request.post(`${APP_API}/markets/${formMarket.marketId}/transition`, {
+      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      data: { toPhase: 'applications' },
+    });
     expect(opened.ok(), await opened.text()).toBeTruthy();
     await page.goto(marketSetupPath(formMarket.marketId, 'setup'));
 
@@ -155,7 +152,7 @@ test.describe('The phase rail', () => {
   });
 
   test('archiving states in words that the market is over', async ({ authenticatedPage: page }) => {
-    await page.request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
+    await page.request.post(`${APP_API}/markets/${seed.marketId}/transition`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: { toPhase: 'archived' },
     });

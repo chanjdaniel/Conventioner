@@ -1,4 +1,4 @@
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { test, expect, TEST_USER, APP_API } from './fixtures';
 import { marketSetupPath } from './helpers/marketScreens';
 import { savePlan } from './helpers/savePlan';
 import { completePlan } from './helpers/seeds';
@@ -15,16 +15,10 @@ test.describe('A blocked step offers its fix', () => {
   test('a draft with no location offers Add a location, and it leads to Market Setup', async ({
     authenticatedPage: page,
   }, testInfo) => {
-    const seed = await seedPhaseMarket(
-      page.request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-      {
-        intakeMode: 'form',
-      },
-    );
-    await savePlan(page.request, BACKEND_URL, TEST_USER.email, seed.marketId, {
+    const seed = await seedPhaseMarket(page.request, APP_API, TEST_USER.email, TEST_USER.password, {
+      intakeMode: 'form',
+    });
+    await savePlan(page.request, APP_API, TEST_USER.email, seed.marketId, {
       ...completePlan(),
       locations: [],
       sections: [{ name: 'Hall A', tier: { id: 1, name: 'Gold' }, count: 5 }],
@@ -53,15 +47,9 @@ test.describe('A blocked step offers its fix', () => {
   test('a market with nothing refusing its step offers the step itself', async ({
     authenticatedPage: page,
   }) => {
-    const seed = await seedPhaseMarket(
-      page.request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-      {
-        intakeMode: 'form',
-      },
-    );
+    const seed = await seedPhaseMarket(page.request, APP_API, TEST_USER.email, TEST_USER.password, {
+      intakeMode: 'form',
+    });
 
     await page.goto(marketSetupPath(seed.marketId, 'form'));
     await expect(page.getByTestId('phase-transition-applications')).toBeEnabled({

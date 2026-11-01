@@ -8,6 +8,7 @@ import {
   MarketSetupPage,
   FloorplanWorkflowPage,
   BACKEND_URL,
+  APP_API,
   TEST_USER,
 } from './fixtures';
 import { ensureTestOrg, loginViaApi } from './helpers/seeds';
@@ -27,15 +28,15 @@ test.describe('Floorplan workflow E2E', () => {
 
     // Create the market via API instead of CSV upload through the UI overlay.
     const ctx = page.request;
-    await loginViaApi(ctx, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-    const orgsRes = await ctx.get(`${BACKEND_URL}/organizations`, {
+    await loginViaApi(ctx, APP_API, TEST_USER.email, TEST_USER.password);
+    const orgsRes = await ctx.get(`${APP_API}/organizations`, {
       headers: { 'X-Owner-Email': TEST_USER.email },
     });
     const orgs = (await orgsRes.json()).organizations as { id: string }[];
     const orgId = orgs[0]?.id;
     if (!orgId) throw new Error('No organization found');
 
-    const createRes = await ctx.post(`${BACKEND_URL}/markets`, {
+    const createRes = await ctx.post(`${APP_API}/markets`, {
       headers: {
         'Content-Type': 'application/json',
         'X-Owner-Email': TEST_USER.email,
@@ -66,7 +67,7 @@ test.describe('Floorplan workflow E2E', () => {
         maxHalfTableProportionPerSection: null,
       },
     };
-    await savePlan(ctx, BACKEND_URL, TEST_USER.email, marketId, minimalSetup);
+    await savePlan(ctx, APP_API, TEST_USER.email, marketId, minimalSetup);
 
     // The signed-in user, where the screens that still read it look; the market is the URL's.
     await page.evaluate((user) => {
@@ -101,7 +102,7 @@ test.describe('Floorplan workflow E2E', () => {
     // save" this test is named for. It used to assert that rows were RENDERED on that page,
     // which passed only because the tier list was pre-filled by scraping the uploaded
     // spreadsheet's cell values - an artifact of the CSV era, not of the floorplan.
-    const savedRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
+    const savedRes = await ctx.get(`${APP_API}/markets/${marketId}`, {
       headers: { 'X-Owner-Email': TEST_USER.email },
     });
     expect(savedRes.ok()).toBeTruthy();
@@ -115,7 +116,7 @@ test.describe('Floorplan workflow E2E', () => {
     // from the market the server reported, and a parser that dropped `floorplans` from it would
     // have written the plan back without one on the organizer's next keystroke (E21/F02/S03).
     const floorplansOf = async () => {
-      const res = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
+      const res = await ctx.get(`${APP_API}/markets/${marketId}`, {
         headers: { 'X-Owner-Email': TEST_USER.email },
       });
       const body = (await res.json()) as { market: { setupObject?: { floorplans?: unknown[] } } };

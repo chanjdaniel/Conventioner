@@ -1,4 +1,4 @@
-import { test, expect, NewMarketPage, BACKEND_URL, TEST_USER } from './fixtures';
+import { test, expect, NewMarketPage, BACKEND_URL, APP_API, TEST_USER } from './fixtures';
 import { completePlan, ensureTestOrg } from './helpers/seeds';
 
 /**
@@ -20,7 +20,7 @@ test.describe('A public address belongs to one market', () => {
     authenticatedPage: page,
   }) => {
     const stamp = Date.now();
-    const created = await page.request.post(`${BACKEND_URL}/markets`, {
+    const created = await page.request.post(`${APP_API}/markets`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: {
         name: `Café Address ${stamp}`,
@@ -51,7 +51,7 @@ test.describe('A public address belongs to one market', () => {
     authenticatedPage: page,
   }) => {
     const name = `Address Fixed ${Date.now()}`;
-    const created = await page.request.post(`${BACKEND_URL}/markets`, {
+    const created = await page.request.post(`${APP_API}/markets`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: {
         name,
@@ -67,7 +67,7 @@ test.describe('A public address belongs to one market', () => {
     });
     expect(created.ok(), await created.text()).toBe(true);
     const { market_id: marketId } = (await created.json()) as { market_id: string };
-    const opened = await page.request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
+    const opened = await page.request.post(`${APP_API}/markets/${marketId}/transition`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: { toPhase: 'applications' },
     });
@@ -83,7 +83,7 @@ test.describe('A public address belongs to one market', () => {
     await expect(page.getByTestId('manage-market-rename-input')).toHaveCount(0);
 
     // And the server holds the same line, whatever a client sends.
-    const refused = await page.request.put(`${BACKEND_URL}/markets/${marketId}/name`, {
+    const refused = await page.request.put(`${APP_API}/markets/${marketId}/name`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: { name: `${name} renamed` },
     });

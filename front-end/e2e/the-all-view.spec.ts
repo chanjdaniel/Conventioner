@@ -1,4 +1,4 @@
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, APP_API } from './fixtures';
 import {
   seedApplicationWithStatus,
   seedPhaseMarket,
@@ -50,7 +50,7 @@ test('every application, filtered, held and decided from the drawer', async ({
   const all = new ApplicationsAllPage(page);
   await withUser(browser, SECOND.email, SECOND.password, async (other) => {
     // Another reviewer opens a card, which holds it.
-    const next = await other.request.post(`${BACKEND_URL}/markets/${marketId}/review/next`, {
+    const next = await other.request.post(`${APP_API}/markets/${marketId}/review/next`, {
       data: {},
     });
     expect(next.ok()).toBeTruthy();
@@ -218,7 +218,7 @@ test('a verdict on a selection: confirmed by count, held ones untickable, change
 
   await withUser(browser, SECOND.email, SECOND.password, async (other) => {
     // The other reviewer opens Nadia's card; once the list knows, she cannot be ticked.
-    await other.request.post(`${BACKEND_URL}/markets/${marketId}/review/next`, { data: {} });
+    await other.request.post(`${APP_API}/markets/${marketId}/review/next`, { data: {} });
     await page.reload();
     await expect(all.tickOf('nadia@ember.test')).toBeDisabled();
 
@@ -227,7 +227,7 @@ test('a verdict on a selection: confirmed by count, held ones untickable, change
     await all.tickOf('ines@loom.test').check();
     await expect(all.selection).toContainText('2 applications selected');
     const rejected = await other.request.put(
-      `${BACKEND_URL}/markets/${marketId}/applications/${ines}/review`,
+      `${APP_API}/markets/${marketId}/applications/${ines}/review`,
       { data: { status: 'reviewer_rejected' } },
     );
     expect(rejected.ok()).toBeTruthy();
@@ -282,7 +282,7 @@ test('Select all ticks the open rows shown, skipping the one held elsewhere', as
   const all = new ApplicationsAllPage(page);
   await withUser(browser, SECOND.email, SECOND.password, async (other) => {
     // The other reviewer is handed the first card, Nadia's.
-    await other.request.post(`${BACKEND_URL}/markets/${marketId}/review/next`, { data: {} });
+    await other.request.post(`${APP_API}/markets/${marketId}/review/next`, { data: {} });
   });
   await all.goto(marketId);
   await all.filter('undecided');
@@ -302,7 +302,7 @@ test('Select all ticks the open rows shown, skipping the one held elsewhere', as
   // line no longer says so; the ticks stay as they were.
   await withUser(browser, SECOND.email, SECOND.password, async (other) => {
     const released = await other.request.delete(
-      `${BACKEND_URL}/markets/${marketId}/applications/${nadia}/claim`,
+      `${APP_API}/markets/${marketId}/applications/${nadia}/claim`,
     );
     expect(released.ok(), await released.text()).toBeTruthy();
   });

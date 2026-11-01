@@ -1,4 +1,4 @@
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, APP_API } from './fixtures';
 import { marketScreenPath } from './helpers/marketScreens';
 import { TablesPage } from './pages/TablesPage';
 import { seedAssignedMarket, type AssignedSeedResult } from './helpers/seedAssignedMarket';
@@ -134,7 +134,7 @@ test.describe('Changing a placement on the Tables view', () => {
       vendors: string[];
     }
     const read = async (path: string): Promise<Entry[]> => {
-      const res = await page.request.get(`${BACKEND_URL}/markets/${seed.marketId}/${path}`, {
+      const res = await page.request.get(`${APP_API}/markets/${seed.marketId}/${path}`, {
         headers: { 'X-Owner-Email': TEST_USER.email },
       });
       return ((await res.json()) as { entries: Entry[] }).entries;

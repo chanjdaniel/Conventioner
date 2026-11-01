@@ -1,8 +1,10 @@
 import secrets
+import time
 import uuid
 from typing import Optional
-from flask import request, jsonify
+from flask import current_app, request, jsonify, session
 from flask_login import UserMixin
+from flask_login.config import COOKIE_NAME
 from datatypes import User
 from db_config import get_database
 from utils.tokens import (
@@ -14,7 +16,7 @@ from utils.captcha import verify_recaptcha
 from datetime import datetime, timedelta, timezone
 from pymongo.errors import DuplicateKeyError, PyMongoError
 from utils.email_address import normalized_email
-from utils.request_body import string_field
+from utils.request_body import flag_field, string_field
 
 db = get_database()
 users_collection = db["users"]
@@ -74,23 +76,54 @@ def ensure_user_indexes() -> None:
         ) from exc
 
 
+#: How long a sign-in without "Remember me" lasts (E38/F14/S01): a market day. Its session cookie
+#: ends with the browser, and the server refuses it this long after signing in, since a browser
+#: that restores its tabs restores its session cookies too.
+SIGN_IN_LIFETIME = timedelta(hours=12)
+
+#: How long a sign-in with "Remember me" lasts, from signing in: use does not extend it, so a lost
+#: laptop is signed out within a month. The remember-me cookie expires then, and the server
+#: refuses it then too, whatever the browser kept.
+REMEMBERED_SIGN_IN_LIFETIME = timedelta(days=30)
+
+#: The kinds of sign-in a sign-in id names, and how long each lasts.
+_LIFETIMES = {"s": SIGN_IN_LIFETIME, "r": REMEMBERED_SIGN_IN_LIFETIME}
+
+
+def _now() -> float:
+    """The server's clock, in seconds since the epoch."""
+    return time.time()
+
+
+def _sign_in_id(login_id: str, remembered: bool, signed_in_at: float) -> str:
+    """What the session and the remember-me cookie carry: the account, the kind and the time.
+
+    ``<login id>.<s|r>.<whole seconds since the epoch>``. The session is signed into its cookie with
+    the app's ``SECRET_KEY`` by Flask, or kept on the server behind a random id by flask-session;
+    the remember-me cookie is signed with ``SECRET_KEY`` by Flask-Login's digest. So a browser can
+    change none of it.
+    """
+    return f"{login_id}.{'r' if remembered else 's'}.{int(signed_in_at)}"
+
+
 # users
 class AuthUser(UserMixin):
     """A signed-in account.
 
-    The session and the remember-me cookie name it by its login id, not its address: a password
-    reset replaces the login id, so every session and remember-me cookie issued before the reset
-    stops loading the account.
+    The session and the remember-me cookie name it by a sign-in id (`_sign_in_id`), which holds its
+    login id, not its address: a password reset replaces the login id, so every session and
+    remember-me cookie issued before the reset stops loading the account.
     """
 
-    def __init__(self, user: User):
+    def __init__(self, user: User, sign_in: Optional[str] = None):
         self.id = user.id
         self.email = user.email
         self.organizations = user.organizations
         self.login_id = user.login_id
+        self.sign_in = sign_in
 
     def get_id(self):
-        return self.login_id
+        return self.sign_in
 
 
 def _new_login_id() -> str:
@@ -98,7 +131,7 @@ def _new_login_id() -> str:
 
 
 def get_user_by_login_id(login_id):
-    """The account a session or remember-me cookie names, or None.
+    """The account with this login id, or None.
 
     There is no fallback to the address a session named before login ids: that would keep every
     remember-me cookie issued before them, and before a reset, signing in.
@@ -112,8 +145,33 @@ def get_user_by_login_id(login_id):
     return None
 
 
-def _sign_in(login_user, user_doc):
-    """Sign the account in, giving it a login id at its first sign-in.
+def signed_in_account(sign_in):
+    """The account a session or remember-me cookie names, or None: the app's user loader.
+
+    None for a sign-in as old as its kind's length (`SIGN_IN_LIFETIME`, or
+    `REMEMBERED_SIGN_IN_LIFETIME` when remembered), counted from signing in, and for an id of any
+    other shape: every session and remember-me cookie issued before sign-ins carried their time
+    named the bare login id, and is not read.
+    """
+    if not isinstance(sign_in, str):
+        return None
+    parts = sign_in.rsplit(".", 2)
+    if len(parts) != 3:
+        return None
+    login_id, kind, signed_in_at = parts
+    lifetime = _LIFETIMES.get(kind)
+    if lifetime is None or not (signed_in_at.isascii() and signed_in_at.isdigit()):
+        return None
+    if _now() - int(signed_in_at) >= lifetime.total_seconds():
+        return None
+    account = get_user_by_login_id(login_id)
+    if account is not None:
+        account.sign_in = sign_in
+    return account
+
+
+def _sign_in(login_user, user_doc, remember: bool):
+    """Sign the account in for one of the two lengths, giving it a login id at its first sign-in.
 
     The login id is written only where none is stored, then read back, so two first sign-ins at
     once agree on one.
@@ -128,8 +186,17 @@ def _sign_in(login_user, user_doc):
         user_doc["login_id"] = stored["login_id"]
 
     user_doc.pop('_id', None)
-    auth_user = AuthUser(User(**user_doc))
-    login_user(auth_user, remember=True)
+    auth_user = AuthUser(
+        User(**user_doc), sign_in=_sign_in_id(user_doc["login_id"], remember, _now())
+    )
+    if remember:
+        login_user(auth_user, remember=True, duration=REMEMBERED_SIGN_IN_LIFETIME)
+    else:
+        login_user(auth_user, remember=False)
+        # A browser remembered by an earlier sign-in is not once this one chose otherwise:
+        # Flask-Login deletes the cookie on the way out, as it does at sign-out.
+        if current_app.config.get("REMEMBER_COOKIE_NAME", COOKIE_NAME) in request.cookies:
+            session["_remember"] = "clear"
 
     user_data = {
         "id": auth_user.id,
@@ -210,7 +277,7 @@ def login(bcrypt, login_user, request):
         if not user_doc.get("email_verified", False):
             return jsonify({"message": "Please verify your email before logging in"}), 403
 
-        return _sign_in(login_user, user_doc)
+        return _sign_in(login_user, user_doc, flag_field(data, "remember"))
 
     return jsonify({"message": "Invalid credentials"}), 401
 
@@ -588,7 +655,7 @@ def login_with_otp(login_user, request):
         }
     )
 
-    return _sign_in(login_user, user_doc)
+    return _sign_in(login_user, user_doc, flag_field(data, "remember"))
 
 
 def get_user_by_id(user_id: str):

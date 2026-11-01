@@ -37,8 +37,15 @@ from api.floorplans_export import floorplans_export_bp
 from api.floorplans_save import floorplans_save_bp
 
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
-from flask import Flask, request, jsonify, make_response, Response
-from flask_login import LoginManager, login_user, login_required, logout_user, current_user
+from flask import Flask, request, jsonify, make_response, Response, session
+from flask_login import (
+    LoginManager,
+    current_user,
+    login_required,
+    login_user,
+    logout_user,
+    user_loaded_from_cookie,
+)
 from flask_bcrypt import Bcrypt
 from datatypes import ApplicationStatus, Market, MarketPerson, MarketPhase, MarketRole, VerdictGiver
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
@@ -94,8 +101,6 @@ from utils.session_storage import (
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-SESSION_MAX_AGE = 7200
 
 
 def verify_market_key_migration() -> None:
@@ -343,8 +348,15 @@ def configure_public_endpoint_defenses(
 
 app = Flask(__name__)
 
-app.config["SESSION_PERMANENT"] = True
-app.config["PERMANENT_SESSION_LIFETIME"] = SESSION_MAX_AGE
+# How long a sign-in lasts (E38/F14/S01): the two lengths are `UsersApi`'s, and the user loader
+# refuses a sign-in older than its own. The session cookie ends with the browser in either store
+# (flask-session's own default is a lasting cookie); a store on disk keeps a session for an
+# unremembered sign-in's length from its last change. The remember-me cookie expires when a
+# remembered sign-in ends, and use does not extend it.
+app.config["SESSION_PERMANENT"] = False
+app.config["PERMANENT_SESSION_LIFETIME"] = UsersApi.SIGN_IN_LIFETIME
+app.config["REMEMBER_COOKIE_DURATION"] = UsersApi.REMEMBERED_SIGN_IN_LIFETIME
+app.config["REMEMBER_COOKIE_REFRESH_EACH_REQUEST"] = False
 app.config["SESSION_COOKIE_NAME"] = "session"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 # Not configurable, for the session cookie and the remember-me cookie alike: a SameSite=None cookie
@@ -368,6 +380,19 @@ bcrypt = Bcrypt(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.session_protection = "strong"
+
+
+@user_loaded_from_cookie.connect_via(app)
+def hold_a_restored_session_to_its_browser(_app: Flask, user: Any) -> None:
+    """Hold a session the remember-me cookie restored to the browser that restored it.
+
+    "strong" refuses a session whose client identifier is not the one it holds, and deletes the
+    remember-me cookie with it; a sign-in records the identifier (`login_user`), but Flask-Login's
+    restore from the cookie does not, so the session it restored was refused at its next request
+    and "Remember me" lasted one request (E38/F14/S01). Recorded here, the way `login_user` does.
+    """
+    session["_id"] = login_manager._session_identifier_generator()
+
 
 app.register_blueprint(floorplans_bp, url_prefix="/floorplans")
 app.register_blueprint(floorplans_placement_bp, url_prefix="/floorplans")
@@ -397,8 +422,8 @@ def healthz() -> Response:
 # users
 
 @login_manager.user_loader
-def get_user(login_id: str) -> Any:
-    return UsersApi.get_user_by_login_id(login_id)
+def get_user(sign_in: str) -> Any:
+    return UsersApi.signed_in_account(sign_in)
 
 
 
@@ -2062,7 +2087,7 @@ def cleanup_sessions() -> None:
     if keeps_sessions_on_disk(app):
         now = time.time()
         for session_file in glob.glob(os.path.join(SESSION_FOLDER, "*")):
-            if os.stat(session_file).st_mtime < now - SESSION_MAX_AGE:
+            if os.stat(session_file).st_mtime < now - UsersApi.SIGN_IN_LIFETIME.total_seconds():
                 os.remove(session_file)
 
 cleanup_sessions()

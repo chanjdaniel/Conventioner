@@ -8,7 +8,14 @@ import type {
 } from '@playwright/test';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { expect, TEST_USER, NO_ORG_USER, BACKEND_URL, FloorplanWorkflowPage } from '../fixtures';
+import {
+  expect,
+  TEST_USER,
+  NO_ORG_USER,
+  BACKEND_URL,
+  APP_API,
+  FloorplanWorkflowPage,
+} from '../fixtures';
 import { marketScreenPath, marketSetupPath, oneByOnePath } from './marketScreens';
 import { createApplicantLoginChallenge } from './seedApplicantMarket';
 import { loginViaApi } from './seeds';
@@ -1110,7 +1117,7 @@ export async function signIn(page: Page, who: Who, seed: TheScreensSeed): Promis
     const email = seed.applicant.email;
     createApplicantLoginChallenge(seed.open.marketId, email, '424242');
     const res = await page.request.post(
-      `${BACKEND_URL}/public/markets/${seed.open.marketSlug}/applicant-login/verify-code`,
+      `${APP_API}/public/markets/${seed.open.marketSlug}/applicant-login/verify-code`,
       { data: { email, code: '424242' } },
     );
     expect(res.ok(), `the applicant's sign-in: ${res.status()}`).toBe(true);
@@ -1129,7 +1136,8 @@ export async function signIn(page: Page, who: Who, seed: TheScreensSeed): Promis
     return;
   }
   const user = who === 'organizer' ? TEST_USER : NO_ORG_USER;
-  await loginViaApi(page.request, BACKEND_URL, user.email, user.password);
+  // At the page's own address for the API (`APP_API`), as its sign-in page would sign in.
+  await loginViaApi(page.request, APP_API, user.email, user.password);
   // The shell keeps who is signed in here, and the router reads it before any probe (`App.vue`).
   await page.addInitScript(
     (email) => localStorage.setItem('user', JSON.stringify(email)),

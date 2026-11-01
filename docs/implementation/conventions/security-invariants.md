@@ -4,6 +4,7 @@ kind: convention
 describes:
   - back-end/app.py#check_public_endpoint_defenses
   - back-end/app.py#configure_public_endpoint_defenses
+  - back-end/app.py#hold_a_restored_session_to_its_browser
   - back-end/utils/deployment.py
   - back-end/utils/session_storage.py
   - back-end/utils/env_file.py
@@ -31,6 +32,8 @@ sources:
   - T74
   - T109
   - T84
+  - E38/F14/S01
+  - T169
 ---
 
 # Security invariants
@@ -178,6 +181,18 @@ Loopback counts as a secure context, so local development is unaffected.
 The settings sit together in [`app.py`](../../../back-end/app.py) under one comment; `HttpOnly` is Flask-Login's default for the remember-me cookie and is asserted rather than set.
 Both name the account by its login id, which a password reset replaces, so a reset ends every session and remember-me cookie issued before it: [users and email](../data/users-and-email.md#the-session-names-the-account-by-its-login-id).
 
+**How long a sign-in lasts is two named constants in [`api/users.py`](../../../back-end/api/users.py), and the server enforces both, not only the browser** (E38/F14/S01, ["Remember me" at sign-in](../../business/flows/accounts.md#a2-sign-in-and-sign-out)).
+`SIGN_IN_LIFETIME`, 12 hours, is a sign-in without "Remember me": it sets the session cookie only, which ends with the browser in either store: Flask's cookie session is never made permanent, and `SESSION_PERMANENT` is off for flask-session's store on disk.
+`REMEMBERED_SIGN_IN_LIFETIME`, 30 days, is one with it: the remember-me cookie also expires then (`REMEMBER_COOKIE_DURATION`), and use does not extend it (`REMEMBER_COOKIE_REFRESH_EACH_REQUEST` is off).
+Both cookies carry a sign-in id, the login id with the sign-in's kind and time, which a browser cannot change: the session is signed into its cookie with `SECRET_KEY`, or kept on the server behind a random id, and the remember-me cookie is signed with `SECRET_KEY`, so the user loader can refuse a sign-in as old as its length whatever a browser kept: a browser that restores its tabs restores a session cookie too.
+A sign-in id of any other shape loads no one, so the year-long remember-me cookies and the sessions issued before it are not read, and every organizer signs in once more after the release that brings it.
+The cookie keeps Flask-Login's name, so a browser's old one is replaced or cleared at its next sign-in, and a sign-in without "Remember me" clears a remember-me cookie the browser held.
+
+**A session is held to the client that signed in**: Flask-Login's `session_protection = "strong"` refuses a session whose client, its address and browser, is not the one it recorded, and deletes the remember-me cookie with it.
+It applies in both stores, since the session is permanent in neither (a permanent one would only be marked not fresh).
+A session the remember-me cookie restores records its client too (`hold_a_restored_session_to_its_browser` in [`app.py`](../../../back-end/app.py)): Flask-Login's restore does not, so until E38/F14/S01 a remembered browser was signed back in for one request and then signed out, its cookie deleted.
+So a remembered sign-in also ends when the client's address changes, a phone moving from a venue's wifi to its cellular network among them; Daniel kept "strong" (2026-11-01), and that sign-out is an E47 (account security) follow-up.
+
 ## Where a write comes from
 
 **A state-changing request whose browser says it came from an origin outside the CORS list is refused**, 403 with `{"error": "Request origin not allowed"}`, before its route runs (so before `@login_required`).
@@ -240,7 +255,7 @@ It is installed after the [error answers](an-exception-never-reaches-a-client.md
 ## How it is enforced
 
 - One test module per requirement (`test_secret_key.py`, `test_cors.py`, `test_captcha.py`, `test_email.py`, `test_session_storage.py`, `test_proxy.py`), and `test_public_endpoint_defenses.py` for the refusal itself: it names every missing variable, `ALLOW_INSECURE_LOCAL_DEV` is the only waiver, and the template boots.
-- [`test_the_remember_cookie.py`](../../../back-end/tests/test_the_remember_cookie.py) signs in through `/login` and reads both cookies' `Set-Cookie` settings.
+- [`test_the_remember_cookie.py`](../../../back-end/tests/test_the_remember_cookie.py) signs in through `/login` and `/login-otp`, reads both cookies' `Set-Cookie` settings and expiry, moves the server's clock past each length, and sends a cookie and sessions of the shape before.
 - [`test_the_request_origin_check.py`](../../../back-end/tests/test_the_request_origin_check.py) tables the decision for a production-shaped list and the loopback pattern, and sends publish-results, sign-out and a floorplan upload from another site (refused, nothing done) and from the app (done).
 - `test_configured_secret.py` and `test_env_file.py` pin the machinery underneath; [TESTING.md](../../TESTING.md#back-end-tests) lists them.
 - `scripts/tests/test_real_data_check.py` runs the checker, the hooks in a scratch repository with its bare remote, the setup step and CI's command on fake exports only: a `gmail.com` address, a real-shaped phone and an Atlas host fail, a fixture one passes, an exact value of a fake export fails, as do eight words of its header's question in order, a link or a handle from it, in a line, a message, a cell and the tree, while seven words, an answer and the exempt files pass, a workbook or OpenDocument sheet is read and an unreadable spreadsheet refused, the synthetic corpus passes, a refusal sends a fixture to the generator, and no value is printed in full; `tree` fails a planted row in a committed CSV, workbook or zip and a name listed after its file was committed, and passes a clean tree and the exempt files; CI's tree step fails real data already on the base branch; `test_nm_test.py` fails a gate run on a finding in the branch's commits or in the tree, before anything else.
