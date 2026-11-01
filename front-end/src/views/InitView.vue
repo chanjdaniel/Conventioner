@@ -12,23 +12,25 @@ const newOpen = ref(false);
 
 <template>
   <div class="init-view">
+    <!-- The page's title, for a screen reader to land on; its two buttons say the rest. -->
+    <h1 class="visually-hidden">Set up or load a market</h1>
     <ElementInitButton @click="newOpen = true" data-testid="init-setup-new-market-button">
-      <h3>
+      <span class="init-label">
         <span>Set Up </span>
         <span>New </span>
         <span>Market</span>
-      </h3>
+      </span>
       <template #icon>
         <IconAddSquare class="nav-icon" />
       </template>
     </ElementInitButton>
 
     <ElementInitButton @click="loadOpen = true" data-testid="init-load-existing-market-button">
-      <h3>
+      <span class="init-label">
         <span>Load </span>
         <span>Existing </span>
         <span>Market</span>
-      </h3>
+      </span>
       <template #icon>
         <IconUpload class="nav-icon" />
       </template>
@@ -54,7 +56,8 @@ const newOpen = ref(false);
   margin: 0;
 }
 
-h3 {
+/* A button is named by its words: a heading inside one put the buttons in the page's outline. */
+.init-label {
   font-family: 'Merge One';
   font-style: normal;
   font-weight: 400;

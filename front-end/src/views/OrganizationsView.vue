@@ -8,6 +8,7 @@ import { getRoleDisplayName } from '@/utils/permissions';
 import AppDialog from '@/components/AppDialog.vue';
 import type { SummaryFact } from '@/utils/summary';
 import SummaryCard from '@/components/SummaryCard.vue';
+import ReadFailed from '@/components/ReadFailed.vue';
 import ManageOrgOverlay from './ManageOrgOverlay.vue';
 import { withoutQueryKey } from '@/utils/routeQuery';
 
@@ -37,7 +38,7 @@ async function loadOrganizations() {
     organizations.value = read;
   } catch (err) {
     if (thisRead !== latestRead) return;
-    errorMessage.value = getApiErrorMessage(err, 'Failed to load organizations');
+    errorMessage.value = getApiErrorMessage(err, 'The organizations could not be loaded.');
     organizations.value = [];
   } finally {
     if (thisRead === latestRead) loading.value = false;
@@ -47,6 +48,12 @@ async function loadOrganizations() {
 onMounted(() => {
   loadOrganizations();
 });
+
+/** Read again after a read that failed: nothing is on screen, so it says it is loading. */
+function retry() {
+  loading.value = true;
+  void loadOrganizations();
+}
 
 function factsFor(org: Organization): SummaryFact[] {
   return [
@@ -67,7 +74,7 @@ async function handleCreateOrg() {
     newOrgName.value = '';
     await loadOrganizations();
   } catch (err) {
-    newOrgError.value = getApiErrorMessage(err, 'Failed to create organization');
+    newOrgError.value = getApiErrorMessage(err, 'The organization was not created.');
   }
 }
 
@@ -138,7 +145,12 @@ function handleManageChanged() {
 
     <div class="content-block">
       <p v-if="loading" class="empty-state">Loading organizations...</p>
-      <p v-else-if="errorMessage" class="error-state">{{ errorMessage }}</p>
+      <ReadFailed
+        v-else-if="errorMessage"
+        name="organizations"
+        :message="errorMessage"
+        @retry="retry"
+      />
       <p v-else-if="organizations.length === 0" class="empty-state">No organizations found</p>
       <div v-else class="cards-container">
         <SummaryCard
@@ -148,7 +160,7 @@ function handleManageChanged() {
           data-testid="organization-card"
         >
           <template #name>
-            <h3 :title="org.name">{{ org.name }}</h3>
+            <h2 :title="org.name">{{ org.name }}</h2>
           </template>
           <template #badge>
             <span
@@ -277,14 +289,9 @@ function handleManageChanged() {
   padding-top: var(--space-6);
 }
 
-.empty-state,
-.error-state {
+.empty-state {
   color: var(--mm-text-muted);
   font-size: var(--text-sm);
-}
-
-.error-state {
-  color: var(--mm-red);
 }
 
 .cards-container {

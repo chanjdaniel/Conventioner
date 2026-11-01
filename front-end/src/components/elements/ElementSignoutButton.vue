@@ -77,11 +77,4 @@ const logout = async () => {
   background-color: var(--hover-grey);
   box-shadow: var(--shadow-card);
 }
-
-/* As the links' labels above it are, centred in its row: it copied a bottom margin from a rule
-   that never reached them, and sat 4px high. */
-.signout-button :deep(.signout-label) {
-  font-size: var(--text-lg);
-  font-weight: 400;
-}
 </style>

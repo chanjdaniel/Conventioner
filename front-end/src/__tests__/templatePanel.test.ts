@@ -160,7 +160,10 @@ describe('Save Template', () => {
   });
 
   it('keeps the dialog open with the server error in it', async () => {
-    post.mockRejectedValue({ response: { data: { error: 'Template name is required' } } });
+    post.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 400, data: { error: 'Template name is required' } },
+    });
     const wrapper = await opened();
     await typeName(wrapper, 'Standard layout');
 
@@ -218,7 +221,10 @@ describe('Load Template', () => {
   });
 
   it('shows a failed read as the dialog error', async () => {
-    get.mockRejectedValue({ response: { data: { error: 'User not found' } } });
+    get.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 404, data: { error: 'User not found' } },
+    });
     const wrapper = panel();
     await wrapper.get('button.tp-btn--load').trigger('click');
     await flushPromises();

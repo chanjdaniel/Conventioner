@@ -64,7 +64,7 @@ test('an organization name keeps to one line, and Manage is one button on both l
 
   await page.goto('/organizations');
   const org = page.getByTestId('organization-card').filter({ hasText: orgName.slice(-13) });
-  const orgTitle = org.locator('h3');
+  const orgTitle = org.locator('h2');
   await expect(orgTitle).toHaveAttribute('title', orgName);
   expect(await lineCount(orgTitle)).toBe(1);
   const cards = page.getByTestId('organization-card');

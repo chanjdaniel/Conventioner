@@ -198,7 +198,7 @@ async function handleRename() {
     changesMade.value++;
     emit('changed');
   } catch (err) {
-    renameError.value = getApiErrorMessage(err, 'Failed to rename');
+    renameError.value = getApiErrorMessage(err, 'The name was not changed.');
   }
 }
 
@@ -214,7 +214,7 @@ async function handleAddAdmin() {
     newAdminEmail.value = '';
     await saved();
   } catch (err) {
-    addAdminError.value = getApiErrorMessage(err, 'Failed to add admin');
+    addAdminError.value = getApiErrorMessage(err, 'The admin was not added.');
   }
 }
 
@@ -228,7 +228,7 @@ async function handleAddMember() {
     newMemberEmail.value = '';
     await saved();
   } catch (err) {
-    addMemberError.value = getApiErrorMessage(err, 'Failed to add member');
+    addMemberError.value = getApiErrorMessage(err, 'The member was not added.');
   }
 }
 
@@ -264,7 +264,7 @@ async function handleRemoveUser() {
       `/organizations/${encodeURIComponent(orgData.value.id)}/users/${encodeURIComponent(target.userId)}`,
     );
   } catch (err) {
-    removeError.value = getApiErrorMessage(err, 'Failed to remove user');
+    removeError.value = getApiErrorMessage(err, 'The person was not removed.');
     removeBusy.value = false;
     return;
   }

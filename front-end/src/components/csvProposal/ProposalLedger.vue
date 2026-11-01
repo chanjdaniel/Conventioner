@@ -22,6 +22,7 @@ import {
   notAsked,
   planRowsToCheck,
   proposalCounts,
+  railLines,
   takenBy,
   targetOf,
   type DisagreementKind,
@@ -87,6 +88,7 @@ function keepAll(row: LedgerRow) {
   });
 }
 const counts = computed(() => proposalCounts(props.proposal, props.draft));
+const lines = computed(() => railLines(counts.value));
 const plan = computed(() => props.proposal.plan);
 const planChecks = computed(() => planRowsToCheck(props.proposal, props.draft));
 const unasked = computed(() => notAsked(props.proposal, props.draft));
@@ -482,15 +484,9 @@ function onSettle(kind: string, value: string, choice: string) {
         <strong data-testid="proposal-to-check">{{ counts.toCheck }}</strong> to check
       </p>
       <ul>
-        <li>
-          <span data-testid="proposal-count-essential">{{ counts.essential }}</span> answer
-          essential questions
-        </li>
-        <li>
-          <span data-testid="proposal-count-custom">{{ counts.custom }}</span> become your questions
-        </li>
-        <li>
-          <span data-testid="proposal-count-left-out">{{ counts.leftOut }}</span> left out
+        <li v-for="line in lines" :key="line.key">
+          <span :data-testid="`proposal-count-${line.key}`">{{ line.count }}</span>
+          {{ line.words }}
         </li>
       </ul>
       <p class="muted">Nothing is written until you confirm.</p>

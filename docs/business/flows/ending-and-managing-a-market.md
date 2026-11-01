@@ -5,12 +5,12 @@ describes:
   - front-end/src/views/ManageMarketOverlay.vue
   - front-end/src/utils/peopleWithAccess.ts
   - front-end/e2e/everyone-with-access.spec.ts
-  - front-end/e2e/removing-someone-asks-first.spec.ts
   - front-end/src/components/MarketPermissions.vue
   - front-end/src/components/PermissionRows.vue
   - front-end/src/components/PermissionChanges.vue
   - front-end/src/utils/permissionTable.ts
   - front-end/e2e/the-permissions-section.spec.ts
+  - front-end/e2e/removing-someone-asks-first.spec.ts
 verified: 2026-11-01
 sources:
   - E20/F01/S03
@@ -29,10 +29,10 @@ sources:
   - E40/F01/S03
   - E40/F01/S04
   - E39/F01/S04
-  - E38/F15/S01
   - E39/F02/S01
   - T142
   - E38/F12/S01
+  - E38/F15/S01
 ---
 
 # Ending and managing a market
