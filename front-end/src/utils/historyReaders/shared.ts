@@ -1,6 +1,6 @@
 /**
  * What the history's areas share: the shapes a reader takes and gives, the small words two areas
- * use, and the generic field rows every area and the fallback draw (`fieldName`, `fieldValue`,
+ * use, and the generic field rows the areas and the fallback draw (`fieldName`, `fieldValue`,
  * `changedFields`, `recordedFields`), whose per-key values each area keeps in its own file and
  * `index.ts` merges.
  *

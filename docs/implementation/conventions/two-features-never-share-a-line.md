@@ -87,7 +87,7 @@ A new kind is one constant at the end of the group of the action that records it
 
 ### The history's words
 
-[`front-end/src/utils/historyReaders/`](../../../front-end/src/utils/historyReaders/): one file per area, by the actions table's groups (`setup`, `applications`, `lifecycle`, `vendors`, `assignment`, `payments`, `door`, `discord`, `people`), then `organization` for the organization's own verbs and `applying` for `apply`, beside `shared.ts`, for what two areas use and the field rows every area draws, and `index.ts`, which merges them.
+[`front-end/src/utils/historyReaders/`](../../../front-end/src/utils/historyReaders/): one file per area, by the actions table's groups (`setup`, `applications`, `lifecycle`, `vendors`, `assignment`, `payments`, `door`, `discord`, `people`), then `organization` for the organization's own verbs and `applying` for `apply`, beside `shared.ts`, for what two areas use and the generic field rows, and `index.ts`, which merges them.
 Each area file names the `action/kind` keys it reads in its header, one a line, and exports its readers as a table keyed by them; the stored values it names or words for `fieldValue` are its own tables beside them.
 A new kind's words are one reader in the file of its action's group, unless its words are another area's (`update-vendor-info/discord_match_declined` is Discord's, `assign/owed_taken_back` Payments'), one line in that file's header, and one line in each sorted key list of `historyReaders.test.ts` it has words for; `index.ts` refuses a key two areas both define.
 A new area is a new file, and one line in each of the sorted lists of areas, the imports and `AREAS` of `index.ts` and of `historyReaders.test.ts`.
