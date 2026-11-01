@@ -234,7 +234,8 @@ def role_action_refusals(
 
     Each row is asked by ``Actions.role_refusal`` of the role already resolved, the ranking the
     writes' ``Actions.refusal`` asks after resolving it: the market read resolves it once, and the
-    markets list from the documents it holds. Served as ``actionRefusals``, so every screen offers
+    markets list from the market and the organization its memo holds (``_summary_role``); both
+    pass the market's rows as the read parses them. Served as ``actionRefusals``, so every screen offers
     a control on the answer of the action it takes. The rules of a market's life other than the
     archived one are each served on their own. ``chosen`` says whether the person is one of the
     market's chosen reviewers (``Actions.is_chosen``), who may take the giving row by it.
@@ -1086,9 +1087,11 @@ class _SummaryLookups:
 
 
 def _decorate_market_summary(
-    market: Dict[str, Any], user_role: Optional[str], lookups: _SummaryLookups
+    market: Dict[str, Any], parsed: Market, user_role: Optional[MarketRole],
+    lookups: _SummaryLookups,
 ) -> Dict[str, Any]:
-    """Add the read-time fields every market list entry carries.
+    """Add the read-time fields every market list entry carries to the stored document ``market``,
+    whose model ``parsed`` is, as ``_readable_market`` read it.
 
     Kept in one place so a market exposes the same derived state - phase included -
     whether it was served by the list endpoint or by ``get_market_for_user``.
@@ -1098,27 +1101,18 @@ def _decorate_market_summary(
     from api.discord_connection import leave_out_what_is_not_served
     leave_out_what_is_not_served(market)
     # Deprecated, as the market read's: an old bundle's card offers Manage on it.
-    market['user_role'] = user_role
+    market['user_role'] = user_role.value if user_role else None
     phase = phase_from_market_document(market)
     _stamp_effective_market_state(market, phase)
-    # The table's answers for the role the entry names, so the card offers Manage on its row as
-    # the market's own page does (E39/F01/S02).
-    market['actionRefusals'] = role_action_refusals(
-        _market_role(user_role), phase, market_doc_field(market, 'permissions') or {})
+    # The table's answers for the role the entry names, asked of the market's rows as the read
+    # parses them, so the card offers Manage on its row as the market's own page does (E39/F01/S02).
+    market['actionRefusals'] = role_action_refusals(user_role, phase, parsed.permissions)
     organization_id = market_doc_field(market, 'organization_id')
     if organization_id:
         org = lookups.organization(organization_id)
         if org:
             market['organization_name'] = org.get('name')
     return market
-
-
-def _market_role(value: Optional[str]) -> Optional[MarketRole]:
-    """A stored role value as a role, or None for no role or one this server does not know."""
-    try:
-        return MarketRole(value) if value else None
-    except ValueError:
-        return None
 
 
 def _summary_role(market: Market, user_id: str, lookups: _SummaryLookups) -> Optional[MarketRole]:
@@ -1144,7 +1138,7 @@ def _listed(
     role = _summary_role(market, user_id, lookups)
     if read_refused(market, role):
         return None
-    return _decorate_market_summary(document, role.value if role else None, lookups)
+    return _decorate_market_summary(document, market, role, lookups)
 
 
 def get_markets_for_user(user_email: str) -> List[Dict[str, Any]]:
