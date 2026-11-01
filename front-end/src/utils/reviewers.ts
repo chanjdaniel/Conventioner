@@ -135,9 +135,13 @@ export function myShare<T extends Dealt>(queue: T[], reader: string, market: Tea
   return queue.filter((app) => inShareOf(app, reader));
 }
 
-/** What One by one says when the reader's share is done, of the open ones dealt to others. */
+/**
+ * What One by one says when the reader's share is done, of every application left outside it:
+ * those dealt to others, follow-ups others own and any dealt to nobody, what "Help with the
+ * others" walks.
+ */
 export function othersLeftLine(count: number): string {
   return count === 1
-    ? '1 open application is dealt to another reviewer. You can help with it; its history will say you decided it.'
-    : `${count} open applications are dealt to other reviewers. You can help with them; each one's history will say you decided it.`;
+    ? '1 application is left outside your share. You can help with it; its history will say you decided it.'
+    : `${count} applications are left outside your share. You can help with them; each one's history will say you decided it.`;
 }
