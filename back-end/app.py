@@ -1548,7 +1548,8 @@ def list_market_applications(market_id: str) -> Response:
 @app.route('/markets/<market_id>/stats', methods=['GET'])
 @login_required
 def get_market_stats(market_id: str) -> Response:
-    """The Stats tab's figures: who applied, and what they answered. Asks ``Actions.READ``."""
+    """The Stats tab's figures: who applied, what they answered, and the placement and money
+    headlines. Asks ``Actions.READ``."""
     requesting_user = authenticated_email()
 
     context = MarketsApi.load_market_context(market_id)

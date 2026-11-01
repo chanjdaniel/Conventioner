@@ -280,6 +280,8 @@ class TestTheRoute:
             ("option", "Prints", 0), ("option", "Stickers", 0), ("option", "Jewelry", 1),
             ("other", None, 1), ("none", None, 1),
         ]
+        # The headlines' own figures are told in test_the_stats_headlines.py.
+        assert set(body["headlines"]) == {"placements", "money"}
 
     def test_someone_who_may_not_read_the_market_is_refused(self, monkeypatch, market):
         response = _signed_in(monkeypatch, "outsider@x.test").get(

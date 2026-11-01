@@ -1414,6 +1414,56 @@ def get_assigned_market(market_id: str, requesting_user: Optional[str] = None) -
     return assigned_market_dict, 200
 
 
+class CountedAssignment(NamedTuple):
+    """The stored assignment, counted as the Assignments page's strip reads it."""
+    #: The market with its stored assignment described (``assignment_to_show``).
+    market: Market
+    #: Its statistics, the vendors added by hand counted in beside the run's.
+    statistics: AssignmentStatistics
+    #: The vendors the run reads.
+    vendors: List[SolverVendor]
+    #: Every applicant the run does not read, with their application.
+    outside: List[Tuple[SolverVendor, Application]]
+    #: One row per table and date, as the tables grid draws them (``derive_market_table_rows``).
+    rows: List[MarketTableRow]
+
+
+def counted_assignment(market: Market) -> Optional[CountedAssignment]:
+    """Count the market's stored assignment, never a fresh run, for the Assignments page's strip
+    (``get_assignment_statistics``) and the Stats tab's headlines (``market_stats.py``), so the two
+    tell the same figures. ``None`` when the statistics could not be counted."""
+    # Keep persisted schema free of assignment statistics, then derive fresh.
+    market.assignment_object.assignment_statistics = None
+    # The vendors are read once and handed to both: the stored seats are described against
+    # them, and the reasons the strip's caller computes are against the same set, so the two can
+    # never disagree about who applied.
+    vendors = vendors_to_show(market)
+    assigned_market = assignment_to_show(market, vendors)
+    stats = assigned_market.assignment_object.assignment_statistics
+    if stats is None:
+        return None
+
+    rows = derive_market_table_rows(assigned_market)
+    stats.unassigned_tables = derive_unassigned_tables_from_rows(rows)
+    # Everyone the run does not read, read once: the vendors added by hand are counted below, and
+    # the applicants the review did not approve are marked where a seat overrides them.
+    outside = outside_solver_vendors(
+        market.id, EssentialFields.effective_essential_options_for_market(market),
+        {vendor.email for vendor in vendors},
+    )
+    count_added_vendors(
+        stats, [vendor.email for vendor, application in outside if needs_a_table(application)],
+        assigned_market.assignment_object.vendor_assignments or [],
+    )
+    return CountedAssignment(assigned_market, stats, vendors, outside, rows)
+
+
+def table_days_free(rows: Iterable[MarketTableRow]) -> int:
+    """The table-days nobody holds any of: the tables grid's "Empty" count, unfiltered
+    (``rowStatus`` in ``front-end/src/utils/resultFilters.ts``). Half a table held is used."""
+    return sum(1 for row in rows if not any(row.assignment_slots))
+
+
 def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = None) -> tuple[Dict[str, Any], int]:
     """Derive and return assignment statistics for a market."""
     context = load_market_context(market_id)
@@ -1429,30 +1479,12 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
         if refused:
             return {"error": refused}, 403
 
-    # Keep persisted schema free of assignment statistics, then derive fresh.
-    market.assignment_object.assignment_statistics = None
-    # The vendors are read once and handed to both: the stored seats are described against
-    # them, and the reasons below are computed against the same set, so the two can never
-    # disagree about who applied.
-    vendors = vendors_to_show(market)
-    assigned_market = assignment_to_show(market, vendors)
-    stats = assigned_market.assignment_object.assignment_statistics
-    if stats is None:
+    counted = counted_assignment(market)
+    if counted is None:
         return {"error": "The result's statistics could not be counted."}, 500
-
-    rows = derive_market_table_rows(assigned_market)
-    stats.unassigned_tables = derive_unassigned_tables_from_rows(rows)
+    assigned_market, stats, vendors, outside = (
+        counted.market, counted.statistics, counted.vendors, counted.outside)
     placed_rows = assigned_market.assignment_object.vendor_assignments or []
-    # Everyone the run does not read, read once: the vendors added by hand are counted below, and
-    # the applicants the review did not approve are marked where a seat overrides them.
-    outside = outside_solver_vendors(
-        market.id, EssentialFields.effective_essential_options_for_market(market),
-        {vendor.email for vendor in vendors},
-    )
-    count_added_vendors(
-        stats, [vendor.email for vendor, application in outside if needs_a_table(application)],
-        placed_rows,
-    )
 
     payload = convert_keys_to_camel_case(stats.model_dump())
     # Why each vendor holds no table, computed from the plan, the applications and the
