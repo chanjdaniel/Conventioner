@@ -75,6 +75,9 @@ services:
       - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID:-}
       - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET:-}
       - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:-}
+      # DISCORD_FAKE=true answers for Discord from the fake servers in the database instead
+      # (back-end/discord_fake.py), honoured only under the escape hatch above; the E2E sets it.
+      - DISCORD_FAKE=${DISCORD_FAKE:-}
     # 5001, not Flask's 5000: docs/TESTING.md ("Testing gotchas") says why.
     ports:
       - "127.0.0.1:5001:5001"

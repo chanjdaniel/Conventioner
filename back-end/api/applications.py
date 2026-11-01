@@ -255,6 +255,18 @@ def vendor_answers_for_market(market_id: str, keys: List[str]) -> Dict[str, Dict
     return _answers_by_address(market_id, keys)
 
 
+def list_applications_with_answers(
+    market_id: str, keys: List[str],
+) -> List[Dict[str, Any]]:
+    """Every application of a market, read as only their id and their answers to ``keys``: a
+    projection of those keys alone, so a reader that wants one answer from each does not ship every
+    application's whole ``form_data``. ``effective_answers`` still reads the partial documents."""
+    ensure_application_indexes()
+    projection = {"_id": 0, "id": 1, **{
+        f"{field}.{key}": 1 for key in keys for field in ("form_data", ANSWER_UPDATES_FIELD)}}
+    return list(applications_collection.find(market_filter(market_id), projection))
+
+
 def _names_by_address(market_id: str, name_of) -> Dict[str, str]:
     """``{lowercased address: name}`` for the applications that stored one, read off a projection
     of the two name keys alone."""

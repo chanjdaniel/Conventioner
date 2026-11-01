@@ -53,8 +53,8 @@ def update_vendor_info(
                                              if market.application_form else [])}
     theirs = doc.get("form_data") or {}
     before = ApplicationsApi.effective_answers(doc)
-    _assert_may_update_what_the_assignment_or_prices_read(
-        market, [str(key) for key in answers], updater)
+    assert_may_update_what_the_assignment_or_prices_read(
+        market, [str(key) for key in answers], updater.email)
     essential: Dict[str, Any] = {}
     values: Dict[str, Any] = {}
     for key, raw in answers.items():
@@ -137,19 +137,20 @@ def update_vendor_info(
     return {"application": ApplicantsApi.organizer_view(stored)}, 200
 
 
-def _assert_may_update_what_the_assignment_or_prices_read(
-    market: Market, asked: List[str], updater: MarketPerson,
+def assert_may_update_what_the_assignment_or_prices_read(
+    market: Market, asked: List[str], email: str,
 ) -> None:
     """An answer the assignment or a price group reads asks its own row as well, decided from the
     questions asked before any answer is judged: whoever may not update it is told so rather than
-    what is wrong with the answer."""
+    what is wrong with the answer. Declining a possible Discord match asks it too, of the username
+    question, as confirming one does (``api.discord_connection.decline_match``)."""
     written = {key for question in asked
                for key in EssentialFields.UPDATABLE_ESSENTIAL_QUESTIONS.get(question, ())}
     if not (written & set(EssentialFields.SOLVER_RELEVANT_KEYS)
             or set(asked) & set(Pricing.Groups(market).keys())):
         return
     refused = Actions.refusal(
-        Actions.UPDATE_ASSIGNMENT_OR_PRICE_INFO, updater.email, market,
+        Actions.UPDATE_ASSIGNMENT_OR_PRICE_INFO, email, market,
         MarketsApi._load_organization(market.organization_id))
     if refused:
         raise ForbiddenError(refused)

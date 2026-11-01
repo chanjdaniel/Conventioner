@@ -26,6 +26,7 @@ sources:
   - E38/F07/S02
   - E38/F07/S03
   - E41/F01/S02
+  - E46/F01/S05
 ---
 
 # The application document
@@ -85,6 +86,7 @@ Writing over `form_data` instead would last until the next re-import.
 
 **`effective_answers` is the one reader of the answers as the organizer reads them**: `form_data` with each update's value in its place.
 The organizer's views (`formData` in `_application_response_organizer`, beside `answerUpdates`), the results search and the names (`_answers_by_address`), the vendor export (`Vendor.answers` in `api/vendor_export.py`), the Stats tab's answer counts (`market_stats.py`), the price groups (`vendor_answers_for_market`, [a price follows the table](../../business/rules/a-price-follows-the-table.md#price-groups)), the [automatic rejections](../../business/rules/automatic-rejections.md), the solver's input (`_solver_vendor` in `assignment/vendor_input.py`, and so the placement warnings and what a run was made from), the empty-tier check (`NoAskedForTierWithoutTablesGuard`), the table-share notice (`_share_request` in `api/applicants.py`) and the vendor's request beside the notes (`get_vendor_notes`) read through it, and so does any reader added later that calls it.
+A reader that wants one answer from each of a market's applications reads only that answer (`list_applications_with_answers`): each application's `id` and the `form_data` and `answer_updates` entries of the keys asked, a projection, so [the Discord connection](../modules/discord.md#who-is-in-the-server)'s shown-vendors read does not ship every application's whole `form_data`, and `effective_answers` still reads the partial documents.
 The applicant's own view serves `form_data`, what they wrote, and no update.
 A re-import still compares the file with `form_data` (`csv_import._would_return_to_review`): whether the vendor's own answer changed is the question there, not how it reads.
 

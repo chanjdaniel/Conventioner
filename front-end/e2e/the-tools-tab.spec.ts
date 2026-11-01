@@ -12,9 +12,10 @@ import { ToolsPage } from './pages/ToolsPage';
  * on the market bar, at its own address. It holds the Discord card, which Market Setup no longer
  * shows; and the form builder offers a one-click question for each vendor's Discord username.
  *
- * Connecting needs a real Discord, so the card is met here connected by a row written to the market,
- * as the connection's routes leave it: the stack runs without Discord's values or with fixture ones,
- * and either way someone the row refuses reads the card.
+ * The card is met here connected by a row written to the market, as the connection's routes leave
+ * it, to a server no Discord answers for (a stack runs without Discord's values, with fixture ones,
+ * or with the fake of `DISCORD_FAKE`, which has no such server): either way someone the row refuses
+ * reads the card.
  */
 const VIEWER = { email: 'e2e-tools-viewer@example.com', password: 'e2etoolsviewer1' };
 
