@@ -53,7 +53,7 @@ The Vendors page ([`VendorsView.vue`](../../../front-end/src/views/VendorsView.v
    The line is in the muted ink and its counts in the brand green, each at AA on white; it once dimmed the whole line with opacity, which took the counts to 3.2:1 (T162 review).
 3. Each row of a vendor who needs a table shows Assigned or Unassigned and "N of M dates", against the dates they could have had; a vendor added by hand needs a table on every market day, and shows "Added" beside it; a rejected applicant shows "Rejected".
 4. "Unassigned only" lists the vendors who need a table and hold none, and with a date chosen those with none that day, a vendor added by hand included (E38/F08/S02); it and "Rejected only", shown when anyone was rejected, narrow the list, each cleared with its "×"; the Assignments page's filters (Date, Section, Tier, Table) narrow it to where vendors are placed, and are kept across the two pages.
-5. The Assignments page's "N unassigned" link opens this list filtered, as "Unassigned only", and counts the same vendors.
+5. The Assignments page's "N unassigned" link, and the Stats tab's "N vendors unassigned" ([the market's statistics](stats.md)), open this list filtered, as "Unassigned only", and count the same vendors.
 
 When the server cannot say where vendors sit, the page shows its reason above the list and says nothing of who is placed: "N vendors", the whole list counted before a run or after, each row its verdict and no date count, and no "Unassigned only" or filter by where they sit, one in the address ignored and Export opening on neither; the names and the search by name still hold, from the applications (T123).
 

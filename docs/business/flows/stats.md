@@ -6,11 +6,13 @@ describes:
   - front-end/src/utils/applicantStats.ts
   - front-end/src/utils/answerCounts.ts
   - front-end/src/utils/marketStats.ts
+  - front-end/src/utils/statsHeadlines.ts
   - back-end/market_stats.py
-verified: 2026-10-29
+verified: 2026-11-01
 sources:
   - E45/F01/S01
   - E45/F01/S02
+  - E45/F01/S03
   - E41/F01/S01
 ---
 
@@ -21,9 +23,24 @@ sources:
 
 The Stats page ([`StatsView.vue`](../../../front-end/src/views/StatsView.vue)) reads the market's figures as cards of bars: each row an answer with its count, its share of the whole and a bar against the largest in its card, rather than a chart library.
 Before anyone applies it says "Nobody has applied yet." and nothing else.
-Both sections are counted on the server and read in one small answer (`GET /markets/<id>/stats`, [`back-end/market_stats.py`](../../../back-end/market_stats.py), read by [`marketStats.ts`](../../../front-end/src/utils/marketStats.ts)), so the page never downloads the applications to count them, however many applied.
+Every figure is counted on the server and read in one small answer (`GET /markets/<id>/stats`, [`back-end/market_stats.py`](../../../back-end/market_stats.py), read by [`marketStats.ts`](../../../front-end/src/utils/marketStats.ts)), so the page never downloads the applications to count them, however many applied.
 
-## N1. See who applied
+## N1. See the market's state at a glance
+
+**Status:** Works (read from the code as of E45/F01/S03: `the-stats-headlines.spec.ts`, `test_the_stats_headlines.py`).
+
+1. The page's top line is a strip of headlines ([`statsHeadlines.ts`](../../../front-end/src/utils/statsHeadlines.ts)), each the figure the page it links to shows, counted on the server by that page's own code, and each link opening that page with its filter:
+   - "4 of 8 table-days used", the Assignments page's strip, opening Assignments;
+   - "4 table-days free", the Assignments grid's "Empty" count, opening Assignments on it (`?status=empty`); half a table held is used, not free;
+   - "1 vendor unassigned", the Assignments strip's "N unassigned", opening [Vendors](vendors.md) on "Unassigned only" (`?show=unassigned`);
+   - "$117.50 owed", "$90 paid" and "$35 still owed", the [Payments](payments.md) page's Owed, Paid and Still owed, the first two opening Payments and the third Payments on "Owes" (`?show=owes`).
+2. The placements are told once an assignment is stored, as the Assignments page's strip is; the money only where the market sets prices and the Payments page has someone to count.
+   With neither, there is no strip.
+3. A zero whose filter would list nothing, "0 table-days free", "0 vendors unassigned" or "$0 still owed", is told but not linked, as the Assignments page's counts cannot be chosen at zero.
+
+Covered by: `the-stats-headlines.spec.ts` ("each headline is the figure of the page it links to, opened on its filter", "placements are told once an assignment is stored, and money only with prices"), `test_the_stats_headlines.py`.
+
+## N2. See who applied
 
 **Status:** Works (read from the code as of E45/F01/S01: `the-stats-tab.spec.ts`).
 
@@ -35,7 +52,7 @@ Both sections are counted on the server and read in one small answer (`GET /mark
 
 Covered by: `the-stats-tab.spec.ts` ("the Stats tab counts who applied as the Applications tab does").
 
-## N2. See what they answered
+## N3. See what they answered
 
 **Status:** Works (read from the code as of E45/F01/S02: `the-stats-tab.spec.ts`, `test_the_stats_tab.py`).
 

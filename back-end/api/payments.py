@@ -91,7 +91,13 @@ def market_payments(market_id: str, requesting_user: str) -> Dict[str, Any]:
     (``Payments.market_summary``). Each vendor's account is the one their Payment tab reads and the
     export reads (``accounts``), and each vendor's state the one the export filters by
     (``Payments.balance_state``). Asks ``Actions.READ``."""
-    market = MarketsApi._load_market_for(market_id, requesting_user, Actions.READ)
+    return market_money(MarketsApi._load_market_for(market_id, requesting_user, Actions.READ))
+
+
+def market_money(market: Market) -> Dict[str, Any]:
+    """The Payments page's reading of a market, for whoever has asked the table already: the page
+    itself (``market_payments``) and the Stats tab's headlines (``market_stats.py``), so the two
+    tell the same figures. ``currency`` is ``None`` where the market sets no prices."""
     setup = market.setup_object
     currency = setup.pricing.currency if setup and setup.pricing else None
     tiers = [tier.name.strip() for tier in (setup.tiers if setup else [])]

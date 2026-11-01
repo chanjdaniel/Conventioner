@@ -1,5 +1,12 @@
-"""The Stats tab's figures, counted on the server (E45/F01/S01, S02), so the page reads one small
-answer however many applied and never downloads the applications to count them.
+"""The Stats tab's figures, counted on the server (E45/F01/S01, S02, S03), so the page reads one
+small answer however many applied and never downloads the applications to count them.
+
+The headlines: the market's placements and money, each figure the one the page it links to shows,
+counted by that page's own code - the table-days used and the vendors unassigned by the Assignments
+page's strip (``counted_assignment``), the table-days free as its grid's "Empty" count, and the
+amounts owed, paid and still owed by the Payments page (``market_money``). Placements are ``None``
+until an assignment is stored, money where the market sets no prices or the Payments page has
+nobody to count.
 
 Who applied: every application by its stored status, how many were added by hand, and the time
 each of the others applied. Statuses go out as stored, and the page counts them into the
@@ -18,9 +25,11 @@ comes three times, for each group the page can narrow to: every application, the
 (the All view's "Approved", those added by hand among them) and the assigned ones (anyone with an
 assignment, a table on any date, verdict or not, as their outcome reads: ``result_outcome.py``).
 """
-from typing import Any, Dict, Iterable, List, Set
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 import api.applications as ApplicationsApi
+import api.markets as MarketsApi
+import api.payments as PaymentsApi
 import result_outcome as ResultOutcome
 from datatypes import ApplicationStatus, FormField, Market
 from utils.email_address import normalized_email
@@ -37,11 +46,44 @@ def stats_for_market(market: Market) -> Dict[str, Any]:
     """The figures for a market, from its stored form, applications and assignment."""
     form = market.application_form
     applications = ApplicationsApi.list_applications_for_market(market.id)
-    return {
+    figures = {
         "applicants": count_applicants(applications),
         "answers": count_answers(
             form.fields if form else [], applications, ResultOutcome.seated_addresses(market),
         ),
+    }
+    # Last: counting the assignment describes it on the market in hand.
+    figures["headlines"] = {"placements": count_placements(market), "money": count_money(market)}
+    return figures
+
+
+def count_placements(market: Market) -> Optional[Dict[str, int]]:
+    """The Assignments page's figures: its strip's table-days used of all and vendors unassigned,
+    and its grid's "Empty" count; ``None`` until an assignment is stored, as the strip is."""
+    if not market.assignment_object.vendor_assignments:
+        return None
+    counted = MarketsApi.counted_assignment(market)
+    if counted is None:
+        return None
+    statistics = counted.statistics
+    return {
+        "tableDaysUsed": statistics.total_assigned_tables,
+        "tableDays": statistics.total_tables,
+        "tableDaysFree": MarketsApi.table_days_free(counted.rows),
+        "unassigned": len(statistics.unassigned_vendors),
+    }
+
+
+def count_money(market: Market) -> Optional[Dict[str, Any]]:
+    """The Payments page's figures owed, paid and still owed; ``None`` where the market sets no
+    prices, or the page has nobody to count and so shows no figures."""
+    money = PaymentsApi.market_money(market)
+    if money["currency"] is None or not money["vendors"]:
+        return None
+    totals = money["totals"]
+    return {
+        "currency": money["currency"],
+        **{key: totals[key] for key in ("owedCents", "paidCents", "stillOwedCents")},
     }
 
 
