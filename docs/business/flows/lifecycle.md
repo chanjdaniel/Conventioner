@@ -25,6 +25,7 @@ sources:
   - E18
   - E30/F01/S04
   - E38/F04
+  - E38/F15/S04
 ---
 
 # The market lifecycle at a glance
@@ -38,7 +39,7 @@ The stage is stored as `applications` and named by the path ([ADR 0016](../../ad
 The online path enters the stage by opening applications; the Google Form path by its first import, confirmed and written, which takes the move itself.
 
 The rail offers the one next step as its main button, and every other move behind "More…".
-A move the server would refuse is drawn disabled before the click, with its first blocker as the rail's sentence and beside the move in the menu.
+A move the server would refuse is drawn disabled before the click, with its first blocker beside the move in the menu, and as the rail's sentence for someone who may put it right.
 When that blocker names a page that fixes it, the main button becomes the fix ("Add a location") and leads there, with the move beside it as the step after.
 The fix is offered only to someone the market's table lets take the remedy's action ([what each role may do](../rules/what-each-role-may-do.md), T142).
 A move that loses a race with another change still answers with a red "Cannot proceed:" panel under the rail.
@@ -79,7 +80,7 @@ Inside the stage, More… also offers what is not a move: "Redo import" on the G
 ## What the rail says
 
 One sentence per phase and path names the one next step and, for someone who may take its action, links to the page where it is done ([the market guide](../../implementation/modules/market-guide.md), [what each role may do](../rules/what-each-role-may-do.md)).
-When the server would refuse that step, the sentence is its first blocker instead, so the organizer reads what is wrong before trying.
+When the server would refuse that step, the sentence is its first blocker for someone who may put it right, or for everyone when it is a plain fact, such as "There are no applications for this market.", so the organizer reads what is wrong before trying.
 
 | Phase | Online path | Google Form path |
 | --- | --- | --- |
@@ -90,6 +91,12 @@ When the server would refuse that step, the sentence is its first blocker instea
 | Assignment, results published | "Results are published, so the assignments are settled. Publish the market to put the check-in page up; that cannot be undone." | none: nothing is published to applicants |
 | Market Days | "Check vendors in at the door.", and once every date has passed "The market has run. Archive it to keep it as the record of what happened." | as the online path |
 | Archived | "Archived: the record of what happened stays on its check-in page." for a market that ran, else "Archived: this market is the record of what happened." | as the online path |
+
+Someone whose role the step is not reads instead what they may do there, and is led to it: a Viewer in Draft reads "The market is being planned. Read its plan on Market Setup.", in the stage what the stage is and "Read where each application stands." (on the Google Form path, "each response"), in Assignment that tables are not allocated yet or are, or that results are published, at the door "Follow who has checked in at the door.", and once every date has passed "The market has run. Who came is on Attendance." (E38/F15/S04).
+This holds while the step is refused too: what would refuse it, such as an application still waiting or a form market's results not yet published, is told only to someone who may put it right, save a plain fact that asks nobody to do anything.
+An Editor in Assignment before results are published may change the seats but publish neither the results nor the market, so reads "Check the assignments; the results are published by whoever may publish them." (on the Google Form path, "the market is published by whoever may publish it").
+It never says what they may not: the line under the rail says that once.
+Each sentence, word for word, is in [the market guide](../../implementation/modules/market-guide.md).
 
 Every tab stays on the bar from Draft to the end, on both paths.
 A tab whose page has no work yet says when it will: Applications in Draft ("Applications arrive here once they open.", or on the Google Form path "Responses arrive here with your first import, which begins review."), and Attendance until the market is published ("Opens when the market is published.").

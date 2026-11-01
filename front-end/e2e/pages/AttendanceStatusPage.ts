@@ -10,12 +10,20 @@ export class AttendanceStatusPage {
   readonly summary: Locator;
   readonly rows: Locator;
   readonly search: Locator;
+  /** The frame's line saying why the person looking may change nothing, above the door (T15). */
+  readonly readOnly: Locator;
+  /** Every row's Check in and Undo, offered only to whoever may check vendors in. */
+  readonly checkIns: Locator;
+  readonly undos: Locator;
 
   constructor(page: Page) {
     this.page = page;
     this.summary = page.getByTestId('attendance-summary');
     this.rows = page.getByTestId('attendance-row');
     this.search = page.getByTestId('attendance-search');
+    this.readOnly = page.getByTestId('market-read-only');
+    this.checkIns = page.getByTestId('attendance-check-in');
+    this.undos = page.getByTestId('attendance-undo');
   }
 
   async goto(marketId: string): Promise<void> {

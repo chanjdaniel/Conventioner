@@ -30,6 +30,7 @@ sources:
   - E38/F07/S02
   - T142
   - E38/F15/S03
+  - E38/F15/S04
 ---
 
 # The phase rail
@@ -43,7 +44,7 @@ What it says comes from [the market guide](market-guide.md); which moves exist a
 
 **The rail says no before the click.**
 `GET /markets/:id` serves `transitionBlockers`: every move open from the market's phase, each judged by the same guards the move runs (`transition_verdicts` in [`back-end/guards.py`](../../../back-end/guards.py)).
-A refused move is drawn disabled, with its first blocker as its reason: in the menu beside it, and for the forward step as the rail's sentence; when that blocker names a page that resolves it, the rail's main button becomes the fix ("Add a location") and leads there, with the move beside it as the step after.
+A refused move is drawn disabled, with its first blocker as its reason: in the menu beside it, and for the forward step as the rail's sentence, to someone who may take the blocker's remedy (the guide's `nextStep`); when that blocker names a page that resolves it, the rail's main button becomes the fix ("Add a location") and leads there, with the move beside it as the step after.
 The fix is the move's own first blocker, the one its disabled state is read from, named by the guard that refuses it (`resolutionLabel`), so before a run Publish Market offers "Allocate tables"; on the page that resolves it no fix is drawn, since the work is already in front of the organizer, and the move stays disabled with its reason.
 The 409 from `POST /markets/:id/transition` stays for races and renders its blockers under the rail.
 Never decide a move's verdict on the front end.
@@ -52,7 +53,8 @@ Never decide a move's verdict on the front end.
 The fix is drawn only for someone who may move the phase and may take the blocker's `resolutionAction`, the row of [the market's actions](market-actions.md) table its remedy takes; the sentence's link (`phase-rail-next-link`) only for someone who may take the step's `action` ([the market guide](market-guide.md)'s `NextStep`), the blocker's when the step is a blocker's remedy, else the guide row's.
 The 409's panel ([`BlockerPanel.vue`](../../../front-end/src/components/BlockerPanel.vue)) draws a blocker's link on the same answer, and still says the blocker.
 A missing action, as from an older server, withholds them all, as `mayTake` withholds anything unanswered.
-So a Viewer reads where the market stands and is led nowhere, an Editor on a draft missing its dates is still led to "Pick market dates", and an Admin whose table refuses the setup is offered no fix; the sentence is the same for everyone ([what each role may do](../../business/rules/what-each-role-may-do.md)).
+So an Editor on a draft missing its dates is still led to "Pick market dates", and a Viewer, or an Admin whose table refuses the setup, is offered no fix ([what each role may do](../../business/rules/what-each-role-may-do.md)).
+Where the step, or the remedy of the blocker refusing it, is not theirs, the sentence is not the step either: the guide says what they may do there, a read, and the rail links it like any other step, so a Viewer on a draft missing its dates reads "The market is being planned. Read its plan on Market Setup.", and at the door reads "Follow who has checked in at the door." and from another tab is led to Attendance ([the market guide](market-guide.md), E38/F15/S04).
 
 **Both paths draw the same five stages, named by the path.**
 The rail's moves are the keys of `transitionBlockers`, and the browser keeps no copy of them.
