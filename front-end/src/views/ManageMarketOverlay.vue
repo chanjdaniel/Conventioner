@@ -578,9 +578,12 @@ async function closeAddUser() {
     @close="cancelRemove"
     @submit="handleRemoveUser"
   >
-    <p class="confirm-text" data-testid="manage-market-remove-consequence">{{ removal?.loses }}</p>
-    <p v-if="removal?.keeps" class="confirm-text" data-testid="manage-market-remove-keeps">
-      {{ removal.keeps }}
+    <!-- One paragraph: what they lose and what they keep are one thought. -->
+    <p class="confirm-text">
+      <span data-testid="manage-market-remove-consequence">{{ removal?.loses }}</span>
+      <template v-if="removal?.keeps">
+        {{ ' ' }}<span data-testid="manage-market-remove-keeps">{{ removal.keeps }}</span>
+      </template>
     </p>
   </AppDialog>
 
