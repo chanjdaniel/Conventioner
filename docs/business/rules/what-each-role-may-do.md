@@ -49,7 +49,7 @@ A reviewer chosen for the review decides any application whatever their role, th
 Each screen offers each person only what their role lets them do, and the server decides it.
 **Every check reads one table**: each action is a row saying the lowest role that may take it, and the roles below are the rows' built-in defaults ([the market's actions](../../implementation/modules/market-actions.md)).
 **A market's owner may change its rows, and only its owner**: each row's role on that market, or back to its default; fixed rows (reading the market, managing admins, deleting it, and changing the table itself) change for nobody, and every change is recorded with who made it and when ([ADR 0019](../../adr/0019-a-markets-permissions-are-a-table.md)).
-So the table below is what a market allows until its owner says otherwise.
+So the lists below are what a market allows until its owner says otherwise.
 
 **Serves:** [A request can only do what its session may](../intents/a-request-can-only-do-what-its-session-may.md).
 
@@ -69,12 +69,63 @@ An organization's admins run its markets ([the decision of 2026-10-20](../../rec
 
 ## Who may
 
-| Role | May |
-| --- | --- |
-| Viewer | read the market: its applications, its result and tables, the statistics and the CSV exports (the assignment's and the vendors'), the floorplan export, attendance, and the market's history, in Manage market, the assignment history and a vendor's drawer, and what each vendor owes and paid |
-| Editor | everything a Viewer may, and the plan and its floorplan ([who may use the floorplan routes](../../implementation/modules/floorplan-placement.md#who-may-use-the-floorplan-routes)), the form, renaming a draft, allocating tables and assigning, swapping or freeing a seat, highlights, automatic rejections, giving verdicts on open applications and follow-ups and undoing their own within 2 minutes, marking and handing on follow-ups, vendor notes, [updating a vendor's info](an-update-is-kept-beside-the-vendors-answer.md), [recording a vendor's payment](../../implementation/data/payments.md) (Daniel, T92 Q15: "editors can"), check-ins at the door |
-| Admin | everything an Editor may, and changing a verdict already given (to the other, or back to needs follow-up) and overturning an [automatic rejection](automatic-rejections.md), phase moves, stopping and taking applications, publishing results, importing, the CSV start, [choosing the reviewers](the-review-is-dealt-among-chosen-reviewers.md), [updating an answer the assignment or a price group reads](an-update-is-kept-beside-the-vendors-answer.md#who-may), changing what a vendor owes and adjusting what they paid (Daniel, T92 Q26: "this number can be changed by the admin"); manage editors and viewers; connect the market to Discord, choose its role, check who is in its server and give its role to the assigned vendors ([the Discord connection](../../implementation/modules/discord.md)) |
-| Owner | everything an Admin may, and manage admins, and delete the market |
+Each role's list is one right a line, in the order of the rows of [the market's actions](../../implementation/modules/market-actions.md), so a new right is one new line in its row's place ([two features never share a line](../../implementation/conventions/two-features-never-share-a-line.md)).
+
+### Viewer
+
+Read the market:
+
+- its applications
+- its result and tables
+- the statistics
+- the floorplan export
+- attendance
+- what each vendor owes and paid
+- the market's history, in Manage market, the assignment history and a vendor's drawer
+- the CSV exports (the assignment's and the vendors')
+
+### Editor
+
+Everything a Viewer may, and:
+
+- the plan and its floorplan ([who may use the floorplan routes](../../implementation/modules/floorplan-placement.md#who-may-use-the-floorplan-routes))
+- renaming a draft
+- the form
+- highlights
+- automatic rejections
+- giving verdicts on open applications and follow-ups and undoing their own within 2 minutes
+- marking and handing on follow-ups
+- vendor notes
+- [updating a vendor's info](an-update-is-kept-beside-the-vendors-answer.md)
+- allocating tables and assigning, swapping or freeing a seat
+- [recording a vendor's payment](../../implementation/data/payments.md) (Daniel, T92 Q15: "editors can")
+- check-ins at the door
+
+### Admin
+
+Everything an Editor may, and:
+
+- importing
+- the CSV start
+- changing a verdict already given (to the other, or back to needs follow-up) and overturning an [automatic rejection](automatic-rejections.md)
+- [choosing the reviewers](the-review-is-dealt-among-chosen-reviewers.md)
+- phase moves
+- stopping and taking applications
+- publishing results
+- [updating an answer the assignment or a price group reads](an-update-is-kept-beside-the-vendors-answer.md#who-may)
+- changing what a vendor owes (Daniel, T92 Q26: "this number can be changed by the admin")
+- adjusting what they paid
+- connect the market to Discord, choose its role, check who is in its server and give its role to the assigned vendors ([the Discord connection](../../implementation/modules/discord.md))
+- manage editors and viewers
+
+### Owner
+
+Everything an Admin may, and:
+
+- manage admins
+- delete the market
+
+### A chosen reviewer, and where a role comes from
 
 **A chosen reviewer gives verdicts and follow-ups whatever their role**, as long as their role reaches the row "Be chosen as a reviewer, and then give verdicts and follow-ups" (default Viewer): a chosen Viewer approves, rejects and marks follow-ups on any application, hands a follow-up on, and is handed cards in One by one, as an Editor is.
 They change no verdict already given (the change row stays on top of the giving row), and write no vendor notes, so marking a follow-up offers them no notes box.
