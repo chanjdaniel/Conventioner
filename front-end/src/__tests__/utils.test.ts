@@ -105,11 +105,18 @@ describe('timestamps', () => {
   });
 
   it('drops the seconds, which nobody says out loud', () => {
-    expect(inUtc(() => getTimestampTime(SUBMITTED))).toBe('2:20 PM');
+    expect(inUtc(() => getTimestampTime(SUBMITTED))).toMatch(/^2:20\sPM$/);
+  });
+
+  it('keeps the time of day on one line: a wrap never leaves "PM" alone', () => {
+    // A no-break space, whatever space the browser's own formatting puts there.
+    expect(inUtc(() => getTimestampTime(SUBMITTED))).toBe('2:20\u00a0PM');
   });
 
   it('reads the two together as a sentence', () => {
-    expect(inUtc(() => getFormattedTimestamp(SUBMITTED))).toBe('Sep 15, 2026 at 2:20 PM');
+    expect(inUtc(() => getFormattedTimestamp(SUBMITTED)).replace(/\s/g, ' ')).toBe(
+      'Sep 15, 2026 at 2:20 PM',
+    );
   });
 
   it('says nothing when there is no timestamp', () => {

@@ -70,11 +70,10 @@ describe('marking a follow-up', () => {
 
   it('offers everyone the market read serves, the organization’s people too', () => {
     setActivePinia(createPinia());
-    // Manage market's roles name only the market's owner; the organization admin reviewing is
-    // among the people the server says may own a follow-up.
+    // The market's roles name only its owner; the organization admin reviewing is among the
+    // people the server says may own a follow-up.
     const market = ref({
       roles: { 'user-alex': 'owner' },
-      roleEmails: { 'user-alex': 'alex@market.test' },
       peopleOnMarket: ['alex@market.test', 'robin@org.test'],
     } as unknown as Market);
 
