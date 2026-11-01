@@ -13,15 +13,16 @@ import { seedAssignedMarket } from './helpers/seedAssignedMarket';
  * from a read it never had. An approved application with incomplete answers no longer makes the
  * server refuse those reads (T139), so a route stands in for a read that fails.
  */
-const FAILED = 'Where the vendors sit could not be read just now.';
+/** A 500 reads as the server's fault, whatever its body (E38/F11/S01). */
+const FAILED = 'Something went wrong on our side. Try again in a moment.';
 
-/** The two reads of where vendors sit answer 500, with the server's reason. */
+/** The two reads of where vendors sit answer the back end's generic 500. */
 async function failThePlacementReads(page: Page): Promise<void> {
   await page.route(/\/markets\/[^/]+\/(assignment-statistics|tables)$/, (route) =>
     route.fulfill({
       status: 500,
       contentType: 'application/json',
-      body: JSON.stringify({ error: FAILED }),
+      body: JSON.stringify({ error: 'Internal server error' }),
     }),
   );
 }

@@ -389,7 +389,7 @@ const handleAssign = async () => {
         response?: { data?: { error?: string; incomplete?: IncompleteApplication[] } };
       }
     )?.response?.data;
-    assignError.value = data?.error || 'Tables could not be allocated. Please try again.';
+    assignError.value = getApiErrorMessage(err, 'The tables were not allocated.');
     assignIncomplete.value = data?.incomplete ?? [];
   }
 };

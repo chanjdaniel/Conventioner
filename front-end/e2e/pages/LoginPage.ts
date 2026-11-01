@@ -103,6 +103,11 @@ export class LoginPage {
 
   async login(email: string, password: string): Promise<void> {
     await this.goto();
+    await this.signIn(email, password);
+  }
+
+  /** Sign in on the login page as it stands, keeping the address it was opened at (its `next`). */
+  async signIn(email: string, password: string): Promise<void> {
     await this.fillEmail(email);
     await this.fillPassword(password);
     await this.clickSubmit();

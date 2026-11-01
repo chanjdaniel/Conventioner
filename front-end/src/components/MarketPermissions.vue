@@ -112,7 +112,7 @@ async function fetchHistory() {
     const response = await api.get(`${marketPath()}/permission-history`);
     history.value = response.data.entries ?? [];
   } catch (err) {
-    historyError.value = getApiErrorMessage(err, 'Failed to load the changes');
+    historyError.value = getApiErrorMessage(err, 'The changes could not be loaded.');
   }
 }
 
@@ -141,7 +141,7 @@ async function confirmChange() {
     pendingChange.value = null;
     await afterWrite(response.data.permissionTable);
   } catch (err) {
-    writeError.value = getApiErrorMessage(err, 'Failed to change who may do this');
+    writeError.value = getApiErrorMessage(err, 'Who may do this was not changed.');
   }
 }
 
@@ -160,7 +160,7 @@ async function confirmReset() {
     // nothing is held, and focusing a disabled control does nothing: the section's toggle takes it.
     if (document.activeElement === document.body) toggleEl.value?.focus();
   } catch (err) {
-    writeError.value = getApiErrorMessage(err, 'Failed to reset the table');
+    writeError.value = getApiErrorMessage(err, 'The table was not reset.');
   }
 }
 
@@ -176,7 +176,7 @@ async function confirmCopy() {
     copyConfirming.value = false;
     await afterWrite(response.data.permissionTable);
   } catch (err) {
-    writeError.value = getApiErrorMessage(err, "Failed to copy the organization's defaults");
+    writeError.value = getApiErrorMessage(err, "The organization's defaults were not copied.");
   }
 }
 

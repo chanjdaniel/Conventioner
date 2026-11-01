@@ -5,7 +5,7 @@
  * market's history narrowed to them, in their drawer (`MarketHistory`, E40/F01/S04).
  */
 import { ref, watch } from 'vue';
-import { api } from '@/utils/api';
+import { api, getApiErrorMessage } from '@/utils/api';
 import { type VendorNames } from '@/utils/vendorIdentity';
 import {
   historyDate,
@@ -31,10 +31,10 @@ async function load(): Promise<void> {
     );
     entries.value = Array.isArray(resp.data?.entries) ? resp.data.entries : [];
     vendorNames.value = resp.data?.vendorNames ?? {};
-  } catch {
+  } catch (err) {
     // A trail that cannot be read is worth saying so about, but it never blocks the screen it
     // sits on: nothing an organizer does depends on it.
-    loadError.value = 'The assignment history could not be loaded.';
+    loadError.value = getApiErrorMessage(err, 'The assignment history could not be loaded.');
     entries.value = [];
   } finally {
     isLoading.value = false;

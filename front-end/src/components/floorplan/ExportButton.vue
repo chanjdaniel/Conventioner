@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useFloorplanStore } from '@/stores/floorplan';
 import { api } from '@/utils/api';
+import { downloadErrorMessage } from '@/utils/download';
 
 const store = useFloorplanStore();
 
@@ -35,7 +36,7 @@ async function handleExport() {
     showDropdown.value = false;
   } catch (err) {
     console.error('Floorplan export failed:', err);
-    exportError.value = 'Export failed. Please try again.';
+    exportError.value = await downloadErrorMessage(err, 'The floorplan was not exported.');
   } finally {
     isExporting.value = false;
   }

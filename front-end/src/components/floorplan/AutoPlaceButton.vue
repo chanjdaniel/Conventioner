@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useFloorplanStore } from '@/stores/floorplan';
-import { api } from '@/utils/api';
+import { api, getApiErrorMessage } from '@/utils/api';
 import type { PlacedTableObject } from '@/assets/types/datatypes';
 
 // ── Props ──────────────────────────────────────────────────────────
@@ -156,18 +156,11 @@ async function triggerAutoPlace() {
         : `Placed ${placed.length} of ${asked} ${noun} - there was no room for the rest.`;
     emit('placed', placed.length);
   } catch (_e: unknown) {
-    const err = _e as {
-      name?: string;
-      code?: string;
-      response?: { data?: { error?: string } };
-      message?: string;
-    };
+    const err = _e as { name?: string; code?: string };
     if (err?.name === 'AbortError' || err?.code === 'ECONNABORTED') {
       errorMessage.value = 'Placement timed out. Please try again with fewer tables.';
-    } else if (err?.response?.data?.error) {
-      errorMessage.value = err.response.data.error;
     } else {
-      errorMessage.value = err?.message || 'Auto-placement failed. Please try again.';
+      errorMessage.value = getApiErrorMessage(_e, 'The tables were not placed.');
     }
     emit('error', errorMessage.value);
   } finally {

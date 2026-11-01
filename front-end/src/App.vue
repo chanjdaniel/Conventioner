@@ -5,10 +5,12 @@ import ElementBanner from './components/elements/ElementBanner.vue';
 import ElementNavigation from './components/elements/ElementNavigation.vue';
 import { useInertBehind } from '@/utils/useInertBehind';
 
-import { onMounted, ref, provide, computed, watch } from 'vue';
+import { onMounted, ref, provide, inject, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { routerSettled } from '@/utils/routerReady';
-import { useMarketStore } from '@/stores/market';
+import { endSession, keepsTheSession } from '@/utils/sessionEnded';
+import ReadFailed from '@/components/ReadFailed.vue';
+import { PAGE_FAILED, openAfresh } from '@/utils/pageFailed';
 
 const hostname = import.meta.env.VITE_FLASK_HOST;
 
@@ -26,9 +28,8 @@ const navDrawer = ref<InstanceType<typeof ElementNavigation> | null>(null);
 useInertBehind(navOpen, () => [navScrim.value, navDrawer.value?.root ?? null]);
 const route = useRoute();
 const router = useRouter();
-// A lost session forgets the open market too, for the reason signing out does.
-const marketStore = useMarketStore();
-const isLogin = computed(() => route.path === '/login');
+// By the route, not the path: the router matches `/Login` and `/login/` to it too.
+const isLogin = computed(() => route.name === 'login');
 const isPublicPage = computed(() => route.matched.some((r) => r.meta.public === true));
 /**
  * An organizer screen that must also work on a phone, by its route's `meta.fitsAPhone` (E29/F01): the
@@ -38,6 +39,9 @@ const isPublicPage = computed(() => route.matched.some((r) => r.meta.public === 
 const fitsAPhone = computed(
   () => isPublicPage.value || route.matched.some((r) => r.meta.fitsAPhone === true),
 );
+
+// A page whose code could not be fetched: the click did nothing, so the shell says why.
+const pageFailed = inject(PAGE_FAILED, ref(null));
 
 const user = ref<string | null>(null);
 const setUser = (user_data: string | null) => {
@@ -67,14 +71,13 @@ onMounted(async () => {
       localStorage.setItem('user', JSON.stringify(user_email));
       setUser(user_email);
     } else {
-      localStorage.clear();
-      marketStore.clear();
-      router.push('/login');
+      endSession(router, { ended: false });
     }
-  } catch {
-    localStorage.clear();
-    marketStore.clear();
-    router.push('/login');
+  } catch (err) {
+    // A lost session forgets the open market too, for the reason signing out does, and signing in
+    // returns to this page (E38/F11/S01). No answer, or a fault on the server, keeps it: the menu
+    // names the organizer it held.
+    if (keepsTheSession(router, err)) setUser(JSON.parse(localStorage.getItem('user') || 'null'));
   }
 });
 
@@ -94,9 +97,19 @@ watch(isLogin, (newValue) => {
     <!-- The one `main` landmark, on every route: the page's own content, apart from the banner and
          the drawer. A wrapper, not the routed view's root, so no view has to remember to be it. -->
     <main class="app-main" :class="{ 'app-main-public': fitsAPhone }">
+      <ReadFailed
+        v-if="pageFailed"
+        name="page"
+        class="page-failed"
+        :message="pageFailed.message"
+        @retry="openAfresh(pageFailed.to)"
+      />
       <RouterView class="router-view" />
     </main>
 
+    <!-- Dismissed, the scrim is gone at once for the pointer: its visibility waits for the fade
+         out, and one that swallows clicks for that 0.3s eats the click that follows a menu item,
+         such as Try again on the page whose navigation just failed (E38/F11/S01). -->
     <div
       v-if="!isPublicPage"
       ref="navScrim"
@@ -104,6 +117,7 @@ watch(isLogin, (newValue) => {
       :style="{
         opacity: navOpen ? '100%' : '0%',
         visibility: navOpen ? 'visible' : 'hidden',
+        'pointer-events': navOpen ? 'auto' : 'none',
       }"
       @click="navOpen = false"
     ></div>
@@ -223,6 +237,25 @@ header {
 
 .app-main-public {
   min-width: 0;
+}
+
+/* A page that could not be opened is the shell's to say, not the page's, so it is a strip under
+   the banner, above the page the organizer is still on, its line centred on the window as every
+   page's frame is. A notice's padding, `--space-2` by `--space-3`. */
+.app-main > .page-failed {
+  justify-content: center;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--mm-border);
+}
+
+/* On a phone the line wraps, so it starts on the page's 16px gutter and Try again sits under its
+   start rather than centred under a left-aligned sentence. */
+@media (width <= 640px) {
+  .app-main > .page-failed {
+    justify-content: flex-start;
+    padding: var(--space-2) var(--space-4);
+  }
 }
 
 /* The routed view fills `main` exactly as it filled the shell when it was the shell's own child. */

@@ -80,7 +80,7 @@ async function fetchHistory() {
     const response = await api.get(`${orgPath()}/default-permission-history`);
     history.value = response.data.entries ?? [];
   } catch (err) {
-    historyError.value = getApiErrorMessage(err, 'Failed to load the changes');
+    historyError.value = getApiErrorMessage(err, 'The changes could not be loaded.');
   }
 }
 
@@ -109,7 +109,7 @@ async function confirmChange() {
     pendingChange.value = null;
     await afterWrite(response.data.permissionTable);
   } catch (err) {
-    writeError.value = getApiErrorMessage(err, 'Failed to change who may do this');
+    writeError.value = getApiErrorMessage(err, 'Who may do this was not changed.');
   }
 }
 
@@ -128,7 +128,7 @@ async function confirmReset() {
     // section's toggle takes it, as in Manage market.
     if (document.activeElement === document.body) toggleEl.value?.focus();
   } catch (err) {
-    writeError.value = getApiErrorMessage(err, 'Failed to reset the defaults');
+    writeError.value = getApiErrorMessage(err, 'The defaults were not reset.');
   }
 }
 
