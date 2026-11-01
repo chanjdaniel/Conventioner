@@ -12,7 +12,7 @@ import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
-import { api } from '@/utils/api';
+import { api, getApiErrorMessage } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
 import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 import { formatPrice } from '@/utils/pricing';
@@ -28,6 +28,7 @@ import { hasAssignment } from '@/utils/marketPage';
 import { canAssignIn } from '@/utils/assignPhase';
 import ResultSummary from '@/components/ResultSummary.vue';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
+import ReadFailed from '@/components/ReadFailed.vue';
 import { useResultFilters } from '@/utils/useResultFilters';
 import {
   FULL_TABLE,
@@ -231,11 +232,7 @@ async function loadTables(): Promise<void> {
     vendorSearch.value = resp.data?.vendorSearch ?? {};
     vendors.value = Array.isArray(resp.data?.vendors) ? resp.data.vendors : [];
   } catch (err: unknown) {
-    const data =
-      err && typeof err === 'object' && 'response' in err
-        ? (err as { response?: { data?: { error?: string } } }).response?.data
-        : undefined;
-    errorMessage.value = data?.error || 'Failed to load tables.';
+    errorMessage.value = getApiErrorMessage(err, 'The tables could not be loaded.');
     allRows.value = [];
     vendorNames.value = {};
     vendorSearch.value = {};
@@ -367,11 +364,7 @@ async function runPlacementChange(change: () => Promise<unknown>): Promise<void>
       details.loaded.value ? details.load() : Promise.resolve(),
     ]);
   } catch (err: unknown) {
-    const data =
-      err && typeof err === 'object' && 'response' in err
-        ? (err as { response?: { data?: { error?: string } } }).response?.data
-        : undefined;
-    placementError.value = data?.error || 'That change could not be saved.';
+    placementError.value = getApiErrorMessage(err, 'That change could not be saved.');
   } finally {
     placementBusy.value = false;
   }
@@ -462,7 +455,7 @@ function swapSeats(withEmail: string): void {
         <!-- The Assignments page (E22/F04/S04): how the assignment came out, then the tables it sits on,
              then who changed what. -->
         <ResultSummary v-if="market" :market="market" />
-        <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
+        <ReadFailed v-if="errorMessage" name="tables" :message="errorMessage" @retry="loadTables" />
 
         <template v-if="tablesShown">
           <div v-if="isLoading" class="status-message">Loading tables…</div>
@@ -933,12 +926,6 @@ function swapSeats(withEmail: string): void {
   text-transform: uppercase;
   color: var(--mm-text-muted-on-beige);
   letter-spacing: 0.6px;
-}
-
-.error-text {
-  margin: 0 0 var(--space-3);
-  color: var(--mm-red);
-  font-size: var(--text-sm);
 }
 
 /*

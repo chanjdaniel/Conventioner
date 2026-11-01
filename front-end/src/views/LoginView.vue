@@ -1,13 +1,24 @@
 <script setup lang="ts">
 import axios from 'axios';
-import { ref, inject, nextTick } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, ref, inject, nextTick } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import AuthCard from '@/components/AuthCard.vue';
+import { SESSION_ENDED_MESSAGE } from '@/utils/api';
 import { executeRecaptcha } from '@/utils/captcha';
+import { safeNext } from '@/utils/signInNext';
 
 const hostname = import.meta.env.VITE_FLASK_HOST;
 
 const router = useRouter();
+const route = useRoute();
+
+/**
+ * Where a sign-in continues to (E38/F11/S01): the page a signed-out link or an ended session was
+ * on, when it is one of this app's, else the dashboard.
+ */
+const afterSignIn = computed(() => safeNext(route.query.next) ?? '/dashboard');
+/** Brought here by a session that ended mid-work, which is said rather than left to guess. */
+const sessionEnded = computed(() => route.query.ended === '1');
 
 // Mode: 'login' | 'register' | 'otp'
 type Mode = 'login' | 'register' | 'otp';
@@ -95,7 +106,7 @@ const submitLogin = async () => {
       const user_email = response.data.user_data.email;
       localStorage.setItem('user', JSON.stringify(user_email));
       setUser(user_email);
-      router.push('/dashboard');
+      router.push(afterSignIn.value);
     }
   } catch (_e: unknown) {
     const error = _e as {
@@ -265,7 +276,7 @@ const submitOTPLogin = async () => {
       const user_email = response.data.user_data.email;
       localStorage.setItem('user', JSON.stringify(user_email));
       setUser(user_email);
-      router.push('/dashboard');
+      router.push(afterSignIn.value);
     }
   } catch (_e: unknown) {
     const error = _e as {
@@ -286,6 +297,9 @@ const submitOTPLogin = async () => {
 
 <template>
   <AuthCard>
+    <p v-if="sessionEnded" class="session-ended" role="status" data-testid="login-session-ended">
+      {{ SESSION_ENDED_MESSAGE }}
+    </p>
     <!--
         A tab list, not a row of buttons (bug 44): the three ways in are announced as tabs of one
         set, the open one as selected, and the arrow keys move between them as on any tab list.
@@ -687,6 +701,16 @@ const submitOTPLogin = async () => {
   flex-grow: 1;
   outline: none;
   background: transparent;
+}
+
+/* Why they are here, before anything is asked of them: a fact, in the attention chip's tint. */
+.session-ended {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--mm-chip-attention);
+  color: var(--mm-black);
+  font-size: var(--text-sm);
 }
 
 /* Left-aligned with the form it belongs to. It was right-aligned against a left-aligned form,

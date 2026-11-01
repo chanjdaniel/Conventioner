@@ -239,4 +239,44 @@ describe('DashboardView, the first screen after signing in', () => {
       expect(localStorage.getItem('lastMarketId')).toBe('market-1');
     });
   });
+
+  /**
+   * A screen reader lands on the page's title and reads the outline under it: one `h1`, the
+   * remembered market's name one level under it, and buttons named by their words rather than by
+   * headings inside them (rereview finding 10).
+   */
+  describe('its outline', () => {
+    it('opens with one title, the dashboard', async () => {
+      const wrapper = await mountDashboard();
+
+      const titles = wrapper.findAll('h1');
+      expect(titles.map((h) => h.text())).toEqual(['Dashboard']);
+    });
+
+    it('heads the remembered market one level under the title', async () => {
+      browserRemembers(A_MARKET);
+      serverHas(A_MARKET);
+
+      const wrapper = await mountDashboard();
+
+      const name = wrapper.find('[data-testid="market-card-name"]');
+      expect(name.element.tagName).toBe('H2');
+    });
+
+    it('puts no heading inside a button', async () => {
+      browserRemembers(A_MARKET);
+      serverHas(A_MARKET);
+
+      const wrapper = await mountDashboard();
+
+      for (const testid of [
+        'dashboard-markets-button',
+        'dashboard-organizations-button',
+        'dashboard-sign-out-button',
+      ]) {
+        const button = wrapper.find(`[data-testid="${testid}"]`);
+        expect(button.find('h1, h2, h3, h4, h5, h6').exists(), testid).toBe(false);
+      }
+    });
+  });
 });

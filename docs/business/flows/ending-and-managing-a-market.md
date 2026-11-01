@@ -3,14 +3,14 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/ManageMarketOverlay.vue
-  - front-end/src/utils/peopleWithAccess.ts
-  - front-end/e2e/everyone-with-access.spec.ts
   - front-end/src/components/MarketPermissions.vue
   - front-end/src/components/PermissionRows.vue
   - front-end/src/components/PermissionChanges.vue
   - front-end/src/utils/permissionTable.ts
   - front-end/e2e/the-permissions-section.spec.ts
-verified: 2026-10-31
+  - front-end/src/utils/peopleWithAccess.ts
+  - front-end/e2e/everyone-with-access.spec.ts
+verified: 2026-11-01
 sources:
   - E20/F01/S03
   - E21/F03/S04

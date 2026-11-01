@@ -6,7 +6,7 @@ describes:
   - front-end/src/components/market/OpenApplicationsDialog.vue
   - front-end/src/utils/phase.ts
   - front-end/src/utils/useScrollsSideways.ts
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - wayfinding/claims-and-room/07
   - wayfinding/readable-journey/01
@@ -29,8 +29,8 @@ sources:
   - E38/F01/S01
   - E38/F07/S02
   - T142
-  - E38/F15/S04
   - E38/F15/S03
+  - E38/F15/S04
 ---
 
 # The phase rail

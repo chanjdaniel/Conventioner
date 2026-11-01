@@ -22,6 +22,7 @@ import MarketFrame from '@/components/MarketFrame.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
 import VendorNameButton from '@/components/VendorNameButton.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
+import ReadFailed from '@/components/ReadFailed.vue';
 import { useVendorDetails } from '@/utils/vendorDetails';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
 import { useVendorNotes } from '@/utils/vendorNotes';
@@ -52,6 +53,8 @@ const { market } = useOpenMarket(marketId);
 const dates = ref<string[]>([]);
 const roster = ref<RosterRow[]>([]);
 const errorMessage = ref('');
+/** The roster's own read that failed, which Try again reads once more (E38/F11/S01). */
+const readError = ref('');
 const isLoading = ref(false);
 const show = ref<Show>('all');
 const search = ref('');
@@ -134,7 +137,7 @@ function whoFor(row: RosterRow): string {
 }
 
 async function loadAttendance(): Promise<void> {
-  errorMessage.value = '';
+  readError.value = '';
   if (!marketId.value) return;
   isLoading.value = roster.value.length === 0;
   try {
@@ -144,7 +147,7 @@ async function loadAttendance(): Promise<void> {
     dates.value = data.dates ?? [];
     roster.value = data.roster ?? [];
   } catch (err: unknown) {
-    errorMessage.value = getApiErrorMessage(err, 'Attendance could not be loaded.');
+    readError.value = getApiErrorMessage(err, 'Attendance could not be loaded.');
   } finally {
     isLoading.value = false;
   }
@@ -189,10 +192,14 @@ watch(marketId, loadAttendance, { immediate: true });
 <template>
   <MarketFrame :market="market" @retry="loadAttendance">
     <div class="door">
+      <ReadFailed v-if="readError" name="attendance" :message="readError" @retry="loadAttendance" />
       <p v-if="errorMessage" class="door-error" role="alert">{{ errorMessage }}</p>
       <p v-if="isLoading" class="door-note">Loading…</p>
-      <p v-else-if="dates.length === 0" class="door-note">This market has no dates yet.</p>
-      <template v-else>
+      <!-- Said of a roster that was read: under a failed read there is nothing to say it of. -->
+      <p v-else-if="dates.length === 0 && !readError" class="door-note">
+        This market has no dates yet.
+      </p>
+      <template v-else-if="dates.length">
         <nav class="door-dates" aria-label="Market date">
           <button
             v-for="date in dates"
