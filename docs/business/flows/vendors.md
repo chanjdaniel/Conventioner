@@ -24,16 +24,16 @@ sources:
   - E42/F01/S01
   - E42/F01/S02
   - E42/F01/S03
+  - E42/F01/S04
   - E41/F01/S01
   - E38/F08/S02
   - T139
   - E46/F01/S03
   - E43/F01/S03
-  - E46/F01/S04
-  - E42/F01/S04
   - E46/F01/S05
   - T137
   - E42/F01/S05
+  - E46/F01/S04
 ---
 
 # Vendors
@@ -79,7 +79,7 @@ For a Google Sheet and a mail merge such as YAMM: any of the market's vendors, f
 
 1. "Export", beside the show-only choices, opens "Export vendors" ([`ExportVendorsDialog.vue`](../../../front-end/src/components/ExportVendorsDialog.vue)) on what the page shows ([`vendorsPageSeed`](../../../front-end/src/utils/vendorExport.ts)): "Unassigned only" as the approved and added vendors not assigned, on the page's date when one is chosen; "Rejected only" as the rejected; the page's date, section, tier and table size as the vendors assigned there; the page's Discord state as the vendors in it; and the search.
    The Applications tab's All view opens the same dialog on its status filter and Mine ([the All view](review.md#the-all-view), `applicationsAllSeed`).
-2. Every filter is shown and may be changed: the name or email searched; the status, any of Open, Needs follow-up, Approved, Rejected and Added by hand, none ticked being any; "Mine: the follow-ups I own", the follow-ups whose owner is the one exporting, as the server reads who asks; assigned or not ("Assigned", "Assigned or not", "Not assigned"), on any date or on one; for the assigned, the seat's section, tier and size; "Payment", one of "Paid or not", "Owes", "Paid in full" and "Paid more than owed", as the vendor's Payment tab reads what they paid against what they owe ([payments](../../implementation/data/payments.md)), a vendor owing nothing and having paid nothing being none of the three; once a Discord check has run, the Discord state as the Vendors page shows it, any of Has the role, In the server, Possible match, Not found, No username and Check again, none ticked being any; and the options of each of the form's choice questions, any of which the vendor chose.
+2. Every filter is shown and may be changed: the name or email searched; the status, any of Open, Needs follow-up, Approved, Rejected and Added by hand, none ticked being any; "Mine: the follow-ups I own", the follow-ups whose owner is the one exporting, as the server reads who asks; assigned or not ("Assigned", "Assigned or not", "Not assigned"), on any date or on one; for the assigned, the seat's section, tier and size; "Payment", one of "Paid or not", "Owes", "Paid in full" and "Paid more than owed", as the vendor's Payment tab reads what they paid against what they owe ([payments](../../implementation/data/payments.md)), a vendor owing nothing and having paid nothing being none of the three, and on a market with no prices offered only where some vendor owes, by an amount set by hand or a refund beyond what they paid, since an account owing nothing there is otherwise in none of them, as the Payments page offers its filters; once a Discord check has run, the Discord state as the Vendors page shows it, any of Has the role, In the server, Possible match, Not found, No username and Check again, none ticked being any; and the options of each of the form's choice questions, any of which the vendor chose.
    The two differ in shape on purpose: a vendor's payment is one state, so "Payment" is one choice, while the Discord states are ticked as Status is, so "Not found or No username" is one export.
 3. The columns are ticked under five headings: "Vendor" (Name, the full name; Preferred name; Email; Status), "Answers" (each of the form's own questions), "Assignment", "Payment" and "Discord", each heading left out when it has no column.
    Name, Email and Status are ticked to begin with.
@@ -100,7 +100,7 @@ Every cell but an amount is written so a spreadsheet shows it as text: one begin
 An amount is the server's own, written from whole cents, so it is left as it is: "-$15" reaches the spreadsheet as the number it is, where the quote would make it text and show.
 Where a minus would lead a currency's letters, as "-A$15", "-US$15" or "-NZ$15" would, each a minus and a cell reference that Excel evaluates, the amount is written with the minus sign "−" (U+2212) instead, which no spreadsheet reads as a formula.
 No column set is saved between exports yet.
-Covered by: `exporting-vendors.spec.ts`, `exporting-placements-by-date.spec.ts`, `exporting-from-the-applications-tab.spec.ts`, `exporting-a-payment-reminder.spec.ts` ("Owes" gives exactly the vendors whose Payment tab reads "Owes", with what it says they owe), `exporting-discord-columns.spec.ts` ("Not found" gives exactly the vendors the Vendors page shows as not found), `back-end/tests/test_exporting_vendors.py`, `back-end/tests/test_the_exports_money_columns.py`, `exportingVendors.test.ts`.
+Covered by: `exporting-vendors.spec.ts`, `exporting-placements-by-date.spec.ts`, `exporting-from-the-applications-tab.spec.ts`, `exporting-a-payment-reminder.spec.ts` ("Owes" gives exactly the vendors whose Payment tab reads "Owes", with what it says they owe, and the Payments page's "Owes" list), `exporting-discord-columns.spec.ts` ("Not found" gives exactly the vendors the Vendors page shows as not found), `back-end/tests/test_exporting_vendors.py`, `back-end/tests/test_the_exports_money_columns.py`, `exportingVendors.test.ts`.
 
 ## J16. See who is in the Discord server
 

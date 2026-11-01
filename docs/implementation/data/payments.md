@@ -18,12 +18,14 @@ describes:
   - back-end/app.py#use_calculated_price
   - back-end/app.py#edit_payment
   - back-end/app.py#remove_payment
+  - back-end/app.py#get_market_payments
 verified: 2026-11-01
 sources:
   - T92
   - E44/F01/S01
   - E44/F01/S02
   - E42/F01/S04
+  - E44/F02/S01
 ---
 
 # Payments, and what a vendor owes
@@ -84,6 +86,12 @@ Both collections are indexed on `market_id, vendor_email` ([lookup indexes](look
 
 Every route is in [`back-end/app.py`](../../../back-end/app.py) (`get_vendor_account`, `record_payment`, `record_refund`, `set_amount_owed`, `use_calculated_price`, `edit_payment`, `remove_payment`), and every write answers the vendor's account as it now reads.
 
+- `GET /markets/:id/payments` (`market_payments`) answers [the Payments page](../../business/flows/payments.md): `currency`; `vendors`, each vendor with a line or any entry, by address, with `owedCents` and `paidCents` as their own account reads them and `balanceState`, their `balance_state` (below), which the page's lists read; `totals`, `byTier` and `byDate`, each `owedCents`, `paidCents`, `stillOwedCents` and `paidMoreCents`.
+  Its accounts are `accounts` (below), the same `lines` and `account` the drawer's tab reads, so the page, the tab and the export never disagree on what a vendor owes, paid or is.
+  `market_summary` in `payments.py` shares what each vendor paid across their lines by what each owes, evenly where they owe nothing, to the cent by largest remainder (`shares`), so a vendor's lines are all owing or all paid more, and each breakdown adds up to `totals`, which are each vendor's figures summed; a vendor with no line puts what they paid under a `tier` and `date` of null, last, unless it comes to nothing (a payment removed), which adds no row.
+  It sums by the rule the states are read by (`compares`, below): what an account that compares with nothing paid counts toward `paidCents` but never toward `paidMoreCents`, in `totals` or any share of them (T153 review finding 12), so on a market with no prices `paidCents` less `owedCents` need not equal `paidMoreCents` less `stillOwedCents`.
+  Tiers come in the market's order, a tier it no longer has after them; dates in order.
+  It asks the table's Read row.
 - `GET /markets/:id/payments/:email` (`vendor_account`) answers one vendor's account: `currency` (null on a market that sets no prices), `lines` (each `date`, `tableCode`, `tier`, `tableChoice`, `group`, `priceCents`, `owedCents`, `owedSetBy`, `owedSetAt`, `owedByFree`, `freed`, and `freedAt` and `freedBy` for a freed seat), `payments` (the last recorded first), `owedCents` and `paidCents`; an unpriced line owes nothing toward the total.
   It asks the table's Read row: anyone with a role reads it.
 - `POST /markets/:id/payments/:email` (`record_payment`), body `{cents, method, paidOn, note}`, records one payment and answers the account as it now reads.
@@ -93,21 +101,27 @@ Every route is in [`back-end/app.py`](../../../back-end/app.py) (`get_vendor_acc
 - Each write is recorded in [the market's history](history.md): a payment under `record-payment`; an amount owed set, a free's deduction included, or set back to the calculated price under `change-owed`, subject `{date, currency}`, the line's `owed_cents` before and after; a refund, an edit or a removal under `adjust-paid`, subject `{payment_id, payment_kind, currency}`, the entry's fields before and after; `payment_kind` (`payment` or `refund`, on `record-payment` too) words an edit that changed no amount.
   Each names the vendor, so it reads in their drawer's History tab as in Manage market's ([reading the market's history](../../business/flows/reading-the-markets-history.md)), worded by `marketHistory.ts` ("… recorded a payment of $50 from Alice Example", "… set what Alice Example owes on May 8, 2099 to $0", "… recorded a refund of $15 to Alice Example"), opening to its fields in the Payment tab's words and money.
 
-`accounts` in `back-end/api/payments.py` answers every vendor's account on the market at once, by address, each as `vendor_account` answers it, for every vendor with a seat, a kept line or an entry, from one read of each collection (`amounts_owed_by_vendor`, `payments_by_vendor`); its caller has asked the table already.
-The vendor export reads it for its money columns and its payment filter ([J15, export the vendors](../../business/flows/vendors.md#j15-export-the-vendors-to-a-csv)), and only when one is asked for.
+`accounts` in `back-end/api/payments.py` answers every vendor's account on the market at once, by address, each as `vendor_account` answers it, for every vendor with a seat, a kept line or an entry, from one read of each collection (`amounts_owed_by_vendor`, `payments_by_vendor`), a record with no address being nobody's; its caller has asked the table already.
+The vendor export reads it for its money columns and its payment filter ([J15, export the vendors](../../business/flows/vendors.md#j15-export-the-vendors-to-a-csv)), and only when one is asked for; `market_payments` reads it for the Payments page.
 `balance_state` in `back-end/payments.py` reads an account as the tab does: `owes` while the amount owed is above the amount paid, `over` below it, `paid` when they are equal and something is owed, and none for nothing owed and nothing paid (`BALANCE_STATES` holds the words, "Owes", "Paid in full", "Paid more than owed").
+On a market with no prices (`currency` null) an account owing nothing is in none, whatever was paid, since a payment there is not "more than owed" (T153 review finding 8); one owing an amount set by hand reads as anywhere, since the reading follows the account, not the market (finding 10), and so does one owing nothing whose amount paid is below nothing (a refund beyond what was paid), which owes it back (finding 14); `compares` in the same file is that rule, which `market_summary` sums by too, and `compares` in `front-end/src/utils/payments.ts` its twin, which `balanceText`, `balanceChip` and `owingCounted` read.
+`_offers_payment_states` in `back-end/api/vendor_export.py` says whether anyone may be in a state: always where the market sets prices, and where it sets none only where some account `compares`; where it says no, the export's preview offers no payment state and `_build` drops a `payment` filter sent anyway, as the Payments page ignores one in its address (`owingCounted` in `front-end/src/utils/paymentsPage.ts`).
+It is the one reading of who owes: the export's payment filter and the Payments page's lists both read it (`vendorShownIn` in `front-end/src/utils/paymentsPage.ts`, whose filters' ids are its own), while `balanceState` in `front-end/src/utils/payments.ts` only tones a chip.
 An amount in the file is `money_cell` in `back-end/api/vendor_export.py`: `money_text` in `back-end/pricing.py`, the tab's own writing ("$35", "$15.01", "-$15"), except that a minus leading a currency's letters ("-A$15", a cell reference to a spreadsheet) is the minus sign U+2212.
 
-The front end words the account in [`front-end/src/utils/payments.ts`](../../../front-end/src/utils/payments.ts) ("Owes $27", "Paid in full", "Paid $15 more than owed", "Nothing owed") and shows it in [`VendorPaymentTab.vue`](../../../front-end/src/components/VendorPaymentTab.vue).
+The front end words the account in [`front-end/src/utils/payments.ts`](../../../front-end/src/utils/payments.ts) ("Owes $27", "Paid in full", "Paid $15 more than owed", "Nothing owed"; on a market with no prices a payment by someone owing nothing reads "Paid $35"), tones its chip with `balanceChip` for the tab and the Payments page alike, and shows it in [`VendorPaymentTab.vue`](../../../front-end/src/components/VendorPaymentTab.vue).
 A payment, a refund and an edit go through [`RecordPaymentDialog.vue`](../../../front-end/src/components/RecordPaymentDialog.vue), an amount owed through [`ChangeOwedDialog.vue`](../../../front-end/src/components/ChangeOwedDialog.vue), which says the change before Save, and "Use the calculated price" and a removal through a confirmation; each line's and each entry's actions sit behind a "..." menu ([`RowMenu.vue`](../../../front-end/src/components/RowMenu.vue)), offered on its row's answer.
 
 ## How it is tested
 
 - `back-end/tests/test_a_vendors_payments.py`: $70 for two Gold full days, the half share, a seat moved from Gold to Silver, an amount set by hand that stays, a freed day's line kept with neither amount changed, every refusal of a payment, who may record, the history entry, and deletion with the market.
+- `back-end/tests/test_the_payments_page.py`: the page's vendors as their tabs read, its totals against the sum of the tabs, the sharing by tier and by date to the cent, a vendor owing nothing, a vendor with no table whose payment was removed adding no row, a market with no prices (nobody owing in a payment state, an amount set by hand reading as anywhere, the figures summed by the account rule, a refund beyond what was paid owed back) or nobody, and who may read it.
 - `back-end/tests/test_changing_owed_and_paid.py`: an amount set to $0 and taken back, each recorded, and every change in the vendor's own history read; a free ticked and unticked; a refund that squares the account; an edit and a removal with the entry's own history; an Editor refused every one of them, and the deduction before anything is freed.
-- `back-end/tests/test_the_exports_money_columns.py`: `accounts` answers each vendor as `vendor_account` does, `balance_state` sorts five vendors into owing, paid in full, paid more and none, `money_text` writes every offered currency as the screen does, and `money_cell` writes no amount a spreadsheet reads as a formula.
+- `back-end/tests/test_the_exports_money_columns.py`: `accounts` answers each vendor as `vendor_account` does, `balance_state` sorts five vendors into owing, paid in full, paid more and none, a market with no prices offers no payment state and ignores a payment filter where nobody owes, and offers and applies them where an amount was set by hand or a refund went beyond what was paid, `money_text` writes every offered currency as the screen does, and `money_cell` writes no amount a spreadsheet reads as a formula.
 - `front-end/src/__tests__/payments.test.ts`, `vendorPaymentTab.test.ts` and `placementDialog.test.ts` (the question, unticked).
 - `front-end/e2e/the-payment-tab.spec.ts`: two Gold full days owe $70, $35 reads "Owes $35", $35 more "Paid in full", a freed day keeps its line; a Viewer reads the tab with no "Record payment".
   `changing-owed-and-paid.spec.ts`: an Admin sets a $35 line to $0 and back; frees a paid $15 seat ticked, reads "Paid $15 more than owed", records a $15 refund and reads "Paid in full", and finds each change in the drawer's History with who and when; unticked, the line stays $15 owed.
   An Editor freeing the owed seat is asked nothing, its page never reads the account (`mayTake(ChangeOwed)` in `ResultView.vue`), and the line stays $15 owed.
+  `exporting-a-payment-reminder.spec.ts` checks the export's "Owes" against the Payments page's "Owes" list too.
+  `the-payments-page.spec.ts`: the Payments page's totals against the sum of three vendors' tabs, each filter and the sort kept by a reload, and a payment recorded in the drawer read on the page again.
   `market-records-go-with-it.spec.ts` finds no payment or amount owed left after a market is deleted.

@@ -238,6 +238,13 @@ class TestTheMoneyColumns:
         assert got[ANA] == ["'+1 604 555 0100", "$70"]
 
 
+def _nobody_owes_without_prices(market):
+    """The market sets no prices, and Eve's freed line, kept while it had them, is waived, so
+    nobody owes anything."""
+    market.doc["setupObject"]["pricing"] = None
+    Payments.set_amount_owed(MARKET, EVE, SAT, 0, "admin@example.com")
+
+
 class TestThePaymentFilter:
     @pytest.mark.parametrize("state, emails", [
         ("owes", {ANA, EVE}),
@@ -268,6 +275,64 @@ class TestThePaymentFilter:
             {"id": "owes", "label": "Owes"}, {"id": "paid", "label": "Paid in full"},
             {"id": "over", "label": "Paid more than owed"}]
         assert offered["count"] == 1
+
+    def test_a_market_with_no_prices_offers_no_payment_state(self, market):
+        # On it everyone who paid would be "Paid more than owed", the list the Payments page
+        # offers no filter for there (finding 8).
+        _nobody_owes_without_prices(market)
+
+        offered, _ = VendorExport.preview(MARKET, {"filters": {}}, EDITOR)
+
+        assert offered["offered"]["paymentStates"] == []
+
+    @pytest.mark.parametrize("state", ["owes", "paid", "over"])
+    def test_a_market_with_no_prices_ignores_a_payment_filter(self, market, state):
+        # As the Payments page ignores a filter in its address there: it narrows nothing.
+        _nobody_owes_without_prices(market)
+
+        assert set(_by_email(_export({"payment": state}))) == {ANA, BEN, CY, DEE, EVE}
+
+    def test_an_amount_set_by_hand_on_a_market_with_no_prices_offers_the_states(self, market):
+        # The reading follows the account (finding 10): Ana set to owe $20 by hand owes it.
+        market.doc["setupObject"]["pricing"] = None
+        Payments.set_amount_owed(MARKET, ANA, SAT, 2000, "admin@example.com")
+
+        offered, _ = VendorExport.preview(MARKET, {"filters": {}}, EDITOR)
+
+        assert [state["id"] for state in offered["offered"]["paymentStates"]] == [
+            "owes", "paid", "over"]
+
+    @pytest.mark.parametrize("state, emails", [
+        ("owes", {ANA, EVE}), ("over", set()), ("paid", set())])
+    def test_a_market_with_no_prices_filters_by_an_amount_set_by_hand(self, market, state, emails):
+        # Ana owes $20 set by hand and paid nothing, and Eve's freed line, kept while the market
+        # had prices, still owes $35 of which she paid $10; everyone else owes nothing, so is in no
+        # state, whatever they paid.
+        market.doc["setupObject"]["pricing"] = None
+        Payments.set_amount_owed(MARKET, ANA, SAT, 2000, "admin@example.com")
+
+        assert set(_by_email(_export({"payment": state}))) == emails
+
+    def test_a_refund_beyond_what_was_paid_on_a_market_with_no_prices_owes(self, market):
+        # A negative net paid is money owed back to the market (T153 review finding 14): Cy,
+        # owing nothing there, paid $30 and was refunded $45, so his row reads "Owes $15" and he
+        # is on the payment reminder beside Ana, owing $20 by hand, and Eve's kept line.
+        market.doc["setupObject"]["pricing"] = None
+        Payments.set_amount_owed(MARKET, ANA, SAT, 2000, "admin@example.com")
+        _pay(CY, 4500, Payments.REFUND)
+
+        assert set(_by_email(_export({"payment": "owes"}))) == {ANA, CY, EVE}
+        assert _by_email(_export({"payment": "owes"}))[CY] == ["$0", "-$15", "$15"]
+
+    def test_a_refund_beyond_what_was_paid_offers_the_states_where_nobody_else_owes(self, market):
+        _nobody_owes_without_prices(market)
+        _pay(CY, 4500, Payments.REFUND)
+
+        offered, _ = VendorExport.preview(MARKET, {"filters": {}}, EDITOR)
+
+        assert [state["id"] for state in offered["offered"]["paymentStates"]] == [
+            "owes", "paid", "over"]
+        assert set(_by_email(_export({"payment": "owes"}))) == {CY}
 
     def test_a_state_the_dialog_could_not_have_sent_is_refused(self, market):
         with pytest.raises(BadRequestError):

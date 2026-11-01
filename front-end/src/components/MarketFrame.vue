@@ -33,6 +33,7 @@ import MarketBar from '@/components/MarketBar.vue';
 import MarketPages from '@/components/MarketPages.vue';
 import PhaseRail from '@/components/PhaseRail.vue';
 import { useMarketStore } from '@/stores/market';
+import { fitsAPhone } from '@/utils/fitsAPhone';
 import { tabNote } from '@/utils/marketGuide';
 import { MARKET_PAGES, pageOfRoute, tabOf, type MarketPage } from '@/utils/marketPage';
 
@@ -75,6 +76,14 @@ const readOnlyNote = computed(() =>
     : null,
 );
 
+/**
+ * Whether this screen lays out for a phone in a phone-sized window. One that keeps the desktop floor
+ * is a desk's layout scrolled sideways there, so the frame's own content keeps the desk's inset, on
+ * one line with the page's: the page row's labels and the read-only note stood on the phone's 16px
+ * gutter at 390, 8px left of the page's notes and titles (E44/F02/S01).
+ */
+const onAPhoneLayout = computed(() => fitsAPhone(route));
+
 function retry(): void {
   void store.refresh();
   emit('retry');
@@ -112,7 +121,7 @@ onBeforeUnmount(() => observer?.disconnect());
 </script>
 
 <template>
-  <div class="market-frame-page">
+  <div class="market-frame-page" :class="{ 'market-fits-a-phone': onAPhoneLayout }">
     <div ref="card" class="market-frame-card" data-testid="market-frame-card">
       <div ref="frame" class="market-frame" data-testid="market-frame">
         <!-- The market's name and its tabs, the same on every market page (E22/F04/S02). While the
@@ -124,8 +133,8 @@ onBeforeUnmount(() => observer?.disconnect());
         />
         <template v-if="market">
           <PhaseRail :market="market" :beforeTransition="beforeTransition" />
-          <!-- The open tab's pages, when it has more than one: Settings, Assignments, Vendors
-               (E22/F04/S03). -->
+          <!-- The open tab's pages, when it has more than one: Settings, Assignments, Vendors and
+               Payments (E22/F04/S03; E44/F02/S01). -->
           <MarketPages :market="market" />
           <!-- A screen's own control that must stay in view too, such as the vendor search. Pinned
                with the frame rather than sticking on its own, because it could only guess the
@@ -186,13 +195,14 @@ onBeforeUnmount(() => observer?.disconnect());
   color: var(--mm-text-muted);
 }
 
-/* Inset as a page insets its content, so the note lines up with what it explains. */
+/* Inset as a page insets its content, so the note lines up with what it explains: the phone's gutter
+   only where the page takes it too, on a screen that fits a phone. */
 .market-read-only {
   margin: var(--space-6) var(--space-6) 0;
 }
 
 @media (width <= 640px) {
-  .market-read-only {
+  .market-fits-a-phone .market-read-only {
     margin: var(--space-4) var(--space-4) 0;
   }
 }

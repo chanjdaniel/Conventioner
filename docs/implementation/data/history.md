@@ -6,6 +6,7 @@ describes:
   - back-end/api/markets.py#get_placement_history
   - back-end/api/markets.py#get_history
   - front-end/src/utils/marketHistory.ts
+  - front-end/src/utils/historyReaders/
   - back-end/tests/test_reading_the_history.py
   - back-end/api/markets.py#get_permission_history
   - back-end/migrations/migrate_placement_history.py
@@ -80,52 +81,205 @@ A swap is one entry too, because it was one action.
 
 ## What each write records
 
-The kinds are constants in `history.py`; a dash is an empty list or subject.
+The kinds are constants in `history.py`; a kind with no Vendors or Subject line has an empty list or subject.
+One block per action, in the order of [the actions table](../modules/market-actions.md#each-routes-row), then the history's own `apply`; a new kind is one item at the end of its action's block, and a new action a block in its row's place ([two features never share a line](../conventions/two-features-never-share-a-line.md#the-markets-history)).
 
-| Action | Kind | The write | Vendors | Subject | Detail |
-| --- | --- | --- | --- | --- | --- |
-| `change-setup` | `renamed` | renaming a draft | - | - | `name` |
-| `change-setup` | `plan` | a Market Setup card, or the intake mode (`PUT /markets/:id/plan`) | - | - | whichever of `market_dates`, `tiers`, `locations`, `sections`, `floorplans` and `intake_mode` changed |
-| `change-setup` | `pricing` | the Pricing card, in the same plan write ([a price follows the table](../../business/rules/a-price-follows-the-table.md)) | - | `currency`, the market's, so the prices can be written in it | whichever of `currency`, `half_table_percent`, `groups` (each `{name, conditions, prices}`, the whole list) and `everyone_else` (each tier's `{tier, cents}`) changed; a market never priced is the card's defaults before (CAD, 50, no group, no price), so its first price records only the prices typed |
-| `change-setup` | `floorplan` | saving a floorplan to the market | - | `floorplan_id` | whichever of `sections`, `locations` and `floorplan_ids` changed |
-| `change-setup` | `floorplan_image_deleted` | deleting a floorplan image | - | `image_id` | `image_id`, then null |
-| `change-form` | `form` | the form builder | - | - | the changed questions by key, null on the side where a question is absent, and `order` and `unasked_essentials` when they changed; and `rejected`, `returned`: what the rules decided as the form landed |
-| `change-form` | `review_highlights` | the [review highlights](../../business/rules/review-highlights.md) | - | - | `review_highlights` |
-| `change-form` | `rejection_rules` | the [automatic rejections](../../business/rules/automatic-rejections.md) | - | - | `rejection_rules`, and `rejected`, `returned`: how many applications the rules rejected, and returned to undecided, as they were saved |
-| `import-applications` | `imported` | an import, one entry however many rows; a draft's first import, which takes the market into Review, records that move too, as `move-phase` under the importer | - | - | `row_count`, `created`, `updated`, `unchanged`, `skipped`, `returned_to_review`, `rejected_by_rules`, `returned_by_rules` |
-| `import-applications` | `started` | the start from a CSV | - | - | `row_count`, `column_count`, `question_count` |
-| `give-verdicts` | `verdict` | one verdict, or a follow-up, on an application not yet approved or rejected | the applicant | `application_id` | `status`, and `follow_up_owner` (an address) while there is one; and `dealt_to`, the address of the reviewer it was dealt to, when it has one ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)) |
-| `change-verdicts` | `verdict` | one verdict, or a follow-up, on an application already approved or rejected, a rule's rejection included (E38/F06/S01) | the applicant | `application_id` | as above |
-| `give-verdicts` | `verdicts` | a selection's verdict, one entry; `change-verdicts` when any application it wrote was already approved or rejected | each applicant decided | `application_ids` | by application id, its `status`, and its `follow_up_owner` while there is one, before and after; and `dealt_to` by application id for those that have a reviewer |
-| `give-verdicts` | `verdict_undone` | its giver taking back their own verdict, or follow-up, within the window ([what each role may do](../../business/rules/what-each-role-may-do.md#why), E38/F10/S01); the verdict keeps its own entry | the applicant | `application_id` | as a verdict: `status`, and `follow_up_owner` while there is one, before and after, and `dealt_to` |
-| `give-verdicts` | `verdicts_undone` | a selection's verdict taken back, one entry for what it undid | each applicant undone | `application_ids` | as a selection's verdict |
-| `give-verdicts` | `follow_up_owner` | handing a follow-up on | the applicant | `application_id` | `follow_up_owner` |
-| `choose-reviewers` | `reviewers` | [choosing or changing the reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md), only when the set changed | - | - | `reviewers`: their addresses, in the order they are dealt to |
-| `choose-reviewers` | `dealt` | the deal a change of reviewers made, one entry, only when it moved any application | each applicant dealt, in the order of `application_ids` | `application_ids` | `cause: reviewers_changed`; by application id, its `reviewer` (an address, null when undealt), and a removed reviewer's follow-up's `follow_up_owner` beside it, before and after |
-| `apply`, `import-applications`, `change-form`, `update-vendor-info` | `dealt` | the arrivals a write dealt, after that write's own entry, one entry per write and only when it dealt any: an applicant's save (the applicant its actor, their own application alone), an import, and saving the rules or the form, or updating a vendor's info, when the rules returned an application to open | each applicant dealt, in the order of `application_ids` | `application_ids` | `cause: arrived`; by application id, its `reviewer` before (null) and after |
-| `move-phase` | null | a phase move, by whoever made it | - | - | `phase`, and `swept` on the move from offers to market days: how many unanswered offers it turned to refusals; the [phase record](../modules/phase-record.md) stays the state the guards read |
-| `stop-applications` | null | [stopping applications, or taking them again](../../business/flows/taking-applications.md), only when it changed whether they are taken | - | - | `applications_stopped` |
-| `publish-results` | null | [publishing results](../../business/rules/publish-results-waits-for-the-allocation.md) | - | - | `results_published` |
-| `add-vendor` | null | [adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md) | the vendor | `application_id` | `name`, `status` and `answers`, the price answers given as `{question key: answer}`, null before |
-| `update-vendor-info` | null, or `kept` when the save only kept updates | [updating a vendor's info](../../business/rules/an-update-is-kept-beside-the-vendors-answer.md), one entry however many answers | the vendor | `application_id` | the answers it changed by form field key, an essential one by its stored key (the table-share answer's words and the addresses read out of them), as the organizer read them before and after; `kept`, the updates saved as they stood over an answer the vendor changed since, by key with their value; `matched`, the updates taken away because the answer the vendor changed to is the update itself, by key with that value; and `rejected_by_rules`, `returned_by_rules`, as for `apply` |
-| `write-vendor-notes` | `note` | the organizer's [note](../../business/rules/vendor-notes.md) | the vendor | - | `note` |
-| `write-vendor-notes` | `request_handled` | marking a request handled, or not | the vendor | - | `handled` |
-| `assign` | `placed`, `freed`, `swapped`, `assigned` | a placement, a freed seat, a swap, a run | as above | the table-day | as above, `placed` with the seat left as `before` |
-| `assign` | `rules` | the assignment rules, which ride in the plan | - | - | `priority` or `assignment_options` |
-| `assign` | `owed_taken_back` | a day seated again, by hand or by a run, taking back the $0 a free's deduction set ([payments](payments.md)), by whoever seated them | the vendor | `date`, `currency` | `owed_cents`: the $0 taken back, then what the day owes now |
-| `record-payment` | null | [recording a vendor's payment](payments.md) | the vendor | `payment_id`, `payment_kind` (`payment`), and the market's `currency` (null on a market never priced), which its money reads in | `cents`, `method`, `paid_on` and `note` (when there is one), null before |
-| `change-owed` | `owed_set`, `owed_calculated` | setting a table-day's amount owed, a free's deduction included, or using the calculated price again, only when it changed what the day owes | the vendor | `date`, `currency` | `owed_cents` |
-| `adjust-paid` | `refund_recorded`, `payment_edited`, `payment_removed` | a refund, or an edit or a removal of an entry | the vendor | `payment_id`, `payment_kind` (`payment` or `refund`, so an edit that changed no amount still says which), `currency` | the entry's `cents` (negative for a refund), `method`, `paid_on` and `note` that changed: null before for a refund, null after for a removal |
-| `check-in` | `checked_in`, `check_in_undone` | a check-in or its undo, at the organizer's door or the public check-in page, only when it changed whether the vendor is here | the vendor | `date` | `checked_in`, and `via: check_in_page` from the public page, whose actor is null |
-| `connect-discord` | `discord_connected`, `discord`, `discord_disconnected` | [the Discord card](../modules/discord.md): connecting, a choice, disconnecting | - | - | whichever of `guild_id`, `guild_name`, `role_id`, `role_name`, `username_question`, `username_question_label` (the question's label on the form then, null when none) and `invite_link` changed; the history reads the names and the label, never an id or the key |
-| `connect-discord` | `discord_checked` | ["Check Discord"](../modules/discord.md#who-is-in-the-server), one entry a check, even one that changed nobody | each vendor whose state it changed, in the order of `application_ids` | `application_ids` | by application id, each changed vendor's state (`has_role`, `in_server`, `not_found`, `no_username`) before, null when never checked, and after; `addresses`, each changed vendor's address by application id, since `vendors` leaves out an empty one and so does not pair with the ids by position; and `counts`, how many it found in each state |
-| `connect-discord` | `discord_roles_given` | ["Give roles"](../modules/discord.md#giving-the-role), one entry a run, even one that gave nobody the role | each vendor it gave the role or whose state it changed, in the order of `application_ids` | `application_ids` | `role_name`, the role by its name then; `given`, the application ids it gave the role; by application id, each named vendor's state before and after, and `addresses`, as a check's; and `counts`, how many assigned vendors ended in each outcome (`given`, `already_had`, `not_found`, `no_username`, `not_yet`, `failed`) |
-| `update-vendor-info` | `discord_match_declined` | ["Not them"](../modules/discord.md#possible-matches): a member a check offered as a vendor's possible match, said not to be them; confirming one is the update of their answer, recorded as above | the vendor | `application_id` | the member's `username`, `display_name` and `nick` (each null when none), and the `answer` it was offered for; no before or after, since the vendor's answers are unchanged |
-| `manage-editors-and-viewers`, or `manage-admins` when an Admin or Owner role is either side | `role_given`, `role_changed`, `role_taken` | Manage market's people | - | `user_id`, `email` | `role` |
-| `change-the-table` | `permission_set`, `permission_reset` | the market's owner setting a row of [its table](../modules/market-actions.md#a-markets-own-rows), or returning it to its built-in default | - | `action`: the row | `role` and `source` (`built-in`, `organization` or `market`), both always, so a reset that keeps the role still says it |
-| `change-the-table` | `permission_table_reset` | the market's owner returning every row it holds to its built-in default, one entry for the one act | - | - | by row id, every row it returned, each its `role` and `source` before and after |
-| `change-the-table` | `permission_table_copied` | the market's owner copying its organization's default again, one entry for the one act | - | - | by row id, every row it changed, each its `role` and `source` before and after |
-| `apply` | `submitted`, `edited` | an applicant's own application ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md)) | the applicant | `application_id` | the answers that changed, with their values; `rejected_by_rules` and `returned_by_rules`: whether the rules rejected it, or returned it to undecided, as it landed |
+**`change-setup`**
+
+- `renamed`: renaming a draft
+  - Detail: `name`
+- `plan`: a Market Setup card, or the intake mode (`PUT /markets/:id/plan`)
+  - Detail: whichever of `market_dates`, `tiers`, `locations`, `sections`, `floorplans` and `intake_mode` changed
+- `pricing`: the Pricing card, in the same plan write ([a price follows the table](../../business/rules/a-price-follows-the-table.md))
+  - Subject: `currency`, the market's, so the prices can be written in it
+  - Detail: whichever of `currency`, `half_table_percent`, `groups` (each `{name, conditions, prices}`, the whole list) and `everyone_else` (each tier's `{tier, cents}`) changed; a market never priced is the card's defaults before (CAD, 50, no group, no price), so its first price records only the prices typed
+- `floorplan`: saving a floorplan to the market
+  - Subject: `floorplan_id`
+  - Detail: whichever of `sections`, `locations` and `floorplan_ids` changed
+- `floorplan_image_deleted`: deleting a floorplan image
+  - Subject: `image_id`
+  - Detail: `image_id`, then null
+
+**`change-form`**
+
+- `form`: the form builder
+  - Detail: the changed questions by key, null on the side where a question is absent, and `order` and `unasked_essentials` when they changed; and `rejected`, `returned`: what the rules decided as the form landed
+- `review_highlights`: the [review highlights](../../business/rules/review-highlights.md)
+  - Detail: `review_highlights`
+- `rejection_rules`: the [automatic rejections](../../business/rules/automatic-rejections.md)
+  - Detail: `rejection_rules`, and `rejected`, `returned`: how many applications the rules rejected, and returned to undecided, as they were saved
+
+**`import-applications`**
+
+- `imported`: an import, one entry however many rows; a draft's first import, which takes the market into Review, records that move too, as `move-phase` under the importer
+  - Detail: `row_count`, `created`, `updated`, `unchanged`, `skipped`, `returned_to_review`, `rejected_by_rules`, `returned_by_rules`
+- `started`: the start from a CSV
+  - Detail: `row_count`, `column_count`, `question_count`
+
+**`give-verdicts`**
+
+- `verdict`: one verdict, or a follow-up, on an application not yet approved or rejected
+  - Vendors: the applicant
+  - Subject: `application_id`
+  - Detail: `status`, and `follow_up_owner` (an address) while there is one; and `dealt_to`, the address of the reviewer it was dealt to, when it has one ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md))
+- `verdicts`: a selection's verdict, one entry; `change-verdicts` when any application it wrote was already approved or rejected
+  - Vendors: each applicant decided
+  - Subject: `application_ids`
+  - Detail: by application id, its `status`, and its `follow_up_owner` while there is one, before and after; and `dealt_to` by application id for those that have a reviewer
+- `verdict_undone`: its giver taking back their own verdict, or follow-up, within the window ([what each role may do](../../business/rules/what-each-role-may-do.md#why), E38/F10/S01); the verdict keeps its own entry
+  - Vendors: the applicant
+  - Subject: `application_id`
+  - Detail: as a verdict: `status`, and `follow_up_owner` while there is one, before and after, and `dealt_to`
+- `verdicts_undone`: a selection's verdict taken back, one entry for what it undid
+  - Vendors: each applicant undone
+  - Subject: `application_ids`
+  - Detail: as a selection's verdict
+- `follow_up_owner`: handing a follow-up on
+  - Vendors: the applicant
+  - Subject: `application_id`
+  - Detail: `follow_up_owner`
+
+**`change-verdicts`**
+
+- `verdict`: one verdict, or a follow-up, on an application already approved or rejected, a rule's rejection included (E38/F06/S01)
+  - Vendors: the applicant
+  - Subject: `application_id`
+  - Detail: as `give-verdicts`' `verdict`
+
+**`choose-reviewers`**
+
+- `reviewers`: [choosing or changing the reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md), only when the set changed
+  - Detail: `reviewers`: their addresses, in the order they are dealt to
+- `dealt`: the deal a change of reviewers made, one entry, only when it moved any application
+  - Vendors: each applicant dealt, in the order of `application_ids`
+  - Subject: `application_ids`
+  - Detail: `cause: reviewers_changed`; by application id, its `reviewer` (an address, null when undealt), and a removed reviewer's follow-up's `follow_up_owner` beside it, before and after
+
+**`apply`, `import-applications`, `change-form`, `update-vendor-info`**
+
+- `dealt`: the arrivals a write dealt, after that write's own entry, one entry per write and only when it dealt any: an applicant's save (the applicant its actor, their own application alone), an import, and saving the rules or the form, or updating a vendor's info, when the rules returned an application to open
+  - Vendors: each applicant dealt, in the order of `application_ids`
+  - Subject: `application_ids`
+  - Detail: `cause: arrived`; by application id, its `reviewer` before (null) and after
+
+**`move-phase`**
+
+- null: a phase move, by whoever made it
+  - Detail: `phase`, and `swept` on the move from offers to market days: how many unanswered offers it turned to refusals; the [phase record](../modules/phase-record.md) stays the state the guards read
+
+**`stop-applications`**
+
+- null: [stopping applications, or taking them again](../../business/flows/taking-applications.md), only when it changed whether they are taken
+  - Detail: `applications_stopped`
+
+**`publish-results`**
+
+- null: [publishing results](../../business/rules/publish-results-waits-for-the-allocation.md)
+  - Detail: `results_published`
+
+**`add-vendor`**
+
+- null: [adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)
+  - Vendors: the vendor
+  - Subject: `application_id`
+  - Detail: `name`, `status` and `answers`, the price answers given as `{question key: answer}`, null before
+
+**`write-vendor-notes`**
+
+- `note`: the organizer's [note](../../business/rules/vendor-notes.md)
+  - Vendors: the vendor
+  - Detail: `note`
+- `request_handled`: marking a request handled, or not
+  - Vendors: the vendor
+  - Detail: `handled`
+
+**`update-vendor-info`**
+
+- null, or `kept` when the save only kept updates: [updating a vendor's info](../../business/rules/an-update-is-kept-beside-the-vendors-answer.md), one entry however many answers
+  - Vendors: the vendor
+  - Subject: `application_id`
+  - Detail: the answers it changed by form field key, an essential one by its stored key (the table-share answer's words and the addresses read out of them), as the organizer read them before and after; `kept`, the updates saved as they stood over an answer the vendor changed since, by key with their value; `matched`, the updates taken away because the answer the vendor changed to is the update itself, by key with that value; and `rejected_by_rules`, `returned_by_rules`, as for `apply`
+- `discord_match_declined`: ["Not them"](../modules/discord.md#possible-matches): a member a check offered as a vendor's possible match, said not to be them; confirming one is the update of their answer, recorded as above
+  - Vendors: the vendor
+  - Subject: `application_id`
+  - Detail: the member's `username`, `display_name` and `nick` (each null when none), and the `answer` it was offered for; no before or after, since the vendor's answers are unchanged
+
+**`assign`**
+
+- `placed`, `freed`, `swapped`, `assigned`: a placement, a freed seat, a swap, a run
+  - Vendors: as above
+  - Subject: the table-day
+  - Detail: as above, `placed` with the seat left as `before`
+- `rules`: the assignment rules, which ride in the plan
+  - Detail: `priority` or `assignment_options`
+- `owed_taken_back`: a day seated again, by hand or by a run, taking back the $0 a free's deduction set ([payments](payments.md)), by whoever seated them
+  - Vendors: the vendor
+  - Subject: `date`, `currency`
+  - Detail: `owed_cents`: the $0 taken back, then what the day owes now
+
+**`record-payment`**
+
+- null: [recording a vendor's payment](payments.md)
+  - Vendors: the vendor
+  - Subject: `payment_id`, `payment_kind` (`payment`), and the market's `currency` (null on a market never priced), which its money reads in
+  - Detail: `cents`, `method`, `paid_on` and `note` (when there is one), null before
+
+**`change-owed`**
+
+- `owed_set`, `owed_calculated`: setting a table-day's amount owed, a free's deduction included, or using the calculated price again, only when it changed what the day owes
+  - Vendors: the vendor
+  - Subject: `date`, `currency`
+  - Detail: `owed_cents`
+
+**`adjust-paid`**
+
+- `refund_recorded`, `payment_edited`, `payment_removed`: a refund, or an edit or a removal of an entry
+  - Vendors: the vendor
+  - Subject: `payment_id`, `payment_kind` (`payment` or `refund`, so an edit that changed no amount still says which), `currency`
+  - Detail: the entry's `cents` (negative for a refund), `method`, `paid_on` and `note` that changed: null before for a refund, null after for a removal
+
+**`check-in`**
+
+- `checked_in`, `check_in_undone`: a check-in or its undo, at the organizer's door or the public check-in page, only when it changed whether the vendor is here
+  - Vendors: the vendor
+  - Subject: `date`
+  - Detail: `checked_in`, and `via: check_in_page` from the public page, whose actor is null
+
+**`connect-discord`**
+
+- `discord_connected`, `discord`, `discord_disconnected`: [the Discord card](../modules/discord.md): connecting, a choice, disconnecting
+  - Detail: whichever of `guild_id`, `guild_name`, `role_id`, `role_name`, `username_question`, `username_question_label` (the question's label on the form then, null when none) and `invite_link` changed; the history reads the names and the label, never an id or the key
+- `discord_checked`: ["Check Discord"](../modules/discord.md#who-is-in-the-server), one entry a check, even one that changed nobody
+  - Vendors: each vendor whose state it changed, in the order of `application_ids`
+  - Subject: `application_ids`
+  - Detail: by application id, each changed vendor's state (`has_role`, `in_server`, `not_found`, `no_username`) before, null when never checked, and after; `addresses`, each changed vendor's address by application id, since `vendors` leaves out an empty one and so does not pair with the ids by position; and `counts`, how many it found in each state
+- `discord_roles_given`: ["Give roles"](../modules/discord.md#giving-the-role), one entry a run, even one that gave nobody the role
+  - Vendors: each vendor it gave the role or whose state it changed, in the order of `application_ids`
+  - Subject: `application_ids`
+  - Detail: `role_name`, the role by its name then; `given`, the application ids it gave the role; by application id, each named vendor's state before and after, and `addresses`, as a check's; and `counts`, how many assigned vendors ended in each outcome (`given`, `already_had`, `not_found`, `no_username`, `not_yet`, `failed`)
+
+**`manage-editors-and-viewers`, or `manage-admins` when an Admin or Owner role is either side**
+
+- `role_given`, `role_changed`, `role_taken`: Manage market's people
+  - Subject: `user_id`, `email`
+  - Detail: `role`
+
+**`change-the-table`**
+
+- `permission_set`, `permission_reset`: the market's owner setting a row of [its table](../modules/market-actions.md#a-markets-own-rows), or returning it to its built-in default
+  - Subject: `action`: the row
+  - Detail: `role` and `source` (`built-in`, `organization` or `market`), both always, so a reset that keeps the role still says it
+- `permission_table_reset`: the market's owner returning every row it holds to its built-in default, one entry for the one act
+  - Detail: by row id, every row it returned, each its `role` and `source` before and after
+- `permission_table_copied`: the market's owner copying its organization's default again, one entry for the one act
+  - Detail: by row id, every row it changed, each its `role` and `source` before and after
+
+**`apply`**
+
+- `submitted`, `edited`: an applicant's own application ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md))
+  - Vendors: the applicant
+  - Subject: `application_id`
+  - Detail: the answers that changed, with their values; `rejected_by_rules` and `returned_by_rules`: whether the rules rejected it, or returned it to undecided, as it landed
 
 An undo reads "<actor> undid their verdict on <vendor>: Rejected back to Open", a selection's "undid their verdicts on N applications: …".
 A verdict on someone else's share reads "…, dealt to <address>", and nothing is added when its reviewer decided it or it was never dealt; an entry written before reviewers existed reads as it always did.
@@ -137,17 +291,56 @@ An organization's own changes are entries keyed by `organization_id` (E40/F02/S0
 An organization has no table of its own, so its actions are the history's own verbs, constants in `history.py`, but for a market deleted from it, which is the table's own row `delete-market`, the verb its check asked; the kinds and details are a market's where the change is the same.
 None names a vendor.
 
-| Action | Kind | The write | Subject | Detail |
-| --- | --- | --- | --- | --- |
-| `change-organization` | `renamed` | renaming the organization | - | `name` |
-| `manage-organization-admins` | `role_given`, `role_changed`, `role_taken` | an admin added, a member made an admin, an admin removed | `user_id`, `email` | `role`: `admin`, `member`, or null |
-| `manage-organization-members` | `role_given`, `role_taken` | a member added or removed | `user_id`, `email` | `role`: `member`, or null |
-| `transfer-organization` | null | ownership handed on, one entry for the one act | `user_id`, `email` of the new owner | `owner`: the old owner's address and the new one's |
-| `create-market` | null | a market created in the organization | `market_id` | `name`, null before |
-| `delete-market` | null | a market of the organization deleted (Manage market's Delete), only by the deletion that took it; its own history goes with it, so its organization's keeps that it went | `market_id` | `name`, null after |
-| `manage-floorplan-templates` | `template_added`, `template_changed`, `template_removed`; `template_moved_out` and `template_moved_in` | a floorplan template filed under the organization; one filed under another organization, or none, records leaving in the one it left and arriving in the one it is filed under, neither naming the other | `template_id`, `name` as it is after (as it was, for one removed) | `name` added or removed; the changed fields of `name`, `table_types` and `aisles`, never an organization's id; a move that changed nothing else, empty |
-| `change-the-default` | `permission_set`, `permission_reset` | its owner or an admin setting a row of [the organization's default table](organization-document.md#its-default-table), or returning it to its built-in default | `action`: the row | `role` and `source` (`built-in` or `organization`) |
-| `change-the-default` | `permission_table_reset` | every row of the default returned to its built-in default, one entry for the one act | - | by row id, every row it returned, each its `role` and `source` before and after |
+One block per action, in the order its constants stand in `history.py`; a new kind is one item at the end of its action's block, and a new verb a block at the end ([two features never share a line](../conventions/two-features-never-share-a-line.md#the-markets-history)); a kind with no Subject line has an empty subject.
+
+**`change-organization`**
+
+- `renamed`: renaming the organization
+  - Detail: `name`
+
+**`manage-organization-admins`**
+
+- `role_given`, `role_changed`, `role_taken`: an admin added, a member made an admin, an admin removed
+  - Subject: `user_id`, `email`
+  - Detail: `role`: `admin`, `member`, or null
+
+**`manage-organization-members`**
+
+- `role_given`, `role_taken`: a member added or removed
+  - Subject: `user_id`, `email`
+  - Detail: `role`: `member`, or null
+
+**`transfer-organization`**
+
+- null: ownership handed on, one entry for the one act
+  - Subject: `user_id`, `email` of the new owner
+  - Detail: `owner`: the old owner's address and the new one's
+
+**`create-market`**
+
+- null: a market created in the organization
+  - Subject: `market_id`
+  - Detail: `name`, null before
+
+**`delete-market`**
+
+- null: a market of the organization deleted (Manage market's Delete), only by the deletion that took it; its own history goes with it, so its organization's keeps that it went
+  - Subject: `market_id`
+  - Detail: `name`, null after
+
+**`manage-floorplan-templates`**
+
+- `template_added`, `template_changed`, `template_removed`; `template_moved_out` and `template_moved_in`: a floorplan template filed under the organization; one filed under another organization, or none, records leaving in the one it left and arriving in the one it is filed under, neither naming the other
+  - Subject: `template_id`, `name` as it is after (as it was, for one removed)
+  - Detail: `name` added or removed; the changed fields of `name`, `table_types` and `aisles`, never an organization's id; a move that changed nothing else, empty
+
+**`change-the-default`**
+
+- `permission_set`, `permission_reset`: its owner or an admin setting a row of [the organization's default table](organization-document.md#its-default-table), or returning it to its built-in default
+  - Subject: `action`: the row
+  - Detail: `role` and `source` (`built-in` or `organization`)
+- `permission_table_reset`: every row of the default returned to its built-in default, one entry for the one act
+  - Detail: by row id, every row it returned, each its `role` and `source` before and after
 
 [`back-end/tests/test_the_organizations_history.py`](../../../back-end/tests/test_the_organizations_history.py) makes each change and asserts its one entry (a template's in [`back-end/tests/test_floorplan_template_access.py`](../../../back-end/tests/test_floorplan_template_access.py)), and fails on a write route under `/organizations` or `/floorplans/templates` that neither records nor says why not; creating an organization and deleting one record nothing.
 
@@ -156,7 +349,7 @@ No rule is a person, so a rule's verdict is never an entry of its own: the write
 Not recorded, each for its reason in `NOT_A_CHANGE` and `NOT_RECORDED` of [`back-end/tests/test_every_write_records.py`](../../../back-end/tests/test_every_write_records.py): a review claim ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)), which is who holds a card open and not a change; reads and exports; a vendor signing in; a market's creation, whose own history starts empty and which [its organization's history](#what-an-organization-records) records; its deletion, which takes the history with it while its organization's history keeps that it went (the [deletion trail](../modules/market-deletion.md) records a market only when its organization is deleted); the floorplan routes that keep nothing, or an upload the market uses only once a floorplan is saved; and starting Discord's approval screen, which keeps a state in the person's session and nothing on the market.
 That test sends every write route as the screen sends it and asserts its one entry; it fails on a market write route, or a row of the table, that records nothing without saying why there, and on an entry Mongo could not store.
 
-**Entries are stored structured, never as a sentence**: the wording belongs to the surface showing it, [`front-end/src/utils/marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts) for the whole history and [`front-end/src/utils/placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts) for a placement, on the Assignment history's trail and in the whole history alike, and must be changeable without a migration.
+**Entries are stored structured, never as a sentence**: the wording belongs to the surface showing it, [`front-end/src/utils/marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts) for the whole history, which composes each area's words from its own file under [`historyReaders/`](../../../front-end/src/utils/historyReaders/) ([two features never share a line](../conventions/two-features-never-share-a-line.md#the-historys-words)), and [`front-end/src/utils/placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts) for a placement, on the Assignment history's trail and in the whole history alike, and must be changeable without a migration.
 
 **Writing an entry never fails the change it records.**
 Every write records after its change has landed (the placement writes in `api/placements.py`, [placements](../modules/placements.md), after the seat is taken), and `record` logs and swallows its own failure: telling an organizer their change did not land when it did is worse than a missing entry.

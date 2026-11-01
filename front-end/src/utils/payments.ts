@@ -87,12 +87,28 @@ export function money(cents: number, account: Pick<VendorAccount, 'currency'>): 
   return cents < 0 ? `-${amount}` : amount;
 }
 
+type Compared = Pick<VendorAccount, 'currency' | 'owedCents' | 'paidCents'>;
+
+/**
+ * Whether what an account paid compares with what it owes, as the server reads it (`compares` in
+ * `back-end/payments.py`): always on a market with prices, and on one without (no `currency`) only
+ * for an account owing an amount set by hand, or one refunded beyond what it paid, whose negative
+ * amount paid is money owed back to the market. The reading follows the account, not the market
+ * (T153 review findings 10 and 14).
+ */
+export function compares(account: Compared): boolean {
+  return account.currency != null || !!account.owedCents || account.paidCents < 0;
+}
+
 /**
  * How what they paid compares with what they owe: "Owes $27", "Paid in full", or "Paid $15 more
  * than owed", the case where a refund is to be issued (Q26). Nothing owed and nothing paid is
- * "Nothing owed".
+ * "Nothing owed". An account that does not `compare` reads as what was paid, "Paid $35".
  */
-export function balanceText(account: VendorAccount): string {
+export function balanceText(account: Compared): string {
+  if (!compares(account)) {
+    return account.paidCents ? `Paid ${money(account.paidCents, account)}` : 'Nothing owed';
+  }
   const balance = account.owedCents - account.paidCents;
   if (balance > 0) return `Owes ${money(balance, account)}`;
   if (balance < 0) return `Paid ${money(-balance, account)} more than owed`;
@@ -100,9 +116,27 @@ export function balanceText(account: VendorAccount): string {
 }
 
 /** Whether they owe, are square, or paid more: the comparison's tone. */
-export function balanceState(account: VendorAccount): 'owing' | 'settled' | 'overpaid' {
+export function balanceState(
+  account: Pick<VendorAccount, 'owedCents' | 'paidCents'>,
+): 'owing' | 'settled' | 'overpaid' {
   const balance = account.owedCents - account.paidCents;
   return balance > 0 ? 'owing' : balance < 0 ? 'overpaid' : 'settled';
+}
+
+const BALANCE_CHIP = {
+  owing: 'chip--attention',
+  settled: 'chip--positive',
+  overpaid: 'chip--informational',
+} as const;
+
+/**
+ * The comparison's chip, on the Payment tab and the Payments page alike: owing asks for attention,
+ * square is positive, and paid more than owed, a refund to issue, informs. Nothing owed and nothing
+ * paid takes no tone, nor does an account that does not `compare`.
+ */
+export function balanceChip(account: Compared): string {
+  if (!account.owedCents && !account.paidCents) return 'chip--neutral';
+  return compares(account) ? BALANCE_CHIP[balanceState(account)] : 'chip--neutral';
 }
 
 /** A line's seat as it reads: "North Wing 1, Gold, full table", and the price group that set its price

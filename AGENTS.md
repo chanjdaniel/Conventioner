@@ -69,6 +69,7 @@ This file holds what nearly every session needs; everything else is in the knowl
 - **A PR that changes a described file touches the node or bumps `verified`.**
   Find a file's nodes before changing it with `git grep -l '<path>' docs`; CI's `knowledge-graph-drift` job fails on a PR that does neither; it is not required, for the next 10 PRs from 2026-10-22, then re-judged with the close-out's replay, while `knowledge-graph` (the checker's tests and `check`) is a required check.
 - **`python3 scripts/knowledge_graph.py check`** checks the frontmatter, every link and anchor, reachability and back-links; run it after editing any Markdown.
+- Before adding a row to a doc's shared list or table, read [two features never share a line](docs/implementation/conventions/two-features-never-share-a-line.md).
 
 ## Before changing an area, read its node
 
@@ -111,7 +112,7 @@ The assignment:
 - Before changing the floorplan beta or Auto-Place, read [floorplan placement](docs/implementation/modules/floorplan-placement.md).
 - Before changing the Discord card, the bot or what it asks of Discord, read [the Discord connection](docs/implementation/modules/discord.md).
 - Before changing the Pricing card or what an assignment costs, read [a price follows the table](docs/business/rules/a-price-follows-the-table.md).
-- Before changing what a vendor owes or a payment, read [payments, and what a vendor owes](docs/implementation/data/payments.md).
+- Before changing what a vendor owes or a payment, read [payments, and what a vendor owes](docs/implementation/data/payments.md); before changing the Payments page or what it totals, also [payments](docs/business/flows/payments.md).
 
 The data and the back end:
 

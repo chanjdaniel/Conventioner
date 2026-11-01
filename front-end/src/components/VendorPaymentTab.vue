@@ -21,6 +21,7 @@ import { getApiErrorMessage } from '@/utils/api';
 import { getFormattedTimestamp } from '@/utils/utils';
 import { dateLabel } from '@/utils/vendorDetails';
 import {
+  balanceChip,
   balanceState,
   balanceText,
   entryChange,
@@ -44,6 +45,12 @@ const props = defineProps<{
   canChangeOwed?: boolean;
   /** "Adjust the amount paid": "Record refund" and each entry's menu. */
   canAdjustPaid?: boolean;
+}>();
+
+const emit = defineEmits<{
+  /** A write changed their account: a screen that shows it, the Payments page, reads it again,
+   * since one vendor's change moves the market's totals too. */
+  changed: [];
 }>();
 
 const account = ref<VendorAccount | null>(null);
@@ -85,6 +92,7 @@ function show(dialog: Open): void {
 function saved(updated: VendorAccount): void {
   account.value = updated;
   open.value = null;
+  emit('changed');
 }
 
 const entryDialog = computed(() => {
@@ -160,11 +168,6 @@ function onEntryMenu(entry: Payment, id: string): void {
 }
 
 const state = computed(() => (account.value ? balanceState(account.value) : 'settled'));
-const CHIP = {
-  owing: 'chip--attention',
-  settled: 'chip--positive',
-  overpaid: 'chip--informational',
-};
 
 /** What a line owes, as it reads: its amount, or that the market gives the seat no price. */
 function owedText(cents: number | null): string {
@@ -198,7 +201,7 @@ defineExpose({ reload: load });
         </dl>
         <span
           class="chip"
-          :class="account.owedCents || account.paidCents ? CHIP[state] : 'chip--neutral'"
+          :class="balanceChip(account)"
           :data-state="state"
           data-testid="payment-balance"
         >

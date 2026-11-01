@@ -127,6 +127,7 @@ A list one side dropped, a list written inline and a file with no frontmatter me
 Line endings are kept, and if the set merge itself fails the file is merged as text; any other failure is reported to git as a failed merge, never as a conflict that keeps ours unmarked.
 The driver is registered in the repository's git config, which every worktree shares: `scripts/treehouse-setup.sh` registers it on each lease, and a clone runs `python3 scripts/merge_node.py install` once ([STARTUP.md](STARTUP.md#the-knowledge-graph-merge-driver)).
 A checkout where it is not registered merges these files as text, as git does without it.
+The body is left to git's text merge, so a list or table that features grow is laid out one feature's row to its own lines: [two features never share a line](implementation/conventions/two-features-never-share-a-line.md).
 
 ## Reading it in Obsidian
 

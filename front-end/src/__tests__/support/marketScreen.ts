@@ -12,7 +12,7 @@ export const MARKET_ID = 'market-1';
 
 /** The route a market page is mounted at: its id and its page in the path (E22/F04/S02). */
 export function marketRoute(page: string = 'setup') {
-  return { name: 'market-setup', params: { marketId: MARKET_ID, page }, query: {} };
+  return { name: 'market-setup', params: { marketId: MARKET_ID, page }, query: {}, matched: [] };
 }
 
 /**

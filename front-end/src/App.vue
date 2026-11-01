@@ -8,6 +8,7 @@ import { useInertBehind } from '@/utils/useInertBehind';
 import { onMounted, ref, provide, inject, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { routerSettled } from '@/utils/routerReady';
+import { fitsAPhone as routeFitsAPhone } from '@/utils/fitsAPhone';
 import { endSession, keepsTheSession } from '@/utils/sessionEnded';
 import ReadFailed from '@/components/ReadFailed.vue';
 import { PAGE_FAILED, openAfresh } from '@/utils/pageFailed';
@@ -32,13 +33,11 @@ const router = useRouter();
 const isLogin = computed(() => route.name === 'login');
 const isPublicPage = computed(() => route.matched.some((r) => r.meta.public === true));
 /**
- * An organizer screen that must also work on a phone, by its route's `meta.fitsAPhone` (E29/F01): the
- * door on market day, and the few other places an organizer reaches from a phone (the router names
- * them). Every other organizer screen keeps the desktop floor; this lifts the floor and nothing else.
+ * A page that must also work on a phone: every public page, and an organizer screen whose route says
+ * so (`utils/fitsAPhone.ts`). Every other organizer screen keeps the desktop floor; this lifts the
+ * floor and nothing else.
  */
-const fitsAPhone = computed(
-  () => isPublicPage.value || route.matched.some((r) => r.meta.fitsAPhone === true),
-);
+const fitsAPhone = computed(() => isPublicPage.value || routeFitsAPhone(route));
 
 // A page whose code could not be fetched: the click did nothing, so the shell says why.
 const pageFailed = inject(PAGE_FAILED, ref(null));

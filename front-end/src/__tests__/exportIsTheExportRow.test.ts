@@ -21,7 +21,12 @@ const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), delet
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-  useRoute: () => ({ name: 'market-vendors', params: { marketId: MARKET_ID }, query: {} }),
+  useRoute: () => ({
+    name: 'market-vendors',
+    params: { marketId: MARKET_ID },
+    query: {},
+    matched: [],
+  }),
 }));
 vi.mock('@/utils/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/api')>();

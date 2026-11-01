@@ -194,9 +194,11 @@ function linkFor(tab: MarketTab): string {
   }
 }
 
-/* A phone: the bar takes the phone's gutter and a smaller name. */
+/* A phone: the bar takes a smaller name, and the phone's gutter on a screen that fits a phone (the
+   frame's `market-fits-a-phone`); one that keeps the desktop floor keeps the desk's inset, on one
+   line with its page. */
 @media (width <= 640px) {
-  .market-bar-row {
+  .market-fits-a-phone .market-bar-row {
     padding: var(--space-2) var(--space-4) 0;
   }
 

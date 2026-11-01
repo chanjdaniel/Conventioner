@@ -30,6 +30,7 @@ export function marketScreenPath(
     | 'settings'
     | 'assignments'
     | 'vendors'
+    | 'payments'
     | 'attendance'
     | 'tools'
     | 'stats'

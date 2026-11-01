@@ -294,7 +294,9 @@ async function download(): Promise<void> {
             </div>
           </template>
 
-          <div class="export-field">
+          <!-- A market without prices offers no payment state: nothing is owed there, so everyone
+               who paid would be "Paid more than owed" (E44/F02/S01). -->
+          <div v-if="offered.paymentStates.length" class="export-field">
             <label class="field-label" for="vendor-export-payment">Payment</label>
             <select
               id="vendor-export-payment"
@@ -647,8 +649,11 @@ async function download(): Promise<void> {
   color: var(--mm-green);
 }
 
-/* The preview is as wide as its columns; the dialog is not. */
+/* The preview is as wide as its columns; the dialog is not. A scroller the browser makes focusable
+   is no control the primitive layer gives room to, so it takes the controls' `scroll-margin` here:
+   focus brought it only just into view, and the dialog's window cut its halo off. */
 .export-table-scroll {
+  scroll-margin: var(--space-2);
   overflow-x: auto;
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
