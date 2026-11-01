@@ -51,7 +51,10 @@ export interface TheScreensSeed {
   assignment: SeededMarket;
   /** Market days: 36 vendors placed over four dates and three sections, results published. */
   big: SeededMarket;
-  /** Market days, its priority rules settled. */
+  /**
+   * Market days, its priority rules settled, and priced (T180), so Payments draws the market's money
+   * and its tables by tier and by date.
+   */
   rules: SeededMarket;
   /** Archived, a CSV market. */
   archived: SeededMarket;
@@ -482,6 +485,15 @@ export async function seedTheScreens(
   const rules = await createMarket(api, backend, email, uniqueMarketName('Spring Rules'), {
     ...plan(two),
     priority: RULES,
+    pricing: {
+      currency: 'CAD',
+      halfTablePercent: 50,
+      everyoneElse: [
+        { tier: 'Gold', cents: 12500 },
+        { tier: 'Silver', cents: 9000 },
+        { tier: 'Community', cents: 4000 },
+      ],
+    },
   });
   insertApplications(manyVendors(rules.marketId, 'rules', 8, two));
   await walk(api, backend, email, rules.marketId, UP_TO_ASSIGNMENT);

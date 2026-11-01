@@ -127,7 +127,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - 40 applications in every review state
   - a review divided between the organizer and a Viewer (the organizer's share all decided)
   - 36 vendors over four dates and three sections
-  - settled rules
+  - settled rules, on a priced market, so Payments draws the market's money and its tables by tier and by date (T180)
   - an archive
   - two CSV markets
   - an organization of the organizer's own:

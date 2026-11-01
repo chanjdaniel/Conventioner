@@ -149,6 +149,9 @@ const router = createRouter({
       path: '/markets/:marketId/payments',
       name: 'market-payments',
       component: () => import('@/views/PaymentsView.vue'),
+      // Who still owes is read at the door on market day (T180), so it fits a phone, as the door
+      // does.
+      meta: { fitsAPhone: true },
     },
     {
       path: '/markets/:marketId/attendance',

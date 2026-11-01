@@ -50,11 +50,17 @@ export const PHONE: Size = { width: 390, height: 844 };
 const ORGANIZER = [DESKTOP, LAPTOP];
 const PUBLIC = [DESKTOP, PHONE];
 /**
- * A route with `meta.fitsAPhone`: an organizer's that works on a phone too. The door (E29/F01),
- * Tools, the Discord return page, and `/markets` and the Assignments page with their dialogs and
- * the vendor drawer over them (T142), so "Change assignment" at the door lands on a page that fits
- * the phone it was tapped on; and the dashboard sign-in lands on, and Organizations with its
- * dialogs (T148).
+ * A route with `meta.fitsAPhone`: an organizer's that works on a phone too, with the dialogs, menus
+ * and drawers that open over it. One place a line, each with the work that brought it:
+ *
+ * - the door (E29/F01);
+ * - Tools, and the Discord return page;
+ * - `/markets` (T142);
+ * - the Assignments page (T142), so "Change assignment" at the door lands on a page that fits the
+ *   phone it was tapped on;
+ * - the dashboard, where signing in lands (T148);
+ * - Organizations (T148);
+ * - Payments (T180), so who still owes is read at the door.
  */
 const FITS_A_PHONE = [DESKTOP, LAPTOP, PHONE];
 
@@ -799,11 +805,28 @@ export const SCREENS: Screen[] = [
     ]),
   },
   {
-    // The market's money and who owes it (E44/F02/S01): the figures, the breakdowns and the list.
+    // Who owes (E44/F02/S01): the list, on a market that sets no prices, so it draws no figures.
     name: 'the payments',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(screen('big', 'payments'), 'payments-row'),
+  },
+  {
+    // A priced market (T180): its money by tier and by date, laid out as blocks on a phone.
+    name: 'the payments, priced',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: async (page, seed) => {
+      await at(screen('rules', 'payments'), 'payments-row')(page, seed);
+      await visible(page, 'payments-by-date-row');
+    },
+  },
+  {
+    // A vendor's line opens their drawer on its Payment tab (E44/F02/S01), over the page.
+    name: 'the vendor drawer, over the payments',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(screen('big', 'payments'), 'payments-row', ['payments-row-open', 'payment-tab']),
   },
   {
     name: 'the attendance',
