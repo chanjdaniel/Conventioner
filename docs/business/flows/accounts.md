@@ -15,6 +15,7 @@ sources:
   - T169
   - E38/F14/S02
   - T176
+  - T181
 ---
 
 # Accounts
@@ -35,7 +36,7 @@ Steps 1 to 3 walked live as far as reCAPTCHA allows (the slot-1 stack has real k
 1. Go to `/login` and choose the Register tab.
 2. Enter email, password (at least 8 characters) and the same password again; choose "Create account".
 3. Expect a success message saying a verification link was emailed and that sign-in is impossible until it is followed.
-4. Open the emailed link, which lands on `/verify-email`; expect confirmation.
+4. Open the emailed link, which lands on `/verify-email`; expect confirmation and "Redirecting to sign in…"; three seconds later the page goes to sign in.
 5. Sign in (A2).
 
 Branches: mismatched passwords ("Passwords do not match"), short password, an email already registered, an expired or reused link.
@@ -48,9 +49,21 @@ Covered by:
 
 ## A1a. Resend the verification email
 
-**Status:** Works (code; `POST /resend-verification`).
-From the verification page, ask for another link.
-A sign-in refused because the address is not verified yet offers "Send the link again" too (A2), which says "If that address needs verifying, a new link is on its way." whatever the address (E38/F14/S02).
+**Status:** Works (`POST /resend-verification`; walked live, T181).
+
+1. Open a link that fails (expired, used, or cut short); `/verify-email` says why.
+2. Type the address in the page's Email field and choose "Send the link again".
+3. Expect "If that address needs verifying, a new link is on its way.", whatever the address, and the page to stay where it is: only a link that worked goes on to sign in.
+
+The page asks on the page itself; it used to open a browser prompt, and then said "Redirecting to login page..." and stayed (T181).
+"Send the link again" with nothing typed says "Type your email address." under the field and sends nothing; a double click sends one link.
+A server's fault or no answer says so, and keeps the form and the address to try again.
+"Back to sign in" under it is a link to `/login`.
+
+A sign-in refused because the address is not verified yet offers "Send the link again" too (A2), which says the same sentence (E38/F14/S02).
+Covered by:
+- `the-sign-in-says-what-to-do-next.spec.ts`
+- `the-verification-page-asks-on-the-page.spec.ts`
 
 ## A2. Sign in and sign out
 

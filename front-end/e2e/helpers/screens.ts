@@ -1123,7 +1123,7 @@ export const SCREENS: Screen[] = [
     open: at(fixed('/reset-password?token=a-token-from-an-email'), 'auth-card'),
   },
   {
-    // An unknown token, so the page settles on its error and the buttons that answer it.
+    // An unknown token, so the page settles on its error and the form that answers it.
     name: 'verify an email address',
     who: 'nobody',
     sizes: PUBLIC,
@@ -1131,6 +1131,37 @@ export const SCREENS: Screen[] = [
       fixed('/verify-email?token=a-token-from-an-email'),
       'email-verification-error-message',
     ),
+  },
+  {
+    // "Send the link again" with nothing typed: the field's own message, in red under it (T181).
+    // The pointer then leaves the button: this state is the message, not a hovered button.
+    name: 'verify an email address, no address typed',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: async (page, seed) => {
+      await at(
+        fixed('/verify-email?token=a-token-from-an-email'),
+        'email-verification-error-message',
+        ['email-verification-resend-button', 'email-verification-email-error'],
+      )(page, seed);
+      await page.mouse.move(0, 0);
+    },
+  },
+  {
+    // An address with no account: the server answers as for any, and the page says a link is on
+    // its way (T181).
+    name: 'verify an email address, the link sent again',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: async (page) => {
+      await page.goto('/verify-email?token=a-token-from-an-email');
+      await visible(page, 'email-verification-email-input');
+      await page
+        .getByTestId('email-verification-email-input')
+        .fill('e2e-screens-nobody@example.com');
+      await page.getByTestId('email-verification-resend-button').click();
+      await visible(page, 'email-verification-resent-message');
+    },
   },
   {
     name: 'a page that is not there',
