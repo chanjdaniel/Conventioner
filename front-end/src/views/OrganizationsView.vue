@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { type Organization } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { fetchOrganizations } from '@/utils/organizations';
@@ -9,6 +10,7 @@ import type { SummaryFact } from '@/utils/summary';
 import SummaryCard from '@/components/SummaryCard.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
 import ManageOrgOverlay from './ManageOrgOverlay.vue';
+import { withoutQueryKey } from '@/utils/routeQuery';
 
 const organizations = ref<Organization[]>([]);
 const loading = ref(true);
@@ -89,7 +91,34 @@ function handleManage(org: Organization) {
 function handleManageClose() {
   manageOpen.value = false;
   manageOrg.value = null;
+  dropManageKey();
   loadOrganizations();
+}
+
+const route = useRoute();
+const router = useRouter();
+
+/**
+ * Manage organization opened from the address, `?manage=<id>`: Manage market's "Manage
+ * organization" points here (E38/F12/S01). It opens once the list holds that organization, and
+ * the key goes when the dialog closes, or at once when it names none of the reader's, so a
+ * refresh or Back does not open it again.
+ */
+watch(
+  [loading, () => route.query.manage],
+  ([stillLoading, id]) => {
+    if (stillLoading || typeof id !== 'string' || manageOpen.value) return;
+    const org = organizations.value.find((o) => o.id === id);
+    if (org) handleManage(org);
+    else dropManageKey();
+  },
+  { immediate: true },
+);
+
+function dropManageKey() {
+  if (route.query.manage !== undefined) {
+    void router.replace({ query: withoutQueryKey(route.query, 'manage') });
+  }
 }
 
 /**

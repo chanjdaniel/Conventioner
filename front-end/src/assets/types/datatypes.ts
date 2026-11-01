@@ -241,6 +241,25 @@ export interface PermissionTableRow {
   whoMay?: string;
 }
 
+/** A person's place in a market's organization: its owner or an admin, who run its markets, or
+ *  a member, who reads them. */
+export type OrganizationPlace = 'admin' | 'member';
+
+/** One person with access to a market, as the market read serves them (E38/F12/S01). */
+export interface PersonWithAccess {
+  userId: string;
+  email: string;
+  /** The role that counts: the higher of the market's own and the organization's. */
+  role: MarketRole;
+  /** The role the market itself gives them, or null. */
+  marketRole: MarketRole | null;
+  /** Their place in the market's organization, or null. */
+  organizationRole: OrganizationPlace | null;
+  /** Whether the role that counts is the organization's: a market role beside it, a tie included,
+   *  adds nothing while they hold their place, and only Manage organization changes it. */
+  fromOrganization: boolean;
+}
+
 export interface Market {
   id: string;
   name: string;
@@ -255,11 +274,18 @@ export interface Market {
    * stored before the phase field existed report `draft` when isDraft, otherwise `archived`. */
   phase?: MarketPhase;
   roles: Record<string, MarketRole>; // Map of user_id -> role
-  roleEmails?: Record<string, string>; // Map of user_id -> email (for display)
+  /** Everyone with access, which Manage market lists (E38/F12/S01): to a reader in the market's
+   *  organization or who may give roles here, its people too, each at the role that counts; to
+   *  anyone else, the market's own roles alone. The owner first, then by the role that counts,
+   *  then by address. Served on the read of one market. */
+  peopleWithAccess?: PersonWithAccess[];
+  /** Whether this reader belongs to the market's organization, and so may open Manage
+   *  organization. Served on the read of one market. */
+  inOrganization?: boolean;
   /** Whom this reader may make a follow-up's owner (T15): everyone who holds a role on the market,
    *  named in `roles` or reached through its organization, to a reader in the organization, and
    *  the people `roles` names to anyone else. Served on the read of one market to an Editor or
-   *  above; Manage market keeps listing `roles` alone. */
+   *  above. */
   peopleOnMarket?: string[];
   organizationId?: string | null;
   organizationName?: string | null; // Resolved display name from API

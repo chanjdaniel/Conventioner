@@ -8,7 +8,7 @@ describes:
   - front-end/src/utils/marketHistory.ts
   - front-end/src/utils/placementHistory.ts
   - front-end/e2e/the-markets-history.spec.ts
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - E40/F01/S03
   - E40/F01/S04
@@ -20,8 +20,8 @@ sources:
   - E39/F02/S01
   - E44/F01/S02
   - E46/F01/S03
-  - E38/F10/S01
   - E46/F01/S05
+  - E38/F10/S01
 ---
 
 # Reading the market's history
