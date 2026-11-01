@@ -3,7 +3,9 @@
  * The last "Give roles" run's report (E46/F01/S04), kept on the market so every reader of the
  * Vendors page reads it: the role and when it last ran (never "given", since a run may give nobody
  * the role), how many ended in each outcome, and, opened, each group's vendors, a failure's reason,
- * or why the rest are not given yet, said once for the vendors it held back.
+ * or why the rest are not given yet, said once for the vendors it held back. A vendor it did not
+ * find whom the check offers a possible match now is counted beside "not found", since their row
+ * says "Possible match".
  */
 import { computed, ref } from 'vue';
 
@@ -11,10 +13,12 @@ import VendorIdentity from '@/components/VendorIdentity.vue';
 import type { DiscordRoleRun } from '@/assets/types/datatypes';
 import { agoWords } from '@/utils/discordCheck';
 import {
+  possibleMatchesLine,
   roleOutcomeChip,
   roleOutcomeLabel,
   roleRunCounts,
   roleRunGroups,
+  roleRunPossibleMatches,
   roleRunSummary,
 } from '@/utils/discordRoles';
 import type { VendorNames } from '@/utils/vendorIdentity';
@@ -25,11 +29,14 @@ const props = defineProps<{
   addresses: Map<string, string>;
   names: VendorNames;
   now: number;
+  /** The application ids the check offers a possible match now. */
+  offered: ReadonlySet<string>;
 }>();
 
 const opened = ref(false);
 const groups = computed(() => roleRunGroups(props.run));
-const summary = computed(() => roleRunSummary(roleRunCounts(props.run)));
+const possibleMatches = computed(() => roleRunPossibleMatches(props.run, props.offered));
+const summary = computed(() => roleRunSummary(roleRunCounts(props.run), possibleMatches.value));
 const when = computed(() =>
   agoWords(props.run.ranAt, Math.max(props.now, Date.parse(props.run.ranAt))),
 );
@@ -73,6 +80,13 @@ const when = computed(() =>
         </p>
         <p v-if="group.reason" class="role-report-reason" data-testid="vendors-role-report-reason">
           {{ group.reason }}
+        </p>
+        <p
+          v-if="group.outcome === 'not_found' && possibleMatches"
+          class="role-report-reason"
+          data-testid="vendors-role-report-matches"
+        >
+          {{ possibleMatchesLine(possibleMatches) }}
         </p>
         <ul class="role-report-vendors">
           <li v-for="id in group.applicationIds" :key="id">

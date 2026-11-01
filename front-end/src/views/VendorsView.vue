@@ -184,6 +184,14 @@ const seatedCount = computed(() =>
   placementsRefused.value ? null : vendors.value.filter((v) => v.assignedDateCount > 0).length,
 );
 const roleRun = computed(() => market.value?.discord?.roleRun ?? null);
+const offeredMatches = computed(
+  () =>
+    new Set(
+      [...discordByApplication.value]
+        .filter(([, vendor]) => vendor.shown === 'possible_match')
+        .map(([applicationId]) => applicationId),
+    ),
+);
 const addressesById = computed(
   () => new Map(vendors.value.map((v) => [v.applicationId, v.displayEmail])),
 );
@@ -422,6 +430,7 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
           :addresses="addressesById"
           :names="vendorNames"
           :now="now"
+          :offered="offeredMatches"
         />
 
         <ResultFilterBar

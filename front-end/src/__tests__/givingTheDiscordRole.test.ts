@@ -15,6 +15,7 @@ import {
   mayGiveRoles,
   roleRunCounts,
   roleRunGroups,
+  roleRunPossibleMatches,
   roleRunSummary,
 } from '@/utils/discordRoles';
 import { answersRefusing } from './support/servedAnswers';
@@ -216,6 +217,27 @@ describe('the report', () => {
     expect(roleRunSummary(roleRunCounts(stopped))).toBe('1 given, 2 not given yet');
   });
 
+  it('says how many not found have a possible match since, beside the count', () => {
+    const missed = {
+      ...RUN,
+      outcomes: [
+        { applicationId: 'app-ana', outcome: 'given', reason: null },
+        { applicationId: 'app-ben', outcome: 'not_found', reason: null },
+        { applicationId: 'app-cy', outcome: 'not_found', reason: null },
+      ],
+    };
+    const offered = new Set(['app-ben', 'app-ana']);
+
+    expect(roleRunPossibleMatches(missed, offered)).toBe(1);
+    expect(roleRunSummary(roleRunCounts(missed), 1)).toBe(
+      '1 given, 2 not found (1 possible match)',
+    );
+    expect(roleRunSummary(roleRunCounts(missed), 2)).toBe(
+      '1 given, 2 not found (2 possible matches)',
+    );
+    expect(roleRunSummary(roleRunCounts(missed), 0)).toBe('1 given, 2 not found');
+  });
+
   it('leaves out an outcome this build does not know', () => {
     const later = { ...RUN, outcomes: [{ applicationId: 'app-ana', outcome: 'queued' }] };
     expect(roleRunGroups(later)).toEqual([]);
@@ -343,5 +365,44 @@ describe('the Vendors page', () => {
     expect(groups[1].findAll('[data-testid="vendors-role-report-reason"]')).toHaveLength(1);
     expect(groups[1].text()).toContain('ben@thistle.test');
     expect(groups[1].text()).toContain('cy@thistle.test');
+  });
+
+  it('says a vendor it did not find has a possible match, as their row does', async () => {
+    const missed = {
+      ...RUN,
+      outcomes: [
+        { applicationId: 'app-ana', outcome: 'given', reason: null },
+        { applicationId: 'app-ben', outcome: 'not_found', reason: null },
+        { applicationId: 'app-cy', outcome: 'not_found', reason: null },
+      ],
+    };
+    const shown = (applicationId: string, what: string) => ({
+      applicationId,
+      state: what === 'in_server' ? 'in_server' : 'not_found',
+      shown: what,
+      possibleMatches: [],
+    });
+    const wrapper = await mounted(
+      market({
+        discord: { ...market().discord, checkedAt: RAN_AT, roleRun: missed },
+        discordVendors: [
+          shown('app-ana', 'in_server'),
+          shown('app-ben', 'possible_match'),
+          shown('app-cy', 'not_found'),
+        ],
+      } as Partial<Market>),
+    );
+    const report = wrapper.find('[data-testid="vendors-role-report"]');
+
+    expect(report.find('[data-testid="vendors-role-report-summary"]').text()).toBe(
+      '1 given, 2 not found (1 possible match)',
+    );
+    await report.find('[data-testid="vendors-role-report-toggle"]').trigger('click');
+
+    const notFound = report.findAll('[data-testid="vendors-role-report-group"]')[1];
+    expect(notFound.text()).toContain('Not found');
+    expect(notFound.find('[data-testid="vendors-role-report-matches"]').text()).toBe(
+      '1 has a possible match to confirm or decline.',
+    );
   });
 });

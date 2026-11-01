@@ -122,10 +122,35 @@ export function roleRunCounts(run: DiscordRoleRun | null | undefined): Map<RoleO
   return counts;
 }
 
-/** The counts in words, each outcome that holds anyone: "2 given, 1 already had it". */
-export function roleRunSummary(counts: Map<RoleOutcome, number>): string {
-  const said = ROLE_OUTCOMES.filter((outcome) => (counts.get(outcome) ?? 0) > 0).map(
-    (outcome) => `${counts.get(outcome)} ${roleOutcomeLabel(outcome).toLowerCase()}`,
-  );
+/**
+ * How many of the vendors the last run did not find are offered a possible match now: their row
+ * and drawer say "Possible match" (E46/F01/S05), so the report says it beside "not found".
+ * `offered` is the application ids the market's `discordVendors` show as a possible match.
+ */
+export function roleRunPossibleMatches(
+  run: DiscordRoleRun | null | undefined,
+  offered: ReadonlySet<string>,
+): number {
+  return (run?.outcomes ?? []).filter(
+    (each) => each.outcome === 'not_found' && offered.has(each.applicationId),
+  ).length;
+}
+
+/**
+ * The counts in words, each outcome that holds anyone: "2 given, 1 already had it", with how many
+ * not found have a possible match now: "1 not found (1 possible match)".
+ */
+export function roleRunSummary(counts: Map<RoleOutcome, number>, possibleMatches = 0): string {
+  const said = ROLE_OUTCOMES.filter((outcome) => (counts.get(outcome) ?? 0) > 0).map((outcome) => {
+    const words = `${counts.get(outcome)} ${roleOutcomeLabel(outcome).toLowerCase()}`;
+    if (outcome !== 'not_found' || possibleMatches <= 0) return words;
+    return `${words} (${possibleMatches} possible ${possibleMatches === 1 ? 'match' : 'matches'})`;
+  });
   return said.length ? said.join(', ') : 'no assigned vendors';
+}
+
+/** The not found group's line: "1 has a possible match to confirm or decline." */
+export function possibleMatchesLine(possibleMatches: number): string {
+  const have = possibleMatches === 1 ? 'has' : 'have';
+  return `${possibleMatches} ${have} a possible match to confirm or decline.`;
 }

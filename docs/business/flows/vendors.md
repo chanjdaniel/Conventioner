@@ -129,7 +129,7 @@ Covered by: `possible-discord-matches.spec.ts`, `possibleDiscordMatches.test.ts`
 
 ## J18. Give the market's role to the assigned vendors
 
-**Status:** Works against a mocked Discord (E46/F01/S04, `giving-the-discord-role.spec.ts`); not yet walked against a real server.
+**Status:** Works against the stack's fake Discord (E46/F01/S04, `giving-the-discord-role.spec.ts`); not yet walked against a real server.
 On a market connected to a Discord server, with a role and a username question chosen on the Discord card, the organizer gives the market's role to every vendor holding a seat who is in the server, in one run ([the Discord connection](../../implementation/modules/discord.md#giving-the-role)).
 
 1. "Give roles", beside "Check Discord", for an Admin or the owner (the same row), is offered once anyone holds a seat.
@@ -137,6 +137,7 @@ On a market connected to a Discord server, with a role and a username question c
 3. The run reads the server's members as a check does, gives the role to each assigned vendor matched who does not hold it, and updates every vendor's Discord state; "Give roles" reads "Giving roles…" meanwhile, and neither it nor "Check Discord" is offered while the other runs.
    It asks Discord for under a minute: the vendors it had no time for are "Not given yet", and running it again gives them.
 4. Its report ([`DiscordRoleReport.vue`](../../../front-end/src/components/DiscordRoleReport.vue)) stays above the list for everyone who reads the page: "Vendor Nov 2026, last run 5 minutes ago", how many ended in each group ("2 given, 1 already had it, 1 not found, 1 no username"), and "Show who" opens each group's vendors, a failure's reason, or why the rest are not given yet, said once for the vendors it held back.
+   A vendor the run did not find whom the check now offers a possible match ([J17](#j17-answer-a-possible-discord-match)) is counted beside "not found", as their row says it: "1 not found (1 possible match)", and the group says "1 has a possible match to confirm or decline."
 
 **A run only gives**: a vendor who has lost their seat keeps the role they have (Daniel, T92 Q19).
 A run that cannot start says why in the dialog: no role chosen, the username question gone, Discord out of reach, or the bot no longer in the server.
