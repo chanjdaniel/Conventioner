@@ -123,6 +123,7 @@ A parse that fails says what was wrong in our words, with the status it always h
 - A number question answered with text ([`back-end/application_write.py`](../../../back-end/application_write.py)) answers `'<label>' must be a number.`, 422, and logs nothing: why the conversion failed is the answer itself, which is the applicant's and never a log's.
 - A CSV Python's reader refuses (`parse_csv` in [`back-end/csv_import.py`](../../../back-end/csv_import.py)): the import's endpoints and the [CSV start](../modules/csv-proposal-and-start.md)'s proposal answer `That file could not be read as CSV.`, 400, and the CSV start's confirm answers it as a `ConfirmRefused`, 409.
   The reader's message is logged, which names a limit or a character, never a cell.
+- A file that is not a CSV export, a binary the browser decoded anyway, is refused by `parse_csv` before the reader with `This file does not look like a CSV export. Download the responses again from Google Forms as .csv.`, with the same statuses, and logs nothing: a NUL or an unprintable heading is the whole of why (E38/F15/S02).
 
 ## The types
 
