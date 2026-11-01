@@ -68,3 +68,8 @@ A new helper is a new block beside the helper it builds on; a new item in its li
 
 [Testing Conventioner](../../TESTING.md#e2e-foundation), "E2E Foundation": the page objects in `front-end/e2e/pages/` are a list, one class a line, sorted by class name.
 A new page object is one line in its sorted place.
+
+### The market document
+
+[The market document](../data/market-document.md#the-discord-connection-is-discord), "The Discord connection is `discord`": the `discord` row of "The fields that matter" is one short line pointing to its own block below the table, whose subfields are a list, one a line, grouped by what wrote them, in the order `DiscordConnection` declares them, and whose writing routes and what each change forgets are lists in the same order.
+A new subfield is one line in its place in each list it belongs in; the table's row stays as it is.
