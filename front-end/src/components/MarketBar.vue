@@ -159,8 +159,8 @@ function linkFor(tab: MarketTab): string {
 
 /*
  * Too narrow for the tabs (731px) and a readable name beside them, as the market screens that fit
- * a phone are (the router's `meta.fitsAPhone`: the door, Tools and the Assignments page) on a
- * phone or a tablet: the name takes its own line and the tabs scroll sideways inside the bar rather
+ * a phone are (the router's `meta.fitsAPhone`; the design language lists them) on a phone or a
+ * tablet: the name takes its own line and the tabs scroll sideways inside the bar rather
  * than widening the page. At 768 the name drew 0px wide beside them and the tabs ran past the
  * window (T142). Every other market screen keeps the desktop floor, where the bar is 968px wide.
  * In the scroller, which clips anything drawn outside the tabs, the halo is drawn inside.

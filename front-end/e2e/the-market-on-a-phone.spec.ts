@@ -7,6 +7,7 @@ import {
   transitionMarket,
 } from './helpers/seedPhaseMarket';
 import { mongoEval } from './helpers/mongo';
+import { grantMarketRole } from './helpers/grantMarketRole';
 import { inTheWindow, PHONE_AND_DESK, widths } from './helpers/phoneWindow';
 import { savePlan } from './helpers/savePlan';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
@@ -49,20 +50,6 @@ async function call(
 ) {
   const res = await request[method](`${BACKEND_URL}${path}`, { data });
   expect(res.ok(), `${method} ${path}: ${await res.text()}`).toBeTruthy();
-}
-
-/** Gives `who` a role on the market, as its organizer does from Manage market. */
-async function grant(
-  request: APIRequestContext,
-  marketId: string,
-  who: { email: string; password: string },
-  role: 'editor' | 'viewer',
-): Promise<void> {
-  ensureVerifiedUser(who.email, who.password);
-  const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
-    data: { user_email: who.email, role },
-  });
-  expect(granted.ok(), await granted.text()).toBeTruthy();
 }
 
 /** A market taking applications on its own form, with one application still open. */
@@ -293,7 +280,8 @@ for (const size of PHONE_AND_DESK) {
       browser,
     }) => {
       const marketId = await aMarketThatIsOwed(request);
-      await grant(request, marketId, EDITOR, 'editor');
+      ensureVerifiedUser(EDITOR.email, EDITOR.password);
+      await grantMarketRole(request, marketId, EDITOR, 'editor');
 
       // From Payments by the Assignment tab's page row.
       await page.goto(marketScreenPath(marketId, 'payments'));
@@ -401,8 +389,10 @@ for (const size of PHONE_AND_DESK) {
       request,
     }) => {
       const marketId = await aMarketInReview(request);
-      await grant(request, marketId, EDITOR, 'editor');
-      await grant(request, marketId, VIEWER, 'viewer');
+      ensureVerifiedUser(EDITOR.email, EDITOR.password);
+      await grantMarketRole(request, marketId, EDITOR, 'editor');
+      ensureVerifiedUser(VIEWER.email, VIEWER.password);
+      await grantMarketRole(request, marketId, VIEWER, 'viewer');
 
       // T166 note 10: an Editor on a phone saw the page laid out 1001px wide and zoomed out.
       await withUser(

@@ -43,7 +43,7 @@ describe('the places that fit a phone', () => {
 });
 
 /** A route as the reader sees it: one matched record with this `fitsAPhone`, at this `page`. */
-function at(
+function routeAt(
   fitsAPhoneMeta: RouteRecordNormalized['meta']['fitsAPhone'],
   page: string | string[] | undefined,
 ): RouteLocationNormalizedLoaded {
@@ -55,7 +55,7 @@ function at(
 
 describe("a route's list of the pages that fit a phone", () => {
   it('lets through a page it names', () => {
-    expect(fitsAPhone(at(['applications'], 'applications'))).toBe(true);
+    expect(fitsAPhone(routeAt(['applications'], 'applications'))).toBe(true);
   });
 
   it.each([
@@ -64,10 +64,10 @@ describe("a route's list of the pages that fit a phone", () => {
     ['no page at all', undefined],
     ['a repeated page parameter', ['applications']],
   ])('never lets through %s', (_, page) => {
-    expect(fitsAPhone(at(['applications'], page))).toBe(false);
+    expect(fitsAPhone(routeAt(['applications'], page))).toBe(false);
   });
 
   it('lets no page through when it names none', () => {
-    expect(fitsAPhone(at([], 'applications'))).toBe(false);
+    expect(fitsAPhone(routeAt([], 'applications'))).toBe(false);
   });
 });

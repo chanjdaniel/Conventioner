@@ -61,7 +61,7 @@ const PUBLIC = [DESKTOP, PHONE];
  * - the dashboard, where signing in lands (T148);
  * - Organizations (T148);
  * - Vendors (T180), with its drawer and dialogs, so a vendor is looked up and corrected at the door;
- * - Payments (T180), so who still owes is read at the door.
+ * - Payments (T180), so who still owes is read at the door;
  * - the Applications page (T180), the one page of Market Setup's view that fits, with its drawer
  *   and dialogs, so a late application is decided and a vendor's answer corrected from a phone.
  */

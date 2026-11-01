@@ -1034,6 +1034,8 @@ async function decideSelection() {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* The label is the target, the box inside it. */
+  min-height: var(--target-min);
 }
 
 /* The leading answers shorten to fit, so the status lines share the row's room with them, and
@@ -1106,9 +1108,9 @@ async function decideSelection() {
     gap: var(--space-1);
   }
 
+  /* Its width only here: at a desk a 24px square would push every row 11px right. */
   .all-tick {
     min-width: var(--target-min);
-    min-height: var(--target-min);
   }
 }
 
