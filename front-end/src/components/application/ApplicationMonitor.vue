@@ -829,13 +829,19 @@ function submittedOn(app: Application): string {
       </p>
 
       <div v-if="current" class="review-card" data-testid="app-monitor-card">
+        <!-- The card is headed by the applicant's name, else their address, so the notes' h3
+             labels sit one level under it (T95 note 6), as they do under the drawer's title. -->
         <div class="card-head">
-          <span v-if="nameOf(current)" class="app-name" data-testid="app-monitor-name">
+          <h2 v-if="nameOf(current)" class="app-name" data-testid="app-monitor-name">
             {{ nameOf(current) }}
-          </span>
-          <span class="app-email" data-testid="app-monitor-email">
+          </h2>
+          <component
+            :is="nameOf(current) ? 'span' : 'h2'"
+            class="app-email"
+            data-testid="app-monitor-email"
+          >
             {{ current.applicantEmail }}
-          </span>
+          </component>
           <span :class="statusChip(current.status)" data-testid="app-monitor-status">
             {{ statusLabel(current.status) }}
           </span>
@@ -1156,6 +1162,15 @@ function submittedOn(app: Application): string {
   word-break: break-all;
 }
 
+/* The card's heading keeps its line's type: no heading margin, and an address stays regular. */
+.card-head h2 {
+  margin: 0;
+}
+
+.card-head h2.app-email {
+  font-weight: inherit;
+}
+
 /* The card is beige, where --mm-text-muted is 4.23: its quiet text takes the ink made for that
    ground (bug 43, found by the contrast sweep once it opened a review card). */
 .app-date {
@@ -1344,7 +1359,7 @@ function submittedOn(app: Application): string {
   margin-bottom: var(--space-3);
 }
 
-/* The applicant's name leads the card's heading and a reviewed row; the address follows it. */
+/* The applicant's name heads the card and leads a reviewed row; the address follows it. */
 .app-name {
   font-size: var(--text-sm);
   font-weight: 600;

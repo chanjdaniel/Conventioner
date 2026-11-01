@@ -15,6 +15,7 @@ sources:
   - T45
   - T75
   - E38/F01/S01
+  - T181
 ---
 
 # Every control is named
@@ -32,6 +33,7 @@ A placeholder goes the moment someone types, which is how the plan's name fields
 Words a screen reader needs beyond those go beside them in a `.visually-hidden` span, as a vendor's name says ": their details" and a statistics row says what its count is a share of.
 **A control holds no control**: a market row was a `role="button"` around its own Manage button, so the row is now a click target for the pointer only, and its name is the real button the keyboard and a screen reader reach it by ([`SummaryCard.vue`](../../../front-end/src/components/SummaryCard.vue)).
 That name is a heading one level under the one its list stands under, so a screen reader's outline skips no level: an `h2` under the Markets and Organizations titles and under the dashboard's visually hidden `h1`, an `h3` under a dialog's `h2` (`MarketSummaryCard`'s `headingLevel`), drawn alike at either level; [`a-list-keeps-its-headings-in-order.spec.ts`](../../../front-end/e2e/a-list-keeps-its-headings-in-order.spec.ts) holds axe's `heading-order` on both lists, and with `page-has-heading-one` on the dashboard, the market chooser at `/init` and the open navigation drawer, which the WCAG-tagged sweep leaves out.
+A vendor's notes are labelled by `h3`s (`VendorNotes.vue`), so an `h2` names the vendor just above them: the drawer's title, and on One by one the card's name line, else its address (`ApplicationMonitor.vue`, T181); the same spec holds both, with the notes open, in the open review and on an archived market, which has no Reviewers panel and so no other `h2` above the card.
 **A button or a link holds no heading**: the dashboard's and `/init`'s buttons and the navigation drawer's links each held an `h3` or `h4`, so a screen reader's outline was the controls; their words are a `span`, and the dashboard and `/init` each have a visually hidden `h1`.
 The same spec lists every heading inside a link or a button on those pages and expects none.
 Both are caught by the accessibility sweep ([the design language](../../design-system.md#what-keeps-this-true)), which this walk does not replace: it names what axe cannot judge, a control whose name is empty by intent.

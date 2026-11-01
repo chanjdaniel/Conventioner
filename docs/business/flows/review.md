@@ -84,8 +84,9 @@ The queue is triage: one application at a time, carrying every answer it holds, 
 
 1. "1 of N to review", a tally ("N reviewed · A approved · R rejected") with "Show N reviewed" beside it ([I2](#i2-change-a-decision)), and one card at a time, in the order the applications arrived.
    A chosen reviewer is handed their own share first, counted as "1 of N in your share" ([dividing the review](#dividing-the-review)).
-2. A card's heading names the applicant (the name they chose, else the one on their identification) then their email, its status and submitted date; under it the highlighted answers first, then "N more answers" (or "This application carries no answers."); a web address in an answer is a link that opens in a new tab.
+2. A card's top line names the applicant (the name they chose, else the one on their identification) then their email, its status and submitted date; under it the highlighted answers first, then "N more answers" (or "This application carries no answers."); a web address in an answer is a link that opens in a new tab.
    A table-share request that needs attention shows above the answers, so it is never inside the "N more answers" disclosure, and the vendor's notes below them.
+   The name, else the email, is the card's heading, so a screen reader's outline files the notes under the applicant, as it does in the vendor drawer.
    With reviewers chosen, "Reviewer: <email>" (or "Reviewer: you") under the status says whose share it is ([dividing the review](#dividing-the-review)).
    An answer an organizer updated reads as updated, with "Updated by <address>, <when>; they wrote <their answer>" under it ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
 3. "Reject" (R), "Needs follow-up" (S), "Next" (N), "Approve" (A); the keyboard letters work.
