@@ -316,6 +316,8 @@ test.describe('the Payments page', () => {
 
       await paymentsPage(page, unpriced);
       await expect(page.getByTestId('payments-unpriced')).toContainText('Pricing is off');
+      // Nobody owes there, so the market's money is not drawn: every figure would be what was paid.
+      await expect(page.getByRole('heading', { name: "The market's money" })).toHaveCount(0);
       await expect(page.getByTestId('payments-totals')).toHaveCount(0);
       // Nobody owes there, so no payment filter is offered (the refunds one would be everyone),
       // and one in the address narrows nothing; the search stays.
@@ -378,7 +380,22 @@ test.describe('the Payments page', () => {
     ).toHaveText('Paid $15 more than owed');
     await expect(page.getByRole('group', { name: 'Show only' })).toBeVisible();
     await expect(page.getByTestId('payments-unpriced')).toContainText(
-      'a table owes only an amount set by hand',
+      'so a vendor owes only an amount set by hand on their Payment tab.',
+    );
+    // The figures are summed by the same rule as the rows (finding 12): Bob's $30 and Carol's $25,
+    // owing nothing, count toward "Paid" but not "Paid more than owed", which is Alice's $15 alone.
+    await expect(page.getByRole('heading', { name: "The market's money" })).toBeVisible();
+    const totals = page.getByTestId('payments-totals');
+    for (const [figure, shown] of [
+      ['owedCents', '$20'],
+      ['paidCents', '$90'],
+      ['stillOwedCents', '$0'],
+      ['paidMoreCents', '$15'],
+    ]) {
+      await expect(totals.getByTestId(`payments-total-${figure}`)).toContainText(shown);
+    }
+    await expect(page.getByTestId('payments-unpriced-caption')).toContainText(
+      '"Paid" includes payments from vendors who owe nothing',
     );
     await vendors.goto(unpriced);
     await vendors.exportButton.click();

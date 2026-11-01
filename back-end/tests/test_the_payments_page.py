@@ -215,6 +215,30 @@ class TestTheTotals:
         assert {v["email"]: v["balanceState"] for v in page()["vendors"]} == {
             ANA: None, BEN: state, CY: None, DEE: None}
 
+    def test_an_amount_set_by_hand_on_a_market_with_no_prices_is_summed_by_the_account(
+            self, market):
+        # The figures follow the account as the rows do (T153 review finding 12): Ben owes $20
+        # set by hand and paid $30, $10 more than owed; the others owe nothing, so what they paid
+        # counts toward "Paid" but is never "more than owed", in the totals or any share of them.
+        market.doc["setupObject"]["pricing"] = None
+        Payments.set_amount_owed(MARKET, BEN, SAT, 2000, "admin@example.com")
+
+        got = page()
+        assert figures(got["totals"]) == (2000, 10000, 0, 1000)
+        assert [(row["tier"], *figures(row)) for row in got["byTier"]] == [
+            ("Gold", 0, 6000, 0, 0),
+            ("Silver", 2000, 3000, 0, 1000),
+            (None, 0, 1000, 0, 0),
+        ]
+        assert [(row["date"], *figures(row)) for row in got["byDate"]] == [
+            (SAT, 2000, 4750, 0, 1000),
+            (SUN, 0, 4250, 0, 0),
+            (None, 0, 1000, 0, 0),
+        ]
+        for breakdown in ("byTier", "byDate"):
+            sums = tuple(sum(row[key] for row in got[breakdown]) for key in FIGURES)
+            assert sums == figures(got["totals"])
+
     def test_a_market_with_nobody_reads_empty(self, market, market_records):
         market_records.payments.documents.clear()
         market.doc["assignmentObject"] = {"vendorAssignments": [], "assignmentStatistics": None}

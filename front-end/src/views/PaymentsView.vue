@@ -232,7 +232,7 @@ const nobodyShown = computed(() => {
           <p v-if="!priced" class="note" data-testid="payments-unpriced">
             {{
               counted
-                ? 'Pricing is off for this market, so a table owes only an amount set by hand.'
+                ? 'Pricing is off for this market, so a vendor owes only an amount set by hand on their Payment tab.'
                 : 'Pricing is off for this market, so nobody owes anything for a table.'
             }}
             <RouterLink :to="marketPath(market.id, 'setup')" data-testid="payments-pricing-link"
@@ -248,7 +248,9 @@ const nobodyShown = computed(() => {
             Nobody holds a table or has paid yet.
           </p>
 
-          <template v-if="vendors.length && priced">
+          <!-- Drawn wherever some vendor owes (`owingCounted`), and summed by the same rule as the
+               rows (T153 review finding 12): where nobody owes, every figure would be what was paid. -->
+          <template v-if="vendors.length && counted">
             <section class="payments-section" aria-labelledby="payments-totals-title">
               <h2 id="payments-totals-title" class="payments-title">The market's money</h2>
               <dl class="payments-figures" data-testid="payments-totals">
@@ -294,10 +296,16 @@ const nobodyShown = computed(() => {
                   </table>
                 </div>
               </div>
-              <p class="payments-caption">
-                A payment is a vendor's, not a day's: what each vendor paid is shared across their
-                table-days by what each owes.
-              </p>
+              <div class="payments-captions">
+                <p class="payments-caption">
+                  A payment is a vendor's, not a day's: what each vendor paid is shared across their
+                  table-days by what each owes.
+                </p>
+                <p v-if="!priced" class="payments-caption" data-testid="payments-unpriced-caption">
+                  "Paid" includes payments from vendors who owe nothing, so "Paid" minus "Owed" need
+                  not equal "Paid more than owed" minus "Still owed".
+                </p>
+              </div>
             </section>
           </template>
 
@@ -478,6 +486,13 @@ const nobodyShown = computed(() => {
   margin: 0;
   color: var(--mm-red);
   font-size: var(--text-sm);
+}
+
+/* The figures' footnotes read as one block under them. */
+.payments-captions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .payments-caption {

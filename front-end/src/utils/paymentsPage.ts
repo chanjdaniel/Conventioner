@@ -70,7 +70,8 @@ type Owing = Pick<MarketPayments, 'currency' | 'vendors'> | null | undefined;
  * Whether the market has money owed to count: always where it sets prices, and where it sets none
  * (`currency` null) only where some vendor owes an amount set by hand. Elsewhere nothing is owed,
  * so nobody is in a payment state (`balance_state` in `back-end/payments.py`): the reading follows
- * each vendor's account, not the market (T153 review finding 10).
+ * each vendor's account, not the market (T153 review finding 10). The page draws the market's
+ * figures and offers its filters only where this holds (finding 12).
  */
 export function owingCounted(payments: Owing): boolean {
   return !!payments && (payments.currency != null || payments.vendors.some((v) => v.owedCents > 0));
