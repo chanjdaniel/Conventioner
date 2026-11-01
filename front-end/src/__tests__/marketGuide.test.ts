@@ -545,10 +545,37 @@ describe('what the rail tells someone the step is not theirs', () => {
     expect(nextStep(chosen, TODAY).action).toBe(MarketAction.GiveVerdicts);
   });
 
-  it("says what is true to everyone where nothing is anyone's to do: offers, and an archive", () => {
-    expect(nextStep(viewer(MarketPhase.Offers), TODAY).text).toBe(
-      nextStep(market(MarketPhase.Offers), TODAY).text,
-    );
+  /*
+   * Nothing moves a market into Offers now, but one left there from before still has a step onward,
+   * and its blockers ("Publish the results ...", "Restore the seat ...") are served to everyone.
+   */
+  it('Offers, a blocker standing: a Viewer reads no remedy that is not theirs', () => {
+    const left = viewer(MarketPhase.Offers, {
+      ...ASSIGNED,
+      transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER] },
+    } as Partial<Market>);
+    const said = nextStep(left, TODAY);
+    expect(said.text).not.toMatch(/Publish the results/);
+    expect(said).toMatchObject({
+      text: 'This market is in Offers. Read the assignments.',
+      page: 'assignments',
+      blocker: null,
+      action: MarketAction.Read,
+    });
+    const orphaned = viewer(MarketPhase.Offers, {
+      ...ASSIGNED,
+      intakeMode: IntakeMode.Csv,
+      transitionBlockers: { market_days: [ORPHANED_PIN] },
+    } as unknown as Partial<Market>);
+    expect(nextStep(orphaned, TODAY).text).toBe('This market is in Offers. Read the assignments.');
+    expect(nextStep(viewer(MarketPhase.Offers), TODAY)).toMatchObject({
+      text: 'This market is in Offers. Read the rules on Settings.',
+      page: 'settings',
+      action: MarketAction.Read,
+    });
+  });
+
+  it("says what is true to everyone where nothing is anyone's to do: an archive", () => {
     expect(nextStep(viewer(MarketPhase.Archived), TODAY)).toMatchObject({
       text: nextStep(market(MarketPhase.Archived), TODAY).text,
       action: null,

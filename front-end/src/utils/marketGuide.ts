@@ -307,11 +307,15 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
             statement: 'Set the rules and allocate tables.',
             onlooker: 'Tables are not allocated yet. Read the rules they will follow on Settings.',
           },
-  // True for everyone: nothing sets a market in offers any more.
+  // Nothing sets a market in offers any more, but one left there still has a step onward, whose
+  // blockers are served to everyone; someone who may not assign reads only where to look.
   [MarketPhase.Offers]: ({ assigned, path }) => ({
     page: assigned ? 'assignments' : 'settings',
     action: MarketAction.Assign,
     statement: `This market is in ${pathPhaseLabel(MarketPhase.Offers, path)}.`,
+    onlooker: `This market is in ${pathPhaseLabel(MarketPhase.Offers, path)}. ${
+      assigned ? 'Read the assignments.' : 'Read the rules on Settings.'
+    }`,
   }),
   // Once it has run, what is left is archiving it.
   [MarketPhase.MarketDays]: ({ ended }) =>
@@ -394,9 +398,11 @@ export function pageForTab(
 /**
  * The guards whose refusal, when it names no remedy, is a plain fact that asks nobody to do
  * anything, so it reads to everyone: `all_applications_reviewed` names none only to say "There are
- * no applications for this market.". Every other guard naming no remedy has two, on two pages, and
- * its message ends in them ("Restore the seat in the plan, or move or free those vendors."), so it
- * reads only to someone who may do the row's work. Keyed on the guard, never on its words.
+ * no applications for this market.". Every other guard the rail can meet that names no remedy has
+ * two, on two pages, and its message ends in them ("Restore the seat in the plan, or move or free
+ * those vendors."), so it reads only to someone who may do the row's work. `no_applications_yet`
+ * names none and is a fact too, but guards only the move back to draft, never the step onward.
+ * Keyed on the guard, never on its words.
  */
 const FACTS: ReadonlySet<string> = new Set(['all_applications_reviewed']);
 
