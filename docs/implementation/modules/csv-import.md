@@ -9,7 +9,7 @@ describes:
   - back-end/app.py#preview_application_import
   - back-end/app.py#import_applications
   - front-end/src/utils/csvFile.ts
-verified: 2026-11-01
+verified: 2026-10-30
 sources:
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/map
