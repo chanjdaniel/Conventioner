@@ -1,4 +1,4 @@
-import { test, expect, BACKEND_URL, TEST_USER } from './fixtures';
+import { test, expect, APP_API, TEST_USER } from './fixtures';
 import { savePlan } from './helpers/savePlan';
 import { marketSetupPath } from './helpers/marketScreens';
 import { ensureTestOrg, loginViaApi } from './helpers/seeds';
@@ -31,14 +31,14 @@ const TIMEZONES = ['Pacific/Honolulu', 'America/Los_Angeles', 'Asia/Tokyo'];
  * Follows the market-pipeline.spec.ts API seeding pattern.
  */
 async function seedMarketWithDate(request: APIRequestContext): Promise<Record<string, unknown>> {
-  await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-  const orgId = await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+  await loginViaApi(request, APP_API, TEST_USER.email, TEST_USER.password);
+  const orgId = await ensureTestOrg(request, APP_API, TEST_USER.email, TEST_USER.password);
 
   const headers = {
     'Content-Type': 'application/json',
     'X-Owner-Email': TEST_USER.email,
   };
-  const createRes = await request.post(`${BACKEND_URL}/markets`, {
+  const createRes = await request.post(`${APP_API}/markets`, {
     headers,
     data: {
       name: `Date TZ E2E ${Date.now()}`,
@@ -65,8 +65,8 @@ async function seedMarketWithDate(request: APIRequestContext): Promise<Record<st
       maxHalfTableProportionPerSection: null,
     },
   };
-  await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, setupObject);
-  const updatedRes = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
+  await savePlan(request, APP_API, TEST_USER.email, marketId, setupObject);
+  const updatedRes = await request.get(`${APP_API}/markets/${marketId}`, {
     headers: { 'X-Owner-Email': TEST_USER.email },
   });
   return ((await updatedRes.json()) as { market: Record<string, unknown> }).market;

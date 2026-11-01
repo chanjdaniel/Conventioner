@@ -1,4 +1,4 @@
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, APP_API } from './fixtures';
 import {
   seedApplicationWithStatus,
   seedPhaseMarket,
@@ -60,7 +60,7 @@ test("All: a second reviewer's verdict shows on Refresh, and the ticks stay", as
 
   await withUser(browser, SECOND.email, SECOND.password, async (other) => {
     const approved = await other.request.put(
-      `${BACKEND_URL}/markets/${marketId}/applications/${ines}/review`,
+      `${APP_API}/markets/${marketId}/applications/${ines}/review`,
       { data: { status: 'reviewer_approved' } },
     );
     expect(approved.ok(), await approved.text()).toBeTruthy();
@@ -110,7 +110,7 @@ test("One by one: Refresh brings others' verdicts into the counts, and keeps the
   // The second reviewer decides the card before it, so the card up moves up the queue.
   await withUser(browser, SECOND.email, SECOND.password, async (other) => {
     const rejected = await other.request.put(
-      `${BACKEND_URL}/markets/${marketId}/applications/${nadia}/review`,
+      `${APP_API}/markets/${marketId}/applications/${nadia}/review`,
       { data: { status: 'reviewer_rejected' } },
     );
     expect(rejected.ok(), await rejected.text()).toBeTruthy();
