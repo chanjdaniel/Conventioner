@@ -116,11 +116,17 @@ export function useInertBehind(
     }
   }
 
+  const openNow = typeof isOpen === 'function' ? isOpen : () => isOpen.value;
   watch(
-    typeof isOpen === 'function' ? isOpen : () => isOpen.value,
-    (open) => (open ? apply() : release()),
-    // `immediate` and `post` together: a modal that is already open when its view mounts must be
-    // marked, and the walk needs the elements in `partsOf` to exist before it runs.
+    // The parts as well as the open state. A modal mounted already open (a `v-if` dialog with
+    // `:open="true"`) is open from setup, before the template ref that names its parts has bound,
+    // so watching the open state alone walked once with no parts and never again: the page behind
+    // the change-placement dialog stayed live (T181). The ref binding on mount now re-runs the walk,
+    // and `apply` releases before it marks, so a re-run never counts an element twice.
+    () => [openNow(), ...partsOf()] as const,
+    ([open]) => (open ? apply() : release()),
+    // `immediate` and `post` together: a modal whose parts already exist when it opens is marked
+    // at once, and every later walk runs after the render that bound its parts.
     { immediate: true, flush: 'post' },
   );
 
