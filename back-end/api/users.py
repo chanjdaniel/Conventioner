@@ -98,9 +98,10 @@ def _now() -> float:
 def _sign_in_id(login_id: str, remembered: bool, signed_in_at: float) -> str:
     """What the session and the remember-me cookie carry: the account, the kind and the time.
 
-    ``<login id>.<s|r>.<whole seconds since the epoch>``. Both cookies are signed with the app's
-    ``SECRET_KEY`` (the session by Flask, or by flask-session's signed id on disk; the remember-me
-    cookie by Flask-Login's digest), so a browser can change none of it.
+    ``<login id>.<s|r>.<whole seconds since the epoch>``. The session is signed into its cookie with
+    the app's ``SECRET_KEY`` by Flask, or kept on the server behind a random id by flask-session;
+    the remember-me cookie is signed with ``SECRET_KEY`` by Flask-Login's digest. So a browser can
+    change none of it.
     """
     return f"{login_id}.{'r' if remembered else 's'}.{int(signed_in_at)}"
 
