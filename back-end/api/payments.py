@@ -63,7 +63,8 @@ def _account(market: Market, vendor_email: str) -> Dict[str, Any]:
 
 def accounts(market: Market) -> Dict[str, Dict[str, Any]]:
     """Every vendor's account on the market, by address, each as ``vendor_account`` answers it:
-    every vendor with a seat, a kept line or an entry. The caller has asked the table already."""
+    every vendor with a seat, a kept line or an entry, read once for the whole market. A record
+    with no address is nobody's. The caller has asked the table already."""
     pricing = market.setup_object.pricing if market.setup_object else None
     seats = seats_by_vendor(market)
     kept = Payments.amounts_owed_by_vendor(market.id)
@@ -74,7 +75,7 @@ def accounts(market: Market) -> Dict[str, Dict[str, Any]]:
             Payments.lines(seats.get(address, {}), kept.get(address, {})),
             paid.get(address, []),
         )
-        for address in dict.fromkeys([*seats, *kept, *paid])
+        for address in dict.fromkeys([*seats, *kept, *paid]) if address
     }
 
 
@@ -82,6 +83,19 @@ def vendor_account(market_id: str, vendor_email: str, requesting_user: str) -> D
     """One vendor's account on this market. Asks ``Actions.READ``."""
     market = MarketsApi._load_market_for(market_id, requesting_user, Actions.READ)
     return _account(market, vendor_email)
+
+
+def market_payments(market_id: str, requesting_user: str) -> Dict[str, Any]:
+    """The Payments page (E44/F02/S01): every vendor with a table-day line or a payment, with what
+    they owe and paid, and the market's figures, also by tier and by date
+    (``Payments.market_summary``). Each vendor's account is the one their Payment tab reads and the
+    export reads (``accounts``), and each vendor's state the one the export filters by
+    (``Payments.balance_state``). Asks ``Actions.READ``."""
+    market = MarketsApi._load_market_for(market_id, requesting_user, Actions.READ)
+    setup = market.setup_object
+    currency = setup.pricing.currency if setup and setup.pricing else None
+    tiers = [tier.name.strip() for tier in (setup.tiers if setup else [])]
+    return {"currency": currency, **Payments.market_summary(accounts(market), tiers)}
 
 
 def _entry(body: Any, what: str) -> PaymentEntry:

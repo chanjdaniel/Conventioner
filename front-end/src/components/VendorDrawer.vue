@@ -61,6 +61,8 @@ const emit = defineEmits<{
   notesChanged: [];
   /** Their answers were updated (E41/F01/S01): a screen that shows answers reads them again. */
   infoUpdated: [];
+  /** Their payments or what they owe changed (E44/F02/S01): the Payments page reads it again. */
+  paymentChanged: [];
 }>();
 
 const router = useRouter();
@@ -405,6 +407,7 @@ watch(
             :canRecord="mayTake(market, MarketAction.RecordPayment)"
             :canChangeOwed="mayTake(market, MarketAction.ChangeOwed)"
             :canAdjustPaid="mayTake(market, MarketAction.AdjustPaid)"
+            @changed="emit('paymentChanged')"
           />
         </div>
 

@@ -26,6 +26,7 @@ const route = vi.hoisted(() => ({
   name: 'market-vendors',
   params: { marketId: 'market-1' },
   query: {} as Record<string, string>,
+  matched: [],
 }));
 
 vi.mock('vue-router', () => ({

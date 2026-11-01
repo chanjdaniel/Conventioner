@@ -1,0 +1,169 @@
+/**
+ * The Payments page (E44/F02/S01): the market's money at a glance, who has yet to pay, and whose
+ * refund is to be issued.
+ *
+ * The server counts it (`market_payments` in `back-end/api/payments.py`): every vendor with a
+ * table-day line or a payment, with what they owe and what they paid, as their Payment tab reads
+ * them, and the market's figures, also by tier and by date. This reads it, and keeps which vendors
+ * the list shows, and in what order, in the page's address.
+ */
+import type { LocationQuery, LocationQueryValue } from 'vue-router';
+import { api } from '@/utils/api';
+import { compares } from '@/utils/payments';
+import { vendorHeadline, vendorMatches, type VendorNames } from '@/utils/vendorIdentity';
+
+/**
+ * How what a vendor paid compares with what they owe, as the server reads it (`balance_state` in
+ * `back-end/payments.py`), the one reading the page's lists and the export's payment filter share:
+ * they owe, paid in full (square, with something owed), or paid more than owed. Null for a vendor
+ * who owes nothing and paid nothing.
+ */
+export type BalanceState = 'owes' | 'paid' | 'over';
+
+/** One vendor on the page: what they owe and what they paid, in cents, and how the two compare. */
+export interface PaymentsVendor {
+  email: string;
+  owedCents: number;
+  paidCents: number;
+  balanceState: BalanceState | null;
+}
+
+/** What the page counts: the amount owed, the amount paid, and the two sides of the difference. */
+export interface PaymentsFigures {
+  owedCents: number;
+  paidCents: number;
+  /** What vendors who have not paid in full still owe. */
+  stillOwedCents: number;
+  /** What vendors paid beyond what they owe: refunds to issue (Q26). */
+  paidMoreCents: number;
+}
+
+export interface MarketPayments {
+  /** The market's currency; null on a market that sets no prices. */
+  currency: string | null;
+  vendors: PaymentsVendor[];
+  totals: PaymentsFigures;
+  /** By tier, in the market's order; `tier` null for what vendors holding no table paid. */
+  byTier: (PaymentsFigures & { tier: string | null })[];
+  /** By date; `date` null for what vendors holding no table paid. */
+  byDate: (PaymentsFigures & { date: string | null })[];
+}
+
+export async function loadMarketPayments(marketId: string): Promise<MarketPayments> {
+  return (await api.get<MarketPayments>(`/markets/${encodeURIComponent(marketId)}/payments`)).data;
+}
+
+/** The list's filters (Q26: "something the organizer can filter for and know to issue refunds"),
+ * one per state, in the address as `show` by the state's own id. */
+export type PaymentsShown = BalanceState;
+
+export const PAYMENTS_SHOWN: readonly { id: PaymentsShown; label: string }[] = [
+  { id: 'owes', label: 'Owes' },
+  { id: 'paid', label: 'Paid in full' },
+  { id: 'over', label: 'Paid more than owed' },
+];
+
+type QueryValue = LocationQueryValue | LocationQueryValue[] | undefined;
+
+type Owing = Pick<MarketPayments, 'currency' | 'vendors'> | null | undefined;
+
+/**
+ * Whether the market has money owed to count: always where it sets prices, and where it sets none
+ * (`currency` null) only where some vendor's account `compares`: one owing an amount set by hand, or
+ * refunded beyond what it paid. Elsewhere nothing is owed, so nobody is in a payment state
+ * (`balance_state` in `back-end/payments.py`): the reading follows each vendor's account, not the
+ * market (T153 review findings 10 and 14). The page draws the market's figures and offers its
+ * filters only where this holds (finding 12).
+ */
+export function owingCounted(payments: Owing): boolean {
+  if (!payments) return false;
+  const { currency } = payments;
+  return currency != null || payments.vendors.some((v) => compares({ ...v, currency }));
+}
+
+/**
+ * Whether "Paid" holds what a vendor whose account does not `compare` paid: someone owing nothing
+ * on a market without prices, whose payment is counted as paid but never as paid more than owed.
+ * The page says so under the market's figures only then (T153 review finding 15).
+ */
+export function paidOwingNothing(payments: Owing): boolean {
+  if (!payments) return false;
+  const { currency } = payments;
+  return payments.vendors.some((v) => v.paidCents > 0 && !compares({ ...v, currency }));
+}
+
+/**
+ * The filters a market offers: none where nothing is owed, since whoever paid would all be "Paid
+ * more than owed" there, the refunds filter everyone (Daniel, T153 review finding 3).
+ */
+export function paymentsFilters(payments: Owing): readonly { id: PaymentsShown; label: string }[] {
+  return owingCounted(payments) ? PAYMENTS_SHOWN : [];
+}
+
+/** The filter the address asks for, where the market offers it. */
+export function paymentsShownFrom(value: QueryValue, payments: Owing): PaymentsShown | null {
+  return paymentsFilters(payments).find((f) => f.id === value)?.id ?? null;
+}
+
+/**
+ * Whether a vendor is in the state a filter lists, the server's state, which the export's payment
+ * filter reads too (E42/F01/S04): "Owes $27", "Paid in full", or "Paid $15 more than owed". A vendor
+ * who owes nothing and paid nothing ("Nothing owed": every day freed with its price taken off, or
+ * set to $0) is in none.
+ */
+export function vendorShownIn(vendor: PaymentsVendor, shown: PaymentsShown | null): boolean {
+  return !shown || vendor.balanceState === shown;
+}
+
+/** The list's columns, each sortable; in the address as `sort`, and `order=desc`. */
+export type PaymentsSortKey = 'vendor' | 'owed' | 'paid' | 'difference';
+export interface PaymentsSort {
+  key: PaymentsSortKey;
+  descending: boolean;
+}
+
+const SORT_KEYS: readonly PaymentsSortKey[] = ['vendor', 'owed', 'paid', 'difference'];
+const DEFAULT_SORT: PaymentsSort = { key: 'vendor', descending: false };
+
+export function paymentsSortFrom(query: LocationQuery): PaymentsSort {
+  const key = SORT_KEYS.find((k) => k === query.sort);
+  return key ? { key, descending: query.order === 'desc' } : DEFAULT_SORT;
+}
+
+/**
+ * The address's sort once a column's heading is pressed: the column sorted already turns its
+ * order; another starts at its own, the vendor A to Z and an amount largest first. The default
+ * leaves the address bare.
+ */
+export function paymentsSortQuery(
+  sort: PaymentsSort,
+  key: PaymentsSortKey,
+): { sort?: PaymentsSortKey; order?: 'desc' } {
+  const descending = sort.key === key ? !sort.descending : key !== 'vendor';
+  if (key === DEFAULT_SORT.key && descending === DEFAULT_SORT.descending) return {};
+  return descending ? { sort: key, order: 'desc' } : { sort: key };
+}
+
+function amount(vendor: PaymentsVendor, key: Exclude<PaymentsSortKey, 'vendor'>): number {
+  if (key === 'owed') return vendor.owedCents;
+  if (key === 'paid') return vendor.paidCents;
+  return vendor.owedCents - vendor.paidCents;
+}
+
+/** The vendors the list shows: in the filter's state, matching the search by name or address,
+ * in the sort's order, a tie by vendor. */
+export function shownVendors(
+  vendors: readonly PaymentsVendor[],
+  { shown, search, names }: { shown: PaymentsShown | null; search: string; names: VendorNames },
+  sort: PaymentsSort,
+): PaymentsVendor[] {
+  const label = (v: PaymentsVendor) => vendorHeadline(v.email, names).toLowerCase();
+  const byVendor = (a: PaymentsVendor, b: PaymentsVendor) => label(a).localeCompare(label(b));
+  const order = sort.descending ? -1 : 1;
+  return vendors
+    .filter((v) => vendorShownIn(v, shown) && vendorMatches(search, v.email, names))
+    .sort((a, b) => {
+      if (sort.key === 'vendor') return order * byVendor(a, b);
+      return order * (amount(a, sort.key) - amount(b, sort.key)) || byVendor(a, b);
+    });
+}

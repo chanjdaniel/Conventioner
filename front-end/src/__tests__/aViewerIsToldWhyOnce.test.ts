@@ -21,7 +21,7 @@ const route = vi.hoisted(() => ({
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-  useRoute: () => route.current,
+  useRoute: () => ({ ...route.current, matched: [] }),
 }));
 
 const VIEWER = 'You can view this market but not change it.';

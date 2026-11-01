@@ -29,7 +29,7 @@ import csv
 import io
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -249,6 +249,15 @@ def money_cell(cents: int, currency: Optional[str]) -> str:
     and "-£15" keep the hyphen-minus, so a spreadsheet reads the number."""
     text = Pricing.money_text(cents, currency)
     return MINUS_SIGN + text[1:] if text.startswith("-") and text[1].isalpha() else text
+
+
+def _offers_payment_states(market: Market) -> bool:
+    """Whether anyone on the market may be in a payment state (``Payments.balance_state``): always
+    on a market that sets prices, and on one that does not only where some account compares
+    (``Payments.compares``): one owing an amount set by hand, or refunded beyond what it paid."""
+    if market.setup_object and market.setup_object.pricing:
+        return True
+    return any(Payments.compares(account) for account in PaymentsApi.accounts(market).values())
 
 
 def _no_account(currency: Optional[str]) -> Dict[str, Any]:
@@ -555,6 +564,10 @@ def _build(market_id: str, body: Any, requesting_user: str) -> Export:
     if not isinstance(body, dict):
         raise ExportInvalid("The export's request is not one it reads.")
     filters = read_filters(body.get("filters"), offered_questions(market), requesting_user)
+    if filters.payment and not _offers_payment_states(market):
+        # Nobody is in a payment state there, so the filter narrows nothing, as the Payments
+        # page's own filter in its address does on such a market.
+        filters = replace(filters, payment="")
     columns = _chosen_columns(body.get("columns"), offered_columns(market))
     with_accounts = bool(filters.payment) or any(column.group == "payment" for column in columns)
     rows = [
@@ -589,7 +602,8 @@ def preview(market_id: str, body: Any, requesting_user: str) -> Tuple[Dict[str, 
             "questions": offered_questions(export.market),
             "discordStates": offered_discord_states(export.market),
             "paymentStates": [{"id": state, "label": label}
-                              for state, label in Payments.BALANCE_STATES.items()],
+                              for state, label in Payments.BALANCE_STATES.items()]
+                             if _offers_payment_states(export.market) else [],
         },
     }, 200
 

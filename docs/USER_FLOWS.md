@@ -51,7 +51,7 @@ A bug the status once named is cited where its fix changed what a step says.
 - [G. Starting from a Google Form's responses](business/flows/starting-from-a-google-form.md) - G1 to G6
 - [H. Taking applications](business/flows/taking-applications.md) - H1, H1a, H4, H5; [importing](business/flows/import.md) - H2, H2a to H2j; [applying online](business/flows/applying-online.md) - H3, H3a to H3e
 - [I. Reviewing applications](business/flows/review.md) - I1 to I6, with the All view; I7 is with [the assignment](business/flows/assignment-and-result.md#i7-publish-results)
-- [J. Assigning tables](business/flows/assignment-and-result.md) - I7, J1 to J5, J2a, J3a, J3b, J14; [placing by hand](business/flows/placing-by-hand.md) - J6 to J10, J13; [vendors](business/flows/vendors.md) - J11, J12, J15, J16; and [the vendor drawer](business/flows/vendor-drawer.md)
+- [J. Assigning tables](business/flows/assignment-and-result.md) - I7, J1 to J5, J2a, J3a, J3b, J14; [placing by hand](business/flows/placing-by-hand.md) - J6 to J10, J13; [vendors](business/flows/vendors.md) - J11, J12, J15, J16; [payments](business/flows/payments.md) - J17; and [the vendor drawer](business/flows/vendor-drawer.md)
 - [K. Publishing and market days](business/flows/market-day-door.md) - K1 to K5; [K6](#k6-send-offers-instead-of-publishing) is planned, below
 - [L. Ending and managing a market](business/flows/ending-and-managing-a-market.md) - L1 to L5, with P6; [reading the market's history](business/flows/reading-the-markets-history.md) - L6
 - [M. Offers and outcomes (planned)](#m-offers-and-outcomes-planned) - M1 to M5; planned, below
