@@ -1223,7 +1223,8 @@ export function walkTheScreens(
   });
 
   for (const s of SCREENS) {
-    const sizes = everySize ? s.sizes : s.sizes.slice(0, 1);
+    // A copy, since screens share their sizes' arrays and `alsoAt` adds to it.
+    const sizes = everySize ? [...s.sizes] : s.sizes.slice(0, 1);
     // `alsoAt` adds a size the screen does not ship at, when the sweep's question holds there too.
     if (alsoAt && !s.deskOnly && !sizes.some((size) => size.width === alsoAt.width)) {
       sizes.push(alsoAt);
