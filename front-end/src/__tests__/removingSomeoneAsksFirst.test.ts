@@ -41,7 +41,6 @@ function org(overrides: Partial<Organization> = {}): Organization {
     owner: 'u-owner',
     admins: ['u-admin'],
     members: ['u-walk'],
-    markets: [],
     ownerEmail: 'owner@example.com',
     adminEmails: ['admin@example.com'],
     memberEmails: [EMAIL],
@@ -90,12 +89,9 @@ describe('what removing someone from an organization says', () => {
     );
   });
 
-  it('says so when it has no markets, and claims no count it was not served', () => {
+  it('says so when it has no markets', () => {
     expect(organizationRemoval(org({ marketCount: 0 }), 'u-walk', EMAIL).loses).toBe(
       'It has no markets yet.',
-    );
-    expect(organizationRemoval(org({ marketCount: undefined }), 'u-walk', EMAIL).loses).toBe(
-      'They lose the access it gives them to its markets.',
     );
   });
 });

@@ -142,11 +142,6 @@ export class ManageMarketPage {
 
   // ── Remove user ──
 
-  /** Opens the first Remove's confirmation; nothing is removed until it is confirmed. */
-  async removeFirstUser(): Promise<void> {
-    await this.removeUserButtons.first().click();
-  }
-
   /** Removes the person whose row holds `email`, through the confirmation Remove opens. */
   async removeUser(email: string): Promise<void> {
     await this.page

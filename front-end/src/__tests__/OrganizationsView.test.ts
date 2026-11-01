@@ -48,8 +48,8 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-const OLD = { id: 'org-1', name: 'Riverside Makers', userRole: 'owner', markets: [] };
-const NEW = { id: 'org-2', name: 'Harbour Collective', userRole: 'owner', markets: [] };
+const OLD = { id: 'org-1', name: 'Riverside Makers', userRole: 'owner', marketCount: 0 };
+const NEW = { id: 'org-2', name: 'Harbour Collective', userRole: 'owner', marketCount: 0 };
 
 /** Create an organization through the dialog, as the organizer does. */
 async function create(wrapper: ReturnType<typeof mount>, name: string) {
@@ -95,6 +95,20 @@ describe('the organizations list', () => {
     expect(wrapper.text()).toContain('Riverside Makers');
     expect(wrapper.text()).not.toContain('Loading organizations');
     again.resolve([OLD, NEW]);
+  });
+});
+
+describe("an organization's card", () => {
+  it('counts the markets the read counted, as the Remove confirmation over it does', async () => {
+    // E38/F15/S01: the organization's own `markets` list is kept in step only at best effort, so
+    // the card and the confirmation both say the count the read takes from the markets themselves.
+    fetchOrganizations.mockResolvedValueOnce([{ ...OLD, marketCount: 11 }]);
+    const { wrapper } = await mountAt();
+    await flushPromises();
+
+    const facts = wrapper.get('[data-testid="organization-card"] .summary-card-facts');
+    expect(facts.text()).toContain('Markets');
+    expect(facts.get('dd').text()).toBe('11');
   });
 });
 

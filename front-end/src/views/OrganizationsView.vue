@@ -50,7 +50,8 @@ onMounted(() => {
 
 function factsFor(org: Organization): SummaryFact[] {
   return [
-    { label: 'Markets', value: String(org.markets?.length ?? 0) },
+    // Counted from the markets themselves, as Remove's confirmation counts them (E38/F15/S01).
+    { label: 'Markets', value: String(org.marketCount) },
     org.ownerEmail
       ? { label: 'Owner', value: org.ownerEmail }
       : { label: 'Owner', value: 'Not known', missing: true },

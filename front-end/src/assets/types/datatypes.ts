@@ -457,7 +457,6 @@ export interface Organization {
   owner: string; // User id (uuid)
   admins: string[]; // 0+ admin user ids
   members: string[]; // 0+ member user ids
-  markets: string[]; // List of market ids
   ownerEmail?: string; // Resolved display (from API)
   adminEmails?: string[]; // Resolved display (from API)
   memberEmails?: string[]; // Resolved display (from API)
@@ -465,11 +464,12 @@ export interface Organization {
   userRole?: OrganizationRoleType; // Current user's role (from API, for Manage button)
   /** The table each market created in it starts with, copied (E39/F02/S01). */
   defaultPermissionTable?: PermissionTableRow[];
-  /** How many markets it holds, counted from the markets themselves (E38/F15/S01). */
-  marketCount?: number;
+  /** How many markets it holds, counted from the markets themselves (E38/F15/S01): its card and
+   *  Remove's confirmation say it. */
+  marketCount: number;
   /** For each admin and member who holds a role of their own on some of its markets, how many:
    *  removing them from it leaves those. */
-  marketsWithOwnRole?: Record<string, number>;
+  marketsWithOwnRole: Record<string, number>;
 }
 
 export interface VendorAttendance {

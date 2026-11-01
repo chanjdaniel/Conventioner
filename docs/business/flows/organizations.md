@@ -3,6 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/OrganizationsView.vue
+  - front-end/src/__tests__/OrganizationsView.test.ts
 verified: 2026-11-01
 sources:
   - E26/F06/S02
@@ -39,6 +40,9 @@ Covered by: `organizations-fit-a-phone.spec.ts`, and the [sweeps](../../design-s
 1. Dashboard, "Organizations" (or `/organizations`).
 2. "New organization", name it, "Create".
 3. Expect a card with the name and your role (Owner).
+
+Each organization's card says its name, your role in it, how many markets it holds and its owner.
+The count is the organization read's `marketCount`, counted from the markets themselves, the count Remove's confirmation says too ([B3](#b3-remove-a-person)), so the two never disagree on one screen (E38/F15/S01); [`OrganizationsView.test.ts`](../../../front-end/src/__tests__/OrganizationsView.test.ts) pins it.
 
 A person with no organization is told on the dashboard and in the create-market dialog to make one here first ([D4](creating-a-market.md#d4-create-a-market-with-no-organization-yet)).
 Covered by: `tier2.spec.ts` ("Organization CRUD").

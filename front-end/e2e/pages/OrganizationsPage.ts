@@ -213,15 +213,7 @@ export class OrganizationsPage {
 
   // ── Remove users ──
 
-  /** Each opens its Remove's confirmation; nothing is removed until it is confirmed. */
-  async removeFirstAdmin(): Promise<void> {
-    await this.removeUserButtons.first().click();
-  }
-
-  async removeFirstMember(): Promise<void> {
-    await this.removeMemberButtons.first().click();
-  }
-
+  /** Confirms the confirmation a row's Remove opened; nothing is removed until then. */
   async confirmRemove(): Promise<void> {
     await this.removeConfirmButton.click();
   }
