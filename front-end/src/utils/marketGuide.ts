@@ -216,6 +216,13 @@ interface GuideRow {
    * for everyone has none.
    */
   onlooker?: string;
+  /**
+   * What the rail says to someone who may take `action` but not the step onward (moving the phase,
+   * or a standing blocker's remedy), where the statement would tell them to take it: the work that
+   * is theirs, and who does the rest. An Editor in Assignment may change the seats but publish
+   * neither the results nor the market. A row without one says its statement, or its onlooker's.
+   */
+  helper?: string;
 }
 
 /**
@@ -271,7 +278,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
   }),
   // Worked on the rules until there are assignments, and on the assignments after. Once results
   // are published the assignments are settled, and what is left is the move.
-  [MarketPhase.Assignment]: ({ assigned, published }) =>
+  [MarketPhase.Assignment]: ({ assigned, published, path }) =>
     published
       ? {
           page: 'assignments',
@@ -289,6 +296,10 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
               'Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone.',
             onlooker:
               'Tables are allocated, and the market is not published yet. Read the assignments.',
+            helper:
+              path === IntakeMode.Form
+                ? 'Check the assignments; the results are published by whoever may publish them.'
+                : 'Check the assignments; the market is published by whoever may publish it.',
           }
         : {
             page: 'settings',
@@ -381,11 +392,21 @@ export function pageForTab(
 }
 
 /**
+ * The guards whose refusal, when it names no remedy, is a plain fact that asks nobody to do
+ * anything, so it reads to everyone: `all_applications_reviewed` names none only to say "There are
+ * no applications for this market.". Every other guard naming no remedy has two, on two pages, and
+ * its message ends in them ("Restore the seat in the plan, or move or free those vendors."), so it
+ * reads only to someone who may do the row's work. Keyed on the guard, never on its words.
+ */
+const FACTS: ReadonlySet<string> = new Set(['all_applications_reviewed']);
+
+/**
  * The rail's statement for this market, now.
  *
  * A step's blockers are served to everyone, so a blocker reads only to someone who may take its
- * remedy (T142); anyone else reads the row's onlooker sentence, which is true whether the blocker
- * stands or not. A blocker that names no remedy is a fact, and reads to everyone.
+ * remedy (T142), or, naming none, who may do the row's work, unless it is one of the `FACTS`;
+ * anyone else reads the row's `helper` when they may do the row's work, else its onlooker sentence,
+ * each true whether the blocker stands or not.
  */
 export function nextStep(market: Market, today: string = calendarToday()): NextStep {
   const phase = String(market.phase ?? MarketPhase.Draft);
@@ -407,9 +428,20 @@ export function nextStep(market: Market, today: string = calendarToday()): NextS
   const runFirst = phase === MarketPhase.Assignment && !assigned;
   const standing = forward && blocker && !runFirst ? blocker : null;
   const remedy = standing?.resolutionAction ?? null;
+  const theirs = mayTake(market, row.action);
   // The step is the standing blocker's remedy, else the row's own.
   const onlooking = Boolean(row.onlooker) && !mayTake(market, remedy ?? row.action);
-  if (forward && standing && !(remedy && onlooking)) {
+  // Someone who may do the row's work, but not what stands in the step's way: its blocker's
+  // remedy, or, with none standing, moving the phase.
+  const helping =
+    Boolean(row.helper) &&
+    theirs &&
+    (standing
+      ? remedy !== null && !mayTake(market, remedy)
+      : !mayTake(market, MarketAction.MovePhase));
+  const blockerReads =
+    standing !== null && !helping && (!onlooking || (!remedy && FACTS.has(standing.id)));
+  if (forward && standing && blockerReads) {
     const stage = phase === MarketPhase.Applications;
     const lead = onlooking ? watchedStageLead({ path, stopped }) : stageLead({ path, stopped });
     // Work left to finish leads to the review; none at all is said as what the move waits on.
@@ -424,9 +456,11 @@ export function nextStep(market: Market, today: string = calendarToday()): NextS
       action: remedy,
     };
   }
-  const said = onlooking
-    ? { statement: row.onlooker!, action: MarketAction.Read }
-    : { statement: row.statement, action: row.action };
+  const said = helping
+    ? { statement: row.helper!, action: row.action }
+    : onlooking
+      ? { statement: row.onlooker!, action: MarketAction.Read }
+      : { statement: row.statement, action: row.action };
   return {
     text: said.statement,
     page: said.action ? landingOf(row) : null,

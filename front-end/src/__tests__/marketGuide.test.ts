@@ -431,17 +431,107 @@ describe('what the rail tells someone the step is not theirs', () => {
     });
   });
 
-  it('reads an Editor, who may assign but not publish results, the onlooker sentence there', () => {
+  /*
+   * A blocker that names no remedy has two, on two pages, and its message ends in them ("Restore
+   * the seat in the plan, or move or free those vendors."): an instruction like any other, so an
+   * onlooker reads the row's sentence. Only a plain fact, "There are no applications for this
+   * market.", reads to everyone.
+   */
+  const ORPHANED_PIN = {
+    id: 'no_orphaned_pin',
+    passed: false,
+    message:
+      '1 hand assignment names a seat the plan no longer has: vendor@example.com at A3 on 2099-05-01. Restore the seat in the plan, or move or free those vendors.',
+    resolutionLink: null,
+  };
+  const TIER_WITHOUT_TABLES = {
+    id: 'no_asked_for_tier_without_tables',
+    passed: false,
+    message:
+      '1 tier has no tables, and approved applicants are waiting on them: Gold (vendor@example.com). Add a section at that tier, or reject those applications, before allocating tables.',
+    resolutionLink: null,
+  };
+
+  it('Assignment with an orphaned pin: a Viewer reads no remedy that is not theirs', () => {
+    const orphaned = viewer(MarketPhase.Assignment, {
+      ...ASSIGNED,
+      transitionBlockers: { market_days: [ORPHANED_PIN], applications: [] },
+    } as unknown as Partial<Market>);
+    const said = nextStep(orphaned, TODAY);
+    expect(said.text).not.toMatch(/Restore|move or free/);
+    expect(said).toMatchObject({
+      text: 'Tables are allocated, and the market is not published yet. Read the assignments.',
+      blocker: null,
+      action: MarketAction.Read,
+    });
+  });
+
+  it('the stage with a tier that has no tables: a Viewer reads no remedy that is not theirs', () => {
+    const short = viewer(MarketPhase.Applications, {
+      transitionBlockers: { assignment: [TIER_WITHOUT_TABLES], draft: [] },
+    } as unknown as Partial<Market>);
+    const said = nextStep(short, TODAY);
+    expect(said.text).not.toMatch(/Add a section|reject those applications/);
+    expect(said).toMatchObject({
+      text: 'Applications are open on the application page. Read where each application stands.',
+      blocker: null,
+      action: MarketAction.Read,
+    });
+  });
+
+  it("reads a remedy-less blocker to whoever may do the row's work, as before", () => {
+    const orphaned = market(MarketPhase.Assignment, {
+      ...ASSIGNED,
+      transitionBlockers: { market_days: [ORPHANED_PIN], applications: [] },
+    } as unknown as Partial<Market>);
+    expect(nextStep(orphaned, TODAY)).toMatchObject({
+      text: `To publish market: ${ORPHANED_PIN.message}`,
+      blocker: { id: 'no_orphaned_pin' },
+    });
+    // An Editor may move or free those vendors, so it is theirs too.
+    expect(nextStep({ ...orphaned, actionRefusals: EDITOR_ANSWERS }, TODAY)).toMatchObject({
+      text: `To publish market: ${ORPHANED_PIN.message}`,
+      blocker: { id: 'no_orphaned_pin' },
+    });
+  });
+
+  /*
+   * An Editor may change the seats in Assignment, but neither publish the results nor the market:
+   * the Viewer's read step undersold what they may do, and the row's own sentence told them to
+   * publish. They read what is theirs, and who does the rest.
+   */
+  it('reads an Editor in Assignment before results are published what they may do there', () => {
     const unpublished = market(MarketPhase.Assignment, {
       ...ASSIGNED,
       actionRefusals: EDITOR_ANSWERS,
       transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER], applications: [] },
     } as Partial<Market>);
     expect(nextStep(unpublished, TODAY)).toMatchObject({
-      text: 'Tables are allocated, and the market is not published yet. Read the assignments.',
+      text: 'Check the assignments; the results are published by whoever may publish them.',
+      page: 'assignments',
       blocker: null,
-      action: MarketAction.Read,
+      action: MarketAction.Assign,
     });
+    const csv = market(MarketPhase.Assignment, {
+      ...ASSIGNED,
+      intakeMode: IntakeMode.Csv,
+      actionRefusals: EDITOR_ANSWERS,
+    } as Partial<Market>);
+    expect(nextStep(csv, TODAY)).toMatchObject({
+      text: 'Check the assignments; the market is published by whoever may publish it.',
+      page: 'assignments',
+      action: MarketAction.Assign,
+    });
+    // The Viewer's read sentence stays.
+    expect(
+      nextStep(
+        viewer(MarketPhase.Assignment, {
+          ...ASSIGNED,
+          transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER], applications: [] },
+        } as Partial<Market>),
+        TODAY,
+      ).text,
+    ).toBe('Tables are allocated, and the market is not published yet. Read the assignments.');
   });
 
   it('says the step to whoever may take it, an Editor at the door and a chosen Viewer in review', () => {

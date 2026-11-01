@@ -16,7 +16,8 @@ import { LoginPage } from './pages/LoginPage';
  * waiting read the reviewer's own sentence ("review them as they arrive. Finish deciding: ..."),
  * and in Assignment on a form market the publisher's ("Publish the results before the market goes
  * live."). A blocker now reads only to someone who may put it right: an Editor reviews, so reads
- * the stage's blocker, and may not publish results, so reads the Viewer's sentence in Assignment.
+ * the stage's blocker, and may change the seats but not publish results, so reads in Assignment
+ * what is theirs and who does the rest.
  */
 const VIEWER = { email: 'e2e-rail-viewer@example.com', password: 'e2epassword123' };
 const EDITOR = { email: 'e2e-rail-editor@example.com', password: 'e2epassword123' };
@@ -110,7 +111,7 @@ for (const size of SIZES) {
       await expect(railSentence(page)).not.toContainText(/Publish the results/);
     });
 
-    test('an Editor reads the stage blocker, which is theirs, and not the publisher one', async ({
+    test('an Editor reads the stage blocker, which is theirs, and their own work in Assignment', async ({
       page,
     }) => {
       await signIn(page, EDITOR, width);
@@ -122,7 +123,10 @@ for (const size of SIZES) {
       );
 
       await page.goto(`/markets/${assignedId}/assignments`);
-      await expect(railSentence(page)).toContainText(ASSIGNED_ONLOOKER, { timeout: 15000 });
+      await expect(railSentence(page)).toContainText(
+        'Check the assignments; the results are published by whoever may publish them.',
+        { timeout: 15000 },
+      );
       await expect(railSentence(page)).not.toContainText(/Publish the results/);
     });
   });
