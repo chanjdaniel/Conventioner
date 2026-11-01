@@ -8,8 +8,6 @@ import {
   dayEnds,
   dayStarts,
   entryChanges,
-  addressParts,
-  dotPieces,
   entryParts,
   fieldName,
   soleColumn,
@@ -17,6 +15,7 @@ import {
   type MarketHistoryEntry,
   type MarketHistoryPart,
 } from '@/utils/marketHistory';
+import { addressParts, dotPieces, hyphenRuns, partsText } from '@/utils/addressParts';
 import { historyParts, type PlacementHistoryEntry } from '@/utils/placementHistory';
 
 const NAMES = { 'ana@ember.test': 'Ana Rivera', 'ben@ember.test': 'Ben Okafor' };
@@ -733,7 +732,7 @@ describe('how a before and after is drawn', () => {
     expect(soleColumn(entry({}), [])).toBeNull();
   });
 
-  it('marks each address in a value, so it breaks, if at all, only before its @', () => {
+  it('marks each address in a value, so it breaks, if at all, only before its @ or a dot', () => {
     expect(addressParts('Dealt to rv-ana@example.com, and bo@x.test')).toEqual([
       { kind: 'text', text: 'Dealt to ' },
       { kind: 'address', local: 'rv-ana', domain: '@example.com' },
@@ -748,6 +747,30 @@ describe('how a before and after is drawn', () => {
       '.com',
     ]);
     expect(dotPieces('ana')).toEqual(['ana']);
+  });
+
+  it('leaves a sentence’s full stop after an address to the words, and joins back to them', () => {
+    const words = 'Dealt to rv-ana@example.com. Then bo@x.test (twice).';
+    expect(addressParts(words)).toEqual([
+      { kind: 'text', text: 'Dealt to ' },
+      { kind: 'address', local: 'rv-ana', domain: '@example.com' },
+      { kind: 'text', text: '. Then ' },
+      { kind: 'address', local: 'bo', domain: '@x.test' },
+      { kind: 'text', text: ' (twice).' },
+    ]);
+    expect(partsText(addressParts(words))).toBe(words);
+  });
+
+  it('holds each hyphen to the character after it, so no line ends at one', () => {
+    expect(hyphenRuns('e2e-screens--reviewer-')).toEqual([
+      { text: 'e2e', held: false },
+      { text: '-s', held: true },
+      { text: 'creens', held: false },
+      { text: '--r', held: true },
+      { text: 'eviewer', held: false },
+      { text: '-', held: true },
+    ]);
+    expect(hyphenRuns('@example')).toEqual([{ text: '@example', held: false }]);
   });
 });
 

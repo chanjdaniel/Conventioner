@@ -17,6 +17,7 @@ sources:
   - E38/F07/S02
   - E38/F07/S03
   - T180
+  - T181
 ---
 
 # The review is dealt among chosen reviewers
@@ -67,10 +68,11 @@ Anyone else's address is refused by name; a current reviewer the chooser is not 
 The owner raising who may be chosen to Editor takes it from the chosen Viewers on that market; a Viewer who is not chosen reads the review and decides nothing.
 
 **Deciding someone else's share is allowed, after a warning** (E38/F07/S03): the server refuses no one who may give verdicts, chosen or not, and the screen says whose it is.
-With reviewers chosen, every row and card names its reviewer, and an open application or a follow-up dealt to someone other than the reader says so above its verdict buttons, on every such card and never as a dialog to click through, so helping a reviewer who is behind stays easy; a selection's confirmation counts the ticked ones dealt to others.
+With reviewers chosen, every row and card names its reviewer, and an open application or a follow-up dealt to someone other than the reader and not in the reader's share says so above its verdict buttons, on every such card and never as a dialog to click through, so helping a reviewer who is behind stays easy; a selection's confirmation counts the ticked ones dealt to others and not in the reader's share.
+A follow-up the reader owns is in their share ([a follow-up is in its owner's share too](#why)), so it is neither warned of nor counted, wherever it was dealt.
 
 **Each reviewer lands on their own share** (E38/F07/S04): with reviewers chosen, the All view opens a chosen reviewer on their share, and anyone else, an Admin overseeing the review among them, on every application; anyone's share is a choice of its "Assigned to" filter away ([reviewing applications](../flows/review.md#the-all-view)).
-One by one hands a chosen reviewer their own share first, and once it is done says so and offers to help with the rest; anyone else walks the whole queue, first come, first served ([reviewing applications](../flows/review.md#i1-work-through-the-queue)).
+One by one hands a chosen reviewer their own share first, and once it is done says how many applications are left outside it, every one "Help with the others" then walks, and offers to help with them; anyone else walks the whole queue, first come, first served ([reviewing applications](../flows/review.md#i1-work-through-the-queue)).
 
 **The review is dealt and worked from a phone too** (T180): the Applications page fits a phone, so an organizer chooses the reviewers there, each person's label a 44px target in the picker, and a chosen reviewer reads their share and decides it at the phone's own width ([reviewing applications](../flows/review.md)).
 

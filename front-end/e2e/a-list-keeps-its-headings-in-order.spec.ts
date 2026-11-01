@@ -1,6 +1,13 @@
 import AxeBuilder from '@axe-core/playwright';
-import { test, expect } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { MarketsPage } from './pages/MarketsPage';
+import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
+import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
+import {
+  seedApplicationWithStatus,
+  seedPhaseMarket,
+  transitionMarket,
+} from './helpers/seedPhaseMarket';
 
 /**
  * A list's cards are headed one level under the page's title, so a screen reader's outline of the
@@ -95,4 +102,73 @@ test('the navigation drawer heads none of its links', async ({ authenticatedPage
   expect(await outlineViolations(page)).toEqual([]);
   expect(await headingsInsideControls(page)).toEqual([]);
   await expect(drawer.getByRole('heading')).toHaveCount(1);
+});
+
+/** The heading just before the one named, as `h<level> <words>`: what an outline files it under. */
+async function headingBefore(
+  page: import('@playwright/test').Page,
+  words: string,
+): Promise<string | undefined> {
+  return page.evaluate((named) => {
+    const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6')).filter(
+      (h) => (h as HTMLElement).offsetParent !== null,
+    );
+    const at = headings.findIndex((h) => (h.textContent ?? '').trim() === named);
+    const before = headings[at - 1];
+    return before ? `${before.tagName.toLowerCase()} ${(before.textContent ?? '').trim()}` : '';
+  }, words);
+}
+
+/**
+ * A vendor's notes are labelled by third-level headings, so wherever they show, a second-level
+ * heading names the vendor just above them: the card's name line on One by one, the drawer's title
+ * from the All view (T95 note 6). An archived market has no Reviewers panel, whose heading was the
+ * only `h2` above the card.
+ */
+test('the review heads a vendor just before their notes, open, in the drawer and archived', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
+  const applicant = 'e2e-heading-order@example.com';
+  seedApplicationWithStatus(marketId, 'open', applicant, {
+    essential_full_name: 'Ada Lane',
+    category: 'Crafts',
+  });
+  const noted = await request.put(
+    `${BACKEND_URL}/markets/${marketId}/vendor-notes/${encodeURIComponent(applicant)}`,
+    { data: { note: 'Asked for a corner table' } },
+  );
+  expect(noted.ok(), await noted.text()).toBeTruthy();
+
+  const monitor = new ApplicationMonitorPage(page);
+  const notesUnderTheCard = async () => {
+    await expect(monitor.email).toHaveText(applicant, { timeout: 15000 });
+    await monitor.openNotes();
+    await expect(monitor.notes.getByRole('heading', { level: 3, name: 'Your note' })).toBeVisible();
+    expect(await headingsOutOfOrder(page)).toEqual([]);
+    await expect(monitor.heading).toHaveText('Ada Lane');
+    expect(await headingBefore(page, 'Your note')).toBe('h2 Ada Lane');
+  };
+
+  await monitor.goto(marketId);
+  await notesUnderTheCard();
+
+  const all = new ApplicationsAllPage(page);
+  await all.switchTo();
+  await all.open(applicant);
+  await expect(all.drawer.getByRole('heading', { level: 3, name: 'Your note' })).toBeVisible();
+  expect(await headingsOutOfOrder(page)).toEqual([]);
+  expect(await headingBefore(page, 'Your note')).toBe('h2 Ada Lane');
+
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'archived');
+  await monitor.goto(marketId);
+  await notesUnderTheCard();
 });

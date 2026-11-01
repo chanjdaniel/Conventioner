@@ -222,7 +222,7 @@ describe('the History section', () => {
     );
   });
 
-  it('breaks an address in the Field column only before its "@", as the values do', async () => {
+  it('breaks an address in the Field column only before its "@" or a dot, as the values do', async () => {
     // A check's rows name each vendor in the Field column (T137 review note 7): at 390 an
     // address ran on unbroken past the column.
     serve({
@@ -248,11 +248,64 @@ describe('the History section', () => {
     await wrapper.get('[data-testid="market-history-toggle"]').trigger('click');
 
     const field = wrapper.get('[data-testid="market-history-changes"] tbody th');
-    expect(field.findAll('.history-address').map((part) => part.text())).toEqual([
+    expect(field.findAll('.email-address').map((part) => part.text())).toEqual([
       'e2e-discord-a-long-address',
       '@riverside-makers.example.com',
     ]);
-    expect(field.find('wbr').exists()).toBe(true);
+    // It may break before its "@" and each dot, and never just after a hyphen (T181).
+    expect(field.findAll('.email-address-break').map((piece) => piece.text())).toEqual([
+      '@riverside-makers',
+      '.example',
+      '.com',
+    ]);
+    expect(field.findAll('.email-address-held').map((run) => run.text())).toEqual([
+      '-d',
+      '-a',
+      '-l',
+      '-a',
+      '-m',
+    ]);
+    expect(field.find('wbr').exists()).toBe(false);
+  });
+
+  it('breaks an address in an entry’s sentence only before its "@" or a dot, as the table does', async () => {
+    // A verdict on someone else's share names whose it was (T127 review note 35): at 390 the
+    // sentence broke the address at its hyphen.
+    serve({
+      entries: [
+        {
+          ...assigned('e1', 1),
+          actor: 'dana-lee@ember.test',
+          action: 'give-verdicts',
+          kind: 'verdict',
+          vendors: ['ana@ember.test'],
+          subject: {},
+          detail: {
+            before: { status: 'open' },
+            after: { status: 'reviewer_approved' },
+            dealt_to: 'rv-sam-lee@ember.test',
+          },
+        },
+      ],
+      next: null,
+    });
+    const wrapper = mountHistory();
+    await flushPromises();
+
+    const sentence = wrapper.get('[data-testid="market-history-sentence"]');
+    expect(sentence.findAll('.email-address').map((part) => part.text())).toEqual([
+      'dana-lee',
+      '@ember.test',
+      'ana',
+      '@ember.test',
+      'rv-sam-lee',
+      '@ember.test',
+    ]);
+    // The text reads as before, each address one word: nothing added, nothing hidden.
+    expect(sentence.text()).toBe(
+      'dana-lee@ember.test set Ana Rivera ana@ember.test to Approved, dealt to rv-sam-lee@ember.test',
+    );
+    expect(sentence.find('[aria-hidden]').exists()).toBe(false);
   });
 
   it('names a permission row by the label the market’s table gives it', async () => {

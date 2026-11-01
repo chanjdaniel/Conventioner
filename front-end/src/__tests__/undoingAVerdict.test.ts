@@ -175,6 +175,18 @@ describe('one by one', () => {
     wrapper.unmount();
   });
 
+  // The card's heading, so the notes' third-level labels sit one level under it (T95 note 6).
+  it("heads the card with the applicant's name, else their address", async () => {
+    const wrapper = await monitor();
+    const heading = () => wrapper.get('[data-testid="app-monitor-card"] h2');
+
+    expect(heading().text()).toBe('Jane Doe');
+    await press('r');
+    expect(heading().text()).toBe('kim@example.com');
+    expect(wrapper.findAll('[data-testid="app-monitor-card"] h2')).toHaveLength(1);
+    wrapper.unmount();
+  });
+
   it('offers the undo of a verdict above the next card, a polite live region', async () => {
     const wrapper = await monitor();
 

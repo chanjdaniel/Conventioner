@@ -36,6 +36,7 @@ sources:
   - E38/F04/S03
   - E38/F06/S01
   - E38/F15/S02
+  - T181
 ---
 
 # Importing a Google Form's responses
@@ -48,6 +49,7 @@ Importing is the Google Form path's alone, in Draft and in Review ([intake mode 
 The import is `/markets/<id>/import` ([`CsvImportView.vue`](../../../front-end/src/views/CsvImportView.vue)), headed "Import responses" for the first import and "Redo import" after it, in four steps: Upload, Map columns, Preview, Confirm.
 It is a full-width page of its own, not a dialog and not a card of Market Setup: mapping a dozen columns and then settling the answers that match nothing is too dense for either.
 It stands in the market frame at the workspace width like every market page, and keeps that width through all four steps, since a page that resized under the organizer at each Next would read as unsteady: Upload, Preview and Confirm centre a narrower panel (720px) inside it, and Map columns takes the whole width for its ledger and rail.
+Its heading and every step stand on the frame's inset, in line with the rail, as every page in the card does ([the market frame](../../implementation/modules/market-frame.md#sharp-edges)); until T181 they sat 8px further in, and `csv-import.spec.ts` measures the line at 1920 and 1440 on the first import and on Redo import.
 A dialog opened from the import, such as the form amendment ([H2e](#h2e-add-a-question-for-a-column-with-nowhere-to-go)), is a dialog over a page, which holds only while the import is a page.
 How the file becomes applications, and why each rule holds, is [the CSV import](../../implementation/modules/csv-import.md).
 

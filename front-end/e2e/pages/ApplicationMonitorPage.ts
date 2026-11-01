@@ -41,8 +41,14 @@ export class ApplicationMonitorPage {
   readonly helpOthersButton: Locator;
   /** The card is dealt to another reviewer (E38/F07/S03). */
   readonly dealtWarning: Locator;
-  /** The applicant's name, leading the card's heading. */
+  /** Whose share the card is: "Reviewer: <address>", or "Reviewer: you" (E38/F07/S03). */
+  readonly reviewer: Locator;
+  /** The applicant's name, the card's heading when their answers give one. */
   readonly name: Locator;
+  /** The card's heading: the applicant's name, else their address. */
+  readonly heading: Locator;
+  /** The vendor's notes on the card, a disclosure closed until its summary is clicked. */
+  readonly notes: Locator;
   /** The verdict just given, above the next card, and its Undo (E38/F10/S01). */
   readonly undoLine: Locator;
   readonly undoButton: Locator;
@@ -72,7 +78,10 @@ export class ApplicationMonitorPage {
     this.shareDoneOthers = page.getByTestId('app-monitor-share-done-others');
     this.helpOthersButton = page.getByTestId('app-monitor-help-others');
     this.dealtWarning = this.card.getByTestId('app-monitor-dealt-warning');
+    this.reviewer = this.card.getByTestId('app-monitor-reviewer');
     this.name = this.card.getByTestId('app-monitor-name');
+    this.heading = this.card.getByRole('heading', { level: 2 });
+    this.notes = this.card.getByTestId('app-monitor-notes');
     this.undoLine = page.getByTestId('app-monitor-undo');
     this.undoButton = page.getByTestId('app-monitor-undo-button');
     this.decidedNames = page.getByTestId('app-monitor-decided-name');
@@ -105,6 +114,12 @@ export class ApplicationMonitorPage {
   /** From the All view, where the tab opens, by its switch. */
   async switchTo(): Promise<void> {
     await this.page.getByTestId('applications-view-one').click();
+  }
+
+  /** Open the card's notes by their summary, as a reviewer does. */
+  async openNotes(): Promise<void> {
+    await this.notes.getByTestId('app-monitor-notes-summary').click();
+    await expect(this.notes).toHaveAttribute('open', '');
   }
 
   /** Wait for the queue to settle, so a count is a count and not a race with the fetch. */

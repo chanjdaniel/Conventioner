@@ -16,6 +16,7 @@ import { MarketAction } from '@/utils/marketActions';
 import { answersRefusing } from './support/servedAnswers';
 
 const ME = 'ana@example.com';
+const FOLLOW_UP = ApplicationStatus.NeedsFollowUp;
 const SAM = 'sam@example.com';
 
 const fetchMarketApplications = vi.fn();
@@ -72,8 +73,9 @@ function serve() {
   fetchMarketApplications.mockImplementation(async () => stored.map((app) => ({ ...app })));
   api.post.mockImplementation(async (url: string, body: Record<string, unknown>) => {
     if (!url.endsWith('/review/next')) return { data: {} };
+    const handed = [ApplicationStatus.Open, ...(body.includeFollowUps ? [FOLLOW_UP] : [])];
     const open = stored
-      .filter((app) => app.status === ApplicationStatus.Open && !app.heldBy)
+      .filter((app) => handed.includes(app.status) && !app.heldBy)
       .sort((a, b) => Date.parse(a.submittedAt as string) - Date.parse(b.submittedAt as string));
     const at = open.findIndex((app) => app.id === body.after) + 1;
     const order = [...open.slice(at), ...open.slice(0, at)];
@@ -151,7 +153,7 @@ describe('a chosen reviewer', () => {
     expect(text(wrapper, 'app-monitor-progress')).toBe('2 of 2 in your share');
   });
 
-  it('reads that their share is done once it is decided, and how many are left to others', async () => {
+  it('reads that their share is done once it is decided, and how many are left outside it', async () => {
     const wrapper = await monitor();
     await approve(wrapper);
     expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 1 in your share');
@@ -161,11 +163,41 @@ describe('a chosen reviewer', () => {
     expect(wrapper.find('[data-testid="app-monitor-card"]').exists()).toBe(false);
     expect(text(wrapper, 'app-monitor-share-done')).toContain('Your share is done.');
     expect(text(wrapper, 'app-monitor-share-done-others')).toBe(
-      "3 open applications are dealt to other reviewers. You can help with them; each one's history will say you decided it.",
+      "3 applications are left outside your share. You can help with them; each one's history will say you decided it.",
     );
     expect(text(wrapper, 'app-monitor-help-others')).toBe('Help with the others');
     expect(wrapper.find('[data-testid="app-monitor-all-held"]').exists()).toBe(false);
     expect(text(wrapper, 'app-monitor-tally')).toContain('2 reviewed');
+  });
+
+  it('counts every application left outside their share, as many as "Help with the others" walks', async () => {
+    stored = [
+      application('amy', 1, ME),
+      application('ben', 2, SAM),
+      {
+        ...application('fox', 3, SAM),
+        status: FOLLOW_UP,
+        followUpOwner: { userId: SAM, email: SAM },
+      },
+      application('gus', 4, null),
+    ];
+    stored[0].status = ApplicationStatus.ReviewerApproved;
+    const wrapper = await monitor();
+    await wrapper.get('[data-testid="app-monitor-include-follow-ups"]').setValue(true);
+    await flushPromises();
+
+    expect(text(wrapper, 'app-monitor-share-done-others')).toBe(
+      "3 applications are left outside your share. You can help with them; each one's history will say you decided it.",
+    );
+
+    await wrapper.get('[data-testid="app-monitor-help-others"]').trigger('click');
+    await flushPromises();
+    const walked: string[] = [];
+    while (wrapper.find('[data-testid="app-monitor-card"]').exists()) {
+      walked.push(shown(wrapper));
+      await approve(wrapper);
+    }
+    expect(walked).toEqual(['ben@vendor.test', 'fox@vendor.test', 'gus@vendor.test']);
   });
 
   it('goes on through the rest after "Help with the others", each card warning whose it is', async () => {
@@ -203,13 +235,13 @@ describe('a chosen reviewer', () => {
     expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 1 in your share');
   });
 
-  it('says it of one left to others in the singular', async () => {
+  it('says it of one left outside their share in the singular', async () => {
     stored = stored.filter((app) => ['amy', 'ben'].includes(app.id));
     stored[0].status = ApplicationStatus.ReviewerApproved;
     const wrapper = await monitor();
 
     expect(text(wrapper, 'app-monitor-share-done-others')).toBe(
-      '1 open application is dealt to another reviewer. You can help with it; its history will say you decided it.',
+      '1 application is left outside your share. You can help with it; its history will say you decided it.',
     );
   });
 
