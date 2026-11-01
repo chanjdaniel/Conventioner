@@ -219,6 +219,24 @@ describe('the next step', () => {
     });
     expect(nextStep(market(MarketPhase.MarketDays), '2099-06-01').text).toMatch(/Archive it/);
   });
+
+  // The rail told a Viewer "Check vendors in at the door." just above the frame's line saying they
+  // may change nothing (E38/F15/S04). Someone who may not check in is told what they may do there:
+  // read who has come, a step every role may take, so the rail leads them to the door.
+  it('tells someone who may not check vendors in to follow who has come', () => {
+    const watching = market(MarketPhase.MarketDays, {
+      actionRefusals: answersRefusing(MarketAction.CheckIn),
+    });
+    expect(nextStep(watching, TODAY)).toMatchObject({
+      text: 'Follow who has checked in at the door.',
+      page: 'attendance',
+      action: MarketAction.Read,
+    });
+    // It says nothing of what they may not do: the frame says that, once.
+    expect(nextStep(watching, TODAY).text).not.toMatch(/change|view/i);
+    // Once every date has passed the step is archiving, whoever is looking.
+    expect(nextStep(watching, '2099-06-01').text).toMatch(/Archive it/);
+  });
 });
 
 describe('the action a step takes (T142)', () => {

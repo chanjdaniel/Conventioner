@@ -25,6 +25,7 @@ sources:
   - E18
   - E30/F01/S04
   - E38/F04
+  - E38/F15/S04
 ---
 
 # The market lifecycle at a glance
@@ -88,7 +89,7 @@ When the server would refuse that step, the sentence is its first blocker instea
 | Assignment, nothing run | "Set the rules and allocate tables." | as the online path |
 | Assignment, run | "Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone." | as the online path |
 | Assignment, results published | "Results are published, so the assignments are settled. Publish the market to put the check-in page up; that cannot be undone." | none: nothing is published to applicants |
-| Market Days | "Check vendors in at the door.", and once every date has passed "The market has run. Archive it to keep it as the record of what happened." | as the online path |
+| Market Days | "Check vendors in at the door.", to someone who may not check vendors in "Follow who has checked in at the door.", and once every date has passed "The market has run. Archive it to keep it as the record of what happened." | as the online path |
 | Archived | "Archived: the record of what happened stays on its check-in page." for a market that ran, else "Archived: this market is the record of what happened." | as the online path |
 
 Every tab stays on the bar from Draft to the end, on both paths.

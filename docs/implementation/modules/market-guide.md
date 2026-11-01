@@ -16,6 +16,7 @@ sources:
   - E33/F01/S01
   - E38/F04
   - T142
+  - E38/F15/S04
 ---
 
 # The market guide
@@ -49,6 +50,9 @@ A CSV market's vendors apply on the organizer's own Google Form, so nothing it s
   | archived | none | none: the sentence leads nowhere |
 
   A row with no action is one whose sentence links nowhere; a blocker with none, as from an older server, gives the step none.
+- **What someone the step's action refuses is told instead** (`GuideRow.onlooker`), where the row's sentence would tell them to do it: in market days with a date to come, someone who may not check vendors in, a Viewer by the built-in table, reads "Follow who has checked in at the door.", a step taking `read` that leads to Attendance (E38/F15/S04).
+  It says what they may do, never what they may not, which [the market frame](market-frame.md)'s read-only line says once; the rail had told a Viewer "Check vendors in at the door." just above it.
+  A row without one says its sentence to everyone, linked only for whoever may take its action.
 - **The step onward** (`forwardFrom`): read off the spine; once every date of a running market has passed, the step onward is archiving it, and before then archiving stays in the menu.
 - **The moves open to the market** (`movesOf`): the keys of `transitionBlockers` as the read served them; the browser keeps no copy of which moves a path has.
 - **The spine a market is drawn on** (`spineFor`): the lifecycle, with a phase it leaves out, such as `offers`, put where the table places it when the market is actually in it.

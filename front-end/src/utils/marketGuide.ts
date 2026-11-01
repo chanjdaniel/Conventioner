@@ -206,6 +206,13 @@ interface GuideRow {
    * with.
    */
   action: MarketAction | null;
+  /**
+   * What the rail says instead to someone who may not take `action`, where the statement would tell
+   * them to do it, and the action that step takes. The rail told a Viewer "Check vendors in at the
+   * door." just above the frame's line saying they may change nothing (E38/F15/S04). It says what
+   * they may do there, never what they may not: the frame says that, once.
+   */
+  onlooker?: { statement: string; action: MarketAction };
 }
 
 /**
@@ -268,13 +275,22 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
     statement: `This market is in ${pathPhaseLabel(MarketPhase.Offers, path)}.`,
   }),
   // Once it has run, what is left is archiving it.
-  [MarketPhase.MarketDays]: ({ ended }) => ({
-    page: 'attendance',
-    action: ended ? MarketAction.MovePhase : MarketAction.CheckIn,
-    statement: ended
-      ? 'The market has run. Archive it to keep it as the record of what happened.'
-      : 'Check vendors in at the door.',
-  }),
+  [MarketPhase.MarketDays]: ({ ended }) =>
+    ended
+      ? {
+          page: 'attendance',
+          action: MarketAction.MovePhase,
+          statement: 'The market has run. Archive it to keep it as the record of what happened.',
+        }
+      : {
+          page: 'attendance',
+          action: MarketAction.CheckIn,
+          statement: 'Check vendors in at the door.',
+          onlooker: {
+            statement: 'Follow who has checked in at the door.',
+            action: MarketAction.Read,
+          },
+        },
   // One that never ran has nothing to show but its plan.
   [MarketPhase.Archived]: ({ assigned, ran }) => ({
     page: assigned ? 'assignments' : 'setup',
@@ -370,11 +386,15 @@ export function nextStep(market: Market, today: string = calendarToday()): NextS
     published: Boolean(market.resultsPublished),
     stopped,
   });
+  const said =
+    row.onlooker && !mayTake(market, row.action)
+      ? row.onlooker
+      : { statement: row.statement, action: row.action };
   return {
-    text: row.statement,
-    page: row.action ? landingOf(row) : null,
+    text: said.statement,
+    page: said.action ? landingOf(row) : null,
     blocker: null,
-    action: row.action,
+    action: said.action,
   };
 }
 
