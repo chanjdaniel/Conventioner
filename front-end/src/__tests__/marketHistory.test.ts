@@ -115,6 +115,43 @@ describe('what an entry says', () => {
     ).toBe('dana@ember.test set 2 applications to Rejected: [Ana Rivera], [Ben Okafor]');
   });
 
+  it('words an undo by what the verdict was and what it returned to (E38/F10/S01)', () => {
+    expect(
+      sentence({
+        action: 'give-verdicts',
+        kind: 'verdict_undone',
+        detail: { before: { status: 'reviewer_rejected' }, after: { status: 'open' } },
+      }),
+    ).toBe('dana@ember.test undid their verdict on [Ana Rivera]: Rejected back to Open');
+    expect(
+      sentence({
+        action: 'give-verdicts',
+        kind: 'verdict_undone',
+        detail: {
+          before: { status: 'reviewer_approved' },
+          after: { status: 'needs_follow_up', follow_up_owner: 'kai@ember.test' },
+          dealt_to: 'kai@ember.test',
+        },
+      }),
+    ).toBe(
+      'dana@ember.test undid their verdict on [Ana Rivera]: Approved back to Needs follow-up, dealt to kai@ember.test',
+    );
+  });
+
+  it('words a selection’s undo naming each vendor', () => {
+    expect(
+      sentence({
+        action: 'give-verdicts',
+        kind: 'verdicts_undone',
+        vendors: ['ana@ember.test', 'ben@ember.test'],
+        detail: {
+          before: { a1: { status: 'reviewer_approved' }, a2: { status: 'reviewer_approved' } },
+          after: { a1: { status: 'open' }, a2: { status: 'open' } },
+        },
+      }),
+    ).toBe('dana@ember.test undid their verdicts on 2 applications: [Ana Rivera], [Ben Okafor]');
+  });
+
   it('words a setup change by the fields it changed', () => {
     expect(
       sentence({

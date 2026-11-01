@@ -17,6 +17,9 @@
  * With reviewers chosen, the card names whose share it is, and deciding someone else's says so above
  * the verdicts (E38/F07/S03). A chosen reviewer is handed their own share first, and once it is done
  * is offered the rest (E38/F07/S04).
+ * After a verdict, the line above the next card says what was decided and offers its giver Undo, by
+ * click or Z, until their next verdict or the window ends (E38/F10/S01); the reviewed list's toggle
+ * sits beside the counts, and the list is newest verdict first.
  */
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -54,6 +57,9 @@ import {
 import { useMarketStore } from '@/stores/market';
 import ListFreshness from '@/components/application/ListFreshness.vue';
 import { useVerdictActions, type VerdictOutcome } from '@/utils/verdictActions';
+import { useVerdictUndo } from '@/utils/verdictUndo';
+import VerdictUndoLine from '@/components/application/VerdictUndoLine.vue';
+import { applicantName } from '@/utils/essentialFields';
 import { getTimestampDate } from '@/utils/utils';
 
 const props = defineProps<{
@@ -208,6 +214,12 @@ const verdicts = useVerdictActions(
   applications,
 );
 const { me, people, adopt } = verdicts;
+/** The undo of the verdict just given (E38/F10/S01), on the line above the next card. */
+const undo = useVerdictUndo(
+  computed(() => props.market),
+  adopt,
+);
+const { offered: undoOffered, refusal: undoRefusal, undoing } = undo;
 /** Whose share the card is, while reviewers are chosen (E38/F07/S03). */
 const currentReviewer = computed(() =>
   current.value ? reviewerLine(current.value, me.value, props.market) : null,
@@ -487,8 +499,39 @@ async function decide(app: Application, status: ApplicationStatus) {
   saving.value = true;
   errorMessage.value = '';
   const onCard = isUp(app);
+  const before = { ...app };
   try {
-    await settle(app, await verdicts.give(app, status), onCard);
+    const outcome = await verdicts.give(app, status);
+    offerUndo(before, outcome, status);
+    await settle(app, outcome, onCard);
+  } finally {
+    saving.value = false;
+  }
+}
+
+/**
+ * A verdict written replaces the undo on offer with its own (E38/F10/S01); one that changed a
+ * verdict - "Approve instead" - offers none, and still takes the last one's away.
+ */
+function offerUndo(before: Application, outcome: VerdictOutcome, status: ApplicationStatus) {
+  if (outcome.kind !== 'written') return;
+  undo.offerOne(before, outcome.application, status, outcome.undoSeconds);
+}
+
+/**
+ * Undo the verdict on offer: the application comes back as the card up, at what it was, held for
+ * this reviewer as any card handed out is. A refusal stays on the line.
+ */
+async function undoLast() {
+  if (saving.value) return;
+  saving.value = true;
+  try {
+    const outcome = await undo.undo();
+    if (outcome.kind !== 'undone') return;
+    const back = outcome.applications[0];
+    refusedOn.value = null;
+    errorMessage.value = '';
+    if (back) await takeNext(null, back.id);
   } finally {
     saving.value = false;
   }
@@ -528,6 +571,7 @@ async function markFollowUp(choice: { ownerEmail: string; note?: string }) {
   followUpError.value = '';
   saving.value = true;
   const onCard = isUp(app);
+  const before = { ...app };
   try {
     const outcome = await verdicts.markFollowUp(
       app,
@@ -540,6 +584,7 @@ async function markFollowUp(choice: { ownerEmail: string; note?: string }) {
       return;
     }
     followUpOpen.value = false;
+    offerUndo(before, outcome, ApplicationStatus.NeedsFollowUp);
     await settle(app, outcome, onCard);
   } finally {
     saving.value = false;
@@ -556,9 +601,12 @@ async function reassign(app: Application, ownerEmail: string) {
   }
 }
 
-/** The keys: A, R and S decide - a reviewer's - and N moves on, for anyone walking the queue. */
+/**
+ * The keys: A, R and S decide - a reviewer's - N moves on, for anyone walking the queue, and Z
+ * undoes the verdict on offer, with a card up or none left.
+ */
 function onKey(event: KeyboardEvent) {
-  if (!props.visible || !current.value) return;
+  if (!props.visible) return;
   // A dialog is open over the card: its own controls have the keyboard.
   if (followUpOpen.value) return;
   if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -567,6 +615,12 @@ function onKey(event: KeyboardEvent) {
     return;
   }
   const key = event.key.toLowerCase();
+  if (key === 'z' && undoOffered.value && !undoRefusal.value) {
+    event.preventDefault();
+    void undoLast();
+    return;
+  }
+  if (!current.value) return;
   if (key === 'n') {
     event.preventDefault();
     next();
@@ -605,6 +659,11 @@ onUnmounted(() => {
 /** The applicant's own words in answer to the table-share question, for its notice. */
 function shareWords(app: Application): string {
   return String(app.formData?.[TABLE_SHARE_ANSWER_KEY] ?? '');
+}
+
+/** What the card and the reviewed list call the applicant: the name their answers give. */
+function nameOf(app: Application): string {
+  return applicantName(app.formData as Record<string, unknown> | undefined);
 }
 
 function submittedOn(app: Application): string {
@@ -652,11 +711,99 @@ function submittedOn(app: Application): string {
           Include the {{ followingUp.length }}
           {{ followingUp.length === 1 ? 'follow-up' : 'follow-ups' }}
         </label>
-        <span class="tally" data-testid="app-monitor-tally">
-          {{ decided.length }} reviewed<template v-if="verdictsStillLegible">
-            · {{ approvedCount }} approved · {{ rejectedCount }} rejected</template
+        <span class="counts">
+          <span class="tally" data-testid="app-monitor-tally">
+            {{ decided.length }} reviewed<template v-if="verdictsStillLegible">
+              · {{ approvedCount }} approved · {{ rejectedCount }} rejected</template
+            >
+          </span>
+          <!-- Beside the counts, above the card, so a past verdict is found without a scroll
+               (E38/F10/S01). -->
+          <button
+            v-if="decided.length"
+            class="decided-toggle"
+            :aria-expanded="showDecided"
+            aria-controls="app-monitor-decided-list"
+            @click="showDecided = !showDecided"
+            data-testid="app-monitor-decided-toggle"
           >
+            {{ showDecided ? 'Hide' : 'Show' }} {{ decided.length }} reviewed
+          </button>
         </span>
+      </div>
+
+      <!-- The verdict just given, and its Undo, under the counts and over the next card
+           (E38/F10/S01): over the reviewed list too, so opening the list never pushes it down. -->
+      <VerdictUndoLine
+        v-if="undoOffered"
+        class="monitor-undo"
+        :line="undoOffered.line"
+        :refusal="undoRefusal"
+        :busy="undoing || saving"
+        shortcut="Z"
+        testid="app-monitor-undo"
+        @undo="undoLast"
+      />
+
+      <!-- Decided applications, newest verdict first, so a verdict can be read back, and changed
+           one at a time by whoever the change row lets change one (E38/F06/S01). -->
+      <div v-if="showDecided && decided.length" class="decided">
+        <p v-if="changeRefusal" class="change-reason" data-testid="app-monitor-decided-reason">
+          {{ changeRefusal }}
+        </p>
+        <ul
+          id="app-monitor-decided-list"
+          class="decided-list"
+          data-testid="app-monitor-decided-list"
+        >
+          <li
+            v-for="app in decided"
+            :key="app.id"
+            :class="{ named: app.id === named }"
+            :data-application-id="app.id"
+            data-testid="app-monitor-decided-row"
+          >
+            <span class="decided-who">
+              <span v-if="nameOf(app)" class="app-name" data-testid="app-monitor-decided-name">
+                {{ nameOf(app) }}
+              </span>
+              <span class="app-email" data-testid="app-monitor-decided-email">
+                {{ app.applicantEmail }}
+              </span>
+            </span>
+            <span :class="statusChip(app.status)" data-testid="app-monitor-decided-status">
+              {{ statusLabel(app.status) }}
+            </span>
+            <span
+              v-if="givers.get(app.id)"
+              class="verdict-giver"
+              data-testid="app-monitor-decided-giver"
+            >
+              {{ givers.get(app.id) }}
+            </span>
+            <!-- The action is a quiet button beside the verdict, never a second verdict. -->
+            <button
+              v-if="changes && app.status === ApplicationStatus.ReviewerRejected"
+              type="button"
+              class="btn btn--secondary btn--compact"
+              :disabled="saving"
+              @click="decide(app, ApplicationStatus.ReviewerApproved)"
+              data-testid="app-monitor-decided-approve-button"
+            >
+              Approve instead
+            </button>
+            <button
+              v-else-if="changes && isDecided(app)"
+              type="button"
+              class="btn btn--secondary btn--compact"
+              :disabled="saving"
+              @click="decide(app, ApplicationStatus.ReviewerRejected)"
+              data-testid="app-monitor-decided-reject-button"
+            >
+              Reject instead
+            </button>
+          </li>
+        </ul>
       </div>
 
       <p v-if="nothingToJudge" class="advisory" data-testid="app-monitor-advisory">
@@ -671,6 +818,9 @@ function submittedOn(app: Application): string {
 
       <div v-if="current" class="review-card" data-testid="app-monitor-card">
         <div class="card-head">
+          <span v-if="nameOf(current)" class="app-name" data-testid="app-monitor-name">
+            {{ nameOf(current) }}
+          </span>
           <span class="app-email" data-testid="app-monitor-email">
             {{ current.applicantEmail }}
           </span>
@@ -895,76 +1045,6 @@ function submittedOn(app: Application): string {
         @close="followUpOpen = false"
         @confirm="markFollowUp"
       />
-
-      <!-- Decided applications, so a verdict can be read back, and changed one at a time by
-           whoever the change row lets change one (E38/F06/S01). -->
-      <div v-if="decided.length" class="decided">
-        <button
-          class="decided-toggle"
-          :aria-expanded="showDecided"
-          aria-controls="app-monitor-decided-list"
-          @click="showDecided = !showDecided"
-          data-testid="app-monitor-decided-toggle"
-        >
-          {{ showDecided ? 'Hide' : 'Show' }} {{ decided.length }} reviewed
-        </button>
-        <p
-          v-if="showDecided && changeRefusal"
-          class="change-reason"
-          data-testid="app-monitor-decided-reason"
-        >
-          {{ changeRefusal }}
-        </p>
-        <ul
-          v-if="showDecided"
-          id="app-monitor-decided-list"
-          class="decided-list"
-          data-testid="app-monitor-decided-list"
-        >
-          <li
-            v-for="app in decided"
-            :key="app.id"
-            :class="{ named: app.id === named }"
-            :data-application-id="app.id"
-            data-testid="app-monitor-decided-row"
-          >
-            <span class="app-email" data-testid="app-monitor-decided-email">
-              {{ app.applicantEmail }}
-            </span>
-            <span :class="statusChip(app.status)" data-testid="app-monitor-decided-status">
-              {{ statusLabel(app.status) }}
-            </span>
-            <span
-              v-if="givers.get(app.id)"
-              class="verdict-giver"
-              data-testid="app-monitor-decided-giver"
-            >
-              {{ givers.get(app.id) }}
-            </span>
-            <!-- The action is a quiet button beside the verdict, never a second verdict. -->
-            <button
-              v-if="changes && app.status === ApplicationStatus.ReviewerRejected"
-              type="button"
-              class="btn btn--secondary btn--compact"
-              :disabled="saving"
-              @click="decide(app, ApplicationStatus.ReviewerApproved)"
-              data-testid="app-monitor-decided-approve-button"
-            >
-              Approve instead
-            </button>
-            <button
-              v-else-if="changes && isDecided(app)"
-              type="button"
-              class="btn btn--secondary btn--compact"
-              :disabled="saving"
-              @click="decide(app, ApplicationStatus.ReviewerRejected)"
-              data-testid="app-monitor-decided-reject-button"
-            >
-              Reject instead
-            </button>
-          </li>
-        </ul>
-      </div>
     </template>
   </div>
 </template>
@@ -1018,6 +1098,14 @@ function submittedOn(app: Application): string {
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-lg);
   color: var(--mm-black);
+}
+
+/* The counts and the reviewed list's toggle, kept together at the row's end. */
+.counts {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
 }
 
 .tally {
@@ -1237,7 +1325,28 @@ function submittedOn(app: Application): string {
 }
 
 .decided {
-  margin-top: var(--space-6);
+  margin-bottom: var(--space-4);
+}
+
+.monitor-undo {
+  margin-bottom: var(--space-3);
+}
+
+/* The applicant's name leads the card's heading and a reviewed row; the address follows it. */
+.app-name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--mm-black);
+  overflow-wrap: anywhere;
+}
+
+.decided-who {
+  flex: 1 1 12rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+  min-width: 0;
 }
 
 .decided-toggle {
@@ -1252,7 +1361,7 @@ function submittedOn(app: Application): string {
 
 .decided-list {
   list-style: none;
-  margin: var(--space-3) 0 0;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -1276,7 +1385,10 @@ function submittedOn(app: Application): string {
 }
 
 .decided-list .app-email {
-  flex: 1 1 12rem;
   font-size: var(--text-sm);
+}
+
+.decided .change-reason {
+  margin: 0 0 var(--space-3);
 }
 </style>
