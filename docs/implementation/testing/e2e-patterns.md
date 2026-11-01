@@ -32,6 +32,7 @@ sources:
   - T161
   - E38/F15/S03
   - T169
+  - E42/F01/S05
 ---
 
 # E2E patterns
@@ -71,6 +72,8 @@ Specs no longer plant a market in `localStorage`; nothing about a market is stor
 **A spec shells into Mongo through `mongoEval`** ([`helpers/mongo.ts`](../../../front-end/e2e/helpers/mongo.ts)), never its own `docker exec`: the container, the address and the flags were once copied into fifteen files.
 It is for what no endpoint does: a document shaped as an older build wrote it, a token only an email carries, a state a rule now forbids reaching.
 The container name comes from `helpers/containerNames.ts` (`E2E_MONGO_CONTAINER` overrides it), resolved from [the stack's identity](ci-and-the-gate.md#stack-identity).
+
+**Discord stands outside the stack**, so a spec that needs it runs the back end's own check against a fake Discord server it writes with [`helpers/fakeDiscord.ts`](../../../front-end/e2e/helpers/fakeDiscord.ts) ([a fake Discord](../../TESTING.md#a-fake-discord), [the Discord connection](../modules/discord.md#who-is-in-the-server)).
 
 ## Market dates and plans
 

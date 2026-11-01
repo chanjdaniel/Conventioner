@@ -571,6 +571,7 @@ class TestThePreview:
             {"id": "answers", "label": "Answers"},
             {"id": "assignment", "label": "Assignment"},
             {"id": "payment", "label": "Payment"},
+            {"id": "discord", "label": "Discord"},
         ]
         assert offered["defaultColumns"] == ["name", "email", "status"]
         assert offered["statuses"] == [
@@ -605,6 +606,294 @@ class TestThePreview:
         assert result["count"] == len(APPLICATIONS)
         assert result["offered"]["dates"] == []
         assert result["offered"]["questions"] == []
+
+
+DISCORD_QUESTION = {"key": "discord_username", "label": "Discord Username", "type": "text",
+                    "order": 5}
+INVITE = "https://discord.gg/example-market"
+
+
+def _connected(doc, applications, *, checked=True, invite=True, states=None):
+    """The market connected to a Discord server, its card naming the username question; checked,
+    by default, with Ana in the server, Ben not found and Cy with no username."""
+    doc["applicationForm"] = {"fields": [*FORM["fields"], DISCORD_QUESTION]}
+    doc["discord"] = {
+        "guildId": "2909267986263572999", "guildName": "Example Makers",
+        "roleId": "2909267986263573001", "roleName": "Vendor",
+        "usernameQuestion": "discord_username",
+        "inviteLink": INVITE if invite else None,
+    }
+    if checked:
+        doc["discord"]["checkedAt"] = "2099-07-30T12:00:00Z"
+        doc["discord"]["vendorStates"] = [
+            {"applicationId": f"app-{email}", "state": state}
+            for email, state in (states or {
+                "ana@example.com": "in_server",
+                "ben@example.com": "not_found",
+                "cy@example.com": "no_username",
+                "dee@example.com": "has_role",
+            }).items()
+        ]
+    usernames = {"ana@example.com": "ana.makes", "ben@example.com": "benbuns",
+                 "dee@example.com": "@DeePark"}
+    for app in applications.documents:
+        if app["applicant_email"] in usernames:
+            app["form_data"]["discord_username"] = usernames[app["applicant_email"]]
+
+
+class TestTheDiscordColumns:
+    """The Discord username as updated, the state the last "Check Discord" found and the market's
+    invite link, so "please fix your Discord username" is one export (E42/F01/S05)."""
+
+    def test_a_connected_and_checked_market_offers_them_under_their_own_heading(
+            self, market, applications):
+        _connected(market(), applications)
+
+        offered = _preview()["offered"]
+
+        assert [c for c in offered["columns"] if c["group"] == "discord"] == [
+            {"id": "discordUsername", "label": "Discord username", "group": "discord"},
+            {"id": "discordState", "label": "Discord state", "group": "discord"},
+            {"id": "discordInvite", "label": "Discord invite link", "group": "discord"},
+        ]
+        assert {"id": "discord", "label": "Discord"} in offered["groups"]
+        assert offered["discordStates"]
+
+    def test_the_username_question_is_listed_once_under_discord_not_under_answers(
+            self, market, applications):
+        _connected(market(), applications)
+
+        ids = [column["id"] for column in _preview()["offered"]["columns"]]
+
+        assert "discordUsername" in ids
+        assert "answer:discord_username" not in ids
+
+    def test_a_market_never_connected_offers_no_discord_column_or_filter(self, market):
+        market()
+
+        offered = _preview()["offered"]
+
+        assert not [c for c in offered["columns"] if c["group"] == "discord"]
+        assert offered["discordStates"] == []
+
+    def test_before_any_check_the_state_is_not_offered(self, market, applications):
+        _connected(market(), applications, checked=False)
+
+        offered = _preview()["offered"]
+
+        assert [c["id"] for c in offered["columns"] if c["group"] == "discord"] == [
+            "discordUsername", "discordInvite"]
+        assert offered["discordStates"] == []
+        with pytest.raises(BadRequestError):
+            _file(columns=["email", "discordState"])
+
+    def test_with_no_invite_link_the_link_is_not_offered(self, market, applications):
+        _connected(market(), applications, invite=False)
+
+        ids = [column["id"] for column in _preview()["offered"]["columns"]]
+
+        assert "discordInvite" not in ids
+
+    def test_a_disconnected_market_still_offers_the_username_it_asks_for(
+            self, market, applications):
+        doc = market()
+        _connected(doc, applications, checked=False, invite=False)
+        doc["discord"] = {"usernameQuestion": "discord_username"}
+
+        ids = [column["id"] for column in _preview()["offered"]["columns"]]
+
+        assert "discordUsername" in ids
+        assert "discordState" not in ids
+
+    def test_each_row_holds_the_username_tidied_the_state_in_words_and_the_link(
+            self, market, applications):
+        _connected(market(), applications)
+
+        content, _ = _file(columns=["email", "discordUsername", "discordState", "discordInvite"])
+
+        assert _rows(content) == [
+            ["Email", "Discord username", "Discord state", "Discord invite link"],
+            ["ana@example.com", "ana.makes", "In the server", INVITE],
+            ["ben@example.com", "benbuns", "Not found", INVITE],
+            ["cy@example.com", "", "No username", INVITE],
+            ["dee@example.com", "deepark", "Has the role", INVITE],
+            # Applied since the check: no state until the next.
+            ["eve@example.com", "", "", INVITE],
+            ["fay@example.com", "", "", INVITE],
+        ]
+
+    def test_a_username_written_with_a_leading_at_is_exported_without_it(
+            self, market, applications):
+        """Tidied as the check reads it, so a mail merge never quotes "'@name" (T157 review
+        note 2)."""
+        _connected(market(), applications)
+        dee = next(a for a in applications.documents if a["applicant_email"] == "dee@example.com")
+        dee["form_data"]["discord_username"] = "@fixture_name"
+
+        content, _ = _file(filters={"search": "dee"}, columns=["email", "discordUsername"])
+
+        assert _rows(content)[1:] == [["dee@example.com", "fixture_name"]]
+
+    def test_the_username_is_not_offered_once_the_form_no_longer_asks_it(
+            self, market, applications):
+        """The check asks for the question again then (T157 review note 3)."""
+        doc = market()
+        _connected(doc, applications)
+        doc["applicationForm"] = {"fields": list(FORM["fields"])}
+
+        ids = [column["id"] for column in _preview()["offered"]["columns"]]
+
+        assert "discordUsername" not in ids
+        with pytest.raises(BadRequestError):
+            _file(columns=["email", "discordUsername"])
+
+    def test_a_username_question_no_longer_a_text_question_is_an_answer_again(
+            self, market, applications):
+        doc = market()
+        _connected(doc, applications)
+        doc["applicationForm"] = {"fields": [
+            *FORM["fields"], {**DISCORD_QUESTION, "type": "select", "options": ["a", "b"]}]}
+
+        ids = [column["id"] for column in _preview()["offered"]["columns"]]
+
+        assert "discordUsername" not in ids
+        assert "answer:discord_username" in ids
+
+    def test_the_username_is_exported_as_the_organizer_updated_it(self, market, applications):
+        _connected(market(), applications)
+        ben = next(a for a in applications.documents if a["applicant_email"] == "ben@example.com")
+        ben["answer_updates"] = {"discord_username": {
+            "value": "ben.okafor", "by": ADDED_BY, "at": "2099-07-31T09:00:00Z",
+            "over": "benbuns"}}
+
+        content, _ = _file(filters={"search": "ben"}, columns=["email", "discordUsername"])
+
+        assert _rows(content)[1:] == [["ben@example.com", "ben.okafor"]]
+
+    def test_not_found_is_exactly_the_vendors_the_check_did_not_find(
+            self, market, applications):
+        _connected(market(), applications, states={
+            "ana@example.com": "not_found", "ben@example.com": "in_server",
+            "cy@example.com": "no_username", "dee@example.com": "not_found",
+        })
+
+        content, _ = _file(filters={"discord": ["not_found"]},
+                           columns=["name", "email", "discordUsername"])
+
+        assert _rows(content) == [
+            ["Name", "Email", "Discord username"],
+            ["Ana Lima", "ana@example.com", "ana.makes"],
+            ["Dee Park", "dee@example.com", "deepark"],
+        ]
+
+    def test_a_discord_filter_takes_any_of_its_states(self, market, applications):
+        _connected(market(), applications)
+
+        content, _ = _file(filters={"discord": ["not_found", "no_username"]},
+                           columns=["email"])
+
+        assert _emails(content, at=0) == ["ben@example.com", "cy@example.com"]
+
+    def test_the_discord_filter_narrows_the_other_filters(self, market, applications):
+        _connected(market(), applications)
+
+        content, _ = _file(filters={"discord": ["in_server", "not_found"],
+                                    "placed": "placed"}, columns=["email"])
+
+        assert _emails(content, at=0) == ["ana@example.com"]
+
+    @pytest.mark.parametrize("filters", [
+        {"discord": "not_found"},
+        {"discord": ["lost"]},
+        {"discord": [None]},
+    ])
+    def test_a_discord_filter_the_dialog_could_not_have_sent_is_refused(
+            self, market, applications, filters):
+        _connected(market(), applications)
+
+        with pytest.raises(BadRequestError):
+            _file(filters=filters, columns=["email"])
+
+
+def _ben_updated_since_the_check(doc, applications):
+    """Ben was checked "Not found" for "benbuns", and an organizer has since updated his username,
+    so the Vendors page shows him "Check again" (T156 rereview note 7)."""
+    _connected(doc, applications)
+    for state in doc["discord"]["vendorStates"]:
+        if state["applicationId"] == "app-ben@example.com":
+            state["answer"] = "benbuns"
+    ben = next(a for a in applications.documents if a["applicant_email"] == "ben@example.com")
+    ben["answer_updates"] = {"discord_username": {
+        "value": "ben.okafor", "by": ADDED_BY, "at": "2099-07-31T09:00:00Z", "over": "benbuns"}}
+
+
+def _ana_offered_a_possible_match(doc, applications):
+    """Ana was not found, and the check offered a member whose name looks like hers."""
+    _connected(doc, applications, states={
+        "ana@example.com": "not_found", "ben@example.com": "in_server",
+        "cy@example.com": "no_username", "dee@example.com": "has_role"})
+    for state in doc["discord"]["vendorStates"]:
+        if state["applicationId"] == "app-ana@example.com":
+            state["answer"] = "ana.makes"
+            state["possibleMatches"] = [
+                {"username": "anamakes", "displayName": "Ana Makes"}]
+
+
+class TestTheDiscordStateAsThePageShowsIt:
+    """The export reads each vendor as the Vendors page shows them (``shown_vendors``), so a vendor
+    updated since the check, or offered a possible match, exports and filters as the page says
+    (T156 rereview note 7)."""
+
+    def test_a_vendor_updated_since_the_check_exports_as_check_again(
+            self, market, applications):
+        _ben_updated_since_the_check(market(), applications)
+
+        content, _ = _file(filters={"search": "ben"}, columns=["email", "discordState"])
+
+        assert _rows(content)[1:] == [["ben@example.com", "Check again"]]
+
+    def test_not_found_leaves_out_a_vendor_updated_since_the_check(self, market, applications):
+        _ben_updated_since_the_check(market(), applications)
+
+        not_found, _ = _file(filters={"discord": ["not_found"]}, columns=["email"])
+        check_again, _ = _file(filters={"discord": ["check_again"]}, columns=["email"])
+
+        assert "ben@example.com" not in _emails(not_found, at=0)
+        assert _emails(check_again, at=0) == ["ben@example.com"]
+
+    def test_a_vendor_offered_a_possible_match_exports_and_filters_as_one(
+            self, market, applications):
+        _ana_offered_a_possible_match(market(), applications)
+
+        content, _ = _file(filters={"discord": ["possible_match"]},
+                           columns=["email", "discordState"])
+        not_found, _ = _file(filters={"discord": ["not_found"]}, columns=["email"])
+
+        assert _rows(content)[1:] == [["ana@example.com", "Possible match"]]
+        assert "ana@example.com" not in _emails(not_found, at=0)
+
+    def test_the_filter_offers_every_state_the_page_can_show_in_its_words(
+            self, market, applications):
+        _connected(market(), applications)
+
+        assert _preview()["offered"]["discordStates"] == [
+            {"id": "has_role", "label": "Has the role"},
+            {"id": "in_server", "label": "In the server"},
+            {"id": "possible_match", "label": "Possible match"},
+            {"id": "not_found", "label": "Not found"},
+            {"id": "no_username", "label": "No username"},
+            {"id": "check_again", "label": "Check again"},
+        ]
+
+    @pytest.mark.parametrize("state", ["possible_match", "check_again"])
+    def test_a_state_the_page_links_to_is_a_filter_the_export_accepts(
+            self, market, applications, state):
+        """The page's ``?discord=possible_match`` and ``?discord=check_again`` seed the export."""
+        _connected(market(), applications)
+
+        content, _ = _file(filters={"discord": [state]}, columns=["email"])
+
+        assert _rows(content) == [["Email"]]
 
 
 def test_an_application_another_market_holds_is_not_exported(market, applications):
