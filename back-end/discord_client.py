@@ -23,6 +23,7 @@ from urllib.parse import urlencode
 
 import requests
 
+import discord_fake as DiscordFake
 from client_errors import ClientError
 from utils.configured_secret import configured_secret
 
@@ -124,16 +125,25 @@ class Role:
 
 @dataclass(frozen=True)
 class Member:
-    """A member of a server: their user id, their username (never a display name or a server
-    nickname, which anyone may set to anything), and the ids of their roles."""
+    """A member of a server: their user id, their username, and the ids of their roles.
+
+    A member is matched by their username alone. Their display name (Discord's ``global_name``)
+    and their nickname in this server are kept only to offer a possible match for the organizer to
+    confirm (E46/F01/S05), never to match one: anyone may set them to anything.
+    """
 
     id: str
     username: str
     roles: Tuple[str, ...]
+    display_name: Optional[str] = None
+    nick: Optional[str] = None
 
 
 def credentials() -> Optional[Credentials]:
-    """The deployment's three Discord values, or None when any one is missing. Read when asked."""
+    """The deployment's three Discord values, or None when any one is missing. Read when asked.
+    A local stack whose fake answers for Discord (``discord_fake``) signs with the fake's own."""
+    if DiscordFake.on():
+        return Credentials(DiscordFake.CLIENT_ID, DiscordFake.CLIENT_SECRET, DiscordFake.BOT_TOKEN)
     values = [configured_secret(os.getenv(name, ""))
               for name in (CLIENT_ID_ENV, CLIENT_SECRET_ENV, BOT_TOKEN_ENV)]
     if not all(values):
@@ -153,8 +163,11 @@ def authorization_url(values: Credentials, state: str, redirect_uri: str) -> str
     """Discord's approval screen, adding the bot to a server the person chooses there.
 
     Through the code grant (``response_type=code``), so Discord sends the person back with a code
-    whose exchange names the server the bot was added to (``connected_server``).
+    whose exchange names the server the bot was added to (``connected_server``). A local stack's
+    fake sends the person straight back, as if they had approved (``discord_fake``).
     """
+    if DiscordFake.on():
+        return DiscordFake.authorization_url(state, redirect_uri)
     return AUTHORIZE_URL + "?" + urlencode({
         "client_id": values.client_id,
         "scope": "bot",
@@ -226,11 +239,18 @@ def server_members(values: Credentials, guild_id: str) -> List[Member]:
         for member in page:
             user = member.get("user") or {}
             if user.get("id"):
-                members.append(Member(str(user["id"]), str(user.get("username") or ""),
-                                      tuple(str(role) for role in member.get("roles") or [])))
+                members.append(Member(
+                    str(user["id"]), str(user.get("username") or ""),
+                    tuple(str(role) for role in member.get("roles") or []),
+                    display_name=_name(user.get("global_name")), nick=_name(member.get("nick"))))
         if len(page) < MEMBERS_PAGE or not members:
             return members
         after = members[-1].id
+
+
+def _name(value: Any) -> Optional[str]:
+    """A display name or a nickname as Discord sends it: a string, or null for none set."""
+    return value if isinstance(value, str) and value.strip() else None
 
 
 def _bot(values: Credentials, method: str, path: str, **kwargs: Any) -> Any:
@@ -259,7 +279,8 @@ def _send(method: str, url: str, headers: Optional[Dict[str, str]] = None, **kwa
     """One request, asked again after each 429's wait while the waits are short and few."""
     for waited in range(RATE_LIMIT_WAITS + 1):
         try:
-            answer = requests.request(
+            send = DiscordFake.answer if DiscordFake.on() else requests.request
+            answer = send(
                 method, url, timeout=TIMEOUT_SECONDS,
                 headers={"User-Agent": USER_AGENT, **(headers or {})}, **kwargs)
         except requests.RequestException as e:

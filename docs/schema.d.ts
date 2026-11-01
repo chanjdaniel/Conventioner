@@ -46,11 +46,18 @@ export interface MarketSchema {
     roleId?: string;
     roleName?: string;
     usernameQuestion?: string;
-    vendorStates?: {
-      applicationId: string;
-      state: string;
-    }[];
   };
+  discordVendors?: {
+    applicationId: string;
+    moreMatches: number;
+    possibleMatches: {
+      displayName?: string;
+      nick?: string;
+      username: string;
+    }[];
+    shown: string;
+    state: string;
+  }[];
   exampleColumns?: {
     headers?: string[];
     helpText?: string;
