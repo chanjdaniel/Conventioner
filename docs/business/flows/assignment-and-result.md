@@ -38,6 +38,7 @@ sources:
   - E38/F05/S01
   - T139
   - T142
+  - T180
   - E38/F15/S04
 ---
 
@@ -166,8 +167,11 @@ On a market whose vendors apply on its own page only, from the Applications page
 3. Confirm: the button gives way to a "Results published" chip; the run and the rules are settled (J3b, J14), and the market can be published (K1).
 4. Each applicant reads their outcome on "Your application" ([H3c](applying-online.md#h3c-a-vendor-checks-their-application)).
 
+The Applications page fits a phone, so on one the button is a 44px target and its dialog opens inside the window (T180).
+
 Covered by:
 - `results-wait-for-the-allocation.spec.ts`
+- `the-market-on-a-phone.spec.ts`
 - `vendors-see-their-application-after-close.spec.ts`
 
 ## The rules it obeys

@@ -1,7 +1,15 @@
 import type { APIRequestContext, Locator } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { marketScreenPath } from './helpers/marketScreens';
+import { marketScreenPath, oneByOnePath } from './helpers/marketScreens';
+import { planSetupObject, seedApplicantMarket } from './helpers/seedApplicantMarket';
+import { seedApprovedVendor } from './helpers/seedApplication';
+import {
+  seedApplicationWithStatus,
+  seedPhaseMarket,
+  transitionMarket,
+} from './helpers/seedPhaseMarket';
 import { mongoEval } from './helpers/mongo';
+import { grantMarketRole } from './helpers/grantMarketRole';
 import { inTheWindow, PHONE_AND_DESK, widths } from './helpers/phoneWindow';
 import { savePlan } from './helpers/savePlan';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
@@ -23,12 +31,27 @@ import {
  *
  * Vendors is one tap from the door's own list: the organizer looks a vendor up, reads every tab of
  * their drawer, takes their payment, and an Editor corrects an answer with Update info.
+ *
+ * On the Applications page a reviewer works the queue One by one, the organizer deals the review
+ * to a chosen reviewer who then decides their share, and results are published, each at the
+ * phone's own width.
  */
 
 const OWES = 'alice@example.com';
 const PAID = 'bob@example.com';
 /** An Editor of the market, who corrects a vendor's answers at the door. */
 const EDITOR = { email: 'e2e-phone-editor@example.com', password: 'e2epassword123' };
+/** A Viewer of the market, who reads the review from their phone. */
+const VIEWER = { email: 'e2e-phone-viewer@example.com', password: 'e2epassword123' };
+/** The one application of the Applications leg's market, still open. */
+const APPLICANT = 'phone-applicant@example.com';
+/** The One by one leg's queue, in the order it arrives, and the follow-up waiting beside it. */
+const QUEUE = [
+  'phone-queue-1@example.com',
+  'phone-queue-2@example.com',
+  'phone-queue-3@example.com',
+];
+const FOLLOW_UP = 'phone-follow-up@example.com';
 /** The vendor drawer's tabs, in its order. */
 const DRAWER_TABS = ['application', 'assignments', 'payment', 'history'] as const;
 
@@ -40,6 +63,70 @@ async function call(
 ) {
   const res = await request[method](`${BACKEND_URL}${path}`, { data });
   expect(res.ok(), `${method} ${path}: ${await res.text()}`).toBeTruthy();
+}
+
+/** A market taking applications on its own form, with one application still open. */
+async function aMarketInReview(request: APIRequestContext): Promise<string> {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
+  seedApplicationWithStatus(marketId, 'open', APPLICANT, {
+    name: 'Alexandria Montgomery-Featherstonehaugh',
+    category: 'Ceramics',
+  });
+  return marketId;
+}
+
+/**
+ * A market taking applications on its own form, with a queue of three open applications, a
+ * follow-up waiting on its applicant, and the Editor and Viewer the review may be dealt to.
+ */
+async function aQueueToReview(request: APIRequestContext): Promise<string> {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
+  for (const [i, email] of QUEUE.entries()) {
+    seedApplicationWithStatus(marketId, 'open', email, {
+      name: `Bartholomew Featherstonehaugh-Montgomery ${i + 1}`,
+      category: 'Ceramics',
+    });
+  }
+  seedApplicationWithStatus(marketId, 'needs_follow_up', FOLLOW_UP);
+  ensureVerifiedUser(EDITOR.email, EDITOR.password);
+  await grantMarketRole(request, marketId, EDITOR, 'editor');
+  ensureVerifiedUser(VIEWER.email, VIEWER.password);
+  await grantMarketRole(request, marketId, VIEWER, 'viewer');
+  return marketId;
+}
+
+/** A form market in assignment with a current run, so its results wait to be published. */
+async function aMarketToPublish(request: APIRequestContext): Promise<string> {
+  const date = '2099-08-01';
+  const { marketId } = await seedApplicantMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { setupObject: planSetupObject([date]) },
+  );
+  seedApprovedVendor(marketId, 'phone-seated@example.com', {
+    dates: [date],
+    tiers: ['Gold'],
+    sections: ['Main Hall', 'Garden'],
+  });
+  await call(request, 'post', `/markets/${marketId}/transition`, { toPhase: 'assignment' });
+  await call(request, 'post', `/markets/${marketId}/assignment`, {});
+  return marketId;
 }
 
 /**
@@ -115,6 +202,68 @@ for (const size of PHONE_AND_DESK) {
         const box = (await target.boundingBox())!;
         expect(box.height, `${what} is a 44px target`).toBeGreaterThanOrEqual(44);
         expect(box.x + box.width, `${what} ends inside the window`).toBeLessThanOrEqual(width);
+      }
+    }
+
+    /** On a phone, a checkbox's label is the target a thumb taps, the box inside it. */
+    async function expectLabelTarget(box: Locator, what: string): Promise<void> {
+      if (!size.phone) return;
+      const label = await box.evaluate((el) => {
+        const r = (el as HTMLInputElement).labels?.[0]?.getBoundingClientRect();
+        return r ? { width: r.width, height: r.height, right: r.right } : null;
+      });
+      expect(label, `${what} has a label`).not.toBeNull();
+      expect(label!.width, `${what} is 44px wide`).toBeGreaterThanOrEqual(44);
+      expect(label!.height, `${what} is a 44px target`).toBeGreaterThanOrEqual(44);
+      expect(label!.right, `${what} ends inside the window`).toBeLessThanOrEqual(width);
+    }
+
+    /** On a phone, each of `targets` is at least as wide as a thumb's target is tall. */
+    async function expectWide(targets: Locator, what: string): Promise<void> {
+      if (!size.phone) return;
+      for (const target of await targets.all()) {
+        const box = (await target.boundingBox())!;
+        expect(box.width, `${what} is 44px wide`).toBeGreaterThanOrEqual(44);
+      }
+    }
+
+    /**
+     * An All-view row read down on a phone, the applicant's name over their status; at a desk the
+     * status stands beside the name, as it always has.
+     */
+    async function expectNameOverStatus(row: Locator): Promise<void> {
+      const name = (await row.getByTestId('applications-all-name').boundingBox())!;
+      const status = (await row.getByTestId('applications-all-status').boundingBox())!;
+      if (size.phone) {
+        expect(name.y + name.height, 'the name stands over the status').toBeLessThanOrEqual(
+          status.y,
+        );
+      } else {
+        expect(status.x, 'the status stands right of the name').toBeGreaterThanOrEqual(
+          name.x + name.width,
+        );
+      }
+      await expectAcross(row.getByTestId('applications-all-status'), 'the status');
+    }
+
+    /**
+     * The review card in the window: on a phone it is the window less the frame's and the page's
+     * gutters, 32px a side as every page that fits a phone, and its verdicts wrap inside it rather
+     * than run past it.
+     */
+    async function expectCard(card: Locator): Promise<void> {
+      const box = (await card.boundingBox())!;
+      if (size.phone) {
+        expect(box.x, 'the card starts at the gutter').toBe(32);
+        expect(box.width, 'the card is the window less its gutters').toBe(width - 64);
+      }
+      await expectAcross(card, 'the card');
+      for (const verdict of await card.getByTestId(/^app-monitor-.*-button$/).all()) {
+        const v = (await verdict.boundingBox())!;
+        expect(v.x, 'a verdict starts inside the card').toBeGreaterThanOrEqual(box.x);
+        expect(v.x + v.width, 'a verdict ends inside the card').toBeLessThanOrEqual(
+          box.x + box.width,
+        );
       }
     }
 
@@ -213,10 +362,7 @@ for (const size of PHONE_AND_DESK) {
     }) => {
       const marketId = await aMarketThatIsOwed(request);
       ensureVerifiedUser(EDITOR.email, EDITOR.password);
-      const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
-        data: { user_email: EDITOR.email, role: 'editor' },
-      });
-      expect(granted.ok(), await granted.text()).toBeTruthy();
+      await grantMarketRole(request, marketId, EDITOR, 'editor');
 
       // From Payments by the Assignment tab's page row.
       await page.goto(marketScreenPath(marketId, 'payments'));
@@ -318,12 +464,207 @@ for (const size of PHONE_AND_DESK) {
         size.use,
       );
     });
+
+    test('Applications: an Editor reviews, and a Viewer reads, at the window', async ({
+      browser,
+      request,
+    }) => {
+      const marketId = await aMarketInReview(request);
+      ensureVerifiedUser(EDITOR.email, EDITOR.password);
+      await grantMarketRole(request, marketId, EDITOR, 'editor');
+      ensureVerifiedUser(VIEWER.email, VIEWER.password);
+      await grantMarketRole(request, marketId, VIEWER, 'viewer');
+
+      // T166 note 10: an Editor on a phone saw the page laid out 1001px wide and zoomed out.
+      await withUser(
+        browser,
+        EDITOR.email,
+        EDITOR.password,
+        async (editor) => {
+          const { expectFits: fits, expectInside: inside, press: tap } = inTheWindow(size);
+          await editor.goto(marketScreenPath(marketId, 'applications'));
+          const row = editor.getByTestId('applications-all-row').first();
+          await expect(row).toBeVisible({ timeout: 15000 });
+          await fits(editor, 'the Applications page, for an Editor');
+          await expectAcross(row, 'the row');
+          await expectNameOverStatus(row);
+
+          // The views switch, the filters, Mine, the count and Export wrap in the window, each a
+          // thumb's target; so is the row's tick.
+          await expectTargets(editor.getByTestId(/^applications-view-/), 'a view');
+          await expectWide(editor.getByTestId(/^applications-view-/), 'a view');
+          await expectTargets(editor.getByTestId(/^applications-all-filter-/), 'a filter');
+          await expectWide(editor.getByTestId(/^applications-all-filter-/), 'a filter');
+          await expectTargets(editor.getByTestId('applications-all-export-button'), 'Export');
+          await expectAcross(editor.getByTestId('applications-all-count'), 'the count');
+          await expectLabelTarget(editor.getByTestId('applications-all-mine'), 'Mine');
+          await expectLabelTarget(row.getByTestId('applications-all-tick'), "the row's tick");
+          await tap(row.getByTestId('applications-all-tick'));
+          await expect(row.getByTestId('applications-all-tick')).toBeChecked();
+          await expect(editor.getByTestId('applications-all-selection')).toBeVisible();
+          await expectAcross(editor.getByTestId('applications-all-selection'), 'the selection');
+          await tap(editor.getByTestId('applications-all-selection-clear'));
+
+          // The drawer opens inside the window, its verdicts inside it, and Update info over it.
+          await tap(row.getByTestId('applications-all-name'));
+          const drawer = editor.getByTestId('vendors-detail-panel');
+          await expect(drawer.getByTestId('applications-all-drawer-verdict')).toBeVisible();
+          await expect(drawer).toBeInViewport({ ratio: 1 });
+          await inside(drawer, 'the drawer');
+          await inside(drawer.getByTestId('applications-all-approve'), 'Approve');
+          await tap(drawer.getByTestId('vendors-detail-update-info'));
+          const updating = editor.getByTestId('update-info-window');
+          await expect(updating).toBeVisible();
+          await inside(updating, 'Update info');
+          const save = editor.getByTestId('update-info-submit-button');
+          await save.scrollIntoViewIfNeeded();
+          await inside(save, 'Save');
+          await tap(editor.getByTestId('update-info-cancel-button'));
+          await expect(updating).toHaveCount(0);
+          await fits(editor, 'the Applications page, the drawer open');
+        },
+        size.use,
+      );
+
+      // A Viewer reads the same page at the same width.
+      await withUser(
+        browser,
+        VIEWER.email,
+        VIEWER.password,
+        async (viewer) => {
+          const { expectFits: fits } = inTheWindow(size);
+          await viewer.goto(marketScreenPath(marketId, 'applications'));
+          const row = viewer.getByTestId('applications-all-row').first();
+          await expect(row).toBeVisible({ timeout: 15000 });
+          await fits(viewer, 'the Applications page, for a Viewer');
+          await expectAcross(row, 'the row');
+          await expectNameOverStatus(row);
+        },
+        size.use,
+      );
+    });
+
+    test('One by one: a verdict, the next card, and the review dealt to a reviewer', async ({
+      authenticatedPage: page,
+      browser,
+      request,
+    }) => {
+      test.slow();
+      const marketId = await aQueueToReview(request);
+      await page.goto(oneByOnePath(marketId));
+      const card = page.getByTestId('app-monitor-card');
+      await expect(card).toBeVisible({ timeout: 15000 });
+      await expectFits(page, 'One by one');
+      await expectCard(card);
+
+      // The queue's own controls are a thumb's targets: the follow-ups' label, the highlights.
+      await expectLabelTarget(
+        page.getByTestId('app-monitor-include-follow-ups'),
+        'Include the follow-up',
+      );
+      await expectTargets(page.getByTestId('app-monitor-choose-highlights'), 'Choose highlights');
+      await expectAcross(page.getByTestId('applications-refresh'), 'Refresh');
+
+      // The follow-up dialog opens inside the window, and is put away.
+      await press(page.getByTestId('app-monitor-follow-up-button'));
+      const followUp = page.getByTestId('follow-up-window');
+      await expect(followUp).toBeVisible();
+      await expectInside(followUp, 'the follow-up dialog');
+      await expectInside(page.getByTestId('follow-up-submit-button'), "the follow-up's confirm");
+      await press(page.getByTestId('follow-up-cancel-button'));
+      await expect(followUp).toHaveCount(0);
+
+      // A verdict: the next card stands in the window, the undo line over it, and the reviewed
+      // list's toggle beside the counts; the list opens inside the window.
+      const first = await page.getByTestId('app-monitor-email').innerText();
+      await press(page.getByTestId('app-monitor-approve-button'));
+      await expect(page.getByTestId('app-monitor-email')).not.toHaveText(first);
+      await expectCard(card);
+      await expectAcross(page.getByTestId('app-monitor-undo'), 'the undo line');
+      const toggle = page.getByTestId('app-monitor-decided-toggle');
+      await expectTargets(toggle, "the reviewed list's toggle");
+      await press(toggle);
+      for (const row of await page.getByTestId('app-monitor-decided-row').all()) {
+        await expectAcross(row, 'a reviewed row');
+      }
+      await expectFits(page, 'One by one, a verdict given');
+
+      // The organizer deals the review to the Editor from the reviewers dialog, every choice a
+      // thumb's target.
+      await press(page.getByTestId('reviewers-change'));
+      const dealing = page.getByTestId('reviewers-dialog-window');
+      await expect(dealing).toBeVisible();
+      await expectInside(dealing, 'the reviewers dialog');
+      for (const choice of await dealing.getByTestId(/^reviewer-picker-/).all()) {
+        await expectLabelTarget(choice, 'a reviewer');
+      }
+      await press(dealing.getByTestId(`reviewer-picker-${EDITOR.email}`));
+      const save = page.getByTestId('reviewers-dialog-submit-button');
+      await expectInside(save, 'Save reviewers');
+      await press(save);
+      await expect(dealing).toHaveCount(0);
+      await expect(page.getByTestId('reviewers-person')).toHaveText([EDITOR.email]);
+      await expectFits(page, 'One by one, the review dealt');
+
+      // The chosen reviewer reads their share, then decides it One by one, at the window.
+      await withUser(
+        browser,
+        EDITOR.email,
+        EDITOR.password,
+        async (editor) => {
+          const { expectFits: fits, press: tap } = inTheWindow(size);
+          await editor.goto(marketScreenPath(marketId, 'applications'));
+          await expect(editor.getByTestId('applications-all-row')).toHaveCount(2, {
+            timeout: 15000,
+          });
+          await fits(editor, "the reviewer's share");
+          for (const row of await editor.getByTestId('applications-all-row').all()) {
+            await expectAcross(row, 'a row of the share');
+          }
+          await editor.goto(oneByOnePath(marketId));
+          const theirs = editor.getByTestId('app-monitor-card');
+          await expect(theirs).toBeVisible({ timeout: 15000 });
+          await fits(editor, "One by one, the reviewer's share");
+          await expectCard(theirs);
+          await tap(editor.getByTestId('app-monitor-approve-button'));
+          // The share's last card is open on the organizer's page, so the reviewer reads that.
+          await expect(editor.getByTestId('app-monitor-all-held')).toBeVisible();
+          await expectAcross(editor.getByTestId('app-monitor-undo'), 'the undo line');
+          await expectAcross(editor.getByTestId('app-monitor-look-again'), 'Look again');
+          await fits(editor, "One by one, the reviewer's share decided");
+        },
+        size.use,
+      );
+    });
+
+    test('Publish Results: its dialog opens inside the window', async ({
+      authenticatedPage: page,
+      request,
+    }) => {
+      const marketId = await aMarketToPublish(request);
+      await page.goto(marketScreenPath(marketId, 'applications'));
+      const publish = page.getByTestId('applications-publish-button');
+      await expect(publish).toBeEnabled({ timeout: 15000 });
+      await expectFits(page, 'the Applications page in assignment');
+      await expectTargets(publish, 'Publish Results');
+      await press(publish);
+      const confirm = page.getByTestId('publish-results-window');
+      await expect(confirm).toBeVisible();
+      await expectInside(confirm, 'the publish results dialog');
+      await expectInside(page.getByTestId('publish-results-submit-button'), 'its confirm');
+      await expectInside(page.getByTestId('publish-results-cancel-button'), 'its cancel');
+      await press(page.getByTestId('publish-results-submit-button'));
+      await expect(confirm).toHaveCount(0);
+      await expect(page.getByTestId('applications-published-badge')).toBeVisible();
+      await expectFits(page, 'the Applications page, results published');
+    });
   });
 }
 
 /**
  * Between a phone and a desk (T142, T180): every market place that fits a phone lifts the desktop
- * floor at every width under it, so a tablet lays it out at its own width. At 768 the market's name
+ * floor at every width under it, so a tablet lays it out at its own width, and a page of the same
+ * view that does not, the plan, keeps it. At 768 the market's name
  * drew 0px wide and the tabs ran past the window, so the page scrolled sideways.
  */
 test.describe('between a phone and a desk', () => {
@@ -340,7 +681,14 @@ test.describe('between a phone and a desk', () => {
         TEST_USER.password,
         { intakeMode: 'form' },
       );
-      for (const where of ['attendance', 'tools', 'assignments', 'vendors', 'payments'] as const) {
+      for (const where of [
+        'attendance',
+        'tools',
+        'assignments',
+        'vendors',
+        'payments',
+        'applications',
+      ] as const) {
         await page.goto(marketScreenPath(seed.marketId, where));
         await expect(page.getByTestId('phase-rail-checkin')).toBeVisible({ timeout: 15000 });
         expect((await widths(page)).sideways, `${where} scrolls sideways`).toBe(0);
@@ -353,6 +701,10 @@ test.describe('between a phone and a desk', () => {
           `${where}: the tabs end inside the window`,
         ).toBeLessThanOrEqual(width);
       }
+      // The plan, a page of the same view as Applications, is built at a desk and keeps its floor.
+      await page.goto(marketScreenPath(seed.marketId, 'setup'));
+      await expect(page.getByTestId('phase-rail-checkin')).toBeVisible({ timeout: 15000 });
+      expect((await widths(page)).sideways, 'the plan keeps the desktop floor').toBeGreaterThan(0);
     });
   }
 });

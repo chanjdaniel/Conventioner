@@ -34,6 +34,10 @@ const focusTest = test.extend<{ check: Check }>({
   check: async ({ page }, use) => {
     await use(async (name) => {
       const state = `${name}, at ${page.viewportSize()?.width}px`;
+      // The state's last click leaves the pointer over the page, and a focus that scrolls a box
+      // can bring the box around the focused field under it, whose hover fill would read as a look
+      // focus drew.
+      await page.mouse.move(0, 0);
       const stops = await rememberFieldsAtRest(page);
       const { failures, checked } = await walkByTab(page, state);
       // A state that draws keyboard stops and was walked to none of them proves nothing.
