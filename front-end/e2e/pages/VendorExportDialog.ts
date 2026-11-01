@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { Locator, Page } from '@playwright/test';
 
 /**
- * Page object for the Export vendors dialog (E42/F01/S01 to S03), wherever it opens from.
+ * Page object for the Export vendors dialog (E42/F01/S01 to S04), wherever it opens from.
  */
 export class VendorExportDialog {
   readonly page: Page;
@@ -11,6 +11,8 @@ export class VendorExportDialog {
   readonly summary: Locator;
   readonly placed: Locator;
   readonly mine: Locator;
+  /** Paid or not, Owes, Paid in full, Paid more than owed (S04). */
+  readonly payment: Locator;
   readonly previewHeader: Locator;
   readonly previewRows: Locator;
   readonly downloadButton: Locator;
@@ -22,6 +24,7 @@ export class VendorExportDialog {
     this.summary = page.getByTestId('vendor-export-summary');
     this.placed = page.getByTestId('vendor-export-placed');
     this.mine = page.getByTestId('vendor-export-mine');
+    this.payment = page.getByTestId('vendor-export-payment');
     this.previewHeader = page.getByTestId('vendor-export-preview-header');
     this.previewRows = page.getByTestId('vendor-export-preview-row');
     this.downloadButton = page.getByTestId('vendor-export-submit-button');
@@ -36,8 +39,8 @@ export class VendorExportDialog {
     return this.page.getByTestId(`vendor-export-column-${id}`);
   }
 
-  /** The heading a column is listed under (E42/F01/S02). */
-  group(id: 'vendor' | 'answers' | 'assignment'): Locator {
+  /** The heading a column is listed under (E42/F01/S02, its money S04). */
+  group(id: 'vendor' | 'answers' | 'assignment' | 'payment'): Locator {
     return this.page.getByTestId(`vendor-export-group-${id}`);
   }
 

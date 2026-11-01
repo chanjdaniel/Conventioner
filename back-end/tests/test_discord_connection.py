@@ -29,6 +29,7 @@ import history as History  # noqa: E402
 from datatypes import MarketPhase, MarketRole  # noqa: E402
 from test_discord_client import FakeDiscord  # noqa: E402
 from test_every_write_records import LiveMarkets  # noqa: E402
+from test_price_groups import GOLD_AND_SILVER  # noqa: E402
 
 #: The client's own calls, before any test's fake stands in for them.
 LIST_MEMBERS = Discord.server_members
@@ -577,7 +578,7 @@ class TestCheckingWhoIsInTheServer:
     def test_a_display_name_or_a_nickname_never_matches(self, client, world):
         """Anyone may set their display name to anything: only the username is the person's."""
         world.market(discord=CONNECTED, **WITH_THE_FORM)
-        world.discord.members = [_member("1001", "fern.studio.42")]
+        world.discord.members = [_member("1001", "fern_studio_42")]
         fern = world.applicant("fern@example.com", "Fern Studio")
 
         _check(client)
@@ -637,9 +638,11 @@ class TestCheckingWhoIsInTheServer:
 
         _check(client)
 
+        assert _stored(world)["checkedAt"] == "2026-10-31T12:00:00+00:00"
+        assert _stored(world)["vendorStates"] == [
+            {"applicationId": maple, "state": "not_found", "answer": "maple"}]
         served = client.get(f"/markets/{MARKET}").get_json()["market"]["discord"]
         assert served["checkedAt"] == "2026-10-31T12:00:00+00:00"
-        assert served["vendorStates"] == [{"applicationId": maple, "state": "not_found"}]
 
     def test_a_check_keeps_the_cards_choices(self, client, world):
         world.market(discord={**CONNECTED, "roleId": "r-vendor", "roleName": "Vendor Test",
@@ -1624,3 +1627,514 @@ class TestTheRunsHistory:
         assert entry["actor"] == ADMIN and entry["at"]
         everyone, _after = History.entries_page(MARKET)
         assert [each["kind"] for each in everyone] == [History.DISCORD_ROLES_GIVEN]
+
+
+def _alike(user_id, username, display_name=None, nick=None, roles=()):
+    return Discord.Member(user_id, username, tuple(roles), display_name=display_name, nick=nick)
+
+
+def _vendor_state(world, app_id):
+    [state] = [state for state in _stored(world)["vendorStates"]
+               if state["applicationId"] == app_id]
+    return state
+
+
+def _decline(client, app_id, username):
+    return client.post(f"/markets/{MARKET}/discord/possible-matches/{app_id}/declined",
+                       json={"username": username})
+
+
+class TestPossibleMatches:
+    """A vendor "Not found" is offered the members whose name looks like the username on file, as
+    "Possible match: confirm?" (E46/F01/S05). An offer only: the organizer confirms it into an
+    update of the vendor's answer, never the check (Daniel, T92 Q19)."""
+
+    def test_a_member_whose_display_name_looks_like_the_answer_is_offered(self, client, world):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio"),
+                                 _alike("1002", "oak", display_name="Oak & Co")]
+        fern = world.applicant("fern@example.com", "Fern Studio")
+
+        _check(client)
+
+        state = _vendor_state(world, fern)
+        assert state["state"] == "not_found"
+        assert state["possibleMatches"] == [
+            {"username": "fern_studio_42", "displayName": "Fern Studio"}]
+
+    def test_a_nickname_or_a_username_alike_but_for_case_spaces_and_marks_is_offered(
+        self, client, world,
+    ):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [
+            _alike("1001", "maple.42", nick="MAPLE-crafts \N{MAPLE LEAF}"),
+            _alike("1002", "maple_crafts"),
+            _alike("1003", "maple", display_name="Maple"),
+        ]
+        maple = world.applicant("maple@example.com", "@Maple Crafts")
+
+        _check(client)
+
+        assert _vendor_state(world, maple)["possibleMatches"] == [
+            {"username": "maple.42", "nick": "MAPLE-crafts \N{MAPLE LEAF}"},
+            {"username": "maple_crafts"},
+        ]
+
+    def test_a_vendor_matched_or_with_no_username_is_offered_nothing(self, client, world):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "maple", display_name="maple"),
+                                 _alike("1002", "maple2", display_name="Maple")]
+        maple = world.applicant("maple@example.com", "maple")
+        blank = world.applicant("blank@example.com", " @ ")
+
+        _check(client)
+
+        assert "possibleMatches" not in _vendor_state(world, maple)
+        assert "possibleMatches" not in _vendor_state(world, blank)
+        assert _vendor_state(world, blank)["state"] == "no_username"
+
+    def test_a_name_with_no_letter_or_digit_offers_nobody(self, client, world):
+        """Emoji and marks alone look like every other name made of them."""
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "sun.42", display_name="\N{SUN WITH FACE}")]
+        sun = world.applicant("sun@example.com", "\N{SUN WITH FACE}!")
+
+        _check(client)
+
+        assert _vendor_state(world, sun) == {
+            "applicationId": sun, "state": "not_found", "answer": "\N{SUN WITH FACE}!"}
+
+    def test_at_most_five_are_offered(self, client, world):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike(str(1000 + n), f"fern{n}", display_name="Fern")
+                                 for n in range(8)]
+        fern = world.applicant("fern@example.com", "fern")
+
+        _check(client)
+
+        assert [m["username"] for m in _vendor_state(world, fern)["possibleMatches"]] == [
+            "fern0", "fern1", "fern2", "fern3", "fern4"]
+
+    def test_each_state_keeps_the_answer_it_was_read_for(self, client, world):
+        """So a page can tell a username updated since the check from one the check read."""
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        maple = world.applicant("maple@example.com", "maple", updated=" Maple.Crafts ")
+        never = world.applicant("never@example.com")
+
+        _check(client)
+
+        assert _vendor_state(world, maple)["answer"] == " Maple.Crafts "
+        assert "answer" not in _vendor_state(world, never)
+
+    def test_confirming_stores_an_update_and_the_next_check_reads_in_the_server(
+        self, client, world,
+    ):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio")]
+        fern = world.applicant("fern@example.com", "Fern Studio")
+        _check(client)
+        [offered] = _vendor_state(world, fern)["possibleMatches"]
+
+        # Confirming is the ordinary update of the vendor's answer (E41/F01/S01).
+        response = client.put(f"/markets/{MARKET}/applications/{fern}/answers",
+                              json={"answers": {"discord_username": offered["username"]}})
+        assert response.status_code == 200, response.get_json()
+        [application] = world.applications.documents
+        assert application["form_data"]["discord_username"] == "Fern Studio"
+        assert application["answer_updates"]["discord_username"]["value"] == "fern_studio_42"
+        assert application["answer_updates"]["discord_username"]["over"] == "Fern Studio"
+
+        _check(client)
+
+        assert _vendor_state(world, fern) == {
+            "applicationId": fern, "state": "in_server", "answer": "fern_studio_42"}
+
+    def test_confirming_is_in_the_markets_history_and_the_vendors_with_who_and_when(
+        self, client, world,
+    ):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio")]
+        fern = world.applicant("fern@example.com", "Fern Studio")
+        _check(client)
+
+        client.put(f"/markets/{MARKET}/applications/{fern}/answers",
+                   json={"answers": {"discord_username": "fern_studio_42"}})
+
+        market_wide, _ = History.entries_page(MARKET)
+        mine, _ = History.entries_page(MARKET, vendor="fern@example.com")
+        for entries in (market_wide, mine):
+            updated = [e for e in entries if e["action"] == Actions.UPDATE_VENDOR_INFO.id]
+            [entry] = updated
+            assert entry["actor"] == ADMIN and entry["at"]
+            assert entry["detail"]["before"] == {"discord_username": "Fern Studio"}
+            assert entry["detail"]["after"] == {"discord_username": "fern_studio_42"}
+
+    def test_declining_leaves_the_vendor_not_found_and_records_who_and_when(self, client, world):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio")]
+        fern = world.applicant("fern@example.com", "Fern Studio")
+        _check(client)
+
+        response = _decline(client, fern, "fern_studio_42")
+
+        assert response.status_code == 200, response.get_json()
+        assert _vendor_state(world, fern)["state"] == "not_found"
+        assert _stored(world)["declinedMatches"] == {fern: ["fern_studio_42"]}
+        [application] = world.applications.documents
+        assert "answer_updates" not in application
+        market_wide, _ = History.entries_page(MARKET)
+        mine, _ = History.entries_page(MARKET, vendor="fern@example.com")
+        for entries in (market_wide, mine):
+            [entry] = [e for e in entries if e["kind"] == History.DISCORD_MATCH_DECLINED]
+            assert entry["action"] == Actions.UPDATE_VENDOR_INFO.id
+            assert entry["actor"] == ADMIN and entry["at"]
+            assert entry["vendors"] == ["fern@example.com"]
+            assert entry["subject"] == {"application_id": fern}
+            assert entry["detail"] == {"username": "fern_studio_42", "display_name": "Fern Studio",
+                                       "nick": None, "answer": "Fern Studio"}
+
+    def test_a_member_declined_is_never_offered_again_for_that_vendor(self, client, world):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio"),
+                                 _alike("1002", "fernstudio")]
+        fern = world.applicant("fern@example.com", "Fern Studio")
+        other = world.applicant("other@example.com", "Fern Studio")
+        _check(client)
+        _decline(client, fern, "fern_studio_42")
+
+        _check(client)
+
+        assert _vendor_state(world, fern)["possibleMatches"] == [{"username": "fernstudio"}]
+        assert len(_vendor_state(world, other)["possibleMatches"]) == 2
+
+    def test_a_member_not_offered_to_that_vendor_cannot_be_declined(self, client, world):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio")]
+        fern = world.applicant("fern@example.com", "Fern Studio")
+        oak = world.applicant("oak@example.com", "oak")
+        _check(client)
+
+        for app_id, username in ((fern, "someone.else"), (oak, "fern_studio_42"),
+                                 ("app-nobody", "fern_studio_42")):
+            response = _decline(client, app_id, username)
+            assert response.status_code == 400, response.get_json()
+            assert response.get_json()["error"] == DiscordConnection.NOT_OFFERED
+        assert "declinedMatches" not in _stored(world)
+        assert not [e for e in world.history.documents
+                    if e["kind"] == History.DISCORD_MATCH_DECLINED]
+
+    def test_a_username_that_is_not_a_string_is_refused(self, client, world):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        fern = world.applicant("fern@example.com", "Fern Studio")
+
+        response = client.post(f"/markets/{MARKET}/discord/possible-matches/{fern}/declined",
+                               json={"username": {"$ne": ""}})
+
+        assert response.status_code == 400
+
+    def test_whoever_may_update_a_vendors_info_answers_an_offer(self, client, world):
+        """The offer is answered under the row "Update a vendor's info", as the update it confirms
+        into is (Editor by default), not the check's row."""
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio")]
+        fern = world.applicant("fern@example.com", "Fern Studio")
+        _check(client)
+        world.market(role=MarketRole.EDITOR, discord=copy.deepcopy(_stored(world)),
+                     **WITH_THE_FORM)
+
+        assert _decline(client, fern, "fern_studio_42").status_code == 200
+
+    def test_a_viewer_and_an_archived_market_are_refused(self, client, world):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio")]
+        fern = world.applicant("fern@example.com", "Fern Studio")
+        _check(client)
+        checked = copy.deepcopy(_stored(world))
+
+        world.market(role=MarketRole.VIEWER, discord=copy.deepcopy(checked), **WITH_THE_FORM)
+        viewer = _decline(client, fern, "fern_studio_42")
+        world.market(MarketPhase.ARCHIVED, role=MarketRole.OWNER, discord=copy.deepcopy(checked),
+                     **WITH_THE_FORM)
+        archived = _decline(client, fern, "fern_studio_42")
+
+        assert viewer.status_code == 403
+        assert viewer.get_json()["error"] == Actions.refusal_sentence(Actions.UPDATE_VENDOR_INFO)
+        assert archived.status_code == 403
+        assert archived.get_json()["error"] == MarketsApi.ARCHIVED_REFUSAL
+        assert "declinedMatches" not in _stored(world)
+
+    def test_connecting_to_another_server_or_disconnecting_forgets_what_was_declined(
+        self, client, world,
+    ):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio")]
+        fern = world.applicant("fern@example.com", "Fern Studio")
+        _check(client)
+        _decline(client, fern, "fern_studio_42")
+        declined = copy.deepcopy(_stored(world))
+
+        world.discord.server = Discord.Server(OTHER_GUILD, "Another server")
+        _connect(client)
+        assert "declinedMatches" not in _stored(world)
+
+        world.market(discord=declined, **WITH_THE_FORM)
+        client.delete(f"/markets/{MARKET}/discord/connection")
+        assert _stored(world) == {"usernameQuestion": "discord_username"}
+
+    def test_a_check_keeps_what_was_declined_while_the_members_were_read(self, client, world):
+        """A check writes its own fields only: a decline landing meanwhile is not undone."""
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio")]
+        fern = world.applicant("fern@example.com", "Fern Studio")
+        _check(client)
+
+        def server_members(_values, _guild):
+            assert _decline(client, fern, "fern_studio_42").status_code == 200
+            return world.discord.members
+
+        world.patch.setattr(Discord, "server_members", server_members)
+        _check(client)
+
+        assert _stored(world)["declinedMatches"] == {fern: ["fern_studio_42"]}
+
+    def test_a_decline_landing_after_another_server_connected_is_refused(self, client, world):
+        """The declined members are about the server the offers came from: one connected meanwhile
+        never inherits them."""
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio")]
+        fern = world.applicant("fern@example.com", "Fern Studio")
+        _check(client)
+        read_the_username = DiscordConnection._string
+
+        def another_server_connects_meanwhile(body, key):
+            world.markets.doc["discord"] = {**CONNECTED, "guildId": OTHER_GUILD}
+            return read_the_username(body, key)
+
+        world.patch.setattr(DiscordConnection, "_string", another_server_connects_meanwhile)
+        response = _decline(client, fern, "fern_studio_42")
+
+        assert response.status_code == 409, response.get_json()
+        assert response.get_json()["error"] == DiscordConnection.CHANGED_WHILE_DECLINING
+        assert "declinedMatches" not in _stored(world)
+        assert not [e for e in world.history.documents
+                    if e["kind"] == History.DISCORD_MATCH_DECLINED]
+
+    def test_an_answer_a_price_reads_asks_that_row_to_decline_as_to_confirm(self, client, world):
+        """Declining asks what confirming asks: where a price group reads the username question,
+        the row "Update info the assignment or price reads" too (T156 review note 3). A price group
+        reads a choice question only, so this holds only once the question stopped being text."""
+        offered = {"applicationId": "app-fern", "state": "not_found", "answer": "Fern",
+                   "possibleMatches": [{"username": "fern_studio_42", "displayName": "Fern"}]}
+        priced_question = {**DISCORD_QUESTION, "type": "select",
+                           "options": ["fern_studio_42", "oak"]}
+        plan = copy.deepcopy(GOLD_AND_SILVER)
+        plan["pricing"] = {
+            "currency": "CAD", "halfTablePercent": 50,
+            "groups": [{"name": "Fern's friends",
+                        "conditions": [{"key": "discord_username", "answers": ["fern_studio_42"]}],
+                        "prices": [{"tier": "Gold", "cents": 1000}]}],
+            "everyoneElse": [{"tier": "Gold", "cents": 2000}]}
+        priced = {"discord": {**CONNECTED, "vendorStates": [offered]}, "setupObject": plan,
+                  "applicationForm": {"fields": [SHOP_QUESTION, priced_question]}}
+        world.applicant("fern@example.com", "Fern")
+
+        world.market(MarketPhase.ASSIGNMENT, role=MarketRole.EDITOR, **copy.deepcopy(priced))
+        editor = _decline(client, "app-fern", "fern_studio_42")
+        world.market(MarketPhase.ASSIGNMENT, role=MarketRole.ADMIN, **copy.deepcopy(priced))
+        admin = _decline(client, "app-fern", "fern_studio_42")
+
+        assert editor.status_code == 403
+        assert editor.get_json()["error"] == Actions.refusal_sentence(
+            Actions.UPDATE_ASSIGNMENT_OR_PRICE_INFO)
+        assert admin.status_code == 200, admin.get_json()
+
+
+def _shown(client):
+    """What the market read serves of each vendor's Discord state, by application id."""
+    served = client.get(f"/markets/{MARKET}").get_json()["market"]["discordVendors"]
+    return {vendor.pop("applicationId"): vendor for vendor in served}
+
+
+def _kept(*states):
+    """A check's states as an earlier check stored them."""
+    return {**CONNECTED, "checkedAt": "2026-10-31T12:00:00+00:00", "vendorStates": list(states)}
+
+
+class TestWhatThePageShows:
+    """The market read serves each vendor as the page shows them (E46/F01/S05, T156 review note
+    1): the check's state, "Possible match" for a vendor not found with a member still offered, or
+    "Check again" for one whose username changed since the check read it. One rule, the back end's,
+    which the page and the export both read."""
+
+    def test_a_vendor_not_found_with_a_member_offered_shows_possible_match(self, client, world):
+        world.market(_id="mongo-market-123", discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio"),
+                                 _alike("1002", "oak.and.co")]
+        fern = world.applicant("fern@example.com", "Fern Studio")
+        oak = world.applicant("oak@example.com", "oak.and.co")
+        bob = world.applicant("bob@example.com", "bob")
+        never = world.applicant("never@example.com")
+        _check(client)
+
+        assert _shown(client) == {
+            fern: {"state": "not_found", "shown": "possible_match", "moreMatches": 0,
+                   "possibleMatches": [{"username": "fern_studio_42", "displayName": "Fern Studio",
+                                        "nick": None}]},
+            oak: {"state": "in_server", "shown": "in_server", "possibleMatches": [],
+                  "moreMatches": 0},
+            bob: {"state": "not_found", "shown": "not_found", "possibleMatches": [],
+                  "moreMatches": 0},
+            never: {"state": "no_username", "shown": "no_username", "possibleMatches": [],
+                    "moreMatches": 0},
+        }
+
+    def test_a_member_declined_is_left_out_and_with_none_left_the_vendor_is_not_found(
+        self, client, world,
+    ):
+        world.market(_id="mongo-market-123", discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio"),
+                                 _alike("1002", "fernstudio", nick="Fern Studio")]
+        fern = world.applicant("fern@example.com", "Fern Studio")
+        _check(client)
+
+        _decline(client, fern, "fern_studio_42")
+        assert [m["username"] for m in _shown(client)[fern]["possibleMatches"]] == ["fernstudio"]
+
+        _decline(client, fern, "fernstudio")
+        assert _shown(client)[fern] == {"state": "not_found", "shown": "not_found",
+                                        "possibleMatches": [], "moreMatches": 0}
+
+    def test_a_username_updated_since_the_check_shows_check_again_with_nothing_offered(
+        self, client, world,
+    ):
+        """T137 ticket 28's note: a corrected username kept its old state until the next check."""
+        world.market(_id="mongo-market-123", discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio")]
+        fern = world.applicant("fern@example.com", "Fern Studio")
+        _check(client)
+
+        client.put(f"/markets/{MARKET}/applications/{fern}/answers",
+                   json={"answers": {"discord_username": "fern_studio_42"}})
+
+        assert _shown(client)[fern] == {"state": "not_found", "shown": "check_again",
+                                        "possibleMatches": [], "moreMatches": 0}
+        _check(client)
+        assert _shown(client)[fern]["shown"] == "in_server"
+
+    def test_a_match_updated_since_the_check_shows_check_again(self, client, world):
+        """The projected read keeps an organizer's update in its place: a matched vendor whose
+        username changed reads as changed, never as the check's old match."""
+        world.market(_id="mongo-market-123", discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "maple")]
+        maple = world.applicant("maple@example.com", "maple")
+        _check(client)
+
+        client.put(f"/markets/{MARKET}/applications/{maple}/answers",
+                   json={"answers": {"discord_username": "fern_studio_42"}})
+
+        assert _shown(client)[maple] == {"state": "in_server", "shown": "check_again",
+                                         "possibleMatches": [], "moreMatches": 0}
+
+    def test_an_update_the_check_reads_alike_keeps_the_state(self, client, world):
+        """Case, spaces, a leading @ and an old tag are tidied away before matching, so a change
+        of only those reads the same member and the state still holds."""
+        world.market(_id="mongo-market-123", discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "maple")]
+        maple = world.applicant("maple@example.com", "maple")
+        _check(client)
+
+        client.put(f"/markets/{MARKET}/applications/{maple}/answers",
+                   json={"answers": {"discord_username": " @Maple#1234 "}})
+
+        assert _shown(client)[maple]["shown"] == "in_server"
+
+    def test_a_state_an_older_build_kept_reads_as_kept_unless_a_username_was_added(
+        self, client, world,
+    ):
+        """A state kept before the answer was kept beside it cannot tell a change, save "No
+        username": that one had nothing, so a username that tidies to something is new (T156
+        review note 2: " @ " still has none)."""
+        world.market(_id="mongo-market-123", **WITH_THE_FORM, discord=_kept(
+            {"applicationId": "app-blank", "state": "no_username"},
+            {"applicationId": "app-added", "state": "no_username"},
+            {"applicationId": "app-maple", "state": "in_server"}))
+        world.applicant("blank@example.com", " @ ")
+        world.applicant("added@example.com", "added.later")
+        world.applicant("maple@example.com", "someone.else")
+
+        shown = {app_id: vendor["shown"] for app_id, vendor in _shown(client).items()}
+
+        assert shown == {"app-blank": "no_username", "app-added": "check_again",
+                         "app-maple": "in_server"}
+
+    def test_past_five_alike_the_rest_are_counted(self, client, world):
+        world.market(_id="mongo-market-123", discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike(str(1000 + n), f"fern{n}", display_name="Fern")
+                                 for n in range(8)]
+        fern = world.applicant("fern@example.com", "fern")
+        _check(client)
+
+        assert _vendor_state(world, fern)["moreMatches"] == 3
+        assert _shown(client)[fern]["moreMatches"] == 3
+        assert len(_shown(client)[fern]["possibleMatches"]) == 5
+
+    def test_a_market_never_checked_serves_none(self, client, world):
+        world.market(_id="mongo-market-123", discord=CONNECTED, **WITH_THE_FORM)
+        world.applicant("fern@example.com", "Fern Studio")
+
+        assert _shown(client) == {}
+
+    def test_the_market_serves_the_vendors_once_as_the_page_shows_them(
+        self, client, world,
+    ):
+        """What the check stored and what was declined are the rule's inputs, never served beside
+        it (T156 rereview note 8): ``discordVendors`` is the one copy a page or the export reads,
+        on the market's own read and on the Markets list alike."""
+        world.market(_id="mongo-market-123", roles={"user-1": "owner", "user-admin": "admin"},
+                     **WITH_THE_FORM,
+                     discord={**_kept({"applicationId": "app-fern", "state": "not_found",
+                                       "answer": "Fern Studio"}),
+                              "declinedMatches": {"app-fern": ["fern_studio_42"]}})
+        world.patch.setattr(OrgsApi, "get_organizations_for_user", lambda _email: [])
+        world.applicant("fern@example.com", "Fern Studio")
+
+        read = client.get(f"/markets/{MARKET}").get_json()["market"]
+        [listed] = client.get("/markets").get_json()["markets"]
+
+        for served in (read["discord"], listed["discord"]):
+            assert served["checkedAt"] == "2026-10-31T12:00:00+00:00"
+            assert "vendorStates" not in served
+            assert "declinedMatches" not in served
+        assert [vendor["shown"] for vendor in read["discordVendors"]] == ["not_found"]
+        assert world.markets.doc["discord"]["declinedMatches"] == {"app-fern": ["fern_studio_42"]}
+
+    def test_the_market_contract_declares_what_the_read_serves(self, client, world):
+        """``docs/schema.d.ts``, generated from ``MarketSchemaContract``, is the market as the front
+        end receives it (T156 rereview note 9): its connection declares no field the read leaves
+        out, and ``discordVendors`` is declared as served."""
+        from datatypes import MarketSchemaContract
+
+        world.market(_id="mongo-market-123", discord={**CONNECTED, "roleId": "r-vendor",
+                                                      "roleName": "Vendor Test",
+                                                      "inviteLink": "https://discord.gg/abc123"},
+                     **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio")]
+        fern = world.applicant("fern@example.com", "Fern Studio")
+        _check(client)
+        _decline(client, fern, "fern_studio_42")
+        world.discord.members.append(_alike("1002", "fernstudio", nick="Fern Studio"))
+        _check(client)
+        read = client.get(f"/markets/{MARKET}").get_json()["market"]
+
+        def declared(model):
+            return {field.alias or name for name, field in model.model_fields.items()}
+
+        market = MarketSchemaContract.model_fields
+        connection = market["discord"].annotation.__args__[0]
+        assert set(read["discord"]) == declared(connection)
+        [vendor] = read["discordVendors"]
+        served_vendor = market["discord_vendors"].annotation.__args__[0].__args__[0]
+        assert set(vendor) == declared(served_vendor)
+        [match] = vendor["possibleMatches"]
+        assert set(match) == declared(
+            served_vendor.model_fields["possible_matches"].annotation.__args__[0])

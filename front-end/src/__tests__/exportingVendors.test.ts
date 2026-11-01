@@ -231,11 +231,16 @@ const OFFERED: ExportPreview['offered'] = {
     { id: 'answer:category', label: 'Category', group: 'answers' },
     { id: 'date:2099-08-01:table', label: 'Sat 1 Aug - table', group: 'assignment' },
     { id: 'datesPlaced', label: 'Dates assigned', group: 'assignment' },
+    { id: 'priceGroup', label: 'Price group', group: 'payment' },
+    { id: 'owed', label: 'Amount owed', group: 'payment' },
+    { id: 'paid', label: 'Amount paid', group: 'payment' },
+    { id: 'stillOwed', label: 'Still owed', group: 'payment' },
   ],
   groups: [
     { id: 'vendor', label: 'Vendor' },
     { id: 'answers', label: 'Answers' },
     { id: 'assignment', label: 'Assignment' },
+    { id: 'payment', label: 'Payment' },
   ],
   defaultColumns: ['name', 'email', 'status'],
   statuses: [
@@ -249,6 +254,11 @@ const OFFERED: ExportPreview['offered'] = {
   sections: ['North Wing', 'South Wing'],
   tiers: ['Gold', 'Silver'],
   questions: [{ key: 'category', label: 'Category', options: ['Crafts', 'Food'] }],
+  paymentStates: [
+    { id: 'owes', label: 'Owes' },
+    { id: 'paid', label: 'Paid in full' },
+    { id: 'over', label: 'Paid more than owed' },
+  ],
 };
 
 describe('the dialog', () => {
@@ -337,7 +347,12 @@ describe('the dialog', () => {
     const wrapper = await opened();
 
     const groups = wrapper.findAll('[data-testid^="vendor-export-group-"]');
-    expect(groups.map((g) => g.get('legend').text())).toEqual(['Vendor', 'Answers', 'Assignment']);
+    expect(groups.map((g) => g.get('legend').text())).toEqual([
+      'Vendor',
+      'Answers',
+      'Assignment',
+      'Payment',
+    ]);
     expect(wrapper.get('[data-testid="vendor-export-group-assignment"]').text()).toContain(
       'Sat 1 Aug - table',
     );
@@ -362,6 +377,39 @@ describe('the dialog', () => {
     await wrapper.get('[data-testid="vendor-export-placed"]').setValue('placed');
 
     expect(wrapper.find('[data-testid="vendor-export-tier"]').exists()).toBe(true);
+    wrapper.unmount();
+  });
+
+  it('lists the money columns under "Payment", after the assignment', async () => {
+    const wrapper = await opened();
+
+    expect(
+      wrapper
+        .get('[data-testid="vendor-export-group-payment"]')
+        .findAll('label')
+        .map((l) => l.text()),
+    ).toEqual(['Price group', 'Amount owed', 'Amount paid', 'Still owed']);
+    wrapper.unmount();
+  });
+
+  it('filters by payment in the Payment tab’s words, and asks for what is chosen', async () => {
+    vi.useFakeTimers();
+    const wrapper = await opened();
+    await vi.runAllTimersAsync();
+    posted.length = 0;
+
+    const payment = wrapper.get('[data-testid="vendor-export-payment"]');
+    expect(payment.findAll('option').map((o) => o.text())).toEqual([
+      'Paid or not',
+      'Owes',
+      'Paid in full',
+      'Paid more than owed',
+    ]);
+    await payment.setValue('owes');
+    await vi.runAllTimersAsync();
+    await flushPromises();
+
+    expect(posted.at(-1)?.body).toMatchObject({ filters: { payment: 'owes' } });
     wrapper.unmount();
   });
 

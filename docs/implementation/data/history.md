@@ -34,6 +34,7 @@ sources:
   - E44/F01/S01
   - E44/F01/S02
   - E46/F01/S04
+  - E46/F01/S05
 ---
 
 # The market's history
@@ -116,6 +117,7 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `connect-discord` | `discord_connected`, `discord`, `discord_disconnected` | [the Discord card](../modules/discord.md): connecting, a choice, disconnecting | - | - | whichever of `guild_id`, `guild_name`, `role_id`, `role_name`, `username_question`, `username_question_label` (the question's label on the form then, null when none) and `invite_link` changed; the history reads the names and the label, never an id or the key |
 | `connect-discord` | `discord_checked` | ["Check Discord"](../modules/discord.md#who-is-in-the-server), one entry a check, even one that changed nobody | each vendor whose state it changed, in the order of `application_ids` | `application_ids` | by application id, each changed vendor's state (`has_role`, `in_server`, `not_found`, `no_username`) before, null when never checked, and after; `addresses`, each changed vendor's address by application id, since `vendors` leaves out an empty one and so does not pair with the ids by position; and `counts`, how many it found in each state |
 | `connect-discord` | `discord_roles_given` | ["Give roles"](../modules/discord.md#giving-the-role), one entry a run, even one that gave nobody the role | each vendor it gave the role or whose state it changed, in the order of `application_ids` | `application_ids` | `role_name`, the role by its name then; `given`, the application ids it gave the role; by application id, each named vendor's state before and after, and `addresses`, as a check's; and `counts`, how many assigned vendors ended in each outcome (`given`, `already_had`, `not_found`, `no_username`, `not_yet`, `failed`) |
+| `update-vendor-info` | `discord_match_declined` | ["Not them"](../modules/discord.md#possible-matches): a member a check offered as a vendor's possible match, said not to be them; confirming one is the update of their answer, recorded as above | the vendor | `application_id` | the member's `username`, `display_name` and `nick` (each null when none), and the `answer` it was offered for; no before or after, since the vendor's answers are unchanged |
 | `manage-editors-and-viewers`, or `manage-admins` when an Admin or Owner role is either side | `role_given`, `role_changed`, `role_taken` | Manage market's people | - | `user_id`, `email` | `role` |
 | `change-the-table` | `permission_set`, `permission_reset` | the market's owner setting a row of [its table](../modules/market-actions.md#a-markets-own-rows), or returning it to its built-in default | - | `action`: the row | `role` and `source` (`built-in`, `organization` or `market`), both always, so a reset that keeps the role still says it |
 | `change-the-table` | `permission_table_reset` | the market's owner returning every row it holds to its built-in default, one entry for the one act | - | - | by row id, every row it returned, each its `role` and `source` before and after |

@@ -112,6 +112,9 @@ DISCORD_CHECKED = "discord_checked"
 #: "Give roles" gave the market's role to the assigned vendors in the server (E46/F01/S04): one
 #: entry a run.
 DISCORD_ROLES_GIVEN = "discord_roles_given"
+#: A member offered as a possible match was declined for a vendor (E46/F01/S05). Confirming one is
+#: the ordinary update of the vendor's answer, recorded as every update is.
+DISCORD_MATCH_DECLINED = "discord_match_declined"
 
 
 def _now() -> str:
