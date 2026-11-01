@@ -310,6 +310,8 @@ describe('Manage organization asks before it removes', () => {
       'Only owner can remove admins',
     );
     expect(byTestId('manage-org-admin-email')).not.toBeNull();
+    // Refused, it is ready to be asked again.
+    expect(byTestId('manage-org-remove-submit-button')!.hasAttribute('disabled')).toBe(false);
     wrapper.unmount();
   });
 
@@ -460,6 +462,27 @@ describe('Manage market asks before it removes', () => {
     await flushPromises();
     expect(byTestId('manage-market-remove-window')).toBeNull();
     expect(byTestId('manage-market-remove-error')).toBeNull();
+    wrapper.unmount();
+  });
+
+  it('says a refusal in the confirmation, removes nothing, and may be asked again', async () => {
+    api.delete.mockRejectedValue(
+      Object.assign(new AxiosError('refused'), {
+        response: { status: 403, data: { error: 'Only an admin can change roles' } },
+      }),
+    );
+    const wrapper = await open([person()]);
+
+    byTestId('manage-market-remove-user-button')!.click();
+    await flushPromises();
+    byTestId('manage-market-remove-submit-button')!.click();
+    await flushPromises();
+
+    expect(byTestId('manage-market-remove-error')?.textContent?.trim()).toBe(
+      'Only an admin can change roles',
+    );
+    expect(document.body.textContent).toContain(EMAIL);
+    expect(byTestId('manage-market-remove-submit-button')!.hasAttribute('disabled')).toBe(false);
     wrapper.unmount();
   });
 
