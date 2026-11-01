@@ -44,6 +44,7 @@ from flask_login import (
     login_required,
     login_user,
     logout_user,
+    session_protected,
     user_loaded_from_cookie,
 )
 from flask_bcrypt import Bcrypt
@@ -377,7 +378,34 @@ install_security_headers(app)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB upload limit
 
 bcrypt = Bcrypt(app)
-login_manager = LoginManager()
+
+
+class RefusingLoginManager(LoginManager):
+    """Flask-Login's "strong" session protection, refusing a request without ending the sign-in.
+
+    "strong" holds a session to the client that signed in, its address and browser, and refuses a
+    request from any other. Flask-Login refuses one by deleting the session, and the remember-me
+    cookie with it; so one request the server could not hold to the browser signed it out: a
+    request a closed connection cut short of its User-Agent, say, whose answer, carrying the
+    cookie's deletion, nobody read (T177). Before E38/F14/S01 the remember-me cookie every sign-in
+    set brought such a session back; a sign-in without "Remember me" has none.
+
+    So a request from another client is answered as signed out, and the session and the
+    remember-me cookie stay as they were for the browser that signed in. A copied session cookie is
+    refused as before, at every request; a browser whose address changes is too, until it is back
+    on the first address or signs in again (E47).
+    """
+
+    def _session_protection_failed(self) -> bool:
+        if app.config.get("SESSION_PROTECTION", self.session_protection) != "strong":
+            return super()._session_protection_failed()
+        if not session or session.get("_id") == self._session_identifier_generator():
+            return False
+        session_protected.send(app)
+        return True
+
+
+login_manager = RefusingLoginManager()
 login_manager.init_app(app)
 login_manager.session_protection = "strong"
 
@@ -386,8 +414,8 @@ login_manager.session_protection = "strong"
 def hold_a_restored_session_to_its_browser(_app: Flask, user: Any) -> None:
     """Hold a session the remember-me cookie restored to the browser that restored it.
 
-    "strong" refuses a session whose client identifier is not the one it holds, and deletes the
-    remember-me cookie with it; a sign-in records the identifier (`login_user`), but Flask-Login's
+    "strong" refuses a session whose client identifier is not the one it holds
+    (`RefusingLoginManager`); a sign-in records the identifier (`login_user`), but Flask-Login's
     restore from the cookie does not, so the session it restored was refused at its next request
     and "Remember me" lasted one request (E38/F14/S01). Recorded here, the way `login_user` does.
     """

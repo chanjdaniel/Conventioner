@@ -329,15 +329,32 @@ def _without_the_user_agent(client, path):
     ],
     ids=["without-a-user-agent", "from-another-browser"],
 )
-def test_one_odd_request_does_not_end_the_sign_in(client, users, remember, odd_request):
+def test_one_odd_request_is_refused_and_does_not_end_the_sign_in(
+    client, users, remember, odd_request
+):
     _sign_in(client, remember=remember)
     assert _signed_in(client)
 
-    # Whatever it is answered, the browser that signed in is still signed in at its next request:
-    # one request the server could not hold to it is not a sign-out (T177).
-    odd_request(client, "/check-session")
+    # Refused, as "strong" refuses another client, but nothing is deleted: the browser that signed
+    # in is still signed in at its next request, so one request the server could not hold to it
+    # is not a sign-out (T177).
+    odd = odd_request(client, "/check-session")
 
+    assert odd.status_code == 401
+    assert not _set_cookies(odd, "session") and not _set_cookies(odd, REMEMBER_COOKIE)
     assert [_signed_in(client) for _ in range(2)] == [True, True]
+
+
+def test_a_copied_session_cookie_is_refused_at_every_request(client, users):
+    _sign_in(client)
+    copied = app_module.app.test_client()
+    copied.set_cookie("session", client.get_cookie("session").value)
+
+    assert [
+        copied.get("/check-session", headers={"User-Agent": "another-browser"}).status_code
+        for _ in range(3)
+    ] == [401, 401, 401]
+    assert _signed_in(client)
 
 
 # What came before, and a password reset.
