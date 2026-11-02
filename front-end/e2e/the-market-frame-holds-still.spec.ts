@@ -65,8 +65,8 @@ test('where the rail cannot hold one row, the address and the next step share th
     TEST_USER.email,
     TEST_USER.password,
   );
-  // The sentence-case labels are narrower, so the rail still holds one row at 1100. At 1000 it does
-  // not, and the spine still fits on its own line.
+  // A window too narrow for the spine, the address and the next step on one row, yet wide enough
+  // for the spine to keep a line of its own.
   await page.setViewportSize({ width: 1000, height: 900 });
   await page.goto(marketSetupPath(marketId, 'applications'));
 
