@@ -33,7 +33,7 @@ An organizer on the Google Form path already holds the responses when the market
 The import runs in Draft, and before it reads a row it judges the move into Review less its own wait, so a setup that would keep the market out ("This market has no location. …") is said on the import before a file is picked, and nothing is written.
 Once the rows are written the import takes `draft -> applications` through the one judged move, under the person importing; leaving the import before that keeps the market a draft.
 Market Setup settles at that moment, as on leaving Draft by any move ([the setup settles on leaving draft](the-setup-settles-on-leaving-draft.md)).
-"Reopen for Editing" is refused once anything has been imported: "N applications are already in, so this market cannot return to draft. The questions are fixed once anyone has applied or been imported." ([the form locks at the first application](the-form-locks-at-the-first-application.md)).
+"Reopen for editing" is refused once anything has been imported: "N applications are already in, so this market cannot return to draft. The questions are fixed once anyone has applied or been imported." ([the form locks at the first application](the-form-locks-at-the-first-application.md)).
 
 **A late export is "Redo import"**, which opens the import; the page says the whole file is read again, new rows added and changed ones updated, and the market stays in Review ([H2j](../flows/import.md#h2j-import-after-review-has-begun)).
 No move touches an application, so every verdict given so far stays, except as [ADR 0011](../../adr/0011-re-import-upserts-on-market-and-email.md) says of a changed answer the assignment reads.
@@ -54,4 +54,4 @@ Importing and moving the market are an Admin's ([what each role may do](what-eac
 
 ## Superseded
 
-"Import responses" once moved the market into an Import phase at the click, Begin Review stepped through Applications Closed into Review, and "Import more responses" walked back to importing (E32/F02/S01, E32/F02/S02); the three phases are one stage now, entered by the first import (E38/F04).
+"Import responses" once moved the market into an Import phase at the click, Begin review stepped through Applications Closed into Review, and "Import more responses" walked back to importing (E32/F02/S01, E32/F02/S02); the three phases are one stage now, entered by the first import (E38/F04).

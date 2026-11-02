@@ -1014,7 +1014,7 @@ APPLICANT_REVIEW_IMPORT_AND_DOOR_ROUTES = [
 
 class TestTheApplicantReviewImportAndDoorRoutes:
     """The public applicant and check-in routes, the application list and review routes, the CSV
-    start and the application import, Publish Results, attendance and the organizer's door answer
+    start and the application import, Publish results, attendance and the organizer's door answer
     through the handler: each refusal with the status and copy its reader reads, and anything else
     as the generic 500."""
 

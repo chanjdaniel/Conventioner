@@ -63,7 +63,7 @@ A bug the status once named is cited where its fix changed what a step says.
 
 **Status:** Planned (backlog `E05`, status proposed).
 "MVP ends at 'assignment computed'; the organizer communicates results themselves."
-The Send Offers button already exists and is always refused ([M1](#m1-the-solver-records-who-was-assigned)).
+The Send offers button already exists and is always refused ([M1](#m1-the-solver-records-who-was-assigned)).
 
 | Step | Flows |
 | --- | --- |
@@ -87,12 +87,12 @@ None of this is built beyond the pieces named.
 
 **Status:** Planned.
 After a run, each approved application becomes Assigned or Unassigned.
-Today nothing writes those statuses, so "Send Offers" is always refused while anyone is approved (the Assignment to Offers edge is deadlocked).
+Today nothing writes those statuses, so "Send offers" is always refused while anyone is approved (the Assignment to Offers edge is deadlocked).
 
 #### M2. Send offers
 
 **Status:** Planned; the button exists.
-More…, "Send Offers" in Assignment would move applications to Assignment Sent and the market to Offers.
+More…, "Send offers" in Assignment would move applications to Assignment Sent and the market to Offers.
 
 #### M3. A vendor accepts or refuses
 

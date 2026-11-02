@@ -1,5 +1,5 @@
 /**
- * `Publish Results` follows intake mode.
+ * `Publish results` follows intake mode.
  *
  * The label is correct for what the button does: it flips `resultsPublished`, which is what makes
  * a reviewer's verdict visible to the applicant instead of `under_review`. But every endpoint that
@@ -45,7 +45,7 @@ const button = '[data-testid="applications-publish-button"]';
 const hint = '[data-testid="applications-publish-hint"]';
 
 describe('a market with no applicants', () => {
-  it('offers no Publish Results control on a CSV market', async () => {
+  it('offers no Publish results control on a CSV market', async () => {
     const wrapper = await mounted(marketTaking(IntakeMode.Csv));
 
     expect(wrapper.find(button).exists()).toBe(false);
@@ -64,6 +64,7 @@ describe('a form-intake market (E36/F04/S01)', () => {
 
     expect(wrapper.find(button).exists()).toBe(true);
     expect(wrapper.find<HTMLButtonElement>(button).element.disabled).toBe(false);
+    expect(wrapper.find(button).text()).toBe('Publish results');
   });
 
   it("disables it with the server's reason until results may be published", async () => {
@@ -92,7 +93,7 @@ describe('a form-intake market (E36/F04/S01)', () => {
 
 describe('before the assignment (E38/F05, Daniel on 2026-10-29)', () => {
   it.each([MarketPhase.Draft, MarketPhase.Applications])(
-    'offers no Publish Results, not even a disabled one, in %s',
+    'offers no Publish results, not even a disabled one, in %s',
     async (phase) => {
       const wrapper = await mounted(marketTaking(IntakeMode.Form, { phase }));
 

@@ -119,7 +119,7 @@ test.describe('The frame stays put', () => {
     authenticatedPage: page,
     request,
   }) => {
-    // A plan that asks nothing, so Open Applications is refused - and said so before the click.
+    // A plan that asks nothing, so Open applications is refused - and said so before the click.
     const blocked = await seedFormlessPhaseMarket(
       request,
       BACKEND_URL,

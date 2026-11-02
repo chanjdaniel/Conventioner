@@ -152,7 +152,7 @@ const enteredReview = ref(false);
 
 /**
  * The first import is where a Google Form market's review begins, so its preview step offers the
- * reviewers, as "Open Applications" does on a market's own form (E38/F07/S02): chosen before the
+ * reviewers, as "Open applications" does on a market's own form (E38/F07/S02): chosen before the
  * rows are written, the server deals them as they arrive. A redo import offers nothing: by then the
  * reviewers are the Reviewers panel's.
  */

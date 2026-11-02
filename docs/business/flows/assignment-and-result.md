@@ -45,7 +45,7 @@ sources:
 # The assignment and its result
 
 **Who:** the market's Editor, Admin or owner sets the rules and runs the assignment; publishing results is an Admin's ([what each role may do](../rules/what-each-role-may-do.md)).
-**Where they start:** the Assignment tab, which [Begin Assignment](review.md#i5-begin-assignment) lands on.
+**Where they start:** the Assignment tab, which [Begin assignment](review.md#i5-begin-assignment) lands on.
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md) and [Results go out once, and settle the allocation](../intents/results-go-out-once-and-settle-the-allocation.md).
 
 The Assignment tab holds four pages: Settings (the rules and the run, headed "Assignment settings", [`MarketAssignmentTab.vue`](../../../front-end/src/components/market/MarketAssignmentTab.vue)), Assignments (by table, under its summary, [`ResultSummary.vue`](../../../front-end/src/components/ResultSummary.vue)), Vendors (by vendor, [vendors](vendors.md)) and Payments (what the seats are owed and who has paid, [payments](payments.md)).
@@ -160,9 +160,9 @@ Covered by:
 **Status:** Works (re-walked live on 2026-10-03; where and when it is offered, and what a vendor reads, changed since, read from the code as of E36/F04 and E36/F05: `back-end/api/applicants.py`, `results-wait-for-the-allocation.spec.ts`).
 On a market whose vendors apply on its own page only, from the Applications page, above both of the review's views ([`PublishResults.vue`](../../../front-end/src/components/application/PublishResults.vue)); a Google Form market has nobody to tell, and offers no button.
 
-1. "Publish Results", beside "Tells every applicant, on their application page, whether they have a table.", is shown from Assignment on, and offered once a current run is stored; until then it is disabled and says why ("Allocate tables first: …", "The table allocation is out of date. Allocate tables again before publishing, …").
-   Before Assignment the Applications page shows no Publish Results at all, not even a disabled one.
-   In Assignment the rail leads there: Publish Market is disabled with "Applicants have not been told whether they have a table. Publish the results before the market goes live." and "Publish results" as the main button.
+1. "Publish results", beside "Tells every applicant, on their application page, whether they have a table.", is shown from Assignment on, and offered once a current run is stored; until then it is disabled and says why ("Allocate tables first: …", "The table allocation is out of date. Allocate tables again before publishing, …").
+   Before Assignment the Applications page shows no Publish results at all, not even a disabled one.
+   In Assignment the rail leads there: Publish market is disabled with "Applicants have not been told whether they have a table. Publish the results before the market goes live." and "Publish results" as the main button.
 2. "Publish results" asks first: 'N applicants will read "You have a table". M will read "You did not get assigned".' and "Publishing cannot be undone, and tables cannot be allocated again after it: assignments change only by hand."
 3. Confirm: the button gives way to a "Results published" chip; the run and the rules are settled (J3b, J14), and the market can be published (K1).
 4. Each applicant reads their outcome on "Your application" ([H3c](applying-online.md#h3c-a-vendor-checks-their-application)).
@@ -181,7 +181,7 @@ Covered by:
 - [An incomplete application refuses the run](../rules/an-incomplete-application-refuses-the-run.md).
 - [An assignment knows when it is out of date](../rules/an-assignment-knows-when-it-is-out-of-date.md).
 - [The assignment rules close with the assignment](../rules/the-assignment-rules-close-with-the-assignment.md).
-- [Publish Results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md), and [an applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md).
+- [Publish results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md), and [an applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md).
 
 What a run records of its inputs is [what an assignment was made from](../../implementation/modules/made-from.md).
 Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

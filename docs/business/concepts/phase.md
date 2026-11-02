@@ -17,7 +17,7 @@ verified: 2026-10-29
 - [Review needs an import](../rules/review-needs-an-import.md): a CSV market enters the stage, its Review, by its first import.
 - [Assign runs only in assignment](../rules/assign-runs-only-in-assignment.md): the run is refused in every other phase.
 - [The assignment rules close with the assignment](../rules/the-assignment-rules-close-with-the-assignment.md): the rules lock once the market can no longer reach `assignment`.
-- [Publish Results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md): a form market enters `market_days` only after its results are published.
+- [Publish results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md): a form market enters `market_days` only after its results are published.
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md) and [an archived market that ran stays a record](../rules/an-archived-market-that-ran-stays-a-record.md): what `archived` keeps.
 - [When an organization may be deleted](../rules/when-an-organization-may-be-deleted.md): refused while any of its markets is mid-lifecycle.
 

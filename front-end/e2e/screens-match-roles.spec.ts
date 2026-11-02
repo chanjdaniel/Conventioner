@@ -16,7 +16,7 @@ import { grantMarketRole } from './helpers/grantMarketRole';
 /**
  * A market's screens offer each person only what their role lets them do (bug 37, E26/F08/S01).
  *
- * A Viewer was shown every editing control - the calendar, every "+", Open Applications, More… -
+ * A Viewer was shown every editing control - the calendar, every "+", Open applications, More… -
  * and an edit appeared to work until its save failed with a 403 in the server's words, the edit
  * still on screen. The server was right; the screens did not know who was looking.
  */

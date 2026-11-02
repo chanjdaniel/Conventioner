@@ -1,14 +1,14 @@
 import type { Locator, Page } from '@playwright/test';
 
 /**
- * Page object for the dialog the rail's "Open Applications" opens on a market whose vendors apply
+ * Page object for the dialog the rail's "Open applications" opens on a market whose vendors apply
  * on its own page, for someone who may choose reviewers (E38/F07/S02): the reviewer picker, and the
  * confirm that writes the reviewers and then opens applications.
  */
 export class OpenApplicationsDialog {
   readonly page: Page;
 
-  /** The rail's "Open Applications", which opens the dialog. */
+  /** The rail's "Open applications", which opens the dialog. */
   readonly opener: Locator;
   readonly dialog: Locator;
   readonly confirm: Locator;
@@ -32,7 +32,7 @@ export class OpenApplicationsDialog {
     return this.dialog.getByTestId(`reviewer-picker-${email}`);
   }
 
-  /** Press "Open Applications" on the rail, and wait for the dialog. */
+  /** Press "Open applications" on the rail, and wait for the dialog. */
   async start(): Promise<void> {
     await this.opener.click();
     await this.dialog.waitFor();

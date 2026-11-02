@@ -607,7 +607,7 @@ export const SCREENS: Screen[] = [
     open: at(screen('csv', 'import'), 'import-view'),
   },
   {
-    // The first import offers the reviewers on its preview, as "Open Applications" does on a
+    // The first import offers the reviewers on its preview, as "Open applications" does on a
     // market's own form (E38/F07/S02); nothing is imported, so every run finds it the same.
     name: "a CSV draft's first import, choosing reviewers",
     who: 'organizer',

@@ -65,7 +65,9 @@ test('where the rail cannot hold one row, the address and the next step share th
     TEST_USER.email,
     TEST_USER.password,
   );
-  await page.setViewportSize({ width: 1100, height: 900 });
+  // A window too narrow for the spine, the address and the next step on one row, yet wide enough
+  // for the spine to keep a line of its own.
+  await page.setViewportSize({ width: 1000, height: 900 });
   await page.goto(marketSetupPath(marketId, 'applications'));
 
   const spine = await box(page.getByTestId('phase-rail-spine'));

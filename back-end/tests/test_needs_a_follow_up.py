@@ -2,7 +2,7 @@
 
 Skip recorded nothing, so an application waiting on its applicant looked like one nobody had
 opened. "Needs follow-up" is a stored status: who marked it, and who owns it - the marker unless
-reassigned to someone else with a role on the market. It holds Begin Assignment as an undecided
+reassigned to someone else with a role on the market. It holds Begin assignment as an undecided
 application does, and its applicant sees only that it is under review.
 """
 import os

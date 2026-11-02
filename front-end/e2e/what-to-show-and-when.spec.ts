@@ -47,7 +47,7 @@ test.describe('What to show, and when', () => {
     });
     await page.goto(marketSetupPath(csv.marketId, 'setup'));
     // Its first import is its way into the stage, which on this path is Review (E38/F04/S01).
-    await expect(page.getByTestId('phase-transition-applications')).toHaveText('Begin Review');
+    await expect(page.getByTestId('phase-transition-applications')).toHaveText('Begin review');
     await expect(page.getByTestId('market-bar-tab-form')).toHaveText('Questions');
     await expect(page.getByTestId('phase-rail-spine')).toContainText('Review');
     await expect(page.getByTestId('phase-rail-spine')).not.toContainText('Applications');
@@ -56,7 +56,7 @@ test.describe('What to show, and when', () => {
       intakeMode: 'form',
     });
     await page.goto(marketSetupPath(form.marketId, 'setup'));
-    await expect(page.getByTestId('phase-transition-applications')).toHaveText('Open Applications');
+    await expect(page.getByTestId('phase-transition-applications')).toHaveText('Open applications');
     await expect(page.getByTestId('market-bar-tab-form')).toHaveText('Application Form');
   });
 

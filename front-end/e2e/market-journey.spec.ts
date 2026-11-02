@@ -133,7 +133,7 @@ test.describe('The MVP journey', () => {
 
     // --- 3. Import responses -------------------------------------------------------------
     // The Google Form path reads Draft, Review (E38/F04/S01): this organizer already holds the
-    // responses, so the rail's step out of draft is the import, and Begin Review waits on it. This
+    // responses, so the rail's step out of draft is the import, and Begin review waits on it. This
     // market asks no custom question - only the essential ones the plan above defines.
     await expect(page.getByTestId('phase-transition-applications')).toBeDisabled();
     await page.getByTestId('phase-rail-fix').click();
@@ -180,7 +180,7 @@ test.describe('The MVP journey', () => {
 
     // --- 6. Assign ------------------------------------------------------------------------
     // Assign is an operation of the `assignment` phase and refuses everywhere else
-    // (E10/F03/S02), and Begin Assignment lands on its page (E32/F01/S01). This spec is the one
+    // (E10/F03/S02), and Begin assignment lands on its page (E32/F01/S01). This spec is the one
     // that goes the whole way, so the walk belongs here rather than being skipped past by a seed.
     await setup.advancePhaseTo('assignment', 'Assignment');
     await expect(page).toHaveURL(/\/settings$/);

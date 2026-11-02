@@ -28,10 +28,10 @@ The glossary concept: [Market](../../business/concepts/market.md).
 
 1. Create a market whose vendors apply on the organizer's own Google Form, and leave its upload step for Market Setup.
 2. Plan it on the one page: two dates still to come, a tier, two sections, a location.
-3. Leave draft by importing: on the CSV path the rail reads Draft, Review ([the phase rail](../modules/phase-rail.md)), and its main button "Import responses" opens the import, with Begin Review disabled beside it.
+3. Leave draft by importing: on the CSV path the rail reads Draft, Review ([the phase rail](../modules/phase-rail.md)), and its main button "Import responses" opens the import, with Begin review disabled beside it.
 4. Import a Google Forms export that asks only the essential questions, which is the ordinary case: an organizer who never built a custom form.
 5. The written import takes the market into Review; "Go to the review", switch from the All view the page opens on to One by one, and approve two applicants and reject one in the review queue, checking that the card carries the answers a verdict rests on.
-6. Begin Assignment and run it.
+6. Begin assignment and run it.
 7. Read the result: the two approved hold tables and the rejected one holds none, read off the drawn grid so "not placed" is not "not loaded".
 
 Approval is what decides the solver's whole input, which is why the journey must click it.

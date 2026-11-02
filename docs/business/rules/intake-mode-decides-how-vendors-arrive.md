@@ -36,7 +36,7 @@ An absent mode is CSV, so the applicant surface fails closed ([ADR 0006](../../a
 
 **Each path has its own ways in.**
 Importing is the CSV path's, in Draft and Review (E31/F03/S04): a form market takes its applications on its own page, so nothing is imported into it.
-Publish Results is the form path's: a CSV market's vendors never see this product, so it has no applicants to tell ([Publish Results waits for the allocation](publish-results-waits-for-the-allocation.md)).
+Publish results is the form path's: a CSV market's vendors never see this product, so it has no applicants to tell ([Publish results waits for the allocation](publish-results-waits-for-the-allocation.md)).
 
 **Intake mode does not gate the form builder.**
 A CSV market still has an application form, because the essential questions define the offering the CSV maps onto: its form tab is the questions its imports are mapped onto.
@@ -48,7 +48,7 @@ Check-in must stay open to every market that runs: how a vendor entered has no b
 
 Whoever creates a market picks its path in the create dialog (`NewMarketOverlay.vue` sends `intakeMode` with `POST /markets`).
 The dialog chooses nothing for them, so no new market relies on the server's default; the default stays for any market without an answer ([ADR 0006](../../adr/0006-intake-mode-fails-closed.md)).
-After that an Editor changes it on Market Setup while the market is a draft, through the plan write; importing and Publish Results are Admin's ([what each role may do](what-each-role-may-do.md)).
+After that an Editor changes it on Market Setup while the market is a draft, through the plan write; importing and Publish results are Admin's ([what each role may do](what-each-role-may-do.md)).
 
 ## Where it is kept
 

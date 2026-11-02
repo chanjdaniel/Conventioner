@@ -28,7 +28,7 @@ The glossary concept: [Phase](../business/concepts/phase.md).
 
 A market's lifecycle was modelled three times, and the three disagreed.
 `isDraft` was a stored flag a request could set, beside `phase`; a market the old build published carried `phase: "draft"` with `isDraft: false`, and nothing could say which was true.
-Publishing was the `draft -> archived` transition, fired by the results screen's Done and by a red Archive Market button alike, so `archived` meant both "just gone live" and "over", and the check-in page depended on the one value that could not tell them apart.
+Publishing was the `draft -> archived` transition, fired by the results screen's Done and by a red Archive market button alike, so `archived` meant both "just gone live" and "over", and the check-in page depended on the one value that could not tell them apart.
 `market_days` already existed and meant exactly "running", but the only route to it ran through `assignment -> offers`, deadlocked on statuses nothing writes.
 And the setup wizard ended in Assign and Done without moving the phase, so after import, review and Assign a market was still `applications_open`, and Done answered a 400 naming two enum values the organizer had never seen.
 

@@ -49,7 +49,7 @@ The rules all code follows are [one market, from the server](../implementation/c
 ## Evidence
 
 An audit on 2026-09-26 walked every value a market screen showed, with throwaway Playwright walks on the primary stack, and found three stale surfaces and one cause: the form tab fetched the form for itself, and two siblings borrowed what it published.
-The form builder read its lock once, when it mounted, so after Open Applications it still offered Add field (an edit the server would refuse), and after a return to draft it showed a lock notice naming Applications Open beneath a rail saying Draft; leaving the tab and coming back corrected both.
+The form builder read its lock once, when it mounted, so after Open applications it still offered Add field (an edit the server would refuse), and after a return to draft it showed a lock notice naming Applications Open beneath a rail saying Draft; leaving the tab and coming back corrected both.
 The priority rules offered a market's own questions as targets only once the form tab had been opened on that visit, so arriving at the Assignment tab directly (where Assign lands, and the links back from Tables and Vendors) hid a market's Category question and told the organizer to add one.
 The Applications advisory borrowed the form tab's `formEditable` the same way and was right only by accident, since it showed only once an application existed, which locks the form.
 Everything else either derived from the market in hand or reloaded when it changed; the `localStorage` copy caused no bug in that audit, but was where a screen learned which market was open, and a second place the same facts were written.

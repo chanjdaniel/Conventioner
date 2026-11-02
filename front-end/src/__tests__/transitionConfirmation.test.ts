@@ -30,7 +30,7 @@ vi.mock('@/utils/api', async (importOriginal) => {
 });
 
 // A market whose vendors apply on its own page stops in every phase, so every edge is a move. Read
-// by someone who may not choose reviewers: for anyone who may, Open Applications offers them first
+// by someone who may not choose reviewers: for anyone who may, Open applications offers them first
 // (`openApplicationsOffersTheReviewers.test.ts`).
 function marketIn(phase: MarketPhase): Market {
   return {

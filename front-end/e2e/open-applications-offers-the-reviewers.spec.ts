@@ -13,9 +13,9 @@ import { marketScreenPath } from './helpers/marketScreens';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 
 /**
- * "Open Applications" offers the reviewers (E38/F07/S02).
+ * "Open applications" offers the reviewers (E38/F07/S02).
  *
- * On a market whose vendors apply on its own page, the owner presses the rail's "Open Applications"
+ * On a market whose vendors apply on its own page, the owner presses the rail's "Open applications"
  * and chooses two reviewers in the dialog it opens; two vendors then apply, and each application is
  * dealt to a different reviewer. Another market opens with no one ticked, as markets always have,
  * and its first application is dealt to nobody.

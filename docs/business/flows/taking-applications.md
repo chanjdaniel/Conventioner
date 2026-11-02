@@ -30,21 +30,21 @@ A market whose vendors apply on the organizer's own Google Form enters Review by
 How vendors apply while the market takes applications is [applying online](applying-online.md).
 
 **Applications arrive and are reviewed in one phase** ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)), so one Applications page serves it, and says in words, at its top, where the market stands: "This market is open for applications. New ones keep arriving here." or "This market is not taking applications. No new ones will arrive."; how many are left to decide is the rail's to say.
-A verdict can be given from the first application ([review](review.md)); Begin Assignment ends the phase, and with it the applicant form.
+A verdict can be given from the first application ([review](review.md)); Begin assignment ends the phase, and with it the applicant form.
 
 ## H1. Open applications
 
 **Status:** Works (walked live; where the move lands, and its refusal before the click, read from the code as of E32/F01/S01, E31/F02 and E38/F04/S01: `front-end/src/utils/marketGuide.ts`, `every-move-lands.spec.ts`, `market-journey.spec.ts`; the reviewers offered with it as of E38/F07/S02: `open-applications-offers-the-reviewers.spec.ts`).
 
-1. Rail: "Open Applications", the main button in Draft once the setup is complete ([the setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md)); until then it is disabled and the rail names the first thing missing.
+1. Rail: "Open applications", the main button in Draft once the setup is complete ([the setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md)); until then it is disabled and the rail names the first thing missing.
 2. For someone who may choose reviewers (an Admin or the owner, by default), it opens a dialog, "Open applications", with a checkbox for each person they may choose, none ticked (or the reviewers chosen in draft before), and the hint "Choose no one and everyone reviews first come, first served. You can choose reviewers later from the Applications tab." ([the review is dealt among chosen reviewers](../rules/the-review-is-dealt-among-chosen-reviewers.md)).
-   Its "Open Applications" saves the reviewers when the choice differs from the ones stored, then makes the move; with no one ticked and none chosen before it opens as before, and every application that arrives once reviewers are chosen is dealt to the next in turn.
+   Its "Open applications" saves the reviewers when the choice differs from the ones stored, then makes the move; with no one ticked and none chosen before it opens as before, and every application that arrives once reviewers are chosen is dealt to the next in turn.
    A save that is refused keeps the dialog open with its error and makes no move; a move refused after the save shows its blockers on the rail, and the reviewers stay chosen.
    Cancel or Escape closes it and saves nothing.
    Anyone else who may move the market gets the move at once, with no dialog.
 3. Expect Applications, landing on the Applications page, which carries the dot; the form is locked from now on ([F4](form-tab.md#f4-the-form-lock)).
 4. The rail shows "Application page" with the public address and "Copy" on one line, shortening the address rather than wrapping (bug 11), and on a phone "Application page" as the link with "Copy" (T142); it stays there in every phase after Draft until the market is archived.
-5. The rail says "Applications are open on your application page: review them as they arrive. Every application is decided: Begin Assignment.", or, while one is undecided, "… Finish deciding: …".
+5. The rail says "Applications are open on your application page: review them as they arrive. Every application is decided: Begin assignment.", or, while one is undecided, "… Finish deciding: …".
 
 Covered by:
 - `every-move-lands.spec.ts`
@@ -78,8 +78,8 @@ Covered by:
 
 **Status:** Works (read from the code as of E38/F04/S02; `taking-applications-stops-and-resumes.spec.ts`).
 In Applications, while stopped, More…, "Take applications again": the application page takes them again, and nothing else changes.
-Begin Assignment closes the form whether or not it was stopped, and there is no way back from Assignment.
-A stop belongs to its stay in Applications: Reopen for Editing clears it, so Open Applications afterwards opens the form.
+Begin assignment closes the form whether or not it was stopped, and there is no way back from Assignment.
+A stop belongs to its stay in Applications: Reopen for editing clears it, so Open applications afterwards opens the form.
 Covered by:
 - `taking-applications-stops-and-resumes.spec.ts`
 
@@ -90,7 +90,7 @@ Covered by:
 
 ## The rules it obeys
 
-- [The setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md): Open Applications waits for dates, a location and tables at every tier.
+- [The setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md): Open applications waits for dates, a location and tables at every tier.
 - [The form locks at the first application](../rules/the-form-locks-at-the-first-application.md): past Draft the form is fixed.
 - [Intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md): these moves are the online path's.
 - [What each role may do](../rules/what-each-role-may-do.md): moving the market, and stopping or taking applications, are an Admin's.

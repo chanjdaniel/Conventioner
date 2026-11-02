@@ -663,7 +663,7 @@ for (const size of PHONE_AND_DESK) {
       );
     });
 
-    test('Publish Results: its dialog opens inside the window', async ({
+    test('Publish results: its dialog opens inside the window', async ({
       authenticatedPage: page,
       request,
     }) => {
@@ -672,7 +672,7 @@ for (const size of PHONE_AND_DESK) {
       const publish = page.getByTestId('applications-publish-button');
       await expect(publish).toBeEnabled({ timeout: 15000 });
       await expectFits(page, 'the Applications page in assignment');
-      await expectTargets(publish, 'Publish Results');
+      await expectTargets(publish, 'Publish results');
       await press(publish);
       const confirm = page.getByTestId('publish-results-window');
       await expect(confirm).toBeVisible();

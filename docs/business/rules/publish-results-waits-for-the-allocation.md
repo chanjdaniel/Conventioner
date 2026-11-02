@@ -19,7 +19,7 @@ sources:
   - E38/F05
 ---
 
-# Publish Results waits for the allocation
+# Publish results waits for the allocation
 
 A market whose vendors apply on its page publishes its results in `assignment`, once an assignment is stored and current, and only then; publishing settles that assignment, and the market goes live only after it.
 A market that imports its vendors has no applicants to tell, so it has neither the publish nor the wait ([intake mode decides how vendors arrive](intake-mode-decides-how-vendors-arrive.md)).
@@ -60,5 +60,5 @@ An ADMIN or the owner, as with every action that tells people outside the market
 
 ## Superseded
 
-- Publish Results as a secondary action on Applications from the first verdict on, never named by the rail (wayfinding/what-to-show-and-when/02); it waits for a current run in Assignment, and the rail leads there when it is what holds the market back (wayfinding/rejection-visibility/02, E36/F04).
+- Publish results as a secondary action on Applications from the first verdict on, never named by the rail (wayfinding/what-to-show-and-when/02); it waits for a current run in Assignment, and the rail leads there when it is what holds the market back (wayfinding/rejection-visibility/02, E36/F04).
 - Drawn disabled, with its reason, over the review in the phases before Assignment; on the 2026-10-29 walk Daniel chose to show it only from Assignment on (E38/F05).

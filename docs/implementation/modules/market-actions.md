@@ -230,7 +230,7 @@ Default: Admin.
 
 Asked by:
 - `POST /markets/:id/publish-results`
-- on screen, the Applications page draws Publish Results by its answer
+- on screen, the Applications page draws Publish results by its answer
 
 ### Add a vendor who never applied (`add-vendor`)
 
@@ -417,4 +417,4 @@ The same file pins every row's default, label, group and fixed flag against the 
 
 - [What each role may do](../../business/rules/what-each-role-may-do.md): the rule the rows keep, and the line that every check reads the table.
 - [An archived market is read-only](../../business/rules/an-archived-market-is-read-only.md): one of the rules of a market's life the table never overrides.
-- [Publish Results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md): the Publish results row, and the rule its route asks after it.
+- [Publish results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md): the Publish results row, and the rule its route asks after it.

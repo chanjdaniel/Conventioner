@@ -56,19 +56,19 @@ export function pathTransitionLabel(from: string, to: string, path: IntakeMode):
   const csv = path === IntakeMode.Csv;
   switch (to) {
     case MarketPhase.Archived:
-      return 'Archive Market';
+      return 'Archive market';
     case MarketPhase.Draft:
-      return 'Reopen for Editing';
+      return 'Reopen for editing';
     // A Google Form market's first import takes this move once its rows are written, so beside the
     // rail's "Import responses" it is the step after, never pressed (E38/F04/S01).
     case MarketPhase.Applications:
-      return csv ? 'Begin Review' : 'Open Applications';
+      return csv ? 'Begin review' : 'Open applications';
     case MarketPhase.Assignment:
-      return 'Begin Assignment';
+      return 'Begin assignment';
     case MarketPhase.Offers:
-      return 'Send Offers';
+      return 'Send offers';
     case MarketPhase.MarketDays:
-      return 'Publish Market';
+      return 'Publish market';
     default:
       return `Move to ${pathPhaseLabel(to, path)}`;
   }
@@ -273,7 +273,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
   [MarketPhase.Applications]: (standing) => ({
     page: 'applications',
     action: MarketAction.GiveVerdicts,
-    statement: `${stageLead(standing)} Every application is decided: Begin Assignment.`,
+    statement: `${stageLead(standing)} Every application is decided: Begin assignment.`,
     onlooker: watchedStage(standing),
   }),
   // Worked on the rules until there are assignments, and on the assignments after. Once results

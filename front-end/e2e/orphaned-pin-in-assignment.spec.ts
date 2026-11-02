@@ -10,7 +10,7 @@ import { marketScreenPath } from './helpers/marketScreens';
  *
  * The orphaned-pin guard stood only on the way INTO Assignment, so a seat dropped from the plan
  * after the run met nothing: Result showed the vendor at a table that does not exist, nothing
- * marked it, and Publish Market sent them there on the day.
+ * marked it, and Publish market sent them there on the day.
  */
 const plan = (count: number) => ({
   priority: [],

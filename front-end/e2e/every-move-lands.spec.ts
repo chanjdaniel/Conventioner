@@ -9,8 +9,8 @@ import { EXPORT_HEADERS, EXPORT_MAPPING, RESPONSES, exportOf } from './helpers/g
 /**
  * A move on the rail lands where the next step's work is (E32/F01/S01).
  *
- * Each move used to change the phase and leave the organizer where they were: Begin Review left
- * the import and its result on screen, Begin Assignment left them on the applications, and Publish
+ * Each move used to change the phase and leave the organizer where they were: Begin review left
+ * the import and its result on screen, Begin assignment left them on the applications, and Publish
  * never reached the door. The page each lands on is the guide's page for the phase entered.
  */
 test.describe('Every move lands on its phase’s page', () => {
@@ -47,7 +47,7 @@ test.describe('Every move lands on its phase’s page', () => {
     await expect(page.getByTestId('applications-all-row')).toHaveCount(2);
   });
 
-  test('Begin Assignment lands on the assignment', async ({ authenticatedPage: page }) => {
+  test('Begin assignment lands on the assignment', async ({ authenticatedPage: page }) => {
     const seed = await seedMarketWithVendors(
       page.request,
       APP_API,

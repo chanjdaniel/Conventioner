@@ -9,7 +9,7 @@ import { namelessControls } from './helpers/accessibleNames';
 /**
  * Results wait for the allocation (E36/F04/S01), and settle it (E36/F04/S02).
  *
- * Publish Results is offered once the market is assigning with a current run, says why until then,
+ * Publish results is offered once the market is assigning with a current run, says why until then,
  * and confirms with how many applicants will read each outcome before it tells anyone.
  */
 const DATE = '2099-08-01';
@@ -48,7 +48,7 @@ test('publishing waits for a run, then says who will read what before it tells t
   await post(request, `/markets/${market.marketId}/transition`, { toPhase: 'assignment' });
 
   await page.goto(marketSetupPath(market.marketId, 'applications'));
-  // The rail's end - the application page, Allocate tables, Publish Market, More - takes a row of
+  // The rail's end - the application page, Allocate tables, Publish market, More - takes a row of
   // its own rather than running out of the card, which lost More off the edge at 1440.
   const rail = await page.getByTestId('phase-rail').boundingBox();
   const more = await page.getByTestId('phase-rail-menu-button').boundingBox();

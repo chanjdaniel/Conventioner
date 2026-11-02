@@ -1,7 +1,7 @@
 """The market read serves each move's verdict, so the rail says no before the click (E31/F02/S01).
 
-The walk found "Open Applications" offered on an empty draft, "Publish Market" before any run and
-"Reopen for Editing" with applications present - each enabled, and each refused only after the
+The walk found "Open applications" offered on an empty draft, "Publish market" before any run and
+"Reopen for editing" with applications present - each enabled, and each refused only after the
 click. The same guards the transition endpoint runs are judged on the read, for every move open
 from the market's phase, so a screen can disable a move and name its blocker before anyone tries.
 """

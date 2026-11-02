@@ -111,7 +111,7 @@ The guards are where the product's rules about moving a market are kept:
 - [The setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md): the three guards on `draft -> applications`.
 - [A price follows the table](../../business/rules/a-price-follows-the-table.md#price-groups): `PriceGroupsStandGuard` keeps a price group with a broken condition in draft.
 - [Verdicts settle on entering assignment](../../business/rules/verdicts-settle-on-entering-assignment.md): `route_between` decides when the review can no longer be reached.
-- [Publish Results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md): `ResultsPublishedGuard`, an entry invariant on `market_days`.
+- [Publish results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md): `ResultsPublishedGuard`, an entry invariant on `market_days`.
 - [The form locks at the first application](../../business/rules/the-form-locks-at-the-first-application.md): `NoApplicationsYetGuard` keeps the way back to draft from being a hole in the lock.
 - [An archived market is read-only](../../business/rules/an-archived-market-is-read-only.md): no edge leaves `archived`.
 - [Why a vendor was not placed](../../business/rules/why-a-vendor-was-not-placed.md): `NoAskedForTierWithoutTablesGuard` refuses `applications -> assignment` while an approved applicant waits on a tier with no tables.
