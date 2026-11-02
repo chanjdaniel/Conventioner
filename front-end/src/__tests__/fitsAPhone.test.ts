@@ -23,13 +23,13 @@ describe('the places that fit a phone', () => {
     ['Vendors', `${MARKET}/vendors`],
     ['Payments', `${MARKET}/payments`],
     ['the Applications page', `${MARKET}/applications`],
+    ['Stats', `${MARKET}/stats`],
     ['the Discord return page', '/discord/connected'],
   ])('%s fits a phone', (_, path) => {
     expect(fits(path)).toBe(true);
   });
 
   it.each([
-    ['Stats', `${MARKET}/stats`],
     ["Market Setup's plan", `${MARKET}/setup`],
     ['the form builder', `${MARKET}/form`],
     ['Settings', `${MARKET}/settings`],

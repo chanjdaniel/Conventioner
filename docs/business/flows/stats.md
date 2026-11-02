@@ -8,7 +8,7 @@ describes:
   - front-end/src/utils/marketStats.ts
   - back-end/market_stats.py
   - front-end/src/utils/statsHeadlines.ts
-verified: 2026-11-01
+verified: 2026-11-02
 sources:
   - E45/F01/S01
   - E45/F01/S02
@@ -24,6 +24,7 @@ sources:
 The Stats page ([`StatsView.vue`](../../../front-end/src/views/StatsView.vue)) reads the market's figures as cards of bars: each row an answer with its count, its share of the whole and a bar against the largest in its card, rather than a chart library.
 Before anyone applies it says "Nobody has applied yet." and nothing else.
 Every figure is counted on the server and read in one small answer (`GET /markets/<id>/stats`, [`back-end/market_stats.py`](../../../back-end/market_stats.py), read by [`marketStats.ts`](../../../front-end/src/utils/marketStats.ts)), so the page never downloads the applications to count them, however many applied.
+The page fits a phone, so how the day stands is read at the market (T180): its headlines stand one to a line, each link a thumb's target, and the switch and the cards stay inside the window ([the design language](../../design-system.md#layout)).
 
 ## N1. See the market's state at a glance
 
@@ -40,6 +41,7 @@ Every figure is counted on the server and read in one small answer (`GET /market
 
 Covered by:
 - `test_the_stats_headlines.py`
+- `the-market-on-a-phone.spec.ts` ("Stats", on a phone and at a desk: the headlines, the switch and the cards inside the window, a headline's link landing on Payments at the window's width, and a Viewer's page; "Stats keeps its headlines and cards inside the frame at 320")
 - `the-stats-headlines.spec.ts` ("each headline is the figure of the page it links to, opened on its filter", "placements are told once an assignment is stored, and money only with prices")
 
 ## N2. See who applied

@@ -199,10 +199,10 @@ test('the bar holds seven tabs beside a 60-character name at 1280, and scrolls t
   expect(bar.nameEllipsed, 'the name, not the tabs, gives way').toBe(true);
   await expect(page.getByTestId('market-bar-tab-stats')).toBeInViewport({ ratio: 1 });
 
-  // On a phone, which the door, Tools and the Assignments page reach, the tabs scroll inside the
-  // bar, never the page.
+  // On a phone, which Stats fits as the door does (T180), the tabs scroll inside the bar, never
+  // the page.
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(marketScreenPath(marketId, 'attendance'));
+  await page.goto(marketScreenPath(marketId, 'stats'));
   const stats = page.getByTestId('market-bar-tab-stats');
   await expect(stats).toBeAttached({ timeout: 15000 });
   const phone = await page.evaluate(() => {

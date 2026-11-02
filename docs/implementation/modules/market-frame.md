@@ -115,7 +115,7 @@ The page row there scrolls away with the rail, each page's link a one-line 44px 
 On a phone (640px and below), on a screen that fits one, the links touch, each label on the phone's 16px gutter with its pill reaching into it, so the Assignment tab's four pages fit a 390 phone; a narrower one scrolls the row sideways inside itself, as the bar's tabs do, never the page.
 The fourth page, Payments, ran past the card at 390 and squeezed Assignments onto two lines until then (E44/F02/S01); `the-assignment-tabs-pages.spec.ts` measures the row at 390 and 320, and the layout sweep's Assignments states at 390 find a link outside the row.
 A focused tab wears the white halo for the dark bar, drawn inside the tab there, since the scroller clips anything drawn outside it ([the design language](../../design-system.md#the-primitive-layer)).
-[`the-stats-tab.spec.ts`](../../../front-end/e2e/the-stats-tab.spec.ts) measures both widths: at 1280 the seven tabs hold one row beside a 60-character name on the form path, whose "Application Form" is the widest bar, the name ellipsing; at 390 the tabs scroll inside the bar and the page does not scroll sideways.
+[`the-stats-tab.spec.ts`](../../../front-end/e2e/the-stats-tab.spec.ts) measures both widths: at 1280 the seven tabs hold one row beside a 60-character name on the form path, whose "Application Form" is the widest bar, the name ellipsing; at 390, on Stats, the tabs scroll inside the bar and the page does not scroll sideways.
 
 ## Why
 
