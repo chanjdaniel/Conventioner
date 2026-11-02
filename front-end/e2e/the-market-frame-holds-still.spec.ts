@@ -65,7 +65,9 @@ test('where the rail cannot hold one row, the address and the next step share th
     TEST_USER.email,
     TEST_USER.password,
   );
-  await page.setViewportSize({ width: 1100, height: 900 });
+  // The sentence-case labels are narrower, so the rail still holds one row at 1100. At 1000 it does
+  // not, and the spine still fits on its own line.
+  await page.setViewportSize({ width: 1000, height: 900 });
   await page.goto(marketSetupPath(marketId, 'applications'));
 
   const spine = await box(page.getByTestId('phase-rail-spine'));
