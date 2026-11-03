@@ -17,7 +17,7 @@ describes:
   - front-end/src/components/SearchPicker.vue
   - front-end/src/__tests__/removingSomeoneAsksFirst.test.ts
   - front-end/e2e/removing-someone-asks-first.spec.ts
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - wayfinding/the-order-of-the-work/08
   - wayfinding/the-order-of-the-work/map
