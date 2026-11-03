@@ -111,6 +111,29 @@ describe('a dialog that asks for none of the new props is drawn as today', () =>
     );
   });
 
+  it.each(['window', 'body'])(
+    "several actions, scroll %s: an inner form's submit is its own, and the dialog emits none",
+    async (scroll) => {
+      wrapper = mount(AppDialog, {
+        attachTo: document.body,
+        props: { open: true, title: 'Manage market', testid: 'people', scroll },
+        slots: {
+          default: () =>
+            h('form', { 'data-testid': 'people-rename' }, [
+              h('button', { type: 'submit' }, 'Save'),
+            ]),
+        },
+      });
+      await flushPromises();
+
+      const submit = new Event('submit', { bubbles: true, cancelable: true });
+      byTestId('people-rename')!.dispatchEvent(submit);
+
+      expect(wrapper.emitted('submit')).toBeUndefined();
+      expect(submit.defaultPrevented).toBe(false);
+    },
+  );
+
   it('wide', async () => {
     await openFromTheButton({ wide: true });
 

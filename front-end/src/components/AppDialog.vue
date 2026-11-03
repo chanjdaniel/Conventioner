@@ -78,6 +78,15 @@ const props = withDefaults(
 
 const emit = defineEmits<{ close: []; submit: [] }>();
 
+/**
+ * The body's own submit, bound only when the body is the form: a dialog of several actions is a
+ * plain box whose own forms' submits bubble through it, and they are theirs, not the dialog's.
+ */
+function onSubmit(event: Event) {
+  event.preventDefault();
+  emit('submit');
+}
+
 const width = computed(() => props.size ?? (props.wide ? 'wide' : 'narrow'));
 const pinned = computed(() => props.scroll === 'body');
 
@@ -229,7 +238,7 @@ onUnmounted(() => observer?.disconnect());
         :is="confirmLabel ? 'form' : 'div'"
         class="dialog-body"
         :class="{ 'dialog-body--pinned': pinned }"
-        @submit.prevent="emit('submit')"
+        v-on="confirmLabel ? { submit: onSubmit } : {}"
       >
         <!--
           Only the body scrolls, in a box of its own between the pinned parts, so its scroll bar
