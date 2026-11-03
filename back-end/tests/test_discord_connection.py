@@ -453,6 +453,23 @@ class TestARefusedSaveIsLogged:
             f"Discord card save refused for market {MARKET}: {words}"]
         assert "sent.invite/link-7" not in caplog.text
 
+    def test_a_server_the_bot_has_left_logs_its_refusal(self, client, world, caplog):
+        world.market()
+        _connect(client)
+
+        def server_roles(_values, _guild):
+            raise Discord.DiscordRefused(Discord.BOT_NOT_IN_SERVER)
+        world.patch.setattr(Discord, "server_roles", server_roles)
+
+        with caplog.at_level("INFO"):
+            response = client.put(f"/markets/{MARKET}/discord", json={"roleId": "sent-role-id-7"})
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": Discord.BOT_NOT_IN_SERVER}
+        assert _refusals_logged(caplog) == [
+            f"Discord card save refused for market {MARKET}: {Discord.BOT_NOT_IN_SERVER}"]
+        assert "sent-role-id-7" not in caplog.text
+
     def test_a_refusal_changes_nothing_and_records_nothing(self, client, world):
         world.market()
         _connect(client)

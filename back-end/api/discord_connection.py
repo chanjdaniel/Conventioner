@@ -260,7 +260,7 @@ def save(market_id: str, body: Dict[str, Any], requesting_user: str) -> None:
     try:
         before = _connection(market)
         update = _card_update(market, before, body)
-    except BadRequestError as refusal:
+    except (BadRequestError, Discord.DiscordRefused) as refusal:
         logger.warning("Discord card save refused for market %s: %s", market.id, refusal.message)
         raise
     _write(market, before, before.model_copy(update=update), History.DISCORD_SETTINGS,

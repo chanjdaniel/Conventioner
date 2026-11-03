@@ -58,8 +58,8 @@ Another server or market always replaces the draft and drops the words, since wh
 The link's refusal stands apart from the role's and the question's (`discord-save-error`), so saving those clears only their own: the refused text is still in the field and still not saved, and the next save of the link clears its words, whether it was finished or cleared.
 
 **A refused save is logged by `save`, at warning level, in the refusal's own words with the market's id**: `Discord card save refused for market <id>: <words>`.
-The words are copy our code wrote with nothing sent in them (`NOT_A_ROLE`, `NOT_A_TEXT_QUESTION`, `NOT_AN_INVITE_LINK`, `NOT_CONNECTED`, and a key's `must be a string.`), so the log says which refusal it was and never holds the link, the role id or the question key sent ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
-The refusals of `_load_market_to_change` and Discord's own failures are not the card's, and are not this line.
+The words are copy our code wrote with nothing sent in them (`NOT_A_ROLE`, `NOT_A_TEXT_QUESTION`, `NOT_AN_INVITE_LINK`, `NOT_CONNECTED`, a key's `must be a string.`, and `BOT_NOT_IN_SERVER`, the `DiscordRefused` a role's choice meets on a server the bot has left), so the log says which refusal it was and never holds the link, the role id or the question key sent ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
+The refusals of `_load_market_to_change` are not the card's, and `DiscordUnavailable` and `DiscordNotSetUp` are not 400s, so none of them is this line.
 
 **Once a server is connected, the card says where roles are given** (`T210`): a "Giving roles" block ends it, "Check who is in the server and give roles on the Vendors page.", since those controls stand on [the Vendors page](../../business/flows/vendors.md) and the card alone read as a dead end (Daniel's walk).
 Under that, "Still needed:" and a list of only what is missing, in this order, each item a link to where it is done:
