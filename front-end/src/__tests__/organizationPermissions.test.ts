@@ -82,6 +82,8 @@ function org(table: PermissionTableRow[], userRole: OrganizationRoleType): Organ
     owner: 'user-owner',
     admins: ['user-admin'],
     members: ['user-member'],
+    adminPeople: [{ userId: 'user-admin', email: 'admin@ember.test' }],
+    memberPeople: [{ userId: 'user-member', email: 'member@ember.test' }],
     marketCount: 0,
     marketsWithOwnRole: {},
     userRole,

@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import mongo_matches, mongo_project
+from conftest import accounts_by_id, mongo_matches, mongo_project
 import api.organizations as OrgsApi
 import api.users as UsersApi
 
@@ -71,7 +71,7 @@ def world(monkeypatch):
         monkeypatch.setattr(OrgsApi, "organizations_collection", organizations)
         monkeypatch.setattr(OrgsApi, "markets_collection", markets)
         monkeypatch.setattr(UsersApi, "get_user", lambda email: SimpleNamespace(id=email, email=email))
-        monkeypatch.setattr(UsersApi, "get_user_by_id", lambda uid: SimpleNamespace(id=uid, email=uid))
+        accounts_by_id(monkeypatch, lambda uid: SimpleNamespace(id=uid, email=uid))
         return markets
 
     return install
