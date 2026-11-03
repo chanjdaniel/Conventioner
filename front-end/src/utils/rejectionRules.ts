@@ -4,14 +4,24 @@ import { useSavedOnTheMarket } from '@/utils/savedOnTheMarket';
 import type { Market, RejectionQuestion, RejectionRule } from '@/assets/types/datatypes';
 
 /**
- * Whether these rules decide the automatic rejections (T206): one of them, on a question the form
- * still asks, names an answer it still offers. A rule with no answer ticked rejects nobody, so it
- * decides nothing - the mirror of `Rulebook.decided` in `back-end/rejection_rules.py`, which the
- * guard on leaving draft reads.
+ * The rules that reject some application (T206): those on a question the form still asks naming an
+ * answer it still offers. A rule with no answer ticked rejects nobody.
+ */
+export function rejectingRules(
+  rules: RejectionRule[],
+  questions: RejectionQuestion[],
+): RejectionRule[] {
+  const offered = new Map(questions.map((q) => [q.key, new Set(q.answers.map((a) => a.value))]));
+  return rules.filter((rule) => rule.answers.some((answer) => offered.get(rule.key)?.has(answer)));
+}
+
+/**
+ * Whether these rules decide the automatic rejections (T206): one of them rejects some application.
+ * The mirror of `Rulebook.decided` in `back-end/rejection_rules.py`, which the guard on leaving
+ * draft reads.
  */
 export function rulesDecide(rules: RejectionRule[], questions: RejectionQuestion[]): boolean {
-  const offered = new Map(questions.map((q) => [q.key, new Set(q.answers.map((a) => a.value))]));
-  return rules.some((rule) => rule.answers.some((answer) => offered.get(rule.key)?.has(answer)));
+  return rejectingRules(rules, questions).length > 0;
 }
 
 /**

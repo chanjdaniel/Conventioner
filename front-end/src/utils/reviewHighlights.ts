@@ -1,7 +1,7 @@
 import type { Ref } from 'vue';
 import { api } from '@/utils/api';
 import { useSavedOnTheMarket } from '@/utils/savedOnTheMarket';
-import { askedEssentialAnswers } from '@/utils/essentialFields';
+import { askedEssentialAnswers, marketEssentialOptions } from '@/utils/essentialFields';
 import type { EssentialFormOptions, FormField, Market } from '@/assets/types/datatypes';
 
 /** An answer a mark may lead the card with, and whether it is the organizer's own question. */
@@ -38,6 +38,21 @@ export function liveHighlights(
 ): string[] {
   const asked = new Set(highlightCandidates(fields, essentialOptions).map((c) => c.key));
   return highlights.filter((key) => asked.has(key));
+}
+
+/**
+ * The labels of the answers that lead this market's card, in the order they lead it (T206): its
+ * live marks, as the market read serves its form, plan and marks. "Open applications" names them.
+ */
+export function leadingLabels(
+  market: Pick<Market, 'applicationForm' | 'setupObject' | 'reviewHighlights'>,
+): string[] {
+  const labels = new Map(
+    highlightCandidates(market.applicationForm?.fields ?? [], marketEssentialOptions(market)).map(
+      (candidate) => [candidate.key, candidate.label],
+    ),
+  );
+  return (market.reviewHighlights ?? []).flatMap((key) => labels.get(key) ?? []);
 }
 
 /**
