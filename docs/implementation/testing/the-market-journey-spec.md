@@ -3,8 +3,9 @@ layer: implementation
 kind: testing
 describes:
   - front-end/e2e/market-journey.spec.ts
-verified: 2026-10-30
+verified: 2026-11-03
 sources:
+  - T206
   - wayfinding/v0-1-0/map
   - E03/F02/S04
   - E04/F01/S02
@@ -28,23 +29,24 @@ The glossary concept: [Market](../../business/concepts/market.md).
 
 1. Create a market whose vendors apply on the organizer's own Google Form, and leave its upload step for Market Setup.
 2. Plan it on the one page: two dates still to come, a tier, two sections, a location.
-3. Leave draft by importing: on the CSV path the rail reads Draft, Review ([the phase rail](../modules/phase-rail.md)), and its main button "Import responses" opens the import, with Begin review disabled beside it.
-4. Import a Google Forms export that asks only the essential questions, which is the ordinary case: an organizer who never built a custom form.
-5. The written import takes the market into Review; "Go to the review", switch from the All view the page opens on to One by one, and approve two applicants and reject one in the review queue, checking that the card carries the answers a verdict rests on.
-6. Begin assignment and run it.
-7. Read the result: the two approved hold tables and the rejected one holds none, read off the drawn grid so "not placed" is not "not loaded".
+3. Decide Review setup: the rail's main button "Decide what reviewers read first" opens Review setup, and "Nothing leads the card" decides it in one click ([review waits on the review setup](../../business/rules/review-waits-on-the-review-setup.md)).
+4. Leave draft by importing: on the CSV path the rail reads Draft, Review ([the phase rail](../modules/phase-rail.md)), and its main button, now "Import responses", opens the import, with Begin review disabled beside it.
+5. Import a Google Forms export that asks only the essential questions, which is the ordinary case: an organizer who never built a custom form.
+6. The written import takes the market into Review; "Go to the review", switch from the All view the page opens on to One by one, and approve two applicants and reject one in the review queue, checking that the card carries the answers a verdict rests on.
+7. Begin assignment and run it.
+8. Read the result: the two approved hold tables and the rejected one holds none, read off the drawn grid so "not placed" is not "not loaded".
 
 Approval is what decides the solver's whole input, which is why the journey must click it.
 It stops at the result: publishing and market day are the slices'.
 
-A second test walks the online path to the same seam: a market whose vendors apply on its own page is created and planned, opens applications, a vendor applies on its page in a browser of their own, the organizer approves them in the same stage, One by one, begins assignment and runs it, and the vendor holds a table ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
+A second test walks the online path to the same seam: a market whose vendors apply on its own page is created and planned, decides Review setup the same way, opens applications, a vendor applies on its page in a browser of their own, the organizer approves them in the same stage, One by one, begins assignment and runs it, and the vendor holds a table ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
 Its vendor applies from an address of the run's own, since one address is sent at most five sign-in codes in 15 minutes ([E2E patterns](e2e-patterns.md#sharp-edges)), so the test can be repeated in one run.
 
 ## The slices
 
 Each other spec seeds past some part of the journey, and the slices overlap rather than meet:
 
-- `market-pipeline.spec.ts` creates the market over the API and seeds applications already approved, then walks the phases on the rail to `assignment`, assigns, reads the result and publishes to `market_days`, checking the public check-in page finds a vendor; it imports and reviews nothing.
+- `market-pipeline.spec.ts` creates the market over the API and seeds applications already approved, then decides Review setup and walks the phases on the rail to `assignment`, assigns, reads the result and publishes to `market_days`, checking the public check-in page finds a vendor; it imports and reviews nothing.
 - `csv-import.spec.ts` covers the import in depth on a market seeded over the API, and ends at "rows are applications awaiting review", asserted over the API.
 - Review behaviour has specs of its own that click Approve on seeded applications (`needs-a-follow-up`, `a-late-export`, `what-to-show-and-when`, `automatic-rejections`), but none of them reaches the run from a verdict it made.
 - Any spec built on [`seedMarketWithVendors()`](e2e-seeds.md#the-seed-helpers) starts from approved vendors, and exercises no review at all.

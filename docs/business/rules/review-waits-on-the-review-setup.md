@@ -14,7 +14,7 @@ sources:
 # Review waits on the review setup
 
 A draft does not enter Review until its organizer has decided what a reviewer reads first: marked at least one answer that leads the card, or chosen "Nothing leads the card".
-Until then the move out of draft is refused, "Decide what reviewers read first" leads to Review setup, and a Google Form market's first import is refused with the same words.
+Until then the move out of draft is refused, "Decide what reviewers read first" leads to Review setup, and a Google Form market's first import is refused too, saying so once nothing earlier in the move's order refuses it.
 
 **Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md) and [The market's phase says what to do next](../intents/the-markets-phase-says-what-to-do-next.md).
 
@@ -43,4 +43,4 @@ Someone the table refuses it reads the rail's sentence and Review setup's notice
 - A Google Form market's first import judges the move before it reads a row (`first_import_blockers`, [review needs an import](review-needs-an-import.md)), so it is refused with the guard's message while the decision is open.
 - On Review setup, [`ReviewSetupDecision.vue`](../../../front-end/src/components/application/ReviewSetupDecision.vue) draws the notice, the "none" button and its read-back, shown from the served `transitionBlockers.applications` ([what a reviewer reads first](../flows/form-tab.md#f3-what-a-reviewer-reads-first)).
 - `back-end/tests/test_guards.py` (`TestReviewHighlightsDecidedGuard`), `back-end/tests/test_csv_import.py`, `front-end/src/__tests__/reviewSetupDecidesWhatLeadsTheCard.test.ts` and `front-end/e2e/review-highlights.spec.ts` ("A draft decides what a reviewer reads first") pin it.
-- Every seed that takes a draft into Review decides first, through `decideReviewSetup` in the E2E helpers and `REVIEW_SETUP_DECIDED` in `back-end/tests/conftest.py`; a spec that walks a draft into Review through the screens decides on Review setup (`MarketSetupPage.decideOnReviewSetup`).
+- Every seed that takes a draft into Review decides first, through `decideReviewSetup` in the E2E helpers and `REVIEW_SETUP_DECIDED` in `back-end/tests/conftest.py`; a spec that walks a draft into Review through the screens decides on Review setup (`MarketSetupPage.decideOnReviewSetup`, [E2E patterns](../../implementation/testing/e2e-patterns.md#selectors-and-page-objects)); the journey does it on its way to the import ([the market journey spec](../../implementation/testing/the-market-journey-spec.md)).
