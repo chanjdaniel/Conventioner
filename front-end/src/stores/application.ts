@@ -156,7 +156,8 @@ export const useApplicationStore = defineStore('application', () => {
 
   /**
    * Read what a signed-in vendor's page shows: their application, and on a market whose vendors
-   * apply, the form's questions. A sign-in that has ended clears itself (`fetchApplication`).
+   * apply, the form's questions. A sign-in that has ended is renewed from a remembered device, or
+   * else clears itself (`fetchApplication`).
    *
    * Both arrive before the page is drawn, so the form opens on what the vendor already answered
    * (bug 21): its own defaults - a ranking seeded in the plan's order - fill only what they never
@@ -237,8 +238,9 @@ export const useApplicationStore = defineStore('application', () => {
   /**
    * Sign a remembered device straight back in (ADR 0022); true when it was.
    *
-   * Asked once, by a page with no sign-in in this tab, before it draws the sign-in. Anything but a
-   * live remembered sign-in - none, one that has ended, or no answer at all - is false, and says
+   * Asked once, by a page with no sign-in in this tab, before it draws the sign-in, and by a
+   * signed-in request that finds this tab's sign-in ended (`withRenewal`). Anything but a live
+   * remembered sign-in - none, one that has ended, or no answer at all - is false, and says
    * nothing: the page simply asks for a code, as it would have.
    */
   async function resume(slug: string): Promise<boolean> {
@@ -249,6 +251,24 @@ export const useApplicationStore = defineStore('application', () => {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Make a signed-in request, and when it finds this tab's sign-in ended (a 401), ask once whether
+   * the device is remembered and make it again with the sign-in that gives (ADR 0022). The 30-minute
+   * sign-in ends while a vendor waits at the door; a remembered one should not then be sent a code.
+   * Anything else, or a device that is not remembered, is the first answer, thrown as it came.
+   */
+  async function withRenewal<T>(call: (slug: string, token: string) => Promise<T>): Promise<T> {
+    const slug = marketSlug.value;
+    if (!slug || !token.value) throw new Error('Not signed in');
+    try {
+      return await call(slug, token.value);
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status !== 401 || !(await resume(slug)) || !token.value) throw err;
+      return call(slug, token.value);
     }
   }
 
@@ -264,7 +284,7 @@ export const useApplicationStore = defineStore('application', () => {
     loading.value = true;
     error.value = null;
     try {
-      const app = await fetchApplicantApplication(marketSlug.value, token.value);
+      const app = await withRenewal(fetchApplicantApplication);
       application.value = app;
       return { application: app, failed: false };
     } catch (err: unknown) {
@@ -286,7 +306,9 @@ export const useApplicationStore = defineStore('application', () => {
     loading.value = true;
     error.value = null;
     try {
-      const app = await saveApplicantApplication(marketSlug.value, token.value, formData);
+      const app = await withRenewal((slug, current) =>
+        saveApplicantApplication(slug, current, formData),
+      );
       application.value = app;
       return app;
     } catch (err: unknown) {
@@ -340,11 +362,8 @@ export const useApplicationStore = defineStore('application', () => {
   async function checkIn(date: string, doorCode: string): Promise<CheckInResult> {
     if (!token.value || !marketSlug.value) return signedOutRefusal();
     try {
-      const { checkedInAt } = await checkInWithDoorCode(
-        marketSlug.value,
-        token.value,
-        date,
-        doorCode,
+      const { checkedInAt } = await withRenewal((slug, current) =>
+        checkInWithDoorCode(slug, current, date, doorCode),
       );
       setCheckedIn(date, checkedInAt);
       return { ok: true };
@@ -357,7 +376,7 @@ export const useApplicationStore = defineStore('application', () => {
   async function undoCheckIn(date: string): Promise<CheckInResult> {
     if (!token.value || !marketSlug.value) return signedOutRefusal();
     try {
-      await undoOwnCheckIn(marketSlug.value, token.value, date);
+      await withRenewal((slug, current) => undoOwnCheckIn(slug, current, date));
       setCheckedIn(date, null);
       return { ok: true };
     } catch (err: unknown) {

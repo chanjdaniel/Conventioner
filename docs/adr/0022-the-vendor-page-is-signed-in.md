@@ -59,6 +59,7 @@ It is opt-in, kept in a cookie the page's scripts cannot read, its secret stored
 How long it lasts is `remembered_until` in [`back-end/remembered_sign_ins.py`](../../back-end/remembered_sign_ins.py): the earlier of noon UTC on the day after the market's last date and 120 days from the sign-in, and use never extends it.
 The device holds a random secret in the cookie `vendor_remember_<market id>`; the server holds only its SHA-256, in `vendor_remembered_sign_ins` with the market, the address and when it ends.
 A new tab with no sign-in of its own asks `applicant-login/resume` once, which answers a live one as a right code does; anything else is one 401, which forgets a secret the browser sent and clears its cookie, and the page asks for a code.
+A tab whose own 30-minute sign-in has ended while the page stood open asks it the same way, once, from the request that found it ended, and makes that request again with the new sign-in, so a remembered vendor at the door is not sent a code.
 It ends on Sign out (`applicant-login/sign-out`), on the next sign-in at that market on that device, with the market's deletion, and by a TTL index once it has ended; the cookie's settings are in [security invariants](../implementation/conventions/security-invariants.md#the-cookies).
 
 **No email goes out on publishing.**

@@ -68,7 +68,7 @@ Covered by:
 
 **Status:** Works (re-walked live on 2026-10-03, before and after applications closed, bug 20; what a vendor reads changed since, read from the code as of E36/F05).
 Signed in, the vendor page shows the market, "Signed in as" their name and address, the outcome, "Submitted <date>", "Your answers" with "Edit" while applications are open, and "Sign out", which asks for an email address again.
-A sign-in that has ended asks for one too, saying "Your session has expired. Please sign in again."; a read that never answers says "This page could not be loaded" with "Try again".
+A sign-in that has ended asks for one too, saying "Your session has expired. Please sign in again.", unless the device is remembered, when the page signs them straight back in and goes on; a read that never answers says "This page could not be loaded" with "Try again".
 Until the results are published ([I7](assignment-and-result.md#i7-publish-results)) every vendor reads "Submitted", whatever their verdict, and an automatic rejection says nothing either.
 After, exactly one of "You have a table", with each date's table and location listed, or "You did not get assigned"; never a verdict and never a reason ([an applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md)).
 A vendor can sign in and read their application in every phase after Draft; applying and changing answers stop when the organizer stops taking applications, and an address with no application then reads "You have no application at this market, and it is not taking applications."

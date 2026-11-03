@@ -83,3 +83,28 @@ test('a vendor who leaves it unticked is asked for a code in a new tab', async (
   // The first tab is still signed in: the tab's own sign-in is untouched.
   await expect(new VendorPage(page).signedInAs).toContainText(vendor);
 });
+
+test("a remembered vendor whose tab's sign-in has ended is signed straight back in, with no code", async ({
+  page,
+}) => {
+  const vendor = `ended-${Date.now()}@example.com`;
+  const vendorPage = new VendorPage(page);
+  await signInWithTheCode(vendorPage, vendor, true);
+
+  // The tab's 30-minute sign-in no longer passes, as it would not once it ended while the page
+  // stood open at the door. The server refuses an ended token and a spoilt one alike, one 401
+  // (`verify_application_token`), and no endpoint hands out an ended one.
+  const spoilt = await page.evaluate(() => {
+    const key = 'conventioner.applicantSession';
+    const session = JSON.parse(sessionStorage.getItem(key) ?? '{}');
+    const token = `${String(session.token).split('.').slice(0, 2).join('.')}.spoilt`;
+    sessionStorage.setItem(key, JSON.stringify({ ...session, token }));
+    return token;
+  });
+  await page.reload();
+
+  await expect(vendorPage.signedInAs).toContainText(vendor);
+  await expect(vendorPage.emailStep).toHaveCount(0);
+  const kept = await page.evaluate(() => sessionStorage.getItem('conventioner.applicantSession'));
+  expect(JSON.parse(kept ?? '{}').token).not.toBe(spoilt);
+});

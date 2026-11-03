@@ -8,14 +8,17 @@
  * component reading the one page state in the application store.
  *
  * It reads the market before drawing anything, so a slug is never printed back before the server
- * has said there is a page here. A market with no vendor page (a draft, one that imports its
- * vendors, a slug that names nothing) answers alike, and reads as any page that is not there. A
+ * has said there is a page here. A market with no vendor page (a draft, a Google Form market
+ * before its results are out, a slug that names nothing) answers alike, and reads as any page that
+ * is not there. A
  * request that never answered is neither: it says the page could not be loaded, and offers another
  * try, since it would load on the next one.
  *
  * A tab with no sign-in of its own asks the server once whether this device is remembered (ADR
  * 0022) before it draws the sign-in; a remembered vendor is signed straight in, and anything else
- * draws the sign-in as it would have been.
+ * draws the sign-in as it would have been. A sign-in in this tab that has ended (it lasts 30
+ * minutes) is renewed the same way by the request that finds it ended, so a remembered vendor at
+ * the door is not sent a code.
  *
  * The door's QR code opens this page on `?door=<code>` (ADR 0022). The code is kept in this tab
  * and taken off the address at once, so it is never left in the history or a shared link; it waits
@@ -61,7 +64,10 @@ async function load() {
   state.value = 'ready';
 }
 
-/** The vendor's own read; an ended sign-in clears itself and the page asks for sign-in again. */
+/**
+ * The vendor's own read; an ended sign-in not renewed from a remembered device clears itself, and
+ * the page asks for sign-in again.
+ */
 async function loadSignedIn() {
   state.value = 'loading';
   const read = await store.loadVendorRead();

@@ -1229,3 +1229,61 @@ describe('the record, once the market has ended', () => {
     expect(has(wrapper, 'vendor-check-in-btn')).toBe(false);
   });
 });
+
+describe('a remembered device whose sign-in in this tab has ended (ADR 0022)', () => {
+  beforeEach(signIn);
+
+  const RENEWED = {
+    success: true,
+    marketId: 'market-1',
+    applicantEmail: 'vendor@example.com',
+    token: 'a-new-token',
+  };
+
+  it('is signed straight back in when its own read finds the sign-in ended', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication
+      .mockRejectedValueOnce({ response: { status: 401 } })
+      .mockResolvedValue(application());
+    resumeSignIn.mockResolvedValue(RENEWED);
+    const wrapper = await mountPage();
+
+    expect(resumeSignIn).toHaveBeenCalledTimes(1);
+    expect(fetchApplicantApplication).toHaveBeenLastCalledWith('spring-market', 'a-new-token');
+    expect(has(wrapper, 'vendor-page-answers')).toBe(true);
+    expect(has(wrapper, 'vendor-sign-in-email-input')).toBe(false);
+  });
+
+  it('checks in with the new sign-in when the check-in finds the old one ended', async () => {
+    fetchVendorPage.mockResolvedValue(onItsDays());
+    fetchApplicantApplication.mockResolvedValue(seated(seat(TODAY)));
+    checkInWithDoorCode
+      .mockRejectedValueOnce(unauthorized())
+      .mockResolvedValue({ checkedInAt: `${TODAY}T09:41:00+00:00` });
+    resumeSignIn.mockResolvedValue(RENEWED);
+    const wrapper = await mountPage();
+
+    await wrapper.get('[data-testid="vendor-check-in-code-input"]').setValue(DOOR_CODE);
+    await wrapper.get('[data-testid="vendor-check-in-form"]').trigger('submit');
+    await flushPromises();
+
+    expect(resumeSignIn).toHaveBeenCalledTimes(1);
+    expect(checkInWithDoorCode).toHaveBeenLastCalledWith(
+      'spring-market',
+      'a-new-token',
+      TODAY,
+      DOOR_CODE,
+    );
+    expect(has(wrapper, 'vendor-check-in-done')).toBe(true);
+  });
+
+  it('asks for a code, as before, when the device is not remembered', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockRejectedValue({ response: { status: 401 } });
+    const wrapper = await mountPage();
+
+    expect(resumeSignIn).toHaveBeenCalledTimes(1);
+    expect(has(wrapper, 'vendor-sign-in-email-input')).toBe(true);
+    expect(wrapper.get('[data-testid="vendor-sign-in-error"]').text()).toContain('expired');
+  });
+});
