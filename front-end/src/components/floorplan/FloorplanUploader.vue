@@ -136,7 +136,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   width: 100%;
 }
 
@@ -147,14 +147,14 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .preview-image {
   max-width: 100%;
   max-height: 400px;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
 }
 
@@ -163,10 +163,10 @@ onUnmounted(() => {
 .page-selector {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
   background: var(--mm-beige);
-  border-radius: 8px;
+  border-radius: var(--radius-card);
 }
 
 .page-selector-label {
@@ -178,7 +178,7 @@ onUnmounted(() => {
 .page-option {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   cursor: pointer;
   font-size: var(--text-xs);
   color: var(--mm-black);
@@ -197,7 +197,7 @@ onUnmounted(() => {
 .upload-progress {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   font-size: var(--text-sm);
   color: var(--mm-black);
 }
@@ -222,10 +222,10 @@ onUnmounted(() => {
 
 .upload-error {
   width: 100%;
-  padding: 10px 16px;
+  padding: var(--space-2) var(--space-3);
   background: color-mix(in srgb, var(--mm-yellow) 20%, transparent);
   border: 1px solid var(--mm-yellow);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   font-size: var(--text-xs);
   color: var(--mm-black);
   text-align: center;
