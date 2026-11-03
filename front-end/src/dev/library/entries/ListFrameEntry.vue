@@ -91,6 +91,12 @@ const filtered = computed(() =>
 );
 
 const opened = ref<string | null>(null);
+/** The rows ticked, which outlive a filter, the words and the fold, as today's selection does. */
+const ticked = reactive(new Set<string>());
+function tick(id: string, on: boolean): void {
+  if (on) ticked.add(id);
+  else ticked.delete(id);
+}
 const reviewerOf = (application: LibraryApplication) =>
   personById.get(application.reviewer)?.email ?? '';
 
@@ -104,6 +110,13 @@ function changeRole(person: LibraryPerson, role: MarketRole): void {
   roles[person.id] = role;
   lastRoleChange.value = `${person.name} is now ${getRoleDisplayName(role)}`;
 }
+
+/** What every state panel's frame is told alike. */
+const stateFrame = {
+  finds: findsByNameOrAddress,
+  itemKey: keyOf,
+  findLabel: NAME_OR_ADDRESS,
+};
 
 /** A few people, for the state panels. */
 const atThreshold = people.slice(0, 12);
@@ -170,7 +183,9 @@ onMounted(() => {
             <ApplicationRow
               :application="item"
               :reviewer="reviewerOf(item)"
+              :ticked="ticked.has(item.id)"
               @open="opened = item.name"
+              @tick="tick(item.id, $event)"
             />
           </template>
           <template #empty>
@@ -216,7 +231,9 @@ onMounted(() => {
               <ApplicationRow
                 :application="application"
                 :reviewer="reviewerOf(application)"
+                :ticked="ticked.has(application.id)"
                 @open="opened = application.name"
+                @tick="tick(application.id, $event)"
               />
             </li>
           </ul>
@@ -224,6 +241,7 @@ onMounted(() => {
 
         <ReadOut label="Filters" :value="`${statusLabelNow}, assigned to ${assignedLabel}`" />
         <ReadOut label="Opened" :value="opened" />
+        <ReadOut label="Selected" :value="ticked.size ? String(ticked.size) : null" />
       </div>
     </LibraryPanel>
   </LibrarySection>
@@ -271,15 +289,13 @@ onMounted(() => {
 
   <LibrarySection
     title="The states"
-    about="Why a list is empty reads alike on every screen; each frame here is told its state, and reads nothing."
+    about="What a list says when it has no rows to show; each frame here is told its state, and reads nothing."
   >
     <LibraryPanel label="Loading">
       <ListFrame
         :items="noRows"
-        :finds="findsByNameOrAddress"
-        :itemKey="keyOf"
+        v-bind="stateFrame"
         :noun="APPLICATION"
-        :findLabel="NAME_OR_ADDRESS"
         state="loading"
         testid="library-state-loading"
       >
@@ -290,10 +306,8 @@ onMounted(() => {
       <div class="library-demo">
         <ListFrame
           :items="noRows"
-          :finds="findsByNameOrAddress"
-          :itemKey="keyOf"
+          v-bind="stateFrame"
           :noun="APPLICATION"
-          :findLabel="NAME_OR_ADDRESS"
           state="failed"
           :failedMessage="OFFLINE_MESSAGE"
           testid="library-state-failed"
@@ -307,10 +321,8 @@ onMounted(() => {
     <LibraryPanel label="Empty: nothing has come in">
       <ListFrame
         :items="noRows"
-        :finds="findsByNameOrAddress"
-        :itemKey="keyOf"
+        v-bind="stateFrame"
         :noun="APPLICATION"
-        :findLabel="NAME_OR_ADDRESS"
         testid="library-state-empty"
       >
         <template #row="{ item }">{{ item.name }}</template>
@@ -323,10 +335,8 @@ onMounted(() => {
       <div ref="noMatch" class="library-demo">
         <ListFrame
           :items="people"
-          :finds="findsByNameOrAddress"
-          :itemKey="keyOf"
+          v-bind="stateFrame"
           :noun="PERSON"
-          :findLabel="NAME_OR_ADDRESS"
           testid="library-state-no-match"
         >
           <template #row="{ item }">{{ item.name }}</template>
@@ -336,10 +346,8 @@ onMounted(() => {
     <LibraryPanel :label="`${atThreshold.length} rows: no find field`">
       <ListFrame
         :items="atThreshold"
-        :finds="findsByNameOrAddress"
-        :itemKey="keyOf"
+        v-bind="stateFrame"
         :noun="PERSON"
-        :findLabel="NAME_OR_ADDRESS"
         testid="library-state-at-threshold"
       >
         <template #row="{ item }">{{ item.name }}</template>
@@ -348,10 +356,8 @@ onMounted(() => {
     <LibraryPanel :label="`${pastThreshold.length} rows: the find field`">
       <ListFrame
         :items="pastThreshold"
-        :finds="findsByNameOrAddress"
-        :itemKey="keyOf"
+        v-bind="stateFrame"
         :noun="PERSON"
-        :findLabel="NAME_OR_ADDRESS"
         testid="library-state-past-threshold"
       >
         <template #row="{ item }">{{ item.name }}</template>
@@ -432,7 +438,7 @@ onMounted(() => {
   gap: var(--space-1);
 }
 
-/* "All" is a word wide; a target is never narrower than it is tall, as today's row has it. */
+/* A target is never narrower than it is tall, as today's row has it. */
 .library-today-status .btn {
   min-width: var(--target-min);
 }

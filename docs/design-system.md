@@ -378,7 +378,6 @@ The screen narrows `items` by its filters and brings `finds`, `itemKey` and the 
 With `findKey` the words live in the route's query, written with `router.replace`.
 The shown count goes back to one page when the words or the rows change, and a read again that brings the same rows by `itemKey` changes neither.
 `state` draws loading and failed (`ReadFailed`, unless the `failed` slot replaces it), the `empty` slot says why there are no `items`, and the count line says when the words find nothing.
-Inside a `scroll="body"` dialog it needs nothing of its own.
 No screen mounts it yet: the library's `list-frame` entry shows it on Applications All and the people with access.
 
 | | Variants | Notes |

@@ -102,8 +102,23 @@ describe('the find field', () => {
     await type(wrapper, '');
     expect(field(wrapper).exists()).toBe(true);
     expect(document.activeElement).toBe(field(wrapper).element);
+  });
 
+  it('leaves only when the rows next change, so what it leaves for never moves under a press', async () => {
+    const { wrapper } = await mountFrame({ items: rows(20) });
+    const input = field(wrapper);
+    (input.element as HTMLInputElement).focus();
+    await input.trigger('focus');
+    await type(wrapper, 'Row 1');
+    await wrapper.setProps({ items: rows(5) });
+    await type(wrapper, '');
+
+    (field(wrapper).element as HTMLInputElement).blur();
     await field(wrapper).trigger('blur');
+    await flushPromises();
+    expect(field(wrapper).exists()).toBe(true);
+
+    await wrapper.setProps({ items: rows(4) });
     expect(field(wrapper).exists()).toBe(false);
   });
 

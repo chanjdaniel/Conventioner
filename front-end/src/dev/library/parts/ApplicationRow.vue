@@ -1,10 +1,10 @@
 <script setup lang="ts">
 /**
- * One application as Applications All draws its row, on the fixture: who, the answers a reviewer
- * reads first, its status and whose share it is. Today's every-row list and the frame both draw this,
- * so the two differ only in how many rows they draw. The look is `ApplicationsAll.vue`'s, copied
- * rather than shared, since no real screen changes here. A row there opens the vendor drawer; here
- * it emits `open`, and the entry reads that out.
+ * One application as Applications All draws its row for someone who decides, on the fixture: the
+ * tick, who, the answers a reviewer reads first, its status and whose share it is. Today's every-row
+ * list and the frame both draw this, so the two differ only in how many rows they draw. The look is
+ * `ApplicationsAll.vue`'s, copied rather than shared, since no real screen changes here. A row there
+ * opens the vendor drawer; here it emits `open`, and the entry reads that and the ticks out.
  */
 import { computed } from 'vue';
 import EmailAddress from '@/components/EmailAddress.vue';
@@ -16,9 +16,10 @@ const props = defineProps<{
   application: LibraryFixture['applications'][number];
   /** The address of the reviewer it is dealt to. */
   reviewer: string;
+  ticked: boolean;
 }>();
 
-defineEmits<{ open: [] }>();
+defineEmits<{ open: []; tick: [on: boolean] }>();
 
 const reviewerWords = computed<AddressPart[]>(() => [
   { kind: 'text', text: 'Reviewer: ' },
@@ -27,32 +28,59 @@ const reviewerWords = computed<AddressPart[]>(() => [
 </script>
 
 <template>
-  <button
-    type="button"
-    class="application-row"
-    data-testid="library-application-row"
-    @click="$emit('open')"
-  >
-    <span class="application-row__who">
-      <span class="application-row__name" data-testid="library-application-name">{{
-        application.name
-      }}</span>
-      <span class="application-row__meta">{{ application.email }}</span>
-    </span>
-    <span class="application-row__leading"
-      >{{ application.business }} · {{ application.sells }}</span
+  <div class="application-row">
+    <!-- The box inside a square of its own, the target a thumb taps on a phone. -->
+    <label class="application-row__tick">
+      <input
+        type="checkbox"
+        :checked="ticked"
+        :aria-label="`Select ${application.email}`"
+        data-testid="library-application-tick"
+        @change="$emit('tick', ($event.target as HTMLInputElement).checked)"
+      />
+    </label>
+    <button
+      type="button"
+      class="application-row__open"
+      data-testid="library-application-row"
+      @click="$emit('open')"
     >
-    <span class="application-row__state">
-      <span :class="statusChip(application.status)" data-testid="library-application-status">
-        {{ statusLabel(application.status) }}
+      <span class="application-row__who">
+        <span class="application-row__name" data-testid="library-application-name">{{
+          application.name
+        }}</span>
+        <span class="application-row__meta">{{ application.email }}</span>
       </span>
-      <span class="application-row__meta"><EmailAddress :words="reviewerWords" /></span>
-    </span>
-  </button>
+      <span class="application-row__leading"
+        >{{ application.business }} · {{ application.sells }}</span
+      >
+      <span class="application-row__state">
+        <span :class="statusChip(application.status)" data-testid="library-application-status">
+          {{ statusLabel(application.status) }}
+        </span>
+        <span class="application-row__meta"><EmailAddress :words="reviewerWords" /></span>
+      </span>
+    </button>
+  </div>
 </template>
 
 <style scoped>
 .application-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.application-row__tick {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* The label is the target, the box inside it. */
+  min-height: var(--target-min);
+}
+
+.application-row__open {
   display: grid;
   grid-template-columns: minmax(0, 14rem) minmax(0, 1fr) minmax(22rem, 1fr);
   align-items: center;
@@ -66,7 +94,7 @@ const reviewerWords = computed<AddressPart[]>(() => [
   cursor: pointer;
 }
 
-.application-row:hover {
+.application-row__open:hover {
   border-color: var(--mm-green);
 }
 
@@ -105,9 +133,14 @@ const reviewerWords = computed<AddressPart[]>(() => [
 
 /* One column on a phone, read down, as today's row. */
 @media (width <= 640px) {
-  .application-row {
+  .application-row__open {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-1);
+  }
+
+  /* Its width only here: at a desk a 24px square would push every row 11px right. */
+  .application-row__tick {
+    min-width: var(--target-min);
   }
 }
 </style>

@@ -100,7 +100,27 @@ eachWindow('the list frame entry', (size) => {
     const row = rowsOf(page, 'library-l2').nth(50);
     await expect(row).toBeFocused();
     await page.keyboard.press('Tab');
-    await expect(row.getByTestId('library-application-row')).toBeFocused();
+    await expect(row.getByTestId('library-application-tick')).toBeFocused();
+  });
+
+  test('a press on a filter lands when the field it empties would have gone', async ({ page }) => {
+    const { press } = inTheWindow(size);
+    const find = page.getByTestId('library-l2-find');
+    const count = countOf(page, 'library-l2');
+
+    await find.fill('a');
+    await page.getByTestId('library-l2-assigned').click();
+    await press(page.getByTestId('library-l2-assigned-option').nth(2));
+    await press(page.getByTestId('library-l2-status-needs_follow_up'));
+    await expect(count).toHaveText(/^\d of \d+ match(es)? "a"$/);
+
+    // Twelve rows or fewer, so the field stays only for the caret in it, which the next press takes.
+    await find.fill('');
+    await press(page.getByTestId('library-l2-status-reviewer_approved'));
+    await expect(page.getByTestId('library-l2-status-reviewer_approved')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   test('"Assigned to" narrows to one reviewer\'s share, and the toggles count that share', async ({
@@ -147,6 +167,19 @@ eachWindow('the list frame entry', (size) => {
     await expect(page.getByTestId('read-out').filter({ hasText: 'Opened:' })).toHaveText(
       `Opened: ${name}`,
     );
+  });
+
+  test('a tick outlives the words and the filters', async ({ page }) => {
+    const { press } = inTheWindow(size);
+    const selected = page.getByTestId('read-out').filter({ hasText: 'Selected:' });
+    await expect(selected).toHaveText('Selected: nothing');
+
+    await rowsOf(page, 'library-l2').first().getByTestId('library-application-tick').check();
+    await expect(selected).toHaveText('Selected: 1');
+
+    await page.getByTestId('library-l2-find').fill('singh');
+    await press(page.getByTestId('library-l2-status-reviewer_rejected'));
+    await expect(selected).toHaveText('Selected: 1');
   });
 
   test('the people: found by address, each row a role select, unfolded to 150', async ({

@@ -7,8 +7,9 @@
  * - `items` come already narrowed by the screen's filters; the frame narrows them further by the
  *   words in its find field, through the screen's `finds`, which gets the words trimmed.
  * - The field shows once `items` passes `findFrom`. It also stays while it holds words, which would
- *   otherwise narrow the rows with no way to clear them, and while it has the focus, so clearing it
- *   never drops the caret.
+ *   otherwise narrow the rows with no way to clear them. Once focused it stays until the rows next
+ *   change with the focus elsewhere: leaving as the focus left would move the filters under the
+ *   press that took the focus, and lose it, and leaving as it was cleared would drop the caret.
  * - With `findKey` the words live in the route's query, written with `router.replace`, so a refresh,
  *   a link and coming Back keep them, and Back itself leaves the page rather than stepping through
  *   each word. Without it they last as long as the frame.
@@ -17,10 +18,8 @@
  * - "Show N more" hands the focus to the first new row, since the button goes with the last page.
  * - `state` says what the screen's read is doing: only `'ready'` draws rows. `'failed'` is
  *   `ReadFailed` unless the screen brings its own, and its Try again is the `retry` event. With no
- *   `items` the `empty` slot says why; the words alone finding nothing is the count line's to say.
- *
- * Inside a `scroll="body"` dialog it needs nothing of its own: it is the body's content, and the body
- * scrolls.
+ *   `items` the `empty` slot says why, or "No <many>." without one; the words alone finding nothing
+ *   is the count line's to say.
  */
 import { computed, nextTick, ref, useId, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -70,7 +69,10 @@ const fieldId = `${useId()}-find`;
 /** What the frame holds when no address does. */
 const heldHere = ref('');
 
-/** The field's text, spaces and all, so a space can be typed on the way to a second word. */
+/**
+ * The field's text as typed, so a space can be typed on the way to a second word; with `findKey`,
+ * spaces alone drop the key and read as none.
+ */
 const typed = computed(() => {
   if (!props.findKey) return heldHere.value;
   const asked = route.query[props.findKey];
@@ -89,24 +91,27 @@ function setTyped(value: string): void {
   });
 }
 
-const fieldFocused = ref(false);
+const field = ref<HTMLInputElement>();
+const fieldKept = ref(false);
 const showsField = computed(
-  () => props.items.length > props.findFrom || typed.value !== '' || fieldFocused.value,
+  () => props.items.length > props.findFrom || typed.value !== '' || fieldKept.value,
 );
 
-const found = computed(() => {
-  const asked = words.value;
-  return asked ? props.items.filter((item) => props.finds(item, asked)) : props.items;
-});
+const found = computed(() =>
+  words.value ? props.items.filter((item) => props.finds(item, words.value)) : props.items,
+);
 
 const pages = ref(1);
 const rowsShown = computed(() => found.value.slice(0, pages.value * props.pageSize));
 const rowsLeft = computed(() => found.value.length - rowsShown.value.length);
-const nextPage = computed(() => Math.min(props.pageSize, rowsLeft.value));
+const nextPageRows = computed(() => Math.min(props.pageSize, rowsLeft.value));
 
 const itemKeys = computed(() => props.items.map(props.itemKey).join('\n'));
 watch([words, itemKeys], () => {
   pages.value = 1;
+});
+watch(itemKeys, () => {
+  fieldKept.value = document.activeElement === field.value;
 });
 
 const countLine = computed(() => {
@@ -141,6 +146,7 @@ async function showMore(): Promise<void> {
         <label class="field-label" :for="fieldId">{{ findLabel }}</label>
         <input
           :id="fieldId"
+          ref="field"
           :value="typed"
           type="search"
           autocomplete="off"
@@ -148,8 +154,7 @@ async function showMore(): Promise<void> {
           :name="`${testid}-find`"
           :data-testid="`${testid}-find`"
           @input="setTyped(($event.target as HTMLInputElement).value)"
-          @focus="fieldFocused = true"
-          @blur="fieldFocused = false"
+          @focus="fieldKept = true"
         />
       </div>
       <div v-if="$slots.filters" class="list-frame__filters"><slot name="filters" /></div>
@@ -198,7 +203,7 @@ async function showMore(): Promise<void> {
         :data-testid="`${testid}-more`"
         @click="showMore"
       >
-        Show {{ nextPage }} more
+        Show {{ nextPageRows }} more
       </button>
     </template>
   </div>
