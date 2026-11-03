@@ -176,6 +176,27 @@ def test_a_google_form_market_publishes_its_results(monkeypatch):
     assert fake._doc.get("resultsPublished") is True
 
 
+@pytest.mark.parametrize("intake_mode", ["form", "csv"])
+def test_publishing_results_sends_no_email(monkeypatch, intake_mode):
+    """Vendors read their result on the vendor page; no email goes out on publishing (ADR 0022)."""
+    import resend
+    import utils.email as Email
+    # Mail on, and a mailer ready, so a send anywhere would reach Resend and be seen here.
+    monkeypatch.setattr(Email, "_email_disabled", lambda: False)
+    monkeypatch.setattr(Email, "ready_mailer", lambda: True)
+    sent = []
+    monkeypatch.setattr(resend.Emails, "send", lambda *a, **k: sent.append((a, k)))
+    fake = FakeMarketsDb(publishable(intakeMode=intake_mode))
+    monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
+        "__getitem__": lambda s, k: fake if k == "markets" else MagicMock(),
+    }))
+
+    _, status = publish_results("market-1", "owner@example.com")
+
+    assert status == 200
+    assert sent == []
+
+
 def test_publish_results_refuses_when_already_published(monkeypatch):
     fake = FakeMarketsDb(publishable(resultsPublished=True))
     monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
