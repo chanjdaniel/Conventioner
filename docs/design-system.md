@@ -373,6 +373,14 @@ The row wraps and a long label wraps inside its toggle, so it never scrolls side
 Pressing the chosen toggle again keeps it; several emit in the options' order.
 No screen mounts it yet: the library's `filter-toggles` entry lists the ten places it would replace.
 
+A list that can grow with a market is [`ListFrame.vue`](../front-end/src/components/ListFrame.vue) (T200), generic over the row: a find field past `findFrom` rows (12), the screen's own filters beside it, a count line, the first `pageSize` rows (50) and "Show N more".
+The screen narrows `items` by its filters and brings `finds`, `itemKey` and the `row` slot; the frame does the finding and the paging on what is already read.
+With `findKey` the words live in the route's query, written with `router.replace`.
+The shown count goes back to one page when the words or the rows change, and a read again that brings the same rows by `itemKey` changes neither.
+`state` draws loading and failed (`ReadFailed`, unless the `failed` slot replaces it), the `empty` slot says why there are no `items`, and the count line says when the words find nothing.
+Inside a `scroll="body"` dialog it needs nothing of its own.
+No screen mounts it yet: the library's `list-frame` entry shows it on Applications All and the people with access.
+
 | | Variants | Notes |
 | --- | --- | --- |
 | `.btn` | `--primary`, `--secondary`, `--destructive`, `--compact` | One standard height (36px) and one compact (28px), and no third, both 44px on a phone. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. `--secondary` with `--destructive` is a row's destructive action, below. |
