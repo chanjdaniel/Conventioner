@@ -244,6 +244,8 @@ One block per action, in the order of [the actions table](../modules/market-acti
   - Vendors: the vendor
   - Subject: `date`
   - Detail: `checked_in`, and `via: check_in_page` from the public page, whose actor is null
+- `door_code_made`: a new [door code](../modules/attendance-and-door.md#sharp-edges), the first or one that ended the old
+  - Detail: `replaced`, whether a code stood before it; never the code
 
 **`connect-discord`**
 

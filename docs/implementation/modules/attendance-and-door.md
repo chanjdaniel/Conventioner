@@ -13,10 +13,14 @@ describes:
   - back-end/app.py#_door_write
   - back-end/app.py#organizer_check_in
   - back-end/app.py#organizer_undo_check_in
+  - back-end/app.py#get_door_code
+  - back-end/app.py#make_door_code
   - front-end/src/views/AttendanceStatusView.vue
+  - front-end/src/components/DoorCodeScreen.vue
+  - front-end/src/utils/doorCode.ts
   - front-end/src/App.vue#fitsAPhone
   - front-end/src/utils/fitsAPhone.ts
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - wayfinding/real-market-readiness/map
   - wayfinding/claims-and-room/map
@@ -57,6 +61,8 @@ The `(market_id, vendor_email)` index is in [the lookup indexes](../data/lookup-
 | `POST`/`DELETE /public/markets/<slug>/attendance/checkin` | anyone | the vendor's own check-in, or its undo |
 | `GET /markets/<id>/attendance` | the Read row: any role | the roster |
 | `POST`/`DELETE /markets/<id>/attendance` | the Check vendors in row: EDITOR by default | the organizer's check-in, or its undo |
+| `GET /markets/<id>/door-code` | the Check vendors in row | the door code, `{code, madeAt, madeBy, url}`, or `{code: null}` |
+| `POST /markets/<id>/door-code` | the Check vendors in row, in `market_days`, never archived | a new door code, which ends the old one |
 
 ## Sharp edges
 
@@ -99,6 +105,22 @@ At that width only the banner and the market bar stay pinned, 138px of an 844px 
 At that width the door's gutter narrows to `--space-4` and stays on both sides; at 0 its rows ran to the card's edges (T15).
 Every target the door's organizer and its vendors tap there is 44px, through the design language's [target tokens](../../design-system.md#the-primitive-layer); the layout sweep walks the attendance, its navigation drawer, the vendor drawer on each of its tabs, rail menu and archive confirmation, and the check-in page before and after a lookup at 390px, and fails on a target under 44px (T82).
 A roster that could not be read says which kind of failure it was, with a Try again, 44px on a phone, that reads it once more, apart from a check-in or undo the server did not record ([what the organizer reads](../conventions/an-exception-never-reaches-a-client.md#what-the-organizer-reads)).
+
+**The door code is the market's, one at a time, and no market read serves it** ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)).
+It is stored on the market document as `doorCode`, `{code, madeAt, madeBy}`, and `api/door.py` serves it on its own endpoints, to whoever may check vendors in: a Viewer who read it could check vendors in by proxy.
+So `leave_out_what_no_read_serves` in [`back-end/market_documents.py`](../../../back-end/market_documents.py) takes it off the market read and every Markets list entry.
+A code is 6 characters of `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` (no 0, O, 1 or I), each drawn by `secrets`.
+Making one loads through the change loader, answers 409 outside `market_days`, and writes with a filter on the phase too, so a market archived since it was loaded is not changed; a new code replaces the old at once, so every poster of the old one stops working.
+It records `door_code_made` with the organizer as the actor and `replaced` in its detail, never the code.
+Its `url`, the address the QR code opens, is the vendor page with the code, `<FRONTEND_URL>/<slug>?door=<code>`.
+
+**Attendance offers "Door code" in Market Days to whoever may check vendors in** (`offersDoorCode` in [`doorCode.ts`](../../../front-end/src/utils/doorCode.ts)), and it opens [`DoorCodeScreen.vue`](../../../front-end/src/components/DoorCodeScreen.vue) over the whole window: the market's name, the QR code, the code in two groups of three ("K7M 4QP"), "Scan with your phone's camera to check in", and who made it and when.
+It is a modal, not an `AppDialog`, which is a small window: it holds the page behind inert, takes Escape while on top and gives focus back to "Door code", as [every modal](../conventions/dialogs.md) does, and its one confirmation, "Make a new door code?", is an `AppDialog` teleported beside it that opens on Cancel.
+The QR code is encoded by the `qrcode` package and drawn by the app as one SVG path (`qrDrawing`, with the standard's four-module quiet zone), so no markup from the package reaches the page; `theDoorCode.test.ts` decodes the drawn path with `jsqr` back to the `url`.
+The package loads only with Attendance's chunk, never the entry's ([the bundle budget](../testing/ci-and-the-gate.md#the-bundle-budget)).
+The QR code's box is a square the window's width that gives up height where the rest needs it, and the typed code is the scale's display figure, `--text-2xl`.
+"Print" prints the same poster on one page: the print rules sit in the component's scoped block, since unscoped ones lost to the scoped screen rules and the poster printed as the fixed screen; only the rule that hides the app, a sibling of the screen under `body`, is global.
+[`the-door-code.spec.ts`](../../../front-end/e2e/the-door-code.spec.ts) holds the journey, the fit at 390 and 1280, a 14cm QR code on one Letter and one A4 page, and a Viewer offered nothing and refused the code; the layout sweep walks it before a code, full screen and at its confirmation.
 
 **Each check-in and its undo records into [the market's history](../data/history.md)** (`checked_in`, `check_in_undone`, under `check-in`) in `record_attendance` and `undo_attendance`, so both doors record alike, and only when whether the vendor is here changed: the organizer is the actor at theirs, and the public check-in page, which proves nobody, records no actor and `via: check_in_page`.
 
