@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/market/MarketFormTab.vue
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - brain-dump/2026-10-19#5
   - brain-dump/2026-10-19#6
@@ -24,6 +24,7 @@ sources:
   - E38/F02/S02
   - E38/F06/S01
   - E46/F01/S02
+  - T206
 ---
 
 # Building the application form
@@ -43,7 +44,9 @@ The step header is a named navigation of buttons, the current one marked as the 
 Moving between steps never loses an unsaved edit; only "Save Form" writes the questions, and it sits on Your questions and on Preview, while how the last save went shows on every step, since "Ask this" saves the moment it is ticked.
 A locked form opens on Review setup, the step still the organizer's to change; the earlier steps stay one click away, read only under the lock's reason, and Review setup shows no lock.
 A person who may change nothing finds every step read only, Review setup included, and reads why once, above the page; a step's banner says only the form's own lock (T15).
-The step is chosen once, as the tab opens: a lock that lands while the organizer is on a step does not move them off it.
+The step is in the address, `form?step=review` for Review setup, so a link, a bookmark or a refresh opens the step it names ([every market page has an address](../../implementation/conventions/every-market-page-has-an-address.md), T206).
+Choosing a step from the header, Back or Next replaces the address rather than adding to the browser's history, so Back leaves the tab; a link naming another step while the tab is open moves there.
+With no step named, or one the path lacks, the step is chosen once, as the tab opens: a lock that lands while the organizer is on a step does not move them off it.
 The preview is a step inside the tab rather than the public page in a new browser tab, because a draft market has no public page to open.
 On the Google Form path the essential questions are the answers each import reads from a column, nothing describes what an applicant would see, and the field editor offers no help text for applicants; the mapping of columns to questions stays in [the import](import.md), where the file is.
 

@@ -500,6 +500,16 @@ export function formSteps(path: IntakeMode): readonly FormStep[] {
   return path === IntakeMode.Form ? FORM_STEPS : FORM_STEPS.filter((step) => step.id !== 'preview');
 }
 
+/**
+ * The step a form tab address names in its `step` query (T206), while this path has it: a blocker's
+ * fix, a bookmark or a shared link opens Review setup as `form?step=review`. Null for no step, an
+ * unknown one, or one the path lacks (`preview` on a Google Form market), so the tab opens where it
+ * would with none.
+ */
+export function formStepNamed(named: unknown, path: IntakeMode): FormStepId | null {
+  return formSteps(path).find((step) => step.id === named)?.id ?? null;
+}
+
 /** A tab as the market's own path names it: a CSV market's form is the questions its file maps onto. */
 export function pathTabLabel(
   tab: MarketTab,

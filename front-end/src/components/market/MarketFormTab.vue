@@ -17,6 +17,7 @@
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { whoMayTake } from '@/utils/permissionTable';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useMarketStore } from '@/stores/market';
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
 import FormBuilder from '@/components/application/FormBuilder.vue';
@@ -27,7 +28,7 @@ import AutomaticRejections from '@/components/application/AutomaticRejections.vu
 import StepHeader from '@/components/StepHeader.vue';
 import { useReviewHighlights } from '@/utils/reviewHighlights';
 import { useRejectionRules } from '@/utils/rejectionRules';
-import { formSteps, intakeModeOf, type FormStepId } from '@/utils/marketGuide';
+import { formStepNamed, formSteps, intakeModeOf, type FormStepId } from '@/utils/marketGuide';
 import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
 import { EMPTY_ESSENTIAL_OPTIONS, essentialOptionsFromSetup } from '@/utils/essentialFields';
@@ -276,18 +277,40 @@ const {
  */
 const forApplicants = computed(() => intakeModeOf(market.value) === IntakeMode.Form);
 const steps = computed(() => formSteps(intakeModeOf(market.value)));
+const route = useRoute();
+const router = useRouter();
+/** The step the address names in its `step` query, while this path has it (T206). */
+const namedStep = computed(() => formStepNamed(route.query.step, intakeModeOf(market.value)));
 /**
- * A locked form - an applicant has submitted, or the market has left draft - opens on what is still
- * the organizer's to change: what a reviewer reads first (E33/F01/S03). The earlier steps stay one
- * click away, read-only and saying why. Decided once, as the tab opens: a lock that lands while the
- * organizer is on a step does not move them off it.
+ * The step the address names: a blocker's fix, a bookmark or a shared link opens Review setup as
+ * `form?step=review` (T206). With none, a locked form - an applicant has submitted, or the market
+ * has left draft - opens on what is still the organizer's to change: what a reviewer reads first
+ * (E33/F01/S03). The earlier steps stay one click away, read-only and saying why. Decided once, as
+ * the tab opens: a lock that lands while the organizer is on a step does not move them off it.
  */
-const chosenStep = ref<FormStepId>(formLocked.value ? 'review' : 'essentials');
-/** The chosen step, while this path has it. */
+const chosenStep = ref<FormStepId>(namedStep.value ?? (formLocked.value ? 'review' : 'essentials'));
+/**
+ * The chosen step, while this path has it. Choosing one (the header, Back, Next) replaces the
+ * address, as a page's own view does, so a refresh keeps the step and Back leaves the page rather
+ * than stepping back through the steps.
+ */
 const step = computed<FormStepId>({
   get: () =>
     steps.value.some((s) => s.id === chosenStep.value) ? chosenStep.value : steps.value[0].id,
-  set: (id) => (chosenStep.value = id),
+  set: (id) => {
+    chosenStep.value = id;
+    void router.replace({ query: { ...route.query, step: id } });
+  },
+});
+/**
+ * A link that names another step while the tab is open - the rail's "Decide what reviewers read
+ * first" from Your questions - moves there, at the top of the page as Back and Next do. An address
+ * naming no step, or one the path lacks, leaves the step as it is.
+ */
+watch(namedStep, (named) => {
+  if (!named || named === chosenStep.value) return;
+  chosenStep.value = named;
+  window.scrollTo({ top: 0 });
 });
 const stepIndex = computed(() => steps.value.findIndex((s) => s.id === step.value));
 const previousStep = computed(() => steps.value[stepIndex.value - 1] ?? null);

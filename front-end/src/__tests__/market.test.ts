@@ -1,6 +1,6 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import type { Router } from 'vue-router';
-import { marketPath, openMarket, parseMarketFromApi } from '@/utils/market';
+import { isHere, marketPath, openMarket, parseMarketFromApi } from '@/utils/market';
 import { MarketPhase, type Market } from '@/assets/types/datatypes';
 
 const apiMarket = {
@@ -185,5 +185,26 @@ describe('marketPath', () => {
 
   it('escapes an id rather than letting it name another path', () => {
     expect(marketPath('a/b', 'setup')).toBe('/markets/a%2Fb/setup');
+  });
+});
+
+describe('isHere (T206)', () => {
+  const form = '/markets/m1/form';
+
+  it('is the same path, with every query value the address names', () => {
+    expect(isHere(`${form}?step=review`, { path: form, query: { step: 'review' } })).toBe(true);
+    expect(isHere(`${form}?step=review`, { path: form, query: { step: 'questions' } })).toBe(false);
+    expect(isHere(`${form}?step=review`, { path: form, query: {} })).toBe(false);
+    expect(isHere(`${form}?step=review`, { path: '/markets/m1/setup', query: {} })).toBe(false);
+  });
+
+  it('leaves an address that names no query here whatever the page keeps in its own', () => {
+    const applications = '/markets/m1/applications';
+    expect(isHere(applications, { path: applications, query: { view: 'one' } })).toBe(true);
+    expect(isHere(applications, { path: applications })).toBe(true);
+  });
+
+  it('is nowhere without a route to compare with', () => {
+    expect(isHere(form, undefined)).toBe(false);
   });
 });

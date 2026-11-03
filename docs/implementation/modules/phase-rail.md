@@ -6,7 +6,7 @@ describes:
   - front-end/src/components/market/OpenApplicationsDialog.vue
   - front-end/src/utils/phase.ts
   - front-end/src/utils/useScrollsSideways.ts
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - wayfinding/claims-and-room/07
   - wayfinding/readable-journey/01
@@ -31,6 +31,7 @@ sources:
   - T142
   - E38/F15/S03
   - E38/F15/S04
+  - T206
 ---
 
 # The phase rail
@@ -46,6 +47,7 @@ What it says comes from [the market guide](market-guide.md); which moves exist a
 `GET /markets/:id` serves `transitionBlockers`: every move open from the market's phase, each judged by the same guards the move runs (`transition_verdicts` in [`back-end/guards.py`](../../../back-end/guards.py)).
 A refused move is drawn disabled, with its first blocker as its reason: in the menu beside it, and for the forward step as the rail's sentence, to someone who may take the blocker's remedy (the guide's `nextStep`); when that blocker names a page that resolves it, the rail's main button becomes the fix ("Add a location") and leads there, with the move beside it as the step after.
 The fix is the move's own first blocker, the one its disabled state is read from, named by the guard that refuses it (`resolutionLabel`), so before a run Publish market offers "Allocate tables"; on the page that resolves it no fix is drawn, since the work is already in front of the organizer, and the move stays disabled with its reason.
+That page is the link's path and every query value it names (`isHere` in [`market.ts`](../../../front-end/src/utils/market.ts), T206): a fix leading to `form?step=review` is drawn from Your questions and not on Review setup, and one leading to `applications` is not drawn on `applications?view=one`.
 The 409 from `POST /markets/:id/transition` stays for races and renders its blockers under the rail.
 Never decide a move's verdict on the front end.
 

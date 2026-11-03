@@ -5,10 +5,11 @@ describes:
   - front-end/src/router/index.ts
   - front-end/src/utils/market.ts#marketPath
   - front-end/src/utils/market.ts#resolutionPath
+  - front-end/src/utils/market.ts#isHere
   - front-end/src/utils/market.ts#openMarket
   - front-end/src/views/MarketLanding.vue
   - front-end/src/utils/vendorDrawer.ts
-verified: 2026-11-02
+verified: 2026-11-03
 sources:
   - wayfinding/readable-journey/map
   - wayfinding/the-assignment-tab/01
@@ -24,6 +25,7 @@ sources:
   - E46/F01/S02
   - E44/F02/S01
   - E38/F13/S01
+  - T206
 ---
 
 # Every market page has an address
@@ -38,6 +40,7 @@ The glossary concept: [Market](../../business/concepts/market.md).
 The routes are in [`front-end/src/router/index.ts`](../../../front-end/src/router/index.ts):
 
 - `/markets/:marketId/{setup,form,applications,settings}` are the pages of one view, `MarketSetupView` (`SETUP_VIEW_PAGES`); `settings` is the Assignment tab's Settings page, apart from `setup`, Market Setup's plan.
+- The Application Form tab keeps its step in its query, `form?step=<essentials|questions|preview|review>`, so a blocker's fix, a bookmark or a shared link opens Review setup as `form?step=review` (T206); no step, an unknown one, or one the path lacks (`preview` on a Google Form market) opens the step the tab opens with none ([building the application form](../../business/flows/form-tab.md)).
 - `/markets/:marketId/assignments`, `/vendors`, `/payments`, `/attendance`, `/tools` and `/stats` are views of their own; the Payments page keeps its filter, search and sort in its query ([payments](../../business/flows/payments.md)).
 - `/markets/:marketId/import`, `/floorplan` and `/start-from-csv` are flows, entered from a tab rather than places to go; each stands under one tab, the import under Applications and the other two under Market Setup (see [the market frame](../modules/market-frame.md)).
 - `/discord/connected` is not a market page: it is where Discord's approval screen sends the organizer back, its market named by the state it carries, in the tab Connect Discord opened; it says the outcome and links to that market's Tools ([the Discord connection](../modules/discord.md)).
@@ -63,6 +66,9 @@ Its tab and another vendor while it is open replace the entry, a vendor its Hist
 
 A transition guard's `resolution_link` (in [`back-end/guards.py`](../../../back-end/guards.py)) names a page of the market relative to its own pages, such as `applications` or `setup`, perhaps with a query, and never which market or a redirect.
 [`resolutionPath()`](../../../front-end/src/utils/market.ts) is the one reading of it, for the rail's fix and the blocker panel alike.
+Neither offers a link to the page the reader is on.
+The rail asks [`isHere()`](../../../front-end/src/utils/market.ts): the same path, and every query value the link names, so `form?step=review` is offered from Your questions and not on Review setup, and `applications` is not offered on `applications?view=one`.
+The blocker panel compares the resolved full address.
 
 ## What breaks it
 
