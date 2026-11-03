@@ -79,5 +79,5 @@ test('after results are published and applications close, a vendor still reads t
   await expect(status).not.toContainText(/reject|accepted/i);
   await expect(page.getByTestId('vendor-page-seats')).toHaveCount(0);
   // Reading is open; applying is not - the save refuses it, which the back-end suite pins, and
-  // the apply page's closed state is walked in returning-vendors-edit-their-answers.spec.ts.
+  // the vendor page's read-only answers are walked in returning-vendors-edit-their-answers.spec.ts.
 });

@@ -177,7 +177,7 @@ test.describe("Start from a draft's Market Setup", () => {
     expect(market.intakeMode).toBe('form');
 
     await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
-    // The applicant's form, as the public apply page reads it: live, with the organizer's questions.
+    // The applicant's form, as the vendor page reads it: live, with the organizer's questions.
     const form = await page.request.get(
       `${APP_API}/public/markets/${marketNameToSlug(name)}/application-form`,
     );
