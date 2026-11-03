@@ -9,7 +9,7 @@ describes:
   - back-end/api/markets.py#finalization_update
   - back-end/app.py#transition_market
   - front-end/src/components/BlockerPanel.vue
-verified: 2026-10-31
+verified: 2026-11-04
 sources:
   - wayfinding/readable-journey/01
   - E03/F03
@@ -24,6 +24,7 @@ sources:
   - T45
   - E38/F04/S01
   - T142
+  - T202
 ---
 
 # The guards and the phase move
@@ -66,7 +67,7 @@ That the action is a row of the table is held by `TestEveryRemedyNamesTheActionI
 
 **`_validate_registry()` runs at import and refuses tables that disagree**, so a misspelled phase or a dropped entry invariant is a startup error, not a silent no-op.
 It refuses an edge naming a phase `MarketPhase` lacks, guards on an edge that is not in `VALID_TRANSITIONS`, entry invariants for a phase no edge enters, and an edge into a phase that does not carry all of that phase's entry invariants.
-An entry invariant is what makes a rule hold of every market in the phase rather than only on the route its author thought of: `market_days` requires a stored assignment, no orphaned pin and, for a form market, published results, on both edges into it.
+An entry invariant is what makes a rule hold of every market in the phase rather than only on the route its author thought of: `market_days` requires a stored assignment, no orphaned pin and published results, on both paths ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)), on both edges into it.
 
 **A guard reads the market's state, never its phase.**
 `test_no_guard_reads_the_phase` ([`back-end/tests/test_guards.py`](../../../back-end/tests/test_guards.py)) pins it, so a judgement made before a write, as the first import's below, means what it says.

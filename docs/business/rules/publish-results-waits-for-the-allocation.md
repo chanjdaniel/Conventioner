@@ -53,7 +53,7 @@ An ADMIN or the owner, as with every action that tells people outside the market
 ## Where it is kept
 
 - `publish_results_refusal` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py) says the rule, on either path: refused once already published, outside `assignment`, with nothing stored, or with the stored run [out of date](an-assignment-knows-when-it-is-out-of-date.md).
-  `publish_results` asks it and sets `resultsPublished`; `POST /markets/:id/publish-results` ([`publish_market_results`](../../../back-end/app.py)) asks the table's Publish results row ([the market's actions](../../implementation/modules/market-actions.md)), ADMIN by default, and the archived rule first.
+  `publish_results` asks it and sets `resultsPublished` on [the market document](../../implementation/data/market-document.md#the-fields-that-matter); `POST /markets/:id/publish-results` ([`publish_market_results`](../../../back-end/app.py)) asks the table's Publish results row ([the market's actions](../../implementation/modules/market-actions.md)), ADMIN by default, and the archived rule first.
 - The market read serves who may, the table's Publish results answer in `actionRefusals`, and this rule apart, as `publishWaitsReason`, and the counts as `publishOutcomes` only while neither refuses.
   The Applications page ([`PublishResults.vue`](../../../front-end/src/components/application/PublishResults.vue)) draws the button on both paths, from `assignment` on only, for whoever may publish, and disables it with the rule's words while it refuses, so it is offered exactly when the endpoint would take it.
 - [`back-end/result_outcome.py`](../../../back-end/result_outcome.py) is the one reading of who has a table, for the confirmation and for the applicant's page.

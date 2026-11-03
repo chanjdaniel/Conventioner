@@ -50,7 +50,8 @@ Adding a `data-testid` changes no behaviour; a view gains them as specs need the
 **A page object wraps one screen** ([`front-end/e2e/pages/`](../../../front-end/e2e/pages/)): it holds `getByTestId()` locators and exposes action methods, and a spec calls those methods rather than reaching for locators of its own.
 `LoginPage.login` opens a bare `/login` first; `signIn` signs in on the page as it stands, so a spec about where signing in returns to keeps the address's `next`.
 A new page follows the existing ones (`LoginPage`, `MarketsPage`, `NewMarketPage`, `MarketSetupPage`, `ResultPage`, `OrganizationsPage`, `ManageMarketPage`); TESTING.md lists them all.
-`MarketSetupPage` holds more than the plan: the market's tabs and the phase rail are there too, because every market page stands in the same frame.
+`MarketSetupPage` holds more than the plan: the market's tabs and the phase rail are there too, because every market page stands in the same frame, and `publishResults`, which a walk into market days takes on either path.
+`VendorPage` is the one object for a market's vendor page, signed out and in, the application form on it included.
 A dialog that more than one screen opens has an object of its own (`FollowUpDialog`, opened from One by one's card and from the All view's drawer), so a test id renamed in it is one line to change for every spec that drives the dialog through the object.
 
 **The Application Form tab is a sequence of steps** (E33/F01): the builder, the preview and the highlights are never all on screen.
