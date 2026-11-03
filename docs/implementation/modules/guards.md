@@ -57,7 +57,7 @@ A guard that sets a `resolution_link` sets the `resolution_action` its remedy ta
 | Remedy | Page | Action |
 | - | - | - |
 | Pick market dates, Change the dates, Add a location, Add tables, Give every tier tables, Fix the price groups | `setup` | `change-setup` |
-| Allocate tables (`AssignmentComputedGuard`, `NoApprovedApplicationsGuard`) | `settings` | `assign` |
+| Allocate tables (`AssignmentComputedGuard`, `AssignmentNotBeforeReviewGuard`, `NoApprovedApplicationsGuard`) | `settings` | `assign` |
 | Publish results | `applications` | `publish-results` |
 | Finish deciding | `applications` | `give-verdicts` |
 | Import responses | `import` | `import-applications` |
@@ -67,7 +67,7 @@ That the action is a row of the table is held by `TestEveryRemedyNamesTheActionI
 
 **`_validate_registry()` runs at import and refuses tables that disagree**, so a misspelled phase or a dropped entry invariant is a startup error, not a silent no-op.
 It refuses an edge naming a phase `MarketPhase` lacks, guards on an edge that is not in `VALID_TRANSITIONS`, entry invariants for a phase no edge enters, and an edge into a phase that does not carry all of that phase's entry invariants.
-An entry invariant is what makes a rule hold of every market in the phase rather than only on the route its author thought of: `market_days` requires a stored assignment, no orphaned pin and, for a form market, published results, on both edges into it.
+An entry invariant is what makes a rule hold of every market in the phase rather than only on the route its author thought of: `market_days` requires a stored assignment, no orphaned pin, no run made before the review was last reopened and, for a form market, published results, on both edges into it.
 
 **A guard reads the market's state, never its phase.**
 `test_no_guard_reads_the_phase` ([`back-end/tests/test_guards.py`](../../../back-end/tests/test_guards.py)) pins it, so a judgement made before a write, as the first import's below, means what it says.
@@ -81,6 +81,9 @@ Every move is one edge of the table; [the phase rail](phase-rail.md) draws the m
 **Back to review is the one way back past the stage** ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)).
 `assignment -> applications` carries the stage's two entry invariants, which pass on any market past draft, and `ResultsNotPublishedGuard`, which refuses once results are published and names no remedy, since no page reopens the review; a Google Form market never publishes results, so it may go back for the whole of Assignment.
 Taking it, the phase writer sets a form market's `applicationsStopped` (`taking_applications_update`), so applying stays closed; entering the stage from `draft` clears it.
+The stored run is kept, and out of date by the `review` group of [what it was made from](made-from.md) until tables are allocated again.
+`AssignmentNotBeforeReviewGuard` (`assignment_after_review`), an entry invariant on `market_days` ahead of `ResultsPublishedGuard`, refuses going live on that run, its fix "Allocate tables"; it reads only the `review` group, never the approved applications.
+A form market's Publish results already waits on any out-of-date run, so it binds a Google Form market, which has no Publish results: without it, a vendor rejected in the reopened review could keep the run's seat and check in.
 
 **The read and the move cannot disagree about a move.**
 `transition_verdicts` calls `evaluate_transition`, the function the endpoint runs, so the rail disables a refused move and names its first blocker before the click.
@@ -116,7 +119,7 @@ The guards are where the product's rules about moving a market are kept:
 - [The setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md): the three guards on `draft -> applications`.
 - [A price follows the table](../../business/rules/a-price-follows-the-table.md#price-groups): `PriceGroupsStandGuard` keeps a price group with a broken condition in draft.
 - [Verdicts settle on entering assignment](../../business/rules/verdicts-settle-on-entering-assignment.md): `route_between` decides whether Assignment still lies ahead, which is when the review is open; `ResultsNotPublishedGuard` keeps the way back to it closed once results are published.
-- [Publish results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md): `ResultsPublishedGuard`, an entry invariant on `market_days`.
+- [Publish results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md): `ResultsPublishedGuard`, and `AssignmentNotBeforeReviewGuard` ahead of it, entry invariants on `market_days`.
 - [The form locks at the first application](../../business/rules/the-form-locks-at-the-first-application.md): `NoApplicationsYetGuard` keeps the way back to draft from being a hole in the lock.
 - [An archived market is read-only](../../business/rules/an-archived-market-is-read-only.md): no edge leaves `archived`.
 - [Why a vendor was not placed](../../business/rules/why-a-vendor-was-not-placed.md): `NoAskedForTierWithoutTablesGuard` refuses `applications -> assignment` while an approved applicant waits on a tier with no tables.

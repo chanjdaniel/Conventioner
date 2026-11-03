@@ -3,6 +3,8 @@ layer: implementation
 kind: adr
 describes:
   - back-end/guards.py#ResultsNotPublishedGuard
+  - back-end/guards.py#AssignmentNotBeforeReviewGuard
+  - back-end/assignment/made_from.py
   - back-end/api/markets.py#review_is_open
   - back-end/api/markets.py#taking_applications_update
   - front-end/src/components/PhaseRail.vue
@@ -15,7 +17,7 @@ status: accepted
 
 # The review reopens until results are published
 
-The nodes it constrains: [verdicts settle on entering assignment](../business/rules/verdicts-settle-on-entering-assignment.md), [the guards and the phase move](../implementation/modules/guards.md) and [the market lifecycle](../business/flows/lifecycle.md).
+The nodes it constrains: [verdicts settle on entering assignment](../business/rules/verdicts-settle-on-entering-assignment.md), [the guards and the phase move](../implementation/modules/guards.md), [the market lifecycle](../business/flows/lifecycle.md), [what an assignment was made from](../implementation/modules/made-from.md) and [Publish results waits for the allocation](../business/rules/publish-results-waits-for-the-allocation.md).
 
 ## Context
 
@@ -43,8 +45,16 @@ So [ADR 0016](0016-one-stage-for-applications-and-review.md) stays true: Begin a
 The phase rail's `AppDialog` ([`PhaseRail.vue`](../../front-end/src/components/PhaseRail.vue)) says what it does before the review reopens: verdicts and automatic rejections can change, the allocated tables are kept but must be allocated again before results are published (on a Google Form market, before the market is published), a seat placed by hand stays even for a vendor then rejected, and on a form market applications stay closed.
 It confirms by its edge, not by `transitionNeedsConfirmation`, which confirms only what cannot be undone.
 
-**The stored run is kept.**
+**The stored run is kept, and out of date until the next run.**
 Placements, pins and the run's fingerprints stay as they are: the move writes nothing to the assignment.
+A run records, beside the rules, the plan and the approved applications, a fourth group, `review`: how many times the market has entered the review stage, from its phase record ([`back-end/assignment/made_from.py`](../../back-end/assignment/made_from.py)).
+So the move back makes the stored run out of date whether or not a verdict changed, and Assignments says "The review was reopened after tables were allocated." until tables are allocated again ([an assignment knows when it is out of date](../business/rules/an-assignment-knows-when-it-is-out-of-date.md)).
+A run recorded before the group existed is not known to be out of date by it; a real change of verdict still shows through the approved applications.
+
+**Results and going live wait for the new run.**
+Publish results already refuses an out-of-date run, and the `review` group joins what it reads.
+A Google Form market has no Publish results, so a new guard, `AssignmentNotBeforeReviewGuard` (`assignment_after_review`), is an entry invariant of `market_days`, ahead of `ResultsPublishedGuard`, its fix "Allocate tables".
+It reads only the `review` group, never the approved applications, so it stays cheap and never refuses a market for a plan or rule edit made after publishing, when runs are refused.
 
 **A pin stays the override it was.**
 A seat placed by hand for a vendor the reopened review rejects is ADR 0013's override: a re-run keeps it, Assignments marks it "not approved", and nothing blocks Begin assignment on it.
@@ -54,6 +64,7 @@ The orphaned-pin guard checks the seat, never the vendor, and is unchanged.
 
 - A verdict can change after Begin assignment, until results are published; from then on, as ADR 0013 decided, a seat placed or freed by hand is the only way to change who has a table.
 - The cost of going back is the allocation, and the confirm says so up front.
+- A market that went back cannot publish results or go live on tables allocated before the reopened review, so a vendor rejected in it does not keep a seat the solver gave them; the Assignments page says why ([the result is out of date](../business/flows/assignment-and-result.md#j5-the-result-is-out-of-date)).
 - A form market comes back with its form stopped, so no new applicant arrives unless the organizer takes applications again.
 - An applicant reads "Submitted" throughout, as ADR 0013 decided, since nothing is published before the review is.
 - The move is an ordinary one: the phase record and the market's history record it as `move-phase`, with nothing else written.
