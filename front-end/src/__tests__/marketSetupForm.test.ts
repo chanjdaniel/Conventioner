@@ -6,7 +6,7 @@ import MarketSetupView from '@/views/MarketSetupView.vue';
 import MarketFormTab from '@/components/market/MarketFormTab.vue';
 import FormBuilder from '@/components/application/FormBuilder.vue';
 import type { ApplicationForm } from '@/assets/types/datatypes';
-import { MARKET_ID, marketRoute, serveMarket } from './support/marketScreen';
+import { MARKET_ID, marketRoute, marketRouter, serveMarket } from './support/marketScreen';
 import { useMarketStore } from '@/stores/market';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
@@ -18,7 +18,7 @@ const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 const formApi = vi.hoisted(() => vi.fn());
 
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => marketRouter(),
   // The market's id and its page both live in the URL (E21/F02/S02, E22/F04/S02).
   useRoute: () => marketRoute('form'),
 }));

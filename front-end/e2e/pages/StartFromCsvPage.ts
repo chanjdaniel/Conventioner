@@ -29,6 +29,8 @@ export class StartFromCsvPage {
   readonly toCheck: Locator;
   readonly notAsked: Locator;
   readonly cancel: Locator;
+  /** The proposal's "Create the form and plan". */
+  readonly confirm: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -52,6 +54,7 @@ export class StartFromCsvPage {
     this.toCheck = page.getByTestId('proposal-to-check');
     this.notAsked = page.getByTestId('proposal-not-asked');
     this.cancel = page.getByTestId('proposal-cancel');
+    this.confirm = page.getByTestId('proposal-confirm');
   }
 
   /** The ledger row whose column header starts with `header`. */

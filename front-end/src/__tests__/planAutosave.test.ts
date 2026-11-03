@@ -12,13 +12,13 @@ import { createPinia, setActivePinia } from 'pinia';
 
 import MarketSetupView from '@/views/MarketSetupView.vue';
 import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
-import { marketRoute, serveMarket } from './support/marketScreen';
+import { marketRoute, marketRouter, serveMarket } from './support/marketScreen';
 import { answersRefusing } from './support/servedAnswers';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => marketRouter(),
   // The market's id and the open tab both live in the URL (E10/F03/S01, E21/F02/S02).
   useRoute: () => marketRoute(),
 }));

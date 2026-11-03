@@ -58,6 +58,11 @@ export class MarketSetupPage {
   readonly startFromCsvHelp: Locator;
   readonly startFromCsvReason: Locator;
 
+  /** What the start from a Google Form drafted, said once on the Questions tab it lands on (T205). */
+  readonly draftedFrom: Locator;
+  /** The notice's links to where what the first import still waits on is done. */
+  readonly draftedFromLinks: Locator;
+
   readonly assignError: Locator;
   /** Why Assign is unavailable in this market's phase (E10/F03/S02). */
   readonly assignPhaseHint: Locator;
@@ -88,6 +93,9 @@ export class MarketSetupPage {
     this.startFromCsvDisabled = page.getByTestId('plan-start-from-csv-disabled');
     this.startFromCsvHelp = page.getByTestId('plan-start-from-csv-help');
     this.startFromCsvReason = page.getByTestId('plan-start-from-csv-reason');
+
+    this.draftedFrom = page.getByTestId('drafted-from');
+    this.draftedFromLinks = page.getByTestId('drafted-from-link');
 
     this.assignError = page.getByTestId('market-setup-assign-error');
     this.assignPhaseHint = page.getByTestId('market-setup-assign-phase-hint');

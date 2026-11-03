@@ -5,6 +5,8 @@ describes:
   - front-end/src/views/StartFromCsvView.vue
   - front-end/src/utils/csvProposal.ts
   - front-end/src/components/csvProposal/ProposalLedger.vue
+  - front-end/src/components/market/DraftedFrom.vue
+  - front-end/src/utils/draftedFrom.ts
 verified: 2026-11-03
 sources:
   - wayfinding/the-form-started-from-a-csv/05
@@ -41,6 +43,7 @@ It keeps, too, what the file said of each question and each column left out, as 
 Only column headings and the shape of their answers are sent to TypeSafe, and the upload step says so; no applicant's answer leaves Conventioner.
 Covered by:
 - `start-from-csv.spec.ts`
+- `the-landing-says-what-remains.spec.ts`
 - `the-upload-steps-are-one.spec.ts`
 - `where-a-form-starts.spec.ts`
 
@@ -96,6 +99,11 @@ The ledger is the import's because the later import opens on the same one, so th
 
 **Status:** Works (re-walked live on 2026-10-03, as P2).
 "Create the form and plan" writes everything in one update, or nothing, and lands on the form tab with the questions in file order and the plan's dates and tiers filled; add locations and sections by hand ([E3](planning.md#e3-locations), [E4](planning.md#e4-sections)) before the market can leave Draft.
+
+Above the tab's steps a notice says once "Drafted from <file name>. No responses were imported." ([`DraftedFrom.vue`](../../../front-end/src/components/market/DraftedFrom.vue), T205).
+On a Google Form market it goes on: "Import them with Import responses, the next step at the top of the market's pages, once the plan is ready.", then "Still needed before the import:" and what the first import waits on, each as a link to where it is done ("Add a location, Add tables." after a file that named dates and tiers); with nothing left it says only "Import them with Import responses, the next step at the top of the market's pages.".
+The list is the first import's own ([H2a](import.md#h2a-first-import-everything-maps)), the move into Review's served blockers less the import's, linked by the same rule as the rail's: a link only for someone who may take its action, and a blocker offered none said as its message.
+The file's name rides in the browser history entry the confirm pushes ([`draftedFrom.ts`](../../../front-end/src/utils/draftedFrom.ts)), never the address, and the entry's mark is cleared as it is read, so a reload, Back to it or a later visit to the tab shows no notice.
 
 ## G6. Cancel
 

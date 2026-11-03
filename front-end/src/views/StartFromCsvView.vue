@@ -33,6 +33,7 @@ import {
 } from '@/utils/csvProposal';
 import { IntakeMode } from '@/assets/types/datatypes';
 import { readCsvFile } from '@/utils/csvFile';
+import { draftedFromState } from '@/utils/draftedFrom';
 import { marketPath } from '@/utils/market';
 import { useOpenMarket } from '@/utils/openMarket';
 
@@ -162,7 +163,8 @@ function onSettle(kind: DisagreementKind, value: string, choice: string) {
 /**
  * Write it all: the server reads the file once more with the organizer's choices, writes the plan
  * facts, the form, the ceiling and the mapping in one update, or nothing. Then the market is
- * re-read, as after every write, and the organizer lands on the form they now have.
+ * re-read, as after every write, and the organizer lands on the form they now have, told once what
+ * it was drafted from.
  */
 async function confirm() {
   step.value = 'confirming';
@@ -175,7 +177,12 @@ async function confirm() {
     });
     csvContent.value = '';
     await refresh();
-    void router.push(marketPath(marketId.value, 'form'));
+    // The Questions tab says once which file it was drafted from and that no one was imported:
+    // the name rides in this entry's history state, never the address (T205/F20).
+    void router.push({
+      path: marketPath(marketId.value, 'form'),
+      state: draftedFromState(fileName.value),
+    });
   } catch (e) {
     error.value = getApiErrorMessage(e, 'The form and plan could not be created.');
     step.value = 'review';
