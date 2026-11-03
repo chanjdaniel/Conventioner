@@ -4,9 +4,9 @@
  * One live code per market, served only by its own endpoint to whoever may check vendors in, and
  * never by the market read. It stays the same until someone presses "New code", which ends it and
  * every poster of it. The QR code opens the vendor page with the code, `<app>/<slug>?door=<code>`,
- * the `url` the server answers.
+ * the `url` the server answers. The QR code itself is drawn by `qrDrawing.ts`, kept apart so that
+ * the vendor page, which reads and types the code, never loads the encoder.
  */
-import { create } from 'qrcode';
 import { MarketPhase, type Market } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
 import { MarketAction, mayTake } from '@/utils/marketActions';
@@ -15,49 +15,29 @@ import { MarketAction, mayTake } from '@/utils/marketActions';
 export type DoorCode =
   { code: null } | { code: string; madeAt: string; madeBy: string; url: string };
 
+/** How many characters a door code has: the back end's `DOOR_CODE_LENGTH`. */
+export const DOOR_CODE_LENGTH = 6;
+
 /** "K7M4QP" as a poster shows it, two groups of three: "K7M 4QP". */
 export function doorCodeInWords(code: string): string {
-  return code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code;
+  const half = DOOR_CODE_LENGTH / 2;
+  return code.length === DOOR_CODE_LENGTH ? `${code.slice(0, half)} ${code.slice(half)}` : code;
+}
+
+/** A typed door code as the poster prints it: upper case, its spaces and dashes dropped. */
+export function normalizedDoorCode(typed: string): string {
+  return typed.replace(/[\s-]/g, '').toUpperCase();
+}
+
+/** Has a typed door code all its characters yet, read as the server reads it? */
+export function isWholeDoorCode(typed: string): boolean {
+  return normalizedDoorCode(typed).length === DOOR_CODE_LENGTH;
 }
 
 /** Whether Attendance offers "Door code": in Market Days, to whoever may check vendors in. The
  *  server is the authority. */
 export function offersDoorCode(market: Pick<Market, 'phase' | 'actionRefusals'> | null): boolean {
   return market?.phase === MarketPhase.MarketDays && mayTake(market, MarketAction.CheckIn);
-}
-
-/** The white border a QR reader needs round the code, in modules: the standard's four. */
-export const QUIET_ZONE = 4;
-
-/** A QR code as one SVG path: its `viewBox` side in modules, quiet zone included, and the path
- *  of its dark modules, one rectangle per run of them along a row. */
-export interface QrDrawing {
-  side: number;
-  path: string;
-}
-
-/**
- * The QR code of `text`, drawn as one path. The `qrcode` package encodes it; the app draws it, so
- * nothing is put into the page as markup. Error correction "M" survives a smudged or creased
- * poster and keeps the modules large enough to scan from a phone held at arm's length.
- */
-export function qrDrawing(text: string): QrDrawing {
-  const { modules } = create(text, { errorCorrectionLevel: 'M' });
-  const runs: string[] = [];
-  for (let row = 0; row < modules.size; row += 1) {
-    let column = 0;
-    while (column < modules.size) {
-      if (!modules.get(row, column)) {
-        column += 1;
-        continue;
-      }
-      const start = column;
-      while (column < modules.size && modules.get(row, column)) column += 1;
-      const length = column - start;
-      runs.push(`M${start + QUIET_ZONE} ${row + QUIET_ZONE}h${length}v1h-${length}z`);
-    }
-  }
-  return { side: modules.size + 2 * QUIET_ZONE, path: runs.join('') };
 }
 
 function doorCodePath(marketId: string): string {

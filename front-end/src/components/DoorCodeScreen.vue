@@ -19,13 +19,8 @@ import AppDialog from '@/components/AppDialog.vue';
 import EmailAddress from '@/components/EmailAddress.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
 import { getApiErrorMessage } from '@/utils/api';
-import {
-  doorCodeInWords,
-  makeDoorCode,
-  qrDrawing,
-  readDoorCode,
-  type DoorCode,
-} from '@/utils/doorCode';
+import { doorCodeInWords, makeDoorCode, readDoorCode, type DoorCode } from '@/utils/doorCode';
+import { qrDrawing } from '@/utils/qrDrawing';
 import { signedInEmail } from '@/utils/signedIn';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import { useFocusGoesBack } from '@/utils/useFocusGoesBack';

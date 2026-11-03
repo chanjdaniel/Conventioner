@@ -9,7 +9,8 @@ import jsQR from 'jsqr';
 import DoorCodeScreen from '@/components/DoorCodeScreen.vue';
 import { MarketPhase, type Market } from '@/assets/types/datatypes';
 import { MarketAction } from '@/utils/marketActions';
-import { doorCodeInWords, offersDoorCode, QUIET_ZONE, qrDrawing } from '@/utils/doorCode';
+import { doorCodeInWords, offersDoorCode } from '@/utils/doorCode';
+import { QUIET_ZONE, qrDrawing } from '@/utils/qrDrawing';
 import { answersRefusing, VIEWER_ANSWERS } from './support/servedAnswers';
 
 const readDoorCode = vi.fn();

@@ -169,8 +169,3 @@ export function scannedCodeRefusal(
   const seat = (application?.seats ?? []).find((s) => s.date === today);
   return seat ? null : NO_TABLE_TODAY;
 }
-
-/** A typed door code as the poster prints it: upper case, its spaces and dashes dropped. */
-export function normalizedDoorCode(typed: string): string {
-  return typed.replace(/[\s-]/g, '').toUpperCase();
-}

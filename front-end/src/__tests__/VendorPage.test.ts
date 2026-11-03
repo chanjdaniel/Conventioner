@@ -13,7 +13,6 @@ import {
   CHECK_IN_NOT_YET,
   checkInSection,
   NO_TABLE_TODAY,
-  normalizedDoorCode,
   scannedCodeRefusal,
   hasVendorPage,
   NO_APPLICATION_CLOSED,
@@ -25,6 +24,7 @@ import {
 } from '@/utils/vendorPage';
 import { EMPTY_ESSENTIAL_OPTIONS } from '@/utils/essentialFields';
 import { calendarToday } from '@/utils/marketGuide';
+import { normalizedDoorCode } from '@/utils/doorCode';
 
 const fetchVendorPage = vi.fn<(slug: string) => Promise<VendorPageRead>>();
 vi.mock('@/utils/vendorPage', async (importOriginal) => ({

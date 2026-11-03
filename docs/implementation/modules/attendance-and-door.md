@@ -16,6 +16,7 @@ describes:
   - front-end/src/views/AttendanceStatusView.vue
   - front-end/src/components/DoorCodeScreen.vue
   - front-end/src/utils/doorCode.ts
+  - front-end/src/utils/qrDrawing.ts
   - front-end/src/components/vendorPage/VendorCheckIn.vue
   - front-end/src/App.vue#fitsAPhone
   - front-end/src/utils/fitsAPhone.ts
@@ -133,7 +134,7 @@ Its `url`, the address the QR code opens, is the vendor page with the code, `<FR
 
 **Attendance offers "Door code" in Market Days to whoever may check vendors in** (`offersDoorCode` in [`doorCode.ts`](../../../front-end/src/utils/doorCode.ts)), and it opens [`DoorCodeScreen.vue`](../../../front-end/src/components/DoorCodeScreen.vue) over the whole window: the market's name, the QR code, the code in two groups of three ("K7M 4QP"), "Scan with your phone's camera to check in", and who made it and when.
 It is a modal, not an `AppDialog`, which is a small window: it holds the page behind inert, takes Escape while on top and gives focus back to "Door code", as [every modal](../conventions/dialogs.md) does, and its one confirmation, "Make a new door code?", is an `AppDialog` teleported beside it that opens on Cancel.
-The QR code is encoded by the `qrcode` package and drawn by the app as one SVG path (`qrDrawing`, with the standard's four-module quiet zone), so no markup from the package reaches the page; `theDoorCode.test.ts` decodes the drawn path with `jsqr` back to the `url`.
+The QR code is encoded by the `qrcode` package and drawn by the app as one SVG path (`qrDrawing` in [`qrDrawing.ts`](../../../front-end/src/utils/qrDrawing.ts), with the standard's four-module quiet zone, kept out of `doorCode.ts` so the vendor page, which reads and types the code with `normalizedDoorCode` and `DOOR_CODE_LENGTH` there, never loads the encoder), so no markup from the package reaches the page; `theDoorCode.test.ts` decodes the drawn path with `jsqr` back to the `url`.
 The package loads only with Attendance's chunk, never the entry's ([the bundle budget](../testing/ci-and-the-gate.md#the-bundle-budget)).
 The QR code's box is a square the window's width that gives up height where the rest needs it, and the typed code is the scale's display figure, `--text-2xl`.
 "Print" prints the same poster on one page: the print rules sit in the component's scoped block, since unscoped ones lost to the scoped screen rules and the poster printed as the fixed screen; only the rule that hides the app, a sibling of the screen under `body`, is global.

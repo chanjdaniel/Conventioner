@@ -16,12 +16,8 @@ import { useApplicationStore } from '@/stores/application';
 import { calendarToday } from '@/utils/marketGuide';
 import { seatLine } from '@/utils/applicantOutcome';
 import { getFormattedDate, getTimestampTime } from '@/utils/utils';
-import {
-  checkInSection,
-  normalizedDoorCode,
-  scannedCodeRefusal,
-  type CheckInSection,
-} from '@/utils/vendorPage';
+import { checkInSection, scannedCodeRefusal, type CheckInSection } from '@/utils/vendorPage';
+import { isWholeDoorCode } from '@/utils/doorCode';
 import type { ApplicantSeat } from '@/assets/types/datatypes';
 import { tableInWords } from '@/utils/placementChange';
 
@@ -46,7 +42,7 @@ const error = ref<string | null>(null);
 /** What a scanned code came to when it checked nobody in: said once, above the section. */
 const notice = ref<string | null>(null);
 
-const typedIsWhole = computed(() => normalizedDoorCode(typed.value).length === 6);
+const typedIsWhole = computed(() => isWholeDoorCode(typed.value));
 
 async function checkIn(code: string, scanned: boolean) {
   const seat = section.value.today;
