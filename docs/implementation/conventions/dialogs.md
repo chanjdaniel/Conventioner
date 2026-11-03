@@ -8,6 +8,7 @@ describes:
   - front-end/e2e/a-dialog-mounted-open-holds-the-page.spec.ts
   - front-end/src/utils/useModalRoot.ts
   - front-end/src/utils/useEscapeToClose.ts
+  - front-end/src/components/DoorCodeScreen.vue
   - front-end/src/utils/useFocusGoesBack.ts
   - front-end/src/__tests__/modalsHoldThePageInert.test.ts
   - front-end/src/__tests__/aDialogGivesFocusBack.test.ts
@@ -43,6 +44,8 @@ sources:
 **[`AppDialog.vue`](../../../front-end/src/components/AppDialog.vue) is what a dialog is in this product**: a native `<form>` in a modal doing one small job.
 It owns the scrim, the window, the close control, Escape and backdrop dismissal, holding the page behind inert, focus on open, and the `type="submit"` confirm.
 A new dialog is built on it, never hand-rolled.
+Two modals are not dialogs on it, and each takes the shell's parts rather than copying them: the [vendor drawer](../../business/flows/vendor-drawer.md), a panel beside the page, and the door code's full screen ([`DoorCodeScreen.vue`](../../../front-end/src/components/DoorCodeScreen.vue), [attendance and the door](../modules/attendance-and-door.md)), which fills the window at the entrance where a dialog is a small window over the page.
+The door code's screen declares `role="dialog"` and `aria-modal` itself, and makes it true with `useModalRoot`, `useEscapeToClose` and `useFocusGoesBack`, so the page behind is inert, Escape closes it while it is on top, and focus opens on its Close and goes back to "Door code"; its one confirmation, New code, is an `AppDialog`, teleported beside it as a sibling.
 
 ## The rules
 
