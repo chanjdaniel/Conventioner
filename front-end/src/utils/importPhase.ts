@@ -1,4 +1,4 @@
-import type { Market } from '@/assets/types/datatypes';
+import type { Market, PreconditionResult } from '@/assets/types/datatypes';
 import { MarketPhase } from '@/assets/types/datatypes';
 import { blockersFor } from '@/utils/marketGuide';
 
@@ -23,18 +23,27 @@ export function canImportInto(phase: string | undefined | null): boolean {
 }
 
 /**
+ * What would keep a draft's first import from taking it into Review: the move's served blockers,
+ * less the import's own, in the guards' order. Empty past draft, where an import moves nothing.
+ * Mirrors `first_import_blockers` in `back-end/csv_import.py`.
+ */
+export function firstImportBlockers(market: Market | null | undefined): PreconditionResult[] {
+  if (!market || String(market.phase ?? MarketPhase.Draft) !== MarketPhase.Draft) return [];
+  return blockersFor(market, MarketPhase.Applications).filter(
+    (blocker) => blocker.id !== RESPONSES_IMPORTED,
+  );
+}
+
+/**
  * Why importing is refused right now, or null when it is not. A draft's first import also waits on
- * what would keep it from entering Review - the move's served blockers, less the import's own - and
- * says the first of them, as the server does.
+ * what would keep it from entering Review (`firstImportBlockers`), and says every one of them at
+ * once, as the server does (T205/F09): one trip to Market Setup, not one per missing thing.
  */
 export function importRefusal(market: Market | null | undefined): string | null {
   const phase = String(market?.phase ?? MarketPhase.Draft);
   if (!canImportInto(phase)) {
     return `This market is in the ${phase.replace(/_/g, ' ')} phase, past review, so it takes no more applications and nothing more can be imported.`;
   }
-  if (phase !== MarketPhase.Draft || !market) return null;
-  const [first] = blockersFor(market, MarketPhase.Applications).filter(
-    (blocker) => blocker.id !== RESPONSES_IMPORTED,
-  );
-  return first?.message ?? null;
+  const blockers = firstImportBlockers(market);
+  return blockers.length ? blockers.map((blocker) => blocker.message).join(' ') : null;
 }

@@ -31,6 +31,7 @@ sources:
   - T142
   - E38/F15/S03
   - E38/F15/S04
+  - T205
 ---
 
 # The phase rail
@@ -51,7 +52,7 @@ Never decide a move's verdict on the front end.
 
 **A remedy or a step is offered only to someone who may take it** (T142).
 The fix is drawn only for someone who may move the phase and may take the blocker's `resolutionAction`, the row of [the market's actions](market-actions.md) table its remedy takes; the sentence's link (`phase-rail-next-link`) only for someone who may take the step's `action` ([the market guide](market-guide.md)'s `NextStep`), the blocker's when the step is a blocker's remedy, else the guide row's.
-The 409's panel ([`BlockerPanel.vue`](../../../front-end/src/components/BlockerPanel.vue)) draws a blocker's link on the same answer, and still says the blocker.
+The 409's panel ([`BlockerPanel.vue`](../../../front-end/src/components/BlockerPanel.vue)), headed "Cannot proceed:", draws a blocker's link on the same answer (`blockerLink`), and still says the blocker.
 A missing action, as from an older server, withholds them all, as `mayTake` withholds anything unanswered.
 So an Editor on a draft missing its dates is still led to "Pick market dates", and a Viewer, or an Admin whose table refuses the setup, is offered no fix ([what each role may do](../../business/rules/what-each-role-may-do.md)).
 Where the step, or the remedy of the blocker refusing it, is not theirs, the sentence is not the step either: the guide says what they may do there, a read, and the rail links it like any other step, so a Viewer on a draft missing its dates reads "The market is being planned. Read its plan on Market Setup.", and at the door reads "Follow who has checked in at the door." and from another tab is led to Attendance ([the market guide](market-guide.md), E38/F15/S04).

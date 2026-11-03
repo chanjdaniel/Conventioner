@@ -22,7 +22,8 @@ import MarketFrame from '@/components/MarketFrame.vue';
 import FileDropZone from '@/components/FileDropZone.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { getFormattedDate, oneLine } from '@/utils/utils';
-import { importRefusal } from '@/utils/importPhase';
+import { firstImportBlockers, importRefusal } from '@/utils/importPhase';
+import BlockerPanel from '@/components/BlockerPanel.vue';
 import { readCsvFile } from '@/utils/csvFile';
 import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
 import ValueFixes from '@/components/ValueFixes.vue';
@@ -142,6 +143,14 @@ const overturnedBy = computed(() =>
   whoMayTake(market.value?.permissionTable, MarketAction.ChangeVerdicts),
 );
 const phaseRefusal = computed(() => roleRefusal.value || importRefusal(market.value));
+/**
+ * What a draft's first import waits on, for someone who may import: every blocker of the move into
+ * Review at once, each linked to where it is done, so one trip to Market Setup is enough
+ * (T205/F09). The role refusal is said before the plan, so its reader is shown none of them.
+ */
+const firstImportWaitsOn = computed(() =>
+  roleRefusal.value ? [] : firstImportBlockers(market.value),
+);
 const takingApplications = computed(() => Boolean(market.value) && !phaseRefusal.value);
 /**
  * A draft's first import takes it into Review once it is written; in Review the import reads the
@@ -857,8 +866,14 @@ function startOver() {
                 : 'This market is not taking applications right now'
           }}
         </h2>
-        <p class="import-help">{{ phaseRefusal }}</p>
-        <button type="button" class="button-secondary" @click="leaveImport">
+        <BlockerPanel
+          v-if="market && firstImportWaitsOn.length"
+          :blockers="firstImportWaitsOn"
+          :market="market"
+          heading="Before its first import, this market needs:"
+        />
+        <p v-else class="import-help">{{ phaseRefusal }}</p>
+        <button type="button" class="button-secondary import-refusal-back" @click="leaveImport">
           Back to the market
         </button>
       </section>
@@ -1547,6 +1562,11 @@ function startOver() {
 .import-panel h2 {
   margin: 0;
   font-size: var(--text-lg);
+}
+
+/* The way back keeps its own width, as the start's refusal's does, rather than a 720px bar. */
+.import-refusal-back {
+  align-self: flex-start;
 }
 
 .import-help {

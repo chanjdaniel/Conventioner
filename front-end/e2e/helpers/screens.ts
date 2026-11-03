@@ -487,6 +487,13 @@ export const SCREENS: Screen[] = [
     sizes: ORGANIZER,
     open: at(marketAddress('csvDraft', '/start-from-csv'), 'start-from-csv'),
   },
+  {
+    // A bare draft's first import lists everything it waits on, each with its link (T205/F09).
+    name: "a CSV draft's first import, refused for what its plan lacks",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(screen('csvDraft', 'import'), 'blocker-item'),
+  },
 
   // Applications open, closed and in review, each with 40 applications in every review state.
   {

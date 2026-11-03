@@ -9,6 +9,7 @@ describes:
   - back-end/api/markets.py#finalization_update
   - back-end/app.py#transition_market
   - front-end/src/components/BlockerPanel.vue
+  - front-end/src/utils/blockerLink.ts
 verified: 2026-10-31
 sources:
   - wayfinding/readable-journey/01
@@ -24,6 +25,7 @@ sources:
   - T45
   - E38/F04/S01
   - T142
+  - T205
 ---
 
 # The guards and the phase move
@@ -49,6 +51,8 @@ A market is moved by [`take_move`](../../../back-end/api/markets.py) (judge, the
 **Every precondition for every phase transition lives in `guards.py`.**
 Adding or removing one is a one-file edit: append a guard to an edge's list, or delete it.
 The transition endpoint and the front end's [`BlockerPanel.vue`](../../../front-end/src/components/BlockerPanel.vue) are generic over `PreconditionResult` and must stay that way; the panel renders each blocker's message, and its link only where following it leads somewhere other than the page the organizer is on, and only for someone the table lets take the blocker's `resolutionAction`.
+The second rule is `blockerLink` in [`front-end/src/utils/blockerLink.ts`](../../../front-end/src/utils/blockerLink.ts), so every list of blockers decides it alike; the first is the panel's own.
+The panel is headed "Cannot proceed:" unless its caller gives a heading: the import's refusal gives "Before its first import, this market needs:" ([the CSV import](csv-import.md)).
 
 **Every remedy names the action it takes.**
 A guard that sets a `resolution_link` sets the `resolution_action` its remedy takes, so [the phase rail](phase-rail.md) and its panel offer the remedy only to whoever the table's answer for that row lets take it ([what each role may do](../../business/rules/what-each-role-may-do.md)):

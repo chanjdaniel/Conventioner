@@ -1654,6 +1654,32 @@ class TestWhenImportingIsAllowed:
 
         assert refusal is not None and "location" in refusal
 
+    def test_a_bare_draft_is_told_everything_it_lacks_at_once_in_the_guards_order(
+        self, before_the_market,
+    ):
+        """T205/F09: refused for its dates, then its location, then its tables, three trips for one
+        list. The refusal names every one, so a stale page or a direct call reads the whole list."""
+        bare = {**SETUP_CAMEL, "marketDates": [], "locations": [], "sections": []}
+        doc = _market_doc(setup=bare, phase=MarketPhase.DRAFT)
+
+        refusal = CsvImport.import_refusal(doc)
+
+        assert refusal == (
+            "This market has no market dates. Pick them on Market Setup's calendar. "
+            "This market has no location. Add one on Market Setup. "
+            "This market has no tables yet. Add a section with tables on Market Setup."
+        )
+        assert refusal == " ".join(b.message for b in CsvImport.first_import_blockers(doc))
+
+    def test_a_draft_missing_only_its_location_is_told_only_that(self, before_the_market):
+        doc = _market_doc(
+            setup={**COMPLETE_SETUP, "locations": []}, phase=MarketPhase.DRAFT,
+        )
+
+        assert CsvImport.import_refusal(doc) == (
+            "This market has no location. Add one on Market Setup."
+        )
+
     def test_a_market_vendors_apply_to_on_its_own_page_imports_nothing(self):
         """Intake is exactly one mode, so import is the CSV path's (E31/F03/S04): a form market
         offered "Import from CSV" as its primary button while applications were open."""

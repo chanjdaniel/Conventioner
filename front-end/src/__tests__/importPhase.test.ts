@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { Market, PreconditionResult } from '@/assets/types/datatypes';
-import { canImportInto, importRefusal } from '@/utils/importPhase';
+import { canImportInto, firstImportBlockers, importRefusal } from '@/utils/importPhase';
 
 const NOTHING_IMPORTED: PreconditionResult = {
   id: 'responses_imported',
@@ -22,6 +22,21 @@ const NO_LOCATION: PreconditionResult = {
   message: 'This market has no location. Add one on Market Setup.',
   resolutionLink: 'setup',
   resolutionLabel: 'Add a location',
+};
+
+const NO_DATES: PreconditionResult = {
+  id: 'setup_has_dates',
+  passed: false,
+  message: "This market has no market dates. Pick them on Market Setup's calendar.",
+  resolutionLink: 'setup',
+  resolutionLabel: 'Pick market dates',
+};
+const NO_TABLES: PreconditionResult = {
+  id: 'every_tier_has_tables',
+  passed: false,
+  message: 'This market has no tables yet. Add a section with tables on Market Setup.',
+  resolutionLink: 'setup',
+  resolutionLabel: 'Add tables',
 };
 
 function market(phase: string, blockers: PreconditionResult[] = []): Market {
@@ -42,6 +57,12 @@ describe('importRefusal', () => {
     );
   });
 
+  it('names every blocker at once, in the order the guards serve them (T205/F09)', () => {
+    expect(
+      importRefusal(market('draft', [NO_DATES, NO_LOCATION, NO_TABLES, NOTHING_IMPORTED])),
+    ).toBe(`${NO_DATES.message} ${NO_LOCATION.message} ${NO_TABLES.message}`);
+  });
+
   it('takes nothing from assignment on', () => {
     for (const phase of ['assignment', 'market_days', 'archived']) {
       const reason = importRefusal(market(phase));
@@ -58,5 +79,29 @@ describe('importRefusal', () => {
   it('reads a market with no phase as a draft, as the server does', () => {
     expect(canImportInto(null)).toBe(true);
     expect(importRefusal(null)).toBeNull();
+  });
+});
+
+describe('firstImportBlockers', () => {
+  it("is every served blocker of the move into Review but the import's own, in order", () => {
+    expect(
+      firstImportBlockers(market('draft', [NO_DATES, NOTHING_IMPORTED, NO_LOCATION, NO_TABLES])),
+    ).toEqual([NO_DATES, NO_LOCATION, NO_TABLES]);
+  });
+
+  it('is empty for a draft waiting on nothing but the import', () => {
+    expect(firstImportBlockers(market('draft', [NOTHING_IMPORTED]))).toEqual([]);
+  });
+
+  it('is empty past draft, where an import moves nothing', () => {
+    for (const phase of ['applications', 'assignment', 'market_days', 'archived']) {
+      expect(firstImportBlockers(market(phase, [NO_LOCATION]))).toEqual([]);
+    }
+  });
+
+  it('reads a market with no phase as a draft, and no market as waiting on nothing', () => {
+    const noPhase = { id: 'm1', transitionBlockers: { applications: [NO_LOCATION] } };
+    expect(firstImportBlockers(noPhase as unknown as Market)).toEqual([NO_LOCATION]);
+    expect(firstImportBlockers(null)).toEqual([]);
   });
 });
