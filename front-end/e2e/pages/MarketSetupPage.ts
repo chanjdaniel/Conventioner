@@ -139,8 +139,9 @@ export class MarketSetupPage {
 
   /**
    * Decide Review setup as an organizer does (T206): follow the rail's fix to Review setup and choose
-   * "Nothing leads the card", one click. Review waits on the decision, so a walk that takes a draft
-   * into Review through the screens takes it here, and the rail then offers what comes next.
+   * "Nothing leads the card" and "No automatic rejections", one click each. Review waits on both, so
+   * a walk that takes a draft into Review through the screens takes it here, and the rail then
+   * offers what comes next.
    */
   async decideOnReviewSetup(): Promise<void> {
     await this.page
@@ -156,6 +157,15 @@ export class MarketSetupPage {
       this.page.getByTestId('review-highlights-none').click(),
     ]);
     await this.page.getByTestId('review-highlights-none-chosen').waitFor();
+    // The rail offers no link to the page it is on, so the second decision is taken here.
+    await Promise.all([
+      this.page.waitForResponse(
+        (response) =>
+          response.url().includes('/rejection-rules') && response.request().method() === 'PUT',
+      ),
+      this.page.getByTestId('rejection-rules-none').click(),
+    ]);
+    await this.page.getByTestId('rejection-rules-none-chosen').waitFor();
   }
 
   /**

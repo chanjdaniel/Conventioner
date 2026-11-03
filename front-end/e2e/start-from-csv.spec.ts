@@ -394,6 +394,18 @@ test.describe('Start from your Google Form', () => {
       page.getByTestId('review-highlights-none').click(),
     ]);
     await expect(page.getByTestId('review-highlights-none-chosen')).toBeVisible();
+    await expect(page.getByTestId('rejection-rules-undecided')).toHaveText(
+      'Not decided yet. Your first import waits on this.',
+    );
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes(`/markets/${marketId}/rejection-rules`) &&
+          response.request().method() === 'PUT',
+      ),
+      page.getByTestId('rejection-rules-none').click(),
+    ]);
+    await expect(page.getByTestId('rejection-rules-none-chosen')).toBeVisible();
 
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
     const importer = new CsvImportPage(page);
