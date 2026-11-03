@@ -249,6 +249,115 @@ describe('signing in', () => {
   });
 });
 
+/** A refused code as the server answers it: a 401 carrying its sentence and the code's state. */
+function codeRefused(codeState: 'retry' | 'spent', message: string) {
+  const config = { headers: {} } as InternalAxiosRequestConfig;
+  return new AxiosError('Request failed with status code 401', 'ERR_BAD_REQUEST', config, null, {
+    status: 401,
+    statusText: 'UNAUTHORIZED',
+    data: { message, codeState },
+    headers: {},
+    config,
+  });
+}
+
+const RETRY = "That code isn't right. Check you typed the newest code and try again.";
+const SPENT = 'That code no longer works. Send yourself a new code.';
+
+describe('a code that does not pass (T191 F22)', () => {
+  async function atTheCodeStep() {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    requestLoginCode.mockResolvedValue({ message: "We've sent a code to this address." });
+    const wrapper = await mountPage();
+    await wrapper.get('[data-testid="vendor-sign-in-email-input"]').setValue('vendor@example.com');
+    await wrapper.get('[data-testid="vendor-sign-in-email-step"]').trigger('submit');
+    await flushPromises();
+    return wrapper;
+  }
+
+  async function enter(wrapper: Awaited<ReturnType<typeof mountPage>>, code: string) {
+    await wrapper.get('[data-testid="vendor-sign-in-code-input"]').setValue(code);
+    await wrapper.get('[data-testid="vendor-sign-in-code-step"]').trigger('submit');
+    await flushPromises();
+  }
+
+  it('says only the newest code works, before any is typed', async () => {
+    const wrapper = await atTheCodeStep();
+
+    expect(wrapper.get('[data-testid="vendor-sign-in-code-step"]').text()).toContain(
+      "We've sent a code to vendor@example.com. Only the newest one works.",
+    );
+  });
+
+  it('clears the field and keeps it focused to try again, saying the code is not right', async () => {
+    const wrapper = await atTheCodeStep();
+    verifyLoginCode.mockRejectedValue(codeRefused('retry', RETRY));
+    document.body.append(wrapper.element);
+
+    await enter(wrapper, '000000');
+
+    const field = wrapper.get('[data-testid="vendor-sign-in-code-input"]');
+    expect(wrapper.get('[data-testid="vendor-sign-in-error"]').text()).toBe(RETRY);
+    expect((field.element as HTMLInputElement).value).toBe('');
+    expect(document.activeElement).toBe(field.element);
+    expect(has(wrapper, 'vendor-sign-in-verify-btn')).toBe(true);
+    wrapper.unmount();
+  });
+
+  it('offers only "Send a new code" once the code no longer works, after its wait', async () => {
+    vi.useFakeTimers();
+    try {
+      const wrapper = await atTheCodeStep();
+      verifyLoginCode.mockRejectedValue(codeRefused('spent', SPENT));
+
+      await enter(wrapper, '000005');
+
+      expect(wrapper.get('[data-testid="vendor-sign-in-error"]').text()).toBe(SPENT);
+      expect(has(wrapper, 'vendor-sign-in-code-input')).toBe(false);
+      expect(has(wrapper, 'vendor-sign-in-verify-btn')).toBe(false);
+      expect(has(wrapper, 'vendor-sign-in-resend-btn')).toBe(false);
+      const send = wrapper.get('[data-testid="vendor-sign-in-send-new-code-btn"]');
+      expect(send.classes()).toContain('btn--primary');
+      expect(send.attributes('disabled')).toBeDefined();
+      expect(send.text()).toMatch(/^Send a new code in \d+s$/);
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(send.attributes('disabled')).toBeUndefined();
+      expect(send.text()).toBe('Send a new code');
+
+      await send.trigger('click');
+      await flushPromises();
+
+      expect(requestLoginCode).toHaveBeenCalledTimes(2);
+      expect(has(wrapper, 'vendor-sign-in-error')).toBe(false);
+      expect(has(wrapper, 'vendor-sign-in-code-input')).toBe(true);
+      expect(has(wrapper, 'vendor-sign-in-verify-btn')).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps the field for a refusal that says nothing of the code, such as too many tries', async () => {
+    const wrapper = await atTheCodeStep();
+    const config = { headers: {} } as InternalAxiosRequestConfig;
+    const tooMany = 'Too many sign-in attempts. Please try again in 15 minutes.';
+    verifyLoginCode.mockRejectedValue(
+      new AxiosError('429', 'ERR_BAD_REQUEST', config, null, {
+        status: 429,
+        statusText: 'TOO MANY REQUESTS',
+        data: { message: tooMany },
+        headers: {},
+        config,
+      }),
+    );
+
+    await enter(wrapper, '123456');
+
+    expect(wrapper.get('[data-testid="vendor-sign-in-error"]').text()).toBe(tooMany);
+    expect(has(wrapper, 'vendor-sign-in-code-input')).toBe(true);
+  });
+});
+
 describe('the page, signed in', () => {
   beforeEach(signIn);
 

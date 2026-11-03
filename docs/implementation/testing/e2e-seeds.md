@@ -109,7 +109,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
 - Notes:
   - `fields` gives its form its own questions
   - it creates no application
-  - `seedApplicationDoc()` and `createApplicantLoginChallenge()` write one and a known sign-in code into Mongo
+  - `seedApplicationDoc()` and `createApplicantLoginChallenge()` write one and a known sign-in code into Mongo, the code planted after the request it stands in for, with none of its five tries used unless `attempts` says how many
 
 **`seedExampleMarket()`** ([file](../../../front-end/e2e/helpers/exampleCollegeMarket.ts))
 - Leaves: a draft on the vendors' own page, with two dates, Gold and Silver, and the Example College form's two choice questions

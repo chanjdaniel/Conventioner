@@ -11,7 +11,8 @@ import { createPinia, setActivePinia } from 'pinia';
 vi.mock('@/utils/applicantApi', () => ({
   requestLoginCode: vi.fn(),
   verifyLoginCode: vi.fn(),
-  verifyErrorFrom: () => 'Invalid or expired code.',
+  verifyErrorFrom: () => 'That code no longer works. Send yourself a new code.',
+  codeStateFrom: () => 'spent',
   requestErrorFrom: () => 'Something went wrong.',
   fetchApplicantApplication: vi.fn(),
   saveApplicantApplication: vi.fn(),

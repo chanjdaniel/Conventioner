@@ -44,7 +44,7 @@ Covered by:
 **Task (vendor):** "Apply to this market."
 
 1. The vendor opens the shared link `/<market-slug>`; the page names the market over "Sign in": "Enter your email address. We'll send you a code to sign in with."
-2. They enter their email and "Send code"; the page says "We've sent a code to <email>." whatever the address, and the code is sent before the page answers (E32/F03/S02); its email links back to the page, "your page for <market>".
+2. They enter their email and "Send code"; the page says "We've sent a code to <email>. Only the newest one works." whatever the address, and the code is sent before the page answers (E32/F03/S02); its email links back to the page, "your page for <market>".
 3. The code arrives; they enter it under "Sign-in code" and choose "Sign in".
 4. The page reads "You have not applied to this market yet." with "Apply", which opens the form in its place, on the same page and address: "Apply", the essential questions, then "More questions" (the custom ones); "Save application" and "Cancel".
 5. Saved, the form closes on "Your answers" with "Edit", and the page reads "Submitted" (H3c).
@@ -81,8 +81,12 @@ Covered by:
 ### H3d. Codes that fail
 
 **Status:** Works (code).
-One attempt per code: a wrong code uses it up; "Code already sent - retry in Ns" and "Resend code in 60s" pace requests; every failure reads "Invalid or expired code." so nothing reveals whether an address applied.
+A code lasts ten minutes and takes five tries ([a vendor signs in before they have applied](../rules/a-vendor-signs-in-before-applying.md)).
+A wrong code reads "That code isn't right. Check you typed the newest code and try again.", and the field clears for another.
+After the fifth wrong try, or once the code has expired or been replaced, the step reads "That code no longer works. Send yourself a new code.", the field and "Sign in" go, and "Send a new code" is its one action.
+"Code already sent - retry in Ns", "Resend code in 60s" and "Send a new code in Ns" pace requests; neither refusal reveals whether an address applied.
 Covered by:
+- `a-sign-in-code-takes-five-tries.spec.ts`
 - `applicant.spec.ts`
 
 ### H3e. A Google Form market's public pages

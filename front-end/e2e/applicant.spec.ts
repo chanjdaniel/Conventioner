@@ -16,13 +16,13 @@ import {
  *      known applicant, stranger, nonexistent address - so an attacker cannot
  *      enumerate valid applicants.
  *
- *   b) Every verify-code failure (wrong code, already consumed, expired, no
- *      challenge) collapses to an identical 401 response, so the failure
- *      reason cannot be inferred from the wire.
+ *   b) A wrong try at a live code answers "retry", and every way a code
+ *      cannot pass (the fifth wrong try, already used, expired, no challenge)
+ *      collapses to one identical 401 "spent", so the wire says nothing of
+ *      whether an address applied (T202).
  *
- *   c) A challenge is consumed by its first verification attempt regardless
- *      of whether the code was correct. After one failure the same code
- *      cannot succeed - and the failure message does not change.
+ *   c) A code takes five tries: after the fifth wrong one even the right
+ *      code fails, with the same "spent" answer.
  *
  * All assertions are made through the real back end. No mocking of the
  * login endpoints. The one thing injected is a known-code challenge when
@@ -40,8 +40,17 @@ const REQUEST_CODE_MESSAGE = {
   message: "We've sent a code to this address.",
 };
 
-/** The exact body the back end returns on every verify-code failure. */
-const VERIFY_FAILURE_MESSAGE = { message: 'Invalid or expired code.' };
+/** A wrong try at a code with tries left. */
+const RETRY = {
+  message: "That code isn't right. Check you typed the newest code and try again.",
+  codeState: 'retry',
+};
+
+/** Every way a code cannot pass, one body for all. */
+const SPENT = {
+  message: 'That code no longer works. Send yourself a new code.',
+  codeState: 'spent',
+};
 
 test.describe('Public applicant login - anti-oracle', () => {
   let market: ApplicantMarketSeed;
@@ -80,61 +89,50 @@ test.describe('Public applicant login - anti-oracle', () => {
 
   // ── Verify-code anti-oracle ───────────────────────────────────────────
 
-  test('(b) verify-code returns an identical 401 regardless of the failure reason', async ({
+  test('(b) verify-code answers a wrong try "retry" and every dead code one identical "spent"', async ({
     request,
   }) => {
-    // Request a code for the applicant email - this creates a challenge.
-    await request.post(
-      `${BACKEND_URL}/public/markets/${market.marketSlug}/applicant-login/request-code`,
-      { data: { email: APPLICANT_EMAIL } },
-    );
-
-    // First attempt: wrong code. The challenge is consumed.
-    const wrongRes = await request.post(
-      `${BACKEND_URL}/public/markets/${market.marketSlug}/applicant-login/verify-code`,
-      { data: { email: APPLICANT_EMAIL, code: '000001' } },
-    );
-
-    // Second attempt: no unconsumed challenge exists (consumed by step 1).
-    const consumedRes = await request.post(
-      `${BACKEND_URL}/public/markets/${market.marketSlug}/applicant-login/verify-code`,
-      { data: { email: APPLICANT_EMAIL, code: '000002' } },
-    );
-
-    // The back end collapses every failure to the same 401 with the same body.
-    expect(wrongRes.status()).toBe(401);
-    expect(consumedRes.status()).toBe(401);
-    const wrongBody = await wrongRes.json();
-    const consumedBody = await consumedRes.json();
-    expect(wrongBody).toEqual(VERIFY_FAILURE_MESSAGE);
-    expect(consumedBody).toEqual(wrongBody);
-  });
-
-  test('(c) a consumed code cannot be reused - even the correct code fails after a wrong attempt', async ({
-    request,
-  }) => {
-    // Insert a challenge with a known code directly so we control the code.
+    const verify = (email: string, code: string) =>
+      request.post(
+        `${BACKEND_URL}/public/markets/${market.marketSlug}/applicant-login/verify-code`,
+        { data: { email, code } },
+      );
     createApplicantLoginChallenge(market.marketId, APPLICANT_EMAIL, KNOWN_CODE);
 
-    // First attempt: wrong code. The challenge is consumed.
-    const wrongRes = await request.post(
-      `${BACKEND_URL}/public/markets/${market.marketSlug}/applicant-login/verify-code`,
-      { data: { email: APPLICANT_EMAIL, code: '000000' } },
-    );
+    const wrongRes = await verify(APPLICANT_EMAIL, '000001');
     expect(wrongRes.status()).toBe(401);
-    const wrongBody = await wrongRes.json();
-    expect(wrongBody).toEqual(VERIFY_FAILURE_MESSAGE);
+    expect(await wrongRes.json()).toEqual(RETRY);
 
-    // Second attempt: the *correct* code. The back end consumed the challenge
-    // on the first attempt - wrong or right - so this also fails with the
-    // identical 401. No "try again" path exists.
-    const correctRes = await request.post(
-      `${BACKEND_URL}/public/markets/${market.marketSlug}/applicant-login/verify-code`,
-      { data: { email: APPLICANT_EMAIL, code: KNOWN_CODE } },
-    );
+    // Used: the right code signs in once, then answers as a code never asked for does.
+    expect((await verify(APPLICANT_EMAIL, KNOWN_CODE)).status()).toBe(200);
+    const usedRes = await verify(APPLICANT_EMAIL, KNOWN_CODE);
+    const neverAskedRes = await verify(UNKNOWN_EMAIL, KNOWN_CODE);
+
+    expect(usedRes.status()).toBe(401);
+    expect(neverAskedRes.status()).toBe(401);
+    expect(await usedRes.text()).toEqual(await neverAskedRes.text());
+    expect(await usedRes.json()).toEqual(SPENT);
+  });
+
+  test('(c) after five wrong tries even the right code fails', async ({ request }) => {
+    // An address of its own: six tries here would leave the others under the per-address limit's
+    // ten in a quarter of an hour with too few to run.
+    const vendor = `five-tries-${Date.now()}@example.com`;
+    createApplicantLoginChallenge(market.marketId, vendor, KNOWN_CODE);
+    const verify = (code: string) =>
+      request.post(
+        `${BACKEND_URL}/public/markets/${market.marketSlug}/applicant-login/verify-code`,
+        { data: { email: vendor, code } },
+      );
+
+    for (const wrong of ['000001', '000002', '000003', '000004']) {
+      expect(await (await verify(wrong)).json()).toEqual(RETRY);
+    }
+    expect(await (await verify('000005')).json()).toEqual(SPENT);
+
+    const correctRes = await verify(KNOWN_CODE);
     expect(correctRes.status()).toBe(401);
-    const correctBody = await correctRes.json();
-    expect(correctBody).toEqual(wrongBody);
+    expect(await correctRes.json()).toEqual(SPENT);
   });
 
   // ── UI rendering and flow ─────────────────────────────────────────────
@@ -151,26 +149,27 @@ test.describe('Public applicant login - anti-oracle', () => {
     // After requesting a code the page transitions to the code input step, saying the same thing
     // to every address - and true of every address, since each is sent a code (E26/F07/S01).
     await expect(login.codeInput).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText(`We've sent a code to ${APPLICANT_EMAIL}.`)).toBeVisible();
+    await expect(
+      page.getByText(`We've sent a code to ${APPLICANT_EMAIL}. Only the newest one works.`),
+    ).toBeVisible();
   });
 
-  test('verify-code failure shows the same error message through the UI', async ({ page }) => {
+  test('a wrong code says so through the UI, and the field is ready for another', async ({
+    page,
+  }) => {
     const login = new VendorPage(page);
 
     await login.goto(market.marketSlug);
     await login.requestCode(APPLICANT_EMAIL);
     await expect(login.codeInput).toBeVisible({ timeout: 5000 });
 
-    // Enter a wrong code.
+    // A wrong code, and another: each says the same, and neither says whether the address applied.
     await login.enterCode('000000');
-    await expect(login.error).toBeVisible({ timeout: 5000 });
-    await expect(login.error).toHaveText('Invalid or expired code.');
+    await expect(login.error).toHaveText(RETRY.message);
+    await expect(login.codeInput).toHaveValue('');
 
-    // Enter another wrong code. The error is identical - the front end
-    // renders whatever the back end sent back, which is always the same.
     await login.enterCode('111111');
-    await expect(login.error).toBeVisible({ timeout: 5000 });
-    await expect(login.error).toHaveText('Invalid or expired code.');
+    await expect(login.error).toHaveText(RETRY.message);
   });
 
   test('a successful verification signs the vendor in on the page', async ({ page }) => {

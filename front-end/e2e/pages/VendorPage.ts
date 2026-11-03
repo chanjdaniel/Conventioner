@@ -72,6 +72,11 @@ export class VendorPage {
     return this.page.getByTestId('vendor-sign-in-resend-btn');
   }
 
+  /** The code step's one action once its code no longer works. */
+  get sendNewCodeButton(): Locator {
+    return this.page.getByTestId('vendor-sign-in-send-new-code-btn');
+  }
+
   get error(): Locator {
     return this.page.getByTestId('vendor-sign-in-error');
   }

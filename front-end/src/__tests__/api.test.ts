@@ -107,9 +107,8 @@ describe('what a failed request says', () => {
   it("keeps a 401's own sentence, as the applicant's code check words it", async () => {
     const { getApiErrorMessage } = await import('@/utils/api');
 
-    expect(
-      getApiErrorMessage(await failure(401, { message: 'Invalid or expired code.' }), 'x'),
-    ).toBe('Invalid or expired code.');
+    const spent = 'That code no longer works. Send yourself a new code.';
+    expect(getApiErrorMessage(await failure(401, { message: spent }), 'x')).toBe(spent);
   });
 
   it("keeps a refusal's own sentence", async () => {

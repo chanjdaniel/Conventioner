@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { api, getApiErrorMessage } from '@/utils/api';
 import type { Application } from '@/assets/types/datatypes';
 
@@ -23,10 +24,10 @@ export async function requestLoginCode(
  * POST /public/markets/<slug>/applicant-login/verify-code
  *
  * On success (200): { success: true, marketId, applicantEmail, token? }
- * On failure (401): { message: "Invalid or expired code." }
+ * On failure (401): { message, codeState }, `codeState` "retry" for a wrong try at a code with
+ * tries left, "spent" for every other way a code cannot pass (`codeStateFrom`).
  *
- * The backend is oracle-free: every failure branch collapses to one identical
- * 401 response. One attempt per code - a wrong code consumes it.
+ * A code lasts ten minutes and takes five tries; neither answer says whether the address applied.
  */
 export async function verifyLoginCode(
   marketSlug: string,
@@ -45,9 +46,23 @@ export async function verifyLoginCode(
   };
 }
 
-/** Uniform error message for verification failures (anti-oracle ruling). */
+/** What a refused code's step says: the server's sentence, which says what to do next. */
 export function verifyErrorFrom(err: unknown): string {
-  return getApiErrorMessage(err, 'Invalid or expired code.');
+  return getApiErrorMessage(err, 'That code could not be checked. Please try again.');
+}
+
+/**
+ * Where a refused code stands (T191 F22): "retry" while it has tries left, so the field clears for
+ * another; "spent" once it no longer works, so only "Send a new code" is offered. Null for a
+ * refusal that says nothing of the code - too many tries from this address, or no answer at all -
+ * which leaves the step as it was.
+ */
+export type CodeState = 'retry' | 'spent';
+
+export function codeStateFrom(err: unknown): CodeState | null {
+  const data = axios.isAxiosError(err) ? err.response?.data : undefined;
+  const state = (data as { codeState?: unknown } | undefined)?.codeState;
+  return state === 'retry' || state === 'spent' ? state : null;
 }
 
 /** Suitable error message for unexpected request-code failures. */

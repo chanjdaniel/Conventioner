@@ -5,8 +5,13 @@
  * Every address is sent a code, applied or not, so the words are the same for every address and
  * true for each. A right code signs the vendor in through the store, and the page, which watches
  * that, draws their own sections in place of this one.
+ *
+ * A code takes five tries (T191 F22): a wrong one clears the field and keeps it focused for
+ * another; once the code no longer works - its tries used, or its ten minutes up - the field and
+ * "Sign in" go, and "Send a new code", after its wait, is the step's one action.
  */
-import { computed, onUnmounted, ref } from 'vue';
+import { computed, nextTick, onUnmounted, ref } from 'vue';
+import CodeInput from '@/components/CodeInput.vue';
 import { useApplicationStore } from '@/stores/application';
 
 const props = defineProps<{ marketSlug: string }>();
@@ -21,6 +26,10 @@ const step = ref<'email' | 'code'>('email');
 const submitting = ref(false);
 const validationError = ref<string | null>(null);
 const displayedError = computed(() => validationError.value || store.error);
+
+const codeInput = ref<InstanceType<typeof CodeInput> | null>(null);
+/** The code can no longer pass: only a new one is offered. */
+const spent = computed(() => store.codeState === 'spent');
 
 const requestedEmail = ref('');
 const cooldownRemaining = ref(0);
@@ -61,7 +70,10 @@ async function requestCode() {
   if (!store.error) {
     requestedEmail.value = address;
     startCooldown();
+    code.value = '';
     step.value = 'code';
+    await nextTick();
+    codeInput.value?.focus();
   }
 }
 
@@ -75,6 +87,11 @@ async function verifyCode() {
   submitting.value = true;
   await store.verifyCode(props.marketSlug, email.value.trim().toLowerCase(), code.value.trim());
   submitting.value = false;
+  if (store.codeState === 'retry') {
+    code.value = '';
+    await nextTick();
+    codeInput.value?.focus();
+  }
 }
 
 function goBack() {
@@ -82,6 +99,7 @@ function goBack() {
   code.value = '';
   validationError.value = null;
   store.error = null;
+  store.codeState = null;
 }
 </script>
 
@@ -143,31 +161,40 @@ function goBack() {
       @submit.prevent="verifyCode"
     >
       <!-- The same words for every address, and true for every address: each is sent a code. -->
-      <p class="sign-in-instruction">We've sent a code to {{ requestedEmail }}.</p>
-      <div class="sign-in-field">
-        <label class="field-label" for="vendor-sign-in-code">Sign-in code</label>
-        <input
-          id="vendor-sign-in-code"
-          v-model="code"
-          class="field sign-in-code-input"
-          autocomplete="one-time-code"
-          type="text"
-          inputmode="numeric"
-          maxlength="6"
-          placeholder="000000"
-          data-testid="vendor-sign-in-code-input"
-        />
-      </div>
+      <p class="sign-in-instruction sign-in-instruction--centred">
+        We've sent a code to {{ requestedEmail }}. Only the newest one works.
+      </p>
+      <template v-if="!spent">
+        <div class="sign-in-field">
+          <label class="field-label" for="vendor-sign-in-code">Sign-in code</label>
+          <CodeInput
+            id="vendor-sign-in-code"
+            ref="codeInput"
+            v-model="code"
+            data-testid="vendor-sign-in-code-input"
+          />
+        </div>
+        <button
+          type="submit"
+          class="btn btn--primary"
+          :disabled="submitting || code.trim().length !== 6"
+          data-testid="vendor-sign-in-verify-btn"
+        >
+          {{ submitting ? 'Signing in…' : 'Sign in' }}
+        </button>
+      </template>
+      <!-- `type="button"`: inside a form, a button with no type submits it. -->
       <button
-        type="submit"
+        v-else
+        type="button"
         class="btn btn--primary"
-        :disabled="submitting || code.trim().length !== 6"
-        data-testid="vendor-sign-in-verify-btn"
+        :disabled="submitting || cooldownRemaining > 0"
+        data-testid="vendor-sign-in-send-new-code-btn"
+        @click="requestCode"
       >
-        {{ submitting ? 'Signing in…' : 'Sign in' }}
+        {{ cooldownRemaining > 0 ? `Send a new code in ${cooldownRemaining}s` : 'Send a new code' }}
       </button>
       <div class="sign-in-alt">
-        <!-- `type="button"`: inside a form, a button with no type submits it. -->
         <button
           type="button"
           class="sign-in-link-btn"
@@ -176,16 +203,18 @@ function goBack() {
         >
           Use a different email
         </button>
-        <span class="sign-in-sep" aria-hidden="true">|</span>
-        <button
-          type="button"
-          class="sign-in-link-btn"
-          :disabled="submitting || cooldownRemaining > 0"
-          data-testid="vendor-sign-in-resend-btn"
-          @click="requestCode"
-        >
-          {{ cooldownRemaining > 0 ? `Resend code in ${cooldownRemaining}s` : 'Resend code' }}
-        </button>
+        <template v-if="!spent">
+          <span class="sign-in-sep" aria-hidden="true">|</span>
+          <button
+            type="button"
+            class="sign-in-link-btn"
+            :disabled="submitting || cooldownRemaining > 0"
+            data-testid="vendor-sign-in-resend-btn"
+            @click="requestCode"
+          >
+            {{ cooldownRemaining > 0 ? `Resend code in ${cooldownRemaining}s` : 'Resend code' }}
+          </button>
+        </template>
       </div>
     </form>
   </section>
@@ -236,12 +265,10 @@ function goBack() {
   line-height: 1.5;
 }
 
-/* The field and button primitives carry the rest; the code is the one field read at a glance. */
-.sign-in-code-input {
-  height: 48px;
-  letter-spacing: 12px;
+/* The code step has one alignment: its line centred, as the title over it and the links under it
+   are; the label stays left over its full-width field, as every label does (T191 F21). */
+.sign-in-instruction--centred {
   text-align: center;
-  font-size: var(--text-xl);
 }
 
 .sign-in-alt {

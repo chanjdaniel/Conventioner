@@ -318,9 +318,9 @@ def mongo_matches(doc: dict, query: dict) -> bool:
     filter is a fake that passes a document Mongo would never have handed back - which is exactly
     how a lookup querying a field no document carries would go unnoticed here and 404 in
     production. ``$ne``, ``$exists``, ``$in`` and ``$nor`` are modelled because the public slug
-    lookup is built out of them, ``$gt`` because a deal's lease is, ``$type: object`` because the
-    applications waiting to be dealt are read by it, and a value matching a list that holds it
-    because a vendor's history is.
+    lookup is built out of them, ``$gt`` because a deal's lease is, ``$lt`` because a sign-in
+    code's tries are, ``$type: object`` because the applications waiting to be dealt are read by
+    it, and a value matching a list that holds it because a vendor's history is.
     """
     for key, condition in (query or {}).items():
         if key == "$nor":
@@ -342,6 +342,8 @@ def mongo_matches(doc: dict, query: dict) -> bool:
                 return False
             # Mongo compares a missing or null field as matching no range (a lease's end, say).
             if "$gt" in condition and (doc.get(key) is None or not doc[key] > condition["$gt"]):
+                return False
+            if "$lt" in condition and (doc.get(key) is None or not doc[key] < condition["$lt"]):
                 return False
         elif condition is None:
             # A null matches a field that is null or absent.

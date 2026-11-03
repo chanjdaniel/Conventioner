@@ -1499,9 +1499,10 @@ def applicant_login_request_code(market_slug: str) -> Response:
 def applicant_login_verify_code(market_slug: str) -> Response:
     """Verify an email login code for an applicant.
 
-    Fully indistinguishable: every failure branch collapses to one observable
-    response. The caller cannot distinguish "no such address", "no code issued",
-    "expired", "already consumed", or "wrong code".
+    A wrong try at a live code answers "retry"; every other failure collapses to
+    one observable "spent" response, so the caller cannot distinguish "no such
+    address", "no code issued", "expired", "already consumed" or "tries used up",
+    and neither answer says whether the address applied.
     """
     result, status_code = ApplicantAuthApi.verify_login_code(market_slug)
     return result, status_code

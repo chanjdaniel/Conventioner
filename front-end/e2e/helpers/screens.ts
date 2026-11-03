@@ -1226,6 +1226,24 @@ export const SCREENS: Screen[] = [
     },
   },
   {
+    // A code that no longer works (T191 F22): the field and Sign in give way to Send a new code.
+    name: 'the vendor page, a used-up code',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: async (page, seed) => {
+      await at(slug('open'), 'vendor-sign-in-email-input')(page, seed);
+      const address = `e2e-screens-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+      await page.getByTestId('vendor-sign-in-email-input').fill(address);
+      await page.getByTestId('vendor-sign-in-request-btn').click();
+      await visible(page, 'vendor-sign-in-code-input');
+      // Four of its five tries used, so one wrong try uses it up through the real verify.
+      createApplicantLoginChallenge(seed.open.marketId, address, '424242', { attempts: 4 });
+      await page.getByTestId('vendor-sign-in-code-input').fill('000000');
+      await page.getByTestId('vendor-sign-in-verify-btn').click();
+      await visible(page, 'vendor-sign-in-send-new-code-btn');
+    },
+  },
+  {
     name: 'the vendor page, signed in',
     who: 'applicant',
     sizes: PUBLIC,

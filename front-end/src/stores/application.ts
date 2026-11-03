@@ -4,6 +4,8 @@ import {
   requestLoginCode,
   verifyLoginCode,
   verifyErrorFrom,
+  codeStateFrom,
+  type CodeState,
   requestErrorFrom,
   saveErrorFrom,
   fetchApplicantApplication,
@@ -86,6 +88,8 @@ export const useApplicationStore = defineStore('application', () => {
   const application = ref<Application | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  /** Where the last refused code stands, beside `error`'s sentence; null until one is refused. */
+  const codeState = ref<CodeState | null>(null);
   /**
    * The vendor page's one state (ADR 0022): the market as the page reads it before sign-in, and,
    * signed in, the form's questions - its own and the essential ones the plan offers - that the
@@ -135,6 +139,7 @@ export const useApplicationStore = defineStore('application', () => {
     error.value = null;
     try {
       await requestLoginCode(slug, email);
+      codeState.value = null;
     } catch (err: unknown) {
       error.value = requestErrorFrom(err);
     } finally {
@@ -145,6 +150,7 @@ export const useApplicationStore = defineStore('application', () => {
   async function verifyCode(slug: string, email: string, code: string): Promise<boolean> {
     loading.value = true;
     error.value = null;
+    codeState.value = null;
     try {
       const result = await verifyLoginCode(slug, email, code);
       // Every successful sign-in carries a token now, applied or not (E26/F07/S01). Without one
@@ -167,6 +173,7 @@ export const useApplicationStore = defineStore('application', () => {
       return true;
     } catch (err: unknown) {
       error.value = verifyErrorFrom(err);
+      codeState.value = codeStateFrom(err);
       return false;
     } finally {
       loading.value = false;
@@ -232,6 +239,7 @@ export const useApplicationStore = defineStore('application', () => {
     formFields.value = [];
     essentialOptions.value = EMPTY_ESSENTIAL_OPTIONS;
     error.value = null;
+    codeState.value = null;
     keepSession(null);
   }
 
@@ -247,6 +255,7 @@ export const useApplicationStore = defineStore('application', () => {
     application,
     loading,
     error,
+    codeState,
     page,
     formFields,
     essentialOptions,
