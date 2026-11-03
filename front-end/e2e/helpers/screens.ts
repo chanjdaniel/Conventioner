@@ -1205,28 +1205,37 @@ export const SCREENS: Screen[] = [
     open: at(fixed('/no/such/page'), 'page-not-found'),
   },
   {
-    name: "a market's public page",
+    // A market's vendor page, signed out (ADR 0022): its name and the email step.
+    name: 'the vendor page, signed out',
     who: 'nobody',
     sizes: PUBLIC,
-    open: at(slug('open'), 'market-home-name'),
+    open: at(slug('open'), 'vendor-sign-in-email-input'),
+  },
+  {
+    name: 'the vendor page, the code step',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: async (page, seed) => {
+      await at(slug('open'), 'vendor-sign-in-email-input')(page, seed);
+      // An address of its own each time: every sweep opens this at every size, past the limit of
+      // codes one address may ask for (`sign_in_limits`).
+      const address = `e2e-screens-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+      await page.getByTestId('vendor-sign-in-email-input').fill(address);
+      await page.getByTestId('vendor-sign-in-request-btn').click();
+      await visible(page, 'vendor-sign-in-code-input');
+    },
+  },
+  {
+    name: 'the vendor page, signed in',
+    who: 'applicant',
+    sizes: PUBLIC,
+    open: at(slug('open'), 'vendor-page-status'),
   },
   {
     name: 'the application form',
     who: 'applicant',
     sizes: PUBLIC,
     open: at(slug('open', '/apply'), 'apply-market-name'),
-  },
-  {
-    name: 'applicant sign-in',
-    who: 'nobody',
-    sizes: PUBLIC,
-    open: at(slug('open', '/applicant-login'), 'applicant-login-email-input'),
-  },
-  {
-    name: "an applicant's dashboard",
-    who: 'applicant',
-    sizes: PUBLIC,
-    open: at(slug('open', '/applicant/dashboard'), 'applicant-dashboard-status'),
   },
   {
     name: 'the check-in page',

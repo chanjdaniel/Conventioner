@@ -4,7 +4,11 @@ import { seedAssignedMarket, type AssignedSeedResult } from './helpers/seedAssig
 import { seedApplication } from './helpers/seedApplication';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { savePlan } from './helpers/savePlan';
-import { completePlan, seedPublishedMarketWithAssignments } from './helpers/seeds';
+import {
+  completePlan,
+  marketNameToSlug,
+  seedPublishedMarketWithAssignments,
+} from './helpers/seeds';
 import type { Locator } from '@playwright/test';
 
 type Box = { x: number; y: number; width: number; height: number };
@@ -120,15 +124,15 @@ test.describe('The phase rail', () => {
     await expect(page.locator('body')).not.toContainText('Page not found');
   });
 
-  test('a CSV market carries no application chip, and a form market does', async ({
+  test('a CSV market carries no vendor page chip, and a form market does', async ({
     authenticatedPage: page,
   }) => {
-    // The seeded market takes its vendors by import, so the chip must not appear: its `/apply` URL
+    // The seeded market takes its vendors by import, so the chip must not appear: its vendor page
     // answers exactly as a market that does not exist, and a chip would be the one place the
     // product admitted it was real (E18/F04/S02).
     await openMarket(page, marketSetupPath(seed.marketId, 'setup'));
     await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByTestId('phase-rail-apply')).toHaveCount(0);
+    await expect(page.getByTestId('phase-rail-vendor-page')).toHaveCount(0);
 
     // A market taking applications by form does carry it, pointing at its own address. Intake
     // mode is chosen while a market is a draft and fixed after, so this is a market of its own.
@@ -146,9 +150,12 @@ test.describe('The phase rail', () => {
     expect(opened.ok(), await opened.text()).toBeTruthy();
     await page.goto(marketSetupPath(formMarket.marketId, 'setup'));
 
-    const chip = page.getByTestId('phase-rail-apply');
+    const chip = page.getByTestId('phase-rail-vendor-page');
     await expect(chip).toBeVisible({ timeout: 15000 });
-    await expect(chip.locator('a')).toHaveAttribute('href', /\/apply$/);
+    await expect(chip.locator('a')).toHaveAttribute(
+      'href',
+      new RegExp(`/${marketNameToSlug(formMarket.marketName)}$`),
+    );
   });
 
   test('archiving states in words that the market is over', async ({ authenticatedPage: page }) => {
@@ -177,7 +184,7 @@ test.describe('The phase rail', () => {
  * put the door's check-in list under a rail that ran to 409px of 844.
  */
 test.describe('The phase rail on a phone', () => {
-  let seed: { marketId: string };
+  let seed: { marketId: string; marketSlug: string };
 
   test.beforeAll(async ({ request }) => {
     seed = await seedPublishedMarketWithAssignments(
@@ -208,7 +215,7 @@ test.describe('The phase rail on a phone', () => {
   }) => {
     await page.goto(marketScreenPath(seed.marketId, 'attendance'));
     for (const [testId, name, end] of [
-      ['phase-rail-apply', 'Application page', '/apply'],
+      ['phase-rail-vendor-page', 'Vendor page', `/${seed.marketSlug}`],
       ['phase-rail-checkin', 'Check-in page', '/check-in'],
     ] as const) {
       const chip = page.getByTestId(testId);
@@ -243,7 +250,7 @@ test.describe('The phase rail on a phone', () => {
     // under 45rem, matched a phone's rail too and set its own basis on both chips, so a change to
     // the phone's rule never reached them; both lay out alike here, so only the basis tells.
     await page.goto(marketScreenPath(seed.marketId, 'attendance'));
-    for (const testId of ['phase-rail-apply', 'phase-rail-checkin']) {
+    for (const testId of ['phase-rail-vendor-page', 'phase-rail-checkin']) {
       const chip = page.getByTestId(testId);
       await expect(chip).toBeVisible({ timeout: 15000 });
       expect(await chip.evaluate((el) => getComputedStyle(el).flexBasis), testId).toBe(
@@ -258,7 +265,7 @@ test.describe('The phase rail on a phone', () => {
     await page.goto(marketScreenPath(seed.marketId, 'attendance'));
     await expect(page.getByTestId('phase-rail-checkin')).toBeVisible({ timeout: 15000 });
 
-    const apply = await box(page.getByTestId('phase-rail-apply'));
+    const apply = await box(page.getByTestId('phase-rail-vendor-page'));
     const checkIn = await box(page.getByTestId('phase-rail-checkin'));
     const more = await box(page.getByTestId('phase-rail-menu-button'));
     const rail = await box(page.getByTestId('phase-rail'));
@@ -362,7 +369,7 @@ test.describe("The rail's end wraps only when it must", () => {
     const items = await rail
       .locator(
         [
-          '[data-testid="phase-rail-apply"]',
+          '[data-testid="phase-rail-vendor-page"]',
           '[data-testid="phase-rail-checkin"]',
           '[data-testid="phase-rail-fix"]',
           '[data-testid^="phase-transition-"]',

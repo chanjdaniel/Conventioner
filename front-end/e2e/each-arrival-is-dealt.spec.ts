@@ -1,4 +1,4 @@
-import { test, expect, TEST_USER, BACKEND_URL, ApplicantLoginPage } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
 import { ApplyPage } from './pages/ApplyPage';
 import { VendorsPage } from './pages/VendorsPage';
 import {
@@ -56,12 +56,13 @@ test('a vendor who applies after the deal goes to the next reviewer in turn', as
 
   // A fourth vendor applies on the market's own page, an address of this run's own.
   const vendor = `v4-${Date.now()}@moss.test`;
-  const login = new ApplicantLoginPage(page);
-  await page.goto(`/${market.marketSlug}/applicant-login?redirect=apply`);
+  const login = new VendorPage(page);
+  await page.goto(`/${market.marketSlug}`);
   await login.requestCode(vendor);
   await expect(login.codeInput).toBeVisible();
   createApplicantLoginChallenge(market.marketId, vendor, CODE);
   await login.enterCode(CODE);
+  await login.applyLink.click();
   const apply = new ApplyPage(page);
   await expect(apply.form).toBeVisible({ timeout: 30000 });
   await apply.fullNameInput.fill('Vera Fourth');
@@ -71,7 +72,7 @@ test('a vendor who applies after the deal goes to the next reviewer in turn', as
   await apply.fillField('business_name', 'Fourth Prints');
   await apply.fillField('product_type', 'Letterpress cards');
   await apply.submit();
-  await page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`));
+  await page.waitForURL(new RegExp(`/${market.marketSlug}$`));
 
   await withUser(browser, TEST_USER.email, TEST_USER.password, async (organizer) => {
     const listed = organizer.waitForResponse(

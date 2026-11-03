@@ -1,4 +1,4 @@
-import { test, expect, BACKEND_URL, TEST_USER, ApplicantLoginPage } from './fixtures';
+import { test, expect, BACKEND_URL, TEST_USER, VendorPage } from './fixtures';
 import { seedApplicantMarket } from './helpers/seedApplicantMarket';
 
 /**
@@ -33,7 +33,7 @@ test('asking for codes past the limit says to wait, and sends nothing more', asy
     expect((await requestCode()).status()).toBe(200);
   }
 
-  const login = new ApplicantLoginPage(page);
+  const login = new VendorPage(page);
   await login.goto(market.marketSlug);
   await login.emailInput.fill(address);
   await login.requestButton.click();
@@ -41,7 +41,7 @@ test('asking for codes past the limit says to wait, and sends nothing more', asy
   await expect(login.error).toHaveText(
     /^Too many sign-in attempts\. Please try again in \d+ minutes?\.$/,
   );
-  await expect(page.getByTestId('applicant-login-email-step')).toBeVisible();
+  await expect(page.getByTestId('vendor-sign-in-email-step')).toBeVisible();
   await expect(login.codeInput).toHaveCount(0);
 
   const refused = await requestCode();

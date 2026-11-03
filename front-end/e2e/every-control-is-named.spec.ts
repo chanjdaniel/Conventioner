@@ -145,19 +145,22 @@ test('every field a vendor meets has a name, from signing in to applying', async
     { setupObject: planSetupObject() },
   );
   const vendor = `vendor-${Date.now()}@example.com`;
-  await page.goto(`/${marketSlug}/applicant-login?redirect=apply`);
-  await expect(page.getByTestId('applicant-login-email-input')).toBeVisible();
+  await page.goto(`/${marketSlug}`);
+  await expect(page.getByTestId('vendor-sign-in-email-input')).toBeVisible();
   expect(await namelessControls(page), 'email step').toEqual([]);
 
-  await page.getByTestId('applicant-login-email-input').fill(vendor);
-  await page.getByTestId('applicant-login-request-btn').click();
-  await expect(page.getByTestId('applicant-login-code-input')).toBeVisible();
+  await page.getByTestId('vendor-sign-in-email-input').fill(vendor);
+  await page.getByTestId('vendor-sign-in-request-btn').click();
+  await expect(page.getByTestId('vendor-sign-in-code-input')).toBeVisible();
   expect(await namelessControls(page), 'code step').toEqual([]);
 
   // Email is off on this stack, so the code the vendor would read is planted in its place.
   createApplicantLoginChallenge(marketId, vendor, '135790');
-  await page.getByTestId('applicant-login-code-input').fill('135790');
-  await page.getByTestId('applicant-login-verify-btn').click();
+  await page.getByTestId('vendor-sign-in-code-input').fill('135790');
+  await page.getByTestId('vendor-sign-in-verify-btn').click();
+  await expect(page.getByTestId('vendor-page-apply-link')).toBeVisible();
+  expect(await namelessControls(page), 'the vendor page, signed in').toEqual([]);
+  await page.getByTestId('vendor-page-apply-link').click();
   await page.waitForURL(new RegExp(`/${marketSlug}/apply`));
   await expect(page.getByTestId('apply-form')).toBeVisible();
   expect(await namelessControls(page), 'the application form').toEqual([]);

@@ -48,7 +48,7 @@ test('publishing waits for a run, then says who will read what before it tells t
   await post(request, `/markets/${market.marketId}/transition`, { toPhase: 'assignment' });
 
   await page.goto(marketSetupPath(market.marketId, 'applications'));
-  // The rail's end - the application page, Allocate tables, Publish market, More - takes a row of
+  // The rail's end - the vendor page, Allocate tables, Publish market, More - takes a row of
   // its own rather than running out of the card, which lost More off the edge at 1440.
   const rail = await page.getByTestId('phase-rail').boundingBox();
   const more = await page.getByTestId('phase-rail-menu-button').boundingBox();

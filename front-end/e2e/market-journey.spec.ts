@@ -10,7 +10,7 @@ import {
   CsvImportPage,
   ApplicationMonitorPage,
   ResultPage,
-  ApplicantLoginPage,
+  VendorPage,
 } from './fixtures';
 import { ensureTestOrg, marketNameToSlug } from './helpers/seeds';
 import { ApplyPage } from './pages/ApplyPage';
@@ -256,12 +256,13 @@ test.describe('The MVP journey', () => {
     const slug = marketNameToSlug(marketName);
     const vendorContext = await browser.newContext();
     const vendorPage = await vendorContext.newPage();
-    const login = new ApplicantLoginPage(vendorPage);
-    await vendorPage.goto(`/${slug}/applicant-login?redirect=apply`);
+    const login = new VendorPage(vendorPage);
+    await vendorPage.goto(`/${slug}`);
     await login.requestCode(VENDOR);
     await expect(login.codeInput).toBeVisible();
     createApplicantLoginChallenge(marketId, VENDOR, '864213');
     await login.enterCode('864213');
+    await login.applyLink.click();
     const apply = new ApplyPage(vendorPage);
     await expect(apply.form).toBeVisible({ timeout: 30000 });
     await apply.fullNameInput.fill('Ruth Abernathy');
@@ -269,7 +270,7 @@ test.describe('The MVP journey', () => {
     await apply.maxDatesInput.fill('1');
     await apply.tableChoiceRadio('full').check();
     await apply.submit();
-    await vendorPage.waitForURL(new RegExp(`/${slug}/applicant/dashboard`));
+    await vendorPage.waitForURL(new RegExp(`/${slug}$`));
     await vendorContext.close();
 
     // --- 4. Reviewed in the same stage, applications still open ------------------------------

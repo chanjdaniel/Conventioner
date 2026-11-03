@@ -9,7 +9,7 @@ import {
 } from './fixtures';
 import { changeASettledPlan } from './helpers/settledPlanChanged';
 import { marketSetupPath } from './helpers/marketScreens';
-import { ApplicantLoginPage } from './pages/ApplicantLoginPage';
+import { VendorPage } from './pages/VendorPage';
 import { MarketSetupPage } from './pages/MarketSetupPage';
 import { ensureTestOrg, loginViaApi } from './helpers/seeds';
 import {
@@ -100,11 +100,13 @@ async function signInApplicant(page: Page, marketId: string, marketSlug: string)
     });
   });
 
-  const login = new ApplicantLoginPage(page);
-  await page.goto(`/${marketSlug}/applicant-login?redirect=apply`);
+  const login = new VendorPage(page);
+  await page.goto(`/${marketSlug}`);
   await login.requestCode(APPLICANT_EMAIL);
   await expect(login.codeInput).toBeVisible({ timeout: 5000 });
   await login.enterCode(KNOWN_CODE);
+  // Seeded with an application, so the vendor page offers Edit rather than Apply.
+  await login.editLink.click();
   await page.waitForURL(new RegExp(`/${marketSlug}/apply`), { timeout: 5000 });
   await page.unroute('**/applicant-login/request-code');
 
@@ -334,41 +336,39 @@ test.describe('Essential form fields', () => {
     await apply.submit();
     // 10s, not 5: a submit that validates, freezes the offering and writes is the slowest step in
     // this spec, and the tighter budget flaked under a full-suite run.
-    await page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`), {
+    await page.waitForURL(new RegExp(`/${market.marketSlug}$`), {
       timeout: 10000,
     });
 
-    // The dashboard reads the answers back with the questions' own labels.
-    const answers = page.getByTestId('applicant-dashboard-answers');
-    await expect(
-      answers.getByTestId('applicant-dashboard-answer-essential_full_name'),
-    ).toContainText('Jan van der Berg');
-    await expect(
-      answers.getByTestId('applicant-dashboard-answer-essential_preferred_name'),
-    ).toContainText('Jan');
+    // The vendor page reads the answers back with the questions' own labels.
+    const answers = page.getByTestId('vendor-page-answers');
+    await expect(answers.getByTestId('vendor-page-answer-essential_full_name')).toContainText(
+      'Jan van der Berg',
+    );
+    await expect(answers.getByTestId('vendor-page-answer-essential_preferred_name')).toContainText(
+      'Jan',
+    );
     // Read back whole: a formatted date carries two commas of its own, so the entries are
     // separated by a middot and each prints its year once (E14/F01/S01).
     await expect(
-      answers.getByTestId('applicant-dashboard-answer-essential_available_dates').locator('dd'),
+      answers.getByTestId('vendor-page-answer-essential_available_dates').locator('dd'),
     ).toHaveText('Saturday, August 1, 2099 · Saturday, August 8, 2099');
+    await expect(answers.getByTestId('vendor-page-answer-essential_max_dates')).toContainText('2');
     await expect(
-      answers.getByTestId('applicant-dashboard-answer-essential_max_dates'),
-    ).toContainText('2');
-    await expect(
-      answers.getByTestId('applicant-dashboard-answer-essential_tier_preference').locator('dd'),
+      answers.getByTestId('vendor-page-answer-essential_tier_preference').locator('dd'),
     ).toHaveText('Saturday, August 1, 2099: Gold · Saturday, August 8, 2099: Gold');
     // Stored as a code, read back as the sentence the applicant picked.
+    await expect(answers.getByTestId('vendor-page-answer-essential_table_choice')).toContainText(
+      'Half a table',
+    );
     await expect(
-      answers.getByTestId('applicant-dashboard-answer-essential_table_choice'),
-    ).toContainText('Half a table');
-    await expect(
-      answers.getByTestId('applicant-dashboard-answer-essential_table_share_email'),
+      answers.getByTestId('vendor-page-answer-essential_table_share_email'),
     ).toContainText('buddy@example.com');
-    await expect(
-      answers.getByTestId('applicant-dashboard-answer-essential_section_ranking'),
-    ).toContainText('1. Garden');
+    await expect(answers.getByTestId('vendor-page-answer-essential_section_ranking')).toContainText(
+      '1. Garden',
+    );
     await page.screenshot({
-      path: testInfo.outputPath('06-applicant-dashboard-answers.png'),
+      path: testInfo.outputPath('06-vendor-page-answers.png'),
       fullPage: true,
     });
 

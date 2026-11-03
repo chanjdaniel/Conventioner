@@ -1,4 +1,4 @@
-import { test, expect, TEST_USER, BACKEND_URL, ApplicantLoginPage } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
 import { ApplyPage } from './pages/ApplyPage';
 import {
   createApplicantLoginChallenge,
@@ -40,15 +40,15 @@ test('a returning vendor sees their answers, changes one, and stays signed in th
     extra: { business_name: 'Returning Ceramics', product_type: 'Mugs' },
   });
 
-  const login = new ApplicantLoginPage(page);
-  await page.goto(`/${market.marketSlug}/applicant-login`);
+  const login = new VendorPage(page);
+  await page.goto(`/${market.marketSlug}`);
   await login.requestCode(VENDOR);
   createApplicantLoginChallenge(market.marketId, VENDOR, CODE);
   await login.enterCode(CODE);
-  await page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`));
+  await expect(login.signedInAs).toBeVisible();
 
-  // Your Application leads to the form while applications are open.
-  await page.getByTestId('applicant-dashboard-edit-link').click();
+  // The vendor page leads to the form while applications are open.
+  await page.getByTestId('vendor-page-edit-link').click();
   const apply = new ApplyPage(page);
   await expect(apply.form).toBeVisible({ timeout: 30000 });
 
@@ -64,8 +64,8 @@ test('a returning vendor sees their answers, changes one, and stays signed in th
 
   await apply.fillField('product_type', 'Mugs and bowls');
   await apply.submit();
-  await page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`));
-  await expect(page.getByTestId('applicant-dashboard-answers')).toContainText('Mugs and bowls');
+  await page.waitForURL(new RegExp(`/${market.marketSlug}$`));
+  await expect(page.getByTestId('vendor-page-answers')).toContainText('Mugs and bowls');
 
   // Once the market stops taking applications the answers are read, not changed (E38/F04/S02) -
   // and a direct link still finds the vendor signed in.
@@ -77,11 +77,11 @@ test('a returning vendor sees their answers, changes one, and stays signed in th
     },
   );
   expect(closed.ok(), await closed.text()).toBeTruthy();
-  await page.goto(`/${market.marketSlug}/applicant/dashboard`);
-  await expect(page.getByTestId('applicant-dashboard-answers')).toContainText('Mugs and bowls', {
+  await page.goto(`/${market.marketSlug}`);
+  await expect(page.getByTestId('vendor-page-answers')).toContainText('Mugs and bowls', {
     timeout: 30000,
   });
-  await expect(page.getByTestId('applicant-dashboard-edit-link')).toHaveCount(0);
+  await expect(page.getByTestId('vendor-page-edit-link')).toHaveCount(0);
   await page.goto(`/${market.marketSlug}/apply`);
   await expect(page.getByTestId('apply-closed')).toBeVisible({ timeout: 30000 });
 });
@@ -111,8 +111,8 @@ test('a saved application that does not arrive is said so, never shown as none, 
     extra: { business_name: 'Stalled Prints', product_type: 'Prints' },
   });
   const saved = `**/public/markets/${market.marketSlug}/applicant/application`;
-  const login = new ApplicantLoginPage(page);
-  await page.goto(`/${market.marketSlug}/applicant-login`);
+  const login = new VendorPage(page);
+  await page.goto(`/${market.marketSlug}`);
   await login.requestCode('stalled-vendor@example.com');
   createApplicantLoginChallenge(market.marketId, 'stalled-vendor@example.com', CODE);
 
@@ -121,12 +121,11 @@ test('a saved application that does not arrive is said so, never shown as none, 
     route.request().method() === 'GET' ? route.abort('failed') : route.continue(),
   );
   await login.enterCode(CODE);
-  await page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`));
-  await expect(page.getByTestId('applicant-dashboard-load-failed')).toBeVisible();
-  await expect(page.getByTestId('applicant-dashboard-info')).toHaveCount(0);
+  await expect(page.getByTestId('vendor-page-load-failed')).toBeVisible();
+  await expect(page.getByTestId('vendor-page-info')).toHaveCount(0);
   await page.unroute(saved);
-  await page.getByTestId('applicant-dashboard-retry-button').click();
-  await expect(page.getByTestId('applicant-dashboard-answers')).toContainText('Stalled Prints');
+  await page.getByTestId('vendor-page-retry-button').click();
+  await expect(page.getByTestId('vendor-page-answers')).toContainText('Stalled Prints');
 
   // The apply page: the read never answers, as on a stalled stack.
   const held: Array<{ abort: () => Promise<void> }> = [];

@@ -1,5 +1,5 @@
 import type { APIRequestContext, Browser, Page } from '@playwright/test';
-import { test, expect, TEST_USER, BACKEND_URL, ApplicantLoginPage } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
 import { ApplyPage } from './pages/ApplyPage';
 import { MarketSetupPage } from './pages/MarketSetupPage';
 import { OpenApplicationsDialog } from './pages/OpenApplicationsDialog';
@@ -55,12 +55,13 @@ async function apply(
   const context = await browser.newContext();
   try {
     const page = await context.newPage();
-    const login = new ApplicantLoginPage(page);
-    await page.goto(`/${market.marketSlug}/applicant-login?redirect=apply`);
+    const login = new VendorPage(page);
+    await page.goto(`/${market.marketSlug}`);
     await login.requestCode(vendor);
     await expect(login.codeInput).toBeVisible();
     createApplicantLoginChallenge(market.marketId, vendor, CODE);
     await login.enterCode(CODE);
+    await login.applyLink.click();
     const form = new ApplyPage(page);
     await expect(form.form).toBeVisible({ timeout: 30000 });
     await form.fullNameInput.fill(`${name} Vendor`);
@@ -70,7 +71,7 @@ async function apply(
     await form.fillField('business_name', `${name} Prints`);
     await form.fillField('product_type', 'Letterpress cards');
     await form.submit();
-    await page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`));
+    await page.waitForURL(new RegExp(`/${market.marketSlug}$`));
   } finally {
     await context.close();
   }

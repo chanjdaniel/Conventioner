@@ -1,4 +1,4 @@
-import { test, expect, TEST_USER, BACKEND_URL, ApplicantLoginPage } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
 import { ApplyPage } from './pages/ApplyPage';
 import {
   createApplicantLoginChallenge,
@@ -32,8 +32,8 @@ test('a brand-new address requests a code, signs in, applies and sees it submitt
   );
 
   // The real request, through the page.
-  const login = new ApplicantLoginPage(page);
-  await page.goto(`/${market.marketSlug}/applicant-login?redirect=apply`);
+  const login = new VendorPage(page);
+  await page.goto(`/${market.marketSlug}`);
   await login.requestCode(NEW_VENDOR);
   await expect(login.codeInput).toBeVisible();
 
@@ -41,7 +41,9 @@ test('a brand-new address requests a code, signs in, applies and sees it submitt
   createApplicantLoginChallenge(market.marketId, NEW_VENDOR, CODE);
   await login.enterCode(CODE);
 
-  // Signed in with nothing to load: the empty form, not "Sign In" again.
+  // Signed in with nothing to load: "Apply", not "Sign In" again, then the empty form.
+  await expect(login.info).toContainText('You have not applied to this market yet.');
+  await login.applyLink.click();
   const apply = new ApplyPage(page);
   await page.waitForURL(new RegExp(`/${market.marketSlug}/apply`));
   await expect(apply.form).toBeVisible({ timeout: 30000 });
@@ -55,9 +57,9 @@ test('a brand-new address requests a code, signs in, applies and sees it submitt
   await apply.fillField('product_type', 'Letterpress cards');
   await apply.submit();
 
-  await page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`));
-  await expect(page.getByTestId('applicant-dashboard-status')).toContainText('Submitted');
-  await expect(page.getByTestId('applicant-dashboard-answers')).toContainText('Newcomer Prints');
+  await page.waitForURL(new RegExp(`/${market.marketSlug}$`));
+  await expect(login.status).toContainText('Submitted');
+  await expect(login.answers).toContainText('Newcomer Prints');
 });
 
 /**
@@ -83,11 +85,12 @@ test('a vendor a rule rejects as they apply reads "Submitted", as anyone would',
   expect(rule.ok(), await rule.text()).toBeTruthy();
 
   const vendor = 'turned-away-vendor@example.com';
-  const login = new ApplicantLoginPage(page);
-  await page.goto(`/${market.marketSlug}/applicant-login?redirect=apply`);
+  const login = new VendorPage(page);
+  await page.goto(`/${market.marketSlug}`);
   await login.requestCode(vendor);
   createApplicantLoginChallenge(market.marketId, vendor, CODE);
   await login.enterCode(CODE);
+  await login.applyLink.click();
 
   const apply = new ApplyPage(page);
   await page.waitForURL(new RegExp(`/${market.marketSlug}/apply`));
@@ -99,8 +102,8 @@ test('a vendor a rule rejects as they apply reads "Submitted", as anyone would',
   await apply.fillField('product_type', 'Candles');
   await apply.submit();
 
-  await page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`));
-  const status = page.getByTestId('applicant-dashboard-status');
+  await page.waitForURL(new RegExp(`/${market.marketSlug}$`));
+  const status = page.getByTestId('vendor-page-status');
   await expect(status).toContainText('Submitted');
   await expect(status).not.toContainText('Review');
   // And the rule did reject them: the organizer reads it, the vendor does not.
@@ -118,13 +121,13 @@ test('signing in does not assume the vendor has applied', async ({ page, request
     TEST_USER.email,
     TEST_USER.password,
   );
-  const login = new ApplicantLoginPage(page);
-  await page.goto(`/${market.marketSlug}/applicant-login`);
+  const login = new VendorPage(page);
+  await page.goto(`/${market.marketSlug}`);
 
-  await expect(page.getByTestId('applicant-login-email-step')).not.toContainText('used to apply');
+  await expect(page.getByTestId('vendor-sign-in-email-step')).not.toContainText('used to apply');
   await login.requestCode(NEW_VENDOR);
   // The same words for every address - and true for every address, since every one is sent a code.
-  await expect(page.getByTestId('applicant-login-code-step')).toContainText(
+  await expect(page.getByTestId('vendor-sign-in-code-step')).toContainText(
     "We've sent a code to first-time-vendor@example.com.",
   );
 });

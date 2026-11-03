@@ -1,4 +1,4 @@
-import { test, expect, BACKEND_URL, TEST_USER, ApplicantLoginPage } from './fixtures';
+import { test, expect, BACKEND_URL, TEST_USER, VendorPage } from './fixtures';
 import {
   seedApplicantMarket,
   seedApplicationDoc,
@@ -42,10 +42,6 @@ const REQUEST_CODE_MESSAGE = {
 
 /** The exact body the back end returns on every verify-code failure. */
 const VERIFY_FAILURE_MESSAGE = { message: 'Invalid or expired code.' };
-
-function dashboardUrl(slug: string): RegExp {
-  return new RegExp(`/${slug}/applicant/dashboard`);
-}
 
 test.describe('Public applicant login - anti-oracle', () => {
   let market: ApplicantMarketSeed;
@@ -143,8 +139,8 @@ test.describe('Public applicant login - anti-oracle', () => {
 
   // ── UI rendering and flow ─────────────────────────────────────────────
 
-  test('the login page transitions from email step to code step', async ({ page }) => {
-    const login = new ApplicantLoginPage(page);
+  test("the vendor page's sign-in goes from the email step to the code step", async ({ page }) => {
+    const login = new VendorPage(page);
 
     await login.goto(market.marketSlug);
     await expect(login.emailInput).toBeVisible();
@@ -159,7 +155,7 @@ test.describe('Public applicant login - anti-oracle', () => {
   });
 
   test('verify-code failure shows the same error message through the UI', async ({ page }) => {
-    const login = new ApplicantLoginPage(page);
+    const login = new VendorPage(page);
 
     await login.goto(market.marketSlug);
     await login.requestCode(APPLICANT_EMAIL);
@@ -177,8 +173,8 @@ test.describe('Public applicant login - anti-oracle', () => {
     await expect(login.error).toHaveText('Invalid or expired code.');
   });
 
-  test('a successful verification redirects the applicant to the dashboard', async ({ page }) => {
-    const login = new ApplicantLoginPage(page);
+  test('a successful verification signs the vendor in on the page', async ({ page }) => {
+    const login = new VendorPage(page);
     const knownCode = KNOWN_CODE;
 
     // Seed a challenge with a known code so the test can verify end-to-end
@@ -205,8 +201,9 @@ test.describe('Public applicant login - anti-oracle', () => {
     // challenge we seeded survives in the database. Now verify with it.
     await login.enterCode(knownCode);
 
-    // On success the front end redirects to the applicant dashboard.
-    await page.waitForURL(dashboardUrl(market.marketSlug), { timeout: 5000 });
-    await expect(page.getByTestId('applicant-dashboard-page')).toBeVisible({ timeout: 5000 });
+    // On success the page signs them in where they are, at the market's own address.
+    await expect(login.signedInAs).toContainText(APPLICANT_EMAIL, { timeout: 5000 });
+    await expect(page).toHaveURL(new RegExp(`/${market.marketSlug}$`));
+    await expect(login.status).toContainText('Submitted');
   });
 });

@@ -1,4 +1,4 @@
-import { test, expect, BACKEND_URL, ApplicantLoginPage } from './fixtures';
+import { test, expect, BACKEND_URL, VendorPage } from './fixtures';
 import { ApplyPage } from './pages/ApplyPage';
 import { runBackendScript } from './helpers/backendScript';
 import { mongoEval } from './helpers/mongo';
@@ -71,9 +71,9 @@ test.describe('The test markets', () => {
     ).toBe('0');
 
     // The online market takes a vendor's sign-in; the Google Form market reads as no market.
-    await page.goto(`/${marketNameToSlug(ONLINE)}/applicant-login`);
-    await expect(page.getByTestId('applicant-login-market')).toHaveText(ONLINE);
-    await page.goto(`/${marketNameToSlug(GOOGLE_FORM)}/applicant-login`);
+    await page.goto(`/${marketNameToSlug(ONLINE)}`);
+    await expect(page.getByTestId('vendor-page-market-name')).toHaveText(ONLINE);
+    await page.goto(`/${marketNameToSlug(GOOGLE_FORM)}`);
     await expect(page.getByTestId('page-not-found')).toBeVisible();
   });
 
@@ -104,11 +104,12 @@ test.describe('The test markets', () => {
     );
     const slug = marketNameToSlug(ONLINE);
 
-    const login = new ApplicantLoginPage(page);
-    await page.goto(`/${slug}/applicant-login?redirect=apply`);
+    const login = new VendorPage(page);
+    await page.goto(`/${slug}`);
     await login.requestCode(vendor);
     createApplicantLoginChallenge(marketId(ONLINE), vendor, code);
     await login.enterCode(code);
+    await login.applyLink.click();
 
     const apply = new ApplyPage(page);
     await page.waitForURL(new RegExp(`/${slug}/apply`));
@@ -121,7 +122,7 @@ test.describe('The test markets', () => {
     await apply.fillField('product_type', 'Test goods');
     await apply.submit();
 
-    await page.waitForURL(new RegExp(`/${slug}/applicant/dashboard`));
-    await expect(page.getByTestId('applicant-dashboard-status')).toContainText('Submitted');
+    await page.waitForURL(new RegExp(`/${slug}$`));
+    await expect(page.getByTestId('vendor-page-status')).toContainText('Submitted');
   });
 });
