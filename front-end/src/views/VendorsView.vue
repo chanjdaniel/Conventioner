@@ -698,7 +698,6 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
   /* No max-height and no overflow of its own: .vendors-body is the one scroller on this page.
      Two nested scrollers meant the wheel did different things depending on where the pointer
      was - the page scrolled 945/900 while the list scrolled 14,374/540. */
-  padding-right: var(--space-1);
 }
 
 .vendor-row {

@@ -338,6 +338,11 @@ test('the Discord row reads filter, then actions, with its error on a row of its
   const { check: afterCheck, give: afterGive } = await rowBoxes(vendors);
   sameEdge(afterCheck.x, beforeCheck.x, 'the filter appearing leaves "Check Discord" where it was');
   sameEdge(afterGive.x, beforeGive.x, 'the filter appearing leaves "Give roles" where it was');
+  sameEdge(
+    (await boxOf(vendors.vendorListItems.first())).right,
+    afterGive.right,
+    "a vendor's row ends where the actions do",
+  );
 
   // On a phone the actions take their own lines under the filter, and the page keeps the window.
   await page.setViewportSize(PHONE);
