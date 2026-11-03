@@ -93,6 +93,10 @@ Covered by:
 4. Each vendor placed that day, by table: their name, a link at rest (link ink, underlined, a 44px target on a phone), which opens the [vendor drawer](vendor-drawer.md) and never checks them in; the time they checked in and by whom ("by you", or the organizer's address; a vendor's own check-in names nobody), or "Not yet"; and their notes under the row when they have some.
 5. While the market is in Market Days, "Check in" and "Undo" on each row check a vendor in at the door, for someone who may check vendors in.
    A Viewer is offered neither: they read the frame's "You can view this market but not change it. …", the rail's "Follow who has checked in at the door.", and each row ending at its status (E38/F15/S04).
+6. In Market Days, someone who may check vendors in opens "Door code" at the end of the dates' row: the market's name, its QR code, the code as "K7M 4QP" and "Scan with your phone's camera to check in", full screen, for the tablet or laptop that stands at the entrance.
+   With no code yet it offers "Make a door code".
+   "Print" prints the same poster on one page, and "New code" asks "Make a new door code? The current code and every printed poster of it stop working.", on Cancel, before it makes another; the code stays the same until then.
+   A Viewer is offered no Door code, and the server refuses them the code.
 
 It lists everyone expected on the day, so it shows who is missing; "Nobody is assigned on this date." on a date with nobody.
 It works at a phone's width, as only the other organizer screens that fit a phone do ([attendance and the door](../../implementation/modules/attendance-and-door.md#sharp-edges)), and there its rows keep a gutter at both sides rather than running to the card's edges (T15).
@@ -100,6 +104,7 @@ Covered by:
 - `a-seat-and-an-entry-open-the-drawer.spec.ts`
 - `a-viewer-at-the-door-reads-why.spec.ts`
 - `checkin.spec.ts`
+- `the-door-code.spec.ts`
 - `the-door-keeps-its-own-day.spec.ts`
 - `the-door-on-market-day.spec.ts`
 
