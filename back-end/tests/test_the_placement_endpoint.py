@@ -770,7 +770,7 @@ class TestTwoChangesAtOnce:
         return [(doc["vendor_email"], doc["date"], doc["freed"]["by"], doc.get("set_by_hand"))
                 for doc in market_records.amounts_owed.documents if doc.get("freed")]
 
-    def test_a_free_refused_this_way_still_keeps_its_line_while_the_seat_is_held(
+    def test_a_free_refused_this_way_leaves_no_line_while_the_seat_is_held_and_others_stay(
             self, applied, market_records):
         """The kept line goes only because the seat is still held: the free that kept it never
         landed, and the line reads the held seat."""
