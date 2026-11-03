@@ -116,11 +116,11 @@ interface ProfiledRead {
  * spec reads in between.
  */
 async function usersReadsWhile(act: () => Promise<void>): Promise<ProfiledRead[]> {
-  mongoEval(
-    'db.setProfilingLevel(0); db.system.profile.drop(); ' +
-      'db.setProfilingLevel(2, { filter: { ns: db.getName() + ".users" } })',
-  );
   try {
+    mongoEval(
+      'db.setProfilingLevel(0); db.system.profile.drop(); ' +
+        'db.setProfilingLevel(2, { filter: { ns: db.getName() + ".users" } })',
+    );
     await act();
     return JSON.parse(
       mongoEval(
@@ -129,8 +129,25 @@ async function usersReadsWhile(act: () => Promise<void>): Promise<ProfiledRead[]
       ),
     ) as ProfiledRead[];
   } finally {
-    mongoEval('db.setProfilingLevel(0); db.system.profile.drop()');
+    profilerOff();
   }
+}
+
+/**
+ * The profiler off and its filter unset: a filter, once set, outlives the level and decides
+ * which operations the slow-query log writes, in place of `slowms`, until it is unset.
+ */
+function profilerOff(): void {
+  mongoEval("db.setProfilingLevel(0, { filter: 'unset' }); db.system.profile.drop()");
+}
+
+/**
+ * The reads a screen's opening made, each one a database round trip of its own: a `getmore`, the
+ * rest of a cursor's answer past its first batch, is the same read going on. A read per person,
+ * whatever its filter (by `id`, `email`, `_id` or `$eq`), shows here as one more per person.
+ */
+function readsMade(reads: ProfiledRead[]): ProfiledRead[] {
+  return reads.filter((read) => read.op !== 'getmore');
 }
 
 /**
@@ -153,13 +170,26 @@ test.describe('Manage market at 150 people', () => {
     seed = await seedPeopleAtScale(request);
   });
 
-  test('names every account in one read of the database', async ({ authenticatedPage: page }) => {
+  test('names every account in one read of the database', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
     const seededIds = new Set(seed.people.map((person) => person.id));
-    await toTheMarket(page, seed.marketName);
+    const onePerson = await seedOnePersonMarket(request);
 
+    await toTheMarket(page, onePerson.marketName);
+    const forOne = await usersReadsWhile(async () => {
+      await requestsWhile(page, {}, async () => {
+        await openManage(page);
+        await expect(page.getByTestId('manage-market-person')).toHaveCount(1);
+      });
+    });
+    await toTheMarket(page, seed.marketName);
     const reads = await usersReadsWhile(async () => {
-      await openManage(page);
-      await expect(page.getByTestId('manage-market-person')).toHaveCount(seed.counts.withAccess);
+      await requestsWhile(page, {}, async () => {
+        await openManage(page);
+        await expect(page.getByTestId('manage-market-person')).toHaveCount(seed.counts.withAccess);
+      });
     });
 
     const alone = reads.map((read) => idsNamed(read).alone).filter((id) => id && seededIds.has(id));
@@ -167,6 +197,9 @@ test.describe('Manage market at 150 people', () => {
     const batches = reads.filter((read) => idsNamed(read).batch.some((id) => seededIds.has(id)));
     expect(batches).toHaveLength(1);
     expect(new Set(idsNamed(batches[0]).batch)).toEqual(seededIds);
+    // The one-person market's read names no one but its reader, so the batch is the one read the
+    // 150 people add, whatever filter a read per person would use.
+    expect(readsMade(reads), 'the reads 153 people add').toHaveLength(readsMade(forOne).length + 1);
   });
 
   test('opens with as many requests as a market of one person', async ({
@@ -231,7 +264,9 @@ test.describe('Manage organization at 150 people', () => {
     const seededIds = new Set(seed.people.map((person) => person.id));
 
     const reads = await usersReadsWhile(async () => {
-      await openManageOrganization(page, seed.orgId, seed.counts);
+      await requestsWhile(page, {}, async () => {
+        await openManageOrganization(page, seed.orgId, seed.counts);
+      });
     });
 
     const alone = reads.map((read) => idsNamed(read).alone).filter((id) => id && seededIds.has(id));
@@ -241,6 +276,10 @@ test.describe('Manage organization at 150 people', () => {
     // The seed owner is in other organizations too, whose people the same read names.
     const batch = new Set(idsNamed(batches[0]).batch);
     expect([...seededIds].filter((id) => !batch.has(id))).toEqual([]);
+    // A one-person organization's opening reads every organization the seed owner is in as well,
+    // so it is no measure here: the opening's reads are the session's account and the one batch,
+    // a handful, where a read per person, whatever its filter, makes one per admin and member.
+    expect(readsMade(reads).length, 'the reads the opening made').toBeLessThan(10);
   });
 
   test('opens with as many requests as an organization of one person', async ({
@@ -257,5 +296,26 @@ test.describe('Manage organization at 150 people', () => {
     });
 
     expect(forMany).toEqual(forOne);
+  });
+});
+
+test.describe('Counting the reads of accounts', () => {
+  /** The profiler's level and, when one is set, its filter. */
+  function profilerStatus(): { was: number; filter?: unknown } {
+    return JSON.parse(mongoEval('EJSON.stringify(db.getProfilingStatus())'));
+  }
+
+  test('leaves the profiler off with no filter, however the screen ends', async () => {
+    await usersReadsWhile(async () => {});
+    expect(profilerStatus()).toMatchObject({ was: 0 });
+    expect(profilerStatus().filter).toBeUndefined();
+
+    await expect(
+      usersReadsWhile(async () => {
+        throw new Error('the screen failed');
+      }),
+    ).rejects.toThrow('the screen failed');
+    expect(profilerStatus()).toMatchObject({ was: 0 });
+    expect(profilerStatus().filter).toBeUndefined();
   });
 });
