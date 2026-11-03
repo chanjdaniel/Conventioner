@@ -816,3 +816,244 @@ describe('one choice', () => {
     wrapper.unmount();
   });
 });
+
+describe('typed text', () => {
+  const ANSWERS: PickerGroup[] = [
+    {
+      options: [
+        { value: 'art-prints', label: 'Art prints' },
+        { value: 'art', label: 'Art' },
+        { value: 'stickers', label: 'Stickers' },
+      ],
+    },
+  ];
+
+  function typedPicker(
+    modelValue: string | string[] = '',
+    extra: { cap?: number; groups?: PickerGroup[] } = {},
+  ) {
+    const wrapper = mount(SearchPicker, {
+      props: {
+        ...(Array.isArray(modelValue) ? { multiple: true as const, modelValue } : { modelValue }),
+        acceptsTyped: true,
+        groups: ANSWERS,
+        finds,
+        label: 'What it means',
+        testid: 'who',
+        'onUpdate:modelValue': (value: string | string[]) =>
+          wrapper.setProps({ modelValue: value } as never),
+        ...extra,
+      },
+      attachTo: document.body,
+    });
+    return wrapper;
+  }
+  type Typed = ReturnType<typeof typedPicker>;
+
+  const input = (wrapper: Typed) => wrapper.get('[data-testid="who-input"]');
+  const element = (wrapper: Typed) => input(wrapper).element as HTMLInputElement;
+  const rows = (wrapper: Typed) =>
+    wrapper.findAll('[role="option"]').map((row) => row.get('span').text());
+  const last = (wrapper: Typed) => wrapper.emitted('update:modelValue')?.at(-1)?.[0];
+  const activeRow = (wrapper: Typed) => {
+    const id = input(wrapper).attributes('aria-activedescendant');
+    return id ? wrapper.get(`[id="${id}"]`).get('span').text() : undefined;
+  };
+
+  describe('the row', () => {
+    it('leads the list when no option is exactly the words', async () => {
+      const wrapper = typedPicker();
+      await input(wrapper).setValue('art');
+
+      expect(rows(wrapper)).toEqual(['Use "art"', 'Art prints', 'Art']);
+      wrapper.unmount();
+    });
+
+    it('reads the words trimmed', async () => {
+      const wrapper = typedPicker();
+      await input(wrapper).setValue('  Hand-poured soap  ');
+
+      expect(rows(wrapper)).toEqual(['Use "Hand-poured soap"']);
+      wrapper.unmount();
+    });
+
+    it('is not offered for words that are exactly an option', async () => {
+      const wrapper = typedPicker();
+      await input(wrapper).setValue(' Stickers ');
+
+      expect(rows(wrapper)).toEqual(['Stickers']);
+      wrapper.unmount();
+    });
+
+    it('is not offered with no words', async () => {
+      const wrapper = typedPicker();
+      await input(wrapper).trigger('click');
+      expect(rows(wrapper)).toEqual(['Art prints', 'Art', 'Stickers']);
+
+      await input(wrapper).setValue('   ');
+      expect(rows(wrapper)).toEqual(['Art prints', 'Art', 'Stickers']);
+      wrapper.unmount();
+    });
+
+    it('says nothing of no match, since the words can still be used', async () => {
+      const wrapper = typedPicker();
+      await input(wrapper).setValue('Hand-poured soap');
+
+      expect(wrapper.find('[data-testid="who-none"]').exists()).toBe(false);
+      expect(wrapper.find('.search-picker-none').exists()).toBe(false);
+      wrapper.unmount();
+    });
+
+    it('opens a list that has no options of its own, once there are words', async () => {
+      const wrapper = typedPicker('', { groups: [] });
+      await input(wrapper).trigger('click');
+      expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+
+      await input(wrapper).setValue('A first answer');
+      expect(rows(wrapper)).toEqual(['Use "A first answer"']);
+
+      await input(wrapper).setValue('');
+      expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+      wrapper.unmount();
+    });
+
+    it('is not counted against the cap, nor in what the cap leaves', async () => {
+      const wrapper = typedPicker('', { cap: 1 });
+      await input(wrapper).setValue('art');
+
+      expect(rows(wrapper)).toEqual(['Use "art"', 'Art prints']);
+      expect(wrapper.get('[data-testid="who-more"]').text()).toBe('1 more, type to narrow');
+      wrapper.unmount();
+    });
+  });
+
+  describe('the keys', () => {
+    it('reach it first, then the matches', async () => {
+      const wrapper = typedPicker();
+      await input(wrapper).setValue('art');
+
+      expect(activeRow(wrapper)).toBe('Use "art"');
+      await input(wrapper).trigger('keydown', { key: 'ArrowDown' });
+      expect(activeRow(wrapper)).toBe('Art prints');
+      await input(wrapper).trigger('keydown', { key: 'ArrowUp' });
+      expect(activeRow(wrapper)).toBe('Use "art"');
+      wrapper.unmount();
+    });
+
+    it('take the words by Enter', async () => {
+      const wrapper = typedPicker();
+      await input(wrapper).setValue('art');
+      await input(wrapper).trigger('keydown', { key: 'Enter' });
+
+      expect(last(wrapper)).toBe('art');
+      wrapper.unmount();
+    });
+
+    it('take the option that is exactly the words, past others they find', async () => {
+      const wrapper = typedPicker();
+      await input(wrapper).setValue('Art');
+
+      expect(rows(wrapper)).toEqual(['Art prints', 'Art']);
+      expect(activeRow(wrapper)).toBe('Art');
+      await input(wrapper).trigger('keydown', { key: 'Enter' });
+      expect(last(wrapper)).toBe('art');
+      expect(element(wrapper).value).toBe('Art');
+      wrapper.unmount();
+    });
+  });
+
+  describe('one choice', () => {
+    it('emits the words trimmed and shows them, by a click', async () => {
+      const wrapper = typedPicker();
+      await input(wrapper).setValue('  Hand-poured soap ');
+      await wrapper.get('[role="option"]').trigger('click');
+
+      expect(last(wrapper)).toBe('Hand-poured soap');
+      expect(element(wrapper).value).toBe('Hand-poured soap');
+      expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+      wrapper.unmount();
+    });
+
+    it('shows a value no option offers as the field text', () => {
+      const wrapper = typedPicker('Hand-poured soap');
+
+      expect(element(wrapper).value).toBe('Hand-poured soap');
+      wrapper.unmount();
+    });
+
+    it('reopened on the words, they are selected, no row is active, and Enter keeps them', async () => {
+      const wrapper = typedPicker('Hand-poured soap');
+      await input(wrapper).trigger('click');
+
+      expect(rows(wrapper)).toEqual(['Art prints', 'Art', 'Stickers']);
+      expect(activeRow(wrapper)).toBeUndefined();
+      expect(element(wrapper).selectionStart).toBe(0);
+      expect(element(wrapper).selectionEnd).toBe('Hand-poured soap'.length);
+
+      await input(wrapper).trigger('keydown', { key: 'Enter' });
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+      expect(element(wrapper).value).toBe('Hand-poured soap');
+      wrapper.unmount();
+    });
+
+    it('lets the words go when they are typed over', async () => {
+      const wrapper = typedPicker('Hand-poured soap');
+      await input(wrapper).setValue('Hand-poured candle');
+
+      expect(last(wrapper)).toBe('');
+      expect(element(wrapper).value).toBe('Hand-poured candle');
+      expect(rows(wrapper)).toEqual(['Use "Hand-poured candle"']);
+      wrapper.unmount();
+    });
+  });
+
+  describe('several choices', () => {
+    const chipWords = (wrapper: Typed) =>
+      wrapper.findAll('[data-testid="who-chip"] > span:first-child').map((chip) => chip.text());
+
+    it('makes the words a chip, ticks the row, and keeps the list and the words', async () => {
+      const wrapper = typedPicker(['art']);
+      await input(wrapper).setValue('Hand-poured soap');
+      await wrapper.get('[role="option"]').trigger('click');
+
+      expect(last(wrapper)).toEqual(['art', 'Hand-poured soap']);
+      expect(chipWords(wrapper)).toEqual(['Art', 'Hand-poured soap']);
+      expect(wrapper.get('[role="option"]').attributes('aria-selected')).toBe('true');
+      expect(wrapper.find('[data-testid="who-option-tick"]').exists()).toBe(true);
+      expect(element(wrapper).value).toBe('Hand-poured soap');
+      wrapper.unmount();
+    });
+
+    it('takes the chip away when the row is chosen again', async () => {
+      const wrapper = typedPicker(['Hand-poured soap']);
+      await input(wrapper).setValue('Hand-poured soap');
+      await input(wrapper).trigger('keydown', { key: 'Enter' });
+
+      expect(last(wrapper)).toEqual([]);
+      expect(chipWords(wrapper)).toEqual([]);
+      wrapper.unmount();
+    });
+
+    it('offers no row for words that are exactly an option', async () => {
+      const wrapper = typedPicker([]);
+      await input(wrapper).setValue('Stickers');
+
+      expect(rows(wrapper)).toEqual(['Stickers']);
+      await input(wrapper).trigger('keydown', { key: 'Enter' });
+      expect(last(wrapper)).toEqual(['stickers']);
+      wrapper.unmount();
+    });
+  });
+});
+
+describe('without acceptsTyped', () => {
+  it('offers no row, says nothing matches, and a value no option offers stays out of the field', async () => {
+    const wrapper = picker('Hand-poured soap');
+    expect((field(wrapper).element as HTMLInputElement).value).toBe('');
+
+    await field(wrapper).setValue('Hand-poured soap');
+    expect(shown(wrapper)).toEqual([]);
+    expect(wrapper.text()).not.toContain('Use "');
+    wrapper.unmount();
+  });
+});

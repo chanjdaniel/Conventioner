@@ -4,6 +4,8 @@
  * opens on C7, "Who will follow up", beside today's native select of the same 150 people, then the
  * cap on a long plain list and across groups, and the states the cap brings. Several choices follow:
  * C5, the reviewers, beside today's real chooser with its checkbox per person, and C10's answers.
+ * Typed text ends it: C1, the import's value fixes, beside today's real row with its native select,
+ * and C3's option input, which keeps a new answer as typed.
  *
  * Every picker here is the real `SearchPicker`; the line under each reads out what it holds, so a
  * choice is seen to land.
@@ -11,6 +13,8 @@
 import { computed, ref } from 'vue';
 import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
 import ReviewerPicker from '@/components/market/ReviewerPicker.vue';
+import ValueFixes from '@/components/ValueFixes.vue';
+import { IGNORE_VALUE } from '@/utils/valueFixes';
 import LibrarySection from '../parts/LibrarySection.vue';
 import LibraryPanel from '../parts/LibraryPanel.vue';
 import TodayAndProposed from '../parts/TodayAndProposed.vue';
@@ -18,7 +22,7 @@ import ChoicesForYou from '../parts/ChoicesForYou.vue';
 import ReadOut from '../parts/ReadOut.vue';
 import { fixture } from '../fixture';
 
-const { people, question, reviewers, export: offered } = fixture;
+const { people, question, reviewers, valuesToFix, export: offered } = fixture;
 
 /** What a screen would cap its match list at; the grouped demo's is smaller, to cross a group. */
 const CAP = 50;
@@ -109,6 +113,39 @@ const longestAnswers = [...question.options]
   .sort((a, b) => b.length - a.length)
   .slice(0, 3);
 const longAnswers = ref([...longestAnswers]);
+
+const IGNORE_LABEL = 'Ignore this value';
+/** A value's fix is one of the question's answers, or ignoring it, which the cap must not hide. */
+const fixGroups: PickerGroup[] = [
+  {
+    options: [{ value: IGNORE_VALUE, label: IGNORE_LABEL }, ...optionGroups[0]!.options],
+  },
+];
+const offeredAnswers = question.options.map(({ label }) => label);
+
+/** C1 today: the real control, on one row, since each row draws every option. */
+const todayFixes = [{ target: question.label, value: valuesToFix[0]!, offered: offeredAnswers }];
+const todayFix = ref('');
+
+/** The rows shown before "Show all", as the start's set-aside values are today. */
+const FIRST_FIXES = 6;
+const allFixes = ref(false);
+const shownFixes = computed(() =>
+  allFixes.value ? valuesToFix : valuesToFix.slice(0, FIRST_FIXES),
+);
+const fixes = ref<Record<string, string>>({});
+const fixedCount = computed(() => valuesToFix.filter((value) => fixes.value[value]).length);
+function fixReadOut(fix: string | undefined): string {
+  if (!fix) return '';
+  if (fix === IGNORE_VALUE) return IGNORE_LABEL;
+  return offeredAnswers.includes(fix) ? fix : `${fix}, as typed`;
+}
+
+/** C3: an option's input, which takes one of the answers already offered or a new one. */
+const newAnswer = ref('');
+const keptAnswer = ref('Hand-poured soap');
+const firstAnswer = ref('');
+const typedAnswers = ref<string[]>([]);
 </script>
 
 <template>
@@ -329,6 +366,135 @@ const longAnswers = ref([...longestAnswers]);
     </LibraryPanel>
   </LibrarySection>
 
+  <LibrarySection
+    title="Typed text kept"
+    about="Typed text serves C1, C3 and F08: a native select of every answer on each row of the import's value fixes, and a question's options, where a new answer is never lost."
+  >
+    <TodayAndProposed
+      :today="`Today: a native select of ${question.options.length} answers on every row (C1)`"
+      proposed="Proposed: found by typing, or kept as typed, the rows behind a cap"
+    >
+      <template #today>
+        <div class="library-demo" data-testid="library-c1-today">
+          <ValueFixes
+            :entries="todayFixes"
+            :resolution-for="() => todayFix"
+            testid="library-c1-today"
+            @resolve="(_target, _value, choice) => (todayFix = choice)"
+          />
+          <ReadOut label="Fix" :value="fixReadOut(todayFix)" />
+        </div>
+      </template>
+      <template #proposed>
+        <div class="library-fixes">
+          <div
+            v-for="(value, at) in shownFixes"
+            :key="value"
+            class="library-demo"
+            role="group"
+            :aria-labelledby="`library-c1-value-${at}`"
+            data-testid="library-c1-value"
+          >
+            <code :id="`library-c1-value-${at}`" class="library-fix-value">{{ value }}</code>
+            <SearchPicker
+              :model-value="fixes[value] ?? ''"
+              :groups="fixGroups"
+              :finds="findsByLabel"
+              :cap="CAP"
+              accepts-typed
+              label="What it means"
+              placeholder="Type to find an answer…"
+              none-word="Nothing"
+              :testid="`library-c1-fix-${at}`"
+              @update:model-value="fixes[value] = $event as string"
+            />
+            <ReadOut label="Fix" :value="fixReadOut(fixes[value])" />
+          </div>
+          <div class="library-fixes-foot">
+            <button
+              type="button"
+              class="btn btn--compact btn--secondary"
+              data-testid="library-c1-show-all"
+              @click="allFixes = !allFixes"
+            >
+              {{ allFixes ? 'Show fewer' : `Show all ${valuesToFix.length}` }}
+            </button>
+            <div data-testid="library-c1-fixed">
+              <ReadOut label="Fixed" :value="`${fixedCount} of ${valuesToFix.length}`" />
+            </div>
+          </div>
+        </div>
+      </template>
+    </TodayAndProposed>
+
+    <LibraryPanel label="A new answer, kept as typed (C3's shape)">
+      <div class="library-demo">
+        <SearchPicker
+          v-model="newAnswer"
+          :groups="optionGroups"
+          :finds="findsByLabel"
+          :cap="CAP"
+          accepts-typed
+          label="Option 1"
+          placeholder="Type an answer…"
+          none-word="Nothing"
+          testid="library-c3"
+        />
+        <ReadOut label="Answer" :value="newAnswer" />
+      </div>
+    </LibraryPanel>
+
+    <LibraryPanel label="An answer kept: Enter keeps it">
+      <div class="library-demo">
+        <SearchPicker
+          v-model="keptAnswer"
+          :groups="optionGroups"
+          :finds="findsByLabel"
+          :cap="CAP"
+          accepts-typed
+          label="Option 1"
+          none-word="Nothing"
+          testid="library-typed-kept"
+        />
+        <ReadOut label="Answer" :value="keptAnswer" />
+      </div>
+    </LibraryPanel>
+
+    <LibraryPanel label="No options yet: the list opens for words">
+      <div class="library-demo">
+        <SearchPicker
+          v-model="firstAnswer"
+          :groups="[]"
+          :finds="findsByLabel"
+          accepts-typed
+          label="Option 1"
+          placeholder="Type an answer…"
+          none-word="Nothing"
+          testid="library-typed-first"
+        />
+        <ReadOut label="Answer" :value="firstAnswer" />
+      </div>
+    </LibraryPanel>
+
+    <LibraryPanel label="Several: a typed answer is a chip of its own">
+      <div class="library-demo">
+        <SearchPicker
+          v-model="typedAnswers"
+          multiple
+          :groups="optionGroups"
+          :finds="findsByLabel"
+          :cap="CAP"
+          accepts-typed
+          :label="question.label"
+          placeholder="Type an answer…"
+          none-word="Nothing"
+          testid="library-typed-chips"
+        />
+        <ReadOut label="Chosen" :value="typedAnswers" />
+      </div>
+    </LibraryPanel>
+  </LibrarySection>
+
   <ChoicesForYou>
     <li>
       The threshold: past how many choices a native select becomes a combobox. About 12 to start.
@@ -352,6 +518,26 @@ const longAnswers = ref([...longestAnswers]);
       The keyboard's way past the chips: each chip's button is a stop before the field, as here, or
       the chips are one stop, walked by the arrow keys.
     </li>
+    <li>
+      The wording of the row that keeps the words: <code>Use "&lt;words&gt;"</code>, or another.
+    </li>
+    <li>
+      Enter on words that find something: the words as typed, as here, since their row leads and the
+      keys reach it first; or the first match, with the words' row one press away. The first keeps a
+      new answer safe, and the second saves a press on the usual fix.
+    </li>
+    <li>
+      Words that differ from an option only in capitals: their own row, as here, since they are not
+      exactly the option, so "stickers" can stand beside "Stickers"; or that option alone.
+    </li>
+    <li>
+      Leaving the field with words not chosen: they are no value, as here, though the field still
+      shows them; or leaving keeps them as typed.
+    </li>
+    <li>
+      The value fixes' rows: 6 and "Show all", as here, on values still waiting too; or every
+      waiting value shown, as today, with the cap only on those already decided.
+    </li>
   </ChoicesForYou>
 </template>
 
@@ -362,5 +548,30 @@ const longAnswers = ref([...longestAnswers]);
   gap: var(--space-2);
   width: 100%;
   min-width: 0;
+}
+
+.library-fixes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  min-width: 0;
+}
+
+/* The value as today's row draws it, so the two sides read alike. */
+.library-fix-value {
+  align-self: flex-start;
+  overflow-wrap: anywhere;
+  padding: var(--space-hairline) var(--space-1);
+  border-radius: var(--radius-control);
+  background: var(--mm-beige);
+  font-size: var(--text-xs);
+}
+
+.library-fixes-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
 }
 </style>

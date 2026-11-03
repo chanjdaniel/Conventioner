@@ -8,7 +8,9 @@ import { eachWindow, expectLaidOut, openEntry } from './helpers/componentLibrary
  * by their family name or their address, by the keys and by a click, beside today's native select
  * of the same 150; the line under a capped list counts what is left, stays in view as the list
  * scrolls, and is never a choice. C5 chooses reviewers as chips beside today's checkbox per person,
- * removed by a chip's button and by Backspace, and C10 chooses among the 228 answers.
+ * removed by a chip's button and by Backspace, and C10 chooses among the 228 answers. C1 fixes the
+ * import's values beside today's native select, each by typing and choosing or kept as typed, with
+ * the rows behind "Show all", and C3 keeps a new answer as typed.
  */
 
 /** Three people share this family name, all past the first 50. */
@@ -346,5 +348,158 @@ eachWindow('the combobox entry', (size) => {
       expect(chip.x + chip.width).toBeLessThanOrEqual(room.x + room.width + 1);
     }
     await expectLaidOut(page, size, 'the longest answers as chips');
+  });
+
+  test('typed text names what it serves, and the choices left', async ({ page }) => {
+    await expect(page.getByTestId('library-entry-combobox')).toContainText('C1, C3 and F08');
+    await expect(page.getByTestId('choices-for-you')).toContainText('Use "');
+  });
+
+  test('C1 shows today beside it: a native select of all 228 on a row', async ({ page }) => {
+    const today = page.getByTestId('library-c1-today');
+    // The question's 228, "Choose…" and "Ignore this value".
+    await expect(today.locator('option')).toHaveCount(230);
+
+    await today.locator('select').selectOption('Stickers');
+    await expect(today.getByTestId('read-out')).toHaveText('Fix: Stickers');
+  });
+
+  test('C1 fixes two values by typing and choosing, and keeps one as typed', async ({
+    page,
+    expectAccessible,
+  }) => {
+    const fix = (at: number) => picker(page, `library-c1-fix-${at}`);
+    const readOut = (at: number) => readOutOf(page, `library-c1-fix-${at}`);
+    const fixed = page.getByTestId('library-c1-fixed');
+    await expect(readOut(0)).toHaveText('Fix: nothing');
+    await expect(fixed).toHaveText('Fixed: 0 of 43');
+
+    // By the keys: the words' own row leads, and the first match is one press on.
+    await fix(0).field.fill('sticker');
+    await expect(fix(0).options.first()).toHaveText('Use "sticker"');
+    const match = (await fix(0).options.nth(1).textContent())!.trim();
+    await fix(0).field.press('ArrowDown');
+    await fix(0).field.press('Enter');
+    await expect(fix(0).field).toHaveValue(match);
+    await expect(readOut(0)).toHaveText(`Fix: ${match}`);
+
+    // By a click, with the row's whole list capped until the words narrow it.
+    await fix(1).field.click();
+    await expect(fix(1).options).toHaveCount(50);
+    await expect(fix(1).more).toHaveText('179 more, type to narrow');
+    await expectLaidOut(page, size, 'a value fix open');
+    await expectAccessible('a value fix open, capped');
+    await fix(1).field.fill('Keychains');
+    await expect(fix(1).options.first()).toHaveText('Keychains');
+    await fix(1).options.first().click();
+    await expect(fix(1).field).toHaveValue('Keychains');
+    await expect(readOut(1)).toHaveText('Fix: Keychains');
+
+    // Words that are no option stay as typed.
+    await fix(2).field.fill('  Hand-poured soap ');
+    await expect(fix(2).options).toHaveText(['Use "Hand-poured soap"']);
+    await expectAccessible('a value fix offering its words');
+    await fix(2).field.press('Enter');
+    await expect(fix(2).field).toHaveValue('Hand-poured soap');
+    await expect(fix(2).list).toHaveCount(0);
+    await expect(readOut(2)).toHaveText('Fix: Hand-poured soap, as typed');
+
+    await expect(fixed).toHaveText('Fixed: 3 of 43');
+    await expectLaidOut(page, size, 'three values fixed');
+  });
+
+  test('C1 can ignore a value, as today', async ({ page }) => {
+    const fix = picker(page, 'library-c1-fix-3');
+    await fix.field.click();
+    await expect(fix.options.first()).toHaveText('Ignore this value');
+    await fix.field.press('Enter');
+    await expect(fix.field).toHaveValue('Ignore this value');
+    await expect(readOutOf(page, 'library-c1-fix-3')).toHaveText('Fix: Ignore this value');
+  });
+
+  test('C1 shows the first 6 rows, and "Show all 43" the rest, fixes kept', async ({ page }) => {
+    const rows = page.getByTestId('library-c1-value');
+    const button = page.getByTestId('library-c1-show-all');
+    await expect(rows).toHaveCount(6);
+    await expect(button).toHaveText('Show all 43');
+
+    await picker(page, 'library-c1-fix-5').field.fill('A word of my own');
+    await picker(page, 'library-c1-fix-5').field.press('Enter');
+
+    await button.click();
+    await expect(rows).toHaveCount(43);
+    await expect(button).toHaveText('Show fewer');
+    await expectLaidOut(page, size, 'every value to fix');
+
+    const lastRow = picker(page, 'library-c1-fix-42');
+    await lastRow.field.fill('Keychains');
+    await lastRow.field.press('Enter');
+    await expect(readOutOf(page, 'library-c1-fix-42')).toHaveText('Fix: Keychains');
+    await expect(page.getByTestId('library-c1-fixed')).toHaveText('Fixed: 2 of 43');
+
+    await button.click();
+    await expect(rows).toHaveCount(6);
+    await expect(button).toHaveText('Show all 43');
+    await expect(page.getByTestId('library-c1-fixed')).toHaveText('Fixed: 2 of 43');
+    await expect(picker(page, 'library-c1-fix-5').field).toHaveValue('A word of my own');
+  });
+
+  test('C3 keeps a new answer as typed, and offers no row for one it has', async ({ page }) => {
+    const c3 = picker(page, 'library-c3');
+    const readOut = readOutOf(page, 'library-c3');
+
+    await c3.field.fill('Stickers');
+    await expect(c3.options.first()).toHaveText('Stickers');
+    await expect(c3.list).not.toContainText('Use "');
+
+    await c3.field.fill('Hand-poured soap');
+    await expect(c3.options).toHaveText(['Use "Hand-poured soap"']);
+    await c3.options.first().click();
+    await expect(c3.field).toHaveValue('Hand-poured soap');
+    await expect(readOut).toHaveText('Answer: Hand-poured soap');
+  });
+
+  test('a kept answer shows in the field, and Enter keeps it', async ({ page }) => {
+    const kept = picker(page, 'library-typed-kept');
+    await expect(kept.field).not.toHaveValue('');
+    const words = await kept.field.inputValue();
+
+    await kept.field.click();
+    await expect(kept.options).toHaveCount(50);
+    await kept.field.press('Enter');
+    await expect(kept.field).toHaveValue(words);
+    await expect(readOutOf(page, 'library-typed-kept')).toHaveText(`Answer: ${words}`);
+  });
+
+  test('with no options yet, the list opens for words', async ({ page }) => {
+    const none = picker(page, 'library-typed-first');
+    await none.field.click();
+    await expect(none.list).toHaveCount(0);
+
+    await none.field.fill('A first answer');
+    await expect(none.options).toHaveText(['Use "A first answer"']);
+    await none.field.press('Enter');
+    await expect(readOutOf(page, 'library-typed-first')).toHaveText('Answer: A first answer');
+  });
+
+  test('several, a typed answer is a chip of its own', async ({ page, expectAccessible }) => {
+    const chips = picker(page, 'library-typed-chips');
+    const readOut = readOutOf(page, 'library-typed-chips');
+
+    await chips.field.fill('Hand-poured soap');
+    await chips.field.press('Enter');
+    await expect(chips.chips).toHaveCount(1);
+    await expect(chips.chips.first()).toContainText('Hand-poured soap');
+    await expect(readOut).toHaveText('Chosen: Hand-poured soap');
+    await expect(chips.options.first()).toHaveAttribute('aria-selected', 'true');
+    await expectLaidOut(page, size, 'a typed answer as a chip');
+    await expectAccessible('a typed answer as a chip, open');
+
+    await chips.field.fill('Stickers');
+    await chips.field.press('Enter');
+    await expect(chips.chips).toHaveCount(2);
+
+    await page.getByTestId('library-typed-chips-chip-remove').first().click();
+    await expect(readOut).toHaveText('Chosen: Stickers');
   });
 });

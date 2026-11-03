@@ -50,6 +50,7 @@ The app owns its components and its icons, and depends on no component library o
   The picker grows by opt-in props, and a use that passes none draws as the placement dialog's do:
   - `cap`, a match list cut short with a line saying how many more;
   - `multiple`, several choices as chips above the field;
+  - `acceptsTyped`, words that are exactly no option kept as the value;
   - `noneWord`, what the list says finds no match, where the choices are not people.
 
 ## Consequences

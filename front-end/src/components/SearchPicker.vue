@@ -36,6 +36,12 @@
  *   when the field is left, since nothing was chosen by them. A pointer on a chip's button leaves
  *   the field its focus; the keyboard's focus goes on to the next chip. With a `cap`, a choice past
  *   it is not drawn, as in one choice, and the chip still shows it.
+ * - Given `acceptsTyped`, words that are exactly no option's label are offered as a choice of their
+ *   own: `Use "<words>"` leads the list, ahead of what they find and outside the cap, so the keys
+ *   reach it first, and choosing it makes the trimmed words the value. The field then shows them, or
+ *   a chip does; reopened on them, as on a choice past the cap, no row is active and Enter keeps
+ *   them. Words that are exactly an option make that option, when the cap draws it, the active row
+ *   ahead of others they find, and the list opens for words even with no options at all.
  */
 import { computed, nextTick, ref, useId, watch } from 'vue';
 import IconCheck from '@/components/icons/IconCheck.vue';
@@ -66,6 +72,8 @@ const props = defineProps<
     testid: string;
     /** At most this many matching choices are drawn; without it, all of them are. */
     cap?: number;
+    /** Words that are exactly no option can be chosen as they are, as the value. */
+    acceptsTyped?: boolean;
     /** Who or what finds no match, as the list says it: "Nothing", where the choices are not people. */
     noneWord?: string;
   } & (
@@ -84,11 +92,15 @@ const optionId = (index: number) => `${id}-option-${index}`;
 const moreId = `${id}-more`;
 
 const allOptions = computed(() => props.groups.flatMap((group) => group.options));
-/** Whether the picker has any choice at all; with none, the list never opens. */
+/** Whether the picker has any option at all. */
 const hasChoices = computed(() => allOptions.value.length > 0);
 /** The one choice made; several are `chosenValues`. */
 const chosenOption = computed(() =>
   props.multiple ? undefined : allOptions.value.find((option) => option.value === props.modelValue),
+);
+/** The one choice made when no option offers it: the words it was typed as. */
+const keptWords = computed(() =>
+  props.acceptsTyped && !props.multiple && !chosenOption.value ? props.modelValue : '',
 );
 /** Every choice made, in the order they were made, when the picker holds several. */
 const chosenValues = computed(() => (props.multiple ? props.modelValue : []));
@@ -112,7 +124,7 @@ watch(
   () => {
     if (props.multiple) return;
     if (searching.value && !props.modelValue) return;
-    text.value = chosenOption.value?.label ?? '';
+    text.value = chosenOption.value?.label ?? keptWords.value;
     searching.value = false;
   },
   { immediate: true },
@@ -131,8 +143,8 @@ const matchedGroups = computed(() =>
         : group.options,
     })),
 );
-/** The matched groups as drawn: the cap fills them in order, and one it leaves out is not drawn. */
-const shownGroups = computed(() => {
+/** The matched groups the cap keeps: it fills them in order, and one it leaves out is not drawn. */
+const cappedGroups = computed(() => {
   let room = props.cap ?? Infinity;
   return matchedGroups.value.flatMap((group) => {
     const shown = group.matched.slice(0, room);
@@ -140,13 +152,44 @@ const shownGroups = computed(() => {
     return group.matched.length > 0 && shown.length === 0 ? [] : [{ ...group, shown }];
   });
 });
+/** The words as a choice of their own, while they are exactly no option's label. */
+const typedOption = computed<PickerOption | undefined>(() =>
+  props.acceptsTyped &&
+  words.value &&
+  !allOptions.value.some((option) => option.label === words.value)
+    ? { value: words.value, label: `Use "${words.value}"` }
+    : undefined,
+);
+/** Everything drawn, in order: the words as a choice lead, outside the cap. */
+const shownGroups = computed(() => {
+  const option = typedOption.value;
+  if (!option) return cappedGroups.value;
+  const lead: (typeof cappedGroups.value)[number] = {
+    testid: `${props.testid}-typed`,
+    options: [option],
+    matched: [option],
+    shown: [option],
+  };
+  return [lead, ...cappedGroups.value];
+});
 const shownOptions = computed(() => shownGroups.value.flatMap((group) => group.shown));
 /** How many matches the cap leaves undrawn. */
 const moreCount = computed(
   () =>
     matchedGroups.value.reduce((count, group) => count + group.matched.length, 0) -
-    shownOptions.value.length,
+    cappedGroups.value.reduce((count, group) => count + group.shown.length, 0),
 );
+/** With nothing chosen, the row the keys start on; words that are exactly an option lead to it. */
+const firstRow = computed(() => {
+  if (!shownOptions.value.length) return -1;
+  if (!props.acceptsTyped) return 0;
+  return Math.max(
+    shownOptions.value.findIndex((option) => option.label === words.value),
+    0,
+  );
+});
+/** Whether there is anything to list: an option, or words to use. */
+const hasRows = computed(() => hasChoices.value || Boolean(typedOption.value));
 /** Where each group's choices start in the one list the keys move through. */
 const groupStarts = computed(() => {
   let at = 0;
@@ -172,15 +215,16 @@ const field = ref<HTMLInputElement | null>(null);
 const chipList = ref<HTMLElement | null>(null);
 
 function show(): void {
-  if (open.value || !hasChoices.value) return;
+  if (open.value || !hasRows.value) return;
   open.value = true;
   const chosenAt = shownOptions.value.findIndex((option) => option.value === props.modelValue);
-  // A choice the cap leaves undrawn makes no row active, so Enter keeps it.
-  active.value =
-    chosenAt >= 0 ? chosenAt : !chosenOption.value && shownOptions.value.length ? 0 : -1;
+  const heldUndrawn = chosenOption.value || keptWords.value;
+  // A choice the cap leaves undrawn, or that no option offers, makes no row active, so Enter keeps
+  // it.
+  active.value = chosenAt >= 0 ? chosenAt : heldUndrawn ? -1 : firstRow.value;
   // Reopened on a choice, its label is selected, so what is typed next replaces it and searches
   // by itself, rather than running on from the label; left untouched, the choice stays.
-  if (chosenOption.value) field.value?.select();
+  if (heldUndrawn) field.value?.select();
 }
 
 function choose(option: PickerOption): void {
@@ -194,8 +238,9 @@ function choose(option: PickerOption): void {
     if (text.value) field.value?.select();
     return;
   }
+  // The field shows the words themselves, not the row that offered them.
+  text.value = option === typedOption.value ? option.value : option.label;
   searching.value = false;
-  text.value = option.label;
   open.value = false;
   active.value = -1;
   emit('update:modelValue', option.value);
@@ -203,8 +248,8 @@ function choose(option: PickerOption): void {
 
 function typed(): void {
   searching.value = true;
-  open.value = hasChoices.value;
-  active.value = shownOptions.value.length ? 0 : -1;
+  open.value = hasRows.value;
+  active.value = firstRow.value;
   // Words that no longer name the choice let it go, so a dialog never acts on a choice its field
   // does not show.
   if (!props.multiple && props.modelValue) emit('update:modelValue', '');
@@ -370,12 +415,12 @@ function onBlur(): void {
           <span class="search-picker-option-label">{{ option.label }}</span>
           <span v-if="option.detail" class="search-picker-option-detail">{{ option.detail }}</span>
         </div>
-        <p v-if="!group.shown.length && shownGroups.length > 1" class="search-picker-none">
+        <p v-if="!group.shown.length && cappedGroups.length > 1" class="search-picker-none">
           None match "{{ words }}".
         </p>
       </div>
       <p
-        v-if="!shownOptions.length && shownGroups.length <= 1"
+        v-if="!shownOptions.length && cappedGroups.length <= 1"
         class="search-picker-none"
         :data-testid="`${testid}-none`"
       >
