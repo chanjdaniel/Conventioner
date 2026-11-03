@@ -148,7 +148,8 @@ function choose(entry: ValueFix, event: Event) {
 .ledger-fixes-title {
   margin: 0;
   font-size: var(--text-xs);
-  color: var(--mm-red);
+  /* `--mm-red` is 4.41 on this tint. */
+  color: var(--mm-text-red-on-tint);
 }
 
 .ledger-fixes-more {

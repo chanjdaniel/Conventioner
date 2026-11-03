@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures';
+import { sweep } from './helpers/contrastSweep';
 import { eachWindow, expectLaidOut, openEntry } from './helpers/componentLibrary';
 
 /**
@@ -362,6 +363,15 @@ eachWindow('the combobox entry', (size) => {
 
     await today.locator('select').selectOption('Stickers');
     await expect(today.getByTestId('read-out')).toHaveText('Fix: Stickers');
+  });
+
+  test("every word on the entry reaches AA, today's value fixes on their tint too", async ({
+    page,
+  }) => {
+    await expect(page.getByTestId('library-c1-today')).toContainText('did not match');
+    const { failures, checked } = await sweep(page);
+    expect(checked).toBeGreaterThan(0);
+    expect(failures).toEqual([]);
   });
 
   test('C1 fixes two values by typing and choosing, and keeps one as typed', async ({
