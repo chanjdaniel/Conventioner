@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * The filter toggles (T200): `FilterToggles`, the one row the ten toggle screens each draw their own
+ * The filter toggles (T200): `FilterToggles`, the one row the ten toggle places each draw their own
  * way, on the fixture's counts. It opens on Applications All's status filter, today's row beside the
  * proposed one with what each status holds, then a view switch and several phases at once, the
  * states a row meets, and the places it would replace. Every row here is the real component; the
@@ -58,7 +58,7 @@ const phasesRead = computed(() =>
 );
 
 /** Approved beside two statuses the deriver never deals, each counted from the fixture. */
-const nothingOptions: FilterToggle[] = [
+const zeroOptions: FilterToggle[] = [
   ApplicationStatus.ReviewerApproved,
   ApplicationStatus.VendorRefused,
   ApplicationStatus.Cancelled,
@@ -67,7 +67,7 @@ const nothingOptions: FilterToggle[] = [
   label: statusLabel(id),
   count: applications.filter(({ status: held }) => held === id).length,
 }));
-const nothing = ref<string>(ApplicationStatus.ReviewerApproved);
+const zeroChosen = ref<string>(ApplicationStatus.ReviewerApproved);
 
 /** The form's longest questions, wider than a phone's row. */
 const longOptions: FilterToggle[] = [...offered.questions]
@@ -106,7 +106,8 @@ const PLACES = [
     today: 'At most one, its count in brackets; a second press lets go, with a cross.',
   },
   {
-    place: 'Attendance: the dates, and All, Not yet, Checked in',
+    place:
+      'Attendance: the dates, and All, Not yet (Did not come once the day is over), Checked in',
     file: 'views/AttendanceStatusView.vue',
     today: 'Two rows, one choice each; a date counts "here of expected", two figures.',
   },
@@ -215,12 +216,12 @@ const PLACES = [
     <LibraryPanel label="A count of nothing">
       <div class="library-demo">
         <FilterToggles
-          v-model="nothing"
-          :options="nothingOptions"
+          v-model="zeroChosen"
+          :options="zeroOptions"
           label="Status, some with nothing"
-          testid="library-toggles-nothing"
+          testid="library-toggles-zero"
         />
-        <ReadOut label="Showing" :value="labelOf(nothingOptions, nothing)" />
+        <ReadOut label="Showing" :value="labelOf(zeroOptions, zeroChosen)" />
       </div>
     </LibraryPanel>
 
@@ -233,7 +234,7 @@ const PLACES = [
           label="Questions"
           testid="library-toggles-long"
         />
-        <ReadOut label="Chosen" :value="`${longChosen.length} of ${longOptions.length}`" />
+        <ReadOut label="Chosen" :value="labelOf(longOptions, longChosen)" />
       </div>
     </LibraryPanel>
 
@@ -255,7 +256,7 @@ const PLACES = [
     :title="`The ${PLACES.length} places it would replace`"
     about="Every row of pressed buttons on a screen today, and how each draws it. No screen changes here."
   >
-    <ol class="library-places" data-testid="library-toggles-places">
+    <ol class="library-places">
       <li
         v-for="{ place, file, today } in PLACES"
         :key="file"
@@ -285,6 +286,10 @@ const PLACES = [
       that toggle, or drop it.
     </li>
     <li>A count of 0: pressable here; the pills disable it today.</li>
+    <li>
+      What the row does not draw: the pills' tone per status, and a door date's two figures. Grow it
+      for them, or leave those rows as they are.
+    </li>
     <li>Market days and Group Sections: convert them, or leave them as the controls they are.</li>
   </ChoicesForYou>
 </template>

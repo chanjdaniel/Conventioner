@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * One row of pressed buttons that filters a list or switches a view (T200): the row ten screens
+ * One row of pressed buttons that filters a list or switches a view (T200): the row ten places
  * each draw their own way, drawn from the `.btn` primitive and its pressed look.
  *
  * With one choice `modelValue` is the chosen option's id: pressing a toggle chooses it, and pressing
@@ -58,7 +58,7 @@ function press(id: string): void {
       :data-testid="`${testid}-${option.id}`"
       @click="press(option.id)"
     >
-      <span class="filter-toggles__words"
+      <span class="filter-toggles__words" :data-testid="`${testid}-words`"
         >{{ option.label }}
         <span v-if="option.count !== undefined" class="filter-toggles__count">{{
           option.count
@@ -88,8 +88,9 @@ function press(id: string): void {
   overflow-wrap: anywhere;
 }
 
-/* `base.css` resets every element's weight; the words take the button's, 600 when it is pressed. */
-.filter-toggles__words {
+/* `base.css` resets every element's weight; label and count take the button's, 600 when pressed. */
+.filter-toggles__words,
+.filter-toggles__count {
   font-weight: inherit;
 }
 

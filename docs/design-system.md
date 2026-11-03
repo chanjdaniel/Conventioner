@@ -371,7 +371,7 @@ The placement dialog's two vendor pickers are its first use, with no `cap`.
 A row of pressed buttons that filters a list or switches a view is [`FilterToggles.vue`](../front-end/src/components/FilterToggles.vue) (T200): compact secondary `.btn`s in a named `role="group"`, one choice by default or several with `multiple`, each named by the words it shows, its label then an optional count.
 The row wraps and a long label wraps inside its toggle, so it never scrolls sideways, and on a phone a toggle is at least 44px each way.
 Pressing the chosen toggle again keeps it; several emit in the options' order.
-No screen mounts it yet: the library's `filter-toggles` entry lists the ten rows it would replace.
+No screen mounts it yet: the library's `filter-toggles` entry lists the ten places it would replace.
 
 | | Variants | Notes |
 | --- | --- | --- |
