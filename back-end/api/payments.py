@@ -279,6 +279,12 @@ def keep_freed_line(market: Market, vendor_email: str, date: str, by: str) -> No
         Payments.keep_freed_line(market.id, vendor_email, date, seat, by)
 
 
+def forget_freed_line(market_id: str, vendor_email: str, date: str) -> None:
+    """Forget the line ``keep_freed_line`` kept for a free that was then refused: the seat is still
+    held, and the line reads it."""
+    Payments.clear_freed_lines(market_id, [(vendor_email, date)])
+
+
 def deduct_freed_line(market: Market, vendor_email: str, date: str, by: str) -> None:
     """Free a seat's line of what it owed, as the free that asked it: "Also remove its $15 from
     what they owe?" (Q26). The line stays, owing $0, and the amount paid is untouched, so a vendor

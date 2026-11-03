@@ -535,6 +535,10 @@ class AssignmentObject(BaseModel):
     # What the run read, one fingerprint per group (E22/F03/S01, ``assignment/made_from.py``).
     # Written only by a run; None on an assignment made before it existed.
     made_from: Optional[Dict[str, str]] = None
+    # How many times the rows have been written; each write is conditional on the count it read,
+    # so two changes at once never store one over the other (``api/placements.py``). 0 on an
+    # assignment written before it existed.
+    revision: int = 0
 
 
 class MappingAuthor(str, Enum):

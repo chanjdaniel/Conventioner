@@ -4,14 +4,18 @@
 pinned here is not only that the write works but that it derives every field it can from the
 market's own plan rather than believing the request.
 """
+from types import SimpleNamespace
+
 import pytest
 
-from conftest import a_solver_vendor, FakeMarketsCollection, stored_market
+from conftest import (
+    a_solver_vendor, FakeMarketsCollection, mongo_matches, reject_malformed_update, stored_market,
+)
 
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
-from client_errors import ForbiddenError
+from client_errors import ConflictError, ForbiddenError
 from datatypes import MarketPhase, MarketRole
 
 
@@ -668,3 +672,114 @@ class TestASeatGoesToAnApplicant:
 
         assert applied.last_update is None
 
+
+
+class AppliedMarketsCollection(FakeMarketsCollection):
+    """The market collection as Mongo is: a write lands only where its filter matches, and lands.
+
+    ``between`` runs once, after the next write's request has read the market and before its write
+    reaches the collection, so a test can put a second organizer's change in that window.
+    """
+
+    def __init__(self, doc):
+        super().__init__(doc)
+        self.between = None
+
+    def update_one(self, query, update):
+        reject_malformed_update(update)
+        between, self.between = self.between, None
+        if between is not None:
+            between()
+        self.last_update = update
+        if not mongo_matches(self.doc, query):
+            return SimpleNamespace(matched_count=0, modified_count=0, upserted_id=None)
+        for operator, fields in update.items():
+            for path, value in fields.items():
+                *parents, last = path.split(".")
+                target = self.doc
+                for part in parents:
+                    target = target.setdefault(part, {})
+                target[last] = (target.get(last) or 0) + value if operator == "$inc" else value
+        return SimpleNamespace(matched_count=1, modified_count=1, upserted_id=None)
+
+
+class TestTwoChangesAtOnce:
+    """Two organizers changing the tables at the same moment: the second to write never undoes the
+    first. Each write reads the whole assignment and writes it back, so without a check the later
+    one stores the assignment as it was before the earlier one, and that change is lost."""
+
+    @pytest.fixture
+    def applied(self, monkeypatch):
+        fake = AppliedMarketsCollection(
+            stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=SETUP_OBJECT)
+        )
+        monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
+        monkeypatch.setattr(PlacementsApi, "has_applied", lambda _market_id, _address: True)
+        already_placed(
+            fake,
+            ("ana@example.com", "2026-08-01", "Hall A 1"),
+            ("ben@example.com", "2026-08-01", "Hall A 2"),
+        )
+        return fake
+
+    @staticmethod
+    def seats(collection) -> dict:
+        return {row["email"]: row["tableCode"]
+                for row in collection.doc["assignmentObject"]["vendorAssignments"]}
+
+    def test_two_moves_into_one_empty_seat_seat_one_vendor(self, applied, market_records):
+        answered = []
+        applied.between = lambda: answered.append(PlacementsApi.write_placement(
+            "market-123", placement(email="ben@example.com", table_code="Garden 1"), "user-2"))
+
+        with pytest.raises(ConflictError) as refusal:
+            PlacementsApi.write_placement(
+                "market-123", placement(email="ana@example.com", table_code="Garden 1"), "user-1")
+
+        assert [status for _body, status in answered] == [200]
+        assert "Reload" in str(refusal.value)
+        assert self.seats(applied) == {"ana@example.com": "Hall A 1", "ben@example.com": "Garden 1"}
+        assert [entry["vendors"] for entry in market_records.history.documents] == [
+            ["ben@example.com"]]
+
+    def test_a_placement_and_a_free_at_once_lose_neither(self, applied):
+        applied.between = lambda: PlacementsApi.remove_placement(
+            "market-123", "ben@example.com", "2026-08-01", "user-2")
+
+        with pytest.raises(ConflictError):
+            PlacementsApi.write_placement(
+                "market-123", placement(email="ana@example.com", table_code="Garden 1"), "user-1")
+
+        assert self.seats(applied) == {"ana@example.com": "Hall A 1"}
+
+    def test_a_free_refused_this_way_keeps_no_freed_line(self, applied, market_records):
+        """A free keeps the seat's line before it writes; refused, the seat is still held, so the
+        line it kept must go too, or it comes back as the line once that seat goes some other way."""
+        applied.between = lambda: PlacementsApi.write_placement(
+            "market-123", placement(email="ben@example.com", table_code="Garden 1"), "user-2")
+
+        with pytest.raises(ConflictError):
+            PlacementsApi.remove_placement("market-123", "ana@example.com", "2026-08-01", "user-1")
+
+        assert self.seats(applied) == {"ana@example.com": "Hall A 1", "ben@example.com": "Garden 1"}
+        assert [doc for doc in market_records.amounts_owed.documents if doc.get("freed")] == []
+
+    def test_a_swap_and_a_placement_at_once_lose_neither(self, applied):
+        applied.between = lambda: PlacementsApi.write_placement(
+            "market-123", placement(email="ana@example.com", table_code="Garden 1"), "user-2")
+
+        with pytest.raises(ConflictError):
+            PlacementsApi.swap_placements(
+                "market-123", "2026-08-01", "ana@example.com", "ben@example.com", "user-1")
+
+        assert self.seats(applied) == {"ana@example.com": "Garden 1", "ben@example.com": "Hall A 2"}
+
+    def test_changes_one_after_another_all_land(self, applied):
+        PlacementsApi.write_placement(
+            "market-123", placement(email="ana@example.com", table_code="Garden 1"), "user-1")
+        PlacementsApi.swap_placements(
+            "market-123", "2026-08-01", "ana@example.com", "ben@example.com", "user-1")
+        PlacementsApi.remove_placement("market-123", "ana@example.com", "2026-08-01", "user-1")
+
+        assert self.seats(applied) == {"ben@example.com": "Garden 1"}
