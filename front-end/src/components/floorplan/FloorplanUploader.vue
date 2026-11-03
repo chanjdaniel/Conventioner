@@ -6,6 +6,9 @@
  * and the start from a Google Form do; it checks the file's type itself, since the zone judges no
  * file. The zone stays, busy, while the file uploads, and gives way to the preview once it is in;
  * an upload that fails leaves the zone there with the error, so another file can be chosen.
+ *
+ * An image previews as the file chosen. A PDF previews as the page the server drew from it,
+ * following the page chosen, since a browser draws no PDF in an image.
  */
 import { ref, watch, onUnmounted } from 'vue';
 import { api, getApiErrorMessage } from '@/utils/api';
@@ -51,6 +54,13 @@ function revokePreview() {
   }
 }
 
+/** Preview a PDF's page as the image the server drew and stored for it. */
+async function previewStoredPage(page: PageResult) {
+  const { data } = await api.get(`/floorplans/${page.gridfs_id}`, { responseType: 'blob' });
+  revokePreview();
+  previewUrl.value = URL.createObjectURL(data);
+}
+
 async function handleFile(file: File) {
   if (!isValidType(file)) {
     error.value = 'Unsupported file type. Please use PNG, JPG, WebP, or PDF.';
@@ -68,13 +78,14 @@ async function handleFile(file: File) {
 
     const { data } = await api.post('/floorplans/upload', formData);
 
-    revokePreview();
-    previewUrl.value = URL.createObjectURL(file);
     if (data.pages) {
+      await previewStoredPage(data.pages[0]);
       pages.value = data.pages;
       selectedPage.value = 0;
       emit('uploaded', data.pages[0]);
     } else {
+      revokePreview();
+      previewUrl.value = URL.createObjectURL(file);
       emit('uploaded', { gridfs_id: data.gridfs_id, width: data.width, height: data.height });
     }
   } catch (e: unknown) {
@@ -86,9 +97,12 @@ async function handleFile(file: File) {
 }
 
 watch(selectedPage, (idx) => {
-  if (pages.value[idx]) {
-    emit('uploaded', pages.value[idx]);
-  }
+  const page = pages.value[idx];
+  if (!page) return;
+  emit('uploaded', page);
+  previewStoredPage(page).catch((e: unknown) => {
+    error.value = getApiErrorMessage(e, 'This page could not be shown.');
+  });
 });
 
 onUnmounted(() => {

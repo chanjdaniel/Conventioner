@@ -4,7 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 
 import FloorplanUploader from '@/components/floorplan/FloorplanUploader.vue';
 
-const api = vi.hoisted(() => ({ post: vi.fn() }));
+const api = vi.hoisted(() => ({ post: vi.fn(), get: vi.fn() }));
 
 vi.mock('@/utils/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/api')>();
@@ -29,6 +29,9 @@ async function choose(wrapper: ReturnType<typeof mount>, file: File) {
 describe('the floorplan uploader', () => {
   beforeEach(() => {
     api.post.mockReset();
+    api.get.mockReset();
+    // A PDF's preview is the page the server drew, fetched once the upload answers.
+    api.get.mockResolvedValue({ data: new Blob(['page'], { type: 'image/png' }) });
     URL.createObjectURL = vi.fn(() => 'blob:fixture');
     URL.revokeObjectURL = vi.fn();
   });
@@ -101,6 +104,41 @@ describe('the floorplan uploader', () => {
       { gridfs_id: 'page-1', width: 800, height: 600, page: 1 },
     ]);
     expect(wrapper.findAll('.page-option')).toHaveLength(2);
+  });
+
+  it('shows a PDF as the page the server drew, not the file, and follows the page chosen', async () => {
+    // A browser draws no PDF in an image, so the preview of the file itself was a broken image.
+    const drawn = new Map<Blob, string>();
+    api.get.mockImplementation(async (path: string) => {
+      const blob = new Blob([path], { type: 'image/png' });
+      drawn.set(blob, `blob:${path}`);
+      return { data: blob };
+    });
+    URL.createObjectURL = vi.fn((blob: Blob) => drawn.get(blob) ?? 'blob:the-file');
+    api.post.mockResolvedValue({
+      data: {
+        pages: [
+          { gridfs_id: 'page-1', width: 800, height: 600 },
+          { gridfs_id: 'page-2', width: 800, height: 600 },
+        ],
+      },
+    });
+    const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1' } });
+
+    await choose(wrapper, fileOf('hall.pdf', 'application/pdf'));
+    await flushPromises();
+
+    expect(api.get).toHaveBeenCalledWith('/floorplans/page-1', { responseType: 'blob' });
+    expect(wrapper.get('img').attributes('src')).toBe('blob:/floorplans/page-1');
+
+    await wrapper.findAll('.page-radio')[1].setValue();
+    await flushPromises();
+
+    expect(wrapper.get('img').attributes('src')).toBe('blob:/floorplans/page-2');
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:/floorplans/page-1');
+    expect(wrapper.emitted('uploaded')?.at(-1)).toEqual([
+      { gridfs_id: 'page-2', width: 800, height: 600 },
+    ]);
   });
 
   it('refuses a file of another type, as before, and uploads nothing', async () => {

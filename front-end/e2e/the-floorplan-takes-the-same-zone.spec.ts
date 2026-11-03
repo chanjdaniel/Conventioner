@@ -101,4 +101,42 @@ test.describe('The floorplan upload step', () => {
     await floorplan.waitForUploadComplete();
     await expect(page.getByAltText('Floorplan preview')).toBeVisible();
   });
+
+  test('draws each page of a real PDF, and previews the page chosen', async ({
+    authenticatedPage: page,
+    browser,
+  }) => {
+    // A two-page plan, printed by the browser itself, so the suite holds no binary fixture. The
+    // back end draws its pages with poppler, which nothing installed: every PDF answered 500.
+    const printer = await browser.newPage();
+    await printer.setContent(
+      '<div style="height: 900px; border: 4px solid">Hall A</div>' +
+        '<div style="break-before: page; height: 900px; border: 4px solid">Hall B</div>',
+    );
+    const pdf = await printer.pdf({ format: 'A4' });
+    await printer.close();
+
+    const floorplan = new FloorplanWorkflowPage(page);
+    await floorplan.goto(marketId);
+    await floorplan.waitForWizard();
+    const answered = page.waitForResponse('**/floorplans/upload');
+    await floorplan.uploadFileInput.setInputFiles({
+      name: 'halls.pdf',
+      mimeType: 'application/pdf',
+      buffer: pdf,
+    });
+    expect((await answered).status()).toBe(201);
+
+    // The preview is the page the server drew: the file itself draws nothing in an image.
+    const preview = page.getByAltText('Floorplan preview');
+    const drawn = () => preview.evaluate((image: HTMLImageElement) => image.naturalWidth);
+    await expect.poll(drawn).toBeGreaterThan(0);
+    const first = await preview.getAttribute('src');
+    await expect(page.getByRole('radio')).toHaveCount(2);
+    await floorplan.waitForUploadComplete();
+
+    await page.getByRole('radio').nth(1).check();
+    await expect(preview).not.toHaveAttribute('src', first ?? '');
+    await expect.poll(drawn).toBeGreaterThan(0);
+  });
 });
