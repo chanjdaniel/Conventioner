@@ -11,7 +11,7 @@ describes:
   - front-end/src/utils/permissionTable.ts
   - front-end/e2e/the-permissions-section.spec.ts
   - front-end/e2e/removing-someone-asks-first.spec.ts
-verified: 2026-11-01
+verified: 2026-11-04
 sources:
   - E20/F01/S03
   - E21/F03/S04
@@ -34,6 +34,7 @@ sources:
   - E38/F12/S01
   - E38/F15/S01
   - T181
+  - T211
 ---
 
 # Ending and managing a market
@@ -121,6 +122,7 @@ Covered by:
 
 1. "Permissions", after "Users with access", is closed until "Show" opens it, and says beneath its heading "Who may do what on this market." with "Every row is at its built-in default." or how many rows differ from the built-in defaults.
 2. Open, it lists every row of [the market's table](../../implementation/modules/market-actions.md#a-markets-own-rows) under its group, in the table's order: its label, where its role came from ("Built-in default", "Copied from the organization" for a row its organization's default set ([B8](organizations.md#b8-set-the-default-permissions-for-new-markets)), or "Changed on this market by <address>, <when>", from the row's newest change), and its role as "Viewer and above", "Editor and above", "Admin and above" or "Owner only".
+   A group's title sits nearer its own rows than the group above, at a desk and on a phone (T211), and Manage organization's default permissions read the same.
 3. For the owner each row that is not fixed is a dropdown of those four, named by the row's label, whose arrow keys open its list rather than step it, since each step would be a change to confirm; a fixed row ("Read the market...", "Give and take Admin roles", "Delete the market", "Change this table") states its role with "Always" and no control.
    "Give and take Editor and Viewer roles" says beside it that at "Viewer and above" any Viewer can make themself an Editor, since one row asks for both the role given and the role taken.
 4. Choosing a role asks first, in words naming who may after it and who loses or gains it ("Let only Admins and the owner check vendors in at this market?", "Editors lose this."), and for that row lowered to Viewer adds "A Viewer could then make themself an Editor."; "Change" saves that row alone, Cancel puts the dropdown back, and a refusal is said in the confirmation.
@@ -141,7 +143,7 @@ Covered by:
 - `marketPermissions.test.ts`
 - `permissionTable.test.ts`
 - `the-organizations-default.spec.ts` for the copy again
-- [`the-permissions-section.spec.ts`](../../../front-end/e2e/the-permissions-section.spec.ts)
+- [`the-permissions-section.spec.ts`](../../../front-end/e2e/the-permissions-section.spec.ts) (a group's title nearer its rows than the group above, at 1280 and 390)
 
 ## L4. Rename a market
 

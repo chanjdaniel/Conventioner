@@ -33,6 +33,8 @@ export class ManageMarketPage {
   readonly permissionsToggle: Locator;
   readonly permissionsSummary: Locator;
   readonly permissionsReadOnly: Locator;
+  readonly permissionGroups: Locator;
+  readonly permissionGroupTitles: Locator;
   readonly permissionSelects: Locator;
   readonly permissionSources: Locator;
   readonly permissionChanges: Locator;
@@ -81,6 +83,8 @@ export class ManageMarketPage {
     this.permissionsToggle = page.getByTestId('manage-market-permissions-toggle');
     this.permissionsSummary = page.getByTestId('manage-market-permissions-summary');
     this.permissionsReadOnly = page.getByTestId('manage-market-permissions-read-only');
+    this.permissionGroups = page.getByTestId('manage-market-permission-group');
+    this.permissionGroupTitles = page.getByTestId('manage-market-permission-group-title');
     this.permissionSelects = page.getByTestId('manage-market-permission-select');
     this.permissionSources = page.getByTestId('manage-market-permission-source');
     this.permissionChanges = page.getByTestId('manage-market-permission-change');
@@ -166,6 +170,28 @@ export class ManageMarketPage {
     await this.permissionsToggle.click();
   }
 
+  /** Where each group's title and rows stand: the title, its first label, its last row's content. */
+  permissionGroupEdges(): Promise<
+    Array<{ titleTop: number; titleBottom: number; firstLabelTop: number; lastRowBottom: number }>
+  > {
+    return this.permissionGroups.evaluateAll((groups) =>
+      groups.map((group) => {
+        const rectOf = (testid: string) =>
+          group.querySelector(`[data-testid="${testid}"]`)!.getBoundingClientRect();
+        const title = rectOf('manage-market-permission-group-title');
+        const lastRow = group.querySelector('li:last-child')!;
+        return {
+          titleTop: title.top,
+          titleBottom: title.bottom,
+          firstLabelTop: rectOf('manage-market-permission-label').top,
+          lastRowBottom: Math.max(
+            ...Array.from(lastRow.children, (part) => part.getBoundingClientRect().bottom),
+          ),
+        };
+      }),
+    );
+  }
+
   /** One row of the table, by its action id: `check-in`. */
   permissionRow(actionId: string): Locator {
     return this.page.getByTestId(`manage-market-permission-row-${actionId}`);
@@ -181,6 +207,10 @@ export class ManageMarketPage {
 
   permissionSource(actionId: string): Locator {
     return this.permissionRow(actionId).getByTestId('manage-market-permission-source');
+  }
+
+  permissionLabel(actionId: string): Locator {
+    return this.permissionRow(actionId).getByTestId('manage-market-permission-label');
   }
 
   /** Chooses a role for a row, from the focused select as a person does, which opens its confirmation. */

@@ -60,12 +60,19 @@ function openInsteadOfStepping(event: KeyboardEvent) {
 </script>
 
 <template>
-  <div v-for="{ group, rows } in groups" :key="group">
-    <h4 class="subheading">{{ group }}</h4>
+  <div
+    v-for="{ group, rows } in groups"
+    :key="group"
+    class="group"
+    :data-testid="`${testid}-group`"
+  >
+    <h4 class="subheading" :data-testid="`${testid}-group-title`">{{ group }}</h4>
     <ul class="rows">
       <li v-for="row in rows" :key="row.id" class="row" :data-testid="`${testid}-row-${row.id}`">
         <div class="text">
-          <span :id="`${testid}-${row.id}`" class="label">{{ row.label }}</span>
+          <span :id="`${testid}-${row.id}`" class="label" :data-testid="`${testid}-label`">
+            {{ row.label }}
+          </span>
           <span class="caption" :data-testid="`${testid}-source`">
             {{ row.fixed ? 'Always' : sourceOf(row) }}
           </span>
@@ -99,10 +106,15 @@ function openInsteadOfStepping(event: KeyboardEvent) {
 
 <style scoped>
 .subheading {
-  margin: var(--space-4) 0 var(--space-2);
+  margin: var(--space-4) 0 var(--space-1);
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--mm-black);
+}
+
+/* A title belongs to the rows beneath it. The first keeps its margin, under the section's heading. */
+.group + .group .subheading {
+  margin-top: var(--space-6);
 }
 
 .rows {
