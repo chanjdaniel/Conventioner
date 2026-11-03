@@ -80,24 +80,26 @@ test.describe('Intake mode - a CSV market has no public applicant surface', () =
     await page.screenshot({ path: `${SCREENSHOT_DIR}/01-csv-market-home.png`, fullPage: true });
   });
 
-  test('its vendors still reach check-in once it runs', async ({ page, request }) => {
-    // Intake mode gates applying, never checking in. This used to open the check-in page of the
-    // market above, which takes applications and runs no check-in - and passed only because the
-    // page drew its form for any address at all (bug 9). A market seeded with no intake mode is
-    // CSV, and this one runs.
+  test('its vendors still reach their page, where they check in, once it runs', async ({
+    page,
+    request,
+  }) => {
+    // Intake mode gates applying, never checking in, which is on the vendor page now (ADR 0022).
+    // This used to open the public check-in page of the market above, which takes applications
+    // and runs no check-in - and passed only because the page drew its form for any address at
+    // all (bug 9). A market seeded with no intake mode is CSV, and this one runs.
     const running = await seedPublishedMarketWithAssignments(
       request,
       BACKEND_URL,
       TEST_USER.email,
       TEST_USER.password,
     );
-    await page.goto(`/${running.marketSlug}/check-in`);
+    await page.goto(`/${running.marketSlug}`);
 
-    await expect(page.getByTestId('attendance-checkin-market-name')).toHaveText(
-      running.marketName,
-      { timeout: 10000 },
-    );
-    await expect(page.getByTestId('attendance-checkin-email-input')).toBeVisible();
+    await expect(page.getByTestId('vendor-page-market-name')).toHaveText(running.marketName, {
+      timeout: 10000,
+    });
+    await expect(page.getByTestId('vendor-sign-in-email-input')).toBeVisible();
 
     await page.screenshot({ path: `${SCREENSHOT_DIR}/02-csv-market-checkin.png`, fullPage: true });
   });

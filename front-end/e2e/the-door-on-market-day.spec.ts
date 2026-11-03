@@ -1,6 +1,6 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
-import { CheckinPage } from './pages/CheckinPage';
+import { forgetSignInAttempts, vendorToken } from './helpers/vendorSignIn';
 import { AttendanceStatusPage } from './pages/AttendanceStatusPage';
 import { transitionMarket } from './helpers/seedPhaseMarket';
 
@@ -13,7 +13,6 @@ import { transitionMarket } from './helpers/seedPhaseMarket';
 const ON_THE_DAY = '2099-05-02';
 test.describe('The door on market day', () => {
   test('Attendance lists everyone expected on the day, and who has come', async ({
-    page,
     authenticatedPage: ownerPage,
     request,
   }) => {
@@ -24,12 +23,10 @@ test.describe('The door on market day', () => {
       TEST_USER.password,
       { marketDate: ON_THE_DAY },
     );
-    const checkin = new CheckinPage(page);
-    await checkin.goto(seed.marketSlug);
-    await checkin.fillEmail('alice@example.com');
-    await checkin.clickLookup();
-    await checkin.clickCheckIn();
-    await expect(checkin.confirmationPills.first()).toBeVisible({ timeout: 10000 });
+    const checkedIn = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/attendance`, {
+      data: { vendorEmail: 'alice@example.com', date: ON_THE_DAY },
+    });
+    expect(checkedIn.ok(), await checkedIn.text()).toBeTruthy();
 
     const attendance = new AttendanceStatusPage(ownerPage);
     await attendance.goto(seed.marketId);
@@ -103,11 +100,20 @@ test.describe('The door on market day', () => {
     await expect(attendance.status('bob@example.com')).toContainText('by you');
 
     // The vendor's own page agrees: the record is one record.
-    const lookup = await request.get(
-      `${BACKEND_URL}/public/markets/${seed.marketSlug}/vendors/bob@example.com/assignments`,
+    forgetSignInAttempts();
+    const token = await vendorToken(
+      request,
+      BACKEND_URL,
+      seed.marketSlug,
+      seed.marketId,
+      'bob@example.com',
     );
-    expect(lookup.ok(), await lookup.text()).toBeTruthy();
-    expect((await lookup.json()).assignments[0].checkedInAt).toBeTruthy();
+    const own = await request.get(
+      `${BACKEND_URL}/public/markets/${seed.marketSlug}/applicant/application`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    expect(own.ok(), await own.text()).toBeTruthy();
+    expect((await own.json()).application.seats[0].checkedInAt).toBeTruthy();
 
     await attendance.undo('bob@example.com');
     await expect(attendance.summary).toHaveText('0 of 2 checked in');

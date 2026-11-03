@@ -161,6 +161,42 @@ export async function saveApplicantApplication(
 }
 
 /**
+ * Check the signed-in vendor in for `date` with the market's door code, scanned or typed (ADR 0022).
+ * POST /public/markets/<slug>/vendor/check-in
+ *
+ * Answers when they checked in. Each refusal carries the sentence the page shows: no table that
+ * day, not the day itself, a wrong door code, before the market's days, or once it has ended.
+ */
+export async function checkInWithDoorCode(
+  marketSlug: string,
+  token: string,
+  date: string,
+  doorCode: string,
+): Promise<{ checkedInAt: string }> {
+  const { data } = await api.post(
+    `/public/markets/${marketSlug}/vendor/check-in`,
+    { date, doorCode },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return { checkedInAt: String(data.checkedInAt ?? '') };
+}
+
+/**
+ * Take back the signed-in vendor's own check-in for `date`; no door code needed.
+ * DELETE /public/markets/<slug>/vendor/check-in
+ */
+export async function undoOwnCheckIn(
+  marketSlug: string,
+  token: string,
+  date: string,
+): Promise<void> {
+  await api.delete(`/public/markets/${marketSlug}/vendor/check-in`, {
+    data: { date },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+/**
  * Fetch all applications for a market (organizer only, requires session auth).
  * GET /markets/<id>/applications
  */

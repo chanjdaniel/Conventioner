@@ -137,7 +137,7 @@ describe('the next step', () => {
     } as Partial<Market>);
 
     expect(nextStep(told, TODAY).text).toBe(
-      'Results are published, so the assignments are settled. Publish the market to put the check-in page up; that cannot be undone.',
+      'Results are published, so the assignments are settled. Publish the market to open check-in with the door code; that cannot be undone.',
     );
   });
 
@@ -184,11 +184,11 @@ describe('the next step', () => {
     );
   });
 
-  it('points an archive that ran at the record its check-in page keeps', () => {
+  it('points an archive that ran at the record its vendor page keeps', () => {
     const ran = market(MarketPhase.Archived, { phasesReached: [MarketPhase.MarketDays] });
     expect(nextStep(ran, TODAY)).toMatchObject({ page: null });
-    expect(nextStep(ran, TODAY).text).toMatch(/check-in page/);
-    expect(nextStep(market(MarketPhase.Archived), TODAY).text).not.toMatch(/check-in page/);
+    expect(nextStep(ran, TODAY).text).toMatch(/vendor page/);
+    expect(nextStep(market(MarketPhase.Archived), TODAY).text).not.toMatch(/vendor page/);
   });
 
   // Where a move into the phase lands, too: a Google Form market's importing is done on the import,
@@ -279,7 +279,7 @@ describe('what the rail tells someone the step is not theirs', () => {
       'assignment, results published',
       viewer(MarketPhase.Assignment, { ...ASSIGNED, resultsPublished: true } as Partial<Market>),
       TODAY,
-      'Results are published, so the assignments are settled. The check-in page goes up when the market is published.',
+      'Results are published, so the assignments are settled. Check-in with the door code opens when the market is published.',
       'assignments',
     ],
     [

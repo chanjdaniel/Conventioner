@@ -142,7 +142,6 @@ export { LoginPage } from './pages/LoginPage';
 export { MarketSetupPage } from './pages/MarketSetupPage';
 export { ResultPage } from './pages/ResultPage';
 export { NewMarketPage } from './pages/NewMarketPage';
-export { CheckinPage } from './pages/CheckinPage';
 export { VendorsPage } from './pages/VendorsPage';
 export { TablesPage } from './pages/TablesPage';
 export { AttendanceStatusPage } from './pages/AttendanceStatusPage';

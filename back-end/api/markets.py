@@ -1274,8 +1274,8 @@ def _organization_default_rows(organization_id: Optional[str]) -> Dict[str, Dict
 def public_address_refusal(name: str, market_id: Optional[str] = None) -> Optional[str]:
     """Why no market may be called this, or None when it may (E21/F03/S03).
 
-    The name decides the slug and the slug is the market's public address - its applicant links
-    and its check-in page, served without authentication - so two markets answering one address
+    The name decides the slug and the slug is the market's public address - its vendor page, served
+    before anyone signs in (ADR 0022) - so two markets answering one address
     could hand a stranger the wrong market. Asked by creation and by a rename alike, against every
     OTHER market; the unique ``market_slug`` index is the database's refusal of the same thing.
 
@@ -2420,7 +2420,7 @@ def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
 
 RENAME_REFUSED_AFTER_DRAFT = (
     "This market's public web address comes from its name, and it has already been shared - "
-    "on its application link or its check-in page - so its name can no longer change."
+    "on its vendor page - so its name can no longer change."
 )
 
 

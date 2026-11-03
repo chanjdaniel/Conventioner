@@ -72,7 +72,7 @@ for (const size of PHONE_AND_DESK) {
       const attendance = new AttendanceStatusPage(page);
       await page.waitForURL(/\/attendance$/);
       await expect(attendance.row(VENDOR)).toBeVisible({ timeout: 15000 });
-      await expect(page.getByTestId('phase-rail-checkin')).toBeVisible();
+      await expect(page.getByTestId('phase-rail-vendor-page')).toBeVisible();
       await expectFits(page, 'the door');
       if (size.phone) {
         // The door has the screen, on first paint: the list starts within the top 340px of 844.

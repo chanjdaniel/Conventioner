@@ -163,7 +163,7 @@ export async function seedFormlessPhaseMarket(
  * Store a computed assignment on a market, so it may enter `market_days`.
  *
  * `market_days` means the market is RUNNING, and its entry invariant is that an assignment exists
- * (E03/F03): publishing is what puts the check-in page on the air, and a market with no placements
+ * (E03/F03): publishing is what opens check-in on its vendor page, and a market with no placements
  * serves a page that can tell nobody where to stand. A phase walk that reaches market days without
  * one is walking into a state the product forbids, so the seed provides it rather than the guard
  * being loosened.

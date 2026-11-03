@@ -347,7 +347,7 @@ class AssignmentComputedGuard:
                 id=self.id,
                 passed=False,
                 message=(
-                    "No tables have been allocated for this market, so its check-in page could "
+                    "No tables have been allocated for this market, so its vendor page could "
                     "not tell anyone where to stand. Allocate tables first."
                 ),
                 resolution_link="settings",

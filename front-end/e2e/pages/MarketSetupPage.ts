@@ -126,8 +126,8 @@ export class MarketSetupPage {
       if (await opening.isVisible()) await opening.click();
     }
 
-    // Publishing confirms, because it is one of the two edges with no route back: it puts a
-    // public check-in page on the air.
+    // Publishing confirms, because it is one of the two edges with no route back: it opens the
+    // market's days, and check-in on its vendor page.
     const publishConfirm = this.page.getByTestId('sweep-confirm-submit-button');
     if (await publishConfirm.isVisible({ timeout: 2000 }).catch(() => false)) {
       await publishConfirm.click();

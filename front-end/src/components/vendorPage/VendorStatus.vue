@@ -8,11 +8,15 @@
  *
  * On a Google Form market a signed-in address with no vendor there is told which address to use:
  * there is no application section to say it, since nobody applies on its page.
+ *
+ * In the market's days, and once it has ended after running, the seats are the check-in section's
+ * (`VendorCheckIn`), which lists them with when the vendor came; here they would be said twice.
  */
 import { computed } from 'vue';
 import { IntakeMode } from '@/assets/types/datatypes';
 import { useApplicationStore } from '@/stores/application';
-import { noVendorAtThisAddress, statusHeadline } from '@/utils/vendorPage';
+import { checkInSection, noVendorAtThisAddress, statusHeadline } from '@/utils/vendorPage';
+import { calendarToday } from '@/utils/marketGuide';
 import { seatLine } from '@/utils/applicantOutcome';
 import { getTimestampDate } from '@/utils/utils';
 
@@ -21,6 +25,10 @@ const store = useApplicationStore();
 const application = computed(() => store.application);
 const headline = computed(() => statusHeadline(application.value));
 const hasATable = computed(() => application.value?.outcome === 'has_a_table');
+const seatsListedHere = computed(
+  () =>
+    !store.page || checkInSection(store.page, application.value, calendarToday()).mode === 'none',
+);
 const noVendor = computed(() =>
   !application.value && store.page?.intakeMode === IntakeMode.Csv
     ? noVendorAtThisAddress(store.page.marketName)
@@ -39,7 +47,11 @@ const noVendor = computed(() =>
     <span v-if="application.submittedAt" class="status-date">
       Submitted {{ getTimestampDate(application.submittedAt) }}
     </span>
-    <ul v-if="application.seats?.length" class="status-seats" data-testid="vendor-page-seats">
+    <ul
+      v-if="seatsListedHere && application.seats?.length"
+      class="status-seats"
+      data-testid="vendor-page-seats"
+    >
       <li v-for="seat in application.seats" :key="seat.date">{{ seatLine(seat) }}</li>
     </ul>
   </div>

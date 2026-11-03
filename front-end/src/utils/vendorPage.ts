@@ -2,7 +2,7 @@
  * A market's vendor page, `/<slug>` (ADR 0022): what it reads before sign-in, and which sections
  * it shows a signed-in vendor in each state of the market.
  */
-import type { Application, Market } from '@/assets/types/datatypes';
+import type { ApplicantSeat, Application, Market } from '@/assets/types/datatypes';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
 import { APPLICANT_READ_TIMEOUT_MS } from '@/utils/applicantApi';
@@ -113,4 +113,64 @@ export function hasVendorPage(market: MarketState): boolean {
 export function sharesVendorPage(market: MarketState): boolean {
   if (!hasVendorPage(market)) return false;
   return market.phase !== MarketPhase.Archived || reachedMarketDays(market);
+}
+
+/**
+ * What the check-in section shows a signed-in vendor (ADR 0022):
+ * - `door`: the market's days: today's seat on top, to check in to, and the other days below;
+ * - `record`: archived after it ran: each seat and when they checked in, and no check-in;
+ * - `none`: any other state, where their seats, if any, are listed with their outcome.
+ */
+export type CheckInMode = 'door' | 'record' | 'none';
+
+export interface CheckInSection {
+  mode: CheckInMode;
+  /** Their seat today, on a market day; null when they have none today. */
+  today: ApplicantSeat | null;
+  /** Their other seats, in date order: every seat in the record. */
+  others: ApplicantSeat[];
+}
+
+export function checkInSection(
+  page: Pick<VendorPageInfo, 'phase' | 'ended'>,
+  application: Pick<Application, 'seats'> | null,
+  today: string,
+): CheckInSection {
+  const seats = [...(application?.seats ?? [])].sort((a, b) => a.date.localeCompare(b.date));
+  if (!seats.length) return { mode: 'none', today: null, others: [] };
+  if (page.phase === MarketPhase.MarketDays) {
+    return {
+      mode: 'door',
+      today: seats.find((seat) => seat.date === today) ?? null,
+      others: seats.filter((seat) => seat.date !== today),
+    };
+  }
+  if (page.ended) return { mode: 'record', today: null, others: seats };
+  return { mode: 'none', today: null, others: [] };
+}
+
+/** The sentences a scanned door code is answered with when it checks nobody in (story 47). */
+export const CHECK_IN_NOT_YET = "Check-in opens when the market's days begin.";
+export const CHECK_IN_ENDED = 'This market has ended, so check-in is closed.';
+export const NO_TABLE_TODAY = 'You have no table today, so you are not checked in.';
+
+/**
+ * Why a door code scanned at the entrance checks this vendor in to nothing today, or null when it
+ * may: the market is not in its days, or they have no seat today. A seat already checked in to
+ * is null too, and nothing is sent: they are here.
+ */
+export function scannedCodeRefusal(
+  page: Pick<VendorPageInfo, 'phase'>,
+  application: Pick<Application, 'seats'> | null,
+  today: string,
+): string | null {
+  if (page.phase === MarketPhase.Archived) return CHECK_IN_ENDED;
+  if (page.phase !== MarketPhase.MarketDays) return CHECK_IN_NOT_YET;
+  const seat = (application?.seats ?? []).find((s) => s.date === today);
+  return seat ? null : NO_TABLE_TODAY;
+}
+
+/** A typed door code as the poster prints it: upper case, its spaces and dashes dropped. */
+export function normalizedDoorCode(typed: string): string {
+  return typed.replace(/[\s-]/g, '').toUpperCase();
 }

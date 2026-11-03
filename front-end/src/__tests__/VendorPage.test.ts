@@ -9,6 +9,12 @@ import { useApplicationStore } from '@/stores/application';
 import { IntakeMode, MarketPhase, type Application } from '@/assets/types/datatypes';
 import {
   applicationSection,
+  CHECK_IN_ENDED,
+  CHECK_IN_NOT_YET,
+  checkInSection,
+  NO_TABLE_TODAY,
+  normalizedDoorCode,
+  scannedCodeRefusal,
   hasVendorPage,
   NO_APPLICATION_CLOSED,
   noVendorAtThisAddress,
@@ -18,6 +24,7 @@ import {
   type VendorPageRead,
 } from '@/utils/vendorPage';
 import { EMPTY_ESSENTIAL_OPTIONS } from '@/utils/essentialFields';
+import { calendarToday } from '@/utils/marketGuide';
 
 const fetchVendorPage = vi.fn<(slug: string) => Promise<VendorPageRead>>();
 vi.mock('@/utils/vendorPage', async (importOriginal) => ({
@@ -31,6 +38,8 @@ const verifyLoginCode = vi.fn();
 const saveApplicantApplication = vi.fn();
 const resumeSignIn = vi.fn();
 const endRememberedSignIn = vi.fn();
+const checkInWithDoorCode = vi.fn();
+const undoOwnCheckIn = vi.fn();
 vi.mock('@/utils/applicantApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/utils/applicantApi')>()),
   fetchApplicantApplication: (...args: unknown[]) => fetchApplicantApplication(...args),
@@ -39,6 +48,8 @@ vi.mock('@/utils/applicantApi', async (importOriginal) => ({
   verifyLoginCode: (...args: unknown[]) => verifyLoginCode(...args),
   resumeSignIn: (...args: unknown[]) => resumeSignIn(...args),
   endRememberedSignIn: (...args: unknown[]) => endRememberedSignIn(...args),
+  checkInWithDoorCode: (...args: unknown[]) => checkInWithDoorCode(...args),
+  undoOwnCheckIn: (...args: unknown[]) => undoOwnCheckIn(...args),
 }));
 
 const fetchPublicApplicationForm = vi.fn();
@@ -46,9 +57,25 @@ vi.mock('@/utils/publicApplicationForm', () => ({
   fetchPublicApplicationForm: (slug: string) => fetchPublicApplicationForm(slug),
 }));
 
+/** The page's address: its slug, and a query a test may set, which `replace` changes. */
+const routing = vi.hoisted(() => {
+  const at = { query: {} as Record<string, string> };
+  return {
+    at,
+    replace: vi.fn((to: { query: Record<string, string> }) => {
+      at.query = to.query;
+    }),
+  };
+});
 vi.mock('vue-router', () => ({
-  useRoute: () => ({ params: { marketSlug: 'spring-market' } }),
-  useRouter: () => ({ push: vi.fn() }),
+  useRoute: () => ({
+    params: { marketSlug: 'spring-market' },
+    get query() {
+      return routing.at.query;
+    },
+    hash: '',
+  }),
+  useRouter: () => ({ push: vi.fn(), replace: routing.replace }),
 }));
 
 const SESSION_KEY = 'conventioner.applicantSession';
@@ -138,6 +165,10 @@ const has = (wrapper: Awaited<ReturnType<typeof mountPage>>, testid: string) =>
 
 beforeEach(() => {
   sessionStorage.clear();
+  routing.at.query = {};
+  routing.replace.mockClear();
+  checkInWithDoorCode.mockReset();
+  undoOwnCheckIn.mockReset();
   requestLoginCode.mockReset();
   verifyLoginCode.mockReset();
   fetchVendorPage.mockReset();
@@ -920,5 +951,281 @@ describe('Remember me on this device (ADR 0022)', () => {
     expect(wrapper.get('[data-testid="vendor-page-sign-out-error"]').text()).toBe(
       'You could not be signed out. Check your connection and try again.',
     );
+  });
+});
+
+// ── Check-in on the vendor page (ADR 0022) ───────────────────────────────────
+
+const TODAY = calendarToday();
+const ANOTHER_DAY = '2099-08-02';
+const DOOR_CODE = 'K7M4QP';
+const DOOR_KEY = 'conventioner.doorCode';
+
+function seat(date: string, checkedInAt: string | null = null) {
+  return {
+    date,
+    tableCode: 'A 1',
+    tableChoice: 'Full Table',
+    section: 'A',
+    location: 'North Wing',
+    checkedInAt,
+  };
+}
+
+const onItsDays = (overrides: Partial<VendorPageInfo> = {}) =>
+  pageOf({
+    phase: MarketPhase.MarketDays,
+    takesApplications: false,
+    resultsPublished: true,
+    marketDates: [TODAY, ANOTHER_DAY].sort(),
+    ...overrides,
+  });
+
+const seated = (...seats: ReturnType<typeof seat>[]) =>
+  application({ outcome: 'has_a_table', seats });
+
+describe('what the check-in section shows', () => {
+  const days = { phase: MarketPhase.MarketDays, ended: false };
+  const app = { seats: [seat(ANOTHER_DAY), seat(TODAY)] };
+
+  it("puts today's seat on top, and the other days below, on the market's days", () => {
+    const section = checkInSection(days, app, TODAY);
+    expect(section.mode).toBe('door');
+    expect(section.today?.date).toBe(TODAY);
+    expect(section.others.map((s) => s.date)).toEqual([ANOTHER_DAY]);
+  });
+
+  it('has no seat today for a vendor seated on other days only', () => {
+    expect(checkInSection(days, { seats: [seat(ANOTHER_DAY)] }, TODAY).today).toBeNull();
+  });
+
+  it('is the record once the market has ended after running', () => {
+    const section = checkInSection({ phase: MarketPhase.Archived, ended: true }, app, TODAY);
+    expect(section.mode).toBe('record');
+    expect(section.others).toHaveLength(2);
+  });
+
+  it.each([MarketPhase.Assignment, MarketPhase.Archived])('is nothing in %s', (phase) => {
+    expect(checkInSection({ phase, ended: false }, app, TODAY).mode).toBe('none');
+  });
+
+  it('is nothing without a seat', () => {
+    expect(checkInSection(days, { seats: [] }, TODAY).mode).toBe('none');
+  });
+
+  it.each([
+    [MarketPhase.Assignment, [seat(TODAY)], CHECK_IN_NOT_YET],
+    [MarketPhase.Archived, [seat(TODAY)], CHECK_IN_ENDED],
+    [MarketPhase.MarketDays, [seat(ANOTHER_DAY)], NO_TABLE_TODAY],
+    [MarketPhase.MarketDays, [seat(TODAY)], null],
+  ])('answers a code scanned in %s with %s', (phase, seats, expected) => {
+    expect(scannedCodeRefusal({ phase }, { seats }, TODAY)).toBe(expected);
+  });
+
+  it.each(['k7m4qp', 'K7M 4QP', 'k7m-4qp', ' K7M4QP '])(
+    'reads %s as the poster prints it',
+    (typed) => {
+      expect(normalizedDoorCode(typed)).toBe(DOOR_CODE);
+    },
+  );
+});
+
+describe("checking in on the market's days", () => {
+  beforeEach(signIn);
+
+  it("offers today's seat with a field for the door code, and the other days below", async () => {
+    fetchVendorPage.mockResolvedValue(onItsDays());
+    fetchApplicantApplication.mockResolvedValue(seated(seat(TODAY), seat(ANOTHER_DAY)));
+    const wrapper = await mountPage();
+
+    const today = wrapper.get('[data-testid="vendor-check-in-today"]');
+    expect(today.text()).toContain('Today');
+    expect(today.text()).toContain('North Wing');
+    expect(has(wrapper, 'vendor-check-in-code-input')).toBe(true);
+    expect(wrapper.get('[data-testid="vendor-check-in-other-days"]').text()).toContain(
+      'August 2, 2099',
+    );
+    // Said once, in the section, not again under the outcome.
+    expect(has(wrapper, 'vendor-page-seats')).toBe(false);
+    expect(wrapper.get('[data-testid="vendor-page-status"]').text()).toContain('You have a table');
+  });
+
+  it('checks them in with a typed code, then offers Undo', async () => {
+    fetchVendorPage.mockResolvedValue(onItsDays());
+    fetchApplicantApplication.mockResolvedValue(seated(seat(TODAY)));
+    checkInWithDoorCode.mockResolvedValue({ checkedInAt: `${TODAY}T09:41:00+00:00` });
+    const wrapper = await mountPage();
+
+    const button = wrapper.get('[data-testid="vendor-check-in-btn"]');
+    expect(button.attributes('disabled')).toBeDefined();
+    await wrapper.get('[data-testid="vendor-check-in-code-input"]').setValue('k7m 4qp');
+    expect(button.attributes('disabled')).toBeUndefined();
+    await wrapper.get('[data-testid="vendor-check-in-form"]').trigger('submit');
+    await flushPromises();
+
+    expect(checkInWithDoorCode).toHaveBeenCalledWith('spring-market', 'a-token', TODAY, 'k7m 4qp');
+    expect(wrapper.get('[data-testid="vendor-check-in-done"]').text()).toContain('Checked in at');
+    expect(has(wrapper, 'vendor-check-in-form')).toBe(false);
+
+    undoOwnCheckIn.mockResolvedValue(undefined);
+    await wrapper.get('[data-testid="vendor-check-in-undo-btn"]').trigger('click');
+    await flushPromises();
+
+    expect(undoOwnCheckIn).toHaveBeenCalledWith('spring-market', 'a-token', TODAY);
+    expect(has(wrapper, 'vendor-check-in-form')).toBe(true);
+  });
+
+  it('says a wrong door code is wrong, and keeps the field', async () => {
+    fetchVendorPage.mockResolvedValue(onItsDays());
+    fetchApplicantApplication.mockResolvedValue(seated(seat(TODAY)));
+    const wrong = "That isn't this market's door code. Check it, or ask at the door.";
+    checkInWithDoorCode.mockRejectedValue(refusal(403, wrong));
+    const wrapper = await mountPage();
+
+    await wrapper.get('[data-testid="vendor-check-in-code-input"]').setValue('ZZZZZZ');
+    await wrapper.get('[data-testid="vendor-check-in-form"]').trigger('submit');
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="vendor-check-in-error"]').text()).toBe(wrong);
+    expect(has(wrapper, 'vendor-check-in-code-input')).toBe(true);
+  });
+
+  it('works on a Google Form market too', async () => {
+    fetchVendorPage.mockResolvedValue(onItsDays({ intakeMode: IntakeMode.Csv }));
+    fetchApplicantApplication.mockResolvedValue({ ...seated(seat(TODAY)), formData: undefined });
+    checkInWithDoorCode.mockResolvedValue({ checkedInAt: `${TODAY}T09:41:00+00:00` });
+    const wrapper = await mountPage();
+
+    await wrapper.get('[data-testid="vendor-check-in-code-input"]').setValue(DOOR_CODE);
+    await wrapper.get('[data-testid="vendor-check-in-form"]').trigger('submit');
+    await flushPromises();
+
+    expect(has(wrapper, 'vendor-check-in-done')).toBe(true);
+  });
+
+  it("says they have no table today, and offers no check-in, when they don't", async () => {
+    fetchVendorPage.mockResolvedValue(onItsDays());
+    fetchApplicantApplication.mockResolvedValue(seated(seat(ANOTHER_DAY)));
+    const wrapper = await mountPage();
+
+    expect(has(wrapper, 'vendor-check-in-today')).toBe(false);
+    expect(has(wrapper, 'vendor-check-in-other-days')).toBe(true);
+  });
+});
+
+describe('the door code scanned at the entrance', () => {
+  it('is kept through the sign-in, taken off the address, and checks them in for today', async () => {
+    routing.at.query = { door: DOOR_CODE };
+    fetchVendorPage.mockResolvedValue(onItsDays());
+    requestLoginCode.mockResolvedValue({ message: "We've sent a code to this address." });
+    verifyLoginCode.mockResolvedValue({
+      success: true,
+      marketId: 'market-1',
+      applicantEmail: 'vendor@example.com',
+      token: 'a-token',
+    });
+    fetchApplicantApplication.mockResolvedValue(seated(seat(TODAY)));
+    checkInWithDoorCode.mockResolvedValue({ checkedInAt: `${TODAY}T09:41:00+00:00` });
+    const wrapper = await mountPage();
+
+    expect(routing.replace).toHaveBeenCalledWith({ query: {}, hash: '' });
+    expect(wrapper.get('[data-testid="vendor-page-door-held"]').text()).toContain(
+      "you'll be checked in for today",
+    );
+    expect(checkInWithDoorCode).not.toHaveBeenCalled();
+
+    await wrapper.get('[data-testid="vendor-sign-in-email-input"]').setValue('vendor@example.com');
+    await wrapper.get('[data-testid="vendor-sign-in-email-step"]').trigger('submit');
+    await flushPromises();
+    await wrapper.get('[data-testid="vendor-sign-in-code-input"]').setValue('123456');
+    await wrapper.get('[data-testid="vendor-sign-in-code-step"]').trigger('submit');
+    await flushPromises();
+
+    expect(checkInWithDoorCode).toHaveBeenCalledTimes(1);
+    expect(checkInWithDoorCode).toHaveBeenCalledWith('spring-market', 'a-token', TODAY, DOOR_CODE);
+    expect(has(wrapper, 'vendor-check-in-done')).toBe(true);
+    // Used once: a reload checks nobody in again.
+    expect(sessionStorage.getItem(DOOR_KEY)).toBeNull();
+  });
+
+  it('checks a signed-in vendor straight in', async () => {
+    signIn();
+    routing.at.query = { door: DOOR_CODE };
+    fetchVendorPage.mockResolvedValue(onItsDays());
+    fetchApplicantApplication.mockResolvedValue(seated(seat(TODAY)));
+    checkInWithDoorCode.mockResolvedValue({ checkedInAt: `${TODAY}T09:41:00+00:00` });
+    const wrapper = await mountPage();
+
+    expect(checkInWithDoorCode).toHaveBeenCalledWith('spring-market', 'a-token', TODAY, DOOR_CODE);
+    expect(has(wrapper, 'vendor-check-in-done')).toBe(true);
+  });
+
+  it.each([
+    ['with no table today', onItsDays(), [seat(ANOTHER_DAY)], NO_TABLE_TODAY],
+    [
+      "before the market's days",
+      pageOf({ phase: MarketPhase.Assignment, takesApplications: false, resultsPublished: true }),
+      [seat(TODAY)],
+      CHECK_IN_NOT_YET,
+    ],
+  ])('says so, and checks nobody in, %s', async (_name, read, seats, sentence) => {
+    signIn();
+    routing.at.query = { door: DOOR_CODE };
+    fetchVendorPage.mockResolvedValue(read);
+    fetchApplicantApplication.mockResolvedValue(seated(...seats));
+    const wrapper = await mountPage();
+
+    expect(wrapper.get('[data-testid="vendor-check-in-notice"]').text()).toBe(sentence);
+    expect(checkInWithDoorCode).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem(DOOR_KEY)).toBeNull();
+  });
+
+  it('sends nothing for a seat already checked in to', async () => {
+    signIn();
+    routing.at.query = { door: DOOR_CODE };
+    fetchVendorPage.mockResolvedValue(onItsDays());
+    fetchApplicantApplication.mockResolvedValue(seated(seat(TODAY, `${TODAY}T09:41:00+00:00`)));
+    const wrapper = await mountPage();
+
+    expect(checkInWithDoorCode).not.toHaveBeenCalled();
+    expect(has(wrapper, 'vendor-check-in-done')).toBe(true);
+  });
+
+  it('waits through a sign-in that ran out, and is kept for the next one', async () => {
+    signIn();
+    routing.at.query = { door: DOOR_CODE };
+    fetchVendorPage.mockResolvedValue(onItsDays());
+    fetchApplicantApplication.mockResolvedValue(seated(seat(TODAY)));
+    checkInWithDoorCode.mockRejectedValue(unauthorized());
+    const wrapper = await mountPage();
+
+    expect(has(wrapper, 'vendor-sign-in-email-input')).toBe(true);
+    expect(has(wrapper, 'vendor-page-door-held')).toBe(true);
+    expect(JSON.parse(sessionStorage.getItem(DOOR_KEY) ?? 'null')).toEqual({
+      marketSlug: 'spring-market',
+      code: DOOR_CODE,
+    });
+  });
+});
+
+describe('the record, once the market has ended', () => {
+  beforeEach(signIn);
+
+  it('shows each seat and when they checked in, and no check-in', async () => {
+    fetchVendorPage.mockResolvedValue(
+      pageOf({ phase: MarketPhase.Archived, ended: true, takesApplications: false }),
+    );
+    fetchApplicantApplication.mockResolvedValue(
+      seated(seat('2099-08-01', '2099-08-01T09:41:00+00:00'), seat('2099-08-02')),
+    );
+    const wrapper = await mountPage();
+
+    const rows = wrapper.findAll('[data-testid="vendor-check-in-record-seat"]');
+    expect(rows.map((row) => row.text())).toEqual([
+      expect.stringContaining('Checked in at'),
+      expect.stringContaining('Not checked in'),
+    ]);
+    expect(has(wrapper, 'vendor-check-in-form')).toBe(false);
+    expect(has(wrapper, 'vendor-check-in-btn')).toBe(false);
   });
 });

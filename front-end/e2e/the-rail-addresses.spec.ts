@@ -4,11 +4,12 @@ import { transitionMarket } from './helpers/seedPhaseMarket';
 import { marketScreenPath } from './helpers/marketScreens';
 
 /**
- * The rail's public addresses read in full and point at the right page (E30/F01/S03).
+ * The rail's public address reads in full and points at the right page (E30/F01/S03).
  *
- * A form market on its market days carries two - the vendor page and the check-in page - and each
- * once shrank the other to "localhost:5…". Once archived, it dropped the check-in page, the reverse
- * of what its archive dialog promises stays up; a market that ran keeps both.
+ * A form market on its market days carried two - the vendor page and the check-in page - and each
+ * once shrank the other to "localhost:5…"; archived, it dropped the check-in page, the reverse of
+ * what its archive dialog promised stays up. The check-in page is gone (ADR 0022): its vendors
+ * check in on the vendor page, the one address, which a market that ran keeps.
  */
 test.describe("The rail's addresses", () => {
   test('read whole on a running form market, and the record stays once archived', async ({
@@ -23,12 +24,12 @@ test.describe("The rail's addresses", () => {
       { intakeMode: 'form', marketDate: '2099-05-03' },
     );
     const vendorPage = page.getByTestId('phase-rail-vendor-page');
-    const checkIn = page.getByTestId('phase-rail-checkin');
 
     for (const width of [1280, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(marketScreenPath(seed.marketId, 'attendance'));
-      for (const chip of [vendorPage, checkIn]) {
+      await expect(page.getByTestId('phase-rail-checkin')).toHaveCount(0);
+      for (const chip of [vendorPage]) {
         await expect(chip).toBeVisible();
         const link = chip.locator('a');
         const cut = await link.evaluate((a) => a.scrollWidth > a.clientWidth);
@@ -38,7 +39,6 @@ test.describe("The rail's addresses", () => {
 
     await transitionMarket(request, BACKEND_URL, TEST_USER.email, seed.marketId, 'archived');
     await page.goto(marketScreenPath(seed.marketId, 'assignments'));
-    await expect(checkIn.locator('a')).toHaveAttribute('href', /\/check-in$/);
     // A market that ran keeps its vendor page: where its vendors read where they sat (ADR 0022).
     await expect(vendorPage.locator('a')).toHaveAttribute(
       'href',

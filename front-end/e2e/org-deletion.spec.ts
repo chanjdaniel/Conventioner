@@ -14,7 +14,7 @@ import { savePlan } from './helpers/savePlan';
  * reached them through the organization.
  *
  * The risk is recorded rather than argued: an archived market that RAN is still publicly served and
- * holds the placement record of a market that happened, and deleting one takes a live check-in URL
+ * holds the placement record of a market that happened, and deleting one takes its live vendor page
  * off the air with no undo. Reaffirmed on 2026-09-22 - which is why the confirmation has to NAME
  * what each deletion destroys.
  */
@@ -65,8 +65,8 @@ async function transition(request: APIRequestContext, marketId: string, toPhase:
 
 /**
  * Run a market for real - a form, a plan, an approved vendor, assigned and published - then
- * archive it. Only a market that ran keeps a public check-in page (E26/F06/S02); archiving one
- * straight from draft is abandoning it, and leaves no page to lose.
+ * archive it. Only a market that ran keeps its vendor page as the record (E26/F06/S02); archiving
+ * one straight from draft is abandoning it, and leaves no page to lose.
  */
 async function runThenArchive(request: APIRequestContext, marketId: string) {
   await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {

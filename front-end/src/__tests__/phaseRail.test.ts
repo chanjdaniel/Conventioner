@@ -266,34 +266,17 @@ describe('a market that left the spine', () => {
   });
 });
 
-describe('the check-in URL', () => {
-  it('is on the rail once the market is published', () => {
-    const rail = railFor(MarketPhase.MarketDays, { slug: 'riverside-market' });
-
-    expect(rail.get('[data-testid="phase-rail-checkin"]').text()).toContain(
-      '/riverside-market/check-in',
-    );
-  });
-
-  it('is absent before publishing, because it would be a link to a 404', () => {
-    for (const phase of [MarketPhase.Draft, MarketPhase.Applications, MarketPhase.Assignment]) {
-      expect(
-        railFor(phase, { slug: 'riverside-market' })
-          .find('[data-testid="phase-rail-checkin"]')
-          .exists(),
-      ).toBe(false);
+describe('the check-in page (ADR 0022)', () => {
+  it('is gone from the rail in every phase: vendors check in on their vendor page', () => {
+    for (const phase of [MarketPhase.MarketDays, MarketPhase.Archived]) {
+      const rail = railFor(phase, {
+        slug: 'riverside-market',
+        intakeMode: 'form',
+        phasesReached: [MarketPhase.MarketDays],
+      } as Partial<Market>);
+      expect(rail.find('[data-testid="phase-rail-checkin"]').exists()).toBe(false);
+      expect(rail.text()).not.toContain('/riverside-market/check-in');
     }
-  });
-
-  it('copies in one action', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal('navigator', { clipboard: { writeText } });
-
-    const rail = railFor(MarketPhase.MarketDays, { slug: 'riverside-market' });
-    await rail.get('[data-testid="phase-rail-checkin-copy"]').trigger('click');
-
-    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('/riverside-market/check-in'));
-    vi.unstubAllGlobals();
   });
 });
 
@@ -321,7 +304,6 @@ describe('an address on a phone (T142)', () => {
 
     for (const [testId, name, end] of [
       ['phase-rail-vendor-page', 'Vendor page', '/riverside-market'],
-      ['phase-rail-checkin', 'Check-in page', '/riverside-market/check-in'],
     ]) {
       const chip = rail.get(`[data-testid="${testId}"]`);
       const links = chip.findAll('a');
@@ -335,10 +317,12 @@ describe('an address on a phone (T142)', () => {
 
   it('shows the address itself past the break', () => {
     windowOf(false);
-    const chip = railFor(MarketPhase.MarketDays, running).get('[data-testid="phase-rail-checkin"]');
+    const chip = railFor(MarketPhase.MarketDays, running).get(
+      '[data-testid="phase-rail-vendor-page"]',
+    );
 
-    expect(chip.get('a').text()).toMatch(/\/riverside-market\/check-in$/);
-    expect(chip.text()).toContain('Check-in page');
+    expect(chip.get('a').text()).toMatch(/\/riverside-market$/);
+    expect(chip.text()).toContain('Vendor page');
   });
 });
 
@@ -350,13 +334,6 @@ describe("an archived market's addresses (E30/F01/S03)", () => {
     phaseRecordComplete: true,
   } as Partial<Market>;
 
-  it('keeps the check-in page of a market that ran: it stays up as the record', () => {
-    const rail = railFor(MarketPhase.Archived, ran);
-    expect(rail.get('[data-testid="phase-rail-checkin"]').text()).toContain(
-      '/riverside-market/check-in',
-    );
-  });
-
   it('keeps the vendor page of a market that ran: it is where its vendors read where they sat', () => {
     const chip = railFor(MarketPhase.Archived, ran).get('[data-testid="phase-rail-vendor-page"]');
     expect(chip.get('a').attributes('href')).toMatch(/\/riverside-market$/);
@@ -366,13 +343,6 @@ describe("an archived market's addresses (E30/F01/S03)", () => {
     const never = { ...ran, phasesReached: [MarketPhase.Draft, MarketPhase.Archived] };
     expect(
       railFor(MarketPhase.Archived, never).find('[data-testid="phase-rail-vendor-page"]').exists(),
-    ).toBe(false);
-  });
-
-  it('shows no check-in page for a market that never ran, since it has none', () => {
-    const never = { ...ran, phasesReached: [MarketPhase.Draft, MarketPhase.Archived] };
-    expect(
-      railFor(MarketPhase.Archived, never).find('[data-testid="phase-rail-checkin"]').exists(),
     ).toBe(false);
   });
 });

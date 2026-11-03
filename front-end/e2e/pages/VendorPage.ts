@@ -153,6 +153,74 @@ export class VendorPage {
     return this.page.getByTestId('vendor-page-sign-out-btn');
   }
 
+  // ── Check-in, on the market's days and in the record (ADR 0022) ────────
+
+  /** Open the page as the door's QR code does, on `?door=<code>`. */
+  async gotoWithDoorCode(marketSlug: string, code: string) {
+    await this.page.goto(`/${marketSlug}?door=${encodeURIComponent(code)}`);
+    await this.marketName.or(this.page.getByTestId('page-not-found')).waitFor();
+  }
+
+  /** Over the sign-in, while a scanned door code waits for it. */
+  get doorCodeHeld(): Locator {
+    return this.page.getByTestId('vendor-page-door-held');
+  }
+
+  /** The check-in section on the market's days. */
+  get checkIn(): Locator {
+    return this.page.getByTestId('vendor-check-in');
+  }
+
+  /** Today's seat, on top, with Check in or when they did. */
+  get todayCard(): Locator {
+    return this.page.getByTestId('vendor-check-in-today');
+  }
+
+  get otherDays(): Locator {
+    return this.page.getByTestId('vendor-check-in-other-days');
+  }
+
+  get doorCodeInput(): Locator {
+    return this.page.getByTestId('vendor-check-in-code-input');
+  }
+
+  get checkInButton(): Locator {
+    return this.page.getByTestId('vendor-check-in-btn');
+  }
+
+  /** "Checked in at <time>", once they have. */
+  get checkedIn(): Locator {
+    return this.page.getByTestId('vendor-check-in-done');
+  }
+
+  get undoButton(): Locator {
+    return this.page.getByTestId('vendor-check-in-undo-btn');
+  }
+
+  get checkInError(): Locator {
+    return this.page.getByTestId('vendor-check-in-error');
+  }
+
+  /** What a scanned code came to when it checked nobody in. */
+  get checkInNotice(): Locator {
+    return this.page.getByTestId('vendor-check-in-notice');
+  }
+
+  /** Type the door code under the QR code, and check in. */
+  async checkInWith(code: string) {
+    await this.doorCodeInput.fill(code);
+    await this.checkInButton.click();
+  }
+
+  /** Once the market has ended: each seat, and when they checked in. */
+  get record(): Locator {
+    return this.page.getByTestId('vendor-check-in-record');
+  }
+
+  get recordSeats(): Locator {
+    return this.page.getByTestId('vendor-check-in-record-seat');
+  }
+
   // ── The application form, open on the page ──────────────────────────────
 
   get form(): Locator {

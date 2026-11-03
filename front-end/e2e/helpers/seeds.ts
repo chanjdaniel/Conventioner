@@ -324,14 +324,14 @@ export async function seedMarketWithVendors(
  *
  * Unlike seedMarketWithVendors(), this also configures the market's
  * setupObject (dates, sections, tiers, locations) and publishes the market by
- * walking it through the transition endpoint to `market_days`, the phase the
- * check-in page serves, so the check-in API and vendor/table views work.
+ * walking it through the transition endpoint to `market_days`, the phase its vendors check in on
+ * their vendor page, so check-in and the vendor and table views work.
  *
  * Vendors are seeded as approved applications, which is what the solver reads. They used to be
  * a fabricated CSV upload, back when the solver read a separate source_data collection.
  *
  * @returns PublishedSeedResult with marketSlug for navigating to
- *          the public check-in URL.
+ *          the market's vendor page.
  */
 export async function seedPublishedMarketWithAssignments(
   request: APIRequestContext,
@@ -424,9 +424,9 @@ export async function seedPublishedMarketWithAssignments(
   const marketSlug = marketNameToSlug(marketName);
 
   // Step 4: Publish, by walking the edges a real organizer walks, running the assignment from the
-  // phase that runs it. `market_days` means "this market is running" and is the only phase
-  // check-in serves; its entry invariant is that an assignment exists, because a market with no
-  // placements would serve a check-in page that can tell nobody where to stand.
+  // phase that runs it. `market_days` means "this market is running" and is the only phase a
+  // vendor checks in in; its entry invariant is that an assignment exists, because a market with
+  // no placements would serve a vendor page that can tell nobody where to stand.
   //
   // The assignment used to be run first, from `draft`. Assign is an operation of the `assignment`
   // phase and refuses everywhere else (E10/F03/S02), so the seed now walks the journey rather

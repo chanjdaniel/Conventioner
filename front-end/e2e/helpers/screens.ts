@@ -22,6 +22,7 @@ import { marketScreenPath, marketSetupPath, oneByOnePath } from './marketScreens
 import { mongoEval } from './mongo';
 import { createApplicantLoginChallenge } from './seedApplicantMarket';
 import { loginViaApi } from './seeds';
+import { calendarToday } from './vendorSignIn';
 import {
   FIRST_IMPORT,
   SCREENS_EDITOR,
@@ -1298,25 +1299,92 @@ export const SCREENS: Screen[] = [
     },
   },
   {
-    name: 'the check-in page',
+    // A vendor on a market day (ADR 0022): today's seat on top, with the door code's field.
+    name: 'the vendor page, on a market day',
     who: 'nobody',
     sizes: PUBLIC,
-    open: at(slug('big', '/check-in'), 'attendance-checkin-market-name'),
+    open: asAVendorAt(
+      'big',
+      (today) => [seatOn(today), seatOn('2099-08-22')],
+      'vendor-check-in-btn',
+    ),
   },
   {
-    // What a vendor at the door sees once they have looked themselves up: a card and a Check in
-    // button for each of their days.
-    name: 'the check-in page, a vendor looked up',
+    name: 'the vendor page, checked in',
     who: 'nobody',
     sizes: PUBLIC,
-    open: async (page, seed) => {
-      await at(slug('big', '/check-in'), 'attendance-checkin-email-input')(page, seed);
-      await page.getByTestId('attendance-checkin-email-input').fill('vendor0@example.com');
-      await page.getByTestId('attendance-checkin-lookup-button').click();
-      await visible(page, 'attendance-checkin-checkin-button');
-    },
+    open: asAVendorAt(
+      'big',
+      (today) => [seatOn(today, `${today}T09:41:00+00:00`), seatOn('2099-08-22')],
+      'vendor-check-in-undo-btn',
+    ),
+  },
+  {
+    // Archived after it ran: each seat, and when they came.
+    name: 'the vendor page, the record',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: asAVendorAt(
+      'archived',
+      () => [seatOn('2099-05-01', '2099-05-01T09:41:00+00:00'), seatOn('2099-05-02')],
+      'vendor-check-in-record',
+    ),
   },
 ];
+
+/** One seat, as the vendor's own read lists it. */
+function seatOn(date: string, checkedInAt: string | null = null) {
+  return {
+    date,
+    tableCode: 'Indoors 12',
+    tableChoice: 'Full Table',
+    section: 'Indoors',
+    location: 'Indoors - the old cannery warehouse',
+    checkedInAt,
+  };
+}
+
+/**
+ * A vendor signed in at `market`'s page, their own read answered with `seats` (today's date given):
+ * every sweep opens each state at every size, and a real sign-in each time would pass the limits a
+ * caller and an address may sign in by (`sign_in_limits`). The page's own read is the server's.
+ */
+function asAVendorAt(
+  market: 'big' | 'archived',
+  seats: (today: string) => ReturnType<typeof seatOn>[],
+  ready: string,
+) {
+  return async (page: Page, seed: TheScreensSeed) => {
+    const { marketId, marketSlug } = seed[market];
+    const session = {
+      marketId,
+      marketSlug,
+      applicantEmail: 'vendor0@example.com',
+      token: 'a-sweep-sign-in',
+    };
+    await page.addInitScript(
+      (kept) => sessionStorage.setItem('conventioner.applicantSession', kept),
+      JSON.stringify(session),
+    );
+    const application = {
+      id: 'sweep-application',
+      marketId,
+      applicantEmail: session.applicantEmail,
+      status: 'open',
+      applicationType: 'main',
+      submittedAt: '2099-06-01T00:00:00+00:00',
+      updatedAt: '2099-06-01T00:00:00+00:00',
+      outcome: 'has_a_table',
+      seats: seats(calendarToday()),
+      vendorName: 'Maximilian Alexander Featherstonehaugh-Montgomery',
+    };
+    await page.route(`**/public/markets/${marketSlug}/applicant/application`, (route) =>
+      route.fulfill({ json: { application } }),
+    );
+    await page.goto(`/${marketSlug}`);
+    await visible(page, ready);
+  };
+}
 
 /** Signs the page's browser in as `who`, over the API: the sign-in pages are screens of their own. */
 export async function signIn(page: Page, who: Who, seed: TheScreensSeed): Promise<void> {

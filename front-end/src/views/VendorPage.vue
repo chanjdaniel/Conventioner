@@ -16,16 +16,22 @@
  * A tab with no sign-in of its own asks the server once whether this device is remembered (ADR
  * 0022) before it draws the sign-in; a remembered vendor is signed straight in, and anything else
  * draws the sign-in as it would have been.
+ *
+ * The door's QR code opens this page on `?door=<code>` (ADR 0022). The code is kept in this tab
+ * and taken off the address at once, so it is never left in the history or a shared link; it waits
+ * through the sign-in, and the check-in section uses it once, for today.
  */
 import { computed, onMounted, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useApplicationStore } from '@/stores/application';
 import PageNotFound from '@/components/PageNotFound.vue';
 import VendorSignIn from '@/components/vendorPage/VendorSignIn.vue';
 import VendorStatus from '@/components/vendorPage/VendorStatus.vue';
 import VendorApplication from '@/components/vendorPage/VendorApplication.vue';
+import VendorCheckIn from '@/components/vendorPage/VendorCheckIn.vue';
 
 const route = useRoute();
+const router = useRouter();
 const store = useApplicationStore();
 
 const marketSlug = computed(() => String(route.params.marketSlug ?? ''));
@@ -80,8 +86,23 @@ async function signOut() {
   signingOut.value = false;
 }
 
+/** Keep a door code the address carries, and take it off the address. */
+function holdDoorCodeFromAddress() {
+  const door = route.query.door;
+  if (typeof door !== 'string') return;
+  if (door.trim()) store.holdDoorCode(marketSlug.value, door.trim());
+  const rest = Object.fromEntries(Object.entries(route.query).filter(([key]) => key !== 'door'));
+  void router.replace({ query: rest, hash: route.hash });
+}
+
+/** Scanned again while the page is open: the router keeps the page, so only the address changes. */
+watch(() => route.query.door, holdDoorCodeFromAddress);
+
+const doorCodeHeld = computed(() => store.heldDoorCode?.marketSlug === marketSlug.value);
+
 onMounted(() => {
   store.error = null;
+  holdDoorCodeFromAddress();
   void load();
 });
 </script>
@@ -123,10 +144,16 @@ onMounted(() => {
         </p>
       </header>
 
-      <VendorSignIn v-if="!signedIn" :market-slug="marketSlug" />
+      <template v-if="!signedIn">
+        <p v-if="doorCodeHeld" class="vendor-page-door" data-testid="vendor-page-door-held">
+          Sign in, and you'll be checked in for today.
+        </p>
+        <VendorSignIn :market-slug="marketSlug" />
+      </template>
 
       <template v-else>
         <VendorStatus />
+        <VendorCheckIn :market-slug="marketSlug" />
         <VendorApplication />
         <div class="vendor-page-actions">
           <button
@@ -209,6 +236,14 @@ onMounted(() => {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
+}
+
+/* What a scanned door code waits for, said over the sign-in, centred as its title is. */
+.vendor-page-door {
+  margin: 0;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
 }
 
 .vendor-page-sign-out-error {

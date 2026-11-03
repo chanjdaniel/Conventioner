@@ -264,7 +264,7 @@ export interface Market {
   id: string;
   name: string;
   /** The market's public identifier, computed and persisted server-side from the name. Every
-   *  public URL names it - `/<slug>/check-in` is the page publishing puts on the air. */
+   *  public URL names it - `/<slug>` is its vendor page (ADR 0022). */
   slug?: string;
   creationDate: string;
   /** Derived server-side from phase: true when phase is ``draft``, false otherwise. The

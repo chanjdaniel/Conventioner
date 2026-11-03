@@ -183,7 +183,7 @@ interface Standing {
   assigned: boolean;
   /** Every one of its dates is over. */
   ended: boolean;
-  /** It reached market days: its check-in page is the record. */
+  /** It reached market days: its vendor page is the record. */
   ran: boolean;
   /** Its applicants have been told whether they have a table, which settles the result. */
   published?: boolean;
@@ -285,16 +285,16 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
           page: 'assignments',
           action: MarketAction.MovePhase,
           statement:
-            'Results are published, so the assignments are settled. Publish the market to put the check-in page up; that cannot be undone.',
+            'Results are published, so the assignments are settled. Publish the market to open check-in with the door code; that cannot be undone.',
           onlooker:
-            'Results are published, so the assignments are settled. The check-in page goes up when the market is published.',
+            'Results are published, so the assignments are settled. Check-in with the door code opens when the market is published.',
         }
       : assigned
         ? {
             page: 'assignments',
             action: MarketAction.Assign,
             statement:
-              'Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone.',
+              'Check the assignments, then publish the market: that opens check-in with the door code, and cannot be undone.',
             onlooker:
               'Tables are allocated, and the market is not published yet. Read the assignments.',
             helper: 'Check the assignments; the results are published by whoever may publish them.',
@@ -334,7 +334,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
   [MarketPhase.Archived]: ({ assigned, ran }) => ({
     page: assigned ? 'assignments' : 'setup',
     statement: ran
-      ? 'Archived: the record of what happened stays on its check-in page.'
+      ? 'Archived: the record of what happened stays on its vendor page.'
       : 'Archived: this market is the record of what happened.',
     action: null,
   }),

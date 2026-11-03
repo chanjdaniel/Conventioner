@@ -229,12 +229,6 @@ const router = createRouter({
       path: '/assignment-results',
       redirect: '/markets',
     },
-    {
-      path: '/:marketSlug/check-in',
-      name: 'attendance-checkin',
-      component: () => import('@/views/AttendanceCheckinView.vue'),
-      meta: { public: true },
-    },
     // A market's vendor page (ADR 0022): sign-in, status, the application and the result, at the
     // market's own address.
     {

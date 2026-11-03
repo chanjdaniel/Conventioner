@@ -45,6 +45,8 @@ interface RosterRow {
   location: string;
   checkedInAt: string | null;
   checkedInBy: string | null;
+  /** How a vendor checked themselves in: `door_code`, on their vendor page (ADR 0022). */
+  checkedInVia?: string | null;
 }
 
 type Show = 'all' | 'not-yet' | 'here';
@@ -133,6 +135,8 @@ const shown = computed(() => {
 function status(row: RosterRow): string {
   if (!row.checkedInAt) return notHere.value;
   const at = getTimestampTime(row.checkedInAt);
+  // The vendor's own, with the door code they scanned or typed at the entrance.
+  if (row.checkedInVia === 'door_code') return `Scanned in at ${at}`;
   if (!row.checkedInBy) return at;
   return `${at} by ${row.checkedInBy.toLowerCase() === signedInAs.value ? 'you' : row.checkedInBy}`;
 }

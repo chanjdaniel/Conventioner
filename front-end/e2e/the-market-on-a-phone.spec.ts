@@ -787,7 +787,7 @@ test.describe('between a phone and a desk', () => {
         'stats',
       ] as const) {
         await page.goto(marketScreenPath(seed.marketId, where));
-        await expect(page.getByTestId('phase-rail-checkin')).toBeVisible({ timeout: 15000 });
+        await expect(page.getByTestId('phase-rail-vendor-page')).toBeVisible({ timeout: 15000 });
         expect((await widths(page)).sideways, `${where} scrolls sideways`).toBe(0);
         // The name keeps room to be read, and the tabs stay inside the window.
         const title = await page.getByTestId('market-bar-title').boundingBox();
@@ -800,7 +800,7 @@ test.describe('between a phone and a desk', () => {
       }
       // The plan, a page of the same view as Applications, is built at a desk and keeps its floor.
       await page.goto(marketScreenPath(seed.marketId, 'setup'));
-      await expect(page.getByTestId('phase-rail-checkin')).toBeVisible({ timeout: 15000 });
+      await expect(page.getByTestId('phase-rail-vendor-page')).toBeVisible({ timeout: 15000 });
       expect((await widths(page)).sideways, 'the plan keeps the desktop floor').toBeGreaterThan(0);
     });
   }

@@ -295,11 +295,11 @@ test.describe('Tier 2 - Publish market', () => {
     await page.goto(marketSetupPath(marketId));
     await setupPage.advancePhaseTo('market_days', 'Market Days');
 
-    // Its vendors reach check-in on the URL publishing put on the air; check-in is open to every
-    // published market, however its vendors arrived.
-    await page.goto(`/${slug}/check-in`);
-    await expect(page.locator('.attendance-view')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByTestId('attendance-checkin-email-input')).toBeVisible({ timeout: 5000 });
+    // Its vendors reach their vendor page, where they check in; it is open to every published
+    // market, however its vendors arrived (ADR 0022).
+    await page.goto(`/${slug}`);
+    await expect(page.getByTestId('vendor-page-market-name')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('vendor-sign-in-email-input')).toBeVisible({ timeout: 5000 });
     await expect(page.getByTestId('vendor-page-not-found')).toHaveCount(0);
   });
 });

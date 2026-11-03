@@ -133,7 +133,7 @@ test.describe('Phase state machine - full walk', () => {
     await page.screenshot({ path: `${SCREENSHOT_DIR}/06-offers.png`, fullPage: true });
 
     // market_days means the market is RUNNING, and its entry invariant is that an assignment
-    // exists (E03/F03) - publishing puts the check-in page on the air, and a market with no
+    // exists (E03/F03) - publishing opens check-in on its vendor page, and a market with no
     // placements serves a page that can tell nobody where to stand.
     seedStoredAssignment(seed.marketId);
     // And a form market tells its applicants before it goes live (E36/F04/S02). Publish results is
@@ -152,7 +152,7 @@ test.describe('Phase state machine - full walk', () => {
     const publishDialog = page.getByTestId('sweep-confirm-window');
     await expect(publishDialog).toBeVisible({ timeout: 5000 });
     await expect(publishDialog).toContainText('Publish market');
-    await expect(publishDialog).toContainText('check-in page on the air');
+    await expect(publishDialog).toContainText('checks in on their vendor page with the door code');
     await page.screenshot({
       path: `${SCREENSHOT_DIR}/06b-publish-confirmation.png`,
       fullPage: true,
@@ -306,7 +306,7 @@ test.describe('Phase state machine - sweep', () => {
 
     // Perform the sweep transition
     // market_days means the market is RUNNING, and its entry invariant is that an assignment
-    // exists (E03/F03) - publishing puts the check-in page on the air, and a market with no
+    // exists (E03/F03) - publishing opens check-in on its vendor page, and a market with no
     // placements serves a page that can tell nobody where to stand.
     seedStoredAssignment(seed.marketId);
     // And every market tells its vendors before it goes live (E36/F04/S02, ADR 0022). Publish

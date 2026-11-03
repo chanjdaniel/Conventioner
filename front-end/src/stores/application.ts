@@ -13,7 +13,10 @@ import {
   saveErrorFrom,
   fetchApplicantApplication,
   saveApplicantApplication,
+  checkInWithDoorCode,
+  undoOwnCheckIn,
 } from '@/utils/applicantApi';
+import { getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import {
   IntakeMode,
   type Application,
@@ -86,6 +89,39 @@ function keepSession(session: StoredSession | null): void {
   }
 }
 
+/**
+ * A door code scanned at the entrance (ADR 0022), kept in this tab from the moment the page opens
+ * on `?door=<code>` until it is used once, so it survives the sign-in it may take first.
+ */
+const DOOR_CODE_KEY = 'conventioner.doorCode';
+
+interface HeldDoorCode {
+  marketSlug: string;
+  code: string;
+}
+
+function storedDoorCode(): HeldDoorCode | null {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(DOOR_CODE_KEY) ?? 'null') as unknown;
+    const held = parsed as Partial<HeldDoorCode> | null;
+    return held?.marketSlug && held.code ? (held as HeldDoorCode) : null;
+  } catch {
+    return null;
+  }
+}
+
+function keepDoorCode(held: HeldDoorCode | null): void {
+  try {
+    if (held) sessionStorage.setItem(DOOR_CODE_KEY, JSON.stringify(held));
+    else sessionStorage.removeItem(DOOR_CODE_KEY);
+  } catch {
+    // Unavailable storage: the code lasts as long as the page.
+  }
+}
+
+/** What a check-in or its undo came to: done, or refused with the sentence to show. */
+export type CheckInResult = { ok: true } | { ok: false; message: string; signedOut: boolean };
+
 export const useApplicationStore = defineStore('application', () => {
   const kept = storedSession();
   const marketId = ref<string | null>(kept?.marketId ?? null);
@@ -105,6 +141,7 @@ export const useApplicationStore = defineStore('application', () => {
   const page = ref<VendorPageInfo | null>(null);
   const formFields = ref<FormField[]>([]);
   const essentialOptions = ref<EssentialFormOptions>(EMPTY_ESSENTIAL_OPTIONS);
+  const heldDoorCode = ref<HeldDoorCode | null>(storedDoorCode());
 
   function isAuthenticatedFor(slug: string): boolean {
     return token.value !== null && marketSlug.value === slug;
@@ -265,6 +302,69 @@ export const useApplicationStore = defineStore('application', () => {
     }
   }
 
+  /** Keep a door code scanned at this market's entrance until the page uses it. */
+  function holdDoorCode(slug: string, code: string): void {
+    heldDoorCode.value = { marketSlug: slug, code };
+    keepDoorCode(heldDoorCode.value);
+  }
+
+  /** The door code held for this market, taken: it is used once. */
+  function takeDoorCode(slug: string): string | null {
+    const held = heldDoorCode.value;
+    if (!held || held.marketSlug !== slug) return null;
+    heldDoorCode.value = null;
+    keepDoorCode(null);
+    return held.code;
+  }
+
+  /** Mark the vendor's seat on `date` as checked in at `at`, or not, as the server now holds it. */
+  function setCheckedIn(date: string, at: string | null): void {
+    const app = application.value;
+    if (!app?.seats) return;
+    app.seats = app.seats.map((seat) => (seat.date === date ? { ...seat, checkedInAt: at } : seat));
+  }
+
+  /** A refused check-in or undo, in its sentence; an ended sign-in clears itself. */
+  function checkInRefusal(err: unknown, fallback: string): CheckInResult {
+    if (getApiErrorStatus(err) === 401) return signedOutRefusal();
+    return { ok: false, message: getApiErrorMessage(err, fallback), signedOut: false };
+  }
+
+  function signedOutRefusal(): CheckInResult {
+    clearSession();
+    error.value = 'Your session has expired. Please sign in again.';
+    return { ok: false, message: error.value, signedOut: true };
+  }
+
+  /** Check the vendor in for `date` with the market's door code, scanned or typed (ADR 0022). */
+  async function checkIn(date: string, doorCode: string): Promise<CheckInResult> {
+    if (!token.value || !marketSlug.value) return signedOutRefusal();
+    try {
+      const { checkedInAt } = await checkInWithDoorCode(
+        marketSlug.value,
+        token.value,
+        date,
+        doorCode,
+      );
+      setCheckedIn(date, checkedInAt);
+      return { ok: true };
+    } catch (err: unknown) {
+      return checkInRefusal(err, 'You were not checked in. Please try again.');
+    }
+  }
+
+  /** Take back the vendor's own check-in for `date`, after a mis-tap. */
+  async function undoCheckIn(date: string): Promise<CheckInResult> {
+    if (!token.value || !marketSlug.value) return signedOutRefusal();
+    try {
+      await undoOwnCheckIn(marketSlug.value, token.value, date);
+      setCheckedIn(date, null);
+      return { ok: true };
+    } catch (err: unknown) {
+      return checkInRefusal(err, 'Your check-in was not undone. Please try again.');
+    }
+  }
+
   function clearSession(): void {
     marketId.value = null;
     marketSlug.value = null;
@@ -306,6 +406,7 @@ export const useApplicationStore = defineStore('application', () => {
     page,
     formFields,
     essentialOptions,
+    heldDoorCode,
     isAuthenticatedFor,
     loadPage,
     loadVendorRead,
@@ -316,5 +417,9 @@ export const useApplicationStore = defineStore('application', () => {
     saveApplication,
     clearSession,
     signOut,
+    holdDoorCode,
+    takeDoorCode,
+    checkIn,
+    undoCheckIn,
   };
 });
