@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
 import {
-  IntakeMode,
   type Market,
   MarketPhase,
   MarketRole,
@@ -23,6 +22,7 @@ import {
 } from '@/utils/permissions';
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { intakeModeOf } from '@/utils/marketGuide';
+import { hasVendorPage } from '@/utils/vendorPage';
 import { alsoWords, marketRemoval, roleAddingNothing, roleWords } from '@/utils/peopleWithAccess';
 
 const props = defineProps<{
@@ -259,16 +259,14 @@ async function handleRename() {
 }
 
 /**
- * Which of its public pages go with it, in words: a form market's application page from the moment
- * it opens, and a check-in page while it runs or kept as a record once it has (E26/F06/S02).
+ * Which of its public pages go with it, in words: its vendor page while it has one (ADR 0022), and
+ * a check-in page while it runs or kept as a record once it has (E26/F06/S02).
  */
 const publicPages = computed(() => {
   const market = marketData.value;
   if (!market) return '';
   const pages: string[] = [];
-  if (market.intakeMode === IntakeMode.Form && market.phase !== MarketPhase.Draft) {
-    pages.push('application page');
-  }
+  if (hasVendorPage(market)) pages.push('vendor page');
   const ran = market.phasesReached?.includes(MarketPhase.MarketDays);
   if (market.phase === MarketPhase.MarketDays || (market.phase === MarketPhase.Archived && ran)) {
     pages.push('check-in page');

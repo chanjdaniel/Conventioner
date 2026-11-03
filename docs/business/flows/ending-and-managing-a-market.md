@@ -153,7 +153,7 @@ Covered by:
 ## L5. Delete a market
 
 **Status:** Works (walked live; what it names read from the code as of bug 43's fix and E30/F01/S03).
-Owner only, in any phase: "Delete market" opens "Delete <market>?", which names what goes ("This deletes the market with its applications, its assignments, its check-in records and the record of who changed what. It cannot be undone."), adds "Its application page and check-in page will stop working for anyone who has the link." for whichever of those it has, and opens on Cancel (bug 43).
+Owner only, in any phase: "Delete market" opens "Delete <market>?", which names what goes ("This deletes the market with its applications, its assignments, its check-in records and the record of who changed what. It cannot be undone."), adds "Its vendor page and check-in page will stop working for anyone who has the link." for whichever of those it has (its vendor page while the vendor page answers: a form market after draft, a Google Form market once its results are published or it reached its market days), and opens on Cancel (bug 43).
 Everything the market kept beside itself is deleted with it (bug 47).
 Covered by:
 - `market-records-go-with-it.spec.ts`
