@@ -44,7 +44,7 @@ Disabled before the click, with the rail naming the first blocker:
 
 - no assignment is stored: "No tables have been allocated for this market, so its check-in page could not tell anyone where to stand. Allocate tables first.", with "Allocate tables";
 - a hand placement names a seat the plan no longer has ([J10](placing-by-hand.md#j10-a-pin-the-plan-no-longer-holds));
-- on a market whose vendors apply on its page, the results are not published: "Applicants have not been told whether they have a table. Publish the results before the market goes live.", with "Publish results" ([I7](assignment-and-result.md#i7-publish-results)).
+- the results are not published, on either path: "Vendors have not been told whether they have a table. Publish the results before the market goes live.", with "Publish results" ([I7](assignment-and-result.md#i7-publish-results)).
 
 The Attendance tab is on the bar in every phase; before publishing it says "Opens when the market is published."
 Covered by:

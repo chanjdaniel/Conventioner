@@ -37,7 +37,7 @@ sources:
 
 [`PhaseRail.vue`](../../../front-end/src/components/PhaseRail.vue) is the market's lifecycle on every market screen, as a band under [the market frame](market-frame.md)'s bar, pinned with it on a desk and scrolling away with the page on a phone.
 It replaced `PhaseControlPanel`, which floated above the card.
-It draws four things: the spine (the lifecycle, with the market's place marked), the next step in one sentence, the moves, and the market's public addresses (the vendor page for a form market once it leaves draft, and after an archive only if it ran, the check-in page once it is published, each with Copy).
+It draws four things: the spine (the lifecycle, with the market's place marked), the next step in one sentence, the moves, and the market's public addresses (the vendor page while it answers, a form market's once it leaves draft and a Google Form market's once its results are published or it reached its market days, and after an archive only if it ran (`sharesVendorPage` in `vendorPage.ts`); the check-in page once it is published; each with Copy).
 What it says comes from [the market guide](market-guide.md); which moves exist and whether each is refused comes from the server.
 
 ## Sharp edges

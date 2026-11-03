@@ -164,7 +164,7 @@ It used to be `GET /markets/{id}/assignment`, which only computes, followed by a
 **A seed walks the market to `assignment` before it assigns** ([assign runs only in assignment](../../business/rules/assign-runs-only-in-assignment.md)): `applications`, then `assignment`, each through `POST /markets/{id}/transition`, its applications seeded first, since a `csv` market enters `applications` only holding some, the only thing that moves a phase; no request body sets `phase` or `isDraft`.
 
 **Publishing is `assignment -> market_days`**, and that move's entry invariant is that an assignment exists, so `seedPublishedMarketWithAssignments()` assigns before it publishes.
-A `form` market must publish its results first ([publish results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md)), so with `intakeMode: 'form'` the helper calls `POST /markets/{id}/publish-results` in between; absent, the market is a CSV market and needs neither.
+A market must publish its results first, on either path ([publish results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md)), so the helper calls `POST /markets/{id}/publish-results` in between.
 It returns the `marketSlug` of the public check-in page, which serves a running market.
 
 ## Sharp edges

@@ -94,7 +94,7 @@ When the server would refuse that step, the sentence is its first blocker for so
 
 Someone whose role the step is not reads instead what they may do there, and is led to it: a Viewer in Draft reads "The market is being planned. Read its plan on Market Setup.", in the stage what the stage is and "Read where each application stands." (on the Google Form path, "each response"), in Assignment that tables are not allocated yet or are, or that results are published, at the door "Follow who has checked in at the door.", and once every date has passed "The market has run. Who came is on Attendance." (E38/F15/S04).
 This holds while the step is refused too: what would refuse it, such as an application still waiting or a form market's results not yet published, is told only to someone who may put it right, save a plain fact that asks nobody to do anything.
-An Editor in Assignment before results are published may change the seats but publish neither the results nor the market, so reads "Check the assignments; the results are published by whoever may publish them." (on the Google Form path, "the market is published by whoever may publish it").
+An Editor in Assignment before results are published may change the seats but publish neither the results nor the market, so reads "Check the assignments; the results are published by whoever may publish them.", on both paths.
 It never says what they may not: the line under the rail says that once.
 Each sentence, word for word, is in [the market guide](../../implementation/modules/market-guide.md).
 
@@ -121,7 +121,7 @@ Each refusal is a blocker line under the rail and beside the move, before the cl
 | The stage → Assignment, and into Market Days | A hand placement names a seat the plan no longer has | Names the vendor, table and date |
 | Assignment → Offers | Any application is still Approved (always true today: M1) | "N applications are still approved but not yet assigned or unassigned. …" |
 | Into Market Days | No assignment is stored | "No tables have been allocated for this market, so its check-in page could not tell anyone where to stand. Allocate tables first." |
-| Into Market Days, on the online path | Results are not published | "Applicants have not been told whether they have a table. Publish the results before the market goes live." |
+| Into Market Days, on either path | Results are not published | "Vendors have not been told whether they have a table. Publish the results before the market goes live." |
 
 Moves that cannot be undone (Publish market, Archive market) open a confirmation dialog focused on Cancel.
 Every other move fires on one click.

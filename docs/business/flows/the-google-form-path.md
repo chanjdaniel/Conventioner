@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-10-29
+verified: 2026-11-04
 sources:
   - wayfinding/real-market-readiness/map
   - brain-dump/2026-10-19#1
@@ -21,6 +21,7 @@ sources:
   - bug/4
   - bug/23
   - bug/24
+  - T202
 ---
 
 # The Google Form path
@@ -33,7 +34,7 @@ A path is one way of running a market from start to finish; this one is for an o
 The path reads Draft, Review, Assignment, Market Days, Archived on the phase rail ([the lifecycle](lifecycle.md)): the organizer already holds the responses when the market leaves draft, so the upload is the collection, and nothing asks them to open or close applications.
 In Draft the rail's main button is "Import responses", which opens the import; the first import, confirmed and written, takes the market into Review, and a late export is brought in with "Redo import" under More…, every verdict kept ([review needs an import](../rules/review-needs-an-import.md)).
 Every move lands on its phase's page, and a blocked step offers its fix as the main button.
-Its two variants differ only in where the plan and the form come from.
+Its two variants differ only in where the plan and the form come from; in both, the organizer publishes results in Assignment, which opens the market's vendor page to its imported vendors (P3).
 
 ## P1. CSV intake, form built by hand
 
@@ -54,6 +55,7 @@ Every column but Timestamp and Email Address was mapped by hand ([H2a](import.md
 | Go to the review, and review | [I4](review.md#i4-enter-the-review), [I1](review.md#i1-work-through-the-queue), [I2](review.md#i2-change-a-decision) |
 | Begin assignment | [I5](review.md#i5-begin-assignment) |
 | Assign and adjust | [J1 to J5](assignment-and-result.md), [J6 to J10 and J13](placing-by-hand.md), [J11 and J12](vendors.md) |
+| Publish results, and share the vendor page's address | [I7](assignment-and-result.md#i7-publish-results), then P3 |
 | Publish the market and run market day | [K1 to K5](market-day-door.md) |
 | End the market | [L1](ending-and-managing-a-market.md#l1-archive-after-market-days) |
 
@@ -82,6 +84,21 @@ Intended at the import: every row that answers the required questions imports, "
 Covered by:
 - `start-from-csv.spec.ts`, which walks P2's seam from the confirm to the first import
 
+## P3. An imported vendor reads their table
+
+**Task:** "Your table at this market has been decided. Find out where it is."
+**Who:** a vendor whose response is in the organizer's Google Form, signed out, on any device.
+
+**Status:** Works, read from the code at T202 ticket 05 ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)).
+
+1. Before the organizer publishes results, the market's address, `/<slug>`, reads "page not found", exactly as an address that names no market ([a gated market answers as absent](../rules/a-gated-market-answers-as-absent.md)).
+2. Once results are published (or the market reached its market days), the address names the market and asks for an email address, then the six-digit code sent to it ([a vendor signs in before they have applied](../rules/a-vendor-signs-in-before-applying.md)).
+3. With the address their response gave, the vendor reads "You have a table" and each day's table, or "You did not get assigned"; the page shows no application, since nobody applies on it.
+4. An address the market has no vendor for reads "There's no application from this address at <market>. Use the address you gave on the market's form, or ask the organizer."
+
+Covered by:
+- `a-google-form-markets-vendor-page.spec.ts`, at 1280 and 390
+
 ## The rules it obeys
 
 - [Intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md): importing is this path's, in Draft and in Review.
@@ -89,7 +106,8 @@ Covered by:
 - [The setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md): the plan is complete before "Import responses".
 - [No question is inferred required](../rules/no-question-is-inferred-required.md).
 - [What an import may leave unasked](../rules/what-an-import-may-leave-unasked.md): a file with no "how many days" column imports with no personal limit.
-- [A gated market answers as absent](../rules/a-gated-market-answers-as-absent.md): this market has no applicant pages.
+- [A gated market answers as absent](../rules/a-gated-market-answers-as-absent.md): this market has no application form to fill in, and its vendor page answers once its results are published.
+- [Publish results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md): on this path too, and the market goes live only after it.
 
 Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
 

@@ -6,7 +6,7 @@ describes:
   - back-end/api/applicants.py#get_vendor_page
   - back-end/remembered_sign_ins.py
   - front-end/src/views/VendorPage.vue
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - T202
   - T191
@@ -15,7 +15,7 @@ status: accepted
 
 # The vendor page is signed in, and a Google Form market's opens with its results
 
-The nodes it constrains: [a gated market answers as absent](../business/rules/a-gated-market-answers-as-absent.md), [a vendor signs in before they have applied](../business/rules/a-vendor-signs-in-before-applying.md), [an applicant never reads a verdict early](../business/rules/an-applicant-never-reads-a-verdict-early.md) and [intake mode decides how vendors arrive](../business/rules/intake-mode-decides-how-vendors-arrive.md); the flows it changes: [applying online](../business/flows/applying-online.md) and [Publish results](../business/flows/assignment-and-result.md#i7-publish-results).
+The nodes it constrains: [a gated market answers as absent](../business/rules/a-gated-market-answers-as-absent.md), [a vendor signs in before they have applied](../business/rules/a-vendor-signs-in-before-applying.md), [an applicant never reads a verdict early](../business/rules/an-applicant-never-reads-a-verdict-early.md), [intake mode decides how vendors arrive](../business/rules/intake-mode-decides-how-vendors-arrive.md) and [Publish results waits for the allocation](../business/rules/publish-results-waits-for-the-allocation.md); the flows it changes: [applying online](../business/flows/applying-online.md), [Publish results](../business/flows/assignment-and-result.md#i7-publish-results) and [the Google Form path](../business/flows/the-google-form-path.md).
 
 ## Context
 
@@ -44,7 +44,7 @@ No vendor's seats, result or check-in is readable or changeable without signing 
 **A Google Form market's page opens with its results.**
 It gets Publish results under the same rule as a market whose vendors apply online, Publish market waits for it, and from then its imported vendors sign in with the address their form response gave and read their result, with no application section.
 Before that its page answers as absent.
-A market that went live before this change counts as published, since it reached `market_days`.
+A Google Form market that went live before this change has its page too, since it reached `market_days`, whether or not its results were published.
 
 **Check-in proves presence with a door code.**
 Attendance shows a QR code and a short typed code, full screen or printed as a poster; the vendor scans it with their phone's own camera, which opens their vendor page and checks them in for today, signing them in first when they are not.
