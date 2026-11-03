@@ -10,6 +10,7 @@
 
 import type { ApplicationStatus, VerdictGiver } from '@/assets/types/datatypes';
 import { statusLabel, verdictGiverLine } from '@/utils/verdicts';
+import { rowStatus, sectionsInPlanOrder, type MarketTableRow } from '@/utils/resultFilters';
 
 /** The three seats a table holds. Mirrors `api/placements.py`. */
 export const FULL_TABLE = 'Full Table';
@@ -101,8 +102,9 @@ export function acceptsTierOn(vendor: PlaceableVendor, date: string, tier: strin
 /**
  * What the seat itself would override: the tier it is priced at, and its size.
  *
- * This is everything a swap can cross. A swap trades two tables on one date, so it never changes
- * whether a vendor is there that day or how many dates they hold - only which table they stand at.
+ * This is everything a swap or a move can cross. Each changes, on one date, only which table a
+ * vendor stands at - never whether they are there that day or how many dates they hold - and a
+ * vendor already seated is not warned again that they were not approved.
  *
  * Tier is answered per date, so a date they never offered carries no tier answer to contradict;
  * the thing to say about that placement is the date. Mirrors `placement_reasons._overrides_of`.
@@ -217,4 +219,114 @@ export function groupCandidates(
     (warnings.length ? groups.overrides : groups.fits).push(vendor);
   }
   return groups;
+}
+
+/** The plan's ranking of tiers and sections, which orders a date's sections as the grid does. */
+export type PlanOrder = Parameters<typeof sectionsInPlanOrder>[1];
+
+/** Which seat at this table a vendor holds: the whole of it, or one side. */
+export function seatHeldBy(row: MarketTableRow, email: string): Seat {
+  if (rowStatus(row).isFull) return FULL_TABLE;
+  return row.assignmentSlots?.[0] === email ? HALF_TABLE_LEFT : HALF_TABLE_RIGHT;
+}
+
+/**
+ * A date's tables in the grid's order: sections as the plan ranks them, then each section's tables
+ * by their number ("A 2" before "A 10"). Every row of the date, never the page's filtered ones.
+ */
+function tablesInOrder(rows: readonly MarketTableRow[], date: string, plan: PlanOrder) {
+  const sections = new Map<string, { section: string; tier: string; rows: MarketTableRow[] }>();
+  for (const row of rows) {
+    if (row.date !== date) continue;
+    let group = sections.get(row.section);
+    if (!group) {
+      group = { section: row.section, tier: row.tier, rows: [] };
+      sections.set(row.section, group);
+    }
+    group.rows.push(row);
+  }
+  return sectionsInPlanOrder([...sections.values()], plan).flatMap((group) =>
+    [...group.rows].sort((a, b) =>
+      a.tableCode.localeCompare(b.tableCode, undefined, { numeric: true }),
+    ),
+  );
+}
+
+/** Somebody seated on a date: the other half of a swap, or a vendor a move would take elsewhere. */
+export interface SeatedVendor {
+  email: string;
+  tableCode: string;
+  section: string;
+  tier: string;
+  seat: Seat;
+}
+
+/** Everyone seated on a date, each once, with the seat they hold, in the grid's table order. */
+export function seatedOn(
+  rows: readonly MarketTableRow[],
+  date: string,
+  plan: PlanOrder,
+): SeatedVendor[] {
+  const seated: SeatedVendor[] = [];
+  const seen = new Set<string>();
+  for (const row of tablesInOrder(rows, date, plan)) {
+    for (const email of row.assignmentSlots ?? []) {
+      if (!email || seen.has(email)) continue;
+      seen.add(email);
+      seated.push({
+        email,
+        tableCode: row.tableCode,
+        section: row.section,
+        tier: row.tier,
+        seat: seatHeldBy(row, email),
+      });
+    }
+  }
+  return seated;
+}
+
+/** A table nobody holds on a date, or the free side of one. */
+export interface EmptySeat {
+  tableCode: string;
+  section: string;
+  location: string;
+  tier: string;
+  /** The one free side of a half-taken table; null when the whole table is free. */
+  seat: Seat | null;
+}
+
+/**
+ * A date's empty seats, where a seated vendor may be moved without displacing anyone (T208).
+ *
+ * Every row of the date, whatever the page's filters show, in the grid's order, leaving out the
+ * table named `leaving` - the moving vendor's own, since a change within a table is not a move. A
+ * table held whole, or with both halves taken, has no empty seat.
+ */
+export function emptySeatsOn(
+  rows: readonly MarketTableRow[],
+  date: string,
+  plan: PlanOrder,
+  leaving: string | null,
+): EmptySeat[] {
+  const empty: EmptySeat[] = [];
+  for (const row of tablesInOrder(rows, date, plan)) {
+    if (row.tableCode === leaving) continue;
+    const status = rowStatus(row);
+    if (status.label === 'assigned') continue;
+    const seat =
+      status.label === 'empty' ? null : status.leftEmail ? HALF_TABLE_RIGHT : HALF_TABLE_LEFT;
+    const { tableCode, section, location, tier } = row;
+    empty.push({ tableCode, section, location, tier, seat });
+  }
+  return empty;
+}
+
+/**
+ * The seat a move starts at: the free side when only one is free, else the shape the vendor holds
+ * now - a whole table stays whole, and a half stays a half, on the left - so a move never quietly
+ * changes what they pay.
+ */
+export function seatAMoveKeeps(heldSeat: Seat, freeSeat: Seat | null): Seat {
+  if (freeSeat) return freeSeat;
+  return heldSeat === FULL_TABLE ? FULL_TABLE : HALF_TABLE_LEFT;
 }

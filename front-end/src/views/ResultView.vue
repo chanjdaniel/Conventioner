@@ -17,7 +17,7 @@ import { getFormattedDate } from '@/utils/utils';
 import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 import { formatPrice } from '@/utils/pricing';
 import { loadAccount } from '@/utils/payments';
-import PlacementDialog, { type SwapTarget } from '@/components/PlacementDialog.vue';
+import PlacementDialog from '@/components/PlacementDialog.vue';
 import ResultSeat from '@/components/ResultSeat.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
 import { useVendorDetails } from '@/utils/vendorDetails';
@@ -31,11 +31,15 @@ import ResultFilterBar from '@/components/ResultFilterBar.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
 import { useResultFilters } from '@/utils/useResultFilters';
 import {
-  FULL_TABLE,
   HALF_TABLE_LEFT,
   HALF_TABLE_RIGHT,
+  emptySeatsOn,
+  seatHeldBy,
+  seatedOn,
+  type EmptySeat,
   type PlaceableVendor,
   type Seat,
+  type SeatedVendor,
 } from '@/utils/placementChange';
 import {
   TABLE_STATUSES,
@@ -248,11 +252,12 @@ onMounted(loadTables);
 
 // ── Changing a placement (E11/F03/S01) ─────────────────────────────────────────
 //
-// Two operations and no third: fill a seat, or trade two vendors' seats atomically. A "move"
-// that displaces whoever is already there does not exist, because that is how a vendor is
-// silently unassigned on market day. Freeing a seat first is safe and mirrors what an organizer
-// physically does, so it is the third control on an occupied seat rather than a hidden effect of
-// the first.
+// Three changes and never a fourth: fill a seat, from nobody or from another table; trade two
+// vendors' seats atomically; or free a seat. Moving a vendor to an empty seat is the fill, one
+// write that replaces the seat they held that date, so they never stand at no table (T208).
+// Nothing puts a vendor into a seat somebody holds, because that is how a vendor is silently
+// unassigned on market day; freeing is its own control on an occupied seat, never a hidden effect
+// of another.
 
 interface OpenSeat {
   mode: 'place' | 'occupied';
@@ -289,12 +294,6 @@ function openHalf(row: MarketTableRow, email: string | null, side: Seat): void {
  */
 const readOnly = computed(() => !mayTake(market.value, MarketAction.Assign));
 
-/** Which seat at this table a vendor holds: the whole of it, or one side. */
-function seatHeldBy(row: MarketTableRow, email: string): Seat {
-  if (rowStatus(row).isFull) return FULL_TABLE;
-  return row.assignmentSlots?.[0] === email ? HALF_TABLE_LEFT : HALF_TABLE_RIGHT;
-}
-
 function closePlacement(): void {
   openSeat.value = null;
   placementError.value = '';
@@ -326,26 +325,19 @@ const marketCeiling = computed(
   () => market.value?.setupObject?.assignmentOptions?.maxAssignmentsPerVendor ?? null,
 );
 
-const swapTargets = computed((): SwapTarget[] => {
+/**
+ * Everyone seated on the open seat's date, and its empty seats, from every row of the date - never
+ * the filtered rows, so a filter never hides the seat or the vendor a change needs (T208).
+ */
+const seated = computed((): SeatedVendor[] => {
   const seat = openSeat.value;
-  if (!seat || seat.mode !== 'occupied') return [];
-  const targets: SwapTarget[] = [];
-  for (const row of allRows.value) {
-    if (row.date !== seat.row.date) continue;
-    const seen = new Set<string>();
-    for (const email of row.assignmentSlots ?? []) {
-      if (!email || email === seat.occupantEmail || seen.has(email)) continue;
-      seen.add(email);
-      targets.push({
-        email,
-        tableCode: row.tableCode,
-        section: row.section,
-        tier: row.tier,
-        seat: seatHeldBy(row, email),
-      });
-    }
-  }
-  return targets;
+  if (!seat) return [];
+  return seatedOn(allRows.value, seat.row.date, market.value?.setupObject);
+});
+const emptySeats = computed((): EmptySeat[] => {
+  const seat = openSeat.value;
+  if (seat?.mode !== 'occupied') return [];
+  return emptySeatsOn(allRows.value, seat.row.date, market.value?.setupObject, seat.row.tableCode);
 });
 
 async function runPlacementChange(change: () => Promise<unknown>): Promise<void> {
@@ -382,6 +374,24 @@ function placeVendor(payload: { email: string; seat: Seat }): void {
       email: payload.email,
       date: seat.row.date,
       tableCode: seat.row.tableCode,
+      tableChoice: payload.seat,
+    }),
+  );
+}
+
+/**
+ * The open seat's vendor, moved to an empty seat on the same date (T208): the one placement write,
+ * which replaces the seat they held that date, so their old seat is free and the day's line of what
+ * they owe follows the new table's price.
+ */
+function moveOccupant(payload: { tableCode: string; seat: Seat }): void {
+  const seat = openSeat.value;
+  if (!seat?.occupantEmail) return;
+  void runPlacementChange(() =>
+    api.put(placementsUrl(), {
+      email: seat.occupantEmail,
+      date: seat.row.date,
+      tableCode: payload.tableCode,
       tableChoice: payload.seat,
     }),
   );
@@ -649,7 +659,8 @@ function swapSeats(withEmail: string): void {
       :vendors="vendors"
       :datesHeld="datesHeld"
       :marketCeiling="marketCeiling"
-      :swapTargets="swapTargets"
+      :seated="seated"
+      :emptySeats="emptySeats"
       :vendorNames="vendorNames"
       :vendorSearch="vendorSearch"
       :busy="placementBusy"
@@ -658,6 +669,7 @@ function swapSeats(withEmail: string): void {
       @place="placeVendor"
       @free="freeSeat"
       @swap="swapSeats"
+      @move="moveOccupant"
       @view="viewOccupant"
       @close="closePlacement"
     />

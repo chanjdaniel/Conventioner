@@ -720,10 +720,26 @@ export const SCREENS: Screen[] = [
         'tables-seat-change',
         'placement-dialog-window',
       ])(page, seed);
+      await page.getByTestId('placement-dialog-action-swap').check();
       const field = page.getByTestId('placement-dialog-swap-target-input');
       await field.fill('a');
       await field.press('ArrowDown');
       await visible(page, 'placement-dialog-swap-target-list');
+    },
+  },
+  {
+    // A taken seat's move picker open (T208): the day's empty seats, grouped by section.
+    name: 'the move picker, open',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: async (page, seed) => {
+      await at(screen('big', 'assignments'), 'tables-count-assigned', [
+        'tables-seat-change',
+        'placement-dialog-window',
+      ])(page, seed);
+      await page.getByTestId('placement-dialog-action-move').check();
+      await page.getByTestId('placement-dialog-move-target-input').click();
+      await visible(page, 'placement-dialog-move-target-list');
     },
   },
   {

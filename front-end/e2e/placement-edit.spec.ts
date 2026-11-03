@@ -7,10 +7,10 @@ import { loginViaApi } from './helpers/seeds';
 /**
  * Changing a placement from the Tables view (E11/F03/S01).
  *
- * The Tables view is the only screen that can answer "where can they go", which is why the two
- * operations live here. There are two and deliberately no third: a seat is filled, or two vendors
- * trade seats atomically. Nothing displaces an occupant, because that is how a vendor is silently
- * unassigned on market day.
+ * The Tables view is the only screen that can answer "where can they go", which is why the changes
+ * live here. There are three and never a fourth: a seat is filled, from nobody or from another
+ * table (a move, T208); two vendors trade seats atomically; a seat is freed. Nothing puts a vendor
+ * into a seat somebody holds, because that is how a vendor is silently unassigned on market day.
  */
 test.describe('Changing a placement on the Tables view', () => {
   let seed: AssignedSeedResult;
@@ -82,7 +82,13 @@ test.describe('Changing a placement on the Tables view', () => {
     await tables.change(page.getByTestId('tables-seat-occupied').first());
     await expect(tables.dialog).toBeVisible();
 
-    // Trade or free. There is no "move them here" that leaves the occupant with nothing.
+    // Move them to an empty seat, trade them, or free the seat. Nothing places somebody else
+    // into it, which would leave the occupant with nothing.
+    await tables.chooseAction('move');
+    await expect(tables.picker('move-target')).toBeVisible();
+    await expect(tables.dialog.getByTestId('placement-dialog-move')).toBeVisible();
+    await tables.chooseAction('swap');
+    await expect(tables.picker('swap-target')).toBeVisible();
     await expect(tables.dialog.getByTestId('placement-dialog-swap')).toBeVisible();
     await expect(tables.dialog.getByTestId('placement-dialog-free')).toBeVisible();
     await expect(tables.dialog.getByTestId('placement-dialog-vendor')).toHaveCount(0);

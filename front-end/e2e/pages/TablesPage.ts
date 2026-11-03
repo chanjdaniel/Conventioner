@@ -1,8 +1,17 @@
 import { marketScreenPath } from '../helpers/marketScreens';
 import type { Locator, Page } from '@playwright/test';
 
-/** The placement dialog's two pickers, by the test id each is drawn with (E38/F08/S03). */
-type Picker = 'vendor' | 'swap-target';
+/** The placement dialog's pickers, by the test id each is drawn with (E38/F08/S03, T208). */
+type Picker = 'vendor' | 'swap-target' | 'move-target';
+
+/** What a taken seat's dialog does with its vendor (T208): each action shows its own picker. */
+type SeatAction = 'move' | 'swap';
+
+/** The action a taken seat's picker belongs to; the place picker belongs to none. */
+const ACTION_OF: Partial<Record<Picker, SeatAction>> = {
+  'swap-target': 'swap',
+  'move-target': 'move',
+};
 
 /**
  * Page object for the tables of the Assignments page (/markets/:marketId/assignments), where
@@ -134,8 +143,22 @@ export class TablesPage {
   }
 
   /**
-   * One of the placement dialog's two pickers (E38/F08/S03): "Who sits here" to place someone,
-   * "Swap them with" to trade seats. Each is a field that narrows its list as it is typed in.
+   * Choose what a taken seat's dialog does with its vendor (T208): "Move to an empty seat" or
+   * "Swap with someone seated". The picker helpers choose the action their picker belongs to.
+   */
+  async chooseAction(which: SeatAction): Promise<void> {
+    await this.dialog.getByTestId(`placement-dialog-action-${which}`).check();
+  }
+
+  private async chooseActionFor(which: Picker): Promise<void> {
+    const action = ACTION_OF[which];
+    if (action) await this.chooseAction(action);
+  }
+
+  /**
+   * One of the placement dialog's pickers (E38/F08/S03): "Who sits here" to place someone, "Swap
+   * them with" to trade seats, "Move them to" to move them to an empty seat (T208). Each is a
+   * field that narrows its list as it is typed in.
    */
   picker(which: Picker): Locator {
     return this.dialog.getByTestId(`placement-dialog-${which}`);
@@ -157,6 +180,11 @@ export class TablesPage {
     return within.getByTestId(`placement-dialog-${which}-option`);
   }
 
+  /** One empty seat in "Move them to", by its table code. */
+  moveOption(tableCode: string): Locator {
+    return this.pickerOptions('move-target').and(this.page.locator(`[data-value="${tableCode}"]`));
+  }
+
   /** One vendor in a picker's list, by the address it names. */
   pickerOption(which: Picker, email: string): Locator {
     return this.pickerOptions(which).filter({ hasText: `(${email})` });
@@ -164,12 +192,14 @@ export class TablesPage {
 
   /** Open a picker's list, as a click on its field does. */
   async openPicker(which: Picker): Promise<void> {
+    await this.chooseActionFor(which);
     await this.pickerField(which).click();
     await this.pickerList(which).waitFor();
   }
 
   /** Choose a vendor in a picker by typing part of what finds them, then clicking them. */
   async pick(which: Picker, email: string, words = email): Promise<void> {
+    await this.chooseActionFor(which);
     await this.pickerField(which).fill(words);
     await this.pickerOption(which, email).click();
   }
@@ -187,6 +217,14 @@ export class TablesPage {
   async swapWith(email: string): Promise<void> {
     await this.pick('swap-target', email);
     await this.dialog.getByTestId('placement-dialog-swap').click();
+  }
+
+  /** Move a taken seat's vendor to an empty table, by its code (T208). */
+  async moveTo(tableCode: string): Promise<void> {
+    await this.chooseAction('move');
+    await this.pickerField('move-target').fill(tableCode);
+    await this.moveOption(tableCode).click();
+    await this.dialog.getByTestId('placement-dialog-move').click();
   }
 
   async freeSeat(): Promise<void> {
