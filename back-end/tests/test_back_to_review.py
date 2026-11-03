@@ -255,3 +255,160 @@ class TestApplyingStaysClosed:
 
         assert response.status_code == 200, response.get_json()
         assert markets.doc["applicationsStopped"] is False
+
+
+# --- The stored run after the review reopens (ticket 02) ------------------------------------------
+
+PINNED_EMAIL = "pinned@example.com"
+DAY = "2099-08-01"
+
+
+def _seat(email, table, hand_placed=False):
+    return {"email": email, "date": DAY, "tableCode": f"Main Hall {table}",
+            "tableChoice": "Full Table", "section": "Main Hall", "tier": "Gold",
+            "location": "Main Hall", "handPlaced": hand_placed}
+
+
+@pytest.fixture
+def runs(world, monkeypatch):
+    """The solver runs for real over the approved applications the review left, as a run reads
+    them: each application named in ``approved`` stands for one vendor of the plan's one day."""
+    import api.placements as PlacementsApi
+    import assignment.made_from as MadeFrom
+    from assignment.vendor_input import SolverVendor
+
+    def approved():
+        return [
+            SolverVendor(
+                application_id=doc["id"], email=doc["applicant_email"],
+                available_dates=frozenset({DAY}), max_dates=1,
+                accepted_tiers_by_date={DAY: frozenset({"Gold"})}, table_choice="Full Table",
+                table_share_email=None, section_ranking=("Main Hall",), table_type_ranking=(),
+                custom_answers={}, submitted_at=doc["submitted_at"],
+            )
+            for doc in world.applications.documents
+            if doc["status"] == ApplicationStatus.REVIEWER_APPROVED.value
+        ]
+
+    monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _market: approved())
+    monkeypatch.setattr(MadeFrom, "approved_solver_vendors", lambda *_a: (approved(), []))
+
+    def run():
+        response = world.client.post(f"/markets/{MARKET}/assignment")
+        assert response.status_code == 200, response.get_json()
+
+    return run
+
+
+def _read(client):
+    return client.get(f"/markets/{MARKET}").get_json()["market"]
+
+
+def _begin(client):
+    return client.post(f"/markets/{MARKET}/transition", json={"toPhase": "assignment"})
+
+
+class TestTheRunAfterTheReviewReopens:
+    def test_it_reads_out_of_date_by_the_review_until_it_runs_again(self, world, runs):
+        world.install(_market())
+        runs()
+        assert _read(world.client)["assignmentOutOfDate"] == []
+
+        assert _back(world.client).status_code == 200
+        assert _begin(world.client).status_code == 200
+
+        # No verdict changed, and the run is still out of date: it was made before this review.
+        read = _read(world.client)
+        assert read["assignmentOutOfDate"] == ["review"]
+        assert read["publishWaitsReason"]
+        refused = world.client.post(f"/markets/{MARKET}/publish-results")
+        assert refused.status_code == 409
+        assert refused.get_json()["error"] == read["publishWaitsReason"]
+
+        runs()
+
+        read = _read(world.client)
+        assert read["assignmentOutOfDate"] == []
+        assert read["publishWaitsReason"] is None
+        assert world.client.post(f"/markets/{MARKET}/publish-results").status_code == 200
+
+    def test_the_stored_assignment_is_kept_through_the_way_back_and_the_return(self, world, runs):
+        markets = world.install(_market())
+        runs()
+        markets.doc["assignmentObject"]["vendorAssignments"].append(_seat(PINNED_EMAIL, 4, True))
+        stored = [dict(seat) for seat in markets.doc["assignmentObject"]["vendorAssignments"]]
+        made_from = dict(markets.doc["assignmentObject"]["madeFrom"])
+
+        assert _back(world.client).status_code == 200
+        assert _begin(world.client).status_code == 200
+
+        assert markets.doc["assignmentObject"]["vendorAssignments"] == stored
+        assert markets.doc["assignmentObject"]["madeFrom"] == made_from
+
+    def test_a_pin_of_a_vendor_the_reopened_review_rejects_stays_marked_not_approved(
+        self, world, runs,
+    ):
+        markets = world.install(_market())
+        world.applications.documents.append({
+            **_application(), "id": "app-2", "applicant_email": PINNED_EMAIL,
+            "form_data": {"shop": "Kiln"},
+        })
+        runs()
+        markets.doc["assignmentObject"]["vendorAssignments"].append(_seat(PINNED_EMAIL, 4, True))
+        assert _back(world.client).status_code == 200
+
+        rejected = world.client.put(f"/markets/{MARKET}/applications/app-2/review",
+                                    json={"status": "reviewer_rejected"})
+        assert rejected.status_code == 200, rejected.get_json()
+        # Nothing blocks Begin assignment on the pin: it is ADR 0013's override.
+        assert _begin(world.client).status_code == 200
+        runs()
+
+        pinned = [seat for seat in markets.doc["assignmentObject"]["vendorAssignments"]
+                  if seat["email"] == PINNED_EMAIL]
+        assert [(seat["tableCode"], seat["handPlaced"]) for seat in pinned] == [
+            ("Main Hall 4", True)]
+        statistics = world.client.get(f"/markets/{MARKET}/assignment-statistics").get_json()
+        overridden = {entry["email"]: entry["overrides"]
+                      for entry in statistics["overriddenPlacements"]}
+        assert "not_approved" in overridden[PINNED_EMAIL]
+
+    def test_a_hand_seat_the_plan_no_longer_has_is_named_on_begin_assignment(self, world, runs):
+        markets = world.install(_market())
+        runs()
+        markets.doc["assignmentObject"]["vendorAssignments"].append(_seat(PINNED_EMAIL, 9, True))
+        assert _back(world.client).status_code == 200
+
+        response = _begin(world.client)
+
+        assert response.status_code == 409
+        assert "no_orphaned_pin" in {b["id"] for b in response.get_json()["blockers"]}
+
+
+class TestGoingLiveAfterTheReviewReopens:
+    def _live(self, client):
+        return client.post(f"/markets/{MARKET}/transition", json={"toPhase": "market_days"})
+
+    def test_a_google_form_market_waits_for_tables_allocated_again(self, world, runs):
+        markets = world.install(_market(intake="csv"))
+        runs()
+        assert _back(world.client).status_code == 200
+        assert _begin(world.client).status_code == 200
+
+        refused = self._live(world.client)
+
+        assert refused.status_code == 409
+        [blocker] = refused.get_json()["blockers"]
+        assert blocker["id"] == "assignment_after_review"
+        assert blocker["message"] == (
+            "The review was reopened after tables were allocated. Allocate tables again before "
+            "the market goes live."
+        )
+        assert (blocker["resolutionLink"], blocker["resolutionLabel"],
+                blocker["resolutionAction"]) == ("settings", "Allocate tables", "assign")
+        assert markets.doc["phase"] == "assignment"
+
+        runs()
+
+        assert self._live(world.client).status_code == 200, self._live(world.client).get_json()
+        assert markets.doc["phase"] == "market_days"

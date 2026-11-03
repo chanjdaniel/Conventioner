@@ -20,6 +20,21 @@ describe('the out-of-date line', () => {
     );
   });
 
+  it('says the review was reopened in a sentence of its own', () => {
+    expect(outOfDateLine(['review'], 'assignment')).toBe(
+      'The review was reopened after tables were allocated.',
+    );
+  });
+
+  it('says the reopened review beside, not inside, the groups that changed', () => {
+    expect(outOfDateLine(['applications', 'review'], 'assignment')).toBe(
+      'The review was reopened after tables were allocated. The approved applications changed since tables were allocated.',
+    );
+    expect(outOfDateLine(['rules', 'plan', 'review'], 'assignment')).toBe(
+      'The review was reopened after tables were allocated. Your rules and the market plan changed since tables were allocated.',
+    );
+  });
+
   it('says nothing when nothing changed, or when it is not known', () => {
     expect(outOfDateLine([], 'assignment')).toBeNull();
     expect(outOfDateLine(undefined, 'assignment')).toBeNull();
@@ -28,6 +43,7 @@ describe('the out-of-date line', () => {
   it('says nothing outside the assignment phase, where running again is impossible', () => {
     for (const phase of ['applications', 'offers', 'market_days', 'archived']) {
       expect(outOfDateLine(['rules'], phase)).toBeNull();
+      expect(outOfDateLine(['review'], phase)).toBeNull();
     }
   });
 

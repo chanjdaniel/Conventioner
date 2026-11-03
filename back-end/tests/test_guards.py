@@ -12,11 +12,12 @@ from conftest import complete_setup
 import guards
 from datatypes import (
     ApplicationForm, AssignmentOptionObject, AssignmentObject, EssentialFormOptions, FormField,
-    IntakeMode, Market, MarketDateObject, MarketPhase, MarketRole, SectionObject, SetupObject, TierObject,
-    VendorAssignmentResult,
+    IntakeMode, Market, MarketDateObject, MarketPhase, MarketRole, PhaseEntry, SectionObject,
+    SetupObject, TierObject, VendorAssignmentResult,
 )
 from guards import (
     AllApplicationsReviewedGuard,
+    AssignmentNotBeforeReviewGuard,
     NoAskedForTierWithoutTablesGuard,
     NoOrphanedPinGuard,
     FormHasFieldsGuard,
@@ -595,6 +596,87 @@ class TestBackToReview:
 
         assert guard.id == "results_not_published"
         assert guard.description
+
+
+class TestAssignmentNotBeforeReviewGuard:
+    """A market does not go live on a run made before its review reopened (T207, ADR 0021).
+
+    Publish results already waits on any out-of-date run; a Google Form market has no Publish
+    results, so without this a vendor rejected in the reopened review could keep the run's seat.
+    """
+
+    MESSAGE = (
+        "The review was reopened after tables were allocated. Allocate tables again before the "
+        "market goes live."
+    )
+    ONCE = ("draft", "applications", "assignment")
+    AGAIN = ONCE + ("applications", "assignment")
+
+    def _market(self, history, recorded="1", intake=IntakeMode.CSV):
+        made_from = {"rules": "r", "plan": "p", "applications": "a"}
+        if recorded is not None:
+            made_from["review"] = recorded
+        return _make_market(
+            phase=MarketPhase.ASSIGNMENT,
+            intake_mode=intake,
+            phase_history=[PhaseEntry(phase=phase, entered_at="2026-01-01") for phase in history],
+            assignment_object=AssignmentObject(
+                vendor_assignments=[VendorAssignmentResult(
+                    email="ana@example.com", date="2026-08-01", table_code="A 1",
+                    table_choice="Full Table", section="A", tier="Gold", location="Hall",
+                )],
+                made_from=made_from,
+            ),
+        )
+
+    def test_a_run_made_before_the_review_reopened_is_refused_in_words(self):
+        result = AssignmentNotBeforeReviewGuard().evaluate(self._market(self.AGAIN), None)
+
+        assert not result.passed
+        assert result.id == "assignment_after_review"
+        assert result.message == self.MESSAGE
+        assert (result.resolution_link, result.resolution_label, result.resolution_action) == (
+            "settings", "Allocate tables", "assign")
+
+    def test_a_run_made_after_it_passes(self):
+        result = AssignmentNotBeforeReviewGuard().evaluate(
+            self._market(self.AGAIN, recorded="2"), None)
+
+        assert result.passed
+
+    def test_a_market_that_never_went_back_passes(self):
+        assert AssignmentNotBeforeReviewGuard().evaluate(self._market(self.ONCE), None).passed
+
+    def test_a_run_recorded_without_the_group_passes(self):
+        """Not known to be out of date by it, as the read says."""
+        result = AssignmentNotBeforeReviewGuard().evaluate(
+            self._market(self.AGAIN, recorded=None), None)
+
+        assert result.passed
+
+    def test_it_reads_no_application(self, monkeypatch):
+        """Only the review group: a plan or rule edit after publishing never refuses going live."""
+        import assignment.made_from as MadeFrom
+
+        def refuse(*_args):
+            raise AssertionError("read the approved applications")
+
+        monkeypatch.setattr(MadeFrom, "approved_solver_vendors", refuse)
+
+        assert not AssignmentNotBeforeReviewGuard().evaluate(self._market(self.AGAIN), None).passed
+
+    def test_every_way_into_market_days_carries_it_ahead_of_the_results(self):
+        assert "assignment_after_review" in {
+            g.id for g in guards.PHASE_ENTRY_INVARIANTS["market_days"]}
+        for edge in (("assignment", "market_days"), ("offers", "market_days")):
+            ids = [g.id for g in TRANSITION_GUARDS[edge]]
+            assert ids.index("assignment_after_review") < ids.index("results_published"), edge
+
+    def test_no_other_edge_asks_it(self):
+        carrying = {edge for edge, guards_on in TRANSITION_GUARDS.items()
+                    if any(isinstance(g, AssignmentNotBeforeReviewGuard) for g in guards_on)}
+
+        assert carrying == {("assignment", "market_days"), ("offers", "market_days")}
 
 
 class TestOffersEntryInvariants:

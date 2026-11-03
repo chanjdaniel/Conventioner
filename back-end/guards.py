@@ -18,6 +18,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
 import api.applications as ApplicationsApi
+from assignment.made_from import review_reopened_since_run
 from assignment.utils import convert_keys_to_camel_case
 from datatypes import ApplicationStatus, IntakeMode, Market, MarketPhase
 from essential_fields import (
@@ -355,6 +356,39 @@ class AssignmentComputedGuard:
                 resolution_action="assign",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
+
+
+class AssignmentNotBeforeReviewGuard:
+    """A market does not go live on tables allocated before its review was reopened (T207, ADR 0021).
+
+    An ENTRY INVARIANT on ``market_days``, ahead of the results it would otherwise wait on. Publish
+    results already refuses an out-of-date run, so a market whose vendors apply on its page meets
+    this only before publishing, and Back to review is refused after; it is a Google Form market,
+    which has no Publish results, that this binds: without it, a vendor rejected in the reopened
+    review could keep the run's seat and check in.
+
+    Reads only the ``review`` group (``assignment.made_from``), never the approved applications:
+    it stays cheap, and a plan or rule edit made after publishing, when runs are refused, never
+    keeps a market from going live.
+    """
+
+    id: str = "assignment_after_review"
+    description: str = "Tables were allocated after the review last closed"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        if not review_reopened_since_run(market):
+            return PreconditionResult(id=self.id, passed=True, message="")
+        return PreconditionResult(
+            id=self.id,
+            passed=False,
+            message=(
+                "The review was reopened after tables were allocated. Allocate tables again "
+                "before the market goes live."
+            ),
+            resolution_link="settings",
+            resolution_label="Allocate tables",
+            resolution_action="assign",
+        )
 
 
 class ResultsPublishedGuard:
@@ -724,6 +758,7 @@ _PRICE_GROUPS_STAND = PriceGroupsStandGuard()
 _ALL_REVIEWED = AllApplicationsReviewedGuard()
 _NO_APPLICATIONS_YET = NoApplicationsYetGuard()
 _ASSIGNMENT_COMPUTED = AssignmentComputedGuard()
+_ASSIGNMENT_AFTER_REVIEW = AssignmentNotBeforeReviewGuard()
 _RESULTS_PUBLISHED = ResultsPublishedGuard()
 _RESULTS_NOT_PUBLISHED = ResultsNotPublishedGuard()
 _NO_APPROVED = NoApprovedApplicationsGuard()
@@ -746,7 +781,11 @@ PHASE_ENTRY_INVARIANTS: dict[str, list] = {
     "offers": [_NO_APPROVED],
     # A market that is already in assignment never re-enters it, so an orphaned pin made there -
     # a seat dropped from the plan after the run - met no guard and was published (bug 31).
-    "market_days": [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _RESULTS_PUBLISHED],
+    # And none on a run made before the review was reopened (T207), ahead of the results that a
+    # form market's Publish results already holds back on it.
+    "market_days": [
+        _ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _ASSIGNMENT_AFTER_REVIEW, _RESULTS_PUBLISHED,
+    ],
 }
 
 # (from_phase, to_phase) -> list of guard instances. This is the table evaluate_transition
@@ -774,8 +813,12 @@ TRANSITION_GUARDS: dict[tuple[str, str], list] = {
     # that can refuse it.
     ("assignment", "applications"): [_FORM_HAS_FIELDS, _RESPONSES_IMPORTED, _RESULTS_NOT_PUBLISHED],
     ("assignment", "offers"): [_NO_APPROVED],
-    ("assignment", "market_days"): [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _RESULTS_PUBLISHED],
-    ("offers", "market_days"): [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _RESULTS_PUBLISHED],
+    ("assignment", "market_days"): [
+        _ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _ASSIGNMENT_AFTER_REVIEW, _RESULTS_PUBLISHED,
+    ],
+    ("offers", "market_days"): [
+        _ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _ASSIGNMENT_AFTER_REVIEW, _RESULTS_PUBLISHED,
+    ],
 }
 
 

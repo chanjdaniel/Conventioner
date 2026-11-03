@@ -293,7 +293,7 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
         market_id,
         assignment.vendor_assignments,
         assignment.assignment_date,
-        MadeFrom.fingerprint(market.setup_object, vendors),
+        MadeFrom.fingerprint(market.setup_object, vendors, market.phase_history),
     )
     History.record_assignment_run(
         market_id,
