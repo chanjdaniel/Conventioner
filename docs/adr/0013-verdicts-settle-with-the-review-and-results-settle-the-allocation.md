@@ -5,7 +5,7 @@ describes:
   - back-end/api/markets.py#review_is_open
   - back-end/api/placements.py#assign_refusal
   - back-end/result_outcome.py#outcome_of
-verified: 2026-10-29
+verified: 2026-11-03
 sources:
   - wayfinding/rejection-visibility/01
   - wayfinding/rejection-visibility/02
@@ -31,7 +31,8 @@ Daniel's position going in: a verdict is locked once the market has moved on and
 ## Decision
 
 **A verdict settles with the review.**
-Verdicts, follow-ups included, are open while the market can still get back to `applications`, the stage where they are given ([ADR 0016](0016-one-stage-for-applications-and-review.md)), and closed from `assignment` on, with no way back ([verdicts settle on entering assignment](../business/rules/verdicts-settle-on-entering-assignment.md)); entering `assignment` already needs every application approved or rejected.
+Verdicts, follow-ups included, are open while Assignment still lies ahead, in `applications`, the stage where they are given ([ADR 0016](0016-one-stage-for-applications-and-review.md)), and closed from `assignment` on ([verdicts settle on entering assignment](../business/rules/verdicts-settle-on-entering-assignment.md)); entering `assignment` already needs every application approved or rejected.
+This said "with no way back"; [ADR 0021](0021-the-review-reopens-until-results-are-published.md) replaced that with Back to review, which reopens the review until results are published.
 From there a verdict is the review's record and stays as it is.
 A mistake is fixed with seats: an applicant the review rejected is placed by hand, warned and held as a pin, or an approved vendor's seat is freed ([a seat only for an applicant](../business/rules/a-seat-only-for-an-applicant.md)); someone who never applied is added first ([adding a vendor who never applied](../business/rules/adding-a-vendor-who-never-applied.md)).
 The automatic rejections settle on the same rule (`review_is_open` in [`back-end/api/markets.py`](../../back-end/api/markets.py)), since a rule and a reviewer judge the same applications.
@@ -48,7 +49,7 @@ It is worked out from the stored seats on every read (`outcome_of` in [`back-end
 ## Consequences
 
 - The review's record and the seats may disagree, on purpose and visibly: a rejected applicant seated by hand is marked "not approved" wherever overrides show, and is never counted among the run's vendors ([placements](../implementation/modules/placements.md)).
-- Nobody can correct a verdict after the market enters `assignment`, even to make the record match a seat; the record says what the review decided.
+- Nobody can correct a verdict while the market is in `assignment` or later, even to make the record match a seat; the record says what the review decided. Until results are published, Back to review takes the market back to the review to correct one ([ADR 0021](0021-the-review-reopens-until-results-are-published.md)).
 - A hand change after publishing shows on the applicant's page at once, because nothing about the outcome is stored.
 - There is no unpublish: once applicants have read an outcome, nothing un-tells them, and re-running would move seats under people already told.
 - `vendor_refused` is unreachable today and reads "You did not get assigned" until an offers flow exists; no outcome email is sent.
@@ -56,6 +57,6 @@ It is worked out from the stored seats on every read (`outcome_of` in [`back-end
 ## Considered and rejected
 
 - **Verdicts open after the run**, the state before: the seats and the record drifted apart silently, and a rejected vendor could check in.
-- **A way back from `assignment` to the review**: it would reopen every verdict to fix one, and the run made from them would stop describing the review.
+- **A way back from `assignment` to the review**: it would reopen every verdict to fix one, and the run made from them would stop describing the review. [ADR 0021](0021-the-review-reopens-until-results-are-published.md) replaced this: the way back exists until results are published.
 - **A third outcome, "Not accepted", and "You declined" for a vendor who turned an offer down**: answered first in the same grilling and replaced the same day, because nothing can produce a decline today, so there are just two outcomes.
 - **Publishing results whenever the organizer chooses**, as before: results say whether an applicant has a table, so they can be told only once the seats exist, and once told, a later run must not shift the answer under them.

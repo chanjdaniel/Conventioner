@@ -3,8 +3,8 @@
  *
  * On the review setup step, beside what a reviewer reads first. A rule names one choice question -
  * the server says which, with the answers each offers - and the answers that reject. Every change
- * is the whole list, written at once; once the market has reached Assignment the rules are shown,
- * fixed, with the reason.
+ * is the whole list, written at once; once the review is closed the rules are shown, fixed, with
+ * the server's reason.
  */
 import { describe, expect, it } from 'vitest';
 import { mount } from '@vue/test-utils';
@@ -77,10 +77,12 @@ describe('the automatic rejections', () => {
   it('shows settled rules fixed, saying why', () => {
     const wrapper = mountRules(
       [{ key: 'no_shows', answers: ['not ticked'] }],
-      'The automatic rejections are settled: the market has reached Assignment.',
+      'The automatic rejections closed when results were published.',
     );
 
-    expect(wrapper.get('[data-testid="rejection-rules-locked"]').text()).toContain('Assignment');
+    expect(wrapper.get('[data-testid="rejection-rules-locked"]').text()).toBe(
+      'The automatic rejections closed when results were published.',
+    );
     expect(wrapper.find('[data-testid="rejection-rule-add"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="rejection-rule-remove-no_shows"]').exists()).toBe(false);
     expect(

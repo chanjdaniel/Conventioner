@@ -6,8 +6,9 @@ describes:
   - back-end/api/applicants.py#publish_results
   - back-end/result_outcome.py
   - back-end/guards.py#ResultsPublishedGuard
+  - back-end/guards.py#AssignmentNotBeforeReviewGuard
   - back-end/app.py#publish_market_results
-verified: 2026-10-31
+verified: 2026-11-03
 sources:
   - wayfinding/readable-journey/01
   - wayfinding/rejection-visibility/02
@@ -17,6 +18,7 @@ sources:
   - E36/F04/S01
   - E36/F04/S02
   - E38/F05
+  - T207
 ---
 
 # Publish results waits for the allocation
@@ -39,6 +41,10 @@ There is no unpublish: nothing writes `resultsPublished` back to false.
 **The market does not go live first.**
 `ResultsPublishedGuard` is an entry invariant on `market_days`, so a form market cannot publish its check-in page until its applicants have been told; a CSV market passes it.
 
+**A review reopened after the run waits for a new one.**
+Back to review keeps the stored run, but it was made before the review the market now stands on, so it reads out of date (the `review` group of [what it was made from](../../implementation/modules/made-from.md)) whether or not a verdict changed, and Publish results waits until tables are allocated again ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)).
+A Google Form market has no Publish results, so `AssignmentNotBeforeReviewGuard`, an entry invariant on `market_days` ahead of `ResultsPublishedGuard`, keeps it from going live on that run, its fix "Allocate tables".
+
 **The outcome is read off the stored seats, never the verdict.**
 An applicant seated on any date has a table; everyone else (rejected, or approved and not placed) reads "You did not get assigned", with no reason (`back-end/result_outcome.py`).
 The publish confirmation counts both by that same rule (`publishOutcomes`), counting main applications only.
@@ -50,12 +56,12 @@ An ADMIN or the owner, as with every action that tells people outside the market
 ## Where it is kept
 
 - `publish_results_refusal` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py) says the rule: refused on a CSV market, once already published, outside `assignment`, with nothing stored, or with the stored run [out of date](an-assignment-knows-when-it-is-out-of-date.md).
-  `publish_results` asks it and sets `resultsPublished`; `POST /markets/:id/publish-results` ([`publish_market_results`](../../../back-end/app.py)) asks the table's Publish results row ([the market's actions](../../implementation/modules/market-actions.md)), ADMIN by default, and the archived rule first.
+  `publish_results` asks it and sets `resultsPublished`, in a write that holds the phase it read and no results yet published, so a Back to review or a second publish in flight with it answers 409 and writes nothing ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)); `POST /markets/:id/publish-results` ([`publish_market_results`](../../../back-end/app.py)) asks the table's Publish results row ([the market's actions](../../implementation/modules/market-actions.md)), ADMIN by default, and the archived rule first.
 - The market read serves who may, the table's Publish results answer in `actionRefusals`, and this rule apart, as `publishWaitsReason`, and the counts as `publishOutcomes` only while neither refuses.
   The Applications page ([`PublishResults.vue`](../../../front-end/src/components/application/PublishResults.vue)) draws the button, from `assignment` on only, for whoever may publish, and disables it with the rule's words while it refuses, so it is offered exactly when the endpoint would take it.
 - [`back-end/result_outcome.py`](../../../back-end/result_outcome.py) is the one reading of who has a table, for the confirmation and for the applicant's page.
-- `ResultsPublishedGuard` in [`back-end/guards.py`](../../../back-end/guards.py), kept by [the guards](../../implementation/modules/guards.md); whether the run is current is [what it was made from](../../implementation/modules/made-from.md).
-- `back-end/tests/test_publishing_settles_the_assignment.py` and `front-end/e2e/results-wait-for-the-allocation.spec.ts` pin it; a seed that publishes a `form` market publishes its results first ([the E2E seeds](../../implementation/testing/e2e-seeds.md#reaching-a-stored-assignment)).
+- `ResultsPublishedGuard` and `AssignmentNotBeforeReviewGuard` in [`back-end/guards.py`](../../../back-end/guards.py), kept by [the guards](../../implementation/modules/guards.md); whether the run is current is [what it was made from](../../implementation/modules/made-from.md).
+- `back-end/tests/test_publishing_settles_the_assignment.py` and `front-end/e2e/results-wait-for-the-allocation.spec.ts` pin it, and `back-end/tests/test_back_to_review.py` and `front-end/e2e/a-reopened-review-waits-for-a-new-run.spec.ts` the wait after Back to review; a seed that publishes a `form` market publishes its results first ([the E2E seeds](../../implementation/testing/e2e-seeds.md#reaching-a-stored-assignment)).
 - Publishing is recorded in [the market's history](../../implementation/data/history.md) (`publish-results`), with who published.
 
 ## Superseded

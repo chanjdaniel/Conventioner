@@ -102,7 +102,7 @@ Covered by:
 **Status:** Works (walked live; the Review setup step and the automatic rejections read from the code as of E33/F01 and E33/F03/S01, and `automatic-rejections.spec.ts`).
 On Review setup, under "What a reviewer reads first", tick the questions that should lead each review card; it saves itself and stays editable in every phase but Archived.
 Under "Automatic rejections", "Add a rule on" a choice question and tick the answers that reject: "An application that gives one of these answers arrives in review already rejected, with the reason. An Admin or the owner can overturn it, and the applicant never sees the reason.", naming whoever the market's row "Change a verdict, or overturn an automatic rejection" lets overturn it.
-The rules stay editable while the market can still reach Review; from Assignment on they are shown fixed: "The automatic rejections are settled: the market has reached Assignment, and a rule judges applications only while they can still be reviewed."
+The rules stay editable while the review is open; from Assignment on they are shown fixed, saying why in the review's words ([automatic rejections](../rules/automatic-rejections.md)): in Assignment, "The automatic rejections are closed while tables are allocated. To change a rule, choose Back to review under More… on the phase rail; tables are then allocated again."
 Covered by:
 - `automatic-rejections.spec.ts`
 - `review-highlights.spec.ts`

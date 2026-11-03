@@ -136,7 +136,7 @@ def test_the_market_says_what_changed_since_its_assignment_ran(serve, monkeypatc
 
     monkeypatch.setattr(MarketsApi, "changed_since_run", lambda _market: ["rules", "plan"])
     assert serve(MarketPhase.ASSIGNMENT)["assignmentOutOfDate"] == ["rules", "plan"]
-    assert MadeFrom.GROUPS == ("rules", "plan", "applications")
+    assert MadeFrom.GROUPS == ("rules", "plan", "applications", "review")
 
 
 def test_a_market_with_no_assignment_is_not_out_of_date(serve):
