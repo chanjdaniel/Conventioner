@@ -1,8 +1,8 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { relative } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 
-import { defineConfig, loadEnv, type Plugin } from 'vite';
+import { defineConfig, loadEnv, normalizePath, type Plugin } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import vueJsx from '@vitejs/plugin-vue-jsx';
 import vueDevTools from 'vite-plugin-vue-devtools';
@@ -81,7 +81,11 @@ export const VUEDRAGGABLE_SOURCE = {
  * alive) puts it in a chunk, and this is where it is caught, on every production build: CI's, the
  * gate's and the deploy's. ESLint's `app/dev-pages-stay-out` refuses the import before it is built.
  */
-const DEV_DIR = fileURLToPath(new URL('./src/dev/', import.meta.url));
+/**
+ * `src/dev/` spelled as Vite spells a module id, so they compare: its real path, since Vite resolves
+ * every id through symbolic links, and with `/` for a separator, as Vite writes ids on Windows too.
+ */
+const DEV_DIR = `${normalizePath(realpathSync(fileURLToPath(new URL('./src/dev/', import.meta.url))))}/`;
 
 export function noDevModules(): Plugin {
   let production = false;

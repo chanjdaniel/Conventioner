@@ -9,7 +9,7 @@
  * fixture's 359 synthetic applicants imported by a shipped file is the case it exists for.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { ESLint } from 'eslint';
@@ -20,24 +20,35 @@ const SRC = resolve(ROOT, 'src');
 
 let config: UserConfig;
 let scratch: string;
+/** `front-end/` reached through a symbolic link to the checkout above it, as a linked home or workspace folder reaches it. */
+let linked: string;
+let linkedConfig: UserConfig;
 
-beforeAll(async () => {
+/** The project's own `vite.config.ts`, loaded from `root` as a production build loads it. */
+async function projectConfig(root: string): Promise<UserConfig> {
   // The config refuses a production build with no reCAPTCHA site key; these bundles are never served.
   const allowInsecure = process.env.VITE_ALLOW_INSECURE_LOCAL_DEV;
   process.env.VITE_ALLOW_INSECURE_LOCAL_DEV = 'true';
   try {
     const loaded = await loadConfigFromFile(
       { command: 'build', mode: 'production' },
-      resolve(ROOT, 'vite.config.ts'),
-      ROOT,
+      resolve(root, 'vite.config.ts'),
+      root,
       'silent',
     );
-    config = loaded!.config;
+    return loaded!.config;
   } finally {
     if (allowInsecure === undefined) delete process.env.VITE_ALLOW_INSECURE_LOCAL_DEV;
     else process.env.VITE_ALLOW_INSECURE_LOCAL_DEV = allowInsecure;
   }
+}
+
+beforeAll(async () => {
   scratch = mkdtempSync(join(tmpdir(), 'library-never-ships-'));
+  symlinkSync(resolve(ROOT, '..'), join(scratch, 'checkout'), 'dir');
+  linked = join(scratch, 'checkout', 'front-end');
+  config = await projectConfig(ROOT);
+  linkedConfig = await projectConfig(linked);
 }, 60_000);
 
 afterAll(() => {
@@ -45,7 +56,7 @@ afterAll(() => {
 });
 
 /** Builds, as production does, one entry module whose source is `code`. */
-async function buildEntry(name: string, code: string): Promise<void> {
+async function buildEntry(name: string, code: string, using = config): Promise<void> {
   const entry = join(scratch, `${name}.ts`);
   writeFileSync(entry, code);
   const one: InlineConfig = {
@@ -62,7 +73,7 @@ async function buildEntry(name: string, code: string): Promise<void> {
   const nodeEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = 'production';
   try {
-    await build(mergeConfig(config, one));
+    await build(mergeConfig(using, one));
   } finally {
     process.env.NODE_ENV = nodeEnv;
   }
@@ -86,6 +97,17 @@ describe('the production build', () => {
         `import ReadOut from '${SRC}/dev/library/parts/ReadOut.vue';\nexport default ReadOut;\n`,
       ),
     ).rejects.toThrow(/src\/dev\/library\/parts\/ReadOut\.vue/);
+  }, 60_000);
+
+  it('fails the same when the checkout is reached through a symbolic link', async () => {
+    await expect(
+      buildEntry(
+        'leaks-the-fixture-through-a-link',
+        `import { fixture } from '${linked}/src/dev/library/fixture';\n` +
+          'export const people = fixture.people.length;\n',
+        linkedConfig,
+      ),
+    ).rejects.toThrow(/src\/dev\/library\/fixture/);
   }, 60_000);
 
   it('builds what the app ships', async () => {
