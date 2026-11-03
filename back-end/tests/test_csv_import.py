@@ -1754,6 +1754,47 @@ class TestTheFirstImportEntersReview:
         assert status == 200, body
         assert body["phase"] == MarketPhase.APPLICATIONS.value
 
+    def test_a_draft_that_has_not_decided_the_automatic_rejections_is_refused_it(
+        self, monkeypatch, applications, before_the_market,
+    ):
+        """Its first import would carry it into Review with no rule decided, so it is refused,
+        naming the decision, before a row is read (T206)."""
+        markets = self._draft(monkeypatch)
+        markets.doc["noAutomaticRejections"] = False
+
+        refusal = CsvImport.import_refusal(markets.doc)
+
+        assert refusal is not None
+        assert refusal.startswith("The automatic rejections are not decided.")
+        assert "No automatic rejections" in refusal
+
+    def test_a_rule_with_no_answer_ticked_does_not_let_it_import(
+        self, monkeypatch, applications, before_the_market,
+    ):
+        markets = self._draft(monkeypatch)
+        markets.doc["noAutomaticRejections"] = False
+        markets.doc["rejectionRules"] = [{"key": EssentialFields.TABLE_CHOICE_KEY, "answers": []}]
+
+        assert CsvImport.import_refusal(markets.doc).startswith(
+            "The automatic rejections are not decided.")
+
+    def test_a_rule_that_rejects_an_answer_lets_it_import(
+        self, monkeypatch, applications, before_the_market,
+    ):
+        markets = self._draft(monkeypatch)
+        markets.doc["noAutomaticRejections"] = False
+        markets.doc["rejectionRules"] = [
+            {"key": EssentialFields.TABLE_CHOICE_KEY, "answers": [EssentialFields.TABLE_CHOICE_FULL]},
+        ]
+        assert CsvImport.import_refusal(markets.doc) is None
+
+        body, status = CsvImport.import_applications(
+            markets, markets.doc, _csv(GOOD_ROW), MAPPING, by="organizer@example.com",
+        )
+
+        assert status == 200, body
+        assert body["phase"] == MarketPhase.APPLICATIONS.value
+
     def test_an_import_in_review_moves_nothing(self, monkeypatch, markets, applications):
         monkeypatch.setattr(MarketsApi, "markets_collection", markets)
 

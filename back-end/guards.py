@@ -27,6 +27,7 @@ from essential_fields import (
 )
 from placement_reasons import orphaned_pins
 import pricing as Pricing
+from rejection_rules import Rulebook
 from review_highlights import highlights_decided
 
 
@@ -503,6 +504,28 @@ class ReviewHighlightsDecidedGuard:
         )
 
 
+class RejectionRulesDecidedGuard:
+    """The organizer has decided the automatic rejections: a rule names an answer that rejects, or
+    "No automatic rejections" is chosen (``rejection_rules.Rulebook.decided``)."""
+
+    id: str = "rejection_rules_decided"
+    description: str = "The automatic rejections are decided"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        if Rulebook(market).decided():
+            return PreconditionResult(id=self.id, passed=True, message="")
+        return PreconditionResult(
+            id=self.id, passed=False,
+            resolution_link="form?step=review",
+            resolution_label="Decide the automatic rejections",
+            resolution_action="change-form",
+            message=(
+                "The automatic rejections are not decided. On Review setup, add a rule that rejects "
+                "an answer, or choose No automatic rejections."
+            ),
+        )
+
+
 class ResponsesImportedGuard:
     """A Google Form market has imported its responses before it enters Review (E38/F04/S01).
 
@@ -732,6 +755,7 @@ _NO_EMPTY_TIER_ASKED_FOR = NoAskedForTierWithoutTablesGuard()
 _NO_ORPHANED_PIN = NoOrphanedPinGuard()
 _RESPONSES_IMPORTED = ResponsesImportedGuard()
 _REVIEW_HIGHLIGHTS_DECIDED = ReviewHighlightsDecidedGuard()
+_REJECTION_RULES_DECIDED = RejectionRulesDecidedGuard()
 
 # Entry invariants: what must hold of a market SITTING IN a phase, regardless of the
 # route it took to get there. Every inbound edge to the phase must enforce these, so
@@ -763,11 +787,12 @@ PHASE_ENTRY_INVARIANTS: dict[str, list] = {
 TRANSITION_GUARDS: dict[tuple[str, str], list] = {
     # The setup's four first, then the form, then Review setup, so the rail offers each in the
     # order the organizer works through them, before the import: a Google Form market's first import
-    # judges this edge less its own guard before it writes. Review setup's guard is this edge's
-    # own, never the phase's entry invariant: no other way into Review is refused it (T206).
+    # judges this edge less its own guard before it writes. Review setup's two guards are this
+    # edge's own, never the phase's entry invariants: no other way into Review is refused them
+    # (T206).
     ("draft", "applications"): [
         _SETUP_HAS_DATES, _SETUP_HAS_A_LOCATION, _EVERY_TIER_HAS_TABLES, _PRICE_GROUPS_STAND,
-        _FORM_HAS_FIELDS, _REVIEW_HIGHLIGHTS_DECIDED, _RESPONSES_IMPORTED,
+        _FORM_HAS_FIELDS, _REVIEW_HIGHLIGHTS_DECIDED, _REJECTION_RULES_DECIDED, _RESPONSES_IMPORTED,
     ],
     # TODO: Add _PRIORITY_CONFIGURED guard here (append to list) once it exists.
     # The guard should verify that the market's setup_object has at least one

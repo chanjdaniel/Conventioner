@@ -12,8 +12,8 @@ from conftest import complete_setup, review_setup_decided
 import guards
 from datatypes import (
     ApplicationForm, AssignmentOptionObject, AssignmentObject, EssentialFormOptions, FormField,
-    IntakeMode, Market, MarketDateObject, MarketPhase, MarketRole, SectionObject, SetupObject, TierObject,
-    VendorAssignmentResult,
+    IntakeMode, Market, MarketDateObject, MarketPhase, MarketRole, RejectionRule, SectionObject,
+    SetupObject, TierObject, VendorAssignmentResult,
 )
 from guards import (
     AllApplicationsReviewedGuard,
@@ -23,6 +23,7 @@ from guards import (
     NoApprovedApplicationsGuard,
     PHASE_ENTRY_INVARIANTS,
     PreconditionResult,
+    RejectionRulesDecidedGuard,
     ResponsesImportedGuard,
     ReviewHighlightsDecidedGuard,
     TRANSITION_GUARDS,
@@ -320,6 +321,107 @@ class TestReviewHighlightsDecidedGuard:
         assert "review_highlights_decided" not in refused
 
 
+class TestRejectionRulesDecidedGuard:
+    """A draft enters Review only once its organizer has decided the automatic rejections (T206).
+
+    Decided is a rule that names an answer, as the rules stand against the current form, or "No
+    automatic rejections" chosen. No rules is nobody having asked, a rule with no answer ticked
+    rejects nothing, and a rule on a question the form no longer asks judges nothing.
+    """
+
+    @staticmethod
+    def _market(rules=None, no_rejections=False, fields=("stall",)):
+        return _make_market(
+            phase=MarketPhase.DRAFT,
+            setup_object=_setup(),
+            application_form=ApplicationForm(fields=[
+                FormField(key=key, label=key.title(), type="select", options=["Yes", "No"])
+                for key in fields
+            ]),
+            rejection_rules=[RejectionRule(**rule) for rule in rules] if rules is not None else None,
+            no_automatic_rejections=no_rejections,
+        )
+
+    def _verdict(self, **kwargs):
+        return RejectionRulesDecidedGuard().evaluate(self._market(**kwargs), None)
+
+    def test_refuses_a_draft_with_no_rules_and_nothing_chosen(self):
+        result = self._verdict(rules=None)
+        assert result.passed is False
+        assert result.id == "rejection_rules_decided"
+
+    def test_an_empty_list_is_not_a_decision(self):
+        assert self._verdict(rules=[]).passed is False
+
+    def test_no_automatic_rejections_decides_it(self):
+        assert self._verdict(rules=[], no_rejections=True).passed is True
+
+    def test_a_rule_that_names_an_answer_decides_it(self):
+        assert self._verdict(rules=[{"key": "stall", "answers": ["No"]}]).passed is True
+
+    def test_a_rule_with_no_answer_ticked_is_no_decision(self):
+        """The organizer picked the question and stopped: it rejects nothing."""
+        assert self._verdict(rules=[{"key": "stall", "answers": []}]).passed is False
+
+    def test_a_rule_on_a_question_the_form_no_longer_asks_is_no_decision(self):
+        assert self._verdict(rules=[{"key": "removed", "answers": ["No"]}]).passed is False
+
+    def test_a_rule_naming_only_answers_the_question_no_longer_offers_is_no_decision(self):
+        assert self._verdict(rules=[{"key": "stall", "answers": ["Maybe"]}]).passed is False
+
+    def test_one_answered_rule_among_empty_ones_decides_it(self):
+        result = self._verdict(
+            rules=[{"key": "stall", "answers": []}, {"key": "tent", "answers": ["Yes"]}],
+            fields=("stall", "tent"),
+        )
+        assert result.passed is True
+
+    def test_it_leads_to_review_setup_with_the_forms_action(self):
+        result = self._verdict(rules=None)
+        assert result.resolution_link == "form?step=review"
+        assert result.resolution_label == "Decide the automatic rejections"
+        assert result.resolution_action == "change-form"
+        assert "No automatic rejections" in result.message
+
+    def test_the_edge_offers_the_setup_the_form_review_setup_then_the_import(self):
+        ids = [guard.id for guard in TRANSITION_GUARDS[("draft", "applications")]]
+        assert ids == [
+            "setup_has_dates", "setup_has_a_location", "every_tier_has_tables",
+            "price_groups_stand", "form_has_fields", "review_highlights_decided",
+            "rejection_rules_decided", "responses_imported",
+        ]
+
+    def test_it_is_no_entry_invariant_so_no_other_way_into_review_meets_it(self):
+        assert "rejection_rules_decided" not in {
+            guard.id for invariants in PHASE_ENTRY_INVARIANTS.values() for guard in invariants
+        }
+
+    def test_it_guards_no_move_but_leaving_draft(self):
+        guarded = {
+            edge for edge, edge_guards in TRANSITION_GUARDS.items()
+            if any(guard.id == "rejection_rules_decided" for guard in edge_guards)
+        }
+        assert guarded == {("draft", "applications")}
+
+    @pytest.mark.parametrize("phase", [
+        MarketPhase.APPLICATIONS, MarketPhase.ASSIGNMENT, MarketPhase.OFFERS,
+        MarketPhase.MARKET_DAYS, MarketPhase.ARCHIVED,
+    ])
+    def test_a_market_past_draft_with_nothing_decided_is_refused_nothing_for_it(
+            self, phase, monkeypatch):
+        monkeypatch.setattr(guards.ApplicationsApi, "count_applications_for_market", lambda _id: 0)
+        monkeypatch.setattr(
+            guards.ApplicationsApi, "count_applications_with_any_status", lambda _id, _s: 0)
+        market = self._market(rules=None).model_copy(update={"phase": phase})
+
+        refused = {
+            blocker.id
+            for blockers in guards.transition_verdicts(market, None).values()
+            for blocker in blockers
+        }
+        assert "rejection_rules_decided" not in refused
+
+
 class TestEvaluateTransition:
     def test_returns_blockers_when_guard_fails(self):
         # No plan and no form: the form asks nothing, and the setup is incomplete (E31/F01/S01).
@@ -536,9 +638,10 @@ class TestGuardDesignProperties:
 
     def test_adding_guard_is_only_a_dict_entry(self):
         # The four parts of a complete setup (E31/F01/S01, E43/F01/S02), the form, what a reviewer
-        # reads first (T206) and a Google Form market's import (E38/F04/S01): seven list entries.
+        # reads first and the automatic rejections (T206), and a Google Form market's import
+        # (E38/F04/S01): eight list entries.
         guards = TRANSITION_GUARDS[("draft", "applications")]
-        assert len(guards) == 7
+        assert len(guards) == 8
 
 
 class TestAllApplicationsReviewedGuard:
@@ -992,6 +1095,7 @@ class TestEveryRemedyNamesTheActionItTakes:
         "Finish deciding": "give-verdicts",
         "Import responses": "import-applications",
         "Decide what reviewers read first": "change-form",
+        "Decide the automatic rejections": "change-form",
     }
 
     def _remedies(self):

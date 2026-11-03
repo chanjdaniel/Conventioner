@@ -28,7 +28,7 @@ import AutomaticRejections from '@/components/application/AutomaticRejections.vu
 import ReviewSetupDecision from '@/components/application/ReviewSetupDecision.vue';
 import StepHeader from '@/components/StepHeader.vue';
 import { liveHighlights, useReviewHighlights } from '@/utils/reviewHighlights';
-import { useRejectionRules } from '@/utils/rejectionRules';
+import { rulesDecide, useRejectionRules } from '@/utils/rejectionRules';
 import {
   blockersFor,
   formStepNamed,
@@ -298,9 +298,22 @@ const highlightsUndecided = computed(
 /** Which answers reject automatically (E33/F03/S01), on the same step and written the same way. */
 const {
   rules: rejectionRules,
+  noAutomaticRejections,
   error: rejectionRulesError,
   save: saveRejectionRules,
+  chooseNone: chooseNoRejections,
 } = useRejectionRules(market);
+/** As the highlights' notice, for the rejections: a rule with no answer ticked decides nothing. */
+const rejectionsUndecided = computed(
+  () =>
+    waitsFor('rejection_rules_decided') &&
+    !noAutomaticRejections.value &&
+    !rulesDecide(rejectionRules.value, market.value?.rejectionQuestions ?? []),
+);
+/** "No automatic rejections" reads back while the rules may change; once they settle, never. */
+const noRejectionsChosen = computed(
+  () => noAutomaticRejections.value && !market.value?.rejectionRulesLockReason,
+);
 
 /**
  * The tab is a sequence of steps, each with the whole width (E33/F01/S01). The builder and the
@@ -508,12 +521,23 @@ watch(formLocked, (locked, wasLocked) => {
               <h3 id="automatic-rejections-title" class="review-setup-title">
                 Automatic rejections
               </h3>
+              <ReviewSetupDecision
+                testid="rejection-rules"
+                :undecided="rejectionsUndecided"
+                :waitsOn="waitsOnThis"
+                :noneOffered="changesForm"
+                noneLabel="No automatic rejections"
+                :noneChosen="noRejectionsChosen"
+                readBack="No automatic rejections: every application arrives undecided."
+                @choose-none="chooseNoRejections"
+              />
               <AutomaticRejections
                 :questions="market?.rejectionQuestions ?? []"
                 :rules="rejectionRules"
                 :lockReason="market?.rejectionRulesLockReason ?? null"
                 :disabled="!changesForm"
                 :overturnedBy="whoMayTake(market?.permissionTable, MarketAction.ChangeVerdicts)"
+                :noneReadBack="noRejectionsChosen"
                 @update:rules="saveRejectionRules"
               />
               <p

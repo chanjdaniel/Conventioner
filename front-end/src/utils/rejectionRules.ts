@@ -1,18 +1,41 @@
 import type { Ref } from 'vue';
 import { api } from '@/utils/api';
 import { useSavedOnTheMarket } from '@/utils/savedOnTheMarket';
-import type { Market, RejectionRule } from '@/assets/types/datatypes';
+import type { Market, RejectionQuestion, RejectionRule } from '@/assets/types/datatypes';
 
-/** Which answers reject an application automatically, written whole on every change (E33/F03/S01). */
+/**
+ * Whether these rules decide the automatic rejections (T206): one of them, on a question the form
+ * still asks, names an answer it still offers. A rule with no answer ticked rejects nobody, so it
+ * decides nothing - the mirror of `Rulebook.decided` in `back-end/rejection_rules.py`, which the
+ * guard on leaving draft reads.
+ */
+export function rulesDecide(rules: RejectionRule[], questions: RejectionQuestion[]): boolean {
+  const offered = new Map(questions.map((q) => [q.key, new Set(q.answers.map((a) => a.value))]));
+  return rules.some((rule) => rule.answers.some((answer) => offered.get(rule.key)?.has(answer)));
+}
+
+/**
+ * Which answers reject an application automatically, written whole on every change (E33/F03/S01).
+ *
+ * It also holds the organizer's choice that no answer rejects automatically (T206), written by
+ * `chooseNone` and replaced by the next rule.
+ */
 export function useRejectionRules(market: Ref<Market | null | undefined>) {
-  const { value, error, save } = useSavedOnTheMarket<RejectionRule>(
+  const { value, none, error, save, chooseNone } = useSavedOnTheMarket<RejectionRule>(
     market,
     (held) => held.rejectionRules,
-    async (id, rules) => {
-      const response = await api.put(`/markets/${id}/rejection-rules`, { rules });
-      return { list: response.data?.rejectionRules ?? rules, none: false };
+    async (id, rules, noAutomaticRejections) => {
+      const response = await api.put(`/markets/${id}/rejection-rules`, {
+        rules,
+        noAutomaticRejections,
+      });
+      return {
+        list: response.data?.rejectionRules ?? rules,
+        none: response.data?.noAutomaticRejections ?? noAutomaticRejections,
+      };
     },
     'Could not save the automatic rejections.',
+    (held) => held.noAutomaticRejections ?? false,
   );
-  return { rules: value, error, save };
+  return { rules: value, noAutomaticRejections: none, error, save, chooseNone };
 }
