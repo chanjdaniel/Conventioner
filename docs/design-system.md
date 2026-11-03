@@ -21,6 +21,9 @@ describes:
   - front-end/e2e/a-links-halo-appears-at-once.spec.ts
   - front-end/src/assets/brand/
   - front-end/src/__tests__/theBrandHasOneFolder.test.ts
+  - front-end/scripts/brand-icons.ts
+  - front-end/index.html
+  - front-end/public/manifest.webmanifest
 verified: 2026-11-04
 sources:
   - wayfinding/claims-and-room/map
@@ -363,6 +366,22 @@ The brand has one folder, [`front-end/src/assets/brand/`](../front-end/src/asset
 The mark is `#36826F`, which is `--mm-green`, and the wordmark is black.
 An `<img>` does not inherit colour, so the `currentColor` copy only takes the colour around it when it is inlined.
 The mark and the wordmark are the logo's own two paths, unchanged, and [`theBrandHasOneFolder.test.ts`](../front-end/src/__tests__/theBrandHasOneFolder.test.ts) fails when either drifts from the logo.
+
+The favicon set in [`front-end/public/`](../front-end/public/) is generated from the mark, and [`front-end/index.html`](../front-end/index.html) links it:
+
+| File | Size | Ground | For |
+| --- | --- | --- | --- |
+| `favicon.svg` | vector | transparent | Every browser that takes an SVG favicon; a byte-for-byte copy of the mark. |
+| `favicon.ico` | 16, 32, 48 | transparent | A browser that does not. |
+| `apple-touch-icon.png` | 180 | white, the mark at 140 | iOS, which fills transparency with black. |
+| `icon-192.png`, `icon-512.png` | 192, 512 | transparent | The manifest's `any` icons. |
+| `icon-maskable-512.png` | 512 | white, the mark at 384 | The manifest's `maskable` icon: a launcher crops it to its own shape, and the mark stays inside the central 409px circle. |
+
+When the mark changes, run `npm run brand-icons` in `front-end/` and commit what it writes.
+[`scripts/brand-icons.ts`](../front-end/scripts/brand-icons.ts) renders with the Chromium `@playwright/test` installs and writes the ICO itself, so it adds no dependency, and neither CI nor the build runs it.
+`index.html`'s ICO link says `sizes="32x32"` on purpose: without it Chrome may choose the ICO over the SVG, and `sizes="any"` makes it download both.
+[`manifest.webmanifest`](../front-end/public/manifest.webmanifest) is written by hand, and its `display` is `browser`, so an icon on a home screen opens the same site with the address bar an organizer copies a market's link from.
+[`the-brand-reaches-the-browser.spec.ts`](../front-end/e2e/the-brand-reaches-the-browser.spec.ts) fetches every icon as a browser would and holds its content type, since a missing file falls through to `index.html` with a 200.
 
 ## The primitive layer
 
