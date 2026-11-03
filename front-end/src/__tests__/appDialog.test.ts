@@ -89,9 +89,17 @@ async function openFromTheButton(dialog: DialogProps = {}, tray = false) {
 
 /** The window's own markup, without Vue's comment anchors and its scoped-style attributes. */
 function windowMarkup(): string {
-  return byTestId('people-window')!
-    .outerHTML.replace(/<!--[^]*?-->/g, '')
-    .replace(/ data-v-[0-9a-f]+=""/g, '');
+  const root = byTestId('people-window')!.cloneNode(true) as HTMLElement;
+  const comments: Node[] = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_COMMENT);
+  while (walker.nextNode()) comments.push(walker.currentNode);
+  comments.forEach((comment) => comment.remove());
+  [root, ...root.querySelectorAll('*')].forEach((element) => {
+    for (const attribute of [...element.attributes]) {
+      if (/^data-v-[0-9a-f]+$/.test(attribute.name)) element.removeAttribute(attribute.name);
+    }
+  });
+  return root.outerHTML;
 }
 
 describe('a dialog that asks for none of the new props is drawn as today', () => {
