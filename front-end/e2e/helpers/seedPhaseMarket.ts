@@ -28,12 +28,13 @@ export async function seedPhaseMarket(
   email: string,
   password: string,
   // How vendors reach it; absent, a CSV market, as the server reads it. A spec about the form
-  // path's words asks for `form` (E31/F03/S03). A spec about the review setup's decisions asks
-  // for them left undecided (T206).
-  options: { intakeMode?: 'csv' | 'form'; reviewSetupUndecided?: boolean } = {},
+  // path's words asks for `form` (E31/F03/S03). `orgId` is the organization it belongs to, which
+  // `email` must run; absent, the seed owner's first. A spec about the review setup's decisions
+  // asks for them left undecided (T206).
+  options: { intakeMode?: 'csv' | 'form'; orgId?: string; reviewSetupUndecided?: boolean } = {},
 ): Promise<PhaseMarketSeed> {
   const userId = await loginViaApi(request, baseURL, email, password);
-  const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
+  const orgId = options.orgId ?? (await ensureTestOrgAuthenticated(request, baseURL, email));
 
   const marketName = uniqueMarketName('E2E Phase');
   const createRes = await request.post(`${baseURL}/markets`, {

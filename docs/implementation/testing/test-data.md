@@ -5,6 +5,8 @@ describes:
   - back-end/tests/test_data/google_forms/
   - back-end/tests/test_data/example_columns.csv
   - back-end/tests/fixtures/synthetic_form_exports.py
+  - back-end/tests/fixtures/component_library_fixture.py
+  - front-end/src/dev/library/fixture.json
   - back-end/create_test_user.py
   - back-end/seed_test_markets.py
   - scripts/seed_fixture.sh
@@ -14,13 +16,12 @@ describes:
   - front-end/e2e/helpers/seedApplication.ts#nameFromEmail
   - scripts/real_data_check.py
   - scripts/real_data_terms.txt
-  - back-end/tests/fixtures/component_library_fixture.py
-  - front-end/src/dev/library/fixture.json
 verified: 2026-11-03
 sources:
   - T109
   - T131
   - T200
+  - T204
 ---
 
 # Test data
@@ -40,6 +41,7 @@ This node says where each kind of test data lives, how it is made, the fictional
 | The stack's accounts | [`scripts/seed_fixture.sh`](../../../scripts/seed_fixture.sh), through [`back-end/create_test_user.py`](../../../back-end/create_test_user.py) | The E2E users at `example.com` ([E2E seeds](e2e-seeds.md)) |
 | The test organization's markets | [`back-end/seed_test_markets.py`](../../../back-end/seed_test_markets.py) | Two markets of a test organization, on the database the environment names |
 | The E2E accounts, markets and applications | [`front-end/e2e/fixtures.ts`](../../../front-end/e2e/fixtures.ts) and the seed helpers in `front-end/e2e/helpers/` | Written by each spec through the helpers ([E2E seeds](e2e-seeds.md)); a seeded vendor's name is made from its address ([`seedApplication.ts`](../../../front-end/e2e/helpers/seedApplication.ts)) |
+| The people of the lists at scale | [`front-end/e2e/helpers/seedPeopleAtScale.ts`](../../../front-end/e2e/helpers/seedPeopleAtScale.ts), through `create_test_user.py --bulk` | 153 accounts, `person-001` to `person-153` at the fixture domain `people-at-scale.test`, in an organization named "Example People Org" and a number ([E2E seeds](e2e-seeds.md#the-seed-helpers)) |
 | A short export for the specs that import through the UI | [`front-end/e2e/helpers/googleFormExport.ts`](../../../front-end/e2e/helpers/googleFormExport.ts) | Invented applicants at `.test` domains |
 | The front-end unit tests' data | `front-end/src/__tests__/`, inline | Written in each test |
 
