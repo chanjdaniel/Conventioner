@@ -393,34 +393,37 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
               </option>
             </select>
           </label>
-          <span
-            v-if="discordChecked"
-            class="vendors-discord-checked"
-            data-testid="vendors-discord-checked"
-          >
-            {{ checkedWords }}
-          </span>
-          <!-- A standard button, the select's height, so the three stand on one line. -->
-          <button
-            v-if="mayCheck"
-            type="button"
-            class="btn btn--secondary"
-            :disabled="checking || runningRoles"
-            data-testid="vendors-discord-check"
-            @click="runCheck"
-          >
-            {{ checking ? 'Checking Discord…' : 'Check Discord' }}
-          </button>
-          <button
-            v-if="mayGive"
-            type="button"
-            class="btn btn--secondary"
-            :disabled="checking || runningRoles"
-            data-testid="vendors-discord-give"
-            @click="giving = true"
-          >
-            {{ runningRoles ? 'Giving roles…' : 'Give roles' }}
-          </button>
+          <!-- At the row's far right, with the filter or without it; on a phone under the filter. -->
+          <div class="vendors-discord-actions" data-testid="vendors-discord-actions">
+            <span
+              v-if="discordChecked"
+              class="vendors-discord-checked"
+              data-testid="vendors-discord-checked"
+            >
+              {{ checkedWords }}
+            </span>
+            <!-- A standard button, the select's height, so the three stand on one line. -->
+            <button
+              v-if="mayCheck"
+              type="button"
+              class="btn btn--secondary"
+              :disabled="checking || runningRoles"
+              data-testid="vendors-discord-check"
+              @click="runCheck"
+            >
+              {{ checking ? 'Checking Discord…' : 'Check Discord' }}
+            </button>
+            <button
+              v-if="mayGive"
+              type="button"
+              class="btn btn--secondary"
+              :disabled="checking || runningRoles"
+              data-testid="vendors-discord-give"
+              @click="giving = true"
+            >
+              {{ runningRoles ? 'Giving roles…' : 'Give roles' }}
+            </button>
+          </div>
           <p v-if="checkError" class="error-text" role="alert" data-testid="vendors-discord-error">
             {{ checkError }}
           </p>
@@ -799,6 +802,14 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
   min-width: 0;
 }
 
+.vendors-discord-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
 .vendors-discord-checked {
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
@@ -900,6 +911,19 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
 
   .filter-input {
     flex-basis: 100%;
+  }
+
+  /* Under the filter, at the line's start, as the page's other wrapped controls are. */
+  .vendors-discord-actions {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+
+  /* Over the two buttons, or "Give roles" falls alone onto a line of its own at 390. The control's
+     line box was there to sit level with the select beside it, which is a line above here. */
+  .vendors-discord-checked {
+    flex-basis: 100%;
+    line-height: normal;
   }
 
   .vendors-body {

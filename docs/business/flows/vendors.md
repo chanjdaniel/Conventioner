@@ -8,7 +8,7 @@ describes:
   - back-end/api/vendor_export.py
   - front-end/src/components/GiveRolesDialog.vue
   - front-end/src/components/DiscordRoleReport.vue
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - wayfinding/claims-and-room/04
   - wayfinding/rejection-visibility/02
@@ -35,6 +35,7 @@ sources:
   - E42/F01/S05
   - E46/F01/S04
   - T180
+  - T210
 ---
 
 # Vendors
@@ -45,6 +46,7 @@ sources:
 
 The Vendors page ([`VendorsView.vue`](../../../front-end/src/views/VendorsView.vue)) lists every applicant of the market, one row each, and a row opens that vendor's [drawer](vendor-drawer.md), behind which it reads as selected ([a selected row](../../design-system.md#the-primitive-layer)); what the page counts is the vendors who need a table: the run's own, and the vendors added by hand.
 The page fits a phone, so a vendor is looked up, paid and corrected from the door on market day (T180): the search takes its row with the filters, Export and Add a vendor beneath it, each row stacks the name over its chips, and the drawer, Add a vendor, Export and Give roles open inside the window ([the design language](../../design-system.md#layout)).
+The Discord row keeps its order there, one line under another from the line's start: the filter, then "Checked 5 minutes ago", then "Check Discord" and "Give roles" side by side.
 
 ## J11. Browse by vendor
 
@@ -133,9 +135,12 @@ On a market connected to a Discord server with a username question chosen ([the 
 3. The "Discord" filter lists the vendors shown in one of those six, each with how many are in it; it stays in the address, so a link to "Not found" is the list of whom to email, and Export opens on it ([J15](#j15-export-the-vendors-to-a-csv)).
 4. "Checked 5 minutes ago" says when the states were read; they change only when someone checks again.
 
+The row reads filter, then actions: the "Discord" filter at the left, and "Checked 5 minutes ago", "Check Discord" and "Give roles" together at the far right.
+Before the first check there is no filter and no "Checked", and the buttons stand at the far right all the same; someone the row refuses, once a check has run, reads the filter at the left and "Checked 5 minutes ago" at the far right, with no button.
+
 Each row's columns keep their place down the list at every width: the Discord state, then Assigned, Unassigned or the verdict, then "Added" in a slot of its own while anyone listed was added by hand, then the date count (T137 review note 6: "Added" once stood before the badge and moved a vendor's Discord chip 63px left of every other row's).
 
-A check that cannot run says why under the button: the market lost its username question ("Choose the username question again"), Discord cannot be reached, Discord took too long to list the server's members ("Check Discord again"), or the bot is no longer in the server.
+A check that cannot run says why on a row of its own under the actions: the market lost its username question ("Choose the username question again"), Discord cannot be reached, Discord took too long to list the server's members ("Check Discord again"), or the bot is no longer in the server.
 Covered by:
 - `back-end/tests/test_discord_connection.py`
 - `who-is-in-the-discord-server.spec.ts`
@@ -164,8 +169,9 @@ Covered by:
 
 **Status:** Works against the stack's fake Discord (E46/F01/S04, `giving-the-discord-role.spec.ts`); not yet walked against a real server.
 On a market connected to a Discord server, with a role and a username question chosen on the Discord card, the organizer gives the market's role to every vendor holding a seat who is in the server, in one run ([the Discord connection](../../implementation/modules/discord.md#giving-the-role)).
+The card points here: its "Giving roles" block says what is still missing, and once nothing is, links to this page.
 
-1. "Give roles", beside "Check Discord", for an Admin or the owner (the same row), is offered once anyone holds a seat.
+1. "Give roles", beside "Check Discord" at the row's far right, for an Admin or the owner (the same row), is offered once anyone holds a seat.
 2. It confirms first ([`GiveRolesDialog.vue`](../../../front-end/src/components/GiveRolesDialog.vue)), by the role's name and how many vendors hold a seat on any date: "Give Vendor Nov 2026 to 54 assigned vendors?", saying that it never takes a role away.
 3. The run reads the server's members as a check does, gives the role to each assigned vendor matched who does not hold it, and updates every vendor's Discord state; "Give roles" reads "Giving roles…" meanwhile, and neither it nor "Check Discord" is offered while the other runs.
    It asks Discord for under a minute: the vendors it had no time for are "Not given yet", and running it again gives them.
@@ -176,7 +182,7 @@ On a market connected to a Discord server, with a role and a username question c
 A run that cannot start says why in the dialog: no role chosen, the username question gone, Discord out of reach, or the bot no longer in the server.
 Covered by:
 - `back-end/tests/test_discord_connection.py`
-- `giving-the-discord-role.spec.ts` (the report and the rows' Discord states laid out at 390, and Give roles inside the window there)
+- `giving-the-discord-role.spec.ts` (the report and the rows' Discord states laid out at 390, Give roles inside the window there, and where the Discord row's filter, actions and error stand at 1280, 390 and 320)
 - `givingTheDiscordRole.test.ts`
 
 ## Superseded
