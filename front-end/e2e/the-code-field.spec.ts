@@ -109,7 +109,7 @@ for (const size of WINDOWS) {
 
       await expectInside(vendorPage.codeInput, page.getByTestId('vendor-sign-in'), 'the field');
       await expectCentredDigits(page, vendorPage.codeInput);
-      await expectCentredLines(vendorPage.codeStep.locator('.sign-in-instruction'));
+      await expectCentredLines(vendorPage.codeInstruction);
     });
 
     test("the organizer's code field is the vendor's, centred inside its card", async ({

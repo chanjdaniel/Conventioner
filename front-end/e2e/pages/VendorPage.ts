@@ -26,6 +26,18 @@ export class VendorPage {
       .waitFor();
   }
 
+  /**
+   * Everything a visitor is shown at `/<slug>`, as text, with the slug they typed masked out: a
+   * market with no vendor page must read exactly as a slug that names nothing, so the whole page
+   * is compared, not one part of it.
+   */
+  async renderedText(slug: string): Promise<string> {
+    await this.page.goto(`/${slug}`);
+    await this.page.waitForLoadState('networkidle');
+    const text = (await this.page.locator('body').innerText()).trim();
+    return text.split(slug).join('<slug>');
+  }
+
   get marketName(): Locator {
     return this.page.getByTestId('vendor-page-market-name');
   }
@@ -58,6 +70,11 @@ export class VendorPage {
 
   get codeStep(): Locator {
     return this.page.getByTestId('vendor-sign-in-code-step');
+  }
+
+  /** The code step's line saying where the code went, and that only the newest works. */
+  get codeInstruction(): Locator {
+    return this.page.getByTestId('vendor-sign-in-code-instruction');
   }
 
   get codeInput(): Locator {

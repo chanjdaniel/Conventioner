@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, MarketSetupPage, VendorPage } from './fixtures';
 import {
   createApplicantLoginChallenge,
   planSetupObject,
@@ -84,14 +84,6 @@ async function allocated(request: APIRequestContext, vendor: string) {
   return market;
 }
 
-/** What a visitor is shown at `/<slug>`, with the slug they typed masked out. */
-async function renderedFor(page: Page, slug: string): Promise<string> {
-  await page.goto(`/${slug}`);
-  await page.waitForLoadState('networkidle');
-  const text = (await page.locator('body').innerText()).trim();
-  return text.split(slug).join('<slug>');
-}
-
 /** Nothing on the page runs past the window's right edge. */
 async function fitsTheWindow(page: Page) {
   const overflow = await page.evaluate(
@@ -118,10 +110,10 @@ for (const [label, viewport] of [
       // In a browser of their own, the vendor's page reads as a market that does not exist.
       const vendorContext = await browser.newContext({ viewport });
       const page = await vendorContext.newPage();
-      expect(await renderedFor(page, market.marketSlug)).toBe(
-        await renderedFor(page, UNKNOWN_SLUG),
-      );
       const vendorPage = new VendorPage(page);
+      expect(await vendorPage.renderedText(market.marketSlug)).toBe(
+        await vendorPage.renderedText(UNKNOWN_SLUG),
+      );
       await vendorPage.goto(market.marketSlug);
       await expect(vendorPage.notFound).toBeVisible();
       await expect(vendorPage.emailInput).toHaveCount(0);
@@ -133,18 +125,16 @@ for (const [label, viewport] of [
         'Vendors have not been told whether they have a table.',
       );
       await expect(organizer.getByTestId('phase-rail-vendor-page')).toHaveCount(0);
-      const publish = organizer.getByTestId('applications-publish-button');
-      await expect(publish).toBeEnabled();
-      await publish.click();
-      const confirm = organizer.getByTestId('publish-results-window');
+      await expect(organizer.getByTestId('applications-publish-button')).toBeEnabled();
+      const setup = new MarketSetupPage(organizer);
+      const confirm = await setup.openPublishResults(market.marketId);
       await expect(confirm).toContainText('1 vendor will read "You have a table"');
       await expect(confirm.getByTestId('publish-results-address-url')).toHaveText(
         new RegExp(`/${market.marketSlug}$`),
       );
-      await confirm.getByTestId('publish-results-submit-button').click();
-      await expect(organizer.getByTestId('applications-published-badge')).toBeVisible();
+      await setup.confirmPublishResults();
       // Its address is now one to share, on the rail.
-      await expect(organizer.getByTestId('phase-rail-vendor-page').locator('a')).toHaveAttribute(
+      await expect(organizer.getByTestId('phase-rail-vendor-page-link')).toHaveAttribute(
         'href',
         new RegExp(`/${market.marketSlug}$`),
       );

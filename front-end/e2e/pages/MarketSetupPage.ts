@@ -152,8 +152,21 @@ export class MarketSetupPage {
    * Every market publishes them before it goes live, on either path (ADR 0022).
    */
   async publishResults(marketId: string): Promise<void> {
+    await this.openPublishResults(marketId);
+    await this.confirmPublishResults();
+  }
+
+  /** Open Publish results' confirmation on the Applications page; its window, to read. */
+  async openPublishResults(marketId: string): Promise<Locator> {
     await this.page.goto(marketSetupPath(marketId, 'applications'));
     await this.page.getByTestId('applications-publish-button').click();
+    const confirm = this.page.getByTestId('publish-results-window');
+    await confirm.waitFor();
+    return confirm;
+  }
+
+  /** Confirm the open Publish results, and wait for the market to say its results are out. */
+  async confirmPublishResults(): Promise<void> {
     await this.page.getByTestId('publish-results-submit-button').click();
     await this.page.getByTestId('applications-published-badge').waitFor({ timeout: 10000 });
   }

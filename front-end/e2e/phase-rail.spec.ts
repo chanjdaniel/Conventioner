@@ -87,7 +87,7 @@ test.describe('The phase rail', () => {
     await openMarket(page, marketSetupPath(seed.marketId, 'setup'));
     const chip = page.getByTestId('phase-rail-vendor-page');
     await expect(chip).toBeVisible({ timeout: 15000 });
-    const url = (await chip.locator('a').getAttribute('href')) ?? '';
+    const url = (await page.getByTestId('phase-rail-vendor-page-link').getAttribute('href')) ?? '';
     expect(url.length).toBeGreaterThan(60);
 
     const smallestGap = await page.evaluate(() => {
@@ -116,8 +116,8 @@ test.describe('The phase rail', () => {
     const chip = page.getByTestId('phase-rail-vendor-page');
     await expect(chip).toBeVisible({ timeout: 15000 });
     // The whole address is the link; what it shows is shortened to fit the rail (bug 11).
-    const url = (await chip.locator('a').getAttribute('href')) ?? '';
-    await expect(chip.locator('a')).toHaveAttribute('title', url);
+    const url = (await page.getByTestId('phase-rail-vendor-page-link').getAttribute('href')) ?? '';
+    await expect(page.getByTestId('phase-rail-vendor-page-link')).toHaveAttribute('title', url);
 
     await page.getByTestId('phase-rail-vendor-page-copy').click();
     await expect(page.getByTestId('phase-rail-vendor-page-copy')).toHaveText('Copied');
@@ -136,7 +136,7 @@ test.describe('The phase rail', () => {
     // it shows none (`a-google-form-markets-vendor-page.spec.ts`).
     await openMarket(page, marketSetupPath(seed.marketId, 'setup'));
     await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByTestId('phase-rail-vendor-page').locator('a')).toHaveAttribute(
+    await expect(page.getByTestId('phase-rail-vendor-page-link')).toHaveAttribute(
       'href',
       new RegExp(`/${seed.slug}$`),
     );
@@ -159,7 +159,7 @@ test.describe('The phase rail', () => {
 
     const chip = page.getByTestId('phase-rail-vendor-page');
     await expect(chip).toBeVisible({ timeout: 15000 });
-    await expect(chip.locator('a')).toHaveAttribute(
+    await expect(page.getByTestId('phase-rail-vendor-page-link')).toHaveAttribute(
       'href',
       new RegExp(`/${marketNameToSlug(formMarket.marketName)}$`),
     );

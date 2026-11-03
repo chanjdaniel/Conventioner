@@ -541,6 +541,7 @@ function cancelPending() {
           <a
             v-if="onAPhone"
             class="url-chip-name"
+            :data-testid="`phase-rail-${address.id}-link`"
             :href="address.url"
             :title="address.url"
             target="_blank"
@@ -551,6 +552,7 @@ function cancelPending() {
             <span class="url-chip-label">{{ address.label }}</span>
             <a
               class="url-chip-url"
+              :data-testid="`phase-rail-${address.id}-link`"
               :href="address.url"
               :title="address.url"
               target="_blank"

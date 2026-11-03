@@ -21,6 +21,8 @@ export class AttendanceStatusPage {
   readonly doorCode: Locator;
   readonly doorCodeMarket: Locator;
   readonly doorCodeValue: Locator;
+  /** "Scan with your phone's camera to check in". */
+  readonly doorCodeInstruction: Locator;
   /** The QR code, an SVG whose `data-url` is the address it encodes. */
   readonly doorCodeQr: Locator;
   readonly doorCodeMake: Locator;
@@ -43,6 +45,7 @@ export class AttendanceStatusPage {
     this.doorCode = page.getByTestId('door-code');
     this.doorCodeMarket = page.getByTestId('door-code-market');
     this.doorCodeValue = page.getByTestId('door-code-value');
+    this.doorCodeInstruction = page.getByTestId('door-code-instruction');
     this.doorCodeQr = page.getByTestId('door-code-qr');
     this.doorCodeMake = page.getByTestId('door-code-make');
     this.doorCodePrint = page.getByTestId('door-code-print');

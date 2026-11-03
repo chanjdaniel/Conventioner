@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, MarketSetupPage, VendorPage } from './fixtures';
 import {
   createApplicantLoginChallenge,
   planSetupObject,
@@ -138,10 +138,13 @@ test('Publish results says vendors read it on the vendor page, and gives its add
   // The rail's one address for vendors, the market's own.
   const chip = page.getByTestId('phase-rail-vendor-page');
   await expect(chip).toContainText('Vendor page');
-  await expect(chip.locator('a')).toHaveAttribute('href', new RegExp(`/${market.marketSlug}$`));
+  await expect(page.getByTestId('phase-rail-vendor-page-link')).toHaveAttribute(
+    'href',
+    new RegExp(`/${market.marketSlug}$`),
+  );
 
-  await page.getByTestId('applications-publish-button').click();
-  const confirm = page.getByTestId('publish-results-window');
+  const setup = new MarketSetupPage(page);
+  const confirm = await setup.openPublishResults(market.marketId);
   await expect(confirm.getByTestId('publish-results-telling')).toHaveText(
     "Vendors read their result on the market's vendor page. No email is sent, so share the page's address with them.",
   );
@@ -155,8 +158,7 @@ test('Publish results says vendors read it on the vendor page, and gives its add
     await address.textContent(),
   );
 
-  await confirm.getByTestId('publish-results-submit-button').click();
-  await expect(page.getByTestId('applications-published-badge')).toBeVisible();
+  await setup.confirmPublishResults();
 });
 
 test("the form's old address is a page that is not there, even while the market takes applications", async ({

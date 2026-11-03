@@ -176,7 +176,10 @@ function goBack() {
       @submit.prevent="verifyCode"
     >
       <!-- The same words for every address, and true for every address: each is sent a code. -->
-      <p class="sign-in-instruction sign-in-instruction--centred">
+      <p
+        class="sign-in-instruction sign-in-instruction--centred"
+        data-testid="vendor-sign-in-code-instruction"
+      >
         We've sent a code to {{ requestedEmail }}. Only the newest one works.
       </p>
       <template v-if="!spent">

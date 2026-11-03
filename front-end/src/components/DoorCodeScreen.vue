@@ -166,7 +166,9 @@ onMounted(async () => {
           <p class="door-code-value" data-testid="door-code-value">
             {{ doorCodeInWords(live.code) }}
           </p>
-          <p class="door-code-instruction">Scan with your phone's camera to check in</p>
+          <p class="door-code-instruction" data-testid="door-code-instruction">
+            Scan with your phone's camera to check in
+          </p>
           <!-- Who made it and when, for whoever stands the screen at the door; not on the poster. -->
           <p class="door-code-made" data-testid="door-code-made">
             <EmailAddress :words="`Made ${getFormattedTimestamp(live.madeAt)} by ${madeBy}`" />

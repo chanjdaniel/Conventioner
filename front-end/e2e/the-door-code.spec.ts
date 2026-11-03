@@ -70,7 +70,7 @@ async function expectItFits(page: Page, door: AttendanceStatusPage, phone: boole
   // The instruction is one line, as is the code, and with who made it all is in the window: at 390
   // the instruction's last word once fell to a line of its own.
   for (const [line, name] of [
-    [page.getByText("Scan with your phone's camera to check in"), 'the instruction'],
+    [door.doorCodeInstruction, 'the instruction'],
     [door.doorCodeValue, 'the code'],
   ] as const) {
     const lines = await line.evaluate((el) => {
