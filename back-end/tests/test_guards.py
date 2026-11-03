@@ -810,8 +810,9 @@ class TestNoOrphanedPinGuard:
     """
 
     def test_it_guards_publishing_too(self):
-        """A market already in assignment never re-enters it, so a seat dropped from the plan
-        after the run met no guard and was published with a vendor sent to it (bug 31)."""
+        """A market already in assignment need not re-enter it before it goes live, so a seat
+        dropped from the plan after the run met no guard and was published with a vendor sent to
+        it (bug 31)."""
         for edge in (("assignment", "market_days"), ("offers", "market_days")):
             assert "no_orphaned_pin" in {g.id for g in guards.TRANSITION_GUARDS[edge]}, edge
         assert "no_orphaned_pin" in {g.id for g in guards.PHASE_ENTRY_INVARIANTS["market_days"]}

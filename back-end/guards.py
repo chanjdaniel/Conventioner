@@ -779,8 +779,9 @@ PHASE_ENTRY_INVARIANTS: dict[str, list] = {
     # a half-built rule scores every vendor alike, which is silent rather than wrong.
     "assignment": [_ALL_REVIEWED, _NO_ORPHANED_PIN],
     "offers": [_NO_APPROVED],
-    # A market that is already in assignment never re-enters it, so an orphaned pin made there -
-    # a seat dropped from the plan after the run - met no guard and was published (bug 31).
+    # A market need not re-enter assignment before it goes live (only Back to review, T207, takes
+    # it back there), so an orphaned pin made in assignment - a seat dropped from the plan after
+    # the run - met no guard and was published (bug 31).
     # And none on a run made before the review was reopened (T207), ahead of the results that a
     # form market's Publish results already holds back on it.
     "market_days": [
