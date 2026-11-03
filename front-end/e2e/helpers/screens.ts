@@ -743,7 +743,8 @@ export const SCREENS: Screen[] = [
     },
   },
   {
-    // And the place picker's groups, open on a free seat.
+    // And the place picker's groups, open on a free seat: its market has vendors seated already,
+    // so the last is "Seated elsewhere today (moves them)" (T208).
     name: 'the place picker, open',
     who: 'organizer',
     sizes: FITS_A_PHONE,
@@ -754,6 +755,7 @@ export const SCREENS: Screen[] = [
       ])(page, seed);
       await page.getByTestId('placement-dialog-vendor-input').click();
       await visible(page, 'placement-dialog-vendor-list');
+      await visible(page, 'placement-dialog-seated-elsewhere');
     },
   },
   {

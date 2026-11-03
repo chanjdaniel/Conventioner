@@ -135,14 +135,38 @@ const groups = computed(() =>
   ),
 );
 
+/**
+ * Everyone seated at another table on this date (T208): choosing one moves them here, in the one
+ * write that places them, which frees the seat they leave. Anyone seated, an applicant or not.
+ */
+const seatedElsewhere = computed(() =>
+  props.seated.filter((vendor) => vendor.tableCode !== props.tableCode),
+);
+const seatedElsewhereOf = computed(
+  () => new Map(seatedElsewhere.value.map((vendor) => [vendor.email, vendor])),
+);
+/** The vendor chosen, when choosing them moves them here from another table. */
+const mover = computed(() => seatedElsewhereOf.value.get(chosenEmail.value));
+// A move starts at the free side, or at the shape they hold now; any other choice at the seat's.
+watch(mover, (moving, wasMoving) => {
+  if (moving) chosenSeat.value = seatAMoveKeeps(moving.seat, props.seat);
+  else if (wasMoving) chosenSeat.value = props.seat ?? FULL_TABLE;
+});
+
+/**
+ * What the choice overrides. A move is judged as one from a taken seat is: this seat's tier and
+ * size only, since it changes which table they stand at, never their dates or the ceiling.
+ */
 const warnings = computed(() =>
-  placementWarnings(vendorFor(chosenEmail.value), {
-    date: props.date,
-    tier: props.tier,
-    seat: chosenSeat.value,
-    datesHeld: datesHeldBy(chosenEmail.value),
-    marketCeiling: props.marketCeiling,
-  }),
+  mover.value
+    ? seatWarnings(vendorFor(chosenEmail.value), props.date, props.tier, chosenSeat.value)
+    : placementWarnings(vendorFor(chosenEmail.value), {
+        date: props.date,
+        tier: props.tier,
+        seat: chosenSeat.value,
+        datesHeld: datesHeldBy(chosenEmail.value),
+        marketCeiling: props.marketCeiling,
+      }),
 );
 
 /**
@@ -189,8 +213,10 @@ const occupiedPrimary = computed(() =>
     ? { label: 'Move them', testid: 'placement-dialog-move', enabled: canMove.value }
     : { label: 'Swap seats', testid: 'placement-dialog-swap', enabled: canSwap.value },
 );
+/** The place mode's primary says what it does: a vendor from another table is moved here. */
+const placeLabel = computed(() => (mover.value ? 'Move them here' : 'Assign them here'));
 const primaryLabel = computed(() =>
-  props.mode === 'place' ? 'Assign them here' : occupiedPrimary.value.label,
+  props.mode === 'place' ? placeLabel.value : occupiedPrimary.value.label,
 );
 const primaryEnabled = computed(() =>
   props.mode === 'place' ? canPlace.value : occupiedPrimary.value.enabled,
@@ -232,15 +258,15 @@ function label(email: string | null | undefined): string {
   return name ? `${name} (${address})` : address;
 }
 
-/** A swap partner's table, in words: "Hall B 1, left half" rather than a stored spelling. */
+/** A seated vendor's table, in words: "Hall B 1, left half" rather than a stored spelling. */
 function whereTheySit(target: SeatedVendor): string {
   if (target.seat === FULL_TABLE) return target.tableCode;
   return tableInWords(target.tableCode, target.seat);
 }
 
 /**
- * The two pickers, searched by the pages' terms (E38/F08/S03): a vendor's name, business or
- * address, and for a swap partner the table they sit at, by its code or its section.
+ * The vendor pickers, searched by the pages' terms (E38/F08/S03): a vendor's name, business or
+ * address, and for anyone seated the table they sit at, by its code or its section.
  */
 const vendorOption = (email: string): PickerOption => ({ value: email, label: label(email) });
 
@@ -269,9 +295,22 @@ const placeGroups = computed((): PickerGroup[] => [
     testid: 'placement-dialog-added',
     options: groups.value.addedByHand.map((v) => vendorOption(v.email)),
   },
+  // Last and named for what choosing one does, so nobody is moved by someone thinking they are
+  // placing a vendor with no table (T208).
+  {
+    label: 'Seated elsewhere today (moves them)',
+    testid: 'placement-dialog-seated-elsewhere',
+    options: seatedElsewhere.value.map((vendor) => ({
+      ...vendorOption(vendor.email),
+      detail: `Leaves ${tableInWords(vendor.tableCode, vendor.seat)}`,
+    })),
+  },
 ]);
-const findsToPlace = (option: PickerOption, words: string) =>
-  vendorFound(words, option.value, props.vendorSearch);
+function findsToPlace(option: PickerOption, words: string): boolean {
+  const vendor = seatedElsewhereOf.value.get(option.value);
+  const where = vendor ? [vendor.tableCode, vendor.section] : [];
+  return vendorFound(words, option.value, props.vendorSearch, where);
+}
 
 /** "Swap them with": everyone else seated that day, in table order. */
 const swapPartners = computed(() => {
@@ -356,7 +395,11 @@ function findsToMove(option: PickerOption, words: string): boolean {
         testid="placement-dialog-vendor"
       />
       <p v-if="candidates.length === 0" class="placement-note">
-        Every vendor who applied already has a table on this date.
+        Every vendor who applied already has a table on this date.<template
+          v-if="seatedElsewhere.length"
+        >
+          Choosing one moves them here.</template
+        >
       </p>
 
       <fieldset v-if="!seatIsFixed" class="placement-field">
@@ -531,7 +574,7 @@ function findsToMove(option: PickerOption, words: string): boolean {
         :disabled="!canPlace"
         data-testid="placement-dialog-confirm"
       >
-        Assign them here
+        {{ placeLabel }}
       </button>
       <button
         v-else

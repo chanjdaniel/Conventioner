@@ -11,7 +11,9 @@ import { TablesPage } from './pages/TablesPage';
  * A taken seat's dialog asks what to do with its vendor, and starts at "Move to an empty seat":
  * the day's empty seats, by section in the plan's order. "Move them" is the one placement write,
  * which replaces the seat they held that date, so they never stand at no table; the history holds
- * one "Moved" entry, and what they owe for the day follows the new table's price.
+ * one "Moved" entry, and what they owe for the day follows the new table's price. From the empty
+ * seat's end, "Who sits here" ends with "Seated elsewhere today (moves them)", and choosing someone
+ * there is the same write.
  */
 const ALICE = 'alice@example.com';
 const BOB = 'bob@example.com';
@@ -173,4 +175,49 @@ test('a move to a seat taken meanwhile is refused in the dialog, which stays ope
   await expect(tables.dialog).toBeVisible();
   await tables.cancel();
   await expect(tables.seatIn('North Wing 1', ALICE)).toBeVisible();
+});
+
+test('an empty seat takes a vendor seated elsewhere that day, moving them in one change', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const marketId = await aliceAtNorthWing1(request);
+  const before = new Set((await history(page, marketId)).map((entry) => entry.id));
+
+  const tables = new TablesPage(page);
+  await tables.goto(marketId);
+  await expect(tables.seatIn('North Wing 1', ALICE)).toBeVisible({ timeout: 15000 });
+  await tables.vacantSeat('Landing 1').click();
+  await expect(tables.dialog).toBeVisible();
+
+  // Last in "Who sits here", named for what choosing her does, and naming the table she leaves.
+  await tables.openPicker('vendor');
+  await expect(tables.seatedElsewhere).toContainText('Seated elsewhere today (moves them)');
+  const alice = tables.pickerOptions('vendor', 'placement-dialog-seated-elsewhere');
+  await expect(alice).toHaveCount(1);
+  await expect(alice).toContainText(`(${ALICE})`);
+  await expect(alice).toContainText('Leaves North Wing 1, a whole table');
+  await expect(tables.placeButton).toHaveText('Assign them here');
+
+  // Found by the table she sits at, and the primary says what it will do.
+  await tables.pick('vendor', ALICE, 'North Wing 1');
+  await expect(tables.placeButton).toHaveText('Move them here');
+  await tables.placeButton.click();
+  await expect(tables.dialog).toBeHidden();
+
+  await expect(tables.seatIn('Landing 1', ALICE)).toBeVisible();
+  await expect(tables.vacantSeat('North Wing 1')).toBeVisible();
+  await expect(tables.seatOf(ALICE)).toHaveCount(1);
+
+  const added = (await history(page, marketId)).filter((entry) => !before.has(entry.id));
+  expect(added).toHaveLength(1);
+  expect(added[0]).toMatchObject({ action: 'assign', kind: 'placed', vendors: [ALICE] });
+  expect(added[0]!.detail).toMatchObject({
+    table_code: 'Landing 1',
+    before: { table_code: 'North Wing 1' },
+  });
+  expect(await aliceOwes(page, marketId)).toMatchObject({
+    tableCode: 'Landing 1',
+    owedCents: 3000,
+  });
 });

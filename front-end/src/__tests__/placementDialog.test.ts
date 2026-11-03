@@ -577,3 +577,169 @@ describe('moving the vendor of a taken seat to an empty one (T208)', () => {
     expect(wrapper.findAll('button[type="submit"]')).toHaveLength(1);
   });
 });
+
+describe('moving someone seated elsewhere into an empty seat (T208)', () => {
+  const lee: SeatedVendor = {
+    email: 'lee@ember.test',
+    tableCode: 'Back 2',
+    section: 'Back',
+    tier: 'Silver',
+    seat: HALF_TABLE_LEFT,
+  };
+  const sam: SeatedVendor = {
+    email: 'sam@ember.test',
+    tableCode: 'Front 1',
+    section: 'Front',
+    tier: 'Gold',
+    seat: HALF_TABLE_LEFT,
+  };
+
+  /** Front 1's right half is free; Lee sits at Back 2 and Sam at Front 1's other half. */
+  const elsewhere = {
+    mode: 'place',
+    vendors: [
+      applicant('nadia@ember.test'),
+      applicant('lee@ember.test', {
+        tableChoice: 'half',
+        acceptedTiersByDate: { [DATE]: ['Silver'] },
+      }),
+      applicant('sam@ember.test'),
+    ],
+    datesHeld: { 'lee@ember.test': [DATE], 'sam@ember.test': [DATE] },
+    seated: [sam, lee],
+    vendorNames: { 'nadia@ember.test': 'Nadia Ember', 'lee@ember.test': 'Lee Park' },
+    vendorSearch: {
+      'nadia@ember.test': ['Nadia Ember', 'Ember Candles'],
+      'lee@ember.test': ['Lee Park', 'Park Pottery'],
+    },
+  };
+
+  const primary = (wrapper: Dialog) => wrapper.get('[data-testid="placement-dialog-confirm"]');
+
+  it('ends "Who sits here" with everyone seated at another table, each naming the table they leave', async () => {
+    const wrapper = dialog(elsewhere);
+    await openPicker(wrapper, 'placement-dialog-vendor');
+
+    const group = wrapper.get('[data-testid="placement-dialog-seated-elsewhere"]');
+    expect(group.text()).toContain('Seated elsewhere today (moves them)');
+    expect(offered(group)).toEqual(['lee@ember.test']);
+    expect(group.text()).toContain('Lee Park (lee@ember.test)');
+    expect(group.text()).toContain('Leaves Back 2, left half');
+    // The four groups before it still hold only those with no seat that day.
+    expect(wrapper.get('[data-testid="placement-dialog-fits"]').text()).toContain('Nadia Ember');
+    const groups = wrapper.findAll('[role="group"]');
+    expect(groups.at(-1)!.attributes('data-testid')).toBe('placement-dialog-seated-elsewhere');
+  });
+
+  it('offers anyone seated, an applicant or not', async () => {
+    const wrapper = dialog({
+      ...elsewhere,
+      seated: [sam, lee, { ...lee, email: 'kim@ember.test' }],
+    });
+    await openPicker(wrapper, 'placement-dialog-vendor');
+
+    expect(offered(wrapper.get('[data-testid="placement-dialog-seated-elsewhere"]'))).toEqual([
+      'lee@ember.test',
+      'kim@ember.test',
+    ]);
+  });
+
+  it('finds them by name, business, address, or their table by its code or its section', async () => {
+    const wrapper = dialog(elsewhere);
+    const field = wrapper.get('[data-testid="placement-dialog-vendor-input"]');
+    const list = () => wrapper.get('[data-testid="placement-dialog-vendor-list"]');
+
+    for (const words of ['Lee Park', 'pottery', 'lee@ember.test', 'Back 2', 'back']) {
+      await field.setValue(words);
+      expect(offered(list()), words).toEqual(['lee@ember.test']);
+    }
+  });
+
+  it('warns as a move, about the tier and the size only, and reads "Move them here"', async () => {
+    const wrapper = dialog({
+      ...elsewhere,
+      // A date they never offered, and a ceiling crossed, are not a move's to say.
+      vendors: [
+        applicant('lee@ember.test', {
+          tableChoice: 'half',
+          availableDates: [DATE],
+          acceptedTiersByDate: { [DATE]: ['Silver'] },
+          maxDates: 1,
+        }),
+      ],
+      datesHeld: { 'lee@ember.test': [DATE, '2026-08-02'] },
+      marketCeiling: 1,
+    });
+    expect(primary(wrapper).text()).toBe('Assign them here');
+
+    await choose(wrapper, 'placement-dialog-vendor', 'Lee Park');
+
+    expect(primary(wrapper).text()).toBe('Move them here');
+    const warning = () => wrapper.get('[data-testid="placement-dialog-warning"]').text();
+    expect(warning()).toContain('did not accept the Gold tier');
+    expect(warning()).not.toContain('at most');
+    expect(warning()).not.toContain('share a table');
+
+    // They hold a half, so the move starts at one; the whole table is the size they did not ask for.
+    await wrapper.get(`[data-testid="placement-dialog-seat-${FULL_TABLE}"]`).setValue(true);
+    expect(warning()).toContain('They asked to share a table. This gives them a whole one.');
+    expect(warning()).not.toContain('at most');
+  });
+
+  it('starts "Which seat" at the shape they hold, at a wholly free table', async () => {
+    const wrapper = dialog(elsewhere);
+    await choose(wrapper, 'placement-dialog-vendor', 'Lee Park');
+
+    const left = wrapper.get<HTMLInputElement>(
+      `[data-testid="placement-dialog-seat-${HALF_TABLE_LEFT}"]`,
+    );
+    expect(left.element.checked).toBe(true);
+
+    await wrapper.get('form').trigger('submit');
+    expect(wrapper.emitted('place')).toEqual([
+      [{ email: 'lee@ember.test', seat: HALF_TABLE_LEFT }],
+    ]);
+  });
+
+  it('keeps the free side of a half-taken table, and moves them there', async () => {
+    const wrapper = dialog({ ...elsewhere, seat: HALF_TABLE_RIGHT });
+    await choose(wrapper, 'placement-dialog-vendor', 'Lee Park');
+
+    expect(wrapper.get('[data-testid="placement-dialog-fixed-seat"]').text()).toContain(
+      'The right half',
+    );
+    await wrapper.get('form').trigger('submit');
+    expect(wrapper.emitted('place')).toEqual([
+      [{ email: 'lee@ember.test', seat: HALF_TABLE_RIGHT }],
+    ]);
+  });
+
+  it('reads "Assign them here" and warns as today for anyone else chosen', async () => {
+    const wrapper = dialog(elsewhere);
+    await choose(wrapper, 'placement-dialog-vendor', 'Lee Park');
+    await choose(wrapper, 'placement-dialog-vendor', 'Nadia');
+
+    expect(primary(wrapper).text()).toBe('Assign them here');
+    const whole = wrapper.get<HTMLInputElement>(
+      `[data-testid="placement-dialog-seat-${FULL_TABLE}"]`,
+    );
+    expect(whole.element.checked).toBe(true);
+    expect(wrapper.find('[data-testid="placement-dialog-warning"]').exists()).toBe(false);
+  });
+
+  it('says choosing someone moves them when nobody is left without a table', () => {
+    const wrapper = dialog({ ...elsewhere, vendors: [applicant('lee@ember.test')] });
+
+    expect(wrapper.text()).toContain(
+      'Every vendor who applied already has a table on this date. Choosing one moves them here.',
+    );
+  });
+
+  it('says only that every vendor has a table when nobody sits elsewhere either', () => {
+    const wrapper = dialog({ ...elsewhere, vendors: [applicant('sam@ember.test')], seated: [sam] });
+
+    expect(wrapper.text()).toContain('Every vendor who applied already has a table on this date.');
+    expect(wrapper.text()).not.toContain('Choosing one moves them here.');
+    expect(wrapper.find('[data-testid="placement-dialog-seated-elsewhere"]').exists()).toBe(false);
+  });
+});

@@ -226,6 +226,19 @@ export class TablesPage {
     await this.pickerOption(which, email).click();
   }
 
+  /**
+   * "Who sits here"'s last group, "Seated elsewhere today (moves them)" (T208): everyone seated at
+   * another table that date, each naming the table they would leave.
+   */
+  get seatedElsewhere(): Locator {
+    return this.dialog.getByTestId('placement-dialog-seated-elsewhere');
+  }
+
+  /** An empty seat's primary: "Assign them here", or "Move them here" for someone seated elsewhere. */
+  get placeButton(): Locator {
+    return this.dialog.getByTestId('placement-dialog-confirm');
+  }
+
   /** The seat a vendor holds, on the date shown. */
   seatOf(email: string): Locator {
     return this.page.locator(`[data-testid="tables-seat-occupied"][data-vendor-email="${email}"]`);
@@ -233,7 +246,7 @@ export class TablesPage {
 
   async placeVendor(email: string): Promise<void> {
     await this.pick('vendor', email);
-    await this.dialog.getByTestId('placement-dialog-confirm').click();
+    await this.placeButton.click();
   }
 
   async swapWith(email: string): Promise<void> {
