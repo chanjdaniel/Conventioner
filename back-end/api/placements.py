@@ -379,8 +379,8 @@ def remove_placement(
     Removing a placement nobody holds is not an error: the caller asked for that seat to be
     empty, and it is.
 
-    ``deduct_owed`` is the free's question answered yes, "Also remove its $15 from what they
-    owe?" (E44/F01/S02): the seat's line then owes $0 in the same change. It asks the row
+    ``deduct_owed`` is the free's question answered yes, "Also remove its $15.00 from what
+    they owe?" (E44/F01/S02): the seat's line then owes $0 in the same change. It asks the row
     ``Actions.CHANGE_OWED`` too, before anything is freed.
     """
     market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.ASSIGN)

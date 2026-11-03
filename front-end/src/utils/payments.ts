@@ -33,7 +33,7 @@ export interface PaymentLine {
   owedCents: number | null;
   owedSetBy: string | null;
   owedSetAt: string | null;
-  /** The amount was set by the free's "Also remove its $15 …?", which seating the day again
+  /** The amount was set by the free's "Also remove its $15.00 …?", which seating the day again
    * takes back, rather than by hand. */
   owedByFree?: boolean;
   /** The table was freed; the line stays, still owed (Q26). */
@@ -106,9 +106,9 @@ export function compares(account: Compared): boolean {
 }
 
 /**
- * How what they paid compares with what they owe: "Owes $27", "Paid in full", or "Paid $15 more
- * than owed", the case where a refund is to be issued (Q26). Nothing owed and nothing paid is
- * "Nothing owed". An account that does not `compare` reads as what was paid, "Paid $35".
+ * How what they paid compares with what they owe: "Owes $27.00", "Paid in full", or "Paid $15.00
+ * more than owed", the case where a refund is to be issued (Q26). Nothing owed and nothing paid is
+ * "Nothing owed". An account that does not `compare` reads as what was paid, "Paid $35.00".
  */
 export function balanceText(account: Compared): string {
   if (!compares(account)) {
