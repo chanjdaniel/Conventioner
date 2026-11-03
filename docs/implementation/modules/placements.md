@@ -20,7 +20,7 @@ describes:
   - back-end/api/markets.py#assignment_to_show
   - back-end/api/markets.py#derive_unassigned_tables_from_rows
   - back-end/assignment/assignment.py#vendors_to_show
-verified: 2026-10-31
+verified: 2026-11-03
 sources:
   - wayfinding/readable-journey/08
   - wayfinding/claims-and-room/map
@@ -42,6 +42,7 @@ sources:
   - E44/F01/S02
   - T139
   - T142
+  - T208
 ---
 
 # Placements
@@ -126,7 +127,7 @@ Which side of a table is free lives in `assignment_slots` (`[left, right]`, None
 Do not conflate them; see `MarketTableRow` in [`back-end/datatypes.py`](../../../back-end/datatypes.py), beside `VendorAssignmentResult` and `AssignmentObject`.
 
 **Statistics are never stored.**
-A write sets `vendorAssignments`, `assignmentDate` and, for a run alone, `madeFrom`, and clears `assignmentStatistics`, so a stale copy is never resurrected.
+A write sets `vendorAssignments`, `assignmentDate` and, for a run alone, `madeFrom`, counts `assignmentObject.revision` one up, and clears `assignmentStatistics`, so a stale copy is never resurrected.
 
 ## The trail
 
@@ -144,6 +145,6 @@ Every change here is recorded in [the market's history](../data/history.md), und
 - [The half-table share](../../business/rules/half-table-share.md): a pin on half a table counts against it.
 - [Why a vendor was not placed](../../business/rules/why-a-vendor-was-not-placed.md): each date with no table says why, read off the placements stored here, and a pin that overrides an answer is marked.
 
-The organizer places, swaps and frees seats through these doors in [placing by hand](../../business/flows/placing-by-hand.md).
+The organizer places, moves, swaps and frees seats through these doors in [placing by hand](../../business/flows/placing-by-hand.md).
 
 The glossary concepts it serves: [Assignment](../../business/concepts/assignment.md) and [Placement and pin](../../business/concepts/placement-and-pin.md).
