@@ -3,6 +3,7 @@ import { seedDraftMarket } from './helpers/seedDraftMarket';
 import { ensureTestOrg } from './helpers/seeds';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
+import { fakeDiscordId, seedFakeDiscordServer } from './helpers/fakeDiscord';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 import { ToolsPage } from './pages/ToolsPage';
@@ -15,7 +16,8 @@ import { ToolsPage } from './pages/ToolsPage';
  * The card is met here connected by a row written to the market, as the connection's routes leave
  * it, to a server no Discord answers for (a stack runs without Discord's values, with fixture ones,
  * or with the fake of `DISCORD_FAKE`, which has no such server): either way someone the row refuses
- * reads the card.
+ * reads the card. Where a spec saves a choice, the server is one the fake answers for, so the
+ * refusal and the role are the back end's own.
  */
 const VIEWER = { email: 'e2e-tools-viewer@example.com', password: 'e2etoolsviewer1' };
 
@@ -75,6 +77,93 @@ test('the Discord card stands on the Tools tab, left of Stats, and no longer on 
     await expect(theirs.inviteValue).toHaveText('https://discord.gg/riverside');
     await expect(theirs.discordCard.getByRole('button')).toHaveCount(0);
   });
+});
+
+test('a half-typed invite link is refused in its own words, and stays to be finished', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedDraftMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  const guildId = fakeDiscordId();
+  const roleId = fakeDiscordId();
+  const botRoleId = fakeDiscordId();
+  seedFakeDiscordServer({
+    guildId,
+    name: 'Riverside Makers',
+    roles: [
+      { id: botRoleId, name: 'Conventioner', position: 2 },
+      { id: roleId, name: 'Vendor', position: 1 },
+    ],
+    botRoles: [botRoleId],
+    members: [],
+  });
+  mongoEval(
+    `db.markets.updateOne({ id: ${JSON.stringify(marketId)} }, { $set: { discord: ${JSON.stringify({
+      guildId,
+      guildName: 'Riverside Makers',
+    })} } })`,
+  );
+
+  const tools = new ToolsPage(page);
+  await tools.goto(marketId);
+  await expect(
+    tools.roleSelect.locator('option', { hasText: 'Vendor' }),
+    'the stack answers for Discord only with DISCORD_FAKE=true (docs/TESTING.md)',
+  ).toBeAttached({ timeout: 15000 });
+
+  // Left half-typed: the words under the choices, and the text still there to be finished.
+  await tools.inviteInput.fill('discord.gg/abc');
+  await tools.inviteInput.blur();
+  await expect(tools.inviteError).toHaveText(
+    'An invite link is a web address starting https://, like https://discord.gg/abc123.',
+  );
+  await expect(tools.inviteInput).toHaveValue('discord.gg/abc');
+
+  // A role saved meanwhile re-reads the market, and says nothing of the link, still not saved.
+  await tools.roleSelect.selectOption({ label: 'Vendor' });
+  await expect(tools.roleSelect).toHaveValue(roleId);
+  await expect
+    .poll(() => mongoEval(`db.markets.findOne({ id: ${JSON.stringify(marketId)} }).discord.roleId`))
+    .toBe(roleId);
+  await expect(tools.inviteInput).toHaveValue('discord.gg/abc');
+  await expect(tools.inviteError).toBeVisible();
+
+  // Finished, it saves, the words go, and a reload shows it.
+  await tools.inviteInput.fill('https://discord.gg/abc');
+  await tools.inviteInput.blur();
+  await expect(tools.inviteError).toHaveCount(0);
+  await expect
+    .poll(() =>
+      mongoEval(`db.markets.findOne({ id: ${JSON.stringify(marketId)} }).discord.inviteLink`),
+    )
+    .toBe('https://discord.gg/abc');
+  await page.reload();
+  await expect(tools.inviteInput).toHaveValue('https://discord.gg/abc', { timeout: 15000 });
+
+  // Refused again, then cleared: the words go and the stored link is empty.
+  await tools.inviteInput.fill('discord.gg/abc');
+  await tools.inviteInput.blur();
+  await expect(tools.inviteError).toBeVisible();
+  await tools.inviteInput.fill('');
+  await tools.inviteInput.blur();
+  await expect(tools.inviteError).toHaveCount(0);
+  await expect(tools.inviteInput).toHaveValue('');
+  await expect
+    .poll(() =>
+      mongoEval(
+        `String(db.markets.findOne({ id: ${JSON.stringify(marketId)} }).discord.inviteLink ?? '')`,
+      ),
+    )
+    .toBe('');
+  await page.reload();
+  await expect(tools.roleSelect).toHaveValue(roleId, { timeout: 15000 });
+  await expect(tools.inviteInput).toHaveValue('');
 });
 
 test('the form builder adds a Discord username question in one click, once', async ({

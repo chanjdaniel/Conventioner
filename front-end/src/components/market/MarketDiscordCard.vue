@@ -17,6 +17,10 @@
  * person may change it is the table's "Connect Discord and give roles" row; anyone it refuses reads
  * the card. Each choice saves as it is made, and the page re-reads the market after (`changed`),
  * never patching it.
+ *
+ * The invite link is typed, so the field holds its own draft: a link the server refuses stays there
+ * to be finished, under its refusal's words, however often the market is read meanwhile. Only a
+ * change of the stored link replaces it.
  */
 import { computed, onUnmounted, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
@@ -24,6 +28,7 @@ import ElementSettingContainer from '@/components/elements/ElementSettingContain
 import { api, getApiErrorMessage } from '@/utils/api';
 import { whenDiscordEnds } from '@/utils/discordConnected';
 import { MarketAction, actionRefusal } from '@/utils/marketActions';
+import type { Ref } from 'vue';
 import type { DiscordRole, Market } from '@/assets/types/datatypes';
 
 const props = defineProps<{ market: Market }>();
@@ -149,28 +154,42 @@ onUnmounted(() => {
 });
 
 const saveError = ref<string | null>(null);
+/** Apart from `saveError`: saving a role says nothing of a refused link, still in its field. */
+const inviteError = ref<string | null>(null);
 
-async function save(choice: Record<string, string | null>): Promise<void> {
-  saveError.value = null;
+const storedInvite = computed(() => connection.value?.inviteLink ?? '');
+const inviteDraft = ref(storedInvite.value);
+// The market and the server are watched too: a refused link with nothing stored leaves the stored
+// link as it was when the market is disconnected, and it is not the next connection's.
+watch([() => props.market.id, () => connection.value?.guildId, storedInvite], () => {
+  inviteDraft.value = storedInvite.value;
+  inviteError.value = null;
+});
+
+async function save(
+  choice: Record<string, string | null>,
+  error: Ref<string | null>,
+): Promise<void> {
+  error.value = null;
   try {
     await api.put(base.value, choice);
     emit('changed');
   } catch (err) {
-    saveError.value = getApiErrorMessage(err, 'This choice was not saved.');
+    error.value = getApiErrorMessage(err, 'This choice was not saved.');
   }
 }
 
 function onRole(event: Event): void {
   stillAbove.value = false;
-  void save({ roleId: (event.target as HTMLSelectElement).value || null });
+  void save({ roleId: (event.target as HTMLSelectElement).value || null }, saveError);
 }
 
 function onQuestion(event: Event): void {
-  void save({ usernameQuestion: (event.target as HTMLSelectElement).value || null });
+  void save({ usernameQuestion: (event.target as HTMLSelectElement).value || null }, saveError);
 }
 
-function onInvite(event: Event): void {
-  void save({ inviteLink: (event.target as HTMLInputElement).value.trim() });
+function onInvite(): void {
+  void save({ inviteLink: inviteDraft.value.trim() }, inviteError);
 }
 
 const confirmingDisconnect = ref(false);
@@ -268,10 +287,12 @@ async function disconnect(): Promise<void> {
               <label class="field-label" for="discord-invite">Invite link (optional)</label>
               <input
                 id="discord-invite"
+                v-model="inviteDraft"
                 class="field"
                 type="url"
-                :value="connection?.inviteLink ?? ''"
                 placeholder="https://discord.gg/abc123"
+                :aria-invalid="!!inviteError"
+                :aria-describedby="inviteError ? 'discord-invite-error' : undefined"
                 data-testid="discord-invite-input"
                 @change="onInvite"
               />
@@ -318,6 +339,15 @@ async function disconnect(): Promise<void> {
 
             <p v-if="saveError" class="discord-error" data-testid="discord-save-error">
               {{ saveError }}
+            </p>
+            <p
+              v-if="inviteError"
+              id="discord-invite-error"
+              class="discord-error"
+              role="alert"
+              data-testid="discord-invite-error"
+            >
+              {{ inviteError }}
             </p>
           </div>
 

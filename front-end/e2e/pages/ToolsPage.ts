@@ -13,6 +13,9 @@ export class ToolsPage {
   readonly roleValue: Locator;
   readonly questionValue: Locator;
   readonly inviteValue: Locator;
+  readonly roleSelect: Locator;
+  readonly inviteInput: Locator;
+  readonly inviteError: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -22,6 +25,9 @@ export class ToolsPage {
     this.roleValue = page.getByTestId('discord-role-value');
     this.questionValue = page.getByTestId('discord-question-value');
     this.inviteValue = page.getByTestId('discord-invite-value');
+    this.roleSelect = page.getByTestId('discord-role-select');
+    this.inviteInput = page.getByTestId('discord-invite-input');
+    this.inviteError = page.getByTestId('discord-invite-error');
   }
 
   async goto(marketId: string): Promise<void> {

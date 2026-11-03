@@ -63,6 +63,12 @@ function card(props: Market) {
 const find = (wrapper: ReturnType<typeof card>, id: string) =>
   wrapper.find(`[data-testid="${id}"]`);
 
+/** The answer of a save the server refused, in its own words. */
+const refusedWith = (error: string) => ({
+  isAxiosError: true,
+  response: { status: 400, data: { error } },
+});
+
 beforeEach(() => {
   for (const call of Object.values(api)) call.mockReset();
   api.get.mockResolvedValue({ data: { roles: ROLES } });
@@ -318,18 +324,18 @@ describe('a market connected, for an Admin', () => {
     });
   });
 
-  it('says why a save was refused, beneath its field', async () => {
-    api.put.mockRejectedValue({
-      isAxiosError: true,
-      response: { status: 400, data: { error: 'An invite link is a web address.' } },
-    });
+  it('says why a role was not saved, under the choices', async () => {
+    api.put.mockRejectedValue(refusedWith('That role is not one Conventioner can give.'));
     const wrapper = card(market({ discord: CONNECTED }));
     await flushPromises();
 
-    await find(wrapper, 'discord-invite-input').setValue('discord.gg/abc');
+    await find(wrapper, 'discord-role-select').setValue('r-vendor');
     await flushPromises();
 
-    expect(find(wrapper, 'discord-save-error').text()).toBe('An invite link is a web address.');
+    expect(find(wrapper, 'discord-save-error').text()).toBe(
+      'That role is not one Conventioner can give.',
+    );
+    expect(find(wrapper, 'discord-invite-error').exists()).toBe(false);
     expect(wrapper.emitted('changed')).toBeUndefined();
   });
 
@@ -361,6 +367,157 @@ describe('a market connected, for an Admin', () => {
     expect(api.delete).toHaveBeenCalledWith('/markets/market-123/discord/connection');
     expect(wrapper.emitted('changed')).toHaveLength(1);
     wrapper.unmount();
+  });
+});
+
+describe('a refused invite link', () => {
+  const REFUSAL =
+    'An invite link is a web address starting https://, like https://discord.gg/abc123.';
+
+  /** A card whose first save of a half-typed link was refused. */
+  async function refused(discord: DiscordConnection = CONNECTED) {
+    api.put.mockRejectedValueOnce(refusedWith(REFUSAL));
+    const wrapper = card(market({ discord }));
+    await flushPromises();
+    await invite(wrapper).setValue('discord.gg/abc');
+    await flushPromises();
+    return wrapper;
+  }
+
+  const invite = (wrapper: ReturnType<typeof card>) => find(wrapper, 'discord-invite-input');
+  const typed = (wrapper: ReturnType<typeof card>) =>
+    (invite(wrapper).element as HTMLInputElement).value;
+
+  it('says its words under the choices and stays in the field to be finished', async () => {
+    const wrapper = await refused();
+
+    expect(find(wrapper, 'discord-invite-error').text()).toBe(REFUSAL);
+    expect(find(wrapper, 'discord-save-error').exists()).toBe(false);
+    expect(typed(wrapper)).toBe('discord.gg/abc');
+    expect(wrapper.emitted('changed')).toBeUndefined();
+  });
+
+  it('points the field at its words while it stands refused', async () => {
+    const wrapper = await refused();
+
+    expect(invite(wrapper).attributes('aria-invalid')).toBe('true');
+    expect(invite(wrapper).attributes('aria-describedby')).toBe(
+      find(wrapper, 'discord-invite-error').attributes('id'),
+    );
+  });
+
+  it('keeps the text over a stored link, which it has not replaced', async () => {
+    const wrapper = await refused({ ...CONNECTED, inviteLink: 'https://discord.gg/stored' });
+
+    expect(typed(wrapper)).toBe('discord.gg/abc');
+    expect(find(wrapper, 'discord-invite-error').text()).toBe(REFUSAL);
+  });
+
+  it('loses the words once the finished link saves, and shows the link as stored', async () => {
+    const wrapper = await refused();
+
+    await invite(wrapper).setValue('https://discord.gg/abc');
+    await flushPromises();
+
+    expect(api.put).toHaveBeenLastCalledWith('/markets/market-123/discord', {
+      inviteLink: 'https://discord.gg/abc',
+    });
+    expect(find(wrapper, 'discord-invite-error').exists()).toBe(false);
+    expect(invite(wrapper).attributes('aria-invalid')).toBe('false');
+    expect(wrapper.emitted('changed')).toHaveLength(1);
+
+    await wrapper.setProps({
+      market: market({ discord: { ...CONNECTED, inviteLink: 'https://discord.gg/abc' } }),
+    });
+    expect(typed(wrapper)).toBe('https://discord.gg/abc');
+    expect(find(wrapper, 'discord-invite-error').exists()).toBe(false);
+  });
+
+  it('keeps the text and the words when a role is chosen meanwhile', async () => {
+    const wrapper = await refused();
+
+    await find(wrapper, 'discord-role-select').setValue('r-vendor');
+    await flushPromises();
+    // The page re-reads the market after the role saved: the stored link is as it was.
+    await wrapper.setProps({
+      market: market({ discord: { ...CONNECTED, roleId: 'r-vendor', roleName: 'Vendor Test' } }),
+    });
+
+    expect(api.put).toHaveBeenLastCalledWith('/markets/market-123/discord', { roleId: 'r-vendor' });
+    expect(typed(wrapper)).toBe('discord.gg/abc');
+    expect(find(wrapper, 'discord-invite-error').text()).toBe(REFUSAL);
+  });
+
+  it('keeps a role`s refusal when the link saves, each saying only its own', async () => {
+    const wrapper = await refused();
+    api.put.mockRejectedValueOnce(refusedWith('That role is not one Conventioner can give.'));
+    await find(wrapper, 'discord-role-select').setValue('r-vendor');
+    await flushPromises();
+    expect(find(wrapper, 'discord-save-error').exists()).toBe(true);
+    expect(find(wrapper, 'discord-invite-error').text()).toBe(REFUSAL);
+
+    await invite(wrapper).setValue('https://discord.gg/abc');
+    await flushPromises();
+
+    expect(find(wrapper, 'discord-invite-error').exists()).toBe(false);
+    expect(find(wrapper, 'discord-save-error').text()).toBe(
+      'That role is not one Conventioner can give.',
+    );
+  });
+
+  it('clears the stored link and the words when the text is cleared', async () => {
+    const wrapper = await refused({ ...CONNECTED, inviteLink: 'https://discord.gg/stored' });
+
+    await invite(wrapper).setValue('');
+    await flushPromises();
+
+    expect(api.put).toHaveBeenLastCalledWith('/markets/market-123/discord', { inviteLink: '' });
+    expect(find(wrapper, 'discord-invite-error').exists()).toBe(false);
+  });
+
+  it('is forgotten when the market is disconnected, though the stored link never changed', async () => {
+    const wrapper = await refused();
+
+    await wrapper.setProps({ market: market({ discord: undefined }) });
+    await wrapper.setProps({ market: market({ discord: CONNECTED }) });
+
+    expect(typed(wrapper)).toBe('');
+    expect(find(wrapper, 'discord-invite-error').exists()).toBe(false);
+  });
+});
+
+describe('the invite field and a market read again', () => {
+  const STORED = { ...CONNECTED, inviteLink: 'https://discord.gg/stored' };
+  const invite = (wrapper: ReturnType<typeof card>) =>
+    find(wrapper, 'discord-invite-input').element as HTMLInputElement;
+
+  it('opens on the stored link', async () => {
+    const wrapper = card(market({ discord: STORED }));
+    await flushPromises();
+
+    expect(invite(wrapper).value).toBe('https://discord.gg/stored');
+  });
+
+  it('shows a stored link read after the card opened', async () => {
+    const wrapper = card(market({ discord: CONNECTED }));
+    await flushPromises();
+    expect(invite(wrapper).value).toBe('');
+
+    await wrapper.setProps({ market: market({ discord: STORED }) });
+
+    expect(invite(wrapper).value).toBe('https://discord.gg/stored');
+  });
+
+  it('leaves what is being typed alone when the stored link is as it was', async () => {
+    const wrapper = card(market({ discord: STORED }));
+    await flushPromises();
+
+    invite(wrapper).value = 'https://discord.gg/half';
+    await find(wrapper, 'discord-invite-input').trigger('input');
+    await wrapper.setProps({ market: market({ discord: { ...STORED } }) });
+
+    expect(invite(wrapper).value).toBe('https://discord.gg/half');
+    expect(api.put).not.toHaveBeenCalled();
   });
 });
 

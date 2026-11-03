@@ -405,6 +405,77 @@ class TestTheCardsChoices:
         ]}
 
 
+def _refusals_logged(caplog):
+    """What the Discord connection's own module logged at warning level, one line each."""
+    return [record.getMessage() for record in caplog.records
+            if record.name == "api.discord_connection" and record.levelname == "WARNING"]
+
+
+class TestARefusedSaveIsLogged:
+    """A 400 from the card says which refusal it was in the log, and never what was sent."""
+
+    @pytest.mark.parametrize("body, sent, words", [
+        ({"roleId": "sent-role-id-7"}, "sent-role-id-7",
+         "That role is not one Conventioner can give in this server. Choose another."),
+        ({"usernameQuestion": "sent-question-key-7"}, "sent-question-key-7",
+         "The username question must be one of the form's text questions."),
+        ({"inviteLink": "sent.invite/link-7"}, "sent.invite/link-7",
+         "An invite link is a web address starting https://, like https://discord.gg/abc123."),
+        ({"inviteLink": {"$ne": "sent-object-value-7"}}, "sent-object-value-7",
+         "inviteLink must be a string."),
+    ])
+    def test_a_refusal_logs_its_words_and_never_what_was_sent(
+        self, client, world, caplog, body, sent, words,
+    ):
+        world.market()
+        _connect(client)
+
+        with caplog.at_level("INFO"):
+            response = client.put(f"/markets/{MARKET}/discord", json=body)
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": words}
+        assert _refusals_logged(caplog) == [
+            f"Discord card save refused for market {MARKET}: {words}"]
+        assert sent not in caplog.text
+
+    def test_a_market_not_connected_logs_its_refusal(self, client, world, caplog):
+        world.market()
+
+        with caplog.at_level("INFO"):
+            response = client.put(f"/markets/{MARKET}/discord",
+                                  json={"inviteLink": "sent.invite/link-7"})
+
+        words = "This market is not connected to Discord. Connect Discord first."
+        assert response.status_code == 400
+        assert response.get_json() == {"error": words}
+        assert _refusals_logged(caplog) == [
+            f"Discord card save refused for market {MARKET}: {words}"]
+        assert "sent.invite/link-7" not in caplog.text
+
+    def test_a_refusal_changes_nothing_and_records_nothing(self, client, world):
+        world.market()
+        _connect(client)
+        before = _stored(world)
+        recorded = len(world.history.documents)
+
+        client.put(f"/markets/{MARKET}/discord", json={"inviteLink": "discord.gg/abc"})
+
+        assert _stored(world) == before
+        assert len(world.history.documents) == recorded
+
+    def test_a_save_that_succeeds_logs_no_refusal(self, client, world, caplog):
+        world.market()
+        _connect(client)
+
+        with caplog.at_level("INFO"):
+            response = client.put(f"/markets/{MARKET}/discord", json={
+                "roleId": "r-vendor", "inviteLink": "https://discord.gg/abc123"})
+
+        assert response.status_code == 200
+        assert _refusals_logged(caplog) == []
+
+
 class TestDisconnecting:
     def test_it_forgets_the_server_and_keeps_the_username_question(self, client, world):
         world.market(applicationForm={"fields": [DISCORD_QUESTION]})

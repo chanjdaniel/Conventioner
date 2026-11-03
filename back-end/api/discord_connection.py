@@ -43,6 +43,7 @@ roles given and nothing recorded: the vendors it had no time for are "not given 
 run gives them.
 """
 import hmac
+import logging
 import re
 import secrets
 import time
@@ -70,6 +71,8 @@ from market_documents import market_doc_filter, market_doc_key
 from utils.email import frontend_url
 from utils.email_address import normalized_email
 from utils.request_body import string_field
+
+logger = logging.getLogger(__name__)
 
 #: The app's page Discord sends the person back to. Registered as a redirect in the Developer Portal
 #: for each deployment: ``FRONTEND_URL`` followed by this path.
@@ -250,19 +253,36 @@ def roles(market_id: str, requesting_user: str) -> List[Dict[str, Any]]:
 def save(market_id: str, body: Dict[str, Any], requesting_user: str) -> None:
     """Change the card's choices: any of ``roleId``, ``usernameQuestion`` and ``inviteLink``.
 
+    A refusal is logged in its own words, which our code wrote with nothing sent in them, so the log
+    says which one it was and never holds what the organizer typed.
+    """
+    market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.CONNECT_DISCORD)
+    try:
+        before = _connection(market)
+        update = _card_update(market, before, body)
+    except BadRequestError as refusal:
+        logger.warning("Discord card save refused for market %s: %s", market.id, refusal.message)
+        raise
+    _write(market, before, before.model_copy(update=update), History.DISCORD_SETTINGS,
+           requesting_user)
+
+
+def _card_update(
+    market: Market, connection: DiscordConnection, body: Dict[str, Any],
+) -> Dict[str, Any]:
+    """The connection's fields a save changes, each judged as it is read.
+
     A role is one the server has and the bot may be given to hold: never ``@everyone`` or an
     integration's own. One above the bot's own may be chosen; the card says to move the bot's role
     above it, since until then giving it fails.
     """
-    market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.CONNECT_DISCORD)
-    before = _connection(market)
     update: Dict[str, Any] = {}
 
     if "roleId" in body:
         role_id = _string(body, "roleId")
         if role_id:
             offered = {role.id: role for role in Discord.server_roles(
-                Discord.required_credentials(), before.guild_id)}
+                Discord.required_credentials(), connection.guild_id)}
             if role_id not in offered:
                 raise BadRequestError(NOT_A_ROLE)
             update.update(role_id=role_id, role_name=offered[role_id].name)
@@ -281,8 +301,7 @@ def save(market_id: str, body: Dict[str, Any], requesting_user: str) -> None:
             raise BadRequestError(NOT_AN_INVITE_LINK)
         update["invite_link"] = link or None
 
-    _write(market, before, before.model_copy(update=update), History.DISCORD_SETTINGS,
-           requesting_user)
+    return update
 
 
 def check(market_id: str, requesting_user: str) -> Dict[str, Any]:

@@ -15,7 +15,7 @@ describes:
   - scripts/discord_rest_proof.py
   - front-end/src/utils/discordRoles.ts
   - back-end/datatypes.py#DiscordRoleRun
-verified: 2026-11-01
+verified: 2026-11-04
 sources:
   - T92
   - E46
@@ -26,6 +26,7 @@ sources:
   - T137
   - E42/F01/S05
   - E46/F01/S04
+  - T210
 ---
 
 # The Discord connection
@@ -49,6 +50,15 @@ The choices:
 - **Invite link**: optional, an `https://` address of at most 200 characters.
 
 Each choice saves as it is made (`PUT /markets/:id/discord`, any of `roleId`, `usernameQuestion`, `inviteLink`, each a string or null), and the page then re-reads the market ([one market, from the server](../conventions/one-market-from-the-server.md)).
+
+**A refused invite link stays in its field, under its refusal's words** (`discord-invite-error`, T210).
+The field holds its own draft, since it saves only when left: a value bound to the stored link would be written back by the render that shows the refusal, leaving the organizer to retype what they are told to correct.
+A change of the stored link, the server or the market replaces the draft and drops the words; a re-read that leaves them as they were, after saving another choice or on coming back to the tab, touches neither.
+The link's refusal stands apart from the role's and the question's (`discord-save-error`), so saving those clears only their own: the refused text is still in the field and still not saved, and the next save of the link clears its words, whether it was finished or cleared.
+
+**A refused save is logged by `save`, at warning level, in the refusal's own words with the market's id**: "Discord card save refused for market <id>: <words>".
+The words are copy our code wrote with nothing sent in them (`NOT_A_ROLE`, `NOT_A_TEXT_QUESTION`, `NOT_AN_INVITE_LINK`, `NOT_CONNECTED`, and a key's `must be a string.`), so the log says which refusal it was and never holds the link, the role id or the question key sent ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
+The refusals of `_load_market_to_change` and Discord's own failures are not the card's, and are not this line.
 
 **It stands on the Tools tab, not Market Setup**, because it is a manual tool the organizer runs when they choose (Q10, Q19): [the setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md), and this card stays editable in every phase until the market is archived; it stood beneath the plan until Daniel's hand walk moved it to a tab of its own ([the market frame](market-frame.md)).
 The Tools tab fits a phone, and the card's choices stand one under another there.
