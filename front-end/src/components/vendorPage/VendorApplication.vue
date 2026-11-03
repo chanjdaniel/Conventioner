@@ -4,21 +4,38 @@
  *
  * "Apply" while the market takes applications and they have none; their answers, with "Edit"
  * while it still takes them and read-only after; and with none once it no longer does, the
- * sentence that says so. Apply and Edit open the form page until the form moves onto this page.
+ * sentence that says so. Apply and Edit open the form here, in place of what they replace, and a
+ * save or Cancel closes it again.
  */
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useApplicationStore } from '@/stores/application';
 import { applicationAnswerRows, type AnswerRow } from '@/utils/essentialFields';
 import { applicationSection, NO_APPLICATION_CLOSED } from '@/utils/vendorPage';
 import AnswerValue from '@/components/AnswerValue.vue';
-
-defineProps<{ marketSlug: string }>();
+import VendorApplicationForm from '@/components/vendorPage/VendorApplicationForm.vue';
 
 const store = useApplicationStore();
 
 const section = computed(() =>
   store.page ? applicationSection(store.page, store.application) : 'none',
 );
+
+/** The form is open: only while the section offers Apply or Edit. */
+const editing = ref(false);
+const formOpen = computed(
+  () => editing.value && (section.value === 'apply' || section.value === 'edit'),
+);
+
+function openForm() {
+  store.error = null;
+  editing.value = true;
+}
+
+/** Saved: the form closes on the answers, and the vendor is taken up to "Submitted". */
+function saved() {
+  editing.value = false;
+  window.scrollTo({ top: 0 });
+}
 
 /**
  * What the vendor answered, in the order the form asked: the essential questions first, then the
@@ -35,15 +52,18 @@ const answerRows = computed<AnswerRow[]>(() => {
 
 <template>
   <section v-if="section !== 'none'" class="vendor-application">
-    <div v-if="section === 'apply'" class="vendor-info" data-testid="vendor-page-info">
+    <VendorApplicationForm v-if="formOpen" @saved="saved" @cancel="editing = false" />
+
+    <div v-else-if="section === 'apply'" class="vendor-info" data-testid="vendor-page-info">
       <p>You have not applied to this market yet.</p>
-      <RouterLink
+      <button
+        type="button"
         class="btn btn--primary"
-        :to="{ name: 'apply', params: { marketSlug } }"
-        data-testid="vendor-page-apply-link"
+        data-testid="vendor-page-apply-btn"
+        @click="openForm"
       >
         Apply
-      </RouterLink>
+      </button>
     </div>
 
     <p v-else-if="section === 'closed'" class="vendor-info" data-testid="vendor-page-info">
@@ -53,14 +73,15 @@ const answerRows = computed<AnswerRow[]>(() => {
     <div v-else class="vendor-answers" data-testid="vendor-page-answers">
       <div class="vendor-answers-head">
         <h2>Your answers</h2>
-        <RouterLink
+        <button
           v-if="section === 'edit'"
+          type="button"
           class="btn btn--secondary btn--compact"
-          :to="{ name: 'apply', params: { marketSlug } }"
-          data-testid="vendor-page-edit-link"
+          data-testid="vendor-page-edit-btn"
+          @click="openForm"
         >
           Edit
-        </RouterLink>
+        </button>
       </div>
       <p v-if="answerRows.length === 0" class="vendor-no-answers">No answers submitted yet.</p>
       <dl v-else class="answers-list">

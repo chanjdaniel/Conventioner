@@ -1,5 +1,4 @@
 import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
-import { ApplyPage } from './pages/ApplyPage';
 import {
   createApplicantLoginChallenge,
   planSetupObject,
@@ -41,23 +40,23 @@ test('a brand-new address requests a code, signs in, applies and sees it submitt
   createApplicantLoginChallenge(market.marketId, NEW_VENDOR, CODE);
   await login.enterCode(CODE);
 
-  // Signed in with nothing to load: "Apply", not "Sign In" again, then the empty form.
+  // Signed in with nothing to load: "Apply", not "Sign In" again, then the empty form, on the
+  // market's own address (ADR 0022).
   await expect(login.info).toContainText('You have not applied to this market yet.');
-  await login.applyLink.click();
-  const apply = new ApplyPage(page);
-  await page.waitForURL(new RegExp(`/${market.marketSlug}/apply`));
-  await expect(apply.form).toBeVisible({ timeout: 30000 });
-  await expect(apply.essentialEmail).toContainText(NEW_VENDOR);
+  await login.applyButton.click();
+  await expect(login.form).toBeVisible({ timeout: 30000 });
+  await expect(page).toHaveURL(new RegExp(`/${market.marketSlug}$`));
+  await expect(login.essentialEmail).toContainText(NEW_VENDOR);
 
-  await apply.fullNameInput.fill('Ada Newcomer');
-  await apply.tierCheckbox(DATE, 'Gold').check();
-  await apply.maxDatesInput.fill('1');
-  await apply.tableChoiceRadio('full').check();
-  await apply.fillField('business_name', 'Newcomer Prints');
-  await apply.fillField('product_type', 'Letterpress cards');
-  await apply.submit();
+  await login.fullNameInput.fill('Ada Newcomer');
+  await login.tierCheckbox(DATE, 'Gold').check();
+  await login.maxDatesInput.fill('1');
+  await login.tableChoiceRadio('full').check();
+  await login.fillField('business_name', 'Newcomer Prints');
+  await login.fillField('product_type', 'Letterpress cards');
+  await login.submit();
 
-  await page.waitForURL(new RegExp(`/${market.marketSlug}$`));
+  await expect(login.form).toHaveCount(0, { timeout: 10000 });
   await expect(login.status).toContainText('Submitted');
   await expect(login.answers).toContainText('Newcomer Prints');
 });
@@ -90,19 +89,17 @@ test('a vendor a rule rejects as they apply reads "Submitted", as anyone would',
   await login.requestCode(vendor);
   createApplicantLoginChallenge(market.marketId, vendor, CODE);
   await login.enterCode(CODE);
-  await login.applyLink.click();
+  await login.applyButton.click();
 
-  const apply = new ApplyPage(page);
-  await page.waitForURL(new RegExp(`/${market.marketSlug}/apply`));
-  await apply.fullNameInput.fill('Turned Away');
-  await apply.tierCheckbox(DATE, 'Gold').check();
-  await apply.maxDatesInput.fill('1');
-  await apply.tableChoiceRadio('full').check();
-  await apply.fillField('business_name', 'Turned Away Goods');
-  await apply.fillField('product_type', 'Candles');
-  await apply.submit();
+  await login.fullNameInput.fill('Turned Away');
+  await login.tierCheckbox(DATE, 'Gold').check();
+  await login.maxDatesInput.fill('1');
+  await login.tableChoiceRadio('full').check();
+  await login.fillField('business_name', 'Turned Away Goods');
+  await login.fillField('product_type', 'Candles');
+  await login.submit();
 
-  await page.waitForURL(new RegExp(`/${market.marketSlug}$`));
+  await expect(login.form).toHaveCount(0, { timeout: 10000 });
   const status = page.getByTestId('vendor-page-status');
   await expect(status).toContainText('Submitted');
   await expect(status).not.toContainText('Review');

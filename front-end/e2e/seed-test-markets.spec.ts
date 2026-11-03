@@ -1,5 +1,4 @@
 import { test, expect, BACKEND_URL, VendorPage } from './fixtures';
-import { ApplyPage } from './pages/ApplyPage';
 import { runBackendScript } from './helpers/backendScript';
 import { mongoEval } from './helpers/mongo';
 import { createApplicantLoginChallenge } from './helpers/seedApplicantMarket';
@@ -109,20 +108,18 @@ test.describe('The test markets', () => {
     await login.requestCode(vendor);
     createApplicantLoginChallenge(marketId(ONLINE), vendor, code);
     await login.enterCode(code);
-    await login.applyLink.click();
+    await login.applyButton.click();
 
-    const apply = new ApplyPage(page);
-    await page.waitForURL(new RegExp(`/${slug}/apply`));
-    await expect(apply.form).toBeVisible({ timeout: 30000 });
-    await apply.fullNameInput.fill('Test Vendor');
-    await apply.tierCheckbox(firstDate, 'Gold').check();
-    await apply.maxDatesInput.fill('1');
-    await apply.tableChoiceRadio('full').check();
-    await apply.fillField('business_name', 'Test Stall');
-    await apply.fillField('product_type', 'Test goods');
-    await apply.submit();
+    await expect(login.form).toBeVisible({ timeout: 30000 });
+    await login.fullNameInput.fill('Test Vendor');
+    await login.tierCheckbox(firstDate, 'Gold').check();
+    await login.maxDatesInput.fill('1');
+    await login.tableChoiceRadio('full').check();
+    await login.fillField('business_name', 'Test Stall');
+    await login.fillField('product_type', 'Test goods');
+    await login.submit();
 
-    await page.waitForURL(new RegExp(`/${slug}$`));
+    await expect(login.form).toHaveCount(0, { timeout: 10000 });
     await expect(page.getByTestId('vendor-page-status')).toContainText('Submitted');
   });
 });

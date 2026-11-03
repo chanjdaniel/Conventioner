@@ -1,6 +1,5 @@
 import type { APIRequestContext, Browser, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
-import { ApplyPage } from './pages/ApplyPage';
 import { MarketSetupPage } from './pages/MarketSetupPage';
 import { OpenApplicationsDialog } from './pages/OpenApplicationsDialog';
 import { ReviewersPanel } from './pages/ReviewersPanel';
@@ -61,17 +60,16 @@ async function apply(
     await expect(login.codeInput).toBeVisible();
     createApplicantLoginChallenge(market.marketId, vendor, CODE);
     await login.enterCode(CODE);
-    await login.applyLink.click();
-    const form = new ApplyPage(page);
-    await expect(form.form).toBeVisible({ timeout: 30000 });
-    await form.fullNameInput.fill(`${name} Vendor`);
-    await form.tierCheckbox(DATE, 'Gold').check();
-    await form.maxDatesInput.fill('1');
-    await form.tableChoiceRadio('full').check();
-    await form.fillField('business_name', `${name} Prints`);
-    await form.fillField('product_type', 'Letterpress cards');
-    await form.submit();
-    await page.waitForURL(new RegExp(`/${market.marketSlug}$`));
+    await login.applyButton.click();
+    await expect(login.form).toBeVisible({ timeout: 30000 });
+    await login.fullNameInput.fill(`${name} Vendor`);
+    await login.tierCheckbox(DATE, 'Gold').check();
+    await login.maxDatesInput.fill('1');
+    await login.tableChoiceRadio('full').check();
+    await login.fillField('business_name', `${name} Prints`);
+    await login.fillField('product_type', 'Letterpress cards');
+    await login.submit();
+    await expect(login.form).toHaveCount(0, { timeout: 10000 });
   } finally {
     await context.close();
   }

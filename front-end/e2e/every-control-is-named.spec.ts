@@ -158,10 +158,9 @@ test('every field a vendor meets has a name, from signing in to applying', async
   createApplicantLoginChallenge(marketId, vendor, '135790');
   await page.getByTestId('vendor-sign-in-code-input').fill('135790');
   await page.getByTestId('vendor-sign-in-verify-btn').click();
-  await expect(page.getByTestId('vendor-page-apply-link')).toBeVisible();
+  await expect(page.getByTestId('vendor-page-apply-btn')).toBeVisible();
   expect(await namelessControls(page), 'the vendor page, signed in').toEqual([]);
-  await page.getByTestId('vendor-page-apply-link').click();
-  await page.waitForURL(new RegExp(`/${marketSlug}/apply`));
+  await page.getByTestId('vendor-page-apply-btn').click();
   await expect(page.getByTestId('apply-form')).toBeVisible();
   expect(await namelessControls(page), 'the application form').toEqual([]);
 });

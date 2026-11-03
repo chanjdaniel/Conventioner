@@ -116,7 +116,7 @@ onMounted(() => {
 
       <template v-else>
         <VendorStatus />
-        <VendorApplication :market-slug="marketSlug" />
+        <VendorApplication />
         <div class="vendor-page-actions">
           <button
             type="button"

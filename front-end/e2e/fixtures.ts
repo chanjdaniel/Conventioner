@@ -152,6 +152,5 @@ export { PasswordResetPage } from './pages/PasswordResetPage';
 export { FloorplanWorkflowPage } from './pages/FloorplanWorkflowPage';
 export { ApplicationFormPage } from './pages/ApplicationFormPage';
 export { VendorPage } from './pages/VendorPage';
-export { ApplyPage } from './pages/ApplyPage';
 export { CsvImportPage } from './pages/CsvImportPage';
 export { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';

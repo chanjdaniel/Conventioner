@@ -86,8 +86,16 @@ for (const [label, viewport] of [
       await expect(vendorPage.signedInAs).toContainText(vendor);
       await expect(vendorPage.status).toContainText('Submitted');
       await expect(vendorPage.answers).toContainText('Fixture Prints');
-      await expect(vendorPage.editLink).toBeVisible();
+      await expect(vendorPage.editButton).toBeVisible();
       await fitsTheWindow(page);
+
+      // Edit opens the form on the page itself, on the saved answers, and it fits the window too.
+      await vendorPage.editButton.click();
+      await expect(vendorPage.input('business_name')).toHaveValue('Fixture Prints');
+      await expect(page).toHaveURL(new RegExp(`/${market.marketSlug}$`));
+      await fitsTheWindow(page);
+      await vendorPage.cancelButton.click();
+      await expect(vendorPage.form).toHaveCount(0);
 
       // Whatever the review decided, nothing is told before publishing; then the table is.
       await post(request, `/markets/${market.marketId}/transition`, { toPhase: 'assignment' });
@@ -95,7 +103,7 @@ for (const [label, viewport] of [
       await page.reload();
       await expect(vendorPage.status).toContainText('Submitted');
       await expect(vendorPage.status).not.toContainText('table');
-      await expect(vendorPage.editLink).toHaveCount(0);
+      await expect(vendorPage.editButton).toHaveCount(0);
 
       await post(request, `/markets/${market.marketId}/publish-results`);
       await page.reload();
@@ -149,4 +157,17 @@ test('Publish results says vendors read it on the vendor page, and gives its add
 
   await confirm.getByTestId('publish-results-submit-button').click();
   await expect(page.getByTestId('applications-published-badge')).toBeVisible();
+});
+
+test("the form's old address is a page that is not there, even while the market takes applications", async ({
+  page,
+  request,
+}) => {
+  // Applying is on the vendor page itself now; `/<slug>/apply` is deleted, not redirected (Daniel:
+  // nobody uses it), so it falls to the app's not-found page like any other address.
+  const market = await marketWithAVendor(request, `old-apply-${Date.now()}@example.com`);
+  await page.goto(`/${market.marketSlug}/apply`);
+  await expect(page.getByTestId('page-not-found')).toBeVisible();
+  await expect(page.getByTestId('apply-form')).toHaveCount(0);
+  await expect(page.getByTestId('vendor-sign-in-email-input')).toHaveCount(0);
 });

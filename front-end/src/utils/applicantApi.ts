@@ -55,13 +55,19 @@ export function requestErrorFrom(err: unknown): string {
   return getApiErrorMessage(err, 'Unable to send code. Please try again.');
 }
 
+/** What the application section says of a save the server refused, when it gave no sentence. */
+export function saveErrorFrom(err: unknown): string {
+  return getApiErrorMessage(err, 'Your application could not be saved. Please try again.');
+}
+
 /**
  * How long an applicant waits for a read before being told it did not load. Generous, because a
  * phone on a bad connection is the normal case, but bounded - an unbounded request leaves the
  * page on its loading state for ever, with nothing to retry and nothing to read.
  *
- * One bound for every read an applicant page waits on. The apply page waits on two at once, and
- * when only the form's was bounded, a stall in the other kept the page loading for ever anyway.
+ * One bound for every read the vendor page waits on. Signed in, it waits on two at once (the
+ * vendor's application and the form), and when only the form's was bounded, a stall in the other
+ * kept the form page of old loading for ever anyway.
  */
 export const APPLICANT_READ_TIMEOUT_MS = 15000;
 

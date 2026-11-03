@@ -1,12 +1,4 @@
-import {
-  test,
-  expect,
-  BACKEND_URL,
-  APP_API,
-  TEST_USER,
-  ApplicationFormPage,
-  ApplyPage,
-} from './fixtures';
+import { test, expect, BACKEND_URL, APP_API, TEST_USER, ApplicationFormPage } from './fixtures';
 import { changeASettledPlan } from './helpers/settledPlanChanged';
 import { marketSetupPath } from './helpers/marketScreens';
 import { VendorPage } from './pages/VendorPage';
@@ -81,12 +73,14 @@ async function createMarketWithPlan(
 }
 
 /**
- * Sign an applicant in through the real login UI with a seeded known-code challenge, landing
- * on the apply page. The applicant session lives in memory (deliberately - no persisted
- * token), so the flow must reach the form the way an applicant does: via the login redirect,
- * not a fresh page load.
+ * Sign an applicant in through the real sign-in on the vendor page, with a seeded known-code
+ * challenge, and open the form there on their seeded application.
  */
-async function signInApplicant(page: Page, marketId: string, marketSlug: string): Promise<void> {
+async function signInApplicant(
+  page: Page,
+  marketId: string,
+  marketSlug: string,
+): Promise<VendorPage> {
   seedApplicationDoc(marketId, APPLICANT_EMAIL);
   createApplicantLoginChallenge(marketId, APPLICANT_EMAIL, KNOWN_CODE);
 
@@ -100,38 +94,36 @@ async function signInApplicant(page: Page, marketId: string, marketSlug: string)
     });
   });
 
-  const login = new VendorPage(page);
+  const vendor = new VendorPage(page);
   await page.goto(`/${marketSlug}`);
-  await login.requestCode(APPLICANT_EMAIL);
-  await expect(login.codeInput).toBeVisible({ timeout: 5000 });
-  await login.enterCode(KNOWN_CODE);
-  // Seeded with an application, so the vendor page offers Edit rather than Apply.
-  await login.editLink.click();
-  await page.waitForURL(new RegExp(`/${marketSlug}/apply`), { timeout: 5000 });
+  await vendor.requestCode(APPLICANT_EMAIL);
+  await expect(vendor.codeInput).toBeVisible({ timeout: 5000 });
+  await vendor.enterCode(KNOWN_CODE);
   await page.unroute('**/applicant-login/request-code');
 
-  // waitForURL returns the moment the route changes, while the page is still fetching its form.
-  // Asserting on the form from here races that fetch, so wait for the page to have FINISHED
-  // loading before asserting what it shows.
-  await expect(page.getByTestId('apply-loading')).toBeHidden({ timeout: 30000 });
+  // Signed in, the page reads the vendor's application and the form together; wait for it to
+  // have FINISHED loading, either way, before asserting what it shows.
+  await vendor.signedInAs.or(vendor.loadFailed).waitFor({ timeout: 30000 });
 
-  // That fetch occasionally stalls past its 15s timeout under a full-suite run, and the page then
+  // That read occasionally stalls past its 15s timeout under a full-suite run, and the page then
   // offers a retry - so take it, exactly as an applicant would.
   //
-  // This is what the comment here always described and the code never did: it asserted the
-  // failure was absent and failed the run when it was not. CI counts a recovered flake as a
-  // failure (`retries: 2` reports it, the workflow fails the job on it), which is the right
-  // policy and which this was tripping. Taking the retry is faithful to the product, because the
-  // product offers the applicant that same button.
+  // CI counts a recovered flake as a failure (`retries: 2` reports it, the workflow fails the job
+  // on it), which is the right policy, so the retry is taken here rather than left to the runner.
+  // Taking the retry is faithful to the product, because the product offers the applicant that
+  // same button.
   //
   // Still a workaround, not a fix: the stall itself is E06/F01/S02, with the evidence that the
   // request hangs rather than errors. If this retry starts firing routinely, that story is overdue.
-  const loadFailed = page.getByTestId('apply-load-failed');
-  for (let attempt = 0; attempt < 3 && (await loadFailed.count()) > 0; attempt += 1) {
-    await page.getByTestId('apply-retry-button').click();
-    await expect(page.getByTestId('apply-loading')).toBeHidden({ timeout: 30000 });
+  for (let attempt = 0; attempt < 3 && (await vendor.loadFailed.count()) > 0; attempt += 1) {
+    await vendor.retryButton.click();
+    await vendor.signedInAs.or(vendor.loadFailed).waitFor({ timeout: 30000 });
   }
-  await expect(loadFailed).toHaveCount(0);
+  await expect(vendor.loadFailed).toHaveCount(0);
+
+  // Seeded with an application, so the vendor page offers Edit rather than Apply.
+  await vendor.editButton.click();
+  return vendor;
 }
 
 /** An applicant JWT obtained through the real login endpoints, for API-level saves. */
@@ -271,9 +263,7 @@ test.describe('Essential form fields', () => {
       TEST_USER.password,
       { setupObject: planSetupObject() },
     );
-    await signInApplicant(page, market.marketId, market.marketSlug);
-
-    const apply = new ApplyPage(page);
+    const apply = await signInApplicant(page, market.marketId, market.marketSlug);
     await expect(apply.form).toBeVisible();
 
     // Identity is settled before the form: the email rides along read-only.
@@ -336,9 +326,7 @@ test.describe('Essential form fields', () => {
     await apply.submit();
     // 10s, not 5: a submit that validates, freezes the offering and writes is the slowest step in
     // this spec, and the tighter budget flaked under a full-suite run.
-    await page.waitForURL(new RegExp(`/${market.marketSlug}$`), {
-      timeout: 10000,
-    });
+    await expect(apply.form).toHaveCount(0, { timeout: 10000 });
 
     // The vendor page reads the answers back with the questions' own labels.
     const answers = page.getByTestId('vendor-page-answers');

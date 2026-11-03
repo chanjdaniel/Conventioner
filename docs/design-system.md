@@ -215,7 +215,7 @@ The dashboard is one column, 716px wide at most and the window's width less a 16
 | `--workspace-max` | 1440px | Every market page and flow: Market Setup to Attendance, Import, Floorplan |
 | `--list-max` | 1100px | Markets, Organizations |
 
-The applicant's own pages are a reading column, not a screen of cards: `--applicant-max` (640px), the apply page and the applicant's dashboard.
+The applicant's own pages are a reading column, not a screen of cards: `--applicant-max` (640px), the vendor page, its application form included.
 The form tab's preview is drawn at the same width, so it is the form as an applicant sees it (E33/F01/S01).
 
 Two widths rather than one because the content clusters into two groups and **nothing wants the 1536 the workspace was given before**: the plan's widest row needs 1316, the statistics need 1129, and the single-column lists need ~1035. One width for both puts a 1,035px list in a 1,440px page.

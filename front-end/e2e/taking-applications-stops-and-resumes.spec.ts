@@ -1,6 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
 import type { Browser, Page } from '@playwright/test';
-import { ApplyPage } from './pages/ApplyPage';
 import { marketSetupPath, oneByOnePath } from './helpers/marketScreens';
 import {
   createApplicantLoginChallenge,
@@ -66,18 +65,13 @@ test('an organizer stops taking applications, a vendor is refused, and taking th
     'This market is not taking applications.',
   );
 
-  // The vendor's page offers no Apply, and says why; the form page itself is closed, in the words
-  // a closed market used, with no form.
+  // The vendor's page offers no Apply and no form, and says why.
   const vendor = await vendorSignedIn(browser, market.marketId, market.marketSlug);
-  await expect(vendor.vendorPage.info).toHaveText(
+  const apply = vendor.vendorPage;
+  await expect(apply.info).toHaveText(
     'You have no application at this market, and it is not taking applications.',
   );
-  await expect(vendor.vendorPage.applyLink).toHaveCount(0);
-  await vendor.page.goto(`/${market.marketSlug}/apply`);
-  const apply = new ApplyPage(vendor.page);
-  await expect(vendor.page.getByTestId('apply-closed')).toContainText('Applications Closed', {
-    timeout: 30000,
-  });
+  await expect(apply.applyButton).toHaveCount(0);
   await expect(apply.form).toHaveCount(0);
 
   // Taken again, and the page takes them.
@@ -90,7 +84,7 @@ test('an organizer stops taking applications, a vendor is refused, and taking th
   await page.getByTestId('phase-rail-menu-button').click();
 
   await vendor.page.goto(`/${market.marketSlug}`);
-  await vendor.vendorPage.applyLink.click();
+  await apply.applyButton.click();
   await expect(apply.form).toBeVisible({ timeout: 30000 });
   await apply.fullNameInput.fill('Lena Late');
   await apply.tierCheckbox(DATE, 'Gold').check();
@@ -99,7 +93,7 @@ test('an organizer stops taking applications, a vendor is refused, and taking th
   await apply.fillField('business_name', 'Late Bloom Prints');
   await apply.fillField('product_type', 'Cards');
   await apply.submit();
-  await vendor.page.waitForURL(new RegExp(`/${market.marketSlug}$`));
+  await expect(apply.form).toHaveCount(0, { timeout: 10000 });
   await expect(vendor.page.getByTestId('vendor-page-status')).toContainText('Submitted');
   await vendor.context.close();
 

@@ -40,24 +40,25 @@ Covered by:
 
 ### H3a. A new vendor applies
 
-**Status:** Works (re-walked live on 2026-10-03 on a phone-sized window; bug 6).
+**Status:** Works (re-walked live on 2026-10-03 on a phone-sized window, bug 6; the form on the vendor page itself read from the code as of T202).
 **Task (vendor):** "Apply to this market."
 
 1. The vendor opens the shared link `/<market-slug>`; the page names the market over "Sign in": "Enter your email address. We'll send you a code to sign in with."
 2. They enter their email and "Send code"; the page says "We've sent a code to <email>." whatever the address, and the code is sent before the page answers (E32/F03/S02); its email links back to the page, "your page for <market>".
 3. The code arrives; they enter it under "Sign-in code" and choose "Sign in".
-4. The page reads "You have not applied to this market yet." with "Apply", which opens "Apply for <market>" at `/<market-slug>/apply`: the essential questions, then "More questions" (the custom ones); "Save application".
-5. They land back on the vendor page (H3c), which reads "Submitted".
-When the form or the saved application does not load within 15 seconds, or the request fails, the page says "This market's application form could not be loaded. Check your connection and try again." with "Try again", never that the market is not open and never an endless "Loading application form..." (E06/F01/S01).
+4. The page reads "You have not applied to this market yet." with "Apply", which opens the form in its place, on the same page and address: "Apply", the essential questions, then "More questions" (the custom ones); "Save application" and "Cancel".
+5. Saved, the form closes on "Your answers" with "Edit", and the page reads "Submitted" (H3c).
+A save the server refuses says why above "Save application", and every answer typed stays; a required answer left blank is named under its question before anything is sent.
+The vendor page reads the form and the saved application together before it draws; when either does not load within 15 seconds, or the request fails, it says "This page could not be loaded" with "Try again", never that the market is not open and never an endless "Loading..." (E06/F01/S01).
 Covered by:
 - `a-first-time-vendor-applies.spec.ts`
 - `essential-fields.spec.ts`
 
 ### H3b. A returning vendor edits their application
 
-**Status:** Works (re-walked live on 2026-10-03), while applications are open.
+**Status:** Works (re-walked live on 2026-10-03; the form on the vendor page itself read from the code as of T202), while applications are open.
 Sign in as H3a steps 1 to 3 with an address that already has an application; the vendor page shows "Your answers" with "Edit".
-The form opens with their saved answers; they change what they need and "Save application", and land back on the vendor page (bug 21).
+"Edit" opens the form in their place, "Edit your answers", filled with their saved answers (bug 21); they change what they need and "Save application", and the form closes on the answers as saved; "Cancel" closes it and changes nothing.
 A reload or a direct link in the same tab keeps them signed in; a new tab asks them to sign in again (bug 36).
 The first applicant save of any kind freezes the essential questions' offering ([F1](form-tab.md#f1-the-essential-questions)).
 Covered by:
@@ -87,7 +88,7 @@ Covered by:
 ### H3e. A Google Form market's public pages
 
 **Status:** Works (walked live; the vendor page read from the code as of T202).
-`/<slug>` and `/<slug>/apply` of a market whose vendors apply on the organizer's own Google Form answer exactly as for a market that does not exist; the vendor page says the page does not exist rather than taking an address ([a gated market answers as absent](../rules/a-gated-market-answers-as-absent.md)).
+`/<slug>` of a market whose vendors apply on the organizer's own Google Form answers exactly as for a market that does not exist; the vendor page says the page does not exist rather than taking an address ([a gated market answers as absent](../rules/a-gated-market-answers-as-absent.md)).
 Covered by:
 - `intake-mode.spec.ts`
 

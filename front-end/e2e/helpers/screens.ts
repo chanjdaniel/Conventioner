@@ -1232,10 +1232,15 @@ export const SCREENS: Screen[] = [
     open: at(slug('open'), 'vendor-page-status'),
   },
   {
-    name: 'the application form',
+    // The form, opened in place on the vendor page by Edit (ADR 0022).
+    name: 'the vendor page, the application form',
     who: 'applicant',
     sizes: PUBLIC,
-    open: at(slug('open', '/apply'), 'apply-market-name'),
+    open: async (page, seed) => {
+      await at(slug('open'), 'vendor-page-edit-btn')(page, seed);
+      await page.getByTestId('vendor-page-edit-btn').click();
+      await visible(page, 'apply-form');
+    },
   },
   {
     name: 'the check-in page',

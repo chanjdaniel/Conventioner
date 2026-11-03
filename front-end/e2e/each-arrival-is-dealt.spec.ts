@@ -1,5 +1,4 @@
 import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
-import { ApplyPage } from './pages/ApplyPage';
 import { VendorsPage } from './pages/VendorsPage';
 import {
   createApplicantLoginChallenge,
@@ -62,17 +61,16 @@ test('a vendor who applies after the deal goes to the next reviewer in turn', as
   await expect(login.codeInput).toBeVisible();
   createApplicantLoginChallenge(market.marketId, vendor, CODE);
   await login.enterCode(CODE);
-  await login.applyLink.click();
-  const apply = new ApplyPage(page);
-  await expect(apply.form).toBeVisible({ timeout: 30000 });
-  await apply.fullNameInput.fill('Vera Fourth');
-  await apply.tierCheckbox(DATE, 'Gold').check();
-  await apply.maxDatesInput.fill('1');
-  await apply.tableChoiceRadio('full').check();
-  await apply.fillField('business_name', 'Fourth Prints');
-  await apply.fillField('product_type', 'Letterpress cards');
-  await apply.submit();
-  await page.waitForURL(new RegExp(`/${market.marketSlug}$`));
+  await login.applyButton.click();
+  await expect(login.form).toBeVisible({ timeout: 30000 });
+  await login.fullNameInput.fill('Vera Fourth');
+  await login.tierCheckbox(DATE, 'Gold').check();
+  await login.maxDatesInput.fill('1');
+  await login.tableChoiceRadio('full').check();
+  await login.fillField('business_name', 'Fourth Prints');
+  await login.fillField('product_type', 'Letterpress cards');
+  await login.submit();
+  await expect(login.form).toHaveCount(0, { timeout: 10000 });
 
   await withUser(browser, TEST_USER.email, TEST_USER.password, async (organizer) => {
     const listed = organizer.waitForResponse(

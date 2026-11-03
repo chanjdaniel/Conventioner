@@ -5,10 +5,17 @@ import {
   verifyLoginCode,
   verifyErrorFrom,
   requestErrorFrom,
+  saveErrorFrom,
   fetchApplicantApplication,
   saveApplicantApplication,
 } from '@/utils/applicantApi';
-import { IntakeMode, type Application, type FormField } from '@/assets/types/datatypes';
+import {
+  IntakeMode,
+  type Application,
+  type EssentialFormOptions,
+  type FormField,
+} from '@/assets/types/datatypes';
+import { EMPTY_ESSENTIAL_OPTIONS } from '@/utils/essentialFields';
 import { fetchPublicApplicationForm } from '@/utils/publicApplicationForm';
 import { fetchVendorPage, type VendorPageInfo, type VendorPageRead } from '@/utils/vendorPage';
 
@@ -81,10 +88,12 @@ export const useApplicationStore = defineStore('application', () => {
   const error = ref<string | null>(null);
   /**
    * The vendor page's one state (ADR 0022): the market as the page reads it before sign-in, and,
-   * signed in, the form's questions its answers are shown against. Every section reads it here.
+   * signed in, the form's questions - its own and the essential ones the plan offers - that the
+   * vendor's answers are shown against and edited in. Every section reads it here.
    */
   const page = ref<VendorPageInfo | null>(null);
   const formFields = ref<FormField[]>([]);
+  const essentialOptions = ref<EssentialFormOptions>(EMPTY_ESSENTIAL_OPTIONS);
 
   function isAuthenticatedFor(slug: string): boolean {
     return token.value !== null && marketSlug.value === slug;
@@ -100,6 +109,10 @@ export const useApplicationStore = defineStore('application', () => {
   /**
    * Read what a signed-in vendor's page shows: their application, and on a market whose vendors
    * apply, the form's questions. A sign-in that has ended clears itself (`fetchApplication`).
+   *
+   * Both arrive before the page is drawn, so the form opens on what the vendor already answered
+   * (bug 21): its own defaults - a ranking seeded in the plan's order - fill only what they never
+   * answered, and never race their answers.
    */
   async function loadVendorRead(): Promise<VendorRead> {
     const slug = marketSlug.value;
@@ -110,6 +123,7 @@ export const useApplicationStore = defineStore('application', () => {
       asksQuestions ? fetchPublicApplicationForm(slug) : Promise.resolve(null),
     ]);
     formFields.value = form?.fields ?? [];
+    essentialOptions.value = form?.essentialOptions ?? EMPTY_ESSENTIAL_OPTIONS;
     return {
       failed: read.failed || Boolean(form?.failed && !form.notFound),
       notFound: Boolean(form?.notFound),
@@ -201,7 +215,7 @@ export const useApplicationStore = defineStore('application', () => {
         clearSession();
         error.value = 'Your session has expired. Please sign in again.';
       } else {
-        error.value = requestErrorFrom(err);
+        error.value = saveErrorFrom(err);
       }
       return null;
     } finally {
@@ -216,6 +230,7 @@ export const useApplicationStore = defineStore('application', () => {
     token.value = null;
     application.value = null;
     formFields.value = [];
+    essentialOptions.value = EMPTY_ESSENTIAL_OPTIONS;
     error.value = null;
     keepSession(null);
   }
@@ -234,6 +249,7 @@ export const useApplicationStore = defineStore('application', () => {
     error,
     page,
     formFields,
+    essentialOptions,
     isAuthenticatedFor,
     loadPage,
     loadVendorRead,

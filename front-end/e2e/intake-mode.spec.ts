@@ -160,18 +160,16 @@ test.describe('Intake mode - a market that stops serving applicants', () => {
     await expect(login.signedInAs).toBeVisible();
 
     // Nobody has applied, so the organizer may take the market back to draft, where it serves no
-    // applicant. The vendor's sign-in still holds; the pages it opened must not blame their
-    // connection for a market that is no longer there.
+    // applicant. The vendor's sign-in still holds; their page must not blame their connection
+    // for a market that is no longer there.
     const back = await request.post(`${BACKEND_URL}/markets/${market.marketId}/transition`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: { toPhase: 'draft' },
     });
     expect(back.ok(), await back.text()).toBeTruthy();
 
-    for (const suffix of ['', '/apply']) {
-      await page.goto(`/${market.marketSlug}${suffix}`);
-      await expect(page.getByTestId('page-not-found')).toBeVisible();
-      await expect(page.getByText('Check your connection')).toHaveCount(0);
-    }
+    await page.goto(`/${market.marketSlug}`);
+    await expect(page.getByTestId('page-not-found')).toBeVisible();
+    await expect(page.getByText('Check your connection')).toHaveCount(0);
   });
 });

@@ -292,7 +292,6 @@ The page objects in `front-end/e2e/pages/` are these, one a line, sorted by clas
 - `ApplicationFormPage`
 - `ApplicationMonitorPage`
 - `ApplicationsAllPage`
-- `ApplyPage`
 - `AttendanceStatusPage`
 - `CheckinPage`
 - `CsvImportPage`
@@ -315,7 +314,7 @@ The page objects in `front-end/e2e/pages/` are these, one a line, sorted by clas
 - `ToolsPage`
 - `UpdateInfoDialog` (the vendor drawer's Update info dialog)
 - `VendorExportDialog` (the export dialog, wherever it opens)
-- `VendorPage` (a market's vendor page, `/<slug>`: its sign-in and what a signed-in vendor reads)
+- `VendorPage` (a market's vendor page, `/<slug>`: its sign-in, what a signed-in vendor reads, and the application form opened on it)
 - `VendorsPage`
 
 ### Bypassing CAPTCHA and email in tests
