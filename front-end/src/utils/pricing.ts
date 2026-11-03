@@ -64,9 +64,9 @@ export function formatPrice(cents: number, currency: string): string {
 }
 
 /**
- * One assignment as its date card prices it: "Gold, full table, $35.00", or with the card's row that
- * set it where the card has groups, "Gold, full table, Example College student + club member, $12.00"; null where
- * it has no price.
+ * One assignment as its date card prices it: "Gold, full table, $35.00", or with the card's row
+ * that set it where the card has groups, "Gold, full table, Example College student + club member,
+ * $12.00"; null where it has no price.
  */
 export function priceLine(
   assignment: {
