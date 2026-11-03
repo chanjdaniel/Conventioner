@@ -43,6 +43,14 @@ function market(phase: string, blockers: PreconditionResult[] = []): Market {
   return { id: 'm1', phase, transitionBlockers: { applications: blockers } } as unknown as Market;
 }
 
+function formMarket(phase: string, blockers: PreconditionResult[] = []): Market {
+  return { ...market(phase, blockers), intakeMode: 'form' } as Market;
+}
+
+/** `import_refusal`'s sentence in `back-end/csv_import.py`, word for word. */
+const FORM_MARKET_REFUSAL =
+  'This market takes applications on its own page, so nothing is imported into it.';
+
 describe('importRefusal', () => {
   it('refuses nothing in a ready draft or in Review', () => {
     expect(importRefusal(market('draft', [NOTHING_IMPORTED]))).toBeNull();
@@ -80,6 +88,14 @@ describe('importRefusal', () => {
     expect(canImportInto(null)).toBe(true);
     expect(importRefusal(null)).toBeNull();
   });
+
+  it('refuses a market whose vendors apply on its page in every phase, before its plan, as the server does', () => {
+    for (const phase of ['draft', 'applications', 'assignment']) {
+      expect(importRefusal(formMarket(phase, [NO_DATES, NO_LOCATION, NOTHING_IMPORTED]))).toBe(
+        FORM_MARKET_REFUSAL,
+      );
+    }
+  });
 });
 
 describe('firstImportBlockers', () => {
@@ -103,5 +119,9 @@ describe('firstImportBlockers', () => {
     const noPhase = { id: 'm1', transitionBlockers: { applications: [NO_LOCATION] } };
     expect(firstImportBlockers(noPhase as unknown as Market)).toEqual([NO_LOCATION]);
     expect(firstImportBlockers(null)).toEqual([]);
+  });
+
+  it('is empty for a market whose vendors apply on its page, which takes no import at all', () => {
+    expect(firstImportBlockers(formMarket('draft', [NO_DATES, NO_LOCATION]))).toEqual([]);
   });
 });

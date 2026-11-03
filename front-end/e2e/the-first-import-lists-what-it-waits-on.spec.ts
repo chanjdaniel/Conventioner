@@ -103,3 +103,38 @@ test('a draft missing one thing shows that one item, and a complete one opens on
   await expect(importPage.upload).toBeVisible({ timeout: 15000 });
   await expect(importPage.wrongPhase).toHaveCount(0);
 });
+
+test('a draft whose vendors apply on its page says it takes no import, as the server does', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  // Nothing links here on a form market; a typed address or an old bookmark still reaches it, and
+  // the page must say what the server's 409 says, never a checklist that cannot be completed.
+  const { marketId } = await seedDraftMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  const importPage = new CsvImportPage(page);
+  const takesNoImport =
+    'This market takes applications on its own page, so nothing is imported into it.';
+
+  await page.goto(marketScreenPath(marketId, 'import'));
+  await expect(importPage.wrongPhase.getByRole('heading')).toHaveText(
+    "Vendors apply on this market's page",
+    { timeout: 15000 },
+  );
+  await expect(importPage.wrongPhase).toContainText(takesNoImport);
+  await expect(importPage.waitsOnHeading).toHaveCount(0);
+  await expect(importPage.upload).toHaveCount(0);
+
+  const direct = await request.post(
+    `${BACKEND_URL}/markets/${marketId}/applications/import/inspect`,
+    { data: { csvContent: 'Timestamp,Email Address\n' } },
+  );
+  expect(direct.status()).toBe(409);
+  const { error } = (await direct.json()) as { error: string };
+  expect(error).toBe(takesNoImport);
+});

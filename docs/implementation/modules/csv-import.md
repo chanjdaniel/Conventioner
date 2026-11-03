@@ -61,7 +61,7 @@ The browser's reader drops a byte-order mark, and an empty file goes on to the s
 **Importing is the CSV path's, in Draft and Review** (E31/F03/S04).
 `import_refusal` refuses a form market outright, and otherwise allows `draft` and `applications` (`IMPORT_PHASES`): a draft's first import is its way into Review, and in Review a Redo import reads the whole file again (E38/F04, [review needs an import](../../business/rules/review-needs-an-import.md)); past review, nothing more can be imported, since no move leads back (bug 42).
 In a draft it also refuses with every one of `first_import_blockers`, the move into Review judged less `ResponsesImportedGuard`, their messages joined in the guards' order, so all a setup lacks to let the market in is said at once, before a row is read (T205: one trip to Market Setup, not one per missing thing).
-`firstImportBlockers` and `importRefusal` in [`front-end/src/utils/importPhase.ts`](../../../front-end/src/utils/importPhase.ts) are their mirrors, read from the served `transitionBlockers`, so the import's page and a refused request name the same list.
+`firstImportBlockers` and `importRefusal` in [`front-end/src/utils/importPhase.ts`](../../../front-end/src/utils/importPhase.ts) are their mirrors, read from the served `transitionBlockers` and the market's intake, so the import's page and a refused request say the same: the form market's sentence before anything else, and otherwise the same list.
 
 **The first import takes the market into Review** once its rows are written: `enter_review` moves it through `take_move` under the importer, and the result says the phase it is in (`phase`).
 A first import that wrote nothing, or a move refused by a setup changed under it, leaves the market a draft.

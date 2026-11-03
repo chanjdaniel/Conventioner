@@ -22,7 +22,7 @@ import MarketFrame from '@/components/MarketFrame.vue';
 import FileDropZone from '@/components/FileDropZone.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { getFormattedDate, oneLine } from '@/utils/utils';
-import { firstImportBlockers, importRefusal } from '@/utils/importPhase';
+import { firstImportBlockers, importRefusal, takesNoImport } from '@/utils/importPhase';
 import BlockerPanel from '@/components/BlockerPanel.vue';
 import { readCsvFile } from '@/utils/csvFile';
 import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
@@ -861,9 +861,11 @@ function startOver() {
           {{
             roleRefusal
               ? 'Importing into this market is not yours to do'
-              : firstImport
-                ? 'This market is not ready for its first import'
-                : 'This market is not taking applications right now'
+              : takesNoImport(market)
+                ? "Vendors apply on this market's page"
+                : firstImport
+                  ? 'This market is not ready for its first import'
+                  : 'This market is not taking applications right now'
           }}
         </h2>
         <BlockerPanel

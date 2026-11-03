@@ -170,4 +170,21 @@ describe("the first import's refusal", () => {
     expect(shown.text()).toContain('past review, so it takes no more applications');
     expect(shown.findAll('li')).toHaveLength(0);
   });
+
+  it('says a market whose vendors apply on its page takes no import, never a checklist', async () => {
+    const wrapper = await openImport(
+      market([NO_DATES, NO_LOCATION, NO_TABLES, NOTHING_IMPORTED], {
+        intakeMode: IntakeMode.Form,
+      }),
+    );
+
+    const shown = refusal(wrapper);
+    expect(shown.get('h2').text()).toBe("Vendors apply on this market's page");
+    expect(shown.text()).toContain(
+      'This market takes applications on its own page, so nothing is imported into it.',
+    );
+    expect(shown.text()).not.toContain('Before its first import');
+    expect(shown.findAll('li')).toHaveLength(0);
+    expect(links(wrapper)).toEqual([]);
+  });
 });
