@@ -44,7 +44,7 @@ A hand placement warns about every answer it overrides and never blocks on one; 
 The two ceilings are separate sentences because they are separate promises: "This gives them 2 dates; they asked for at most 1." is the vendor's own answer, "…the market allows at most 1 per vendor." the organizer's rule for everyone.
 A tier is warned only on a date the vendor offered, since a date they never offered carries no tier answer; a swap or a move warns each vendor only about the new seat's tier and size, because changing tables on one date never changes whether they are there or how many dates they hold.
 A vendor fits a seat when placing them overrides nothing, and a sharing vendor fits a wholly free table, since the organizer can give them half of it.
-The dialog's lists are searched by typing ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): part of a name, a business or an address narrows its two vendor lists, by the same terms as the Assignments page's search, and "Swap them with" by the partner's table too, its code or its section; "Move them to" finds an empty seat by its table code, its section, its location or its tier (T208).
+The dialog's lists are searched by typing ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): part of a name, a business or an address narrows its two vendor lists, by the same terms as the Assignments page's search, and "Swap them with" and "Seated elsewhere today" by the table the vendor sits at too, its code or its section; "Move them to" finds an empty seat by its table code, its section, its location or its tier (T208).
 The keyboard works them alone: the arrow keys move through the list, Enter takes the active choice, Escape closes the list and leaves the dialog open.
 The dialog is the wide size, since a real name and address with a table and a side did not fit the standard one.
 On a phone the page and the dialog fit the window (T142): a held seat's "Change", each "What to do with them" choice and each "Which seat" choice are thumb's targets, and the dialog's buttons wrap onto a second row where three do not fit on one.
@@ -57,9 +57,10 @@ Every change goes through [the one writer of placements](../../implementation/mo
 
 1. Click a free seat ("Assign someone" shows on the pointer); the dialog is titled with the table, and names the date, section and tier.
 2. "Who sits here" ("Search by name, business or email…"), grouped as "Fits this seat", "Would override their answers", "Not approved" and "Added by hand"; every applicant without a table on that date is offered; typing narrows each group, and one with nobody matching says "None match", and "Every vendor who applied already has a table on this date." when none is left.
+   A last group, "Seated elsewhere today (moves them)", offers everyone seated at another table that date, which is a move ([J19](#j19-move-a-vendor-to-an-empty-seat)).
 3. For a half table with both halves free, "Which seat": left or right.
 4. Warnings name what the placement overrides: not available that date, asked for a whole table, a tier they did not accept ("…which sets their price."), their own date limit or the market's, and "Not approved: rejected." for someone not approved.
-5. "Assign them here".
+5. "Assign them here", which reads "Move them here" for someone chosen from "Seated elsewhere today".
 
 A seat already taken is refused, naming its holder: "<email> already holds <table> (<size>) on <date>. Free that seat first, or swap the two vendors." (bug 32).
 A seat held by someone not approved is marked "Not approved" on the Assignments page and in the drawer, and the next run keeps them there.
@@ -85,8 +86,10 @@ Covered by:
 
 ## J19. Move a vendor to an empty seat
 
-**Status:** Works from the taken seat (T208, `moving-a-vendor-to-an-empty-seat.spec.ts`).
+**Status:** Works from either end, the vendor's seat or the empty one (T208, `moving-a-vendor-to-an-empty-seat.spec.ts`).
 A move is one action, one write, so the vendor never stands at no table between freeing one seat and filling another.
+
+From the vendor's seat:
 
 1. "Change" on the vendor's seat; "What to do with them" starts at "Move to an empty seat" when that date has an empty seat.
 2. "Move them to" ("Search by table, section or tier…") lists every empty seat that date, whatever the page's filters show, the vendor's own table left out: one group per section in the plan's order, headed with the section and its tier ("Landing, Silver"), each table naming its free part ("The whole table", "The left half", "The right half").
@@ -94,6 +97,14 @@ A move is one action, one write, so the vendor never stands at no table between 
 3. A wholly free table offers "Which seat", starting at the shape the vendor holds now: a whole table stays whole, a half stays a half, on the left; a half-taken table states its free side, "The right half - the other side is taken.".
 4. Warnings name what the new seat overrides of their answers, its tier and its size only, never a date or a ceiling.
 5. "Move them", disabled until a seat is chosen; Enter runs it through the same guard, and never reaches "Free this seat".
+
+From the empty seat:
+
+1. Click the free seat; "Who sits here" ends with "Seated elsewhere today (moves them)": everyone seated at another table that date, whoever seated them, anyone at this table left out, each naming the table they would leave ("Leaves North Wing 1, a whole table").
+   Typing finds them by name, business or address, or by that table's code or section.
+   "Every vendor who applied already has a table on this date. Choosing one moves them here." when nobody is left without a table but someone sits elsewhere.
+2. Choosing one starts "Which seat", at a wholly free table, at the shape they hold now, as above, and warns only about this seat's tier and size.
+3. "Move them here", where any other choice reads "Assign them here".
 
 The vendor sits at the new table and their old seat is free, through the one write that places a vendor on a date ([placements](../../implementation/modules/placements.md)); the history records it as one entry, "Moved <vendor> from North Wing 1 to Landing 2 (Full Table)" ([J13](#j13-assignment-history)), and the day's line of what they owe follows the new table's price, unless an Admin set the amount by hand ([a price follows the table](../rules/a-price-follows-the-table.md)).
 A seat taken by someone else meanwhile is refused with the server's reason in the dialog, which stays open to choose again.
