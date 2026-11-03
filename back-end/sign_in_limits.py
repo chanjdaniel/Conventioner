@@ -100,15 +100,15 @@ def _window(limit: SignInLimit, subject: str, now: datetime) -> Tuple[str, datet
 
 
 def over_limit(limit: SignInLimit, subject: str, now: Optional[datetime] = None) -> Optional[int]:
-    """Whether ``subject`` is already past ``limit``, without counting anything.
+    """Whether ``subject`` has already used all of ``limit``, without counting anything.
 
-    Returns None while the window's count is within the limit, and otherwise the whole seconds
+    Returns None while the window's count is below the limit, and otherwise the whole seconds
     until the window ends, as ``count_attempt`` does.
     """
     now = now or datetime.now(timezone.utc)
     key, window_ends = _window(limit, subject, now)
     counter = attempts_collection.find_one({"_id": key})
-    if not counter or counter[COUNT_FIELD] <= limit.attempts:
+    if not counter or counter[COUNT_FIELD] < limit.attempts:
         return None
     return max(1, math.ceil((window_ends - now).total_seconds()))
 

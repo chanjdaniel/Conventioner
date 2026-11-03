@@ -246,14 +246,14 @@ class TestAttemptsAreBounded:
         assert len(world.attendance.documents) == 65
 
     def test_a_caller_gets_sixty_wrong_codes_then_no_right_one(self, client, world):
-        emails = [f"v{n}@example.com" for n in range(62)]
+        emails = [f"v{n}@example.com" for n in range(61)]
         world.market(assignmentObject={"vendorAssignments": [
             {**SEATS[0], "email": email} for email in emails]})
         wrong = {"date": TODAY, "doorCode": "WRONG1"}
 
         first = [check_in(client, wrong, signed_in(email=e)).status_code for e in emails[:60]]
-        sixty_first = check_in(client, wrong, signed_in(email=emails[60]))
-        right = check_in(client, headers=signed_in(email=emails[61]))
+        right = check_in(client, headers=signed_in(email=emails[60]))
+        sixty_first = check_in(client, wrong, signed_in(email=emails[0]))
 
         assert set(first) == {403}
         assert sixty_first.status_code == 429
