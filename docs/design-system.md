@@ -19,7 +19,9 @@ describes:
   - front-end/e2e/focus-sweep-detectors.spec.ts
   - front-end/e2e/helpers/focusSweep.ts
   - front-end/e2e/a-links-halo-appears-at-once.spec.ts
-verified: 2026-11-03
+  - front-end/src/assets/brand/
+  - front-end/src/__tests__/theBrandHasOneFolder.test.ts
+verified: 2026-11-04
 sources:
   - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01
@@ -62,6 +64,7 @@ sources:
   - E38/F15/S01
   - T181
   - T180
+  - T212
 ---
 
 # Conventioner's design language
@@ -336,7 +339,7 @@ Three of the reds being retired cannot carry white text at all: `#e74c3c` (3.82)
 
 ### The brand green is `--mm-green` (`#36826f`)
 
-The wordmark painted `#00DC82` while every primary button painted `#36826f`. `#00DC82` gives white text 1.7:1, so it can never be a button or a link - a brand colour the product would be forbidden from using on any control. The logo is restyled to `--mm-green`.
+The wordmark painted `#00DC82` while every primary button painted `#36826f`. `#00DC82` gives white text 1.7:1, so it can never be a button or a link - a brand colour the product would be forbidden from using on any control. The logo's mark is `--mm-green`; its wordmark is black ([brand files and icons](#brand-files-and-icons)).
 
 ### Two grounds, not one
 
@@ -345,6 +348,21 @@ A token is only AA on the grounds it was measured against, so the phase rail's g
 
 So a chip carries its own ground: the `--mm-chip-*` tokens are opaque, the tint already laid over white, and `contrast.test.ts` asserts each with its ink.
 Translucent tints took on the beige review card beneath them and fell below AA there (E26/F10/S01).
+
+## Brand files and icons
+
+The brand has one folder, [`front-end/src/assets/brand/`](../front-end/src/assets/brand/):
+
+| File | What it is for |
+| --- | --- |
+| `conventioner-logo.svg` | The full logo, mark and wordmark; the banner draws it. |
+| `conventioner-mark.svg` | The mark alone, in its colour, for wherever the logo does not fit. |
+| `conventioner-mark-currentcolor.svg` | The mark in `currentColor`, for a dark ground or a coloured control. |
+| `conventioner-wordmark.svg` | The wordmark alone. |
+
+The mark is `#36826F`, which is `--mm-green`, and the wordmark is black.
+An `<img>` does not inherit colour, so the `currentColor` copy only takes the colour around it when it is inlined.
+The mark and the wordmark are the logo's own two paths, unchanged, and [`theBrandHasOneFolder.test.ts`](../front-end/src/__tests__/theBrandHasOneFolder.test.ts) fails when either drifts from the logo.
 
 ## The primitive layer
 

@@ -9,7 +9,7 @@ describes:
   - .nvmrc
   - docker-compose.yml
   - front-end/vite.config.ts
-verified: 2026-11-03
+verified: 2026-11-04
 ---
 # Technology Stack
 
@@ -142,6 +142,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **Icons are local SVG components** in [`src/components/icons/`](../front-end/src/components/icons/), no icon library or font
   - Each draws in `currentColor`; the five Lucide icons (`IconPencil`, `IconTrash`, `IconList`, `IconImage`, `IconCloudUpload`) are copied from `lucide-static` 1.61.0 at `1em`, so the `font-size` around them sizes them, with Lucide's ISC notice beside them in `LICENSE-lucide.txt` and in a `/*! @license` banner in each, which reaches the bundle (`theLucideNoticeReachesTheBundle.test.ts`)
   - They replaced an icon font whose next major is proprietary (T45, [ADR 0015](adr/0015-the-app-owns-its-components.md)); `theAppOwnsItsComponents.test.ts` keeps the font out
+- **The logo and the mark are brand files** in [`src/assets/brand/`](../front-end/src/assets/brand/), not icons ([brand files and icons](design-system.md#brand-files-and-icons))
 
 ### State Management
 - **Pinia 4.1.0** - Vue state management
