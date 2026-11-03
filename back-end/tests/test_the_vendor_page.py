@@ -260,6 +260,27 @@ class TestTheVendorsOwnRead:
             ("2099-08-02", None),
         ]
 
+    def test_an_archived_market_that_ran_still_reads_each_seat_and_when_they_came(
+        self, markets, applications, market_records,
+    ):
+        """The page is the record once the market has ended (bug 9): it was the public check-in
+        page's, which is gone (T202)."""
+        self._apply(applications)
+        markets(_market(
+            "form", phase=MarketPhase.ARCHIVED, reached=RAN, resultsPublished=True,
+            assignmentObject={"vendorAssignments": [SEAT]},
+        ))
+        market_records.attendance.insert_one({
+            "market_id": "market-123", "vendor_email": VENDOR, "date": "2099-08-01",
+            "checked_in_at": "2099-08-01T09:00:00+00:00",
+        })
+
+        body, status = ApplicantsApi.get_applicant_application(SLUG, TOKEN)
+
+        assert status == 200
+        [seat] = body["application"]["seats"]
+        assert (seat["tableCode"], seat["checkedInAt"]) == ("A1", "2099-08-01T09:00:00+00:00")
+
     def test_another_vendors_check_in_is_not_theirs(self, markets, applications, market_records):
         self._apply(applications)
         markets(_market(

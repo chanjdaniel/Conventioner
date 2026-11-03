@@ -22,6 +22,7 @@ import typesafe_client as TypeSafe
 import market_stats as MarketStats
 import api.attendance as AttendanceApi
 import api.door as DoorApi
+import api.vendor_check_in as VendorCheckInApi
 import api.applications as ApplicationsApi
 import api.applicant_auth as ApplicantAuthApi
 import api.applicants as ApplicantsApi
@@ -1428,63 +1429,17 @@ def get_market_tables(market_id: str) -> Response:
 
 # attendance
 
-@app.route('/public/markets/<market_slug>/vendors/<path:vendor_email>/assignments', methods=['GET'])
-def public_get_vendor_assignments(market_slug: str, vendor_email: str) -> Response:
-    """Public vendor assignment lookup by slug + email."""
-    result, status_code = AttendanceApi.get_vendor_assignment_summary(market_slug, vendor_email)
-    return jsonify(result), status_code
+@app.route('/public/markets/<market_slug>/vendor/check-in', methods=['POST'])
+def vendor_check_in(market_slug: str) -> Response:
+    """A signed-in vendor checks in for a date with the market's door code (ADR 0022). Bearer
+    token and ``{date, doorCode}``; counted against ``check-in:caller`` and ``check-in:address``."""
+    return VendorCheckInApi.check_in(market_slug)
 
 
-@app.route('/public/markets/<market_slug>/check-in', methods=['GET'])
-def public_checkin_page(market_slug: str) -> Response:
-    """What the check-in page can say before a vendor types anything: which market this is."""
-    result, status_code = AttendanceApi.get_checkin_page(market_slug)
-    return jsonify(result), status_code
-
-
-def _no_check_in_at(market_slug: str) -> Tuple[Response, int]:
-    """Why nobody can check in at this address: it has ended, or there is no market here.
-
-    An ended market's check-in page is a record and offers no check-in (bug 9), so a write there is
-    told so rather than told the market does not exist - the page has just said it does.
-    """
-    if AttendanceApi.get_check_in_market(market_slug):
-        return jsonify({"error": AttendanceApi.ENDED_REFUSAL}), 409
-    return jsonify({"error": "Market not found"}), 404
-
-
-@app.route('/public/markets/<market_slug>/attendance/checkin', methods=['DELETE'])
-def public_attendance_undo(market_slug: str) -> Response:
-    """Undo a check-in made on the wrong day, by slug + vendor email + date."""
-    data = json_object(required=False)
-    vendor_email = string_field(data, 'vendorEmail') or string_field(data, 'vendor_email') or ''
-    date = string_field(data, 'date') or ''
-
-    market_doc = AttendanceApi.get_published_market_by_slug(market_slug)
-    if not market_doc:
-        return _no_check_in_at(market_slug)
-
-    result, status_code = AttendanceApi.undo_attendance(
-        market_doc.get("id", ""), vendor_email, date,
-    )
-    return jsonify(result), status_code
-
-
-@app.route('/public/markets/<market_slug>/attendance/checkin', methods=['POST'])
-def public_attendance_checkin(market_slug: str) -> Response:
-    """Public attendance check-in by slug + vendor email + date."""
-    data = json_object(required=False)
-    vendor_email = string_field(data, 'vendorEmail') or string_field(data, 'vendor_email') or ''
-    date = string_field(data, 'date') or ''
-
-    market_doc = AttendanceApi.get_published_market_by_slug(market_slug)
-    if not market_doc:
-        return _no_check_in_at(market_slug)
-
-    result, status_code = AttendanceApi.record_attendance(
-        market_doc.get("id", ""), vendor_email, date,
-    )
-    return jsonify(result), status_code
+@app.route('/public/markets/<market_slug>/vendor/check-in', methods=['DELETE'])
+def vendor_undo_check_in(market_slug: str) -> Response:
+    """A signed-in vendor takes back their own check-in for a date, ``{date}``, no door code."""
+    return VendorCheckInApi.undo_check_in(market_slug)
 
 
 # applicant login - public, unauthenticated, attacker-facing

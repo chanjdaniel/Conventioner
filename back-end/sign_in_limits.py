@@ -58,6 +58,11 @@ VERIFY_CODE_PER_CALLER = SignInLimit("verify-code:caller", attempts=60, window=t
 # A remembered vendor's page asks once per visit (``applicant-login/resume``). Its secret is not to
 # be guessed, so this bounds the work a caller makes the database do, not a guess.
 RESUME_PER_CALLER = SignInLimit("resume:caller", attempts=60, window=timedelta(minutes=15))
+# A vendor checking in on their page sends the door code (``api/vendor_check_in.py``): bounded per
+# signed-in address and per caller, so a vendor at home cannot guess the code from the poster's
+# alphabet.
+CHECK_IN_PER_ADDRESS = SignInLimit("check-in:address", attempts=10, window=timedelta(minutes=15))
+CHECK_IN_PER_CALLER = SignInLimit("check-in:caller", attempts=60, window=timedelta(minutes=15))
 
 LIMITS = (
     REQUEST_CODE_PER_ADDRESS,
@@ -65,6 +70,8 @@ LIMITS = (
     VERIFY_CODE_PER_ADDRESS,
     VERIFY_CODE_PER_CALLER,
     RESUME_PER_CALLER,
+    CHECK_IN_PER_ADDRESS,
+    CHECK_IN_PER_CALLER,
 )
 
 

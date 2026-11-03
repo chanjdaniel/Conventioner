@@ -61,11 +61,12 @@ def only(db):
 
 
 def is_served_publicly(doc):
-    """The exact rule ``api/attendance.get_published_market_by_slug`` applies to a stored doc.
+    """The exact draft rule the public slug lookup (``market_documents.market_by_slug``) applies
+    to a stored doc.
 
     The prefilter prunes in Mongo, ``phase_from_market_document`` decides in Python. Asserting
-    against the real pair is what makes the migration's result mean "the public check-in URL
-    resolves" rather than "a field has the value we expected".
+    against the real pair is what makes the migration's result mean "the public URL resolves"
+    rather than "a field has the value we expected".
     """
     return (
         _matches(doc, non_draft_market_prefilter())

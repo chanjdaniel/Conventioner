@@ -1,8 +1,8 @@
 """An organizer checks a vendor in at the door, or undoes it (E29/F01/S02), and makes the
 market's door code, the vendor's proof that they are at the door (ADR 0022).
 
-The vendor's own check-in is public and keyed by the market's address; this is the organizer's,
-keyed by the market's id and held to the table's "Check vendors in" row, EDITOR by default, so a
+The vendor's own check-in is on their vendor page, behind their sign-in and the door code
+(``api/vendor_check_in.py``); this is the organizer's, keyed by the market's id and held to the table's "Check vendors in" row, EDITOR by default, so a
 volunteer at the door is added as an editor. It loads through the change loader, so an archived
 market's record is never changed, and it writes through ``record_attendance``, so the two doors
 record alike.
@@ -12,8 +12,10 @@ record alike.
 (``market_documents.leave_out_what_no_read_serves``), since a Viewer who read it could check
 vendors in by proxy. Reading and making it are held to the same "Check vendors in" row; making it
 loads through the change loader and only in ``market_days``. A new code replaces the old, which
-ends every poster of it; it is recorded in the market's history without the code itself.
+ends every poster of it; it is recorded in the market's history without the code itself. A code a
+vendor sends is compared here (``door_code_matches``), so the live code never leaves this module.
 """
+import hmac
 import secrets
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
@@ -69,6 +71,22 @@ def new_door_code() -> str:
 def door_url(slug: str, code: str) -> str:
     """The vendor page with the code, which the QR code opens: ``<app>/<slug>?door=<code>``."""
     return f"{frontend_url().rstrip('/')}/{quote(slug, safe='')}?door={quote(code, safe='')}"
+
+
+def normalized_door_code(typed: str) -> str:
+    """A typed code as the poster prints it: upper case, its spaces and dashes dropped ("k7m-4qp"
+    and "K7M 4QP" are "K7M4QP")."""
+    return "".join(typed.split()).replace("-", "").upper()
+
+
+def door_code_matches(market_id: str, typed: Optional[str]) -> bool:
+    """Is ``typed`` this market's live door code? Compared in constant time; a market with no code
+    yet matches nothing."""
+    held = _held_code(market_id)
+    if held is None or not isinstance(typed, str):
+        return False
+    return hmac.compare_digest(
+        normalized_door_code(typed).encode("utf-8"), str(held["code"]).encode("utf-8"))
 
 
 def _held_code(market_id: str) -> Optional[Dict[str, Any]]:
