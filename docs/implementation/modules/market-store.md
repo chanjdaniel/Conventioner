@@ -69,7 +69,7 @@ A new control is one line under its screen, and a new screen is a block beside t
 - the questions, the highlights, the automatic rejections: Change the form
 
 **Applications, the import and the start from a CSV**
-- Import, Start from a CSV: Import applications
+- Import, and the start's Create the form and plan: Import applications
 
 **Applications, the review and All**
 - verdicts and follow-ups: Give verdicts, while `verdictsSettledReason` is null; on an application already approved or rejected, Change a verdict, or overturn an automatic rejection too

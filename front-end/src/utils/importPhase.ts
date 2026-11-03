@@ -52,9 +52,9 @@ export function firstImportBlockers(market: Market | null | undefined): Precondi
 /**
  * Why importing is refused right now, or null when it is not. A market whose vendors apply on its
  * page takes no import in any phase, said before its phase or plan, as the server does. A draft's
- * first import also waits on
- * what would keep it from entering Review (`firstImportBlockers`), and says every one of them at
- * once, as the server does (T205/F09): one trip to Market Setup, not one per missing thing.
+ * first import also waits on what would keep it from entering Review (`firstImportBlockers`), and
+ * says every one of them at once, as the server does (T205/F09): one trip to Market Setup, not one
+ * per missing thing.
  */
 export function importRefusal(market: Market | null | undefined): string | null {
   if (takesNoImport(market)) return FORM_MARKET_REFUSAL;
