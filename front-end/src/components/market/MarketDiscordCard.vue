@@ -19,8 +19,9 @@
  * never patching it.
  *
  * The invite link is typed, so the field holds its own draft: a link the server refuses stays there
- * to be finished, under its refusal's words, however often the market is read meanwhile. Only a
- * change of the stored link replaces it.
+ * to be finished, under its refusal's words, however often the market is read meanwhile. A stored
+ * link read later shows only if nothing unsaved stands in the field; another server or market
+ * always replaces it.
  */
 import { computed, onUnmounted, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
@@ -159,23 +160,28 @@ const inviteError = ref<string | null>(null);
 
 const storedInvite = computed(() => connection.value?.inviteLink ?? '');
 const inviteDraft = ref(storedInvite.value);
-// The market and the server are watched too: a refused link with nothing stored leaves the stored
-// link as it was when the market is disconnected, and it is not the next connection's.
-watch([() => props.market.id, () => connection.value?.guildId, storedInvite], () => {
+function showStoredInvite(): void {
   inviteDraft.value = storedInvite.value;
   inviteError.value = null;
+}
+// What was typed was about that server or market, even with no stored link changing.
+watch([() => props.market.id, () => connection.value?.guildId], showStoredInvite);
+// A re-read never overwrites unsaved work (one market, from the server): the draft follows the
+// stored link only while it held the old one, or once it reads the new one, just saved.
+watch(storedInvite, (stored, was) => {
+  if (inviteDraft.value === was || inviteDraft.value.trim() === stored) showStoredInvite();
 });
 
 async function save(
   choice: Record<string, string | null>,
-  error: Ref<string | null>,
+  refusalLine: Ref<string | null>,
 ): Promise<void> {
-  error.value = null;
+  refusalLine.value = null;
   try {
     await api.put(base.value, choice);
     emit('changed');
   } catch (err) {
-    error.value = getApiErrorMessage(err, 'This choice was not saved.');
+    refusalLine.value = getApiErrorMessage(err, 'This choice was not saved.');
   }
 }
 

@@ -96,9 +96,10 @@ test('a half-typed invite link is refused in its own words, and stays to be fini
   seedFakeDiscordServer({
     guildId,
     name: 'Riverside Makers',
+    // The role sits above the bot's, so the warning that follows choosing it shows the re-read.
     roles: [
-      { id: botRoleId, name: 'Conventioner', position: 2 },
-      { id: roleId, name: 'Vendor', position: 1 },
+      { id: botRoleId, name: 'Conventioner', position: 1 },
+      { id: roleId, name: 'Vendor', position: 2 },
     ],
     botRoles: [botRoleId],
     members: [],
@@ -113,54 +114,35 @@ test('a half-typed invite link is refused in its own words, and stays to be fini
   const tools = new ToolsPage(page);
   await tools.goto(marketId);
   await expect(
-    tools.roleSelect.locator('option', { hasText: 'Vendor' }),
+    tools.roleOption(roleId),
     'the stack answers for Discord only with DISCORD_FAKE=true (docs/TESTING.md)',
   ).toBeAttached({ timeout: 15000 });
 
   // Left half-typed: the words under the choices, and the text still there to be finished.
-  await tools.inviteInput.fill('discord.gg/abc');
-  await tools.inviteInput.blur();
+  await tools.leaveInviteLink('discord.gg/abc');
   await expect(tools.inviteError).toHaveText(
     'An invite link is a web address starting https://, like https://discord.gg/abc123.',
   );
   await expect(tools.inviteInput).toHaveValue('discord.gg/abc');
 
   // A role saved meanwhile re-reads the market, and says nothing of the link, still not saved.
-  await tools.roleSelect.selectOption({ label: 'Vendor' });
-  await expect(tools.roleSelect).toHaveValue(roleId);
-  await expect
-    .poll(() => mongoEval(`db.markets.findOne({ id: ${JSON.stringify(marketId)} }).discord.roleId`))
-    .toBe(roleId);
+  await tools.roleSelect.selectOption(roleId);
+  await expect(tools.roleWarning).toBeVisible();
   await expect(tools.inviteInput).toHaveValue('discord.gg/abc');
   await expect(tools.inviteError).toBeVisible();
 
   // Finished, it saves, the words go, and a reload shows it.
-  await tools.inviteInput.fill('https://discord.gg/abc');
-  await tools.inviteInput.blur();
+  await tools.leaveInviteLink('https://discord.gg/abc');
   await expect(tools.inviteError).toHaveCount(0);
-  await expect
-    .poll(() =>
-      mongoEval(`db.markets.findOne({ id: ${JSON.stringify(marketId)} }).discord.inviteLink`),
-    )
-    .toBe('https://discord.gg/abc');
   await page.reload();
   await expect(tools.inviteInput).toHaveValue('https://discord.gg/abc', { timeout: 15000 });
 
-  // Refused again, then cleared: the words go and the stored link is empty.
-  await tools.inviteInput.fill('discord.gg/abc');
-  await tools.inviteInput.blur();
+  // Refused again, then cleared: the words go, and a reload shows no link stored.
+  await tools.leaveInviteLink('discord.gg/abc');
   await expect(tools.inviteError).toBeVisible();
-  await tools.inviteInput.fill('');
-  await tools.inviteInput.blur();
+  await tools.leaveInviteLink('');
   await expect(tools.inviteError).toHaveCount(0);
   await expect(tools.inviteInput).toHaveValue('');
-  await expect
-    .poll(() =>
-      mongoEval(
-        `String(db.markets.findOne({ id: ${JSON.stringify(marketId)} }).discord.inviteLink ?? '')`,
-      ),
-    )
-    .toBe('');
   await page.reload();
   await expect(tools.roleSelect).toHaveValue(roleId, { timeout: 15000 });
   await expect(tools.inviteInput).toHaveValue('');

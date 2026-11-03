@@ -16,6 +16,7 @@ export class ToolsPage {
   readonly roleSelect: Locator;
   readonly inviteInput: Locator;
   readonly inviteError: Locator;
+  readonly roleWarning: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -28,9 +29,25 @@ export class ToolsPage {
     this.roleSelect = page.getByTestId('discord-role-select');
     this.inviteInput = page.getByTestId('discord-invite-input');
     this.inviteError = page.getByTestId('discord-invite-error');
+    this.roleWarning = page.getByTestId('discord-role-warning');
   }
 
   async goto(marketId: string): Promise<void> {
     await this.page.goto(marketScreenPath(marketId, 'tools'));
+  }
+
+  /** The server's role, once the card has read the server's roles. */
+  roleOption(roleId: string): Locator {
+    return this.roleSelect.locator(`option[value="${roleId}"]`);
+  }
+
+  /** Write in "Invite link" and leave the field, which saves it, until the server has answered. */
+  async leaveInviteLink(text: string): Promise<void> {
+    const answered = this.page.waitForResponse(
+      (response) => response.request().method() === 'PUT' && response.url().endsWith('/discord'),
+    );
+    await this.inviteInput.fill(text);
+    await this.inviteInput.blur();
+    await answered;
   }
 }

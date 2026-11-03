@@ -63,6 +63,15 @@ function card(props: Market) {
 const find = (wrapper: ReturnType<typeof card>, id: string) =>
   wrapper.find(`[data-testid="${id}"]`);
 
+const invite = (wrapper: ReturnType<typeof card>) => find(wrapper, 'discord-invite-input');
+const typed = (wrapper: ReturnType<typeof card>) =>
+  (invite(wrapper).element as HTMLInputElement).value;
+/** Type into the field without leaving it, so nothing saves. */
+async function typeInvite(wrapper: ReturnType<typeof card>, text: string): Promise<void> {
+  (invite(wrapper).element as HTMLInputElement).value = text;
+  await invite(wrapper).trigger('input');
+}
+
 /** The answer of a save the server refused, in its own words. */
 const refusedWith = (error: string) => ({
   isAxiosError: true,
@@ -384,10 +393,6 @@ describe('a refused invite link', () => {
     return wrapper;
   }
 
-  const invite = (wrapper: ReturnType<typeof card>) => find(wrapper, 'discord-invite-input');
-  const typed = (wrapper: ReturnType<typeof card>) =>
-    (invite(wrapper).element as HTMLInputElement).value;
-
   it('says its words under the choices and stays in the field to be finished', async () => {
     const wrapper = await refused();
 
@@ -488,36 +493,60 @@ describe('a refused invite link', () => {
 
 describe('the invite field and a market read again', () => {
   const STORED = { ...CONNECTED, inviteLink: 'https://discord.gg/stored' };
-  const invite = (wrapper: ReturnType<typeof card>) =>
-    find(wrapper, 'discord-invite-input').element as HTMLInputElement;
 
   it('opens on the stored link', async () => {
     const wrapper = card(market({ discord: STORED }));
     await flushPromises();
 
-    expect(invite(wrapper).value).toBe('https://discord.gg/stored');
+    expect(typed(wrapper)).toBe('https://discord.gg/stored');
   });
 
   it('shows a stored link read after the card opened', async () => {
     const wrapper = card(market({ discord: CONNECTED }));
     await flushPromises();
-    expect(invite(wrapper).value).toBe('');
+    expect(typed(wrapper)).toBe('');
 
     await wrapper.setProps({ market: market({ discord: STORED }) });
 
-    expect(invite(wrapper).value).toBe('https://discord.gg/stored');
+    expect(typed(wrapper)).toBe('https://discord.gg/stored');
   });
 
   it('leaves what is being typed alone when the stored link is as it was', async () => {
     const wrapper = card(market({ discord: STORED }));
     await flushPromises();
 
-    invite(wrapper).value = 'https://discord.gg/half';
-    await find(wrapper, 'discord-invite-input').trigger('input');
+    await typeInvite(wrapper, 'https://discord.gg/half');
     await wrapper.setProps({ market: market({ discord: { ...STORED } }) });
 
-    expect(invite(wrapper).value).toBe('https://discord.gg/half');
+    expect(typed(wrapper)).toBe('https://discord.gg/half');
     expect(api.put).not.toHaveBeenCalled();
+  });
+
+  it('keeps what was typed after a save when that save`s re-read arrives', async () => {
+    const wrapper = card(market({ discord: CONNECTED }));
+    await flushPromises();
+    await invite(wrapper).setValue('https://discord.gg/first');
+    await flushPromises();
+
+    await typeInvite(wrapper, 'https://discord.gg/second');
+    await wrapper.setProps({
+      market: market({ discord: { ...CONNECTED, inviteLink: 'https://discord.gg/first' } }),
+    });
+
+    expect(typed(wrapper)).toBe('https://discord.gg/second');
+  });
+
+  it('keeps a refused link and its words when someone else stores another', async () => {
+    api.put.mockRejectedValueOnce(refusedWith('An invite link is a web address.'));
+    const wrapper = card(market({ discord: CONNECTED }));
+    await flushPromises();
+    await invite(wrapper).setValue('discord.gg/abc');
+    await flushPromises();
+
+    await wrapper.setProps({ market: market({ discord: STORED }) });
+
+    expect(typed(wrapper)).toBe('discord.gg/abc');
+    expect(find(wrapper, 'discord-invite-error').text()).toBe('An invite link is a web address.');
   });
 });
 
