@@ -398,7 +398,7 @@ describe('price groups (E43/F01/S02)', () => {
     ).toBe('Example College student + club member');
     expect(
       (wrapper.get('[data-testid="pricing-group-0-price-0"]').element as HTMLInputElement).value,
-    ).toBe('12');
+    ).toBe('12.00');
     expect(wrapper.find('[data-testid="pricing-everyone-else-remove"]').exists()).toBe(false);
   });
 

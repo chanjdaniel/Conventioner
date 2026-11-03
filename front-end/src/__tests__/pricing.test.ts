@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 import {
   CURRENCIES,
   centsFromText,
-  formatPrice,
   groupNameProblem,
   priceLine,
   priceText,
@@ -23,19 +22,7 @@ const PRICED: PricingObject = {
 };
 
 describe('a price reads in the market currency', () => {
-  it('a whole amount carries no cents', () => {
-    expect(formatPrice(3500, 'CAD')).toBe('$35');
-  });
-
-  it('cents show where there are any', () => {
-    expect(formatPrice(1501, 'CAD')).toBe('$15.01');
-  });
-
-  it('another currency names itself', () => {
-    expect(formatPrice(3500, 'USD')).toBe('US$35');
-    expect(formatPrice(3500, 'EUR')).toBe('€35');
-  });
-
+  // What each amount reads is pinned by the table both sides read, in `moneyTexts.test.ts`.
   it('offers Canadian dollars first, the default', () => {
     expect(CURRENCIES[0].code).toBe('CAD');
   });
@@ -44,11 +31,11 @@ describe('a price reads in the market currency', () => {
 describe('the date card says what the assignment costs', () => {
   it('names the tier, the size and the price', () => {
     expect(priceLine({ tier: 'Gold', tableChoice: 'Full Table', priceCents: 3500 }, 'CAD')).toBe(
-      'Gold, full table, $35',
+      'Gold, full table, $35.00',
     );
     expect(
       priceLine({ tier: 'Silver', tableChoice: 'Half Table (Left)', priceCents: 1500 }, 'CAD'),
-    ).toBe('Silver, half table, $15');
+    ).toBe('Silver, half table, $15.00');
   });
 
   it('says nothing for an assignment with no price', () => {
@@ -69,7 +56,7 @@ describe('the date card says what the assignment costs', () => {
         },
         'CAD',
       ),
-    ).toBe('Gold, full table, Example College student + club member, $12');
+    ).toBe('Gold, full table, Example College student + club member, $12.00');
     expect(
       priceLine(
         {
@@ -80,12 +67,12 @@ describe('the date card says what the assignment costs', () => {
         },
         'CAD',
       ),
-    ).toBe('Silver, full table, Everyone else, $30');
+    ).toBe('Silver, full table, Everyone else, $30.00');
   });
 
   it('leaves the tier out where the table has none', () => {
     expect(priceLine({ tier: '', tableChoice: 'Full Table', priceCents: 1000 }, 'CAD')).toBe(
-      'Full table, $10',
+      'Full table, $10.00',
     );
   });
 });
@@ -111,10 +98,12 @@ describe('a typed amount becomes cents', () => {
     expect(centsFromText(text)).toBe(undefined);
   });
 
-  it('a stored price reads back as typed', () => {
-    expect(priceText(3500)).toBe('35');
+  it('a stored price reads back as a plain number to the cent', () => {
+    expect(priceText(3500)).toBe('35.00');
     expect(priceText(3550)).toBe('35.50');
     expect(priceText(5)).toBe('0.05');
+    expect(priceText(0)).toBe('0.00');
+    expect(priceText(null)).toBe('');
     expect(priceText(undefined)).toBe('');
   });
 });

@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/market/MarketPlanTab.vue
   - front-end/src/components/elements/ElementPricing.vue
-verified: 2026-10-30
+verified: 2026-11-03
 sources:
   - wayfinding/the-order-of-the-work/02
   - wayfinding/the-order-of-the-work/03
@@ -171,7 +171,7 @@ Optional: a market with no prices shows no price anywhere ([a price follows the 
    Either keeps the value it had before the typing - a blank cell keeps no price, never the prefix before the error ("3" then "3x" keeps nothing) - and the plan waits to save until it is fixed, so "Plan saved" never stands beside text that was not kept.
 
 A tier renamed in Tier Setup keeps its price, and a removed tier's price goes with it; a plan with no tiers says "Prices are set by tier. Add a tier in Tier Setup to price its tables." and offers neither the share nor the currency until it has one.
-Each assignment then shows its price on its date card in the vendor drawer ("Gold, full table, $35", naming the vendor's group where the card has groups; [the vendor drawer](vendor-drawer.md)).
+Each assignment then shows its price on its date card in the vendor drawer ("Gold, full table, $35.00", naming the vendor's group where the card has groups; [the vendor drawer](vendor-drawer.md)).
 The card sits after Section Setup because its columns are the tiers the sections give tables, and it settles with the rest of the setup (E7).
 
 ## Superseded

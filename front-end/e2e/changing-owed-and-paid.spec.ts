@@ -12,7 +12,7 @@ import { TablesPage } from './pages/TablesPage';
  * An Admin changes the amount owed and the amount paid; freeing a table asks (E44/F01/S02).
  *
  * The market's owner, an Admin and more, sets a line to $0 to waive it; frees a paid seat and ticks
- * "Also remove its $15 from what Alice owes?", so the tab reads paid more than owed, a refund to
+ * "Also remove its $15.00 from what Alice owes?", so the tab reads paid more than owed, a refund to
  * issue; and records the refund once it is given back, which squares the account (Daniel, T92 Q26).
  */
 const SUNDAY = '2099-05-08';
@@ -113,7 +113,7 @@ async function openSunday(page: Page, marketId: string): Promise<TablesPage> {
 /** Free Alice's Sunday seat from the Result page, ticking the deduction or not. */
 async function freeSunday(page: Page, marketId: string, deduct: boolean) {
   const tables = await openSunday(page, marketId);
-  const box = tables.dialog.getByLabel(/Also remove its \$15 from what .* owes\?/);
+  const box = tables.dialog.getByLabel(/Also remove its \$15\.00 from what .* owes\?/);
   await expect(box).not.toBeChecked();
   if (deduct) await box.check();
   await tables.dialog.getByTestId('placement-dialog-free').click();
@@ -127,7 +127,7 @@ test.describe('changing what is owed and paid', () => {
   }) => {
     const marketId = await alicePaidInFull(request);
     const tab = await paymentTab(page, marketId);
-    await expect(tab.getByTestId('payment-owed')).toHaveText('$50');
+    await expect(tab.getByTestId('payment-owed')).toHaveText('$50.00');
 
     const first = tab.getByTestId('payment-line').first();
     await first.getByTestId('payment-line-menu-button').click();
@@ -135,21 +135,21 @@ test.describe('changing what is owed and paid', () => {
     const dialog = page.getByTestId('change-owed-window');
     await dialog.getByLabel('Amount owed (CAD)').fill('0');
     await expect(dialog.getByTestId('change-owed-sentence')).toContainText(
-      'will owe $0 instead of $35',
+      'will owe $0.00 instead of $35.00',
     );
     await dialog.getByRole('button', { name: 'Set amount owed' }).click();
     await expect(dialog).toBeHidden();
 
-    await expect(tab.getByTestId('payment-owed')).toHaveText('$15');
-    await expect(first.getByTestId('payment-line-owed')).toHaveText('$0');
-    await expect(first.getByTestId('payment-line-price')).toHaveText('$35');
+    await expect(tab.getByTestId('payment-owed')).toHaveText('$15.00');
+    await expect(first.getByTestId('payment-line-owed')).toHaveText('$0.00');
+    await expect(first.getByTestId('payment-line-price')).toHaveText('$35.00');
     await expect(first.getByTestId('payment-line-set')).toContainText(`Set by ${TEST_USER.email}`);
 
     // And back: the calculated price, once confirmed.
     await first.getByTestId('payment-line-menu-button').click();
     await first.getByTestId('payment-line-menu-calculated').click();
     await page.getByTestId('payment-confirm-submit-button').click();
-    await expect(tab.getByTestId('payment-owed')).toHaveText('$50');
+    await expect(tab.getByTestId('payment-owed')).toHaveText('$50.00');
     await expect(first.getByTestId('payment-line-set')).toHaveCount(0);
   });
 
@@ -163,9 +163,9 @@ test.describe('changing what is owed and paid', () => {
     const tab = await paymentTab(page, marketId);
     const sunday = tab.locator(`[data-testid="payment-line"][data-date="${SUNDAY}"]`);
     await expect(sunday.getByTestId('payment-line-source')).toContainText('table freed');
-    await expect(sunday.getByTestId('payment-line-owed')).toHaveText('$0');
-    await expect(tab.getByTestId('payment-paid')).toHaveText('$50');
-    await expect(tab.getByTestId('payment-balance')).toHaveText('Paid $15 more than owed');
+    await expect(sunday.getByTestId('payment-line-owed')).toHaveText('$0.00');
+    await expect(tab.getByTestId('payment-paid')).toHaveText('$50.00');
+    await expect(tab.getByTestId('payment-balance')).toHaveText('Paid $15.00 more than owed');
 
     await page.getByTestId('payment-refund').click();
     const dialog = page.getByTestId('record-payment-window');
@@ -176,7 +176,7 @@ test.describe('changing what is owed and paid', () => {
 
     await expect(tab.getByTestId('payment-balance')).toHaveText('Paid in full');
     const refund = tab.locator('[data-testid="payment-entry"][data-kind="refund"]');
-    await expect(refund.getByTestId('payment-entry-amount')).toHaveText('-$15');
+    await expect(refund.getByTestId('payment-entry-amount')).toHaveText('-$15.00');
     await expect(refund).toContainText('Refund by e-transfer');
 
     // Each change is in the vendor's drawer History, with who and when (E40/F01/S04).
@@ -184,13 +184,13 @@ test.describe('changing what is owed and paid', () => {
     const said = (action: string) =>
       page.locator(`[data-testid="market-history-entry"][data-action="${action}"]`);
     await expect(said('record-payment').getByTestId('market-history-sentence')).toHaveText(
-      `${TEST_USER.email} recorded a payment of $50 from Alice Example`,
+      `${TEST_USER.email} recorded a payment of $50.00 from Alice Example`,
     );
     await expect(said('change-owed').getByTestId('market-history-sentence')).toHaveText(
-      `${TEST_USER.email} set what Alice Example owes on May 8, 2099 to $0`,
+      `${TEST_USER.email} set what Alice Example owes on May 8, 2099 to $0.00`,
     );
     await expect(said('adjust-paid').getByTestId('market-history-sentence')).toHaveText(
-      `${TEST_USER.email} recorded a refund of $15 to Alice Example`,
+      `${TEST_USER.email} recorded a refund of $15.00 to Alice Example`,
     );
     for (const action of ['record-payment', 'change-owed', 'adjust-paid']) {
       await expect(said(action).locator('.history-when')).toHaveText(/\d{4} at \d{1,2}:\d{2}/);
@@ -209,7 +209,7 @@ test.describe('changing what is owed and paid', () => {
     await expect(sunday.getByTestId('payment-line-source')).toContainText(
       'Landing 1, Silver, half table - table freed',
     );
-    await expect(sunday.getByTestId('payment-line-owed')).toHaveText('$15');
+    await expect(sunday.getByTestId('payment-line-owed')).toHaveText('$15.00');
     await expect(tab.getByTestId('payment-balance')).toHaveText('Paid in full');
   });
 
@@ -224,7 +224,7 @@ test.describe('changing what is owed and paid', () => {
     });
     let tables = await openSunday(page, marketId);
     await expect(
-      tables.dialog.getByLabel(/Also remove its \$10 from what .* owes\?/),
+      tables.dialog.getByLabel(/Also remove its \$10\.00 from what .* owes\?/),
     ).toBeVisible();
     await page.keyboard.press('Escape');
 

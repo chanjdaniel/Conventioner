@@ -127,10 +127,10 @@ test.describe('the Pricing card', () => {
     await withUser(browser, EDITOR.email, EDITOR.password, async (page) => {
       const cards = await dateCards(page, marketId, alice, PLAN.marketDates.length);
       await expect(cards.nth(0).getByTestId('vendor-date-card-price')).toHaveText(
-        'Gold, full table, $35',
+        'Gold, full table, $35.00',
       );
       await expect(cards.nth(1).getByTestId('vendor-date-card-price')).toHaveText(
-        'Silver, half table, $15',
+        'Silver, half table, $15.00',
       );
 
       // Past draft the card is read-only, under the setup's own lock line.
@@ -139,7 +139,7 @@ test.describe('the Pricing card', () => {
       await expect(card).toBeVisible({ timeout: 15000 });
       await expect(page.getByTestId('plan-setup-settled')).toContainText('The setup is settled');
       await expect(card.getByRole('textbox', { name: 'Everyone else Gold' })).toBeDisabled();
-      await expect(card.getByRole('textbox', { name: 'Everyone else Gold' })).toHaveValue('35');
+      await expect(card.getByRole('textbox', { name: 'Everyone else Gold' })).toHaveValue('35.00');
       await expect(card.getByTestId('pricing-half-percent')).toBeDisabled();
       await expect(card.getByTestId('pricing-currency')).toBeDisabled();
     });

@@ -29,7 +29,7 @@ watch(
   () => props.open,
   (open) => {
     if (!open) return;
-    amount.value = priceText(props.line?.owedCents ?? 0) || '0';
+    amount.value = priceText(props.line?.owedCents ?? 0);
     error.value = '';
   },
   { immediate: true },
@@ -42,7 +42,7 @@ const amountError = computed(() =>
 );
 const account = computed(() => ({ currency: props.currency }));
 
-/** The change, said before Save: "Friday, May 8, 2099 will owe $0 instead of $35." */
+/** The change, said before Save: "Friday, May 8, 2099 will owe $0.00 instead of $35.00." */
 const sentence = computed(() => {
   const line = props.line;
   if (!line || cents.value === null || cents.value === line.owedCents) return '';
@@ -84,7 +84,7 @@ async function save(): Promise<void> {
       <p v-if="line" class="change-owed-note">
         The pricing calculates
         {{ line.priceCents == null ? 'no price' : money(line.priceCents, account) }} for this day.
-        Set $0 to waive it.
+        Set $0.00 to waive it.
       </p>
       <label class="change-owed-field">
         <span class="field-label">Amount owed{{ currency ? ` (${currency})` : '' }}</span>

@@ -344,10 +344,10 @@ for (const size of PHONE_AND_DESK) {
       await expect(byTier.getByRole('rowheader')).toHaveText(['Gold']);
       const gold = byTier.getByRole('row').filter({ has: page.getByRole('rowheader') });
       await expect(gold.getByRole('cell')).toHaveCount(4);
-      const goldValues = ['$70', '$35', '$35', '$0'];
+      const goldValues = ['$70.00', '$35.00', '$35.00', '$0.00'];
       for (const [i, cell] of (await gold.getByRole('cell').all()).entries()) {
         await expect(cell, 'a Gold value').toHaveAccessibleName(
-          new RegExp(`^\\S*\\${goldValues[i]}\\b`),
+          new RegExp(`^\\S*${goldValues[i].replace(/[$.]/g, '\\$&')}\\b`),
         );
       }
       const vendorsTable = page
@@ -697,9 +697,12 @@ for (const size of PHONE_AND_DESK) {
 
       await page.goto(marketScreenPath(marketId, 'stats'));
       const headlines = page.getByTestId('stats-headlines');
-      await expect(headlines.getByTestId('stats-headline-stillOwed')).toHaveText('$35 still owed', {
-        timeout: 15000,
-      });
+      await expect(headlines.getByTestId('stats-headline-stillOwed')).toHaveText(
+        '$35.00 still owed',
+        {
+          timeout: 15000,
+        },
+      );
       await expectFits(page, 'Stats');
 
       // The headlines wrap in the window, each link a thumb's target on its own line.
@@ -741,7 +744,7 @@ for (const size of PHONE_AND_DESK) {
         async (viewer) => {
           await viewer.goto(marketScreenPath(marketId, 'stats'));
           await expect(viewer.getByTestId('stats-headline-stillOwed')).toHaveText(
-            '$35 still owed',
+            '$35.00 still owed',
             { timeout: 15000 },
           );
           await expect(viewer.getByTestId('stats-among-all')).toBeVisible();

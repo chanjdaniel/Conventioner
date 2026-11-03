@@ -123,14 +123,14 @@ test.describe('the Payment tab', () => {
       const lines = tab.getByTestId('payment-line');
       await expect(lines).toHaveCount(2);
       await expect(lines.nth(0)).toContainText('North Wing 1, Gold, full table');
-      await expect(lines.nth(0).getByTestId('payment-line-owed')).toHaveText('$35');
-      await expect(tab.getByTestId('payment-owed')).toHaveText('$70');
-      await expect(tab.getByTestId('payment-paid')).toHaveText('$0');
-      await expect(tab.getByTestId('payment-balance')).toHaveText('Owes $70');
+      await expect(lines.nth(0).getByTestId('payment-line-owed')).toHaveText('$35.00');
+      await expect(tab.getByTestId('payment-owed')).toHaveText('$70.00');
+      await expect(tab.getByTestId('payment-paid')).toHaveText('$0.00');
+      await expect(tab.getByTestId('payment-balance')).toHaveText('Owes $70.00');
 
       await recordPayment(page, '35', 'e-transfer');
-      await expect(tab.getByTestId('payment-balance')).toHaveText('Owes $35');
-      await expect(tab.getByTestId('payment-paid')).toHaveText('$35');
+      await expect(tab.getByTestId('payment-balance')).toHaveText('Owes $35.00');
+      await expect(tab.getByTestId('payment-paid')).toHaveText('$35.00');
 
       await recordPayment(page, '35', 'cash');
       await expect(tab.getByTestId('payment-balance')).toHaveText('Paid in full');
@@ -161,8 +161,8 @@ test.describe('the Payment tab', () => {
       await expect(lines.nth(1).getByTestId('payment-line-source')).toHaveText(
         /^North Wing 1, Gold, full table - table freed [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
       );
-      await expect(lines.nth(1).getByTestId('payment-line-owed')).toHaveText('$35');
-      await expect(tab.getByTestId('payment-owed')).toHaveText('$70');
+      await expect(lines.nth(1).getByTestId('payment-line-owed')).toHaveText('$35.00');
+      await expect(tab.getByTestId('payment-owed')).toHaveText('$70.00');
       await expect(tab.getByTestId('payment-balance')).toHaveText('Paid in full');
     });
   });
@@ -172,7 +172,7 @@ test.describe('the Payment tab', () => {
 
     await withUser(browser, VIEWER.email, VIEWER.password, async (page) => {
       const tab = await paymentTab(page, marketId);
-      await expect(tab.getByTestId('payment-owed')).toHaveText('$70');
+      await expect(tab.getByTestId('payment-owed')).toHaveText('$70.00');
       await expect(tab.getByText('No payments recorded.')).toBeVisible();
       await expect(page.getByTestId('payment-record')).toHaveCount(0);
     });

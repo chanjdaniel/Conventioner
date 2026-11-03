@@ -104,7 +104,7 @@ async function fourVendorsInEachState(request: APIRequestContext): Promise<strin
   return marketId;
 }
 
-/** What a vendor's Payment tab says of their balance: "Owes $70", "Paid in full", ... */
+/** What a vendor's Payment tab says of their balance: "Owes $70.00", "Paid in full", ... */
 async function paymentTabBalance(page: Page, marketId: string, email: string): Promise<string> {
   const query = new URLSearchParams({ vendor: email, vendorTab: 'payment' });
   await page.goto(`${marketScreenPath(marketId, 'vendors')}?${query.toString()}`);
@@ -142,7 +142,7 @@ test('exporting "Owes" gives exactly the vendors whose Payment tab says they owe
       return [email!, stillOwed!];
     }),
   );
-  expect(Object.fromEntries(exported)).toEqual({ [ALICE]: '$70', [DAVE]: '$25' });
+  expect(Object.fromEntries(exported)).toEqual({ [ALICE]: '$70.00', [DAVE]: '$25.00' });
 
   // Each vendor's own Payment tab, the account the file was read from.
   const owing = new Map<string, string>();
@@ -165,4 +165,31 @@ test('exporting "Owes" gives exactly the vendors whose Payment tab says they owe
     onThePage.set((await row.getAttribute('data-email'))!, balance.slice('Owes '.length));
   }
   expect(onThePage).toEqual(exported);
+});
+
+test('a refund due reads "-$15.00" in the file, to the cent and a number to a spreadsheet', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const marketId = await fourVendorsInEachState(request);
+
+  const vendors = new VendorsPage(page);
+  await vendors.goto(marketId);
+  await expect(vendors.vendorListItems).toHaveCount(4);
+  await vendors.exportButton.click();
+  const dialog = new VendorExportDialog(page);
+  await expect(dialog.window).toBeVisible();
+
+  await dialog.payment.selectOption({ label: 'Paid more than owed' });
+  await dialog.column('status').uncheck();
+  await dialog.column('stillOwed').check();
+  await expect(dialog.summary).toHaveText('1 vendor, 3 columns');
+
+  // Carol paid $30.00 for a $15.00 half table. The cell is the file's own bytes: a hyphen-minus
+  // before the "$", which Google Sheets and Excel read as minus 15, never the minus sign U+2212.
+  const { text } = await dialog.download();
+  const [header, carol, ...rest] = text.slice(1).trim().split(/\r?\n/);
+  expect(header).toBe('Name,Email,Still owed');
+  expect(carol!.split(',').slice(1)).toEqual([CAROL, '-$15.00']);
+  expect(rest).toEqual([]);
 });

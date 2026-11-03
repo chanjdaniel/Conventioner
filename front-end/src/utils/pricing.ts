@@ -50,23 +50,22 @@ export function groupNameProblem(
   return taken ? 'Another group is called this.' : null;
 }
 
-/** The most one table-day may cost, as the server holds it: $100,000. */
+/** The most one table-day may cost, as the server holds it: $100,000.00. */
 const MOST_CENTS = 10_000_000;
 
-/** An amount in the market's currency: "$35", or "$15.01" where there are cents. */
+/** An amount in the market's currency, always to the cent: "$35.00", "$15.01", "US$1,234.50". */
 export function formatPrice(cents: number, currency: string): string {
-  const fraction = cents % 100 === 0 ? 0 : 2;
   return new Intl.NumberFormat('en-CA', {
     style: 'currency',
     currency,
-    minimumFractionDigits: fraction,
-    maximumFractionDigits: fraction,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(cents / 100);
 }
 
 /**
- * One assignment as its date card prices it: "Gold, full table, $35", or with the card's row that
- * set it where the card has groups, "Gold, full table, Example College student + club member, $12"; null where
+ * One assignment as its date card prices it: "Gold, full table, $35.00", or with the card's row that
+ * set it where the card has groups, "Gold, full table, Example College student + club member, $12.00"; null where
  * it has no price.
  */
 export function priceLine(
@@ -111,10 +110,10 @@ export function percentFromText(text: string): number | undefined {
   return percent <= 100 ? percent : undefined;
 }
 
-/** A stored price as the cell shows it: "35", "35.50"; blank where there is none. */
+/** A stored price as a plain number to the cent: "35.00", "35.50"; blank where there is none. */
 export function priceText(cents: number | null | undefined): string {
   if (cents == null) return '';
-  return cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2);
+  return (cents / 100).toFixed(2);
 }
 
 /**
