@@ -12,7 +12,7 @@ describes:
   - front-end/e2e/the-markets-history.spec.ts
   - front-end/e2e/an-address-breaks-only-before-its-at.spec.ts
   - front-end/src/utils/historyReaders/
-verified: 2026-11-02
+verified: 2026-11-03
 sources:
   - E40/F01/S03
   - E40/F01/S04
