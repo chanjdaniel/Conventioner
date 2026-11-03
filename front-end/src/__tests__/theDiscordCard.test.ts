@@ -493,6 +493,20 @@ describe('a refused invite link', () => {
     expect(typed(wrapper)).toBe('');
     expect(find(wrapper, 'discord-invite-error').exists()).toBe(false);
   });
+
+  it('is forgotten on another market connected to the same server', async () => {
+    const wrapper = await refused();
+
+    await wrapper.setProps({
+      market: {
+        ...market({ discord: { ...CONNECTED, inviteLink: 'https://discord.gg/other' } }),
+        id: 'market-456',
+      },
+    });
+
+    expect(typed(wrapper)).toBe('https://discord.gg/other');
+    expect(find(wrapper, 'discord-invite-error').exists()).toBe(false);
+  });
 });
 
 describe('the invite field and a market read again', () => {
