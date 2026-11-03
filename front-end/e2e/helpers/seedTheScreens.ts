@@ -2,6 +2,7 @@ import type { APIRequestContext } from '@playwright/test';
 import { mongoEval } from './mongo';
 import { approvedVendorApplication, insertApplications } from './seedApplication';
 import { seedDraftMarket } from './seedDraftMarket';
+import { decideReviewSetup } from './decideReviewSetup';
 import { transitionMarket } from './seedPhaseMarket';
 import {
   ensureOrganizationAdmin,
@@ -229,6 +230,8 @@ async function createMarket(
     data: { fields: FIELDS },
   });
   if (!form.ok()) throw new Error(`Form save failed: ${form.status()} ${await form.text()}`);
+  // And its review setup decided (T206): Review waits on it.
+  await decideReviewSetup(api, backend, marketId);
   return { marketId, marketName: name, marketSlug: marketNameToSlug(name) };
 }
 

@@ -9,7 +9,7 @@ values already naming what the market offers.
 """
 import pytest
 
-from conftest import FakeMarketsCollection, stored_market
+from conftest import REVIEW_SETUP_DECIDED, FakeMarketsCollection, stored_market
 
 import api.markets as MarketsApi
 import csv_import as CsvImport
@@ -1628,7 +1628,7 @@ class TestWhenImportingIsAllowed:
     assignment on the applicants are settled."""
 
     def test_a_draft_and_review_take_an_import(self, before_the_market):
-        doc = _market_doc(setup=COMPLETE_SETUP, phase=MarketPhase.DRAFT)
+        doc = _market_doc(setup=COMPLETE_SETUP, phase=MarketPhase.DRAFT, **REVIEW_SETUP_DECIDED)
 
         assert CsvImport.import_refusal(doc) is None
         assert CsvImport.import_refusal(_market_doc()) is None
@@ -1689,7 +1689,8 @@ class TestTheFirstImportEntersReview:
     before the write, so leaving the import keeps it a draft (E38/F04/S01)."""
 
     def _draft(self, monkeypatch):
-        markets = FakeMarketsCollection(_market_doc(setup=COMPLETE_SETUP, phase=MarketPhase.DRAFT))
+        markets = FakeMarketsCollection(_market_doc(
+            setup=COMPLETE_SETUP, phase=MarketPhase.DRAFT, **REVIEW_SETUP_DECIDED))
         monkeypatch.setattr(MarketsApi, "markets_collection", markets)
         return markets
 

@@ -904,6 +904,10 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['assignRefusalReason'] = assign_refusal(market)
     # And what an automatic rejection may name, and whether it may change (E33/F03/S01).
     market_dict.update(rejection_facts(market))
+    # And whether the review setup's two "none"s were chosen (T206), false when the document has
+    # neither, as the model reads them.
+    market_dict['nothingLeadsTheCard'] = market.nothing_leads_the_card
+    market_dict['noAutomaticRejections'] = market.no_automatic_rejections
     # And what the price groups read, which adding a vendor asks and updating guards (E43/F01/S03).
     market_dict.update(price_facts(market))
     # And the setup's (E31/F01/S02), for Market Setup to read as settled rather than as editable.
@@ -1220,6 +1224,9 @@ def create_market(market: Market, owner_email: str) -> tuple:
     market_dict["permissions"] = _organization_default_rows(market.organization_id)
     # And the reviewers: chosen on the market once it exists, by their own write (E38/F07/S02).
     market_dict["review_team"] = None
+    # And the review setup's two "none"s, each decided by its list's own write (T206).
+    market_dict["nothing_leads_the_card"] = False
+    market_dict["no_automatic_rejections"] = False
     market_dict["application_form"] = (
         _normalized_application_form(market.application_form).model_dump()
         if market.application_form
@@ -2574,15 +2581,28 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
     return update
 
 
+#: Why "Nothing leads the card" is refused beside a marked answer (T206): it would read as decided
+#: both ways at once.
+NOTHING_LEADS_BESIDE_A_MARK = (
+    "Choose Nothing leads the card only while no answer is marked to lead it: take the marks off "
+    "first, or keep them."
+)
+
+
 def save_review_highlights(
-    market_id: str, keys: List[str], requesting_user: str
-) -> List[str]:
-    """Set which answers a reviewer reads first. Asks ``Actions.CHANGE_FORM``.
+    market_id: str, keys: List[str], requesting_user: str, nothing_leads_the_card: bool = False,
+) -> Dict[str, Any]:
+    """Set which answers a reviewer reads first, or that nothing leads the card, and answer both as
+    stored. Asks ``Actions.CHANGE_FORM``.
 
     The list IS the order the card leads with, so a repeat is dropped where it recurs rather than
     resorting what an organizer arranged. An empty list clears them, and clearing is a write of
     ``[]`` rather than a delete: absent and empty both mean "nothing is marked", and one shape for
     that keeps the card from having to tell them apart.
+
+    Neither shape says anyone decided it, so ``nothing_leads_the_card`` does (T206): the only
+    writer of ``Market.nothing_leads_the_card``, true only beside an empty list (refused with a
+    mark), and stored false by every write that does not ask for it, so marking an answer replaces it.
 
     Deliberately NOT gated on ``application_form_lock_reason``. That lock freezes the form the
     moment an applicant submits - which is the moment these first become knowable, because an
@@ -2596,13 +2616,20 @@ def save_review_highlights(
         cleaned = key.strip()
         if cleaned and cleaned not in seen:
             seen.append(cleaned)
+    if nothing_leads_the_card and seen:
+        raise BadRequestError(NOTHING_LEADS_BESIDE_A_MARK)
 
-    markets_collection.update_one({"id": market_id}, market_doc_set("review_highlights", seen))
+    markets_collection.update_one({"id": market_id}, {"$set": {
+        market_doc_key("review_highlights"): seen,
+        market_doc_key("nothing_leads_the_card"): nothing_leads_the_card,
+    }})
     History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.REVIEW_HIGHLIGHTS,
                    detail=lambda: History.changes(
-                       {"review_highlights": market.review_highlights or []},
-                       {"review_highlights": seen}))
-    return seen
+                       {"review_highlights": market.review_highlights or [],
+                        "nothing_leads_the_card": market.nothing_leads_the_card},
+                       {"review_highlights": seen,
+                        "nothing_leads_the_card": nothing_leads_the_card}))
+    return {"reviewHighlights": seen, "nothingLeadsTheCard": nothing_leads_the_card}
 
 
 def follow_up_owner(
@@ -2681,37 +2708,56 @@ def choose_reviewers(market_id: str, addresses: Any, requesting_user: str) -> Di
     return {"reviewTeam": ReviewTeam.served(team, market, organization), "dealt": dealt}
 
 
+#: Why "No automatic rejections" is refused beside a rule (T206), one with no answer yet included:
+#: it is a rule the organizer is building, which the "none" would silently discard.
+NO_REJECTIONS_BESIDE_A_RULE = (
+    "Choose No automatic rejections only while the market has no rule: remove its rules first, or "
+    "keep them."
+)
+
+
 def save_rejection_rules(
-    market_id: str, rules: Any, requesting_user: str
-) -> List[Dict[str, Any]]:
-    """Set which answers reject an application automatically (E33/F03/S01). Asks
-    ``Actions.CHANGE_FORM``.
+    market_id: str, rules: Any, requesting_user: str, no_automatic_rejections: bool = False,
+) -> Dict[str, Any]:
+    """Set which answers reject an application automatically (E33/F03/S01), or that none does, and
+    answer both as stored. Asks ``Actions.CHANGE_FORM``.
 
     The rules' own write, the whole list at once like the highlights. Not gated on the form's lock:
     rules are worth most once applications arrive, which is when the form freezes. Refused once the
     market can no longer return to review (``rejection_rules_lock_reason``). A rule narrowed or
     taken away returns what it rejected to open only for someone who may overturn an automatic
     rejection (``may_overturn``, E38/F06/S01); for anyone else those rejections stand.
+
+    The only writer of ``Market.no_automatic_rejections`` (T206), as ``save_review_highlights`` is
+    of ``nothing_leads_the_card``: true only with no rule at all, stored false by every write that
+    does not ask for it.
     """
     market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_FORM)
     settled = rejection_rules_lock_reason(market.phase)
     if settled:
         raise BadRequestError(settled)
     prepared = RejectionRules.Rulebook(market).prepared(rules)
-    markets_collection.update_one({"id": market_id}, market_doc_set("rejection_rules", prepared))
+    if no_automatic_rejections and prepared:
+        raise BadRequestError(NO_REJECTIONS_BESIDE_A_RULE)
+    markets_collection.update_one({"id": market_id}, {"$set": {
+        market_doc_key("rejection_rules"): prepared,
+        market_doc_key("no_automatic_rejections"): no_automatic_rejections,
+    }})
     # Every undecided application, and every one a rule rejected, is judged again (E33/F03/S02).
     judged = market.model_copy(update={"rejection_rules": [RejectionRule(**r) for r in prepared]})
     verdicts = RejectionRules.judge(RejectionRules.Rulebook(judged), market_id,
                                     overturns=may_overturn(requesting_user, market))
     History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.REJECTION_RULES,
                    detail=lambda: _with_counts(History.changes(
-                       {"rejection_rules": [rule.model_dump() for rule in market.rejection_rules or []]},
-                       {"rejection_rules": [rule.model_dump() for rule in judged.rejection_rules or []]},
+                       {"rejection_rules": [rule.model_dump() for rule in market.rejection_rules or []],
+                        "no_automatic_rejections": market.no_automatic_rejections},
+                       {"rejection_rules": [rule.model_dump() for rule in judged.rejection_rules or []],
+                        "no_automatic_rejections": no_automatic_rejections},
                    ), verdicts))
     # What the rules returned to open is an arrival, dealt to the next reviewer (E38/F07/S03).
     if verdicts.returned:
         ReviewTeam.deal_arrivals(judged, requesting_user, Actions.CHANGE_FORM)
-    return prepared
+    return {"rejectionRules": prepared, "noAutomaticRejections": no_automatic_rejections}
 
 
 def save_application_form(market_id: str, application_form_data: dict, requesting_user: str) -> dict:

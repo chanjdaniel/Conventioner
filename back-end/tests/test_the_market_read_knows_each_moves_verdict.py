@@ -9,9 +9,10 @@ from dataclasses import asdict
 
 import pytest
 
+import api.markets as MarketsApi
 import guards
 import test_the_lock_rides_on_the_market as Read  # noqa: F401 - the `serve` fixture's market shape
-from conftest import COMPLETE_PLAN
+from conftest import COMPLETE_PLAN, FakeMarketsCollection
 from datatypes import MarketPhase
 from guards import evaluate_transition, moves_from, transition_verdicts
 from market_documents import market_from_document
@@ -63,3 +64,19 @@ def test_the_read_serves_whether_applications_are_stopped(serve):
     assert market["applicationsStopped"] is False
     assert market["applicationsStopReason"] is None
     assert serve(MarketPhase.APPLICATIONS)["applicationsStopReason"]
+
+
+def test_the_read_serves_the_review_setups_two_nones(serve, monkeypatch):
+    """Absent, each reads undecided (T206): no migration, a draft decides them on Review setup."""
+    market = serve(MarketPhase.DRAFT, intake_mode="form")
+
+    assert market["nothingLeadsTheCard"] is False
+    assert market["noAutomaticRejections"] is False
+
+    decided = {**Read._stored(MarketPhase.DRAFT, "form"),
+               "nothingLeadsTheCard": True, "noAutomaticRejections": True}
+    monkeypatch.setattr(MarketsApi, "markets_collection", FakeMarketsCollection(decided))
+    market = MarketsApi.get_market_for_user(Read.USER_EMAIL, "m1")
+
+    assert market["nothingLeadsTheCard"] is True
+    assert market["noAutomaticRejections"] is True

@@ -1,4 +1,5 @@
 import type { APIRequestContext } from '@playwright/test';
+import { decideReviewSetup } from './decideReviewSetup';
 import { savePlan } from './savePlan';
 import {
   approvedVendorApplication,
@@ -288,6 +289,8 @@ export async function seedMarketWithVendors(
   if (!formRes.ok()) {
     throw new Error(`Application form save failed: ${formRes.status()} ${await formRes.text()}`);
   }
+  // And its review setup decided (T206): Review waits on it.
+  await decideReviewSetup(request, baseURL, marketId);
 
   // Step 3: Seed the vendors the assignment engine will place. They are approved applications,
   // which is what a vendor is; this used to be a fabricated CSV upload because the solver read a
@@ -369,6 +372,8 @@ export async function seedPublishedMarketWithAssignments(
   if (!formRes.ok()) {
     throw new Error(`Application form save failed: ${formRes.status()} ${await formRes.text()}`);
   }
+  // And its review setup decided (T206): Review waits on it.
+  await decideReviewSetup(request, baseURL, marketId);
 
   // Step 3: Seed the vendors as approved applications - what a vendor is. This used to upload a
   // fabricated CSV, because the solver read a separate source_data collection.

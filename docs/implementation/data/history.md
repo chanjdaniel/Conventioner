@@ -14,7 +14,7 @@ describes:
   - back-end/api/organizations.py#get_history
   - back-end/tests/test_the_organizations_history.py
   - back-end/api/organizations.py#get_default_permission_history
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - wayfinding/readable-journey/08
   - E40/F01/S01
@@ -37,6 +37,7 @@ sources:
   - E46/F01/S05
   - E46/F01/S04
   - E38/F10/S01
+  - T206
 ---
 
 # The market's history
@@ -105,9 +106,10 @@ One block per action, in the order of [the actions table](../modules/market-acti
 - `form`: the form builder
   - Detail: the changed questions by key, null on the side where a question is absent, and `order` and `unasked_essentials` when they changed; and `rejected`, `returned`: what the rules decided as the form landed
 - `review_highlights`: the [review highlights](../../business/rules/review-highlights.md)
-  - Detail: `review_highlights`
+  - Detail: `review_highlights`, and `nothing_leads_the_card` when it changed (T206); read "decided nothing leads the card" when it turned true
 - `rejection_rules`: the [automatic rejections](../../business/rules/automatic-rejections.md)
   - Detail: `rejection_rules`, and `rejected`, `returned`: how many applications the rules rejected, and returned to undecided, as they were saved
+  - Detail: `no_automatic_rejections` when it changed (T206); read "decided no automatic rejections" when it turned true
 
 **`import-applications`**
 

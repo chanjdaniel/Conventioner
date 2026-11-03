@@ -310,12 +310,18 @@ export interface Market {
    * freezes at the first application and an organizer learns what they needed while reviewing.
    */
   reviewHighlights?: string[];
+  /** Whether the organizer chose that nothing leads the card (T206), true only while
+   *  `reviewHighlights` is empty; written only by the highlights' own write. */
+  nothingLeadsTheCard?: boolean;
   /** What the start from a Google Form's responses kept of the example file (E38/F02/S01), for
    *  the Questions tab to fill options from. Server-owned; absent on any market not started so. */
   exampleColumns?: ExampleColumn[];
   /** Which answers reject an application automatically (E33/F03/S01). On the market, beside the
    *  highlights: they outlast the form's lock, until the market reaches Assignment. */
   rejectionRules?: RejectionRule[];
+  /** Whether the organizer chose no automatic rejections (T206), true only while there is no
+   *  rule; written only by the rules' own write. */
+  noAutomaticRejections?: boolean;
   /** Every question a rule may name, with the answers it offers: served, so the review setup
    *  offers exactly what the write takes (`back-end/rejection_rules.py`). */
   rejectionQuestions?: RejectionQuestion[];

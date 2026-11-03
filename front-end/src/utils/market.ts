@@ -153,6 +153,10 @@ export function parseMarketFromApi(market: any): Market {
     // Which answers a reviewer reads first (E19/F03/S01). Absent means nothing is marked, which
     // renders the card exactly as it did before this existed.
     reviewHighlights: (market.reviewHighlights ?? market.review_highlights ?? []) as string[],
+    // Whether the review setup's two "none"s were chosen (T206): a read that carries neither, a
+    // list's, reads as undecided, as the server reads an absent flag.
+    nothingLeadsTheCard: market.nothingLeadsTheCard === true,
+    noAutomaticRejections: market.noAutomaticRejections === true,
     // How vendors reach the market, and whether verdicts are visible to applicants. Both were
     // dropped here, harmlessly only while the screens read the unparsed `localStorage` copy.
     intakeMode: market.intakeMode ?? market.intake_mode ?? undefined,

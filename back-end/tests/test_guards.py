@@ -7,7 +7,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
-from conftest import complete_setup
+from conftest import complete_setup, review_setup_decided
 
 import guards
 from datatypes import (
@@ -238,6 +238,7 @@ class TestEvaluateTransition:
             application_form=ApplicationForm(
                 fields=[FormField(key="name", label="Name", type="text")],
             ),
+            **review_setup_decided(),
         )
         blockers = evaluate_transition(market, "applications", None)
         assert blockers == []
@@ -255,6 +256,7 @@ class TestEvaluateTransition:
             application_form=ApplicationForm(
                 fields=[FormField(key="name", label="Name", type="text")],
             ),
+            **review_setup_decided(),
         )
 
         assert [b.id for b in evaluate_transition(market, "applications", None)] == [

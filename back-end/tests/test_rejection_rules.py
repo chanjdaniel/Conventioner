@@ -121,11 +121,13 @@ class TestTheWrite:
         # The form locked at the first application; the rules did not (decision 24).
         self.market = _market(phase=MarketPhase.APPLICATIONS)
 
-        rules = MarketsApi.save_rejection_rules(
+        stored = MarketsApi.save_rejection_rules(
             "market-123", [{"key": "no_shows", "answers": [Rules.NOT_TICKED]}], "owner@x.test")
 
-        assert rules == [{"key": "no_shows", "answers": [Rules.NOT_TICKED]}]
-        assert saved == [({"id": "market-123"}, {"$set": {"rejectionRules": rules}})]
+        rules = [{"key": "no_shows", "answers": [Rules.NOT_TICKED]}]
+        assert stored == {"rejectionRules": rules, "noAutomaticRejections": False}
+        assert saved == [({"id": "market-123"}, {"$set": {
+            "rejectionRules": rules, "noAutomaticRejections": False}})]
 
     def test_it_is_refused_from_assignment_on(self, saved):
         self.market = _market(phase=MarketPhase.ASSIGNMENT)

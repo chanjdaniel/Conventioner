@@ -37,6 +37,21 @@ describe('parseMarketFromApi', () => {
     expect(market.applicationsStopReason).toBeNull();
   });
 
+  it("carries the review setup's two decisions, each undecided when the read has none (T206)", () => {
+    const decided = parseMarketFromApi({
+      ...apiMarket,
+      nothingLeadsTheCard: true,
+      noAutomaticRejections: true,
+    });
+    const undecided = parseMarketFromApi(apiMarket);
+
+    expect([decided.nothingLeadsTheCard, decided.noAutomaticRejections]).toEqual([true, true]);
+    expect([undecided.nothingLeadsTheCard, undecided.noAutomaticRejections]).toEqual([
+      false,
+      false,
+    ]);
+  });
+
   it('round-trips the market lifecycle phase', () => {
     const market = parseMarketFromApi({ ...apiMarket, phase: 'archived' });
 

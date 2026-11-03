@@ -1004,7 +1004,9 @@ def save_review_highlights(market_id: str) -> Response:
     The only writer of the field. A reviewer changes these mid-queue, which is why there is one
     writer and no market-wide write that could carry a stale list back over it.
 
-    Body: { "keys": ["business_name", "essential_available_dates"] }
+    Body: { "keys": ["business_name", "essential_available_dates"] }, or
+    { "keys": [], "nothingLeadsTheCard": true } to decide that nothing leads the card (T206).
+    Answers { "reviewHighlights", "nothingLeadsTheCard" } as stored.
 
     Deliberately NOT gated on the application-form lock: an organizer learns which answers they
     needed while reviewing, which is after that lock closes.
@@ -1013,9 +1015,13 @@ def save_review_highlights(market_id: str) -> Response:
     keys = data.get("keys")
     if not isinstance(keys, list) or not all(isinstance(key, str) for key in keys):
         return jsonify({"error": "keys is required"}), 400
+    nothing_leads = data.get("nothingLeadsTheCard", False)
+    if not isinstance(nothing_leads, bool):
+        return jsonify({"error": "nothingLeadsTheCard is true or false."}), 400
 
-    stored = MarketsApi.save_review_highlights(market_id, keys, authenticated_email())
-    return jsonify(convert_keys_to_camel_case({"review_highlights": stored})), 200
+    stored = MarketsApi.save_review_highlights(
+        market_id, keys, authenticated_email(), nothing_leads_the_card=nothing_leads)
+    return jsonify(stored), 200
 
 
 @app.route('/markets/<market_id>/permissions/<action_id>', methods=['PUT'])
@@ -1072,7 +1078,9 @@ def get_market_permission_history(market_id: str) -> Response:
 def save_rejection_rules(market_id: str) -> Response:
     """Set which answers reject an application automatically (E33/F03/S01).
 
-    Body: { "rules": [{ "key": "no_shows", "answers": ["not ticked"] }] }
+    Body: { "rules": [{ "key": "no_shows", "answers": ["not ticked"] }] }, or
+    { "rules": [], "noAutomaticRejections": true } to decide that none rejects (T206). Answers
+    { "rejectionRules", "noAutomaticRejections" } as stored.
 
     The only writer of the field. Refused, in words, for a rule a question cannot carry, and once
     the market has reached Assignment.
@@ -1080,8 +1088,12 @@ def save_rejection_rules(market_id: str) -> Response:
     data = json_object(required=False)
     if "rules" not in data:
         return jsonify({"error": "rules is required"}), 400
-    stored = MarketsApi.save_rejection_rules(market_id, data["rules"], authenticated_email())
-    return jsonify({"rejectionRules": stored}), 200
+    no_rejections = data.get("noAutomaticRejections", False)
+    if not isinstance(no_rejections, bool):
+        return jsonify({"error": "noAutomaticRejections is true or false."}), 400
+    stored = MarketsApi.save_rejection_rules(
+        market_id, data["rules"], authenticated_email(), no_automatic_rejections=no_rejections)
+    return jsonify(stored), 200
 
 
 @app.route('/markets/<market_id>/reviewers', methods=['PUT'])

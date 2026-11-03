@@ -166,6 +166,55 @@ describe('what an entry says', () => {
     ).toBe('dana@ember.test changed Market Setup: tiers and market dates');
   });
 
+  it('words choosing nothing to lead the card as that decision, and any other change as before (T206)', () => {
+    const highlights = (before: object, after: object) =>
+      sentence({
+        action: 'change-form',
+        kind: 'review_highlights',
+        vendors: [],
+        detail: { before, after },
+      });
+
+    expect(
+      highlights(
+        { review_highlights: ['business_name'], nothing_leads_the_card: false },
+        { review_highlights: [], nothing_leads_the_card: true },
+      ),
+    ).toBe('dana@ember.test decided nothing leads the card');
+    expect(highlights({ nothing_leads_the_card: false }, { nothing_leads_the_card: true })).toBe(
+      'dana@ember.test decided nothing leads the card',
+    );
+    expect(
+      highlights(
+        { review_highlights: [], nothing_leads_the_card: true },
+        { review_highlights: ['business_name'], nothing_leads_the_card: false },
+      ),
+    ).toBe('dana@ember.test changed the review highlights');
+    expect(highlights({ review_highlights: [] }, { review_highlights: ['business_name'] })).toBe(
+      'dana@ember.test changed the review highlights',
+    );
+  });
+
+  it('words choosing no automatic rejections as that decision, and any other change as before (T206)', () => {
+    const rules = (before: object, after: object) =>
+      sentence({
+        action: 'change-form',
+        kind: 'rejection_rules',
+        vendors: [],
+        detail: { before, after, rejected: 0, returned: 0 },
+      });
+
+    expect(rules({ no_automatic_rejections: false }, { no_automatic_rejections: true })).toBe(
+      'dana@ember.test decided no automatic rejections',
+    );
+    expect(
+      rules(
+        { rejection_rules: [], no_automatic_rejections: true },
+        { rejection_rules: [{ key: 'student', answers: ['No'] }], no_automatic_rejections: false },
+      ),
+    ).toBe('dana@ember.test changed the automatic rejections');
+  });
+
   it('words a change of the prices by what on the Pricing card changed (E43/F01/S02)', () => {
     expect(
       sentence({

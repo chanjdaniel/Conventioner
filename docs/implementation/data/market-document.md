@@ -23,7 +23,7 @@ describes:
   - back-end/migrations/migrate_is_draft_consistency.py
   - back-end/migrations/migrate_publishing_to_market_days.py
   - docs/schema.d.ts
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - E02
   - E03/F03
@@ -40,6 +40,7 @@ sources:
   - E46/F01/S05
   - E46/F01/S04
   - T181
+  - T206
 ---
 
 # The market document
@@ -82,6 +83,7 @@ The other collections differ: applications and the placement trail are stored sn
 | `importMapping` | the CSV import's saved column mapping, server-owned, in [the import's one format](../modules/csv-import.md) |
 | `exampleColumns` | what [the start from a Google Form's responses](../modules/csv-proposal-and-start.md) kept of each question and left-out column of its file: label, key and the options at least 3 applicants gave that name nobody; server-owned, absent on any other market |
 | `reviewHighlights`, `rejectionRules` | which answers a reviewer reads first ([review highlights](../../business/rules/review-highlights.md)), and which answers reject automatically; on the market, not the form, so they stay editable after the form locks |
+| `nothingLeadsTheCard`, `noAutomaticRejections` | whether the organizer chose that nothing leads the card, and that no answer rejects (T206), each beside its list because an absent and an empty list both mean nothing is marked and neither says anyone chose it; true only while its list is empty, written only by its list's own write ([review highlights](../../business/rules/review-highlights.md#where-it-is-kept), [automatic rejections](../../business/rules/automatic-rejections.md#where-it-is-kept)), false at creation and never set by a create body; absent is false, so no migration, and the read serves both |
 | `resultsPublished` | whether applicants may see their outcome |
 | `discord` | the Discord server the market is connected to; see [the Discord connection is `discord`](#the-discord-connection-is-discord) |
 | `applicationsStopped` | whether the organizer has stopped taking applications inside the stage (E38/F04/S02), a fact about the form; absent is false, and only `set_applications_stopped` writes it |

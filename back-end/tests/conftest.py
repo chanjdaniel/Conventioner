@@ -382,6 +382,19 @@ def complete_setup():
     return SetupObject(**convert_keys_to_snake_case(COMPLETE_PLAN))
 
 
+# The review setup decided (T206): nothing leads the card and no answer rejects, each chosen, so a
+# draft meant to leave draft is judged on everything else. As it is stored, camelCase, spread into a
+# document (``**REVIEW_SETUP_DECIDED``); ``review_setup_decided()`` is the same as a model's fields.
+REVIEW_SETUP_DECIDED = {"nothingLeadsTheCard": True, "noAutomaticRejections": True}
+
+
+def review_setup_decided() -> dict:
+    """``REVIEW_SETUP_DECIDED`` as ``Market``'s keyword arguments."""
+    from assignment.utils import convert_keys_to_snake_case
+
+    return convert_keys_to_snake_case(REVIEW_SETUP_DECIDED)
+
+
 def stored_market(phase: MarketPhase = MarketPhase.DRAFT, **overrides) -> dict:
     """A market document as Mongo holds it: camelCase, phase and slug stamped on by the server.
 
