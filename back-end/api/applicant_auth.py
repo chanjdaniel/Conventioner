@@ -46,7 +46,7 @@ from pymongo.errors import PyMongoError
 
 import sign_in_limits
 from db_config import get_database
-from market_documents import applicant_intake_market_by_slug
+from market_documents import vendor_page_market_by_slug
 from utils.email import _email_disabled, ready_mailer, from_email, frontend_url
 from utils.application_token import generate_application_token
 from utils.email_address import normalized_email
@@ -209,10 +209,10 @@ def _email_from(data) -> Optional[str]:
 # ── Email sending ─────────────────────────────────────────────────────────
 
 def _send_code_email(email: str, code: str, market_name: str, market_slug: str) -> bool:
-    """Send the sign-in code to the applicant's email address.
+    """Send the sign-in code to the vendor's email address.
 
-    It links to the market's own sign-in page, by its public address. It linked to
-    ``/markets/<id>/login``, which the product has no page for (E26/F10/S02).
+    It links to the market's own vendor page, ``/<slug>``, by its public address: the link a vendor
+    receives is the one they keep (ADR 0021).
 
     Returns True when the email was accepted by the provider (or disabled in dev),
     False when it was not.
@@ -228,7 +228,7 @@ def _send_code_email(email: str, code: str, market_name: str, market_slug: str) 
     import resend
 
     base_url = frontend_url()
-    login_url = f"{base_url}/{market_slug}/applicant-login"
+    page_url = f"{base_url}/{market_slug}"
 
     html_content = f"""
     <!DOCTYPE html>
@@ -240,11 +240,11 @@ def _send_code_email(email: str, code: str, market_name: str, market_slug: str) 
     </head>
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <h1 style="color: #36826f;">Your sign-in code</h1>
-        <p>You requested access to your application for <strong>{market_name}</strong>.</p>
+        <p>You asked to sign in to your page for <strong>{market_name}</strong>.</p>
         <div style="background-color: #f5f5f5; border: 2px dashed #36826f; padding: 20px; text-align: center; margin: 30px 0;">
             <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #36826f; margin: 0;">{code}</p>
         </div>
-        <p>Enter it on <a href="{login_url}">the sign-in page</a> to see your application.</p>
+        <p>Enter it on <a href="{page_url}">your page for {market_name}</a>.</p>
         <p style="color: #777474; font-size: 12px; margin-top: 30px;">This code will expire in {CODE_EXPIRY_MINUTES} minutes and can only be used once.</p>
         <p style="color: #777474; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
     </body>
@@ -254,11 +254,11 @@ def _send_code_email(email: str, code: str, market_name: str, market_slug: str) 
     text_content = f"""
     Your sign-in code
 
-    You requested access to your application for "{market_name}".
+    You asked to sign in to your page for "{market_name}".
 
     Your code: {code}
 
-    Enter it on the sign-in page: {login_url}
+    Enter it on your page for {market_name}: {page_url}
 
     This code will expire in {CODE_EXPIRY_MINUTES} minutes and can only be used once.
 
@@ -378,7 +378,7 @@ def request_login_code(market_slug: str) -> tuple:
     # Resolve the slug to a market. If the market does not exist, return the
     # same response - the caller cannot distinguish "no such market" from
     # "no such application."
-    market_doc = applicant_intake_market_by_slug(
+    market_doc = vendor_page_market_by_slug(
         db["markets"],
         market_slug,
         fields=("id", "name"),
@@ -444,7 +444,7 @@ def verify_login_code(market_slug: str) -> tuple:
         return jsonify(_VERIFY_FAILURE_BODY), _VERIFY_FAILURE_STATUS
 
     # Resolve the slug. Unknown market → same failure response.
-    market_doc = applicant_intake_market_by_slug(
+    market_doc = vendor_page_market_by_slug(
         db["markets"],
         market_slug,
         fields=("id",),

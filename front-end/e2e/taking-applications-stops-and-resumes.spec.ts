@@ -59,7 +59,7 @@ test('an organizer stops taking applications, a vendor is refused, and taking th
   // Stopped from the rail's menu: the market stays in Applications, and says what is so.
   await chooseFromTheMenu(page, 'stop-applications');
   await expect(page.getByTestId('phase-rail-next')).toContainText(
-    'Your application page is not taking applications.',
+    'Your vendor page is not taking applications.',
   );
   await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications');
   await expect(page.getByTestId('market-setup-applications-condition')).toContainText(
@@ -77,7 +77,7 @@ test('an organizer stops taking applications, a vendor is refused, and taking th
   // Taken again, and the page takes them.
   await chooseFromTheMenu(page, 'take-applications');
   await expect(page.getByTestId('phase-rail-next')).toContainText(
-    'Applications are open on your application page',
+    'Applications are open on your vendor page',
   );
   await page.getByTestId('phase-rail-menu-button').click();
   await expect(page.getByTestId('phase-rail-action-stop-applications')).toBeVisible();

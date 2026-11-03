@@ -472,6 +472,31 @@ def applicant_intake_market_by_slug(
     return market_doc
 
 
+def vendor_page_market_by_slug(
+    collection: Any, market_slug: str, fields: Optional[Sequence[str]] = None,
+) -> Optional[Dict[str, Any]]:
+    """The market whose vendor page is at this slug, or ``None`` (ADR 0021).
+
+    The vendor page, ``/<slug>``, is where a vendor signs in and reads their own application, their
+    result and their seats. This decides whether a market has one: every vendor read and the
+    sign-in go through it, while applying itself stays behind ``applicant_intake_market_by_slug``.
+
+    A market whose vendors apply on its page has one in every phase but draft. ``None`` is the
+    answer for everything else, the same answer a slug that names nothing gets, so a stranger who
+    guesses the slug of a draft or of a market that imports its vendors learns nothing.
+
+    ``intake_mode`` is added to the caller's projection for the reason
+    ``applicant_intake_market_by_slug`` adds it.
+    """
+    projected = None if fields is None else (*fields, "intake_mode")
+    market_doc = market_by_slug(
+        collection, market_slug, APPLICANT_SURFACE_PHASES, fields=projected,
+    )
+    if market_doc is None or not market_serves_applicants(market_doc):
+        return None
+    return market_doc
+
+
 def market_from_document(
     document: Dict[str, Any], market_snake: Optional[Dict[str, Any]] = None
 ) -> Market:

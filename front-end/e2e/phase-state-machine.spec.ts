@@ -201,7 +201,7 @@ test.describe('Phase state machine - guard: assignment blocked by unreviewed app
     await expect(next).toContainText('still awaiting review');
     // Applications keep arriving, and the rail says so before the work left (E38/F04/S01).
     await expect(next).toContainText(
-      /^Applications are open on your application page.*Finish deciding: /,
+      /^Applications are open on your vendor page.*Finish deciding: /,
     );
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications');
 

@@ -187,7 +187,7 @@ interface Standing {
   ran: boolean;
   /** Its applicants have been told whether they have a table, which settles the result. */
   published?: boolean;
-  /** Its application page has stopped taking applications, inside the stage (E38/F04/S02). */
+  /** Its vendor page has stopped taking applications, inside the stage (E38/F04/S02). */
   stopped?: boolean;
 }
 
@@ -234,16 +234,16 @@ interface GuideRow {
 function stageLead({ path, stopped }: Pick<Standing, 'path' | 'stopped'>): string {
   if (path === IntakeMode.Csv) return 'Every imported response is here.';
   return stopped
-    ? 'Your application page is not taking applications.'
-    : 'Applications are open on your application page: review them as they arrive.';
+    ? 'Your vendor page is not taking applications.'
+    : 'Applications are open on your vendor page: review them as they arrive.';
 }
 
 /** The stage as someone who may not decide reads it: nothing in it asks them to review. */
 function watchedStageLead({ path, stopped }: Pick<Standing, 'path' | 'stopped'>): string {
   if (path === IntakeMode.Csv) return 'Every imported response is here.';
   return stopped
-    ? 'The application page is not taking applications.'
-    : 'Applications are open on the application page.';
+    ? 'The vendor page is not taking applications.'
+    : 'Applications are open on the vendor page.';
 }
 
 /**
@@ -269,7 +269,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
         : "Plan the market, from your Google Form's responses or by hand, then import the responses.",
     onlooker: 'The market is being planned. Read its plan on Market Setup.',
   }),
-  // The application page's address is in the rail beside this, under the same name, with Copy.
+  // The vendor page's address is in the rail beside this, under the same name, with Copy.
   [MarketPhase.Applications]: (standing) => ({
     page: 'applications',
     action: MarketAction.GiveVerdicts,

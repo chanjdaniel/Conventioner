@@ -920,7 +920,8 @@ class TestTheCodeEmail:
     sign-in.
     """
 
-    def test_it_links_to_the_markets_own_sign_in_page(self, monkeypatch):
+    def test_it_links_to_the_markets_own_vendor_page(self, monkeypatch):
+        """The link a vendor receives is the one they keep: the market's page (ADR 0021)."""
         # Not the module fixture: it replaces the very function under test.
         import resend
         from api import applicant_auth as applicant_auth_module
@@ -937,8 +938,12 @@ class TestTheCodeEmail:
             "vendor@example.com", "123456", "Harbour Night Market", "harbour-night-market"
         )
 
-        assert "https://app.test/harbour-night-market/applicant-login" in sent[0]["text"]
-        assert "/markets/" not in sent[0]["text"]
+        for body in (sent[0]["html"], sent[0]["text"]):
+            assert "https://app.test/harbour-night-market\"" in body or (
+                "https://app.test/harbour-night-market\n" in body)
+            assert "your page for" in body
+            assert "your application" not in body.lower()
+            assert "/markets/" not in body
         assert sent[0]["subject"] == "Your sign-in code for Harbour Night Market"
 
 

@@ -25,6 +25,7 @@
  * is laid out for one: the spine scrolls sideways, each address is named rather than shown, and the
  * next step's link is a line of its own (T142).
  */
+import { useCopyAddress } from '@/utils/useCopyAddress';
 import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { useMediaQuery } from '@vueuse/core';
@@ -163,39 +164,33 @@ const checkInUrl = computed(() => {
   return `${window.location.origin}/${slug}/check-in`;
 });
 
-// ── The public application URL (E18/F04/S02) ─────────────────────────────────
+// ── The vendor page's URL (ADR 0021) ───────────────────────────────────────
 
 /**
- * A form-intake market's own address, from the moment it has one.
+ * A market's vendor page, `/<slug>`, from the moment it has one: the one address its vendors keep,
+ * from applying to the last market day.
  *
- * Much wider than the check-in chip, which appears only once the market is running: this shows
- * before applications open, while they are open, and after they close, because the apply page has
- * a real answer in each - it names the phase and says the market is not currently taking
- * applications. Seeing that is the point.
+ * A form-intake market has one from the first phase after draft. A draft is not published, so the
+ * page answers as a market that does not exist, and a chip there would hand the organizer a link
+ * to a page that deliberately tells them nothing. Archived, it stays only for a market that ran:
+ * its page is then the record of where its vendors sat.
  *
- * NOT in draft, though, and the walk's plan said otherwise (ticket 09). A draft market is not
- * published, so the applicant lookup treats it as one that does not exist: the URL redirects to a
- * login that shows the SLUG rather than the market, revealing nothing - correctly, because a draft
- * must not be discoverable. A chip pointing there would hand the organizer a link to a page that
- * deliberately tells them nothing. The threshold is the same reasoning the check-in chip uses,
- * with a different phase.
- *
- * A CSV market shows nothing at all, in any phase. Its `/apply` URL answers exactly as a market
- * that does not exist, and a chip here would be the one place the product admitted it was real.
+ * A CSV market shows none: its page answers exactly as a market that does not exist, and a chip
+ * here would be the one place the product admitted it was real.
  */
-const applyUrl = computed(() => {
+const vendorPageUrl = computed(() => {
   if (props.market?.intakeMode !== IntakeMode.Form) return '';
-  // Archived, the page takes nobody anywhere: the check-in record is the address that stays.
-  if (currentPhase.value === MarketPhase.Draft || isArchived.value) return '';
+  if (currentPhase.value === MarketPhase.Draft) return '';
+  if (isArchived.value && !reached.value.has(MarketPhase.MarketDays)) return '';
   const slug = props.market?.slug;
   if (!slug) return '';
-  return `${window.location.origin}/${slug}/apply`;
+  return `${window.location.origin}/${slug}`;
 });
 
-/** The market's public addresses, each a chip on the rail, the application page first. */
+/** The market's public addresses, each a chip on the rail, the vendor page first. */
 const addresses = computed(() =>
   [
-    { id: 'apply', label: 'Application page', url: applyUrl.value },
+    { id: 'vendor-page', label: 'Vendor page', url: vendorPageUrl.value },
     { id: 'checkin', label: 'Check-in page', url: checkInUrl.value },
   ].filter((address) => address.url),
 );
@@ -213,21 +208,7 @@ function shown(url: string): string {
 }
 
 /** Which chip last confirmed a copy, so two chips do not share one "Copied". */
-const copiedUrl = ref('');
-
-async function copyUrl(url: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(url);
-    copiedUrl.value = url;
-    window.setTimeout(() => {
-      if (copiedUrl.value === url) copiedUrl.value = '';
-    }, 2000);
-  } catch {
-    // Clipboard access can be refused, and the URL is the link and its hover text either way - so
-    // the copy is a convenience, never the only way to get it.
-    copiedUrl.value = '';
-  }
-}
+const { copied: copiedUrl, copy: copyUrl } = useCopyAddress();
 
 // ── The actions ───────────────────────────────────────────────────────────────
 

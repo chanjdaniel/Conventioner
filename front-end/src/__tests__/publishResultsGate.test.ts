@@ -91,6 +91,46 @@ describe('a form-intake market (E36/F04/S01)', () => {
   });
 });
 
+describe("where vendors read it: the market's vendor page (ADR 0021)", () => {
+  const withSlug = () => marketTaking(IntakeMode.Form, { slug: 'spring-market' });
+
+  it('says beside the button that vendors read it on the vendor page and no email is sent', async () => {
+    const wrapper = await mounted(withSlug());
+
+    expect(wrapper.find(hint).text()).toBe(
+      "Vendors read whether they have a table on the market's vendor page. No email is sent.",
+    );
+  });
+
+  it("confirms with the telling and the page's address to share", async () => {
+    const wrapper = await mounted(withSlug());
+
+    await wrapper.find(button).trigger('click');
+    const confirm = wrapper.find('[data-testid="publish-results-window"]');
+    expect(confirm.find('[data-testid="publish-results-telling"]').text()).toContain(
+      'No email is sent',
+    );
+    const address = confirm.find('[data-testid="publish-results-address-url"]');
+    expect(address.text()).toBe(`${window.location.origin}/spring-market`);
+    expect(address.attributes('href')).toBe(`${window.location.origin}/spring-market`);
+  });
+
+  it('copies the address', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    const wrapper = await mounted(withSlug());
+
+    await wrapper.find(button).trigger('click');
+    const copy = wrapper.find('[data-testid="publish-results-address-copy"]');
+    await copy.trigger('click');
+    await wrapper.vm.$nextTick();
+
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/spring-market`);
+    expect(copy.text()).toBe('Copied');
+    vi.unstubAllGlobals();
+  });
+});
+
 describe('before the assignment (E38/F05, Daniel on 2026-10-29)', () => {
   it.each([MarketPhase.Draft, MarketPhase.Applications])(
     'offers no Publish results, not even a disabled one, in %s',

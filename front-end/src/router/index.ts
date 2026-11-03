@@ -235,28 +235,17 @@ const router = createRouter({
       component: () => import('@/views/AttendanceCheckinView.vue'),
       meta: { public: true },
     },
+    // A market's vendor page (ADR 0021): sign-in, status and result, at the market's own address.
     {
       path: '/:marketSlug',
-      name: 'market-home',
-      component: () => import('@/views/MarketHomeView.vue'),
+      name: 'vendor-page',
+      component: () => import('@/views/VendorPage.vue'),
       meta: { public: true },
     },
     {
       path: '/:marketSlug/apply',
       name: 'apply',
       component: () => import('@/views/ApplicationPage.vue'),
-      meta: { public: true },
-    },
-    {
-      path: '/:marketSlug/applicant-login',
-      name: 'applicant-login',
-      component: () => import('@/views/ApplicantLogin.vue'),
-      meta: { public: true },
-    },
-    {
-      path: '/:marketSlug/applicant/dashboard',
-      name: 'applicant-dashboard',
-      component: () => import('@/views/ApplicantDashboard.vue'),
       meta: { public: true },
     },
     // Anything deeper than one segment matched no route at all, so the app rendered a blank

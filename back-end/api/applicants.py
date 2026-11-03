@@ -31,6 +31,7 @@ from market_documents import (
     market_doc_field,
     market_from_document,
     market_serves_applicants,
+    vendor_page_market_by_slug,
 )
 from datatypes import (
     Application,
@@ -43,6 +44,7 @@ from datatypes import (
     MarketPhase,
     LEGACY_STAGE_PHASES,
     applications_stopped_from_market_document,
+    intake_mode_from_market_document,
     phase_from_market_document,
     phase_label,
 )
@@ -51,6 +53,7 @@ from utils.application_token import (
 )
 
 import api.applications as ApplicationsApi
+import api.attendance as AttendanceApi
 import api.market_actions as Actions
 import history as History
 import review_team as ReviewTeam
@@ -58,6 +61,7 @@ import result_outcome as ResultOutcome
 from assignment.utils import convert_keys_to_snake_case
 from assignment.made_from import changed_since_run
 import rejection_rules as RejectionRules
+import remembered_sign_ins as RememberedSignIns
 import essential_fields as EssentialFields
 
 logger = logging.getLogger(__name__)
@@ -90,20 +94,26 @@ def applicant_visible_status(
 def _application_response(
     app: Application, results_published: bool,
     placements: Iterable[VendorAssignmentResult] = (),
+    checked_in: Optional[Dict[str, Optional[str]]] = None,
 ) -> Dict[str, Any]:
     """Serialize an application for the applicant-facing API with the publication gate applied.
 
     After publication it carries the applicant's outcome and their own seats (E36/F05/S02), read
-    off the stored placements on every read, so a seat changed by hand shows at once.
+    off the stored placements on every read, so a seat changed by hand shows at once. Each seat
+    says when they checked in to it, from ``checked_in`` (``{date: checked_in_at}``), or null.
     """
     placed = list(placements)
     outcome = (
         ResultOutcome.outcome_of(app.applicant_email, ResultOutcome.seated_from(placed))
         if results_published else None
     )
+    seats = ResultOutcome.seats_of(app.applicant_email, placed) if results_published else []
+    when = checked_in or {}
     return {
         "outcome": outcome,
-        "seats": ResultOutcome.seats_of(app.applicant_email, placed) if results_published else [],
+        "seats": [{**seat, "checkedInAt": when.get(seat["date"])} for seat in seats],
+        # The name the vendor goes by, as the organizer reads it, so their page greets them by it.
+        "vendorName": EssentialFields.display_name(ApplicationsApi.effective_answers(app)),
         "id": app.id,
         "marketId": app.market_id,
         "applicantEmail": app.applicant_email,
@@ -235,6 +245,48 @@ def applicant_phase_label(market_doc: Dict[str, Any]) -> str:
 
 # ── Public (unauthenticated) endpoints ─────────────────────────────────────
 
+#: What every public read answers for a market it does not serve, and for a slug that names none.
+MARKET_NOT_FOUND = "Market not found. Check the URL and try again."
+
+
+def get_vendor_page(market_slug: str) -> Tuple[Dict[str, Any], int]:
+    """What a market's vendor page needs before anyone signs in (ADR 0021).
+
+    Served for a market ``vendor_page_market_by_slug`` serves, and otherwise the same 404 a slug
+    naming nothing gets. ``ended`` is an archived market that ran, whose page is the record of where
+    its vendors sat; ``rememberUntil`` is the date "Remember me" would end, or null once the
+    market's last date has passed.
+    """
+    from db_config import get_database
+    db = get_database()
+    market_doc = vendor_page_market_by_slug(
+        db["markets"],
+        market_slug,
+        fields=(
+            "id", "phase", "applicationsStopped", "resultsPublished", "setupObject",
+            "phaseHistory",
+        ),
+    )
+    if not market_doc:
+        return {"error": MARKET_NOT_FOUND}, 404
+
+    setup = market_doc_field(market_doc, "setup_object") or {}
+    dates = sorted(
+        str(entry.get("date"))
+        for entry in (setup.get("marketDates") or [])
+        if isinstance(entry, dict) and entry.get("date")
+    )
+    return {
+        "marketName": market_doc.get("name", ""),
+        "intakeMode": intake_mode_from_market_document(market_doc).value,
+        "phase": phase_from_market_document(market_doc).value,
+        "takesApplications": takes_applications(market_doc),
+        "resultsPublished": bool(market_doc.get("resultsPublished")),
+        "marketDates": dates,
+        "ended": AttendanceApi.ended_after_it_ran(market_doc),
+        "rememberUntil": RememberedSignIns.remembered_until_date(dates, RememberedSignIns.now()),
+    }, 200
+
 
 def get_public_application_form(
     market_slug: str,
@@ -268,7 +320,7 @@ def get_public_application_form(
         ),
     )
     if not market_doc:
-        return {"error": "Market not found. Check the URL and try again."}, 404
+        return {"error": MARKET_NOT_FOUND}, 404
 
     phase = phase_from_market_document(market_doc)
     application_form = market_doc_field(market_doc, "application_form")
@@ -321,10 +373,10 @@ def get_applicant_application(
     # Verify the token belongs to this market
     from db_config import get_database
     db = get_database()
-    market_doc = applicant_intake_market_by_slug(
+    market_doc = vendor_page_market_by_slug(
         db["markets"], market_slug, fields=("id", "resultsPublished", "assignmentObject"))
     if not market_doc:
-        return {"error": "Market not found."}, 404
+        return {"error": MARKET_NOT_FOUND}, 404
 
     market_id = market_doc.get("id", "")
     token_market_id = token_payload.get("market_id", "")
@@ -340,7 +392,8 @@ def get_applicant_application(
     app = Application(**app_doc)
     results_published = bool(market_doc.get("resultsPublished"))
     return {"application": _application_response(
-        app, results_published, _stored_placements(market_doc))}, 200
+        app, results_published, _stored_placements(market_doc),
+        AttendanceApi.check_ins_of(market_id, app.applicant_email))}, 200
 
 
 def _stored_placements(market_doc: Dict[str, Any]) -> List[VendorAssignmentResult]:

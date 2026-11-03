@@ -630,6 +630,8 @@ export interface Application {
    */
   outcome?: 'has_a_table' | 'not_assigned' | null;
   seats?: ApplicantSeat[];
+  /** Applicant's only: the name they go by, as the organizer reads it; empty when they gave none. */
+  vendorName?: string;
   /** Who recorded a vendor who never applied, and when (E36/F03/S01). Absent on any who applied. */
   addedBy?: { userId?: string | null; email: string } | null;
   addedAt?: string | null;
@@ -647,6 +649,8 @@ export interface ApplicantSeat {
   tableChoice: string;
   section: string;
   location: string;
+  /** When they checked in to this seat, or null when they have not. */
+  checkedInAt?: string | null;
 }
 
 /** A person, or an automatic rejection rule (E33/F03), named as a verdict's giver. */

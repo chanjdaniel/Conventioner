@@ -44,12 +44,9 @@ const asksSomething = computed(
 );
 const signedIn = computed(() => store.isAuthenticatedFor(marketSlug.value));
 
+/** Signing in is the vendor page's, the market's own address (ADR 0021). */
 function toSignIn() {
-  router.push({
-    name: 'applicant-login',
-    params: { marketSlug: marketSlug.value },
-    query: { redirect: 'apply' },
-  });
+  router.push({ name: 'vendor-page', params: { marketSlug: marketSlug.value } });
 }
 
 /**
@@ -74,7 +71,7 @@ async function loadForm() {
   // Either read failing is a page that did not load: an empty form over answers the vendor saved
   // would be filled in again, and saved over them.
   // The market no longer serves applicants - taken back to draft, say. It reads as it reads to a
-  // stranger (the sign-in page's not found), never as a connection that failed.
+  // stranger (the vendor page's not found), never as a connection that failed.
   notFound.value = form.notFound;
   loadFailed.value = !form.notFound && (form.failed || saved.failed);
   fields.value = form.fields;
@@ -122,10 +119,7 @@ async function submitForm() {
   saving.value = false;
 
   if (app) {
-    router.push({
-      name: 'applicant-dashboard',
-      params: { marketSlug: marketSlug.value },
-    });
+    router.push({ name: 'vendor-page', params: { marketSlug: marketSlug.value } });
   }
 }
 </script>

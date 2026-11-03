@@ -43,9 +43,7 @@ def get_check_in_market(market_slug: str) -> Optional[Dict[str, Any]]:
     market_doc = market_by_slug(markets_collection, market_slug, CHECK_IN_RECORD_PHASES)
     if market_doc is None:
         return None
-    if market_has_ended(market_doc) and not PhaseRecord.phases_reached(
-        market_doc, market_has_attendance,
-    ).ran:
+    if market_has_ended(market_doc) and not market_ran(market_doc):
         return None
     return market_doc
 
@@ -53,6 +51,29 @@ def get_check_in_market(market_slug: str) -> Optional[Dict[str, Any]]:
 def market_has_ended(market_doc: Dict[str, Any]) -> bool:
     """Is this check-in page a record rather than a door? Nobody checks in at an archived market."""
     return phase_from_market_document(market_doc) is MarketPhase.ARCHIVED
+
+
+def market_ran(market_doc: Dict[str, Any]) -> bool:
+    """Did this market reach its market days? Read off its phase record, and where that is partial,
+    off whether anyone checked in (``phase_record``)."""
+    return PhaseRecord.phases_reached(market_doc, market_has_attendance).ran
+
+
+def ended_after_it_ran(market_doc: Dict[str, Any]) -> bool:
+    """Is this market a record of days that happened: archived, after it ran?"""
+    return market_has_ended(market_doc) and market_ran(market_doc)
+
+
+def check_ins_of(market_id: str, vendor_email: str) -> Dict[str, Optional[str]]:
+    """When one vendor checked in at a market, ``{date: checked_in_at}``, for the dates they did."""
+    return {
+        doc["date"]: doc.get("checked_in_at")
+        for doc in attendance_collection.find({
+            "market_id": market_id,
+            "vendor_email": normalized_email(vendor_email),
+        })
+        if doc.get("date")
+    }
 
 
 def get_checkin_page(market_slug: str) -> Tuple[Dict[str, Any], int]:
@@ -292,16 +313,7 @@ def get_vendor_assignment_summary(market_slug: str, vendor_email: str) -> Tuple[
     if not matched:
         return {"error": "No assignment found for this email"}, 404
 
-    attendance_docs = list(attendance_collection.find({
-        "market_id": market_id,
-        "vendor_email": target_email,
-    }))
-    by_date: Dict[str, str] = {}
-    for doc in attendance_docs:
-        d = doc.get("date")
-        if d:
-            by_date[d] = doc.get("checked_in_at")
-
+    by_date = check_ins_of(market_id, target_email)
     for row in matched:
         row["checked_in_at"] = by_date.get(row["date"])
 

@@ -8,12 +8,23 @@ import {
   fetchApplicantApplication,
   saveApplicantApplication,
 } from '@/utils/applicantApi';
-import type { Application } from '@/assets/types/datatypes';
+import { IntakeMode, type Application, type FormField } from '@/assets/types/datatypes';
+import { fetchPublicApplicationForm } from '@/utils/publicApplicationForm';
+import { fetchVendorPage, type VendorPageInfo, type VendorPageRead } from '@/utils/vendorPage';
 
 /** What reading the vendor's own application found. */
 export interface ApplicationRead {
   application: Application | null;
   failed: boolean;
+}
+
+/**
+ * What reading a signed-in vendor's page found: `failed` when a read got no answer, `notFound` when
+ * the market no longer has a vendor page (taken back to draft, say), which reads as a stranger's.
+ */
+export interface VendorRead {
+  failed: boolean;
+  notFound: boolean;
 }
 
 /**
@@ -68,9 +79,41 @@ export const useApplicationStore = defineStore('application', () => {
   const application = ref<Application | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  /**
+   * The vendor page's one state (ADR 0021): the market as the page reads it before sign-in, and,
+   * signed in, the form's questions its answers are shown against. Every section reads it here.
+   */
+  const page = ref<VendorPageInfo | null>(null);
+  const formFields = ref<FormField[]>([]);
 
   function isAuthenticatedFor(slug: string): boolean {
     return token.value !== null && marketSlug.value === slug;
+  }
+
+  /** Read the market's vendor page, as anyone may before signing in. */
+  async function loadPage(slug: string): Promise<VendorPageRead> {
+    const read = await fetchVendorPage(slug);
+    page.value = read.page;
+    return read;
+  }
+
+  /**
+   * Read what a signed-in vendor's page shows: their application, and on a market whose vendors
+   * apply, the form's questions. A sign-in that has ended clears itself (`fetchApplication`).
+   */
+  async function loadVendorRead(): Promise<VendorRead> {
+    const slug = marketSlug.value;
+    if (!slug) return { failed: false, notFound: false };
+    const asksQuestions = page.value?.intakeMode === IntakeMode.Form;
+    const [read, form] = await Promise.all([
+      fetchApplication(),
+      asksQuestions ? fetchPublicApplicationForm(slug) : Promise.resolve(null),
+    ]);
+    formFields.value = form?.fields ?? [];
+    return {
+      failed: read.failed || Boolean(form?.failed && !form.notFound),
+      notFound: Boolean(form?.notFound),
+    };
   }
 
   async function requestCode(slug: string, email: string): Promise<void> {
@@ -172,6 +215,7 @@ export const useApplicationStore = defineStore('application', () => {
     applicantEmail.value = null;
     token.value = null;
     application.value = null;
+    formFields.value = [];
     error.value = null;
     keepSession(null);
   }
@@ -188,7 +232,11 @@ export const useApplicationStore = defineStore('application', () => {
     application,
     loading,
     error,
+    page,
+    formFields,
     isAuthenticatedFor,
+    loadPage,
+    loadVendorRead,
     requestCode,
     verifyCode,
     fetchApplication,

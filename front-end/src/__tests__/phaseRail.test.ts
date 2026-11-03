@@ -320,7 +320,7 @@ describe('an address on a phone (T142)', () => {
     const rail = railFor(MarketPhase.MarketDays, running);
 
     for (const [testId, name, end] of [
-      ['phase-rail-apply', 'Application page', '/riverside-market/apply'],
+      ['phase-rail-vendor-page', 'Vendor page', '/riverside-market'],
       ['phase-rail-checkin', 'Check-in page', '/riverside-market/check-in'],
     ]) {
       const chip = rail.get(`[data-testid="${testId}"]`);
@@ -357,9 +357,15 @@ describe("an archived market's addresses (E30/F01/S03)", () => {
     );
   });
 
-  it('drops the application page, which no longer takes anyone anywhere', () => {
+  it('keeps the vendor page of a market that ran: it is where its vendors read where they sat', () => {
+    const chip = railFor(MarketPhase.Archived, ran).get('[data-testid="phase-rail-vendor-page"]');
+    expect(chip.get('a').attributes('href')).toMatch(/\/riverside-market$/);
+  });
+
+  it('drops the vendor page of a market archived without running', () => {
+    const never = { ...ran, phasesReached: [MarketPhase.Draft, MarketPhase.Archived] };
     expect(
-      railFor(MarketPhase.Archived, ran).find('[data-testid="phase-rail-apply"]').exists(),
+      railFor(MarketPhase.Archived, never).find('[data-testid="phase-rail-vendor-page"]').exists(),
     ).toBe(false);
   });
 
@@ -406,5 +412,47 @@ describe('a phase the lifecycle does not draw', () => {
         .map((s) => s.attributes('data-phase'));
       expect(phases).not.toContain('offers');
     }
+  });
+});
+
+describe("the vendor page's address (ADR 0021)", () => {
+  const form = { slug: 'riverside-market', intakeMode: 'form' } as Partial<Market>;
+
+  it.each([
+    [MarketPhase.Draft, false],
+    [MarketPhase.Applications, true],
+    [MarketPhase.Assignment, true],
+    [MarketPhase.MarketDays, true],
+  ])('in %s, on a market whose vendors apply on its page: %s', (phase, shown) => {
+    const chip = railFor(phase, form).find('[data-testid="phase-rail-vendor-page"]');
+    expect(chip.exists()).toBe(shown);
+    if (shown) {
+      expect(chip.text()).toContain('Vendor page');
+      expect(chip.get('a').attributes('href')).toMatch(/\/riverside-market$/);
+    }
+  });
+
+  it('is never shown on a market that imports its vendors', () => {
+    const csv = { ...form, intakeMode: 'csv' } as Partial<Market>;
+    for (const phase of [
+      MarketPhase.Applications,
+      MarketPhase.Assignment,
+      MarketPhase.MarketDays,
+    ]) {
+      expect(railFor(phase, csv).find('[data-testid="phase-rail-vendor-page"]').exists()).toBe(
+        false,
+      );
+    }
+  });
+
+  it('copies the whole address', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+
+    const rail = railFor(MarketPhase.Applications, form);
+    await rail.get('[data-testid="phase-rail-vendor-page-copy"]').trigger('click');
+
+    expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/\/riverside-market$/));
+    vi.unstubAllGlobals();
   });
 });

@@ -8,7 +8,6 @@ import './stores/application';
 import App from './App.vue';
 import router from './router';
 import { routerSettled } from '@/utils/routerReady';
-import { installApplicantSessionExpiry } from '@/utils/applicantSessionExpiry';
 import { installSessionEnded } from '@/utils/sessionEnded';
 import { PAGE_FAILED, watchPageFailed } from '@/utils/pageFailed';
 
@@ -20,7 +19,6 @@ app.use(createPinia());
 app.provide(PAGE_FAILED, watchPageFailed(router));
 app.use(router);
 
-installApplicantSessionExpiry(router);
 // A 401 mid-work takes the organizer to sign in again, and back to the page (E38/F11/S01).
 installSessionEnded(router);
 

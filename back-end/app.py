@@ -1510,6 +1510,13 @@ def applicant_login_verify_code(market_slug: str) -> Response:
 # applicant application endpoints - public, JWT-authenticated
 
 
+@app.route('/public/markets/<market_slug>/vendor-page', methods=['GET'])
+def public_get_vendor_page(market_slug: str) -> Response:
+    """Public: what a market's vendor page needs before sign-in (ADR 0021). No authentication."""
+    result, status_code = ApplicantsApi.get_vendor_page(market_slug)
+    return jsonify(result), status_code
+
+
 @app.route('/public/markets/<market_slug>/application-form', methods=['GET'])
 def public_get_application_form(market_slug: str) -> Response:
     """Public: return the market's application form. No authentication required."""

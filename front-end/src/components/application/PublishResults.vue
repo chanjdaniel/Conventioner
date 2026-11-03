@@ -13,6 +13,7 @@ import { getApiErrorMessage } from '@/utils/api';
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { outcomeHeadline } from '@/utils/applicantOutcome';
 import { useMarketStore } from '@/stores/market';
+import { useCopyAddress } from '@/utils/useCopyAddress';
 import AppDialog from '@/components/AppDialog.vue';
 
 const props = defineProps<{ market: Market | null }>();
@@ -60,6 +61,15 @@ const outcomes = computed(() => props.market?.publishOutcomes ?? null);
 const HAS_A_TABLE = outcomeHeadline({ outcome: 'has_a_table' });
 const NOT_ASSIGNED = outcomeHeadline({ outcome: 'not_assigned' });
 
+/**
+ * Where vendors read their result: the market's vendor page (ADR 0021). Publishing sends nothing,
+ * so the confirmation gives the organizer the address to share.
+ */
+const vendorPageUrl = computed(() =>
+  props.market?.slug ? `${window.location.origin}/${props.market.slug}` : '',
+);
+const { copied, copy } = useCopyAddress();
+
 const published = ref(false);
 watch(
   () => props.market?.resultsPublished,
@@ -106,7 +116,7 @@ async function publish() {
     >
     <!-- What it does, said beside it: optional, never the rail's next step (E31/F03/S04). -->
     <span v-else-if="!published" class="publish-hint" data-testid="applications-publish-hint">
-      Tells every applicant, on their application page, whether they have a table.
+      Vendors read whether they have a table on the market's vendor page. No email is sent.
     </span>
     <span v-if="published" class="chip chip--positive" data-testid="applications-published-badge">
       Results published
@@ -129,6 +139,28 @@ async function publish() {
         {{ outcomes.haveATable === 1 ? 'applicant will read' : 'applicants will read' }}
         "{{ HAS_A_TABLE }}". {{ outcomes.notAssigned }} will read "{{ NOT_ASSIGNED }}".
       </p>
+      <p class="publish-outcomes" data-testid="publish-results-telling">
+        Vendors read their result on the market's vendor page. No email is sent, so share the page's
+        address with them.
+      </p>
+      <div v-if="vendorPageUrl" class="publish-address" data-testid="publish-results-address">
+        <a
+          class="publish-address-url"
+          :href="vendorPageUrl"
+          target="_blank"
+          rel="noopener"
+          data-testid="publish-results-address-url"
+          >{{ vendorPageUrl }}</a
+        >
+        <button
+          type="button"
+          class="btn btn--secondary btn--compact"
+          data-testid="publish-results-address-copy"
+          @click="copy(vendorPageUrl)"
+        >
+          {{ copied === vendorPageUrl ? 'Copied' : 'Copy' }}
+        </button>
+      </div>
       <p class="publish-outcomes">
         Publishing cannot be undone, and tables cannot be allocated again after it: assignments
         change only by hand.
@@ -185,5 +217,24 @@ async function publish() {
   margin: 0 0 var(--space-3);
   font-size: var(--text-sm);
   color: var(--mm-black);
+}
+
+/* The page's address on a line of its own, Copy at its end. */
+.publish-address {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-control);
+}
+
+.publish-address-url {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--mm-text-link);
+  font-size: var(--text-sm);
 }
 </style>

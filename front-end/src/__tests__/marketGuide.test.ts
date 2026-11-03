@@ -155,12 +155,12 @@ describe('the next step', () => {
       },
     };
     expect(nextStep(market(MarketPhase.Applications, undecided), TODAY)).toMatchObject({
-      text: 'Applications are open on your application page: review them as they arrive. Finish deciding: 2 applications are still awaiting review.',
+      text: 'Applications are open on your vendor page: review them as they arrive. Finish deciding: 2 applications are still awaiting review.',
       page: 'applications',
     });
     const stopped = market(MarketPhase.Applications, { ...undecided, applicationsStopped: true });
     expect(nextStep(stopped, TODAY).text).toMatch(
-      /^Your application page is not taking applications\. Finish deciding: /,
+      /^Your vendor page is not taking applications\. Finish deciding: /,
     );
     const csv = market(MarketPhase.Applications, { ...undecided, intakeMode: IntakeMode.Csv });
     // A late export comes in by the rail's Redo import, so it says only what is so.
@@ -174,13 +174,13 @@ describe('the next step', () => {
       },
     });
     expect(nextStep(noTables, TODAY).text).toBe(
-      'Your application page is not taking applications. To begin assignment: Tier Gold has no tables.',
+      'Your vendor page is not taking applications. To begin assignment: Tier Gold has no tables.',
     );
   });
 
   it('names where applications are open, on the form path', () => {
     expect(nextStep(market(MarketPhase.Applications), TODAY).text).toMatch(
-      /^Applications are open on your application page/,
+      /^Applications are open on your vendor page/,
     );
   });
 
@@ -244,14 +244,14 @@ describe('what the rail tells someone the step is not theirs', () => {
       'applications, open',
       viewer(MarketPhase.Applications),
       TODAY,
-      'Applications are open on the application page. Read where each application stands.',
+      'Applications are open on the vendor page. Read where each application stands.',
       'applications',
     ],
     [
       'applications, stopped',
       viewer(MarketPhase.Applications, { applicationsStopped: true } as Partial<Market>),
       TODAY,
-      'The application page is not taking applications. Read where each application stands.',
+      'The vendor page is not taking applications. Read where each application stands.',
       'applications',
     ],
     [
@@ -341,7 +341,7 @@ describe('what the rail tells someone the step is not theirs', () => {
     const said = nextStep(waiting, TODAY);
     expect(said.text).not.toMatch(NOT_THEIRS);
     expect(said).toMatchObject({
-      text: 'Applications are open on the application page. Read where each application stands.',
+      text: 'Applications are open on the vendor page. Read where each application stands.',
       page: 'applications',
       blocker: null,
       action: MarketAction.Read,
@@ -379,7 +379,7 @@ describe('what the rail tells someone the step is not theirs', () => {
       },
     } as unknown as Partial<Market>);
     expect(nextStep(none, TODAY).text).toBe(
-      'Applications are open on the application page. To begin assignment: There are no applications for this market. At least one application must exist before the market can enter Assignment.',
+      'Applications are open on the vendor page. To begin assignment: There are no applications for this market. At least one application must exist before the market can enter Assignment.',
     );
   });
 
@@ -416,7 +416,7 @@ describe('what the rail tells someone the step is not theirs', () => {
       transitionBlockers: { assignment: [UNDECIDED_BLOCKER], draft: [] },
     });
     expect(nextStep(waiting, TODAY)).toMatchObject({
-      text: `Applications are open on your application page: review them as they arrive. Finish deciding: ${UNDECIDED_BLOCKER.message}`,
+      text: `Applications are open on your vendor page: review them as they arrive. Finish deciding: ${UNDECIDED_BLOCKER.message}`,
       blocker: { id: 'all_applications_reviewed' },
       action: MarketAction.GiveVerdicts,
     });
@@ -473,7 +473,7 @@ describe('what the rail tells someone the step is not theirs', () => {
     const said = nextStep(short, TODAY);
     expect(said.text).not.toMatch(/Add a section|reject those applications/);
     expect(said).toMatchObject({
-      text: 'Applications are open on the application page. Read where each application stands.',
+      text: 'Applications are open on the vendor page. Read where each application stands.',
       blocker: null,
       action: MarketAction.Read,
     });
