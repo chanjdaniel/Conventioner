@@ -4,6 +4,7 @@ import { seedApprovedVendor } from './helpers/seedApplication';
 import { SEED_MARKET_DATE } from './helpers/seeds';
 import { mongoEval } from './helpers/mongo';
 import { connectToFakeDiscord, fakeDiscordId, seedFakeDiscordServer } from './helpers/fakeDiscord';
+import { ToolsPage } from './pages/ToolsPage';
 import { VendorsPage } from './pages/VendorsPage';
 import { PHONE } from './helpers/screens';
 import { widths } from './helpers/phoneWindow';
@@ -187,4 +188,61 @@ test('Give roles confirms, reports a refusal by group, and gives the role once i
   await expect(vendors.detailHistorySentences.first()).toHaveText(
     `${TEST_USER.email} gave the Discord role “${ROLE_NAME}”`,
   );
+});
+
+test('with nothing missing, the card leads to Give roles, on a phone as on a desk', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+  const guildId = fakeDiscordId();
+  const roleId = fakeDiscordId();
+  const botRoleId = fakeDiscordId();
+  seedFakeDiscordServer({
+    guildId,
+    name: 'Riverside Makers',
+    roles: [
+      { id: roleId, name: ROLE_NAME, position: 1 },
+      { id: botRoleId, name: 'Conventioner', position: 2 },
+    ],
+    botRoles: [botRoleId],
+    members: [],
+  });
+  connectToFakeDiscord(seed.marketId, {
+    guildId,
+    guildName: 'Riverside Makers',
+    roleId,
+    roleName: ROLE_NAME,
+  });
+
+  const tools = new ToolsPage(page);
+  await tools.goto(seed.marketId);
+  await expect(tools.givingVendors).toHaveText('Give roles on Vendors', { timeout: 15000 });
+  await expect(tools.giving).toContainText(
+    'Check who is in the server and give roles on the Vendors page.',
+  );
+  await expect(tools.giving.getByRole('listitem')).toHaveCount(0);
+
+  const desk = page.viewportSize()!;
+  await page.setViewportSize(PHONE);
+  const link = (await tools.givingVendors.boundingBox())!;
+  expect(link.height, 'the link is a full target on a phone').toBeGreaterThanOrEqual(44);
+  expect(await widths(page), 'the Tools tab with its link keeps the window').toMatchObject({
+    layout: PHONE.width,
+    sideways: 0,
+  });
+  const findings = await page.evaluate(detectLayout, {
+    spaceScale: SPACE_SCALE,
+    textScale: TYPE_SCALE,
+    minTarget: minTargetAt(PHONE.width),
+  });
+  expect(
+    findings.filter((f) => gates(f, PHONE.width)).map((f) => `${f.kind} ${f.el}: ${f.detail}`),
+    'the Tools tab with its link at 390x844 has layout findings',
+  ).toEqual([]);
+  await page.setViewportSize(desk);
+
+  await tools.givingVendors.click();
+  await expect(page).toHaveURL(new RegExp(`/markets/${seed.marketId}/vendors$`));
+  await expect(new VendorsPage(page).giveRolesButton).toBeVisible({ timeout: 15000 });
 });

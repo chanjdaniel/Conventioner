@@ -13,11 +13,13 @@ import { MarketAction } from '@/utils/marketActions';
 import {
   giveRolesQuestion,
   mayGiveRoles,
+  rolesStillNeed,
   roleRunCounts,
   roleRunGroups,
   roleRunPossibleMatches,
   roleRunSummary,
 } from '@/utils/discordRoles';
+import { hasAssignment } from '@/utils/marketPage';
 import { answersRefusing } from './support/servedAnswers';
 import { MARKET_ID, serveMarket } from './support/marketScreen';
 
@@ -168,6 +170,53 @@ describe('who may give the role', () => {
       ),
     ).toBe(false);
     expect(mayGiveRoles(market({ discordSetUp: false }))).toBe(false);
+  });
+});
+
+describe('what is still needed before a run', () => {
+  const TEXT_QUESTION = { key: 'discord_username', label: 'Discord Username', type: 'text' };
+  const form = { applicationForm: { fields: [TEXT_QUESTION] } } as Partial<Market>;
+  const GUILD = { guildId: '2909267986263572999', guildName: 'Riverside Makers' };
+
+  it('is nothing on a market ready to run, for whoever reads it', () => {
+    expect(rolesStillNeed(market(form))).toEqual([]);
+    expect(rolesStillNeed(market(form, 'Only an Admin or the owner may.'))).toEqual([]);
+  });
+
+  it('is each thing missing, in the order the card lists them', () => {
+    expect(
+      rolesStillNeed(market({ ...form, discord: GUILD, assignmentObject: undefined })),
+    ).toEqual(['role', 'question', 'assignment']);
+    expect(rolesStillNeed(market({ ...form, discord: { ...GUILD, roleId: 'r' } }))).toEqual([
+      'question',
+    ]);
+    expect(
+      rolesStillNeed(
+        market({ ...form, discord: { ...GUILD, usernameQuestion: 'discord_username' } }),
+      ),
+    ).toEqual(['role']);
+    expect(rolesStillNeed(market({ ...form, assignmentObject: undefined }))).toEqual([
+      'assignment',
+    ]);
+  });
+
+  it('reads a question gone from the form as missing, though the run is still offered', () => {
+    const left = market({ applicationForm: { fields: [] } } as Partial<Market>);
+
+    expect(rolesStillNeed(left)).toEqual(['question']);
+    expect(mayGiveRoles(left)).toBe(true);
+  });
+
+  it('reads a market with no form as no question, and no market as nothing yet', () => {
+    expect(rolesStillNeed(market({ applicationForm: null }))).toEqual(['question']);
+    expect(rolesStillNeed(null)).toEqual(['role', 'question', 'assignment']);
+  });
+
+  it('with nothing missing, is what Vendors offers the run on, for someone the row allows', () => {
+    const ready = market(form);
+
+    expect(rolesStillNeed(ready)).toEqual([]);
+    expect(mayGiveRoles(ready) && hasAssignment(ready)).toBe(true);
   });
 });
 

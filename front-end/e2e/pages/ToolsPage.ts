@@ -17,6 +17,12 @@ export class ToolsPage {
   readonly inviteInput: Locator;
   readonly inviteError: Locator;
   readonly roleWarning: Locator;
+  readonly questionSelect: Locator;
+  readonly giving: Locator;
+  readonly givingNeedsRole: Locator;
+  readonly givingNeedsQuestion: Locator;
+  readonly givingNeedsAssignment: Locator;
+  readonly givingVendors: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -30,6 +36,12 @@ export class ToolsPage {
     this.inviteInput = page.getByTestId('discord-invite-input');
     this.inviteError = page.getByTestId('discord-invite-error');
     this.roleWarning = page.getByTestId('discord-role-warning');
+    this.questionSelect = page.getByTestId('discord-question-select');
+    this.giving = page.getByTestId('discord-giving');
+    this.givingNeedsRole = page.getByTestId('discord-giving-needs-role');
+    this.givingNeedsQuestion = page.getByTestId('discord-giving-needs-question');
+    this.givingNeedsAssignment = page.getByTestId('discord-giving-needs-assignment');
+    this.givingVendors = page.getByTestId('discord-giving-vendors');
   }
 
   async goto(marketId: string): Promise<void> {

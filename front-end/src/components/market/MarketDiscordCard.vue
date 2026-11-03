@@ -22,12 +22,19 @@
  * to be finished, under its refusal's words, however often the market is read meanwhile. A stored
  * link read later shows only if nothing unsaved stands in the field; another server or market
  * always replaces it.
+ *
+ * "Give roles" and "Check Discord" stand on the Vendors page, so once connected the card says so,
+ * with what is still missing (`rolesStillNeed`), each linked to where it is done. Only someone who
+ * may change the card reads that: it points at controls no one else is offered.
  */
 import { computed, onUnmounted, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { whenDiscordEnds } from '@/utils/discordConnected';
+import { formTextQuestions } from '@/utils/discordQuestion';
+import { rolesStillNeed } from '@/utils/discordRoles';
+import { marketPath } from '@/utils/market';
 import { MarketAction, actionRefusal } from '@/utils/marketActions';
 import type { Ref } from 'vue';
 import type { DiscordRole, Market } from '@/assets/types/datatypes';
@@ -43,9 +50,7 @@ const editable = computed(() => setUp.value && refusal.value === null);
 
 const base = computed(() => `/markets/${encodeURIComponent(props.market.id)}/discord`);
 
-const textQuestions = computed(() =>
-  (props.market.applicationForm?.fields ?? []).filter((field) => field.type === 'text'),
-);
+const textQuestions = computed(() => formTextQuestions(props.market));
 const questionLabel = computed(
   () =>
     textQuestions.value.find((field) => field.key === connection.value?.usernameQuestion)?.label ??
@@ -198,6 +203,23 @@ function onInvite(): void {
   void save({ inviteLink: inviteDraft.value.trim() }, inviteError);
 }
 
+const stillNeed = computed(() => rolesStillNeed(props.market));
+const roleSelect = ref<HTMLSelectElement | null>(null);
+const questionSelect = ref<HTMLSelectElement | null>(null);
+
+/**
+ * Focus alone would look dead on a desk, where the select stands a few lines above its link, so the
+ * click opens it too, where the browser can.
+ */
+function openSelect(select: (HTMLSelectElement & { showPicker?: () => void }) | null): void {
+  select?.focus();
+  try {
+    select?.showPicker?.();
+  } catch {
+    // Refused somewhere: the select holds the focus, and Space opens its list.
+  }
+}
+
 const confirmingDisconnect = ref(false);
 const disconnectError = ref<string | null>(null);
 
@@ -255,6 +277,7 @@ async function disconnect(): Promise<void> {
               <label class="field-label" for="discord-role">Role to give</label>
               <select
                 id="discord-role"
+                ref="roleSelect"
                 class="field field--select"
                 :value="connection?.roleId ?? ''"
                 data-testid="discord-role-select"
@@ -274,6 +297,7 @@ async function disconnect(): Promise<void> {
               <label class="field-label" for="discord-question">Username question</label>
               <select
                 id="discord-question"
+                ref="questionSelect"
                 class="field field--select"
                 :value="questionLabel ? connection?.usernameQuestion : ''"
                 data-testid="discord-question-select"
@@ -374,6 +398,59 @@ async function disconnect(): Promise<void> {
               <template v-else>None</template>
             </dd>
           </dl>
+
+          <div v-if="editable" class="discord-giving" data-testid="discord-giving">
+            <p class="field-label">Giving roles</p>
+            <p class="discord-lead">
+              Check who is in the server and give roles on the Vendors page.
+            </p>
+            <template v-if="stillNeed.length">
+              <p class="discord-lead discord-giving-still">Still needed:</p>
+              <ul class="discord-giving-needs">
+                <li v-if="stillNeed.includes('role')">
+                  <a
+                    href="#discord-role"
+                    class="link-alone"
+                    data-testid="discord-giving-needs-role"
+                    @click.prevent="openSelect(roleSelect)"
+                    >Choose the role to give</a
+                  >
+                </li>
+                <li v-if="stillNeed.includes('question')">
+                  <a
+                    v-if="textQuestions.length"
+                    href="#discord-question"
+                    class="link-alone"
+                    data-testid="discord-giving-needs-question"
+                    @click.prevent="openSelect(questionSelect)"
+                    >Choose the question that asks their Discord username</a
+                  >
+                  <RouterLink
+                    v-else
+                    :to="marketPath(market.id, 'form')"
+                    class="link-alone"
+                    data-testid="discord-giving-needs-question"
+                    >Add a question that asks their Discord username</RouterLink
+                  >
+                </li>
+                <li v-if="stillNeed.includes('assignment')">
+                  <RouterLink
+                    :to="marketPath(market.id, 'settings')"
+                    class="link-alone"
+                    data-testid="discord-giving-needs-assignment"
+                    >Make the assignment</RouterLink
+                  >
+                </li>
+              </ul>
+            </template>
+            <RouterLink
+              v-else
+              :to="marketPath(market.id, 'vendors')"
+              class="link-alone"
+              data-testid="discord-giving-vendors"
+              >Give roles on Vendors</RouterLink
+            >
+          </div>
         </template>
 
         <template v-else-if="setUp">
@@ -510,6 +587,23 @@ async function disconnect(): Promise<void> {
 
 .discord-choices > .discord-error {
   grid-column: 1 / -1;
+}
+
+.discord-giving {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.discord-giving-still {
+  margin-top: var(--space-2);
+}
+
+.discord-giving-needs {
+  margin: 0;
+  padding-left: var(--space-6);
+  font-size: var(--text-sm);
+  color: var(--mm-black);
 }
 
 /* On a phone (the Tools tab fits one) the three choices stand one under another. */

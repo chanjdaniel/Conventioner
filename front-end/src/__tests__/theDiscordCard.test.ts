@@ -7,7 +7,7 @@
  * Discord's values says so and offers nothing.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { flushPromises, mount } from '@vue/test-utils';
+import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils';
 
 import MarketDiscordCard from '@/components/market/MarketDiscordCard.vue';
 import type { DiscordConnection, Market } from '@/assets/types/datatypes';
@@ -57,7 +57,11 @@ function market(overrides: Partial<Market> = {}, ...refused: MarketAction[]): Ma
 }
 
 function card(props: Market) {
-  return mount(MarketDiscordCard, { props: { market: props }, attachTo: document.body });
+  return mount(MarketDiscordCard, {
+    props: { market: props },
+    attachTo: document.body,
+    global: { stubs: { RouterLink: RouterLinkStub } },
+  });
 }
 
 const find = (wrapper: ReturnType<typeof card>, id: string) =>
@@ -547,6 +551,297 @@ describe('the invite field and a market read again', () => {
 
     expect(typed(wrapper)).toBe('discord.gg/abc');
     expect(find(wrapper, 'discord-invite-error').text()).toBe('An invite link is a web address.');
+  });
+});
+
+describe('the "Giving roles" block', () => {
+  const ROLE_CHOSEN = { roleId: 'r-vendor', roleName: 'Vendor Test' };
+  const QUESTION_CHOSEN = { usernameQuestion: 'discord_username' };
+  const ASSIGNED = {
+    assignmentObject: { vendorAssignments: [{ email: 'e2e-fern@example.com' }] },
+  } as unknown as Partial<Market>;
+  const SENTENCE = 'Check who is in the server and give roles on the Vendors page.';
+  const NEEDS = {
+    role: 'discord-giving-needs-role',
+    question: 'discord-giving-needs-question',
+    assignment: 'discord-giving-needs-assignment',
+  };
+
+  const block = (wrapper: ReturnType<typeof card>) => find(wrapper, 'discord-giving');
+  const items = (wrapper: ReturnType<typeof card>) =>
+    block(wrapper)
+      .findAll('li')
+      .map((item) => item.text());
+  const routedTo = (wrapper: ReturnType<typeof card>, id: string) =>
+    find(wrapper, id).getComponent(RouterLinkStub).props('to');
+
+  /** A click the handler may stop, so the test can read whether the address would have changed. */
+  function clickLink(wrapper: ReturnType<typeof card>, id: string): MouseEvent {
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+    find(wrapper, id).element.dispatchEvent(click);
+    return click;
+  }
+  const withPicker = (wrapper: ReturnType<typeof card>, id: string, showPicker: () => void) =>
+    Object.defineProperty(find(wrapper, id).element, 'showPicker', { value: showPicker });
+
+  describe('with everything missing', () => {
+    it('says where roles are given, then what is missing, in order, each a link', async () => {
+      const wrapper = card(market({ discord: CONNECTED }));
+      await flushPromises();
+
+      expect(block(wrapper).text()).toContain('Giving roles');
+      expect(block(wrapper).text()).toContain(SENTENCE);
+      expect(block(wrapper).text()).toContain('Still needed:');
+      expect(items(wrapper)).toEqual([
+        'Choose the role to give',
+        'Choose the question that asks their Discord username',
+        'Make the assignment',
+      ]);
+      expect(
+        block(wrapper)
+          .findAll('li a')
+          .map((link) => link.attributes('data-testid')),
+      ).toEqual([NEEDS.role, NEEDS.question, NEEDS.assignment]);
+      expect(find(wrapper, 'discord-giving-vendors').exists()).toBe(false);
+      wrapper.unmount();
+    });
+
+    it('stands after the choices and the refusal lines', async () => {
+      api.put.mockRejectedValueOnce(refusedWith('An invite link is a web address.'));
+      const wrapper = card(market({ discord: CONNECTED }));
+      await flushPromises();
+      await invite(wrapper).setValue('discord.gg/abc');
+      await flushPromises();
+
+      const follows = find(wrapper, 'discord-invite-error').element.compareDocumentPosition(
+        block(wrapper).element,
+      );
+      expect(follows & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      wrapper.unmount();
+    });
+  });
+
+  describe('a link to a select on this card', () => {
+    it.each([
+      [NEEDS.role, 'discord-role-select', '#discord-role'],
+      [NEEDS.question, 'discord-question-select', '#discord-question'],
+    ])('%s focuses the select and opens it, leaving the address', async (link, select, href) => {
+      const wrapper = card(market({ discord: CONNECTED }));
+      await flushPromises();
+      const showPicker = vi.fn();
+      withPicker(wrapper, select, showPicker);
+
+      expect(find(wrapper, link).attributes('href')).toBe(href);
+      expect(find(wrapper, select).attributes('id')).toBe(href.slice(1));
+      const click = clickLink(wrapper, link);
+
+      expect(click.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(find(wrapper, select).element);
+      expect(showPicker).toHaveBeenCalledTimes(1);
+      wrapper.unmount();
+    });
+
+    it('still focuses the select when the browser refuses to open it', async () => {
+      const wrapper = card(market({ discord: CONNECTED }));
+      await flushPromises();
+      withPicker(wrapper, 'discord-role-select', () => {
+        throw new DOMException('Refused', 'NotAllowedError');
+      });
+
+      expect(() => clickLink(wrapper, NEEDS.role)).not.toThrow();
+
+      expect(document.activeElement).toBe(find(wrapper, 'discord-role-select').element);
+      wrapper.unmount();
+    });
+
+    it('still focuses the select in a browser with no way to open it', async () => {
+      const wrapper = card(market({ discord: CONNECTED }));
+      await flushPromises();
+      withPicker(wrapper, 'discord-question-select', undefined as unknown as () => void);
+
+      clickLink(wrapper, NEEDS.question);
+
+      expect(document.activeElement).toBe(find(wrapper, 'discord-question-select').element);
+      wrapper.unmount();
+    });
+  });
+
+  describe('the username question', () => {
+    it('sends a form with no text question to the form page, not an empty select', async () => {
+      const wrapper = card(
+        market({
+          discord: CONNECTED,
+          applicationForm: { fields: FIELDS.filter((field) => field.type !== 'text') },
+        } as Partial<Market>),
+      );
+      await flushPromises();
+
+      expect(find(wrapper, NEEDS.question).text()).toBe(
+        'Add a question that asks their Discord username',
+      );
+      expect(routedTo(wrapper, NEEDS.question)).toBe('/markets/market-123/form');
+      wrapper.unmount();
+    });
+
+    it('reads a market with no form as one with no text question', async () => {
+      const wrapper = card(market({ discord: CONNECTED, applicationForm: null }));
+      await flushPromises();
+
+      expect(routedTo(wrapper, NEEDS.question)).toBe('/markets/market-123/form');
+      wrapper.unmount();
+    });
+
+    it.each([
+      ['gone from the form', 'left_the_form'],
+      ['no longer a text question', 'days'],
+    ])('is back on the list when the chosen one is %s, as the select reads it', async (_, key) => {
+      const wrapper = card(market({ discord: { ...CONNECTED, usernameQuestion: key } }));
+      await flushPromises();
+
+      expect(find(wrapper, NEEDS.question).text()).toBe(
+        'Choose the question that asks their Discord username',
+      );
+      expect((find(wrapper, 'discord-question-select').element as HTMLSelectElement).value).toBe(
+        '',
+      );
+      wrapper.unmount();
+    });
+  });
+
+  describe('the assignment', () => {
+    it.each(['draft', 'applications', 'assignment', 'offers', 'market_days'])(
+      'links to the Settings page in %s',
+      async (phase) => {
+        const wrapper = card(market({ discord: CONNECTED, phase } as Partial<Market>));
+        await flushPromises();
+
+        expect(find(wrapper, NEEDS.assignment).text()).toBe('Make the assignment');
+        expect(routedTo(wrapper, NEEDS.assignment)).toBe('/markets/market-123/settings');
+        wrapper.unmount();
+      },
+    );
+
+    it('reads an assignment with nobody placed as none', async () => {
+      const wrapper = card(
+        market({
+          discord: CONNECTED,
+          assignmentObject: { vendorAssignments: [] },
+        } as unknown as Partial<Market>),
+      );
+      await flushPromises();
+
+      expect(find(wrapper, NEEDS.assignment).exists()).toBe(true);
+      wrapper.unmount();
+    });
+  });
+
+  describe('as the choices are made', () => {
+    it('lists only what is missing', async () => {
+      const wrapper = card(market({ discord: { ...CONNECTED, ...ROLE_CHOSEN }, ...ASSIGNED }));
+      await flushPromises();
+
+      expect(items(wrapper)).toEqual(['Choose the question that asks their Discord username']);
+      wrapper.unmount();
+    });
+
+    it('takes the role off once its save has re-read the market, with no reload', async () => {
+      const wrapper = card(market({ discord: CONNECTED }));
+      await flushPromises();
+
+      await find(wrapper, 'discord-role-select').setValue('r-vendor');
+      await flushPromises();
+      expect(wrapper.emitted('changed')).toHaveLength(1);
+      expect(find(wrapper, NEEDS.role).exists()).toBe(true);
+
+      await wrapper.setProps({ market: market({ discord: { ...CONNECTED, ...ROLE_CHOSEN } }) });
+
+      expect(find(wrapper, NEEDS.role).exists()).toBe(false);
+      expect(items(wrapper)).toEqual([
+        'Choose the question that asks their Discord username',
+        'Make the assignment',
+      ]);
+      wrapper.unmount();
+    });
+
+    it('takes the question off once its save has re-read the market', async () => {
+      const wrapper = card(market({ discord: CONNECTED }));
+      await flushPromises();
+
+      await find(wrapper, 'discord-question-select').setValue('discord_username');
+      await flushPromises();
+      await wrapper.setProps({
+        market: market({ discord: { ...CONNECTED, ...QUESTION_CHOSEN } }),
+      });
+
+      expect(items(wrapper)).toEqual(['Choose the role to give', 'Make the assignment']);
+      wrapper.unmount();
+    });
+
+    it('counts a role above the bot`s as chosen, and leaves that to its warning', async () => {
+      const wrapper = card(
+        market({ discord: { ...CONNECTED, roleId: 'r-mod', roleName: 'Moderator' } }),
+      );
+      await flushPromises();
+
+      expect(find(wrapper, 'discord-role-warning').exists()).toBe(true);
+      expect(find(wrapper, NEEDS.role).exists()).toBe(false);
+      wrapper.unmount();
+    });
+  });
+
+  describe('with nothing missing', () => {
+    const complete = (overrides: Partial<Market> = {}) =>
+      market({
+        discord: { ...CONNECTED, ...ROLE_CHOSEN, ...QUESTION_CHOSEN },
+        ...ASSIGNED,
+        ...overrides,
+      });
+
+    it('has no list, and one link to the Vendors page', async () => {
+      const wrapper = card(complete());
+      await flushPromises();
+
+      expect(block(wrapper).text()).toContain(SENTENCE);
+      expect(block(wrapper).text()).not.toContain('Still needed:');
+      expect(block(wrapper).find('li').exists()).toBe(false);
+      expect(find(wrapper, 'discord-giving-vendors').text()).toBe('Give roles on Vendors');
+      expect(routedTo(wrapper, 'discord-giving-vendors')).toBe('/markets/market-123/vendors');
+      wrapper.unmount();
+    });
+
+    it('returns to the list when the assignment goes', async () => {
+      const wrapper = card(complete());
+      await flushPromises();
+
+      await wrapper.setProps({ market: complete({ assignmentObject: undefined }) });
+
+      expect(items(wrapper)).toEqual(['Make the assignment']);
+      expect(find(wrapper, 'discord-giving-vendors').exists()).toBe(false);
+      wrapper.unmount();
+    });
+  });
+
+  describe('who reads no block', () => {
+    const CHOSEN = { ...CONNECTED, ...ROLE_CHOSEN, ...QUESTION_CHOSEN };
+
+    it.each([
+      ['someone the row refuses', market({ discord: CHOSEN }, MarketAction.ConnectDiscord)],
+      [
+        'an archived market',
+        market(
+          { discord: CHOSEN, phase: 'archived' } as Partial<Market>,
+          MarketAction.ConnectDiscord,
+        ),
+      ],
+      ['a Conventioner without Discord`s values', market({ discord: CHOSEN, discordSetUp: false })],
+      ['a market not connected', market()],
+    ])('%s', async (_, served) => {
+      const wrapper = card(served);
+      await flushPromises();
+
+      expect(block(wrapper).exists()).toBe(false);
+      wrapper.unmount();
+    });
   });
 });
 

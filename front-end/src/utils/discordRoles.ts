@@ -5,6 +5,8 @@
  */
 import { api } from '@/utils/api';
 import { mayCheckDiscord } from '@/utils/discordCheck';
+import { formTextQuestions } from '@/utils/discordQuestion';
+import { hasAssignment } from '@/utils/marketPage';
 import type { DiscordRoleRun, Market } from '@/assets/types/datatypes';
 
 /**
@@ -67,6 +69,25 @@ export function roleOutcomeChip(outcome: RoleOutcome): string {
  */
 export function mayGiveRoles(market: Market | null | undefined): boolean {
   return mayCheckDiscord(market) && !!market?.discord?.roleId;
+}
+
+/** What can still be missing before "Give roles" can run, in the order the Discord card lists it. */
+export type RolesNeed = 'role' | 'question' | 'assignment';
+
+/**
+ * What is still missing, whoever reads it. Nothing missing means Vendors offers "Give roles" to
+ * someone the row allows. A question counts only while it is still a text question of the form, as
+ * the card's select reads it; `mayCheckDiscord` reads only that one is named, so a question gone
+ * from the form is missing here while Vendors still offers the run, which the server refuses in its
+ * own words. A role above the bot's is chosen: the card's warning says what to do about it.
+ */
+export function rolesStillNeed(market: Market | null | undefined): RolesNeed[] {
+  const needs: RolesNeed[] = [];
+  if (!market?.discord?.roleId) needs.push('role');
+  const question = market?.discord?.usernameQuestion;
+  if (!formTextQuestions(market).some((field) => field.key === question)) needs.push('question');
+  if (!hasAssignment(market)) needs.push('assignment');
+  return needs;
 }
 
 /** What the confirmation asks: "Give Vendor Nov 2026 to 54 assigned vendors?" */

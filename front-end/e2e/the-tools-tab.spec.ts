@@ -1,11 +1,21 @@
 import { test, expect, TEST_USER, BACKEND_URL, ApplicationFormPage } from './fixtures';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
+import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { ensureTestOrg } from './helpers/seeds';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
 import { fakeDiscordId, seedFakeDiscordServer } from './helpers/fakeDiscord';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
+import { PHONE } from './helpers/screens';
+import { widths } from './helpers/phoneWindow';
+import {
+  detectLayout,
+  gates,
+  minTargetAt,
+  SPACE_SCALE,
+  TYPE_SCALE,
+} from './helpers/layoutDetectors';
 import { ToolsPage } from './pages/ToolsPage';
 
 /**
@@ -20,6 +30,30 @@ import { ToolsPage } from './pages/ToolsPage';
  * refusal and the role are the back end's own.
  */
 const VIEWER = { email: 'e2e-tools-viewer@example.com', password: 'e2etoolsviewer1' };
+
+/** A market connected to a server the fake answers for, with nothing chosen; its role's id. */
+function connectWithNothingChosen(marketId: string): string {
+  const guildId = fakeDiscordId();
+  const roleId = fakeDiscordId();
+  const botRoleId = fakeDiscordId();
+  seedFakeDiscordServer({
+    guildId,
+    name: 'Riverside Makers',
+    roles: [
+      { id: roleId, name: 'Vendor', position: 1 },
+      { id: botRoleId, name: 'Conventioner', position: 2 },
+    ],
+    botRoles: [botRoleId],
+    members: [],
+  });
+  mongoEval(
+    `db.markets.updateOne({ id: ${JSON.stringify(marketId)} }, { $set: { discord: ${JSON.stringify({
+      guildId,
+      guildName: 'Riverside Makers',
+    })} } })`,
+  );
+  return roleId;
+}
 
 test.beforeAll(async ({ request }) => {
   await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
@@ -146,6 +180,126 @@ test('a half-typed invite link is refused in its own words, and stays to be fini
   await page.reload();
   await expect(tools.roleSelect).toHaveValue(roleId, { timeout: 15000 });
   await expect(tools.inviteInput).toHaveValue('');
+});
+
+test('the card says where roles are given, and walks what is missing down to the assignment', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  const roleId = connectWithNothingChosen(marketId);
+  const tools = new ToolsPage(page);
+  const address = new RegExp(`/markets/${marketId}/tools$`);
+  await tools.goto(marketId);
+  await expect(
+    tools.roleOption(roleId),
+    'the stack answers for Discord only with DISCORD_FAKE=true (docs/TESTING.md)',
+  ).toBeAttached({ timeout: 15000 });
+
+  await expect(tools.giving).toContainText(
+    'Check who is in the server and give roles on the Vendors page.',
+  );
+  await expect(tools.giving.getByRole('listitem')).toHaveText([
+    'Choose the role to give',
+    'Choose the question that asks their Discord username',
+    'Make the assignment',
+  ]);
+  await expect(tools.givingVendors).toHaveCount(0);
+
+  // Each item takes the organizer to its select, on this card, and goes once its choice has saved.
+  await tools.givingNeedsRole.click();
+  await expect(tools.roleSelect).toBeFocused();
+  await expect(page).toHaveURL(address);
+  await page.keyboard.press('Escape');
+  await tools.roleSelect.selectOption(roleId);
+  await expect(tools.givingNeedsRole).toHaveCount(0);
+
+  await tools.givingNeedsQuestion.click();
+  await expect(tools.questionSelect).toBeFocused();
+  await expect(page).toHaveURL(address);
+  await page.keyboard.press('Escape');
+  await tools.questionSelect.selectOption('name');
+  await expect(tools.givingNeedsQuestion).toHaveCount(0);
+  await expect(tools.giving.getByRole('listitem')).toHaveText(['Make the assignment']);
+
+  // A draft cannot run one yet: the link leads where Vendors' own "Nothing assigned yet" does.
+  await tools.givingNeedsAssignment.click();
+  await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/settings$`));
+});
+
+test('a form with no text question sends the organizer to the form, not an empty select', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedDraftMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  const roleId = connectWithNothingChosen(marketId);
+  const tools = new ToolsPage(page);
+  await tools.goto(marketId);
+  await expect(tools.roleOption(roleId)).toBeAttached({ timeout: 15000 });
+
+  await expect(tools.givingNeedsQuestion).toHaveText(
+    'Add a question that asks their Discord username',
+  );
+  await tools.givingNeedsQuestion.click();
+  await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/form$`));
+});
+
+test('the checklist fits a phone, each link a full target', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  const roleId = connectWithNothingChosen(marketId);
+  const tools = new ToolsPage(page);
+  await page.setViewportSize(PHONE);
+  await tools.goto(marketId);
+  await expect(tools.roleOption(roleId)).toBeAttached({ timeout: 15000 });
+  await expect(tools.giving).toBeVisible();
+
+  for (const link of [
+    tools.givingNeedsRole,
+    tools.givingNeedsQuestion,
+    tools.givingNeedsAssignment,
+  ]) {
+    const box = (await link.boundingBox())!;
+    expect(box.height, await link.innerText()).toBeGreaterThanOrEqual(44);
+  }
+  const card = (await tools.discordCard.boundingBox())!;
+  const block = (await tools.giving.boundingBox())!;
+  expect(block.x + block.width, 'the block ends inside the card').toBeLessThanOrEqual(
+    card.x + card.width,
+  );
+  expect(await widths(page), 'the Tools tab with the checklist keeps the window').toMatchObject({
+    layout: PHONE.width,
+    sideways: 0,
+  });
+  const findings = await page.evaluate(detectLayout, {
+    spaceScale: SPACE_SCALE,
+    textScale: TYPE_SCALE,
+    minTarget: minTargetAt(PHONE.width),
+  });
+  expect(
+    findings.filter((f) => gates(f, PHONE.width)).map((f) => `${f.kind} ${f.el}: ${f.detail}`),
+    'the Tools tab with the checklist at 390x844 has layout findings',
+  ).toEqual([]);
 });
 
 test('the form builder adds a Discord username question in one click, once', async ({
