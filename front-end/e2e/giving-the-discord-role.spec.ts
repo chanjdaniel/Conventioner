@@ -1,4 +1,4 @@
-import type { Locator } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { seedApprovedVendor } from './helpers/seedApplication';
@@ -6,7 +6,12 @@ import { SEED_MARKET_DATE } from './helpers/seeds';
 import { marketScreenPath } from './helpers/marketScreens';
 import { grantMarketRole } from './helpers/grantMarketRole';
 import { mongoEval } from './helpers/mongo';
-import { connectToFakeDiscord, fakeDiscordId, seedFakeDiscordServer } from './helpers/fakeDiscord';
+import {
+  connectToFakeDiscord,
+  fakeDiscordId,
+  removeFakeDiscordServer,
+  seedFakeDiscordServer,
+} from './helpers/fakeDiscord';
 import { ToolsPage } from './pages/ToolsPage';
 import { VendorsPage } from './pages/VendorsPage';
 import { PHONE } from './helpers/screens';
@@ -36,6 +41,47 @@ const QUESTION = 'discord_username';
 const ROLE_NAME = 'Vendor Nov 2026';
 /** A Viewer of the market, whom the "Connect Discord and give roles" row refuses. */
 const VIEWER = { email: 'e2e-discord-row-viewer@example.com', password: 'e2epassword123' };
+
+/** Connect the market to a server of its own, no one in it, with nothing left to choose. */
+function connectWithNoMembers(marketId: string): string {
+  const guildId = fakeDiscordId();
+  const roleId = fakeDiscordId();
+  const botRoleId = fakeDiscordId();
+  seedFakeDiscordServer({
+    guildId,
+    name: 'Riverside Makers',
+    roles: [
+      { id: roleId, name: ROLE_NAME, position: 1 },
+      { id: botRoleId, name: 'Conventioner', position: 2 },
+    ],
+    botRoles: [botRoleId],
+    members: [],
+  });
+  connectToFakeDiscord(marketId, {
+    guildId,
+    guildName: 'Riverside Makers',
+    roleId,
+    roleName: ROLE_NAME,
+  });
+  return guildId;
+}
+
+/** The window keeps its width and the page is laid out as the layout sweep holds a screen. */
+async function expectLaidOutOnAPhone(page: Page, what: string) {
+  expect(await widths(page), `${what} keeps the window`).toMatchObject({
+    layout: PHONE.width,
+    sideways: 0,
+  });
+  const findings = await page.evaluate(detectLayout, {
+    spaceScale: SPACE_SCALE,
+    textScale: TYPE_SCALE,
+    minTarget: minTargetAt(PHONE.width),
+  });
+  expect(
+    findings.filter((f) => gates(f, PHONE.width)).map((f) => `${f.kind} ${f.el}: ${f.detail}`),
+    `${what} at 390x844 has layout findings`,
+  ).toEqual([]);
+}
 
 test('Give roles confirms, reports a refusal by group, and gives the role once it is fixed', async ({
   authenticatedPage: page,
@@ -149,19 +195,7 @@ test('Give roles confirms, reports a refusal by group, and gives the role once i
   // connects no Discord), and Give roles opens inside the window.
   const desk = page.viewportSize()!;
   await page.setViewportSize(PHONE);
-  expect(await widths(page), 'Vendors with the role report keeps the window').toMatchObject({
-    layout: PHONE.width,
-    sideways: 0,
-  });
-  const findings = await page.evaluate(detectLayout, {
-    spaceScale: SPACE_SCALE,
-    textScale: TYPE_SCALE,
-    minTarget: minTargetAt(PHONE.width),
-  });
-  expect(
-    findings.filter((f) => gates(f, PHONE.width)).map((f) => `${f.kind} ${f.el}: ${f.detail}`),
-    'Vendors with Discord at 390x844 has layout findings',
-  ).toEqual([]);
+  await expectLaidOutOnAPhone(page, 'Vendors with the role report');
   await vendors.giveRolesButton.click();
   const box = (await dialog.boundingBox())!;
   expect(box.x, 'Give roles starts inside the window').toBeGreaterThanOrEqual(0);
@@ -202,25 +236,7 @@ test('with nothing missing, the card leads to Give roles, on a phone as on a des
   request,
 }) => {
   const seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-  const guildId = fakeDiscordId();
-  const roleId = fakeDiscordId();
-  const botRoleId = fakeDiscordId();
-  seedFakeDiscordServer({
-    guildId,
-    name: 'Riverside Makers',
-    roles: [
-      { id: roleId, name: ROLE_NAME, position: 1 },
-      { id: botRoleId, name: 'Conventioner', position: 2 },
-    ],
-    botRoles: [botRoleId],
-    members: [],
-  });
-  connectToFakeDiscord(seed.marketId, {
-    guildId,
-    guildName: 'Riverside Makers',
-    roleId,
-    roleName: ROLE_NAME,
-  });
+  connectWithNoMembers(seed.marketId);
 
   const tools = new ToolsPage(page);
   await tools.goto(seed.marketId);
@@ -234,19 +250,7 @@ test('with nothing missing, the card leads to Give roles, on a phone as on a des
   await page.setViewportSize(PHONE);
   const link = (await tools.givingVendorsLink.boundingBox())!;
   expect(link.height, 'the link is a full target on a phone').toBeGreaterThanOrEqual(44);
-  expect(await widths(page), 'the Tools tab with its link keeps the window').toMatchObject({
-    layout: PHONE.width,
-    sideways: 0,
-  });
-  const findings = await page.evaluate(detectLayout, {
-    spaceScale: SPACE_SCALE,
-    textScale: TYPE_SCALE,
-    minTarget: minTargetAt(PHONE.width),
-  });
-  expect(
-    findings.filter((f) => gates(f, PHONE.width)).map((f) => `${f.kind} ${f.el}: ${f.detail}`),
-    'the Tools tab with its link at 390x844 has layout findings',
-  ).toEqual([]);
+  await expectLaidOutOnAPhone(page, 'the Tools tab with its link');
   await page.setViewportSize(desk);
 
   await tools.givingVendorsLink.click();
@@ -261,6 +265,17 @@ async function boxOf(locator: Locator) {
   return { ...box, right: box.x + box.width, bottom: box.y + box.height };
 }
 
+/** The row with the filter and all three actions on it. */
+async function rowBoxes(vendors: VendorsPage) {
+  return {
+    row: await boxOf(vendors.discordRow),
+    filter: await boxOf(vendors.discordFilter),
+    checked: await boxOf(vendors.discordChecked),
+    check: await boxOf(vendors.checkDiscordButton),
+    give: await boxOf(vendors.giveRolesButton),
+  };
+}
+
 /** Two edges are one edge, to within a rounding of the layout. */
 function sameEdge(actual: number, expected: number, what: string) {
   expect(Math.abs(actual - expected), `${what}: ${actual} and ${expected}`).toBeLessThan(1);
@@ -268,11 +283,7 @@ function sameEdge(actual: number, expected: number, what: string) {
 
 /** The filter at the left, then "Checked…" and the buttons at the far right, on one line. */
 async function expectTheRowOnOneLine(vendors: VendorsPage) {
-  const row = await boxOf(vendors.discordRow);
-  const filter = await boxOf(vendors.discordFilter);
-  const checked = await boxOf(vendors.discordChecked);
-  const check = await boxOf(vendors.checkDiscordButton);
-  const give = await boxOf(vendors.giveRolesButton);
+  const { row, filter, checked, check, give } = await rowBoxes(vendors);
   sameEdge(filter.x, row.x, 'the filter starts the row');
   sameEdge(give.right, row.right, '"Give roles" ends the row');
   expect(filter.right, 'the filter stands left of the actions').toBeLessThan(checked.x);
@@ -289,11 +300,7 @@ async function expectTheRowOnOneLine(vendors: VendorsPage) {
 
 /** The filter, then "Checked…" under it, then the two buttons under that, each at the line's start. */
 async function expectTheRowStacked(vendors: VendorsPage) {
-  const row = await boxOf(vendors.discordRow);
-  const filter = await boxOf(vendors.discordFilter);
-  const checked = await boxOf(vendors.discordChecked);
-  const check = await boxOf(vendors.checkDiscordButton);
-  const give = await boxOf(vendors.giveRolesButton);
+  const { row, filter, checked, check, give } = await rowBoxes(vendors);
   sameEdge(filter.x, row.x, 'the filter starts its line');
   sameEdge(checked.x, row.x, '"Checked…" starts its line');
   sameEdge(check.x, row.x, '"Check Discord" starts its line');
@@ -308,32 +315,14 @@ test('the Discord row reads filter, then actions, with its error on a row of its
   request,
 }) => {
   const seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-  const guildId = fakeDiscordId();
-  const roleId = fakeDiscordId();
-  const botRoleId = fakeDiscordId();
-  seedFakeDiscordServer({
-    guildId,
-    name: 'Riverside Makers',
-    roles: [
-      { id: roleId, name: ROLE_NAME, position: 1 },
-      { id: botRoleId, name: 'Conventioner', position: 2 },
-    ],
-    botRoles: [botRoleId],
-    members: [],
-  });
-  connectToFakeDiscord(seed.marketId, {
-    guildId,
-    guildName: 'Riverside Makers',
-    roleId,
-    roleName: ROLE_NAME,
-  });
+  const guildId = connectWithNoMembers(seed.marketId);
 
   const vendors = new VendorsPage(page);
   await page.setViewportSize({ width: 1280, height: 800 });
   await vendors.goto(seed.marketId);
   await expect(vendors.giveRolesButton).toBeVisible({ timeout: 15000 });
 
-  // Before the first check: no filter and no "Checked…", and the buttons do not move for them.
+  // Before the first check: no filter and no "Checked…", and the buttons at the far right already.
   await expect(vendors.discordFilter).toHaveCount(0);
   await expect(vendors.discordChecked).toHaveCount(0);
   const beforeCheck = await boxOf(vendors.checkDiscordButton);
@@ -346,28 +335,19 @@ test('the Discord row reads filter, then actions, with its error on a row of its
   await vendors.checkDiscordButton.click();
   await expect(vendors.discordChecked).toHaveText('Checked just now');
   await expectTheRowOnOneLine(vendors);
+  const { check: afterCheck, give: afterGive } = await rowBoxes(vendors);
+  sameEdge(afterCheck.x, beforeCheck.x, 'the filter appearing leaves "Check Discord" where it was');
+  sameEdge(afterGive.x, beforeGive.x, 'the filter appearing leaves "Give roles" where it was');
 
   // On a phone the actions take their own lines under the filter, and the page keeps the window.
   await page.setViewportSize(PHONE);
   await expectTheRowStacked(vendors);
-  expect(await widths(page), 'Vendors with the Discord row keeps the window').toMatchObject({
-    layout: PHONE.width,
-    sideways: 0,
-  });
-  const findings = await page.evaluate(detectLayout, {
-    spaceScale: SPACE_SCALE,
-    textScale: TYPE_SCALE,
-    minTarget: minTargetAt(PHONE.width),
-  });
-  expect(
-    findings.filter((f) => gates(f, PHONE.width)).map((f) => `${f.kind} ${f.el}: ${f.detail}`),
-    'Vendors with the Discord row at 390x844 has layout findings',
-  ).toEqual([]);
+  await expectLaidOutOnAPhone(page, 'Vendors with the Discord row');
   await page.setViewportSize({ width: 320, height: 640 });
   await expectTheRowStacked(vendors);
 
-  // Discord no longer knows the server, so the next check is refused, in words of the server's.
-  mongoEval(`db.fake_discord_servers.deleteOne({ guildId: ${JSON.stringify(guildId)} })`);
+  // Discord no longer knows the server, so the back end refuses the next check.
+  removeFakeDiscordServer(guildId);
   await page.setViewportSize({ width: 1280, height: 800 });
   await vendors.checkDiscordButton.click();
   await expect(vendors.discordError).toBeVisible();
@@ -376,7 +356,7 @@ test('the Discord row reads filter, then actions, with its error on a row of its
     const row = await boxOf(vendors.discordRow);
     const error = await boxOf(vendors.discordError);
     sameEdge(error.x, row.x, 'the error starts its row');
-    sameEdge(error.width, row.width, 'the error has its row to itself');
+    sameEdge(error.right, row.right, 'the error has its row to itself');
     expect(error.y, 'the error stands under the buttons').toBeGreaterThanOrEqual(
       (await boxOf(vendors.giveRolesButton)).bottom,
     );
@@ -385,6 +365,13 @@ test('the Discord row reads filter, then actions, with its error on a row of its
   await page.setViewportSize(PHONE);
   await expectTheRowStacked(vendors);
   await expectTheErrorOnItsOwnRow();
+  await page.setViewportSize({ width: 320, height: 640 });
+  await expectTheRowStacked(vendors);
+  await expectTheErrorOnItsOwnRow();
+});
+
+test.beforeAll(() => {
+  ensureVerifiedUser(VIEWER.email, VIEWER.password);
 });
 
 test('someone the row refuses reads the filter at the left and “Checked…” at the far right', async ({
@@ -396,7 +383,6 @@ test('someone the row refuses reads the filter at the left and “Checked…” 
   const guildId = fakeDiscordId();
   seedFakeDiscordServer({ guildId, name: 'Riverside Makers', members: [] });
   connectToFakeDiscord(seed.marketId, { guildId, guildName: 'Riverside Makers' });
-  ensureVerifiedUser(VIEWER.email, VIEWER.password);
   await grantMarketRole(request, seed.marketId, VIEWER, 'viewer');
 
   // The owner runs the check, so the Viewer reads when it ran.

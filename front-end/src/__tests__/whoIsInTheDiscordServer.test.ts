@@ -277,25 +277,25 @@ describe('the Vendors page', () => {
         .find('[data-testid="vendors-discord-actions"]')
         .findAll('[data-testid]')
         .map((node) => node.attributes('data-testid'));
-    const assignedMarket = (overrides: Partial<Market> = {}) =>
+    const CONNECTION = {
+      guildId: '2909267986263572999',
+      guildName: 'Riverside Makers',
+      roleId: '1',
+      roleName: 'Vendor',
+      usernameQuestion: 'discord_username',
+    };
+    const assignedMarket = (discord: Record<string, string>) =>
       market({
         assignmentObject: {
           vendorAssignments: [{ applicationId: 'app-ana' }],
           assignmentDate: CHECKED_AT,
         },
-        discord: {
-          guildId: '2909267986263572999',
-          guildName: 'Riverside Makers',
-          roleId: '1',
-          roleName: 'Vendor',
-          usernameQuestion: 'discord_username',
-          checkedAt: CHECKED_AT,
-        },
-        ...overrides,
+        discord,
       } as unknown as Partial<Market>);
+    const checkedMarket = () => assignedMarket({ ...CONNECTION, checkedAt: CHECKED_AT });
 
     it('groups when it was checked and the two buttons, in that order', async () => {
-      const wrapper = await mounted(assignedMarket());
+      const wrapper = await mounted(checkedMarket());
 
       expect(inActions(wrapper)).toEqual([
         'vendors-discord-checked',
@@ -305,7 +305,7 @@ describe('the Vendors page', () => {
     });
 
     it('leaves the filter and a refused check outside the group', async () => {
-      const wrapper = await mounted(assignedMarket());
+      const wrapper = await mounted(checkedMarket());
       api.post.mockRejectedValue({
         isAxiosError: true,
         response: { status: 400, data: { error: 'Choose the username question again.' } },
@@ -330,16 +330,7 @@ describe('the Vendors page', () => {
     });
 
     it('holds the buttons before the first check, with no filter beside them', async () => {
-      const wrapper = await mounted(
-        assignedMarket({
-          discord: {
-            guildId: '2909267986263572999',
-            roleId: '1',
-            roleName: 'Vendor',
-            usernameQuestion: 'discord_username',
-          },
-        } as unknown as Partial<Market>),
-      );
+      const wrapper = await mounted(assignedMarket(CONNECTION));
 
       expect(inActions(wrapper)).toEqual(['vendors-discord-check', 'vendors-discord-give']);
       expect(wrapper.find('[data-testid="vendors-discord-filter"]').exists()).toBe(false);

@@ -47,6 +47,7 @@ sources:
 The Vendors page ([`VendorsView.vue`](../../../front-end/src/views/VendorsView.vue)) lists every applicant of the market, one row each, and a row opens that vendor's [drawer](vendor-drawer.md), behind which it reads as selected ([a selected row](../../design-system.md#the-primitive-layer)); what the page counts is the vendors who need a table: the run's own, and the vendors added by hand.
 The page fits a phone, so a vendor is looked up, paid and corrected from the door on market day (T180): the search takes its row with the filters, Export and Add a vendor beneath it, each row stacks the name over its chips, and the drawer, Add a vendor, Export and Give roles open inside the window ([the design language](../../design-system.md#layout)).
 The Discord row keeps its order there, one line under another from the line's start: the filter, then "Checked 5 minutes ago", then "Check Discord" and "Give roles" side by side.
+At 320 the longer "Checking Discord…" or "Giving roles…" takes the second button to a line of its own while it runs, inside the window.
 
 ## J11. Browse by vendor
 
@@ -143,6 +144,7 @@ Each row's columns keep their place down the list at every width: the Discord st
 A check that cannot run says why on a row of its own under the actions: the market lost its username question ("Choose the username question again"), Discord cannot be reached, Discord took too long to list the server's members ("Check Discord again"), or the bot is no longer in the server.
 Covered by:
 - `back-end/tests/test_discord_connection.py`
+- `giving-the-discord-role.spec.ts` (where the row's filter, actions and error stand at 1280, 390 and 320)
 - `who-is-in-the-discord-server.spec.ts`
 - `whoIsInTheDiscordServer.test.ts`
 
@@ -182,7 +184,7 @@ The card points here: its "Giving roles" block says what is still missing, and o
 A run that cannot start says why in the dialog: no role chosen, the username question gone, Discord out of reach, or the bot no longer in the server.
 Covered by:
 - `back-end/tests/test_discord_connection.py`
-- `giving-the-discord-role.spec.ts` (the report and the rows' Discord states laid out at 390, Give roles inside the window there, and where the Discord row's filter, actions and error stand at 1280, 390 and 320)
+- `giving-the-discord-role.spec.ts` (the report and the rows' Discord states laid out at 390, and Give roles inside the window there)
 - `givingTheDiscordRole.test.ts`
 
 ## Superseded

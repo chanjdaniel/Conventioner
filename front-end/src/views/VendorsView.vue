@@ -402,7 +402,7 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
             >
               {{ checkedWords }}
             </span>
-            <!-- A standard button, the select's height, so the three stand on one line. -->
+            <!-- Standard buttons, the select's height, so on a desk they stand level with it. -->
             <button
               v-if="mayCheck"
               type="button"
