@@ -7,7 +7,7 @@ describes:
   - back-end/result_outcome.py#outcome_of
   - back-end/result_outcome.py#seats_of
   - front-end/src/utils/applicantOutcome.ts
-verified: 2026-10-30
+verified: 2026-11-03
 sources:
   - wayfinding/rejection-visibility/01
   - wayfinding/rejection-visibility/02
@@ -21,7 +21,7 @@ sources:
 
 # An applicant never reads a verdict early
 
-An applicant's own page reads "Submitted" until the organizer publishes results, whatever review has decided; after that it reads "You have a table", with their seats, or "You did not get assigned", and never a verdict or a reason.
+An applicant's own page, the market's vendor page ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)), reads "Submitted" until the organizer publishes results, whatever review has decided; after that it reads "You have a table", with their seats, or "You did not get assigned", and never a verdict or a reason.
 Applying, and changing one's answers, is open only while the market is in `applications` and the organizer has not stopped taking applications (`takes_applications`); reading one's application is open in every phase but draft.
 
 **Serves:** [Vendors apply on the market's own page](../intents/vendors-apply-on-the-markets-own-page.md) and [Results go out once, and settle the allocation](../intents/results-go-out-once-and-settle-the-allocation.md).
@@ -45,6 +45,7 @@ A stranger applying to a closed market stays wrong, so the save refuses otherwis
   It is enforced on the way out of the server, because anything the applicant's browser receives the applicant can read: a label mapped over a payload carrying `reviewer_rejected` still ships the rejection in the response.
   Every applicant-facing payload passes through `_application_response`; the organizer's view never does, and shows the stored status ([the application document](../../implementation/data/application-document.md#statuses)).
 - **The outcome** is `outcome_of` and the seats `seats_of` in [`back-end/result_outcome.py`](../../../back-end/result_outcome.py), the same reading the publish confirmation counts by; both are in the response only once `resultsPublished` is set.
+  Each seat carries when the vendor checked in to it, or null, and the response the name they go by, so the page reads one answer.
 - The words are [`front-end/src/utils/applicantOutcome.ts`](../../../front-end/src/utils/applicantOutcome.ts), which only words what the server decided.
 - The save's phase refusal is `save_applicant_application`, behind [the gate](a-gated-market-answers-as-absent.md) that serves a form market in every phase but draft.
 - `back-end/tests/test_applicant_publication_gate.py`, `front-end/e2e/vendors-see-their-application-after-close.spec.ts` and `front-end/e2e/results-wait-for-the-allocation.spec.ts` pin it.

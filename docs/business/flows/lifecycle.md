@@ -85,7 +85,7 @@ When the server would refuse that step, the sentence is its first blocker for so
 | Phase | Online path | Google Form path |
 | --- | --- | --- |
 | Draft | "Plan the market and its application form, then open applications." | "To begin review: Nothing has been imported yet. Import your Google Form's responses first.", once the plan is complete |
-| Applications / Review | "Applications are open on your application page: review them as they arrive. Every application is decided: Begin assignment.", or, stopped, "Your application page is not taking applications. …" | "Every imported response is here. Every application is decided: Begin assignment." |
+| Applications / Review | "Applications are open on your vendor page: review them as they arrive. Every application is decided: Begin assignment.", or, stopped, "Your vendor page is not taking applications. …" | "Every imported response is here. Every application is decided: Begin assignment." |
 | Assignment, nothing run | "Set the rules and allocate tables." | as the online path |
 | Assignment, run | "Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone." | as the online path |
 | Assignment, results published | "Results are published, so the assignments are settled. Publish the market to put the check-in page up; that cannot be undone." | none: nothing is published to applicants |
@@ -132,7 +132,7 @@ Covered by:
 
 Once a market is published, the rail carries its check-in page's address as a chip between the spine and the moves, with Copy; it is the one place the product tells the organizer the address vendors check in at.
 The chip stays on an archived market that ran, whose page stays up as its record ([an archived market that ran stays a record](../rules/an-archived-market-that-ran-stays-a-record.md)); before publishing there is none, since it would lead to a page that does not exist yet.
-A form market's application page has a chip of its own on the same row, from the first phase after Draft ([a gated market answers as absent](../rules/a-gated-market-answers-as-absent.md)).
+A form market's vendor page has a chip of its own on the same row, "Vendor page", from the first phase after Draft ([a gated market answers as absent](../rules/a-gated-market-answers-as-absent.md)).
 
 The spine, the addresses and the moves share one row at the organizer's screen width; where the row cannot hold them, the addresses and the moves take a second row together ([the phase rail](../../implementation/modules/phase-rail.md)).
 A market that leaves the spine freezes it at the furthest phase it reached and says in words what became of it, such as "It was published and ran its market days.": a struck-through spine alone reads as stopped, not as archived.

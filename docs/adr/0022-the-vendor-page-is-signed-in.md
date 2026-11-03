@@ -15,7 +15,7 @@ status: accepted
 
 # The vendor page is signed in, and a Google Form market's opens with its results
 
-The nodes it constrains: [a gated market answers as absent](../business/rules/a-gated-market-answers-as-absent.md), [a vendor signs in before they have applied](../business/rules/a-vendor-signs-in-before-applying.md) and [intake mode decides how vendors arrive](../business/rules/intake-mode-decides-how-vendors-arrive.md).
+The nodes it constrains: [a gated market answers as absent](../business/rules/a-gated-market-answers-as-absent.md), [a vendor signs in before they have applied](../business/rules/a-vendor-signs-in-before-applying.md), [an applicant never reads a verdict early](../business/rules/an-applicant-never-reads-a-verdict-early.md) and [intake mode decides how vendors arrive](../business/rules/intake-mode-decides-how-vendors-arrive.md); the flows it changes: [applying online](../business/flows/applying-online.md) and [Publish results](../business/flows/assignment-and-result.md#i7-publish-results).
 
 ## Context
 
@@ -29,7 +29,7 @@ And at the sign-in a mistyped code was burnt on its first try, while the page we
 
 **One vendor page per market, at the market's own address, `/<slug>`.**
 Signed out, it names the market and asks for an email address and then the code sent to it.
-Signed in, it shows what fits the market's state: the application while applications are open, the application read-only and "Submitted" while the review and the assignment run, the result ("You have a table" with each day's table, or "You did not get assigned") once results are published, check-in on the market days, and the record of where the vendor sat and when they came once the market is archived after running.
+Signed in, it shows what fits the market's state: the application while applications are open, the application read-only and "Submitted" while the review and the assignment run, the result ("You have a table" with each day's table, or "You did not get assigned") once results are published, check-in on the market days, and the record of where the vendor sat and when they came once the market is archived after running ([an archived market that ran stays a record](../business/rules/an-archived-market-that-ran-stays-a-record.md)).
 It replaces the bare market home, the separate sign-in page, "Your application", the application form page and the public check-in page; their addresses (`/apply`, `/applicant-login`, `/applicant/dashboard`, `/check-in` under the slug) are deleted, not redirected, since nobody uses them (Daniel).
 The code email links to it and calls it "your page for <market>".
 

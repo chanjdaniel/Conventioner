@@ -6,7 +6,7 @@ describes:
   - front-end/src/components/market/OpenApplicationsDialog.vue
   - front-end/src/utils/phase.ts
   - front-end/src/utils/useScrollsSideways.ts
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - wayfinding/claims-and-room/07
   - wayfinding/readable-journey/01
@@ -37,7 +37,7 @@ sources:
 
 [`PhaseRail.vue`](../../../front-end/src/components/PhaseRail.vue) is the market's lifecycle on every market screen, as a band under [the market frame](market-frame.md)'s bar, pinned with it on a desk and scrolling away with the page on a phone.
 It replaced `PhaseControlPanel`, which floated above the card.
-It draws four things: the spine (the lifecycle, with the market's place marked), the next step in one sentence, the moves, and the market's public addresses (the application page for a form market once it leaves draft, the check-in page once it is published, each with Copy).
+It draws four things: the spine (the lifecycle, with the market's place marked), the next step in one sentence, the moves, and the market's public addresses (the vendor page for a form market once it leaves draft, and after an archive only if it ran, the check-in page once it is published, each with Copy).
 What it says comes from [the market guide](market-guide.md); which moves exist and whether each is refused comes from the server.
 
 ## Sharp edges
@@ -96,7 +96,7 @@ Without a complete record (`phaseRecordComplete: false`) the rail says only what
 **The addresses give way, and the rail's end travels as one piece.**
 On a desk an address chip is the one flexible part of the row: it drops the scheme every address shares and ellipses the rest, so the part naming the market shows, while the link, its hover text and Copy keep the whole address.
 The addresses and the moves are one item of the row; where the row cannot hold them beside the spine, they take a second row together, addresses at its start and moves at its end, rather than leaving one button alone beside an empty band.
-Which addresses show, and when, is [a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md) for the application page, and `market_days` or an archive that ran for check-in.
+Which addresses show, and when, is [a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md) for the vendor page ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)), and `market_days` or an archive that ran for check-in.
 
 **The rail is one row at the workspace width, and on a phone it is laid out for one** (T142), at the app's phone break (`width <= 640px`); see [the design language](../../design-system.md#layout).
 Its phone gutter, 16px, is the frame's on a screen that fits a phone only ([the market frame](market-frame.md#sharp-edges)); one that keeps the desktop floor keeps the desk's inset, so the rail lines up with its page.
@@ -106,7 +106,7 @@ So More… stands alone on its row only where nothing else is on the rail's end.
 `phase-rail.spec.ts` ("The rail's end wraps only when it must") walks phones 375 to 430 wide, in market days with both addresses, taking applications on both intake paths and in a draft with no dates, and fails on an item that wrapped where it fitted or a More… alone on its row.
 Between a phone and a desk, where the screens that fit a phone ([the design language](../../design-system.md#layout)) reach every width, a rail narrower than both addresses at their 18rem floor, the gaps and More… (`@container phase-rail (width < 45rem)`, below about an 815px window) gives each address a row, with More… beside the second; the same describe walks 680 to 780.
 That rule holds above the phone break only: a phone's rail is under 45rem too, and there it set its own basis on both chips over the phone's, so a change to the phone's rule never reached them; "sizes both address chips by the phone's own rule" in the same spec reads the basis at 390.
-A chip on a phone draws its name ("Application page", "Check-in page") as the link, with the whole address as its `title`, and Copy, and no address text: squeezed beside the actions it showed one character of the address in a 171x148px box.
+A chip on a phone draws its name ("Vendor page", "Check-in page") as the link, with the whole address as its `title`, and Copy, and no address text: squeezed beside the actions it showed one character of the address in a 171x148px box.
 Which chip shape draws is decided in the script (`onAPhone`, `useMediaQuery` on the same break), since the link's text is what changes; so one chip holds one link at any width, and a spec reading the link at a phone reads its `href` or `title`.
 Each chip is one line, 50px: a 44px Copy inset by the desk's 2px hairline in the chip's border, since with no inset Copy's border lay on the chip's; the step link is `--target-min` (44px) tall, and the buttons are through `.btn`.
 At the door in market days on a form market, both chips and More…, the door starts at 319px of 844 on first paint, within the top 340px `phase-rail.spec.ts` holds it to; it started at 409px.
@@ -122,6 +122,6 @@ The steps shrink below their labels rather than overflowing the row, so the row 
 The phase is the single source of truth for a market's lifecycle; the rail reads it and its moves from the server and decides neither.
 The rules for moving a market are with [the guards](guards.md) in `back-end/guards.py`, and why the phase is the only lifecycle state is [ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md).
 What an organizer reads on the rail in each phase, and what refuses each move, is [the market lifecycle](../../business/flows/lifecycle.md).
-Opening applications, and stopping and taking them again, on the rail beside its application page's address, is [taking applications](../../business/flows/taking-applications.md).
+Opening applications, and stopping and taking them again, on the rail beside its vendor page's address, is [taking applications](../../business/flows/taking-applications.md).
 
 The glossary concept it serves: [Phase](../../business/concepts/phase.md).

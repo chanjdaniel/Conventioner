@@ -16,7 +16,7 @@ describes:
   - front-end/src/views/AttendanceStatusView.vue
   - front-end/src/App.vue#fitsAPhone
   - front-end/src/utils/fitsAPhone.ts
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - wayfinding/real-market-readiness/map
   - wayfinding/claims-and-room/map
@@ -64,6 +64,7 @@ The `(market_id, vendor_email)` index is in [the lookup indexes](../data/lookup-
 `GET /markets/:id/attendance` serves `{dates, roster}`: every vendor the stored assignment places on each date, with `checkedInAt` and `checkedInBy` (`attendance_roster`).
 Never derive who is expected from check-in records: that list is who came, and it is how the page could not say who was missing on a day of 80 vendors (known gap 3).
 The roster, the vendor's lookup and the check-in all read the same stored rows, so who is expected where can never disagree with where a vendor is sent; the lookup once ran the solver afresh and sent a vendor moved by hand to their old seat (bug 1).
+A vendor's own check-in times are `check_ins_of`, which the lookup and the vendor page's own read both use, so each seat a vendor reads carries when they checked in to it ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)); whether a market ran, the record test the check-in page and the vendor page share, is `market_ran`.
 
 **A check-in needs a stored placement for that vendor on that date**, or it is a 404.
 A placement is dated by the market date itself, so no reader maps anything back to a date.

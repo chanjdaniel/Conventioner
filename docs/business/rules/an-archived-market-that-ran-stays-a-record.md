@@ -5,7 +5,7 @@ describes:
   - back-end/api/attendance.py#get_check_in_market
   - back-end/api/attendance.py#market_has_ended
   - front-end/e2e/an-archive-keeps-its-check-in-page.spec.ts
-verified: 2026-10-22
+verified: 2026-11-03
 sources:
   - E26/F06/S02
   - E26/F06/S03
@@ -16,7 +16,7 @@ sources:
 # An archived market that ran stays a record
 
 An archived market that ran keeps its public check-in page, as a record: it shows each vendor's seats and check-ins, marked as ended, and takes no check-in.
-An archived market that never ran has no public page.
+An archived market that never ran has no check-in page; a form market's vendor page stays, showing each vendor their application and the outcome as published, if it was ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)).
 
 **Serves:** [The door on market day](../intents/the-door-on-market-day.md).
 

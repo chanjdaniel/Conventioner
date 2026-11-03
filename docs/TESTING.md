@@ -289,8 +289,6 @@ seeds](implementation/testing/e2e-seeds.md) is every helper that puts users and 
 a spec starts from.
 The page objects in `front-end/e2e/pages/` are these, one a line, sorted by class name, so a new one is one line in its place ([two features never share a line](implementation/conventions/two-features-never-share-a-line.md)):
 
-- `ApplicantDashboardPage`
-- `ApplicantLoginPage`
 - `ApplicationFormPage`
 - `ApplicationMonitorPage`
 - `ApplicationsAllPage`
@@ -317,6 +315,7 @@ The page objects in `front-end/e2e/pages/` are these, one a line, sorted by clas
 - `ToolsPage`
 - `UpdateInfoDialog` (the vendor drawer's Update info dialog)
 - `VendorExportDialog` (the export dialog, wherever it opens)
+- `VendorPage` (a market's vendor page, `/<slug>`: its sign-in and what a signed-in vendor reads)
 - `VendorsPage`
 
 ### Bypassing CAPTCHA and email in tests
