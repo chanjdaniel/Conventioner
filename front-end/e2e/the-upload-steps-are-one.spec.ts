@@ -83,6 +83,10 @@ test.describe('The upload steps are one', () => {
       TEST_USER.email,
       TEST_USER.password,
     );
+    // Playwright starts catching file choosers when the first listener is added, without waiting
+    // for the browser to agree, so a chooser opened by the very next key could slip past it. Listen
+    // from before the page loads, so the first key's chooser is caught like the second's.
+    page.on('filechooser', () => {});
     const start = new StartFromCsvPage(page);
     await start.open(marketId);
     await expect(start.upload).toBeVisible();

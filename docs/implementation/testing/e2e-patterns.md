@@ -35,6 +35,7 @@ sources:
   - E42/F01/S05
   - T177
   - T181
+  - T205
 ---
 
 # E2E patterns
@@ -118,3 +119,7 @@ A request with no cookie at all answers 401; [`a-failure-says-what-to-do.spec.ts
 **`waitForURL` returns when the route changes, not when the new page has loaded.**
 An element assertion made straight after it spends its budget on the page's own fetch, which under a full suite's contention sometimes takes longer: the applicant form's spec failed one full run in two this way, on "Loading application form...", while passing alone every time.
 Wait for the page to have finished loading, its loading state hidden and no load-failed state shown, then assert what it shows ([`essential-fields.spec.ts`](../../../front-end/e2e/essential-fields.spec.ts) waits on `apply-loading` and `apply-load-failed`).
+
+**A spec that waits on a file chooser listens for it from before the page loads.**
+`page.waitForEvent('filechooser')` turns on Playwright's catching of choosers as it is called, without waiting for the browser to agree, so a chooser opened by the very next key press can slip past it and the wait times out with focus still on the input: [`the-upload-steps-are-one.spec.ts`](../../../front-end/e2e/the-upload-steps-are-one.spec.ts) missed its first Enter in 4 runs of 20 this way.
+It adds `page.on('filechooser', () => {})` before it opens the page, then waits for each chooser as before.
