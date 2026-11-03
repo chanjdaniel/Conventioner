@@ -295,6 +295,8 @@ One elevation shadow, extracted from the newer screens, where it is already used
 
 **The legacy halo is retired**: `0 0 4px 5px rgba(0,0,0,.25)` and its inset twin. A shadow with no offset has no light source, and a spread larger than its blur is a ring, not a shadow - which is why the older cards read as outlined in grey fog. The inset variant is what makes the setup fields look pressed and skeuomorphic. That rule is elevation's; the focus halo below is a focus indicator, deliberately a flat ring that hugs the control.
 
+**A scrolling body's edge shade** is `--edge-shade` fading to nothing over `--edge-shade-depth` (12px), drawn at a dialog body's top or bottom edge while there is more that way ([dialogs](implementation/conventions/dialogs.md)); its depth is a choice left for Daniel.
+
 ## Colour
 
 `base.css` remains the owner and its existing comments remain authoritative: **a token whose name says it carries text must reach WCAG AA (4.5:1) on the grounds it appears on**, and `src/__tests__/contrast.test.ts` asserts it.

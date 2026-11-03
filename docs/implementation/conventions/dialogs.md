@@ -17,7 +17,9 @@ describes:
   - front-end/src/components/SearchPicker.vue
   - front-end/src/__tests__/removingSomeoneAsksFirst.test.ts
   - front-end/e2e/removing-someone-asks-first.spec.ts
-verified: 2026-11-01
+  - front-end/src/__tests__/appDialog.test.ts
+  - front-end/e2e/the-component-library-dialog.spec.ts
+verified: 2026-11-03
 sources:
   - wayfinding/the-order-of-the-work/08
   - wayfinding/the-order-of-the-work/map
@@ -36,6 +38,7 @@ sources:
   - T148
   - E38/F15/S01
   - T181
+  - T200
 ---
 
 # Dialogs
@@ -54,9 +57,24 @@ The one exception is a picker's open list ([`SearchPicker.vue`](../../../front-e
 **A dialog of several independent actions passes no `confirmLabel`** and hosts its own `<form>`s in its body; Manage organization has three.
 It still gets the scrim, window, close, Escape, backdrop and inert behaviour, without the single-form footer.
 
-**A dialog is 26rem wide, or 38rem when `wide`, and never wider than the window less a 16px gutter at each side**; taller than the window, it scrolls within itself.
+**A dialog is one of three widths, `size="narrow"` (26rem, the default), `"wide"` (38rem) or `"broad"` (60rem), never wider than the window less a 16px gutter at each side**, and never a percentage of the window.
+Narrow holds two controls, wide a list, and broad a list beside what it gathers, the export dialog's columns and preview.
+The `wide` boolean still means `size="wide"`, and a `size` wins over it.
+Taller than the window, a dialog scrolls within itself, the whole window by default (`scroll="window"`).
 So a dialog on a page that fits a phone opens inside a 390px window, on each place [the design language](../../design-system.md#layout) lists as fitting one; only the people and add rows of Manage market and Manage organization needed a phone rule of their own.
 The footer's buttons wrap where they are wider than the window, as the placement dialog's Cancel, Free this seat and Swap seats are on a phone; a row that could not wrap ran out past the window's left edge, where nothing scrolls to it.
+
+**A long dialog scrolls only its body, with `scroll="body"`** (T200): the title and close stay at the top and the error and actions at the bottom, and only the body scrolls, inside a box of its own between them.
+When the whole window scrolls, its title and Save leave the view, and its scroll bar runs down the window's rounded edge, squaring its corners and taking its width from the body, which clipped the export dialog's column order on the right (T191 F03).
+The body's scroll bar sits between the pinned parts, so the window keeps its corners, and the body lays its content out in the width the bar leaves it.
+The window takes the height its content needs, up to the window's height less a 24px gutter above and below.
+A shade at the body's top or bottom edge, `--edge-shade` over `--edge-shade-depth` from `base.css`, is drawn only while there is more that way; it is measured as the body scrolls and as it or its content is resized.
+The body, the error and the actions are still the one `<form>`, so the Enter contract holds as it is.
+**What the dialog has gathered goes in its `tray` slot**, drawn only when given, between the body and the error and actions: in `scroll="body"` it is pinned, keeps its height up to 40% of the window, the body giving way, and scrolls inside itself past that; in `scroll="window"` it is in the flow after the body.
+**On a phone (640px wide or less) a `scroll="body"` dialog is as tall as the window less the gutter**, so its pinned parts never crowd its body to nothing.
+`dvh` sizes it, since a phone's browser bar would otherwise cover its pinned actions.
+**`scroll="body"` is expand-contract**: it is opt-in, so no dialog changed when it came; each dialog moves to it as it is converted, the export dialog first, then those whose body can outgrow a laptop window (Manage market, Manage organization, Change reviewers, Fix the form, Open applications, the assignment history); `scroll="window"` and the `wide` boolean are deleted when no dialog uses them.
+The library's `dialog` entry shows each width, today's scroll beside the body's on 150 people, the tray, and every behaviour below in either scroll ([the component library](../modules/component-library.md)).
 
 **A dialog sits centred, unless its body grows as it is used**: `anchored` holds its top where it opened, so a field's error appearing as a key is typed does not move the dialog half a line under the pointer (the amendment's dialog, E38/F02).
 
@@ -117,6 +135,7 @@ With exactly one organization it names it rather than offering a select with one
 
 ## How it is enforced
 
+- [`appDialog.test.ts`](../../../front-end/src/__tests__/appDialog.test.ts) pins the markup of a dialog that asks for none of `size`, `scroll` or `tray` as it was before they came, and drives each width, the body scroll (the title, close, error and actions outside the scroller, one form, Escape, the scrim, Cancel, focus in and back, a destructive dialog opening on Cancel, the page held inert), the shades coming and going as the body scrolls, and the tray; [`the-component-library-dialog.spec.ts`](../../../front-end/e2e/the-component-library-dialog.spec.ts) opens each of the library's dialogs at a desk and on a phone and measures what a browser lays out: each width, the title and actions in view as the body scrolls to its end, nothing past the body's right edge at 390 and 1280, the window's corners, the tray's cap, and a phone's height.
 - [`aDialogGivesFocusBack.test.ts`](../../../front-end/src/__tests__/aDialogGivesFocusBack.test.ts) closes a dialog by each of its paths, and by unmounting it while open, and finds focus back on its opener; and not when the opener has left the page, or the parent moved focus itself.
 - [`theVendorDrawerGivesFocusBack.test.ts`](../../../front-end/src/__tests__/theVendorDrawerGivesFocusBack.test.ts) does the same for the vendor drawer, closed by its close, the scrim, Escape and the screen, and finds focus on its close when another vendor is shown in it, then back on its first opener when that drawer closes; [`the-vendor-drawer-gives-focus-back.spec.ts`](../../../front-end/e2e/the-vendor-drawer-gives-focus-back.spec.ts) opens it by the keyboard from the Vendors page's row, a seat's name on the Assignments page and a name at the door, and finds focus back on each.
 - [`modalsHoldThePageInert.test.ts`](../../../front-end/src/__tests__/modalsHoldThePageInert.test.ts) finds every component whose own CSS paints a full-viewport cover and fails if one does not call `useInertBehind` or [`useModalRoot`](../../../front-end/src/utils/useModalRoot.ts).
