@@ -90,16 +90,56 @@ export function priceLine(
 }
 
 /**
- * A typed amount as cents: null for a blank cell (no price), undefined for text that is not an
- * amount. Whole units or one or two decimals, an optional leading "$".
+ * The sign each offered currency's amount leads with ("$", "US$", "€", ...), read off `formatPrice`
+ * itself so an amount the app writes is always one a field takes back.
+ */
+const CURRENCY_SIGNS: readonly string[] = [
+  ...new Set(CURRENCIES.map(({ code }) => formatPrice(0, code).replace(/[\d.,\s]+$/, ''))),
+];
+
+const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * An amount as a field takes it: an optional leading sign of an offered currency and spaces, the
+ * whole part plain or grouped by commas in threes, and one or two decimals. A sign is decoration,
+ * never a conversion: the amount is the field's own currency's.
+ */
+const AMOUNT = new RegExp(
+  `^(?:(?:${CURRENCY_SIGNS.map(escaped).join('|')})\\s*)?(\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.(\\d{1,2}))?$`,
+);
+
+/**
+ * A typed amount as cents: null for a blank (no price), undefined for text that is not an amount.
+ * It takes "50", "50.5", "$50" and every text the app writes, "$1,234.50" or "US$50.00", and refuses
+ * a minus, a decimal comma ("35,50"), a third decimal, and more than $100,000.00.
  */
 export function centsFromText(text: string): number | null | undefined {
   const trimmed = text.trim();
   if (!trimmed) return null;
-  const match = /^\$?(\d+)(?:\.(\d{1,2}))?$/.exec(trimmed);
+  const match = AMOUNT.exec(trimmed);
   if (!match) return undefined;
-  const cents = Number(match[1]) * 100 + Number((match[2] ?? '').padEnd(2, '0'));
+  const cents =
+    Number(match[1].replaceAll(',', '')) * 100 + Number((match[2] ?? '').padEnd(2, '0'));
   return cents <= MOST_CENTS ? cents : undefined;
+}
+
+/**
+ * An amount field's text once focused: the plain number to edit ("$1,234.50" reads "1234.50"); a
+ * blank stays blank, and text that is not an amount stays as typed, to be fixed.
+ */
+export function focusedAmountText(text: string): string {
+  const cents = centsFromText(text);
+  return cents === undefined ? text : priceText(cents);
+}
+
+/**
+ * An amount field's text once left: the amount in the field's currency ("50" reads "$50.00"); a
+ * blank stays blank, and text that is not an amount stays as typed, with its error.
+ */
+export function leftAmountText(text: string, currency: string): string {
+  const cents = centsFromText(text);
+  if (cents === undefined) return text;
+  return cents === null ? '' : formatPrice(cents, currency);
 }
 
 /** A typed half-table share: a whole percent from 0 to 100, or undefined for anything else. */

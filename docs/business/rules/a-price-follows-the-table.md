@@ -61,6 +61,7 @@ The prices are set on Market Setup's Pricing card, are optional, and settle with
 - A tier's price is the same on every market date; a price per date was never asked for.
 - A price reads in the market's currency to the cent, "$35.00", wherever it is shown ([an amount reads to the cent](an-amount-reads-to-the-cent.md)).
 - A cell is a full table's price for one day, from $0 to $100,000; the share is a whole percent from 0 to 100.
+  A cell reads as currency once left and as the plain number while focused ([an amount reads to the cent](an-amount-reads-to-the-cent.md#an-amount-field)).
 
 ## Who may
 

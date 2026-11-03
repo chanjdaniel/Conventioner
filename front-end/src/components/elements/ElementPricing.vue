@@ -28,8 +28,10 @@ import {
   EVERYONE_ELSE,
   UNPRICED,
   centsFromText,
+  focusedAmountText,
   groupNameProblem,
   groupsOf,
+  leftAmountText,
   percentFromText,
   priceText,
   pricingAfterTierChange,
@@ -108,8 +110,56 @@ const cellOf = (key: string) => JSON.parse(key) as [Row, string];
 
 const cells = ref<Record<string, Typing<number | null>>>({});
 
+/** The cell that has the focus: it gives its plain number to edit, where every other reads as currency. */
+const focusedCell = ref<string | null>(null);
+
+/**
+ * What a cell shows: the text being typed in it, as typed; otherwise its stored price, as the plain
+ * number while focused ("50.00") and in the card's currency once left ("$50.00"), blank for none.
+ */
 function cellText(row: Row, tier: string): string {
-  return cells.value[cellKey(row, tier)]?.text ?? priceText(storedCents(row, tier));
+  const key = cellKey(row, tier);
+  const typing = cells.value[key];
+  if (typing) return typing.text;
+  const text = priceText(storedCents(row, tier));
+  return focusedCell.value === key
+    ? focusedAmountText(text)
+    : leftAmountText(text, pricing.value.currency);
+}
+
+/**
+ * Focusing a cell gives its plain number with the caret at its end, never the whole text selected.
+ * Written at once, inside the focus, so nothing typed right after it is undone; text that does not
+ * change (a blank, or text that is no amount) keeps whatever the browser gave it.
+ */
+function onPriceFocused(row: Row, tier: string, event: FocusEvent) {
+  const input = event.target as HTMLInputElement;
+  focusedCell.value = cellKey(row, tier);
+  const text = cellText(row, tier);
+  if (input.value === text) {
+    pressed = null;
+    return;
+  }
+  input.value = text;
+  input.setSelectionRange(text.length, text.length);
+}
+
+/**
+ * The cell a press is focusing. The browser lands the caret where the pointer was, after the focus
+ * and over the text the plain number replaced, so the click that ends the press puts it back at the end.
+ */
+let pressed: HTMLInputElement | null = null;
+
+function onPricePressed(event: PointerEvent) {
+  const input = event.currentTarget as HTMLInputElement;
+  pressed = document.activeElement === input ? null : input;
+}
+
+function onPriceClicked(event: MouseEvent) {
+  const input = event.currentTarget as HTMLInputElement;
+  if (pressed !== input) return;
+  pressed = null;
+  input.setSelectionRange(input.value.length, input.value.length);
 }
 
 function onPrice(row: Row, tier: string, text: string) {
@@ -122,9 +172,10 @@ function onPrice(row: Row, tier: string, text: string) {
   if (kept !== storedCents(row, tier)) write(withPrice(row, tier, kept));
 }
 
-/** Leaving a cell redraws it from what is kept, unless what it holds is not an amount. */
+/** Leaving a cell reads it as currency from what is kept, unless what it holds is not an amount. */
 function onPriceLeft(row: Row, tier: string) {
   const key = cellKey(row, tier);
+  if (focusedCell.value === key) focusedCell.value = null;
   const typing = cells.value[key];
   if (!typing || centsFromText(typing.text) === undefined) return;
   cells.value = Object.fromEntries(Object.entries(cells.value).filter(([other]) => other !== key));
@@ -356,6 +407,9 @@ onBeforeUnmount(() => {
                   :aria-invalid="isInvalid(g, tier) || undefined"
                   :data-testid="`pricing-group-${g}-price-${index}`"
                   @input="onPrice(g, tier, ($event.target as HTMLInputElement).value)"
+                  @focus="onPriceFocused(g, tier, $event)"
+                  @pointerdown="onPricePressed"
+                  @click="onPriceClicked"
                   @blur="onPriceLeft(g, tier)"
                 />
               </td>
@@ -404,6 +458,9 @@ onBeforeUnmount(() => {
                   :aria-invalid="isInvalid(ELSE, tier) || undefined"
                   :data-testid="`pricing-price-${index}`"
                   @input="onPrice(ELSE, tier, ($event.target as HTMLInputElement).value)"
+                  @focus="onPriceFocused(ELSE, tier, $event)"
+                  @pointerdown="onPricePressed"
+                  @click="onPriceClicked"
                   @blur="onPriceLeft(ELSE, tier)"
                 />
               </td>
