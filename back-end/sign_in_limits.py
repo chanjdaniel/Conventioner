@@ -25,8 +25,9 @@ import hashlib
 import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional, Tuple
 
+from flask import jsonify
 from pymongo import ReturnDocument
 
 from db_config import get_database
@@ -110,3 +111,22 @@ def count_attempt(limit: SignInLimit, subject: str, now: Optional[datetime] = No
     if counter[COUNT_FIELD] <= limit.attempts:
         return None
     return max(1, math.ceil((window_ends - now).total_seconds()))
+
+
+def too_many(
+    retry_after: Optional[int], attempts_of: str, key: str = "message",
+) -> Optional[Tuple[Any, int]]:
+    """The 429 for a limit ``count_attempt`` refused, or None when it did not refuse.
+
+    It says plainly how long to wait, in whole minutes rounded up, under ``key``, the one each
+    caller's screen reads its refusals from (the sign-in reads ``message``, the check-in ``error``),
+    with the seconds in ``Retry-After``. One refusal for every limit, so the sign-in's and the
+    check-in's never drift apart.
+    """
+    if retry_after is None:
+        return None
+    minutes = math.ceil(retry_after / 60)
+    wait = "1 minute" if minutes == 1 else f"{minutes} minutes"
+    response = jsonify({key: f"Too many {attempts_of} attempts. Please try again in {wait}."})
+    response.headers["Retry-After"] = str(retry_after)
+    return response, 429

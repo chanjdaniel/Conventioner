@@ -7,9 +7,11 @@ the entrance, which proves they are there. Every way it cannot pass writes nothi
 The old public check-in endpoints are gone.
 """
 import copy
+import time
 from datetime import date
 from types import SimpleNamespace
 
+import jwt
 import pytest
 
 import api.attendance as AttendanceApi
@@ -23,6 +25,7 @@ from conftest import stored_market
 from datatypes import MarketPhase
 from test_every_write_records import Attendance, LiveMarkets
 from utils.application_token import generate_application_token
+from utils.secret_key import signing_secret
 
 SLUG = "test-market"
 MARKET = "market-123"
@@ -300,6 +303,63 @@ class TestUndo:
         assert response.status_code == 409
         assert response.get_json()["error"] == AttendanceApi.ENDED_REFUSAL
         assert len(world.attendance.documents) == 1
+
+
+class TestUndoIsBoundedAsCheckInIs:
+    """The undo takes back a check-in on a day within one of the server's, as a check-in is made
+    (ADR 0022): a vendor never erases a past day's attendance, theirs or an organizer's."""
+
+    def test_not_a_past_days(self, client, world, monkeypatch):
+        check_in(client)
+        monkeypatch.setattr(VendorCheckIn, "today", lambda: date.fromisoformat("2099-08-03"))
+
+        response = undo(client)
+
+        assert response.status_code == 409
+        assert response.get_json()["error"] == "Check-in is open on the day itself."
+        assert len(world.attendance.documents) == 1
+
+    def test_an_organizers_check_in_today_may_be_undone(self, client, world):
+        world.attendance.insert_one({"market_id": MARKET, "vendor_email": VENDOR, "date": TODAY,
+                                     "checked_in_at": "x", "checked_in_by": "o@x"})
+
+        assert undo(client).status_code == 200
+        assert world.attendance.documents == []
+
+    def test_a_caller_gets_sixty(self, client, world):
+        for n in range(60):
+            undo(client, headers=signed_in(email=f"v{n}@example.com"))
+
+        assert undo(client).status_code == 429
+
+
+def ended_sign_in(market_id=MARKET, email=VENDOR):
+    """A sign-in that ended: signed as the server signs one, its 30 minutes long past."""
+    now = int(time.time())
+    claims = {"market_id": market_id, "email": email, "iat": now - 3600, "exp": now - 1800}
+    return {"Authorization": f"Bearer {jwt.encode(claims, signing_secret(), algorithm='HS256')}"}
+
+
+class TestAnEndedSignIn:
+    def test_checks_nobody_in(self, client, world):
+        response = check_in(client, headers=ended_sign_in())
+
+        assert response.status_code == 401
+        assert world.attendance.documents == []
+        assert world.history.documents == []
+
+    def test_undoes_nothing(self, client, world):
+        check_in(client)
+
+        assert undo(client, headers=ended_sign_in()).status_code == 401
+        assert len(world.attendance.documents) == 1
+
+    def test_reads_nothing(self, client, world):
+        response = client.get(
+            f"/public/markets/{SLUG}/applicant/application", headers=ended_sign_in())
+
+        assert response.status_code == 401
+        assert "application" not in (response.get_json() or {})
 
 
 class TestTheOpenCheckInIsGone:

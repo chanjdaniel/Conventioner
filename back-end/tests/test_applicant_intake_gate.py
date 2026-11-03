@@ -13,7 +13,6 @@ from flask import Flask
 
 import api.applicants as ApplicantsApi
 import api.applicant_auth as ApplicantAuthApi
-import api.attendance as AttendanceApi
 import db_config as test_db_config
 from conftest import FakeSlugMarketsCollection, stored_market
 from datatypes import MarketPhase, market_name_slug

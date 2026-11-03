@@ -89,7 +89,7 @@ Covered by:
 ## K4. Undo a check-in
 
 **Status:** Works (read from the code as of T202).
-"Undo" beside "Checked in at <time>" takes it back, with no door code, and offers "Check in" again; the organizer can undo one at the door too (K5).
+"Undo" beside "Checked in at <time>" takes it back, with no door code, and offers "Check in" again, on the day itself only, so a vendor never erases a past day's attendance; the organizer can undo one at the door too (K5).
 Covered by:
 - `checkin.spec.ts`
 - `the-door-on-market-day.spec.ts`

@@ -50,6 +50,14 @@ A Google Form market that went live before this change has its page too, since i
 Attendance shows a QR code and a short typed code, full screen or printed as a poster; the vendor scans it with their phone's own camera, which opens their vendor page and checks them in for today, signing them in first when they are not.
 The code stays the same until the organizer presses "New code".
 The organizer's own check-in at Attendance stays, the second of two valid paths.
+Its rules, each pinned at the HTTP seam (`test_the_door_code.py`, `test_a_vendor_checks_in_with_the_door_code.py`):
+
+- The code is 6 characters from `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`, made with `secrets` ([`back-end/api/door.py`](../../back-end/api/door.py)); a typed one is read in any case with spaces and dashes ignored, and compared in constant time.
+- Only someone who may check vendors in (the "Check vendors in" row, Editor by default) reads it, in any phase, or makes a new one, only in `market_days` and never on an archived market; a Viewer may do neither, so nobody checks vendors in by proxy.
+- No market read, Markets list entry, history entry or log carries it: it is stored as `doorCode` on the market document, left out of every read (`NEVER_SERVED_FIELDS` in `market_documents.py`), and a new code's history entry says only whether it replaced one.
+- A check-in needs the vendor's own sign-in for that market, `market_days`, a seat for them on that date, and that date within one day of the server's UTC date; the code is compared only after all of those, so a sign-in with no seat cannot probe it, and every refusal writes nothing.
+- Its undo takes no code, but the same sign-in, phase and window: on that day it takes back the check-in stored for them, theirs or one an organizer made, and never a past day's.
+- Tries are bounded in 15 minutes: 60 check-ins and undos per caller (`check-in:caller`), counted before anything is read, and 10 check-ins per signed-in address (`check-in:address`); a remembered sign-in's resume, 60 per caller (`resume:caller`), counted before its cookie is read ([`back-end/sign_in_limits.py`](../../back-end/sign_in_limits.py)).
 
 **A sign-in code takes up to five tries within ten minutes.**
 After the fifth wrong try it is cancelled, the page says so, and only "Send a new code" is offered; a wrong try says only that someone asked for a code for that address in the last ten minutes, which anyone can make true by asking, so nothing says whether an address applied.

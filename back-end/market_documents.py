@@ -511,7 +511,6 @@ def _reached_market_days(market_doc: Dict[str, Any]) -> bool:
     return AttendanceApi.market_ran(market_doc)
 
 
-
 def market_id_at_slug(collection: Any, market_slug: str) -> Optional[str]:
     """The id of the market stored at this slug, in any phase, draft included; ``None`` for none.
 
@@ -535,6 +534,7 @@ def market_dates_of(market_doc: Dict[str, Any]) -> List[str]:
         for entry in (setup.get("marketDates") or [])
         if isinstance(entry, dict) and entry.get("date")
     )
+
 
 def market_from_document(
     document: Dict[str, Any], market_snake: Optional[Dict[str, Any]] = None

@@ -5,9 +5,7 @@ that "returns 401" proves nothing about an oracle - the oracle lives in the
 *difference* between two responses. These tests compare actual response bodies,
 byte for byte, to prove the two paths are indistinguishable.
 """
-import hashlib
 import json
-import secrets
 import threading
 from datetime import datetime, timedelta, timezone
 
@@ -899,7 +897,6 @@ class TestTheCodeIsSentWithinTheRequest:
         This asserted the opposite - no email for an unknown address - which is the rule that kept
         every new vendor out. Sending to every address also makes the work identical for all."""
         from flask import Flask
-        import time
 
         call_recorded = []
 

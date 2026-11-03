@@ -17,8 +17,8 @@ Both endpoints are attacker-facing, so:
 
 A check-in is for a date the vendor has a seat on, in ``market_days``, within one day of the
 server's UTC date (so whatever the vendor's time zone, "today" for them is in reach, and a code
-read today cannot check them in for next week). The undo takes no door code: it only takes back
-what the vendor themselves, or an organizer, recorded.
+read today cannot check them in for next week). The undo takes no door code, and the same window:
+on that day it takes back what the vendor themselves, or an organizer, recorded.
 """
 from datetime import date as Date, datetime, timezone
 from typing import Any, Dict, Optional, Tuple
@@ -52,13 +52,8 @@ def today() -> Date:
 
 
 def _too_many(retry_after: Optional[int]):
-    if retry_after is None:
-        return None
-    minutes = -(-retry_after // 60)
-    wait = "1 minute" if minutes == 1 else f"{minutes} minutes"
-    response = jsonify({"error": f"Too many check-in attempts. Please try again in {wait}."})
-    response.headers["Retry-After"] = str(retry_after)
-    return response, 429
+    """The check-in's refusal for a limit that says to wait, or None (``sign_in_limits.too_many``)."""
+    return sign_in_limits.too_many(retry_after, "check-in", key="error")
 
 
 def _refused(message: str, status: int):
@@ -129,8 +124,18 @@ def check_in(market_slug: str) -> Tuple[Any, int]:
 
 
 def undo_check_in(market_slug: str) -> Tuple[Any, int]:
-    """Handle DELETE /public/markets/<slug>/vendor/check-in ``{date}``: the vendor's own check-in on
-    that date taken back, in the market's days, with no door code."""
+    """Handle DELETE /public/markets/<slug>/vendor/check-in ``{date}``: the vendor's check-in on
+    that date taken back, in the market's days, with no door code.
+
+    Bounded as a check-in is: counted per caller, and only for a day within one of the server's, so
+    a vendor never erases a past day's attendance. On that day it takes back whatever check-in is
+    stored, theirs or one an organizer made at Attendance: it is the record of their own presence,
+    the history says who undid it, and the door code checks them in again.
+    """
+    refused = _too_many(sign_in_limits.count_attempt(
+        sign_in_limits.CHECK_IN_PER_CALLER, request.remote_addr or "unknown"))
+    if refused:
+        return refused
     token, refused = _signed_in_vendor()
     if refused:
         return refused
@@ -138,6 +143,8 @@ def undo_check_in(market_slug: str) -> Tuple[Any, int]:
     market_doc, refused = _market_on_its_days(market_slug, token)
     if refused:
         return refused
+    if not _within_the_window(day):
+        return _refused(NOT_TODAY, 409)
     result, status = AttendanceApi.undo_attendance(
         market_doc["id"], token["email"], day, undone_by=None, via=AttendanceApi.VIA_VENDOR_PAGE)
     return jsonify(result), status

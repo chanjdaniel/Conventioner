@@ -52,7 +52,6 @@ address and the market, not an application, and their first save creates it.
 """
 import hashlib
 import logging
-import math
 import secrets
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -228,17 +227,8 @@ def _address_refusal(limit: sign_in_limits.SignInLimit, email: Optional[str]):
 
 
 def _too_many(retry_after: Optional[int]):
-    """The refusal for a limit that says to wait ``retry_after`` seconds, or None when it does not.
-
-    It says plainly how long to wait, and the sign-in screen shows the message as it stands.
-    """
-    if retry_after is None:
-        return None
-    minutes = math.ceil(retry_after / 60)
-    wait = "1 minute" if minutes == 1 else f"{minutes} minutes"
-    response = jsonify({"message": f"Too many sign-in attempts. Please try again in {wait}."})
-    response.headers["Retry-After"] = str(retry_after)
-    return response, 429
+    """The sign-in's refusal for a limit that says to wait, or None (``sign_in_limits.too_many``)."""
+    return sign_in_limits.too_many(retry_after, "sign-in")
 
 
 def _email_from(data) -> Optional[str]:
