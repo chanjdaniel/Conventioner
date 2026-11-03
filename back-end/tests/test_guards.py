@@ -21,8 +21,10 @@ from guards import (
     NoOrphanedPinGuard,
     FormHasFieldsGuard,
     NoApprovedApplicationsGuard,
+    PHASE_ENTRY_INVARIANTS,
     PreconditionResult,
     ResponsesImportedGuard,
+    ReviewHighlightsDecidedGuard,
     TRANSITION_GUARDS,
     VALID_TRANSITIONS,
     evaluate_transition,
@@ -220,6 +222,102 @@ class TestFormHasFieldsGuard:
         )
         result = FormHasFieldsGuard().evaluate(market, None)
         assert result.passed is True
+
+
+class TestReviewHighlightsDecidedGuard:
+    """A draft enters Review only once its organizer has decided what a reviewer reads first (T206).
+
+    Decided is a mark on an answer the market asks, or "Nothing leads the card" chosen. An empty
+    list is nobody having asked, and a mark on a question the form no longer asks leads the card
+    with nothing.
+    """
+
+    @staticmethod
+    def _market(highlights=None, nothing_leads=False, fields=("stall",), dates=()):
+        return _make_market(
+            phase=MarketPhase.DRAFT,
+            setup_object=_setup(dates=dates),
+            application_form=ApplicationForm(
+                fields=[FormField(key=key, label=key.title(), type="text") for key in fields],
+            ),
+            review_highlights=highlights,
+            nothing_leads_the_card=nothing_leads,
+        )
+
+    def _verdict(self, **kwargs):
+        return ReviewHighlightsDecidedGuard().evaluate(self._market(**kwargs), None)
+
+    def test_refuses_a_draft_with_nothing_marked_and_nothing_chosen(self):
+        result = self._verdict(highlights=None)
+        assert result.passed is False
+        assert result.id == "review_highlights_decided"
+
+    def test_an_empty_list_is_not_a_decision(self):
+        assert self._verdict(highlights=[]).passed is False
+
+    def test_nothing_leads_the_card_decides_it(self):
+        assert self._verdict(highlights=[], nothing_leads=True).passed is True
+
+    def test_a_mark_on_one_of_the_forms_questions_decides_it(self):
+        assert self._verdict(highlights=["stall"]).passed is True
+
+    def test_a_mark_on_an_asked_essential_question_decides_it(self):
+        result = self._verdict(highlights=["essential_available_dates"], dates=["2026-05-01"])
+        assert result.passed is True
+
+    def test_a_mark_on_an_essential_question_the_plan_does_not_ask_is_no_decision(self):
+        """No dates, so nobody is asked which dates they can do."""
+        assert self._verdict(highlights=["essential_available_dates"]).passed is False
+
+    def test_marks_on_questions_the_form_no_longer_asks_are_no_decision(self):
+        assert self._verdict(highlights=["removed", "gone_too"]).passed is False
+
+    def test_one_live_mark_among_stale_ones_decides_it(self):
+        assert self._verdict(highlights=["removed", "stall"]).passed is True
+
+    def test_it_leads_to_review_setup_with_the_forms_action(self):
+        result = self._verdict(highlights=None)
+        assert result.resolution_link == "form?step=review"
+        assert result.resolution_label == "Decide what reviewers read first"
+        assert result.resolution_action == "change-form"
+        assert "Nothing leads the card" in result.message
+
+    def test_it_sits_on_leaving_draft_after_the_form_and_before_the_import(self):
+        ids = [guard.id for guard in TRANSITION_GUARDS[("draft", "applications")]]
+        assert ids.index("form_has_fields") < ids.index("review_highlights_decided")
+        assert ids.index("review_highlights_decided") < ids.index("responses_imported")
+
+    def test_it_is_no_entry_invariant_so_no_other_way_into_review_meets_it(self):
+        """T207 adds a way back into Review from Assignment, for markets that left draft before
+        this guard existed."""
+        assert "review_highlights_decided" not in {
+            guard.id for invariants in PHASE_ENTRY_INVARIANTS.values() for guard in invariants
+        }
+
+    def test_it_guards_no_move_but_leaving_draft(self):
+        guarded = {
+            edge for edge, edge_guards in TRANSITION_GUARDS.items()
+            if any(guard.id == "review_highlights_decided" for guard in edge_guards)
+        }
+        assert guarded == {("draft", "applications")}
+
+    @pytest.mark.parametrize("phase", [
+        MarketPhase.APPLICATIONS, MarketPhase.ASSIGNMENT, MarketPhase.OFFERS,
+        MarketPhase.MARKET_DAYS, MarketPhase.ARCHIVED,
+    ])
+    def test_a_market_past_draft_with_nothing_decided_is_refused_nothing_for_it(
+            self, phase, monkeypatch):
+        monkeypatch.setattr(guards.ApplicationsApi, "count_applications_for_market", lambda _id: 0)
+        monkeypatch.setattr(
+            guards.ApplicationsApi, "count_applications_with_any_status", lambda _id, _s: 0)
+        market = self._market(highlights=None).model_copy(update={"phase": phase})
+
+        refused = {
+            blocker.id
+            for blockers in guards.transition_verdicts(market, None).values()
+            for blocker in blockers
+        }
+        assert "review_highlights_decided" not in refused
 
 
 class TestEvaluateTransition:
@@ -437,10 +535,10 @@ class TestGuardDesignProperties:
         assert len(guard.description) > 0
 
     def test_adding_guard_is_only_a_dict_entry(self):
-        # The three parts of a complete setup (E31/F01/S01), the price groups (E43/F01/S02), the
-        # form and a Google Form market's import (E38/F04/S01): six list entries.
+        # The four parts of a complete setup (E31/F01/S01, E43/F01/S02), the form, what a reviewer
+        # reads first (T206) and a Google Form market's import (E38/F04/S01): seven list entries.
         guards = TRANSITION_GUARDS[("draft", "applications")]
-        assert len(guards) == 6
+        assert len(guards) == 7
 
 
 class TestAllApplicationsReviewedGuard:
@@ -793,6 +891,8 @@ class TestEveryResolutionLinkPointsAtItsFix:
     ALLOWED = {
         "setup",
         "form",
+        # The Application Form tab's Review setup step, which has its own address (T206).
+        "form?step=review",
         "applications",
         # The Assignment tab's Settings and Assignments, named Assignment and Result until
         # E38/F08/S01; the old names redirect, so a link naming one is refused below.
@@ -891,6 +991,7 @@ class TestEveryRemedyNamesTheActionItTakes:
         "Publish results": "publish-results",
         "Finish deciding": "give-verdicts",
         "Import responses": "import-applications",
+        "Decide what reviewers read first": "change-form",
     }
 
     def _remedies(self):

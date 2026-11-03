@@ -1725,6 +1725,35 @@ class TestTheFirstImportEntersReview:
         assert body["phase"] == MarketPhase.DRAFT.value
         assert "phase" not in (markets.last_update or {}).get("$set", {})
 
+    def test_a_draft_that_has_not_decided_what_a_reviewer_reads_first_is_refused_it(
+        self, monkeypatch, applications, before_the_market,
+    ):
+        """Its first import would carry it into Review undecided, so it is refused, naming the
+        decision, before a row is read (T206)."""
+        markets = self._draft(monkeypatch)
+        markets.doc["nothingLeadsTheCard"] = False
+
+        refusal = CsvImport.import_refusal(markets.doc)
+
+        assert refusal is not None
+        assert refusal.startswith("Nothing says what a reviewer reads first.")
+        assert "Nothing leads the card" in refusal
+
+    def test_marking_an_answer_that_leads_the_card_lets_it_import(
+        self, monkeypatch, applications, before_the_market,
+    ):
+        markets = self._draft(monkeypatch)
+        markets.doc["nothingLeadsTheCard"] = False
+        markets.doc["reviewHighlights"] = ["business_name"]
+        assert CsvImport.import_refusal(markets.doc) is None
+
+        body, status = CsvImport.import_applications(
+            markets, markets.doc, _csv(GOOD_ROW), MAPPING, by="organizer@example.com",
+        )
+
+        assert status == 200, body
+        assert body["phase"] == MarketPhase.APPLICATIONS.value
+
     def test_an_import_in_review_moves_nothing(self, monkeypatch, markets, applications):
         monkeypatch.setattr(MarketsApi, "markets_collection", markets)
 

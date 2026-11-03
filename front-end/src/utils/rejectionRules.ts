@@ -10,7 +10,7 @@ export function useRejectionRules(market: Ref<Market | null | undefined>) {
     (held) => held.rejectionRules,
     async (id, rules) => {
       const response = await api.put(`/markets/${id}/rejection-rules`, { rules });
-      return response.data?.rejectionRules ?? rules;
+      return { list: response.data?.rejectionRules ?? rules, none: false };
     },
     'Could not save the automatic rejections.',
   );

@@ -25,10 +25,17 @@ import FormPreview from '@/components/application/FormPreview.vue';
 import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
 import AutomaticRejections from '@/components/application/AutomaticRejections.vue';
+import ReviewSetupDecision from '@/components/application/ReviewSetupDecision.vue';
 import StepHeader from '@/components/StepHeader.vue';
-import { useReviewHighlights } from '@/utils/reviewHighlights';
+import { liveHighlights, useReviewHighlights } from '@/utils/reviewHighlights';
 import { useRejectionRules } from '@/utils/rejectionRules';
-import { formStepNamed, formSteps, intakeModeOf, type FormStepId } from '@/utils/marketGuide';
+import {
+  blockersFor,
+  formStepNamed,
+  formSteps,
+  intakeModeOf,
+  type FormStepId,
+} from '@/utils/marketGuide';
 import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
 import { EMPTY_ESSENTIAL_OPTIONS, essentialOptionsFromSetup } from '@/utils/essentialFields';
@@ -257,7 +264,36 @@ async function saveApplicationForm() {
  *
  * The queue changes the same list through the same composable, so the two screens cannot diverge.
  */
-const { highlights, error: highlightsError, save: saveHighlights } = useReviewHighlights(market);
+const {
+  highlights,
+  nothingLeadsTheCard,
+  error: highlightsError,
+  save: saveHighlights,
+  chooseNone: chooseNothingLeads,
+} = useReviewHighlights(market);
+
+/**
+ * Review waits on the review setup (T206): while the market read serves the move into Review
+ * refused by a decision's guard, its section says so and offers its "none". Never past draft, which
+ * the guards never judge. A tick or a "none" on screen ends the notice at once, before the re-read.
+ */
+function waitsFor(guard: string): boolean {
+  return (
+    market.value != null &&
+    blockersFor(market.value, 'applications').some((blocker) => blocker.id === guard)
+  );
+}
+/** What the decisions hold up, on each path: opening applications, or the first import. */
+const waitsOnThis = computed(() =>
+  forApplicants.value ? 'Opening applications waits on this.' : 'Your first import waits on this.',
+);
+const highlightsUndecided = computed(
+  () =>
+    waitsFor('review_highlights_decided') &&
+    !nothingLeadsTheCard.value &&
+    liveHighlights(highlights.value, applicationForm.value?.fields ?? [], essentialOptions.value)
+      .length === 0,
+);
 
 /** Which answers reject automatically (E33/F03/S01), on the same step and written the same way. */
 const {
@@ -441,6 +477,16 @@ watch(formLocked, (locked, wasLocked) => {
               <h3 id="review-highlights-title" class="review-setup-title">
                 What a reviewer reads first
               </h3>
+              <ReviewSetupDecision
+                testid="review-highlights"
+                :undecided="highlightsUndecided"
+                :waitsOn="waitsOnThis"
+                :noneOffered="changesForm"
+                noneLabel="Nothing leads the card"
+                :noneChosen="nothingLeadsTheCard"
+                readBack="Nothing leads the card: a reviewer reads every answer, in the form's order."
+                @choose-none="chooseNothingLeads"
+              />
               <ReviewHighlights
                 :fields="applicationForm?.fields ?? []"
                 :essentialOptions="essentialOptions"

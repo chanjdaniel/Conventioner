@@ -2603,6 +2603,8 @@ def save_review_highlights(
     Neither shape says anyone decided it, so ``nothing_leads_the_card`` does (T206): the only
     writer of ``Market.nothing_leads_the_card``, true only beside an empty list (refused with a
     mark), and stored false by every write that does not ask for it, so marking an answer replaces it.
+    Whether the two decide what a reviewer reads first, which a draft must before Review, is
+    ``review_highlights.highlights_decided``: a kept mark may name a question the form has dropped.
 
     Deliberately NOT gated on ``application_form_lock_reason``. That lock freezes the form the
     moment an applicant submits - which is the moment these first become knowable, because an
