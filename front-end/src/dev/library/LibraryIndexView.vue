@@ -77,7 +77,6 @@ import { ENTRIES, isBuilt, LIBRARY_PATH } from './catalog';
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
   gap: var(--space-3);
-  align-items: start;
   margin: 0;
   padding: 0;
   list-style: none;
