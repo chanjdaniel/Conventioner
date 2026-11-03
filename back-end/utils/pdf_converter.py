@@ -3,8 +3,8 @@ PDF-to-image conversion utility using pypdfium2.
 Renders each PDF page as a PNG byte string.
 
 pypdfium2's wheel carries PDFium itself, so a PDF is drawn with no system package: production's
-Vercel function installs only the Python requirements, and the converter it used to run (pdf2image,
-which calls poppler's programs) answered every PDF there with nothing.
+Vercel function installs only the Python requirements, so the converter it used to run (pdf2image,
+which calls poppler's programs) drew no page there, and every PDF upload answered 500.
 """
 
 import io
