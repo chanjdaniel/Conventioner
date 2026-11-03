@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/PlacementDialog.vue
   - front-end/src/components/SearchPicker.vue
-verified: 2026-10-31
+verified: 2026-11-04
 sources:
   - brain-dump/2026-10-19#30
   - wayfinding/claims-and-room/05

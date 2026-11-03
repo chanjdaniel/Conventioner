@@ -9,7 +9,7 @@ describes:
   - front-end/src/__tests__/theAppOwnsItsComponents.test.ts
   - front-end/src/__tests__/theLucideNoticeReachesTheBundle.test.ts
   - front-end/src/components/SearchPicker.vue
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - T45
   - E38/F08/S03
@@ -46,7 +46,7 @@ The app owns its components and its icons, and depends on no component library o
   It added about 12.5 KB gzipped to the entry JavaScript, since the Vue runtime it uses lands in the chunk every first paint loads: measured on the same dev on 2026-10-30, 99,310 B with it against 86,808 B with the owned picker, the bundle budget being 89,000 B.
   And the behaviour the dialog needs is not what it gives unasked: a search narrows each group and never hides one, where its filter drops a group with no match, and the list opens in the dialog's flow, so the dialog's scroller cannot clip it.
   A date picker or a popover menu, which must place itself over the page, is still a headless library's first.
-  The picker grows by opt-in props, as `cap`, a match list cut short with a line saying how many more: a use that passes none draws as the placement dialog's do.
+  The picker grows by opt-in props, as `cap`, a match list cut short with a line saying how many more, and `multiple`, several choices as chips above the field: a use that passes none draws as the placement dialog's do.
 
 ## Consequences
 

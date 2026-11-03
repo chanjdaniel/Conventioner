@@ -27,8 +27,19 @@
  *   short says so where it is read. A group the cap alone leaves out is not drawn, as it has matches
  *   and so "None match" would be false. A choice made past the cap is not drawn either: the field
  *   names it, no row is active, and Enter keeps it rather than taking the first row.
+ * - Given `multiple`, it holds several choices, `modelValue` is their values, and the field holds
+ *   only words to search by. Each choice shows as a chip above the field with its own remove button,
+ *   and Backspace in the empty field removes the last; a held Backspace takes none, so clearing the
+ *   words stops at the field. A chosen option stays in the list, ticked, and choosing it again
+ *   removes it, so the rows never move under the pointer. For the same reason the list stays open
+ *   and the words stay after a choice, selected so that the next word replaces them, and they go
+ *   when the field is left, since nothing was chosen by them. A pointer on a chip's button leaves
+ *   the field its focus; the keyboard's focus goes on to the next chip. With a `cap`, a choice past
+ *   it is not drawn, as in one choice, and the chip still shows it.
  */
 import { computed, nextTick, ref, useId, watch } from 'vue';
+import IconCheck from '@/components/icons/IconCheck.vue';
+import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 
 export interface PickerOption {
   value: string;
@@ -45,19 +56,26 @@ export interface PickerGroup {
   options: PickerOption[];
 }
 
-const props = defineProps<{
-  modelValue: string;
-  groups: PickerGroup[];
-  /** Whether the words typed find this choice. */
-  finds: (option: PickerOption, words: string) => boolean;
-  label: string;
-  placeholder?: string;
-  testid: string;
-  /** At most this many matching choices are drawn; without it, all of them are. */
-  cap?: number;
-}>();
+const props = defineProps<
+  {
+    groups: PickerGroup[];
+    /** Whether the words typed find this choice. */
+    finds: (option: PickerOption, words: string) => boolean;
+    label: string;
+    placeholder?: string;
+    testid: string;
+    /** At most this many matching choices are drawn; without it, all of them are. */
+    cap?: number;
+    /** Who or what finds no match, as the list says it: "Nothing", where the choices are not people. */
+    noneWord?: string;
+  } & (
+    | { multiple?: false; modelValue: string }
+    /** Several choices, shown as chips above the field. */
+    | { multiple: true; modelValue: string[] }
+  )
+>();
 
-const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
+const emit = defineEmits<{ 'update:modelValue': [value: string | string[]] }>();
 
 const id = useId();
 const inputId = `${id}-input`;
@@ -68,9 +86,19 @@ const moreId = `${id}-more`;
 const allOptions = computed(() => props.groups.flatMap((group) => group.options));
 /** Whether the picker has any choice at all; with none, the list never opens. */
 const hasChoices = computed(() => allOptions.value.length > 0);
+/** The one choice made; several are `chosenValues`. */
 const chosenOption = computed(() =>
-  allOptions.value.find((option) => option.value === props.modelValue),
+  props.multiple ? undefined : allOptions.value.find((option) => option.value === props.modelValue),
 );
+/** Every choice made, in the order they were made, when the picker holds several. */
+const chosenValues = computed(() => (props.multiple ? props.modelValue : []));
+const isChosen = (option: PickerOption) =>
+  props.multiple ? props.modelValue.includes(option.value) : option.value === props.modelValue;
+/** A chosen value no option offers shows as its own words. */
+const chips = computed(() => {
+  const labels = new Map(allOptions.value.map((option) => [option.value, option.label]));
+  return chosenValues.value.map((value) => ({ value, label: labels.get(value) ?? value }));
+});
 
 /** What the field holds: the words typed, or the chosen choice's label. */
 const text = ref('');
@@ -82,6 +110,7 @@ const active = ref(-1);
 watch(
   () => props.modelValue,
   () => {
+    if (props.multiple) return;
     if (searching.value && !props.modelValue) return;
     text.value = chosenOption.value?.label ?? '';
     searching.value = false;
@@ -140,6 +169,7 @@ watch(active, async (index) => {
 });
 
 const field = ref<HTMLInputElement | null>(null);
+const chipList = ref<HTMLElement | null>(null);
 
 function show(): void {
   if (open.value || !hasChoices.value) return;
@@ -154,6 +184,16 @@ function show(): void {
 }
 
 function choose(option: PickerOption): void {
+  if (props.multiple) {
+    emit(
+      'update:modelValue',
+      isChosen(option)
+        ? props.modelValue.filter((value) => value !== option.value)
+        : [...props.modelValue, option.value],
+    );
+    if (text.value) field.value?.select();
+    return;
+  }
   searching.value = false;
   text.value = option.label;
   open.value = false;
@@ -167,7 +207,20 @@ function typed(): void {
   active.value = shownOptions.value.length ? 0 : -1;
   // Words that no longer name the choice let it go, so a dialog never acts on a choice its field
   // does not show.
-  if (props.modelValue) emit('update:modelValue', '');
+  if (!props.multiple && props.modelValue) emit('update:modelValue', '');
+}
+
+/** Takes a chip away. The keyboard's focus was on its button, which is gone, so it goes on. */
+async function removeChip(at: number): Promise<void> {
+  const keptFocus = chipList.value?.contains(document.activeElement);
+  emit(
+    'update:modelValue',
+    chosenValues.value.filter((_, index) => index !== at),
+  );
+  if (!keptFocus) return;
+  await nextTick();
+  const buttons = chipList.value?.querySelectorAll('button');
+  (buttons?.[at] ?? buttons?.[at - 1] ?? field.value)?.focus();
 }
 
 function onKeydown(event: KeyboardEvent): void {
@@ -200,17 +253,53 @@ function onKeydown(event: KeyboardEvent): void {
       event.stopPropagation();
       open.value = false;
       return;
+    case 'Backspace':
+      // Only a fresh press: one held to clear the words stops when they are gone.
+      if (!props.multiple || text.value || event.repeat || !chosenValues.value.length) return;
+      emit('update:modelValue', chosenValues.value.slice(0, -1));
+      return;
   }
 }
 
 function onBlur(): void {
   open.value = false;
+  if (!props.multiple) return;
+  text.value = '';
+  searching.value = false;
 }
 </script>
 
 <template>
   <div class="search-picker" :data-testid="testid">
     <label class="field-label" :for="inputId">{{ label }}</label>
+    <!-- `mousedown.prevent` keeps the field's focus, its words and its open list while a pointer
+         removes a chip. -->
+    <ul
+      v-if="chips.length"
+      ref="chipList"
+      class="search-picker-chips"
+      :aria-label="`${label}, chosen`"
+      :data-testid="`${testid}-chips`"
+      @mousedown.prevent
+    >
+      <li
+        v-for="(chip, at) in chips"
+        :key="chip.value"
+        class="chip chip--neutral search-picker-chip"
+        :data-testid="`${testid}-chip`"
+      >
+        <span class="search-picker-chip-label">{{ chip.label }}</span>
+        <button
+          type="button"
+          class="search-picker-chip-remove"
+          :data-testid="`${testid}-chip-remove`"
+          @click="removeChip(at)"
+        >
+          <IconCloseRound aria-hidden="true" />
+          <span class="visually-hidden">Remove {{ chip.label }}</span>
+        </button>
+      </li>
+    </ul>
     <input
       :id="inputId"
       ref="field"
@@ -242,6 +331,7 @@ function onBlur(): void {
       class="search-picker-list"
       :class="{ 'search-picker-list--capped': moreCount > 0 }"
       :aria-label="label"
+      :aria-multiselectable="multiple ? 'true' : undefined"
       :data-testid="`${testid}-list`"
       @mousedown.prevent
     >
@@ -262,13 +352,21 @@ function onBlur(): void {
           :key="option.value"
           role="option"
           class="search-picker-option"
-          :class="{ 'search-picker-option--active': active === groupStarts[g]! + o }"
-          :aria-selected="option.value === modelValue ? 'true' : 'false'"
+          :class="{
+            'search-picker-option--active': active === groupStarts[g]! + o,
+            'search-picker-option--several': multiple,
+          }"
+          :aria-selected="isChosen(option) ? 'true' : 'false'"
           :data-value="option.value"
           :data-testid="`${testid}-option`"
           @click="choose(option)"
           @mousemove="active = groupStarts[g]! + o"
         >
+          <IconCheck
+            v-if="multiple && isChosen(option)"
+            class="search-picker-option-tick"
+            aria-hidden="true"
+          />
           <span class="search-picker-option-label">{{ option.label }}</span>
           <span v-if="option.detail" class="search-picker-option-detail">{{ option.detail }}</span>
         </div>
@@ -281,7 +379,7 @@ function onBlur(): void {
         class="search-picker-none"
         :data-testid="`${testid}-none`"
       >
-        Nobody matches "{{ words }}".
+        {{ noneWord ?? 'Nobody' }} matches "{{ words }}".
       </p>
       <p
         v-if="moreCount > 0"
@@ -300,6 +398,54 @@ function onBlur(): void {
 .search-picker {
   display: flex;
   flex-direction: column;
+}
+
+.search-picker-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+/* A long name or address wraps inside its chip, which never grows past the picker. */
+.search-picker-chip {
+  max-width: 100%;
+  padding-block: 0;
+  padding-right: 0;
+  white-space: normal;
+}
+
+.search-picker-chip-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The target is `--target-min` either way, so a chip stands as tall as a thumb's on a phone. */
+.search-picker-chip-remove {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.search-picker-chip-remove:hover {
+  background: var(--mm-border);
+}
+
+.search-picker-chip-remove svg {
+  width: var(--space-3);
+  height: var(--space-3);
 }
 
 .search-picker-list {
@@ -342,6 +488,20 @@ function onBlur(): void {
 
 .search-picker-option--active {
   background: var(--mm-beige);
+}
+
+/* The tick's room is kept on every row, so the labels line up and none moves when it is chosen. */
+.search-picker-option--several {
+  position: relative;
+  padding-left: calc(var(--space-3) + var(--space-6));
+}
+
+.search-picker-option-tick {
+  position: absolute;
+  top: calc(var(--space-2) + var(--space-hairline));
+  left: var(--space-3);
+  width: var(--space-4);
+  height: var(--space-4);
 }
 
 .search-picker-option[aria-selected='true'] .search-picker-option-label {
