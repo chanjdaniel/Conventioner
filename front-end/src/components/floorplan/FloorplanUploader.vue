@@ -42,7 +42,7 @@ const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf
 
 function isValidType(file: File): boolean {
   if (ALLOWED_TYPES.includes(file.type)) return true;
-  // pdf2image on the backend also accepts .pdf by extension
+  // the backend also takes a PDF by its .pdf extension
   if (file.name.toLowerCase().endsWith('.pdf')) return true;
   return false;
 }

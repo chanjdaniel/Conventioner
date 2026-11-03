@@ -64,7 +64,7 @@ python -m pytest tests/ -v
 Install **both** files. `requirements-dev.txt` is only `pytest`, uv (for the lock check) and what they need; it does not pull in the runtime
 dependencies, and the suite imports the application. `scripts/nm-test.sh` installs both, which is
 why the gate passes where a hand-run `pip install -r requirements-dev.txt` does not.
-The suite also uploads a real PDF floorplan, so it needs poppler's tools on the `PATH` (`poppler-utils` on Debian and Ubuntu, `brew install poppler` on macOS), as the back end's image and CI's `backend` job have them.
+The suite also uploads a real PDF floorplan, with an empty `PATH`, so it proves a PDF is drawn by the Python requirements alone, as on production's Vercel function, which has no system package.
 
 The suite covers the assignment algorithm, statistics, attendance,
 CSV import column mapping, schema generation, role validation, CAPTCHA verification/bypass, the

@@ -106,8 +106,8 @@ test.describe('The floorplan upload step', () => {
     authenticatedPage: page,
     browser,
   }) => {
-    // A two-page plan, printed by the browser itself, so the suite holds no binary fixture. The
-    // back end draws its pages with poppler, which nothing installed: every PDF answered 500.
+    // A two-page plan, printed by the browser itself, so the suite holds no binary fixture. Every PDF
+    // answered 500 while the back end drew its pages with poppler, which nothing installed.
     const printer = await browser.newPage();
     await printer.setContent(
       '<div style="height: 900px; border: 4px solid">Hall A</div>' +

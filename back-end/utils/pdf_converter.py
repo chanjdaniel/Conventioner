@@ -1,15 +1,25 @@
 """
-PDF-to-image conversion utility using pdf2image.
+PDF-to-image conversion utility using pypdfium2.
 Renders each PDF page as a PNG byte string.
+
+pypdfium2's wheel carries PDFium itself, so a PDF is drawn with no system package: production's
+Vercel function installs only the Python requirements, and the converter it used to run (pdf2image,
+which calls poppler's programs) answered every PDF there with nothing.
 """
 
 import io
 import logging
+import threading
 from typing import List
 
-from pdf2image import convert_from_bytes
+import pypdfium2 as pdfium
 
 logger = logging.getLogger(__name__)
+
+# PDFium is not thread-safe, and a threaded server may convert two uploads at once.
+_PDFIUM_LOCK = threading.Lock()
+
+_POINTS_PER_INCH = 72
 
 
 def pdf_to_images(pdf_bytes: bytes, dpi: int = 200) -> List[bytes]:
@@ -28,26 +38,42 @@ def pdf_to_images(pdf_bytes: bytes, dpi: int = 200) -> List[bytes]:
         return []
 
     try:
-        images = convert_from_bytes(pdf_bytes, dpi=dpi)
+        result = _render_pages_as_png(pdf_bytes, dpi / _POINTS_PER_INCH)
     except Exception as e:
         logger.error(f"Failed to convert PDF to images: {e}")
         return []
-
-    result: List[bytes] = []
-    for i, image in enumerate(images):
-        try:
-            buf = io.BytesIO()
-            image.save(buf, format="PNG")
-            buf.seek(0)
-            result.append(buf.getvalue())
-        except Exception as e:
-            logger.warning(f"Failed to encode page {i + 1} as PNG: {e}")
-            continue
 
     if not result:
         logger.warning("pdf_to_images produced zero valid page images")
 
     return result
+
+
+def _render_pages_as_png(pdf_bytes: bytes, scale: float) -> List[bytes]:
+    """Each page drawn on white at ``scale`` pixels per point, encoded as PNG while its bitmap is
+    still open, since the PIL image shares the bitmap's memory. A page that will not encode is
+    skipped, so the pages that do are kept."""
+    with _PDFIUM_LOCK:
+        document = pdfium.PdfDocument(pdf_bytes)
+        try:
+            result: List[bytes] = []
+            for index in range(len(document)):
+                page = document[index]
+                try:
+                    bitmap = page.render(scale=scale)
+                    try:
+                        buf = io.BytesIO()
+                        bitmap.to_pil().save(buf, format="PNG")
+                        result.append(buf.getvalue())
+                    except Exception as e:
+                        logger.warning(f"Failed to encode page {index + 1} as PNG: {e}")
+                    finally:
+                        bitmap.close()
+                finally:
+                    page.close()
+            return result
+        finally:
+            document.close()
 
 
 def is_pdf(content_type: str) -> bool:

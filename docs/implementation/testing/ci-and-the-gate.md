@@ -20,7 +20,6 @@ sources:
   - T74
   - T84
   - T109
-  - T205
 ---
 
 # CI and the gate
@@ -37,7 +36,7 @@ No `${{ }}` expression is written inside a `run:` script: a value reaches the sh
 
 | Job | Runs |
 | --- | --- |
-| `backend` | Python 3.12, poppler-utils (the suite uploads a real PDF floorplan), the locks `requirements.txt`, `requirements-floorplan-solver.txt` and `requirements-dev.txt`, a re-lock that fails on any difference ([the locks](../../TECH_STACK.md#python-dependencies-are-locked)), then pytest |
+| `backend` | Python 3.12, the locks `requirements.txt`, `requirements-floorplan-solver.txt` and `requirements-dev.txt`, a re-lock that fails on any difference ([the locks](../../TECH_STACK.md#python-dependencies-are-locked)), then pytest |
 | `frontend-unit` | the Node `.nvmrc` pins, `npm ci`, Vitest |
 | `frontend-lint-and-types` | a check that the Node is `.nvmrc`'s, `npm ci --engine-strict` (the npm is `engines.npm`), and a check that npm writes the committed lockfile unchanged ([Node and npm are pinned](../../TECH_STACK.md#node-and-npm-are-pinned)), then Prettier's `format:check`, ESLint, Stylelint (`lint:css`, the [design language](../../design-system.md) gate), the type-check, and a `vite build` measured against [the bundle budget](#the-bundle-budget) and checked for [no string evaluated as script](#no-string-evaluated-as-script) |
 | `knowledge-graph` | pytest from `back-end/requirements-dev.txt`, the scripts' tests (on the Node `.nvmrc` pins, since the pre-warm's tests run its npm) and `knowledge_graph.py check` |

@@ -182,9 +182,11 @@ class TestUploadingAnImage:
         for page in pages:
             assert images.metadata_of(page["gridfs_id"]) == {"marketId": MARKET_ID}
 
-    def test_a_real_pdf_is_drawn_as_its_page_and_stored(self, sign_in, market, images):
-        """The zone offers PDF, so a real one is converted, through poppler, with nothing stood in
-        for the conversion: a back end without poppler answered every PDF with a 500."""
+    def test_a_real_pdf_is_drawn_as_its_page_and_stored(self, sign_in, market, images, monkeypatch):
+        """The zone offers PDF, so a real one is converted, with nothing stood in for the conversion
+        and no program on the PATH: production's Vercel function has no system package to run, and
+        a converter that ran poppler's tools answered every PDF there with a 500."""
+        monkeypatch.setenv("PATH", "")
         response = _upload(
             sign_in("owner@example.com"),
             file=(io.BytesIO(_one_page_pdf()), "hall.pdf", "application/pdf"),
@@ -193,10 +195,14 @@ class TestUploadingAnImage:
         assert response.status_code == 201, response.get_json()
         (page,) = response.get_json()["pages"]
         assert images.metadata_of(page["gridfs_id"]) == {"marketId": MARKET_ID}
-        # A4 (595 by 842 points) at the converter's 200 dpi, within a pixel, since poppler's
-        # versions round the edge differently.
+        # A4 (595 by 842 points) at the converter's 200 dpi, within a pixel of the exact edge.
         assert abs(page["width"] - 595 * 200 / 72) <= 1
         assert abs(page["height"] - 842 * 200 / 72) <= 1
+        # The page is drawn, not just sized: white paper, with the outline's left edge (72 points
+        # in, 200 pixels at 200 dpi) black.
+        drawn = Image.open(io.BytesIO(images.files[ObjectId(page["gridfs_id"])]["data"]))
+        assert drawn.convert("RGB").getpixel((800, 1000)) == (255, 255, 255)
+        assert drawn.convert("RGB").getpixel((200, 1000)) == (0, 0, 0)
 
     @pytest.mark.parametrize("email,error", [
         ("outsider@example.com", Actions.refusal_sentence(Actions.CHANGE_SETUP)),
