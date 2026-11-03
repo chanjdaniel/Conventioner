@@ -879,14 +879,14 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # whether they are a chosen reviewer, which lets them give verdicts (E38/F07/S03).
     # The reader's account is read here once, and every other account the read names through
     # ``accounts``, all of them in one database read however many people the lists below name
-    # (E38/F12/S01, T204).
+    # (E38/F12/S01, T204), and only once the reader is let in: a refused read reads no one else.
     reader = UsersApi.get_user(user_email)
-    accounts = _Accounts(reader, _named_by_the_read(market, context.organization))
     user_role = PermissionsApi.get_user_market_role(
         user_email, market, context.organization, user=reader)
     chosen = Actions.is_chosen(user_email, market)
     if read_refused(market, user_role):
         return None
+    accounts = _Accounts(reader, _named_by_the_read(market, context.organization))
 
     market_dict['_id'] = str(market_dict['_id'])
     # Deprecated: no screen reads the role since each asks the table (E39/F01/S02); an old bundle's

@@ -224,3 +224,16 @@ def test_the_read_looks_every_account_up_in_one_read_for_a_chooser_who_gives_no_
     assert served["reviewerCandidates"]
     assert len(lookups.batches) == 1, lookups.batches
     assert not lookups.by_id, lookups.by_id
+
+
+def test_a_reader_the_market_refuses_reads_no_one_elses_account(monkeypatch, lookups):
+    """A signed-in reader with no role here and outside the organization is answered nothing, and
+    the read refuses them before it reads anyone else's account: work for a request served none."""
+    stranger = SimpleNamespace(id="user-stranger", email="stranger@else.test")
+    monkeypatch.setattr(
+        UsersApi, "get_user",
+        lambda email: stranger if email == stranger.email else _account(email))
+
+    assert _served(stranger.email) is None
+    assert lookups.batches == []
+    assert not lookups.by_id, lookups.by_id
