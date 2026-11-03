@@ -23,6 +23,7 @@ from guards import (
     NoApprovedApplicationsGuard,
     PreconditionResult,
     ResponsesImportedGuard,
+    ResultsNotPublishedGuard,
     TRANSITION_GUARDS,
     VALID_TRANSITIONS,
     evaluate_transition,
@@ -298,6 +299,12 @@ class TestValidTransitions:
 
         assert into_draft == {"applications"}
 
+    def test_the_stage_is_entered_from_draft_and_back_from_assignment(self):
+        """Back to review (T207): the one way back past the stage, and none from later on."""
+        into_the_stage = {frm for frm, to in VALID_TRANSITIONS if to == "applications"}
+
+        assert into_the_stage == {"draft", "assignment"}
+
     def test_archive_from_every_phase_is_registered(self):
         phases = [p.value for p in MarketPhase if p != MarketPhase.ARCHIVED]
         for phase in phases:
@@ -539,6 +546,55 @@ class TestAssignmentEntryInvariants:
         assert AllApplicationsReviewedGuard in kinds
         assert NoAskedForTierWithoutTablesGuard in kinds
         assert NoOrphanedPinGuard in kinds
+
+
+class TestBackToReview:
+    """``assignment -> applications`` (T207): the review reopens until results are published."""
+
+    MESSAGE = (
+        "Results are published: applicants have read whether they have a table, so the review "
+        "cannot reopen. To change who has a table, place or free a seat on Assignments."
+    )
+
+    def test_the_edge_carries_the_stages_invariants_and_the_results_guard(self):
+        guard_ids = [g.id for g in TRANSITION_GUARDS[("assignment", "applications")]]
+
+        assert set(guard_ids) == {"form_has_fields", "responses_imported", "results_not_published"}
+
+    def test_only_the_way_back_asks_it(self):
+        carrying = {edge for edge, guards in TRANSITION_GUARDS.items()
+                    if any(isinstance(g, ResultsNotPublishedGuard) for g in guards)}
+
+        assert carrying == {("assignment", "applications")}
+
+    def test_a_market_whose_results_are_published_is_refused_in_words(self):
+        result = ResultsNotPublishedGuard().evaluate(
+            _make_market(intake_mode=IntakeMode.FORM, results_published=True), None)
+
+        assert not result.passed
+        assert result.id == "results_not_published"
+        assert result.message == self.MESSAGE
+        # No page reopens the review, so the refusal names none.
+        assert (result.resolution_link, result.resolution_label, result.resolution_action) == (
+            None, None, None)
+
+    def test_a_form_market_not_yet_published_may_go_back(self):
+        result = ResultsNotPublishedGuard().evaluate(
+            _make_market(intake_mode=IntakeMode.FORM, results_published=False), None)
+
+        assert result.passed
+
+    def test_a_google_form_market_may_go_back_for_the_whole_of_assignment(self):
+        """It never publishes results, so its flag never stands."""
+        result = ResultsNotPublishedGuard().evaluate(_make_market(intake_mode=IntakeMode.CSV), None)
+
+        assert result.passed
+
+    def test_it_has_id_and_description(self):
+        guard = ResultsNotPublishedGuard()
+
+        assert guard.id == "results_not_published"
+        assert guard.description
 
 
 class TestOffersEntryInvariants:

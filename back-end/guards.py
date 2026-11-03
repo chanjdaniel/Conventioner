@@ -385,6 +385,33 @@ class ResultsPublishedGuard:
         )
 
 
+class ResultsNotPublishedGuard:
+    """The review reopens only until applicants have read their results (T207, ADR 0021).
+
+    On ``assignment -> applications`` alone, Back to review. Once results are published an
+    applicant has read whether they have a table, so a verdict changed after it would change what
+    they were told; from then on a seat placed or freed by hand is the way to change who has one.
+    A Google Form market never publishes results, so it passes for the whole of Assignment. Reads
+    the flag, never the phase, and names no remedy: no page reopens the review.
+    """
+
+    id: str = "results_not_published"
+    description: str = "Results are not yet published to applicants"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        if not market.results_published:
+            return PreconditionResult(id=self.id, passed=True, message="")
+        return PreconditionResult(
+            id=self.id,
+            passed=False,
+            message=(
+                "Results are published: applicants have read whether they have a table, so the "
+                "review cannot reopen. To change who has a table, place or free a seat on "
+                "Assignments."
+            ),
+        )
+
+
 class AllApplicationsReviewedGuard:
     """Every application must be approved or rejected before assignment can begin.
 
@@ -512,6 +539,9 @@ VALID_TRANSITIONS: set[tuple[str, str]] = {
     ("applications", "draft"),
     # Assignment and forward. Entering it closes the applicant form: applying is the stage's alone.
     ("applications", "assignment"),
+    # Back to review (T207, ADR 0021): the review reopens until results are published, so a verdict
+    # given too fast can still change. The form stays stopped on the way back.
+    ("assignment", "applications"),
     ("assignment", "offers"),
     # Publishing (E03/F03). market_days already meant "the market is running" and was stranded
     # behind the deadlocked assignment -> offers; this is the route that reaches it.
@@ -695,6 +725,7 @@ _ALL_REVIEWED = AllApplicationsReviewedGuard()
 _NO_APPLICATIONS_YET = NoApplicationsYetGuard()
 _ASSIGNMENT_COMPUTED = AssignmentComputedGuard()
 _RESULTS_PUBLISHED = ResultsPublishedGuard()
+_RESULTS_NOT_PUBLISHED = ResultsNotPublishedGuard()
 _NO_APPROVED = NoApprovedApplicationsGuard()
 _NO_EMPTY_TIER_ASKED_FOR = NoAskedForTierWithoutTablesGuard()
 _NO_ORPHANED_PIN = NoOrphanedPinGuard()
@@ -739,6 +770,9 @@ TRANSITION_GUARDS: dict[tuple[str, str], list] = {
     # priority entry before assignment can begin.
     ("applications", "draft"): [_NO_APPLICATIONS_YET],
     ("applications", "assignment"): [_ALL_REVIEWED, _NO_EMPTY_TIER_ASKED_FOR, _NO_ORPHANED_PIN],
+    # The stage's invariants pass on any market past draft; the way back's own guard is the one
+    # that can refuse it.
+    ("assignment", "applications"): [_FORM_HAS_FIELDS, _RESPONSES_IMPORTED, _RESULTS_NOT_PUBLISHED],
     ("assignment", "offers"): [_NO_APPROVED],
     ("assignment", "market_days"): [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _RESULTS_PUBLISHED],
     ("offers", "market_days"): [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _RESULTS_PUBLISHED],

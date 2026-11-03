@@ -286,11 +286,18 @@ VERDICTS_SETTLED = (
 
 
 def review_is_open(phase: MarketPhase) -> bool:
-    """Whether this market can still get back to the stage where applications are reviewed, the one
-    rule both the verdicts and the automatic rejections settle on (E36/F01/S01). A rule and a
-    reviewer judge the same applications, so they close together; derived from the transition table
-    rather than listed."""
-    return route_between(phase.value, MarketPhase.APPLICATIONS.value) is not None
+    """Whether Assignment still lies ahead of this market, the one rule both the verdicts and the
+    automatic rejections settle on (E36/F01/S01). A rule and a reviewer judge the same applications,
+    so they close together; derived from the transition table rather than listed.
+
+    Ahead, not merely reachable: Back to review (T207) leads from ``assignment`` to the stage, so
+    asking whether the stage can be reached would open the review in Assignment itself. The review
+    opens again only once the market is back in the stage.
+    """
+    return (
+        phase is not MarketPhase.ASSIGNMENT
+        and route_between(phase.value, MarketPhase.ASSIGNMENT.value) is not None
+    )
 
 
 def verdict_refusal(
@@ -1885,16 +1892,26 @@ def finalization_update(
     return {}
 
 
-def taking_applications_update(to_phase: str) -> Dict[str, Any]:
+def taking_applications_update(
+    from_phase: str, to_phase: str, document: Dict[str, Any],
+) -> Dict[str, Any]:
     """A stop belongs to the one stay in the stage it was made in (E38/F04/S02).
 
     Reopen for editing and then Open applications is opening applications, so a stop made before
-    must not leave the form shut; cleared on entering draft and on entering the stage, in the
-    update that moves the phase. Elsewhere it is left alone: past the stage the phase closes the
-    form whatever the flag says.
+    must not leave the form shut; cleared on entering draft and on entering the stage from draft, in
+    the update that moves the phase. Back to review (T207) is the review again, not applying: a
+    market whose vendors apply on its page enters the stage from Assignment with its form stopped,
+    and Take applications again is the organizer's way to reopen it; a Google Form market has no
+    form to stop, and is left as it is. Elsewhere it is left alone: past the stage the phase closes
+    the form whatever the flag says.
     """
+    stopped_key = market_doc_key("applications_stopped")
+    if to_phase == MarketPhase.APPLICATIONS.value and from_phase == MarketPhase.ASSIGNMENT.value:
+        if intake_mode_from_market_document(document) is IntakeMode.FORM:
+            return {stopped_key: True}
+        return {}
     if to_phase in (MarketPhase.DRAFT.value, MarketPhase.APPLICATIONS.value):
-        return {market_doc_key("applications_stopped"): False}
+        return {stopped_key: False}
     return {}
 
 
@@ -1957,7 +1974,7 @@ def apply_phase_transition(
                 phase_key: to_phase,
                 is_draft_key: to_phase == MarketPhase.DRAFT.value,
                 **finalization_update(from_phase, to_phase, document),
-                **taking_applications_update(to_phase),
+                **taking_applications_update(from_phase, to_phase, document),
             },
             "$push": PhaseRecord.push_entries(document, to_phase, by),
         },

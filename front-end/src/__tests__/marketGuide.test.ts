@@ -67,6 +67,13 @@ describe('the words a CSV market wears', () => {
     );
   });
 
+  it('calls the way back from Assignment "Back to review" on both paths (T207)', () => {
+    const back = (path: IntakeMode) =>
+      pathTransitionLabel(MarketPhase.Assignment, MarketPhase.Applications, path);
+    expect(back(IntakeMode.Form)).toBe('Back to review');
+    expect(back(IntakeMode.Csv)).toBe('Back to review');
+  });
+
   it('calls the form "Questions", since no applicant ever sees it', () => {
     expect(pathTabLabel('form', IntakeMode.Csv, TAB_LABELS)).toBe('Questions');
     expect(pathTabLabel('form', IntakeMode.Form, TAB_LABELS)).toBe('Application Form');

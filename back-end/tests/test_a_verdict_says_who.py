@@ -139,10 +139,19 @@ class TestAnEditorGivesVerdicts:
 
 
 class TestWhenAVerdictMayChange:
-    """While the market can still get back to review (E36/F01/S01): from assignment on, a verdict is
-    the review's record, and a mistake is fixed with a seat placed or freed by hand."""
+    """While Assignment still lies ahead of the market (E36/F01/S01, T207): in Assignment and on, a
+    verdict is the review's record, and a mistake is fixed with Back to review until results are
+    published, or with a seat placed or freed by hand."""
 
-    @pytest.mark.parametrize("phase", [MarketPhase.APPLICATIONS])
+    OPEN = (MarketPhase.DRAFT, MarketPhase.APPLICATIONS)
+
+    @pytest.mark.parametrize("phase", list(MarketPhase))
+    def test_the_review_is_open_only_before_assignment(self, phase):
+        """Derived from the table: the way back from Assignment opens the review only once the
+        market is back in the stage, never in Assignment itself."""
+        assert MarketsApi.review_is_open(phase) is (phase in self.OPEN)
+
+    @pytest.mark.parametrize("phase", OPEN)
     def test_open_while_the_review_is(self, phase, monkeypatch):
         monkeypatch.setattr(Actions, "refusal", lambda *_a: None)
         from conftest import client_market
@@ -167,7 +176,7 @@ class TestWhenAVerdictMayChange:
         verdicts_open = MarketsApi.verdict_refusal(
             "e@x.test", client_market(phase=phase), None) is None
         rules_open = MarketsApi.rejection_rules_lock_reason(phase) is None
-        assert verdicts_open == rules_open or phase is MarketPhase.ARCHIVED
+        assert verdicts_open == rules_open == (phase in self.OPEN)
 
     def test_a_person_who_may_not_change_the_market_is_told_that_first(self, monkeypatch):
         monkeypatch.setattr(Actions, "refusal", lambda *_a: "Viewers read.")

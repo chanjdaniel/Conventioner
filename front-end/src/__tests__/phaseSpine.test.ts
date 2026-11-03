@@ -51,6 +51,11 @@ describe('which way a transition goes', () => {
     expect(transitionDirection('applications', 'draft')).toBe('back');
   });
 
+  it('calls Back to review backwards, and leaves the spine as it was (T207)', () => {
+    expect(VALID_TRANSITIONS).toContainEqual(['assignment', 'applications']);
+    expect(transitionDirection('assignment', 'applications')).toBe('back');
+  });
+
   it('calls archiving the end, from every phase', () => {
     for (const from of phaseSpine()) {
       expect(transitionDirection(from, 'archived')).toBe('end');
