@@ -62,7 +62,7 @@ Its routes are in [`back-end/app.py`](../../../back-end/app.py).
 
 **All four ask the table's Assignment row** ([the market's actions](market-actions.md)), whose default is EDITOR, the bar every other market write sets, and deliberately not stricter: an EDITOR already owns the tiers, sections and table counts the whole assignment is computed from, so withholding "move one vendor between two seats" protects nothing.
 Each loads its market through `_load_market_to_change`, so an archived market is refused.
-A placement that names no seat the plan has is a `PlacementError` (400); a seat someone else holds is a `SeatTakenError` (409), naming the occupant; a run outside its phase is an `AssignPhaseError` (409).
+A placement that names no seat the plan has is a `PlacementError` (400); a seat someone else holds is a `SeatTakenError` (409), naming the occupant; a run outside its phase is an `AssignPhaseError` (409); a change that would land over another is an `AssignmentChangedUnderRequest` (409), below.
 Each is a [client error](../conventions/an-exception-never-reaches-a-client.md) carrying that status.
 The routes catch nothing: each refusal reaches the handler with its own status and copy, and anything else answers the generic 500.
 Each reads its body with `json_object` ([a body that is not an object is refused in words](../conventions/an-exception-never-reaches-a-client.md)): a body that is not a JSON object answers `A JSON object is required`, 400, a placement with no body or an empty one `No data provided`, 400, and a swap or a freed seat with none is read as empty and refused by the API in its own words; a swap whose `emails` is not a list names no vendor, and is refused as such.
@@ -75,6 +75,12 @@ Seeds and specs store an assignment through `POST /markets/:id/assignment` too, 
 A move into an empty seat displaces nobody, so it is allowed, as one write: `write_placement` replaces the seat the vendor held that date, and its history entry names the table left.
 Placing into a taken seat is still refused while the organizer can see both vendors, and trading two seated vendors is still the swap, which says out loud that two people are changing places.
 A swap is atomic because three separate operations invite a half-finished state, and the half-finished state is a vendor standing at no table on market day.
+
+**No change lands over another.**
+Each of the four reads the whole assignment and writes it back whole (`_store_vendor_assignments`), so two changes at once would each store the assignment as it was before the other, and one would be lost without a word: two organizers moving two vendors into one empty seat both got a 200, and only one was seated, while the history recorded both moves.
+So the write lands only while `assignmentObject.revision` is still the one the change read, and counts it one more; otherwise it is refused, `AssignmentChangedUnderRequest` (409), "Someone else changed this market's tables while this change was being saved, so it was not saved. Reload the tables and try again.", before any history or payments line is recorded.
+An assignment stored before the count existed has none, and reads as 0.
+A free refused this way forgets the line it kept for the seat (`forget_freed_line`), since the seat is still held.
 
 **A seat goes only to an applicant.**
 `write_placement` writes the applicant's normalised address, and a placement or a swap naming someone the market has no application for is refused (`has_applied`, `_applicant_address`): [a seat only for an applicant](../../business/rules/a-seat-only-for-an-applicant.md).
