@@ -720,6 +720,7 @@ export const SCREENS: Screen[] = [
         'tables-seat-change',
         'placement-dialog-window',
       ])(page, seed);
+      await page.getByTestId('placement-dialog-action-swap').check();
       const field = page.getByTestId('placement-dialog-swap-target-input');
       await field.fill('a');
       await field.press('ArrowDown');
@@ -727,7 +728,23 @@ export const SCREENS: Screen[] = [
     },
   },
   {
-    // And the place picker's groups, open on a free seat.
+    // A taken seat's move picker open (T208): the day's empty seats, grouped by section.
+    name: 'the move picker, open',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: async (page, seed) => {
+      await at(screen('big', 'assignments'), 'tables-count-assigned', [
+        'tables-seat-change',
+        'placement-dialog-window',
+      ])(page, seed);
+      await page.getByTestId('placement-dialog-action-move').check();
+      await page.getByTestId('placement-dialog-move-target-input').click();
+      await visible(page, 'placement-dialog-move-target-list');
+    },
+  },
+  {
+    // And the place picker's groups, open on a free seat: its market has vendors seated already,
+    // so the last is "Seated elsewhere today (moves them)" (T208).
     name: 'the place picker, open',
     who: 'organizer',
     sizes: FITS_A_PHONE,
@@ -738,6 +755,7 @@ export const SCREENS: Screen[] = [
       ])(page, seed);
       await page.getByTestId('placement-dialog-vendor-input').click();
       await visible(page, 'placement-dialog-vendor-list');
+      await visible(page, 'placement-dialog-seated-elsewhere');
     },
   },
   {

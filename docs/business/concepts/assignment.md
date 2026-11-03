@@ -28,7 +28,7 @@ verified: 2026-10-22
 ## Flows
 
 - [The assignment and its result](../flows/assignment-and-result.md): the rules, the run, the result, publishing results.
-- [Placing by hand](../flows/placing-by-hand.md): placing, swapping and freeing a seat after the run.
+- [Placing by hand](../flows/placing-by-hand.md): placing, moving, swapping and freeing a seat after the run.
 - [Begin assignment](../flows/review.md#i5-begin-assignment): the move into the Assignment phase.
 - [Vendors](../flows/vendors.md): what each vendor got, and why a date was not given.
 - [The vendor drawer](../flows/vendor-drawer.md): one vendor's assignments.

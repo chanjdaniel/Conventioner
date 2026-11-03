@@ -141,7 +141,7 @@ wins over the file).
 
 Requirements: `pytest` (listed in `requirements-dev.txt`), no database connection needed
 (tests use in-memory fakes). The fakes read a filter (`mongo_matches`) and a projection
-(`mongo_project`) as Mongo does, a sub-document compared whole, so a read that fetches too
+(`mongo_project`) as Mongo does, a sub-document compared whole and a dotted key reaching into one, so a read that fetches too
 little fails here rather than in production. Shared module stubs live in `back-end/tests/conftest.py`, which
 also points the `.env` loader at a path that does not exist - the suite reads no `.env`, so a
 stale one on your machine cannot change its result.

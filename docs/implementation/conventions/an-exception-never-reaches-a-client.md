@@ -96,7 +96,7 @@ describes:
   - front-end/src/utils/sessionEnded.ts
   - front-end/src/utils/pageFailed.ts
   - front-end/e2e/a-failure-says-what-to-do.spec.ts
-verified: 2026-11-02
+verified: 2026-11-03
 sources:
   - T74
   - E41/F01/S01
@@ -198,7 +198,7 @@ A form saved in a phase that has fixed it answers its lock reason, 409; the phas
 
 So do the assignment and placement routes: running the assignment, adding a vendor who never applied, writing, swapping and freeing a placement, and reading the placement history and the market's history.
 None catches anything.
-A run over incomplete answers is still `run_assignment`'s 400 in [`back-end/api/placements.py`](../../../back-end/api/placements.py), with `IncompleteApplicationsError.message()` and the applicants; a run outside its phase, a vendor the market already holds and a taken seat answer 409, and a placement the plan has no seat for 400, each as raised ([placements](../modules/placements.md)).
+A run over incomplete answers is still `run_assignment`'s 400 in [`back-end/api/placements.py`](../../../back-end/api/placements.py), with `IncompleteApplicationsError.message()` and the applicants; a run outside its phase, a vendor the market already holds, a taken seat and a change that would land over another change to the tables answer 409, and a placement the plan has no seat for 400, each as raised ([placements](../modules/placements.md)).
 A builtin `PermissionError` is no longer answered 403 with its text: nothing of ours raises one, so it is a bug, and it answers 500.
 
 So do the vendor export's download and its preview: neither catches anything, and a filter value it cannot read or a column the market does not offer answers its `ExportInvalid`, 400, while a filter key it does not know is ignored.
