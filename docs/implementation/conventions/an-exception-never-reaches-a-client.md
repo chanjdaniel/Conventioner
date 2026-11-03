@@ -193,7 +193,7 @@ Deleting a market that does not exist answers 404.
 
 So do the application form and phase routes: reading and saving the form, the phase move, stopping and taking applications, and the pending-offers count.
 None catches anything, and each keeps its literal answers (`to_phase is required`, `stopped must be true or false`, `Unknown phase: '<phase>'. Valid phases: ...`, `Market not found`, `Invalid market data`, and the permission 403s the routes ask themselves).
-A form saved in a phase that has fixed it answers its lock reason, 409; the phase move answers its own guards' 409 and a market moved under it with `PhaseChangedUnderRequest.body()`; a stop asked of a market that takes none answers why, 409.
+A form saved in a phase that has fixed it answers its lock reason, 409; the phase move answers its own guards' 409, a market moved under it with `PhaseChangedUnderRequest.body()`, and a fact its guards read changed under it with `MoveBlockedUnderRequest.body()`; a stop asked of a market that takes none answers why, 409.
 
 So do the assignment and placement routes: running the assignment, adding a vendor who never applied, writing, swapping and freeing a placement, and reading the placement history and the market's history.
 None catches anything.

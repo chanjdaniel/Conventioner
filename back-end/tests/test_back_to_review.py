@@ -48,12 +48,18 @@ class Markets:
 
     def __init__(self, doc):
         self.doc = doc
+        # Another request's write, landing after this one has read the market and just before its
+        # own write: the window two requests in flight together share.
+        self.between = None
 
     def find_one(self, query, projection=None, **_kwargs):
         return dict(self.doc) if mongo_matches(self.doc, query or {}) else None
 
     def update_one(self, query, update, **_kwargs):
         reject_malformed_update(update)
+        if self.between:
+            between, self.between = self.between, None
+            between(self.doc)
         if not mongo_matches(self.doc, query):
             return SimpleNamespace(matched_count=0, modified_count=0, upserted_id=None)
         for key, value in update.get("$set", {}).items():
@@ -229,6 +235,46 @@ class TestTheWayBack:
 
         assert _back(world.client).status_code == 200
         assert markets.doc["phase"] == "applications"
+
+
+class TestTheWayBackAndPublishingNeverCross:
+    """Back to review and Publish results each check the other's fact before they write, so each
+    write is conditional on it too: two requests in flight together (two organizers, a stale tab)
+    can never leave a market in the review with its results published (T207 review finding 1)."""
+
+    def test_results_published_under_the_move_refuse_it(self, world):
+        markets = world.install(_market())
+        markets.between = lambda doc: doc.update(resultsPublished=True)
+
+        response = _back(world.client)
+
+        assert response.status_code == 409, response.get_json()
+        assert [b["id"] for b in response.get_json()["blockers"]] == ["results_not_published"]
+        assert markets.doc["phase"] == "assignment"
+        assert [e["phase"] for e in markets.doc["phaseHistory"]][-1] == "assignment"
+
+    def test_the_move_under_publishing_refuses_it(self, world, runs):
+        markets = world.install(_market())
+        runs()
+        markets.between = lambda doc: doc.update(phase="applications")
+
+        response = world.client.post(f"/markets/{MARKET}/publish-results")
+
+        assert response.status_code == 409, response.get_json()
+        assert response.get_json()["error"] == (
+            "This market moved while the request was in flight. Reload it and try again.")
+        assert markets.doc.get("resultsPublished") is not True
+
+    def test_a_second_publish_in_flight_writes_nothing(self, world, runs, market_records):
+        markets = world.install(_market())
+        runs()
+        markets.between = lambda doc: doc.update(resultsPublished=True)
+
+        response = world.client.post(f"/markets/{MARKET}/publish-results")
+
+        assert response.status_code == 409, response.get_json()
+        assert [e for e in market_records.history.documents
+                if e.get("action") == "publish-results"] == []
 
 
 class TestApplyingStaysClosed:

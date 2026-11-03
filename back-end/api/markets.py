@@ -1982,6 +1982,42 @@ class PhaseChangedUnderRequest(ConflictError):
         })
 
 
+class MoveBlockedUnderRequest(ConflictError):
+    """The phase stayed, but a fact the move's guards passed on changed under this request: a 409.
+
+    Answered as the guards answer, with the blockers the move meets now, so the rail shows why
+    where it shows a guard.
+    """
+
+    def __init__(self, current_phase: str, target_phase: str, blockers: List[PreconditionResult]):
+        self.current_phase = current_phase
+        self.target_phase = target_phase
+        self.blockers = blockers
+        super().__init__(blockers[0].message if blockers else (
+            "This market changed while the request was in flight. Reload it and try again."))
+
+    def body(self) -> Dict[str, Any]:
+        return convert_keys_to_camel_case({
+            "error": "preconditions_not_met",
+            "current_phase": self.current_phase,
+            "target_phase": self.target_phase,
+            "blockers": [b.payload() for b in self.blockers],
+        })
+
+
+def _what_the_move_stood_on(from_phase: str, to_phase: str) -> Dict[str, Any]:
+    """What a move's guards passed on that another request can change under it, as a filter.
+
+    Back to review (T207) is refused once results are published, and Publish results writes the
+    flag without moving the phase, so the move's write holds the flag as its guard read it: two
+    requests in flight together never leave a market in the review with its results published.
+    Publish results' write holds the phase the same way (``publish_results``).
+    """
+    if (from_phase, to_phase) == (MarketPhase.ASSIGNMENT.value, MarketPhase.APPLICATIONS.value):
+        return {market_doc_key("results_published"): {"$ne": True}}
+    return {}
+
+
 def apply_phase_transition(
     market_id: str, document: Dict[str, Any], to_phase: str, by: Optional[str] = None,
 ) -> None:
@@ -1995,10 +2031,13 @@ def apply_phase_transition(
     the stamp would leave a market whose two answers disagree, which is the class of bug
     `migrate_is_draft_consistency` exists to repair, and a lost update would move a market a
     concurrent request had already moved. The same update records the phase entered, and who
-    moved it there, in the market's phase history (E26/F06/S03).
+    moved it there, in the market's phase history (E26/F06/S03). A move whose guard read a fact
+    another write can change without moving the phase holds that fact too
+    (``_what_the_move_stood_on``).
 
     Raises:
         PhaseChangedUnderRequest: the stored phase moved under this request.
+        MoveBlockedUnderRequest: the phase stayed, but what the move stood on changed.
         MarketNotFoundError: the market is gone.
     """
     phase_key = market_doc_key("phase")
@@ -2007,7 +2046,7 @@ def apply_phase_transition(
     stored_phase = document[phase_key] if phase_key in document else {"$exists": False}
 
     result = markets_collection.update_one(
-        {"id": market_id, phase_key: stored_phase},
+        {"id": market_id, phase_key: stored_phase, **_what_the_move_stood_on(from_phase, to_phase)},
         {
             "$set": {
                 phase_key: to_phase,
@@ -2025,7 +2064,11 @@ def apply_phase_transition(
     latest = markets_collection.find_one({"id": market_id})
     if latest is None:
         raise MarketNotFoundError("Market not found")
-    raise PhaseChangedUnderRequest(phase_from_market_document(latest).value, from_phase, to_phase)
+    actual_phase = phase_from_market_document(latest).value
+    if actual_phase == from_phase and latest.get(phase_key) == document.get(phase_key):
+        raise MoveBlockedUnderRequest(
+            from_phase, to_phase, evaluate_transition(market_from_document(latest), to_phase, db))
+    raise PhaseChangedUnderRequest(actual_phase, from_phase, to_phase)
 
 
 class MoveUnavailable(BadRequestError):

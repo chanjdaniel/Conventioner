@@ -7,6 +7,8 @@ describes:
   - back-end/assignment/made_from.py
   - back-end/api/markets.py#review_is_open
   - back-end/api/markets.py#taking_applications_update
+  - back-end/api/markets.py#apply_phase_transition
+  - back-end/api/applicants.py#publish_results
   - front-end/src/components/PhaseRail.vue
 verified: 2026-11-03
 sources:
@@ -32,6 +34,8 @@ What made a way back unsafe in ADR 0013 is what an applicant has been told, and 
 It carries the stage's entry invariants, which pass on any market past draft, and one guard of its own, `ResultsNotPublishedGuard` in [`back-end/guards.py`](../../back-end/guards.py): it refuses once `results_published` is set, reading the flag, never the phase, and names no remedy, since no page reopens the review.
 A Google Form market never publishes results, so its way back stays open for the whole of Assignment.
 Who may take it is the table's Move the phase row, as for every move.
+The move and Publish results each check the other's fact before they write, so each write holds that fact too: the move's update asks that `resultsPublished` is still not set (`_what_the_move_stood_on`, a `MoveBlockedUnderRequest` 409 with the guard's blocker when it is), and Publish results' update in [`back-end/api/applicants.py`](../../back-end/api/applicants.py) asks for the phase it read and no results published yet (409 when it moved).
+So two requests in flight together, two organizers or a stale tab, never leave a market in the review with its results published.
 
 **The review stays closed in Assignment.**
 `review_is_open` in [`back-end/api/markets.py`](../../back-end/api/markets.py) asks whether Assignment still lies ahead of the phase, not whether the stage can be reached, since the new edge reaches it from `assignment` itself.

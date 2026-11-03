@@ -100,6 +100,8 @@ The registry is validated against the transition table and is for transitions, s
 **`Market.phase` is server-owned.**
 `create_market` stamps `draft`, and `apply_phase_transition` is the only writer on an existing market: one update, conditional on the stored phase, that sets `phase`, `isDraft`, the form's `publishedAt` (`finalization_update`) and whether applications are stopped (`taking_applications_update`), and pushes the [phase record](phase-record.md)'s entry.
 A request that finds the market moved under it gets `PhaseChangedUnderRequest`, a `ConflictError` whose `body()` is the endpoint's 409: `phase_changed`, the phase it is in now, the phase asked for, and one blocker telling the organizer to reload.
+A move whose guard read a fact another write changes without moving the phase holds that fact in the same filter (`_what_the_move_stood_on`): Back to review holds `resultsPublished` unset, since Publish results writes it in place ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)).
+When the phase stayed and that fact changed, the request gets `MoveBlockedUnderRequest`, a 409 shaped as the guards' own, `preconditions_not_met` with the blockers the move meets now.
 The endpoint catches nothing: that 409, `MoveUnavailable`'s 400 and a market deleted under it (404) reach the [registered handler](../conventions/an-exception-never-reaches-a-client.md#the-two-handlers), and only the guards' own 409 is built by the endpoint.
 Do not add a second copy of that write: the endpoint carried one until E26, which is how stamps drift.
 
