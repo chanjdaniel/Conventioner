@@ -197,7 +197,11 @@ function goBack() {
               aria-describedby="vendor-sign-in-remember-me-help"
               data-testid="vendor-sign-in-remember-me"
             />
-            Remember me on this device until {{ rememberUntil }}
+            <!-- "until <date>" wraps as one phrase on a narrow phone, never leaving the year alone. -->
+            <span>
+              Remember me on this device
+              <span class="remember-me-until">until {{ rememberUntil }}</span>
+            </span>
           </label>
           <p id="vendor-sign-in-remember-me-help" class="remember-me-help">
             Leave it unticked on a shared device.
@@ -310,6 +314,10 @@ function goBack() {
   font-size: var(--text-sm);
   color: var(--mm-black);
   cursor: pointer;
+}
+
+.remember-me-until {
+  white-space: nowrap;
 }
 
 /* What the choice is for, said under it in the hint's size. */
