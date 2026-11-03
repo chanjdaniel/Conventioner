@@ -363,9 +363,9 @@ A picker with no choices at all never opens its list, and "Nobody matches" shows
 The placement dialog's two vendor pickers are its first use.
 A screen takes a file on [`FileDropZone.vue`](../front-end/src/components/FileDropZone.vue), its one way to (T205): a dashed zone on the beige ground that a click anywhere opens the file chooser from, its main line naming the hidden input and a hint under it saying what files it takes.
 It tints green under the pointer and while a file is over it, and its words take no pointer events, so crossing them does not fire `dragleave` and flicker the tint off.
-Busy, while its caller reads a file, it takes no file and mutes its main line, never dimming it with opacity; a chosen file clears the input, so the same file chosen again is read again.
+Busy, while its caller reads or uploads a file, it takes no file and mutes its main line, never dimming it with opacity; a chosen file clears the input, so the same file chosen again is read again.
 It judges no file: it hands the one chosen or dropped to its caller, which checks it and says any error.
-The import and the start from a Google Form take their CSV on it.
+The import and the start from a Google Form take their CSV on it, and the floorplan wizard its plan image or PDF.
 
 | | Variants | Notes |
 | --- | --- | --- |
@@ -483,7 +483,7 @@ The list holds these states, one a line, each beside the state it is most like, 
 - the vendor drawer at the door on each of its tabs at 390
 - an Editor's Update info with its essential questions locked
 - settled rules
-- the floorplan wizard's steps with a plan uploaded
+- the floorplan wizard's upload step, and its steps with a plan uploaded
 - the signed-out pages
 
 They are walked over a stress seed ([`e2e/helpers/seedTheScreens.ts`](../front-end/e2e/helpers/seedTheScreens.ts)) of long names, 40 applications in every review state, a review divided between two reviewers and 36 vendors over four dates and three sections, since a layout that holds on three short names breaks on a real market.

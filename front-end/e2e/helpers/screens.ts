@@ -1051,6 +1051,16 @@ export const SCREENS: Screen[] = [
     sizes: ORGANIZER,
     open: at(screen('big', 'floorplan'), 'market-bar-title'),
   },
+  // Its upload step is the app's one drop zone (T205), so it is walked at a phone's width too.
+  {
+    name: 'the floorplan, its upload step',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: async (page, seed) => {
+      await new FloorplanWorkflowPage(page).goto(seed.draft.marketId);
+      await visible(page, 'floorplan-upload-dropzone');
+    },
+  },
   // The floorplan beta's wizard is laid out for a desk: at a phone's width its calibration field
   // is off the screen, so its steps cannot be walked there.
   {

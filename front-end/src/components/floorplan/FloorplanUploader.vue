@@ -1,8 +1,15 @@
 <script setup lang="ts">
+/**
+ * The floorplan wizard's first step: the organizer's plan image or PDF, uploaded for the market.
+ *
+ * It takes the file on the app's one drop zone (T205, F11 of the 2026-11-02 walk), as the import
+ * and the start from a Google Form do; it checks the file's type itself, since the zone judges no
+ * file. The zone stays, busy, while the file uploads, and gives way to the preview once it is in;
+ * an upload that fails leaves the zone there with the error, so another file can be chosen.
+ */
 import { ref, watch, onUnmounted } from 'vue';
-import { useDropZone, useFileDialog } from '@vueuse/core';
 import { api, getApiErrorMessage } from '@/utils/api';
-import IconCloudUpload from '@/components/icons/IconCloudUpload.vue';
+import FileDropZone from '@/components/FileDropZone.vue';
 
 type UploadResult = {
   gridfs_id: string;
@@ -17,14 +24,11 @@ const props = defineProps<{
   marketId: string;
 }>();
 
-const dropZoneRef = ref<HTMLDivElement>();
 const uploading = ref(false);
 const error = ref('');
-const uploadedFile = ref<File | null>(null);
 const previewUrl = ref('');
 const pages = ref<PageResult[]>([]);
 const selectedPage = ref(0);
-const singleResult = ref<UploadResult | null>(null);
 
 const emit = defineEmits<{
   uploaded: [payload: { gridfs_id: string; width: number; height: number }];
@@ -54,9 +58,6 @@ async function handleFile(file: File) {
     return;
   }
 
-  revokePreview();
-  uploadedFile.value = file;
-  previewUrl.value = URL.createObjectURL(file);
   error.value = '';
   uploading.value = true;
 
@@ -67,17 +68,14 @@ async function handleFile(file: File) {
 
     const { data } = await api.post('/floorplans/upload', formData);
 
+    revokePreview();
+    previewUrl.value = URL.createObjectURL(file);
     if (data.pages) {
       pages.value = data.pages;
       selectedPage.value = 0;
       emit('uploaded', data.pages[0]);
     } else {
-      singleResult.value = {
-        gridfs_id: data.gridfs_id,
-        width: data.width,
-        height: data.height,
-      };
-      emit('uploaded', singleResult.value);
+      emit('uploaded', { gridfs_id: data.gridfs_id, width: data.width, height: data.height });
     }
   } catch (e: unknown) {
     error.value = getApiErrorMessage(e, 'The floorplan was not uploaded.');
@@ -86,22 +84,6 @@ async function handleFile(file: File) {
     uploading.value = false;
   }
 }
-
-const { isOverDropZone } = useDropZone(dropZoneRef, {
-  dataTypes: ALLOWED_TYPES,
-  onDrop(files: File[] | null) {
-    if (files?.length) handleFile(files[0]);
-  },
-});
-
-const { open: openFileDialog, onChange } = useFileDialog({
-  accept: 'image/png,image/jpeg,image/webp,application/pdf',
-  multiple: false,
-});
-
-onChange((files: FileList | null) => {
-  if (files?.length) handleFile(files[0]);
-});
 
 watch(selectedPage, (idx) => {
   if (pages.value[idx]) {
@@ -116,37 +98,25 @@ onUnmounted(() => {
 
 <template>
   <div class="floorplan-uploader">
-    <div
-      ref="dropZoneRef"
-      class="drop-zone"
-      :class="{ 'is-active': isOverDropZone, 'has-file': uploadedFile }"
-      data-testid="floorplan-upload-dropzone"
-    >
-      <!-- Empty state: prompt to upload -->
-      <div v-if="!uploadedFile" class="drop-zone-content">
-        <IconCloudUpload class="drop-zone-icon" />
-        <p class="drop-zone-text">Drag &amp; drop a floorplan image or PDF here</p>
-        <p class="drop-zone-subtitle">or</p>
-        <button
-          class="browse-button"
-          data-testid="floorplan-upload-browse-btn"
-          @click="() => openFileDialog()"
-        >
-          Browse Files
-        </button>
-        <p class="drop-zone-formats">PNG, JPG, WebP, PDF</p>
-      </div>
+    <FileDropZone
+      v-if="!previewUrl"
+      accept="image/png,image/jpeg,image/webp,application/pdf"
+      label="Drop a floorplan image or PDF here, or choose a file"
+      hint="PNG, JPG, WebP or PDF."
+      :busy="uploading"
+      testid="floorplan-upload-dropzone"
+      input-testid="floorplan-upload-file-input"
+      @file="handleFile"
+    />
 
-      <!-- Uploaded state: preview -->
-      <div v-else class="preview">
-        <img v-if="previewUrl" :src="previewUrl" alt="Floorplan preview" class="preview-image" />
-        <div v-if="pages.length > 1" class="page-selector">
-          <span class="page-selector-label">Page:</span>
-          <label v-for="(page, i) in pages" :key="page.gridfs_id" class="page-option">
-            <input type="radio" v-model="selectedPage" :value="i" class="page-radio" />
-            <span class="page-number">{{ i + 1 }}</span>
-          </label>
-        </div>
+    <div v-else class="preview">
+      <img :src="previewUrl" alt="Floorplan preview" class="preview-image" />
+      <div v-if="pages.length > 1" class="page-selector">
+        <span class="page-selector-label">Page:</span>
+        <label v-for="(page, i) in pages" :key="page.gridfs_id" class="page-option">
+          <input type="radio" v-model="selectedPage" :value="i" class="page-radio" />
+          <span class="page-number">{{ i + 1 }}</span>
+        </label>
       </div>
     </div>
 
@@ -168,99 +138,6 @@ onUnmounted(() => {
   align-items: center;
   gap: 10px;
   width: 100%;
-}
-
-/* ── Drop Zone ──────────────────────────────────────────── */
-
-.drop-zone {
-  width: 100%;
-  min-height: 220px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-
-  background: var(--mm-beige);
-  border: 2px dashed var(--mm-border);
-  border-radius: 10px;
-  transition:
-    border-color 0.15s ease-in-out,
-    background-color 0.15s ease-in-out;
-  cursor: pointer;
-}
-
-.drop-zone.is-active {
-  border-color: var(--mm-green);
-  background: color-mix(in srgb, var(--mm-beige) 80%, var(--mm-green));
-}
-
-.drop-zone.has-file {
-  border-style: solid;
-  border-color: transparent;
-  background: transparent;
-  cursor: default;
-}
-
-/* ── Empty State ────────────────────────────────────────── */
-
-.drop-zone-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 24px;
-  text-align: center;
-}
-
-.drop-zone-icon {
-  font-size: 48px;
-  color: var(--mm-text-muted);
-  margin-bottom: 4px;
-}
-
-.drop-zone-text {
-  font-size: var(--text-md);
-  color: var(--mm-black);
-  margin: 0;
-}
-
-.drop-zone-subtitle {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-  margin: 0;
-}
-
-.browse-button {
-  width: 140px;
-  height: 32px;
-
-  background: var(--mm-green);
-  border: none;
-  border-radius: 5px;
-
-  font-family: 'Merge One', sans-serif;
-  font-style: normal;
-  font-weight: 400;
-  font-size: var(--text-sm);
-  line-height: 15px;
-  text-align: center;
-  color: #ffffff;
-
-  cursor: pointer;
-  transition:
-    background-color 0.15s ease-in-out,
-    opacity 0.15s ease-in-out;
-}
-
-.browse-button:hover {
-  opacity: 0.9;
-  background: color-mix(in srgb, var(--mm-green) 85%, black);
-}
-
-.drop-zone-formats {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-  margin: 0;
 }
 
 /* ── Preview ────────────────────────────────────────────── */

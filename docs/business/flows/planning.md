@@ -115,7 +115,7 @@ Offered as "Set up sections from a floorplan instead" on Section Setup while the
 
 1. "Choose your setup path": "Manual setup" (Recommended, "Get started") or "From a floorplan" (Beta, "Try the beta").
 2. `/markets/<id>/floorplan`, a five-step wizard with "← Back" and "Next →":
-   1. **Upload:** drop or "Browse Files" (PNG, JPG, WebP, PDF; a PDF asks which page).
+   1. **Upload:** "Drop a floorplan image or PDF here, or choose a file", the app's one drop zone (PNG, JPG, WebP or PDF; a PDF of more than one page asks which page).
    2. **Calibrate:** drag a reference line starting on the image, "Enter Reference Length" with a unit, "Calibrate", "Done" (or "Redraw").
    3. **Place Tables:** define "Table Types" (name, width, height, unit, max capacity), optionally "Save as Template" / "Load Template", then "Auto-Place Tables", which asks how many of each type to place and says how many fitted.
    4. **Edit Layout:** draw walls and no-go zones with the "Wall Editor" toggle, move tables, "Group Sections" by lasso and "Assign Section" (name, location, optional tier), "Export PNG" with or without table codes and sections; "Next" stays disabled until sections are grouped.
