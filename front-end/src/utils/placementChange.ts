@@ -10,7 +10,12 @@
 
 import type { ApplicationStatus, VerdictGiver } from '@/assets/types/datatypes';
 import { statusLabel, verdictGiverLine } from '@/utils/verdicts';
-import { rowStatus, sectionsInPlanOrder, type MarketTableRow } from '@/utils/resultFilters';
+import {
+  rowStatus,
+  sectionsInPlanOrder,
+  sectionsOnTheGrid,
+  type MarketTableRow,
+} from '@/utils/resultFilters';
 
 /** The three seats a table holds. Mirrors `api/placements.py`. */
 export const FULL_TABLE = 'Full Table';
@@ -230,26 +235,12 @@ export function seatHeldBy(row: MarketTableRow, email: string): Seat {
   return row.assignmentSlots?.[0] === email ? HALF_TABLE_LEFT : HALF_TABLE_RIGHT;
 }
 
-/**
- * A date's tables in the grid's order: sections as the plan ranks them, then each section's tables
- * by their number ("A 2" before "A 10"). Every row of the date, never the page's filtered ones.
- */
+/** A date's tables in the grid's order, every row of the date, never the page's filtered ones. */
 function tablesInOrder(rows: readonly MarketTableRow[], date: string, plan: PlanOrder) {
-  const sections = new Map<string, { section: string; tier: string; rows: MarketTableRow[] }>();
-  for (const row of rows) {
-    if (row.date !== date) continue;
-    let group = sections.get(row.section);
-    if (!group) {
-      group = { section: row.section, tier: row.tier, rows: [] };
-      sections.set(row.section, group);
-    }
-    group.rows.push(row);
-  }
-  return sectionsInPlanOrder([...sections.values()], plan).flatMap((group) =>
-    [...group.rows].sort((a, b) =>
-      a.tableCode.localeCompare(b.tableCode, undefined, { numeric: true }),
-    ),
-  );
+  return sectionsOnTheGrid(
+    rows.filter((row) => row.date === date),
+    plan,
+  ).flatMap((group) => group.rows);
 }
 
 /** Somebody seated on a date: the other half of a swap, or a vendor a move would take elsewhere. */

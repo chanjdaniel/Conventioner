@@ -46,25 +46,19 @@ import {
   filterOptions,
   filtersBeside,
   rowStatus,
-  sectionsInPlanOrder,
+  sectionsOnTheGrid,
   statusCounts as countStatuses,
   tablesMatching,
+  type GridSection,
   type MarketTableRow,
   type TableStatus,
   type VendorSearch,
 } from '@/utils/resultFilters';
 
-interface SectionGroup {
-  section: string;
-  location: string;
-  tier: string;
-  rows: MarketTableRow[];
-}
-
 interface DateGroup {
   date: string;
   displayDate: string;
-  sections: SectionGroup[];
+  sections: GridSection[];
   rowCount: number;
 }
 
@@ -134,38 +128,16 @@ const filteredRows = computed(() =>
 );
 
 const groupedRows = computed((): DateGroup[] => {
-  const dateMap = new Map<string, Map<string, SectionGroup>>();
-
+  const byDate = new Map<string, MarketTableRow[]>();
   for (const row of filteredRows.value) {
-    let sectionMap = dateMap.get(row.date);
-    if (!sectionMap) {
-      sectionMap = new Map();
-      dateMap.set(row.date, sectionMap);
-    }
-    let group = sectionMap.get(row.section);
-    if (!group) {
-      group = {
-        section: row.section,
-        location: row.location,
-        tier: row.tier,
-        rows: [],
-      };
-      sectionMap.set(row.section, group);
-    }
-    group.rows.push(row);
+    const rows = byDate.get(row.date);
+    if (rows) rows.push(row);
+    else byDate.set(row.date, [row]);
   }
 
   const dateGroups: DateGroup[] = [];
-  for (const [date, sectionMap] of dateMap.entries()) {
-    const sections = sectionsInPlanOrder(
-      Array.from(sectionMap.values()),
-      market.value?.setupObject,
-    );
-    for (const section of sections) {
-      section.rows.sort((a, b) =>
-        a.tableCode.localeCompare(b.tableCode, undefined, { numeric: true }),
-      );
-    }
+  for (const [date, rows] of byDate.entries()) {
+    const sections = sectionsOnTheGrid(rows, market.value?.setupObject);
     const rowCount = sections.reduce((sum, s) => sum + s.rows.length, 0);
     dateGroups.push({
       date,

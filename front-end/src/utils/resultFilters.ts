@@ -326,3 +326,36 @@ export function sectionsInPlanOrder<T extends { section: string; tier?: string }
       a.section.localeCompare(b.section),
   );
 }
+
+/** One section of a date on the Assignments page, with its tables. */
+export interface GridSection {
+  section: string;
+  location: string;
+  tier: string;
+  rows: MarketTableRow[];
+}
+
+/**
+ * One date's tables in the order the Assignments page draws them: grouped by section, the sections
+ * as the plan ranks them, and each section's tables by their number ("A 2" before "A 10"). The grid
+ * and the placement dialog's pickers both read it, so the two never list tables in different orders.
+ */
+export function sectionsOnTheGrid(
+  rows: readonly MarketTableRow[],
+  plan: Parameters<typeof sectionsInPlanOrder>[1],
+): GridSection[] {
+  const sections = new Map<string, GridSection>();
+  for (const row of rows) {
+    let group = sections.get(row.section);
+    if (!group) {
+      group = { section: row.section, location: row.location, tier: row.tier, rows: [] };
+      sections.set(row.section, group);
+    }
+    group.rows.push(row);
+  }
+  const ordered = sectionsInPlanOrder([...sections.values()], plan);
+  for (const group of ordered) {
+    group.rows.sort((a, b) => a.tableCode.localeCompare(b.tableCode, undefined, { numeric: true }));
+  }
+  return ordered;
+}
