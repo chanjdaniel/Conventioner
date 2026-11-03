@@ -1074,8 +1074,8 @@ def save_rejection_rules(market_id: str) -> Response:
 
     Body: { "rules": [{ "key": "no_shows", "answers": ["not ticked"] }] }
 
-    The only writer of the field. Refused, in words, for a rule a question cannot carry, and once
-    the market has reached Assignment.
+    The only writer of the field. Refused, in words, for a rule a question cannot carry, and while
+    the review is closed.
     """
     data = json_object(required=False)
     if "rules" not in data:

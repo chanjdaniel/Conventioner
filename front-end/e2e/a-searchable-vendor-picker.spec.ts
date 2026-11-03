@@ -47,6 +47,8 @@ test('a swap partner is found by typing, and the swap is made as before', async 
   const devTable = await tables.tableCodeOf(tables.seatOf('dev@example.com'));
 
   await tables.change(tables.seatOf('alice@example.com'));
+  // A taken seat starts at "Move to an empty seat" when the day has one (T208).
+  await tables.chooseAction('swap');
   const field = tables.pickerField('swap-target');
   const options = tables.pickerOptions('swap-target');
   expect(await namelessControls(page), 'the placement dialog').toEqual([]);

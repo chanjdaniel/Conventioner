@@ -1,7 +1,7 @@
 import secrets
 import time
 import uuid
-from typing import Optional
+from typing import Dict, Iterable, Optional
 from flask import current_app, request, jsonify, session
 from flask_login import UserMixin
 from flask_login.config import COOKIE_NAME
@@ -692,6 +692,22 @@ def get_user_by_id(user_id: str):
         user_doc.pop('_id', None)
         return AuthUser(User(**user_doc))
     return None
+
+
+def get_users_by_ids(user_ids: Iterable[str]) -> Dict[str, AuthUser]:
+    """The accounts with these ids, by id, read in one ``find`` over the indexed ``id`` (T204).
+
+    An id with no account is left out; no ids read nothing. A read that names many people - the
+    market's, the organizations' - reads them all here at once, never one ``get_user_by_id`` each.
+    """
+    wanted = list(dict.fromkeys(user_ids))
+    if not wanted:
+        return {}
+    found: Dict[str, AuthUser] = {}
+    for user_doc in users_collection.find({"id": {"$in": wanted}}):
+        user_doc.pop('_id', None)
+        found[user_doc["id"]] = AuthUser(User(**user_doc))
+    return found
 
 
 def get_user_raw(email: str) -> Optional[dict]:

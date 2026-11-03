@@ -9,7 +9,7 @@ describes:
   - front-end/src/components/market/ReviewersPanel.vue
   - front-end/src/components/application/VerdictUndoLine.vue
   - front-end/src/utils/verdictUndo.ts
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/08
@@ -62,8 +62,8 @@ sources:
 **Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md).
 
 Applications arrive and are reviewed in one phase, shown as Review on a Google Form market and Applications on one whose vendors apply on its page ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
-Verdicts are open from the first application until the market enters Assignment, so reviewing starts as soon as applications arrive and must be finished before Begin assignment ([verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md)).
-A line above the review says where the market stands, in words: what arrives ("Every response you imported from your Google Form is here.", "This market is open for applications. New ones keep arriving here." or "This market is not taking applications. No new ones will arrive."); from Assignment on "The review is closed: every verdict settled when the market entered Assignment. …".
+Verdicts are open from the first application until the market enters Assignment, and reopen when Back to review takes the market back to the review, until results are published, so reviewing starts as soon as applications arrive and must be finished before Begin assignment ([verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md)).
+A line above the review says where the market stands, in words: what arrives ("Every response you imported from your Google Form is here.", "This market is open for applications. New ones keep arriving here." or "This market is not taking applications. No new ones will arrive."); from Assignment on, why the review is closed and what to do instead, in the server's words (`verdictsSettledReason`, the browser keeping no copy): in Assignment, "The review is closed while tables are allocated. To change a verdict, choose Back to review under More… on the phase rail; tables are then allocated again."; once results are published, "The review closed when results were published. To change who has a table, place or free a seat on Assignments."; on a Google Form market that went live, that the review closed when the market went live ([what a closed review says](../rules/verdicts-settle-on-entering-assignment.md#what-a-closed-review-says)).
 How many are left to decide is the rail's to say, as the blocker on Begin assignment.
 The page offers no import on either path ([review needs an import](../rules/review-needs-an-import.md)).
 The page has two views ([`MarketApplicationsTab.vue`](../../../front-end/src/components/market/MarketApplicationsTab.vue)), chosen under "How do you want to review?" with a line on what each is: "All" ([`ApplicationsAll.vue`](../../../front-end/src/components/application/ApplicationsAll.vue)), first and the default, and "One by one" ([`ApplicationMonitor.vue`](../../../front-end/src/components/application/ApplicationMonitor.vue)).

@@ -133,6 +133,7 @@ class TestTheTypes:
         (PlacementsApi.PlacementError, BadRequestError),
         (PlacementsApi.SeatTakenError, BadRequestError),
         (PlacementsApi.AssignPhaseError, ConflictError),
+        (PlacementsApi.AssignmentChangedUnderRequest, ConflictError),
         (AddedVendorsApi.AddVendorRefused, ConflictError),
         (AddedVendorsApi.AddVendorInvalid, BadRequestError),
         (CsvStart.ConfirmRefused, ConflictError),
@@ -667,7 +668,9 @@ class TestTheMarketSetupRoutes:
         response = client.put("/markets/market-123/rejection-rules", json={"rules": []})
 
         assert response.status_code == 400
-        assert response.get_json() == {"error": MarketsApi.REJECTION_RULES_SETTLED}
+        assert response.get_json() == {"error": (
+            "The automatic rejections closed when the market went live. To change who has a "
+            "table, place or free a seat on Assignments.")}
 
     def test_deleting_a_market_that_does_not_exist(self, client):
         response = client.delete("/markets/market-missing")
@@ -1114,7 +1117,9 @@ class TestTheApplicantReviewImportAndDoorRoutes:
         )
 
         assert response.status_code == 403
-        assert response.get_json() == {"error": MarketsApi.VERDICTS_SETTLED}
+        assert response.get_json() == {"error": (
+            "The review is closed while tables are allocated. To change a verdict, choose Back to "
+            "review under More… on the phase rail; tables are then allocated again.")}
 
     def test_the_applications_of_a_market_that_does_not_exist(self, client):
         response = client.get("/markets/market-missing/applications")

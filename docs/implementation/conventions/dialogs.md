@@ -63,7 +63,7 @@ Narrow holds two controls, wide a list, and broad a list beside what it gathers,
 The `wide` boolean still means `size="wide"`, and a `size` wins over it.
 Taller than the window, a dialog scrolls within itself, the whole window by default (`scroll="window"`).
 So a dialog on a page that fits a phone opens inside a 390px window, on each place [the design language](../../design-system.md#layout) lists as fitting one; only the people and add rows of Manage market and Manage organization needed a phone rule of their own.
-The footer's buttons wrap where they are wider than the window, as the placement dialog's Cancel, Free this seat and Swap seats are on a phone; a row that could not wrap ran out past the window's left edge, where nothing scrolls to it.
+The footer's buttons wrap where they are wider than the window, as the placement dialog's Cancel, Free this seat and Move them are on a phone; a row that could not wrap ran out past the window's left edge, where nothing scrolls to it.
 
 **A long dialog scrolls only its body, with `scroll="body"`** (T200): the title and close stay at the top and the error and actions at the bottom, and only the body scrolls, inside a box of its own between them.
 When the whole window scrolls, its title and Save leave the view, and its scroll bar runs down the window's rounded edge, squaring its corners and taking its width from the body, which clipped the export dialog's column order on the right (T191 F03).

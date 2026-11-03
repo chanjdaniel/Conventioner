@@ -388,6 +388,15 @@ function directionOf(toPhase: string): string {
 const showingArchiveConfirm = ref(false);
 const showingPublishConfirm = ref(false);
 /**
+ * Back to review asks first (T207), by its edge rather than by `transitionNeedsConfirmation`, which
+ * confirms only what cannot be undone: this can be, but it costs the allocation, so the organizer
+ * reads what it does before the review reopens.
+ */
+const showingBackToReview = ref(false);
+function isBackToReview(toPhase: string): boolean {
+  return currentPhase.value === MarketPhase.Assignment && toPhase === MarketPhase.Applications;
+}
+/**
  * Opening applications on a market whose vendors apply on its own page offers the reviewers first
  * (E38/F07/S02), to someone who may choose them. A Google Form market's way into the stage is its
  * first import, which offers them there, so its rail is unchanged.
@@ -504,6 +513,11 @@ function handleTransitionClick(toPhase: string) {
     showingOpenApplications.value = true;
     return;
   }
+  if (isBackToReview(toPhase)) {
+    pendingPhase.value = toPhase;
+    showingBackToReview.value = true;
+    return;
+  }
   if (!transitionNeedsConfirmation(toPhase)) {
     doTransition(toPhase);
     return;
@@ -516,6 +530,7 @@ function handleTransitionClick(toPhase: string) {
 function confirmPending() {
   showingPublishConfirm.value = false;
   showingArchiveConfirm.value = false;
+  showingBackToReview.value = false;
   doTransition(pendingPhase.value);
 }
 
@@ -532,6 +547,7 @@ async function openApplications(wrote: boolean) {
 function cancelPending() {
   showingPublishConfirm.value = false;
   showingArchiveConfirm.value = false;
+  showingBackToReview.value = false;
   pendingPhase.value = '';
 }
 </script>
@@ -770,6 +786,33 @@ function cancelPending() {
         themselves up and check in on the day. The tables they see are the ones you have now.
       </p>
       <p class="rail-confirm-text">A published market cannot be returned to an earlier phase.</p>
+    </AppDialog>
+
+    <!-- Back to review (T207): what reopening the review costs, said before it does. -->
+    <AppDialog
+      :open="showingBackToReview"
+      title="Back to review?"
+      testid="back-to-review-confirm"
+      confirm-label="Back to review"
+      :confirm-disabled="transitioning"
+      @close="cancelPending"
+      @submit="confirmPending"
+    >
+      <p class="rail-confirm-text">
+        The review opens again: verdicts can be given and changed, and the automatic rejections can
+        change.
+      </p>
+      <p class="rail-confirm-text">
+        The tables you allocated are kept, but they no longer count. Once every application is
+        decided, begin assignment and allocate tables again before you
+        {{ path === IntakeMode.Csv ? 'publish the market' : 'publish results' }}.
+      </p>
+      <p class="rail-confirm-text">
+        A seat you placed by hand stays, even for a vendor you then reject. Free it on Assignments.
+      </p>
+      <p v-if="path === IntakeMode.Form" class="rail-confirm-text">
+        Applications stay closed. To take new ones, choose Take applications again under More…
+      </p>
     </AppDialog>
 
     <!--

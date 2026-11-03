@@ -39,10 +39,10 @@ describe('statsHeadlines', () => {
   it('tells the money in the market currency, still owed opening who owes', () => {
     expect(read({ placements: null, money: MONEY })).toEqual([
       { id: 'owed', figure: '$117.50', words: 'owed', to: '/markets/m%201/payments' },
-      { id: 'paid', figure: '$100', words: 'paid', to: '/markets/m%201/payments' },
+      { id: 'paid', figure: '$100.00', words: 'paid', to: '/markets/m%201/payments' },
       {
         id: 'stillOwed',
-        figure: '$35',
+        figure: '$35.00',
         words: 'still owed',
         to: { path: '/markets/m%201/payments', query: { show: 'owes' } },
       },

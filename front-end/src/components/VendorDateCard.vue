@@ -24,7 +24,7 @@ const props = defineProps<{
   label: string;
   /** Where they were placed, when they were. */
   placement?: string | null;
-  /** What that table costs them for the day ("Gold, full table, $35"), where the market prices it.
+  /** What that table costs them for the day ("Gold, full table, $35.00"), where the market prices it.
    * The drawer is the organizers' own, so a vendor never reads it (E43/F01/S01, Q20.2). */
   price?: string | null;
   /** Why they were not, when they were not. */

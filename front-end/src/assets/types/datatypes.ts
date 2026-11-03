@@ -460,6 +460,12 @@ export interface DiscordRole {
 
 export type OrganizationRoleType = 'owner' | 'admin' | 'member';
 
+/** One of an organization's admins or members, as the organizations read serves them. */
+export interface OrganizationPerson {
+  userId: string;
+  email: string;
+}
+
 export interface Organization {
   id: string;
   name: string;
@@ -467,8 +473,10 @@ export interface Organization {
   admins: string[]; // 0+ admin user ids
   members: string[]; // 0+ member user ids
   ownerEmail?: string; // Resolved display (from API)
-  adminEmails?: string[]; // Resolved display (from API)
-  memberEmails?: string[]; // Resolved display (from API)
+  /** Its admins and members, each with their id, in the stored order, an account that is gone left
+   *  out (T204): a row is keyed and removed by its own `userId`, never by its place in `admins`. */
+  adminPeople: OrganizationPerson[];
+  memberPeople: OrganizationPerson[];
   theme?: ThemeObject; // Organization theming
   userRole?: OrganizationRoleType; // Current user's role (from API, for Manage button)
   /** The table each market created in it starts with, copied (E39/F02/S01). */
@@ -770,7 +778,7 @@ export interface FloorplanTemplate {
 }
 
 /**
- * One of the three things an assignment is made from, as the server names them in
+ * One of the four things an assignment is made from, as the server names them in
  * `assignmentOutOfDate` (`back-end/assignment/made_from.py`, `GROUPS`).
  */
-export type AssignmentInputGroup = 'rules' | 'plan' | 'applications';
+export type AssignmentInputGroup = 'rules' | 'plan' | 'applications' | 'review';

@@ -96,7 +96,7 @@ describes:
   - front-end/src/utils/sessionEnded.ts
   - front-end/src/utils/pageFailed.ts
   - front-end/e2e/a-failure-says-what-to-do.spec.ts
-verified: 2026-11-02
+verified: 2026-11-03
 sources:
   - T74
   - E41/F01/S01
@@ -193,17 +193,17 @@ Deleting a market that does not exist answers 404.
 
 So do the application form and phase routes: reading and saving the form, the phase move, stopping and taking applications, and the pending-offers count.
 None catches anything, and each keeps its literal answers (`to_phase is required`, `stopped must be true or false`, `Unknown phase: '<phase>'. Valid phases: ...`, `Market not found`, `Invalid market data`, and the permission 403s the routes ask themselves).
-A form saved in a phase that has fixed it answers its lock reason, 409; the phase move answers its own guards' 409 and a market moved under it with `PhaseChangedUnderRequest.body()`; a stop asked of a market that takes none answers why, 409.
+A form saved in a phase that has fixed it answers its lock reason, 409; the phase move answers its own guards' 409, a market moved under it with `PhaseChangedUnderRequest.body()`, and a fact its guards read changed under it with `MoveBlockedUnderRequest.body()`; a stop asked of a market that takes none answers why, 409.
 
 So do the assignment and placement routes: running the assignment, adding a vendor who never applied, writing, swapping and freeing a placement, and reading the placement history and the market's history.
 None catches anything.
-A run over incomplete answers is still `run_assignment`'s 400 in [`back-end/api/placements.py`](../../../back-end/api/placements.py), with `IncompleteApplicationsError.message()` and the applicants; a run outside its phase, a vendor the market already holds and a taken seat answer 409, and a placement the plan has no seat for 400, each as raised ([placements](../modules/placements.md)).
+A run over incomplete answers is still `run_assignment`'s 400 in [`back-end/api/placements.py`](../../../back-end/api/placements.py), with `IncompleteApplicationsError.message()` and the applicants; a run outside its phase, a vendor the market already holds, a taken seat and a change that would land over another change to the tables answer 409, and a placement the plan has no seat for 400, each as raised ([placements](../modules/placements.md)).
 A builtin `PermissionError` is no longer answered 403 with its text: nothing of ours raises one, so it is a bug, and it answers 500.
 
 So do the vendor export's download and its preview: neither catches anything, and a filter value it cannot read or a column the market does not offer answers its `ExportInvalid`, 400, while a filter key it does not know is ignored.
 
 So do the applicant, review, import and door routes: every public route an applicant or a vendor at the door calls, the application list, the review's verdicts, selections and their undo, next card, claims and follow-up owners, updating a vendor's info, the [CSV start](../modules/csv-proposal-and-start.md)'s proposal and confirm, the [application import](../modules/csv-import.md)'s inspect, preview and import, Publish results, and [attendance and the door](../modules/attendance-and-door.md).
-None catches anything, and each keeps its literal answers: the applicant's expired session 401, a gated market's answer as absent (decided in the applicants API, unchanged), `Invalid status: <status>`, `csvContent is required`, the import's phase 409 with its `phase`, and the permission 403s the routes ask themselves.
+None catches anything, and each keeps its literal answers: the applicant's expired session 401, a gated market's answer as absent (decided in the applicants API, unchanged), `Invalid status: <status>`, `csvContent is required`, the import's phase 409 with its `phase`, and the permission 403s the routes ask themselves; a review write once the review is closed answers 403 with why it closed and what to do instead ([what a closed review says](../../business/rules/verdicts-settle-on-entering-assignment.md#what-a-closed-review-says)).
 A status a request names is read by `_named_status`, which names none for anything but a status's own string, as `_named_phase` does for a phase.
 A follow-up owner the market does not offer answers its `BadRequestError`, 400; `confirm` in [`back-end/csv_start.py`](../../../back-end/csv_start.py) lets a `ConfirmRefused`, a locked form and a refused plan or form reach the handler as raised; a door write on a market that does not exist, is archived or cannot be read answers what the change loader raises.
 Two lines these routes reach are kept free of an applicant's address for the 500 log: an application that keeps losing its upsert race (`find_or_create_application` in [`back-end/api/applications.py`](../../../back-end/api/applications.py)) is named by its market, and an application document that cannot be parsed (`list_market_applications` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py)) logs `parse_failure_detail`, never its answers.

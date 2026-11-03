@@ -120,7 +120,8 @@ class TestTheAssignmentReadsTheUpdate:
 
     def test_an_update_after_a_run_marks_the_assignment_out_of_date(self, market):
         market()
-        ran_from = MadeFrom.fingerprint(_market().setup_object, [_solver_vendor()])
+        ran_from = MadeFrom.fingerprint(
+            _market().setup_object, [_solver_vendor()], _market().phase_history)
         doc = MarketsApi.markets_collection.doc
         doc["assignmentObject"] = {
             "vendorAssignments": [{"email": VENDOR, "date": THU, "tableCode": "A 1",

@@ -7,11 +7,13 @@ the difference, each read from the same account the drawer's Payment tab reads
 Payment tab's own reading of the two, "Owes", "Paid in full" or "Paid more than owed".
 
 A money cell is written by the server from whole cents, never from anyone's text, so it is not
-escaped as text: a negative difference, "-$15", reaches the spreadsheet as the number it is.
+escaped as text: a negative difference, "-$15.00", reaches the spreadsheet as the number it is.
 """
 import copy
 import csv
 import io
+import json
+from pathlib import Path
 
 import pytest
 
@@ -138,11 +140,11 @@ class TestTheMoneyColumns:
 
         assert rows[0] == ["Email", "Amount owed", "Amount paid", "Still owed"]
         assert _by_email(rows) == {
-            ANA: ["$70", "$0", "$70"],
-            BEN: ["$35", "$35", "$0"],
-            CY: ["$15", "$30", "-$15"],
-            DEE: ["$0", "$0", "$0"],
-            EVE: ["$35", "$10", "$25"],
+            ANA: ["$70.00", "$0.00", "$70.00"],
+            BEN: ["$35.00", "$35.00", "$0.00"],
+            CY: ["$15.00", "$30.00", "-$15.00"],
+            DEE: ["$0.00", "$0.00", "$0.00"],
+            EVE: ["$35.00", "$10.00", "$25.00"],
         }
         for email, (owed, paid, _still) in _by_email(rows).items():
             account = PaymentsApi.vendor_account(MARKET, email, EDITOR)
@@ -154,14 +156,14 @@ class TestTheMoneyColumns:
         _pay(CY, 1500, kind=Payments.REFUND)
 
         got = _by_email(_export())
-        assert got[ANA] == ["$35", "$0", "$35"]
-        assert got[CY] == ["$15", "$15", "$0"]
+        assert got[ANA] == ["$35.00", "$0.00", "$35.00"]
+        assert got[CY] == ["$15.00", "$15.00", "$0.00"]
 
     def test_a_negative_difference_is_a_number_not_text(self, market):
         """T103 review note 4: the escape quotes a cell beginning with "-", and a spreadsheet then
         shows the quote or reads text where a number belongs. A money cell is the server's own,
         from whole cents, so it is written as it is."""
-        assert _by_email(_export())[CY][2] == "-$15"
+        assert _by_email(_export())[CY][2] == "-$15.00"
 
     def test_the_price_group_is_the_one_each_seat_is_priced_by(self, market, applications):
         market.doc["setupObject"]["pricing"] = copy.deepcopy(EXAMPLE_TABLE)
@@ -170,16 +172,16 @@ class TestTheMoneyColumns:
                 doc["form_data"].update({"affiliation": [STUDENT], "clubs": [CLUBS[0]]})
 
         got = _by_email(_export(columns=("email", "priceGroup", "owed")))
-        assert got[ANA] == ["Example College student + club member", "$24"]
+        assert got[ANA] == ["Example College student + club member", "$24.00"]
         assert got[BEN][0] == Pricing.EVERYONE_ELSE
-        assert got[DEE] == ["", "$0"]
+        assert got[DEE] == ["", "$0.00"]
 
     def test_a_market_with_no_prices_has_no_price_group_and_reads_its_payments(self, market):
         del market.doc["setupObject"]["pricing"]
 
         got = _by_email(_export(columns=("email", "priceGroup", "owed", "paid", "stillOwed")))
-        assert got[ANA] == ["", "$0", "$0", "$0"]
-        assert got[BEN] == ["", "$0", "$35", "-$35"]
+        assert got[ANA] == ["", "$0.00", "$0.00", "$0.00"]
+        assert got[BEN] == ["", "$0.00", "$35.00", "-$35.00"]
 
     def test_an_export_without_money_reads_no_account(self, market, monkeypatch):
         def refuse(_market):
@@ -208,9 +210,9 @@ class TestTheMoneyColumns:
         assert _by_email(_export(columns=("email", "priceGroup")))[ANA] == ["'=SUM(A1)"]
 
     @pytest.mark.parametrize("currency, text", [
-        ("AUD", "−A$15"), ("USD", "−US$15"), ("NZD", "−NZ$15")])
+        ("AUD", "−A$15.00"), ("USD", "−US$15.00"), ("NZD", "−NZ$15.00")])
     def test_a_negative_amount_is_never_a_cell_reference(self, market, currency, text):
-        """T154 review finding 1: "-A$15" is a minus and the cell A$15, which Excel opening a CSV
+        """T154 review finding 1: "-A$15.00" is a minus and the cell A$15, which Excel opening a CSV
         evaluates, so a refund due would show another row's number. The minus sign, U+2212, is no
         formula lead anywhere."""
         market.doc["setupObject"]["pricing"]["currency"] = currency
@@ -234,8 +236,8 @@ class TestTheMoneyColumns:
                 doc["form_data"]["business"] = "+1 604 555 0100"
 
         got = _by_email(_export(columns=("email", "answer:business", "stillOwed")))
-        assert got[CY] == ["'-1+1", "-$15"]
-        assert got[ANA] == ["'+1 604 555 0100", "$70"]
+        assert got[CY] == ["'-1+1", "-$15.00"]
+        assert got[ANA] == ["'+1 604 555 0100", "$70.00"]
 
 
 def _nobody_owes_without_prices(market):
@@ -266,7 +268,7 @@ class TestThePaymentFilter:
         rows = _export({"payment": "owes"}, columns=("name", "email", "stillOwed"))
 
         assert rows == [["Name", "Email", "Still owed"],
-                        ["Ana Lima", ANA, "$70"], ["Eve Moss", EVE, "$25"]]
+                        ["Ana Lima", ANA, "$70.00"], ["Eve Moss", EVE, "$25.00"]]
 
     def test_the_preview_offers_the_states_in_the_payment_tabs_words(self, market):
         offered, _ = VendorExport.preview(MARKET, {"filters": {"payment": "over"}}, EDITOR)
@@ -315,14 +317,14 @@ class TestThePaymentFilter:
 
     def test_a_refund_beyond_what_was_paid_on_a_market_with_no_prices_owes(self, market):
         # A negative net paid is money owed back to the market (T153 review finding 14): Cy,
-        # owing nothing there, paid $30 and was refunded $45, so his row reads "Owes $15" and he
+        # owing nothing there, paid $30 and was refunded $45, so his row reads "Owes $15.00" and he
         # is on the payment reminder beside Ana, owing $20 by hand, and Eve's kept line.
         market.doc["setupObject"]["pricing"] = None
         Payments.set_amount_owed(MARKET, ANA, SAT, 2000, "admin@example.com")
         _pay(CY, 4500, Payments.REFUND)
 
         assert set(_by_email(_export({"payment": "owes"}))) == {ANA, CY, EVE}
-        assert _by_email(_export({"payment": "owes"}))[CY] == ["$0", "-$15", "$15"]
+        assert _by_email(_export({"payment": "owes"}))[CY] == ["$0.00", "-$15.00", "$15.00"]
 
     def test_a_refund_beyond_what_was_paid_offers_the_states_where_nobody_else_owes(self, market):
         _nobody_owes_without_prices(market)
@@ -385,36 +387,41 @@ class TestThePaymentAndDiscordFiltersTogether:
         assert preview["rows"] == [[ANA]]
 
 
+#: The money texts both sides are tested against: ``moneyTexts.test.ts`` in the front end reads the
+#: same file and runs ``money`` over every case, so a case added here is checked on screen too.
+MONEY_TEXTS = json.loads((Path(__file__).parent / "fixtures" / "money_texts.json").read_text("utf-8"))
+
+
 class TestTheMoneyText:
-    @pytest.mark.parametrize("cents, currency, text", [
-        (3500, "CAD", "$35"), (1501, "CAD", "$15.01"), (123456750, "CAD", "$1,234,567.50"),
-        (-1500, "CAD", "-$15"), (0, "CAD", "$0"), (3500, "USD", "US$35"), (3500, "EUR", "€35"),
-        (3500, "GBP", "£35"), (-1500, "AUD", "-A$15"), (3500, "NZD", "NZ$35"),
-    ])
-    def test_it_reads_as_the_payment_tab_writes_it(self, cents, currency, text):
+    @pytest.mark.parametrize("case", MONEY_TEXTS, ids=lambda case: case["text"])
+    def test_it_reads_as_the_payment_tab_writes_it(self, case):
         """``formatPrice`` in ``front-end/src/utils/pricing.ts``, en-CA, and ``money`` for a
-        negative amount: the same text in the file as on screen."""
-        assert Pricing.money_text(cents, currency) == text
+        negative amount: the same text in the file as on screen, always to the cent."""
+        assert Pricing.money_text(case["cents"], case["currency"]) == case["text"]
+
+    def test_the_table_reads_every_offered_currency(self):
+        assert {case["currency"] for case in MONEY_TEXTS} >= set(Pricing.CURRENCIES)
 
     def test_every_offered_currency_has_its_symbol(self):
         for currency in Pricing.CURRENCIES:
-            assert Pricing.money_text(100, currency).endswith("1")
+            assert Pricing.money_text(100, currency).endswith("1.00")
 
     @pytest.mark.parametrize("cents, currency, cell", [
-        (-1500, "CAD", "-$15"), (-1500, "EUR", "-€15"), (-1500, "GBP", "-£15"),
-        (-1500, "AUD", "−A$15"), (-1500, "USD", "−US$15"), (-150050, "NZD", "−NZ$1,500.50"),
-        (3500, "AUD", "A$35"), (0, "USD", "US$0"),
+        (-1500, "CAD", "-$15.00"), (-1500, "EUR", "-€15.00"), (-1500, "GBP", "-£15.00"),
+        (-1500, "AUD", "−A$15.00"), (-1500, "USD", "−US$15.00"), (-150050, "NZD", "−NZ$1,500.50"),
+        (3500, "AUD", "A$35.00"), (0, "USD", "US$0.00"),
     ])
     def test_a_file_writes_it_so_no_spreadsheet_reads_a_formula(self, cents, currency, cell):
         """A file's amount is the screen's, but where a minus would lead a currency's letters, a
-        cell reference ("-A$15", "-US$15", "-NZ$15"), it is the minus sign U+2212 (finding 1)."""
+        cell reference ("-A$15.00", "-US$15.00", "-NZ$15.00"), it is the minus sign U+2212
+        (finding 1)."""
         assert VendorExport.money_cell(cents, currency) == cell
 
     @pytest.mark.parametrize("currency", [*Pricing.CURRENCIES, None])
     @pytest.mark.parametrize("cents", [-123456750, -1500, -1, 0, 1, 3500])
     def test_no_amount_in_a_file_begins_a_formula(self, cents, currency):
         """Why a money column may skip ``as_text_cell``: it begins with no formula lead, or with a
-        minus before a sign that is no letter, a number to a spreadsheet ("-$15")."""
+        minus before a sign that is no letter, a number to a spreadsheet ("-$15.00")."""
         cell = VendorExport.money_cell(cents, currency)
 
         assert not cell.startswith(FORMULA_LEADS) or (

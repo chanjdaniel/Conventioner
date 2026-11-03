@@ -48,10 +48,10 @@ def read(monkeypatch, applications):
     monkeypatch.setattr(UsersApi, "get_user_by_id", lambda _uid: None)
     monkeypatch.setattr(OrgsApi, "get_organization", lambda _oid: None)
 
-    def serve(role, phase=MarketPhase.APPLICATIONS):
+    def serve(role, phase=MarketPhase.APPLICATIONS, **overrides):
         monkeypatch.setattr(PermissionsApi, "get_user_market_role", lambda *_a, **_k: role)
         monkeypatch.setattr(MarketsApi, "markets_collection", FakeMarketsCollection(
-            {**stored_market(phase), "_id": "mongo-market-123"}))
+            {**stored_market(phase, **overrides), "_id": "mongo-market-123"}))
         return MarketsApi.get_market_for_user(USER_EMAIL, "market-123")
 
     return serve
@@ -161,7 +161,23 @@ class TestTheRulesOfTheMarketsLifeAreServedOnTheirOwn:
     def test_the_verdicts_settle_on_entering_assignment(self, read):
         assert read(MarketRole.OWNER, MarketPhase.APPLICATIONS)["verdictsSettledReason"] is None
         assert read(MarketRole.OWNER, MarketPhase.ASSIGNMENT)["verdictsSettledReason"] == (
-            MarketsApi.VERDICTS_SETTLED)
+            "The review is closed while tables are allocated. To change a verdict, choose Back to "
+            "review under More… on the phase rail; tables are then allocated again.")
+
+    @pytest.mark.parametrize("phase, published, opening", [
+        (MarketPhase.ASSIGNMENT, True, "The review closed when results were published."),
+        (MarketPhase.MARKET_DAYS, True, "The review closed when results were published."),
+        (MarketPhase.MARKET_DAYS, False, "The review closed when the market went live."),
+    ], ids=str)
+    def test_the_closed_review_is_served_in_the_words_of_where_the_market_stands(
+        self, read, phase, published, opening,
+    ):
+        """The Applications tab says the served reason and keeps no copy of it (T207)."""
+        served = read(MarketRole.EDITOR, phase, resultsPublished=published)
+
+        assert served["verdictsSettledReason"].startswith(opening)
+        assert served["rejectionRulesLockReason"].startswith(
+            opening.replace("The review", "The automatic rejections"))
 
     def test_a_vendor_is_added_from_the_assignment_on(self, read):
         assert read(MarketRole.OWNER, MarketPhase.APPLICATIONS)["addingVendorsReason"] == (
@@ -225,7 +241,8 @@ class TestTheReasonsAnOldBundleReads:
 
         served = read(MarketRole.OWNER, MarketPhase.ASSIGNMENT)
 
-        assert served["verdictLockReason"] == MarketsApi.VERDICTS_SETTLED
+        assert served["verdictLockReason"] == served["verdictsSettledReason"]
+        assert served["verdictLockReason"].startswith("The review is closed while tables")
         assert served["publishResultsReason"] == "Run it first."
         assert read(MarketRole.OWNER, MarketPhase.APPLICATIONS)["addVendorReason"] == (
             MarketsApi.NOT_YET_ADDING)

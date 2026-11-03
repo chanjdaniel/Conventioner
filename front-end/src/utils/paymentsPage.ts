@@ -107,9 +107,9 @@ export function paymentsShownFrom(value: QueryValue, payments: Owing): PaymentsS
 
 /**
  * Whether a vendor is in the state a filter lists, the server's state, which the export's payment
- * filter reads too (E42/F01/S04): "Owes $27", "Paid in full", or "Paid $15 more than owed". A vendor
- * who owes nothing and paid nothing ("Nothing owed": every day freed with its price taken off, or
- * set to $0) is in none.
+ * filter reads too (E42/F01/S04): "Owes $27.00", "Paid in full", or "Paid $15.00 more than owed". A
+ * vendor who owes nothing and paid nothing ("Nothing owed": every day freed with its price taken off,
+ * or set to $0.00) is in none.
  */
 export function vendorShownIn(vendor: PaymentsVendor, shown: PaymentsShown | null): boolean {
   return !shown || vendor.balanceState === shown;

@@ -535,6 +535,10 @@ class AssignmentObject(BaseModel):
     # What the run read, one fingerprint per group (E22/F03/S01, ``assignment/made_from.py``).
     # Written only by a run; None on an assignment made before it existed.
     made_from: Optional[Dict[str, str]] = None
+    # How many times the rows have been written; each write is conditional on the count it read,
+    # so two changes at once never store one over the other (``api/placements.py``). 0 on an
+    # assignment written before it existed.
+    revision: int = 0
 
 
 class MappingAuthor(str, Enum):
@@ -624,8 +628,8 @@ class Market(BaseModel):
     # which renders the card exactly as it did before this existed - so no migration.
     review_highlights: Optional[List[str]] = None
     # Which answers reject an application automatically (E33/F03), ON THE MARKET beside the
-    # highlights and for the same reason: they stay editable after the form locks, until the market
-    # can no longer return to review. `rejection_rules.py` owns what a rule may say. Absent is none.
+    # highlights and for the same reason: they stay editable after the form locks, while the review
+    # is open (`review_is_open`). `rejection_rules.py` owns what a rule may say. Absent is none.
     rejection_rules: Optional[List[RejectionRule]] = None
     results_published: bool = False  # Organizer-controlled gate: verdicts hidden from applicants until flipped
     # Whether the organizer has stopped taking applications, inside the stage (E38/F04/S02): a fact

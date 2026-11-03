@@ -21,9 +21,9 @@ that page shows in it, "Possible match" and "Check again" included.
 A cell holding the applicant's own text is written so no spreadsheet runs it (``as_text_cell``): the
 file is a new way out for applicants' data, and a name beginning with ``=`` is a formula to Sheets.
 A money cell is the server's own, from whole cents, so it is written as it is (``money_cell``): a
-negative difference, "-$15", reaches the spreadsheet as a number, where the escape's quote would make
-it text. Where a minus would lead a currency's letters, "-A$15" being a minus and the cell A$15, it is
-the minus sign U+2212, which no spreadsheet reads as a formula.
+negative difference, "-$15.00", reaches the spreadsheet as a number, where the escape's quote would
+make it text. Where a minus would lead a currency's letters, "-A$15.00" beginning with a minus and the
+cell reference A$15, it is the minus sign U+2212, which no spreadsheet reads as a formula.
 """
 import csv
 import io
@@ -244,9 +244,9 @@ MINUS_SIGN = "\u2212"
 
 def money_cell(cents: int, currency: Optional[str]) -> str:
     """An amount as a file writes it: as the Payment tab does (``Pricing.money_text``), but where a
-    minus would lead a currency's letters, "-A$15", "-US$15" or "-NZ$15", a minus and a cell
-    reference that Excel opening a CSV evaluates, with the minus sign U+2212 instead. "-$15", "-€15"
-    and "-£15" keep the hyphen-minus, so a spreadsheet reads the number."""
+    minus would lead a currency's letters, "-A$15.00", "-US$15.00" or "-NZ$15.00", a minus and a
+    cell reference that Excel opening a CSV evaluates, with the minus sign U+2212 instead. "-$15.00",
+    "-€15.00" and "-£15.00" keep the hyphen-minus, so a spreadsheet reads the number."""
     text = Pricing.money_text(cents, currency)
     return MINUS_SIGN + text[1:] if text.startswith("-") and text[1].isalpha() else text
 

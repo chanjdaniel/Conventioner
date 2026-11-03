@@ -5,7 +5,7 @@ describes:
   - back-end/guards.py#VALID_TRANSITIONS
   - back-end/datatypes.py#MarketPhase
   - back-end/migrations/migrate_to_one_stage.py
-verified: 2026-10-29
+verified: 2026-11-03
 sources:
   - E38/F04
   - E38/F04/S01
@@ -35,9 +35,9 @@ It is named by the intake path, never stored twice: "Review" on a Google Form ma
   An own-form market enters by Open applications.
   A Google Form market enters by its first import: the move waits on `ResponsesImportedGuard`, whose fix is "Import responses", and the import runs in draft and takes the move through `take_move` once its rows are written, so leaving the import first keeps the market a draft and Market Setup settles at that moment.
 - **The way out is Begin assignment**, guarded by every application being decided, and it closes the applicant form: applying is the stage's alone.
-  The way back to draft stays open while nobody has applied.
+  The way back to draft stays open while nobody has applied, and Back to review returns from `assignment` until results are published, the form still stopped ([ADR 0021](0021-the-review-reopens-until-results-are-published.md)).
 - **Stopping applications is a fact about the form, not a phase**: `applicationsStopped` on the market, set by "Stop taking applications" and "Take applications again" on the rail's More… (E38/F04/S02).
-  While it is set the applicant form refuses in the words a closed market used, and reviewing goes on; the phase writer clears it on entering draft and on entering the stage, so a stop never outlives its stay.
+  While it is set the applicant form refuses in the words a closed market used, and reviewing goes on; the phase writer clears it on entering draft and on entering the stage from draft, so a stop never outlives its stay; entering the stage from `assignment` sets it on such a market instead, since Begin assignment closed the form.
 - **A late Google Form export is a Redo import** under More…, which reads the whole responses file again while the market stays in Review (E38/F04/S03); the Applications tab offers no import on either path.
 - **Every move is one edge again.**
   With no phase left to step through, `PASSED_THROUGH`, the two-step routes and `phasesPassedThrough` went, and the form amendment's walk down to draft and back went with them: a Google Form market reaches the import with no application only in draft, where its form is writable.

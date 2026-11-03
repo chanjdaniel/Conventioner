@@ -154,11 +154,11 @@ describe('an assigned date says what it costs (E43/F01/S01)', () => {
   it('shows its price where the market prices it', () => {
     const wrapper = card({
       placement: 'North Wing 1 (Full Table)',
-      price: 'Gold, full table, $35',
+      price: 'Gold, full table, $35.00',
     });
 
     expect(wrapper.get('[data-testid="vendor-date-card-price"]').text()).toBe(
-      'Gold, full table, $35',
+      'Gold, full table, $35.00',
     );
   });
 

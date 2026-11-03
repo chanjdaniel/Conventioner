@@ -11,6 +11,7 @@ describes:
   - front-end/e2e/helpers/seeds.ts#seedPublishedMarketWithAssignments
   - front-end/e2e/helpers/seedAssignedMarket.ts
   - front-end/e2e/helpers/seedPhaseMarket.ts
+  - front-end/e2e/helpers/seedPeopleAtScale.ts
   - front-end/e2e/helpers/seedDraftMarket.ts
   - front-end/e2e/helpers/seedApplicantMarket.ts
   - front-end/e2e/helpers/seedApplication.ts#seedApprovedVendor
@@ -22,7 +23,7 @@ describes:
   - front-end/e2e/helpers/backendScript.ts
   - back-end/create_test_user.py
   - front-end/e2e/helpers/exampleCollegeMarket.ts
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - E02
   - E11/F01/S01
@@ -39,6 +40,7 @@ sources:
   - T148
   - E38/F12/S01
   - T181
+  - T204
 ---
 
 # E2E seeds
@@ -53,6 +55,8 @@ They live in `front-end/e2e/helpers/`; how a spec is written around them is [E2E
 [`scripts/seed_fixture.sh`](../../../scripts/seed_fixture.sh) runs the script for two users: `TEST_EMAIL` (`e2e@example.com`, owner of `Seed Test Org`) and `NO_ORG_EMAIL` (`e2e-noorg@example.com`), deliberately in no organization so `new-market-org.spec.ts` can exercise the zero-organization fallback.
 A spec needing more users calls `ensureVerifiedUser(email, password)` ([`helpers/verifiedUser.ts`](../../../front-end/e2e/helpers/verifiedUser.ts)) in `beforeAll`: it runs [`create_test_user.py`](../../../back-end/create_test_user.py) inside the back-end container ([`helpers/backendScript.ts`](../../../front-end/e2e/helpers/backendScript.ts); `E2E_BACKEND_CONTAINER` overrides the name) and is idempotent.
 The script exits 0 whether it created the user, found one, or failed to insert (it refuses outright, exiting non-zero, when neither `MONGODB_HOST` nor `MONGODB_URI` names a database or they name the primary checkout's MongoDB from the host, but every stack's back-end container sets `MONGODB_HOST=mongodb`), so the helper reads its output for one of the two outcomes that leave a usable user and throws otherwise: a seeding failure surfaces at the `beforeAll` that caused it, not later as a login timeout.
+A seed of many people makes them with one run of its bulk form, `create_test_user.py --bulk <password> <email>...`: each address made as the one-address form makes it, in one process with the password hashed once, an address already made left as it is.
+It prints one line per address, `created <email> <id>` or `exists <email> <id>`, and never the password, so the seed reads every account's id from it.
 An operator never uses that script for a real account: it prints the password ([OPERATIONS.md](../../OPERATIONS.md#making-an-account)).
 
 ## Markets require an organization
@@ -77,7 +81,20 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
 - Leaves: a draft that may open applications: a complete plan, and a two-field form or none
 - Notes:
   - does not move the phase
+  - `orgId` puts it in that organization, which the signed-in user runs, rather than their first
   - `transitionMarket()` and `seedApplicationWithStatus()` beside them
+
+**`seedPeopleAtScale()`** ([file](../../../front-end/e2e/helpers/seedPeopleAtScale.ts))
+- Leaves: a `form` market in `applications` whose organization has 150 people, the case every people list and chooser must hold (T204):
+  - 153 accounts, `person-001@people-at-scale.test` to `person-153@people-at-scale.test`, made by one `create_test_user.py --bulk`
+  - an organization of its own, "Example People Org" and a unique number, owned by the seed owner, persons 001 to 003 its admins and 004 to 153 its members, added one at a time through its endpoints as Manage organization adds them
+  - 5 open applications
+  - Editor on the market for the first 20 members, through `grantMarketRole()`
+  - the first 12 of those its chosen reviewers, through the endpoint Choose reviewers saves to, which deals the applications among them
+- Notes:
+  - built on `seedPhaseMarket()` with `orgId`
+  - answers every person's id and address, each group, and the counts (154 with access, 3 admins, 150 members, 12 reviewers), which a spec asserts against rather than typing a number twice
+  - makes a new organization and market on every call, some 180 requests, so a spec seeds it only in a test that needs it
 
 **`seedMarketWithVendors()`**
 - Leaves: a draft with a complete plan, a one-field form and two approved vendors

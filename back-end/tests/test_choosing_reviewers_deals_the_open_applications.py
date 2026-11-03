@@ -12,7 +12,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import mongo_matches, mongo_project, sessions_load_through_get_user, stored_market
+from conftest import (
+    accounts_by_id, mongo_matches, mongo_project, sessions_load_through_get_user, stored_market,
+)
 import app as app_module
 import api.market_actions as Actions
 import api.markets as MarketsApi
@@ -152,8 +154,7 @@ def world(monkeypatch, applications, market_records):
     sessions_load_through_get_user(monkeypatch)
     monkeypatch.setattr(app_module.login_manager, "session_protection", None)
     monkeypatch.setattr(UsersApi, "get_user", lambda email: _account(email) if email in PEOPLE else None)
-    monkeypatch.setattr(
-        UsersApi, "get_user_by_id", lambda uid: _account(EMAILS[uid]) if uid in EMAILS else None)
+    accounts_by_id(monkeypatch, lambda uid: _account(EMAILS[uid]) if uid in EMAILS else None)
     # Stored out of arrival order, so the deal is seen to sort them.
     applications.documents = [
         _application("v5", 5), _application("v1", 1), _application("v7", 7),
@@ -336,14 +337,19 @@ class TestWhoMayChoose:
         assert response.status_code == 403
         assert response.get_json()["error"] == MarketsApi.ARCHIVED_REFUSAL
 
-    @pytest.mark.parametrize("phase", [MarketPhase.ASSIGNMENT, MarketPhase.MARKET_DAYS])
-    def test_a_closed_review_is_refused(self, world, phase):
-        world.market(phase)
+    @pytest.mark.parametrize("phase, published, why", [
+        (MarketPhase.ASSIGNMENT, False, "The review is closed while tables are allocated."),
+        (MarketPhase.ASSIGNMENT, True, "The review closed when results were published."),
+        (MarketPhase.MARKET_DAYS, False, "The review closed when the market went live."),
+    ], ids=str)
+    def test_a_closed_review_is_refused_saying_why(self, world, phase, published, why):
+        world.market(phase, resultsPublished=published)
 
         response = _choose([ANA])
 
         assert response.status_code == 400
-        assert response.get_json()["error"] == MarketsApi.REVIEWERS_SETTLED
+        error = response.get_json()["error"]
+        assert error.startswith("The review is closed, so its reviewers no longer change. " + why)
         assert "reviewTeam" not in world.markets.doc
 
     def test_an_address_the_chooser_is_not_offered_is_refused_by_name(self, world):
@@ -392,15 +398,18 @@ class TestTheMarketRead:
 
         assert _read(ADMIN)["reviewerCandidates"] == []
 
-    def test_the_read_looks_each_person_up_once(self, world, monkeypatch):
-        looked_up = []
-        real = UsersApi.get_user_by_id
+    def test_the_read_looks_everyone_up_in_one_read(self, world, monkeypatch):
+        alone, batches = [], []
+        real_one, real_batch = UsersApi.get_user_by_id, UsersApi.get_users_by_ids
         monkeypatch.setattr(UsersApi, "get_user_by_id",
-                            lambda uid: looked_up.append(uid) or real(uid))
+                            lambda uid: alone.append(uid) or real_one(uid))
+        monkeypatch.setattr(UsersApi, "get_users_by_ids",
+                            lambda uids: batches.append(list(uids)) or real_batch(uids))
 
         _read(ADMIN)
 
-        assert sorted(looked_up) == sorted(set(looked_up))
+        assert alone == []
+        assert len(batches) == 1, batches
 
     def test_the_organizers_list_names_no_reviewer_before_any_deal(self, world):
         assert set(_reviewers(world).values()) == {None}
