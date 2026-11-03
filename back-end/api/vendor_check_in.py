@@ -143,7 +143,8 @@ def undo_check_in(market_slug: str) -> Tuple[Any, int]:
     market_doc, refused = _market_on_its_days(market_slug, token)
     if refused:
         return refused
-    if not _within_the_window(day):
+    # A missing date is the undo's own 400, below; a date given must be within the window.
+    if day and not _within_the_window(day):
         return _refused(NOT_TODAY, 409)
     result, status = AttendanceApi.undo_attendance(
         market_doc["id"], token["email"], day, undone_by=None, via=AttendanceApi.VIA_VENDOR_PAGE)
