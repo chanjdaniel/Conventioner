@@ -765,6 +765,64 @@ class TestTwoChangesAtOnce:
         assert self.seats(applied) == {"ana@example.com": "Hall A 1", "ben@example.com": "Garden 1"}
         assert [doc for doc in market_records.amounts_owed.documents if doc.get("freed")] == []
 
+    @staticmethod
+    def freed_lines(market_records) -> list:
+        return [(doc["vendor_email"], doc["date"], doc["freed"]["by"], doc.get("set_by_hand"))
+                for doc in market_records.amounts_owed.documents if doc.get("freed")]
+
+    def test_a_free_refused_this_way_still_keeps_its_line_while_the_seat_is_held(
+            self, applied, market_records):
+        """The kept line goes only because the seat is still held: the free that kept it never
+        landed, and the line reads the held seat."""
+        PlacementsApi.remove_placement("market-123", "ben@example.com", "2026-08-01", "user-3")
+        applied.between = lambda: PlacementsApi.write_placement(
+            "market-123", placement(email="cy@example.com", table_code="Garden 1"), "user-2")
+
+        with pytest.raises(ConflictError):
+            PlacementsApi.remove_placement("market-123", "ana@example.com", "2026-08-01", "user-1")
+
+        assert self.seats(applied) == {"ana@example.com": "Hall A 1", "cy@example.com": "Garden 1"}
+        assert self.freed_lines(market_records) == [("ben@example.com", "2026-08-01", "user-3", None)]
+
+    @pytest.mark.parametrize("deduct_owed", [False, True])
+    def test_two_frees_of_one_seat_at_once_keep_the_line_the_free_that_landed_kept(
+            self, applied, market_records, deduct_owed):
+        """Ana's seat is freed by one of them, so the line that free kept, and the $0 it set when
+        asked to remove what the seat cost, stay: a free changes neither amount by itself."""
+        applied.between = lambda: PlacementsApi.remove_placement(
+            "market-123", "ana@example.com", "2026-08-01", "user-2", deduct_owed=deduct_owed)
+
+        with pytest.raises(ConflictError):
+            PlacementsApi.remove_placement("market-123", "ana@example.com", "2026-08-01", "user-1")
+
+        assert self.seats(applied) == {"ben@example.com": "Hall A 2"}
+        [(email, date, by, set_by_hand)] = self.freed_lines(market_records)
+        assert (email, date, by) == ("ana@example.com", "2026-08-01", "user-2")
+        assert bool(set_by_hand and set_by_hand.get("by_free")) == deduct_owed
+
+    def test_a_free_that_landed_before_this_one_kept_its_line_gets_it_back(
+            self, applied, market_records, monkeypatch):
+        """The other order: the free that lands does all of it before this one keeps its line, so
+        this one writes over that line, and puts it back once refused."""
+        import payments as Payments
+
+        kept_by_both = Payments.keep_freed_line
+
+        def the_other_free_first(*args):
+            monkeypatch.setattr(Payments, "keep_freed_line", kept_by_both)
+            PlacementsApi.remove_placement(
+                "market-123", "ana@example.com", "2026-08-01", "user-2", deduct_owed=True)
+            return kept_by_both(*args)
+
+        monkeypatch.setattr(Payments, "keep_freed_line", the_other_free_first)
+
+        with pytest.raises(ConflictError):
+            PlacementsApi.remove_placement("market-123", "ana@example.com", "2026-08-01", "user-1")
+
+        assert self.seats(applied) == {"ben@example.com": "Hall A 2"}
+        [(email, _date, by, set_by_hand)] = self.freed_lines(market_records)
+        assert (email, by, set_by_hand["by_free"]) == ("ana@example.com", "user-2", True)
+
     def test_a_swap_and_a_placement_at_once_lose_neither(self, applied):
         applied.between = lambda: PlacementsApi.write_placement(
             "market-123", placement(email="ana@example.com", table_code="Garden 1"), "user-2")

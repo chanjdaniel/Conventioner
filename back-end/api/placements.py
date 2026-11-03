@@ -441,14 +441,16 @@ def remove_placement(
         # Before the seat goes, while the market still says what it cost: freeing a table changes
         # neither what the vendor owes nor what they paid (E44/F01/S01). Kept first, so a seat
         # whose line could not be kept is not freed.
-        PaymentsApi.keep_freed_line(market, email, date, requesting_user)
+        undo_kept_line = PaymentsApi.keep_freed_line(market, email, date, requesting_user)
         try:
             _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date,
                                       market.assignment_object.revision)
         except AssignmentChangedUnderRequest:
-            # Refused, the seat is still held, so the line kept for it goes too: left behind, it
-            # would come back as the line once that seat went some other way than a free.
-            PaymentsApi.forget_freed_line(market.id, email, date)
+            # Refused, so the line goes back as it was: while the seat is still held, a freed record
+            # left behind would come back as the line once that seat went some other way than a
+            # free. Unless a free of the same seat landed meanwhile and kept its own record over
+            # this one: that record, and any $0 it set, are the line's now.
+            undo_kept_line()
             raise
         for placement in freed:
             History.record_freed(

@@ -11,7 +11,7 @@ changing a table-day's amount owed asks ``Actions.CHANGE_OWED``, and recording a
 or removing an entry ``Actions.ADJUST_PAID``, each an Admin's by default (Q26, E44/F01/S02). An
 archived market refuses every write.
 """
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from pydantic import ValidationError
 
@@ -271,18 +271,17 @@ def use_calculated_price(
     return account
 
 
-def keep_freed_line(market: Market, vendor_email: str, date: str, by: str) -> None:
+def keep_freed_line(market: Market, vendor_email: str, date: str, by: str) -> Callable[[], None]:
     """Keep the line of the seat a vendor holds on ``date``, which is about to be freed: freeing a
-    table changes neither what they owe nor what they paid (Q26)."""
+    table changes neither what they owe nor what they paid (Q26).
+
+    Returns what undoes it, for a free that is then refused (``Payments.restore_freed_line``).
+    """
     seat = seats_by_vendor(market).get(normalized_email(vendor_email), {}).get(date)
-    if seat is not None:
-        Payments.keep_freed_line(market.id, vendor_email, date, seat, by)
-
-
-def forget_freed_line(market_id: str, vendor_email: str, date: str) -> None:
-    """Forget the line ``keep_freed_line`` kept for a free that was then refused: the seat is still
-    held, and the line reads it."""
-    Payments.clear_freed_lines(market_id, [(vendor_email, date)])
+    if seat is None:
+        return lambda: None
+    before, written = Payments.keep_freed_line(market.id, vendor_email, date, seat, by)
+    return lambda: Payments.restore_freed_line(market.id, vendor_email, date, written, before)
 
 
 def deduct_freed_line(market: Market, vendor_email: str, date: str, by: str) -> None:
