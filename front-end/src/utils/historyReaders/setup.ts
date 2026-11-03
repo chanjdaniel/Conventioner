@@ -27,6 +27,12 @@ import {
   type HistoryReaders,
 } from './shared';
 
+/** Whether a write turned the review setup's "none" on (T206): a detail holds only the fields
+ * that changed, so a flag true after the write was false before it. */
+function turnedTrue(detail: unknown, flag: string): boolean {
+  return asDetail(asDetail(detail).after)[flag] === true;
+}
+
 /** Market Setup's fields, as the setup's cards name them. */
 const SETUP_FIELDS: Record<string, string> = {
   market_dates: 'market dates',
@@ -238,13 +244,27 @@ export const readers: HistoryReaders = {
   'change-form/review_highlights': {
     parts(entry, context) {
       const { actor, text } = sentence(entry, context);
-      return [actor, text('changed the review highlights')];
+      return [
+        actor,
+        text(
+          turnedTrue(entry.detail, 'nothing_leads_the_card')
+            ? 'decided nothing leads the card'
+            : 'changed the review highlights',
+        ),
+      ];
     },
   },
   'change-form/rejection_rules': {
     parts(entry, context) {
       const { actor, text } = sentence(entry, context);
-      return [actor, text('changed the automatic rejections')];
+      return [
+        actor,
+        text(
+          turnedTrue(entry.detail, 'no_automatic_rejections')
+            ? 'decided no automatic rejections'
+            : 'changed the automatic rejections',
+        ),
+      ];
     },
   },
   'amend-form/': {

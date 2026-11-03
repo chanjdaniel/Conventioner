@@ -1,6 +1,7 @@
 import { test, expect, TEST_USER, BACKEND_URL, APP_API, NewMarketPage } from './fixtures';
 import { ensureTestOrg, marketNameToSlug } from './helpers/seeds';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
+import { decideReviewSetup } from './helpers/decideReviewSetup';
 import {
   seedApplicationWithStatus,
   seedPhaseMarket,
@@ -176,6 +177,7 @@ test.describe("Start from a draft's Market Setup", () => {
     const market = (await (await page.request.get(`${APP_API}/markets/${marketId}`)).json()).market;
     expect(market.intakeMode).toBe('form');
 
+    await decideReviewSetup(request, BACKEND_URL, marketId);
     await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
     // The applicant's form, as the public apply page reads it: live, with the organizer's questions.
     const form = await page.request.get(

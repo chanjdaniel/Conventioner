@@ -1,4 +1,5 @@
 import { expect, type APIRequestContext } from '@playwright/test';
+import { decideReviewSetup } from './decideReviewSetup';
 import { SEED_MARKET_DATE, ensureTestOrgAuthenticated, loginViaApi } from './seeds';
 import { uniqueMarketName } from './uniqueName';
 
@@ -123,5 +124,7 @@ export async function seedExampleMarket(
     data: FORM,
   });
   expect(form.ok(), `write the form: ${await form.text()}`).toBeTruthy();
+  // And its review setup decided (T206): Review waits on it.
+  await decideReviewSetup(request, baseURL, marketId);
   return { marketId, name };
 }

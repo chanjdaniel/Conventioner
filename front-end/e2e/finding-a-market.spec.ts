@@ -1,6 +1,7 @@
 import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import { test, expect, BACKEND_URL, LoginPage } from './fixtures';
 import { loginViaApi } from './helpers/seeds';
+import { decideReviewSetup } from './helpers/decideReviewSetup';
 import { savePlan } from './helpers/savePlan';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
 import { transitionMarket } from './helpers/seedPhaseMarket';
@@ -88,6 +89,7 @@ test.describe('Finding a market', () => {
 
     // Applications open needs a form that asks something; the plan's dates are essential
     // questions, so that alone is a form.
+    await decideReviewSetup(request, BACKEND_URL, cafe);
     await transitionMarket(request, BACKEND_URL, USER.email, cafe, 'applications');
     await transitionMarket(request, BACKEND_URL, USER.email, winter, 'archived');
   });

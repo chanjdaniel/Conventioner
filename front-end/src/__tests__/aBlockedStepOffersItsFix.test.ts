@@ -20,7 +20,10 @@ import {
 } from './support/servedAnswers';
 import { MarketAction } from '@/utils/marketActions';
 
-const here = vi.hoisted(() => ({ path: '/markets/market-1/form' }));
+const here = vi.hoisted(() => ({
+  path: '/markets/market-1/form',
+  query: {} as Record<string, string>,
+}));
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -49,7 +52,9 @@ function railFor(
   overrides: Partial<Market> = {},
   at = '/markets/market-1/form',
 ) {
-  here.path = at;
+  const [path, query] = at.split('?');
+  here.path = path;
+  here.query = Object.fromEntries(new URLSearchParams(query ?? ''));
   return mount(PhaseRail, {
     props: {
       market: {
@@ -101,6 +106,57 @@ describe('a refused move offers its fix', () => {
     expect(rail.find(fix).exists()).toBe(false);
     expect(rail.get(move).attributes('disabled')).toBeUndefined();
     expect(rail.get(move).classes()).toContain('rail-button--forward');
+  });
+});
+
+/*
+ * A fix may name a step of a page in its query (T206): Review setup is `form?step=review`, and the
+ * Application Form tab is one page whatever step it shows. The link is here only on that step.
+ */
+describe('a fix that names a step of a page', () => {
+  const UNDECIDED: PreconditionResult = {
+    id: 'review_highlights_decided',
+    passed: false,
+    message: 'Nothing says what a reviewer reads first.',
+    resolutionLink: 'form?step=review',
+    resolutionLabel: 'Decide what reviewers read first',
+    resolutionAction: MarketAction.ChangeForm,
+  };
+
+  it('leads there from another step of the same page', () => {
+    const rail = railFor([UNDECIDED], {}, '/markets/market-1/form?step=questions');
+
+    expect(rail.get(fix).getComponent(RouterLinkStub).props('to')).toBe(
+      '/markets/market-1/form?step=review',
+    );
+  });
+
+  it('leads there from the page with no step named, and from another page', () => {
+    for (const at of ['/markets/market-1/form', '/markets/market-1/setup']) {
+      const rail = railFor([UNDECIDED], {}, at);
+
+      expect(rail.get(fix).text()).toBe('Decide what reviewers read first');
+    }
+  });
+
+  it('is not offered on the step itself', () => {
+    const rail = railFor([UNDECIDED], {}, '/markets/market-1/form?step=review');
+
+    expect(rail.find(fix).exists()).toBe(false);
+  });
+
+  it('leaves a link that names no query here whatever view the page keeps in its own', () => {
+    const UNREVIEWED: PreconditionResult = {
+      id: 'all_applications_reviewed',
+      passed: false,
+      message: '2 applications are still awaiting review.',
+      resolutionLink: 'applications',
+      resolutionLabel: 'Finish deciding',
+      resolutionAction: MarketAction.GiveVerdicts,
+    };
+    const rail = railFor([UNREVIEWED], {}, '/markets/market-1/applications?view=one');
+
+    expect(rail.find(fix).exists()).toBe(false);
   });
 });
 

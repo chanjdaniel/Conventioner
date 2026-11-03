@@ -24,6 +24,11 @@ const props = defineProps<{
    * owner" (E38/F06/S01). Null when the market read carries no such row.
    */
   overturnedBy?: string | null;
+  /**
+   * "No automatic rejections" is chosen and read back above this (T206), so the empty list is not
+   * said again here.
+   */
+  noneReadBack?: boolean;
 }>();
 
 const emit = defineEmits<{ 'update:rules': [rules: RejectionRule[]] }>();
@@ -42,11 +47,15 @@ const fixed = computed(() => props.disabled || !!props.lockReason);
       </template>
       <template v-else>The applicant never sees the reason.</template>
     </p>
+    <!-- Review setup's decision (T206): under the help, which explains the rules below it. -->
+    <slot name="decision" />
     <p v-if="lockReason" class="rejections-locked" data-testid="rejection-rules-locked">
       {{ lockReason }}
     </p>
 
-    <p v-if="!rules.length && fixed" class="rejections-empty">No answer rejects automatically.</p>
+    <p v-if="!rules.length && fixed && !noneReadBack" class="rejections-empty">
+      No answer rejects automatically.
+    </p>
 
     <ChoiceConditions
       :questions="questions"

@@ -5,6 +5,8 @@ describes:
   - back-end/tests/test_data/google_forms/
   - back-end/tests/test_data/example_columns.csv
   - back-end/tests/fixtures/synthetic_form_exports.py
+  - back-end/tests/fixtures/component_library_fixture.py
+  - front-end/src/dev/library/fixture.json
   - back-end/create_test_user.py
   - back-end/seed_test_markets.py
   - scripts/seed_fixture.sh
@@ -14,14 +16,12 @@ describes:
   - front-end/e2e/helpers/seedApplication.ts#nameFromEmail
   - scripts/real_data_check.py
   - scripts/real_data_terms.txt
-  - back-end/tests/fixtures/component_library_fixture.py
-  - front-end/src/dev/library/fixture.json
 verified: 2026-11-03
 sources:
   - T109
   - T131
-  - T204
   - T200
+  - T204
 ---
 
 # Test data
