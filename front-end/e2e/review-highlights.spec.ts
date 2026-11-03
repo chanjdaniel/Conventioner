@@ -3,6 +3,7 @@ import { marketSetupPath, oneByOnePath } from './helpers/marketScreens';
 import { completePlan, ensureTestOrg, loginViaApi } from './helpers/seeds';
 import { decideReviewSetup } from './helpers/decideReviewSetup';
 import { seedApplication } from './helpers/seedApplication';
+import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import type { APIRequestContext } from '@playwright/test';
 
@@ -260,5 +261,72 @@ test.describe('What a reviewer reads first', () => {
     await page.goto(oneByOnePath(marketId));
     await monitor.waitForLoaded();
     await expect(page.getByTestId('app-monitor-leading').locator('dt')).toHaveText(['Instagram']);
+  });
+});
+
+/**
+ * Review waits on what a reviewer reads first (T206): a draft whose organizer has decided nothing is
+ * not opened for review by accident. The rail leads to Review setup, which offers "Nothing leads the
+ * card" as one click; ticking an answer decides it too and replaces the "none".
+ */
+test.describe('A draft decides what a reviewer reads first', () => {
+  test('the rail leads to Review setup, and Nothing leads the card decides it in one click', async ({
+    authenticatedPage: page,
+  }) => {
+    const { marketId } = await seedPhaseMarket(
+      page.request,
+      APP_API,
+      TEST_USER.email,
+      TEST_USER.password,
+      { intakeMode: 'form', reviewSetupUndecided: true },
+    );
+    // The automatic rejections decided, so this is all the move waits on.
+    const rules = await page.request.put(`${APP_API}/markets/${marketId}/rejection-rules`, {
+      data: { rules: [], noAutomaticRejections: true },
+    });
+    expect(rules.ok(), await rules.text()).toBeTruthy();
+
+    await page.goto(marketSetupPath(marketId, 'form'));
+    const fix = page.getByTestId('phase-rail-fix');
+    const open = page.getByTestId('phase-transition-applications');
+    await expect(fix).toHaveText('Decide what reviewers read first', { timeout: 15000 });
+    await expect(open).toBeDisabled();
+
+    await fix.click();
+
+    await expect(page).toHaveURL(/\/form\?step=review$/);
+    // The rail offers no link to where the organizer already is.
+    await expect(fix).toHaveCount(0);
+    const notice = page.getByTestId('review-highlights-undecided');
+    await expect(notice).toHaveText('Not decided yet. Opening applications waits on this.');
+
+    const highlightsWrite = () =>
+      page.waitForResponse(
+        (response) =>
+          response.url().includes(`/markets/${marketId}/review-highlights`) &&
+          response.request().method() === 'PUT',
+      );
+    await Promise.all([highlightsWrite(), page.getByTestId('review-highlights-none').click()]);
+
+    const readBack = page.getByTestId('review-highlights-none-chosen');
+    await expect(readBack).toHaveText(
+      "Nothing leads the card: a reviewer reads every answer, in the form's order.",
+    );
+    await expect(notice).toHaveCount(0);
+    await expect(page.getByTestId('review-highlights-none')).toHaveCount(0);
+    // The rail moves on: nothing else refuses the move, so it offers the move itself.
+    await expect(open).toBeEnabled();
+
+    // A tick replaces the "none"; taking the last one off in draft asks again.
+    const category = page.getByTestId('review-highlight-category');
+    await Promise.all([highlightsWrite(), category.click()]);
+    await expect(readBack).toHaveCount(0);
+    await expect(open).toBeEnabled();
+
+    await Promise.all([highlightsWrite(), category.click()]);
+    await expect(notice).toBeVisible();
+    await expect(page.getByTestId('review-highlights-none')).toBeVisible();
+    await expect(page.getByTestId('phase-rail-fix')).toHaveCount(0);
+    await expect(open).toBeDisabled();
   });
 });

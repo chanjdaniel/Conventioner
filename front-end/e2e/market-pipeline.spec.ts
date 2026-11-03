@@ -146,6 +146,8 @@ test.describe('Market pipeline E2E', () => {
     // Assign is an operation of the `assignment` phase and refuses everywhere else
     // (E10/F03/S02). These vendors arrive already approved, as though imported, so the walk is two
     // moves: into a Google Form market's Review (E38/F04/S01), then on to Assignment.
+    // Review waits on Review setup (T206): the rail leads there, and one click decides it.
+    await setupPage.decideOnReviewSetup();
     await setupPage.advancePhaseTo('applications', 'Review');
     await setupPage.advancePhaseTo('assignment', 'Assignment');
 

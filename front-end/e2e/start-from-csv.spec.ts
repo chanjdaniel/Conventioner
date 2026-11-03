@@ -6,6 +6,7 @@ import { StartFromCsvPage } from './pages/StartFromCsvPage';
 import { finishStartedPlan, UPCOMING_YEAR } from './helpers/finishStartedPlan';
 import { CsvImportPage } from './pages/CsvImportPage';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
+import { decideReviewSetup } from './helpers/decideReviewSetup';
 import { marketSetupPath } from './helpers/marketScreens';
 
 /**
@@ -127,6 +128,7 @@ test.describe('Start from your Google Form', () => {
       await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
 
       await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
+      await decideReviewSetup(request, BACKEND_URL, marketId);
       const importer = new CsvImportPage(page);
       await importer.open({ id: marketId });
       await importer.chooseFile(readFileSync(join(CORPUS, `${file}.csv`), 'utf8'));
@@ -189,6 +191,7 @@ test.describe('Start from your Google Form', () => {
     await page.getByTestId('proposal-confirm').click();
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
+    await decideReviewSetup(request, BACKEND_URL, marketId);
     const importer = new CsvImportPage(page);
     await importer.open({ id: marketId });
     await importer.chooseFile(readFileSync(join(CORPUS, 'five-day-grid.csv'), 'utf8'));
@@ -222,6 +225,7 @@ test.describe('Start from your Google Form', () => {
     await page.getByTestId('proposal-confirm').click();
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
+    await decideReviewSetup(request, BACKEND_URL, marketId);
 
     const importer = new CsvImportPage(page);
     await importer.open({ id: marketId });
@@ -376,6 +380,20 @@ test.describe('Start from your Google Form', () => {
     ).toBeVisible();
     await expect(page.getByTestId('form-field-help-input')).toHaveCount(0);
     await expect(page.getByTestId('form-step-next')).toHaveText('Next: Review setup');
+    // The first import waits on Review setup (T206), decided there as the organizer would.
+    await page.getByTestId('form-step-next').click();
+    await expect(page.getByTestId('review-highlights-undecided')).toHaveText(
+      'Not decided yet. Your first import waits on this.',
+    );
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes(`/markets/${marketId}/review-highlights`) &&
+          response.request().method() === 'PUT',
+      ),
+      page.getByTestId('review-highlights-none').click(),
+    ]);
+    await expect(page.getByTestId('review-highlights-none-chosen')).toBeVisible();
 
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
     const importer = new CsvImportPage(page);
