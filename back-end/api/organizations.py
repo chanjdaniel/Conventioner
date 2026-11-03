@@ -96,45 +96,52 @@ def _what_removing_takes(org: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _people(user_ids: List[str], accounts: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Each of these people as ``{userId, email}``, in the stored order, an account that is gone
+    left out (T204): served with its id, a row never borrows the next person's id when one is gone."""
+    return [
+        {"userId": user_id, "email": accounts[user_id].email}
+        for user_id in user_ids if user_id in accounts
+    ]
+
+
 def get_organizations_for_user(user_email: str) -> List[Dict[str, Any]]:
-    """Get all organizations where user is owner, admin, or member."""
+    """Get all organizations where user is owner, admin, or member.
+
+    Every owner, admin and member of all of them is read in one ``get_users_by_ids`` (T204), never
+    one account at a time: the Organizations page and Manage organization make this read on open.
+    """
     user = UsersApi.get_user(user_email)
     if not user:
         return []
     user_id = user.id
-    orgs = organizations_collection.find({
+    orgs = list(organizations_collection.find({
         "$or": [
             {"owner": user_id},
             {"admins": user_id},
             {"members": user_id}
         ]
-    })
-    
+    }))
+    accounts = UsersApi.get_users_by_ids(
+        person_id
+        for org in orgs
+        for person_id in [org.get("owner"), *org.get("admins", []), *org.get("members", [])]
+        if person_id
+    )
+
     result = []
     for org in orgs:
         org['_id'] = str(org['_id'])
-        # Resolve owner id to email for display (post-UUID migration)
-        owner_id = org.get("owner")
-        if owner_id:
-            owner_user = UsersApi.get_user_by_id(owner_id)
-            if owner_user:
-                org["ownerEmail"] = owner_user.email
-                org["owner_email"] = owner_user.email
-        # Resolve admin and member ids to emails for display
-        admin_emails = []
-        for aid in org.get("admins", []):
-            u = UsersApi.get_user_by_id(aid)
-            if u:
-                admin_emails.append(u.email)
-        org["adminEmails"] = admin_emails
-        org["admin_emails"] = admin_emails
-        member_emails = []
-        for mid in org.get("members", []):
-            u = UsersApi.get_user_by_id(mid)
-            if u:
-                member_emails.append(u.email)
-        org["memberEmails"] = member_emails
-        org["member_emails"] = member_emails
+        owner = accounts.get(org.get("owner"))
+        if owner:
+            org["ownerEmail"] = owner.email
+            org["owner_email"] = owner.email
+        org["adminPeople"] = _people(org.get("admins", []), accounts)
+        org["memberPeople"] = _people(org.get("members", []), accounts)
+        # Deprecated (T204): the same people by address alone, for a tab still on the old bundle,
+        # which pairs them with ``admins`` and ``members`` by position. The next release removes them.
+        org["adminEmails"] = org["admin_emails"] = [p["email"] for p in org["adminPeople"]]
+        org["memberEmails"] = org["member_emails"] = [p["email"] for p in org["memberPeople"]]
         # The rows it sets for the markets it will hold, each read as the markets copy it.
         org["defaultPermissionTable"] = Actions.default_table(org.get(DEFAULT_PERMISSIONS))
         org.update(_what_removing_takes(org))

@@ -147,9 +147,10 @@ export async function ensureOrganizationAdmin(
   if (made.ok()) return;
   const orgs = await request.get(`${baseURL}/organizations`);
   const { organizations = [] } = (await orgs.json()) as {
-    organizations?: { id: string; adminEmails?: string[] }[];
+    organizations?: { id: string; adminPeople?: { email: string }[] }[];
   };
-  if (!organizations.find((o) => o.id === orgId)?.adminEmails?.includes(email)) {
+  const admins = organizations.find((o) => o.id === orgId)?.adminPeople ?? [];
+  if (!admins.some((admin) => admin.email === email)) {
     throw new Error(`Making ${email} an organization admin failed: ${await made.text()}`);
   }
 }
