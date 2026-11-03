@@ -1431,7 +1431,7 @@ def get_market_tables(market_id: str) -> Response:
 @app.route('/public/markets/<market_slug>/vendor/check-in', methods=['POST'])
 def vendor_check_in(market_slug: str) -> Response:
     """A signed-in vendor checks in for a date with the market's door code (ADR 0022). Bearer
-    token and ``{date, doorCode}``; counted against ``check-in:caller`` and ``check-in:address``."""
+    token and ``{date, doorCode}``; every try counted against ``check-in:address``, a wrong code against ``check-in:caller``."""
     return VendorCheckInApi.check_in(market_slug)
 
 

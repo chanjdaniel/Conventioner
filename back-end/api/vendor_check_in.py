@@ -8,8 +8,9 @@ code the organizer shows at the entrance (``api/door.py``), scanned from its QR 
 
 Both endpoints are attacker-facing, so:
 
-- every check-in attempt is counted per caller before anything is read, and per signed-in address
-  once the token names one (``sign_in_limits``), so a vendor at home cannot guess the door code;
+- every check-in attempt is counted per signed-in address, and a wrong door code per caller too
+  (``sign_in_limits``), so a vendor at home cannot guess the door code while vendors who share a
+  venue's address are never refused for checking in rightly;
 - the market goes through the vendor page gate (``vendor_page_market_by_slug``), so a market with
   no vendor page answers exactly as a slug that names nothing;
 - a token for another market is refused, as the vendor's own read refuses it;
@@ -94,10 +95,7 @@ def _within_the_window(day: str) -> bool:
 
 def check_in(market_slug: str) -> Tuple[Any, int]:
     """Handle POST /public/markets/<slug>/vendor/check-in ``{date, doorCode}``."""
-    refused = _too_many(sign_in_limits.count_attempt(
-        sign_in_limits.CHECK_IN_PER_CALLER, request.remote_addr or "unknown"))
-    if refused:
-        return refused
+    caller = request.remote_addr or "unknown"
     token, refused = _signed_in_vendor()
     if refused:
         return refused
@@ -115,8 +113,12 @@ def check_in(market_slug: str) -> Tuple[Any, int]:
         return _refused(NO_SEAT, 404)
     if not _within_the_window(day):
         return _refused(NOT_TODAY, 409)
+    refused = _too_many(sign_in_limits.over_limit(sign_in_limits.CHECK_IN_PER_CALLER, caller))
+    if refused:
+        return refused
     if not DoorApi.door_code_matches(market_doc["id"], string_field(data, "doorCode")):
-        return _refused(WRONG_DOOR_CODE, 403)
+        refused = _too_many(sign_in_limits.count_attempt(sign_in_limits.CHECK_IN_PER_CALLER, caller))
+        return refused or _refused(WRONG_DOOR_CODE, 403)
 
     result, status = AttendanceApi.record_attendance(
         market_doc["id"], email, day, checked_in_by=None, via=AttendanceApi.VIA_DOOR_CODE)
@@ -127,15 +129,12 @@ def undo_check_in(market_slug: str) -> Tuple[Any, int]:
     """Handle DELETE /public/markets/<slug>/vendor/check-in ``{date}``: the vendor's check-in on
     that date taken back, in the market's days, with no door code.
 
-    Bounded as a check-in is: counted per caller, and only for a day within one of the server's, so
-    a vendor never erases a past day's attendance. On that day it takes back whatever check-in is
-    stored, theirs or one an organizer made at Attendance: it is the record of their own presence,
-    the history says who undid it, and the door code checks them in again.
+    Counts nothing against a limit: it is bounded by the sign-in, ``market_days`` and a day within
+    one of the server's, so a vendor never erases a past day's attendance. On that day it takes
+    back whatever check-in is stored, theirs or one an organizer made at Attendance: it is the
+    record of their own presence, the history says who undid it, and the door code checks them in
+    again.
     """
-    refused = _too_many(sign_in_limits.count_attempt(
-        sign_in_limits.CHECK_IN_PER_CALLER, request.remote_addr or "unknown"))
-    if refused:
-        return refused
     token, refused = _signed_in_vendor()
     if refused:
         return refused

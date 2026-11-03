@@ -600,6 +600,10 @@ class FakeAttemptsCollection:
         self.indexes.append((keys, kwargs))
         return kwargs.get("name", "fake-index")
 
+    def find_one(self, query):
+        doc = self.docs.get(query["_id"])
+        return dict(doc) if doc else None
+
     def find_one_and_update(self, query, update, upsert=False, return_document=None):
         key = query["_id"]
         doc = self.docs.get(key)

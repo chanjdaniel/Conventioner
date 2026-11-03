@@ -59,9 +59,10 @@ VERIFY_CODE_PER_CALLER = SignInLimit("verify-code:caller", attempts=60, window=t
 # A remembered vendor's page asks once per visit (``applicant-login/resume``). Its secret is not to
 # be guessed, so this bounds the work a caller makes the database do, not a guess.
 RESUME_PER_CALLER = SignInLimit("resume:caller", attempts=60, window=timedelta(minutes=15))
-# A vendor checking in on their page sends the door code (``api/vendor_check_in.py``): bounded per
-# signed-in address and per caller, so a vendor at home cannot guess the code from the poster's
-# alphabet.
+# A vendor checking in on their page sends the door code (``api/vendor_check_in.py``): every try is
+# bounded per signed-in address, and only the WRONG codes are bounded per caller, so a vendor at
+# home cannot guess the code from the poster's alphabet while a venue's shared address still checks
+# every vendor in.
 CHECK_IN_PER_ADDRESS = SignInLimit("check-in:address", attempts=10, window=timedelta(minutes=15))
 CHECK_IN_PER_CALLER = SignInLimit("check-in:caller", attempts=60, window=timedelta(minutes=15))
 
@@ -89,6 +90,29 @@ def ensure_expiry_index() -> None:
     )
 
 
+def _window(limit: SignInLimit, subject: str, now: datetime) -> Tuple[str, datetime]:
+    """The counter key and end of the window ``now`` falls in."""
+    window_seconds = limit.window.total_seconds()
+    window = math.floor(now.timestamp() / window_seconds)
+    window_ends = datetime.fromtimestamp((window + 1) * window_seconds, tz=timezone.utc)
+    key = hashlib.sha256(f"{limit.name}\0{subject}\0{window}".encode()).hexdigest()
+    return key, window_ends
+
+
+def over_limit(limit: SignInLimit, subject: str, now: Optional[datetime] = None) -> Optional[int]:
+    """Whether ``subject`` is already past ``limit``, without counting anything.
+
+    Returns None while the window's count is within the limit, and otherwise the whole seconds
+    until the window ends, as ``count_attempt`` does.
+    """
+    now = now or datetime.now(timezone.utc)
+    key, window_ends = _window(limit, subject, now)
+    counter = attempts_collection.find_one({"_id": key})
+    if not counter or counter[COUNT_FIELD] <= limit.attempts:
+        return None
+    return max(1, math.ceil((window_ends - now).total_seconds()))
+
+
 def count_attempt(limit: SignInLimit, subject: str, now: Optional[datetime] = None) -> Optional[int]:
     """Count one attempt by ``subject`` against ``limit``.
 
@@ -97,11 +121,7 @@ def count_attempt(limit: SignInLimit, subject: str, now: Optional[datetime] = No
     knocking stays refused until the window ends.
     """
     now = now or datetime.now(timezone.utc)
-    window_seconds = limit.window.total_seconds()
-    window = math.floor(now.timestamp() / window_seconds)
-    window_ends = datetime.fromtimestamp((window + 1) * window_seconds, tz=timezone.utc)
-
-    key = hashlib.sha256(f"{limit.name}\0{subject}\0{window}".encode()).hexdigest()
+    key, window_ends = _window(limit, subject, now)
     counter = attempts_collection.find_one_and_update(
         {"_id": key},
         {"$inc": {COUNT_FIELD: 1}, "$setOnInsert": {EXPIRES_AT_FIELD: window_ends}},

@@ -235,20 +235,31 @@ class TestAttemptsAreBounded:
         assert refused.headers["Retry-After"]
         assert world.attendance.documents == []
 
-    def test_a_caller_gets_sixty_whoever_they_sign_in_as(self, client, world):
-        for n in range(60):
-            check_in(client, headers=signed_in(email=f"v{n}@example.com"))
+    def test_a_caller_checks_in_more_than_sixty_right_codes(self, client, world):
+        emails = [f"v{n}@example.com" for n in range(65)]
+        world.market(assignmentObject={"vendorAssignments": [
+            {**SEATS[0], "email": email} for email in emails]})
 
-        refused = check_in(client)
+        statuses = [check_in(client, headers=signed_in(email=email)).status_code for email in emails]
 
-        assert refused.status_code == 429
+        assert set(statuses) == {200}
+        assert len(world.attendance.documents) == 65
+
+    def test_a_caller_gets_sixty_wrong_codes_then_no_right_one(self, client, world):
+        emails = [f"v{n}@example.com" for n in range(62)]
+        world.market(assignmentObject={"vendorAssignments": [
+            {**SEATS[0], "email": email} for email in emails]})
+        wrong = {"date": TODAY, "doorCode": "WRONG1"}
+
+        first = [check_in(client, wrong, signed_in(email=e)).status_code for e in emails[:60]]
+        sixty_first = check_in(client, wrong, signed_in(email=emails[60]))
+        right = check_in(client, headers=signed_in(email=emails[61]))
+
+        assert set(first) == {403}
+        assert sixty_first.status_code == 429
+        assert sixty_first.headers["Retry-After"]
+        assert right.status_code == 429
         assert world.attendance.documents == []
-
-    def test_a_caller_with_no_sign_in_is_counted_too(self, client, world):
-        for _ in range(60):
-            check_in(client, headers={})
-
-        assert check_in(client).status_code == 429
 
     def test_the_limits_are_named_and_listed(self):
         assert sign_in_limits.CHECK_IN_PER_ADDRESS.name == "check-in:address"
@@ -326,11 +337,11 @@ class TestUndoIsBoundedAsCheckInIs:
         assert undo(client).status_code == 200
         assert world.attendance.documents == []
 
-    def test_a_caller_gets_sixty(self, client, world):
-        for n in range(60):
-            undo(client, headers=signed_in(email=f"v{n}@example.com"))
+    def test_it_is_never_refused_for_how_often_a_caller_undoes(self, client, world):
+        statuses = {undo(client, headers=signed_in(email=f"v{n}@example.com")).status_code
+                    for n in range(70)}
 
-        assert undo(client).status_code == 429
+        assert 429 not in statuses
 
 
 def ended_sign_in(market_id=MARKET, email=VENDOR):
