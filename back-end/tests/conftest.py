@@ -93,6 +93,18 @@ def sessions_load_through_get_user(monkeypatch):
     monkeypatch.setattr(UsersApi, "signed_in_account", lambda sign_in: UsersApi.get_user(sign_in))
 
 
+def accounts_by_id(monkeypatch, account_of):
+    """Answer every lookup of an account by id from ``account_of(user_id)``, the account or None:
+    the one-id read and the batch read alike (T204), so a test's people are the same whichever
+    read a path makes."""
+    import api.users as UsersApi
+
+    monkeypatch.setattr(UsersApi, "get_user_by_id", account_of)
+    monkeypatch.setattr(UsersApi, "get_users_by_ids", lambda user_ids: {
+        user_id: account for user_id in dict.fromkeys(user_ids)
+        if (account := account_of(user_id))})
+
+
 if _needs_stub("pymongo"):
     fake_pymongo = types.ModuleType("pymongo")
     fake_pymongo_results = types.ModuleType("pymongo.results")
@@ -320,11 +332,18 @@ def mongo_matches(doc: dict, query: dict) -> bool:
     production. ``$ne``, ``$exists``, ``$in`` and ``$nor`` are modelled because the public slug
     lookup is built out of them, ``$gt`` because a deal's lease is, ``$type: object`` because the
     applications waiting to be dealt are read by it, and a value matching a list that holds it
-    because a vendor's history is.
+    because a vendor's history is. A dotted key reaches into sub-documents, as an assignment's
+    revision is read by every write of it.
     """
     for key, condition in (query or {}).items():
         if key == "$nor":
             if any(mongo_matches(doc, clause) for clause in condition):
+                return False
+            continue
+        if "." in key:
+            head, _, rest = key.partition(".")
+            inner = doc.get(head)
+            if not mongo_matches(inner if isinstance(inner, dict) else {}, {rest: condition}):
                 return False
             continue
         present = key in doc

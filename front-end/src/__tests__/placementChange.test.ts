@@ -11,14 +11,18 @@ import {
   FULL_TABLE,
   HALF_TABLE_LEFT,
   HALF_TABLE_RIGHT,
+  emptySeatsOn,
   groupCandidates,
   placementWarnings,
+  seatAMoveKeeps,
   seatIsWholeTable,
   seatLabel,
   seatWarnings,
+  seatedOn,
   type PlaceableVendor,
   type PlacementContext,
 } from '@/utils/placementChange';
+import type { MarketTableRow } from '@/utils/resultFilters';
 
 const DATE = '2026-08-01';
 const OTHER_DATE = '2026-08-02';
@@ -347,5 +351,157 @@ describe('placing a vendor added by hand (E36/F03/S01)', () => {
 
     expect(groups.addedByHand.map((v) => v.email)).toEqual(['walk.in@example.com']);
     expect([...groups.fits, ...groups.overrides, ...groups.notApproved]).toEqual([]);
+  });
+});
+
+describe("a day's seats, for a move (T208)", () => {
+  /** A plan that ranks Gold before Silver, and Hall B before Hall A within neither. */
+  const PLAN = {
+    tiers: [{ name: 'Gold' }, { name: 'Silver' }],
+    sections: [{ name: 'Hall B' }, { name: 'Hall A' }],
+  };
+
+  function table(
+    tableCode: string,
+    slots: (string | null)[],
+    overrides: Partial<MarketTableRow> = {},
+  ): MarketTableRow {
+    return {
+      date: DATE,
+      assignment: slots.filter((slot): slot is string => !!slot),
+      assignmentSlots: slots,
+      location: 'Upper floor',
+      section: 'Hall A',
+      tableChoice: 'Half Table',
+      tableCode,
+      tier: 'Gold',
+      ...overrides,
+    };
+  }
+
+  describe('emptySeatsOn', () => {
+    it('offers a wholly free table with no fixed seat, and a half-taken one by its free side', () => {
+      const rows = [
+        table('A 1', [null, null]),
+        table('A 2', ['nadia@ember.test', null]),
+        table('A 3', [null, 'lee@ember.test']),
+      ];
+
+      expect(emptySeatsOn(rows, DATE, PLAN, null)).toEqual([
+        { tableCode: 'A 1', section: 'Hall A', location: 'Upper floor', tier: 'Gold', seat: null },
+        {
+          tableCode: 'A 2',
+          section: 'Hall A',
+          location: 'Upper floor',
+          tier: 'Gold',
+          seat: HALF_TABLE_RIGHT,
+        },
+        {
+          tableCode: 'A 3',
+          section: 'Hall A',
+          location: 'Upper floor',
+          tier: 'Gold',
+          seat: HALF_TABLE_LEFT,
+        },
+      ]);
+    });
+
+    it('leaves out a table with both halves taken, and one held whole', () => {
+      const rows = [
+        table('A 1', ['nadia@ember.test', 'lee@ember.test']),
+        table('A 2', ['sam@ember.test', 'sam@ember.test'], { tableChoice: 'Full Table' }),
+        table('A 3', ['kim@ember.test', null], { tableChoice: 'Full Table' }),
+      ];
+
+      expect(emptySeatsOn(rows, DATE, PLAN, null)).toEqual([]);
+    });
+
+    it("leaves out the moving vendor's own table", () => {
+      const rows = [table('A 1', ['nadia@ember.test', null]), table('A 2', [null, null])];
+
+      expect(emptySeatsOn(rows, DATE, PLAN, 'A 1').map((seat) => seat.tableCode)).toEqual(['A 2']);
+    });
+
+    it('orders sections as the plan ranks them and tables by their number, as the grid does', () => {
+      const rows = [
+        table('S 1', [null, null], { section: 'Hall C', tier: 'Silver' }),
+        table('A 10', [null, null]),
+        table('A 2', [null, null]),
+        table('B 1', [null, null], { section: 'Hall B' }),
+      ];
+
+      expect(emptySeatsOn(rows, DATE, PLAN, null).map((seat) => seat.tableCode)).toEqual([
+        'B 1',
+        'A 2',
+        'A 10',
+        'S 1',
+      ]);
+    });
+
+    it('reads only the date asked about', () => {
+      const rows = [table('A 1', [null, null], { date: OTHER_DATE }), table('A 2', [null, null])];
+
+      expect(emptySeatsOn(rows, DATE, PLAN, null).map((seat) => seat.tableCode)).toEqual(['A 2']);
+    });
+  });
+
+  describe('seatedOn', () => {
+    it('names everyone seated that day once, with the seat they hold, in table order', () => {
+      const rows = [
+        table('A 2', ['nadia@ember.test', 'lee@ember.test']),
+        table('A 1', ['sam@ember.test', 'sam@ember.test'], { tableChoice: 'Full Table' }),
+        table('B 1', [null, 'kim@ember.test'], { section: 'Hall B' }),
+        table('A 3', ['ola@ember.test', null], { date: OTHER_DATE }),
+      ];
+
+      expect(seatedOn(rows, DATE, PLAN)).toEqual([
+        {
+          email: 'kim@ember.test',
+          tableCode: 'B 1',
+          section: 'Hall B',
+          tier: 'Gold',
+          seat: HALF_TABLE_RIGHT,
+        },
+        {
+          email: 'sam@ember.test',
+          tableCode: 'A 1',
+          section: 'Hall A',
+          tier: 'Gold',
+          seat: FULL_TABLE,
+        },
+        {
+          email: 'nadia@ember.test',
+          tableCode: 'A 2',
+          section: 'Hall A',
+          tier: 'Gold',
+          seat: HALF_TABLE_LEFT,
+        },
+        {
+          email: 'lee@ember.test',
+          tableCode: 'A 2',
+          section: 'Hall A',
+          tier: 'Gold',
+          seat: HALF_TABLE_RIGHT,
+        },
+      ]);
+    });
+  });
+
+  describe('seatAMoveKeeps', () => {
+    it('takes the free side when only one side is free', () => {
+      expect(seatAMoveKeeps(FULL_TABLE, HALF_TABLE_RIGHT)).toBe(HALF_TABLE_RIGHT);
+    });
+
+    it('keeps a whole table whole when the whole table is free', () => {
+      expect(seatAMoveKeeps(FULL_TABLE, null)).toBe(FULL_TABLE);
+    });
+
+    it('keeps a left half a half, on the left', () => {
+      expect(seatAMoveKeeps(HALF_TABLE_LEFT, null)).toBe(HALF_TABLE_LEFT);
+    });
+
+    it('keeps a right half a half, starting on the left', () => {
+      expect(seatAMoveKeeps(HALF_TABLE_RIGHT, null)).toBe(HALF_TABLE_LEFT);
+    });
   });
 });

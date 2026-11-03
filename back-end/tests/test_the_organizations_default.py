@@ -11,7 +11,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import mongo_matches, mongo_project, sessions_load_through_get_user
+from conftest import (
+    accounts_by_id,
+    mongo_matches,
+    mongo_project,
+    sessions_load_through_get_user,
+)
 from test_the_history import FakeHistoryCollection
 from test_the_market_keeps_its_own_rows import (
     ADMIN, EDITOR, ORG_ADMIN, ORG_ID, ORG_OWNER, OWNER, VIEWER, FakeMarkets, _set_path,
@@ -112,7 +117,7 @@ def world(monkeypatch):
         id=email, email=email, name=email, is_active=True, is_authenticated=True,
         is_anonymous=False, get_id=lambda e=email: e,
     ))
-    monkeypatch.setattr(UsersApi, "get_user_by_id", lambda uid: SimpleNamespace(id=uid, email=uid))
+    accounts_by_id(monkeypatch, lambda uid: SimpleNamespace(id=uid, email=uid))
     return SimpleNamespace(organizations=organizations, markets=markets, history=history)
 
 

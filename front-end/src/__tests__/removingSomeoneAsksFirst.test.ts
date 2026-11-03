@@ -45,8 +45,8 @@ function org(overrides: Partial<Organization> = {}): Organization {
     admins: ['u-admin'],
     members: ['u-walk'],
     ownerEmail: 'owner@example.com',
-    adminEmails: ['admin@example.com'],
-    memberEmails: [EMAIL],
+    adminPeople: [{ userId: 'u-admin', email: 'admin@example.com' }],
+    memberPeople: [{ userId: 'u-walk', email: EMAIL }],
     userRole: 'owner',
     marketCount: 11,
     marketsWithOwnRole: {},
@@ -231,7 +231,7 @@ describe('Manage organization asks before it removes', () => {
 
     byTestId('manage-org-remove-member-button')!.click();
     await flushPromises();
-    served = { ...served, members: [], memberEmails: [] };
+    served = { ...served, members: [], memberPeople: [] };
     byTestId('manage-org-remove-submit-button')!.click();
     await flushPromises();
 
@@ -254,7 +254,7 @@ describe('Manage organization asks before it removes', () => {
     await flushPromises();
     const record = recordConfirmation('manage-org-remove');
     // The re-read organization no longer counts their own role: they are no longer in it.
-    served = { ...served, members: [], memberEmails: [], marketsWithOwnRole: {} };
+    served = { ...served, members: [], memberPeople: [], marketsWithOwnRole: {} };
     byTestId('manage-org-remove-submit-button')!.click();
     await flushPromises();
     record.stop();
@@ -282,7 +282,7 @@ describe('Manage organization asks before it removes', () => {
       if (url === '/organizations') await held;
       return answer(url);
     });
-    served = { ...served, members: [], memberEmails: [] };
+    served = { ...served, members: [], memberPeople: [] };
     byTestId('manage-org-remove-submit-button')!.click();
     await flushPromises();
 
@@ -296,6 +296,55 @@ describe('Manage organization asks before it removes', () => {
     await flushPromises();
     expect(byTestId('manage-org-remove-window')).toBeNull();
     expect(byTestId('manage-org-remove-error')).toBeNull();
+    wrapper.unmount();
+  });
+
+  it('removes the person whose row was pressed, when an account before them is gone', async () => {
+    api.delete.mockResolvedValue({ data: {} });
+    // The stored ids still name a deleted account; the read serves each person with their own id.
+    const wrapper = mountDialog({
+      admins: ['u-ada', 'u-gone-admin', 'u-admin'],
+      adminPeople: [
+        { userId: 'u-ada', email: 'ada@example.com' },
+        { userId: 'u-admin', email: 'admin@example.com' },
+      ],
+      members: ['u-ana', 'u-gone', 'u-walk'],
+      memberPeople: [
+        { userId: 'u-ana', email: 'ana@example.com' },
+        { userId: 'u-walk', email: EMAIL },
+      ],
+    });
+    await flushPromises();
+
+    const members = [
+      ...document.body.querySelectorAll('[data-testid="manage-org-members"] .user-card'),
+    ];
+    expect(members.map((row) => row.querySelector('.user-email')?.textContent)).toEqual([
+      'ana@example.com',
+      EMAIL,
+    ]);
+    members[1]!
+      .querySelector<HTMLElement>('[data-testid="manage-org-remove-member-button"]')!
+      .click();
+    await flushPromises();
+    expect(byTestId('manage-org-remove-window')!.getAttribute('aria-label')).toBe(
+      'Remove walk390@example.com from Seed Test Org?',
+    );
+    byTestId('manage-org-remove-submit-button')!.click();
+    await flushPromises();
+    expect(api.delete).toHaveBeenLastCalledWith('/organizations/org-1/users/u-walk');
+
+    const admins = [
+      ...document.body.querySelectorAll('[data-testid="manage-org-admins"] .user-card'),
+    ];
+    admins[1]!.querySelector<HTMLElement>('[data-testid="manage-org-remove-user-button"]')!.click();
+    await flushPromises();
+    expect(byTestId('manage-org-remove-window')!.getAttribute('aria-label')).toBe(
+      'Remove admin@example.com from Seed Test Org?',
+    );
+    byTestId('manage-org-remove-submit-button')!.click();
+    await flushPromises();
+    expect(api.delete).toHaveBeenLastCalledWith('/organizations/org-1/users/u-admin');
     wrapper.unmount();
   });
 
@@ -330,7 +379,7 @@ describe('Manage organization asks before it removes', () => {
     byTestId('manage-org-remove-member-button')!.click();
     await flushPromises();
     // Another admin removed them first: the re-read finds them gone.
-    served = { ...served, members: [], memberEmails: [] };
+    served = { ...served, members: [], memberPeople: [] };
     api.get.mockClear();
     byTestId('manage-org-remove-submit-button')!.click();
     await flushPromises();

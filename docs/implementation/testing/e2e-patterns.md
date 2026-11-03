@@ -14,8 +14,8 @@ describes:
   - front-end/e2e/global-setup.ts
   - front-end/e2e/helpers/networkSettles.ts
   - front-end/e2e/helpers/settle.ts
-  - front-end/e2e/helpers/phoneWindow.ts#inTheWindow
   - front-end/src/utils/utils.ts#getFormattedDate
+  - front-end/e2e/helpers/phoneWindow.ts#inTheWindow
 verified: 2026-11-03
 sources:
   - E21/F02/S02
