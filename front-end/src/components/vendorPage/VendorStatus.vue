@@ -29,6 +29,15 @@ const seatsListedHere = computed(
   () =>
     !store.page || checkInSection(store.page, application.value, calendarToday()).mode === 'none',
 );
+/**
+ * When they applied, on a market whose vendors apply on its page. An imported vendor submitted
+ * nothing here: their row's date is when the organizer's import stored it, so it is left out.
+ */
+const submittedAt = computed(() =>
+  application.value?.submittedAt && store.page?.intakeMode === IntakeMode.Form
+    ? getTimestampDate(application.value.submittedAt)
+    : null,
+);
 const noVendor = computed(() =>
   !application.value && store.page?.intakeMode === IntakeMode.Csv
     ? noVendorAtThisAddress(store.page.marketName)
@@ -44,8 +53,8 @@ const noVendor = computed(() =>
     data-testid="vendor-page-status"
   >
     <span class="status-label">{{ headline }}</span>
-    <span v-if="application.submittedAt" class="status-date">
-      Submitted {{ getTimestampDate(application.submittedAt) }}
+    <span v-if="submittedAt" class="status-date" data-testid="vendor-page-submitted-at">
+      Submitted {{ submittedAt }}
     </span>
     <ul
       v-if="seatsListedHere && application.seats?.length"

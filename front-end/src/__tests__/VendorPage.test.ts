@@ -451,6 +451,9 @@ describe('the page, signed in', () => {
     const wrapper = await mountPage();
 
     expect(wrapper.get('[data-testid="vendor-page-status"]').text()).toContain('Submitted');
+    expect(wrapper.get('[data-testid="vendor-page-submitted-at"]').text()).toBe(
+      'Submitted Jun 1, 2099',
+    );
     expect(has(wrapper, 'vendor-page-answers')).toBe(true);
     expect(has(wrapper, 'vendor-page-edit-btn')).toBe(true);
     expect(wrapper.get('[data-testid="vendor-page-signed-in-as"]').text()).toBe(
@@ -583,6 +586,8 @@ describe("a Google Form market's page (ADR 0022)", () => {
     expect(has(wrapper, 'vendor-page-answers')).toBe(false);
     expect(has(wrapper, 'vendor-page-apply-btn')).toBe(false);
     expect(has(wrapper, 'vendor-page-info')).toBe(false);
+    // They submitted nothing here: the date is when the organizer's import stored their row.
+    expect(wrapper.get('[data-testid="vendor-page-status"]').text()).not.toContain('Submitted');
     // Nobody fills its form in, so the page never asks for one.
     expect(fetchPublicApplicationForm).not.toHaveBeenCalled();
   });
