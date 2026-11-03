@@ -27,7 +27,7 @@ import {
   type HistoryReaders,
 } from './shared';
 
-/** An amount of a payment entry, in the currency its subject names: "$35", or "-$15" for a refund. */
+/** An amount of a payment entry, in the currency its subject names: "$35.00", or "-$15.00" for a refund. */
 function entryMoney(entry: MarketHistoryEntry, cents: unknown): string {
   const amount = Number(cents);
   const money = formatPrice(Math.abs(amount), str(entry.subject.currency) || 'CAD');

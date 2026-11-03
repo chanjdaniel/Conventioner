@@ -14,7 +14,7 @@ describes:
   - back-end/api/organizations.py#get_history
   - back-end/tests/test_the_organizations_history.py
   - back-end/api/organizations.py#get_default_permission_history
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - wayfinding/readable-journey/08
   - E40/F01/S01

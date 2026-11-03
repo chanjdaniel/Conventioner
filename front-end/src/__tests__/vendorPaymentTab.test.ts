@@ -87,9 +87,9 @@ describe('the Payment tab', () => {
   it('heads the tab with both totals and how they compare', async () => {
     const wrapper = await tab(true);
 
-    expect(wrapper.get('[data-testid="payment-owed"]').text()).toBe('$70');
-    expect(wrapper.get('[data-testid="payment-paid"]').text()).toBe('$35');
-    expect(wrapper.get('[data-testid="payment-balance"]').text()).toBe('Owes $35');
+    expect(wrapper.get('[data-testid="payment-owed"]').text()).toBe('$70.00');
+    expect(wrapper.get('[data-testid="payment-paid"]').text()).toBe('$35.00');
+    expect(wrapper.get('[data-testid="payment-balance"]').text()).toBe('Owes $35.00');
   });
 
   it('keeps a freed table’s line, still owed, saying it was freed and when', async () => {
@@ -103,7 +103,7 @@ describe('the Payment tab', () => {
     expect(lines[1].get('[data-testid="payment-line-source"]').text()).toBe(
       'North Wing 1, Gold, full table - table freed Apr 20, 2099',
     );
-    expect(lines[1].get('[data-testid="payment-line-owed"]').text()).toBe('$35');
+    expect(lines[1].get('[data-testid="payment-line-owed"]').text()).toBe('$35.00');
   });
 
   it('says who recorded each payment', async () => {
@@ -201,8 +201,8 @@ describe('the Payment tab', () => {
     );
 
     const line = wrapper.get('[data-testid="payment-line"]');
-    expect(line.get('[data-testid="payment-line-price"]').text()).toBe('$35');
-    expect(line.get('[data-testid="payment-line-owed"]').text()).toBe('$0');
+    expect(line.get('[data-testid="payment-line-price"]').text()).toBe('$35.00');
+    expect(line.get('[data-testid="payment-line-owed"]').text()).toBe('$0.00');
     expect(line.get('[data-testid="payment-line-set"]').text()).toContain(
       'Set by admin@example.com, Apr 2, 2099',
     );

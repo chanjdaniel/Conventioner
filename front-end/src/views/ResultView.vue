@@ -413,7 +413,7 @@ watch(openSeat, async (seat) => {
 
 /**
  * What freeing the open seat may also take off what its vendor owes (E44/F01/S02): "Also remove its
- * $15 from what Alice owes?", naming what the line owes, and not asked where it owes nothing.
+ * $15.00 from what Alice owes?", naming what the line owes, and not asked where it owes nothing.
  */
 const deduction = computed(() => {
   const owed = seatOwed.value;
