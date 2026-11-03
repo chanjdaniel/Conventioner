@@ -107,7 +107,8 @@ On Review setup, under "What a reviewer reads first", tick the questions that sh
 In a draft that has not decided, the section says "Not decided yet. Opening applications waits on this." ("Your first import waits on this." on a Google Form market) and offers "Nothing leads the card", one click; chosen, it reads back "Nothing leads the card: a reviewer reads every answer, in the form's order.", with the questions still below it, and ticking one replaces it ([review waits on the review setup](../rules/review-waits-on-the-review-setup.md)).
 Someone who may not change the form reads the notice and the read-back, with no button; a market past draft shows no notice.
 Under "Automatic rejections", "Add a rule on" a choice question and tick the answers that reject: "An application that gives one of these answers arrives in review already rejected, with the reason. An Admin or the owner can overturn it, and the applicant never sees the reason.", naming whoever the market's row "Change a verdict, or overturn an automatic rejection" lets overturn it.
-The rules stay editable while the market can still reach Review; from Assignment on they are shown fixed: "The automatic rejections are settled: the market has reached Assignment, and a rule judges applications only while they can still be reviewed."
+In a draft that has not decided, the section says "Not decided yet. Opening applications waits on this." (or "Your first import waits on this.") and offers "No automatic rejections", one click, while no rule rejects an answer; chosen, it reads back "No automatic rejections: every application arrives undecided.", with "Add a rule on" still below it, and a rule replaces it, though a rule rejects nobody, and so decides nothing, until an answer is ticked.
+The rules stay editable while the market can still reach Review; from Assignment on they are shown fixed: "The automatic rejections are settled: the market has reached Assignment, and a rule judges applications only while they can still be reviewed.", with no notice, no button and no read-back.
 Covered by:
 - `automatic-rejections.spec.ts`
 - `review-highlights.spec.ts`
@@ -151,6 +152,6 @@ Assignment uses one type in this release, so even a floorplan with several types
 - [What each role may do](../rules/what-each-role-may-do.md): the form, the highlights and the automatic rejections are an Editor's.
 - [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md) and [automatic rejections](../rules/automatic-rejections.md): what a rule may name, what it judges, and that it closes with the review.
 - [Vendor notes](../rules/vendor-notes.md): the request question, asked unless switched off.
-- [Review waits on the review setup](../rules/review-waits-on-the-review-setup.md): a draft decides what a reviewer reads first before it enters Review.
+- [Review waits on the review setup](../rules/review-waits-on-the-review-setup.md): a draft decides what a reviewer reads first and the automatic rejections before it enters Review.
 
 Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
