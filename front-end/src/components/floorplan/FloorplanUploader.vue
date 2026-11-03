@@ -57,8 +57,14 @@ function revokePreview() {
 /** Preview a PDF's page as the image the server drew and stored for it. */
 async function previewStoredPage(page: PageResult) {
   const { data } = await api.get(`/floorplans/${page.gridfs_id}`, { responseType: 'blob' });
+  const url = URL.createObjectURL(data);
+  if (pages.value[selectedPage.value]?.gridfs_id !== page.gridfs_id) {
+    URL.revokeObjectURL(url);
+    return;
+  }
   revokePreview();
-  previewUrl.value = URL.createObjectURL(data);
+  previewUrl.value = url;
+  error.value = '';
 }
 
 async function handleFile(file: File) {
@@ -79,9 +85,9 @@ async function handleFile(file: File) {
     const { data } = await api.post('/floorplans/upload', formData);
 
     if (data.pages) {
-      await previewStoredPage(data.pages[0]);
       pages.value = data.pages;
       selectedPage.value = 0;
+      await previewStoredPage(data.pages[0]);
       emit('uploaded', data.pages[0]);
     } else {
       revokePreview();

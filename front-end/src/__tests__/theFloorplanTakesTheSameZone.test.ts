@@ -141,6 +141,43 @@ describe('the floorplan uploader', () => {
     ]);
   });
 
+  it('keeps a PDF preview on the page last chosen when an earlier page answers late', async () => {
+    const held: Record<string, (value: unknown) => void> = {};
+    const urls = new Map<Blob, string>();
+    api.get.mockImplementation((path: string) => {
+      const blob = new Blob([path], { type: 'image/png' });
+      urls.set(blob, `blob:${path}`);
+      if (path.endsWith('page-2')) {
+        return new Promise((resolve) => (held[path] = () => resolve({ data: blob })));
+      }
+      return Promise.resolve({ data: blob });
+    });
+    URL.createObjectURL = vi.fn((blob: Blob) => urls.get(blob) ?? 'blob:the-file');
+    api.post.mockResolvedValue({
+      data: {
+        pages: [
+          { gridfs_id: 'page-1', width: 800, height: 600 },
+          { gridfs_id: 'page-2', width: 800, height: 600 },
+        ],
+      },
+    });
+    const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1' } });
+    await choose(wrapper, fileOf('hall.pdf', 'application/pdf'));
+    await flushPromises();
+
+    await wrapper.findAll('.page-radio')[1].setValue();
+    await wrapper.findAll('.page-radio')[0].setValue();
+    await flushPromises();
+    held['/floorplans/page-2']();
+    await flushPromises();
+
+    expect(wrapper.get('img').attributes('src')).toBe('blob:/floorplans/page-1');
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:/floorplans/page-2');
+    expect(wrapper.emitted('uploaded')?.at(-1)).toEqual([
+      { gridfs_id: 'page-1', width: 800, height: 600 },
+    ]);
+  });
+
   it('refuses a file of another type, as before, and uploads nothing', async () => {
     const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1' } });
 
