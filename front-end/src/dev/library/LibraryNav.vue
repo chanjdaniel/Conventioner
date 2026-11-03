@@ -40,6 +40,7 @@ function go(event: Event) {
     <label class="library-nav__pick">
       <span class="field-label">Go to</span>
       <select
+        name="entry"
         class="field field--select"
         data-testid="library-entry-select"
         :value="props.current"

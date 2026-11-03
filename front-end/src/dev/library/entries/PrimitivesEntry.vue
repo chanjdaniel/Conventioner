@@ -110,32 +110,54 @@ function toggle(label: string) {
     <LibraryPanel label="Text: empty">
       <label class="library-field">
         <span class="field-label">Business name</span>
-        <input class="field" type="text" placeholder="Your business's name" />
+        <input
+          name="business-empty"
+          autocomplete="off"
+          class="field"
+          type="text"
+          placeholder="Your business's name"
+        />
       </label>
     </LibraryPanel>
     <LibraryPanel label="Text: filled">
       <label class="library-field">
         <span class="field-label">Business name</span>
-        <input v-model="business" class="field" type="text" />
+        <input v-model="business" name="business" autocomplete="off" class="field" type="text" />
       </label>
       <ReadOut label="Typed" :value="business" />
     </LibraryPanel>
     <LibraryPanel label="Text: disabled">
       <label class="library-field">
         <span class="field-label">Full name</span>
-        <input class="field" type="text" :value="name" disabled />
+        <input
+          name="full-name"
+          autocomplete="off"
+          class="field"
+          type="text"
+          :value="name"
+          disabled
+        />
       </label>
     </LibraryPanel>
     <LibraryPanel label="Text: with error, as Pricing marks it">
       <label class="library-field">
         <span class="field-label">Price group</span>
-        <input class="field error-ringed" type="text" value="" aria-invalid="true" />
+        <input
+          name="price-group"
+          autocomplete="off"
+          class="field error-ringed"
+          type="text"
+          value=""
+          aria-invalid="true"
+        />
       </label>
     </LibraryPanel>
     <LibraryPanel label="Text: with error, as Verify email says it">
       <label class="library-field">
         <span class="field-label">Email address</span>
         <input
+          name="email"
+          autocomplete="off"
           class="field"
           type="email"
           value="not-an-address"
@@ -148,7 +170,7 @@ function toggle(label: string) {
     <LibraryPanel label="Select: empty">
       <label class="library-field">
         <span class="field-label">Section</span>
-        <select class="field field--select">
+        <select name="section-empty" class="field field--select">
           <option value="" disabled selected>Choose a section</option>
           <option>North Wing</option>
           <option>South Wing</option>
@@ -158,7 +180,7 @@ function toggle(label: string) {
     <LibraryPanel label="Select: filled">
       <label class="library-field">
         <span class="field-label">Section</span>
-        <select v-model="section" class="field field--select">
+        <select v-model="section" name="section" class="field field--select">
           <option>North Wing</option>
           <option>South Wing</option>
         </select>
@@ -168,7 +190,7 @@ function toggle(label: string) {
     <LibraryPanel label="Select: disabled">
       <label class="library-field">
         <span class="field-label">Section</span>
-        <select class="field field--select" disabled>
+        <select name="section-disabled" class="field field--select" disabled>
           <option>North Wing</option>
         </select>
       </label>
@@ -176,7 +198,7 @@ function toggle(label: string) {
     <LibraryPanel label="Select: with error, as Pricing marks it">
       <label class="library-field">
         <span class="field-label">Section</span>
-        <select class="field field--select error-ringed" aria-invalid="true">
+        <select name="section-error" class="field field--select error-ringed" aria-invalid="true">
           <option value="" selected>Choose a section</option>
           <option>North Wing</option>
         </select>
@@ -185,7 +207,7 @@ function toggle(label: string) {
     <LibraryPanel label="Textarea: filled">
       <label class="library-field">
         <span class="field-label">What kinds of work will you sell?</span>
-        <textarea v-model="sells" class="field field--textarea"></textarea>
+        <textarea v-model="sells" name="sells" class="field field--textarea"></textarea>
       </label>
     </LibraryPanel>
   </LibrarySection>
