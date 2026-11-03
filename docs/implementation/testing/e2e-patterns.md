@@ -15,7 +15,7 @@ describes:
   - front-end/e2e/helpers/networkSettles.ts
   - front-end/e2e/helpers/settle.ts
   - front-end/src/utils/utils.ts#getFormattedDate
-verified: 2026-11-02
+verified: 2026-11-03
 sources:
   - E21/F02/S02
   - E22/F04/S02

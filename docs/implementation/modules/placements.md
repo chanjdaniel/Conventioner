@@ -56,7 +56,7 @@ Its routes are in [`back-end/app.py`](../../../back-end/app.py).
 | Route | Function | Does |
 | --- | --- | --- |
 | `POST /markets/:id/assignment` | `run_assignment` | runs the solver over the approved applications and stores what it produced, with [what it was made from](made-from.md); a day it seats forgets that vendor's freed line, and the $0 a free's deduction set on it ([payments](../data/payments.md)) |
-| `PUT /markets/:id/placements` | `write_placement` | places one vendor in one seat on one date, replacing whatever they held that date; the day forgets that vendor's freed line, and the $0 a free's deduction set on it ([payments](../data/payments.md)) |
+| `PUT /markets/:id/placements` | `write_placement` | places one vendor in one seat on one date, replacing whatever they held that date, so it is also the move from a taken seat's dialog to an empty seat (T208); the day forgets that vendor's freed line, and the $0 a free's deduction set on it ([payments](../data/payments.md)) |
 | `DELETE /markets/:id/placements` | `remove_placement` | frees the seat one vendor holds on one date, first keeping the seat's line of what they owe for it, which freeing never changes ([payments](../data/payments.md)), unless `deductOwed` asks that it owe $0, which asks the row "Change the amount owed" too, before anything is freed; freeing a seat nobody holds is not an error |
 | `POST /markets/:id/placements/swap` | `swap_placements` | trades two vendors' seats on one date in one document update: both change or neither does |
 
@@ -71,8 +71,9 @@ Each reads its body with `json_object` ([a body that is not an object is refused
 The whole-market PUT that once let a stale client copy move vendors on market day is deleted ([ADR 0008](../../adr/0008-each-write-names-what-it-changes.md)).
 Seeds and specs store an assignment through `POST /markets/:id/assignment` too, after walking the market to `assignment` ([assign runs only in assignment](../../business/rules/assign-runs-only-in-assignment.md)).
 
-**No "move" displaces an occupant.**
-Placing into a taken seat is refused while the organizer can see both vendors; freeing a seat first mirrors what an organizer physically does, and a swap says out loud that two people are changing places.
+**No change displaces an occupant.**
+A move into an empty seat displaces nobody, so it is allowed, as one write: `write_placement` replaces the seat the vendor held that date, and its history entry names the table left.
+Placing into a taken seat is still refused while the organizer can see both vendors, and trading two seated vendors is still the swap, which says out loud that two people are changing places.
 A swap is atomic because three separate operations invite a half-finished state, and the half-finished state is a vendor standing at no table on market day.
 
 **A seat goes only to an applicant.**

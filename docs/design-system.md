@@ -19,7 +19,7 @@ describes:
   - front-end/e2e/focus-sweep-detectors.spec.ts
   - front-end/e2e/helpers/focusSweep.ts
   - front-end/e2e/a-links-halo-appears-at-once.spec.ts
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01

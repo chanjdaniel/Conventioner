@@ -559,6 +559,11 @@ function findsToMove(option: PickerOption, words: string): boolean {
   margin: 0;
 }
 
+/* A legend's own inline padding would set it 2px right of the labels and fields around it. */
+.placement-field legend {
+  padding: 0;
+}
+
 .placement-radio {
   display: flex;
   align-items: center;
