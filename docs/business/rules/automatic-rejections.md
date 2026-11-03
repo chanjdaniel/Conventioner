@@ -10,7 +10,7 @@ describes:
   - front-end/src/components/application/AutomaticRejections.vue
   - front-end/src/components/application/ChoiceConditions.vue
   - back-end/api/markets.py#may_overturn
-verified: 2026-10-30
+verified: 2026-11-03
 sources:
   - wayfinding/november-2026-dry-run/map
   - wayfinding/rejection-visibility/map
@@ -63,7 +63,8 @@ The review says "Rejected automatically: <reason>", and "Approve instead", offer
 
 ## Who may
 
-An Editor writes the list (`PUT /markets/:id/rejection-rules`, the whole list at once), while the market can still get back to `applications`, where applications are reviewed; from `assignment` on the rules are shown fixed, settling with the verdicts ([verdicts settle on entering assignment](verdicts-settle-on-entering-assignment.md)), and an archived market refuses anyone.
+An Editor writes the list (`PUT /markets/:id/rejection-rules`, the whole list at once), while the review is open, before Assignment and again after Back to review; from `assignment` on the rules are shown fixed, settling with the verdicts ([verdicts settle on entering assignment](verdicts-settle-on-entering-assignment.md)), and an archived market refuses anyone.
+The fixed rules say why in the review's words, in their own subject: in Assignment before publishing, "The automatic rejections are closed while tables are allocated. To change a rule, choose Back to review under More… on the phase rail; tables are then allocated again."; once results are published, "The automatic rejections closed when results were published. To change who has a table, place or free a seat on Assignments."; on a Google Form market that went live, "The automatic rejections closed when the market went live." with the same way to change who has a table.
 They are not gated by the form's lock: the form freezes at the first application, and the rules are worth most once applications are arriving.
 Overturning what a rule rejected, whether by a verdict or by a save that returns it, is the row "Change a verdict, or overturn an automatic rejection" (default Admin), so an Editor's save changes what the rules reject next, never what they already rejected.
 The form tab's line and the import's done line name who may overturn from the market's own table (`whoMayTake` in [`front-end/src/utils/permissionTable.ts`](../../../front-end/src/utils/permissionTable.ts)): "an Admin or the owner" until its owner changes the row.
@@ -72,7 +73,7 @@ The form tab's line and the import's done line name who may overturn from the ma
 
 - [`back-end/rejection_rules.py`](../../../back-end/rejection_rules.py) is the one statement of what a rule may say and how it judges: `Rulebook` builds the questions a rule may name and the rules as they stand, `prepared` refuses a write in the organizer's words (a 400 [client error](../../implementation/conventions/an-exception-never-reaches-a-client.md)), `rejecting` finds the first rule an application meets and words its reason, and `judge` applies them, returning a rule's rejection to undecided only when its caller says the writer may overturn one (`overturns`).
 - `is_judgeable` in [`back-end/api/applications.py`](../../../back-end/api/applications.py) is which applications a rule may judge, and `judgeable_applications` lists a market's; the giver (`{kind: rule, rule}`) and `verdict_reason` are stored on [the application document](../../implementation/data/application-document.md#statuses), and the reason is served to the organizer as `verdictReason` and never in an applicant's response.
-- `save_rejection_rules` and `rejection_rules_lock_reason` in [`back-end/api/markets.py`](../../../back-end/api/markets.py); the lock asks `review_is_open`, as the verdicts do, and the market read serves `rejectionQuestions`, `rejectionRules` and `rejectionRulesLockReason`, so the step offers exactly what the write takes.
+- `save_rejection_rules` and `rejection_rules_lock_reason` in [`back-end/api/markets.py`](../../../back-end/api/markets.py); the lock takes the market and asks why the review is closed (`_why_the_review_is_closed`), as the verdicts' `review_closed_reason` does, and the market read serves `rejectionQuestions`, `rejectionRules` and `rejectionRulesLockReason`, so the step offers exactly what the write takes.
 - The import judges at its end, and its preview judges without writing ([the CSV import](../../implementation/modules/csv-import.md)).
 - Review setup saves them as it saves the highlights, through one composable (`useSavedOnTheMarket`, `front-end/src/utils/savedOnTheMarket.ts`).
 - The organizer sets them on the form tab's Review setup ([F3](../flows/form-tab.md#f3-what-a-reviewer-reads-first), [`AutomaticRejections.vue`](../../../front-end/src/components/application/AutomaticRejections.vue)), and reads and overturns them in [the review](../flows/review.md#i2-change-a-decision).

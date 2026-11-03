@@ -12,6 +12,7 @@ describes:
   - front-end/src/components/VendorPaymentTab.vue
   - front-end/src/components/RecordPaymentDialog.vue
   - front-end/src/components/ChangeOwedDialog.vue
+  - front-end/src/utils/useAmountField.ts
   - front-end/src/components/RowMenu.vue
   - back-end/app.py#record_refund
   - back-end/app.py#set_amount_owed
@@ -19,7 +20,7 @@ describes:
   - back-end/app.py#edit_payment
   - back-end/app.py#remove_payment
   - back-end/app.py#get_market_payments
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - T92
   - E44/F01/S01
@@ -42,7 +43,7 @@ By default the amount is the price of the seat the vendor holds that day, by the
 The seats are read off the market's stored assignment, through the same rows and the same pricing the drawer's date cards read (`derive_market_table_rows`, `seats_by_vendor`), so a line and its date card never disagree.
 A seat held now is never copied into these collections; only what the assignment cannot say is kept.
 A day seated again, by hand or by a run, forgets its freed line (`clear_freed_lines`), so a freed record never outlives the seat that replaced it, and with it the $0 the free's deduction set (marked `by_free`), which was about the freed table; an amount an Admin set by hand stays.
-Each deduction taken back is recorded under the seating's own row, `assign`, kind `owed_taken_back`, by whoever placed the vendor or ran the assignment ("… seated Alice Example again on May 8, 2099, taking back the $0 set when the table was freed"); Manage market's "Kind of change" lists it under Assignment, and under Payments beside the $0 it undoes.
+Each deduction taken back is recorded under the seating's own row, `assign`, kind `owed_taken_back`, by whoever placed the vendor or ran the assignment ("… seated Alice Example again on May 8, 2099, taking back the $0.00 set when the table was freed"); Manage market's "Kind of change" lists it under Assignment, and under Payments beside the $0 it undoes.
 The tab tells the two apart: a free's $0 reads "Removed when the table was freed, by …", an amount set by hand "Set by …" (`owedByFree` on the line).
 
 **Freeing a table never changes either amount by itself** (Q26: after the cancellation deadline "the amount owed and amount paid dont change even though the table did").
@@ -51,7 +52,7 @@ The line stays, owing what the seat cost the day it was freed, until someone set
 A run keeps no line for a seat of its own that a later run moves: it runs only in assignment, before results are published, while the assignment is still being made, and every hand placement is a pin each run keeps.
 Every free keeps the line, before results are published too (Daniel chose this over dropping it, after T121's review).
 
-**Freeing a table asks** (Q26: "when we remove a table, promp the user to ask if it should also dedudct from amount owed"): whoever may change the amount owed is asked in the placement dialog, beside "Free this seat", "Also remove its $15 from what Alice owes? (Cancelled before the deadline: a refund may be due.)", unticked, naming what the day's line owes, set by hand or calculated, read from the vendor's account as the dialog opens; a line that owes nothing asks nothing.
+**Freeing a table asks** (Q26: "when we remove a table, promp the user to ask if it should also dedudct from amount owed"): whoever may change the amount owed is asked in the placement dialog, beside "Free this seat", "Also remove its $15.00 from what Alice owes? (Cancelled before the deadline: a refund may be due.)", unticked, naming what the day's line owes, set by hand or calculated, read from the vendor's account as the dialog opens; a line that owes nothing asks nothing.
 Ticked, the free sends `deductOwed: true`, and `remove_placement` asks the row "Change the amount owed" before it frees anything, then sets the line's amount to $0 in the same change (`deduct_freed_line`); the amount paid is untouched, so a vendor who paid reads paid more than owed, a refund to issue.
 Anyone else frees the seat with no such question, and the line stays owed for an Admin to decide.
 
@@ -61,8 +62,8 @@ The line then shows the calculated price struck beside the amount set, with who 
 ## The amount paid
 
 **The sum of the vendor's entries still standing**: each an amount in whole cents of the market's currency, e-transfer or cash, the day it was paid, an optional note, and who recorded it and when (Q15, Q7b).
-An entry is a payment, or a refund: money given back, recorded once it is given (Q26: "when the refund is settled they can come back and adjust amount paid so it zeros out"), the same fields, stored as a negative amount and shown "-$15", "Refund by e-transfer, given …".
-The app never proposes a refund (Q20), and there is no "refund due" state: paid more than owed, "Paid $15 more than owed", is the sign one is to be issued.
+An entry is a payment, or a refund: money given back, recorded once it is given (Q26: "when the refund is settled they can come back and adjust amount paid so it zeros out"), the same fields, stored as a negative amount and shown "-$15.00", "Refund by e-transfer, given …".
+The app never proposes a refund (Q20), and there is no "refund due" state: paid more than owed, "Paid $15.00 more than owed", is the sign one is to be issued.
 
 **An edit or a removal keeps the entry's own history**: an edit sets the entry's fields and pushes what it read before onto its `changes`, with who and when; a removal marks it `removed_by` and `removed_at`, pushes the same, and leaves it listed, its amount struck, out of the amount paid.
 Either way the entry still reads "Recorded by …", with "Edited by …" or "Removed by …" under it.
@@ -99,7 +100,7 @@ Every route is in [`back-end/app.py`](../../../back-end/app.py) (`get_vendor_acc
 - `PUT /markets/:id/payments/:email/owed/:date`, body `{cents}` from 0 to $100,000, sets a table-day's amount owed, and `DELETE` on the same path uses the calculated price again; both ask the row "Change the amount owed", an Admin's by default (Q26: "this number can be changed by the admin"), and refuse a day with no line, 404.
 - `POST /markets/:id/payments/:email/refunds` records a refund, `PUT /markets/:id/payment-entries/:payment_id` edits an entry and `DELETE` on it removes it; all three ask the row "Adjust the amount paid", an Admin's by default, and an entry of another market, or one removed, is not found, 404.
 - Each write is recorded in [the market's history](history.md): a payment under `record-payment`; an amount owed set, a free's deduction included, or set back to the calculated price under `change-owed`, subject `{date, currency}`, the line's `owed_cents` before and after; a refund, an edit or a removal under `adjust-paid`, subject `{payment_id, payment_kind, currency}`, the entry's fields before and after; `payment_kind` (`payment` or `refund`, on `record-payment` too) words an edit that changed no amount.
-  Each names the vendor, so it reads in their drawer's History tab as in Manage market's ([reading the market's history](../../business/flows/reading-the-markets-history.md)), worded by `marketHistory.ts` ("… recorded a payment of $50 from Alice Example", "… set what Alice Example owes on May 8, 2099 to $0", "… recorded a refund of $15 to Alice Example"), opening to its fields in the Payment tab's words and money.
+  Each names the vendor, so it reads in their drawer's History tab as in Manage market's ([reading the market's history](../../business/flows/reading-the-markets-history.md)), worded by `marketHistory.ts` ("… recorded a payment of $50.00 from Alice Example", "… set what Alice Example owes on May 8, 2099 to $0.00", "… recorded a refund of $15.00 to Alice Example"), opening to its fields in the Payment tab's words and money.
 
 `accounts` in `back-end/api/payments.py` answers every vendor's account on the market at once, by address, each as `vendor_account` answers it, for every vendor with a seat, a kept line or an entry, from one read of each collection (`amounts_owed_by_vendor`, `payments_by_vendor`), a record with no address being nobody's; its caller has asked the table already.
 The vendor export reads it for its money columns and its payment filter ([J15, export the vendors](../../business/flows/vendors.md#j15-export-the-vendors-to-a-csv)), and only when one is asked for; `market_money` reads it for the Payments page (`market_payments`, which asks the table first) and for the Stats tab's money headlines (`count_money` in `back-end/market_stats.py`), so the two tell the same figures.
@@ -107,10 +108,12 @@ The vendor export reads it for its money columns and its payment filter ([J15, e
 On a market with no prices (`currency` null) an account owing nothing is in none, whatever was paid, since a payment there is not "more than owed" (T153 review finding 8); one owing an amount set by hand reads as anywhere, since the reading follows the account, not the market (finding 10), and so does one owing nothing whose amount paid is below nothing (a refund beyond what was paid), which owes it back (finding 14); `compares` in the same file is that rule, which `market_summary` sums by too, and `compares` in `front-end/src/utils/payments.ts` its twin, which `balanceText`, `balanceChip` and `owingCounted` read.
 `_offers_payment_states` in `back-end/api/vendor_export.py` says whether anyone may be in a state: always where the market sets prices, and where it sets none only where some account `compares`; where it says no, the export's preview offers no payment state and `_build` drops a `payment` filter sent anyway, as the Payments page ignores one in its address (`owingCounted` in `front-end/src/utils/paymentsPage.ts`).
 It is the one reading of who owes: the export's payment filter and the Payments page's lists both read it (`vendorShownIn` in `front-end/src/utils/paymentsPage.ts`, whose filters' ids are its own), while `balanceState` in `front-end/src/utils/payments.ts` only tones a chip.
-An amount in the file is `money_cell` in `back-end/api/vendor_export.py`: `money_text` in `back-end/pricing.py`, the tab's own writing ("$35", "$15.01", "-$15"), except that a minus leading a currency's letters ("-A$15", a cell reference to a spreadsheet) is the minus sign U+2212.
+An amount in the file is `money_cell` in `back-end/api/vendor_export.py`: `money_text` in `back-end/pricing.py`, the tab's own writing ("$35.00", "$15.01", "-$15.00"), except that a minus leading a currency's letters ("-A$15.00", a cell reference to a spreadsheet) is the minus sign U+2212.
+Every amount, on screen and in the file, reads to the cent, pinned on both sides by one table of cases ([an amount reads to the cent](../../business/rules/an-amount-reads-to-the-cent.md)).
 
-The front end words the account in [`front-end/src/utils/payments.ts`](../../../front-end/src/utils/payments.ts) ("Owes $27", "Paid in full", "Paid $15 more than owed", "Nothing owed"; on a market with no prices a payment by someone owing nothing reads "Paid $35"), tones its chip with `balanceChip` for the tab and the Payments page alike, and shows it in [`VendorPaymentTab.vue`](../../../front-end/src/components/VendorPaymentTab.vue).
+The front end words the account in [`front-end/src/utils/payments.ts`](../../../front-end/src/utils/payments.ts) ("Owes $27.00", "Paid in full", "Paid $15.00 more than owed", "Nothing owed"; on a market with no prices a payment by someone owing nothing reads "Paid $35.00"), tones its chip with `balanceChip` for the tab and the Payments page alike, and shows it in [`VendorPaymentTab.vue`](../../../front-end/src/components/VendorPaymentTab.vue).
 A payment, a refund and an edit go through [`RecordPaymentDialog.vue`](../../../front-end/src/components/RecordPaymentDialog.vue), an amount owed through [`ChangeOwedDialog.vue`](../../../front-end/src/components/ChangeOwedDialog.vue), which says the change before Save, and "Use the calculated price" and a removal through a confirmation; each line's and each entry's actions sit behind a "..." menu ([`RowMenu.vue`](../../../front-end/src/components/RowMenu.vue)), offered on its row's answer.
+Both dialogs' amount fields are amount fields as [an amount reads to the cent](../../business/rules/an-amount-reads-to-the-cent.md#an-amount-field) says, through `useAmountField` in [`front-end/src/utils/useAmountField.ts`](../../../front-end/src/utils/useAmountField.ts): left, "$35.00" in the account's currency (`currencyOf`, Canadian dollars where the market sets no prices), focused, "35.00"; an edit opens on the entry's amount and an amount owed on the line's, "$0.00" where none is set.
 
 ## How it is tested
 
@@ -118,9 +121,9 @@ A payment, a refund and an edit go through [`RecordPaymentDialog.vue`](../../../
 - `back-end/tests/test_the_payments_page.py`: the page's vendors as their tabs read, its totals against the sum of the tabs, the sharing by tier and by date to the cent, a vendor owing nothing, a vendor with no table whose payment was removed adding no row, a market with no prices (nobody owing in a payment state, an amount set by hand reading as anywhere, the figures summed by the account rule, a refund beyond what was paid owed back) or nobody, and who may read it.
 - `back-end/tests/test_changing_owed_and_paid.py`: an amount set to $0 and taken back, each recorded, and every change in the vendor's own history read; a free ticked and unticked; a refund that squares the account; an edit and a removal with the entry's own history; an Editor refused every one of them, and the deduction before anything is freed.
 - `back-end/tests/test_the_exports_money_columns.py`: `accounts` answers each vendor as `vendor_account` does, `balance_state` sorts five vendors into owing, paid in full, paid more and none, a market with no prices offers no payment state and ignores a payment filter where nobody owes, and offers and applies them where an amount was set by hand or a refund went beyond what was paid, `money_text` writes every offered currency as the screen does, and `money_cell` writes no amount a spreadsheet reads as a formula.
-- `front-end/src/__tests__/payments.test.ts`, `vendorPaymentTab.test.ts` and `placementDialog.test.ts` (the question, unticked).
-- `front-end/e2e/the-payment-tab.spec.ts`: two Gold full days owe $70, $35 reads "Owes $35", $35 more "Paid in full", a freed day keeps its line; a Viewer reads the tab with no "Record payment".
-  `changing-owed-and-paid.spec.ts`: an Admin sets a $35 line to $0 and back; frees a paid $15 seat ticked, reads "Paid $15 more than owed", records a $15 refund and reads "Paid in full", and finds each change in the drawer's History with who and when; unticked, the line stays $15 owed.
+- `front-end/src/__tests__/payments.test.ts`, `vendorPaymentTab.test.ts` and `placementDialog.test.ts` (the question, unticked); `paymentAmountFields.test.ts`: each dialog's amount field focused, typed, left, refocused, refused and left, cleared, and an edit's or an amount owed's fill.
+- `front-end/e2e/the-payment-tab.spec.ts`: two Gold full days owe $70, $35 reads "Owes $35.00", $35 more "Paid in full", a freed day keeps its line; "35" typed reads "$35.00" once left and "35.00" focused again, "3x" keeps its error; a Viewer reads the tab with no "Record payment".
+  `changing-owed-and-paid.spec.ts`: an Admin sets a $35 line to $0 and back, the field opening on "35.00" and reading "$0.00" once left; frees a paid $15 seat ticked, reads "Paid $15.00 more than owed", records a $15 refund and reads "Paid in full", and finds each change in the drawer's History with who and when; unticked, the line stays $15 owed.
   An Editor freeing the owed seat is asked nothing, its page never reads the account (`mayTake(ChangeOwed)` in `ResultView.vue`), and the line stays $15 owed.
   `exporting-a-payment-reminder.spec.ts` checks the export's "Owes" against the Payments page's "Owes" list too.
   `the-payments-page.spec.ts`: the Payments page's totals against the sum of three vendors' tabs, each filter and the sort kept by a reload, and a payment recorded in the drawer read on the page again.

@@ -33,7 +33,7 @@ export interface PaymentLine {
   owedCents: number | null;
   owedSetBy: string | null;
   owedSetAt: string | null;
-  /** The amount was set by the free's "Also remove its $15 …?", which seating the day again
+  /** The amount was set by the free's "Also remove its $15.00 …?", which seating the day again
    * takes back, rather than by hand. */
   owedByFree?: boolean;
   /** The table was freed; the line stays, still owed (Q26). */
@@ -81,9 +81,14 @@ export interface NewPayment {
 /** The currency an amount is shown in where the market names none: the card's own default. */
 const DEFAULT_CURRENCY = 'CAD';
 
-/** An amount in the account's currency; a refund's negative amount reads "-$15". */
+/** The currency an account's amounts are shown in, and an amount field's beside them. */
+export function currencyOf(account: Pick<VendorAccount, 'currency'>): string {
+  return account.currency ?? DEFAULT_CURRENCY;
+}
+
+/** An amount in the account's currency; a refund's negative amount reads "-$15.00". */
 export function money(cents: number, account: Pick<VendorAccount, 'currency'>): string {
-  const amount = formatPrice(Math.abs(cents), account.currency ?? DEFAULT_CURRENCY);
+  const amount = formatPrice(Math.abs(cents), currencyOf(account));
   return cents < 0 ? `-${amount}` : amount;
 }
 
@@ -101,9 +106,9 @@ export function compares(account: Compared): boolean {
 }
 
 /**
- * How what they paid compares with what they owe: "Owes $27", "Paid in full", or "Paid $15 more
- * than owed", the case where a refund is to be issued (Q26). Nothing owed and nothing paid is
- * "Nothing owed". An account that does not `compare` reads as what was paid, "Paid $35".
+ * How what they paid compares with what they owe: "Owes $27.00", "Paid in full", or "Paid $15.00
+ * more than owed", the case where a refund is to be issued (Q26). Nothing owed and nothing paid is
+ * "Nothing owed". An account that does not `compare` reads as what was paid, "Paid $35.00".
  */
 export function balanceText(account: Compared): string {
   if (!compares(account)) {

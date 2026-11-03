@@ -166,6 +166,11 @@
   --shadow-card:
     0 0 0 1px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.07), 0 6px 14px rgba(0, 0, 0, 0.08);
 
+  /* A scrolling body's edge shade (T200): drawn at the top or bottom edge of a dialog's body while
+     there is more that way, fading from this to nothing over its depth. */
+  --edge-shade: rgba(39, 35, 35, 0.12);
+  --edge-shade-depth: var(--space-3);
+
   /* A focused control's halo (E38/F01/S01), Daniel's choice C on the 2026-10-29 walk: a white 2px
      gap, then a translucent green glow, hugging the control. It replaced a 2px `--mm-black` ring.
      Measured, the glow is 1.58:1 against white and 1.50 against beige, below WCAG's 3:1 for a focus

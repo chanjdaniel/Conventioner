@@ -6,7 +6,7 @@ describes:
   - front-end/src/utils/openMarket.ts
   - front-end/src/utils/lastMarket.ts
   - front-end/src/utils/marketActions.ts
-verified: 2026-10-31
+verified: 2026-11-03
 sources:
   - E38/F04/S02
   - wayfinding/the-market-frame/03
@@ -82,7 +82,7 @@ A new control is one line under its screen, and a new screen is a block beside t
 
 **Assignments, and the drawer's link to it**
 - Change on a seat: Allocate tables, change the assignment rules, and assign, swap or free seats
-- "Also remove its $15…" beside Free this seat: Change the amount owed, besides the Assignment row the free itself asks
+- "Also remove its $15.00…" beside Free this seat: Change the amount owed, besides the Assignment row the free itself asks
 
 **Vendors**
 - Add a vendor: Add a vendor, while `addingVendorsReason` is null

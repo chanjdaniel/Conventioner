@@ -168,7 +168,7 @@ test.describe('What to show, and when', () => {
     );
     await page.goto(marketSetupPath(marketId, 'applications'));
     await expect(page.getByTestId('market-setup-applications-condition')).toContainText(
-      'The review is closed: every verdict settled when the market entered Assignment.',
+      'The review is closed while tables are allocated.',
     );
   });
 

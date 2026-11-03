@@ -336,14 +336,19 @@ class TestWhoMayChoose:
         assert response.status_code == 403
         assert response.get_json()["error"] == MarketsApi.ARCHIVED_REFUSAL
 
-    @pytest.mark.parametrize("phase", [MarketPhase.ASSIGNMENT, MarketPhase.MARKET_DAYS])
-    def test_a_closed_review_is_refused(self, world, phase):
-        world.market(phase)
+    @pytest.mark.parametrize("phase, published, why", [
+        (MarketPhase.ASSIGNMENT, False, "The review is closed while tables are allocated."),
+        (MarketPhase.ASSIGNMENT, True, "The review closed when results were published."),
+        (MarketPhase.MARKET_DAYS, False, "The review closed when the market went live."),
+    ], ids=str)
+    def test_a_closed_review_is_refused_saying_why(self, world, phase, published, why):
+        world.market(phase, resultsPublished=published)
 
         response = _choose([ANA])
 
         assert response.status_code == 400
-        assert response.get_json()["error"] == MarketsApi.REVIEWERS_SETTLED
+        error = response.get_json()["error"]
+        assert error.startswith("The review is closed, so its reviewers no longer change. " + why)
         assert "reviewTeam" not in world.markets.doc
 
     def test_an_address_the_chooser_is_not_offered_is_refused_by_name(self, world):

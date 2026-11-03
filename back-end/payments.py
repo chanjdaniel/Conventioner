@@ -262,7 +262,7 @@ def lines(
             "owedCents": by_hand["cents"] if by_hand else seat.cents,
             "owedSetBy": by_hand["by"] if by_hand else None,
             "owedSetAt": by_hand["at"] if by_hand else None,
-            # Set by the free that asked "Also remove its $35 …?", not by hand: seating the day
+            # Set by the free that asked "Also remove its $35.00 …?", not by hand: seating the day
             # again takes it back, so the tab says which amounts hold.
             "owedByFree": bool(by_hand and by_hand.get("by_free")),
             "freed": held is None,
@@ -305,8 +305,8 @@ def account(
 
 
 #: How what a vendor paid compares with what they owe, as the Payment tab reads it
-#: (``balanceText`` in ``front-end/src/utils/payments.ts``): "Owes $27", "Paid in full", or
-#: "Paid $15 more than owed", a refund to issue (Q26). Nothing owed and nothing paid is none.
+#: (``balanceText`` in ``front-end/src/utils/payments.ts``): "Owes $27.00", "Paid in full", or
+#: "Paid $15.00 more than owed", a refund to issue (Q26). Nothing owed and nothing paid is none.
 OWES = "owes"
 PAID_IN_FULL = "paid"
 PAID_MORE = "over"
