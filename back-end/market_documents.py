@@ -418,15 +418,14 @@ _DOCUMENT_READ_FIELDS = ("phase", "intake_mode")
 def market_serves_applicants(market_doc: Dict[str, Any]) -> bool:
     """Does this market have an applicant-facing surface at all?
 
-    Its intake mode is ``form``. A CSV market's vendors never see this product: they are imported
-    from a file the organizer already collected, and every applicant endpoint answers for their
-    market exactly as it answers for a market that does not exist.
+    Its intake mode is ``form``. A CSV market's vendors never apply in this product: they are
+    imported from a file the organizer already collected, so its application form answers for it
+    exactly as for a market that does not exist. Its vendors still get a vendor page, without an
+    application, once its results are published (``vendor_page_market_by_slug``).
 
-    The question is asked in two places and stated once here, which is the same reason
-    ``applicant_intake_market_by_slug`` below is one lookup rather than a check in each of five
-    endpoints. The other caller is ``publish_results``: that flag is read only by endpoints behind
-    this gate, so flipping it on a CSV market changes nothing anyone can see - a control with a
-    confident label and no effect.
+    The question is stated once here, which is the same reason ``applicant_intake_market_by_slug``
+    below is one lookup rather than a check in each endpoint: both gates ask it, and the vendor's
+    own read asks it to leave out a Google Form market's answers.
     """
     return intake_mode_from_market_document(market_doc) is IntakeMode.FORM
 
@@ -481,20 +480,45 @@ def vendor_page_market_by_slug(
     result and their seats. This decides whether a market has one: every vendor read and the
     sign-in go through it, while applying itself stays behind ``applicant_intake_market_by_slug``.
 
-    A market whose vendors apply on its page has one in every phase but draft. ``None`` is the
-    answer for everything else, the same answer a slug that names nothing gets, so a stranger who
-    guesses the slug of a draft or of a market that imports its vendors learns nothing.
+    A market whose vendors apply on its page has one in every phase but draft. A market that imports
+    its vendors from the organizer's Google Form has one once its results are published, when its
+    vendors have something to read there, or once it has reached its market days, which covers one
+    that went live before it could publish results (an archived one that did counts). ``None`` is
+    the answer for everything else, the same answer a slug that names nothing gets, so a stranger
+    who guesses the slug of a draft, or of a Google Form market before its results, learns nothing.
 
-    ``intake_mode`` is added to the caller's projection for the reason
-    ``applicant_intake_market_by_slug`` adds it.
+    What the gate reads is added to the caller's projection for the reason
+    ``applicant_intake_market_by_slug`` adds ``intake_mode``: the intake mode, the results flag, and
+    the id and phase record that say whether the market ran.
     """
-    projected = None if fields is None else (*fields, "intake_mode")
+    projected = None if fields is None else (*fields, *_VENDOR_PAGE_GATE_FIELDS)
     market_doc = market_by_slug(
         collection, market_slug, APPLICANT_SURFACE_PHASES, fields=projected,
     )
-    if market_doc is None or not market_serves_applicants(market_doc):
+    if market_doc is None:
         return None
-    return market_doc
+    if market_serves_applicants(market_doc) or market_doc_field(market_doc, "results_published"):
+        return market_doc
+    if _reached_market_days(market_doc):
+        return market_doc
+    return None
+
+
+# What ``vendor_page_market_by_slug`` reads of a market to decide whether it has a page.
+_VENDOR_PAGE_GATE_FIELDS: Tuple[str, ...] = ("intake_mode", "results_published", "id", "phase_history")
+
+
+def _reached_market_days(market_doc: Dict[str, Any]) -> bool:
+    """Has this market reached its market days, by its phase record and, where that is partial, by
+    whether anyone checked in (``attendance.market_ran``)?
+
+    Imported here rather than at the top: ``phase_record`` and the attendance module both import
+    this one.
+    """
+    if phase_from_market_document(market_doc) is MarketPhase.MARKET_DAYS:
+        return True
+    import api.attendance as AttendanceApi
+    return AttendanceApi.market_ran(market_doc)
 
 
 

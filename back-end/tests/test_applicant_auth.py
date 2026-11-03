@@ -181,9 +181,9 @@ def _published_market_doc(market_id="test-market-1", name="Test Market",
                           phase="applications", intake_mode="form"):
     """A minimal market document the slug lookup can resolve.
 
-    Applicant login is an applicant-intake surface, so it serves form-intake markets only. A
-    market that takes its vendors by CSV import answers here exactly as a market that does not
-    exist, which is what ``intake_mode="csv"`` is for.
+    Applicant login serves a market with a vendor page (``vendor_page_market_by_slug``). A market
+    that takes its vendors by CSV import has none before its results are published, and answers
+    here exactly as a market that does not exist, which is what ``intake_mode="csv"`` is for.
     """
     slug = market_name_slug(name)
     return {
@@ -576,7 +576,7 @@ class TestVerifyCodeIndistinguishable:
             _verify(applicant_auth_module, known_code, slug=draft["slug"]))
         imported = _published_market_doc("csv-market", "Imported Market", intake_mode="csv")
         test_db.markets.docs.append(imported)
-        answers["market that imports its vendors"] = _answer(
+        answers["market that imports its vendors, before its results"] = _answer(
             _verify(applicant_auth_module, known_code, slug=imported["slug"]))
 
         for case, (status, body) in answers.items():

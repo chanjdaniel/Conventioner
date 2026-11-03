@@ -60,10 +60,24 @@ class TestWhenResultsMayBePublished:
     def test_not_twice(self):
         assert "already" in ApplicantsApi.publish_results_refusal(market(results_published=True))
 
-    def test_never_on_a_market_with_no_applicants_to_tell(self):
-        refusal = ApplicantsApi.publish_results_refusal(market(intake_mode=IntakeMode.CSV))
+    def test_a_google_form_market_publishes_under_the_same_rule(self):
+        """Its vendors read their result on its vendor page (ADR 0022), so it has someone to tell."""
+        assert ApplicantsApi.publish_results_refusal(market(intake_mode=IntakeMode.CSV)) is None
 
-        assert "import" in refusal
+    @pytest.mark.parametrize("overrides,refused", [
+        ({"phase": MarketPhase.APPLICATIONS}, "once tables have been allocated"),
+        ({"seated": ()}, "Allocate tables"),
+        ({"results_published": True}, "already"),
+    ])
+    def test_a_google_form_market_is_refused_for_the_same_reasons(self, overrides, refused):
+        refusal = ApplicantsApi.publish_results_refusal(market(intake_mode=IntakeMode.CSV, **overrides))
+
+        assert refused in refusal
+
+    def test_nor_while_a_google_form_markets_run_is_out_of_date(self, monkeypatch):
+        monkeypatch.setattr(ApplicantsApi, "changed_since_run", lambda _market: ["applications"])
+
+        assert "out of date" in ApplicantsApi.publish_results_refusal(market(intake_mode=IntakeMode.CSV))
 
 
 class TestWhatEachApplicantWillRead:

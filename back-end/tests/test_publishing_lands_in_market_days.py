@@ -48,6 +48,9 @@ def _market(phase=MarketPhase.ASSIGNMENT, assignments=("vendor@example.com",)):
                 for e in assignments
             ],
         ),
+        # Published, so the one invariant these read is the assignment's: results are its own
+        # (`test_publishing_settles_the_assignment.py`).
+        results_published=True,
         phase=phase,
     )
 

@@ -96,12 +96,17 @@ def _application_response(
     app: Application, results_published: bool,
     placements: Iterable[VendorAssignmentResult] = (),
     checked_in: Optional[Dict[str, Optional[str]]] = None,
+    with_answers: bool = True,
 ) -> Dict[str, Any]:
     """Serialize an application for the applicant-facing API with the publication gate applied.
 
     After publication it carries the applicant's outcome and their own seats (E36/F05/S02), read
     off the stored placements on every read, so a seat changed by hand shows at once. Each seat
     says when they checked in to it, from ``checked_in`` (``{date: checked_in_at}``), or null.
+
+    ``with_answers`` is false on a market that imports its vendors (ADR 0022): its page shows no
+    application, and the answers are the organizer's import of their own Google Form, so the read
+    carries no ``formData``.
     """
     placed = list(placements)
     outcome = (
@@ -110,7 +115,7 @@ def _application_response(
     )
     seats = ResultOutcome.seats_of(app.applicant_email, placed) if results_published else []
     when = checked_in or {}
-    return {
+    response = {
         "outcome": outcome,
         "seats": [{**seat, "checkedInAt": when.get(seat["date"])} for seat in seats],
         # The name the vendor goes by, as the organizer reads it, so their page greets them by it.
@@ -125,6 +130,9 @@ def _application_response(
         "submittedAt": app.submitted_at,
         "updatedAt": app.updated_at,
     }
+    if not with_answers:
+        del response["formData"]
+    return response
 
 
 def _application_response_organizer(
@@ -389,7 +397,8 @@ def get_applicant_application(
     results_published = bool(market_doc.get("resultsPublished"))
     return {"application": _application_response(
         app, results_published, _stored_placements(market_doc),
-        AttendanceApi.check_ins_of(market_id, app.applicant_email))}, 200
+        AttendanceApi.check_ins_of(market_id, app.applicant_email),
+        with_answers=market_serves_applicants(market_doc))}, 200
 
 
 def _stored_placements(market_doc: Dict[str, Any]) -> List[VendorAssignmentResult]:
@@ -892,11 +901,6 @@ def reassign_follow_up(
     return {"application": _application_response_organizer(app)}, 200
 
 
-NO_APPLICANTS_TO_TELL = (
-    "This market takes its vendors by import, so it has no applicants to publish results to."
-)
-
-
 def publish_results_refusal(market: Market) -> Optional[str]:
     """Why results cannot be published now, or None while they can (E36/F04/S01).
 
@@ -904,9 +908,10 @@ def publish_results_refusal(market: Market) -> Optional[str]:
     applicant is told what the market will hold, and nobody's answer shifts under them through a
     later run. Served as ``publishWaitsReason``, beside the table's Publish results answer, so the
     button is offered exactly when the endpoint would take it.
+
+    The same rule on both kinds of market: a Google Form market's vendors read their result on its
+    vendor page, which opens with it (ADR 0022).
     """
-    if market.intake_mode is not IntakeMode.FORM:
-        return NO_APPLICANTS_TO_TELL
     if market.results_published:
         return "Results are already published."
     if market.phase is not MarketPhase.ASSIGNMENT:
@@ -984,10 +989,8 @@ def publish_results(market_id: str, by: str) -> Tuple[Dict[str, Any], int]:
     application reads as ``under_review`` to its applicant. After it, applicants see their
     actual outcome.
 
-    Refused on a CSV market, because on one the flag has no reader: every endpoint that consults
-    it goes through ``applicant_intake_market_by_slug``, which serves form-intake markets only. The
-    button is hidden there too, but a hidden button is not a rule - the endpoint is reachable
-    directly.
+    On a Google Form market it is also what opens the vendor page (``vendor_page_market_by_slug``),
+    since its vendors have nothing to read there before it.
     """
     from db_config import get_database
     db = get_database()
@@ -996,8 +999,6 @@ def publish_results(market_id: str, by: str) -> Tuple[Dict[str, Any], int]:
     if not doc:
         return {"error": "Market not found."}, 404
 
-    if not market_serves_applicants(doc):
-        return {"error": NO_APPLICANTS_TO_TELL}, 409
     refusal = publish_results_refusal(market_from_document(doc))
     if refusal:
         return {"error": refusal}, 409

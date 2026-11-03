@@ -58,7 +58,7 @@ class TestTheGate:
         assert vendor_page_market_by_slug(FakeSlugMarketsCollection(_draft()), SLUG) is None
 
     @pytest.mark.parametrize("intake_mode", ["csv", None])
-    def test_a_market_that_imports_its_vendors_has_none_yet(self, intake_mode):
+    def test_a_market_that_imports_its_vendors_has_none_before_its_results(self, intake_mode):
         collection = FakeSlugMarketsCollection(_market(intake_mode, phase=MarketPhase.ASSIGNMENT))
         assert vendor_page_market_by_slug(collection, SLUG) is None
 
@@ -153,8 +153,8 @@ class TestThePagesPublicRead:
 
     @pytest.mark.parametrize(
         "gated",
-        [_draft("form"), _market("csv"), _market(None), _market("csv", MarketPhase.MARKET_DAYS)],
-        ids=["draft", "csv", "no-intake-mode", "csv-market-days"],
+        [_draft("form"), _market("csv"), _market(None), _market("csv", MarketPhase.ASSIGNMENT)],
+        ids=["draft", "csv", "no-intake-mode", "csv-before-results"],
     )
     def test_a_market_without_a_page_answers_byte_for_byte_as_an_unknown_slug(
         self, client, markets, gated,

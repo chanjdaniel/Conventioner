@@ -358,25 +358,26 @@ class AssignmentComputedGuard:
 
 
 class ResultsPublishedGuard:
-    """A market whose vendors apply on its page does not go live until they have been told whether
-    they have a table (E36/F04/S02).
+    """A market does not go live until its vendors have been told whether they have a table
+    (E36/F04/S02).
 
     An ENTRY INVARIANT on ``market_days``, like the assignment it follows: check-in on the air with
-    applicants still reading "Submitted" was the state this closes. A CSV market has no applicant
-    page and nobody to tell, so it passes. Reads the intake mode and the flag, never the phase.
+    applicants still reading "Submitted" was the state this closes. It holds on both kinds of
+    market: a Google Form market's vendors read their table on its vendor page, which opens with
+    its results (ADR 0022). Reads the flag, never the phase.
     """
 
     id: str = "results_published"
-    description: str = "Results are published to applicants"
+    description: str = "Results are published to vendors"
 
     def evaluate(self, market: Market, _db) -> PreconditionResult:
-        if market.intake_mode is not IntakeMode.FORM or market.results_published:
+        if market.results_published:
             return PreconditionResult(id=self.id, passed=True, message="")
         return PreconditionResult(
             id=self.id,
             passed=False,
             message=(
-                "Applicants have not been told whether they have a table. Publish the results "
+                "Vendors have not been told whether they have a table. Publish the results "
                 "before the market goes live."
             ),
             resolution_link="applications",
