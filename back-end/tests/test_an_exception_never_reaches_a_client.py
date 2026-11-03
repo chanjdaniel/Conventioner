@@ -133,6 +133,7 @@ class TestTheTypes:
         (PlacementsApi.PlacementError, BadRequestError),
         (PlacementsApi.SeatTakenError, BadRequestError),
         (PlacementsApi.AssignPhaseError, ConflictError),
+        (PlacementsApi.AssignmentChangedUnderRequest, ConflictError),
         (AddedVendorsApi.AddVendorRefused, ConflictError),
         (AddedVendorsApi.AddVendorInvalid, BadRequestError),
         (CsvStart.ConfirmRefused, ConflictError),
