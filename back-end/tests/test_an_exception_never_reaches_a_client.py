@@ -1013,6 +1013,8 @@ APPLICANT_REVIEW_IMPORT_AND_DOOR_ROUTES = [
     ("delete", "/markets/market-123/attendance",
      {"vendorEmail": "ana@example.com", "date": "2099-08-01"},
      DoorApi, "undo_check_in", "market-123"),
+    ("get", "/markets/market-123/door-code", None, DoorApi, "door_code", "market-123"),
+    ("post", "/markets/market-123/door-code", None, DoorApi, "make_door_code", "market-123"),
 ]
 
 
@@ -1392,6 +1394,7 @@ READS_NO_BODY = [
      [(ApplicantAuthApi, "resume_sign_in", HANDED_ON)]),
     ("post", "/public/markets/<market_slug>/applicant-login/sign-out",
      [(ApplicantAuthApi, "sign_out", HANDED_ON)]),
+    ("post", "/markets/<market_id>/door-code", [(DoorApi, "make_door_code", HANDED_ON)]),
 ]
 # Each write route in app.py with a body another module reads: the view hands `request` to the
 # account API in api/users.py, or the applicant sign-in in api/applicant_auth.py reads it for its

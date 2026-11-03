@@ -286,6 +286,17 @@ def market_doc_projection(fields: Sequence[str]) -> Dict[str, Any]:
     return {market_doc_key(field): 1 for field in fields}
 
 
+#: What a market document holds that no market read serves, to any role: the door code is served
+#: only by its own endpoints, to whoever may check vendors in (``api/door.py``, ADR 0022).
+NEVER_SERVED_FIELDS: Tuple[str, ...] = ("door_code",)
+
+
+def leave_out_what_no_read_serves(document: Dict[str, Any]) -> None:
+    """Take ``NEVER_SERVED_FIELDS`` off a raw market document about to be served."""
+    for field in NEVER_SERVED_FIELDS:
+        document.pop(market_doc_key(field), None)
+
+
 # What ``published_market_by_slug`` reads of a candidate itself: the name it re-checks the slug
 # against, and the two fields the draft test is decided from. A caller's projection is unioned with
 # these rather than trusted to contain them, because a projection that dropped one would not make

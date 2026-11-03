@@ -264,6 +264,21 @@ describe('what an entry says', () => {
     ).toBe('[Ana Rivera] checked in on the check-in page on Nov 19, 2026');
   });
 
+  it('words the first door code as made, and a new one as ending the old', () => {
+    const made = (replaced: boolean) =>
+      sentence({
+        action: 'check-in',
+        kind: 'door_code_made',
+        vendors: [],
+        detail: { replaced },
+      });
+
+    expect(made(false)).toBe('dana@ember.test made the door code');
+    expect(made(true)).toBe(
+      'dana@ember.test made a new door code, which ended the old one and every poster of it',
+    );
+  });
+
   it('words a change to a row of the permission table by its label and both roles', () => {
     const labels = { 'check-in': 'Check vendors in' };
     expect(

@@ -2139,6 +2139,23 @@ def organizer_undo_check_in(market_id: str) -> Response:
     return _door_write(market_id, DoorApi.undo_check_in)
 
 
+@app.route('/markets/<market_id>/door-code', methods=['GET'])
+@login_required
+def get_door_code(market_id: str) -> Response:
+    """The market's door code, ``{code, madeAt, madeBy, url}`` or ``{code: null}`` (ADR 0022).
+    Asks ``Actions.CHECK_IN``: no market read serves it."""
+    return jsonify(DoorApi.door_code(market_id, authenticated_email())), 200
+
+
+@app.route('/markets/<market_id>/door-code', methods=['POST'])
+@login_required
+def make_door_code(market_id: str) -> Response:
+    """A new door code, which ends the old one and every poster of it. Asks
+    ``Actions.CHECK_IN``; only in Market Days, and never on an archived market."""
+    result, status_code = DoorApi.make_door_code(market_id, authenticated_email())
+    return jsonify(result), status_code
+
+
 # misc
 
 def cleanup_sessions() -> None:

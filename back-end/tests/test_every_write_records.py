@@ -550,6 +550,11 @@ def _door(organizer: bool, undo: bool):
     return send
 
 
+def _door_code(client, world):
+    world.market(MarketPhase.MARKET_DAYS)
+    return client.post(f"/markets/{MARKET}/door-code")
+
+
 # --- Discord ----------------------------------------------------------------------------------------
 
 DISCORD_SERVER = {"guildId": "2909267986263572999", "guildName": "Market Vendors"}
@@ -775,6 +780,8 @@ WRITES = [
     Write("a vendor's own check-in undone", "DELETE", PUBLIC_DOOR, Actions.CHECK_IN,
           History.CHECK_IN_UNDONE, _door(organizer=False, undo=True), actor=None,
           vendors=(VENDOR,), subject={"date": DATE}, detail_keys=("via",)),
+    Write("a door code made", "POST", f"{M}/door-code", Actions.CHECK_IN, History.DOOR_CODE_MADE,
+          _door_code, before_after=False, detail_keys=("replaced",)),
     Write("Discord connected", "POST", f"{M}/discord/connection", Actions.CONNECT_DISCORD,
           History.DISCORD_CONNECTED, _connect_discord),
     Write("a Discord choice", "PUT", f"{M}/discord", Actions.CONNECT_DISCORD,

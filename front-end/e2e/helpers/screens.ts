@@ -19,6 +19,7 @@ import {
 } from '../fixtures';
 import { EmailVerificationPage } from '../pages/EmailVerificationPage';
 import { marketScreenPath, marketSetupPath, oneByOnePath } from './marketScreens';
+import { mongoEval } from './mongo';
 import { createApplicantLoginChallenge } from './seedApplicantMarket';
 import { loginViaApi } from './seeds';
 import {
@@ -940,6 +941,42 @@ export const SCREENS: Screen[] = [
     sizes: FITS_A_PHONE,
     open: at(screen('big', 'tools'), 'plan-card-discord'),
   },
+  // The door code over the attendance (ADR 0022), on the tablet or laptop at the entrance or the
+  // phone in the organizer's hand: before one is made, full screen, and New code's confirmation.
+  {
+    name: 'the door code, none made yet',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: async (page, seed) => {
+      mongoEval(
+        `db.markets.updateOne({ id: '${seed.big.marketId}' }, { $unset: { doorCode: 1 } })`,
+      );
+      await at(screen('big', 'attendance'), 'attendance-row', [
+        'attendance-door-code',
+        'door-code-make',
+      ])(page, seed);
+    },
+  },
+  ...(
+    [
+      ['full screen', []],
+      ["New code's confirmation", [['door-code-new', 'door-code-new-confirm-window']]],
+    ] as const
+  ).map(([state, then]): Screen => ({
+    name: `the door code, ${state}`,
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: async (page, seed) => {
+      const made = await page.request.post(`${APP_API}/markets/${seed.big.marketId}/door-code`);
+      expect(made.ok(), await made.text()).toBeTruthy();
+      await at(
+        screen('big', 'attendance'),
+        'attendance-row',
+        ['attendance-door-code', 'door-code-qr'],
+        ...then.map(([click, shows]): [string, string] => [click, shows]),
+      )(page, seed);
+    },
+  })),
   // What else the organizer reaches at the door, on the phone in their hand (T82).
   {
     name: 'the navigation drawer, at the door',

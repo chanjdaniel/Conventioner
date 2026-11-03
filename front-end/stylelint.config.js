@@ -60,6 +60,7 @@ const rawScale = (options) => [
 /** Each file a slice has migrated: an error there is a regression, not the backlog. */
 const MIGRATED = [
   'src/components/BlockerPanel.vue',
+  'src/components/DoorCodeScreen.vue',
   'src/components/MarketSummaryCard.vue',
   'src/components/MarketPermissions.vue',
   'src/components/MarketArrival.vue',

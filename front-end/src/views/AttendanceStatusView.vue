@@ -8,6 +8,9 @@
  * The roster is served off the stored assignment, the same rows check-in records against.
  *
  * Laptop first, and it must work on a phone: the door is sometimes a person standing up.
+ *
+ * In Market Days, whoever may check vendors in opens the door code here, full screen, for the
+ * device that stands at the entrance or a printed poster (ADR 0022).
  */
 import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, ref, watch } from 'vue';
@@ -23,6 +26,8 @@ import VendorDrawer from '@/components/VendorDrawer.vue';
 import VendorNameButton from '@/components/VendorNameButton.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
+import DoorCodeScreen from '@/components/DoorCodeScreen.vue';
+import { offersDoorCode } from '@/utils/doorCode';
 import { useVendorDetails } from '@/utils/vendorDetails';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
 import { useVendorNotes } from '@/utils/vendorNotes';
@@ -90,6 +95,10 @@ const canCheckIn = computed(
   () =>
     market.value?.phase === MarketPhase.MarketDays && mayTake(market.value, MarketAction.CheckIn),
 );
+
+/** The door code's screen, offered on the same answer as a check-in. */
+const offersTheDoorCode = computed(() => offersDoorCode(market.value));
+const showingDoorCode = ref(false);
 
 function tally(date: string) {
   const day = roster.value.filter((row) => row.date === date);
@@ -200,20 +209,31 @@ watch(marketId, loadAttendance, { immediate: true });
         This market has no dates yet.
       </p>
       <template v-else-if="dates.length">
-        <nav class="door-dates" aria-label="Market date">
+        <div class="door-top">
+          <nav class="door-dates" aria-label="Market date">
+            <button
+              v-for="date in dates"
+              :key="date"
+              type="button"
+              class="btn btn--secondary btn--compact door-date"
+              :aria-pressed="date === selectedDate"
+              :data-testid="`attendance-date-${date}`"
+              @click="chooseDate(date)"
+            >
+              {{ getShortDate(date) }}
+              <span class="door-date-count">{{ tally(date).here }}/{{ tally(date).expected }}</span>
+            </button>
+          </nav>
           <button
-            v-for="date in dates"
-            :key="date"
+            v-if="offersTheDoorCode"
             type="button"
-            class="btn btn--secondary btn--compact door-date"
-            :aria-pressed="date === selectedDate"
-            :data-testid="`attendance-date-${date}`"
-            @click="chooseDate(date)"
+            class="btn btn--secondary btn--compact door-code-open"
+            data-testid="attendance-door-code"
+            @click="showingDoorCode = true"
           >
-            {{ getShortDate(date) }}
-            <span class="door-date-count">{{ tally(date).here }}/{{ tally(date).expected }}</span>
+            Door code
           </button>
-        </nav>
+        </div>
 
         <div class="door-bar">
           <h2 class="door-summary" data-testid="attendance-summary">
@@ -337,6 +357,12 @@ watch(marketId, loadAttendance, { immediate: true });
       @update:tab="drawer.setTab"
       @notesChanged="loadNotes"
     />
+    <DoorCodeScreen
+      v-if="showingDoorCode && market"
+      :marketId="marketId"
+      :marketName="market.name"
+      @close="showingDoorCode = false"
+    />
   </MarketFrame>
 </template>
 
@@ -347,6 +373,19 @@ watch(marketId, loadAttendance, { immediate: true });
   gap: var(--space-4);
   padding: var(--space-6);
   color: var(--mm-black);
+}
+
+.door-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+/* At the row's end, and at the end of its own line when the dates fill theirs. */
+.door-code-open {
+  margin-inline-start: auto;
 }
 
 .door-dates,

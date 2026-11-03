@@ -63,6 +63,7 @@ from market_documents import (
     market_doc_key,
     market_doc_set,
     market_from_document,
+    leave_out_what_no_read_serves,
 )
 import api.market_actions as Actions
 import api.permissions as PermissionsApi
@@ -888,6 +889,7 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
         return None
 
     market_dict['_id'] = str(market_dict['_id'])
+    leave_out_what_no_read_serves(market_dict)
     # Deprecated: no screen reads the role since each asks the table (E39/F01/S02); an old bundle's
     # Manage market does, and the next release removes it with ``deprecated_screen_reasons``.
     market_dict['user_role'] = user_role.value
@@ -1097,6 +1099,7 @@ def _decorate_market_summary(
     whether it was served by the list endpoint or by ``get_market_for_user``.
     """
     market['_id'] = str(market['_id'])
+    leave_out_what_no_read_serves(market)
     # A Discord check's stored inputs, which no list entry serves, as no market read does.
     from api.discord_connection import leave_out_what_is_not_served
     leave_out_what_is_not_served(market)
