@@ -175,8 +175,10 @@ test('a move to a seat taken meanwhile is refused in the dialog, which stays ope
   await expect(tables.dialogError).toContainText(`${BOB} already holds Landing 1`);
   await expect(tables.dialog).toBeVisible();
   await tables.cancel();
+  // Read again, as the page does not after a refusal: Bob keeps the seat and Alice hers.
+  await tables.goto(marketId);
+  await expect(tables.seatIn('Landing 1', BOB)).toBeVisible({ timeout: 15000 });
   await expect(tables.seatIn('North Wing 1', ALICE)).toBeVisible();
-  await expect(tables.seatIn('Landing 1', BOB)).toBeVisible();
 });
 
 test('an empty seat takes a vendor seated elsewhere that day, moving them in one change', async ({
