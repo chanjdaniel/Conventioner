@@ -4,6 +4,7 @@ import { OrganizationsPage } from './pages/OrganizationsPage';
 import { SEED_MARKET_DATE, completePlan, loginViaApi } from './helpers/seeds';
 import { seedApprovedVendor } from './helpers/seedApplication';
 import { savePlan } from './helpers/savePlan';
+import { decideReviewSetup } from './helpers/decideReviewSetup';
 
 /**
  * Deleting an organization is safe (E20/F04/S01).
@@ -118,6 +119,7 @@ test.describe('Deleting an organization', () => {
       data: { fields: [{ key: 'business_name', label: 'Business name', type: 'text', order: 0 }] },
     });
     await savePlan(request, BACKEND_URL, TEST_USER.email, live, completePlan());
+    await decideReviewSetup(request, BACKEND_URL, live);
     await transition(request, live, 'applications');
 
     const orgs = new OrganizationsPage(page);

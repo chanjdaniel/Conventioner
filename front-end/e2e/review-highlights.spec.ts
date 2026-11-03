@@ -1,6 +1,7 @@
 import { test, expect, TEST_USER, BACKEND_URL, APP_API } from './fixtures';
 import { marketSetupPath, oneByOnePath } from './helpers/marketScreens';
 import { completePlan, ensureTestOrg, loginViaApi } from './helpers/seeds';
+import { decideReviewSetup } from './helpers/decideReviewSetup';
 import { seedApplication } from './helpers/seedApplication';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import type { APIRequestContext } from '@playwright/test';
@@ -68,6 +69,7 @@ async function seedMarketWithAForm(
     data: FORM,
   });
   expect(form.ok(), await form.text()).toBeTruthy();
+  await decideReviewSetup(request, BACKEND_URL, marketId);
   const opened = await request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
     headers,
     data: { toPhase: 'applications' },
