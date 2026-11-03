@@ -309,6 +309,11 @@ test.describe('Phase state machine - sweep', () => {
     // exists (E03/F03) - publishing puts the check-in page on the air, and a market with no
     // placements serves a page that can tell nobody where to stand.
     seedStoredAssignment(seed.marketId);
+    // And every market tells its vendors before it goes live (E36/F04/S02, ADR 0022). Publish
+    // results is offered in assignment only, and this sweep takes the legacy road through offers.
+    mongoEval(
+      `db.markets.updateOne({id: ${JSON.stringify(seed.marketId)}}, {$set: {resultsPublished: true}})`,
+    );
     await transitionViaPage(page, seed.marketId, 'market_days');
 
     const afterSent = queryStatus(sentEmail);

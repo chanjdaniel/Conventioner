@@ -148,6 +148,17 @@ export class MarketSetupPage {
   }
 
   /**
+   * Publish results on the Applications page, where the rail leads in Assignment, and confirm.
+   * Every market publishes them before it goes live, on either path (ADR 0022).
+   */
+  async publishResults(marketId: string): Promise<void> {
+    await this.page.goto(marketSetupPath(marketId, 'applications'));
+    await this.page.getByTestId('applications-publish-button').click();
+    await this.page.getByTestId('publish-results-submit-button').click();
+    await this.page.getByTestId('applications-published-badge').waitFor({ timeout: 10000 });
+  }
+
+  /**
    * Assign lives on the ASSIGNMENT surface now (E18/F02/S04), not on the plan - it is refused
    * outside the assignment phase, so a permanently disabled button beside the dates explained a
    * rule instead of applying it.

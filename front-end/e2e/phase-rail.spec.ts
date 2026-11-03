@@ -8,6 +8,7 @@ import {
   completePlan,
   marketNameToSlug,
   seedPublishedMarketWithAssignments,
+  publishResults,
 } from './helpers/seeds';
 import type { Locator } from '@playwright/test';
 
@@ -77,6 +78,7 @@ test.describe('The phase rail', () => {
     // labels paint over each other while the row still fits.
     await page.setViewportSize({ width: 1920, height: 1080 });
 
+    await publishResults(page.request, APP_API, TEST_USER.email, seed.marketId);
     await page.request.post(`${APP_API}/markets/${seed.marketId}/transition`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: { toPhase: 'market_days' },
@@ -124,17 +126,20 @@ test.describe('The phase rail', () => {
     await expect(page.locator('body')).not.toContainText('Page not found');
   });
 
-  test('a CSV market carries no vendor page chip, and a form market does', async ({
+  test('a CSV market carries the vendor page chip once its results are out, and a form market from applications', async ({
     authenticatedPage: page,
   }) => {
-    // The seeded market takes its vendors by import, so the chip must not appear: its vendor page
-    // answers exactly as a market that does not exist, and a chip would be the one place the
-    // product admitted it was real (E18/F04/S02).
+    // The seeded market takes its vendors by import, and published its results earlier in the
+    // file, so its vendor page answers and the chip points at it (ADR 0022). Before its results
+    // it shows none (`a-google-form-markets-vendor-page.spec.ts`).
     await openMarket(page, marketSetupPath(seed.marketId, 'setup'));
     await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByTestId('phase-rail-vendor-page')).toHaveCount(0);
+    await expect(page.getByTestId('phase-rail-vendor-page').locator('a')).toHaveAttribute(
+      'href',
+      new RegExp(`/${seed.slug}$`),
+    );
 
-    // A market taking applications by form does carry it, pointing at its own address. Intake
+    // A market taking applications by form carries it from its first phase after draft. Intake
     // mode is chosen while a market is a draft and fixed after, so this is a market of its own.
     const formMarket = await seedPhaseMarket(
       page.request,

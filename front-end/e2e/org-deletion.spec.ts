@@ -1,7 +1,7 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import type { APIRequestContext } from '@playwright/test';
 import { OrganizationsPage } from './pages/OrganizationsPage';
-import { SEED_MARKET_DATE, completePlan, loginViaApi } from './helpers/seeds';
+import { SEED_MARKET_DATE, completePlan, loginViaApi, publishResults } from './helpers/seeds';
 import { seedApprovedVendor } from './helpers/seedApplication';
 import { savePlan } from './helpers/savePlan';
 
@@ -94,6 +94,7 @@ async function runThenArchive(request: APIRequestContext, marketId: string) {
     headers: { 'X-Owner-Email': TEST_USER.email },
   });
   expect(run.ok(), await run.text()).toBeTruthy();
+  await publishResults(request, BACKEND_URL, TEST_USER.email, marketId);
   await transition(request, marketId, 'market_days');
   await transition(request, marketId, 'archived');
 }

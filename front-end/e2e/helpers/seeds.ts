@@ -56,6 +56,25 @@ export interface PublishedSeedResult extends SeedResult {
 /**
  * Replicate the front-end marketNameToKebabSlug logic for URL-safe slugs.
  */
+/**
+ * Publish a market's results, as its owner, in Assignment with a current run stored. Every market
+ * publishes them before it may enter `market_days`, on either path (E36/F04/S02, ADR 0022), and
+ * after it the run is refused, so a spec publishes only once it has the run it wants.
+ */
+export async function publishResults(
+  request: APIRequestContext,
+  baseURL: string,
+  email: string,
+  marketId: string,
+): Promise<void> {
+  const res = await request.post(`${baseURL}/markets/${marketId}/publish-results`, {
+    headers: { 'X-Owner-Email': email },
+  });
+  if (!res.ok()) {
+    throw new Error(`Publishing results failed: ${res.status()} ${await res.text()}`);
+  }
+}
+
 export function marketNameToSlug(name: string): string {
   return name
     .trim()
@@ -433,15 +452,8 @@ export async function seedPublishedMarketWithAssignments(
     throw new Error(`Assignment run failed: ${assignRes.status()} ${await assignRes.text()}`);
   }
 
-  // A market whose vendors apply on its page tells them before it goes live (E36/F04/S02).
-  if (options.intakeMode === 'form') {
-    const published = await request.post(`${baseURL}/markets/${marketId}/publish-results`, {
-      headers: { 'X-Owner-Email': email },
-    });
-    if (!published.ok()) {
-      throw new Error(`Publishing results failed: ${published.status()} ${await published.text()}`);
-    }
-  }
+  // A market tells its vendors before it goes live (E36/F04/S02), on either path (ADR 0022).
+  await publishResults(request, baseURL, email, marketId);
 
   await transitionTo('market_days');
 

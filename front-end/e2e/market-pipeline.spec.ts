@@ -197,11 +197,12 @@ test.describe('Market pipeline E2E', () => {
     // Publishing is a step on the phase strip, not a Done button on the results screen
     // (E10/F03/S01): that button posted a transition invalid from the phase the organizer was
     // standing in, and failed with a raw enum error.
+    // Its vendors are told first, on its vendor page, on this path too (ADR 0022).
+    await setupPage.publishResults(marketId);
     await page.goto(marketSetupPath(marketId));
     await setupPage.advancePhaseTo('market_days', 'Market Days');
 
-    // Its vendors reach check-in on the URL publishing put on the air. This market takes its
-    // vendors by CSV import, so its market home answers as a market that does not exist.
+    // Its vendors reach check-in on the URL publishing put on the air.
     const slug = marketNameToSlug(marketName);
     await page.goto(`/${slug}/check-in`);
     await expect(page.locator('.attendance-view')).toBeVisible({ timeout: 10000 });
