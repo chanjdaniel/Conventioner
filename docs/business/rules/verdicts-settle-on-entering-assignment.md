@@ -4,6 +4,7 @@ kind: rule
 describes:
   - back-end/api/markets.py#review_is_open
   - back-end/api/markets.py#verdict_refusal
+  - back-end/api/markets.py#review_closed_reason
   - back-end/app.py#_reviewer_on
 verified: 2026-11-03
 sources:
@@ -39,6 +40,19 @@ Verdicts are open from the first application on, so an organizer decides as appl
 Ahead, not merely reachable: asking whether the stage can be reached would open the review in Assignment, since Back to review reaches the stage from there.
 Today that is open in `draft` and `applications`, and closed in `assignment`, `offers`, `market_days` and `archived`.
 
+## What a closed review says
+
+Wherever the review is closed, the server says why and what to do instead, in the words of where the market stands (`review_closed_reason`, T207):
+
+- In `assignment` while results are not published: "The review is closed while tables are allocated. To change a verdict, choose Back to review under More… on the phase rail; tables are then allocated again."
+- Once results are published, in any phase but `archived`: "The review closed when results were published. To change who has a table, place or free a seat on Assignments."
+- In `offers` or `market_days` with no results published, a Google Form market's way: "The review closed when the market went live. To change who has a table, place or free a seat on Assignments."
+- In `archived`: the archived refusal, as every write there says.
+
+Published comes before the phase, since no way back is left once applicants have read their results.
+The automatic rejections say the same in their own subject ("The automatic rejections are closed while tables are allocated. To change a rule, …", "The automatic rejections closed when results were published. …", "… closed when the market went live. …"), and choosing reviewers refuses with "The review is closed, so its reviewers no longer change." followed by the review's reason.
+The Applications tab says the reason once, over both views, where the review's controls were ([reviewing applications](../flows/review.md)); the verdict buttons and the reviewers panel go on the same served reason with no words of their own, and the fixed rules say their own subject's reason (`rejectionRulesLockReason`).
+
 ## Who may
 
 An EDITOR (E34/F01/S01): a verdict records who gave it, and is not one of the admin actions.
@@ -47,8 +61,8 @@ An archived market refuses anyone.
 
 ## Where it is kept
 
-- `verdict_refusal` in [`back-end/api/markets.py`](../../../back-end/api/markets.py) is the archived rule, the table's Give verdicts and follow-ups row and `review_is_open`; the market read serves its parts apart, the row's answer in `actionRefusals` and the close of the review as `verdictsSettledReason`, and every review screen gives verdicts only when neither refuses, exactly what the write takes.
+- `verdict_refusal` in [`back-end/api/markets.py`](../../../back-end/api/markets.py) is the archived rule, the table's Give verdicts and follow-ups row and `review_closed_reason`, which asks `review_is_open` and tells the closed cases apart in one place (`_why_the_review_is_closed`); the market read serves its parts apart, the row's answer in `actionRefusals` and the close of the review as `verdictsSettledReason` (and the deprecated `verdictLockReason`), and every review screen gives verdicts only when neither refuses, exactly what the write takes.
 - `_reviewer_on` in [`back-end/app.py`](../../../back-end/app.py) is the one gate of every review write (a verdict, a selection's verdicts, a follow-up's owner, a claim, and an undo of a verdict or a selection's), and answers a refusal with a 403 in its words; a verdict and a selection's then ask the change row of each application already approved or rejected (`_change_refused`).
 - `review_is_open` reads the table kept by [the guards](../../implementation/modules/guards.md); the verdict itself is stored on [the application document](../../implementation/data/application-document.md#statuses).
-- `back-end/tests/test_a_verdict_says_who.py` pins it in every phase, and holds the verdicts' lock and the automatic rejections' lock equal in each.
+- `back-end/tests/test_a_verdict_says_who.py` pins it in every phase, published or not, with each reason's words, and holds the verdicts' lock and the automatic rejections' lock equal in each; `front-end/e2e/the-closed-review-says-why.spec.ts` reads the tab's line in Assignment, once published, and on a Google Form market that went live.
 - Several reviewers at once are kept apart by a claim, and a verdict is written only on what its reviewer saw ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)); a follow-up is [needs follow-up](needs-follow-up.md), and a rule's rejection [automatic rejections](automatic-rejections.md).

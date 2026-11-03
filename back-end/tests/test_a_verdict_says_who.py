@@ -21,6 +21,26 @@ import api.users as UsersApi  # noqa: E402
 from conftest import FakeApplicationsCollection, sessions_load_through_get_user  # noqa: E402
 from datatypes import ApplicationStatus, MarketPhase, VerdictGiver  # noqa: E402
 
+#: Why the review is closed, as the spec words each case (T207).
+ALLOCATING = (
+    "The review is closed while tables are allocated. To change a verdict, choose Back to review "
+    "under More… on the phase rail; tables are then allocated again.")
+PUBLISHED = (
+    "The review closed when results were published. To change who has a table, place or free a "
+    "seat on Assignments.")
+WENT_LIVE = (
+    "The review closed when the market went live. To change who has a table, place or free a seat "
+    "on Assignments.")
+RULES_ALLOCATING = (
+    "The automatic rejections are closed while tables are allocated. To change a rule, choose Back "
+    "to review under More… on the phase rail; tables are then allocated again.")
+RULES_PUBLISHED = (
+    "The automatic rejections closed when results were published. To change who has a table, "
+    "place or free a seat on Assignments.")
+RULES_WENT_LIVE = (
+    "The automatic rejections closed when the market went live. To change who has a table, place "
+    "or free a seat on Assignments.")
+
 ALEX = VerdictGiver(kind="person", user_id="user-alex", email="alex@market.test")
 
 
@@ -158,24 +178,68 @@ class TestWhenAVerdictMayChange:
 
         assert MarketsApi.verdict_refusal("e@x.test", client_market(phase=phase), None) is None
 
-    @pytest.mark.parametrize("phase", [MarketPhase.ASSIGNMENT, MarketPhase.OFFERS,
-                                       MarketPhase.MARKET_DAYS])
-    def test_settled_on_entering_assignment(self, phase, monkeypatch):
+    @pytest.mark.parametrize("phase, published, words", [
+        (MarketPhase.ASSIGNMENT, False, ALLOCATING),
+        (MarketPhase.ASSIGNMENT, True, PUBLISHED),
+        (MarketPhase.OFFERS, True, PUBLISHED),
+        (MarketPhase.MARKET_DAYS, True, PUBLISHED),
+        (MarketPhase.OFFERS, False, WENT_LIVE),
+        (MarketPhase.MARKET_DAYS, False, WENT_LIVE),
+        (MarketPhase.ARCHIVED, True, MarketsApi.ARCHIVED_REFUSAL),
+        (MarketPhase.ARCHIVED, False, MarketsApi.ARCHIVED_REFUSAL),
+    ], ids=str)
+    def test_a_closed_review_says_why_and_what_to_do_instead(
+        self, phase, published, words, monkeypatch,
+    ):
+        """Why it closed, in the words of where the market stands (T207): Back to review while
+        tables are allocated, a seat on Assignments once applicants have read their results or the
+        market went live, and the archived refusal on the record."""
         monkeypatch.setattr(Actions, "refusal", lambda *_a: None)
         from conftest import client_market
 
-        assert MarketsApi.verdict_refusal(
-            "e@x.test", client_market(phase=phase), None) == MarketsApi.VERDICTS_SETTLED
+        market = client_market(phase=phase, results_published=published)
 
-    @pytest.mark.parametrize("phase", list(MarketPhase))
-    def test_the_verdicts_and_the_automatic_rejections_settle_together(self, phase, monkeypatch):
+        assert MarketsApi.review_closed_reason(market) == words
+        assert MarketsApi.verdict_refusal("e@x.test", market, None) == words
+
+    @pytest.mark.parametrize("phase", OPEN)
+    def test_an_open_review_names_no_reason(self, phase):
+        from conftest import client_market
+
+        market = client_market(phase=phase)
+
+        assert MarketsApi.review_closed_reason(market) is None
+        assert MarketsApi.rejection_rules_lock_reason(market) is None
+
+    @pytest.mark.parametrize("phase, published, words", [
+        (MarketPhase.ASSIGNMENT, False, RULES_ALLOCATING),
+        (MarketPhase.ASSIGNMENT, True, RULES_PUBLISHED),
+        (MarketPhase.MARKET_DAYS, True, RULES_PUBLISHED),
+        (MarketPhase.OFFERS, False, RULES_WENT_LIVE),
+        (MarketPhase.MARKET_DAYS, False, RULES_WENT_LIVE),
+        (MarketPhase.ARCHIVED, False, MarketsApi.ARCHIVED_REFUSAL),
+    ], ids=str)
+    def test_the_automatic_rejections_say_the_same_in_their_own_subject(
+        self, phase, published, words,
+    ):
+        from conftest import client_market
+
+        market = client_market(phase=phase, results_published=published)
+
+        assert MarketsApi.rejection_rules_lock_reason(market) == words
+
+    @pytest.mark.parametrize("published", [False, True], ids=["unpublished", "published"])
+    @pytest.mark.parametrize("phase", list(MarketPhase), ids=str)
+    def test_the_verdicts_and_the_automatic_rejections_settle_together(
+        self, phase, published, monkeypatch,
+    ):
         """One rule, not two that agree today: a rule and a reviewer judge the same applications."""
         monkeypatch.setattr(Actions, "refusal", lambda *_a: None)
         from conftest import client_market
 
-        verdicts_open = MarketsApi.verdict_refusal(
-            "e@x.test", client_market(phase=phase), None) is None
-        rules_open = MarketsApi.rejection_rules_lock_reason(phase) is None
+        market = client_market(phase=phase, results_published=published)
+        verdicts_open = MarketsApi.verdict_refusal("e@x.test", market, None) is None
+        rules_open = MarketsApi.rejection_rules_lock_reason(market) is None
         assert verdicts_open == rules_open == (phase in self.OPEN)
 
     def test_a_person_who_may_not_change_the_market_is_told_that_first(self, monkeypatch):
