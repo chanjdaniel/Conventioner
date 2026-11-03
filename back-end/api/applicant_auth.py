@@ -44,7 +44,8 @@ constraints:
    HttpOnly cookie holding a secret the server keeps only as a hash. ``resume``
    answers for a live one exactly as a right code does, and every way one cannot
    pass (none, tampered, ended, signed out, another market's, a gated market) is one
-   401 that also clears it. It is counted per caller before the cookie is read.
+   401, which also forgets and clears a cookie the browser sent. It is counted per
+   caller before the cookie is read.
 
 A first-time vendor signs in exactly as a returning one does: the token names the
 address and the market, not an application, and their first save creates it.

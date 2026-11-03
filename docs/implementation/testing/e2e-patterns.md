@@ -101,6 +101,7 @@ That, the self-signed certificate and the other suite-wide traps are TESTING.md'
 
 **Applicant sign-in is rate limited** ([sign-in is bounded](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)): an address is sent at most five codes per 15 minutes and may try ten, and a caller thirty and sixty, which the whole serial run shares.
 [`global-setup.ts`](../../../front-end/e2e/global-setup.ts) clears the counters at the start of every run; a spec that signs the same address in more than that within one run trips the limit, so a spec that spends a code's five tries uses an address of its own.
+Every signed-out vendor page also asks to resume a remembered sign-in, 60 per caller per 15 minutes; a refused resume draws the sign-in as no cookie does, so only a spec that needs a resume to pass clears the counters first, as `remember-me-on-the-vendor-page.spec.ts` does.
 
 **A run starts once the host's container network has settled.**
 A stack's interfaces keep changing for a while after `up` returns: each takes an IPv6 address within a second, and changes link state again about 15 seconds later, and Chromium fails whatever it has in flight with `net::ERR_NETWORK_CHANGED` at each change, so the first spec after a stack started lost a module and failed.

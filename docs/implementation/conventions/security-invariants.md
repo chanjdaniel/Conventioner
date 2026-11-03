@@ -190,6 +190,13 @@ Both cookies carry a sign-in id, the login id with the sign-in's kind and time, 
 A sign-in id of any other shape loads no one, so the year-long remember-me cookies and the sessions issued before it are not read, and every organizer signs in once more after the release that brings it.
 The cookie keeps Flask-Login's name, so a browser's old one is replaced or cleared at its next sign-in, and a sign-in without "Remember me" clears a remember-me cookie the browser held.
 
+**A vendor's remember cookie, `vendor_remember_<market id>`, is `Secure`, `SameSite=None` and `HttpOnly` too**, set from the `VENDOR_REMEMBER_COOKIE_*` keys in the same settings block in [`app.py`](../../../back-end/app.py) by [`back-end/remembered_sign_ins.py`](../../../back-end/remembered_sign_ins.py) ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)).
+It holds a random secret of 32 bytes, and the server keeps only its SHA-256, as the `_id` of a document in `vendor_remembered_sign_ins` beside the market, the address, `expires_at` and `created_at`, so neither a script on the vendor page nor a leaked backup signs anyone in.
+The cookie and the document end at `expires_at`, the earlier of noon UTC on the day after the market's last date and 120 days from the sign-in; resuming reads the document and writes nothing, so use never extends it.
+It ends for good on Sign out, on any resume it cannot pass (both delete the document and clear the cookie), on the next sign-in at that market on that device, with the market's deletion, and by the TTL index once `expires_at` has passed.
+It names one market, so remembering a vendor at one changes nothing at another.
+The vendor's token still lives in the tab's `sessionStorage` for 30 minutes; the cookie only spares the code, which is why a long-lived token in `localStorage`, readable by any injected script, was rejected.
+
 **A session is held to the client that signed in**: Flask-Login's `session_protection = "strong"` refuses a request whose client, its address and browser, is not the one the session recorded.
 It applies in both stores, and to a session made permanent too, which Flask-Login's own "strong" would only mark not fresh.
 A session the remember-me cookie restores records its client too (`hold_a_restored_session_to_its_browser` in [`app.py`](../../../back-end/app.py)): Flask-Login's restore does not, so until E38/F14/S01 a remembered browser was signed back in for one request and then signed out, its cookie deleted.

@@ -14,7 +14,7 @@ describes:
   - back-end/api/organizations.py#get_history
   - back-end/tests/test_the_organizations_history.py
   - back-end/api/organizations.py#get_default_permission_history
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - wayfinding/readable-journey/08
   - E40/F01/S01
@@ -346,7 +346,7 @@ One block per action, in the order its constants stand in `history.py`; a new ki
 
 No rule is a person, so a rule's verdict is never an entry of its own: the write that judged counts what the rules did in its own entry, as the form, the rules, an applicant's save and an import (`rejected_by_rules`, `returned_by_rules`) do, and a move counts the offers it swept.
 
-Not recorded, each for its reason in `NOT_A_CHANGE` and `NOT_RECORDED` of [`back-end/tests/test_every_write_records.py`](../../../back-end/tests/test_every_write_records.py): a review claim ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)), which is who holds a card open and not a change; reads and exports; a vendor signing in; a market's creation, whose own history starts empty and which [its organization's history](#what-an-organization-records) records; its deletion, which takes the history with it while its organization's history keeps that it went (the [deletion trail](../modules/market-deletion.md) records a market only when its organization is deleted); the floorplan routes that keep nothing, or an upload the market uses only once a floorplan is saved; and starting Discord's approval screen, which keeps a state in the person's session and nothing on the market.
+Not recorded, each for its reason in `NOT_A_CHANGE` and `NOT_RECORDED` of [`back-end/tests/test_every_write_records.py`](../../../back-end/tests/test_every_write_records.py): a review claim ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)), which is who holds a card open and not a change; reads and exports; a vendor signing in or out; a market's creation, whose own history starts empty and which [its organization's history](#what-an-organization-records) records; its deletion, which takes the history with it while its organization's history keeps that it went (the [deletion trail](../modules/market-deletion.md) records a market only when its organization is deleted); the floorplan routes that keep nothing, or an upload the market uses only once a floorplan is saved; and starting Discord's approval screen, which keeps a state in the person's session and nothing on the market.
 That test sends every write route as the screen sends it and asserts its one entry; it fails on a market write route, or a row of the table, that records nothing without saying why there, and on an entry Mongo could not store.
 
 **Entries are stored structured, never as a sentence**: the wording belongs to the surface showing it, [`front-end/src/utils/marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts) for the whole history, which composes each area's words from its own file under [`historyReaders/`](../../../front-end/src/utils/historyReaders/) ([two features never share a line](../conventions/two-features-never-share-a-line.md#the-historys-words)), and [`front-end/src/utils/placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts) for a placement, on the Assignment history's trail and in the whole history alike, and must be changeable without a migration.

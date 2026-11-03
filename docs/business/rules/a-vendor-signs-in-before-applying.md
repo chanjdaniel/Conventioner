@@ -5,6 +5,8 @@ describes:
   - back-end/utils/application_token.py
   - back-end/api/applicant_auth.py#request_login_code
   - back-end/api/applicant_auth.py#verify_login_code
+  - back-end/api/applicant_auth.py#resume_sign_in
+  - back-end/api/applicant_auth.py#sign_out
   - back-end/api/applicants.py#save_applicant_application
   - back-end/sign_in_limits.py
 verified: 2026-11-03
@@ -53,11 +55,16 @@ Telling the person who just read the code whether they have applied leaks nothin
   The count is on the code, which every address that asks is given alike, never on an application.
 - **The token** ([`back-end/utils/application_token.py`](../../../back-end/utils/application_token.py)) names the market and the address, never an application, lasts 30 minutes and creates no session; it is signed with the app's one signing secret, which has no fallback.
   An applicant's application is found by market and address, its identity.
+- **Remember me spares the code on one device** ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)): a right code sent with `remember: true` also leaves a remembered sign-in, whose cookie and stored hash are described at [the cookies](../../implementation/conventions/security-invariants.md#the-cookies).
+  `resume_sign_in` answers a live one exactly as a right code does, with the same 30-minute token.
+  Every way one cannot pass answers one 401, "Sign in with a code.": no cookie, a tampered or ended one, one signed out, another market's secret under this market's name, a market [the gate](a-gated-market-answers-as-absent.md) no longer serves, and an unknown slug; a cookie the browser sent is forgotten on the server and cleared, so it stays refused.
+  `sign_out` ends it on the server and the device, 204 whether or not there was one.
+  A right code without the tick ends the one the device held at that market, so a shared device signed in by someone else remembers nobody.
 - **The first valid save creates the application** (`save_applicant_application` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py)): the answers are checked before anything is made, so a refused first try leaves nothing behind for the organizer to review as an empty application, and the application is created through the identity index of [the application document](../../implementation/data/application-document.md#indexes).
 - **A save that leaves the application open is its arrival**: with reviewers chosen, it is dealt to the next reviewer in turn, after the rules judge it, and the market's history records that under the applicant's own address ([the review is dealt among chosen reviewers](the-review-is-dealt-among-chosen-reviewers.md)).
   The save is open only while the market is in `applications` and taking applications ([an applicant never reads a verdict early](an-applicant-never-reads-a-verdict-early.md)).
   Their first save, and each edit that changes an answer, is recorded in [the market's history](../../implementation/data/history.md) with their address as the actor.
-- A market's outstanding codes are deleted with it ([market deletion](../../implementation/modules/market-deletion.md)).
+- A market's outstanding codes and remembered sign-ins are deleted with it ([market deletion](../../implementation/modules/market-deletion.md)).
 
 ## Sign-in is bounded
 
@@ -65,6 +72,8 @@ Each code request sends an email and each verify is a guess at a six-digit code,
 **Both endpoints are rate limited per address and per caller**, every limit in one table in [`back-end/sign_in_limits.py`](../../../back-end/sign_in_limits.py): 5 code requests per address and 30 per caller, 10 verifies per address and 60 per caller, each per 15 minutes.
 A refused attempt still counts.
 So at most 10 guesses per address per 15 minutes reach a six-digit code, however many codes are asked for, and each code takes at most five of them.
+A resume is counted per caller only, 60 per 15 minutes (`resume:caller`), before the cookie is read: its secret is 32 random bytes, so the limit bounds the work a caller asks of the database, not a guess.
+Past it the page asks for a code, as it does for no cookie.
 
 - **The counters live in the database, never in a process**: a serverless deployment forgets memory.
   One document per limit, subject and fixed clock-aligned window in `sign_in_attempts`, counted by an atomic `$inc` upsert and removed by a TTL index ([lookup indexes](../../implementation/data/lookup-indexes.md)).

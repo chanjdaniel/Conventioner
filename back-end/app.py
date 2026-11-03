@@ -367,7 +367,8 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 # it would ship a cookie the browser drops, or sends in the clear where it does not. Loopback counts
 # as a secure context, so local dev is unaffected. The remember-me cookie is HttpOnly by Flask-Login's
 # default. A vendor's remember cookie, `vendor_remember_<market id>` (`remembered_sign_ins`, ADR
-# 0022), is set from these three by that module, HttpOnly so no script on the vendor page reads it.
+# 0022), is set by that module from the three VENDOR_REMEMBER_COOKIE_ keys below, HttpOnly so no
+# script on the vendor page reads it.
 app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.config["REMEMBER_COOKIE_SECURE"] = True
