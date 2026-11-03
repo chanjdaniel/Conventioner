@@ -16,7 +16,7 @@ import LibrarySection from '../parts/LibrarySection.vue';
 import LibraryPanel from '../parts/LibraryPanel.vue';
 import ChoicesForYou from '../parts/ChoicesForYou.vue';
 import ReadOut from '../parts/ReadOut.vue';
-import { LIBRARY_PATH } from '../marker';
+import { LIBRARY_PATH } from '../catalog';
 import { fixture } from '../fixture';
 
 const INTENTS = [

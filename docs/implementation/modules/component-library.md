@@ -4,7 +4,7 @@ kind: module
 describes:
   - front-end/src/dev/
   - front-end/src/router/index.ts
-  - front-end/scripts/no-dev-pages.ts
+  - front-end/vite.config.ts#noDevModules
   - front-end/eslint.config.ts
   - back-end/tests/fixtures/component_library_fixture.py
   - back-end/tests/test_component_library_fixture.py
@@ -37,9 +37,9 @@ An `:entry` the library has no built entry for shows the app's "page not found".
 The docker stack's front end runs the Vite dev server, so the library is on every local stack and in CI's E2E stack.
 
 **Two checks hold that.**
-An ESLint `no-restricted-imports` rule ([`front-end/eslint.config.ts`](../../../front-end/eslint.config.ts), `app/dev-pages-stay-out`) refuses an import of `@/dev` from any file outside `src/dev/` but the router.
-[`front-end/scripts/no-dev-pages.ts`](../../../front-end/scripts/no-dev-pages.ts) fails a build any of whose files holds the library's marker string (`LIBRARY_MARKER`, in `src/dev/library/marker.ts`, rendered on the index) or its address; it runs after `build-only` in CI and the gate ([no development page in the build](../testing/ci-and-the-gate.md#no-development-page-in-the-build)).
-`src/__tests__/theComponentLibraryIsDevOnly.test.ts` resolves the two addresses with `DEV` true and false.
+An ESLint `no-restricted-imports` rule ([`front-end/eslint.config.ts`](../../../front-end/eslint.config.ts), `app/dev-pages-stay-out`) refuses a static import of `src/dev/` from any file outside it but the router, by the `@/dev` alias or by a relative path through a `dev` folder (`src/dev/` is the only one).
+And the build itself: `noDevModules`, a plugin in [`front-end/vite.config.ts`](../../../front-end/vite.config.ts), fails a production build when any module under `src/dev/` is in any chunk, naming each, so a dynamic import, a path the rule does not match or the router's block kept alive is caught too ([no development page in the build](../testing/ci-and-the-gate.md#no-development-page-in-the-build)).
+`src/__tests__/theComponentLibraryNeverShips.test.ts` drives both through their seams: ESLint over each form of import, and a production build of a shipped module that imports the fixture or a part, refused; `src/__tests__/theComponentLibraryIsDevOnly.test.ts` resolves the two addresses with `DEV` true and false.
 
 ## The page
 

@@ -190,7 +190,8 @@ npm run bundle-budget
 
 It prints the gzipped size of each chunk a first visit loads before any page paints, and fails when their total passes the limit in `front-end/scripts/bundle-budget.ts`.
 CI and `scripts/nm-test.sh` run it; what it measures, and how to raise the limit on purpose, is [the bundle budget](implementation/testing/ci-and-the-gate.md#the-bundle-budget).
-On the same build they run `npm run no-eval` and `npm run no-dev-pages`: no built file calls `eval` or `Function`, and none holds the development-only [component library](implementation/modules/component-library.md) ([CI and the gate](implementation/testing/ci-and-the-gate.md#no-development-page-in-the-build)).
+On the same build they run `npm run no-eval`: no built file calls `eval` or `Function`.
+The build itself fails if any module of the development-only [component library](implementation/modules/component-library.md) is in it ([CI and the gate](implementation/testing/ci-and-the-gate.md#no-development-page-in-the-build)).
 
 ## End-to-End (E2E) Tests
 

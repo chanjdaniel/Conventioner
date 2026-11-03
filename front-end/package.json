@@ -14,7 +14,6 @@
     "build-only": "vite build",
     "bundle-budget": "node scripts/bundle-budget.ts",
     "no-eval": "node scripts/no-eval.ts",
-    "no-dev-pages": "node scripts/no-dev-pages.ts",
     "type-check": "vue-tsc --build",
     "lint": "eslint . --fix",
     "format": "prettier --write .",

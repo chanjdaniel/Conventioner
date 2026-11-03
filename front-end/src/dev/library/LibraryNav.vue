@@ -6,8 +6,7 @@
  */
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { LIBRARY_PATH } from './marker';
-import { ENTRIES, isBuilt } from './catalog';
+import { ENTRIES, isBuilt, LIBRARY_PATH } from './catalog';
 
 const props = defineProps<{ current: string }>();
 const router = useRouter();

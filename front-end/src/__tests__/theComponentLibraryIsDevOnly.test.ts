@@ -5,7 +5,7 @@ import { fitsAPhone } from '@/utils/fitsAPhone';
  * The component library (`src/dev/library/`) is a page of a development build only: its two
  * routes exist where `import.meta.env.DEV` is true, open with no sign-in, and lay out on a phone.
  * A production build has neither, so its addresses fall through to "page not found"; that the
- * build emits none of it is `scripts/no-dev-pages.ts`'s to prove.
+ * build emits none of it is `theComponentLibraryNeverShips.test.ts`'s to prove.
  */
 
 async function freshRouter() {

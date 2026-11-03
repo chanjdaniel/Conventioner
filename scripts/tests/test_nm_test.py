@@ -207,7 +207,6 @@ UNIT_SUITES = [
     "npm run build-only",
     "npm run bundle-budget",
     "npm run no-eval",
-    "npm run no-dev-pages",
 ]
 
 

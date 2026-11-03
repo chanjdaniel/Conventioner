@@ -10,6 +10,9 @@ import type { Component } from 'vue';
  * the index links it. One not yet built is listed as coming, without a link. So adding an entry is adding its
  * file, and no other file changes.
  */
+/** Where the library lives, in a development build only. */
+export const LIBRARY_PATH = '/dev/components';
+
 export interface LibraryEntry {
   /** Its address under `/dev/components/`, and its file's name under `entries/` (`entryFileName`). */
   id: string;

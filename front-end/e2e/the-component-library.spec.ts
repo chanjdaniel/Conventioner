@@ -27,7 +27,6 @@ eachWindow('the component library', (size) => {
     await openEntry(page);
 
     await expect(page).toHaveURL(new RegExp(`${LIBRARY_PATH}$`));
-    await expect(page.getByTestId('library-index')).toHaveAttribute('data-library', /.+/);
     for (const entry of ENTRIES) {
       await expect(page.getByTestId(`library-index-${entry}`)).toContainText('Serves:');
     }

@@ -210,6 +210,8 @@ jobs:
       # The JavaScript a first visit loads before any page paints stays under a gzipped limit,
       # printed every run; scripts/bundle-budget.ts holds the limit and says how to raise it on
       # purpose. This bundle is measured, never deployed, so it is built without a captcha site key.
+      # The build fails if any module of the development-only component library (src/dev/) is in
+      # it (vite.config.ts, noDevModules).
       - name: Build
         env:
           VITE_ALLOW_INSECURE_LOCAL_DEV: "true"
@@ -220,10 +222,6 @@ jobs:
       # (scripts/no-eval.ts).
       - name: No string evaluated as script
         run: npm run no-eval
-      # The component library (src/dev/) is a development build's only: no built file holds its
-      # marker or its address (scripts/no-dev-pages.ts).
-      - name: No development page in the build
-        run: npm run no-dev-pages
 
   docker-build:
     runs-on: ubuntu-latest

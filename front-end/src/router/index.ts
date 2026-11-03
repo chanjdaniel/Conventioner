@@ -273,8 +273,8 @@ const router = createRouter({
 // The component library (T200): every reusable component in its variants and states, on synthetic
 // data, for workshopping them. A development build's only: `vite build` replaces
 // `import.meta.env.DEV` with `false`, so this block and its lazy imports are dropped and a
-// production build emits nothing of `src/dev/` (`scripts/no-dev-pages.ts` fails the build if it
-// does). It reads no API, so it is public, and it lays out on a phone. An entry the library does
+// production build emits nothing of `src/dev/` (`vite.config.ts`'s `noDevModules` fails the build
+// if it does). It reads no API, so it is public, and it lays out on a phone. An entry the library does
 // not have shows "page not found" (`LibraryEntryView.vue`).
 if (import.meta.env.DEV) {
   const meta = { public: true, fitsAPhone: true } as const;

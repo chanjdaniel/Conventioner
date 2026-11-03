@@ -4,12 +4,11 @@
  * reusable component, existing and proposed, in the review's groups, each with what it serves.
  * `docs/implementation/modules/component-library.md` says how it works and how to add an entry.
  */
-import { LIBRARY_MARKER, LIBRARY_PATH } from './marker';
-import { ENTRIES, isBuilt } from './catalog';
+import { ENTRIES, isBuilt, LIBRARY_PATH } from './catalog';
 </script>
 
 <template>
-  <div class="library-index" data-testid="library-index" :data-library="LIBRARY_MARKER">
+  <div class="library-index" data-testid="library-index">
     <header class="library-index__header">
       <h1 class="library-index__title">Component library</h1>
       <p class="library-index__about">
