@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-10-31
+verified: 2026-11-03
 sources:
   - wayfinding/the-order-of-the-work/11
   - E18/F02/S03
@@ -17,6 +17,7 @@ sources:
   - E38/F04/S02
   - T142
   - E38/F07/S02
+  - T206
 ---
 
 # Taking applications
@@ -34,12 +35,14 @@ A verdict can be given from the first application ([review](review.md)); Begin a
 
 ## H1. Open applications
 
-**Status:** Works (walked live; where the move lands, and its refusal before the click, read from the code as of E32/F01/S01, E31/F02 and E38/F04/S01: `front-end/src/utils/marketGuide.ts`, `every-move-lands.spec.ts`, `market-journey.spec.ts`; the reviewers offered with it as of E38/F07/S02: `open-applications-offers-the-reviewers.spec.ts`).
+**Status:** Works (walked live; where the move lands, and its refusal before the click, read from the code as of E32/F01/S01, E31/F02 and E38/F04/S01: `front-end/src/utils/marketGuide.ts`, `every-move-lands.spec.ts`, `market-journey.spec.ts`; the reviewers offered with it as of E38/F07/S02: `open-applications-offers-the-reviewers.spec.ts`; the review setup it waits on and names as of T206: `review-waits-on-the-review-setup.spec.ts`).
 
-1. Rail: "Open applications", the main button in Draft once the setup is complete ([the setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md)); until then it is disabled and the rail names the first thing missing.
+1. Rail: "Open applications", the main button in Draft once the setup is complete ([the setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md)), the form asks something, and Review setup's two decisions are taken ([review waits on the review setup](../rules/review-waits-on-the-review-setup.md)); until then it is disabled and the rail names the first thing missing, with its fix: "Decide what reviewers read first" and "Decide the automatic rejections" lead to Review setup.
 2. For someone who may choose reviewers (an Admin or the owner, by default), it opens a dialog, "Open applications", with a checkbox for each person they may choose, none ticked (or the reviewers chosen in draft before), and the hint "Choose no one and everyone reviews first come, first served. You can choose reviewers later from the Applications tab." ([the review is dealt among chosen reviewers](../rules/the-review-is-dealt-among-chosen-reviewers.md)).
+   Below the reviewers it names the review setup being opened: "What a reviewer reads first:" and the answers that lead the card, in their order, or "Nothing leads the card"; "Automatic rejections:" and how many rules reject an answer, or "None".
+   Its "Change", for someone who may change the form, closes the dialog and opens Review setup.
    Its "Open applications" saves the reviewers when the choice differs from the ones stored, then makes the move; with no one ticked and none chosen before it opens as before, and every application that arrives once reviewers are chosen is dealt to the next in turn.
-   A save that is refused keeps the dialog open with its error and makes no move; a move refused after the save shows its blockers on the rail, and the reviewers stay chosen.
+   A save that is refused keeps the dialog open with its error and makes no move; a move refused after the save shows its blockers on the rail, each with its fix, and the reviewers stay chosen.
    Cancel or Escape closes it and saves nothing.
    Anyone else who may move the market gets the move at once, with no dialog.
 3. Expect Applications, landing on the Applications page, which carries the dot; the form is locked from now on ([F4](form-tab.md#f4-the-form-lock)).
@@ -50,9 +53,11 @@ Covered by:
 - `every-move-lands.spec.ts`
 - `market-journey.spec.ts`
 - `open-applications-offers-the-reviewers.spec.ts`
+- `openApplicationsNamesTheReviewSetup.test.ts`
 - `openApplicationsOffersTheReviewers.test.ts`
 - `phase-rail.spec.ts`
 - `phase-state-machine.spec.ts`
+- `review-waits-on-the-review-setup.spec.ts`
 
 ## H1a. Refused: the form asks nothing
 
@@ -91,6 +96,7 @@ Covered by:
 ## The rules it obeys
 
 - [The setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md): Open applications waits for dates, a location and tables at every tier.
+- [Review waits on the review setup](../rules/review-waits-on-the-review-setup.md): Open applications waits on what reviewers read first and the automatic rejections, and names both.
 - [The form locks at the first application](../rules/the-form-locks-at-the-first-application.md): past Draft the form is fixed.
 - [Intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md): these moves are the online path's.
 - [What each role may do](../rules/what-each-role-may-do.md): moving the market, and stopping or taking applications, are an Admin's.
