@@ -53,7 +53,7 @@ Every column but Timestamp and Email Address was mapped by hand ([H2a](import.md
 | "Import responses", which opens the import; fix the mapping and the values as needed, and confirm: the market enters Review | [H2a to H2j](import.md) |
 | Go to the review, and review | [I4](review.md#i4-enter-the-review), [I1](review.md#i1-work-through-the-queue), [I2](review.md#i2-change-a-decision) |
 | Begin assignment | [I5](review.md#i5-begin-assignment) |
-| Assign and adjust | [J1 to J5](assignment-and-result.md), [J6 to J10 and J13](placing-by-hand.md), [J11 and J12](vendors.md) |
+| Assign and adjust | [J1 to J5](assignment-and-result.md), [J6 to J10, J13 and J19](placing-by-hand.md), [J11 and J12](vendors.md) |
 | Publish the market and run market day | [K1 to K5](market-day-door.md) |
 | End the market | [L1](ending-and-managing-a-market.md#l1-archive-after-market-days) |
 

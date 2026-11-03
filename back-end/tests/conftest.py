@@ -332,11 +332,18 @@ def mongo_matches(doc: dict, query: dict) -> bool:
     production. ``$ne``, ``$exists``, ``$in`` and ``$nor`` are modelled because the public slug
     lookup is built out of them, ``$gt`` because a deal's lease is, ``$type: object`` because the
     applications waiting to be dealt are read by it, and a value matching a list that holds it
-    because a vendor's history is.
+    because a vendor's history is. A dotted key reaches into sub-documents, as an assignment's
+    revision is read by every write of it.
     """
     for key, condition in (query or {}).items():
         if key == "$nor":
             if any(mongo_matches(doc, clause) for clause in condition):
+                return False
+            continue
+        if "." in key:
+            head, _, rest = key.partition(".")
+            inner = doc.get(head)
+            if not mongo_matches(inner if isinstance(inner, dict) else {}, {rest: condition}):
                 return False
             continue
         present = key in doc
