@@ -212,7 +212,7 @@ def _send_code_email(email: str, code: str, market_name: str, market_slug: str) 
     """Send the sign-in code to the vendor's email address.
 
     It links to the market's own vendor page, ``/<slug>``, by its public address: the link a vendor
-    receives is the one they keep (ADR 0021).
+    receives is the one they keep (ADR 0022).
 
     Returns True when the email was accepted by the provider (or disabled in dev),
     False when it was not.

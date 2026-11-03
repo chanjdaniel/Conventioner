@@ -415,7 +415,7 @@ describe('a phase the lifecycle does not draw', () => {
   });
 });
 
-describe("the vendor page's address (ADR 0021)", () => {
+describe("the vendor page's address (ADR 0022)", () => {
   const form = { slug: 'riverside-market', intakeMode: 'form' } as Partial<Market>;
 
   it.each([

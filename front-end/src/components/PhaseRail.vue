@@ -164,7 +164,7 @@ const checkInUrl = computed(() => {
   return `${window.location.origin}/${slug}/check-in`;
 });
 
-// ── The vendor page's URL (ADR 0021) ───────────────────────────────────────
+// ── The vendor page's URL (ADR 0022) ───────────────────────────────────────
 
 /**
  * A market's vendor page, `/<slug>`, from the moment it has one: the one address its vendors keep,

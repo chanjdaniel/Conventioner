@@ -250,7 +250,7 @@ MARKET_NOT_FOUND = "Market not found. Check the URL and try again."
 
 
 def get_vendor_page(market_slug: str) -> Tuple[Dict[str, Any], int]:
-    """What a market's vendor page needs before anyone signs in (ADR 0021).
+    """What a market's vendor page needs before anyone signs in (ADR 0022).
 
     Served for a market ``vendor_page_market_by_slug`` serves, and otherwise the same 404 a slug
     naming nothing gets. ``ended`` is an archived market that ran, whose page is the record of where

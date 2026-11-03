@@ -235,7 +235,7 @@ const router = createRouter({
       component: () => import('@/views/AttendanceCheckinView.vue'),
       meta: { public: true },
     },
-    // A market's vendor page (ADR 0021): sign-in, status and result, at the market's own address.
+    // A market's vendor page (ADR 0022): sign-in, status and result, at the market's own address.
     {
       path: '/:marketSlug',
       name: 'vendor-page',

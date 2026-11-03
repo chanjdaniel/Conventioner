@@ -1,4 +1,4 @@
-"""One vendor page per market, at its own address (T202, ADR 0021).
+"""One vendor page per market, at its own address (T202, ADR 0022).
 
 `vendor_page_market_by_slug` decides whether a market has a vendor page, and every vendor read and
 sign-in goes through it. The page's own public read, `GET /public/markets/<slug>/vendor-page`, says

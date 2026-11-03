@@ -80,7 +80,7 @@ export const useApplicationStore = defineStore('application', () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
   /**
-   * The vendor page's one state (ADR 0021): the market as the page reads it before sign-in, and,
+   * The vendor page's one state (ADR 0022): the market as the page reads it before sign-in, and,
    * signed in, the form's questions its answers are shown against. Every section reads it here.
    */
   const page = ref<VendorPageInfo | null>(null);

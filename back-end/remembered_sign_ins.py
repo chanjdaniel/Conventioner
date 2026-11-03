@@ -1,4 +1,4 @@
-"""Remember me on a vendor page: how long a remembered sign-in may last (ADR 0021).
+"""Remember me on a vendor page: how long a remembered sign-in may last (ADR 0022).
 
 A vendor who ticks "Remember me on this device" stays signed in to that market's page until the
 market's last date has ended, and never longer than ``REMEMBER_AT_MOST`` from the sign-in.

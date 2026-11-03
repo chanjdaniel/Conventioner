@@ -1512,7 +1512,7 @@ def applicant_login_verify_code(market_slug: str) -> Response:
 
 @app.route('/public/markets/<market_slug>/vendor-page', methods=['GET'])
 def public_get_vendor_page(market_slug: str) -> Response:
-    """Public: what a market's vendor page needs before sign-in (ADR 0021). No authentication."""
+    """Public: what a market's vendor page needs before sign-in (ADR 0022). No authentication."""
     result, status_code = ApplicantsApi.get_vendor_page(market_slug)
     return jsonify(result), status_code
 

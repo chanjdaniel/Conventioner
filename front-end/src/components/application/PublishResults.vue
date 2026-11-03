@@ -62,7 +62,7 @@ const HAS_A_TABLE = outcomeHeadline({ outcome: 'has_a_table' });
 const NOT_ASSIGNED = outcomeHeadline({ outcome: 'not_assigned' });
 
 /**
- * Where vendors read their result: the market's vendor page (ADR 0021). Publishing sends nothing,
+ * Where vendors read their result: the market's vendor page (ADR 0022). Publishing sends nothing,
  * so the confirmation gives the organizer the address to share.
  */
 const vendorPageUrl = computed(() =>

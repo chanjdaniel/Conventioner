@@ -1,5 +1,5 @@
 /**
- * A market's vendor page, `/<slug>` (ADR 0021): what it reads before sign-in, and which sections
+ * A market's vendor page, `/<slug>` (ADR 0022): what it reads before sign-in, and which sections
  * it shows a signed-in vendor in each state of the market.
  */
 import type { Application } from '@/assets/types/datatypes';

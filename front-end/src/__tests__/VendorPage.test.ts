@@ -22,9 +22,13 @@ vi.mock('@/utils/vendorPage', async (importOriginal) => ({
 }));
 
 const fetchApplicantApplication = vi.fn();
+const requestLoginCode = vi.fn();
+const verifyLoginCode = vi.fn();
 vi.mock('@/utils/applicantApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/utils/applicantApi')>()),
   fetchApplicantApplication: (...args: unknown[]) => fetchApplicantApplication(...args),
+  requestLoginCode: (...args: unknown[]) => requestLoginCode(...args),
+  verifyLoginCode: (...args: unknown[]) => verifyLoginCode(...args),
 }));
 
 const fetchPublicApplicationForm = vi.fn();
@@ -101,6 +105,8 @@ const has = (wrapper: Awaited<ReturnType<typeof mountPage>>, testid: string) =>
 
 beforeEach(() => {
   sessionStorage.clear();
+  requestLoginCode.mockReset();
+  verifyLoginCode.mockReset();
   fetchVendorPage.mockReset();
   fetchApplicantApplication.mockReset();
   fetchPublicApplicationForm.mockReset();
@@ -115,7 +121,7 @@ beforeEach(() => {
   });
 });
 
-describe('what the application section shows (ADR 0021)', () => {
+describe('what the application section shows (ADR 0022)', () => {
   const form = { intakeMode: IntakeMode.Form };
   it.each([
     ['taking, none yet', { ...form, takesApplications: true }, null, 'apply'],
@@ -203,6 +209,32 @@ describe('the page, signed out', () => {
   });
 });
 
+describe('signing in', () => {
+  it("reads the vendor's own page as soon as the code is right", async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    requestLoginCode.mockResolvedValue({ message: "We've sent a code to this address." });
+    verifyLoginCode.mockResolvedValue({
+      success: true,
+      marketId: 'market-1',
+      applicantEmail: 'vendor@example.com',
+      token: 'a-token',
+    });
+    fetchApplicantApplication.mockResolvedValue(application());
+    const wrapper = await mountPage();
+
+    await wrapper.get('[data-testid="vendor-sign-in-email-input"]').setValue('vendor@example.com');
+    await wrapper.get('[data-testid="vendor-sign-in-email-step"]').trigger('submit');
+    await flushPromises();
+    await wrapper.get('[data-testid="vendor-sign-in-code-input"]').setValue('123456');
+    await wrapper.get('[data-testid="vendor-sign-in-code-step"]').trigger('submit');
+    await flushPromises();
+
+    expect(fetchApplicantApplication).toHaveBeenCalledWith('spring-market', 'a-token');
+    expect(wrapper.get('[data-testid="vendor-page-status"]').text()).toContain('Submitted');
+    expect(has(wrapper, 'vendor-page-info')).toBe(false);
+  });
+});
+
 describe('the page, signed in', () => {
   beforeEach(signIn);
 
@@ -218,8 +250,8 @@ describe('the page, signed in', () => {
       params: { marketSlug: 'spring-market' },
     });
     expect(has(wrapper, 'vendor-page-edit-link')).toBe(true);
-    expect(wrapper.get('[data-testid="vendor-page-signed-in-as"]').text()).toContain(
-      'Riley Fixture',
+    expect(wrapper.get('[data-testid="vendor-page-signed-in-as"]').text()).toBe(
+      'Signed in as Riley Fixture (vendor@example.com)',
     );
   });
 

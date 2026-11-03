@@ -921,7 +921,7 @@ class TestTheCodeEmail:
     """
 
     def test_it_links_to_the_markets_own_vendor_page(self, monkeypatch):
-        """The link a vendor receives is the one they keep: the market's page (ADR 0021)."""
+        """The link a vendor receives is the one they keep: the market's page (ADR 0022)."""
         # Not the module fixture: it replaces the very function under test.
         import resend
         from api import applicant_auth as applicant_auth_module

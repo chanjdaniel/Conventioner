@@ -44,7 +44,7 @@ const asksSomething = computed(
 );
 const signedIn = computed(() => store.isAuthenticatedFor(marketSlug.value));
 
-/** Signing in is the vendor page's, the market's own address (ADR 0021). */
+/** Signing in is the vendor page's, the market's own address (ADR 0022). */
 function toSignIn() {
   router.push({ name: 'vendor-page', params: { marketSlug: marketSlug.value } });
 }

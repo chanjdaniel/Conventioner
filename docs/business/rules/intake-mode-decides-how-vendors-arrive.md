@@ -33,6 +33,7 @@ The phase cannot say this: a CSV market is in `applications` too, where its impo
 Switching the mode mid-lifecycle strands what the previous mode produced: flip a form market to CSV after people applied, and their pages go dark.
 **A market taken back to draft may change its mode again**, and that is safe: the way back is open only while nobody has applied ([the form locks at the first application](the-form-locks-at-the-first-application.md)), so nothing yet depends on how vendors were going to arrive, and its applicant pages close on the way back, as a draft's are.
 An absent mode is CSV, so the applicant surface fails closed ([ADR 0006](../../adr/0006-intake-mode-fails-closed.md)).
+Which markets have a vendor page, where a vendor signs in and reads their result, is [ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)'s.
 
 **Each path has its own ways in.**
 Importing is the CSV path's, in Draft and Review (E31/F03/S04): a form market takes its applications on its own page, so nothing is imported into it.

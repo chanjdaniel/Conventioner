@@ -38,3 +38,4 @@ What to do with an asserted address is not decided yet; it is decided before the
 - [`back-end/api/added_vendors.py`](../../../back-end/api/added_vendors.py) takes a hand-added vendor's address (`add_vendor`).
 - [The application document](../../implementation/data/application-document.md) holds the address, `applicant_email`, with nothing beside it to say how it was given.
 - The sign-in that proves an address is `request_login_code` and `verify_login_code` in [`back-end/api/applicant_auth.py`](../../../back-end/api/applicant_auth.py).
+- When an imported vendor may sign in to their market's vendor page is decided in [ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md).

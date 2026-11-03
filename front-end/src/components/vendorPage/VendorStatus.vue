@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Where a signed-in vendor stands (ADR 0021): "Submitted" until results are published, whatever
+ * Where a signed-in vendor stands (ADR 0022): "Submitted" until results are published, whatever
  * the review decided, then "You have a table" with each day's table, or "You did not get assigned".
  *
  * The server serves no verdict before publishing, so there is none here to word; the seats are

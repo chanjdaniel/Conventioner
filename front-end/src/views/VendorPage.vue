@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * A market's vendor page, at its own address `/<slug>` (ADR 0021).
+ * A market's vendor page, at its own address `/<slug>` (ADR 0022).
  *
  * The one page a vendor uses at a market: signed out, it names the market and asks for an email
  * address and then the code sent to it; signed in, it shows where they stand and their
@@ -13,7 +13,7 @@
  * request that never answered is neither: it says the page could not be loaded, and offers another
  * try, since it would load on the next one.
  */
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useApplicationStore } from '@/stores/application';
 import PageNotFound from '@/components/PageNotFound.vue';
@@ -57,6 +57,14 @@ async function loadSignedIn() {
   state.value = read.notFound ? 'not-found' : read.failed ? 'failed' : 'ready';
 }
 
+/**
+ * Reading their page once the code is right. Watched, not emitted by the sign-in: signing in
+ * swaps the sign-in out of the page, and an event from a section already gone is never heard.
+ */
+watch(signedIn, (now, before) => {
+  if (now && !before && state.value === 'ready') void loadSignedIn();
+});
+
 function signOut() {
   store.logout();
 }
@@ -99,11 +107,12 @@ onMounted(() => {
         <p v-if="signedIn" class="vendor-page-who" data-testid="vendor-page-signed-in-as">
           Signed in as
           <strong>{{ vendorName || store.applicantEmail }}</strong>
-          <template v-if="vendorName">({{ store.applicantEmail }})</template>
+          <!-- Its space inside the interpolation: the template's own whitespace is condensed away. -->
+          <template v-if="vendorName">{{ ` (${store.applicantEmail})` }}</template>
         </p>
       </header>
 
-      <VendorSignIn v-if="!signedIn" :market-slug="marketSlug" @signed-in="loadSignedIn" />
+      <VendorSignIn v-if="!signedIn" :market-slug="marketSlug" />
 
       <template v-else>
         <VendorStatus />

@@ -475,7 +475,7 @@ def applicant_intake_market_by_slug(
 def vendor_page_market_by_slug(
     collection: Any, market_slug: str, fields: Optional[Sequence[str]] = None,
 ) -> Optional[Dict[str, Any]]:
-    """The market whose vendor page is at this slug, or ``None`` (ADR 0021).
+    """The market whose vendor page is at this slug, or ``None`` (ADR 0022).
 
     The vendor page, ``/<slug>``, is where a vendor signs in and reads their own application, their
     result and their seats. This decides whether a market has one: every vendor read and the

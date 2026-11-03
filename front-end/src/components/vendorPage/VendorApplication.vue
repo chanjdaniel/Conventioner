@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * A signed-in vendor's application, on a market whose vendors apply on its page (ADR 0021).
+ * A signed-in vendor's application, on a market whose vendors apply on its page (ADR 0022).
  *
  * "Apply" while the market takes applications and they have none; their answers, with "Edit"
  * while it still takes them and read-only after; and with none once it no longer does, the

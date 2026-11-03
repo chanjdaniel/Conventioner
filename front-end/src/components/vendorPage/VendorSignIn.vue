@@ -1,15 +1,15 @@
 <script setup lang="ts">
 /**
- * The vendor page's sign-in (ADR 0021): an email address, then the six-digit code sent to it.
+ * The vendor page's sign-in (ADR 0022): an email address, then the six-digit code sent to it.
  *
  * Every address is sent a code, applied or not, so the words are the same for every address and
- * true for each. Signing in emits `signed-in`, and the page draws the vendor's own sections.
+ * true for each. A right code signs the vendor in through the store, and the page, which watches
+ * that, draws their own sections in place of this one.
  */
 import { computed, onUnmounted, ref } from 'vue';
 import { useApplicationStore } from '@/stores/application';
 
 const props = defineProps<{ marketSlug: string }>();
-const emit = defineEmits<{ 'signed-in': [] }>();
 
 const store = useApplicationStore();
 
@@ -73,15 +73,8 @@ async function verifyCode() {
   validationError.value = null;
   store.error = null;
   submitting.value = true;
-  const ok = await store.verifyCode(
-    props.marketSlug,
-    email.value.trim().toLowerCase(),
-    code.value.trim(),
-  );
+  await store.verifyCode(props.marketSlug, email.value.trim().toLowerCase(), code.value.trim());
   submitting.value = false;
-  if (ok) {
-    emit('signed-in');
-  }
 }
 
 function goBack() {

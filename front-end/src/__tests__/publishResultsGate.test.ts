@@ -91,7 +91,7 @@ describe('a form-intake market (E36/F04/S01)', () => {
   });
 });
 
-describe("where vendors read it: the market's vendor page (ADR 0021)", () => {
+describe("where vendors read it: the market's vendor page (ADR 0022)", () => {
   const withSlug = () => marketTaking(IntakeMode.Form, { slug: 'spring-market' });
 
   it('says beside the button that vendors read it on the vendor page and no email is sent', async () => {
