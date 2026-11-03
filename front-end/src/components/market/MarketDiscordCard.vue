@@ -211,7 +211,7 @@ const questionSelect = ref<HTMLSelectElement | null>(null);
  * Focus alone would look dead on a desk, where the select stands a few lines above its link, so the
  * click opens it too, where the browser can.
  */
-function openSelect(select: (HTMLSelectElement & { showPicker?: () => void }) | null): void {
+function openSelect(select: HTMLSelectElement | null): void {
   select?.focus();
   try {
     select?.showPicker?.();
@@ -406,7 +406,7 @@ async function disconnect(): Promise<void> {
             </p>
             <template v-if="stillNeed.length">
               <p class="discord-lead discord-giving-still">Still needed:</p>
-              <ul class="discord-giving-needs">
+              <ul class="discord-giving-needs" data-testid="discord-giving-needs">
                 <li v-if="stillNeed.includes('role')">
                   <a
                     href="#discord-role"

@@ -22,7 +22,8 @@ export class ToolsPage {
   readonly givingNeedsRole: Locator;
   readonly givingNeedsQuestion: Locator;
   readonly givingNeedsAssignment: Locator;
-  readonly givingVendors: Locator;
+  readonly givingItems: Locator;
+  readonly givingVendorsLink: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -41,7 +42,8 @@ export class ToolsPage {
     this.givingNeedsRole = page.getByTestId('discord-giving-needs-role');
     this.givingNeedsQuestion = page.getByTestId('discord-giving-needs-question');
     this.givingNeedsAssignment = page.getByTestId('discord-giving-needs-assignment');
-    this.givingVendors = page.getByTestId('discord-giving-vendors');
+    this.givingItems = page.getByTestId('discord-giving-needs').getByRole('listitem');
+    this.givingVendorsLink = page.getByTestId('discord-giving-vendors');
   }
 
   async goto(marketId: string): Promise<void> {

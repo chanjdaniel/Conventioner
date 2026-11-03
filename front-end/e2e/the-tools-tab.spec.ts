@@ -195,7 +195,7 @@ test('the card says where roles are given, and walks what is missing down to the
   );
   const roleId = connectWithNothingChosen(marketId);
   const tools = new ToolsPage(page);
-  const address = new RegExp(`/markets/${marketId}/tools$`);
+  const address = new RegExp(`${marketScreenPath(marketId, 'tools')}$`);
   await tools.goto(marketId);
   await expect(
     tools.roleOption(roleId),
@@ -205,12 +205,12 @@ test('the card says where roles are given, and walks what is missing down to the
   await expect(tools.giving).toContainText(
     'Check who is in the server and give roles on the Vendors page.',
   );
-  await expect(tools.giving.getByRole('listitem')).toHaveText([
+  await expect(tools.givingItems).toHaveText([
     'Choose the role to give',
     'Choose the question that asks their Discord username',
     'Make the assignment',
   ]);
-  await expect(tools.givingVendors).toHaveCount(0);
+  await expect(tools.givingVendorsLink).toHaveCount(0);
 
   // Each item takes the organizer to its select, on this card, and goes once its choice has saved.
   await tools.givingNeedsRole.click();
@@ -226,11 +226,11 @@ test('the card says where roles are given, and walks what is missing down to the
   await page.keyboard.press('Escape');
   await tools.questionSelect.selectOption('name');
   await expect(tools.givingNeedsQuestion).toHaveCount(0);
-  await expect(tools.giving.getByRole('listitem')).toHaveText(['Make the assignment']);
+  await expect(tools.givingItems).toHaveText(['Make the assignment']);
 
   // A draft cannot run one yet: the link leads where Vendors' own "Nothing assigned yet" does.
   await tools.givingNeedsAssignment.click();
-  await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/settings$`));
+  await expect(page).toHaveURL(new RegExp(`${marketScreenPath(marketId, 'settings')}$`));
 });
 
 test('a form with no text question sends the organizer to the form, not an empty select', async ({
@@ -253,7 +253,7 @@ test('a form with no text question sends the organizer to the form, not an empty
     'Add a question that asks their Discord username',
   );
   await tools.givingNeedsQuestion.click();
-  await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/form$`));
+  await expect(page).toHaveURL(new RegExp(`${marketScreenPath(marketId, 'form')}$`));
 });
 
 test('the checklist fits a phone, each link a full target', async ({

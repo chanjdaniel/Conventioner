@@ -71,7 +71,7 @@ export function mayGiveRoles(market: Market | null | undefined): boolean {
   return mayCheckDiscord(market) && !!market?.discord?.roleId;
 }
 
-/** What can still be missing before "Give roles" can run, in the order the Discord card lists it. */
+/** What can still be missing before "Give roles" can run. */
 export type RolesNeed = 'role' | 'question' | 'assignment';
 
 /**

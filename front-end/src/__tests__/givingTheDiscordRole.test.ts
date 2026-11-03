@@ -183,7 +183,7 @@ describe('what is still needed before a run', () => {
     expect(rolesStillNeed(market(form, 'Only an Admin or the owner may.'))).toEqual([]);
   });
 
-  it('is each thing missing, in the order the card lists them', () => {
+  it('is each thing missing, and only that', () => {
     expect(
       rolesStillNeed(market({ ...form, discord: GUILD, assignmentObject: undefined })),
     ).toEqual(['role', 'question', 'assignment']);

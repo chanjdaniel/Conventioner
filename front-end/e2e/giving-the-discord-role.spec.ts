@@ -2,6 +2,7 @@ import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { seedApprovedVendor } from './helpers/seedApplication';
 import { SEED_MARKET_DATE } from './helpers/seeds';
+import { marketScreenPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
 import { connectToFakeDiscord, fakeDiscordId, seedFakeDiscordServer } from './helpers/fakeDiscord';
 import { ToolsPage } from './pages/ToolsPage';
@@ -217,15 +218,15 @@ test('with nothing missing, the card leads to Give roles, on a phone as on a des
 
   const tools = new ToolsPage(page);
   await tools.goto(seed.marketId);
-  await expect(tools.givingVendors).toHaveText('Give roles on Vendors', { timeout: 15000 });
+  await expect(tools.givingVendorsLink).toHaveText('Give roles on Vendors', { timeout: 15000 });
   await expect(tools.giving).toContainText(
     'Check who is in the server and give roles on the Vendors page.',
   );
-  await expect(tools.giving.getByRole('listitem')).toHaveCount(0);
+  await expect(tools.givingItems).toHaveCount(0);
 
   const desk = page.viewportSize()!;
   await page.setViewportSize(PHONE);
-  const link = (await tools.givingVendors.boundingBox())!;
+  const link = (await tools.givingVendorsLink.boundingBox())!;
   expect(link.height, 'the link is a full target on a phone').toBeGreaterThanOrEqual(44);
   expect(await widths(page), 'the Tools tab with its link keeps the window').toMatchObject({
     layout: PHONE.width,
@@ -242,7 +243,7 @@ test('with nothing missing, the card leads to Give roles, on a phone as on a des
   ).toEqual([]);
   await page.setViewportSize(desk);
 
-  await tools.givingVendors.click();
-  await expect(page).toHaveURL(new RegExp(`/markets/${seed.marketId}/vendors$`));
+  await tools.givingVendorsLink.click();
+  await expect(page).toHaveURL(new RegExp(`${marketScreenPath(seed.marketId, 'vendors')}$`));
   await expect(new VendorsPage(page).giveRolesButton).toBeVisible({ timeout: 15000 });
 });
