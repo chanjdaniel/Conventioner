@@ -31,7 +31,7 @@ describes:
   - back-end/api/markets.py#add_market_role
   - back-end/api/markets.py#remove_market_role
   - back-end/api/markets.py#update_market_role
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - E20/F04/S01
   - E21/F03/S01
@@ -45,6 +45,7 @@ sources:
   - E38/F12/S01
   - E38/F15/S01
   - T181
+  - T204
 ---
 
 # The organization document, and roles
@@ -70,6 +71,11 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 Every key is one word but `default_permissions`, which no other spelling of has ever been written, so the spelling question the market document has does not arise.
 Membership is recorded on both sides: each user's `organizations` lists the ids of the organizations they are in, kept in step by every membership write ([users and email](users-and-email.md)).
 `get_organizations_for_user` finds a person's organizations with an `$or` over `owner`, `admins` and `members`, each a [lookup index](lookup-indexes.md).
+It then reads every owner, admin and member of all of them in one `get_users_by_ids` ([users and email](users-and-email.md#lookups)), never one account at a time, so an organization of 150 members costs the Organizations page and Manage organization one read of them (T204).
+It serves each organization's admins and members as `{userId, email}` pairs, `adminPeople` and `memberPeople`, in the stored order, an account that is gone left out, and the owner's address as `ownerEmail`.
+Manage organization draws its rows from the pairs, each keyed and removed by its own `userId`: it paired the address list with `admins` by position, so one deleted account shifted every later row onto the next person's id, and Remove could name one person and remove another.
+`adminEmails` and `memberEmails`, with their snake-case twins, are the same people by address alone, deprecated and kept only for a tab still on the old bundle; the next release removes them.
+[`test_the_organizations_read_names_everyone_at_once.py`](../../../back-end/tests/test_the_organizations_read_names_everyone_at_once.py) pins the one read and the pairs, a deleted admin among them.
 It serves each with what removing someone from it takes (E38/F15/S01): `marketCount`, its markets counted from the markets themselves by their indexed `organizationId`, since `markets` is kept in step only at best effort, and `marketsWithOwnRole`, each admin's and member's count of those markets whose own `roles` name them, since removing them from the organization leaves those roles; Manage organization's Remove says both ([remove a person](../../business/flows/organizations.md#b3-remove-a-person)), and the organization's card says `marketCount`; the front end reads no organization's `markets` list.
 
 **Who changes an organization**: only the owner renames it, adds an admin or transfers ownership; the owner or an admin adds a member or changes its default table; the owner removes anyone but themselves, an admin only members.

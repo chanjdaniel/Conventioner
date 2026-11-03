@@ -75,7 +75,7 @@ A route test that signs in by writing the session with an address points the use
 
 `login_id` and the two token fields are [lookup indexes](lookup-indexes.md), so loading the account on each request, and following a link, is one indexed read.
 So is `id`: `get_user_by_id` reads one account by it, and `get_users_by_ids` reads many in one `find` with `$in`, answering the accounts found by id, an id with no account left out.
-A read that names many people uses the batch, never one `get_user_by_id` each: the market read names every account its lists can name in one call ([one market, from the server](../conventions/one-market-from-the-server.md#the-rules)), so a market of 150 people costs the database one read of them.
+A read that names many people uses the batch, never one `get_user_by_id` each: the market read names every account its lists can name in one call ([one market, from the server](../conventions/one-market-from-the-server.md#the-rules)), so a market of 150 people costs the database one read of them, and the organizations read names, in one call, every person of every organization the reader is in ([the organization document](organization-document.md#the-organization)).
 Accounts are made by sign-up, by `back-end/create_account.py` for an operator, and by `create_test_user.py` for the test fixtures; `/register-user` makes an unverified account that cannot sign in.
 
 ## One address is one account
