@@ -19,8 +19,11 @@ import {
   type Payment,
   type PaymentMethod,
   type VendorAccount,
+  currencyOf,
+  money,
 } from '@/utils/payments';
-import { centsFromText, priceText } from '@/utils/pricing';
+import { centsFromText } from '@/utils/pricing';
+import { useAmountField } from '@/utils/useAmountField';
 
 const props = defineProps<{
   open: boolean;
@@ -41,6 +44,11 @@ const note = ref('');
 const error = ref('');
 const busy = ref(false);
 
+const account = computed(() => ({ currency: props.currency ?? null }));
+
+/** The amount reads as currency once left, in the account's (Canadian dollars where none is set). */
+const amountField = useAmountField(amount, () => currencyOf(account.value));
+
 const isRefund = computed(
   () => props.mode === 'refund' || (props.mode === 'edit' && props.entry?.kind === 'refund'),
 );
@@ -58,7 +66,7 @@ watch(
   (open) => {
     if (!open) return;
     const entry = props.mode === 'edit' ? props.entry : null;
-    amount.value = entry ? priceText(Math.abs(entry.cents)) : '';
+    amount.value = entry ? money(Math.abs(entry.cents), account.value) : '';
     method.value = entry?.method ?? 'e-transfer';
     paidOn.value = entry?.paidOn ?? today();
     note.value = entry?.note ?? '';
@@ -139,6 +147,10 @@ async function save(): Promise<void> {
           :aria-invalid="!!amountError"
           :aria-describedby="amountError ? 'record-payment-amount-error' : undefined"
           data-testid="record-payment-amount"
+          @focus="amountField.onFocus"
+          @blur="amountField.onBlur"
+          @pointerdown="amountField.onPointerdown"
+          @click="amountField.onClick"
         />
         <span
           v-if="amountError"

@@ -127,10 +127,10 @@ test.describe('the Pricing card', () => {
     await withUser(browser, EDITOR.email, EDITOR.password, async (page) => {
       const cards = await dateCards(page, marketId, alice, PLAN.marketDates.length);
       await expect(cards.nth(0).getByTestId('vendor-date-card-price')).toHaveText(
-        'Gold, full table, $35',
+        'Gold, full table, $35.00',
       );
       await expect(cards.nth(1).getByTestId('vendor-date-card-price')).toHaveText(
-        'Silver, half table, $15',
+        'Silver, half table, $15.00',
       );
 
       // Past draft the card is read-only, under the setup's own lock line.
@@ -139,10 +139,109 @@ test.describe('the Pricing card', () => {
       await expect(card).toBeVisible({ timeout: 15000 });
       await expect(page.getByTestId('plan-setup-settled')).toContainText('The setup is settled');
       await expect(card.getByRole('textbox', { name: 'Everyone else Gold' })).toBeDisabled();
-      await expect(card.getByRole('textbox', { name: 'Everyone else Gold' })).toHaveValue('35');
+      await expect(card.getByRole('textbox', { name: 'Everyone else Gold' })).toHaveValue('$35.00');
       await expect(card.getByTestId('pricing-half-percent')).toBeDisabled();
       await expect(card.getByTestId('pricing-currency')).toBeDisabled();
     });
+  });
+
+  test('a cell reads as currency once left, and the plain number while focused', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedMarketWithVendors(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { dates: [SEED_MARKET_DATE, SECOND_DATE] },
+    );
+    const marketId = seed.marketId;
+    mongoEval(
+      `db.applications.updateMany({ market_id: ${JSON.stringify(marketId)} },
+        { $set: { 'form_data.essential_section_ranking': ['North Wing', 'Landing'] } })`,
+    );
+    await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, PLAN);
+    const stored = async () =>
+      (await (await request.get(`${BACKEND_URL}/markets/${marketId}`)).json()).market.setupObject
+        .pricing;
+
+    await page.goto(marketSetupPath(marketId, 'setup'));
+    const card = page.getByTestId('plan-card-pricing');
+    await expect(card).toBeVisible({ timeout: 15000 });
+    const gold = card.getByRole('textbox', { name: 'Everyone else Gold' });
+    const silver = card.getByRole('textbox', { name: 'Everyone else Silver' });
+
+    // Typed as a number, left as money; focused again, the number to edit, the caret at its end.
+    await gold.fill('50');
+    await gold.press('Tab');
+    await expect(gold).toHaveValue('$50.00');
+    // Pressed at its left edge, where the caret would land at the start of the text it replaced.
+    await gold.click({ position: { x: 8, y: 10 } });
+    await expect(gold).toHaveValue('50.00');
+    expect(
+      await gold.evaluate((el: HTMLInputElement) => [el.selectionStart, el.selectionEnd]),
+    ).toEqual([5, 5]);
+
+    // Money pasted as the app writes it is taken whole.
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.evaluate(() => navigator.clipboard.writeText('$1,234.50'));
+    await silver.focus();
+    await page.keyboard.press('ControlOrMeta+V');
+    await expect(silver).toHaveValue('$1,234.50');
+    await silver.press('Tab');
+    await expect(silver).toHaveValue('$1,234.50');
+    // Come back to by the keyboard, the number is not selected whole: the caret is at its end.
+    await page.keyboard.press('Shift+Tab');
+    await expect(silver).toBeFocused();
+    await expect(silver).toHaveValue('1234.50');
+    expect(
+      await silver.evaluate((el: HTMLInputElement) => [el.selectionStart, el.selectionEnd]),
+    ).toEqual([7, 7]);
+    await silver.press('Tab');
+
+    // Text that is no amount keeps its text and the card's error once left, until it is fixed.
+    // An amount field rewrites itself on focus, which drops a selection made before it: focus it,
+    // as a person does, before filling it.
+    await gold.focus();
+    await gold.fill('3x');
+    await gold.press('Tab');
+    await expect(gold).toHaveValue('3x');
+    await expect(card.getByTestId('pricing-error')).toBeVisible();
+    await gold.fill('$50');
+    await gold.press('Tab');
+    await expect(gold).toHaveValue('$50.00');
+    await expect(card.getByTestId('pricing-error')).toHaveCount(0);
+
+    // Another currency re-reads every left cell at once.
+    const currency = card.getByTestId('pricing-currency');
+    await currency.focus();
+    await currency.selectOption('USD');
+    await expect(gold).toHaveValue('US$50.00');
+    await expect(silver).toHaveValue('US$1,234.50');
+    await expect(page.getByTestId('market-setup-plan-saved')).toBeVisible({ timeout: 10000 });
+    await expect.poll(stored).toMatchObject({
+      currency: 'USD',
+      everyoneElse: [
+        { tier: 'Gold', cents: 5000 },
+        { tier: 'Silver', cents: 123450 },
+      ],
+    });
+
+    // The vendor's date card names the price the cell read.
+    for (const toPhase of ['applications', 'assignment']) {
+      await call(request, 'post', `/markets/${marketId}/transition`, { toPhase });
+    }
+    await call(request, 'put', `/markets/${marketId}/placements`, {
+      email: 'alice@example.com',
+      date: SEED_MARKET_DATE,
+      table_code: 'Landing 1',
+      table_choice: 'Full Table',
+    });
+    const cards = await dateCards(page, marketId, 'alice@example.com', PLAN.marketDates.length);
+    await expect(cards.nth(0).getByTestId('vendor-date-card-price')).toHaveText(
+      'Silver, full table, US$1,234.50',
+    );
   });
 
   test('prices typed key by key keep their cents, and text that is no value keeps nothing', async ({
@@ -169,8 +268,10 @@ test.describe('the Pricing card', () => {
 
     // As an organizer types: one key at a time, the cell never redrawn under the caret.
     await gold.pressSequentially('12.05');
-    await silver.pressSequentially('30.01');
     await expect(gold).toHaveValue('12.05');
+    await silver.pressSequentially('30.01');
+    await expect(silver).toHaveValue('30.01');
+    await expect(gold).toHaveValue('$12.05');
     await expect(page.getByTestId('market-setup-plan-saved')).toBeVisible({ timeout: 10000 });
     await expect.poll(stored).toMatchObject({
       everyoneElse: [

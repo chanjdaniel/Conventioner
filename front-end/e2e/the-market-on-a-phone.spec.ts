@@ -344,11 +344,9 @@ for (const size of PHONE_AND_DESK) {
       await expect(byTier.getByRole('rowheader')).toHaveText(['Gold']);
       const gold = byTier.getByRole('row').filter({ has: page.getByRole('rowheader') });
       await expect(gold.getByRole('cell')).toHaveCount(4);
-      const goldValues = ['$70', '$35', '$35', '$0'];
+      const goldValues = [/^\S*\$70\.00\b/, /^\S*\$35\.00\b/, /^\S*\$35\.00\b/, /^\S*\$0\.00\b/];
       for (const [i, cell] of (await gold.getByRole('cell').all()).entries()) {
-        await expect(cell, 'a Gold value').toHaveAccessibleName(
-          new RegExp(`^\\S*\\${goldValues[i]}\\b`),
-        );
+        await expect(cell, 'a Gold value').toHaveAccessibleName(goldValues[i]);
       }
       const vendorsTable = page
         .getByRole('table')
@@ -446,7 +444,7 @@ for (const size of PHONE_AND_DESK) {
       await page.getByTestId('record-payment-amount').fill('35');
       await press(page.getByTestId('record-payment-submit-button'));
       await expect(recording).toHaveCount(0);
-      await expect(drawer.getByTestId('payment-paid')).toContainText('35');
+      await expect(drawer.getByTestId('payment-paid')).toHaveText('$35.00');
       await expectFits(page, 'Vendors, the drawer open');
 
       // An Editor at the door corrects an answer: Update info opens inside the window, its answer
@@ -697,9 +695,12 @@ for (const size of PHONE_AND_DESK) {
 
       await page.goto(marketScreenPath(marketId, 'stats'));
       const headlines = page.getByTestId('stats-headlines');
-      await expect(headlines.getByTestId('stats-headline-stillOwed')).toHaveText('$35 still owed', {
-        timeout: 15000,
-      });
+      await expect(headlines.getByTestId('stats-headline-stillOwed')).toHaveText(
+        '$35.00 still owed',
+        {
+          timeout: 15000,
+        },
+      );
       await expectFits(page, 'Stats');
 
       // The headlines wrap in the window, each link a thumb's target on its own line.
@@ -741,7 +742,7 @@ for (const size of PHONE_AND_DESK) {
         async (viewer) => {
           await viewer.goto(marketScreenPath(marketId, 'stats'));
           await expect(viewer.getByTestId('stats-headline-stillOwed')).toHaveText(
-            '$35 still owed',
+            '$35.00 still owed',
             { timeout: 15000 },
           );
           await expect(viewer.getByTestId('stats-among-all')).toBeVisible();

@@ -50,24 +50,23 @@ export function groupNameProblem(
   return taken ? 'Another group is called this.' : null;
 }
 
-/** The most one table-day may cost, as the server holds it: $100,000. */
+/** The most one table-day may cost, as the server holds it: $100,000.00. */
 const MOST_CENTS = 10_000_000;
 
-/** An amount in the market's currency: "$35", or "$15.01" where there are cents. */
+/** An amount in the market's currency, always to the cent: "$35.00", "$15.01", "US$1,234.50". */
 export function formatPrice(cents: number, currency: string): string {
-  const fraction = cents % 100 === 0 ? 0 : 2;
   return new Intl.NumberFormat('en-CA', {
     style: 'currency',
     currency,
-    minimumFractionDigits: fraction,
-    maximumFractionDigits: fraction,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(cents / 100);
 }
 
 /**
- * One assignment as its date card prices it: "Gold, full table, $35", or with the card's row that
- * set it where the card has groups, "Gold, full table, Example College student + club member, $12"; null where
- * it has no price.
+ * One assignment as its date card prices it: "Gold, full table, $35.00", or with the card's row
+ * that set it where the card has groups, "Gold, full table, Example College student + club member,
+ * $12.00"; null where it has no price.
  */
 export function priceLine(
   assignment: {
@@ -91,16 +90,56 @@ export function priceLine(
 }
 
 /**
- * A typed amount as cents: null for a blank cell (no price), undefined for text that is not an
- * amount. Whole units or one or two decimals, an optional leading "$".
+ * The sign each offered currency's amount leads with ("$", "US$", "€", ...), read off `formatPrice`
+ * itself so an amount the app writes is always one a field takes back.
+ */
+const CURRENCY_SIGNS: readonly string[] = [
+  ...new Set(CURRENCIES.map(({ code }) => formatPrice(0, code).replace(/[\d.,\s]+$/, ''))),
+];
+
+const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * An amount as a field takes it: an optional leading sign of an offered currency and spaces, the
+ * whole part plain or grouped by commas in threes, and one or two decimals. A sign is decoration,
+ * never a conversion: the amount is the field's own currency's.
+ */
+const AMOUNT = new RegExp(
+  `^(?:(?:${CURRENCY_SIGNS.map(escaped).join('|')})\\s*)?(\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.(\\d{1,2}))?$`,
+);
+
+/**
+ * A typed amount as cents: null for a blank (no price), undefined for text that is not an amount.
+ * It takes "50", "50.5", "$50" and every text the app writes, "$1,234.50" or "US$50.00", and refuses
+ * a minus, a decimal comma ("35,50"), a third decimal, and more than $100,000.00.
  */
 export function centsFromText(text: string): number | null | undefined {
   const trimmed = text.trim();
   if (!trimmed) return null;
-  const match = /^\$?(\d+)(?:\.(\d{1,2}))?$/.exec(trimmed);
+  const match = AMOUNT.exec(trimmed);
   if (!match) return undefined;
-  const cents = Number(match[1]) * 100 + Number((match[2] ?? '').padEnd(2, '0'));
+  const cents =
+    Number(match[1].replaceAll(',', '')) * 100 + Number((match[2] ?? '').padEnd(2, '0'));
   return cents <= MOST_CENTS ? cents : undefined;
+}
+
+/**
+ * An amount field's text once focused: the plain number to edit ("$1,234.50" reads "1234.50"); a
+ * blank stays blank, and text that is not an amount stays as typed, to be fixed.
+ */
+export function focusedAmountText(text: string): string {
+  const cents = centsFromText(text);
+  return cents === undefined ? text : priceText(cents);
+}
+
+/**
+ * An amount field's text once left: the amount in the field's currency ("50" reads "$50.00"); a
+ * blank stays blank, and text that is not an amount stays as typed, with its error.
+ */
+export function leftAmountText(text: string, currency: string): string {
+  const cents = centsFromText(text);
+  if (cents === undefined) return text;
+  return cents === null ? '' : formatPrice(cents, currency);
 }
 
 /** A typed half-table share: a whole percent from 0 to 100, or undefined for anything else. */
@@ -111,10 +150,10 @@ export function percentFromText(text: string): number | undefined {
   return percent <= 100 ? percent : undefined;
 }
 
-/** A stored price as the cell shows it: "35", "35.50"; blank where there is none. */
+/** A stored price as a plain number to the cent: "35.00", "35.50"; blank where there is none. */
 export function priceText(cents: number | null | undefined): string {
   if (cents == null) return '';
-  return cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2);
+  return (cents / 100).toFixed(2);
 }
 
 /**

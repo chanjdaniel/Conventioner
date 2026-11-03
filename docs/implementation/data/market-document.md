@@ -23,7 +23,7 @@ describes:
   - back-end/migrations/migrate_is_draft_consistency.py
   - back-end/migrations/migrate_publishing_to_market_days.py
   - docs/schema.d.ts
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - E02
   - E03/F03
@@ -81,10 +81,10 @@ The other collections differ: applications and the placement trail are stored sn
 | `assignmentObject` | the stored assignment: `vendorAssignments` (each a seat on a date, `handPlaced` for a pin), `assignmentDate`, `madeFrom` (what the run read) and `revision` (how many times its rows were written, which each write is conditional on); its statistics are derived on every read and never stored (`_strip_persisted_assignment_statistics`); its one writer is [placements](../modules/placements.md) |
 | `importMapping` | the CSV import's saved column mapping, server-owned, in [the import's one format](../modules/csv-import.md) |
 | `exampleColumns` | what [the start from a Google Form's responses](../modules/csv-proposal-and-start.md) kept of each question and left-out column of its file: label, key and the options at least 3 applicants gave that name nobody; server-owned, absent on any other market |
-| `reviewHighlights`, `rejectionRules` | which answers a reviewer reads first ([review highlights](../../business/rules/review-highlights.md)), and which answers reject automatically; on the market, not the form, so they stay editable after the form locks |
+| `reviewHighlights`, `rejectionRules` | which answers a reviewer reads first ([review highlights](../../business/rules/review-highlights.md)), and which answers reject automatically; on the market, not the form, so they stay editable after the form locks, the rules only while the review is open (`review_is_open`) |
 | `resultsPublished` | whether applicants may see their outcome |
 | `discord` | the Discord server the market is connected to; see [the Discord connection is `discord`](#the-discord-connection-is-discord) |
-| `applicationsStopped` | whether the organizer has stopped taking applications inside the stage (E38/F04/S02), a fact about the form; absent is false, and only `set_applications_stopped` writes it |
+| `applicationsStopped` | whether the organizer has stopped taking applications inside the stage (E38/F04/S02), a fact about the form; absent is false; written by `set_applications_stopped`, and by the phase move into the stage (`taking_applications_update`), which clears it on entering draft or the stage from draft, and sets it on a form market back from Assignment |
 | `reviewTeam` | the reviewers chosen for the review, `{reviewers: [{userId, email}], turn}`, in the order they are dealt to (by address), and how many applications were dealt since they last changed, and while a deal runs `dealing` (`{by, until}`), the lease by which every deal holds the market, so the turn has one writer at a time ([ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)); absent is none chosen, so no migration; written only by [`back-end/review_team.py`](../../../back-end/review_team.py), null at creation, and never by a market update body ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)); the read serves every reader `{reviewers: [{email, able}]}`, never the turn |
 | `creationDate`, `modificationList`, `theme` | carried on every market; `modificationList` is always empty, and nothing writes or applies `theme` |
 

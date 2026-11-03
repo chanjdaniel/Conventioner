@@ -1,7 +1,8 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
+import { relative } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, normalizePath, type Plugin } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import vueJsx from '@vitejs/plugin-vue-jsx';
 import vueDevTools from 'vite-plugin-vue-devtools';
@@ -70,6 +71,56 @@ export const VUEDRAGGABLE_SOURCE = {
   replacement: 'vuedraggable/src/vuedraggable.js',
 };
 
+/**
+ * `src/dev/` spelled as Vite spells a module id, so they compare: its real path, since Vite resolves
+ * every id through symbolic links, and with `/` for a separator, as Vite writes ids on Windows too.
+ */
+const DEV_DIR = `${normalizePath(realpathSync(fileURLToPath(new URL('./src/dev/', import.meta.url))))}/`;
+
+/**
+ * No development page ships (T200): a production build fails when any module of the component
+ * library, `src/dev/`, is in any chunk it emits, and names each chunk and module.
+ *
+ * The library is reached only through the router's `if (import.meta.env.DEV)` block, which a
+ * production build drops with its lazy imports. Anything else that reaches `src/dev/` (a shipped
+ * file importing the fixture's synthetic applicants or a part, by any path, or that block kept
+ * alive) puts it in a chunk, and this is where it is caught, on every production build: CI's, the
+ * gate's and the deploy's. ESLint's `app/dev-pages-stay-out` refuses the import before it is built.
+ */
+export function noDevModules(): Plugin {
+  let production = false;
+  let root = '';
+  return {
+    name: 'conventioner:no-dev-modules',
+    apply: 'build',
+    configResolved(config) {
+      production = config.isProduction;
+      root = config.root;
+    },
+    generateBundle(_options, bundle) {
+      if (!production) return;
+      const found = Object.values(bundle).flatMap((output) => {
+        if (output.type !== 'chunk') return [];
+        const modules = new Set(
+          output.moduleIds
+            .filter((id) => id.startsWith(DEV_DIR))
+            .map((id) => relative(root, id.split('?')[0]!)),
+        );
+        return [...modules].map((module) => `  ${output.fileName}: ${module}`);
+      });
+      if (found.length === 0) return;
+      this.error(
+        [
+          'The component library, a development build only, is in this production build:',
+          ...found,
+          'Only the router may reach src/dev/, inside `if (import.meta.env.DEV)`, by a lazy ' +
+            'import(); find what reaches it another way and remove it.',
+        ].join('\n'),
+      );
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, fileURLToPath(new URL('.', import.meta.url)), 'VITE_');
@@ -79,7 +130,7 @@ export default defineConfig(({ command, mode }) => {
   }
 
   return {
-    plugins: [vue(), vueJsx(), vueDevTools()],
+    plugins: [vue(), vueJsx(), vueDevTools(), noDevModules()],
     resolve: {
       alias: [
         { find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url)) },

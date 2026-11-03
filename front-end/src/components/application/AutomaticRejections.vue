@@ -6,7 +6,7 @@
  * builder the price groups use too (`ChoiceConditions.vue`). Which questions may carry a rule, and
  * which answers each offers, are the server's (`rejectionQuestions` on the market, from
  * `back-end/rejection_rules.py`): this writes the whole list on every change, as the highlights
- * beside it do. Settled rules - the market has reached Assignment - are shown fixed, with the reason.
+ * beside it do. Settled rules - the review is closed - are shown fixed, with the server's reason.
  */
 import { computed } from 'vue';
 import type { RejectionQuestion, RejectionRule } from '@/assets/types/datatypes';

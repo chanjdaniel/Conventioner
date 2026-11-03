@@ -153,8 +153,8 @@ test('each headline is the figure of the page it links to, opened on its filter'
   await expect(stats.headline('free')).toHaveText('4 table-days free');
   await expect(stats.headline('unassigned')).toHaveText('1 vendor unassigned');
   await expect(stats.headline('owed')).toHaveText('$117.50 owed');
-  await expect(stats.headline('paid')).toHaveText('$90 paid');
-  await expect(stats.headline('stillOwed')).toHaveText('$35 still owed');
+  await expect(stats.headline('paid')).toHaveText('$90.00 paid');
+  await expect(stats.headline('stillOwed')).toHaveText('$35.00 still owed');
 
   // The table-days used: the Assignments page's strip.
   await follow(stats, marketId, 'used', async () => {
