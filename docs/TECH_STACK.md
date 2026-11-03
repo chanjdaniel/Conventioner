@@ -9,7 +9,7 @@ describes:
   - .nvmrc
   - docker-compose.yml
   - front-end/vite.config.ts
-verified: 2026-11-01
+verified: 2026-11-03
 ---
 # Technology Stack
 
@@ -121,7 +121,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 
 ### Build Tool
 - **Vite 8.3.5** - Next-generation frontend build tool, bundling with Rolldown
-  - CI holds the entry JavaScript of a build to a gzipped limit, the [bundle budget](implementation/testing/ci-and-the-gate.md#the-bundle-budget), and fails a build that calls `eval` or `Function`, which the [Content-Security-Policy](implementation/conventions/security-invariants.md#security-headers) refuses ([the eval check](implementation/testing/ci-and-the-gate.md#no-string-evaluated-as-script))
+  - CI holds the entry JavaScript of a build to a gzipped limit, the [bundle budget](implementation/testing/ci-and-the-gate.md#the-bundle-budget), and fails a build that calls `eval` or `Function`, which the [Content-Security-Policy](implementation/conventions/security-invariants.md#security-headers) refuses ([the eval check](implementation/testing/ci-and-the-gate.md#no-string-evaluated-as-script)), or that holds the development-only [component library](implementation/modules/component-library.md) ([the development page check](implementation/testing/ci-and-the-gate.md#no-development-page-in-the-build))
   - `vite preview` serves `front-end/vercel.json`'s security headers, so a production build runs locally under the policy production sends
   - Minifying keeps legal comments (`/*!` and `@license`, in [`vite.config.ts`](../front-end/vite.config.ts)), so the licence notices of copied icons and bundled libraries reach the shipped bundle ([ADR 0015](adr/0015-the-app-owns-its-components.md))
   - Fast development server with HMR

@@ -25,6 +25,28 @@ export default defineConfigWithVueTs(
     name: 'app/no-raw-html',
     rules: { 'vue/no-v-html': 'error' },
   },
+  {
+    // The component library (`src/dev/`) is a development build's only, and the router's
+    // development block is its one way in: anything else importing it would bundle it into
+    // production, where `scripts/no-dev-pages.ts` would then fail the build.
+    name: 'app/dev-pages-stay-out',
+    files: ['**/*.{ts,mts,tsx,vue}'],
+    ignores: ['src/dev/**', 'src/router/index.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/dev', '@/dev/*'],
+              message:
+                'src/dev/ is the development-only component library: only the router reaches it, inside `if (import.meta.env.DEV)`.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   vueTsConfigs.recommended,
   skipFormatting,
 );

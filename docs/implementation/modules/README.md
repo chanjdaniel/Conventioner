@@ -13,6 +13,7 @@ One line per node, sorted by file name.
 
 - [The assignment solver](assignment-solver.md) - `assign_market` over the approved applications, the one seam `vendor_input.py`, vendor-driven placement
 - [Attendance and the door](attendance-and-door.md) - the roster off the stored assignment, the two doors that check a vendor in, the phone-sized door among the organizer market screens
+- [The component library](component-library.md) - `/dev/components`, a development build's page of every reusable component on synthetic data at real sizes; kept out of production by the router's `DEV` block and `no-dev-pages`
 - [The CSV import](csv-import.md) - a Google Form's responses as applications: the CSV path's in Draft and Review, one row per applicant, one mapping format
 - [The CSV proposal and start](csv-proposal-and-start.md) - a draft started from its Google Form's responses: a proposal that writes nothing, a confirm that writes all or nothing
 - [The Discord connection](discord.md) - a market connected to a server through Discord's approval screen: one bot, REST only, the card editable until archived, who is in the server and giving its role, optional values

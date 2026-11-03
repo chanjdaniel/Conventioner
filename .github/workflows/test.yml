@@ -220,6 +220,10 @@ jobs:
       # (scripts/no-eval.ts).
       - name: No string evaluated as script
         run: npm run no-eval
+      # The component library (src/dev/) is a development build's only: no built file holds its
+      # marker or its address (scripts/no-dev-pages.ts).
+      - name: No development page in the build
+        run: npm run no-dev-pages
 
   docker-build:
     runs-on: ubuntu-latest

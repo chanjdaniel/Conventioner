@@ -5,13 +5,14 @@ describes:
   - front-end/playwright.config.ts
   - scripts/seed_fixture.sh
   - scripts/nm-test.sh
-verified: 2026-10-28
+verified: 2026-11-03
 sources:
   - E34/F03/S02
   - E35/F02/S01
   - T47
   - T74
   - E41/F01/S01
+  - T200
 ---
 
 # Testing Conventioner
@@ -189,6 +190,7 @@ npm run bundle-budget
 
 It prints the gzipped size of each chunk a first visit loads before any page paints, and fails when their total passes the limit in `front-end/scripts/bundle-budget.ts`.
 CI and `scripts/nm-test.sh` run it; what it measures, and how to raise the limit on purpose, is [the bundle budget](implementation/testing/ci-and-the-gate.md#the-bundle-budget).
+On the same build they run `npm run no-eval` and `npm run no-dev-pages`: no built file calls `eval` or `Function`, and none holds the development-only [component library](implementation/modules/component-library.md) ([CI and the gate](implementation/testing/ci-and-the-gate.md#no-development-page-in-the-build)).
 
 ## End-to-End (E2E) Tests
 

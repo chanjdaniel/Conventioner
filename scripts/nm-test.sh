@@ -222,6 +222,8 @@ npm run bundle-budget
 echo "Bundle budget: OK"
 # As CI does next: that build calls neither eval nor Function (front-end/scripts/no-eval.ts).
 npm run no-eval
+# And holds none of the development-only component library (front-end/scripts/no-dev-pages.ts).
+npm run no-dev-pages
 
 # ── E2E tests (needs the stack) ──────────────────────────────────────────────
 

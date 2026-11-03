@@ -8,7 +8,7 @@ describes:
   - front-end/src/utils/market.ts#openMarket
   - front-end/src/views/MarketLanding.vue
   - front-end/src/utils/vendorDrawer.ts
-verified: 2026-11-02
+verified: 2026-11-03
 sources:
   - wayfinding/readable-journey/map
   - wayfinding/the-assignment-tab/01
@@ -24,6 +24,7 @@ sources:
   - E46/F01/S02
   - E44/F02/S01
   - E38/F13/S01
+  - T200
 ---
 
 # Every market page has an address
@@ -40,6 +41,7 @@ The routes are in [`front-end/src/router/index.ts`](../../../front-end/src/route
 - `/markets/:marketId/{setup,form,applications,settings}` are the pages of one view, `MarketSetupView` (`SETUP_VIEW_PAGES`); `settings` is the Assignment tab's Settings page, apart from `setup`, Market Setup's plan.
 - `/markets/:marketId/assignments`, `/vendors`, `/payments`, `/attendance`, `/tools` and `/stats` are views of their own; the Payments page keeps its filter, search and sort in its query ([payments](../../business/flows/payments.md)).
 - `/markets/:marketId/import`, `/floorplan` and `/start-from-csv` are flows, entered from a tab rather than places to go; each stands under one tab, the import under Applications and the other two under Market Setup (see [the market frame](../modules/market-frame.md)).
+- `/dev/components` and `/dev/components/:entry` are not market pages either: they are the [component library](../modules/component-library.md), registered only in a development build, so in production they are "page not found" as any unknown address is.
 - `/discord/connected` is not a market page: it is where Discord's approval screen sends the organizer back, its market named by the state it carries, in the tab Connect Discord opened; it says the outcome and links to that market's Tools ([the Discord connection](../modules/discord.md)).
 - `/markets/:marketId` alone is [`MarketLanding`](../../../front-end/src/views/MarketLanding.vue), which opens the market, shows the frame's arrival, and then replaces itself with the page the market is worked on in its phase: `currentPage` in [the market guide](../modules/market-guide.md), a reading of the guide's table.
   Opening a market from a list, the dashboard or a new market all come through it ([`openMarket`](../../../front-end/src/utils/market.ts)), so none of them has to know which page a phase belongs to.
