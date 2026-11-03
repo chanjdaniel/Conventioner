@@ -13,7 +13,8 @@
  *
  * It refreshes through the user's own organization LIST rather than `GET /organizations/<id>`:
  * the list endpoint is scoped to what the caller belongs to and returns the enriched shape this
- * dialog renders (emails and the caller's role), which the single-organization read does not.
+ * dialog renders (each admin and member with their id and address, and the caller's role), which
+ * the single-organization read does not.
  *
  * Three closes are correct and stay: deleting the organization, the explicit close control, and
  * dismissal by Escape or the backdrop - the last two now owned by `AppDialog`.
@@ -331,24 +332,20 @@ function handleDeleted() {
             tabindex="-1"
             data-testid="manage-org-admins"
           >
-            <div
-              v-for="(email, idx) in orgData.adminEmails || []"
-              :key="orgData.admins?.[idx] ?? idx"
-              class="user-card"
-            >
-              <span class="user-email" data-testid="manage-org-admin-email">{{ email }}</span>
+            <div v-for="admin in orgData.adminPeople" :key="admin.userId" class="user-card">
+              <span class="user-email" data-testid="manage-org-admin-email">{{ admin.email }}</span>
               <span class="role-badge role-admin">Admin</span>
               <button
-                v-if="isOwner() && canRemoveUser(orgData.admins![idx], 'admin')"
+                v-if="isOwner() && canRemoveUser(admin.userId, 'admin')"
                 type="button"
                 class="btn btn--secondary btn--destructive"
                 data-testid="manage-org-remove-user-button"
-                @click="askToRemove(orgData.admins![idx], email, 'admins')"
+                @click="askToRemove(admin.userId, admin.email, 'admins')"
               >
-                Remove<span class="visually-hidden"> {{ email }}</span>
+                Remove<span class="visually-hidden"> {{ admin.email }}</span>
               </button>
             </div>
-            <p v-if="!orgData.adminEmails?.length && !showAddAdminForm" class="empty-state">
+            <p v-if="!orgData.adminPeople.length && !showAddAdminForm" class="empty-state">
               No admins
             </p>
           </div>
@@ -410,24 +407,22 @@ function handleDeleted() {
             tabindex="-1"
             data-testid="manage-org-members"
           >
-            <div
-              v-for="(email, idx) in orgData.memberEmails || []"
-              :key="orgData.members?.[idx] ?? idx"
-              class="user-card"
-            >
-              <span class="user-email" data-testid="manage-org-member-email">{{ email }}</span>
+            <div v-for="member in orgData.memberPeople" :key="member.userId" class="user-card">
+              <span class="user-email" data-testid="manage-org-member-email">{{
+                member.email
+              }}</span>
               <span class="role-badge role-member">Member</span>
               <button
-                v-if="canRemoveUser(orgData.members![idx], 'member')"
+                v-if="canRemoveUser(member.userId, 'member')"
                 type="button"
                 class="btn btn--secondary btn--destructive"
                 data-testid="manage-org-remove-member-button"
-                @click="askToRemove(orgData.members![idx], email, 'members')"
+                @click="askToRemove(member.userId, member.email, 'members')"
               >
-                Remove<span class="visually-hidden"> {{ email }}</span>
+                Remove<span class="visually-hidden"> {{ member.email }}</span>
               </button>
             </div>
-            <p v-if="!orgData.memberEmails?.length && !showAddMemberForm" class="empty-state">
+            <p v-if="!orgData.memberPeople.length && !showAddMemberForm" class="empty-state">
               No members
             </p>
           </div>
