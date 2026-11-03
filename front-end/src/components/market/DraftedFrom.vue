@@ -81,8 +81,10 @@ const parts = computed((): Part[] => {
   color: var(--mm-black);
 }
 
+/* A link is one label: "Add tables" never breaks between its words at a line's end. */
 .drafted-from-link {
   color: var(--mm-blue);
   text-decoration: underline;
+  white-space: nowrap;
 }
 </style>

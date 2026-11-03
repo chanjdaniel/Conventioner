@@ -360,9 +360,10 @@ h2 {
 }
 
 .subtitle,
+/* The import's help size, so the two upload steps read as one (T205/F11). */
 .help {
   margin: 0;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
