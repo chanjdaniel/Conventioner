@@ -134,6 +134,11 @@ export class VendorPage {
     return this.page.getByTestId('vendor-page-info');
   }
 
+  /** On a Google Form market, a signed-in address with no vendor there: which address to use. */
+  get noVendor(): Locator {
+    return this.page.getByTestId('vendor-page-no-vendor');
+  }
+
   /** Opens the form, on this page, for a vendor who has not applied. */
   get applyButton(): Locator {
     return this.page.getByTestId('vendor-page-apply-btn');

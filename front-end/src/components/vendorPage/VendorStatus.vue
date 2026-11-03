@@ -5,10 +5,14 @@
  *
  * The server serves no verdict before publishing, so there is none here to word; the seats are
  * read off the stored assignment on every read, so a vendor moved by hand reads their new table.
+ *
+ * On a Google Form market a signed-in address with no vendor there is told which address to use:
+ * there is no application section to say it, since nobody applies on its page.
  */
 import { computed } from 'vue';
+import { IntakeMode } from '@/assets/types/datatypes';
 import { useApplicationStore } from '@/stores/application';
-import { statusHeadline } from '@/utils/vendorPage';
+import { noVendorAtThisAddress, statusHeadline } from '@/utils/vendorPage';
 import { seatLine } from '@/utils/applicantOutcome';
 import { getTimestampDate } from '@/utils/utils';
 
@@ -17,6 +21,11 @@ const store = useApplicationStore();
 const application = computed(() => store.application);
 const headline = computed(() => statusHeadline(application.value));
 const hasATable = computed(() => application.value?.outcome === 'has_a_table');
+const noVendor = computed(() =>
+  !application.value && store.page?.intakeMode === IntakeMode.Csv
+    ? noVendorAtThisAddress(store.page.marketName)
+    : null,
+);
 </script>
 
 <template>
@@ -34,6 +43,9 @@ const hasATable = computed(() => application.value?.outcome === 'has_a_table');
       <li v-for="seat in application.seats" :key="seat.date">{{ seatLine(seat) }}</li>
     </ul>
   </div>
+  <p v-else-if="noVendor" class="status-none" data-testid="vendor-page-no-vendor">
+    {{ noVendor }}
+  </p>
 </template>
 
 <style scoped>
@@ -66,6 +78,18 @@ const hasATable = computed(() => application.value?.outcome === 'has_a_table');
 /* In the card's own ink, which is measured on its ground: dimmed by opacity it read 3.3:1. */
 .status-date {
   font-size: var(--text-xs);
+}
+
+/* Worded and drawn as the application section's notice that a vendor has none. */
+.status-none {
+  margin: 0;
+  background: var(--mm-chip-informational);
+  border: 1px solid var(--mm-blue);
+  border-radius: var(--radius-control);
+  padding: var(--space-4);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--mm-blue);
 }
 
 /* Where they sit, one line a date, under the outcome. */

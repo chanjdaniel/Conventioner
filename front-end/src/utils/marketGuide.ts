@@ -277,8 +277,9 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
     onlooker: watchedStage(standing),
   }),
   // Worked on the rules until there are assignments, and on the assignments after. Once results
-  // are published the assignments are settled, and what is left is the move.
-  [MarketPhase.Assignment]: ({ assigned, published, path }) =>
+  // are published the assignments are settled, and what is left is the move. Both paths publish
+  // results before the market goes live (ADR 0022), so the sentences are the same on both.
+  [MarketPhase.Assignment]: ({ assigned, published }) =>
     published
       ? {
           page: 'assignments',
@@ -296,10 +297,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
               'Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone.',
             onlooker:
               'Tables are allocated, and the market is not published yet. Read the assignments.',
-            helper:
-              path === IntakeMode.Form
-                ? 'Check the assignments; the results are published by whoever may publish them.'
-                : 'Check the assignments; the market is published by whoever may publish it.',
+            helper: 'Check the assignments; the results are published by whoever may publish them.',
           }
         : {
             page: 'settings',

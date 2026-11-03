@@ -432,17 +432,32 @@ describe("the vendor page's address (ADR 0022)", () => {
     }
   });
 
-  it('is never shown on a market that imports its vendors', () => {
-    const csv = { ...form, intakeMode: 'csv' } as Partial<Market>;
-    for (const phase of [
-      MarketPhase.Applications,
-      MarketPhase.Assignment,
-      MarketPhase.MarketDays,
-    ]) {
-      expect(railFor(phase, csv).find('[data-testid="phase-rail-vendor-page"]').exists()).toBe(
-        false,
-      );
-    }
+  const csv = { ...form, intakeMode: 'csv' } as Partial<Market>;
+  const chipOn = (phase: MarketPhase, market: Partial<Market>) =>
+    railFor(phase, market).find('[data-testid="phase-rail-vendor-page"]').exists();
+
+  it('is not shown on a Google Form market before its results', () => {
+    expect(chipOn(MarketPhase.Applications, csv)).toBe(false);
+    expect(chipOn(MarketPhase.Assignment, csv)).toBe(false);
+  });
+
+  it('is shown on a Google Form market once its results are published', () => {
+    const chip = railFor(MarketPhase.Assignment, { ...csv, resultsPublished: true }).get(
+      '[data-testid="phase-rail-vendor-page"]',
+    );
+    expect(chip.get('a').attributes('href')).toMatch(/\/riverside-market$/);
+  });
+
+  it('is shown on a Google Form market in its market days, published or not', () => {
+    expect(chipOn(MarketPhase.MarketDays, csv)).toBe(true);
+  });
+
+  it('stays on an archived Google Form market only if it ran', () => {
+    const ran = { ...csv, resultsPublished: true, phasesReached: [MarketPhase.MarketDays] };
+    expect(chipOn(MarketPhase.Archived, ran)).toBe(true);
+    expect(chipOn(MarketPhase.Archived, { ...ran, phasesReached: [MarketPhase.Assignment] })).toBe(
+      false,
+    );
   });
 
   it('copies the whole address', async () => {

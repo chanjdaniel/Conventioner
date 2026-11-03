@@ -2,7 +2,7 @@
  * A market's vendor page, `/<slug>` (ADR 0022): what it reads before sign-in, and which sections
  * it shows a signed-in vendor in each state of the market.
  */
-import type { Application } from '@/assets/types/datatypes';
+import type { Application, Market } from '@/assets/types/datatypes';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
 import { APPLICANT_READ_TIMEOUT_MS } from '@/utils/applicantApi';
@@ -75,3 +75,42 @@ export function statusHeadline(application: Application | null): string | null {
 /** The sentence for a vendor with no application at a market that is not taking applications. */
 export const NO_APPLICATION_CLOSED =
   'You have no application at this market, and it is not taking applications.';
+
+/**
+ * The sentence for a signed-in address with no vendor at a Google Form market: its vendors are
+ * the organizer's form responses, so the address to sign in with is the one the response gave.
+ */
+export function noVendorAtThisAddress(marketName: string): string {
+  return `There's no application from this address at ${marketName}. Use the address you gave on the market's form, or ask the organizer.`;
+}
+
+type MarketState = Pick<Market, 'intakeMode' | 'phase' | 'resultsPublished' | 'phasesReached'>;
+
+/** Has this market reached its market days, by its phase now or the record the server served? */
+function reachedMarketDays(market: MarketState): boolean {
+  return (
+    market.phase === MarketPhase.MarketDays ||
+    (market.phasesReached ?? []).includes(MarketPhase.MarketDays)
+  );
+}
+
+/**
+ * Does this market's vendor page answer now? The server's gate (`vendor_page_market_by_slug`),
+ * stated for the organizer's screens: never in draft; a market whose vendors apply on its page in
+ * every other phase; a Google Form market once its results are published or it reached its market
+ * days, which covers one that went live before it could publish them.
+ */
+export function hasVendorPage(market: MarketState): boolean {
+  if (!market.phase || market.phase === MarketPhase.Draft) return false;
+  if (market.intakeMode === IntakeMode.Form) return true;
+  return Boolean(market.resultsPublished) || reachedMarketDays(market);
+}
+
+/**
+ * Is its address one to share, as the rail offers it? While it has a page, and once archived only
+ * for a market that ran: its page is then the record of where its vendors sat.
+ */
+export function sharesVendorPage(market: MarketState): boolean {
+  if (!hasVendorPage(market)) return false;
+  return market.phase !== MarketPhase.Archived || reachedMarketDays(market);
+}

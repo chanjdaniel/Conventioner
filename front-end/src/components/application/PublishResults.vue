@@ -7,7 +7,7 @@
  * step for the market, not for a view, so it sits over the switch, from the assignment on.
  */
 import { computed, ref, watch } from 'vue';
-import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
+import { MarketPhase, type Market } from '@/assets/types/datatypes';
 import { publishResults } from '@/utils/applicantApi';
 import { getApiErrorMessage } from '@/utils/api';
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
@@ -18,16 +18,6 @@ import AppDialog from '@/components/AppDialog.vue';
 
 const props = defineProps<{ market: Market | null }>();
 
-/**
- * Does publishing results mean anything on this market?
- *
- * `resultsPublished` is what makes a reviewer's verdict visible to the applicant instead of
- * `under_review` - and every endpoint that reads it goes through
- * `applicant_intake_market_by_slug`, which serves form-intake markets only. On a CSV market the
- * flag has no reader at all, so the button was a no-op with a confident label. It is absent
- * there, and the endpoint refuses too, because a hidden button is not a rule.
- */
-const marketHasApplicants = computed(() => props.market?.intakeMode === IntakeMode.Form);
 /**
  * Results go out from the assignment on, so it is drawn only from there (Daniel, 2026-10-29): before
  * it, a disabled button with its reason sat over the review it has nothing to do with.
@@ -98,7 +88,7 @@ async function publish() {
 </script>
 
 <template>
-  <div v-if="market && marketHasApplicants && itsPhase && publishes" class="publish-row">
+  <div v-if="market && itsPhase && publishes" class="publish-row">
     <button
       v-if="!published"
       class="publish-button"
@@ -136,7 +126,7 @@ async function publish() {
     >
       <p v-if="outcomes" class="publish-outcomes">
         {{ outcomes.haveATable }}
-        {{ outcomes.haveATable === 1 ? 'applicant will read' : 'applicants will read' }}
+        {{ outcomes.haveATable === 1 ? 'vendor will read' : 'vendors will read' }}
         "{{ HAS_A_TABLE }}". {{ outcomes.notAssigned }} will read "{{ NOT_ASSIGNED }}".
       </p>
       <p class="publish-outcomes" data-testid="publish-results-telling">

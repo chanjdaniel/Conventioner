@@ -380,7 +380,7 @@ export interface Market {
   publishWaitsReason?: string | null;
   /** Why the assignment cannot be run now, or null while it can (E36/F04/S02). */
   assignRefusalReason?: string | null;
-  /** How many applicants will read each outcome, while results may be published; else null. */
+  /** How many vendors will read each outcome, while results may be published; else null. */
   publishOutcomes?: { haveATable: number; notAssigned: number } | null;
   /**
    * What would refuse each move open from this phase, judged by the guards the move runs; empty
@@ -605,7 +605,8 @@ export interface Application {
   id: string;
   marketId: string;
   applicantEmail: string;
-  formData: Record<string, unknown>;
+  /** Absent from a vendor's own read on a Google Form market, whose page shows no application. */
+  formData?: Record<string, unknown>;
   status: ApplicationStatus;
   applicationType: ApplicationType;
   mainApplicationId?: string;

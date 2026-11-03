@@ -327,7 +327,7 @@ describe('what the rail tells someone the step is not theirs', () => {
     id: 'results_published',
     passed: false,
     message:
-      'Applicants have not been told whether they have a table. Publish the results before the market goes live.',
+      'Vendors have not been told whether they have a table. Publish the results before the market goes live.',
     resolutionLink: 'applications',
     resolutionLabel: 'Publish results',
     resolutionAction: MarketAction.PublishResults,
@@ -398,16 +398,30 @@ describe('what the rail tells someone the step is not theirs', () => {
     });
   });
 
-  it('Assignment on a CSV market, whose guard passes: the same sentence', () => {
+  it('Assignment on a Google Form market, results not published: the same sentence', () => {
     const csv = viewer(MarketPhase.Assignment, {
       ...ASSIGNED,
       intakeMode: IntakeMode.Csv,
-      transitionBlockers: { market_days: [], applications: [] },
+      transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER], applications: [] },
     } as Partial<Market>);
     expect(nextStep(csv, TODAY)).toMatchObject({
       text: 'Tables are allocated, and the market is not published yet. Read the assignments.',
       page: 'assignments',
       action: MarketAction.Read,
+    });
+  });
+
+  it('Assignment on a Google Form market leads its owner to Publish results (ADR 0022)', () => {
+    const csv = market(MarketPhase.Assignment, {
+      ...ASSIGNED,
+      intakeMode: IntakeMode.Csv,
+      transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER], applications: [] },
+    } as Partial<Market>);
+    expect(nextStep(csv, TODAY)).toMatchObject({
+      text: `To publish market: ${UNPUBLISHED_BLOCKER.message}`,
+      page: 'applications',
+      blocker: { id: 'results_published' },
+      action: MarketAction.PublishResults,
     });
   });
 
@@ -512,13 +526,15 @@ describe('what the rail tells someone the step is not theirs', () => {
       blocker: null,
       action: MarketAction.Assign,
     });
+    // A Google Form market publishes results too, so its Editor reads the same (ADR 0022).
     const csv = market(MarketPhase.Assignment, {
       ...ASSIGNED,
       intakeMode: IntakeMode.Csv,
       actionRefusals: EDITOR_ANSWERS,
+      transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER], applications: [] },
     } as Partial<Market>);
     expect(nextStep(csv, TODAY)).toMatchObject({
-      text: 'Check the assignments; the market is published by whoever may publish it.',
+      text: 'Check the assignments; the results are published by whoever may publish them.',
       page: 'assignments',
       action: MarketAction.Assign,
     });

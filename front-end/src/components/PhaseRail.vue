@@ -55,6 +55,7 @@ import {
   type StageAction,
 } from '@/utils/marketGuide';
 import { OFF_SPINE_PHASES, transitionDirection, transitionNeedsConfirmation } from '@/utils/phase';
+import { sharesVendorPage } from '@/utils/vendorPage';
 
 const props = defineProps<{
   market: Market | null;
@@ -168,21 +169,16 @@ const checkInUrl = computed(() => {
 
 /**
  * A market's vendor page, `/<slug>`, from the moment it has one: the one address its vendors keep,
- * from applying to the last market day.
+ * from applying, or from their results on a Google Form market, to the last market day
+ * (`sharesVendorPage`).
  *
- * A form-intake market has one from the first phase after draft. A draft is not published, so the
- * page answers as a market that does not exist, and a chip there would hand the organizer a link
- * to a page that deliberately tells them nothing. Archived, it stays only for a market that ran:
- * its page is then the record of where its vendors sat.
- *
- * A CSV market shows none: its page answers exactly as a market that does not exist, and a chip
- * here would be the one place the product admitted it was real.
+ * Before then the page answers as a market that does not exist, and a chip would hand the
+ * organizer a link to a page that deliberately tells them nothing. Archived, it stays only for a
+ * market that ran: its page is then the record of where its vendors sat.
  */
 const vendorPageUrl = computed(() => {
-  if (props.market?.intakeMode !== IntakeMode.Form) return '';
-  if (currentPhase.value === MarketPhase.Draft) return '';
-  if (isArchived.value && !reached.value.has(MarketPhase.MarketDays)) return '';
-  const slug = props.market?.slug;
+  if (!props.market || !sharesVendorPage(props.market)) return '';
+  const slug = props.market.slug;
   if (!slug) return '';
   return `${window.location.origin}/${slug}`;
 });
@@ -966,7 +962,7 @@ function cancelPending() {
   }
 }
 
-/* One chip, two users: the application page and the check-in page (E18/F04/S02). */
+/* One chip, two users: the vendor page and the check-in page (E18/F04/S02). */
 .url-chip {
   display: flex;
   align-items: center;

@@ -10,7 +10,7 @@ import { namelessControls } from './helpers/accessibleNames';
  * Results wait for the allocation (E36/F04/S01), and settle it (E36/F04/S02).
  *
  * Publish results is offered once the market is assigning with a current run, says why until then,
- * and confirms with how many applicants will read each outcome before it tells anyone.
+ * and confirms with how many vendors will read each outcome before it tells anyone.
  */
 const DATE = '2099-08-01';
 
@@ -64,13 +64,13 @@ test('publishing waits for a run, then says who will read what before it tells t
   // Nor does it go live untold (E36/F04/S02): the rail says so. Its fix is this very page.
   await expect(page.getByTestId('phase-transition-market_days')).toBeDisabled();
   await expect(page.getByTestId('phase-rail-next')).toContainText(
-    'Applicants have not been told whether they have a table.',
+    'Vendors have not been told whether they have a table.',
   );
   await expect(publish).toBeEnabled();
   await publish.click();
   const confirm = page.getByTestId('publish-results-window');
   expect(await namelessControls(page), 'the publish results dialog').toEqual([]);
-  await expect(confirm).toContainText('1 applicant will read "You have a table"');
+  await expect(confirm).toContainText('1 vendor will read "You have a table"');
   await expect(confirm).toContainText('1 will read "You did not get assigned"');
   await confirm.getByTestId('publish-results-submit-button').click();
   await expect(confirm).toBeHidden();

@@ -9,7 +9,10 @@ import { useApplicationStore } from '@/stores/application';
 import { IntakeMode, MarketPhase, type Application } from '@/assets/types/datatypes';
 import {
   applicationSection,
+  hasVendorPage,
   NO_APPLICATION_CLOSED,
+  noVendorAtThisAddress,
+  sharesVendorPage,
   statusHeadline,
   type VendorPageInfo,
   type VendorPageRead,
@@ -172,6 +175,34 @@ describe('what the application section shows (ADR 0022)', () => {
     ],
   ])('%s: %s', (_name, page, app, expected) => {
     expect(applicationSection(page, app)).toBe(expected);
+  });
+});
+
+describe('whether a market has a vendor page, as the server decides (ADR 0022)', () => {
+  const D = MarketPhase.Draft;
+  const AP = MarketPhase.Applications;
+  const AS = MarketPhase.Assignment;
+  const MD = MarketPhase.MarketDays;
+  const AR = MarketPhase.Archived;
+  const ran = [D, AP, AS, MD, AR];
+  const never = [D, AP, AS, AR];
+  it.each([
+    ['form, draft', IntakeMode.Form, D, false, [D], false, false],
+    ['form, applications', IntakeMode.Form, AP, false, [D, AP], true, true],
+    ['form, archived after it ran', IntakeMode.Form, AR, false, ran, true, true],
+    ['form, archived without running', IntakeMode.Form, AR, false, never, true, false],
+    ['csv, applications', IntakeMode.Csv, AP, false, [D, AP], false, false],
+    ['csv, assignment', IntakeMode.Csv, AS, false, [D, AP, AS], false, false],
+    ['csv, assignment, published', IntakeMode.Csv, AS, true, [D, AP, AS], true, true],
+    ['csv, market days, never published', IntakeMode.Csv, MD, false, [D, MD], true, true],
+    ['csv, archived after it ran', IntakeMode.Csv, AR, false, ran, true, true],
+    ['csv, archived without running, published', IntakeMode.Csv, AR, true, never, true, false],
+    ['csv, archived without running', IntakeMode.Csv, AR, false, never, false, false],
+    ['csv, draft, published', IntakeMode.Csv, D, true, [D], false, false],
+  ] as const)('%s', (_name, intakeMode, phase, resultsPublished, reached, has, shares) => {
+    const market = { intakeMode, phase, resultsPublished, phasesReached: [...reached] };
+    expect(hasVendorPage(market)).toBe(has);
+    expect(sharesVendorPage(market)).toBe(shares);
   });
 });
 
@@ -489,6 +520,77 @@ function refusal(status: number, error: string): AxiosError {
   const response = { data: { error }, status, statusText: '', headers: {}, config };
   return new AxiosError('Request failed', 'ERR_BAD_REQUEST', config, {}, response);
 }
+
+describe("a Google Form market's page (ADR 0022)", () => {
+  beforeEach(signIn);
+
+  const imported = () =>
+    pageOf({
+      intakeMode: IntakeMode.Csv,
+      phase: MarketPhase.Assignment,
+      takesApplications: false,
+      resultsPublished: true,
+    });
+  const SEAT = {
+    date: '2099-08-01',
+    tableCode: 'A 1',
+    tableChoice: 'Full Table',
+    section: 'A',
+    location: 'North Wing',
+    checkedInAt: null,
+  };
+
+  it('reads an imported vendor their table, and no application', async () => {
+    fetchVendorPage.mockResolvedValue(imported());
+    fetchApplicantApplication.mockResolvedValue(
+      application({ formData: undefined, outcome: 'has_a_table', seats: [SEAT] }),
+    );
+    const wrapper = await mountPage();
+
+    expect(wrapper.get('[data-testid="vendor-page-status"]').text()).toContain('You have a table');
+    expect(wrapper.get('[data-testid="vendor-page-seats"]').text()).toContain('North Wing');
+    expect(has(wrapper, 'vendor-page-answers')).toBe(false);
+    expect(has(wrapper, 'vendor-page-apply-btn')).toBe(false);
+    expect(has(wrapper, 'vendor-page-info')).toBe(false);
+    // Nobody fills its form in, so the page never asks for one.
+    expect(fetchPublicApplicationForm).not.toHaveBeenCalled();
+  });
+
+  it('reads one without a seat that they did not get assigned', async () => {
+    fetchVendorPage.mockResolvedValue(imported());
+    fetchApplicantApplication.mockResolvedValue(
+      application({ formData: undefined, outcome: 'not_assigned' }),
+    );
+    const wrapper = await mountPage();
+
+    expect(wrapper.get('[data-testid="vendor-page-status"]').text()).toContain(
+      'You did not get assigned',
+    );
+  });
+
+  it('tells an address with no vendor there to use the one their form response gave', async () => {
+    fetchVendorPage.mockResolvedValue(imported());
+    fetchApplicantApplication.mockResolvedValue(null);
+    const wrapper = await mountPage();
+
+    expect(wrapper.get('[data-testid="vendor-page-no-vendor"]').text()).toBe(
+      "There's no application from this address at Spring Market. Use the address you gave on the market's form, or ask the organizer.",
+    );
+    expect(wrapper.get('[data-testid="vendor-page-no-vendor"]').text()).toBe(
+      noVendorAtThisAddress('Spring Market'),
+    );
+    expect(has(wrapper, 'vendor-page-status')).toBe(false);
+    expect(has(wrapper, 'vendor-page-sign-out-btn')).toBe(true);
+  });
+
+  it('never says it on a market whose vendors apply on its page', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf({ takesApplications: false }));
+    fetchApplicantApplication.mockResolvedValue(null);
+    const wrapper = await mountPage();
+
+    expect(has(wrapper, 'vendor-page-no-vendor')).toBe(false);
+  });
+});
 
 describe('applying and editing on the page', () => {
   beforeEach(signIn);
