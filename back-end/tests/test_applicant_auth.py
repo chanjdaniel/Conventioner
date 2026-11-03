@@ -26,7 +26,7 @@ from market_documents import market_name_slug
 class FakeMarketsCollection:
     """A minimal fake for the markets collection that supports the slug lookup.
 
-    ``published_market_by_slug`` calls ``find(query, projection)`` and expects
+    ``market_by_slug`` calls ``find(query, projection)`` and expects
     the collection to apply the filter and projection the way Mongo does.
     """
 

@@ -42,7 +42,7 @@ Applying answers so on a CSV market in every phase: its vendors are the organize
 
 Between a stranger learning nothing and a stranger learning that an organizer they have never met is running a market, the product takes the first.
 A friendlier notice was considered and rejected for exactly that, and so was redirecting to check-in, which turns a stranger's typo into a vendor-facing page.
-A gated market is invisible on the applicant side and fully visible on the check-in side, and neither side has to reason about the other.
+A gated market is invisible to every vendor request, check-in included; a market reaches its check-in only in `market_days`, where every market has a vendor page, so no check-in ever meets the gate.
 
 **A market's bare address, `/<slug>`, is its vendor page** ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)) and answers the same way: a gated market's is "page not found", and a form market's names the market and asks for an email address and the code sent to it ([`VendorPage.vue`](../../../front-end/src/views/VendorPage.vue)).
 There is no public landing page for a market beyond that.
