@@ -9,11 +9,16 @@ import { expect, type Locator, type Page } from '@playwright/test';
 export class StartFromCsvPage {
   readonly page: Page;
   readonly view: Locator;
+  readonly title: Locator;
   readonly upload: Locator;
+  readonly uploadHeading: Locator;
+  /** What the file is read for, that no one is imported, and the intake's own way on (T205/F20). */
+  readonly uploadHelp: Locator;
   readonly dropZone: Locator;
   readonly fileInput: Locator;
   readonly reading: Locator;
   readonly refused: Locator;
+  readonly refusedHeading: Locator;
   readonly yearDialog: Locator;
   readonly yearInput: Locator;
   readonly yearConfirm: Locator;
@@ -28,11 +33,15 @@ export class StartFromCsvPage {
   constructor(page: Page) {
     this.page = page;
     this.view = page.getByTestId('start-from-csv');
+    this.title = page.getByTestId('start-from-csv-title');
     this.upload = page.getByTestId('start-from-csv-upload');
+    this.uploadHeading = this.upload.getByRole('heading', { level: 2 });
+    this.uploadHelp = page.getByTestId('start-from-csv-upload-help');
     this.dropZone = page.getByTestId('start-from-csv-drop-zone');
     this.fileInput = page.getByTestId('start-from-csv-file-input');
     this.reading = page.getByTestId('start-from-csv-reading');
     this.refused = page.getByTestId('start-from-csv-refused');
+    this.refusedHeading = this.refused.getByRole('heading', { level: 2 });
     this.yearDialog = page.getByTestId('start-from-csv-year-dialog-window');
     this.yearInput = page.getByTestId('start-from-csv-year-input');
     this.yearConfirm = page.getByTestId('start-from-csv-year-dialog-submit-button');

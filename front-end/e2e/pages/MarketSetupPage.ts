@@ -51,6 +51,13 @@ export class MarketSetupPage {
   readonly currentPhase: Locator;
   readonly phaseBlockers: Locator;
 
+  // How vendors apply: the intake choice, and the start from a Google Form's responses under it
+  readonly startFromCsvButton: Locator;
+  readonly startFromCsvDisabled: Locator;
+  /** What the start drafts and that it imports no one, worded for the intake chosen (T205/F20). */
+  readonly startFromCsvHelp: Locator;
+  readonly startFromCsvReason: Locator;
+
   readonly assignError: Locator;
   /** Why Assign is unavailable in this market's phase (E10/F03/S02). */
   readonly assignPhaseHint: Locator;
@@ -77,11 +84,21 @@ export class MarketSetupPage {
     this.currentPhase = page.getByTestId('phase-rail-current');
     this.phaseBlockers = page.getByTestId('phase-rail-blockers');
 
+    this.startFromCsvButton = page.getByTestId('plan-start-from-csv-link');
+    this.startFromCsvDisabled = page.getByTestId('plan-start-from-csv-disabled');
+    this.startFromCsvHelp = page.getByTestId('plan-start-from-csv-help');
+    this.startFromCsvReason = page.getByTestId('plan-start-from-csv-reason');
+
     this.assignError = page.getByTestId('market-setup-assign-error');
     this.assignPhaseHint = page.getByTestId('market-setup-assign-phase-hint');
   }
 
   // --- Tabs ---
+
+  /** Choose how vendors reach this market on the How vendors apply card. */
+  async chooseIntake(mode: 'csv' | 'form'): Promise<void> {
+    await this.page.getByTestId(`setup-intake-mode-${mode}`).click();
+  }
 
   async openSetupTab(): Promise<void> {
     await this.setupTab.click();

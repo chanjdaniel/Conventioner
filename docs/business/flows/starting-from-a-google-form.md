@@ -27,10 +27,11 @@ sources:
 # Starting from a Google Form's responses
 
 **Who:** the market's Admin or owner, while the market is a draft whose form has no questions of its own.
-**Where they start:** the create-market dialog's "On my own Google Form" ([D2](creating-a-market.md#d2-create-a-market-that-starts-from-a-google-form)), or Market Setup; the flow is `/markets/<id>/start-from-csv` ([`StartFromCsvView.vue`](../../../front-end/src/views/StartFromCsvView.vue)), headed "Start from your Google Form".
+**Where they start:** the create-market dialog's "On my own Google Form" ([D2](creating-a-market.md#d2-create-a-market-that-starts-from-a-google-form)), or Market Setup; the flow is `/markets/<id>/start-from-csv` ([`StartFromCsvView.vue`](../../../front-end/src/views/StartFromCsvView.vue)), headed "Draft this market from a Google Form".
 **Serves:** [Vendors come in from the organizer's own Google Form](../intents/vendors-come-in-from-the-organizers-own-google-form.md).
 
 The organizer uploads last year's (or this year's) responses, and the market's plan facts and questions are proposed from the file's columns for them to adjust.
+It drafts; it imports no one, and both Market Setup and the Upload step say so, with how vendors come in after by the market's intake (T205, F20 of the 2026-11-02 walk).
 It is for an organizer whose Google Form is the real form, who would otherwise retype its questions so the import has somewhere to put each column; an organizer taking applications on the market's own page can seed this year's form from last year's responses the same way, at no extra cost.
 The flow is four steps at one address, "1 Upload", "2 Year", "3 Review", "4 Confirm"; Back, Cancel and leaving write nothing, and a reload lands back on Upload, since the file is not kept.
 Its heading stands on the frame's inset, in line with the rail, as the import's does; its refusal, Upload and "Reading your columns…" stand in a 720px panel centred in the page, where [the import](import.md)'s Upload stands, and take the file on the same drop zone; the proposal's ledger takes the whole width (T205).
@@ -51,15 +52,18 @@ See [D2](creating-a-market.md#d2-create-a-market-that-starts-from-a-google-form)
 ## G2. From an existing draft
 
 **Status:** Works (walked live).
-Market Setup, How vendors apply, "Start from my Google Form's responses"; it works for either intake and leaves the intake choice as it is.
-Disabled, with the reason, once the form has questions of its own: "This market's form already has questions of its own, so it can't be started from a Google Form's responses."
-Past Draft, Market Setup is settled and offers no start; the flow's own address says "Only a draft market can be started from a Google Form's responses."
+Market Setup, How vendors apply, "Draft from a Google Form's responses"; it works for either intake and leaves the intake choice as it is.
+Under it a help line follows the intake chosen above, as it is clicked: on "Vendors apply on this market's page", "Drafts this market's dates, tiers and questions from a past Google Form's responses. It imports no one: vendors apply on the market's page once applications open."; on "I collect applications elsewhere", "Drafts this market's dates, tiers and questions from your Google Form's responses. It imports no one yet: once the plan is ready, import the responses with Import responses, the next step at the top of the market's pages."
+Disabled, with the reason under the help line, once the form has questions of its own: "This market's form already has questions of its own, so it can't be started from a Google Form's responses."
+Past Draft, Market Setup is settled and offers no start; the flow's own address says, under "This market can't be drafted from a Google Form", "Only a draft market can be started from a Google Form's responses."
 
 ## G3. Upload and the year question
 
 **Status:** Works (walked live).
 
-1. Under "Upload your Google Form's responses", drop or choose the CSV (Google Sheets: File, Download, Comma-separated values) on the zone "Drop your CSV here, or choose a file", hinting "Any form tool or spreadsheet that exports CSV will do."; it takes no other file while one is read.
+1. Under "Choose a responses file to draft from", drop or choose the CSV on the zone "Drop your CSV here, or choose a file", hinting "Any form tool or spreadsheet that exports CSV will do."; it takes no other file while one is read.
+   The help above it says how to export the file ("In Google Sheets, open the form's responses and choose File, Download, Comma-separated values."), that Conventioner reads the columns and answers to propose the market's dates, tiers and questions, that no one is imported, with the way on by the stored intake (": vendors apply on the market's page once applications open." or ": once the plan is ready, you import the responses with Import responses, the next step at the top of the market's pages."), and "Nothing is written until you confirm, and the file is not kept."
+   The way on names the phase rail's next step, never the Applications tab, which offers no import (E38/F04/S03).
    A file that is not a CSV export stays on Upload with "This file does not look like a CSV export. Download the responses again from Google Forms as .csv.", as at the import (E38/F15/S02).
    Only when a TypeSafe key is configured does the step add that column headings, and a description of the shape of their answers, are sent to TypeSafe, and that individual vendors' answers never leave Conventioner.
 2. "Reading your columns…" shows while the proposal is made; there is no background job, and TypeSafe that has not answered in 5 seconds leaves the rules' answer, the row saying "Couldn't reach TypeSafe".

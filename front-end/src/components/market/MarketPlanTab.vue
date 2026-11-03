@@ -34,7 +34,8 @@ import ElementIntakeMode from '@/components/elements/ElementIntakeMode.vue';
 import ElementPricing from '@/components/elements/ElementPricing.vue';
 import { essentialOptionsFromSetup } from '@/utils/essentialFields';
 import { planGateReason } from '@/utils/planGate';
-import type { IntakeMode, RejectionQuestion, SetupObject } from '@/assets/types/datatypes';
+import { IntakeMode } from '@/assets/types/datatypes';
+import type { RejectionQuestion, SetupObject } from '@/assets/types/datatypes';
 
 const props = defineProps<{
   setupObject: SetupObject;
@@ -55,6 +56,17 @@ const props = defineProps<{
   /** The form's questions with answers to choose, which a price group's condition may name. */
   choiceQuestions: RejectionQuestion[];
 }>();
+
+/** What the start drafts, and that it imports no one, worded for the intake chosen above it: the
+ * plan's working copy, absent read as `csv` as the server reads it (T205/F20). */
+const startFromCsvHelp = computed(() =>
+  (props.intakeMode ?? IntakeMode.Csv) === IntakeMode.Form
+    ? "Drafts this market's dates, tiers and questions from a past Google Form's responses. " +
+      "It imports no one: vendors apply on the market's page once applications open."
+    : "Drafts this market's dates, tiers and questions from your Google Form's responses. " +
+      'It imports no one yet: once the plan is ready, import the responses with Import responses, ' +
+      "the next step at the top of the market's pages.",
+);
 
 const emit = defineEmits<{
   (event: 'update:setupObject', value: SetupObject): void;
@@ -192,29 +204,39 @@ const intakeEditable = computed(() => props.intakeEditable);
             v-if="!csvStartRefusal"
             type="button"
             class="btn btn--secondary"
+            aria-describedby="plan-start-from-csv-help"
             data-testid="plan-start-from-csv-link"
             @click="emit('startFromCsv')"
           >
-            Start from my Google Form's responses
+            Draft from a Google Form's responses
           </button>
-          <template v-else>
-            <button
-              type="button"
-              class="btn btn--secondary"
-              disabled
-              aria-describedby="plan-start-from-csv-reason"
-              data-testid="plan-start-from-csv-disabled"
-            >
-              Start from my Google Form's responses
-            </button>
-            <p
-              id="plan-start-from-csv-reason"
-              class="csv-start-reason"
-              data-testid="plan-start-from-csv-reason"
-            >
-              {{ csvStartRefusal }}
-            </p>
-          </template>
+          <button
+            v-else
+            type="button"
+            class="btn btn--secondary"
+            disabled
+            aria-describedby="plan-start-from-csv-help plan-start-from-csv-reason"
+            data-testid="plan-start-from-csv-disabled"
+          >
+            Draft from a Google Form's responses
+          </button>
+          <!-- It drafts and imports no one (T205/F20): said by the intake chosen above, as it is
+               clicked, so it never describes the other path. -->
+          <p
+            id="plan-start-from-csv-help"
+            class="csv-start-help"
+            data-testid="plan-start-from-csv-help"
+          >
+            {{ startFromCsvHelp }}
+          </p>
+          <p
+            v-if="csvStartRefusal"
+            id="plan-start-from-csv-reason"
+            class="csv-start-reason"
+            data-testid="plan-start-from-csv-reason"
+          >
+            {{ csvStartRefusal }}
+          </p>
         </div>
       </template>
     </ElementSettingContainer>
@@ -275,6 +297,13 @@ const intakeEditable = computed(() => props.intakeEditable);
   align-items: flex-start;
   gap: var(--space-1);
   margin-top: var(--space-3);
+}
+
+.csv-start-help {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
+  line-height: 1.4;
 }
 
 .csv-start-reason {

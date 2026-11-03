@@ -31,6 +31,7 @@ import {
   type ProposalDraft,
   type RowChoice,
 } from '@/utils/csvProposal';
+import { IntakeMode } from '@/assets/types/datatypes';
 import { readCsvFile } from '@/utils/csvFile';
 import { marketPath } from '@/utils/market';
 import { useOpenMarket } from '@/utils/openMarket';
@@ -73,6 +74,16 @@ onMounted(async () => {
 
 /** Why this market cannot be started from a file: the proposal's own refusal, served on the market. */
 const refusal = computed(() => market.value?.csvStartRefusal ?? '');
+
+/** The file drafts the market and imports no one, so the Upload step says how vendors come in
+ * after, by the stored intake (Market Setup saves the choice before it opens this page); absent is
+ * `csv`, as the server reads it (T205/F20). */
+const wayOn = computed(() =>
+  (market.value?.intakeMode ?? IntakeMode.Csv) === IntakeMode.Form
+    ? ": vendors apply on the market's page once applications open."
+    : ': once the plan is ready, you import the responses with Import responses, the next step ' +
+      "at the top of the market's pages.",
+);
 
 const planDates = computed(() =>
   (market.value?.setupObject?.marketDates ?? []).map((d) => d.date).filter(Boolean),
@@ -183,7 +194,7 @@ function leave() {
     <div v-if="market" class="start-view" data-testid="start-from-csv">
       <header class="start-header">
         <div>
-          <h1>Start from your Google Form</h1>
+          <h1 data-testid="start-from-csv-title">Draft this market from a Google Form</h1>
           <p v-if="proposal" class="subtitle" data-testid="start-from-csv-summary">
             {{ fileName }} · {{ proposal.responses }} response{{
               proposal.responses === 1 ? '' : 's'
@@ -213,7 +224,7 @@ function leave() {
       <p v-if="error" class="error" role="alert" data-testid="start-from-csv-error">{{ error }}</p>
 
       <section v-if="refusal" class="panel" data-testid="start-from-csv-refused">
-        <h2>This market can't start from your Google Form</h2>
+        <h2>This market can't be drafted from a Google Form</h2>
         <p class="help">{{ refusal }}</p>
         <button type="button" class="btn btn--secondary" @click="leave">
           Back to Market Setup
@@ -221,11 +232,13 @@ function leave() {
       </section>
 
       <section v-else-if="step === 'upload'" class="panel" data-testid="start-from-csv-upload">
-        <h2>Upload your Google Form's responses</h2>
-        <p class="help">
+        <h2>Choose a responses file to draft from</h2>
+        <p class="help" data-testid="start-from-csv-upload-help">
           In Google Sheets, open the form's responses and choose File, Download, Comma-separated
-          values. Each column becomes part of <strong>{{ market.name }}</strong
-          >'s plan or form. Nothing is written until you confirm, and the file is not kept.
+          values. Conventioner reads the columns and answers to propose
+          <strong>{{ market.name }}</strong
+          >'s dates, tiers and questions. No one is imported{{ wayOn }} Nothing is written until you
+          confirm, and the file is not kept.
         </p>
         <p v-if="typesafe" class="help" data-testid="start-from-csv-typesafe">
           Column headings, and a description of the shape of their answers, are sent to TypeSafe to
