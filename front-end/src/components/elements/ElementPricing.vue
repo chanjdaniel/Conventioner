@@ -37,6 +37,7 @@ import {
   pricingAfterTierChange,
   tierRenamed,
 } from '@/utils/pricing';
+import { useAmountCaret } from '@/utils/useAmountField';
 
 const props = withDefaults(
   defineProps<{
@@ -127,39 +128,12 @@ function cellText(row: Row, tier: string): string {
     : leftAmountText(text, pricing.value.currency);
 }
 
-/**
- * Focusing a cell gives its plain number with the caret at its end, never the whole text selected.
- * Written at once, inside the focus, so nothing typed right after it is undone; text that does not
- * change (a blank, or text that is no amount) keeps whatever the browser gave it.
- */
+/** A focused cell gives its plain number with the caret at its end, as every amount field does. */
+const caret = useAmountCaret();
+
 function onPriceFocused(row: Row, tier: string, event: FocusEvent) {
-  const input = event.target as HTMLInputElement;
   focusedCell.value = cellKey(row, tier);
-  const text = cellText(row, tier);
-  if (input.value === text) {
-    pressed = null;
-    return;
-  }
-  input.value = text;
-  input.setSelectionRange(text.length, text.length);
-}
-
-/**
- * The cell a press is focusing. The browser lands the caret where the pointer was, after the focus
- * and over the text the plain number replaced, so the click that ends the press puts it back at the end.
- */
-let pressed: HTMLInputElement | null = null;
-
-function onPricePressed(event: PointerEvent) {
-  const input = event.currentTarget as HTMLInputElement;
-  pressed = document.activeElement === input ? null : input;
-}
-
-function onPriceClicked(event: MouseEvent) {
-  const input = event.currentTarget as HTMLInputElement;
-  if (pressed !== input) return;
-  pressed = null;
-  input.setSelectionRange(input.value.length, input.value.length);
+  caret.focused(event.target as HTMLInputElement, cellText(row, tier));
 }
 
 function onPrice(row: Row, tier: string, text: string) {
@@ -408,8 +382,8 @@ onBeforeUnmount(() => {
                   :data-testid="`pricing-group-${g}-price-${index}`"
                   @input="onPrice(g, tier, ($event.target as HTMLInputElement).value)"
                   @focus="onPriceFocused(g, tier, $event)"
-                  @pointerdown="onPricePressed"
-                  @click="onPriceClicked"
+                  @pointerdown="caret.onPointerdown"
+                  @click="caret.onClick"
                   @blur="onPriceLeft(g, tier)"
                 />
               </td>
@@ -459,8 +433,8 @@ onBeforeUnmount(() => {
                   :data-testid="`pricing-price-${index}`"
                   @input="onPrice(ELSE, tier, ($event.target as HTMLInputElement).value)"
                   @focus="onPriceFocused(ELSE, tier, $event)"
-                  @pointerdown="onPricePressed"
-                  @click="onPriceClicked"
+                  @pointerdown="caret.onPointerdown"
+                  @click="caret.onClick"
                   @blur="onPriceLeft(ELSE, tier)"
                 />
               </td>

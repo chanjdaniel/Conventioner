@@ -8,8 +8,15 @@
 import { computed, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
 import { getApiErrorMessage } from '@/utils/api';
-import { money, setAmountOwed, type PaymentLine, type VendorAccount } from '@/utils/payments';
-import { centsFromText, priceText } from '@/utils/pricing';
+import {
+  currencyOf,
+  money,
+  setAmountOwed,
+  type PaymentLine,
+  type VendorAccount,
+} from '@/utils/payments';
+import { centsFromText } from '@/utils/pricing';
+import { useAmountField } from '@/utils/useAmountField';
 import { dateLabel } from '@/utils/vendorDetails';
 
 const props = defineProps<{
@@ -24,12 +31,16 @@ const emit = defineEmits<{ close: []; saved: [account: VendorAccount] }>();
 const amount = ref('');
 const error = ref('');
 const busy = ref(false);
+const account = computed(() => ({ currency: props.currency }));
+
+/** The amount reads as currency once left, in the account's (Canadian dollars where none is set). */
+const amountField = useAmountField(amount, () => currencyOf(account.value));
 
 watch(
   () => props.open,
   (open) => {
     if (!open) return;
-    amount.value = priceText(props.line?.owedCents ?? 0);
+    amount.value = money(props.line?.owedCents ?? 0, account.value);
     error.value = '';
   },
   { immediate: true },
@@ -40,7 +51,6 @@ const cents = computed(() => centsFromText(amount.value) ?? null);
 const amountError = computed(() =>
   cents.value === null ? 'Type an amount, such as 0, 35 or 35.50.' : '',
 );
-const account = computed(() => ({ currency: props.currency }));
 
 /** The change, said before Save: "Friday, May 8, 2099 will owe $0.00 instead of $35.00." */
 const sentence = computed(() => {
@@ -98,6 +108,10 @@ async function save(): Promise<void> {
           :aria-invalid="!!amountError"
           :aria-describedby="amountError ? 'change-owed-amount-error' : 'change-owed-sentence'"
           data-testid="change-owed-amount"
+          @focus="amountField.onFocus"
+          @blur="amountField.onBlur"
+          @pointerdown="amountField.onPointerdown"
+          @click="amountField.onClick"
         />
         <span
           v-if="amountError"

@@ -446,7 +446,7 @@ for (const size of PHONE_AND_DESK) {
       await page.getByTestId('record-payment-amount').fill('35');
       await press(page.getByTestId('record-payment-submit-button'));
       await expect(recording).toHaveCount(0);
-      await expect(drawer.getByTestId('payment-paid')).toContainText('35');
+      await expect(drawer.getByTestId('payment-paid')).toHaveText('$35.00');
       await expectFits(page, 'Vendors, the drawer open');
 
       // An Editor at the door corrects an answer: Update info opens inside the window, its answer

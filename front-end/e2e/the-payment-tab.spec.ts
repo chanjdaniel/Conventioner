@@ -167,6 +167,52 @@ test.describe('the Payment tab', () => {
     });
   });
 
+  test('the amount reads as currency once left, and the plain number while focused', async ({
+    browser,
+    request,
+  }) => {
+    const marketId = await aliceOnTwoGoldDays(request);
+
+    await withUser(browser, EDITOR.email, EDITOR.password, async (page) => {
+      const tab = await paymentTab(page, marketId);
+      await page.getByTestId('payment-record').click();
+      const dialog = page.getByTestId('record-payment-window');
+      const amount = dialog.getByLabel('Amount (CAD)');
+      await expect(amount).toBeFocused();
+
+      // Typed as a person types it: the text stays as typed until the field is left.
+      await amount.pressSequentially('35');
+      await expect(amount).toHaveValue('35');
+      await page.keyboard.press('Tab');
+      await expect(amount).toHaveValue('$35.00');
+      await page.keyboard.press('Shift+Tab');
+      await expect(amount).toBeFocused();
+      await expect(amount).toHaveValue('35.00');
+      expect(
+        await amount.evaluate((input: HTMLInputElement) => [
+          input.selectionStart,
+          input.selectionEnd,
+        ]),
+      ).toEqual([5, 5]);
+
+      // Text that is no amount keeps what was typed and its error, and Record stays disabled.
+      await amount.fill('3x');
+      await page.keyboard.press('Tab');
+      await expect(amount).toHaveValue('3x');
+      await expect(dialog.getByTestId('record-payment-amount-error')).toBeVisible();
+      await expect(dialog.getByRole('button', { name: 'Record payment' })).toBeDisabled();
+
+      await amount.focus();
+      await amount.fill('35');
+      await page.keyboard.press('Tab');
+      await expect(amount).toHaveValue('$35.00');
+      await dialog.getByRole('button', { name: 'Record payment' }).click();
+      await expect(dialog).toBeHidden();
+      await expect(tab.getByTestId('payment-paid')).toHaveText('$35.00');
+      await expect(tab.getByTestId('payment-balance')).toHaveText('Owes $35.00');
+    });
+  });
+
   test('a Viewer reads the tab and is offered no Record payment', async ({ browser, request }) => {
     const marketId = await aliceOnTwoGoldDays(request);
 

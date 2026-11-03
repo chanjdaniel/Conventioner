@@ -133,10 +133,16 @@ test.describe('changing what is owed and paid', () => {
     await first.getByTestId('payment-line-menu-button').click();
     await first.getByTestId('payment-line-menu-owed').click();
     const dialog = page.getByTestId('change-owed-window');
-    await dialog.getByLabel('Amount owed (CAD)').fill('0');
+    // The field opens on the line's amount, the plain number while focused, currency once left.
+    const amount = dialog.getByLabel('Amount owed (CAD)');
+    await expect(amount).toBeFocused();
+    await expect(amount).toHaveValue('35.00');
+    await amount.fill('0');
     await expect(dialog.getByTestId('change-owed-sentence')).toContainText(
       'will owe $0.00 instead of $35.00',
     );
+    await page.keyboard.press('Tab');
+    await expect(amount).toHaveValue('$0.00');
     await dialog.getByRole('button', { name: 'Set amount owed' }).click();
     await expect(dialog).toBeHidden();
 

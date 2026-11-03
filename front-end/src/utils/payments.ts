@@ -81,9 +81,14 @@ export interface NewPayment {
 /** The currency an amount is shown in where the market names none: the card's own default. */
 const DEFAULT_CURRENCY = 'CAD';
 
+/** The currency an account's amounts are shown in, and an amount field's beside them. */
+export function currencyOf(account: Pick<VendorAccount, 'currency'>): string {
+  return account.currency ?? DEFAULT_CURRENCY;
+}
+
 /** An amount in the account's currency; a refund's negative amount reads "-$15.00". */
 export function money(cents: number, account: Pick<VendorAccount, 'currency'>): string {
-  const amount = formatPrice(Math.abs(cents), account.currency ?? DEFAULT_CURRENCY);
+  const amount = formatPrice(Math.abs(cents), currencyOf(account));
   return cents < 0 ? `-${amount}` : amount;
 }
 
