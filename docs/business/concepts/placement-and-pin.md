@@ -23,7 +23,7 @@ verified: 2026-10-22
 - [Placing by hand](../flows/placing-by-hand.md): placing, swapping and freeing a seat, pins, and a pin the plan no longer holds.
 - [Read the result](../flows/assignment-and-result.md#j4-read-the-result): each table on each date, and who sits there.
 - [Sections](../flows/planning.md#e4-sections) and [sections from a floorplan](../flows/planning.md#e6-sections-from-a-floorplan): where the tables come from.
-- [A vendor looks up their table and checks in](../flows/market-day-door.md#k2-a-vendor-looks-up-their-table-and-checks-in).
+- [A vendor scans the door code and is checked in](../flows/market-day-door.md#k2-a-vendor-scans-the-door-code-and-is-checked-in).
 
 ## Implementation
 

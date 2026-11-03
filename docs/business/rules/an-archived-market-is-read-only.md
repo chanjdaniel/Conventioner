@@ -25,7 +25,7 @@ Who may see the record, and whether to keep it, are still decided: roles change 
 
 ## Why
 
-An archived market is finished ([ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md)), and one that ran keeps its check-in page as the record of its market days.
+An archived market is finished ([ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md)), and one that ran keeps its vendor page as the record of its market days.
 A change after the fact would make that record say something that never happened.
 Roles and deletion are decisions about the record, not changes to it.
 

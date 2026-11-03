@@ -112,7 +112,7 @@ The market phase lifecycle adds six suites:
   camelCase key and the slug index and markers the app boots on are seeded or verified;
   the public slug lookup is one indexed query rather than a collection scan.
 - `test_market_slug.py` - pins that `Market.slug` is derived from the name (never
-  writable from a request body), every write persists it, and `published_market_by_slug`
+  writable from a request body), every write persists it, and the public slug lookup (`market_by_slug`)
   is one indexed query with a projection the caller controls.
 - `test_market_phase_consistency.py` - a market reports the same phase whichever endpoint
   served it (the list endpoint used to hand back raw documents while the detail endpoint
@@ -293,7 +293,6 @@ The page objects in `front-end/e2e/pages/` are these, one a line, sorted by clas
 - `ApplicationMonitorPage`
 - `ApplicationsAllPage`
 - `AttendanceStatusPage`
-- `CheckinPage`
 - `CsvImportPage`
 - `EmailVerificationPage` (the page a verification link opens)
 - `FloorplanWorkflowPage`

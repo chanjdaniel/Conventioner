@@ -39,7 +39,7 @@ After it the run is refused (`assign_refusal`, served as `assignRefusalReason`) 
 There is no unpublish: nothing writes `resultsPublished` back to false.
 
 **The market does not go live first.**
-`ResultsPublishedGuard` is an entry invariant on `market_days`, so no market can publish its check-in page until its vendors have been told: "Vendors have not been told whether they have a table. Publish the results before the market goes live.", with "Publish results".
+`ResultsPublishedGuard` is an entry invariant on `market_days`, so no market can open its market days until its vendors have been told: "Vendors have not been told whether they have a table. Publish the results before the market goes live.", with "Publish results".
 A CSV market already in its market days before this rule reached it stays there; its vendor page is open from them ([a gated market answers as absent](a-gated-market-answers-as-absent.md)).
 
 **The outcome is read off the stored seats, never the verdict.**

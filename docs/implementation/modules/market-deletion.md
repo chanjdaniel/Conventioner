@@ -60,7 +60,7 @@ The collection is indexed on `organization_id` ([lookup indexes](../data/lookup-
 ## Why
 
 - [When an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md): the drafts and archived markets go, through here, after the trail.
-- [An archived market that ran stays a record](../../business/rules/an-archived-market-that-ran-stays-a-record.md): deleting one takes a live check-in page and the record of a market that happened, which is why the trail describes what it took.
+- [An archived market that ran stays a record](../../business/rules/an-archived-market-that-ran-stays-a-record.md): deleting one takes a live vendor page and the record of a market that happened, which is why the trail describes what it took.
 
 `front-end/e2e/market-records-go-with-it.spec.ts` ([spec](../../../front-end/e2e/market-records-go-with-it.spec.ts)) deletes a market by each door and finds none of its applications, check-ins, sign-in codes, remembered sign-ins, history, payments or amounts owed left; `back-end/tests/test_vendor_notes.py` does the same for the notes, and `back-end/tests/test_organization_deletion.py` for the trail's order.
 

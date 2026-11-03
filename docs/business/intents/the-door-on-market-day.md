@@ -11,7 +11,7 @@ sources:
 
 On each day of the market, the organizer at the door sees every vendor expected that day, by name and table, who has arrived and who has not, and checks a vendor in themselves; a vendor looks up their own table by the address they applied with, and checks in.
 The door reads the seats as they stand, so a vendor moved, freed or added that morning is sent where they were put.
-Once the market is archived it is the record of what happened: nothing in it changes, a market that ran keeps its check-in page as a record marked ended, and no market in the middle of its life is deleted with its organization.
+Once the market is archived it is the record of what happened: nothing in it changes, a market that ran keeps its vendor page as a record marked ended, and no market in the middle of its life is deleted with its organization.
 
 ## Why
 
@@ -26,11 +26,11 @@ And after the market, its plan, verdicts, seats and check-ins are the only accou
 - [A vendor is called by their chosen name](../rules/a-vendor-is-called-by-their-chosen-name.md): the door names each vendor as they chose, with their address.
 - [Vendor notes](../rules/vendor-notes.md): what a vendor asked for beyond a table, shown at the door.
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md): nobody changes a finished market's record.
-- [An archived market that ran stays a record](../rules/an-archived-market-that-ran-stays-a-record.md): its check-in page stays up, marked ended, taking no check-in.
+- [An archived market that ran stays a record](../rules/an-archived-market-that-ran-stays-a-record.md): its vendor page stays up, marked ended, taking no check-in.
 - [When an organization may be deleted](../rules/when-an-organization-may-be-deleted.md): refused while it holds a market mid-lifecycle, and recorded first.
 
 ## Flows
 
-- [Publishing, and the door on market day](../flows/market-day-door.md): the vendor's check-in page and the organizer's Attendance.
+- [Publishing, and the door on market day](../flows/market-day-door.md): the door code, the vendor's check-in on their vendor page and the organizer's Attendance.
 - [The vendor drawer](../flows/vendor-drawer.md): one vendor's notes and seats, opened from Attendance.
 - [Ending and managing a market](../flows/ending-and-managing-a-market.md): archiving, and what an archived market keeps.

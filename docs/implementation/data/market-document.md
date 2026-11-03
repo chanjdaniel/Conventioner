@@ -157,7 +157,7 @@ Ownership of a market cannot be handed on: no write changes the `owner` entry of
 ## The slug
 
 **`Market.slug` is a computed field**, derived from the name by `market_name_slug` (`datatypes.py`), the same rule the front end builds its links from (`marketNameToKebabSlug` in [`front-end/src/utils/marketSlug.ts`](../../../front-end/src/utils/marketSlug.ts)): accents folded, anything else to `-`.
-It is persisted and indexed (`market_slug`, **unique** over non-empty slugs) so the public slug lookup (`published_market_by_slug`, and `market_by_slug` beneath it) is one indexed query rather than a decode of every market on every unauthenticated request.
+It is persisted and indexed (`market_slug`, **unique** over non-empty slugs) so the public slug lookup (`market_by_slug`, beneath the vendor page's and applying's gates) is one indexed query rather than a decode of every market on every unauthenticated request.
 It is never independently writable: no request body can name it, and every write recomputes it from the name.
 The stored slug narrows the query but does not decide it: `market_by_slug` re-checks each candidate's name against `market_name_slug`.
 
@@ -188,7 +188,7 @@ Keep it that way.
 `Market.phase` defaults to `draft`, so a raw parse silently mislabels every market written before the field existed.
 `phase_from_market_document()` (`datatypes.py`) is the one source of truth for that mapping: a document with no `phase`, or one this build does not recognize, reads as `draft` when `isDraft` (or the older `is_draft`) is true or absent and `archived` when it is false.
 The fallback stays `archived` though the old build's publishing meant a running market: redefining it as `market_days` would contradict `migrate_phase.py` and `migrate_is_draft_consistency.py`, which define a legacy published market as `archived` too, so one definition is kept and [`migrate_publishing_to_market_days.py`](../../../back-end/migrations/migrate_publishing_to_market_days.py) does the moving.
-Until it runs, such a market reads as finished: its check-in page takes no check-in, and is served at all only once someone has checked in there ([an archived market that ran stays a record](../../business/rules/an-archived-market-that-ran-stays-a-record.md)).
+Until it runs, such a market reads as finished: it takes no check-in, and reads as a market that ran, its vendor page the record, only once someone has checked in there ([an archived market that ran stays a record](../../business/rules/an-archived-market-that-ran-stays-a-record.md)).
 For one release it also reads the three phases E38/F04 folded into `applications` (`LEGACY_STAGE_PHASES`) as `migrate_to_one_stage.py` would leave them: `applications`, or `draft` for a Google Form market that imported nothing; and `applications_stopped_from_market_document()` reads a form market still stored in `applications_closed` or `review` as stopped, unless `applicationsStopped` says otherwise ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
 `market_from_document()` takes `applications_stopped` from it, and nothing is written back; a later release drops the aliases.
 `load_market_context()` (`api/markets.py`) is the shared market, organization and permission load every endpoint uses.

@@ -165,7 +165,7 @@ It used to be `GET /markets/{id}/assignment`, which only computes, followed by a
 
 **Publishing is `assignment -> market_days`**, and that move's entry invariant is that an assignment exists, so `seedPublishedMarketWithAssignments()` assigns before it publishes.
 A market must publish its results first, on either path ([publish results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md)), so the helper calls `POST /markets/{id}/publish-results` in between.
-It returns the `marketSlug` of the public check-in page, which serves a running market.
+It returns the `marketSlug` of the market's vendor page, where its vendors check in.
 
 ## Sharp edges
 

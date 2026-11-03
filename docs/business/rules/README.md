@@ -19,7 +19,7 @@ One line per node, sorted by file name.
 - [Adding a vendor who never applied](adding-a-vendor-who-never-applied.md) - from Assignment on, added by name, address and the answers its prices read, approved, assigned by hand, never in the table allocation
 - [An applicant never reads a verdict early](an-applicant-never-reads-a-verdict-early.md) - "Submitted" until results are published, then a table or none, read off the stored seats
 - [An archived market is read-only](an-archived-market-is-read-only.md) - nobody changes a finished market's record; roles and deletion are not changes
-- [An archived market that ran stays a record](an-archived-market-that-ran-stays-a-record.md) - its check-in page stays up, marked ended, and takes no check-in
+- [An archived market that ran stays a record](an-archived-market-that-ran-stays-a-record.md) - its vendor page stays up, marked ended, and takes no check-in
 - [An assignment knows when it is out of date](an-assignment-knows-when-it-is-out-of-date.md) - the result says which of the rules, the plan and the approved applications changed since it ran
 - [An imported email is asserted](an-imported-email-is-asserted.md) - an imported applicant's address is the organizer's word, an online one's proven by a code; settled before any other mail
 - [An incomplete application refuses the run](an-incomplete-application-refuses-the-run.md) - an approved application missing an asked answer stops the run, naming the applicants

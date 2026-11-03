@@ -61,7 +61,7 @@ Stored snake_case with the market foreign key `market_id` (an organization's own
 | --- | --- |
 | `id` | a UUID |
 | `market_id` | the market; an organization's own change holds `organization_id` in its place, and no `market_id` |
-| `actor` | the address of the signed-in person who made the change; an applicant's own when they submit or edit their application; null for a check-in made on the vendors' public check-in page, which asks only an address and a date and so proves nobody (its detail says `via: check_in_page`) |
+| `actor` | the address of the signed-in person who made the change; an applicant's own when they submit or edit their application; null for a vendor's own check-in or undo, on their vendor page, which names the vendor among its `vendors` and says how in its detail (`via`), and for one made on the public check-in page before it was removed, which asked only an address and a date and so proved nobody (`via: check_in_page`) |
 | `at` | ISO 8601, UTC |
 | `action` | the id of the [E39 action](../modules/market-actions.md) the change was, the verb its check asked: `assign` for a placement; `apply` for an applicant's own change, which no row asks; an organization's own change uses one of the history's own verbs instead, since an organization has no table, except a market deleted from it, which keeps the table's `delete-market` ([below](#what-an-organization-records)) |
 | `kind` | the finer kind where one action covers several changes, else null: a placement's is `placed`, `freed`, `swapped` or `assigned` |
@@ -240,10 +240,10 @@ One block per action, in the order of [the actions table](../modules/market-acti
 
 **`check-in`**
 
-- `checked_in`, `check_in_undone`: a check-in or its undo, at the organizer's door or the public check-in page, only when it changed whether the vendor is here
+- `checked_in`, `check_in_undone`: a check-in or its undo, at the organizer's door or by the vendor on their vendor page, only when it changed whether the vendor is here
   - Vendors: the vendor
   - Subject: `date`
-  - Detail: `checked_in`, and `via: check_in_page` from the public page, whose actor is null
+  - Detail: `checked_in`, and for the vendor's own, whose actor is null, `via`: `door_code` for a check-in, `vendor_page` for an undo, and `check_in_page` on an entry from the removed public page; the readers word them "with the door code", "on their vendor page" and "on the check-in page"
 - `door_code_made`: a new [door code](../modules/attendance-and-door.md#sharp-edges), the first or one that ended the old
   - Detail: `replaced`, whether a code stood before it; never the code
 

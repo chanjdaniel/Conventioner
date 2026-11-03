@@ -50,10 +50,8 @@ describes:
   - back-end/app.py#get_history
   - back-end/app.py#swap_placements
   - back-end/app.py#remove_placement
-  - back-end/app.py#public_get_vendor_assignments
-  - back-end/app.py#public_checkin_page
-  - back-end/app.py#public_attendance_undo
-  - back-end/app.py#public_attendance_checkin
+  - back-end/app.py#vendor_check_in
+  - back-end/app.py#vendor_undo_check_in
   - back-end/app.py#applicant_login_request_code
   - back-end/app.py#applicant_login_verify_code
   - back-end/app.py#public_get_application_form
@@ -270,7 +268,7 @@ Its button is a `.btn`, so it is 44px on a phone.
 
 **A session that ends mid-work** answers 401 to the next request, and one response interceptor on `api`, installed from `main.ts` by `installSessionEnded` in [`front-end/src/utils/sessionEnded.ts`](../../../front-end/src/utils/sessionEnded.ts), takes the organizer to sign in again.
 It clears `localStorage` and the market store, as signing out does, and goes to `/login?next=<the page's full path>&ended=1`, where the sign-in page says "Your session has ended. Sign in again.".
-It leaves alone a 401 from signing in, from the shell's session probe (`/check-session`, which `App.vue` answers itself, through `keepsTheSession`) and from any `/public/...` request, which carries no organizer session (the applicant signs in on their own pages, and the door's check-in needs no sign-in), and any 401 while the page is public.
+It leaves alone a 401 from signing in, from the shell's session probe (`/check-session`, which `App.vue` answers itself, through `keepsTheSession`) and from any `/public/...` request, which carries no organizer session (a vendor signs in on their own vendor page, where they also check in), and any 401 while the page is public.
 The request still fails as it would have, so the screen's own catch runs too.
 `aSessionThatEnded.test.ts` holds each of those exemptions, the sign-in endpoints' included, though no screen sends them through `api` today.
 
