@@ -8,7 +8,8 @@
  * an upload that fails leaves the zone there with the error, so another file can be chosen.
  *
  * An image previews as the file chosen. A PDF previews as the page the server drew from it,
- * following the page chosen, since a browser draws no PDF in an image.
+ * following the page chosen, since a browser draws no PDF in an image. An upload that ends on
+ * anything but a shown PDF page forgets the pages of the PDF before it, so no picker offers them.
  */
 import { ref, watch, onUnmounted } from 'vue';
 import { api, getApiErrorMessage } from '@/utils/api';
@@ -38,6 +39,10 @@ const emit = defineEmits<{
   error: [message: string];
 }>();
 
+/** The PDF's pages are stored, but the first could not be fetched to preview it. */
+const PAGE_NOT_SHOWN =
+  'The floorplan was uploaded, but its page could not be shown. Choose the file again.';
+
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
 
 function isValidType(file: File): boolean {
@@ -52,6 +57,11 @@ function revokePreview() {
     URL.revokeObjectURL(previewUrl.value);
     previewUrl.value = '';
   }
+}
+
+function forgetPages() {
+  pages.value = [];
+  selectedPage.value = 0;
 }
 
 /** Preview a PDF's page as the image the server drew and stored for it. */
@@ -87,14 +97,23 @@ async function handleFile(file: File) {
     if (data.pages) {
       pages.value = data.pages;
       selectedPage.value = 0;
-      await previewStoredPage(data.pages[0]);
+      try {
+        await previewStoredPage(data.pages[0]);
+      } catch {
+        forgetPages();
+        error.value = PAGE_NOT_SHOWN;
+        emit('error', error.value);
+        return;
+      }
       emit('uploaded', data.pages[0]);
     } else {
+      forgetPages();
       revokePreview();
       previewUrl.value = URL.createObjectURL(file);
       emit('uploaded', { gridfs_id: data.gridfs_id, width: data.width, height: data.height });
     }
   } catch (e: unknown) {
+    forgetPages();
     error.value = getApiErrorMessage(e, 'The floorplan was not uploaded.');
     emit('error', error.value);
   } finally {

@@ -178,6 +178,54 @@ describe('the floorplan uploader', () => {
     ]);
   });
 
+  it('says a PDF was uploaded when only its page could not be shown', async () => {
+    api.post.mockResolvedValue({
+      data: {
+        pages: [
+          { gridfs_id: 'page-1', width: 800, height: 600 },
+          { gridfs_id: 'page-2', width: 800, height: 600 },
+        ],
+      },
+    });
+    api.get.mockRejectedValueOnce(new Error('offline'));
+    const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1' } });
+
+    await choose(wrapper, fileOf('hall.pdf', 'application/pdf'));
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="floorplan-upload-error"]').text()).toBe(
+      'The floorplan was uploaded, but its page could not be shown. Choose the file again.',
+    );
+    expect(wrapper.find('[data-testid="floorplan-upload-dropzone"]').exists()).toBe(true);
+    expect(wrapper.find('.page-option').exists()).toBe(false);
+    expect(wrapper.emitted('uploaded')).toBeUndefined();
+  });
+
+  it("offers no page of an earlier PDF once an image is chosen after the PDF's page failed", async () => {
+    api.post.mockResolvedValueOnce({
+      data: {
+        pages: [
+          { gridfs_id: 'page-1', width: 800, height: 600 },
+          { gridfs_id: 'page-2', width: 800, height: 600 },
+        ],
+      },
+    });
+    api.get.mockRejectedValueOnce(new Error('offline'));
+    const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1' } });
+    await choose(wrapper, fileOf('hall.pdf', 'application/pdf'));
+    await flushPromises();
+
+    api.post.mockResolvedValueOnce({ data: { gridfs_id: 'image-1', width: 800, height: 600 } });
+    await choose(wrapper, fileOf('hall.png', 'image/png'));
+    await flushPromises();
+
+    expect(wrapper.findAll('.page-option')).toHaveLength(0);
+    expect(wrapper.emitted('uploaded')?.at(-1)).toEqual([
+      { gridfs_id: 'image-1', width: 800, height: 600 },
+    ]);
+    expect(wrapper.find('[data-testid="floorplan-upload-error"]').exists()).toBe(false);
+  });
+
   it('refuses a file of another type, as before, and uploads nothing', async () => {
     const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1' } });
 
