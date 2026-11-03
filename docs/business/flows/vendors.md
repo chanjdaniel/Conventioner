@@ -8,7 +8,7 @@ describes:
   - back-end/api/vendor_export.py
   - front-end/src/components/GiveRolesDialog.vue
   - front-end/src/components/DiscordRoleReport.vue
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - wayfinding/claims-and-room/04
   - wayfinding/rejection-visibility/02
@@ -98,8 +98,8 @@ For a Google Sheet and a mail merge such as YAMM: any of the market's vendors, f
    Name, Email and Status are ticked to begin with.
 4. "Assignment" holds, for each market date, where the vendor sits that day: "Wed 18 Nov - table", "- section", "- tier" and "- half or full" (Full table or Half table), empty on a date they hold no seat; then "Dates assigned", how many of the market's dates they hold one on.
    The seats are the stored placements the Assignments page draws, pins and seats moved by hand included, and a vendor added by hand exports theirs like anyone.
-5. "Payment" holds "Price group", the price group each of their lines is priced by, a freed day's kept line included, once each and joined by ", " ("Everyone else" for a vendor in no group; empty where no line names a group, or for a vendor with no line); "Amount owed" and "Amount paid", the two totals of their Payment tab; and "Still owed", the amount owed less the amount paid, below zero where they paid more than owed ("-$15", a refund to issue).
-   An amount is written as the Payment tab writes it, in the market's currency: "$35", "$15.01".
+5. "Payment" holds "Price group", the price group each of their lines is priced by, a freed day's kept line included, once each and joined by ", " ("Everyone else" for a vendor in no group; empty where no line names a group, or for a vendor with no line); "Amount owed" and "Amount paid", the two totals of their Payment tab; and "Still owed", the amount owed less the amount paid, below zero where they paid more than owed ("-$15.00", a refund to issue).
+   An amount is written as the Payment tab writes it, in the market's currency: "$35.00", "$15.01".
    So a payment reminder is one export: "Owes", with Name, Email and Still owed.
 6. "Discord" holds what the market knows of each vendor there (E42/F01/S05): "Discord username", the answer to the Discord card's username question as updated, tidied as the check reads it (lowercase, with no leading `@` or old `#1234` tag, so a mail merge never quotes `'@name`), offered while the card names one of the form's text questions, and then listed here rather than under "Answers"; "Discord state", the vendor's state as the Vendors page shows it, in its words, "Possible match" and "Check again" included ([J16](#j16-see-who-is-in-the-discord-server)), empty for a vendor the last check did not read (one who applied since, or a waitlist application), offered once a check has run; and "Discord invite link", the card's link on every row, offered when it holds one.
    So "please fix your Discord username" is one export: "Not found" on the page, Export, and tick the username ([who is in the server](../../implementation/modules/discord.md#who-is-in-the-server)).
@@ -110,8 +110,8 @@ For a Google Sheet and a mail merge such as YAMM: any of the market's vendors, f
 The server builds the file and the preview from the filters the dialog sends ([`vendor_export.py`](../../../back-end/api/vendor_export.py)), so what is exported is what the server holds, a seat is read from the stored placements the Assignments page draws, and a Discord state as the Vendors page shows it, worked out from what the last check kept on the market and the answers now (`shown_vendors`), so the file and the page agree.
 An answer an organizer updated is exported, and filtered on, as updated ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
 Every cell but an amount is written so a spreadsheet shows it as text: one beginning with `=`, `+`, `-`, `@`, a tab, a carriage return or a newline gains a leading quote, as the assignment's download does.
-An amount is the server's own, written from whole cents, so it is left as it is: "-$15" reaches the spreadsheet as the number it is, where the quote would make it text and show.
-Where a minus would lead a currency's letters, as "-A$15", "-US$15" or "-NZ$15" would, each a minus and a cell reference that Excel evaluates, the amount is written with the minus sign "−" (U+2212) instead, which no spreadsheet reads as a formula.
+An amount is the server's own, written from whole cents, so it is left as it is: "-$15.00" reaches the spreadsheet as the number it is, where the quote would make it text and show.
+Where a minus would lead a currency's letters, as "-A$15.00", "-US$15.00" or "-NZ$15.00" would, each a minus and a cell reference that Excel evaluates, the amount is written with the minus sign "−" (U+2212) instead, which no spreadsheet reads as a formula.
 No column set is saved between exports yet.
 Covered by:
 - `back-end/tests/test_exporting_vendors.py`

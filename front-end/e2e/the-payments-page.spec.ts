@@ -134,9 +134,9 @@ async function listedEmails(page: Page): Promise<string[]> {
   );
 }
 
-/** "$117.50" from 11750 cents, as the page writes CAD. */
+/** "$117.50" from 11750 cents, as the page writes CAD, always to the cent. */
 function dollars(cents: number): string {
-  return `$${cents % 100 ? (cents / 100).toFixed(2) : String(cents / 100)}`;
+  return `$${(cents / 100).toFixed(2)}`;
 }
 
 test.describe('the Payments page', () => {
@@ -185,13 +185,13 @@ test.describe('the Payments page', () => {
     await expect
       .poll(() => cells('payments-by-tier-row'))
       .toEqual([
-        ['Gold', '$87.50', '$60', '$35', '$7.50'],
-        ['Silver', '$30', '$30', '$0', '$0'],
+        ['Gold', '$87.50', '$60.00', '$35.00', '$7.50'],
+        ['Silver', '$30.00', '$30.00', '$0.00', '$0.00'],
       ]);
     await expect
       .poll(() => cells('payments-by-date-row'))
       .toEqual([
-        ['Friday, May 1, 2099', '$65', '$47.50', '$17.50', '$0'],
+        ['Friday, May 1, 2099', '$65.00', '$47.50', '$17.50', '$0.00'],
         ['Friday, May 8, 2099', '$52.50', '$42.50', '$17.50', '$7.50'],
       ]);
 
@@ -204,8 +204,8 @@ test.describe('the Payments page', () => {
     await dialog.getByLabel('Cash').check();
     await dialog.getByRole('button', { name: 'Record payment' }).click();
     await expect(dialog).toBeHidden();
-    await expect(totals.getByTestId('payments-total-stillOwedCents')).toContainText('$0');
-    await expect(totals.getByTestId('payments-total-paidCents')).toContainText('$125');
+    await expect(totals.getByTestId('payments-total-stillOwedCents')).toContainText('$0.00');
+    await expect(totals.getByTestId('payments-total-paidCents')).toContainText('$125.00');
   });
 
   test('"Owes" and "Paid more than owed" list exactly who is in each, and a reload keeps them', async ({
@@ -219,7 +219,7 @@ test.describe('the Payments page', () => {
     await page.getByTestId('payments-show-owes').click();
     await expect(rows(page)).toHaveCount(1);
     expect(await listedEmails(page)).toEqual([ALICE]);
-    await expect(rows(page).first().getByTestId('payments-row-balance')).toHaveText('Owes $35');
+    await expect(rows(page).first().getByTestId('payments-row-balance')).toHaveText('Owes $35.00');
     await expect(page).toHaveURL(/[?&]show=owes/);
     await page.reload();
     await expect(rows(page)).toHaveCount(1, { timeout: 15000 });
@@ -352,13 +352,13 @@ test.describe('the Payments page', () => {
       ]),
     );
     expect(Object.fromEntries(balances)).toEqual({
-      [ALICE]: 'Paid $35',
-      [BOB]: 'Paid $30',
-      [CAROL]: 'Paid $25',
+      [ALICE]: 'Paid $35.00',
+      [BOB]: 'Paid $30.00',
+      [CAROL]: 'Paid $25.00',
     });
     await page.locator(`[data-email="${ALICE}"]`).getByTestId('payments-row-open').click();
     await expect(page.getByTestId('payment-tab').getByTestId('payment-balance')).toHaveText(
-      'Paid $35',
+      'Paid $35.00',
     );
 
     const vendors = new VendorsPage(page);
@@ -381,7 +381,7 @@ test.describe('the Payments page', () => {
     await expect.poll(() => listedEmails(page)).toEqual([ALICE]);
     await expect(
       page.locator(`[data-email="${ALICE}"]`).getByTestId('payments-row-balance'),
-    ).toHaveText('Paid $15 more than owed');
+    ).toHaveText('Paid $15.00 more than owed');
     await expect(page.getByRole('group', { name: 'Show only' })).toBeVisible();
     await expect(page.getByTestId('payments-unpriced')).toContainText(
       'so a vendor owes only an amount set by hand on their Payment tab, or a refund beyond what they paid.',
@@ -391,10 +391,10 @@ test.describe('the Payments page', () => {
     await expect(page.getByRole('heading', { name: "The market's money" })).toBeVisible();
     const totals = page.getByTestId('payments-totals');
     for (const [figure, shown] of [
-      ['owedCents', '$20'],
-      ['paidCents', '$90'],
-      ['stillOwedCents', '$0'],
-      ['paidMoreCents', '$15'],
+      ['owedCents', '$20.00'],
+      ['paidCents', '$90.00'],
+      ['stillOwedCents', '$0.00'],
+      ['paidMoreCents', '$15.00'],
     ]) {
       await expect(totals.getByTestId(`payments-total-${figure}`)).toContainText(shown);
     }
@@ -419,7 +419,7 @@ test.describe('the Payments page', () => {
       );
     }
     await paymentsPage(page, unpriced);
-    await expect(page.getByTestId('payments-total-paidMoreCents')).toContainText('$50');
+    await expect(page.getByTestId('payments-total-paidMoreCents')).toContainText('$50.00');
     await expect(page.getByTestId('payments-unpriced-caption')).toHaveCount(0);
   });
 

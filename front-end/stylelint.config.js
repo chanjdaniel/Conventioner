@@ -156,6 +156,8 @@ const MIGRATED = [
   'src/components/NothingAssigned.vue',
   'src/components/elements/ElementIntakeMode.vue',
   'src/components/market/MarketApplicationsTab.vue',
+  // The component library, migrated from its first line: it shows the language, so it keeps it.
+  'src/dev/**/*.vue',
 ];
 
 /** @type {import('stylelint').Config} */

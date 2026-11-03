@@ -215,12 +215,12 @@ describe('a seat somebody holds', () => {
   });
 
   it('asks, unticked, whether freeing also takes the seat off what they owe (E44/F01/S02)', async () => {
-    const wrapper = dialog({ ...occupied, deduction: { amount: '$15', name: 'Nadia Ember' } });
+    const wrapper = dialog({ ...occupied, deduction: { amount: '$15.00', name: 'Nadia Ember' } });
 
     const box = wrapper.get<HTMLInputElement>('[data-testid="placement-dialog-deduct"]');
     expect(box.element.checked).toBe(false);
     expect(wrapper.text()).toContain(
-      'Also remove its $15 from what Nadia Ember owes? (Cancelled before the deadline: a refund may be due.)',
+      'Also remove its $15.00 from what Nadia Ember owes? (Cancelled before the deadline: a refund may be due.)',
     );
     await box.setValue(true);
     await wrapper.get('[data-testid="placement-dialog-free"]').trigger('click');

@@ -212,14 +212,113 @@ describe('typing key by key (review finding 1)', () => {
     expect((cell.element as HTMLInputElement).value).toBe(text);
   });
 
-  it('leaving the cell redraws it from the cents', async () => {
+  it('leaving the cell reads it as currency, from the cents', async () => {
     const wrapper = heldCard(plan(null));
     const cell = wrapper.get('[data-testid="pricing-price-0"]');
 
     await typeKeys(cell, '35.5');
     await cell.trigger('blur');
 
-    expect((cell.element as HTMLInputElement).value).toBe('35.50');
+    expect((cell.element as HTMLInputElement).value).toBe('$35.50');
+  });
+});
+
+const valueOf = (input: ReturnType<ReturnType<typeof mount>['get']>) =>
+  (input.element as HTMLInputElement).value;
+
+describe('a cell reads as currency once left, and the number while focused', () => {
+  const gold = (cents: number, currency = 'CAD'): PricingObject => ({
+    currency,
+    halfTablePercent: 50,
+    everyoneElse: [{ tier: 'Gold', cents }],
+  });
+
+  it('a priced cell not focused reads in the market currency; a blank one stays blank', () => {
+    const wrapper = heldCard(plan(gold(5000)));
+
+    expect(valueOf(wrapper.get('[data-testid="pricing-price-0"]'))).toBe('$50.00');
+    expect(valueOf(wrapper.get('[data-testid="pricing-price-1"]'))).toBe('');
+  });
+
+  it('focused, it reads the plain number with the caret at its end; left, currency again', async () => {
+    const wrapper = heldCard(plan(gold(123450)));
+    const cell = wrapper.get('[data-testid="pricing-price-0"]');
+    const element = cell.element as HTMLInputElement;
+
+    element.focus();
+    await nextTick();
+    await nextTick();
+    expect(element.value).toBe('1234.50');
+    expect([element.selectionStart, element.selectionEnd]).toEqual([7, 7]);
+
+    element.blur();
+    await nextTick();
+    expect(element.value).toBe('$1,234.50');
+    expect(wrapper.emitted()).not.toHaveProperty('update:setupObject');
+  });
+
+  it.each([
+    ['50', 5000, '$50.00'],
+    ['50.5', 5050, '$50.50'],
+    ['$50', 5000, '$50.00'],
+    ['$1,234.50', 123450, '$1,234.50'],
+  ])('%s is kept as %d cents and reads %s once left', async (text, cents, left) => {
+    const wrapper = heldCard(plan(null));
+    const cell = wrapper.get('[data-testid="pricing-price-0"]');
+
+    await cell.trigger('focus');
+    await cell.setValue(text);
+    expect(valueOf(cell)).toBe(text);
+    await cell.trigger('blur');
+
+    expect(wrapper.kept()?.everyoneElse).toEqual([{ tier: 'Gold', cents }]);
+    expect(valueOf(cell)).toBe(left);
+
+    await cell.trigger('focus');
+    expect(valueOf(cell)).toBe((cents / 100).toFixed(2));
+  });
+
+  it('text that is no amount keeps its text and its error, left and focused again', async () => {
+    const wrapper = heldCard(plan(gold(3500)));
+    const cell = wrapper.get('[data-testid="pricing-price-0"]');
+
+    await cell.trigger('focus');
+    await cell.setValue('3x');
+    await cell.trigger('blur');
+
+    expect(valueOf(cell)).toBe('3x');
+    expect(cell.attributes('aria-invalid')).toBe('true');
+    expect(wrapper.find('[data-testid="pricing-error"]').exists()).toBe(true);
+    expect(wrapper.held.at(-1)).toBe(true);
+    await cell.trigger('focus');
+    expect(valueOf(cell)).toBe('3x');
+  });
+
+  it('a cell cleared and left stays blank', async () => {
+    const wrapper = heldCard(plan(gold(3500)));
+    const cell = wrapper.get('[data-testid="pricing-price-0"]');
+
+    await cell.trigger('focus');
+    await cell.setValue('');
+    await cell.trigger('blur');
+
+    expect(valueOf(cell)).toBe('');
+    expect(wrapper.kept()?.everyoneElse).toEqual([]);
+  });
+
+  it('changing the currency re-reads every left cell at once', async () => {
+    const wrapper = heldCard(plan(gold(5000)));
+
+    await wrapper.get('[data-testid="pricing-currency"]').setValue('USD');
+
+    expect(valueOf(wrapper.get('[data-testid="pricing-price-0"]'))).toBe('US$50.00');
+  });
+
+  it('a group cell reads as currency too, and the card settled reads every cell so', () => {
+    const settled = groupCard(grouped([STUDENT_CLUB]), true);
+
+    expect(valueOf(settled.get('[data-testid="pricing-group-0-price-0"]'))).toBe('$12.00');
+    expect(valueOf(settled.get('[data-testid="pricing-price-1"]'))).toBe('$30.00');
   });
 });
 
@@ -398,7 +497,7 @@ describe('price groups (E43/F01/S02)', () => {
     ).toBe('Example College student + club member');
     expect(
       (wrapper.get('[data-testid="pricing-group-0-price-0"]').element as HTMLInputElement).value,
-    ).toBe('12');
+    ).toBe('$12.00');
     expect(wrapper.find('[data-testid="pricing-everyone-else-remove"]').exists()).toBe(false);
   });
 

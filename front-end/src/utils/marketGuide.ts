@@ -50,7 +50,8 @@ export function pathPhaseLabel(phase: string | null | undefined, path: IntakeMod
 
 /**
  * A move as the market's own path names it - for what the organizer wants to do, not for the
- * phase. Going back to draft exists so the setup and the form become editable again.
+ * phase. Going back to draft exists so the setup and the form become editable again; going back
+ * from Assignment, so a verdict can change (T207).
  */
 export function pathTransitionLabel(from: string, to: string, path: IntakeMode): string {
   const csv = path === IntakeMode.Csv;
@@ -62,6 +63,7 @@ export function pathTransitionLabel(from: string, to: string, path: IntakeMode):
     // A Google Form market's first import takes this move once its rows are written, so beside the
     // rail's "Import responses" it is the step after, never pressed (E38/F04/S01).
     case MarketPhase.Applications:
+      if (from === MarketPhase.Assignment) return 'Back to review';
       return csv ? 'Begin review' : 'Open applications';
     case MarketPhase.Assignment:
       return 'Begin assignment';

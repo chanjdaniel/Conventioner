@@ -26,7 +26,7 @@ import payments as Payments
 import pricing as Pricing
 from utils.email_address import normalized_email
 
-#: The most a table-day may be set to owe: what a price cell may hold, $100,000.
+#: The most a table-day may be set to owe: what a price cell may hold, $100,000.00.
 MOST_OWED_CENTS = 10_000_000
 
 NO_LINE = "That vendor holds no table that day, so nothing is owed for it."
@@ -213,7 +213,7 @@ def _owed_cents(body: Any) -> int:
     cents = body.get("cents") if isinstance(body, dict) else None
     if isinstance(cents, bool) or not isinstance(cents, int) or not 0 <= cents <= MOST_OWED_CENTS:
         raise BadRequestError(
-            "An amount owed is a whole number of cents from 0 to 10000000 ($100,000).")
+            "An amount owed is a whole number of cents from 0 to 10000000 ($100,000.00).")
     return cents
 
 
@@ -280,9 +280,9 @@ def keep_freed_line(market: Market, vendor_email: str, date: str, by: str) -> No
 
 
 def deduct_freed_line(market: Market, vendor_email: str, date: str, by: str) -> None:
-    """Free a seat's line of what it owed, as the free that asked it: "Also remove its $15 from
-    what they owe?" (Q26). The line stays, owing $0, and the amount paid is untouched, so a vendor
-    who paid shows paid more than owed: a refund to issue by hand."""
+    """Free a seat's line of what it owed, as the free that asked it: "Also remove its $15.00
+    from what they owe?" (Q26). The line stays, owing $0.00, and the amount paid is untouched, so a
+    vendor who paid shows paid more than owed: a refund to issue by hand."""
     address = normalized_email(vendor_email)
     before = _line(market, address, date)
     if before is None:

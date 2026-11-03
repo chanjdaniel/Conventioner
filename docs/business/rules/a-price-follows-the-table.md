@@ -12,7 +12,7 @@ describes:
   - back-end/api/markets.py#get_market_tables
   - front-end/src/components/elements/ElementPricing.vue
   - front-end/src/utils/pricing.ts
-verified: 2026-10-31
+verified: 2026-11-03
 sources:
   - T92
   - E43/F01/S01
@@ -59,7 +59,9 @@ The prices are set on Market Setup's Pricing card, are optional, and settle with
 - Prices are whole cents in the market's one currency, chosen on the card from Canadian, US, Australian and New Zealand dollars, euros and pounds sterling; Canadian dollars unless another is picked, since it is unverified that every market is in Canada.
 - **A half price rounds half up to the cent**: 50% of $30.01 is $15.01, and 25% of $10.02 is $2.51 (`half_price`, integer arithmetic, so no float decides a cent).
 - A tier's price is the same on every market date; a price per date was never asked for.
+- A price reads in the market's currency to the cent, "$35.00", wherever it is shown ([an amount reads to the cent](an-amount-reads-to-the-cent.md)).
 - A cell is a full table's price for one day, from $0 to $100,000; the share is a whole percent from 0 to 100.
+  A cell reads as currency once left and as the plain number while focused ([an amount reads to the cent](an-amount-reads-to-the-cent.md#an-amount-field)).
 
 ## Who may
 
@@ -73,7 +75,7 @@ Changing the prices is part of "Change Market Setup", an Editor's ([what each ro
   It does not judge a condition against the form, so a form change never makes the plan unsavable; the tables read projects only whole conditions' keys, the form's own (`Groups.keys`).
   A change after draft is refused with the setup's own reason, since `setup_part` includes the prices; and each change is recorded in [the market's history](../../implementation/data/history.md) as a `pricing` entry, before and after.
 - `Groups` in `back-end/pricing.py` prices one vendor's assignment from their answers (`price`) and names the broken groups (`broken`); the tables read (`get_market_tables`) reads the answers the groups ask (`vendor_answers`, through `vendor_answers_for_market` in [`back-end/api/applications.py`](../../../back-end/api/applications.py)) and carries each vendor's price on their table's row as `prices`, `{email, cents, group}`, empty where the table has none; `group` is the group's name, "Everyone else" on a card with groups, and null on a card without.
-  The drawer's date cards read it there ("Gold, full table, Example College student + club member, $12", or "Gold, full table, $35" on a card with no groups; `priceLine` in [`front-end/src/utils/pricing.ts`](../../../front-end/src/utils/pricing.ts)).
+  The drawer's date cards read it there ("Gold, full table, Example College student + club member, $12.00", or "Gold, full table, $35.00" on a card with no groups; `priceLine` in [`front-end/src/utils/pricing.ts`](../../../front-end/src/utils/pricing.ts)).
 - What an assignment costs is what the vendor owes for that table-day by default, on the drawer's Payment tab, where a line follows its seat until someone sets the amount by hand, and a freed table's line stays owed ([payments, and what a vendor owes](../../implementation/data/payments.md)).
 - The card is [`ElementPricing.vue`](../../../front-end/src/components/elements/ElementPricing.vue), on [planning the market](../flows/planning.md#e9-pricing); a group's conditions are drawn by `ChoiceConditions.vue` (`front-end/src/components/application/`), and a broken one is judged on the screen by `brokenCondition` (`front-end/src/utils/choiceConditions.ts`) as the server judges it.
   A tier renamed in Tier Setup keeps its price in every row, and a removed tier's prices go with it (`pricingAfterTierChange`); a group with no name or another's holds the plan's autosave until it is fixed (`groupNameProblem`); a cell or the share holding text that is no value keeps the value from before it, no price for a cell that had none, and holds the plan's autosave (`held`, `planHeld` in `MarketSetupView.vue`) until it is fixed.

@@ -16,8 +16,9 @@
  * condition this epic exists to end.
  *
  * `src/__tests__/primitives.test.ts` is the reference the slices check against: it renders every
- * variant and asserts the contract below. That is deliberately a test rather than a demo page -
- * a page would be product surface nobody ships, and a test fails when the contract drifts.
+ * variant and asserts the contract below, and fails when the contract drifts. The component
+ * library (`/dev/components`, a development build's only, T200) draws every variant for the eye,
+ * but holds no contract.
  */
 
 /* ============================================================================================

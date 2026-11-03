@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/PlacementDialog.vue
   - front-end/src/components/SearchPicker.vue
-verified: 2026-10-31
+verified: 2026-11-03
 sources:
   - brain-dump/2026-10-19#30
   - wayfinding/claims-and-room/05
@@ -85,7 +85,7 @@ Covered by:
 **Status:** Works (walked live).
 In the same dialog, "Free this seat" ("Freeing this seat leaves them with no table on this date until they are assigned again.").
 Freeing never changes what they owe by itself: the day keeps its line on their [Payment tab](vendor-drawer.md), still owed.
-Whoever may change the amount owed is also asked, naming what the day's line owes, "Also remove its $15 from what Alice owes? (Cancelled before the deadline: a refund may be due.)", unticked, and not asked where it owes nothing; ticked, the day owes $0 once freed, so a vendor who paid reads paid more than owed (E44/F01/S02).
+Whoever may change the amount owed is also asked, naming what the day's line owes, "Also remove its $15.00 from what Alice owes? (Cancelled before the deadline: a refund may be due.)", unticked, and not asked where it owes nothing; ticked, the day owes $0 once freed, so a vendor who paid reads paid more than owed (E44/F01/S02).
 Covered by:
 - `changing-owed-and-paid.spec.ts`
 - `placement-edit.spec.ts`

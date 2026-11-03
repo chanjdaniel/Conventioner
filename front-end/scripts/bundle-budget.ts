@@ -25,8 +25,11 @@ import { gzipSync } from 'node:zlib';
  * kinds, the 401 interceptor that ends a session, the sign-in guard's `next` and the shell's notice
  * for a page that could not be opened all run before any route renders, so they belong in the
  * entry.
+ * Raised from 92000 B at 92032 B by T200 (+449 B over `dev`'s 91583 B): `AppDialog` grew its
+ * widths, the body that scrolls under a pinned title and actions, its edge shades and its tray, and
+ * the build places the dialog, shared by many lazily loaded screens, in the entry chunk.
  */
-export const LIMIT_GZIP_BYTES = 92_000;
+export const LIMIT_GZIP_BYTES = 95_000;
 
 export interface ChunkSize {
   file: string;

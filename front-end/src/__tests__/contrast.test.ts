@@ -240,9 +240,10 @@ describe('the palette carries a contrast contract', () => {
       '--color-background',
       ...FILLS.map(([f]) => f),
       ...CHIPS.map(([ground]) => ground),
-      // Lines and hover states. These never sit under text.
+      // Lines, hover states and a scrolling body's edge shade. These never sit under text.
       '--mm-border',
       '--hover-grey',
+      '--edge-shade',
     ]);
     const unaccounted = Object.keys(tokens).filter((t) => !known.has(t));
     expect(unaccounted).toEqual([]);
