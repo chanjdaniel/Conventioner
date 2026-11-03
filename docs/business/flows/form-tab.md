@@ -104,6 +104,8 @@ Covered by:
 
 **Status:** Works (walked live; the Review setup step and the automatic rejections read from the code as of E33/F01 and E33/F03/S01, and `automatic-rejections.spec.ts`).
 On Review setup, under "What a reviewer reads first", tick the questions that should lead each review card; it saves itself and stays editable in every phase but Archived.
+In a draft that has not decided, the section says "Not decided yet. Opening applications waits on this." ("Your first import waits on this." on a Google Form market) and offers "Nothing leads the card", one click; chosen, it reads back "Nothing leads the card: a reviewer reads every answer, in the form's order.", with the questions still below it, and ticking one replaces it ([review waits on the review setup](../rules/review-waits-on-the-review-setup.md)).
+Someone who may not change the form reads the notice and the read-back, with no button; a market past draft shows no notice.
 Under "Automatic rejections", "Add a rule on" a choice question and tick the answers that reject: "An application that gives one of these answers arrives in review already rejected, with the reason. An Admin or the owner can overturn it, and the applicant never sees the reason.", naming whoever the market's row "Change a verdict, or overturn an automatic rejection" lets overturn it.
 The rules stay editable while the market can still reach Review; from Assignment on they are shown fixed: "The automatic rejections are settled: the market has reached Assignment, and a rule judges applications only while they can still be reviewed."
 Covered by:
@@ -149,5 +151,6 @@ Assignment uses one type in this release, so even a floorplan with several types
 - [What each role may do](../rules/what-each-role-may-do.md): the form, the highlights and the automatic rejections are an Editor's.
 - [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md) and [automatic rejections](../rules/automatic-rejections.md): what a rule may name, what it judges, and that it closes with the review.
 - [Vendor notes](../rules/vendor-notes.md): the request question, asked unless switched off.
+- [Review waits on the review setup](../rules/review-waits-on-the-review-setup.md): a draft decides what a reviewer reads first before it enters Review.
 
 Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
