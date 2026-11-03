@@ -2,6 +2,9 @@
 dist/
 dist-ssr/
 coverage/
+# The component library's data, written by back-end/tests/fixtures/component_library_fixture.py,
+# whose test compares it byte for byte
+src/dev/library/fixture.json
 
 # Dependencies
 node_modules/

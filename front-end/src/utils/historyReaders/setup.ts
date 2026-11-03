@@ -63,7 +63,7 @@ function pricingKeys(...sides: Detail[]): string[] {
   ];
 }
 
-/** A row's prices as the card shows them, in `currency`: "Gold $35, Silver $30". */
+/** A row's prices as the card shows them, in `currency`: "Gold $35.00, Silver $30.00". */
 function tierPrices(value: unknown, currency: string): string {
   const prices = Array.isArray(value) ? value.map(asDetail) : [];
   return prices

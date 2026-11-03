@@ -628,8 +628,8 @@ class Market(BaseModel):
     # ``save_review_highlights`` writes it, true only while the list holds nothing. Absent is false.
     nothing_leads_the_card: bool = False
     # Which answers reject an application automatically (E33/F03), ON THE MARKET beside the
-    # highlights and for the same reason: they stay editable after the form locks, until the market
-    # can no longer return to review. `rejection_rules.py` owns what a rule may say. Absent is none.
+    # highlights and for the same reason: they stay editable after the form locks, while the review
+    # is open (`review_is_open`). `rejection_rules.py` owns what a rule may say. Absent is none.
     rejection_rules: Optional[List[RejectionRule]] = None
     # Whether the organizer chose no automatic rejections (T206), as ``nothing_leads_the_card`` is
     # for the highlights: only ``save_rejection_rules`` writes it, true only while there is no rule.

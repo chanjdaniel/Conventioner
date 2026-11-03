@@ -141,7 +141,7 @@ test('adding a vendor asks the answers the prices read, refuses without them, an
   // Seated by hand like anyone, they pay the student + club member price.
   await place(request, marketId, 'e2e-price-answers-walk.in@example.com', 2);
   await expect(await goldPrice(page, marketId, 'e2e-price-answers-walk.in@example.com')).toHaveText(
-    'Gold, full table, Example College student + club member, $12',
+    'Gold, full table, Example College student + club member, $12.00',
   );
 
   // Their History says who added them, with the answers given under the form's questions.
@@ -196,7 +196,7 @@ test('an Editor reads the answers the prices read; an Admin changes them, and th
   await withUser(browser, ADMIN.email, ADMIN.password, async (page) => {
     const dialog = new UpdateInfoDialog(page);
     await expect(await goldPrice(page, marketId, ALUMNUS)).toHaveText(
-      'Gold, full table, Everyone else, $35',
+      'Gold, full table, Everyone else, $35.00',
     );
     await drawer(page, marketId, ALUMNUS);
     await dialog.open();
@@ -207,7 +207,7 @@ test('an Editor reads the answers the prices read; an Admin changes them, and th
     await dialog.save();
 
     await expect(await goldPrice(page, marketId, ALUMNUS)).toHaveText(
-      'Gold, full table, Example College student only, $15',
+      'Gold, full table, Example College student only, $15.00',
     );
   });
 });

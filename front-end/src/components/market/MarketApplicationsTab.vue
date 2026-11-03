@@ -71,13 +71,14 @@ const condition = computed(() => {
         : props.market?.applicationsStopped
           ? 'This market is not taking applications. No new ones will arrive.'
           : 'This market is open for applications. New ones keep arriving here.';
-    // Past the stage every application is decided, and the assignment is made from them (ticket
-    // 02). The verdicts settled on the way in (E36/F01/S01): a mistake is fixed with an assignment.
+    // Past the stage the review is closed (E36/F01/S01), and the server says why and what to do
+    // instead in the words of where the market stands (T207): Back to review while tables are
+    // allocated, a seat on Assignments once results are published or the market went live. Said
+    // here once, over both views, where the review's controls were; the browser keeps no copy.
     case MarketPhase.Assignment:
-      return 'The review is closed: every verdict settled when the market entered Assignment. Tables are allocated from the ones you approved, and an assignment is changed by hand on the Assignments page.';
     case MarketPhase.Offers:
     case MarketPhase.MarketDays:
-      return 'The review is closed: every verdict settled when the market entered Assignment. Tables were allocated from the ones you approved.';
+      return props.market?.verdictsSettledReason ?? '';
     default:
       return '';
   }

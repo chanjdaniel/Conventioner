@@ -776,7 +776,7 @@ export interface FloorplanTemplate {
 }
 
 /**
- * One of the three things an assignment is made from, as the server names them in
+ * One of the four things an assignment is made from, as the server names them in
  * `assignmentOutOfDate` (`back-end/assignment/made_from.py`, `GROUPS`).
  */
-export type AssignmentInputGroup = 'rules' | 'plan' | 'applications';
+export type AssignmentInputGroup = 'rules' | 'plan' | 'applications' | 'review';

@@ -4,7 +4,7 @@ The real market rejects every applicant who does not agree to the no-show terms,
 a student, alumnus or another accepted affiliation of its school - one card at a time. A rule names
 one choice question and the answers that reject. The server is the authority on what a rule may say
 and when it may change: free text is not a choice, an answer must be one the question offers, and
-the rules close when the market can no longer return to review, where they judge.
+the rules close with the review, where they judge.
 """
 import os
 import sys
@@ -96,15 +96,17 @@ class TestWhatARuleMaySay:
 class TestWhenTheRulesClose:
     @pytest.mark.parametrize("phase", [MarketPhase.DRAFT, MarketPhase.APPLICATIONS])
     def test_open_while_the_market_can_still_review(self, phase):
-        assert MarketsApi.rejection_rules_lock_reason(phase) is None
+        assert MarketsApi.rejection_rules_lock_reason(client_market(phase=phase)) is None
 
     @pytest.mark.parametrize("phase", [MarketPhase.ASSIGNMENT, MarketPhase.OFFERS,
                                        MarketPhase.MARKET_DAYS])
     def test_closed_from_assignment_on_saying_why(self, phase):
-        assert "Assignment" in MarketsApi.rejection_rules_lock_reason(phase)
+        assert MarketsApi.rejection_rules_lock_reason(client_market(phase=phase)).startswith(
+            "The automatic rejections ")
 
     def test_an_archived_market_says_it_is_archived(self):
-        assert MarketsApi.rejection_rules_lock_reason(MarketPhase.ARCHIVED) == MarketsApi.ARCHIVED_REFUSAL
+        assert MarketsApi.rejection_rules_lock_reason(
+            client_market(phase=MarketPhase.ARCHIVED)) == MarketsApi.ARCHIVED_REFUSAL
 
 
 class TestTheWrite:
@@ -132,7 +134,7 @@ class TestTheWrite:
     def test_it_is_refused_from_assignment_on(self, saved):
         self.market = _market(phase=MarketPhase.ASSIGNMENT)
 
-        with pytest.raises(BadRequestError, match="Assignment"):
+        with pytest.raises(BadRequestError, match="closed while tables are allocated"):
             MarketsApi.save_rejection_rules("market-123", [], "owner@x.test")
         assert saved == []
 

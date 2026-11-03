@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-10-29
+verified: 2026-11-03
 sources:
   - wayfinding/readable-journey/06
   - wayfinding/the-order-of-the-work/01
@@ -26,6 +26,7 @@ sources:
   - E30/F01/S04
   - E38/F04
   - E38/F15/S04
+  - T207
 ---
 
 # The market lifecycle at a glance
@@ -46,7 +47,7 @@ A move that loses a race with another change still answers with a red "Cannot pr
 Every move lands on the page where the new phase's work is done, forward or back.
 Every rule about moving a market lives with [the guards](../../implementation/modules/guards.md); how the rail draws it is [the phase rail](../../implementation/modules/phase-rail.md).
 
-**Status:** Works (read from the code and specs as of E38/F04: `back-end/guards.py`, `front-end/src/utils/marketGuide.ts`; `phase-rail.spec.ts`, `every-move-lands.spec.ts`, `a-blocked-step-offers-its-fix.spec.ts`, `what-to-show-and-when.spec.ts`, `market-journey.spec.ts`).
+**Status:** Works (read from the code and specs as of T207: `back-end/guards.py`, `front-end/src/utils/marketGuide.ts`; `phase-rail.spec.ts`, `every-move-lands.spec.ts`, `a-blocked-step-offers-its-fix.spec.ts`, `what-to-show-and-when.spec.ts`, `market-journey.spec.ts`, `back-to-review.spec.ts`).
 
 ```mermaid
 stateDiagram-v2
@@ -54,6 +55,7 @@ stateDiagram-v2
     draft --> applications : Open applications / the first import
     applications --> draft : Reopen for editing
     applications --> assignment : Begin assignment
+    assignment --> applications : Back to review, until results are published
     assignment --> market_days : Publish market
     assignment --> offers : Send offers (planned, E05)
     offers --> market_days : Publish market
@@ -64,13 +66,18 @@ stateDiagram-v2
 On the Google Form path the move into Review waits on an import, so the rail's main button in Draft is the fix "Import responses", with "Begin review" disabled beside it; the import takes the move once its rows are written ([review needs an import](../rules/review-needs-an-import.md)).
 Inside the stage, More… also offers what is not a move: "Redo import" on the Google Form path, and "Stop taking applications" or "Take applications again" on the online path ([taking applications](taking-applications.md)).
 
+From Assignment, More… offers "Back to review" until results are published ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)).
+It asks first, in a dialog that says what it does: the review opens again, its verdicts and automatic rejections can change, the tables allocated so far are kept but must be allocated again before results are published (on the Google Form path, before the market is published), a seat placed by hand stays even for a vendor then rejected, and on the online path applications stay closed.
+Confirmed, the market is back in the stage on the Applications tab, with the review open again; on the online path the application page stays stopped until the organizer chooses "Take applications again".
+The review stays closed while the market sits in Assignment ([verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md)).
+
 ## The phases
 
 | Phase (online path / Google Form path) | What happens here | Page it opens on | Forward step | More… |
 | --- | --- | --- | --- | --- |
 | Draft / Draft | Plan the market, build the form | Market Setup | Open applications / Import responses (the fix), then Begin review | Archive market |
 | Applications / Review | Online applications arrive and are reviewed as they do / every imported response is reviewed | Applications | Begin assignment | Stop taking applications or Take applications again / Redo import; Reopen for editing, Archive market |
-| Assignment / Assignment | Set the rules, run, adjust by hand; on the online path, publish results | Settings, then Assignments once run | Publish market | Archive market |
+| Assignment / Assignment | Set the rules, run, adjust by hand; on the online path, publish results | Settings, then Assignments once run | Publish market | Back to review (disabled once results are published), Archive market |
 | Offers (planned) | Vendors accept or refuse | Assignments once run, else Settings | Publish market | Archive market |
 | Market Days / Market Days | Vendors check in | Attendance | Archive market, once every date has passed | Archive market, until then |
 | Archived / Archived | Read only | Assignments if it was assigned, else Market Setup | none | none |
@@ -118,6 +125,7 @@ Each refusal is a blocker line under the rail and beside the move, before the cl
 | Leaving Draft | The automatic rejections are not decided: no rule rejects an answer, and "No automatic rejections" is not chosen | "The automatic rejections are not decided. On Review setup, add a rule that rejects an answer, or choose No automatic rejections." |
 | Leaving Draft, on the Google Form path | Nothing has been imported: the first import, written, is the way in | "Nothing has been imported yet. Import your Google Form's responses first." |
 | The stage → Draft | Any application exists, imported or applied | "N applications are already in, so this market cannot return to draft. …" |
+| Assignment → the stage (Back to review) | Results are published | "Results are published: applicants have read whether they have a table, so the review cannot reopen. To change who has a table, place or free a seat on Assignments." |
 | The stage → Assignment | Any application still Open, Under review or needing a follow-up; or none at all | "N applications are still awaiting review…" / "N applications need a follow-up…" / "There are no applications for this market. …" |
 | The stage → Assignment | An approved applicant named a tier that has no tables | Names the tier and the applicants |
 | The stage → Assignment, and into Market Days | A hand placement names a seat the plan no longer has | Names the vendor, table and date |
@@ -125,9 +133,11 @@ Each refusal is a blocker line under the rail and beside the move, before the cl
 | Into Market Days | No assignment is stored | "No tables have been allocated for this market, so its check-in page could not tell anyone where to stand. Allocate tables first." |
 | Into Market Days, on the online path | Results are not published | "Applicants have not been told whether they have a table. Publish the results before the market goes live." |
 
-Moves that cannot be undone (Publish market, Archive market) open a confirmation dialog focused on Cancel.
+Moves that cannot be undone (Publish market, Archive market) open a confirmation dialog focused on Cancel, and so does Back to review, which can be undone but costs the allocation.
+On the online path, Open applications first offers the reviewers to someone who may choose them.
 Every other move fires on one click.
 Covered by:
+- `back-to-review.spec.ts`
 - `phase-state-machine.spec.ts`
 
 ## Where the check-in address lives

@@ -1,0 +1,23 @@
+[
+  { "cents": 3500, "currency": "CAD", "text": "$35.00" },
+  { "cents": 1501, "currency": "CAD", "text": "$15.01" },
+  { "cents": 5, "currency": "CAD", "text": "$0.05" },
+  { "cents": 0, "currency": "CAD", "text": "$0.00" },
+  { "cents": 123450, "currency": "CAD", "text": "$1,234.50" },
+  { "cents": 123456750, "currency": "CAD", "text": "$1,234,567.50" },
+  { "cents": 10000000, "currency": "CAD", "text": "$100,000.00" },
+  { "cents": -1500, "currency": "CAD", "text": "-$15.00" },
+  { "cents": 3500, "currency": null, "text": "$35.00" },
+  { "cents": -1500, "currency": null, "text": "-$15.00" },
+  { "cents": 3500, "currency": "USD", "text": "US$35.00" },
+  { "cents": 3500, "currency": "EUR", "text": "€35.00" },
+  { "cents": 3500, "currency": "GBP", "text": "£35.00" },
+  { "cents": 3500, "currency": "AUD", "text": "A$35.00" },
+  { "cents": 3500, "currency": "NZD", "text": "NZ$35.00" },
+  { "cents": 10000000, "currency": "USD", "text": "US$100,000.00" },
+  { "cents": -1500, "currency": "USD", "text": "-US$15.00" },
+  { "cents": -1500, "currency": "EUR", "text": "-€15.00" },
+  { "cents": -1500, "currency": "GBP", "text": "-£15.00" },
+  { "cents": -1500, "currency": "AUD", "text": "-A$15.00" },
+  { "cents": -150050, "currency": "NZD", "text": "-NZ$1,500.50" }
+]

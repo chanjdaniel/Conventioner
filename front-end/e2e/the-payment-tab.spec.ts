@@ -123,14 +123,14 @@ test.describe('the Payment tab', () => {
       const lines = tab.getByTestId('payment-line');
       await expect(lines).toHaveCount(2);
       await expect(lines.nth(0)).toContainText('North Wing 1, Gold, full table');
-      await expect(lines.nth(0).getByTestId('payment-line-owed')).toHaveText('$35');
-      await expect(tab.getByTestId('payment-owed')).toHaveText('$70');
-      await expect(tab.getByTestId('payment-paid')).toHaveText('$0');
-      await expect(tab.getByTestId('payment-balance')).toHaveText('Owes $70');
+      await expect(lines.nth(0).getByTestId('payment-line-owed')).toHaveText('$35.00');
+      await expect(tab.getByTestId('payment-owed')).toHaveText('$70.00');
+      await expect(tab.getByTestId('payment-paid')).toHaveText('$0.00');
+      await expect(tab.getByTestId('payment-balance')).toHaveText('Owes $70.00');
 
       await recordPayment(page, '35', 'e-transfer');
-      await expect(tab.getByTestId('payment-balance')).toHaveText('Owes $35');
-      await expect(tab.getByTestId('payment-paid')).toHaveText('$35');
+      await expect(tab.getByTestId('payment-balance')).toHaveText('Owes $35.00');
+      await expect(tab.getByTestId('payment-paid')).toHaveText('$35.00');
 
       await recordPayment(page, '35', 'cash');
       await expect(tab.getByTestId('payment-balance')).toHaveText('Paid in full');
@@ -161,9 +161,55 @@ test.describe('the Payment tab', () => {
       await expect(lines.nth(1).getByTestId('payment-line-source')).toHaveText(
         /^North Wing 1, Gold, full table - table freed [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
       );
-      await expect(lines.nth(1).getByTestId('payment-line-owed')).toHaveText('$35');
-      await expect(tab.getByTestId('payment-owed')).toHaveText('$70');
+      await expect(lines.nth(1).getByTestId('payment-line-owed')).toHaveText('$35.00');
+      await expect(tab.getByTestId('payment-owed')).toHaveText('$70.00');
       await expect(tab.getByTestId('payment-balance')).toHaveText('Paid in full');
+    });
+  });
+
+  test('the amount reads as currency once left, and the plain number while focused', async ({
+    browser,
+    request,
+  }) => {
+    const marketId = await aliceOnTwoGoldDays(request);
+
+    await withUser(browser, EDITOR.email, EDITOR.password, async (page) => {
+      const tab = await paymentTab(page, marketId);
+      await page.getByTestId('payment-record').click();
+      const dialog = page.getByTestId('record-payment-window');
+      const amount = dialog.getByLabel('Amount (CAD)');
+      await expect(amount).toBeFocused();
+
+      // Typed as a person types it: the text stays as typed until the field is left.
+      await amount.pressSequentially('35');
+      await expect(amount).toHaveValue('35');
+      await page.keyboard.press('Tab');
+      await expect(amount).toHaveValue('$35.00');
+      await page.keyboard.press('Shift+Tab');
+      await expect(amount).toBeFocused();
+      await expect(amount).toHaveValue('35.00');
+      expect(
+        await amount.evaluate((input: HTMLInputElement) => [
+          input.selectionStart,
+          input.selectionEnd,
+        ]),
+      ).toEqual([5, 5]);
+
+      // Text that is no amount keeps what was typed and its error, and Record stays disabled.
+      await amount.fill('3x');
+      await page.keyboard.press('Tab');
+      await expect(amount).toHaveValue('3x');
+      await expect(dialog.getByTestId('record-payment-amount-error')).toBeVisible();
+      await expect(dialog.getByRole('button', { name: 'Record payment' })).toBeDisabled();
+
+      await amount.focus();
+      await amount.fill('35');
+      await page.keyboard.press('Tab');
+      await expect(amount).toHaveValue('$35.00');
+      await dialog.getByRole('button', { name: 'Record payment' }).click();
+      await expect(dialog).toBeHidden();
+      await expect(tab.getByTestId('payment-paid')).toHaveText('$35.00');
+      await expect(tab.getByTestId('payment-balance')).toHaveText('Owes $35.00');
     });
   });
 
@@ -172,7 +218,7 @@ test.describe('the Payment tab', () => {
 
     await withUser(browser, VIEWER.email, VIEWER.password, async (page) => {
       const tab = await paymentTab(page, marketId);
-      await expect(tab.getByTestId('payment-owed')).toHaveText('$70');
+      await expect(tab.getByTestId('payment-owed')).toHaveText('$70.00');
       await expect(tab.getByText('No payments recorded.')).toBeVisible();
       await expect(page.getByTestId('payment-record')).toHaveCount(0);
     });

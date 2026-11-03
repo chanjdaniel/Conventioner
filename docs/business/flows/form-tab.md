@@ -109,7 +109,8 @@ Someone who may not change the form reads the notice and the read-back, with no 
 A mark counts as the form is saved, as the move into Review judges it: a mark on a question not yet saved leaves the notice up until Save Form.
 Under "Automatic rejections", "Add a rule on" a choice question and tick the answers that reject: "An application that gives one of these answers arrives in review already rejected, with the reason. An Admin or the owner can overturn it, and the applicant never sees the reason.", naming whoever the market's row "Change a verdict, or overturn an automatic rejection" lets overturn it.
 In a draft that has not decided, the section says "Not decided yet. Opening applications waits on this." (or "Your first import waits on this.") and offers "No automatic rejections", one click, while no rule rejects an answer; chosen, it reads back "No automatic rejections: every application arrives undecided.", with "Add a rule on" still below it, and a rule replaces it, though a rule rejects nobody, and so decides nothing, until an answer is ticked.
-The rules stay editable while the market can still reach Review; from Assignment on they are shown fixed: "The automatic rejections are settled: the market has reached Assignment, and a rule judges applications only while they can still be reviewed.", with no notice, no button and no read-back.
+The rules stay editable while the review is open; from Assignment on they are shown fixed, saying why in the review's words ([automatic rejections](../rules/automatic-rejections.md)): in Assignment, "The automatic rejections are closed while tables are allocated. To change a rule, choose Back to review under More… on the phase rail; tables are then allocated again."
+Once the rules are fixed, the section shows no notice, no "No automatic rejections" button and no read-back.
 Covered by:
 - `automatic-rejections.spec.ts`
 - `review-highlights.spec.ts`

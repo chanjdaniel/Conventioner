@@ -81,6 +81,7 @@ The market on screen:
 - Before changing what a screen says in a phase or on an intake path, read [the market guide](docs/implementation/modules/market-guide.md).
 - Before changing the phase rail, read [the phase rail](docs/implementation/modules/phase-rail.md).
 - Before changing styles, tokens or a control's look, read [the design language](docs/design-system.md) and [every control is named](docs/implementation/conventions/every-control-is-named.md).
+- Before adding or changing a reusable component, read [the component library](docs/implementation/modules/component-library.md).
 - Before writing or changing a dialog, read [dialogs](docs/implementation/conventions/dialogs.md).
 - Before changing the Stats tab or what it counts, read [the market's statistics](docs/business/flows/stats.md).
 
@@ -112,6 +113,7 @@ The assignment:
 - Before changing the floorplan beta or Auto-Place, read [floorplan placement](docs/implementation/modules/floorplan-placement.md).
 - Before changing the Discord card, the bot or what it asks of Discord, read [the Discord connection](docs/implementation/modules/discord.md).
 - Before changing the Pricing card or what an assignment costs, read [a price follows the table](docs/business/rules/a-price-follows-the-table.md).
+- Before changing how an amount reads, on screen or in a file, or an amount field, read [an amount reads to the cent](docs/business/rules/an-amount-reads-to-the-cent.md).
 - Before changing what a vendor owes or a payment, read [payments, and what a vendor owes](docs/implementation/data/payments.md); before changing the Payments page or what it totals, also [payments](docs/business/flows/payments.md).
 
 The data and the back end:

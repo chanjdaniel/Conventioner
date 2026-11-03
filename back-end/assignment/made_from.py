@@ -11,6 +11,10 @@ This is the ONE place each group's fingerprint is computed: the run and the read
 
 Hand placements are not an input. They are edits to the result, so placing, freeing or swapping
 never makes an assignment out of date.
+
+A fourth group, ``review``, is how many times the market has entered the review stage, from its
+phase record (T207, ADR 0021). Back to review makes the stored run out of date until the next run,
+whether or not a verdict changed: the run was made before the review it now stands on.
 """
 import hashlib
 import json
@@ -18,10 +22,10 @@ from dataclasses import asdict
 from typing import Any, Dict, List, Optional
 
 from assignment.vendor_input import SolverVendor, approved_solver_vendors
-from datatypes import Market, SetupObject
+from datatypes import LEGACY_STAGE_PHASES, Market, MarketPhase, PhaseEntry, SetupObject
 from essential_fields import effective_essential_options_for_market
 
-GROUPS = ("rules", "plan", "applications")
+GROUPS = ("rules", "plan", "applications", "review")
 
 
 def assignment_rules(plan: Optional[SetupObject]) -> Dict[str, Any]:
@@ -88,19 +92,62 @@ def _as_fingerprinted(vendor: SolverVendor) -> Dict[str, Any]:
     return fields
 
 
+def _review(phase_history: List[PhaseEntry]) -> str:
+    """How many times the market has entered the review stage, as its phase record tells it.
+
+    An old stage name is the stage, as ``phase_record.phases_reached`` reads it, and a walk through
+    the old stage's phases is one entry, not three. A record begun partway through a market's life
+    opens with the phase it was already in, which counts like any other entry. Kept as the count
+    itself, so a stored run says plainly what it stood on.
+    """
+    stage = MarketPhase.APPLICATIONS.value
+    entered, before = 0, None
+    for entry in phase_history:
+        phase = stage if entry.phase in LEGACY_STAGE_PHASES else entry.phase
+        if phase == stage and before != stage:
+            entered += 1
+        before = phase
+    return str(entered)
+
+
 def _digest(value: Any) -> str:
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
     ).hexdigest()
 
 
-def fingerprint(plan: Optional[SetupObject], vendors: List[SolverVendor]) -> Dict[str, str]:
-    """One fingerprint per group the solver reads: the rules, the plan, the approved applications."""
+def fingerprint(
+    plan: Optional[SetupObject], vendors: List[SolverVendor], phase_history: List[PhaseEntry],
+) -> Dict[str, str]:
+    """One fingerprint per group the run stands on: the rules, the plan, the approved applications
+    and the review they were decided in."""
     return {
         "rules": _digest(assignment_rules(plan)),
         "plan": _digest(_plan(plan)),
         "applications": _digest(_applications(vendors)),
+        "review": _review(phase_history),
     }
+
+
+def _recorded(market: Market) -> Optional[Dict[str, str]]:
+    """What the stored run recorded, or None when there is no run whose inputs are known."""
+    recorded = market.assignment_object.made_from
+    if not recorded or not market.assignment_object.vendor_assignments:
+        return None
+    return recorded
+
+
+def review_reopened_since_run(market: Market) -> bool:
+    """Whether the review was reopened after the stored run (T207): the ``review`` group alone.
+
+    Reads the phase record and the run's record of it, never the approved applications, so the
+    go-live guard that asks it stays cheap. A run recorded without the group is not known to be
+    out of date by it.
+    """
+    recorded = _recorded(market)
+    if recorded is None or "review" not in recorded:
+        return False
+    return recorded["review"] != _review(market.phase_history)
 
 
 def changed_since_run(market: Market) -> List[str]:
@@ -108,18 +155,20 @@ def changed_since_run(market: Market) -> List[str]:
 
     Empty when nothing has changed, and also when the market holds no fingerprints - an
     assignment made before this shipped is not known to be out of date, and is never served as out
-    of date, because a notice on every existing market would teach organizers to ignore it.
+    of date, because a notice on every existing market would teach organizers to ignore it. A group
+    the run did not record, because the fingerprints gained it later, is not known to have changed
+    either.
 
     An approved application missing an answer the solver needs is still read, so adding one counts
     as a change to the applications rather than hiding behind the run's refusal.
     """
-    recorded = market.assignment_object.made_from
-    if not recorded or not market.assignment_object.vendor_assignments:
+    recorded = _recorded(market)
+    if recorded is None:
         return []
     vendors, incomplete = approved_solver_vendors(
         market.id, effective_essential_options_for_market(market)
     )
-    now = fingerprint(market.setup_object, vendors)
+    now = fingerprint(market.setup_object, vendors, market.phase_history)
     if incomplete:
         now["applications"] = _digest([now["applications"], sorted(map(str, incomplete))])
-    return [group for group in GROUPS if recorded.get(group) != now[group]]
+    return [group for group in GROUPS if group in recorded and recorded[group] != now[group]]

@@ -116,14 +116,16 @@ test.describe('Automatic rejections', () => {
     );
 
     await openReviewSetup(page, marketId);
-    await expect(page.getByTestId('rejection-rules-locked')).toContainText('reached Assignment');
+    await expect(page.getByTestId('rejection-rules-locked')).toContainText(
+      'The automatic rejections are closed while tables are allocated.',
+    );
     await expect(page.getByTestId('rejection-rule-add')).toHaveCount(0);
 
     const refused = await page.request.put(`${APP_API}/markets/${marketId}/rejection-rules`, {
       data: { rules: [] },
     });
     expect(refused.status()).toBe(400);
-    expect((await refused.json()).error).toContain('reached Assignment');
+    expect((await refused.json()).error).toContain('closed while tables are allocated');
   });
 });
 

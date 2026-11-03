@@ -18,6 +18,7 @@ sources:
   - T142
   - E38/F07/S02
   - T206
+  - T207
 ---
 
 # Taking applications
@@ -81,11 +82,13 @@ Covered by:
 
 ## H5. Take applications again
 
-**Status:** Works (read from the code as of E38/F04/S02; `taking-applications-stops-and-resumes.spec.ts`).
+**Status:** Works (read from the code as of T207; `taking-applications-stops-and-resumes.spec.ts`, `back-to-review.spec.ts`).
 In Applications, while stopped, More…, "Take applications again": the application page takes them again, and nothing else changes.
-Begin assignment closes the form whether or not it was stopped, and there is no way back from Assignment.
+Begin assignment closes the form whether or not it was stopped.
+Back to review, from Assignment until results are published, returns the market to Applications with the form stopped, so it takes no application until the organizer chooses "Take applications again" ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)).
 A stop belongs to its stay in Applications: Reopen for editing clears it, so Open applications afterwards opens the form.
 Covered by:
+- `back-to-review.spec.ts`
 - `taking-applications-stops-and-resumes.spec.ts`
 
 ## Superseded

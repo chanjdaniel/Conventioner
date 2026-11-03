@@ -347,7 +347,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
     return assignment ? assignmentSummary(assignment) : null;
   }
 
-  /** What their assignment that day costs, as its date card says it: "Gold, full table, $35", with
+  /** What their assignment that day costs, as its date card says it: "Gold, full table, $35.00", with
    * the price group where the card has groups; null where they hold none or the market prices nothing. */
   function priceOn(row: VendorRow, date: string): string | null {
     const assignment = row.assignmentsByDate.get(date);

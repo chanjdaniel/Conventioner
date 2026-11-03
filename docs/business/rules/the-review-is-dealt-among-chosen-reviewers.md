@@ -59,7 +59,7 @@ Every reader of a share counts it so: the All view's "Assigned to" filter for an
 
 ## Who may
 
-Choosing is the row "Choose reviewers" of [what each role may do](what-each-role-may-do.md) (default Admin), open from draft through the stage where applications are reviewed, and refused once the review has closed on entering Assignment ([verdicts settle on entering assignment](verdicts-settle-on-entering-assignment.md)) and on [an archived market](an-archived-market-is-read-only.md).
+Choosing is the row "Choose reviewers" of [what each role may do](what-each-role-may-do.md) (default Admin), open from draft through the stage where applications are reviewed, and refused once the review has closed on entering Assignment, with "The review is closed, so its reviewers no longer change." and why it closed ([verdicts settle on entering assignment](verdicts-settle-on-entering-assignment.md#what-a-closed-review-says)), and on [an archived market](an-archived-market-is-read-only.md).
 A reviewer is chosen from the people the chooser may hand a follow-up to ([needs follow-up](needs-follow-up.md)): everyone with a role on the market to someone in its organization, and only the people the market's roles name to anyone else, so the organization's addresses never reach someone outside it.
 Only those whose role reaches the row "Be chosen as a reviewer, and then give verdicts and follow-ups" (default Viewer, so anyone with a role) are offered.
 Anyone else's address is refused by name; a current reviewer the chooser is not offered may stay.

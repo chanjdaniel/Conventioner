@@ -4,7 +4,7 @@ kind: adr
 describes:
   - back-end/guards.py#VALID_TRANSITIONS
   - back-end/migrations/migrate_publishing_to_market_days.py
-verified: 2026-10-30
+verified: 2026-11-03
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/real-market-readiness/05
@@ -54,6 +54,7 @@ And the setup wizard ended in Assign and Done without moving the phase, so after
 - A new lifecycle fact is a phase or a guard in [`guards.py`](../implementation/modules/guards.md), never a flag beside `phase`; a fact the phase cannot hold, such as how vendors reach a market or whether results are published, is its own field with its own writer.
   Whether a market takes applications inside the stage (`applicationsStopped`, E38/F04/S02) is such a fact: it is about the applicant form, not the market's lifecycle, so reviewing goes on and no move is made, and entering assignment closes the form whatever it says.
 - **A move confirms exactly when it cannot be undone**, and which moves those are is derived from `VALID_TRANSITIONS` (a phase with no edge back), never listed: today `market_days` and `archived` (`transitionNeedsConfirmation` in `front-end/src/utils/phase.ts`).
+  Back to review asks too, by its edge, since it can be undone but costs the allocation ([ADR 0021](0021-the-review-reopens-until-results-are-published.md)).
   Adding a reverse edge stops a move confirming with no other change.
   The publish confirmation says what cannot be taken back: the check-in page goes on the air.
 - How far a market got is the [phase record](../implementation/modules/phase-record.md), a log the one phase writer pushes, never a second field.
@@ -69,6 +70,7 @@ And the setup wizard ended in Assign and Done without moving the phase, so after
 
 - The first release was to walk the phase machine as it stood, with no new edges (wayfinding/v0-1-0/map).
   Two were added: the way back to `draft`, guarded on no application existing, so a form can be corrected before anyone has answered it (wayfinding/real-market-readiness/05), and `assignment -> market_days`, which is publishing (wayfinding/real-market-readiness/06).
+  A third came later: `assignment -> applications`, Back to review, until results are published ([ADR 0021](0021-the-review-reopens-until-results-are-published.md)).
 - Publishing was to be fired by the results screen's Done; the organizer publishes on the phase rail, and the wizard's Done is gone (wayfinding/readable-journey/01).
 - The applicant surface was to narrow to `applications_open` (wayfinding/real-market-readiness/06).
   It serves a form market in every phase but `draft`, so an applicant can always read their application and its outcome; applying itself stays the stage's (E26/F07/S02).

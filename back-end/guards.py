@@ -18,6 +18,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
 import api.applications as ApplicationsApi
+from assignment.made_from import review_reopened_since_run
 from assignment.utils import convert_keys_to_camel_case
 from datatypes import ApplicationStatus, IntakeMode, Market, MarketPhase
 from essential_fields import (
@@ -359,6 +360,39 @@ class AssignmentComputedGuard:
         return PreconditionResult(id=self.id, passed=True, message="")
 
 
+class AssignmentNotBeforeReviewGuard:
+    """A market does not go live on tables allocated before its review was reopened (T207, ADR 0021).
+
+    An ENTRY INVARIANT on ``market_days``, ahead of the results it would otherwise wait on. Publish
+    results already refuses an out-of-date run, so a market whose vendors apply on its page meets
+    this only before publishing, and Back to review is refused after; it is a Google Form market,
+    which has no Publish results, that this binds: without it, a vendor rejected in the reopened
+    review could keep the run's seat and check in.
+
+    Reads only the ``review`` group (``assignment.made_from``), never the approved applications:
+    it stays cheap, and a plan or rule edit made after publishing, when runs are refused, never
+    keeps a market from going live.
+    """
+
+    id: str = "assignment_after_review"
+    description: str = "Tables were allocated after the review last closed"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        if not review_reopened_since_run(market):
+            return PreconditionResult(id=self.id, passed=True, message="")
+        return PreconditionResult(
+            id=self.id,
+            passed=False,
+            message=(
+                "The review was reopened after tables were allocated. Allocate tables again "
+                "before the market goes live."
+            ),
+            resolution_link="settings",
+            resolution_label="Allocate tables",
+            resolution_action="assign",
+        )
+
+
 class ResultsPublishedGuard:
     """A market whose vendors apply on its page does not go live until they have been told whether
     they have a table (E36/F04/S02).
@@ -384,6 +418,33 @@ class ResultsPublishedGuard:
             resolution_link="applications",
             resolution_label="Publish results",
             resolution_action="publish-results",
+        )
+
+
+class ResultsNotPublishedGuard:
+    """The review reopens only until applicants have read their results (T207, ADR 0021).
+
+    On ``assignment -> applications`` alone, Back to review. Once results are published an
+    applicant has read whether they have a table, so a verdict changed after it would change what
+    they were told; from then on a seat placed or freed by hand is the way to change who has one.
+    A Google Form market never publishes results, so it passes for the whole of Assignment. Reads
+    the flag, never the phase, and offers no way back: no page reopens the review.
+    """
+
+    id: str = "results_not_published"
+    description: str = "Results are not yet published to applicants"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        if not market.results_published:
+            return PreconditionResult(id=self.id, passed=True, message="")
+        return PreconditionResult(
+            id=self.id,
+            passed=False,
+            message=(
+                "Results are published: applicants have read whether they have a table, so the "
+                "review cannot reopen. To change who has a table, place or free a seat on "
+                "Assignments."
+            ),
         )
 
 
@@ -567,6 +628,9 @@ VALID_TRANSITIONS: set[tuple[str, str]] = {
     ("applications", "draft"),
     # Assignment and forward. Entering it closes the applicant form: applying is the stage's alone.
     ("applications", "assignment"),
+    # Back to review (T207, ADR 0021): the review reopens until results are published, so a verdict
+    # given too fast can still change. The form stays stopped on the way back.
+    ("assignment", "applications"),
     ("assignment", "offers"),
     # Publishing (E03/F03). market_days already meant "the market is running" and was stranded
     # behind the deadlocked assignment -> offers; this is the route that reaches it.
@@ -749,7 +813,9 @@ _PRICE_GROUPS_STAND = PriceGroupsStandGuard()
 _ALL_REVIEWED = AllApplicationsReviewedGuard()
 _NO_APPLICATIONS_YET = NoApplicationsYetGuard()
 _ASSIGNMENT_COMPUTED = AssignmentComputedGuard()
+_ASSIGNMENT_AFTER_REVIEW = AssignmentNotBeforeReviewGuard()
 _RESULTS_PUBLISHED = ResultsPublishedGuard()
+_RESULTS_NOT_PUBLISHED = ResultsNotPublishedGuard()
 _NO_APPROVED = NoApprovedApplicationsGuard()
 _NO_EMPTY_TIER_ASKED_FOR = NoAskedForTierWithoutTablesGuard()
 _NO_ORPHANED_PIN = NoOrphanedPinGuard()
@@ -770,9 +836,14 @@ PHASE_ENTRY_INVARIANTS: dict[str, list] = {
     # a half-built rule scores every vendor alike, which is silent rather than wrong.
     "assignment": [_ALL_REVIEWED, _NO_ORPHANED_PIN],
     "offers": [_NO_APPROVED],
-    # A market that is already in assignment never re-enters it, so an orphaned pin made there -
-    # a seat dropped from the plan after the run - met no guard and was published (bug 31).
-    "market_days": [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _RESULTS_PUBLISHED],
+    # A market need not re-enter assignment before it goes live (only Back to review, T207, takes
+    # it back there), so an orphaned pin made in assignment - a seat dropped from the plan after
+    # the run - met no guard and was published (bug 31).
+    # And none on a run made before the review was reopened (T207), ahead of the results that a
+    # form market's Publish results already holds back on it.
+    "market_days": [
+        _ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _ASSIGNMENT_AFTER_REVIEW, _RESULTS_PUBLISHED,
+    ],
 }
 
 # (from_phase, to_phase) -> list of guard instances. This is the table evaluate_transition
@@ -799,9 +870,16 @@ TRANSITION_GUARDS: dict[tuple[str, str], list] = {
     # priority entry before assignment can begin.
     ("applications", "draft"): [_NO_APPLICATIONS_YET],
     ("applications", "assignment"): [_ALL_REVIEWED, _NO_EMPTY_TIER_ASKED_FOR, _NO_ORPHANED_PIN],
+    # The stage's invariants pass on any market past draft; the way back's own guard is the one
+    # that can refuse it.
+    ("assignment", "applications"): [_FORM_HAS_FIELDS, _RESPONSES_IMPORTED, _RESULTS_NOT_PUBLISHED],
     ("assignment", "offers"): [_NO_APPROVED],
-    ("assignment", "market_days"): [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _RESULTS_PUBLISHED],
-    ("offers", "market_days"): [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _RESULTS_PUBLISHED],
+    ("assignment", "market_days"): [
+        _ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _ASSIGNMENT_AFTER_REVIEW, _RESULTS_PUBLISHED,
+    ],
+    ("offers", "market_days"): [
+        _ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _ASSIGNMENT_AFTER_REVIEW, _RESULTS_PUBLISHED,
+    ],
 }
 
 

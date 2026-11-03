@@ -6,7 +6,7 @@ describes:
   - front-end/src/utils/paymentsPage.ts
   - back-end/api/payments.py#market_payments
   - back-end/payments.py#market_summary
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - T92
   - E44/F02/S01
@@ -30,7 +30,7 @@ The server counts all of it in one answer (`GET /markets/<id>/payments`, `market
 2. "By tier" and "By date" give the same four figures per tier, in the market's order, and per market day.
    A payment is a vendor's, not a day's, so what each vendor paid is shared across their table-days by what each owes (evenly where they owe nothing), to the cent; what a vendor holding no table paid stands on a row of its own, "No table".
    Each breakdown adds up to the four figures, and the page says how a payment is shared under them.
-3. "Vendors" lists every vendor with a table-day line or a payment, a vendor whose table was freed included, by name with their address beneath: Owed, Paid, and the Difference in the Payment tab's words, "Owes $35", "Paid in full", "Paid $7.50 more than owed" or "Nothing owed".
+3. "Vendors" lists every vendor with a table-day line or a payment, a vendor whose table was freed included, by name with their address beneath: Owed, Paid, and the Difference in the Payment tab's words, "Owes $35.00", "Paid in full", "Paid $7.50 more than owed" or "Nothing owed".
 4. "Owes", "Paid in full" and "Paid more than owed" each narrow the list to the vendors in that state, with how many there are; "Paid in full" is every vendor who is square and owed something, so a vendor who owes nothing and paid nothing, "Nothing owed", is in none of the three, and is listed only unfiltered; pressed again, a filter is cleared.
    The states are the server's, the ones the export's "Payment" filter reads ([J15](vendors.md#j15-export-the-vendors-to-a-csv)), so the page's "Owes" and an export of "Owes" list the same vendors.
    "Search vendors" finds a vendor by name or address within it, and "N of M vendors shown" counts what is left.
@@ -42,9 +42,9 @@ The page fits a phone, so who still owes is read at the door on market day (T180
 
 A market that sets no prices says "Pricing is off for this market, so nobody owes anything for a table." with a link to Market Setup, whose Pricing card sets them ([a price follows the table](../rules/a-price-follows-the-table.md)); its vendors are still listed, with what they owe and what they paid.
 There a table owes nothing but an amount someone set by hand, so the reading follows each vendor's account, not the market (T153 review findings 8, 10 and 14):
-- a vendor owing nothing is in no payment state, and a payment of theirs is never "more than owed": its Difference reads what was paid, "Paid $35", untoned, as their Payment tab does;
-- a vendor owing an amount set by hand reads, tones and filters as on a priced market: "Owes $10", or "Paid $15 more than owed", a refund to issue;
-- a vendor owing nothing who was refunded beyond what they paid (a $10 payment and a $25 refund) owes the difference back to the market, so reads, tones and filters as owing: "Owes $15".
+- a vendor owing nothing is in no payment state, and a payment of theirs is never "more than owed": its Difference reads what was paid, "Paid $35.00", untoned, as their Payment tab does;
+- a vendor owing an amount set by hand reads, tones and filters as on a priced market: "Owes $10.00", or "Paid $15.00 more than owed", a refund to issue;
+- a vendor owing nothing who was refunded beyond what they paid (a $10 payment and a $25 refund) owes the difference back to the market, so reads, tones and filters as owing: "Owes $15.00".
 
 Where nobody owes, the page shows no figures, since nothing is owed to compare what was paid with, and offers no filter, since whoever paid would all be "Paid more than owed" and the refunds filter would be everyone (Daniel, T153 review finding 3), and a filter in the address narrows nothing; the search and the sort stay.
 Where someone owes, by an amount set by hand or a refund beyond what they paid, the note says "Pricing is off for this market, so a vendor owes only an amount set by hand on their Payment tab, or a refund beyond what they paid." and the three filters are offered, each listing the vendors in that state.
@@ -58,4 +58,4 @@ Covered by:
 - `exporting-a-payment-reminder.spec.ts` (the page's "Owes" against the export's)
 - `front-end/src/__tests__/paymentsPage.test.ts` (the filters, the sort, the search and when the caption is drawn)
 - `the-market-on-a-phone.spec.ts` (the page, its tables' headings and cells as a screen reader reads them, and the drawer of a vendor who owes, on a phone and at a desk)
-- `the-payments-page.spec.ts` (the totals against the sum of the vendors' Payment tabs, each filter and a reload, a vendor freed with the seat taken off what they owe in no filter, the sort in the address, a Viewer, a market with no prices and no filter, its payments reading "Paid $35" on the page and the Payment tab and its export offering no payment filter, then an amount set by hand reading "Paid $15 more than owed" with the filters back on the page and the export, and the market's money drawn with Paid more than owed $15 alone and the caption, which goes once every vendor who paid owes)
+- `the-payments-page.spec.ts` (the totals against the sum of the vendors' Payment tabs, each filter and a reload, a vendor freed with the seat taken off what they owe in no filter, the sort in the address, a Viewer, a market with no prices and no filter, its payments reading "Paid $35.00" on the page and the Payment tab and its export offering no payment filter, then an amount set by hand reading "Paid $15.00 more than owed" with the filters back on the page and the export, and the market's money drawn with Paid more than owed $15.00 alone and the caption, which goes once every vendor who paid owes)

@@ -80,3 +80,26 @@ def test_the_read_serves_the_review_setups_two_nones(serve, monkeypatch):
 
     assert market["nothingLeadsTheCard"] is True
     assert market["noAutomaticRejections"] is True
+
+
+@pytest.mark.parametrize("intake_mode", ["form", "csv"])
+def test_back_to_review_is_served_from_assignment(intake_mode, applications):
+    """The way back to the review (T207), judged on the read like every move."""
+    applications.count = 1
+    market = market_from_document(
+        {**Read._stored(MarketPhase.ASSIGNMENT, intake_mode), "setupObject": COMPLETE_PLAN})
+
+    assert transition_verdicts(market, None)["applications"] == []
+
+
+def test_back_to_review_is_served_refused_once_results_are_published(applications):
+    applications.count = 1
+    market = market_from_document({
+        **Read._stored(MarketPhase.ASSIGNMENT, "form"), "setupObject": COMPLETE_PLAN,
+        "resultsPublished": True,
+    })
+
+    [blocker] = transition_verdicts(market, None)["applications"]
+
+    assert blocker.id == "results_not_published"
+    assert blocker.resolution_link is None
