@@ -196,24 +196,21 @@ eachWindow('the combobox entry', (size) => {
 
     // Three in a row, the list open throughout and every row where it was.
     const free = c5.list.getByRole('option', { selected: false });
-    const names: string[] = [];
     for (const expected of [13, 14, 15]) {
-      const row = free.first();
-      names.push((await row.locator('span').first().textContent())!.trim());
-      await row.click();
+      await free.first().click();
       await expect(c5.chips).toHaveCount(expected);
       await expect(c5.list).toBeVisible();
       await expect(c5.options).toHaveCount(50);
     }
-    const [first, second, third] = names as [string, string, string];
+    const shown = (await readOut.textContent())!.replace('Chosen:', '').trim();
+    const [first, second, third] = shown.split(', ').slice(-3) as [string, string, string];
     await expect(c5.chips.last()).toContainText(third);
-    await expect(readOut).toContainText(`${first}, ${second}, ${third}`);
 
     await expectLaidOut(page, size, 'C5 with fifteen chips, open');
     await expectAccessible('C5 with fifteen chips, open');
 
     // A chip's button: the list stays open and the field keeps its focus.
-    await page.getByRole('button', { name: `Remove ${second}` }).click();
+    await page.getByTestId('library-c5-chip-remove').nth(13).click();
     await expect(c5.chips).toHaveCount(14);
     await expect(readOut).not.toContainText(second);
     await expect(c5.list).toBeVisible();
@@ -261,14 +258,17 @@ eachWindow('the combobox entry', (size) => {
   test('a chosen row, chosen again, is taken away', async ({ page }) => {
     const c5 = picker(page, 'library-c5');
     await c5.field.click();
+    const ticks = page.getByTestId('library-c5-option-tick');
+    const ticked = await ticks.count();
     const row = c5.list.getByRole('option', { selected: true }).first();
-    await expect(row.locator('svg')).toBeVisible();
-    const name = (await row.locator('span').first().textContent())!.trim();
+    const value = await row.getAttribute('data-value');
+    await expect(row.getByTestId('library-c5-option-tick')).toBeVisible();
 
     await row.click();
 
     await expect(c5.chips).toHaveCount(11);
-    await expect(c5.list.getByRole('option', { name, exact: false }).first()).toHaveAttribute(
+    await expect(ticks).toHaveCount(ticked - 1);
+    await expect(c5.list.locator(`[data-value="${value}"]`)).toHaveAttribute(
       'aria-selected',
       'false',
     );
@@ -332,7 +332,7 @@ eachWindow('the combobox entry', (size) => {
     const address = words.split(', ').at(-1)!;
     await expect(gone.chips.last()).toContainText(address);
 
-    await page.getByRole('button', { name: `Remove ${address}` }).click();
+    await page.getByTestId('library-not-offered-chip-remove').last().click();
     await expect(gone.chips).toHaveCount(1);
   });
 

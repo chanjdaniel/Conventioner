@@ -339,6 +339,11 @@ const longAnswers = ref([...longestAnswers]);
     </li>
     <li>The chips: above the field, as here, or inside it.</li>
     <li>
+      Chosen rows past the cap: left where they fall, as here, so 8 of C5's 12 are not drawn until
+      typed for and each still has its chip; or drawn first, so every choice opens ticked at the top
+      of the list.
+    </li>
+    <li>
       After a choice among several: the words stay, selected so the next word replaces them, as
       here, so more of what they found can be chosen in a row; or the field clears and the list
       starts again.

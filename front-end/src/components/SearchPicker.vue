@@ -212,12 +212,12 @@ function typed(): void {
 
 /** Takes a chip away. The keyboard's focus was on its button, which is gone, so it goes on. */
 async function removeChip(at: number): Promise<void> {
-  const keptFocus = chipList.value?.contains(document.activeElement);
+  const focusWasOnChip = chipList.value?.contains(document.activeElement);
   emit(
     'update:modelValue',
     chosenValues.value.filter((_, index) => index !== at),
   );
-  if (!keptFocus) return;
+  if (!focusWasOnChip) return;
   await nextTick();
   const buttons = chipList.value?.querySelectorAll('button');
   (buttons?.[at] ?? buttons?.[at - 1] ?? field.value)?.focus();
@@ -365,7 +365,7 @@ function onBlur(): void {
           <IconCheck
             v-if="multiple && isChosen(option)"
             class="search-picker-option-tick"
-            aria-hidden="true"
+            :data-testid="`${testid}-option-tick`"
           />
           <span class="search-picker-option-label">{{ option.label }}</span>
           <span v-if="option.detail" class="search-picker-option-detail">{{ option.detail }}</span>
