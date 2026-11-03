@@ -441,8 +441,8 @@ REJECTION_RULES_SETTLED = (
 def rejection_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
     """Why the automatic rejections may no longer change, or None while they can (E33/F03/S01).
 
-    A rule judges applications in review, so the rules are open exactly as long as the market can
-    still get back there (decision 24), derived from the transition table rather than listed. Not
+    A rule judges applications in review, so the rules are open exactly as long as the review is
+    (``review_is_open``, decision 24), derived from the transition table rather than listed. Not
     the form's lock: the form freezes at the first application, and the rules are worth most once
     applications are arriving.
     """
@@ -2705,8 +2705,8 @@ def save_rejection_rules(
     ``Actions.CHANGE_FORM``.
 
     The rules' own write, the whole list at once like the highlights. Not gated on the form's lock:
-    rules are worth most once applications arrive, which is when the form freezes. Refused once the
-    market can no longer return to review (``rejection_rules_lock_reason``). A rule narrowed or
+    rules are worth most once applications arrive, which is when the form freezes. Refused while the
+    review is closed (``rejection_rules_lock_reason``). A rule narrowed or
     taken away returns what it rejected to open only for someone who may overturn an automatic
     rejection (``may_overturn``, E38/F06/S01); for anyone else those rejections stand.
     """

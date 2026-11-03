@@ -10,7 +10,7 @@ describes:
   - front-end/src/components/application/AutomaticRejections.vue
   - front-end/src/components/application/ChoiceConditions.vue
   - back-end/api/markets.py#may_overturn
-verified: 2026-10-30
+verified: 2026-11-03
 sources:
   - wayfinding/november-2026-dry-run/map
   - wayfinding/rejection-visibility/map
@@ -63,7 +63,7 @@ The review says "Rejected automatically: <reason>", and "Approve instead", offer
 
 ## Who may
 
-An Editor writes the list (`PUT /markets/:id/rejection-rules`, the whole list at once), while the market can still get back to `applications`, where applications are reviewed; from `assignment` on the rules are shown fixed, settling with the verdicts ([verdicts settle on entering assignment](verdicts-settle-on-entering-assignment.md)), and an archived market refuses anyone.
+An Editor writes the list (`PUT /markets/:id/rejection-rules`, the whole list at once), while the review is open, before Assignment and again after Back to review; from `assignment` on the rules are shown fixed, settling with the verdicts ([verdicts settle on entering assignment](verdicts-settle-on-entering-assignment.md)), and an archived market refuses anyone.
 They are not gated by the form's lock: the form freezes at the first application, and the rules are worth most once applications are arriving.
 Overturning what a rule rejected, whether by a verdict or by a save that returns it, is the row "Change a verdict, or overturn an automatic rejection" (default Admin), so an Editor's save changes what the rules reject next, never what they already rejected.
 The form tab's line and the import's done line name who may overturn from the market's own table (`whoMayTake` in [`front-end/src/utils/permissionTable.ts`](../../../front-end/src/utils/permissionTable.ts)): "an Admin or the owner" until its owner changes the row.

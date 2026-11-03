@@ -6,7 +6,7 @@ describes:
   - front-end/src/components/market/OpenApplicationsDialog.vue
   - front-end/src/utils/phase.ts
   - front-end/src/utils/useScrollsSideways.ts
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - wayfinding/claims-and-room/07
   - wayfinding/readable-journey/01
@@ -31,6 +31,7 @@ sources:
   - T142
   - E38/F15/S03
   - E38/F15/S04
+  - T207
 ---
 
 # The phase rail
@@ -75,9 +76,11 @@ The Markets list's Phase filter offers the same spine (`FILTERABLE_PHASES` in [`
 **Forward, back and destructive are read off the spine** (`transitionDirection`), never special-cased per phase.
 Only the one forward step is on the rail; every other move is in the "More…" menu behind `phase-rail-menu-button`, a real menu whose arrow keys walk its items and whose Escape or an outside press closes it.
 The menu's box clips its items to its rounded corners, so a focused item wears its halo inside its edge, as every menu's item does (`--focus-halo-inset`, [the design language](../../design-system.md#the-primitive-layer)).
-Choosing an item also closes it and hands focus back to `phase-rail-menu-button`, before the Publish or Archive confirm opens, so that confirm gives focus back there when it closes ([dialogs](../conventions/dialogs.md)).
+Choosing an item also closes it and hands focus back to `phase-rail-menu-button`, before the Publish, Archive or Back to review confirm opens, so that confirm gives focus back there when it closes ([dialogs](../conventions/dialogs.md)).
 A spec that clicks `phase-transition-<phase>` for a back or destructive edge opens that menu first.
 A move that cannot be undone (`transitionNeedsConfirmation`, derived from the table: today `market_days` and `archived`) asks first in a dialog.
+"Back to review", the way from `assignment` to the stage (`pathTransitionLabel` reads the origin), asks first too, by its edge (`isBackToReview`), since it can be undone but costs the allocation: an `AppDialog`, `back-to-review-confirm`, titled "Back to review?", whose paragraphs say the review opens again, the allocated tables must be allocated again before results are published (on a Google Form market, before the market is published), a seat placed by hand stays, and, on an own-form market only, that applications stay closed ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)).
+It is drawn as a back move, and once results are published it is disabled with `ResultsNotPublishedGuard`'s message beside it, as any refused move in the menu is.
 "Open applications" out of an own-form draft, for someone the table's Choose reviewers row lets choose (`offersReviewers`), opens [`OpenApplicationsDialog.vue`](../../../front-end/src/components/market/OpenApplicationsDialog.vue) instead: the reviewer picker, whose confirm saves the reviewers when the choice differs from the stored team (`sameTeam` in [`reviewTeam.ts`](../../../front-end/src/utils/reviewTeam.ts), which the first import's preview step uses alike) and then hands the move back to the rail ([taking applications](../../business/flows/taking-applications.md#h1-open-applications), [the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)).
 A save the server refuses keeps that dialog open with its error and makes no move; a move refused after a save re-reads the market, so the rail and a second try show the reviewers chosen.
 A Google Form market's way into the stage is its first import, so its rail offers no picker, and nor does it to someone who may move the phase but not choose reviewers.

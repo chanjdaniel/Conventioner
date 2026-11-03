@@ -4,7 +4,7 @@ The real market rejects every applicant who does not agree to the no-show terms,
 a student, alumnus or another accepted affiliation of its school - one card at a time. A rule names
 one choice question and the answers that reject. The server is the authority on what a rule may say
 and when it may change: free text is not a choice, an answer must be one the question offers, and
-the rules close when the market can no longer return to review, where they judge.
+the rules close with the review, where they judge.
 """
 import os
 import sys

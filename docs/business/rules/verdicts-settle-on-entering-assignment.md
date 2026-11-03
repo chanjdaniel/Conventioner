@@ -5,7 +5,7 @@ describes:
   - back-end/api/markets.py#review_is_open
   - back-end/api/markets.py#verdict_refusal
   - back-end/app.py#_reviewer_on
-verified: 2026-10-30
+verified: 2026-11-03
 sources:
   - wayfinding/rejection-visibility/02
   - wayfinding/what-to-show-and-when/02
@@ -14,18 +14,20 @@ sources:
   - E36/F01/S01
   - E38/F06/S01
   - E38/F10/S01
+  - T207
 ---
 
 # Verdicts settle on entering assignment
 
-Approving, rejecting, asking for a follow-up, undoing one within its window, and claiming a card are open while the market can still get back to `applications`, the stage where applications are reviewed, and closed from `assignment` on, with no way back.
-From there a verdict is the review's record, and a mistake is fixed with a seat placed or freed by hand ([ADR 0013](../../adr/0013-verdicts-settle-with-the-review-and-results-settle-the-allocation.md)).
+Approving, rejecting, asking for a follow-up, undoing one within its window, and claiming a card are open while Assignment still lies ahead of the market, and closed from `assignment` on.
+From there a verdict is the review's record ([ADR 0013](../../adr/0013-verdicts-settle-with-the-review-and-results-settle-the-allocation.md)).
+Until results are published, Back to review takes the market from `assignment` back to `applications`, the stage where applications are reviewed, and the review opens again there ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)); after that, a mistake is fixed with a seat placed or freed by hand.
 
 **Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md).
 
 ## Why
 
-The assignment is computed from the approved applications, and nothing leaves `assignment` backwards, so a verdict changed after it would describe a review that no longer matches the seats.
+The assignment is computed from the approved applications, so a verdict changed while the market is in `assignment` would describe a review that no longer matches the seats; going back to the review first makes the change a review again, and its tables are then allocated again.
 The seat is what the vendor experiences: a rejected applicant seated by hand has a table, and an approved one freed has none, which is what [placements](../../implementation/modules/placements.md) are for.
 The automatic rejections settle by the same rule, since a rule and a reviewer judge the same applications.
 "Needs follow-up" is a verdict too, and settles with the others; entering `assignment` already needs every application approved or rejected.
@@ -33,7 +35,8 @@ The automatic rejections settle by the same rule, since a rule and a reviewer ju
 **Review is rolling.**
 Verdicts are open from the first application on, so an organizer decides as applications arrive; applications arrive and are reviewed in one stage ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)), and Begin assignment is where deciding has to be finished.
 
-**It is derived from the transition table, never listed**: `review_is_open` asks whether any route of `VALID_TRANSITIONS` leads back to `applications` (`route_between`), so a phase added or an edge moved decides it with no edit here.
+**It is derived from the transition table, never listed**: `review_is_open` asks whether a route of `VALID_TRANSITIONS` still leads to `assignment` from a phase other than `assignment` itself (`route_between`), so a phase added or an edge moved decides it with no edit here.
+Ahead, not merely reachable: asking whether the stage can be reached would open the review in Assignment, since Back to review reaches the stage from there.
 Today that is open in `draft` and `applications`, and closed in `assignment`, `offers`, `market_days` and `archived`.
 
 ## Who may

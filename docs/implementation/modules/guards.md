@@ -9,7 +9,7 @@ describes:
   - back-end/api/markets.py#finalization_update
   - back-end/app.py#transition_market
   - front-end/src/components/BlockerPanel.vue
-verified: 2026-10-31
+verified: 2026-11-03
 sources:
   - wayfinding/readable-journey/01
   - E03/F03
@@ -24,6 +24,7 @@ sources:
   - T45
   - E38/F04/S01
   - T142
+  - T207
 ---
 
 # The guards and the phase move
@@ -77,6 +78,10 @@ An entry invariant is what makes a rule hold of every market in the phase rather
 That market's first import judges the edge less that guard (`first_import_blockers` in [the CSV import](csv-import.md)) before it reads a row, and takes the move through `take_move` once the rows are written, so nothing moves unjudged and a market left mid-import stays a draft.
 Every move is one edge of the table; [the phase rail](phase-rail.md) draws the moves as the keys of `transitionBlockers`, so the browser keeps no copy of them.
 
+**Back to review is the one way back past the stage** ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)).
+`assignment -> applications` carries the stage's two entry invariants, which pass on any market past draft, and `ResultsNotPublishedGuard`, which refuses once results are published and names no remedy, since no page reopens the review; a Google Form market never publishes results, so it may go back for the whole of Assignment.
+Taking it, the phase writer sets a form market's `applicationsStopped` (`taking_applications_update`), so applying stays closed; entering the stage from `draft` clears it.
+
 **The read and the move cannot disagree about a move.**
 `transition_verdicts` calls `evaluate_transition`, the function the endpoint runs, so the rail disables a refused move and names its first blocker before the click.
 The endpoint's 409 stays, for a market that changed between the read and the click.
@@ -90,7 +95,7 @@ A Google Form market's first import moves it through `take_move` too (`csv_impor
 The registry is validated against the transition table and is for transitions, so the phases an organization cannot be deleted in are `BLOCKING_PHASES` in `api/organizations.py` ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md)), and the phases the import runs in are `IMPORT_PHASES` in [the CSV import](csv-import.md).
 
 **`Market.phase` is server-owned.**
-`create_market` stamps `draft`, and `apply_phase_transition` is the only writer on an existing market: one update, conditional on the stored phase, that sets `phase`, `isDraft` and the form's `publishedAt` (`finalization_update`) and pushes the [phase record](phase-record.md)'s entry.
+`create_market` stamps `draft`, and `apply_phase_transition` is the only writer on an existing market: one update, conditional on the stored phase, that sets `phase`, `isDraft`, the form's `publishedAt` (`finalization_update`) and whether applications are stopped (`taking_applications_update`), and pushes the [phase record](phase-record.md)'s entry.
 A request that finds the market moved under it gets `PhaseChangedUnderRequest`, a `ConflictError` whose `body()` is the endpoint's 409: `phase_changed`, the phase it is in now, the phase asked for, and one blocker telling the organizer to reload.
 The endpoint catches nothing: that 409, `MoveUnavailable`'s 400 and a market deleted under it (404) reach the [registered handler](../conventions/an-exception-never-reaches-a-client.md#the-two-handlers), and only the guards' own 409 is built by the endpoint.
 Do not add a second copy of that write: the endpoint carried one until E26, which is how stamps drift.
@@ -110,7 +115,7 @@ The guards are where the product's rules about moving a market are kept:
 
 - [The setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md): the three guards on `draft -> applications`.
 - [A price follows the table](../../business/rules/a-price-follows-the-table.md#price-groups): `PriceGroupsStandGuard` keeps a price group with a broken condition in draft.
-- [Verdicts settle on entering assignment](../../business/rules/verdicts-settle-on-entering-assignment.md): `route_between` decides when the review can no longer be reached.
+- [Verdicts settle on entering assignment](../../business/rules/verdicts-settle-on-entering-assignment.md): `route_between` decides whether Assignment still lies ahead, which is when the review is open; `ResultsNotPublishedGuard` keeps the way back to it closed once results are published.
 - [Publish results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md): `ResultsPublishedGuard`, an entry invariant on `market_days`.
 - [The form locks at the first application](../../business/rules/the-form-locks-at-the-first-application.md): `NoApplicationsYetGuard` keeps the way back to draft from being a hole in the lock.
 - [An archived market is read-only](../../business/rules/an-archived-market-is-read-only.md): no edge leaves `archived`.
