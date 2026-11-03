@@ -1,6 +1,7 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import { test, expect, BACKEND_URL, TEST_USER } from './fixtures';
 import { ManageMarketPage } from './pages/ManageMarketPage';
+import { OrganizationsPage } from './pages/OrganizationsPage';
 import { mongoEval } from './helpers/mongo';
 import {
   seedApplicationWithStatus,
@@ -17,7 +18,9 @@ import { uniqueMarketName } from './helpers/uniqueName';
  * A market whose organization has 150 members read every person's account one database read at a
  * time, on every market read every screen makes. On the seed of 150 people the market read names
  * them all in one read of the accounts, and Manage market opens with as many requests as on a
- * market of one person.
+ * market of one person. The organizations read, which the Organizations page and Manage
+ * organization make, did the same for every admin and member of every organization the reader is
+ * in, and now names them all in one read too.
  */
 
 /** A market like the seed's, in an organization whose only person is the seed owner. */
@@ -191,6 +194,67 @@ test.describe('Manage market at 150 people', () => {
         await expect(page.getByTestId('manage-market-person')).toHaveCount(seed.counts.withAccess);
       },
     );
+
+    expect(forMany).toEqual(forOne);
+  });
+});
+
+/**
+ * Manage organization opened from its address, as Manage market's "Manage organization" opens it:
+ * the Organizations page reads the reader's organizations, then opens the one named.
+ */
+async function openManageOrganization(
+  page: Page,
+  orgId: string,
+  people: { admins: number; members: number },
+): Promise<OrganizationsPage> {
+  await page.goto(`/organizations?manage=${encodeURIComponent(orgId)}`);
+  const orgs = new OrganizationsPage(page);
+  await expect(orgs.manageWindow).toBeVisible();
+  await expect(orgs.adminEmails).toHaveCount(people.admins);
+  await expect(orgs.memberEmails).toHaveCount(people.members);
+  return orgs;
+}
+
+test.describe('Manage organization at 150 people', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+  test.setTimeout(120_000);
+
+  let seed: PeopleAtScaleSeed;
+  test.beforeEach(async ({ request }) => {
+    seed = await seedPeopleAtScale(request);
+  });
+
+  test('names every admin and member in one read of the database', async ({
+    authenticatedPage: page,
+  }) => {
+    const seededIds = new Set(seed.people.map((person) => person.id));
+
+    const reads = await usersReadsWhile(async () => {
+      await openManageOrganization(page, seed.orgId, seed.counts);
+    });
+
+    const alone = reads.map((read) => idsNamed(read).alone).filter((id) => id && seededIds.has(id));
+    expect(alone, 'a seeded person read alone').toEqual([]);
+    const batches = reads.filter((read) => idsNamed(read).batch.some((id) => seededIds.has(id)));
+    expect(batches).toHaveLength(1);
+    // The seed owner is in other organizations too, whose people the same read names.
+    const batch = new Set(idsNamed(batches[0]).batch);
+    expect([...seededIds].filter((id) => !batch.has(id))).toEqual([]);
+  });
+
+  test('opens with as many requests as an organization of one person', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const onePerson = await seedOnePersonMarket(request);
+
+    const forOne = await requestsWhile(page, { org: onePerson.orgId }, async () => {
+      await openManageOrganization(page, onePerson.orgId, { admins: 0, members: 0 });
+    });
+    const forMany = await requestsWhile(page, { org: seed.orgId }, async () => {
+      await openManageOrganization(page, seed.orgId, seed.counts);
+    });
 
     expect(forMany).toEqual(forOne);
   });
