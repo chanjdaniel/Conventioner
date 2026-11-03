@@ -55,7 +55,8 @@ export const ENTRIES: readonly LibraryEntry[] = [
     id: 'filter-toggles',
     title: 'Filter toggles',
     summary: 'One row of pressed buttons, one choice or several, with counts',
-    serves: 'L2, L5, L6, L8, L12 and the 10 toggle rows',
+    serves:
+      'L2, L5, L6, L8, L12; Applications, Vendors, Payments, Attendance, Assignments, Stats, Markets, Market Setup and the floorplan',
   },
   {
     id: 'list-frame',
