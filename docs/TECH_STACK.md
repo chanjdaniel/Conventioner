@@ -87,7 +87,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **Shapely 2** and **NumPy** - The geometry of table auto-placement
 - **pyckingsolver** - The packing solver, in `back-end/requirements-floorplan-solver.txt` (Docker, CI and local development) because it has no wheel for production's glibc; production places tables on a grid instead
 - **google-genai**, **openai** and **Pillow** - The vision endpoint `POST /floorplans/analyze` and PDF uploads; the wizard calls no model
-- **pypdfium2** - Draws a PDF floorplan's pages; its `manylinux_2_17` wheel carries PDFium, so it needs no system package, which production's Vercel function has none of (the back-end suite draws a real PDF with an empty `PATH`). It replaced pdf2image, whose poppler programs nothing on Vercel installs, so every PDF upload there answered 500 (T205)
+- **pypdfium2** - Draws a PDF floorplan's pages; its `manylinux_2_17` wheel carries PDFium, so it needs no system package, as production's Vercel function requires ([floorplan placement](implementation/modules/floorplan-placement.md))
 
 ### Session Management
 - **Flask-Session 0.8.0** - Server-side session storage

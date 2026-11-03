@@ -14,6 +14,7 @@ describes:
   - back-end/api/floorplans_access.py
   - back-end/api/floorplans_templates.py
   - back-end/services/gridfs_service.py
+  - back-end/utils/pdf_converter.py
   - front-end/src/components/floorplan/FloorplanUploader.vue
   - front-end/src/components/floorplan/FloorplanWorkflow.vue
   - front-end/src/utils/canvasColor.ts
@@ -79,7 +80,7 @@ It takes the file on the app's one drop zone, [`FileDropZone.vue`](../../../fron
 The zone stays, busy, while the file uploads, and gives way to the preview (and, for a PDF of more than one page, its page picker) once the server has it; an upload that fails leaves the zone and the error, so another file can be chosen.
 An image previews as the file chosen; a PDF previews as the page the server drew from it, fetched from `GET /floorplans/<id>` and following the page chosen, since a browser draws no PDF in an image.
 When that first page cannot be fetched, the zone comes back with "The floorplan was uploaded, but its page could not be shown. Choose the file again.", and any upload that does not end on a shown PDF page forgets the earlier PDF's pages, so no picker offers them under an image.
-The server draws each page at 200 dpi with pypdfium2 ([`pdf_converter.py`](../../../back-end/utils/pdf_converter.py)), whose `manylinux_2_17` wheel carries PDFium, so it needs no system package on Vercel, Docker or CI; the pdf2image it replaced ran poppler's programs, which neither Vercel nor the back end's image installed, so every PDF upload answered 500 (T205).
+The server draws each page at 200 dpi with pypdfium2 ([`pdf_converter.py`](../../../back-end/utils/pdf_converter.py)), whose `manylinux_2_17` wheel carries PDFium, so it needs no system package on Vercel, Docker or CI (T205).
 Images uploaded before images named a market have no `marketId`; the wizard never reopens a saved floorplan's image, so they are read only by the public `GET /floorplans/<id>`, and no migration gives them one.
 
 **A template is its creator's, and one filed under an organization is filed by someone in it.**
