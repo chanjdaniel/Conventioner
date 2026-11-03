@@ -88,6 +88,7 @@ async function runThenArchive(request: APIRequestContext, marketId: string) {
     ],
     assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: null },
   });
+  await decideReviewSetup(request, BACKEND_URL, marketId);
   for (const toPhase of ['applications', 'assignment']) {
     await transition(request, marketId, toPhase);
   }
