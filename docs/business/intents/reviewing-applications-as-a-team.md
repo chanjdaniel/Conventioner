@@ -22,7 +22,7 @@ The review is finished before the assignment begins, and from then on its verdic
 The organizers of a real market review together, over hundreds of applications, so a queue held in each reviewer's browser and a verdict that records nobody sends two people to the same card and loses the work of one.
 An organizer learns which answers decide an application by reading real ones, so what leads the card must stay changeable after the form has locked.
 The rejections a market always makes, such as an applicant who did not agree to its terms, are a rule rather than a judgement, and should not cost a reviewer a card each.
-A verdict that could still change after a run let a rejected vendor keep their seat into market day, so the review closes when the assignment begins and stays closed once results are published, and a later correction is a seat changed by hand.
+A verdict that could still change after a run let a rejected vendor keep their seat into market day, so the review closes when the assignment begins and stays closed once results are published or a Google Form market has gone live, and a later correction is a seat changed by hand.
 
 ## Rules
 

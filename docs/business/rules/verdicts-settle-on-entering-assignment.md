@@ -22,7 +22,7 @@ sources:
 
 Approving, rejecting, asking for a follow-up, undoing one within its window, and claiming a card are open while Assignment still lies ahead of the market, and closed from `assignment` on.
 From there a verdict is the review's record ([ADR 0013](../../adr/0013-verdicts-settle-with-the-review-and-results-settle-the-allocation.md)).
-Until results are published, Back to review takes the market from `assignment` back to `applications`, the stage where applications are reviewed, and the review opens again there ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)); after that, a mistake is fixed with a seat placed or freed by hand.
+Until results are published (on a Google Form market, for the whole of Assignment), Back to review takes the market from `assignment` back to `applications`, the stage where applications are reviewed, and the review opens again there ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)); once the review can no longer reopen (results published, or a Google Form market gone live), a mistake is fixed with a seat placed or freed by hand.
 
 **Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md).
 
