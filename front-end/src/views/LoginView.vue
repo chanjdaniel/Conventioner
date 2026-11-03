@@ -625,10 +625,11 @@ const submitOTPLogin = async () => {
 
 /* Equal thirds wherever they fit; on a phone a third is narrower than "Sign-in code", which
    wrapped to two lines, so no tab wraps and the longest takes the room it needs. The tabs' text is
-   centred in them, so their side padding only matters there, and 8px lets all three fit (T73). */
+   centred in them, so their side padding only matters there, and 4px lets all three fit at 320
+   (T73; at 8px, "Sign-in code" ran 12px past the column). */
 .mode-tab {
   flex: 1;
-  padding: var(--space-3) var(--space-2);
+  padding: var(--space-3) var(--space-1);
   white-space: nowrap;
   background: none;
   border: none;
@@ -724,7 +725,10 @@ const submitOTPLogin = async () => {
   cursor: pointer;
 }
 
+/* `min-width: 0`: a flex item keeps an input's intrinsic width otherwise, about 207px, where the
+   box holds 198px at 320 wide, so it pushes the Show button out past the box and the card. */
 .email-input {
+  min-width: 0;
   width: auto;
   border: none;
   font-size: var(--text-sm);
@@ -734,6 +738,7 @@ const submitOTPLogin = async () => {
 }
 
 .password-input {
+  min-width: 0;
   width: auto;
   border: none;
   font-size: var(--text-sm);
