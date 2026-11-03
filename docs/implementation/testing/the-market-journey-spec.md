@@ -3,7 +3,7 @@ layer: implementation
 kind: testing
 describes:
   - front-end/e2e/market-journey.spec.ts
-verified: 2026-10-30
+verified: 2026-11-03
 sources:
   - wayfinding/v0-1-0/map
   - E03/F02/S04

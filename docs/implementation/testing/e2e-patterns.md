@@ -15,7 +15,7 @@ describes:
   - front-end/e2e/helpers/networkSettles.ts
   - front-end/e2e/helpers/settle.ts
   - front-end/src/utils/utils.ts#getFormattedDate
-verified: 2026-11-02
+verified: 2026-11-03
 sources:
   - E21/F02/S02
   - E22/F04/S02
@@ -117,4 +117,4 @@ A request with no cookie at all answers 401; [`a-failure-says-what-to-do.spec.ts
 
 **`waitForURL` returns when the route changes, not when the new page has loaded.**
 An element assertion made straight after it spends its budget on the page's own fetch, which under a full suite's contention sometimes takes longer: the applicant form's spec failed one full run in two this way, on "Loading application form...", while passing alone every time.
-Wait for the page to have finished loading, its loading state hidden and no load-failed state shown, then assert what it shows ([`essential-fields.spec.ts`](../../../front-end/e2e/essential-fields.spec.ts) waits on `apply-loading` and `apply-load-failed`).
+Wait for the page to have finished loading, either way, then assert what it shows ([`essential-fields.spec.ts`](../../../front-end/e2e/essential-fields.spec.ts) waits for the signed-in vendor page or its load-failed state, `vendor-page-signed-in-as` or `vendor-page-load-failed`, and takes the retry the page offers).
