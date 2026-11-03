@@ -877,10 +877,11 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
 
     # The person's role, resolved once: every answer below is asked of it (E39/F01/S02), and of
     # whether they are a chosen reviewer, which lets them give verdicts (E38/F07/S03).
-    # The reader's account is read here once, and every account the read names through ``accounts``,
-    # so each person is looked up once however many of the lists below name them (E38/F12/S01).
+    # The reader's account is read here once, and every other account the read names through
+    # ``accounts``, all of them in one database read however many people the lists below name
+    # (E38/F12/S01, T204).
     reader = UsersApi.get_user(user_email)
-    accounts = _Accounts(reader)
+    accounts = _Accounts(reader, _named_by_the_read(market, context.organization))
     user_role = PermissionsApi.get_user_market_role(
         user_email, market, context.organization, user=reader)
     chosen = Actions.is_chosen(user_email, market)
@@ -1038,15 +1039,35 @@ def get_markets_by_owner_email(owner_email: str) -> List[Dict[str, Any]]:
     return list(markets_collection.find({f"roles.{owner_email}": MarketRole.OWNER.value}))
 
 
+def _named_by_the_read(market: Market, organization: Optional[Organization]) -> List[str]:
+    """Every user id the market read can name: the market's roles, and its organization's owner,
+    admins and members when it is the market's. ``people_with_market_role``,
+    ``follow_up_owners_for`` and ``reviewer_candidate_ids`` only ever name ids from these, so the
+    read needs no account beyond them. Reading an account here serves it to no one: each list keeps
+    its own rule on whom a reader is served."""
+    named = list(market.roles or {})
+    if organization is not None and organization.id == market.organization_id:
+        named += [organization.owner, *organization.admins, *organization.members]
+    return named
+
+
 class _Accounts:
     """Memo for the accounts the read of one market names, by user id: the reader's, already read
-    by address, and each other one read once, however many of its lists name them."""
+    by address, and every other one it can name read up front in one ``get_users_by_ids``, however
+    many of its lists name them (T204)."""
 
-    def __init__(self, reader: Any) -> None:
-        self._by_id: Dict[str, Any] = {reader.id: reader} if reader else {}
+    def __init__(self, reader: Any, named: List[str]) -> None:
+        others = [user_id for user_id in dict.fromkeys(named) if user_id and not (
+            reader and user_id == reader.id)]
+        # An id with no account is remembered as None, so it is never read again alone.
+        self._by_id: Dict[str, Any] = dict.fromkeys(others)
+        self._by_id.update(UsersApi.get_users_by_ids(others))
+        if reader:
+            self._by_id[reader.id] = reader
 
     def of(self, user_id: str) -> Any:
-        """The account with this id, or None when there is none."""
+        """The account with this id, or None when there is none; an id the read did not name up
+        front, which none of its lists makes, falls back to a read of its own."""
         if user_id not in self._by_id:
             self._by_id[user_id] = UsersApi.get_user_by_id(user_id)
         return self._by_id[user_id]

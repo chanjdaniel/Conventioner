@@ -76,20 +76,25 @@ def _account(email):
 
 @pytest.fixture
 def lookups(monkeypatch, applications):
-    """A market in review, of the organization; answers how often each account was looked up,
-    by address or by id alike."""
-    counted = Counter()
+    """A market in review, of the organization; answers how the accounts were looked up: each
+    address read alone, each id read alone, and each batch of ids read together (T204)."""
+    counted = SimpleNamespace(by_email=Counter(), by_id=Counter(), batches=[])
 
     def by_email(email):
-        counted[email] += 1
+        counted.by_email[email] += 1
         return _account(email) if email in PEOPLE else None
 
     def by_id(user_id):
-        counted[EMAILS.get(user_id, user_id)] += 1
+        counted.by_id[user_id] += 1
         return _account(EMAILS[user_id]) if user_id in EMAILS else None
+
+    def by_ids(user_ids):
+        counted.batches.append(list(user_ids))
+        return {uid: _account(EMAILS[uid]) for uid in counted.batches[-1] if uid in EMAILS}
 
     monkeypatch.setattr(UsersApi, "get_user", by_email)
     monkeypatch.setattr(UsersApi, "get_user_by_id", by_id)
+    monkeypatch.setattr(UsersApi, "get_users_by_ids", by_ids)
     monkeypatch.setattr(
         OrgsApi, "get_organization",
         lambda org_id: ORGANIZATION.model_dump() if org_id == ORG_ID else None)
@@ -195,16 +200,20 @@ def test_an_account_that_is_gone_is_left_out(monkeypatch, lookups):
     "org-owner@org.test", "org-member@org.test", "owner@market.test", "viewer@market.test",
     "editor@market.test",
 ])
-def test_the_read_looks_each_account_up_once(lookups, reader):
+def test_the_read_looks_every_account_up_in_one_read(lookups, reader):
+    """The reader by their address, everyone else the read names in one batch, none alone, so a
+    market of 150 people costs the database one read of them, not 150."""
     _served(reader)
 
-    assert lookups and max(lookups.values()) == 1, lookups
+    assert dict(lookups.by_email) == {reader: 1}
+    assert len(lookups.batches) == 1, lookups.batches
+    assert not lookups.by_id, lookups.by_id
 
 
-def test_the_read_looks_each_account_up_once_for_a_chooser_who_gives_no_verdicts(
+def test_the_read_looks_every_account_up_in_one_read_for_a_chooser_who_gives_no_verdicts(
         monkeypatch, lookups):
     """Someone who may choose the reviewers but not give a verdict is offered candidates from
-    the same lookups."""
+    the same one read."""
     _store(monkeypatch, permissions={
         "choose-reviewers": {"role": "viewer", "source": "market"},
         "give-verdicts": {"role": "admin", "source": "market"},
@@ -213,4 +222,5 @@ def test_the_read_looks_each_account_up_once_for_a_chooser_who_gives_no_verdicts
     served = _served("viewer@market.test")
 
     assert served["reviewerCandidates"]
-    assert max(lookups.values()) == 1, lookups
+    assert len(lookups.batches) == 1, lookups.batches
+    assert not lookups.by_id, lookups.by_id

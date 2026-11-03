@@ -93,6 +93,18 @@ def sessions_load_through_get_user(monkeypatch):
     monkeypatch.setattr(UsersApi, "signed_in_account", lambda sign_in: UsersApi.get_user(sign_in))
 
 
+def accounts_by_id(monkeypatch, account_of):
+    """Answer every lookup of an account by id from ``account_of(user_id)``, the account or None:
+    the one-id read and the batch read alike (T204), so a test's people are the same whichever
+    read a path makes."""
+    import api.users as UsersApi
+
+    monkeypatch.setattr(UsersApi, "get_user_by_id", account_of)
+    monkeypatch.setattr(UsersApi, "get_users_by_ids", lambda user_ids: {
+        user_id: account for user_id in dict.fromkeys(user_ids)
+        if (account := account_of(user_id))})
+
+
 if _needs_stub("pymongo"):
     fake_pymongo = types.ModuleType("pymongo")
     fake_pymongo_results = types.ModuleType("pymongo.results")
