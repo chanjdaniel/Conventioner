@@ -170,11 +170,13 @@ test('a move to a seat taken meanwhile is refused in the dialog, which stays ope
     tableChoice: 'Full Table',
   });
 
+  // Refused for that reason, in the server's words, and nobody moves.
   await tables.moveButton.click();
-  await expect(tables.dialogError).toBeVisible();
+  await expect(tables.dialogError).toContainText(`${BOB} already holds Landing 1`);
   await expect(tables.dialog).toBeVisible();
   await tables.cancel();
   await expect(tables.seatIn('North Wing 1', ALICE)).toBeVisible();
+  await expect(tables.seatIn('Landing 1', BOB)).toBeVisible();
 });
 
 test('an empty seat takes a vendor seated elsewhere that day, moving them in one change', async ({
