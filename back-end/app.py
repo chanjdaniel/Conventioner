@@ -366,9 +366,9 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 # only accept such a cookie when it is also Secure - so an environment variable that could turn
 # this off would not "allow plain HTTP", it would ship a cookie the browser drops, or sends in the
 # clear where it does not. Loopback counts as a secure context, so local dev is unaffected. The
-# remember-me cookie is HttpOnly by Flask-Login's default. A vendor's remember cookie, `vendor_remember_<market id>` (`remembered_sign_ins`, ADR
-# 0022), is set by that module from the three VENDOR_REMEMBER_COOKIE_ keys below, HttpOnly so no
-# script on the vendor page reads it.
+# remember-me cookie is HttpOnly by Flask-Login's default. A vendor's remember cookie,
+# `vendor_remember_<market id>` (`remembered_sign_ins`, ADR 0022), is set by that module from the
+# three VENDOR_REMEMBER_COOKIE_ keys below, HttpOnly so no script on the vendor page reads it.
 app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.config["REMEMBER_COOKIE_SECURE"] = True
@@ -1431,7 +1431,8 @@ def get_market_tables(market_id: str) -> Response:
 @app.route('/public/markets/<market_slug>/vendor/check-in', methods=['POST'])
 def vendor_check_in(market_slug: str) -> Response:
     """A signed-in vendor checks in for a date with the market's door code (ADR 0022). Bearer
-    token and ``{date, doorCode}``; every try counted against ``check-in:address``, a wrong code against ``check-in:caller``."""
+    token and ``{date, doorCode}``; every try counted against ``check-in:address``, a wrong code
+    against ``check-in:caller``."""
     return VendorCheckInApi.check_in(market_slug)
 
 

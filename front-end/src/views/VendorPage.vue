@@ -10,9 +10,8 @@
  * It reads the market before drawing anything, so a slug is never printed back before the server
  * has said there is a page here. A market with no vendor page (a draft, a Google Form market
  * before its results are out, a slug that names nothing) answers alike, and reads as any page that
- * is not there. A
- * request that never answered is neither: it says the page could not be loaded, and offers another
- * try, since it would load on the next one.
+ * is not there. A request that never answered is neither: it says the page could not be loaded,
+ * and offers another try, since it would load on the next one.
  *
  * A tab with no sign-in of its own asks the server once whether this device is remembered (ADR
  * 0022) before it draws the sign-in; a remembered vendor is signed straight in, and anything else
