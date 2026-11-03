@@ -426,7 +426,7 @@ class ResultsNotPublishedGuard:
     applicant has read whether they have a table, so a verdict changed after it would change what
     they were told; from then on a seat placed or freed by hand is the way to change who has one.
     A Google Form market never publishes results, so it passes for the whole of Assignment. Reads
-    the flag, never the phase, and names no remedy: no page reopens the review.
+    the flag, never the phase, and offers no way back: no page reopens the review.
     """
 
     id: str = "results_not_published"
