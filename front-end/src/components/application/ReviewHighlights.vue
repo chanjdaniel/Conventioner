@@ -69,6 +69,8 @@ function toggle(key: string, on: boolean) {
     <p class="highlights-help">
       A reviewer reads these first, and everything else folds away behind them.
     </p>
+    <!-- Review setup's decision (T206): under the help, which explains the answers below it. -->
+    <slot name="decision" />
 
     <p v-if="!candidates.length" class="highlights-empty" data-testid="review-highlights-empty">
       This market asks nothing yet, so there is nothing to put first.

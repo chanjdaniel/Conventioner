@@ -142,6 +142,20 @@ describe('the automatic rejections, undecided in a draft', () => {
     expect(shown(wrapper, 'rejection-rules-none-chosen')).toBe(false);
   });
 
+  // The help explains the rules, so it heads the section, never sits under the "none" button as if
+  // it described that.
+  it('keeps the help line above the decision, and the rules below it', async () => {
+    const wrapper = await reviewSetup(WAITING);
+    const follows = (first: Element, second: Element) =>
+      Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+    const help = wrapper.find('.rejections-help').element;
+    const none = find(wrapper, 'rejection-rules-none').element;
+    expect(follows(help, find(wrapper, 'rejection-rules-undecided').element)).toBe(true);
+    expect(follows(help, none)).toBe(true);
+    expect(follows(none, find(wrapper, 'rejection-rule-question').element)).toBe(true);
+  });
+
   it('says the first import waits on them on a Google Form market', async () => {
     const wrapper = await reviewSetup({ ...WAITING, intakeMode: 'csv' } as Partial<Market>);
 

@@ -163,6 +163,31 @@ describe('what a reviewer reads first, undecided in a draft', () => {
     expect(shown(wrapper, 'review-highlights-none')).toBe(false);
   });
 
+  // The guard judges the marks against the form as saved, so the screen does too: a mark on a
+  // question still being written decides nothing until Save Form, and the notice says so while the
+  // rail does.
+  it('stays undecided while the only mark names a question not yet saved', async () => {
+    const wrapper = await reviewSetup(WAITING);
+    const router = wrapper.vm.$router;
+
+    await router.replace('/markets/market-1/form?step=questions');
+    await flushPromises();
+    const stallSize = { ...FORM.fields[0], key: 'stall_size', label: 'Stall size', order: 1 };
+    wrapper
+      .findComponent({ name: 'FormBuilder' })
+      .vm.$emit('update:applicationForm', { fields: [...FORM.fields, stallSize] });
+    await router.replace('/markets/market-1/form?step=review');
+    await flushPromises();
+    await find(wrapper, 'review-highlight-stall_size').find('input').setValue(true);
+    await flushPromises();
+
+    expect(api.put).toHaveBeenCalledWith('/markets/market-1/review-highlights', {
+      keys: ['stall_size'],
+      nothingLeadsTheCard: false,
+    });
+    expect(shown(wrapper, 'review-highlights-undecided')).toBe(true);
+  });
+
   it('still offers none when the only mark names a question the form no longer asks', async () => {
     const wrapper = await reviewSetup({ ...WAITING, reviewHighlights: ['removed_question'] });
 
@@ -235,5 +260,20 @@ describe('the help line', () => {
     const wrapper = await reviewSetup(WAITING);
 
     expect(find(wrapper, 'review-highlights').text()).not.toContain('Leave it empty');
+  });
+
+  // The help explains the answers, so it heads the section, never sits under the "none" button as
+  // if it described that.
+  it('heads the section, above the decision, which sits above the answers', async () => {
+    const wrapper = await reviewSetup(WAITING);
+    const follows = (first: Element, second: Element) =>
+      Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+    const help = wrapper.find('.highlights-help').element;
+    const none = find(wrapper, 'review-highlights-none').element;
+    const answer = find(wrapper, 'review-highlight-business_name').element;
+    expect(follows(help, find(wrapper, 'review-highlights-undecided').element)).toBe(true);
+    expect(follows(help, none)).toBe(true);
+    expect(follows(none, answer)).toBe(true);
   });
 });

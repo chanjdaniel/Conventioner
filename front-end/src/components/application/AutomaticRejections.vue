@@ -47,6 +47,8 @@ const fixed = computed(() => props.disabled || !!props.lockReason);
       </template>
       <template v-else>The applicant never sees the reason.</template>
     </p>
+    <!-- Review setup's decision (T206): under the help, which explains the rules below it. -->
+    <slot name="decision" />
     <p v-if="lockReason" class="rejections-locked" data-testid="rejection-rules-locked">
       {{ lockReason }}
     </p>

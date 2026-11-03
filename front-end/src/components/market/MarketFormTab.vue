@@ -38,7 +38,11 @@ import {
 } from '@/utils/marketGuide';
 import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
-import { EMPTY_ESSENTIAL_OPTIONS, essentialOptionsFromSetup } from '@/utils/essentialFields';
+import {
+  EMPTY_ESSENTIAL_OPTIONS,
+  essentialOptionsFromSetup,
+  marketEssentialOptions,
+} from '@/utils/essentialFields';
 import { IntakeMode } from '@/assets/types/datatypes';
 import type {
   ApplicationForm,
@@ -287,12 +291,19 @@ function waitsFor(guard: string): boolean {
 const waitsOnThis = computed(() =>
   forApplicants.value ? 'Opening applications waits on this.' : 'Your first import waits on this.',
 );
+/**
+ * Judged against the form and plan as the market read serves them, as the guard judges them, never
+ * the tab's working copy: a mark on a question not yet saved decides nothing until Save Form.
+ */
 const highlightsUndecided = computed(
   () =>
     waitsFor('review_highlights_decided') &&
     !nothingLeadsTheCard.value &&
-    liveHighlights(highlights.value, applicationForm.value?.fields ?? [], essentialOptions.value)
-      .length === 0,
+    liveHighlights(
+      highlights.value,
+      market.value?.applicationForm?.fields ?? [],
+      marketEssentialOptions(market.value),
+    ).length === 0,
 );
 
 /** Which answers reject automatically (E33/F03/S01), on the same step and written the same way. */
@@ -490,23 +501,26 @@ watch(formLocked, (locked, wasLocked) => {
               <h3 id="review-highlights-title" class="review-setup-title">
                 What a reviewer reads first
               </h3>
-              <ReviewSetupDecision
-                testid="review-highlights"
-                :undecided="highlightsUndecided"
-                :waitsOn="waitsOnThis"
-                :noneOffered="changesForm"
-                noneLabel="Nothing leads the card"
-                :noneChosen="nothingLeadsTheCard"
-                readBack="Nothing leads the card: a reviewer reads every answer, in the form's order."
-                @choose-none="chooseNothingLeads"
-              />
               <ReviewHighlights
                 :fields="applicationForm?.fields ?? []"
                 :essentialOptions="essentialOptions"
                 :highlights="highlights"
                 :disabled="!changesForm"
                 @update:highlights="saveHighlights"
-              />
+              >
+                <template #decision>
+                  <ReviewSetupDecision
+                    testid="review-highlights"
+                    :undecided="highlightsUndecided"
+                    :waitsOn="waitsOnThis"
+                    :noneOffered="changesForm"
+                    noneLabel="Nothing leads the card"
+                    :noneChosen="nothingLeadsTheCard"
+                    readBack="Nothing leads the card: a reviewer reads every answer, in the form's order."
+                    @choose-none="chooseNothingLeads"
+                  />
+                </template>
+              </ReviewHighlights>
               <p
                 v-if="highlightsError"
                 class="review-setup-error"
@@ -521,16 +535,6 @@ watch(formLocked, (locked, wasLocked) => {
               <h3 id="automatic-rejections-title" class="review-setup-title">
                 Automatic rejections
               </h3>
-              <ReviewSetupDecision
-                testid="rejection-rules"
-                :undecided="rejectionsUndecided"
-                :waitsOn="waitsOnThis"
-                :noneOffered="changesForm"
-                noneLabel="No automatic rejections"
-                :noneChosen="noRejectionsChosen"
-                readBack="No automatic rejections: every application arrives undecided."
-                @choose-none="chooseNoRejections"
-              />
               <AutomaticRejections
                 :questions="market?.rejectionQuestions ?? []"
                 :rules="rejectionRules"
@@ -539,7 +543,20 @@ watch(formLocked, (locked, wasLocked) => {
                 :overturnedBy="whoMayTake(market?.permissionTable, MarketAction.ChangeVerdicts)"
                 :noneReadBack="noRejectionsChosen"
                 @update:rules="saveRejectionRules"
-              />
+              >
+                <template #decision>
+                  <ReviewSetupDecision
+                    testid="rejection-rules"
+                    :undecided="rejectionsUndecided"
+                    :waitsOn="waitsOnThis"
+                    :noneOffered="changesForm"
+                    noneLabel="No automatic rejections"
+                    :noneChosen="noRejectionsChosen"
+                    readBack="No automatic rejections: every application arrives undecided."
+                    @choose-none="chooseNoRejections"
+                  />
+                </template>
+              </AutomaticRejections>
               <p
                 v-if="rejectionRulesError"
                 class="review-setup-error"
