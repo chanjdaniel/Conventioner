@@ -366,17 +366,21 @@ function placementsUrl(): string {
   return `/markets/${encodeURIComponent(marketId.value)}/placements`;
 }
 
-function placeVendor(payload: { email: string; seat: Seat }): void {
+/**
+ * The one placement write: a vendor into one seat on the open seat's date, replacing whatever they
+ * held that date. A placement and a move are both this request.
+ */
+function putPlacement(email: string, tableCode: string, tableChoice: Seat): void {
   const seat = openSeat.value;
   if (!seat) return;
   void runPlacementChange(() =>
-    api.put(placementsUrl(), {
-      email: payload.email,
-      date: seat.row.date,
-      tableCode: seat.row.tableCode,
-      tableChoice: payload.seat,
-    }),
+    api.put(placementsUrl(), { email, date: seat.row.date, tableCode, tableChoice }),
   );
+}
+
+function placeVendor(payload: { email: string; seat: Seat }): void {
+  const seat = openSeat.value;
+  if (seat) putPlacement(payload.email, seat.row.tableCode, payload.seat);
 }
 
 /**
@@ -385,16 +389,8 @@ function placeVendor(payload: { email: string; seat: Seat }): void {
  * they owe follows the new table's price.
  */
 function moveOccupant(payload: { tableCode: string; seat: Seat }): void {
-  const seat = openSeat.value;
-  if (!seat?.occupantEmail) return;
-  void runPlacementChange(() =>
-    api.put(placementsUrl(), {
-      email: seat.occupantEmail,
-      date: seat.row.date,
-      tableCode: payload.tableCode,
-      tableChoice: payload.seat,
-    }),
-  );
+  const email = openSeat.value?.occupantEmail;
+  if (email) putPlacement(email, payload.tableCode, payload.seat);
 }
 
 /**

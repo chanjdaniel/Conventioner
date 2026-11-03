@@ -86,7 +86,7 @@ test.describe('Changing a placement on the Tables view', () => {
     // into it, which would leave the occupant with nothing.
     await tables.chooseAction('move');
     await expect(tables.picker('move-target')).toBeVisible();
-    await expect(tables.dialog.getByTestId('placement-dialog-move')).toBeVisible();
+    await expect(tables.moveButton).toBeVisible();
     await tables.chooseAction('swap');
     await expect(tables.picker('swap-target')).toBeVisible();
     await expect(tables.dialog.getByTestId('placement-dialog-swap')).toBeVisible();

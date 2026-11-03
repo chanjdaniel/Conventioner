@@ -52,7 +52,7 @@ const props = defineProps<{
   /** Everyone seated on this date, in table order: the occupant's swap partners are among them. */
   seated: SeatedVendor[];
   /** This date's empty seats, the occupant's own table left out: where a move may take them. */
-  emptySeats?: EmptySeat[];
+  emptySeats: EmptySeat[];
   vendorNames: VendorNames;
   /** What the pages' search finds each vendor by, which the pickers search by too (E38/F08/S03). */
   vendorSearch: VendorSearch;
@@ -87,8 +87,6 @@ const action = ref<'move' | 'swap'>('move');
 const moveTo = ref('');
 const moveSeat = ref<Seat>(FULL_TABLE);
 
-const emptySeats = computed(() => props.emptySeats ?? []);
-
 // `immediate`, because the dialog is mounted by the seat that opened it: nothing changes after
 // mount, so a watcher that waits for a change never runs and the seat stays at its default. That
 // read as "The whole table - the other side is taken" on the free half of a shared table.
@@ -101,7 +99,7 @@ watch(
     deductOwed.value = false;
     chosenSeat.value = props.seat ?? FULL_TABLE;
     // The action that disturbs nobody else first, unless there is nowhere empty to move them.
-    action.value = emptySeats.value.length ? 'move' : 'swap';
+    action.value = props.emptySeats.length ? 'move' : 'swap';
   },
   { immediate: true },
 );
@@ -169,7 +167,7 @@ const canPlace = computed(() => Boolean(chosenEmail.value) && !props.busy);
 const canSwap = computed(() => Boolean(swapWith.value) && !props.busy);
 
 /** The empty seat chosen to move the occupant to. */
-const moveTarget = computed(() => emptySeats.value.find((seat) => seat.tableCode === moveTo.value));
+const moveTarget = computed(() => props.emptySeats.find((seat) => seat.tableCode === moveTo.value));
 // A seat chosen starts at its free side, or at the shape the occupant holds now (T208).
 watch(moveTarget, (target) => {
   if (target) moveSeat.value = seatAMoveKeeps(props.seat ?? FULL_TABLE, target.seat);
@@ -305,7 +303,7 @@ function findsToSwap(option: PickerOption, words: string): boolean {
 const moveGroups = computed((): PickerGroup[] => {
   const groups: PickerGroup[] = [];
   let last = '';
-  for (const seat of emptySeats.value) {
+  for (const seat of props.emptySeats) {
     if (!groups.length || seat.section !== last) {
       last = seat.section;
       groups.push({ label: [seat.section, seat.tier].filter(Boolean).join(', '), options: [] });
@@ -318,13 +316,13 @@ const moveGroups = computed((): PickerGroup[] => {
   }
   return groups;
 });
-const emptySeatOf = computed(() => new Map(emptySeats.value.map((seat) => [seat.tableCode, seat])));
+const emptySeatOf = computed(() => new Map(props.emptySeats.map((seat) => [seat.tableCode, seat])));
 /** An empty seat is found by its table code, its section, its location or its tier. */
 function findsToMove(option: PickerOption, words: string): boolean {
   const seat = emptySeatOf.value.get(option.value);
   const needle = words.trim().toLowerCase();
   const where = seat ? [seat.tableCode, seat.section, seat.location, seat.tier] : [];
-  return where.some((text) => text.toLowerCase().includes(needle));
+  return where.some((text) => (text ?? '').toLowerCase().includes(needle));
 }
 </script>
 
@@ -508,7 +506,14 @@ function findsToMove(option: PickerOption, words: string): boolean {
       mode it follows the action chosen, Move them or Swap seats.
     -->
     <template #actions>
-      <button type="button" class="btn btn--secondary" @click="emit('close')">Cancel</button>
+      <button
+        type="button"
+        class="btn btn--secondary"
+        data-testid="placement-dialog-cancel"
+        @click="emit('close')"
+      >
+        Cancel
+      </button>
       <button
         v-if="mode === 'occupied'"
         type="button"

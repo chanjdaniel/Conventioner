@@ -90,6 +90,11 @@ export class TablesPage {
     return this.row(tableCode).getByTestId('tables-seat-empty').nth(nth);
   }
 
+  /** The seat one vendor holds at one table. */
+  seatIn(tableCode: string, email: string): Locator {
+    return this.row(tableCode).locator(`[data-vendor-email="${email}"]`);
+  }
+
   /** A seat somebody holds. */
   occupiedSeat(tableCode: string, nth = 0): Locator {
     return this.row(tableCode).getByTestId('tables-seat-occupied').nth(nth);
@@ -147,7 +152,17 @@ export class TablesPage {
    * "Swap with someone seated". The picker helpers choose the action their picker belongs to.
    */
   async chooseAction(which: SeatAction): Promise<void> {
-    await this.dialog.getByTestId(`placement-dialog-action-${which}`).check();
+    await this.action(which).check();
+  }
+
+  /** One of a taken seat's two actions, by its radio. */
+  action(which: SeatAction): Locator {
+    return this.dialog.getByTestId(`placement-dialog-action-${which}`);
+  }
+
+  /** "Move them", the primary while "Move to an empty seat" is chosen. */
+  get moveButton(): Locator {
+    return this.dialog.getByTestId('placement-dialog-move');
   }
 
   private async chooseActionFor(which: Picker): Promise<void> {
@@ -183,6 +198,13 @@ export class TablesPage {
   /** One empty seat in "Move them to", by its table code. */
   moveOption(tableCode: string): Locator {
     return this.pickerOptions('move-target').and(this.page.locator(`[data-value="${tableCode}"]`));
+  }
+
+  /** The table codes "Move them to" offers, in order. */
+  async moveOptionCodes(): Promise<string[]> {
+    return this.pickerOptions('move-target').evaluateAll((options) =>
+      options.map((option) => option.getAttribute('data-value') ?? ''),
+    );
   }
 
   /** One vendor in a picker's list, by the address it names. */
@@ -224,7 +246,11 @@ export class TablesPage {
     await this.chooseAction('move');
     await this.pickerField('move-target').fill(tableCode);
     await this.moveOption(tableCode).click();
-    await this.dialog.getByTestId('placement-dialog-move').click();
+    await this.moveButton.click();
+  }
+
+  async cancel(): Promise<void> {
+    await this.dialog.getByTestId('placement-dialog-cancel').click();
   }
 
   async freeSeat(): Promise<void> {

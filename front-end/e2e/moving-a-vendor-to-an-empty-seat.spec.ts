@@ -101,7 +101,7 @@ async function aliceOwes(page: Page, marketId: string) {
 async function openAlicesSeat(page: Page, marketId: string): Promise<TablesPage> {
   const tables = new TablesPage(page);
   await tables.goto(marketId);
-  const seat = tables.row('North Wing 1').locator(`[data-vendor-email="${ALICE}"]`);
+  const seat = tables.seatIn('North Wing 1', ALICE);
   await expect(seat).toBeVisible({ timeout: 15000 });
   await tables.change(seat);
   await expect(tables.dialog).toBeVisible();
@@ -122,21 +122,17 @@ test('a vendor moves from their seat to an empty Silver table in one change', as
   const tables = await openAlicesSeat(page, marketId);
   // The move that disturbs nobody is the one offered first, its seats in the plan's order and
   // her own table left out.
-  await expect(tables.dialog.getByTestId('placement-dialog-action-move')).toBeChecked();
+  await expect(tables.action('move')).toBeChecked();
   await tables.openPicker('move-target');
   await expect(tables.pickerOptions('move-target')).toHaveCount(3);
-  expect(
-    await tables
-      .pickerOptions('move-target')
-      .evaluateAll((options) => options.map((option) => option.getAttribute('data-value'))),
-  ).toEqual(['North Wing 2', 'Landing 1', 'Landing 2']);
+  expect(await tables.moveOptionCodes()).toEqual(['North Wing 2', 'Landing 1', 'Landing 2']);
 
   await tables.moveTo('Landing 2');
   await expect(tables.dialog).toBeHidden();
 
   // She sits at the new table, and her old seat is free.
-  await expect(tables.row('Landing 2').locator(`[data-vendor-email="${ALICE}"]`)).toBeVisible();
-  await expect(tables.row('North Wing 1').getByTestId('tables-seat-empty')).toBeVisible();
+  await expect(tables.seatIn('Landing 2', ALICE)).toBeVisible();
+  await expect(tables.vacantSeat('North Wing 1')).toBeVisible();
   await expect(tables.seatOf(ALICE)).toHaveCount(1);
 
   // One entry, which names the table she left.
@@ -172,9 +168,9 @@ test('a move to a seat taken meanwhile is refused in the dialog, which stays ope
     tableChoice: 'Full Table',
   });
 
-  await tables.dialog.getByTestId('placement-dialog-move').click();
+  await tables.moveButton.click();
   await expect(tables.dialogError).toBeVisible();
   await expect(tables.dialog).toBeVisible();
-  await tables.dialog.getByRole('button', { name: 'Cancel' }).click();
-  await expect(tables.row('North Wing 1').locator(`[data-vendor-email="${ALICE}"]`)).toBeVisible();
+  await tables.cancel();
+  await expect(tables.seatIn('North Wing 1', ALICE)).toBeVisible();
 });
