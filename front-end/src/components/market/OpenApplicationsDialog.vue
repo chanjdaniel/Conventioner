@@ -38,7 +38,8 @@ const ticked = ref<string[]>([]);
 /** What a reviewer reads first, as one line. */
 const leads = computed(() => {
   const labels = props.market ? leadingLabels(props.market) : [];
-  if (labels.length) return `What a reviewer reads first: ${labels.join(', ')}`;
+  // A middle dot, not a comma: most questions end in "?", and "?," reads badly.
+  if (labels.length) return `What a reviewer reads first: ${labels.join(' · ')}`;
   return props.market?.nothingLeadsTheCard
     ? 'Nothing leads the card'
     : 'What a reviewer reads first: not decided yet';

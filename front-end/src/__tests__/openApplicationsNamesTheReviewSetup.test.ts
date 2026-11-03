@@ -81,7 +81,7 @@ function draft(market: Partial<Market> = {}): Market {
         },
         {
           key: 'product_type',
-          label: 'Product type',
+          label: 'What do you sell?',
           type: 'select',
           required: true,
           options: ['Prints', 'Food'],
@@ -116,6 +116,8 @@ function line(wrapper: VueWrapper, which: 'leads' | 'rejections'): string {
 }
 
 describe('what a reviewer reads first', () => {
+  // A question most often ends in "?", so a comma after it would read "What do you sell?, Full
+  // name"; a middle dot reads cleanly after any punctuation.
   it('names the answers that lead the card, in the order they lead it', async () => {
     const wrapper = await pressOpen(
       draft({
@@ -125,7 +127,7 @@ describe('what a reviewer reads first', () => {
     );
 
     expect(line(wrapper, 'leads')).toBe(
-      'What a reviewer reads first: Product type, Full name, Business name',
+      'What a reviewer reads first: What do you sell? · Full name · Business name',
     );
   });
 
