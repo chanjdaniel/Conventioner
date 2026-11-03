@@ -10,7 +10,9 @@ export class StartFromCsvPage {
   readonly page: Page;
   readonly view: Locator;
   readonly upload: Locator;
+  readonly dropZone: Locator;
   readonly fileInput: Locator;
+  readonly reading: Locator;
   readonly refused: Locator;
   readonly yearDialog: Locator;
   readonly yearInput: Locator;
@@ -27,7 +29,9 @@ export class StartFromCsvPage {
     this.page = page;
     this.view = page.getByTestId('start-from-csv');
     this.upload = page.getByTestId('start-from-csv-upload');
+    this.dropZone = page.getByTestId('start-from-csv-drop-zone');
     this.fileInput = page.getByTestId('start-from-csv-file-input');
+    this.reading = page.getByTestId('start-from-csv-reading');
     this.refused = page.getByTestId('start-from-csv-refused');
     this.yearDialog = page.getByTestId('start-from-csv-year-dialog-window');
     this.yearInput = page.getByTestId('start-from-csv-year-input');

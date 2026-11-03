@@ -5,7 +5,7 @@ describes:
   - front-end/src/views/StartFromCsvView.vue
   - front-end/src/utils/csvProposal.ts
   - front-end/src/components/csvProposal/ProposalLedger.vue
-verified: 2026-10-22
+verified: 2026-11-03
 sources:
   - wayfinding/the-form-started-from-a-csv/05
   - wayfinding/the-form-started-from-a-csv/map
@@ -21,6 +21,7 @@ sources:
   - bug/41
   - E38/F02/S01
   - E38/F15/S02
+  - T205
 ---
 
 # Starting from a Google Form's responses
@@ -32,12 +33,14 @@ sources:
 The organizer uploads last year's (or this year's) responses, and the market's plan facts and questions are proposed from the file's columns for them to adjust.
 It is for an organizer whose Google Form is the real form, who would otherwise retype its questions so the import has somewhere to put each column; an organizer taking applications on the market's own page can seed this year's form from last year's responses the same way, at no extra cost.
 The flow is four steps at one address, "1 Upload", "2 Year", "3 Review", "4 Confirm"; Back, Cancel and leaving write nothing, and a reload lands back on Upload, since the file is not kept.
+Its heading stands on the frame's inset, in line with the rail, as the import's does; its refusal, Upload and "Reading your columns…" stand in a 720px panel centred in the page, where [the import](import.md)'s Upload stands, and take the file on the same drop zone; the proposal's ledger takes the whole width (T205).
 Nothing is written until the organizer confirms, and the file is not stored ([the CSV proposal and start](../../implementation/modules/csv-proposal-and-start.md)).
 The confirm also saves the import's column mapping, so the first import of the same file opens "Mapped when your form was started from this file."
 It keeps, too, what the file said of each question and each column left out, as far as it names nobody (answers at least 3 applicants gave, holding no address, link, handle, phone number or street address), so the Questions tab can fill a question's options from it, or add a left-out column as a question, after the start ([building the application form](form-tab.md#f2-custom-questions)).
 Only column headings and the shape of their answers are sent to TypeSafe, and the upload step says so; no applicant's answer leaves Conventioner.
 Covered by:
 - `start-from-csv.spec.ts`
+- `the-upload-steps-are-one.spec.ts`
 - `where-a-form-starts.spec.ts`
 
 ## G1. From the create-market dialog
@@ -56,7 +59,7 @@ Past Draft, Market Setup is settled and offers no start; the flow's own address 
 
 **Status:** Works (walked live).
 
-1. Under "Upload your Google Form's responses", drop or choose the CSV (Google Sheets: File, Download, Comma-separated values).
+1. Under "Upload your Google Form's responses", drop or choose the CSV (Google Sheets: File, Download, Comma-separated values) on the zone "Drop your CSV here, or choose a file", hinting "Any form tool or spreadsheet that exports CSV will do."; it takes no other file while one is read.
    A file that is not a CSV export stays on Upload with "This file does not look like a CSV export. Download the responses again from Google Forms as .csv.", as at the import (E38/F15/S02).
    Only when a TypeSafe key is configured does the step add that column headings, and a description of the shape of their answers, are sent to TypeSafe, and that individual vendors' answers never leave Conventioner.
 2. "Reading your columns…" shows while the proposal is made; there is no background job, and TypeSafe that has not answered in 5 seconds leaves the rules' answer, the row saying "Couldn't reach TypeSafe".

@@ -19,6 +19,7 @@ import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 import { useOpenMarket } from '@/utils/openMarket';
 import MarketFrame from '@/components/MarketFrame.vue';
+import FileDropZone from '@/components/FileDropZone.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { getFormattedDate, oneLine } from '@/utils/utils';
 import { importRefusal } from '@/utils/importPhase';
@@ -527,22 +528,6 @@ function takenBy(key: string, columnIndex: number | null, stem: string | null): 
   return byColumn || byGroup;
 }
 
-async function onFileChosen(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  // Cleared, so the same file chosen again after a refusal is read again.
-  input.value = '';
-  await acceptFile(file);
-}
-
-/** True while a file is over the drop zone, so the zone can say it will take it. */
-const dragging = ref(false);
-
-async function onFileDropped(event: DragEvent) {
-  dragging.value = false;
-  await acceptFile(event.dataTransfer?.files?.[0]);
-}
-
 /**
  * Take one file, whichever way it arrived.
  *
@@ -550,8 +535,7 @@ async function onFileDropped(event: DragEvent) {
  * what it holds, is refused here rather than parsed into a wall of nonsense columns, and the
  * upload step stays for another file (`readCsvFile`).
  */
-async function acceptFile(file: File | undefined) {
-  if (!file) return;
+async function acceptFile(file: File) {
   const read = await readCsvFile(file);
   if ('error' in read) {
     error.value = read.error;
@@ -901,28 +885,15 @@ function startOver() {
               : 'Bring your whole responses file again, the earlier responses with the new: new rows are added, changed rows are updated and the rest stay as they are. The market stays in Review.'
           }}
         </p>
-        <label
-          class="drop-zone"
-          :class="{ dragging, busy }"
-          data-testid="import-drop-zone"
-          @dragover.prevent="dragging = true"
-          @dragenter.prevent="dragging = true"
-          @dragleave="dragging = false"
-          @drop.prevent="onFileDropped"
-        >
-          <input
-            type="file"
-            accept=".csv,text/csv"
-            :disabled="busy"
-            data-testid="import-file-input"
-            @change="onFileChosen"
-          />
-          <span class="drop-zone-main">Drop your CSV here, or choose a file</span>
-          <span class="drop-zone-hint">
-            Any form tool or spreadsheet that exports CSV will do. Every column comes across; you
-            decide which ones mean something on the next step.
-          </span>
-        </label>
+        <FileDropZone
+          accept=".csv,text/csv"
+          label="Drop your CSV here, or choose a file"
+          hint="Any form tool or spreadsheet that exports CSV will do. Every column comes across; you decide which ones mean something on the next step."
+          :busy="busy"
+          testid="import-drop-zone"
+          input-testid="import-file-input"
+          @file="acceptFile"
+        />
       </section>
 
       <!-- 2. Map columns -->
@@ -1806,67 +1777,6 @@ function startOver() {
   margin: 0;
   font-size: var(--text-xs);
   color: var(--mm-red);
-}
-
-.drop-zone {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  text-align: center;
-  padding: var(--space-8) var(--space-6);
-  margin-top: var(--space-2);
-  border: 2px dashed var(--mm-border);
-  border-radius: var(--radius-card);
-  background: var(--mm-beige);
-  cursor: pointer;
-  transition:
-    border-color 0.12s ease,
-    background 0.12s ease;
-}
-
-.drop-zone:hover,
-.drop-zone.dragging {
-  border-color: var(--mm-green);
-  background: rgba(54, 130, 111, 0.16);
-}
-
-/* Reading a file: the zone takes no file and its words go muted, as a disabled field's do, rather
-   than dimming with opacity, which took its heading under AA (T162). */
-.drop-zone.busy {
-  cursor: progress;
-}
-
-.drop-zone.busy .drop-zone-main {
-  color: var(--mm-text-muted-on-beige);
-}
-
-/* The input still does the work; it is the zone the organizer sees and drops onto. */
-.drop-zone input[type='file'] {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* The zone is one drop target. Without this the label's own children are targets too, so
-   crossing onto the text fires `dragleave` and the zone flickers out from under the file. */
-.drop-zone > * {
-  pointer-events: none;
-}
-
-.drop-zone-main {
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-md);
-  color: var(--mm-black);
-}
-
-.drop-zone-hint {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted-on-beige);
-  max-width: 42ch;
-  line-height: 1.5;
 }
 
 .preview-rows {

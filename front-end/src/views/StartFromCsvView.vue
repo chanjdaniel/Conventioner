@@ -12,6 +12,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppDialog from '@/components/AppDialog.vue';
+import FileDropZone from '@/components/FileDropZone.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import ProposalLedger from '@/components/csvProposal/ProposalLedger.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
@@ -56,7 +57,8 @@ const draft = reactive<ProposalDraft>({
 const year = ref(new Date().getFullYear());
 const yearOpen = ref(false);
 const yearDraft = ref('');
-const dragging = ref(false);
+/** True while a chosen file is read, so the zone takes no other. */
+const readingFile = ref(false);
 /** Whether a proposal may consult hosted TypeSafe, so Upload can say so before anything is sent. */
 const typesafe = ref(false);
 
@@ -85,23 +87,10 @@ const planCeiling = computed(
 
 const columnCount = computed(() => proposal.value?.columns.length ?? 0);
 
-async function onFileChosen(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  // Cleared, so the same file chosen again after a refusal is read again.
-  input.value = '';
-  await acceptFile(file);
-}
-
-async function onFileDropped(event: DragEvent) {
-  dragging.value = false;
-  await acceptFile(event.dataTransfer?.files?.[0]);
-}
-
-async function acceptFile(file: File | undefined) {
-  if (!file) return;
+async function acceptFile(file: File) {
   // The import's own reader: a file that is not a CSV export stops here, on the upload step.
-  const read = await readCsvFile(file);
+  readingFile.value = true;
+  const read = await readCsvFile(file).finally(() => (readingFile.value = false));
   if ('error' in read) {
     error.value = read.error;
     return;
@@ -242,23 +231,15 @@ function leave() {
           Column headings, and a description of the shape of their answers, are sent to TypeSafe to
           help sort the columns; individual vendors' answers never leave Conventioner.
         </p>
-        <label
-          class="drop-zone"
-          :class="{ dragging }"
-          data-testid="start-from-csv-drop-zone"
-          @dragover.prevent="dragging = true"
-          @dragenter.prevent="dragging = true"
-          @dragleave="dragging = false"
-          @drop.prevent="onFileDropped"
-        >
-          <input
-            type="file"
-            accept=".csv,text/csv"
-            data-testid="start-from-csv-file-input"
-            @change="onFileChosen"
-          />
-          <span class="drop-zone-main">Drop your CSV here, or choose a file</span>
-        </label>
+        <FileDropZone
+          accept=".csv,text/csv"
+          label="Drop your CSV here, or choose a file"
+          hint="Any form tool or spreadsheet that exports CSV will do."
+          :busy="readingFile"
+          testid="start-from-csv-drop-zone"
+          input-testid="start-from-csv-file-input"
+          @file="acceptFile"
+        />
         <button type="button" class="btn btn--secondary back" @click="leave">Cancel</button>
       </section>
 
@@ -329,11 +310,12 @@ function leave() {
 </template>
 
 <style scoped>
+/* On the frame's inset, in line with the rail, as the import stands. */
 .start-view {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-6) var(--space-8) var(--space-12);
+  padding: var(--space-6) var(--space-6) var(--space-12);
   color: var(--mm-black);
 }
 
@@ -389,42 +371,17 @@ h2 {
   font-weight: 600;
 }
 
+/* The narrow steps (the refusal, Upload, Reading) stand centred in the page, as the import's do,
+   so the two upload steps line up and the page does not jump sideways between steps (F11). The
+   ledger keeps the full width, as the import's mapping does. */
 .panel {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-3);
+  width: 100%;
   max-width: 720px;
-}
-
-.drop-zone {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  align-self: stretch;
-  gap: var(--space-2);
-  padding: var(--space-8) var(--space-6);
-  border: var(--space-hairline) dashed var(--mm-border);
-  border-radius: var(--radius-card);
-  background: var(--mm-beige);
-  cursor: pointer;
-}
-
-.drop-zone:hover,
-.drop-zone.dragging {
-  border-color: var(--mm-green);
-}
-
-.drop-zone input[type='file'] {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.drop-zone-main {
-  font-size: var(--text-md);
+  margin-inline: auto;
 }
 
 .error {
