@@ -344,11 +344,9 @@ for (const size of PHONE_AND_DESK) {
       await expect(byTier.getByRole('rowheader')).toHaveText(['Gold']);
       const gold = byTier.getByRole('row').filter({ has: page.getByRole('rowheader') });
       await expect(gold.getByRole('cell')).toHaveCount(4);
-      const goldValues = ['$70.00', '$35.00', '$35.00', '$0.00'];
+      const goldValues = [/^\S*\$70\.00\b/, /^\S*\$35\.00\b/, /^\S*\$35\.00\b/, /^\S*\$0\.00\b/];
       for (const [i, cell] of (await gold.getByRole('cell').all()).entries()) {
-        await expect(cell, 'a Gold value').toHaveAccessibleName(
-          new RegExp(`^\\S*${goldValues[i].replace(/[$.]/g, '\\$&')}\\b`),
-        );
+        await expect(cell, 'a Gold value').toHaveAccessibleName(goldValues[i]);
       }
       const vendorsTable = page
         .getByRole('table')
