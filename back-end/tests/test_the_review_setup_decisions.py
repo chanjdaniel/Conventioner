@@ -147,7 +147,7 @@ class TestNoAutomaticRejections:
         response = _rules(client, {"rules": [], "noAutomaticRejections": True})
 
         assert response.status_code == 400
-        assert response.get_json() == {"error": MarketsApi.REJECTION_RULES_SETTLED}
+        assert response.get_json()["error"].startswith("The automatic rejections are closed")
         assert "noAutomaticRejections" not in world.markets.doc
 
     def test_it_is_recorded_with_the_rules(self, client, world):

@@ -4,8 +4,8 @@
  * While the market read serves the move into Review refused by `rejection_rules_decided`, Review
  * setup's second section says it is not decided and what waits on it, and offers "No automatic
  * rejections", one click. The choice reads back in words, and the next rule that rejects an answer
- * replaces it. A rule with no answer ticked rejects nobody, so it decides nothing. Once the rules
- * settle at Assignment the section reads as it always did.
+ * replaces it. A rule with no answer ticked rejects nobody, so it decides nothing. While the rules
+ * are closed, from Assignment on, the section reads as it always did; Back to review reopens them.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
@@ -282,11 +282,24 @@ describe('a market past draft', () => {
     expect(shown(wrapper, 'rejection-rules-none-chosen')).toBe(false);
   });
 
-  it('in Assignment reads as the settled rules always have, whatever was chosen', async () => {
+  it('in a reopened review reads the choice back again, and asks nothing', async () => {
+    const wrapper = await reviewSetup({
+      phase: 'applications',
+      applicationFormLockReason: 'The form is locked.',
+      noAutomaticRejections: true,
+      transitionBlockers: { draft: [], assignment: [], archived: [] },
+    } as Partial<Market>);
+
+    expect(find(wrapper, 'rejection-rules-none-chosen').text()).toBe(READ_BACK);
+    expect(shown(wrapper, 'rejection-rules-undecided')).toBe(false);
+    expect(shown(wrapper, 'rejection-rules-none')).toBe(false);
+  });
+
+  it('in Assignment reads as closed rules always have, whatever was chosen', async () => {
     const wrapper = await reviewSetup({
       phase: 'assignment',
       applicationFormLockReason: 'The form is locked.',
-      rejectionRulesLockReason: 'The rules settled when the market reached Assignment.',
+      rejectionRulesLockReason: 'The automatic rejections are closed while tables are allocated.',
       noAutomaticRejections: true,
       transitionBlockers: { applications: [], offers: [], archived: [] },
     } as Partial<Market>);

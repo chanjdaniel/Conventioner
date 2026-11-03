@@ -321,7 +321,7 @@ const rejectionsUndecided = computed(
     !noAutomaticRejections.value &&
     !rulesDecide(rejectionRules.value, market.value?.rejectionQuestions ?? []),
 );
-/** "No automatic rejections" reads back while the rules may change; once they settle, never. */
+/** "No automatic rejections" reads back while the rules may change, and not while they are closed. */
 const noRejectionsChosen = computed(
   () => noAutomaticRejections.value && !market.value?.rejectionRulesLockReason,
 );
