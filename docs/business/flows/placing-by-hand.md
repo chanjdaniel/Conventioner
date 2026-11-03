@@ -45,6 +45,7 @@ A tier is warned only on a date the vendor offered, since a date they never offe
 A vendor fits a seat when placing them overrides nothing, and a sharing vendor fits a wholly free table, since the organizer can give them half of it.
 Both of the dialog's vendor lists are searched by typing ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): part of a name, a business or an address narrows them, by the same terms as the Assignments page's search, and "Swap them with" by the partner's table too, its code or its section.
 The keyboard works them alone: the arrow keys move through the list, Enter takes the active vendor, Escape closes the list and leaves the dialog open.
+Neither passes the picker's `cap`, so each draws every vendor it finds.
 The dialog is the wide size, since a real name and address with a table and a side did not fit the standard one.
 On a phone the page and the dialog fit the window (T142): a held seat's "Change" and each "Which seat" choice are thumb's targets, and the dialog's buttons wrap onto a second row where three do not fit on one.
 

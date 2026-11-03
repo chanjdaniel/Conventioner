@@ -361,7 +361,9 @@ A link inside a sentence is not one, since it sits on the sentence's line.
 A choice among many, found by typing, is [`SearchPicker.vue`](../front-end/src/components/SearchPicker.vue) (E38/F08/S03): a field over a grouped list that it narrows as it is typed in, worked by the arrow keys, Enter and Escape, its list opening in the flow under the field so a dialog's scroller cannot clip it; it narrows a group and never hides one, and the caller says what the words find.
 Reopened on a choice, it selects that choice's label, so typing replaces it and searches afresh rather than running on from the label; left untouched, the choice stays.
 A picker with no choices at all never opens its list, and "Nobody matches" shows only once words are typed, so the note the caller puts beside it says why there is nothing to choose.
-The placement dialog's two vendor pickers are its first use.
+Given a `cap`, it draws at most that many matches, counted across the groups in order, under a line "N more, type to narrow" that stays in view as the list scrolls and that the keys skip; a group the cap alone leaves out is not drawn, and a choice past the cap is named by the field, with no row active, so Enter keeps it.
+Without a `cap` it draws every match.
+The placement dialog's two vendor pickers are its first use, with no `cap`.
 
 | | Variants | Notes |
 | --- | --- | --- |

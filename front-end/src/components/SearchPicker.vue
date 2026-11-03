@@ -21,6 +21,12 @@
  * - The field shows no focus ring, as no field does (E38/F01, `primitives.css`): its caret is its
  *   focus. The active choice is drawn as a tint, since it is never focused itself
  *   (`aria-activedescendant`).
+ * - Given a `cap`, it draws at most that many of what the words find, counted across the groups in
+ *   order, then a line saying how many more there are and to type to narrow them. The line is not
+ *   a choice, so the keys never land on it; it stays in view as the list scrolls, since a list cut
+ *   short says so where it is read. A group the cap alone leaves out is not drawn, as it has matches
+ *   and so "None match" would be false. A choice made past the cap is not drawn either: the field
+ *   names it, no row is active, and Enter keeps it rather than taking the first row.
  */
 import { computed, nextTick, ref, useId, watch } from 'vue';
 
@@ -47,6 +53,8 @@ const props = defineProps<{
   label: string;
   placeholder?: string;
   testid: string;
+  /** At most this many matching choices are drawn; without it, all of them are. */
+  cap?: number;
 }>();
 
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
@@ -55,6 +63,7 @@ const id = useId();
 const inputId = `${id}-input`;
 const listId = `${id}-list`;
 const optionId = (index: number) => `${id}-option-${index}`;
+const moreId = `${id}-more`;
 
 const allOptions = computed(() => props.groups.flatMap((group) => group.options));
 /** Whether the picker has any choice at all; with none, the list never opens. */
@@ -83,17 +92,32 @@ watch(
 const words = computed(() => (searching.value ? text.value.trim() : ''));
 
 /** Every group that has choices, each narrowed to what the words find. */
-const shownGroups = computed(() =>
+const matchedGroups = computed(() =>
   props.groups
     .filter((group) => group.options.length > 0)
     .map((group) => ({
       ...group,
-      shown: words.value
+      matched: words.value
         ? group.options.filter((option) => props.finds(option, words.value))
         : group.options,
     })),
 );
+/** The matched groups as drawn: the cap fills them in order, and one it leaves out is not drawn. */
+const shownGroups = computed(() => {
+  let room = props.cap ?? Infinity;
+  return matchedGroups.value.flatMap((group) => {
+    const shown = group.matched.slice(0, room);
+    room -= shown.length;
+    return group.matched.length > 0 && shown.length === 0 ? [] : [{ ...group, shown }];
+  });
+});
 const shownOptions = computed(() => shownGroups.value.flatMap((group) => group.shown));
+/** How many matches the cap leaves undrawn. */
+const moreCount = computed(
+  () =>
+    matchedGroups.value.reduce((count, group) => count + group.matched.length, 0) -
+    shownOptions.value.length,
+);
 /** Where each group's choices start in the one list the keys move through. */
 const groupStarts = computed(() => {
   let at = 0;
@@ -121,10 +145,12 @@ function show(): void {
   if (open.value || !hasChoices.value) return;
   open.value = true;
   const chosenAt = shownOptions.value.findIndex((option) => option.value === props.modelValue);
-  active.value = chosenAt >= 0 ? chosenAt : shownOptions.value.length ? 0 : -1;
+  // A choice the cap leaves undrawn makes no row active, so Enter keeps it.
+  active.value =
+    chosenAt >= 0 ? chosenAt : !chosenOption.value && shownOptions.value.length ? 0 : -1;
   // Reopened on a choice, its label is selected, so what is typed next replaces it and searches
   // by itself, rather than running on from the label; left untouched, the choice stays.
-  if (chosenAt >= 0) field.value?.select();
+  if (chosenOption.value) field.value?.select();
 }
 
 function choose(option: PickerOption): void {
@@ -198,6 +224,7 @@ function onBlur(): void {
       :aria-expanded="open ? 'true' : 'false'"
       :aria-controls="listId"
       :aria-activedescendant="activeId"
+      :aria-describedby="open && moreCount > 0 ? moreId : undefined"
       :placeholder="placeholder"
       :data-testid="`${testid}-input`"
       @input="typed"
@@ -213,6 +240,7 @@ function onBlur(): void {
       ref="list"
       role="listbox"
       class="search-picker-list"
+      :class="{ 'search-picker-list--capped': moreCount > 0 }"
       :aria-label="label"
       :data-testid="`${testid}-list`"
       @mousedown.prevent
@@ -255,6 +283,15 @@ function onBlur(): void {
       >
         Nobody matches "{{ words }}".
       </p>
+      <p
+        v-if="moreCount > 0"
+        :id="moreId"
+        role="presentation"
+        class="search-picker-more"
+        :data-testid="`${testid}-more`"
+      >
+        {{ moreCount }} more, type to narrow
+      </p>
     </div>
   </div>
 </template>
@@ -275,6 +312,12 @@ function onBlur(): void {
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: white;
+}
+
+/* The keys bring the active choice into view clear of the line pinned over the list's foot. */
+.search-picker-list--capped {
+  padding-bottom: 0;
+  scroll-padding-bottom: var(--space-8);
 }
 
 .search-picker-group-label {
@@ -321,5 +364,19 @@ function onBlur(): void {
   padding: var(--space-1) var(--space-3) var(--space-2);
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
+}
+.search-picker-more {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex: none;
+  align-items: center;
+  min-height: var(--space-8);
+  margin: 0;
+  padding: 0 var(--space-3);
+  border-top: 1px solid var(--mm-border);
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
+  background: white;
 }
 </style>

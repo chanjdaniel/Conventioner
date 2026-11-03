@@ -232,3 +232,213 @@ describe('the searchable picker', () => {
     wrapper.unmount();
   });
 });
+
+describe('a capped match list', () => {
+  /** Five in the first group and four in the second, each findable by its letter and number. */
+  const CAPPED: PickerGroup[] = [
+    {
+      label: 'Fits this seat',
+      testid: 'fits',
+      options: [1, 2, 3, 4, 5].map((n) => ({ value: `a${n}`, label: `Aster ${n}` })),
+    },
+    {
+      label: 'Added by hand',
+      testid: 'added',
+      options: [1, 2, 3, 4].map((n) => ({ value: `b${n}`, label: `Birch ${n}` })),
+    },
+  ];
+
+  function capped(cap: number, modelValue = '', groups = CAPPED) {
+    const wrapper = mount(SearchPicker, {
+      props: {
+        modelValue,
+        groups,
+        finds,
+        cap,
+        label: 'Who sits here',
+        testid: 'who',
+        'onUpdate:modelValue': (value: string) => wrapper.setProps({ modelValue: value }),
+      },
+      attachTo: document.body,
+    });
+    return wrapper;
+  }
+
+  const more = (wrapper: ReturnType<typeof capped>) => wrapper.find('[data-testid="who-more"]');
+  const activeValue = (wrapper: ReturnType<typeof capped>) => {
+    const id = field(wrapper).attributes('aria-activedescendant');
+    return id ? wrapper.get(`[id="${id}"]`).attributes('data-value') : undefined;
+  };
+
+  it('draws at most the cap, counted across the groups in order, and says how many more', async () => {
+    const wrapper = capped(7);
+    await field(wrapper).trigger('click');
+
+    expect(shown(wrapper)).toEqual(['a1', 'a2', 'a3', 'a4', 'a5', 'b1', 'b2']);
+    expect(wrapper.get('[data-testid="fits"]').findAll('[role="option"]')).toHaveLength(5);
+    expect(wrapper.get('[data-testid="added"]').findAll('[role="option"]')).toHaveLength(2);
+    expect(more(wrapper).text()).toBe('2 more, type to narrow');
+    wrapper.unmount();
+  });
+
+  it('keeps the line out of the options, and at the end of the list', async () => {
+    const wrapper = capped(7);
+    await field(wrapper).trigger('click');
+
+    const list = wrapper.get('[role="listbox"]').element;
+    expect(list.lastElementChild).toBe(more(wrapper).element);
+    expect(more(wrapper).attributes('role')).toBe('presentation');
+    expect(wrapper.findAll('[role="option"]').map((option) => option.text())).not.toContain(
+      '2 more, type to narrow',
+    );
+    wrapper.unmount();
+  });
+
+  it('counts the matches as words are typed, and drops the line once they fit', async () => {
+    const wrapper = capped(2);
+    await field(wrapper).trigger('click');
+    expect(more(wrapper).text()).toBe('7 more, type to narrow');
+
+    // Nine in all, five of them Aster: the count is of what the words find.
+    await field(wrapper).setValue('aster');
+    expect(shown(wrapper)).toEqual(['a1', 'a2']);
+    expect(more(wrapper).text()).toBe('3 more, type to narrow');
+
+    await field(wrapper).setValue('birch');
+    expect(shown(wrapper)).toEqual(['b1', 'b2']);
+    expect(more(wrapper).text()).toBe('2 more, type to narrow');
+
+    // Under the cap, all of them are drawn, so nothing is left to say.
+    await field(wrapper).setValue('aster 3');
+    expect(shown(wrapper)).toEqual(['a3']);
+    expect(more(wrapper).exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('draws no line when exactly the cap match', async () => {
+    const wrapper = capped(9);
+    await field(wrapper).trigger('click');
+
+    expect(shown(wrapper)).toHaveLength(9);
+    expect(more(wrapper).exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('leaves the line out of the keys: they stop at the last row drawn', async () => {
+    const wrapper = capped(3);
+    const input = field(wrapper);
+    await input.trigger('keydown', { key: 'ArrowDown' });
+    expect(activeValue(wrapper)).toBe('a1');
+
+    for (let press = 0; press < 5; press++) await input.trigger('keydown', { key: 'ArrowDown' });
+    expect(activeValue(wrapper)).toBe('a3');
+
+    await input.trigger('keydown', { key: 'Enter' });
+    expect(chosen(wrapper)).toBe('a3');
+    wrapper.unmount();
+  });
+
+  it('does not say a group has no match when the cap alone left it out', async () => {
+    const wrapper = capped(3);
+    await field(wrapper).trigger('click');
+
+    expect(wrapper.find('[data-testid="added"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('None match');
+    expect(more(wrapper).text()).toBe('6 more, type to narrow');
+    wrapper.unmount();
+  });
+
+  it('still says so of a group the words find nothing in', async () => {
+    const wrapper = capped(2);
+    await field(wrapper).setValue('birch');
+
+    expect(wrapper.get('[data-testid="fits"]').text()).toContain('None match "birch".');
+    expect(shown(wrapper)).toEqual(['b1', 'b2']);
+    wrapper.unmount();
+  });
+
+  it('points the field at the line while it shows, for a reader that stays on the field', async () => {
+    const wrapper = capped(3);
+    expect(field(wrapper).attributes('aria-describedby')).toBeUndefined();
+
+    await field(wrapper).trigger('click');
+    expect(field(wrapper).attributes('aria-describedby')).toBe(more(wrapper).attributes('id'));
+
+    await field(wrapper).setValue('aster 1');
+    expect(field(wrapper).attributes('aria-describedby')).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  describe('reopened on a choice past the cap', () => {
+    it('selects the label, so typing searches afresh', async () => {
+      const wrapper = capped(3, 'b4');
+      const input = field(wrapper).element as HTMLInputElement;
+      expect(input.value).toBe('Birch 4');
+      input.focus();
+      await field(wrapper).trigger('click');
+
+      expect(shown(wrapper)).toEqual(['a1', 'a2', 'a3']);
+      expect([input.selectionStart, input.selectionEnd]).toEqual([0, input.value.length]);
+      wrapper.unmount();
+    });
+
+    it('makes no row active, so Enter keeps the choice rather than taking the first', async () => {
+      const wrapper = capped(3, 'b4');
+      await field(wrapper).trigger('click');
+      expect(field(wrapper).attributes('aria-activedescendant')).toBeUndefined();
+
+      await field(wrapper).trigger('keydown', { key: 'Enter' });
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+      expect(field(wrapper).attributes('aria-expanded')).toBe('false');
+      expect((field(wrapper).element as HTMLInputElement).value).toBe('Birch 4');
+      wrapper.unmount();
+    });
+
+    it('starts the keys at the first row', async () => {
+      const wrapper = capped(3, 'b4');
+      await field(wrapper).trigger('click');
+      await field(wrapper).trigger('keydown', { key: 'ArrowDown' });
+
+      expect(activeValue(wrapper)).toBe('a1');
+      wrapper.unmount();
+    });
+
+    it('reaches the choice once the words bring it under the cap', async () => {
+      const wrapper = capped(3, 'b4');
+      await field(wrapper).trigger('click');
+      await field(wrapper).setValue('birch 4');
+      expect(shown(wrapper)).toEqual(['b4']);
+      expect(activeValue(wrapper)).toBe('b4');
+
+      await field(wrapper).trigger('keydown', { key: 'Enter' });
+      expect(chosen(wrapper)).toBe('b4');
+      expect((field(wrapper).element as HTMLInputElement).value).toBe('Birch 4');
+      wrapper.unmount();
+    });
+  });
+
+  it('marks a choice the cap still draws, and makes it active', async () => {
+    const wrapper = capped(3, 'a2');
+    await field(wrapper).trigger('click');
+
+    expect(wrapper.get('[aria-selected="true"]').attributes('data-value')).toBe('a2');
+    expect(activeValue(wrapper)).toBe('a2');
+    wrapper.unmount();
+  });
+});
+
+describe('without a cap', () => {
+  it('draws every choice, and no line', async () => {
+    const many: PickerOption[] = Array.from({ length: 300 }, (_, n) => ({
+      value: `v${n}`,
+      label: `Choice ${n}`,
+    }));
+    const wrapper = picker('', [{ options: many }]);
+    await field(wrapper).trigger('click');
+
+    expect(shown(wrapper)).toHaveLength(300);
+    expect(wrapper.find('[data-testid="who-more"]').exists()).toBe(false);
+    expect(field(wrapper).attributes('aria-describedby')).toBeUndefined();
+    wrapper.unmount();
+  });
+});
