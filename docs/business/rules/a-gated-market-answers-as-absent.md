@@ -61,7 +61,7 @@ Applying itself stays the `applications` phase's, while the organizer takes appl
 
 **A CSV market has a vendor page once its results are published** ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)), when its vendors have a result to read there, and keeps it after, archived included.
 Before then it has nothing to tell anyone, so its page would only confirm the market; after, an imported vendor signs in with the address their response gave and reads their table, with no application section ([the Google Form path](../flows/the-google-form-path.md)).
-One that has reached its market days has a page too, published or not: a Google Form market went live before it could publish results, and the change must not lock its vendors out.
+One that has reached its market days has a page too, published or not: a Google Form market went live before it could publish results, and the change must not lock its vendors out; its vendors read their tables there as if its results were published.
 An archived one that reached them counts, by its phase record, and where that record began late, by a check-in, as everywhere else that asks whether a market ran.
 
 **The organizer's own link to the page follows the gate.**

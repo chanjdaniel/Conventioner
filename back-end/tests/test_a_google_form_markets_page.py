@@ -249,3 +249,38 @@ class TestOnceItsResultsArePublished:
         body, _ = ApplicantsApi.get_applicant_application(SLUG, TOKEN)
 
         assert body["application"]["formData"]["essential_full_name"] == "Riley Fixture"
+
+
+class TestOneLiveBeforeItCouldPublish:
+    """A Google Form market that went live before it could publish results (story 36): its vendors
+    read their tables and check in, as if its results were published, since they are out."""
+
+    def _import(self, applications):
+        TestOnceItsResultsArePublished._import(None, applications)
+
+    def test_an_imported_vendor_reads_their_table(self, markets, applications):
+        self._import(applications)
+        markets(_csv(MarketPhase.MARKET_DAYS, assignmentObject={"vendorAssignments": [SEAT]}))
+
+        body, status = ApplicantsApi.get_applicant_application(SLUG, TOKEN)
+
+        assert status == 200
+        assert body["application"]["outcome"] == "has_a_table"
+        assert [seat["tableCode"] for seat in body["application"]["seats"]] == ["A1"]
+
+    def test_one_archived_after_it_ran_keeps_the_record(self, markets, applications):
+        self._import(applications)
+        markets(_csv(
+            MarketPhase.ARCHIVED, reached=RAN, assignmentObject={"vendorAssignments": [SEAT]},
+        ))
+
+        body, _ = ApplicantsApi.get_applicant_application(SLUG, TOKEN)
+
+        assert [seat["tableCode"] for seat in body["application"]["seats"]] == ["A1"]
+
+    def test_the_page_says_its_results_are_out(self, client, markets):
+        markets(_csv(MarketPhase.MARKET_DAYS))
+
+        body = client.get(f"/public/markets/{SLUG}/vendor-page").get_json()
+
+        assert body["resultsPublished"] is True

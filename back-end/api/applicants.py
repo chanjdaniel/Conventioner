@@ -32,6 +32,7 @@ from market_documents import (
     market_doc_field,
     market_from_document,
     market_serves_applicants,
+    results_are_out,
     vendor_page_market_by_slug,
 )
 from datatypes import (
@@ -281,11 +282,11 @@ def get_vendor_page(market_slug: str) -> Tuple[Dict[str, Any], int]:
 
     dates = market_dates_of(market_doc)
     return {
-        "marketName": market_doc.get("name", ""),
+        "marketName": market_doc_field(market_doc, "name") or "",
         "intakeMode": intake_mode_from_market_document(market_doc).value,
         "phase": phase_from_market_document(market_doc).value,
         "takesApplications": takes_applications(market_doc),
-        "resultsPublished": bool(market_doc.get("resultsPublished")),
+        "resultsPublished": results_are_out(market_doc),
         "marketDates": dates,
         "ended": AttendanceApi.ended_after_it_ran(market_doc),
         "rememberUntil": RememberedSignIns.remembered_until_date(dates, RememberedSignIns.now()),
@@ -394,7 +395,7 @@ def get_applicant_application(
         return {"application": None}, 200
 
     app = Application(**app_doc)
-    results_published = bool(market_doc.get("resultsPublished"))
+    results_published = results_are_out(market_doc)
     return {"application": _application_response(
         app, results_published, _stored_placements(market_doc),
         AttendanceApi.check_ins_of(market_id, app.applicant_email),

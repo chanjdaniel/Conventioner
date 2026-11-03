@@ -483,6 +483,17 @@ def vendor_page_market_by_slug(
     return None
 
 
+def results_are_out(market_doc: Dict[str, Any]) -> bool:
+    """May this market's vendors read their results: published, or it reached its market days?
+
+    A Google Form market that went live before it could publish results never set the flag, yet
+    its vendors are seated and at the door (ADR 0022), so reaching the market days counts too. A
+    form market cannot reach them unpublished. Reads what ``vendor_page_market_by_slug`` adds to
+    its caller's projection, so a document it served answers this.
+    """
+    return bool(market_doc_field(market_doc, "results_published")) or _reached_market_days(market_doc)
+
+
 # What ``vendor_page_market_by_slug`` reads of a market to decide whether it has a page.
 _VENDOR_PAGE_GATE_FIELDS: Tuple[str, ...] = ("intake_mode", "results_published", "id", "phase_history")
 
