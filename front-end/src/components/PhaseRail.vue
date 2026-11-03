@@ -444,6 +444,10 @@ async function doTransition(toPhase: string): Promise<boolean> {
 
     if (response?.status === 409 && response.data?.blockers) {
       transitionBlockers.value = response.data.blockers;
+      // The market may have changed since it was read (another organizer's write, say): read it
+      // again, or a fix in the panel leads to a page that still shows it as it was, Review setup
+      // reading back a decision since undone (T206).
+      await marketStore.refresh();
     } else {
       transitionError.value = getApiErrorMessage(err, 'The market did not move to the next phase.');
     }
@@ -529,7 +533,8 @@ function confirmPending() {
 async function openApplications(wrote: boolean) {
   showingOpenApplications.value = false;
   const moved = await doTransition(MarketPhase.Applications);
-  if (!moved && wrote) await marketStore.refresh();
+  // A refused move has read the market again already.
+  if (!moved && wrote && !transitionBlockers.value.length) await marketStore.refresh();
 }
 
 function cancelPending() {
