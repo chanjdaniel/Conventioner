@@ -136,11 +136,14 @@ test('every kind of change reads as a sentence, newest first, and older ones loa
 
   // Older entries come beneath the newest, in the same open dialog.
   await manage.historyLoadMore.click();
-  // The form, the setup change, the renames, two phase moves, the verdict, the assignment, two roles.
-  await expect(manage.historySentences).toHaveCount(2 + RENAMES + 2 + 1 + 1 + 2);
+  // The form, the review setup's two decisions, the setup change, the renames, two phase moves,
+  // the verdict, the assignment, two roles.
+  await expect(manage.historySentences).toHaveCount(1 + 2 + 1 + RENAMES + 2 + 1 + 1 + 2);
   const all = await manage.historySentences.allInnerTexts();
-  expect(all.slice(-2)).toEqual([
+  expect(all.slice(-4)).toEqual([
     `${me} changed Market Setup: sections`,
+    `${me} decided no automatic rejections`,
+    `${me} decided nothing leads the card`,
     `${me} changed the application form`,
   ]);
   await expect(manage.historyLoadMore).toHaveCount(0);

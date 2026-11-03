@@ -92,6 +92,8 @@ export interface MarketSchema {
   modificationList: {
   }[];
   name: string;
+  noAutomaticRejections?: boolean;
+  nothingLeadsTheCard?: boolean;
   organizationId?: string;
   permissions?: Record<string, {
     role: string;

@@ -13,7 +13,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import api.applications as ApplicationsApi  # noqa: E402
-from conftest import complete_setup  # noqa: E402
+from conftest import complete_setup, review_setup_decided  # noqa: E402
 from datatypes import IntakeMode, Market, MarketPhase, MarketRole, phase_label  # noqa: E402
 from guards import evaluate_transition, transition_verdicts  # noqa: E402
 
@@ -30,6 +30,7 @@ def _market(phase: MarketPhase, intake: IntakeMode = IntakeMode.CSV) -> Market:
         application_form={"fields": [{"key": "name", "label": "Name", "type": "text"}]},
         phase=phase,
         intake_mode=intake,
+        **review_setup_decided(),
     )
 
 

@@ -8,6 +8,7 @@ seeder makes them again. What it writes goes through the product's own writes, w
 import os
 import sys
 from datetime import date
+from types import SimpleNamespace
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -45,11 +46,37 @@ def test_each_market_may_leave_draft_as_seeded():
             phase=MarketPhase.DRAFT,
             setup_object=SetupObject(**convert_keys_to_snake_case(seeder.test_plan(TODAY))),
             application_form=ApplicationForm(fields=seeder.TEST_FORM_FIELDS),
+            # The review setup as the seeder decides it (the test below).
+            nothing_leads_the_card=True, no_automatic_rejections=True,
         )
 
         assert evaluate_transition(
             market, MarketPhase.APPLICATIONS.value, db=None, leaving_out=("responses_imported",),
         ) == []
+
+
+@pytest.mark.parametrize("test_market", seeder.TEST_MARKETS, ids=lambda m: m.intake_mode.value)
+def test_each_market_decides_its_review_setup_before_it_may_enter_review(monkeypatch, test_market):
+    """Nothing leads the card and no answer rejects, each through its own write (T206), before the
+    move a market whose vendors apply on its page takes, and on the Google Form draft too, whose
+    first import waits on them."""
+    writes = []
+    draft = SimpleNamespace(
+        document={"id": "m1"}, market=client_market(phase=MarketPhase.DRAFT), organization=None)
+    monkeypatch.setattr(seeder, "_seeded_market", lambda *_a: draft)
+    monkeypatch.setattr(seeder.Actions, "may", lambda *_a: True)
+    monkeypatch.setattr(seeder.MarketsApi, "load_market_context", lambda _id: draft)
+    for name in ("save_plan", "save_application_form", "save_review_highlights",
+                 "save_rejection_rules", "take_move"):
+        monkeypatch.setattr(seeder.MarketsApi, name,
+                            lambda *a, name=name, **kw: writes.append((name, a[1:-1], kw)) or [])
+
+    seeder.seed_test_market(test_market, "org-1", SimpleNamespace(email="o@example.test"), TODAY)
+
+    assert ("save_review_highlights", ([],), {"nothing_leads_the_card": True}) in writes
+    assert ("save_rejection_rules", ([],), {"no_automatic_rejections": True}) in writes
+    moves = [i for i, (name, *_rest) in enumerate(writes) if name == "take_move"]
+    assert moves == ([] if test_market.intake_mode is IntakeMode.CSV else [len(writes) - 1])
 
 
 def test_nothing_it_writes_names_a_person():

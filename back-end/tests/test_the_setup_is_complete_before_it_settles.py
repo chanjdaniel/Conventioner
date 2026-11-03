@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 import guards
+from conftest import review_setup_decided
 from datatypes import (
     AssignmentObject, AssignmentOptionObject, FormField, ApplicationForm, IntakeMode, LocationObject,
     Market,
@@ -42,6 +43,8 @@ def _market(dates=(SOON,), tiers=(GOLD,), locations=(HALL,), sections=None):
             tiers=list(tiers), locations=list(locations), sections=list(sections),
             assignment_options=AssignmentOptionObject(),
         ),
+        # Its review setup decided (T206): the setup is what these lines are about.
+        **review_setup_decided(),
     )
 
 

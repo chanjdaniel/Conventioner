@@ -94,13 +94,6 @@ export class MarketSetupPage {
   // --- Phase control ---
 
   /**
-   * Move the market to a phase, and wait for the panel to say it got there.
-   *
-   * `expectedLabel` is the phase as the organizer reads it, not the stored value: asserting on it
-   * is what turns a refused transition into a failure that names the phase rather than a timeout
-   * somewhere later.
-   */
-  /**
    * Fire a transition from the rail.
    *
    * Only the one step onward sits on the rail itself; back and destructive edges are behind the
@@ -114,6 +107,13 @@ export class MarketSetupPage {
     await action.click();
   }
 
+  /**
+   * Move the market to a phase, and wait for the panel to say it got there.
+   *
+   * `expectedLabel` is the phase as the organizer reads it, not the stored value: asserting on it
+   * is what turns a refused transition into a failure that names the phase rather than a timeout
+   * somewhere later.
+   */
   async advancePhaseTo(toPhase: string, expectedLabel: string): Promise<void> {
     await this.clickTransition(toPhase);
     const arrived = this.page.getByTestId('phase-rail-current').filter({ hasText: expectedLabel });
@@ -135,6 +135,37 @@ export class MarketSetupPage {
 
     await this.page.getByTestId('phase-rail-current').waitFor({ state: 'visible' });
     await arrived.waitFor({ timeout: 10000 });
+  }
+
+  /**
+   * Decide Review setup as an organizer does (T206): follow the rail's fix to Review setup and choose
+   * "Nothing leads the card" and "No automatic rejections", one click each. Review waits on both, so
+   * a walk that takes a draft into Review through the screens takes it here, and the rail then
+   * offers what comes next.
+   */
+  async decideOnReviewSetup(): Promise<void> {
+    await this.page
+      .getByTestId('phase-rail-fix')
+      .filter({ hasText: 'Decide what reviewers read first' })
+      .click();
+    // Its write landed before anything goes on: a navigation may cancel a request in flight.
+    await Promise.all([
+      this.page.waitForResponse(
+        (response) =>
+          response.url().includes('/review-highlights') && response.request().method() === 'PUT',
+      ),
+      this.page.getByTestId('review-highlights-none').click(),
+    ]);
+    await this.page.getByTestId('review-highlights-none-chosen').waitFor();
+    // The rail offers no link to the page it is on, so the second decision is taken here.
+    await Promise.all([
+      this.page.waitForResponse(
+        (response) =>
+          response.url().includes('/rejection-rules') && response.request().method() === 'PUT',
+      ),
+      this.page.getByTestId('rejection-rules-none').click(),
+    ]);
+    await this.page.getByTestId('rejection-rules-none-chosen').waitFor();
   }
 
   /**

@@ -18,14 +18,24 @@ import type { Market } from '@/assets/types/datatypes';
  * So is a re-read of the market that lands while a write is in flight: it was asked for before the
  * click being written, and putting it on screen un-ticked what was just ticked. The write's own
  * answer, and the re-read after it, bring the list up to date.
+ *
+ * A list that a draft must decide before Review (T206) also carries the organizer's choice of none,
+ * as the market holds it (`storedNone`) and as the write answers it.
  */
 export function useSavedOnTheMarket<T>(
   market: Ref<Market | null | undefined>,
   stored: (market: Market) => T[] | undefined,
-  write: (marketId: string, value: T[]) => Promise<T[]>,
+  write: (marketId: string, value: T[], none: boolean) => Promise<{ list: T[]; none: boolean }>,
   failure: string,
+  storedNone: (market: Market) => boolean = () => false,
 ) {
   const value = ref<T[]>([...((market.value && stored(market.value)) ?? [])]) as Ref<T[]>;
+  /**
+   * That the organizer chose none (T206): an empty list says only that nothing is marked, so the
+   * choice is its own flag beside it. Written with the empty list by `chooseNone`, and false after
+   * any `save`, so the next mark replaces it.
+   */
+  const none = ref(Boolean(market.value && storedNone(market.value)));
   const error = ref('');
   let latestSave = 0;
   let writing = 0;
@@ -36,28 +46,47 @@ export function useSavedOnTheMarket<T>(
       if (held && writing === 0) value.value = [...held];
     },
   );
+  watch(
+    () => Boolean(market.value && storedNone(market.value)),
+    (held) => {
+      if (writing === 0) none.value = held;
+    },
+  );
 
-  async function save(next: T[]) {
+  async function commit(next: T[], nextNone: boolean) {
     const id = market.value?.id;
     if (!id) return;
-    const previous = [...value.value];
+    const previous = { list: [...value.value], none: none.value };
     const thisSave = (latestSave += 1);
     value.value = next;
+    none.value = nextNone;
     error.value = '';
     writing += 1;
     try {
-      const written = await write(id, next);
+      const written = await write(id, next, nextNone);
       writing -= 1;
       if (thisSave !== latestSave) return;
-      value.value = [...written];
+      value.value = [...written.list];
+      none.value = written.none;
       void useMarketStore().refresh();
     } catch (err: unknown) {
       writing -= 1;
       if (thisSave !== latestSave) return;
-      value.value = previous;
+      value.value = previous.list;
+      none.value = previous.none;
       error.value = getApiErrorMessage(err, failure);
     }
   }
 
-  return { value, error, save };
+  /** Write this list, which replaces a choice of none. */
+  function save(next: T[]) {
+    return commit(next, false);
+  }
+
+  /** Choose none: the empty list and the flag, in one write. */
+  function chooseNone() {
+    return commit([], true);
+  }
+
+  return { value, none, error, save, chooseNone };
 }
