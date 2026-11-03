@@ -2,10 +2,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies. poppler-utils gives pdf2image the pdfinfo and pdftoppm it runs to
+# draw a PDF floorplan's pages; without it every PDF upload answered 500.
 RUN apt-get update && apt-get install -y \
     gcc \
     wget \
+    poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Install gosu for running commands as non-root user

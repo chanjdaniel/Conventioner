@@ -17,7 +17,7 @@ This guide will help you set up and run the Conventioner application for develop
 Before starting, ensure you have the following installed:
 
 - **Docker** and **Docker Compose v2** (recommended - see Docker Setup below)
-  - OR **Python 3.12**, **Node.js 24.22.1** (with the npm 11.19.1 it bundles), and **MongoDB** (for local development)
+  - OR **Python 3.12**, **Node.js 24.22.1** (with the npm 11.19.1 it bundles), **MongoDB** and **poppler** (`poppler-utils`, or `brew install poppler`, which draws a PDF floorplan's pages) (for local development)
 
 The versions are the ones the project is built, tested and deployed with: `back-end/.python-version`
 says 3.12 (Vercel reads it), `back-end/Dockerfile` pins `python:3.12-slim`, and

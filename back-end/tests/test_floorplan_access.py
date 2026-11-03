@@ -132,6 +132,29 @@ def _upload(client, *, market_id=MARKET_ID, file=None, headers=None):
     )
 
 
+def _one_page_pdf() -> bytes:
+    """A real one-page PDF, a plan's outline drawn as one rectangle, built here so the suite holds
+    no binary fixture. Its cross-reference table is written with each object's true offset, so a
+    strict reader takes it as it is."""
+    content = b"4 w 72 72 451 698 re S"
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << >> >>",
+        b"<< /Length %d >>\nstream\n%s\nendstream" % (len(content), content),
+    ]
+    pdf = b"%PDF-1.4\n"
+    offsets = []
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(pdf))
+        pdf += b"%d 0 obj\n%s\nendobj\n" % (number, body)
+    xref = len(pdf)
+    pdf += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objects) + 1)
+    pdf += b"".join(b"%010d 00000 n \n" % offset for offset in offsets)
+    pdf += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objects) + 1, xref)
+    return pdf
+
+
 class TestUploadingAnImage:
 
     @pytest.mark.parametrize("email", ["owner@example.com", "editor@example.com"])
@@ -158,6 +181,22 @@ class TestUploadingAnImage:
         assert len(pages) == 3
         for page in pages:
             assert images.metadata_of(page["gridfs_id"]) == {"marketId": MARKET_ID}
+
+    def test_a_real_pdf_is_drawn_as_its_page_and_stored(self, sign_in, market, images):
+        """The zone offers PDF, so a real one is converted, through poppler, with nothing stood in
+        for the conversion: a back end without poppler answered every PDF with a 500."""
+        response = _upload(
+            sign_in("owner@example.com"),
+            file=(io.BytesIO(_one_page_pdf()), "hall.pdf", "application/pdf"),
+        )
+
+        assert response.status_code == 201, response.get_json()
+        (page,) = response.get_json()["pages"]
+        assert images.metadata_of(page["gridfs_id"]) == {"marketId": MARKET_ID}
+        # A4 (595 by 842 points) at the converter's 200 dpi, within a pixel, since poppler's
+        # versions round the edge differently.
+        assert abs(page["width"] - 595 * 200 / 72) <= 1
+        assert abs(page["height"] - 842 * 200 / 72) <= 1
 
     @pytest.mark.parametrize("email,error", [
         ("outsider@example.com", Actions.refusal_sentence(Actions.CHANGE_SETUP)),

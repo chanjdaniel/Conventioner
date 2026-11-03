@@ -12,6 +12,7 @@ sources:
   - T47
   - T74
   - E41/F01/S01
+  - T205
 ---
 
 # Testing Conventioner
@@ -63,6 +64,7 @@ python -m pytest tests/ -v
 Install **both** files. `requirements-dev.txt` is only `pytest`, uv (for the lock check) and what they need; it does not pull in the runtime
 dependencies, and the suite imports the application. `scripts/nm-test.sh` installs both, which is
 why the gate passes where a hand-run `pip install -r requirements-dev.txt` does not.
+The suite also uploads a real PDF floorplan, so it needs poppler's tools on the `PATH` (`poppler-utils` on Debian and Ubuntu, `brew install poppler` on macOS), as the back end's image and CI's `backend` job have them.
 
 The suite covers the assignment algorithm, statistics, attendance,
 CSV import column mapping, schema generation, role validation, CAPTCHA verification/bypass, the
