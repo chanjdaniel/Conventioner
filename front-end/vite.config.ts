@@ -72,6 +72,12 @@ export const VUEDRAGGABLE_SOURCE = {
 };
 
 /**
+ * `src/dev/` spelled as Vite spells a module id, so they compare: its real path, since Vite resolves
+ * every id through symbolic links, and with `/` for a separator, as Vite writes ids on Windows too.
+ */
+const DEV_DIR = `${normalizePath(realpathSync(fileURLToPath(new URL('./src/dev/', import.meta.url))))}/`;
+
+/**
  * No development page ships (T200): a production build fails when any module of the component
  * library, `src/dev/`, is in any chunk it emits, and names each chunk and module.
  *
@@ -81,12 +87,6 @@ export const VUEDRAGGABLE_SOURCE = {
  * alive) puts it in a chunk, and this is where it is caught, on every production build: CI's, the
  * gate's and the deploy's. ESLint's `app/dev-pages-stay-out` refuses the import before it is built.
  */
-/**
- * `src/dev/` spelled as Vite spells a module id, so they compare: its real path, since Vite resolves
- * every id through symbolic links, and with `/` for a separator, as Vite writes ids on Windows too.
- */
-const DEV_DIR = `${normalizePath(realpathSync(fileURLToPath(new URL('./src/dev/', import.meta.url))))}/`;
-
 export function noDevModules(): Plugin {
   let production = false;
   let root = '';
