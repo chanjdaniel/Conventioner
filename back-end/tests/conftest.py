@@ -569,10 +569,12 @@ def market_records(monkeypatch):
     import api.attendance as AttendanceApi
     import history as History
     import payments as Payments
+    import remembered_sign_ins as RememberedSignIns
     import vendor_notes as VendorNotes
 
     fakes = SimpleNamespace(
         attendance=FakeApplicationsCollection(), challenges=FakeApplicationsCollection(),
+        remembered=FakeApplicationsCollection(),
         history=FakeApplicationsCollection(), notes=FakeApplicationsCollection(),
         placement_history=FakeApplicationsCollection(), payments=FakeApplicationsCollection(),
         amounts_owed=FakeApplicationsCollection(),
@@ -582,6 +584,7 @@ def market_records(monkeypatch):
     monkeypatch.setattr(VendorNotes, "vendor_notes_collection", fakes.notes)
     monkeypatch.setattr(AttendanceApi, "attendance_collection", fakes.attendance)
     monkeypatch.setattr(ApplicantAuth, "challenges_collection", fakes.challenges)
+    monkeypatch.setattr(RememberedSignIns, "remembered_collection", fakes.remembered)
     monkeypatch.setattr(History, "history_collection", fakes.history)
     monkeypatch.setattr(History, "legacy_placement_collection", fakes.placement_history)
     return fakes
@@ -696,6 +699,11 @@ if not STUBBED_MODULES:
     import sign_in_limits as _sign_in_limits_module
 
     _sign_in_limits_module.attempts_collection = FakeAttemptsCollection()
+
+    # And the vendors' remembered sign-ins, whose expiry index the same boot check builds (T202).
+    import remembered_sign_ins as _remembered_sign_ins_module
+
+    _remembered_sign_ins_module.remembered_collection = FakeApplicationsCollection()
 
     # And the users collection, whose unique address index the boot builds (E32/F03/S04).
     import api.users as _users_module

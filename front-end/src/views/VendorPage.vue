@@ -12,6 +12,10 @@
  * vendors, a slug that names nothing) answers alike, and reads as any page that is not there. A
  * request that never answered is neither: it says the page could not be loaded, and offers another
  * try, since it would load on the next one.
+ *
+ * A tab with no sign-in of its own asks the server once whether this device is remembered (ADR
+ * 0022) before it draws the sign-in; a remembered vendor is signed straight in, and anything else
+ * draws the sign-in as it would have been.
  */
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
@@ -43,6 +47,7 @@ async function load() {
     state.value = 'failed';
     return;
   }
+  if (!signedIn.value) await store.resume(marketSlug.value);
   if (signedIn.value) {
     await loadSignedIn();
     return;
@@ -65,8 +70,14 @@ watch(signedIn, (now, before) => {
   if (now && !before && state.value === 'ready') void loadSignedIn();
 });
 
-function signOut() {
-  store.logout();
+const signingOut = ref(false);
+const signOutFailed = ref(false);
+
+async function signOut() {
+  signingOut.value = true;
+  signOutFailed.value = false;
+  signOutFailed.value = !(await store.signOut(marketSlug.value));
+  signingOut.value = false;
 }
 
 onMounted(() => {
@@ -121,11 +132,20 @@ onMounted(() => {
           <button
             type="button"
             class="btn btn--secondary"
+            :disabled="signingOut"
             data-testid="vendor-page-sign-out-btn"
             @click="signOut"
           >
-            Sign out
+            {{ signingOut ? 'Signing out…' : 'Sign out' }}
           </button>
+          <p
+            v-if="signOutFailed"
+            class="vendor-page-sign-out-error"
+            role="alert"
+            data-testid="vendor-page-sign-out-error"
+          >
+            You could not be signed out. Check your connection and try again.
+          </p>
         </div>
       </template>
     </template>
@@ -186,6 +206,14 @@ onMounted(() => {
 
 .vendor-page-actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-3);
+}
+
+.vendor-page-sign-out-error {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-red);
 }
 </style>

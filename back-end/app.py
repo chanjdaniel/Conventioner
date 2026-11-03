@@ -360,16 +360,21 @@ app.config["REMEMBER_COOKIE_DURATION"] = UsersApi.REMEMBERED_SIGN_IN_LIFETIME
 app.config["REMEMBER_COOKIE_REFRESH_EACH_REQUEST"] = False
 app.config["SESSION_COOKIE_NAME"] = "session"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-# Not configurable, for the session cookie and the remember-me cookie alike: a SameSite=None cookie
+# Not configurable, for the session cookie, the remember-me cookie and a vendor's remember cookie
+# alike: a SameSite=None cookie
 # is one the browser attaches to cross-site requests, and browsers only accept such a cookie when it
 # is also Secure - so an environment variable that could turn this off would not "allow plain HTTP",
 # it would ship a cookie the browser drops, or sends in the clear where it does not. Loopback counts
 # as a secure context, so local dev is unaffected. The remember-me cookie is HttpOnly by Flask-Login's
-# default.
+# default. A vendor's remember cookie, `vendor_remember_<market id>` (`remembered_sign_ins`, ADR
+# 0022), is set from these three by that module, HttpOnly so no script on the vendor page reads it.
 app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.config["REMEMBER_COOKIE_SECURE"] = True
 app.config["REMEMBER_COOKIE_SAMESITE"] = "None"
+app.config["VENDOR_REMEMBER_COOKIE_SECURE"] = True
+app.config["VENDOR_REMEMBER_COOKIE_SAMESITE"] = "None"
+app.config["VENDOR_REMEMBER_COOKIE_HTTPONLY"] = True
 
 configure_public_endpoint_defenses(app, check_public_endpoint_defenses())
 install_error_answers(app)
@@ -1505,6 +1510,23 @@ def applicant_login_verify_code(market_slug: str) -> Response:
     and neither answer says whether the address applied.
     """
     result, status_code = ApplicantAuthApi.verify_login_code(market_slug)
+    return result, status_code
+
+
+@app.route('/public/markets/<market_slug>/applicant-login/resume', methods=['POST'])
+def applicant_login_resume(market_slug: str) -> Response:
+    """Sign a remembered vendor straight back in, from the market's remember cookie (ADR 0022).
+
+    A live cookie is answered as a right code is; every other way is one 401 that clears it.
+    """
+    result, status_code = ApplicantAuthApi.resume_sign_in(market_slug)
+    return result, status_code
+
+
+@app.route('/public/markets/<market_slug>/applicant-login/sign-out', methods=['POST'])
+def applicant_login_sign_out(market_slug: str) -> Response:
+    """End the vendor's remembered sign-in at this market, on the server and the device. 204."""
+    result, status_code = ApplicantAuthApi.sign_out(market_slug)
     return result, status_code
 
 

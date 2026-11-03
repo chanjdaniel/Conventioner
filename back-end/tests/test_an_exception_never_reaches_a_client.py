@@ -970,6 +970,10 @@ APPLICANT_REVIEW_IMPORT_AND_DOOR_ROUTES = [
     ("post", f"/public/markets/{SLUG}/applicant-login/verify-code",
      {"email": "ana@example.com", "code": "123456"},
      ApplicantAuthApi, "verify_login_code", SLUG),
+    ("post", f"/public/markets/{SLUG}/applicant-login/resume", None,
+     ApplicantAuthApi, "resume_sign_in", SLUG),
+    ("post", f"/public/markets/{SLUG}/applicant-login/sign-out", None,
+     ApplicantAuthApi, "sign_out", SLUG),
     ("get", f"/public/markets/{SLUG}/application-form", None,
      ApplicantsApi, "get_public_application_form", SLUG),
     ("get", f"/public/markets/{SLUG}/applicant/application", None,
@@ -1384,6 +1388,10 @@ READS_NO_BODY = [
      [(DiscordConnectionApi, "check", {"counts": {}, "checkedAt": "2026-10-31T00:00:00+00:00"})]),
     ("post", "/markets/<market_id>/discord/role-run",
      [(DiscordConnectionApi, "give_roles", {"counts": {}, "ranAt": "2026-10-31T00:00:00+00:00"})]),
+    ("post", "/public/markets/<market_slug>/applicant-login/resume",
+     [(ApplicantAuthApi, "resume_sign_in", HANDED_ON)]),
+    ("post", "/public/markets/<market_slug>/applicant-login/sign-out",
+     [(ApplicantAuthApi, "sign_out", HANDED_ON)]),
 ]
 # Each write route in app.py with a body another module reads: the view hands `request` to the
 # account API in api/users.py, or the applicant sign-in in api/applicant_auth.py reads it for its

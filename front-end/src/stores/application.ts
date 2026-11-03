@@ -3,6 +3,9 @@ import { ref } from 'vue';
 import {
   requestLoginCode,
   verifyLoginCode,
+  resumeSignIn,
+  endRememberedSignIn,
+  type SignedIn,
   verifyErrorFrom,
   codeStateFrom,
   type CodeState,
@@ -46,6 +49,10 @@ export interface VendorRead {
  *
  * Every read and write is guarded: storage can be unavailable (a private window, blocked site
  * data), and then the sign-in simply lasts as long as the page, as it always did.
+ *
+ * "Remember me" (ADR 0022) changes none of this: it spares the code, not the tab. A remembered
+ * device holds an HttpOnly cookie the server set, which this code never reads; a new tab asks the
+ * server to resume from it and keeps the token it is given here, as a right code's is.
  */
 const SESSION_KEY = 'conventioner.applicantSession';
 
@@ -147,12 +154,31 @@ export const useApplicationStore = defineStore('application', () => {
     }
   }
 
-  async function verifyCode(slug: string, email: string, code: string): Promise<boolean> {
+  /** Hold a sign-in the server gave, from a right code or a remembered one, for this tab. */
+  function holdSignIn(slug: string, result: SignedIn & { token: string }): void {
+    marketId.value = result.marketId;
+    marketSlug.value = slug;
+    applicantEmail.value = result.applicantEmail;
+    token.value = result.token;
+    keepSession({
+      marketId: result.marketId,
+      marketSlug: slug,
+      applicantEmail: result.applicantEmail,
+      token: result.token,
+    });
+  }
+
+  async function verifyCode(
+    slug: string,
+    email: string,
+    code: string,
+    remember = false,
+  ): Promise<boolean> {
     loading.value = true;
     error.value = null;
     codeState.value = null;
     try {
-      const result = await verifyLoginCode(slug, email, code);
+      const result = await verifyLoginCode(slug, email, code, remember);
       // Every successful sign-in carries a token now, applied or not (E26/F07/S01). Without one
       // this reported success and the page went back to "Sign In" with no word (bug 6), so a
       // reply without one is a failure, said as one.
@@ -160,16 +186,7 @@ export const useApplicationStore = defineStore('application', () => {
         error.value = 'Sign-in did not complete. Please request a new code and try again.';
         return false;
       }
-      marketId.value = result.marketId;
-      marketSlug.value = slug;
-      applicantEmail.value = result.applicantEmail;
-      token.value = result.token;
-      keepSession({
-        marketId: result.marketId,
-        marketSlug: slug,
-        applicantEmail: result.applicantEmail,
-        token: result.token,
-      });
+      holdSignIn(slug, { ...result, token: result.token });
       return true;
     } catch (err: unknown) {
       error.value = verifyErrorFrom(err);
@@ -177,6 +194,24 @@ export const useApplicationStore = defineStore('application', () => {
       return false;
     } finally {
       loading.value = false;
+    }
+  }
+
+  /**
+   * Sign a remembered device straight back in (ADR 0022); true when it was.
+   *
+   * Asked once, by a page with no sign-in in this tab, before it draws the sign-in. Anything but a
+   * live remembered sign-in - none, one that has ended, or no answer at all - is false, and says
+   * nothing: the page simply asks for a code, as it would have.
+   */
+  async function resume(slug: string): Promise<boolean> {
+    try {
+      const result = await resumeSignIn(slug);
+      if (!result.token) return false;
+      holdSignIn(slug, { ...result, token: result.token });
+      return true;
+    } catch {
+      return false;
     }
   }
 
@@ -243,8 +278,20 @@ export const useApplicationStore = defineStore('application', () => {
     keepSession(null);
   }
 
-  function logout(): void {
+  /**
+   * Sign out: end this device's remembered sign-in on the server, then this tab's (ADR 0022).
+   *
+   * False, still signed in, when the server could not be reached: a remembered device left as it
+   * was would sign them straight back in on their next visit, which is not what Sign out says.
+   */
+  async function signOut(slug: string): Promise<boolean> {
+    try {
+      await endRememberedSignIn(slug);
+    } catch {
+      return false;
+    }
     clearSession();
+    return true;
   }
 
   return {
@@ -264,9 +311,10 @@ export const useApplicationStore = defineStore('application', () => {
     loadVendorRead,
     requestCode,
     verifyCode,
+    resume,
     fetchApplication,
     saveApplication,
     clearSession,
-    logout,
+    signOut,
   };
 });

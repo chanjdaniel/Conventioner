@@ -9,10 +9,14 @@
  * A code takes five tries (T191 F22): a wrong one clears the field and keeps it focused for
  * another; once the code no longer works - its tries used, or its ten minutes up - the field and
  * "Sign in" go, and "Send a new code", after its wait, is the step's one action.
+ *
+ * "Remember me on this device" (ADR 0022) sits under the code, unticked until ticked, and only
+ * while the market has a date left (`rememberUntil`); it says the date it would last until.
  */
 import { computed, nextTick, onUnmounted, ref } from 'vue';
 import CodeInput from '@/components/CodeInput.vue';
 import { useApplicationStore } from '@/stores/application';
+import { getShortDate } from '@/utils/utils';
 
 const props = defineProps<{ marketSlug: string }>();
 
@@ -28,6 +32,12 @@ const validationError = ref<string | null>(null);
 const displayedError = computed(() => validationError.value || store.error);
 
 const codeInput = ref<InstanceType<typeof CodeInput> | null>(null);
+const remember = ref(false);
+/** The date Remember me would last until, or null when the page offers none. */
+const rememberUntil = computed(() => {
+  const until = store.page?.rememberUntil;
+  return until ? getShortDate(until) : null;
+});
 /** The code can no longer pass: only a new one is offered. */
 const spent = computed(() => store.codeState === 'spent');
 
@@ -85,7 +95,12 @@ async function verifyCode() {
   validationError.value = null;
   store.error = null;
   submitting.value = true;
-  await store.verifyCode(props.marketSlug, email.value.trim().toLowerCase(), code.value.trim());
+  await store.verifyCode(
+    props.marketSlug,
+    email.value.trim().toLowerCase(),
+    code.value.trim(),
+    Boolean(rememberUntil.value) && remember.value,
+  );
   submitting.value = false;
   if (store.codeState === 'retry') {
     code.value = '';
@@ -173,6 +188,20 @@ function goBack() {
             v-model="code"
             data-testid="vendor-sign-in-code-input"
           />
+        </div>
+        <div v-if="rememberUntil">
+          <label class="remember-me">
+            <input
+              v-model="remember"
+              type="checkbox"
+              aria-describedby="vendor-sign-in-remember-me-help"
+              data-testid="vendor-sign-in-remember-me"
+            />
+            Remember me on this device until {{ rememberUntil }}
+          </label>
+          <p id="vendor-sign-in-remember-me-help" class="remember-me-help">
+            Leave it unticked on a shared device.
+          </p>
         </div>
         <button
           type="submit"
@@ -269,6 +298,25 @@ function goBack() {
    are; the label stays left over its full-width field, as every label does (T191 F21). */
 .sign-in-instruction--centred {
   text-align: center;
+}
+
+/* The choice and its label are one target, at least `--target-min` tall (44px on a phone), and
+   only as wide as its words, so a tap beside it does not tick it; as at the organizer's sign-in. */
+.remember-me {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  font-size: var(--text-sm);
+  color: var(--mm-black);
+  cursor: pointer;
+}
+
+/* What the choice is for, said under it in the hint's size. */
+.remember-me-help {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
 }
 
 .sign-in-alt {

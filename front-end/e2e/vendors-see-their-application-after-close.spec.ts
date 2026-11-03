@@ -70,6 +70,8 @@ test('after results are published and applications close, a vendor still reads t
 
   // Anyone without a seat reads the other, rejected or not, and never why.
   await page.getByTestId('vendor-page-sign-out-btn').click();
+  // Signed out once the server has ended any remembered sign-in, and the page says so.
+  await expect(login.emailInput).toBeVisible();
   await page.goto(`/${market.marketSlug}`);
   await login.requestCode(TURNED_AWAY);
   createApplicantLoginChallenge(market.marketId, TURNED_AWAY, CODE);

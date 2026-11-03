@@ -28,22 +28,62 @@ export async function requestLoginCode(
  * tries left, "spent" for every other way a code cannot pass (`codeStateFrom`).
  *
  * A code lasts ten minutes and takes five tries; neither answer says whether the address applied.
+ * With `remember`, a right code also leaves this device remembered for the market (ADR 0022): the
+ * server sets an HttpOnly cookie no script here reads, which `resumeSignIn` spends.
  */
 export async function verifyLoginCode(
   marketSlug: string,
   email: string,
   code: string,
-): Promise<{ success: boolean; marketId: string; applicantEmail: string; token?: string }> {
+  remember: boolean,
+): Promise<SignedIn> {
   const { data } = await api.post(`/public/markets/${marketSlug}/applicant-login/verify-code`, {
     email,
     code,
+    remember,
   });
+  return signedInFrom(data);
+}
+
+/** What a right code, or a live remembered sign-in, answers. */
+export interface SignedIn {
+  success: boolean;
+  marketId: string;
+  applicantEmail: string;
+  token?: string;
+}
+
+function signedInFrom(data: Record<string, unknown>): SignedIn {
   return {
     success: true,
-    marketId: data.marketId,
-    applicantEmail: data.applicantEmail,
-    token: data.token,
+    marketId: String(data.marketId ?? ''),
+    applicantEmail: String(data.applicantEmail ?? ''),
+    token: typeof data.token === 'string' ? data.token : undefined,
   };
+}
+
+/**
+ * Sign this device's remembered vendor straight back in (ADR 0022).
+ * POST /public/markets/<slug>/applicant-login/resume
+ *
+ * The browser sends the market's remember cookie itself (`withCredentials`); a live one is answered
+ * as a right code is. Every other way, no cookie among them, is a 401, and the page asks for a code.
+ */
+export async function resumeSignIn(marketSlug: string): Promise<SignedIn> {
+  const { data } = await api.post(`/public/markets/${marketSlug}/applicant-login/resume`, null, {
+    timeout: APPLICANT_READ_TIMEOUT_MS,
+  });
+  return signedInFrom(data);
+}
+
+/**
+ * End this device's remembered sign-in at the market, on the server too, so a copy of the cookie
+ * stops working. POST /public/markets/<slug>/applicant-login/sign-out; 204 whether or not there was one.
+ */
+export async function endRememberedSignIn(marketSlug: string): Promise<void> {
+  await api.post(`/public/markets/${marketSlug}/applicant-login/sign-out`, null, {
+    timeout: APPLICANT_READ_TIMEOUT_MS,
+  });
 }
 
 /** What a refused code's step says: the server's sentence, which says what to do next. */

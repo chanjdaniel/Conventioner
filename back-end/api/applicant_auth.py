@@ -39,6 +39,13 @@ constraints:
    work is the same for all, and the send runs on a thread so the response goes out
    as soon as the challenge is stored.
 
+7. **Remember me spares the code, never the proof.** A right code with ``remember``
+   ticked also gives the browser a remembered sign-in (``remembered_sign_ins``): an
+   HttpOnly cookie holding a secret the server keeps only as a hash. ``resume``
+   answers for a live one exactly as a right code does, and every way one cannot
+   pass (none, tampered, ended, signed out, another market's, a gated market) is one
+   401 that also clears it. It is counted per caller before the cookie is read.
+
 A first-time vendor signs in exactly as a returning one does: the token names the
 address and the market, not an application, and their first save creates it.
 """
@@ -50,13 +57,14 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Optional
 
-from flask import jsonify, request
+from flask import current_app, jsonify, request
 from pymongo import ReturnDocument
 from pymongo.errors import PyMongoError
 
+import remembered_sign_ins as RememberedSignIns
 import sign_in_limits
 from db_config import get_database
-from market_documents import vendor_page_market_by_slug
+from market_documents import market_dates_of, market_id_at_slug, vendor_page_market_by_slug
 from utils.email import _email_disabled, ready_mailer, from_email, frontend_url
 from utils.application_token import generate_application_token
 from utils.email_address import normalized_email
@@ -89,13 +97,15 @@ class ApplicantLoginIndexError(RuntimeError):
 def ensure_applicant_login_indexes() -> None:
     """Build the indexes the applicant login endpoints rest on.
 
-    Three indexes:
+    Four indexes:
     1. A unique compound index on ``(market_id, email)`` so an address has at
        most one active challenge per market - a new request overwrites the old one.
     2. A TTL index on ``expires_at`` so expired challenges are cleaned up by
        the database, not by application code.
     3. The TTL index that expires the sign-in rate limit counters
        (``sign_in_limits``), without which they would pile up for ever.
+    4. The TTL index that removes a vendor's remembered sign-in once it has ended
+       (``remembered_sign_ins``).
 
     A build that fails raises, and the caller fails with it. This index is not
     a decoration; it is the guarantee that an address has one challenge, so the
@@ -120,12 +130,14 @@ def ensure_applicant_login_indexes() -> None:
             name="challenge_ttl",
         )
         sign_in_limits.ensure_expiry_index()
+        RememberedSignIns.ensure_expiry_index()
     except PyMongoError as exc:
         message = (
-            f"The indexes on {APPLICANT_LOGIN_CHALLENGES_COLLECTION} and "
-            f"{sign_in_limits.SIGN_IN_ATTEMPTS_COLLECTION} could not be built, so nothing "
-            f"is keeping one code per address or cleaning up expired challenges and "
-            f"rate limit counters: {exc}"
+            f"The indexes on {APPLICANT_LOGIN_CHALLENGES_COLLECTION}, "
+            f"{sign_in_limits.SIGN_IN_ATTEMPTS_COLLECTION} and "
+            f"{RememberedSignIns.REMEMBERED_SIGN_INS_COLLECTION} could not be built, so nothing "
+            f"is keeping one code per address or cleaning up expired challenges, rate limit "
+            f"counters and remembered sign-ins: {exc}"
         )
         logger.critical("%s", message)
         raise ApplicantLoginIndexError(message) from exc
@@ -188,6 +200,9 @@ _SPENT_BODY = {
     "message": "That code no longer works. Send yourself a new code.",
     "codeState": "spent",
 }
+
+# Every way a remembered sign-in cannot pass, one body for all; the page then asks for a code.
+_RESUME_FAILURE_BODY = {"message": "Sign in with a code."}
 
 
 # ── Rate limits ──────────────────────────────────────────────────────────
@@ -488,7 +503,7 @@ def verify_login_code(market_slug: str) -> tuple:
     market_doc = vendor_page_market_by_slug(
         db["markets"],
         market_slug,
-        fields=("id",),
+        fields=("id", "setupObject"),
     )
     if market_doc is None:
         return jsonify(_SPENT_BODY), _VERIFY_FAILURE_STATUS
@@ -504,15 +519,87 @@ def verify_login_code(market_slug: str) -> tuple:
         # with no token and was sent back to "Sign In" without a word (bug 6). Telling the person
         # who just read the code whether they have applied leaks nothing; the ruling is about
         # strangers, and no failure says it.
-        return jsonify({
-            "success": True,
-            "marketId": market_id,
-            "applicantEmail": email,
-            "token": generate_application_token(market_id, email),
-        }), 200
+        response = _signed_in(market_id, email)
+        _remember_on_this_device(
+            response, market_id, email, market_dates_of(market_doc),
+            remember=isinstance(data, dict) and data.get("remember") is True,
+        )
+        return response, 200
     if verified is _Verified.RETRY:
         return jsonify(_RETRY_BODY), _VERIFY_FAILURE_STATUS
     return jsonify(_SPENT_BODY), _VERIFY_FAILURE_STATUS
+
+
+def _signed_in(market_id: str, email: str):
+    """The answer to a right code, and to a live remembered sign-in: a 30-minute token."""
+    return jsonify({
+        "success": True,
+        "marketId": market_id,
+        "applicantEmail": email,
+        "token": generate_application_token(market_id, email),
+    })
+
+
+def _remember_on_this_device(response, market_id: str, email: str, market_dates, remember: bool):
+    """After a right code: remember this address on this device when ticked, and no one else.
+
+    A sign-in ends the remembered one the browser held for this market, whoever it named, so a
+    shared device left unticked remembers nobody, as an organizer's sign-in clears theirs. A market
+    whose last date has ended remembers nothing; the page offers no "Remember me" then.
+    """
+    held = RememberedSignIns.held_secret(market_id)
+    if held:
+        RememberedSignIns.forget(market_id, held)
+    made = RememberedSignIns.remember(market_id, email, market_dates) if remember else None
+    if made:
+        secret, expires_at = made
+        RememberedSignIns.set_cookie(response, market_id, secret, expires_at)
+    elif held:
+        RememberedSignIns.clear_cookie(response, market_id)
+
+
+def resume_sign_in(market_slug: str) -> tuple:
+    """Handle POST /public/markets/<slug>/applicant-login/resume.
+
+    A browser holding a live remembered sign-in for this market is answered exactly as a right
+    code is. Every way it cannot pass - no cookie, a tampered or ended one, one signed out, another
+    market's secret under this market's name, a market the vendor page gate no longer serves, a
+    slug naming nothing - answers one identical 401; a cookie the browser sent is forgotten on the
+    server and cleared, so it is refused for good. Never written on success, so use never moves
+    when it ends. Counted against the caller before the cookie is read.
+    """
+    refused = _caller_refusal(sign_in_limits.RESUME_PER_CALLER)
+    if refused:
+        return refused
+
+    market_doc = vendor_page_market_by_slug(db["markets"], market_slug, fields=("id",))
+    market_id = (market_doc or {}).get("id") or market_id_at_slug(db["markets"], market_slug)
+    secret = RememberedSignIns.held_secret(market_id) if market_id else None
+    email = RememberedSignIns.recall(market_id, secret) if market_doc and secret else None
+    if email:
+        return _signed_in(market_id, email), 200
+
+    response = jsonify(_RESUME_FAILURE_BODY)
+    if secret:
+        RememberedSignIns.forget(market_id, secret)
+        RememberedSignIns.clear_cookie(response, market_id)
+    return response, _VERIFY_FAILURE_STATUS
+
+
+def sign_out(market_slug: str) -> tuple:
+    """Handle POST /public/markets/<slug>/applicant-login/sign-out.
+
+    Ends the remembered sign-in the browser holds for this market, on the server and in the
+    browser, so a copy of the cookie stops working too. 204 whether or not there was one, and for a
+    market the gate no longer serves, whose cookie the browser may still hold.
+    """
+    market_id = market_id_at_slug(db["markets"], market_slug)
+    secret = RememberedSignIns.held_secret(market_id) if market_id else None
+    response = current_app.response_class(status=204)
+    if secret:
+        RememberedSignIns.forget(market_id, secret)
+        RememberedSignIns.clear_cookie(response, market_id)
+    return response, 204
 
 
 def delete_challenges_for_market(market_id: str) -> int:

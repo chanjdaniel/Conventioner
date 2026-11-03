@@ -28,6 +28,7 @@ from application_write import record_application_answers, validate_application_a
 import table_share as TableShare
 from market_documents import (
     applicant_intake_market_by_slug,
+    market_dates_of,
     market_doc_field,
     market_from_document,
     market_serves_applicants,
@@ -270,12 +271,7 @@ def get_vendor_page(market_slug: str) -> Tuple[Dict[str, Any], int]:
     if not market_doc:
         return {"error": MARKET_NOT_FOUND}, 404
 
-    setup = market_doc_field(market_doc, "setup_object") or {}
-    dates = sorted(
-        str(entry.get("date"))
-        for entry in (setup.get("marketDates") or [])
-        if isinstance(entry, dict) and entry.get("date")
-    )
+    dates = market_dates_of(market_doc)
     return {
         "marketName": market_doc.get("name", ""),
         "intakeMode": intake_mode_from_market_document(market_doc).value,

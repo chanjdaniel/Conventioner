@@ -55,12 +55,16 @@ REQUEST_CODE_PER_ADDRESS = SignInLimit("request-code:address", attempts=5, windo
 REQUEST_CODE_PER_CALLER = SignInLimit("request-code:caller", attempts=30, window=timedelta(minutes=15))
 VERIFY_CODE_PER_ADDRESS = SignInLimit("verify-code:address", attempts=10, window=timedelta(minutes=15))
 VERIFY_CODE_PER_CALLER = SignInLimit("verify-code:caller", attempts=60, window=timedelta(minutes=15))
+# A remembered vendor's page asks once per visit (``applicant-login/resume``). Its secret is not to
+# be guessed, so this bounds the work a caller makes the database do, not a guess.
+RESUME_PER_CALLER = SignInLimit("resume:caller", attempts=60, window=timedelta(minutes=15))
 
 LIMITS = (
     REQUEST_CODE_PER_ADDRESS,
     REQUEST_CODE_PER_CALLER,
     VERIFY_CODE_PER_ADDRESS,
     VERIFY_CODE_PER_CALLER,
+    RESUME_PER_CALLER,
 )
 
 

@@ -497,6 +497,31 @@ def vendor_page_market_by_slug(
     return market_doc
 
 
+
+def market_id_at_slug(collection: Any, market_slug: str) -> Optional[str]:
+    """The id of the market stored at this slug, in any phase, draft included; ``None`` for none.
+
+    Never a public answer: a stranger must learn nothing of a draft or a gated market. Only for
+    naming a cookie the browser already holds for it, so that a remembered sign-in on a vendor page
+    the gate no longer serves can still be cleared and signed out (``remembered_sign_ins``).
+    """
+    if not market_slug:
+        return None
+    found = collection.find_one(
+        market_doc_filter("slug", market_slug.strip().lower()), market_doc_projection(("id",)),
+    )
+    return (found or {}).get("id") or None
+
+
+def market_dates_of(market_doc: Dict[str, Any]) -> List[str]:
+    """The market's dates as its plan holds them, ``YYYY-MM-DD``, in order."""
+    setup = market_doc_field(market_doc, "setup_object") or {}
+    return sorted(
+        str(entry.get("date"))
+        for entry in (setup.get("marketDates") or [])
+        if isinstance(entry, dict) and entry.get("date")
+    )
+
 def market_from_document(
     document: Dict[str, Any], market_snake: Optional[Dict[str, Any]] = None
 ) -> Market:

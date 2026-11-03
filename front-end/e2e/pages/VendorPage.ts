@@ -81,6 +81,11 @@ export class VendorPage {
     return this.page.getByTestId('vendor-sign-in-error');
   }
 
+  /** "Remember me on this device until <date>", under the code; shown while the market has a date left. */
+  get rememberMe(): Locator {
+    return this.page.getByTestId('vendor-sign-in-remember-me');
+  }
+
   /** Fill email and click request to transition to the code step. */
   async requestCode(email: string) {
     await this.emailInput.fill(email);

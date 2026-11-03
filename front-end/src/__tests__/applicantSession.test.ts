@@ -11,6 +11,8 @@ import { createPinia, setActivePinia } from 'pinia';
 vi.mock('@/utils/applicantApi', () => ({
   requestLoginCode: vi.fn(),
   verifyLoginCode: vi.fn(),
+  resumeSignIn: vi.fn(),
+  endRememberedSignIn: vi.fn(async () => undefined),
   verifyErrorFrom: () => 'That code no longer works. Send yourself a new code.',
   codeStateFrom: () => 'spent',
   requestErrorFrom: () => 'Something went wrong.',
@@ -61,7 +63,7 @@ describe("a vendor's sign-in", () => {
     const store = freshStore();
     await store.verifyCode('spring-market', 'vendor@example.com', '123456');
 
-    store.logout();
+    await store.signOut('spring-market');
 
     expect(sessionStorage.getItem(KEY)).toBeNull();
     expect(freshStore().isAuthenticatedFor('spring-market')).toBe(false);

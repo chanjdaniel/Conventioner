@@ -827,6 +827,10 @@ NOT_A_CHANGE = {
         "a vendor signing in changes nothing on the market",
     ("POST", "/public/markets/<market_slug>/applicant-login/verify-code"):
         "a vendor signing in changes nothing on the market",
+    ("POST", "/public/markets/<market_slug>/applicant-login/resume"):
+        "a vendor signing in changes nothing on the market",
+    ("POST", "/public/markets/<market_slug>/applicant-login/sign-out"):
+        "a vendor signing out changes nothing on the market",
     ("POST", "/floorplans/upload"):
         "stores an image the market uses only once a floorplan is saved, which records",
     ("POST", "/floorplans/calibrate"): "measures an image and keeps nothing",

@@ -26,12 +26,16 @@ const fetchApplicantApplication = vi.fn();
 const requestLoginCode = vi.fn();
 const verifyLoginCode = vi.fn();
 const saveApplicantApplication = vi.fn();
+const resumeSignIn = vi.fn();
+const endRememberedSignIn = vi.fn();
 vi.mock('@/utils/applicantApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/utils/applicantApi')>()),
   fetchApplicantApplication: (...args: unknown[]) => fetchApplicantApplication(...args),
   saveApplicantApplication: (...args: unknown[]) => saveApplicantApplication(...args),
   requestLoginCode: (...args: unknown[]) => requestLoginCode(...args),
   verifyLoginCode: (...args: unknown[]) => verifyLoginCode(...args),
+  resumeSignIn: (...args: unknown[]) => resumeSignIn(...args),
+  endRememberedSignIn: (...args: unknown[]) => endRememberedSignIn(...args),
 }));
 
 const fetchPublicApplicationForm = vi.fn();
@@ -75,6 +79,19 @@ const BUSINESS_NAME = {
 };
 
 const NOT_FOUND: VendorPageRead = { page: null, notFound: true, failed: false };
+
+/** The server's answer to a remembered sign-in that cannot pass, or to no cookie at all. */
+function unauthorized(): AxiosError {
+  const config = { headers: {} } as InternalAxiosRequestConfig;
+  const response = {
+    data: { message: 'Sign in with a code.' },
+    status: 401,
+    statusText: 'UNAUTHORIZED',
+    headers: {},
+    config,
+  };
+  return new AxiosError('Request failed', 'ERR_BAD_REQUEST', config, {}, response);
+}
 const NEVER_ANSWERED: VendorPageRead = { page: null, notFound: false, failed: true };
 
 function application(overrides: Partial<Application> = {}): Application {
@@ -123,6 +140,11 @@ beforeEach(() => {
   fetchVendorPage.mockReset();
   fetchApplicantApplication.mockReset();
   saveApplicantApplication.mockReset();
+  // No remembered sign-in on this device unless a test says so; Sign out reaches the server.
+  resumeSignIn.mockReset();
+  resumeSignIn.mockRejectedValue(unauthorized());
+  endRememberedSignIn.mockReset();
+  endRememberedSignIn.mockResolvedValue(undefined);
   fetchPublicApplicationForm.mockReset();
   fetchPublicApplicationForm.mockResolvedValue({
     marketName: 'Spring Market',
@@ -435,6 +457,7 @@ describe('the page, signed in', () => {
     const wrapper = await mountPage();
 
     await wrapper.get('[data-testid="vendor-page-sign-out-btn"]').trigger('click');
+    await flushPromises();
 
     expect(has(wrapper, 'vendor-sign-in-email-input')).toBe(true);
     expect(sessionStorage.getItem(SESSION_KEY)).toBeNull();
@@ -658,5 +681,142 @@ describe('applying and editing on the page', () => {
       'does not have an application form yet',
     );
     expect(has(wrapper, 'apply-submit-button')).toBe(false);
+  });
+});
+
+describe('Remember me on this device (ADR 0022)', () => {
+  const SIGNED_IN = {
+    success: true,
+    marketId: 'market-1',
+    applicantEmail: 'vendor@example.com',
+    token: 'a-token',
+  };
+
+  async function atTheCodeStep(page = pageOf()) {
+    fetchVendorPage.mockResolvedValue(page);
+    requestLoginCode.mockResolvedValue({ message: "We've sent a code to this address." });
+    const wrapper = await mountPage();
+    await wrapper.get('[data-testid="vendor-sign-in-email-input"]').setValue('vendor@example.com');
+    await wrapper.get('[data-testid="vendor-sign-in-email-step"]').trigger('submit');
+    await flushPromises();
+    return wrapper;
+  }
+
+  async function enterTheCode(wrapper: Awaited<ReturnType<typeof mountPage>>) {
+    await wrapper.get('[data-testid="vendor-sign-in-code-input"]').setValue('123456');
+    await wrapper.get('[data-testid="vendor-sign-in-code-step"]').trigger('submit');
+    await flushPromises();
+  }
+
+  it('is offered unticked beside the code, saying until when', async () => {
+    const wrapper = await atTheCodeStep(pageOf({ rememberUntil: '2099-08-01' }));
+
+    const box = wrapper.get<HTMLInputElement>('[data-testid="vendor-sign-in-remember-me"]');
+    expect(box.element.checked).toBe(false);
+    expect(wrapper.get('[data-testid="vendor-sign-in-code-step"]').text()).toContain(
+      'Remember me on this device until Aug 1, 2099',
+    );
+  });
+
+  it('is not offered once the market has no date left', async () => {
+    const wrapper = await atTheCodeStep(pageOf({ rememberUntil: null }));
+
+    expect(has(wrapper, 'vendor-sign-in-remember-me')).toBe(false);
+  });
+
+  it.each([
+    [true, 'ticked'],
+    [false, 'left unticked'],
+  ])('sends the choice with the code when %s (%s)', async (ticked) => {
+    const wrapper = await atTheCodeStep();
+    verifyLoginCode.mockResolvedValue(SIGNED_IN);
+    fetchApplicantApplication.mockResolvedValue(application());
+    if (ticked) await wrapper.get('[data-testid="vendor-sign-in-remember-me"]').setValue(true);
+
+    await enterTheCode(wrapper);
+
+    expect(verifyLoginCode).toHaveBeenCalledWith(
+      'spring-market',
+      'vendor@example.com',
+      '123456',
+      ticked,
+    );
+  });
+
+  it('signs a remembered vendor straight in, with no code, and keeps it to this tab', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    resumeSignIn.mockResolvedValue({ ...SIGNED_IN, token: 'a-resumed-token' });
+    fetchApplicantApplication.mockResolvedValue(application());
+
+    const wrapper = await mountPage();
+
+    expect(resumeSignIn).toHaveBeenCalledTimes(1);
+    expect(resumeSignIn).toHaveBeenCalledWith('spring-market');
+    expect(fetchApplicantApplication).toHaveBeenCalledWith('spring-market', 'a-resumed-token');
+    expect(wrapper.get('[data-testid="vendor-page-status"]').text()).toContain('Submitted');
+    expect(has(wrapper, 'vendor-sign-in')).toBe(false);
+    expect(JSON.parse(sessionStorage.getItem(SESSION_KEY) ?? '{}').token).toBe('a-resumed-token');
+  });
+
+  it.each([
+    ['nothing to resume', () => unauthorized()],
+    ['no answer at all', () => new AxiosError('Network Error', 'ERR_NETWORK')],
+  ])('shows the sign-in on %s', async (_case, failure) => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    resumeSignIn.mockRejectedValue(failure());
+
+    const wrapper = await mountPage();
+
+    expect(resumeSignIn).toHaveBeenCalledTimes(1);
+    expect(has(wrapper, 'vendor-sign-in-email-input')).toBe(true);
+    expect(has(wrapper, 'vendor-sign-in-error')).toBe(false);
+    expect(has(wrapper, 'vendor-page-load-failed')).toBe(false);
+  });
+
+  it('is not asked in a tab already signed in', async () => {
+    signIn();
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(application());
+
+    await mountPage();
+
+    expect(resumeSignIn).not.toHaveBeenCalled();
+  });
+
+  it('is not asked where there is no vendor page', async () => {
+    fetchVendorPage.mockResolvedValue(NOT_FOUND);
+
+    await mountPage();
+
+    expect(resumeSignIn).not.toHaveBeenCalled();
+  });
+
+  it('is ended on the server by Sign out', async () => {
+    signIn();
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(application());
+    const wrapper = await mountPage();
+
+    await wrapper.get('[data-testid="vendor-page-sign-out-btn"]').trigger('click');
+    await flushPromises();
+
+    expect(endRememberedSignIn).toHaveBeenCalledWith('spring-market');
+    expect(has(wrapper, 'vendor-sign-in-email-input')).toBe(true);
+  });
+
+  it('keeps them signed in, and says so, when Sign out could not reach the server', async () => {
+    signIn();
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(application());
+    endRememberedSignIn.mockRejectedValue(new AxiosError('Network Error', 'ERR_NETWORK'));
+    const wrapper = await mountPage();
+
+    await wrapper.get('[data-testid="vendor-page-sign-out-btn"]').trigger('click');
+    await flushPromises();
+
+    expect(has(wrapper, 'vendor-page-status')).toBe(true);
+    expect(wrapper.get('[data-testid="vendor-page-sign-out-error"]').text()).toBe(
+      'You could not be signed out. Check your connection and try again.',
+    );
   });
 });
