@@ -81,7 +81,7 @@ A swap is atomic because three separate operations invite a half-finished state,
 Each of the four reads the whole assignment and writes it back whole (`_store_vendor_assignments`), so two changes at once would each store the assignment as it was before the other, and one would be lost without a word: two organizers moving two vendors into one empty seat both got a 200, and only one was seated, while the history recorded both moves.
 So the write lands only while `assignmentObject.revision` is still the one the change read, and counts it one more; otherwise it is refused, `AssignmentChangedUnderRequest` (409), "Someone else changed this market's tables while this change was being saved, so it was not saved. Reload the tables and try again.", before any history or payments line is recorded.
 An assignment stored before the count existed has none, and reads as 0.
-A free refused this way forgets the line it kept for the seat (`forget_freed_line`), since the seat is still held.
+A free refused this way puts back the line it kept for the seat, unless a free of the same seat landed meanwhile and kept its own ([payments](../data/payments.md)).
 
 **A seat goes only to an applicant.**
 `write_placement` writes the applicant's normalised address, and a placement or a swap naming someone the market has no application for is refused (`has_applied`, `_applicant_address`): [a seat only for an applicant](../../business/rules/a-seat-only-for-an-applicant.md).

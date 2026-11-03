@@ -108,6 +108,8 @@ From the empty seat:
 
 The vendor sits at the new table and their old seat is free, through the one write that places a vendor on a date ([placements](../../implementation/modules/placements.md)); the history records it as one entry, "Moved <vendor> from North Wing 1 to Landing 2 (Full Table)" ([J13](#j13-assignment-history)), and the day's line of what they owe follows the new table's price, unless an Admin set the amount by hand ([a price follows the table](../rules/a-price-follows-the-table.md)).
 A seat taken by someone else meanwhile is refused with the server's reason in the dialog, which stays open to choose again.
+Any change to the tables, a placement, a move, a swap, a free or a run, that lands while someone else's change to them is being saved is refused, and none of it is saved: "Someone else changed this market's tables while this change was being saved, so it was not saved. Reload the tables and try again." ([placements](../../implementation/modules/placements.md)).
+The page does not read the tables again by itself, so reloading shows what the other change did.
 Covered by:
 - `moving-a-vendor-to-an-empty-seat.spec.ts`
 - `placement-edit.spec.ts`

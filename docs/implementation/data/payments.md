@@ -47,7 +47,7 @@ The tab tells the two apart: a free's $0 reads "Removed when the table was freed
 
 **Freeing a table never changes either amount by itself** (Q26: after the cancellation deadline "the amount owed and amount paid dont change even though the table did").
 `remove_placement` in [`back-end/api/placements.py`](../../../back-end/api/placements.py), the one door that frees a seat ([placements](../modules/placements.md)), keeps the seat's line as it stood (`keep_freed_line`) before it frees the seat, so a line that could not be kept leaves the seat where it was.
-A free refused because another change to the tables landed first leaves the seat held, and forgets the line it kept (`forget_freed_line`).
+A free refused because another change to the tables landed first puts the line back as it was before it kept it (`restore_freed_line`), but only while the line still holds the record this free wrote: a free of the same seat that landed meanwhile kept its own record, and that record, with any $0 its deduction set, stays the line's.
 The line stays, owing what the seat cost the day it was freed, until someone sets the amount, and says where that number came from: the seat, and that it was freed and when ("North Wing 1, Gold, full table - table freed Oct 30, 2026", `lineSource` in `payments.ts`; Daniel: "from Sunday, now deleted"); seated again that day, the vendor's line follows the new seat.
 A run keeps no line for a seat of its own that a later run moves: it runs only in assignment, before results are published, while the assignment is still being made, and every hand placement is a pin each run keeps.
 Every free keeps the line, before results are published too (Daniel chose this over dropping it, after T121's review).
