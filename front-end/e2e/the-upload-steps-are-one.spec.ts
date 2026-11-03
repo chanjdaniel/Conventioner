@@ -99,10 +99,8 @@ test.describe('The upload steps are one', () => {
       if (await start.fileInput.evaluate((input) => input === document.activeElement)) break;
     }
     await expect(start.fileInput).toBeFocused();
-    await expect(start.dropZone).toHaveCSS(
-      'box-shadow',
-      new RegExp(HALO.replace(/[().]/g, '\\$&')),
-    );
+    const shadow = await start.dropZone.evaluate((zone) => getComputedStyle(zone).boxShadow);
+    expect(shadow).toContain(HALO);
 
     for (const key of ['Enter', 'Space']) {
       const chooser = page.waitForEvent('filechooser');
