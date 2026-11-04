@@ -286,7 +286,12 @@ const emptyText = computed(() => {
       />
       <label class="history-filter">
         <span class="field-label">Kind of change</span>
-        <select v-model="group" class="field field--select" data-testid="market-history-kind">
+        <select
+          v-model="group"
+          class="field field--select"
+          name="market-history-kind"
+          data-testid="market-history-kind"
+        >
           <option value="">Every kind</option>
           <option v-for="g in groups" :key="g.group" :value="g.group">{{ g.group }}</option>
         </select>
@@ -312,6 +317,7 @@ const emptyText = computed(() => {
           type="date"
           class="field"
           :max="to || undefined"
+          name="market-history-from"
           data-testid="market-history-from"
         />
       </label>
@@ -322,6 +328,7 @@ const emptyText = computed(() => {
           type="date"
           class="field"
           :min="from || undefined"
+          name="market-history-to"
           data-testid="market-history-to"
         />
       </label>
