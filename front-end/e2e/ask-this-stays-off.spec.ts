@@ -61,7 +61,10 @@ test('"Ask this" stays off after a custom field is added and the form saved', as
   expect(market.applicationForm.fields.map((f) => f.label)).toEqual(['Product category']);
   expect(market.applicationForm.unaskedEssentials).toContain('essential_section_ranking');
 
+  // A refresh keeps the step the address names (T206), so read the essentials on their own step.
   await page.reload();
+  await expect(page.getByTestId('form-step-title')).toHaveText('Your questions');
+  await page.getByTestId('form-step-essentials').click();
   await expect(page.getByTestId('essential-asks-section').getByRole('checkbox')).not.toBeChecked();
   // The applicant form is what the preview renders: a switched-off question is not on it, and is
   // certainly not marked required.

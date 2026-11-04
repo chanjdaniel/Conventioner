@@ -44,7 +44,7 @@ A draft opens on Market Setup, and an address naming a tab opens that tab, so a 
 One edit is one save, and another tab's edits survive it (bug 25, `plan-saves-once.spec.ts`).
 Any pending edit is saved before a phase move, so the guards judge what the organizer sees.
 The cards share rows by the design language's one rule ([a screen of cards is a two-track grid](../../design-system.md#layout)): Market Dates, Section Setup and Pricing are wide, Tier Setup sits beside Location Setup, and How vendors apply beside Application form, at every width with room for two.
-The plan is the market's setup, and it settles when the market leaves Draft ([E7](#e7-edit-the-plan-after-draft)); leaving Draft asks for dates none of which has passed, a location, and tables at every tier ([the lifecycle](lifecycle.md#what-refuses-a-move)).
+The plan is the market's setup, and it settles when the market leaves Draft ([E7](#e7-edit-the-plan-after-draft)); leaving Draft asks for dates none of which has passed, a location, tables at every tier, and Review setup's two decisions ([the lifecycle](lifecycle.md#what-refuses-a-move), [review waits on the review setup](../rules/review-waits-on-the-review-setup.md)).
 Covered by:
 - `plan-saves-once.spec.ts`
 

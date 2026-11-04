@@ -9,7 +9,7 @@ describes:
   - back-end/api/markets.py#create_market
   - back-end/api/markets.py#copy_organization_default
   - back-end/datatypes.py#MarketPermission
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - E39
   - E39/F01/S03

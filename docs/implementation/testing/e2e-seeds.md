@@ -11,7 +11,6 @@ describes:
   - front-end/e2e/helpers/seeds.ts#seedPublishedMarketWithAssignments
   - front-end/e2e/helpers/seedAssignedMarket.ts
   - front-end/e2e/helpers/seedPhaseMarket.ts
-  - front-end/e2e/helpers/seedPeopleAtScale.ts
   - front-end/e2e/helpers/seedDraftMarket.ts
   - front-end/e2e/helpers/seedApplicantMarket.ts
   - front-end/e2e/helpers/seedApplication.ts#seedApprovedVendor
@@ -23,6 +22,8 @@ describes:
   - front-end/e2e/helpers/backendScript.ts
   - back-end/create_test_user.py
   - front-end/e2e/helpers/exampleCollegeMarket.ts
+  - front-end/e2e/helpers/decideReviewSetup.ts
+  - front-end/e2e/helpers/seedPeopleAtScale.ts
 verified: 2026-11-03
 sources:
   - E02
@@ -40,6 +41,7 @@ sources:
   - T148
   - E38/F12/S01
   - T181
+  - T206
   - T204
 ---
 
@@ -75,14 +77,24 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
 
 **`seedDraftMarket()`** ([file](../../../front-end/e2e/helpers/seedDraftMarket.ts))
 - Leaves: a draft with no plan and no form
-- Notes: what an organizer has the moment the new-market dialog closes
+- Notes:
+  - what an organizer has the moment the new-market dialog closes
+  - its review setup undecided, as a new market's is
 
 **`seedPhaseMarket()`, `seedFormlessPhaseMarket()`** ([file](../../../front-end/e2e/helpers/seedPhaseMarket.ts))
 - Leaves: a draft that may open applications: a complete plan, and a two-field form or none
 - Notes:
   - does not move the phase
+  - its review setup decided, unless `reviewSetupUndecided: true`
   - `orgId` puts it in that organization, which the signed-in user runs, rather than their first
   - `transitionMarket()` and `seedApplicationWithStatus()` beside them
+
+**`decideReviewSetup()`** ([file](../../../front-end/e2e/helpers/decideReviewSetup.ts))
+- Leaves: a market's review setup decided through its own writes: nothing leads the card, and no automatic rejections (T206)
+- Notes:
+  - every seed here that leaves a draft ready for Review calls it, `seedDraftMarket()` alone excepted
+  - a spec that takes a draft of its own making into Review by its own request calls it first
+  - a spec about the decisions asks its seed for `reviewSetupUndecided: true` instead
 
 **`seedPeopleAtScale()`** ([file](../../../front-end/e2e/helpers/seedPeopleAtScale.ts))
 - Leaves: a `form` market in `applications` whose organization has 150 people, the case every people list and chooser must hold (T204):
@@ -100,6 +112,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
 - Leaves: a draft with a complete plan, a one-field form and two approved vendors
 - Notes:
   - the vendors are written into Mongo
+  - its review setup decided
   - `dates` gives it more than the one date
   - a CSV market unless `intakeMode` says `form`
 
@@ -115,6 +128,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
 - Leaves: the above, in `market_days`, with its slug
 - Notes:
   - a `form` market publishes its results first
+  - its review setup decided
   - `vendors` seeds others than alice and bob, a table each
   - `namePrefix` starts its name, and so its addresses, with a long one
 
@@ -125,6 +139,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - a `form` one left a draft with `draft: true`, to be opened from the rail
 - Notes:
   - `fields` gives its form its own questions
+  - its review setup decided before it opens, the drafts' too, unless `reviewSetupUndecided: true`
   - it creates no application
   - `seedApplicationDoc()` and `createApplicantLoginChallenge()` write one and a known sign-in code into Mongo
 
@@ -132,6 +147,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
 - Leaves: a draft on the vendors' own page, with two dates, Gold and Silver, and the Example College form's two choice questions
 - Notes:
   - the Example College fixture both `price-groups.spec.ts` and `the-price-answers.spec.ts` share
+  - its review setup decided
   - `EXAMPLE_PRICING` and `EXAMPLE_GROUPS` give its three groups and "Everyone else", and it writes no prices itself
 
 **`seedApplication()`, `seedApprovedVendor()`** ([file](../../../front-end/e2e/helpers/seedApplication.ts))
@@ -141,6 +157,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
 **`seedTheScreens()`** ([file](../../../front-end/e2e/helpers/seedTheScreens.ts))
 - Leaves: the stress markets the sweeps walk:
   - one in every phase
+  - every market's review setup decided as it is made
   - names of about 70 characters
   - 40 applications in every review state
   - a review divided between the organizer and a Viewer (the organizer's share all decided)

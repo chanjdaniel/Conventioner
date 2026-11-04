@@ -85,6 +85,14 @@ class Rulebook:
                 self.rules.append(RejectionRule(
                     key=rule.key, answers=[a for a in rule.answers if a in offered]))
         self.results_published = bool(market.results_published)
+        self.no_automatic_rejections = market.no_automatic_rejections
+
+    def decided(self) -> bool:
+        """Whether the organizer has decided the automatic rejections, which a draft must have done
+        before it enters Review (T206, ``guards.RejectionRulesDecidedGuard``): chosen that none
+        apply, or a rule, as it stands against the current form, names an answer that rejects. No
+        rules is nobody having asked, and a rule with no answer ticked rejects nothing."""
+        return self.no_automatic_rejections or any(rule.answers for rule in self.rules)
 
     def served_rules(self) -> List[Dict[str, Any]]:
         return [rule.model_dump() for rule in self.rules]

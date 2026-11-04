@@ -37,6 +37,7 @@ One line per node, sorted by file name.
 - [Publish results waits for the allocation](publish-results-waits-for-the-allocation.md) - a form market publishes in assignment once a current run is stored, which settles it
 - [Review highlights](review-highlights.md) - the market marks the answers a reviewer reads first; on the market, never the form, so they change after it locks
 - [Review needs an import](review-needs-an-import.md) - on the Google Form path the first import is the way into Review, and a late export is a Redo import
+- [Review waits on the review setup](review-waits-on-the-review-setup.md) - a draft enters Review only once what a reviewer reads first and the automatic rejections are decided, each "none" one click; only leaving draft asks
 - [Table-share pairing](table-share-pairing.md) - one-way is enough, a person's own request outranks one about them, the first applicant named
 - [The assignment rules close with the assignment](the-assignment-rules-close-with-the-assignment.md) - the priority and the options lock once the market can no longer reach assignment
 - [The form locks at the first application](the-form-locks-at-the-first-application.md) - the form is editable only in draft and only until anyone has applied (D9)

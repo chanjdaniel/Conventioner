@@ -9,7 +9,7 @@ import sys
 from types import SimpleNamespace
 
 import pytest
-from conftest import COMPLETE_PLAN, sessions_load_through_get_user
+from conftest import COMPLETE_PLAN, REVIEW_SETUP_DECIDED, sessions_load_through_get_user
 
 from conftest import skip_without_real_dependencies
 
@@ -48,9 +48,11 @@ def _market_doc(phase="draft", fields=None, is_draft=True, plan=COMPLETE_PLAN, i
         "assignmentObject": {},
         "isDraft": is_draft,
         "applicationForm": {"fields": fields if fields is not None else []},
-        # Complete, so leaving draft is judged on the form alone here (E31/F01/S01).
+        # Complete, so leaving draft is judged on the form alone here (E31/F01/S01)...
         "setupObject": plan,
         "intakeMode": intake,
+        # ...and its review setup decided (T206), for the same reason.
+        **REVIEW_SETUP_DECIDED,
     }
     if phase is not None:
         doc["phase"] = phase
