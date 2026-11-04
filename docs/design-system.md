@@ -24,6 +24,8 @@ describes:
   - front-end/scripts/brand-icons.ts
   - front-end/index.html
   - front-end/public/manifest.webmanifest
+  - front-end/src/components/icons/
+  - front-end/src/__tests__/everyIconIsUsed.test.ts
 verified: 2026-11-04
 sources:
   - wayfinding/claims-and-room/map
@@ -382,6 +384,9 @@ When the mark changes, run `npm run brand-icons` in `front-end/` and commit what
 `index.html`'s ICO link says `sizes="32x32"` on purpose: without it Chrome may choose the ICO over the SVG, and `sizes="any"` makes it download both.
 [`manifest.webmanifest`](../front-end/public/manifest.webmanifest) is written by hand, and its `display` is `browser`, so an icon on a home screen opens the same site with the address bar an organizer copies a market's link from.
 [`the-brand-reaches-the-browser.spec.ts`](../front-end/e2e/the-brand-reaches-the-browser.spec.ts) fetches every icon as a browser would and holds its content type, since a missing file falls through to `index.html` with a 200.
+
+An icon lives in [`front-end/src/components/icons/`](../front-end/src/components/icons/) as `Icon<Name>.vue`, a local SVG drawing in `currentColor` ([ADR 0015](adr/0015-the-app-owns-its-components.md)).
+An icon is added when a screen uses it, and [`everyIconIsUsed.test.ts`](../front-end/src/__tests__/everyIconIsUsed.test.ts) fails, naming the icon, for one that no source file outside the tests and the icons folder imports.
 
 ## The primitive layer
 
