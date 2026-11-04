@@ -202,6 +202,16 @@ const removingAMarketRole = async (page: Page, seed: TheScreensSeed) => {
   await visible(page, 'manage-market-remove-keeps');
 };
 
+/**
+ * Manage market on the divided market, its Viewer's select choosing Admin (T211): the longest list
+ * the confirmation has, every row above Viewer up to Admin, in a body that scrolls.
+ */
+const changingAMarketRole = async (page: Page, seed: TheScreensSeed) => {
+  await managing('dealt')(page, seed);
+  await page.getByTestId('manage-market-role-select').selectOption('admin');
+  await visible(page, 'manage-market-role-change-gains');
+};
+
 const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
 
 /** The floor plan the floorplan specs upload: an 800x600 hall, fixture data. */
@@ -343,6 +353,13 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: FITS_A_PHONE,
     open: removingAMarketRole,
+  },
+  {
+    // Its role select asking first (T211), Viewer to Admin, the confirmation's longest list.
+    name: 'the manage-market dialog, changing a market role',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: changingAMarketRole,
   },
   {
     // Its History section, loaded, with an entry opened to its before and after (E40/F01/S03).

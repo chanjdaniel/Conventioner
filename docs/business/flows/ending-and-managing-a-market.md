@@ -11,6 +11,8 @@ describes:
   - front-end/src/utils/permissionTable.ts
   - front-end/e2e/the-permissions-section.spec.ts
   - front-end/e2e/removing-someone-asks-first.spec.ts
+  - front-end/e2e/changing-a-role-asks-first.spec.ts
+  - front-end/src/utils/openInsteadOfStepping.ts
 verified: 2026-11-04
 sources:
   - E20/F01/S03
@@ -89,7 +91,7 @@ Covered by:
 
 ## L3. Manage who has access
 
-**Status:** Works (the owner's row and the refusals read from the code as of E20/F01/S03 and bug 43's fix; the organization's people as of E38/F12/S01, driven by `everyone-with-access.spec.ts`).
+**Status:** Works (the owner's row and the refusals read from the code as of E20/F01/S03 and bug 43's fix; the organization's people as of E38/F12/S01, driven by `everyone-with-access.spec.ts`; a role change's confirmation as of T211, driven by `changing-a-role-asks-first.spec.ts`).
 
 1. "Manage" opens "Manage market"; "Users with access" lists everyone with a role on the market, by its own roles or through its organization, each once at the role that counts: the owner first, then Admin, Editor and Viewer, then by address, so someone just added takes their place in that order, never the top.
    The market read serves the list in that order as `peopleWithAccess` ([one market, from the server](../../implementation/conventions/one-market-from-the-server.md)), and the dialog words each row with [`peopleWithAccess.ts`](../../../front-end/src/utils/peopleWithAccess.ts).
@@ -97,6 +99,11 @@ Covered by:
 2. A role that comes from the organization says where: "Admin, through <organization>" for its owner and admins, "Viewer, through <organization>" for a member, with no select and no Remove, since only Manage organization changes it.
    A person whose market role adds nothing beside the organization's (the organization's reaches it, a tie included) reads, under that, "Also Editor on this market: this adds nothing while they are an admin of <organization>." ("a member of" for a member), with a Remove that takes only the market role, to tidy it away.
 3. A market role that counts, the organization's being lower or none, is a dropdown of the roles the reader may give (Admin, Editor, Viewer); any other role, the owner's always, is stated as a word, not offered.
+   Its arrow keys open its list rather than step it ([`openInsteadOfStepping.ts`](../../../front-end/src/utils/openInsteadOfStepping.ts)), since each step would be a change to confirm.
+   Choosing a role asks first, since one slip of the dropdown changed someone's access at once (T211): "Make e2e@example.com an Editor?", then "They are a Viewer on Spring Market now." and what the move changes, read from this market's own table.
+   Moving up lists under "As an Editor they could also:" the rows above the role held, up to the role chosen; moving down lists under "As a Viewer they could no longer:" the rows above the role chosen, up to the role held; with no row between them it says "This market's permissions treat the two roles alike, so nothing they may do changes."
+   It is not a destructive dialog, since another change undoes it, and only its body scrolls, so the question and "Change role" stay in sight above and below Viewer to Admin's list.
+   Cancel, Escape and the backdrop put the dropdown back on the role held and give it focus, with nothing sent; "Change role" writes the role, the list re-reads in place with the dialog open, and focus is on the dropdown, or on the list when someone who changed their own role is left without one.
 4. "Remove" beside each such person the reader may remove; never the owner.
    It asks first, in a destructive confirmation that opens on Cancel (E38/F15/S01): "Remove walk390@example.com from Spring Market?", then "They lose their Editor role on it." and, for someone in the organization, "They can still view it as a member of <organization>." ("run it as an admin of" for an admin).
    Cancel and Escape change nothing and give focus back to that Remove; "Remove" takes the market role, the list re-reads in place with the dialog open, and focus goes to the list; a refusal is said in the confirmation, whose Remove may be pressed again.
@@ -105,12 +112,13 @@ Covered by:
 5. Under the list, when a row comes through the organization: "Organization admins and members are managed in Manage organization.", "Manage organization" a link to `/organizations?manage=<id>`, which opens that organization's dialog, for a reader who belongs to it, and plain words for anyone else.
 6. "Add user", for an Admin or the owner only (bug 37): the email, the role, "Add", and "Cancel" on the same row, or on a phone the email above the rest.
    An address that already has a role on the market is refused beneath the row, pointing to that person's own row: adding once overwrote any role, the owner's too, around the guards a role change keeps (T15).
-7. A refused change of role is said beneath that person's row, which keeps the role they hold.
+7. A refused change of role closes the confirmation and is said beneath that person's row, whose dropdown is back on the role they hold.
 
 The organization line says "Belongs to <organization>. Its admins run it; its members can view it."
 Covered by:
-- `*-sweep.spec.ts`, the sweeps' states "the manage-market dialog, an organization's people" and "the manage-market dialog, removing a market role"
+- `*-sweep.spec.ts`, the sweeps' states "the manage-market dialog, an organization's people", "the manage-market dialog, removing a market role" and "the manage-market dialog, changing a market role"
 - `access-control.spec.ts`
+- [`changing-a-role-asks-first.spec.ts`](../../../front-end/e2e/changing-a-role-asks-first.spec.ts) (the confirmation's words, its closes, one write on confirm and where focus goes, a table whose owner moved a row, a refusal, the arrow keys, and Viewer to Admin in sight at 1280 and 390)
 - [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (the walk's case, and at 390 nothing overflowing and each Remove a 44px target, on one edge)
 - [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) (the confirmation's words, Cancel, Escape, confirming and where focus goes, someone removed in another window included, at 1440 and 390)
 - `the-manage-market-dialog-holds-together.spec.ts`

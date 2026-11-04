@@ -23,7 +23,14 @@ import {
 } from '@/utils/permissions';
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { intakeModeOf } from '@/utils/marketGuide';
-import { alsoWords, marketRemoval, roleAddingNothing, roleWords } from '@/utils/peopleWithAccess';
+import { openInsteadOfStepping } from '@/utils/openInsteadOfStepping';
+import {
+  alsoWords,
+  marketRemoval,
+  marketRoleChange,
+  roleAddingNothing,
+  roleWords,
+} from '@/utils/peopleWithAccess';
 
 const props = defineProps<{
   manageOpen: boolean;
@@ -63,6 +70,17 @@ const removing = ref<{
 const removeError = ref('');
 const removeBusy = ref(false);
 const peopleList = ref<HTMLElement | null>(null);
+/**
+ * The role a select has chosen, until it is confirmed or cancelled (T211), with the select that
+ * chose it, to put back, and the words the confirmation says, taken when it opens, as Remove's are.
+ */
+const roleChange = ref<
+  | ({ userId: string; held: MarketRole; role: MarketRole; select: HTMLSelectElement } & ReturnType<
+      typeof marketRoleChange
+    >)
+  | null
+>(null);
+const roleChangeBusy = ref(false);
 
 watch(
   () => [props.manageOpen, props.market] as const,
@@ -74,6 +92,7 @@ watch(
       deleteConfirming.value = false;
       removing.value = null;
       removeError.value = '';
+      roleChange.value = null;
       errorMessage.value = '';
       userError.value = null;
       addUserError.value = '';
@@ -216,21 +235,69 @@ async function handleRemoveUser() {
   peopleList.value?.focus();
 }
 
-/** A refused change puts the select back on the role they still hold, and says why under it. */
-async function handleRoleChange(userId: string, held: MarketRole, select: HTMLSelectElement) {
-  if (!marketData.value) return;
+/**
+ * A role change asks first (T211): one slip of the select changed someone's access at once. The
+ * select keeps showing the choice behind the confirmation, and nothing is sent until it is confirmed.
+ */
+function askToChangeRole(person: PersonWithAccess, select: HTMLSelectElement) {
+  const role = select.value as MarketRole;
+  if (!marketData.value || role === person.role) return;
   userError.value = null;
+  roleChange.value = {
+    userId: person.userId,
+    held: person.role,
+    role,
+    select,
+    ...marketRoleChange(
+      person,
+      role,
+      marketData.value.name,
+      marketData.value.permissionTable ?? [],
+    ),
+  };
+}
+
+/** Cancel, Escape and the backdrop change nothing; the shell gives focus back to the select. */
+function cancelRoleChange() {
+  if (!roleChange.value || roleChangeBusy.value) return;
+  roleChange.value.select.value = roleChange.value.held;
+  roleChange.value = null;
+}
+
+/**
+ * Confirmed: the role is changed, and the list re-read in place with Manage market still open. The
+ * shell gives focus back to the select, unless the person looking changed their own role and may
+ * no longer change one, when the select is gone and focus goes to the list. A refusal closes the
+ * confirmation and is said beneath the row, where it has always been said (bug 43), with the select
+ * back on the role they still hold.
+ */
+async function handleRoleChange() {
+  const target = roleChange.value;
+  if (!marketData.value || !target || roleChangeBusy.value) return;
+  roleChangeBusy.value = true;
   try {
     await api.put(
-      `/markets/${encodeURIComponent(marketData.value.id)}/roles/${encodeURIComponent(userId)}`,
-      { role: select.value as MarketRole },
+      `/markets/${encodeURIComponent(marketData.value.id)}/roles/${encodeURIComponent(target.userId)}`,
+      { role: target.role },
     );
-    changesMade.value++;
-    await fetchMarket(false);
   } catch (err) {
-    select.value = held;
-    userError.value = { userId, message: getApiErrorMessage(err, 'The role was not changed.') };
+    target.select.value = target.held;
+    userError.value = {
+      userId: target.userId,
+      message: getApiErrorMessage(err, 'The role was not changed.'),
+    };
+    roleChange.value = null;
+    roleChangeBusy.value = false;
+    return;
   }
+  // Busy until the confirmation closes: during the re-read its confirm would send a second write.
+  changesMade.value++;
+  await fetchMarket(false);
+  roleChange.value = null;
+  roleChangeBusy.value = false;
+  // Once the confirmation has closed and the page behind it is no longer inert.
+  await nextTick();
+  if (!target.select.isConnected) peopleList.value?.focus();
 }
 
 /**
@@ -375,7 +442,8 @@ async function closeAddUser() {
                 :aria-label="`${row.email}'s role`"
                 class="field field--select role-select"
                 data-testid="manage-market-role-select"
-                @change="handleRoleChange(row.userId, row.role, $event.target as HTMLSelectElement)"
+                @keydown="openInsteadOfStepping"
+                @change="askToChangeRole(row, $event.target as HTMLSelectElement)"
               >
                 <option :value="row.role">{{ getRoleDisplayName(row.role) }}</option>
                 <option v-for="r in changeableRoles(row.role)" :key="r" :value="r">
@@ -595,6 +663,29 @@ async function closeAddUser() {
         {{ ' ' }}<span data-testid="manage-market-remove-keeps">{{ removing.keeps }}</span>
       </template>
     </p>
+  </AppDialog>
+
+  <!-- Not destructive, since another change undoes it. Its body scrolls: Viewer to Admin lists about
+       twenty rows on the default table, and the question and its answer stay in sight. -->
+  <AppDialog
+    :open="manageOpen && !!roleChange"
+    :title="roleChange?.title ?? ''"
+    testid="manage-market-role-change"
+    scroll="body"
+    confirm-label="Change role"
+    :confirm-disabled="roleChangeBusy"
+    @close="cancelRoleChange"
+    @submit="handleRoleChange"
+  >
+    <template v-if="roleChange">
+      <p class="confirm-text" data-testid="manage-market-role-change-was">{{ roleChange.was }}</p>
+      <div :data-testid="`manage-market-role-change-${roleChange.kind}`">
+        <p class="confirm-text">{{ roleChange.lead }}</p>
+        <ul v-if="roleChange.rows.length" class="role-change-rows">
+          <li v-for="label in roleChange.rows" :key="label">{{ label }}</li>
+        </ul>
+      </div>
+    </template>
   </AppDialog>
 
   <!--
@@ -823,6 +914,17 @@ async function closeAddUser() {
 
 .confirm-text {
   margin: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
+}
+
+.role-change-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
   font-size: var(--text-sm);
   color: var(--mm-black);
 }

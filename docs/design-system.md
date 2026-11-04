@@ -19,7 +19,7 @@ describes:
   - front-end/e2e/focus-sweep-detectors.spec.ts
   - front-end/e2e/helpers/focusSweep.ts
   - front-end/e2e/a-links-halo-appears-at-once.spec.ts
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01
@@ -62,6 +62,7 @@ sources:
   - E38/F15/S01
   - T181
   - T180
+  - T211
 ---
 
 # Conventioner's design language
@@ -405,6 +406,7 @@ The halo hugs what it marks: it takes `--radius-control` on any control that set
 A tab whose underline is a bottom border curls that underline only while it is focused, as the vendor drawer's tabs do.
 What a script focuses and Tab never reaches (`tabindex="-1"`), such as AppDialog's window when no control in it is ready, is not a control and draws nothing, the browser's ring included; a control among them, such as a menu's items, still wears a halo.
 A box that clips what lies past its edge cuts a halo off, so a control that fills such a box wears `--focus-halo-inset`, the same halo drawn inside its edge: every menu's item (`[role='menuitem']`), inside its menu's rounded box (the phase rail's, a Payment line's).
+So does a `scroll="body"` dialog's body when the browser makes it a stop, with `--radius-control`, since the dialog's window clips what lies past its edge.
 Every control carries a `scroll-margin` of `--space-2`, so focus that scrolls it into view leaves its halo room inside the scroller, as a dialog's window would otherwise cut off its last control's.
 A scroller the browser makes focusable, such as the export dialog's preview table, is no control to that rule, so it takes the same `scroll-margin` itself.
 The white gap is what keeps it visible on the green primary button, where a green glow would meet the fill.

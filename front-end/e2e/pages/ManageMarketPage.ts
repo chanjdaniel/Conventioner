@@ -20,6 +20,15 @@ export class ManageMarketPage {
   readonly removeKeeps: Locator;
   readonly removeConfirmButton: Locator;
   readonly removeCancelButton: Locator;
+  readonly roleChangeConfirm: Locator;
+  readonly roleChangeWas: Locator;
+  readonly roleChangeGains: Locator;
+  readonly roleChangeLoses: Locator;
+  readonly roleChangeAlike: Locator;
+  readonly roleChangeBody: Locator;
+  readonly roleChangeConfirmButton: Locator;
+  readonly roleChangeCancelButton: Locator;
+  readonly roleChangeBackdrop: Locator;
   readonly addUserButton: Locator;
   readonly addUserInput: Locator;
   readonly addUserSelect: Locator;
@@ -68,6 +77,15 @@ export class ManageMarketPage {
     this.removeKeeps = page.getByTestId('manage-market-remove-keeps');
     this.removeConfirmButton = page.getByTestId('manage-market-remove-submit-button');
     this.removeCancelButton = page.getByTestId('manage-market-remove-cancel-button');
+    this.roleChangeConfirm = page.getByTestId('manage-market-role-change-window');
+    this.roleChangeWas = page.getByTestId('manage-market-role-change-was');
+    this.roleChangeGains = page.getByTestId('manage-market-role-change-gains');
+    this.roleChangeLoses = page.getByTestId('manage-market-role-change-loses');
+    this.roleChangeAlike = page.getByTestId('manage-market-role-change-alike');
+    this.roleChangeBody = page.getByTestId('manage-market-role-change-body');
+    this.roleChangeConfirmButton = page.getByTestId('manage-market-role-change-submit-button');
+    this.roleChangeCancelButton = page.getByTestId('manage-market-role-change-cancel-button');
+    this.roleChangeBackdrop = page.getByTestId('manage-market-role-change-background');
     this.addUserButton = page.getByTestId('manage-market-add-user-button');
     this.addUserInput = page.getByTestId('manage-market-add-user-input');
     this.addUserSelect = page.getByTestId('manage-market-add-user-select');
@@ -248,5 +266,7 @@ export class ManageMarketPage {
 
   async selectRoleForFirstUser(role: string): Promise<void> {
     await this.roleSelects.first().selectOption(role);
+    await this.roleChangeConfirmButton.click();
+    await this.roleChangeConfirm.waitFor({ state: 'detached' });
   }
 }
