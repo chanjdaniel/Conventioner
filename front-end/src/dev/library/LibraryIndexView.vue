@@ -108,6 +108,8 @@ import { ENTRIES, isBuilt, LIBRARY_PATH } from './catalog';
 .library-index__link {
   display: inline-flex;
   align-items: center;
+  /* A title as short as "Folds" is still a thumb's target wide. */
+  min-width: var(--target-min);
   min-height: var(--target-min);
   color: var(--mm-text-link);
   text-decoration: none;

@@ -30,6 +30,9 @@ describes:
   - front-end/src/components/FilterToggles.vue
   - front-end/src/components/ListFrame.vue
   - front-end/src/components/NameList.vue
+  - front-end/src/components/RowGroup.vue
+  - front-end/src/components/BarLedger.vue
+  - front-end/src/utils/useFold.ts
 verified: 2026-11-04
 sources:
   - wayfinding/claims-and-room/map
@@ -436,6 +439,11 @@ Enter in its field does nothing, so in a dialog's form it never saves what the p
 People named above the work rather than listed are [`NameList.vue`](../front-end/src/components/NameList.vue) (T200): one paragraph, so it reads as a sentence, "12 reviewers: Ana, Ben, Cai and 9 more", naming `named` (3), and its text button, "and 9 more", which a `.visually-hidden` noun names on its own, emits `more` for the screen to open the whole list.
 With `named` or fewer names it says them all and draws no button, so a screen keeps its own way to that list.
 No screen mounts it yet: the library's `summaries` entry shows it on the reviewers.
+
+A long list a screen keeps grouped folds by group, in [`RowGroup.vue`](../front-end/src/components/RowGroup.vue) (T200): a heading, the first `fold` (20) rows of `items`, and "Show all 31 in North Wing", which unfolds the rest in place and becomes "Show fewer"; at `fold` rows or fewer it draws no button.
+[`BarLedger.vue`](../front-end/src/components/BarLedger.vue) folds the same way with `fold`: the rows by count, the first `fold`, then "N more answers"; without it the rows are drawn in the order they came, all of them.
+Both take the fold from [`useFold`](../front-end/src/utils/useFold.ts): unfolding hands the focus to the first new row, and folding keeps it on the button and brings the button back into view.
+No screen folds yet: the library's `folds` entry shows both, on the Stats tab's bars and the Assignments page's tables.
 
 A screen takes a file on [`FileDropZone.vue`](../front-end/src/components/FileDropZone.vue), its one way to (T205): a dashed zone on the beige ground that a click anywhere opens the file chooser from, its main line naming the hidden input and a hint under it saying what files it takes.
 It tints green under the pointer and while a file is over it, and its words take no pointer events, so crossing them does not fire `dragleave` and flicker the tint off.
