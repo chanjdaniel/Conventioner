@@ -1209,7 +1209,8 @@ describe('words that are the value', () => {
   const inField = (wrapper: Writing) => (input(wrapper).element as HTMLInputElement).value;
   const rows = (wrapper: Writing) =>
     wrapper.findAll('[role="option"]').map((row) => row.get('span').text());
-  const values = (wrapper: Writing) => wrapper.emitted('update:modelValue')?.map(([value]) => value);
+  const values = (wrapper: Writing) =>
+    wrapper.emitted('update:modelValue')?.map(([value]) => value);
   const held = (wrapper: Writing) => wrapper.props('modelValue');
 
   it('emits the words trimmed on every keystroke', async () => {
