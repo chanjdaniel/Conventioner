@@ -36,12 +36,18 @@
  *   when the field is left, since nothing was chosen by them. A pointer on a chip's button leaves
  *   the field its focus; the keyboard's focus goes on to the next chip. With a `cap`, a choice past
  *   it is not drawn, as in one choice, and the chip still shows it.
+ *   A chip's button is never where a dialog opens (`data-dialog-not-first`): one stray Enter would
+ *   take that choice away.
  * - Given `acceptsTyped`, words that are exactly no option's label are offered as a choice of their
  *   own: `Use "<words>"` leads the list, ahead of what they find and outside the cap, so the keys
  *   reach it first, and choosing it makes the trimmed words the value. The field then shows them, or
  *   a chip does; reopened on them, as on a choice past the cap, no row is active and Enter keeps
  *   them. Words that are exactly an option make that option, when the cap draws it, the active row
  *   ahead of others they find, and the list opens for words even with no options at all.
+ * - Given `holdsChoice`, one choice holds until another is taken, as a filter or a card that writes
+ *   on a choice needs: typing emits nothing, and on leaving the field or on Escape the field names
+ *   the choice again. Without it, the first word lets the choice go, as a dialog that acts on Save
+ *   needs, so it never acts on a choice its field does not show.
  */
 import { computed, nextTick, ref, useId, watch } from 'vue';
 import IconCheck from '@/components/icons/IconCheck.vue';
@@ -76,6 +82,8 @@ const props = defineProps<
     acceptsTyped?: boolean;
     /** Who or what finds no match, as the list says it: "Nothing", where the choices are not people. */
     noneWord?: string;
+    /** With one choice: words only search, and the choice holds until another is taken. */
+    holdsChoice?: boolean;
   } & (
     | { multiple?: false; modelValue: string }
     /** Several choices, shown as chips above the field. */
@@ -131,6 +139,13 @@ watch(
 );
 
 const words = computed(() => (searching.value ? text.value.trim() : ''));
+
+const holds = computed(() => props.holdsChoice && !props.multiple);
+/** The field gives up its words and names the choice that held under them. */
+function nameTheChoice(): void {
+  text.value = chosenOption.value?.label ?? keptWords.value;
+  searching.value = false;
+}
 
 /** Every group that has choices, each narrowed to what the words find. */
 const matchedGroups = computed(() =>
@@ -252,7 +267,7 @@ function typed(): void {
   active.value = firstRow.value;
   // Words that no longer name the choice let it go, so a dialog never acts on a choice its field
   // does not show.
-  if (!props.multiple && props.modelValue) emit('update:modelValue', '');
+  if (!props.multiple && !holds.value && props.modelValue) emit('update:modelValue', '');
 }
 
 /** Takes a chip away. The keyboard's focus was on its button, which is gone, so it goes on. */
@@ -292,11 +307,13 @@ function onKeydown(event: KeyboardEvent): void {
     }
     case 'Escape':
       // The dialog around the picker takes Escape on `window`, so the key is stopped at the field
-      // while the list is open, and goes on to the dialog once it is closed.
-      if (!open.value) return;
+      // while the list is open, or while words cover a choice that holds, and goes on to the dialog
+      // after that.
+      if (!open.value && !(holds.value && searching.value)) return;
       event.preventDefault();
       event.stopPropagation();
       open.value = false;
+      if (holds.value) nameTheChoice();
       return;
     case 'Backspace':
       // Only a fresh press: one held to clear the words stops when they are gone.
@@ -308,6 +325,7 @@ function onKeydown(event: KeyboardEvent): void {
 
 function onBlur(): void {
   open.value = false;
+  if (holds.value) nameTheChoice();
   if (!props.multiple) return;
   text.value = '';
   searching.value = false;
@@ -337,6 +355,7 @@ function onBlur(): void {
         <button
           type="button"
           class="search-picker-chip-remove"
+          data-dialog-not-first
           :data-testid="`${testid}-chip-remove`"
           @click="removeChip(at)"
         >

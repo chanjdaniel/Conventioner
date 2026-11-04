@@ -51,7 +51,8 @@ The app owns its components and its icons, and depends on no component library o
   - `cap`, a match list cut short with a line saying how many more;
   - `multiple`, several choices as chips above the field;
   - `acceptsTyped`, words that are exactly no option kept as the value;
-  - `noneWord`, what the list says finds no match, where the choices are not people.
+  - `noneWord`, what the list says finds no match, where the choices are not people;
+  - `holdsChoice`, one choice that holds under typed words until another is taken.
 
 ## Consequences
 

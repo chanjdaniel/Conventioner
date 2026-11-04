@@ -167,6 +167,24 @@ eachWindow('the combobox entry', (size) => {
     await expect(readOutOf(page, 'library-past-cap')).toHaveText('Chosen: Lily Chang');
   });
 
+  test('a choice that holds stays under words, and the field names it again', async ({ page }) => {
+    const holds = picker(page, 'library-holds');
+    const readOut = readOutOf(page, 'library-holds');
+    const chosen = await holds.field.inputValue();
+    await expect(readOut).toHaveText(`Chosen: ${chosen}`);
+
+    await holds.field.fill(FAMILY_NAME);
+    await expect(holds.options).toHaveCount(3);
+    await expect(readOut).toHaveText(`Chosen: ${chosen}`);
+    await holds.field.press('Escape');
+    await expect(holds.field).toHaveValue(chosen);
+
+    await holds.field.fill(FAMILY_NAME);
+    await holds.options.first().click();
+    await expect(holds.field).toHaveValue(/Phillips/);
+    await expect(readOut).toContainText('Phillips');
+  });
+
   test('a picker with no choices never opens', async ({ page }) => {
     const none = picker(page, 'library-no-choices');
     await none.field.click();
@@ -186,7 +204,10 @@ eachWindow('the combobox entry', (size) => {
     await expect(today.getByRole('checkbox', { checked: true })).toHaveCount(12);
     await expect(today.getByTestId('read-out')).toHaveText('Ticked: 12 of 150');
 
-    await expect(picker(page, 'library-c5').chips).toHaveCount(12);
+    const { chips } = picker(page, 'library-c5');
+    await expect(chips).toHaveCount(12);
+    // By address, as an account holds no name.
+    await expect(chips.first()).toContainText('@example.com');
   });
 
   test('C5 chooses three, removes one by its button and one by Backspace', async ({
@@ -326,7 +347,7 @@ eachWindow('the combobox entry', (size) => {
     await expect(past.options.first()).toHaveAttribute('aria-selected', 'true');
     await past.field.press('Enter');
     await expect(past.chips).toHaveCount(1);
-    await expect(readOutOf(page, 'library-several-past-cap')).not.toContainText('Lily Chang');
+    await expect(readOutOf(page, 'library-several-past-cap')).not.toContainText('lily.chang121@');
   });
 
   test('a choice no longer offered is its own words, and can be removed', async ({ page }) => {

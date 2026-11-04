@@ -88,6 +88,9 @@ const assigneeLabel = computed(
 /** A choice the first 50 rows do not reach. */
 const pastTheCap = ref(people[120]!.email);
 
+/** A filter's choice, which words only search over. */
+const heldChoice = ref(people[0]!.email);
+
 const nobody = ref('');
 
 /** C5 on both sides: the fixture's 12 reviewers already chosen, by address as the market keeps them. */
@@ -95,7 +98,10 @@ const reviewerAddresses = reviewers.map((id) => people.find((person) => person.i
 const allAddresses = people.map((person) => person.email);
 const todayReviewers = ref([...reviewerAddresses]);
 const proposedReviewers = ref([...reviewerAddresses]);
-const namesOf = (emails: string[]) => emails.map((email) => nameOf(email) || email);
+/** An account holds an address and no name, so a reviewer's row and chip are the address. */
+const accountGroups: PickerGroup[] = [
+  { options: allAddresses.map((email) => ({ value: email, label: email })) },
+];
 
 /** C10's answers, none chosen yet. */
 const rejected = ref<string[]>([]);
@@ -247,6 +253,21 @@ const typedAnswers = ref<string[]>([]);
       </div>
     </LibraryPanel>
 
+    <LibraryPanel label="A choice that holds: words only search, for a filter or a card">
+      <div class="library-demo">
+        <SearchPicker
+          v-model="heldChoice"
+          holds-choice
+          :groups="personGroups"
+          :finds="findsPerson"
+          :cap="CAP"
+          label="Who will follow up"
+          testid="library-holds"
+        />
+        <ReadOut label="Chosen" :value="nameOf(heldChoice)" />
+      </div>
+    </LibraryPanel>
+
     <LibraryPanel label="No choices at all: the list never opens">
       <div class="library-demo">
         <SearchPicker
@@ -286,14 +307,14 @@ const typedAnswers = ref<string[]>([]);
           <SearchPicker
             v-model="proposedReviewers"
             multiple
-            :groups="personGroups"
-            :finds="findsPerson"
+            :groups="accountGroups"
+            :finds="findsByLabel"
             :cap="CAP"
             label="Reviewers"
-            placeholder="Type a name or address…"
+            placeholder="Type an address…"
             testid="library-c5"
           />
-          <ReadOut label="Chosen" :value="namesOf(proposedReviewers)" />
+          <ReadOut label="Chosen" :value="proposedReviewers" />
         </div>
       </template>
     </TodayAndProposed>
@@ -322,14 +343,14 @@ const typedAnswers = ref<string[]>([]);
         <SearchPicker
           v-model="pastTheCapSeveral"
           multiple
-          :groups="personGroups"
-          :finds="findsPerson"
+          :groups="accountGroups"
+          :finds="findsByLabel"
           :cap="CAP"
           label="Reviewers"
-          placeholder="Type a name or address…"
+          placeholder="Type an address…"
           testid="library-several-past-cap"
         />
-        <ReadOut label="Chosen" :value="namesOf(pastTheCapSeveral)" />
+        <ReadOut label="Chosen" :value="pastTheCapSeveral" />
       </div>
     </LibraryPanel>
 
@@ -503,7 +524,10 @@ const typedAnswers = ref<string[]>([]);
     <li>
       The match order: matches in the option order, as here, or those starting with the words first.
     </li>
-    <li>The chips: above the field, as here, or inside it.</li>
+    <li>
+      The chips: above the field, as here, or inside it. C5's are addresses, as an account holds no
+      name, so judge this on them: a name, as the other panels draw, is about half as wide.
+    </li>
     <li>
       Chosen rows past the cap: left where they fall, as here, so 8 of C5's 12 are not drawn until
       typed for and each still has its chip; or drawn first, so every choice opens ticked at the top

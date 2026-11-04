@@ -106,9 +106,13 @@ eachWindow('the filter toggles entry', (size) => {
     await expect(pressedIn(phases)).toHaveText(['Draft', 'Applications / Review', 'Assignment']);
     await expect(readOutOf(phases)).toHaveText('Phases: Draft, Applications / Review, Assignment');
 
+    // Each press lands before the next: a row rewraps as a toggle's weight changes.
     await press(phase('assignment'));
+    await expect(phase('assignment')).toHaveAttribute('aria-pressed', 'false');
     await press(phase('draft'));
+    await expect(phase('draft')).toHaveAttribute('aria-pressed', 'false');
     await press(phase('applications'));
+    await expect(phase('applications')).toHaveAttribute('aria-pressed', 'false');
     await expect(pressedIn(phases)).toHaveCount(0);
     await expect(readOutOf(phases)).toHaveText('Phases: All phases');
   });

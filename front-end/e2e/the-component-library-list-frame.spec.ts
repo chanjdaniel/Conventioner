@@ -140,6 +140,35 @@ eachWindow('the list frame entry', (size) => {
     await expect(page.getByTestId('library-l2-status-all')).toHaveText('Any status 30');
   });
 
+  test('words in "Assigned to" only search: the reviewer holds, and the field names them again', async ({
+    page,
+  }) => {
+    const { press } = inTheWindow(size);
+    const field = page.getByTestId('library-l2-assigned-input');
+    const count = countOf(page, 'library-l2');
+    const filters = page.getByTestId('read-out').filter({ hasText: 'Filters:' });
+    await field.click();
+    const reviewer = page.getByTestId('library-l2-assigned-option').nth(2);
+    const name = (await reviewer.locator('.search-picker-option-label').innerText()).trim();
+    await press(reviewer);
+    await expect(count).toHaveText('30 applications');
+
+    await field.click();
+    await field.fill('zzz');
+    await expect(page.getByTestId('library-l2-assigned-none')).toHaveText('Nobody matches "zzz".');
+    await expect(count).toHaveText('30 applications');
+    await expect(filters).toContainText(`assigned to ${name}`);
+
+    await field.press('Escape');
+    await expect(field).toHaveValue(name);
+
+    await field.fill('zzz');
+    await page.getByTestId('library-l2-status-all').focus();
+    await expect(field).toHaveValue(name);
+    await expect(filters).toContainText(`assigned to ${name}`);
+    await expect(rowsOf(page, 'library-l2').first()).toBeVisible();
+  });
+
   test("a switch shows today's every row on the same filters, and back", async ({ page }) => {
     const { press } = inTheWindow(size);
     await press(page.getByTestId('library-l2-status-needs_follow_up'));
@@ -193,10 +222,10 @@ eachWindow('the list frame entry', (size) => {
     const role = first.getByTestId('library-l1-role');
     await expect(role.getByRole('option')).toHaveText(['Owner', 'Admin', 'Editor', 'Viewer']);
     await role.selectOption({ label: 'Editor' });
-    const name = await first.getByTestId('library-l1-name').innerText();
-    await expect(role).toHaveAccessibleName(`${name}'s role`);
+    const address = await first.getByTestId('library-l1-address').innerText();
+    await expect(role).toHaveAccessibleName(`${address}'s role`);
     await expect(page.getByTestId('read-out').filter({ hasText: 'Last change:' })).toHaveText(
-      `Last change: ${name} is now Editor`,
+      `Last change: ${address} is now Editor`,
     );
 
     const more = page.getByTestId('library-l1-more');

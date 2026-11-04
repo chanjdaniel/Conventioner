@@ -35,6 +35,7 @@ const personById = new Map(people.map((person) => [person.id, person]));
 const holds = (text: string, words: string) => text.toLowerCase().includes(words.toLowerCase());
 const findsByNameOrAddress = (item: { name: string; email: string }, words: string) =>
   holds(item.name, words) || holds(item.email, words);
+const findsByAddress = (item: { email: string }, words: string) => holds(item.email, words);
 const keyOf = (item: { id: string }) => item.id;
 
 /** The reader is the first reviewer, so "Me" means something; they open on everyone's, to see 359. */
@@ -63,16 +64,14 @@ const viewOptions: FilterToggle[] = [
 /** The filters, shared by both views, so a switch shows the same rows drawn two ways. */
 const status = ref<string>('all');
 const assigned = ref(ANYONE);
-/** The picker lets go of its choice as its field is typed in: that is everyone's until one is taken. */
-const assignedId = computed(() => assigned.value || ANYONE);
 const assignedLabel = computed(
-  () => assignedOptions.find(({ value }) => value === assignedId.value)!.label,
+  () => assignedOptions.find(({ value }) => value === assigned.value)!.label,
 );
 
 const inShare = computed(() =>
-  assignedId.value === ANYONE
+  assigned.value === ANYONE
     ? applications
-    : applications.filter(({ reviewer }) => reviewer === assignedId.value),
+    : applications.filter(({ reviewer }) => reviewer === assigned.value),
 );
 const statusOptions = computed<FilterToggle[]>(() =>
   ALL_VIEW_FILTERS.map(({ id, label }) => ({
@@ -108,7 +107,7 @@ const roles = reactive<Record<string, MarketRole>>(
 const lastRoleChange = ref<string | null>(null);
 function changeRole(person: LibraryPerson, role: MarketRole): void {
   roles[person.id] = role;
-  lastRoleChange.value = `${person.name} is now ${getRoleDisplayName(role)}`;
+  lastRoleChange.value = `${person.email} is now ${getRoleDisplayName(role)}`;
 }
 
 /** What every state panel's frame is told alike. */
@@ -164,6 +163,7 @@ onMounted(() => {
             <div class="library-assigned">
               <SearchPicker
                 v-model="assigned"
+                holds-choice
                 :groups="assignedGroups"
                 :finds="findsReviewer"
                 label="Assigned to"
@@ -214,7 +214,7 @@ onMounted(() => {
               <select
                 class="field field--select library-today-select"
                 name="library-l2-today-assigned"
-                :value="assignedId"
+                :value="assigned"
                 @change="assigned = ($event.target as HTMLSelectElement).value"
               >
                 <option v-for="option in assignedOptions" :key="option.value" :value="option.value">
@@ -248,29 +248,28 @@ onMounted(() => {
 
   <LibrarySection
     title="L1: People with access"
-    :about="`All ${people.length} people, as Manage market and Manage organization list them; a role is a fixed short set, so a row keeps a native select.`"
+    :about="`All ${people.length} people, as Manage market and Manage organization list them: an account holds an address and no name, so a row is its address. A role is a fixed short set, so a row keeps a native select.`"
   >
     <LibraryPanel label="People with access" class="library-wide">
       <div class="library-demo">
         <ListFrame
           :items="people"
-          :finds="findsByNameOrAddress"
+          :finds="findsByAddress"
           :itemKey="keyOf"
           :noun="PERSON"
           findKey="person"
-          :findLabel="NAME_OR_ADDRESS"
+          findLabel="Find by address"
           testid="library-l1"
         >
           <template #row="{ item }">
             <div class="library-person">
-              <span class="library-person__words">
-                <span data-testid="library-l1-name">{{ item.name }}</span>
-                <span class="library-quiet">{{ item.email }}</span>
-              </span>
+              <span class="library-person__words" data-testid="library-l1-address">{{
+                item.email
+              }}</span>
               <select
                 class="field field--select library-person__role"
                 :name="`role-${item.id}`"
-                :aria-label="`${item.name}'s role`"
+                :aria-label="`${item.email}'s role`"
                 :value="roles[item.id]"
                 data-testid="library-l1-role"
                 @change="changeRole(item, ($event.target as HTMLSelectElement).value as MarketRole)"
@@ -366,6 +365,10 @@ onMounted(() => {
   </LibrarySection>
 
   <ChoicesForYou>
+    <li>
+      <strong>A person's row:</strong> L1 draws the address alone, since an account holds no name;
+      the state panels' short names only stand for a row.
+    </li>
     <li><strong>Page size:</strong> 50 rows, or another number.</li>
     <li>
       <strong>Find threshold:</strong> the field shows past 12 rows. It counts what the filters

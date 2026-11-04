@@ -253,8 +253,8 @@ const PLACES = [
   </LibrarySection>
 
   <LibrarySection
-    :title="`The ${PLACES.length} places it would replace`"
-    about="Every row of pressed buttons on a screen today, and how each draws it. No screen changes here."
+    :title="`The ${PLACES.length} places today`"
+    about="How each draws it today. It would replace the first eight, rows of pressed buttons; the last two are no row, and stay the controls they are. No screen changes here."
   >
     <ol class="library-places">
       <li
@@ -285,12 +285,10 @@ const PLACES = [
       Nothing pressed means all, here on the phases; Markets has an "All phases" toggle today. Keep
       that toggle, or drop it.
     </li>
-    <li>A count of 0: pressable here; the pills disable it today.</li>
     <li>
-      What the row does not draw: the pills' tone per status, and a door date's two figures. Grow it
-      for them, or leave those rows as they are.
+      What the row does not draw: the pills' tone per status, their disabled count of 0 (pressable
+      here), and a door date's two figures. Grow it for them, or leave those rows as they are.
     </li>
-    <li>Market days and Group Sections: convert them, or leave them as the controls they are.</li>
   </ChoicesForYou>
 </template>
 
@@ -306,7 +304,12 @@ const PLACES = [
 .library-today-row {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-1);
+}
+
+/* A target is never narrower than it is tall, as today's row has it. */
+.library-today-row .btn {
+  min-width: var(--target-min);
 }
 
 /* The list spans the section's grid, as `TodayAndProposed` does. */

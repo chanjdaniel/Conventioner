@@ -3,7 +3,7 @@
  * grouped where the list is, and worked from the keyboard alone. The placement dialog's two vendor
  * pickers are its first use; it is a primitive, so it knows nothing of vendors.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
 
@@ -1054,6 +1054,124 @@ describe('without acceptsTyped', () => {
     await field(wrapper).setValue('Hand-poured soap');
     expect(shown(wrapper)).toEqual([]);
     expect(wrapper.text()).not.toContain('Use "');
+    wrapper.unmount();
+  });
+});
+
+describe('a choice that holds until another is taken', () => {
+  function held(props: Record<string, unknown> = {}) {
+    return mount(SearchPicker, {
+      props: {
+        groups: [
+          {
+            options: [
+              { value: 'ana', label: 'Ana Ceramics' },
+              { value: 'ben', label: 'Ben Prints' },
+            ],
+          },
+        ],
+        finds: (option: PickerOption, words: string) =>
+          option.label.toLowerCase().includes(words.toLowerCase()),
+        label: 'Assigned to',
+        testid: 'held',
+        modelValue: 'ana',
+        holdsChoice: true,
+        ...props,
+      },
+      attachTo: document.body,
+    });
+  }
+  const field = (wrapper: ReturnType<typeof held>) =>
+    wrapper.get<HTMLInputElement>('[data-testid="held-input"]');
+
+  it('typing emits nothing, and leaving names the choice again', async () => {
+    const wrapper = held();
+
+    await field(wrapper).setValue('zzz');
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+    await field(wrapper).trigger('blur');
+
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+    expect(field(wrapper).element.value).toBe('Ana Ceramics');
+    wrapper.unmount();
+  });
+
+  it('Escape closes the list and names the choice again', async () => {
+    const wrapper = held();
+
+    await field(wrapper).setValue('ben');
+    await field(wrapper).trigger('keydown', { key: 'Escape' });
+
+    expect(wrapper.find('[data-testid="held-list"]').exists()).toBe(false);
+    expect(field(wrapper).element.value).toBe('Ana Ceramics');
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("after that, Escape is the dialog's again", async () => {
+    const wrapper = held();
+    const toTheDialog = vi.fn();
+    window.addEventListener('keydown', toTheDialog);
+
+    await field(wrapper).setValue('ben');
+    await field(wrapper).trigger('keydown', { key: 'Escape' });
+    await field(wrapper).trigger('keydown', { key: 'Escape' });
+
+    expect(toTheDialog).toHaveBeenCalledTimes(1);
+    window.removeEventListener('keydown', toTheDialog);
+    wrapper.unmount();
+  });
+
+  it('words left on a list with nothing to take go too, by Escape', async () => {
+    const wrapper = held();
+
+    await field(wrapper).setValue('zzz');
+    await field(wrapper).trigger('keydown', { key: 'Enter' });
+    expect(wrapper.find('[data-testid="held-list"]').exists()).toBe(false);
+    await field(wrapper).trigger('keydown', { key: 'Escape' });
+
+    expect(field(wrapper).element.value).toBe('Ana Ceramics');
+    wrapper.unmount();
+  });
+
+  it('another choice, taken, is emitted and shown', async () => {
+    const wrapper = held();
+
+    await field(wrapper).setValue('ben');
+    await field(wrapper).trigger('keydown', { key: 'Enter' });
+
+    expect(wrapper.emitted('update:modelValue')).toEqual([['ben']]);
+    expect(field(wrapper).element.value).toBe('Ben Prints');
+    wrapper.unmount();
+  });
+
+  it('with nothing chosen, leaving clears the words, since they chose nothing', async () => {
+    const wrapper = held({ modelValue: '' });
+
+    await field(wrapper).setValue('ana');
+    await field(wrapper).trigger('blur');
+
+    expect(field(wrapper).element.value).toBe('');
+    wrapper.unmount();
+  });
+
+  it('a value kept as typed is named again too', async () => {
+    const wrapper = held({ modelValue: 'Glass beads', acceptsTyped: true });
+
+    await field(wrapper).setValue('ana');
+    await field(wrapper).trigger('blur');
+
+    expect(field(wrapper).element.value).toBe('Glass beads');
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it('without it, typing still lets the choice go', async () => {
+    const wrapper = held({ holdsChoice: undefined });
+
+    await field(wrapper).setValue('zzz');
+
+    expect(wrapper.emitted('update:modelValue')).toEqual([['']]);
     wrapper.unmount();
   });
 });
