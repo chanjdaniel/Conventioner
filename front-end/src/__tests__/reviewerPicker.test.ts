@@ -14,13 +14,20 @@ const person = (n: number) => `person-${String(n).padStart(3, '0')}@people-at-sc
 const HUNDRED_AND_FIFTY = Array.from({ length: 150 }, (_, at) => person(at + 1));
 
 function picker(
-  props: { candidates?: string[]; current?: string[]; chosen?: string[]; disabled?: boolean } = {},
+  props: {
+    candidates?: string[];
+    current?: string[];
+    unable?: string[];
+    chosen?: string[];
+    disabled?: boolean;
+  } = {},
 ) {
-  const { candidates = HUNDRED_AND_FIFTY, current = [], chosen = [], disabled } = props;
+  const { candidates = HUNDRED_AND_FIFTY, current = [], unable, chosen = [], disabled } = props;
   const wrapper = mount(ReviewerPicker, {
     props: {
       candidates,
       current,
+      unable,
       disabled,
       modelValue: chosen,
       'onUpdate:modelValue': (value: string[]) => wrapper.setProps({ modelValue: value }),
@@ -36,6 +43,8 @@ const chips = (wrapper: Picker) =>
   wrapper.findAll('[data-testid="reviewer-picker-chip"] > span:first-child').map((c) => c.text());
 const rows = (wrapper: Picker) =>
   wrapper.findAll('[data-testid="reviewer-picker-option"]').map((r) => r.attributes('data-value'));
+const rowDetail = (wrapper: Picker) =>
+  wrapper.get('[data-testid="reviewer-picker-option"] .search-picker-option-detail').text();
 const lastValue = (wrapper: Picker) => wrapper.props('modelValue');
 
 async function find(wrapper: Picker, words: string) {
@@ -135,6 +144,44 @@ describe('the reviewer picker', () => {
     const row = wrapper.get('[data-value="ME@example.com"]');
     expect(row.get('.search-picker-option-detail').text()).toBe('You');
     expect(wrapper.findAll('.search-picker-option-detail')).toHaveLength(1);
+    wrapper.unmount();
+  });
+
+  it('marks who can no longer review here on their chip and row, whatever the capitals', async () => {
+    const able = person(1);
+    const gone = person(2);
+    const wrapper = picker({
+      candidates: [able],
+      current: [gone],
+      unable: [gone.toUpperCase()],
+      chosen: [able, gone],
+    });
+
+    expect(chips(wrapper)).toEqual([able, `${gone} (can no longer review here)`]);
+    await field(wrapper).trigger('focus');
+    await field(wrapper).setValue(gone);
+    expect(rowDetail(wrapper)).toBe('Can no longer review here');
+    wrapper.unmount();
+  });
+
+  it('marks the reader themselves as both', async () => {
+    const wrapper = picker({
+      candidates: [],
+      current: ['me@example.com'],
+      unable: ['me@example.com'],
+      chosen: ['me@example.com'],
+    });
+
+    expect(chips(wrapper)).toEqual(['me@example.com (you, can no longer review here)']);
+    await field(wrapper).setValue('me@');
+    expect(rowDetail(wrapper)).toBe('You, can no longer review here');
+    wrapper.unmount();
+  });
+
+  it('marks no one when it is told of no one', () => {
+    const wrapper = picker({ chosen: [person(1)] });
+
+    expect(chips(wrapper)).toEqual([person(1)]);
     wrapper.unmount();
   });
 

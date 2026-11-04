@@ -1,20 +1,29 @@
 <script setup lang="ts">
 /**
  * Who reviews this market's applications, on the Applications tab while the review is open
- * (E38/F07/S02): every reader sees the reviewers, each one who no longer holds a role on the market
- * marked as no longer able to review here, and someone the table's "Choose reviewers" row
- * lets choose changes them here. Saving deals every open application again among them, on the
- * server (`back-end/review_team.py`).
+ * (E38/F07/S02): every reader sees the reviewers in one line (T204), and someone the table's "Choose
+ * reviewers" row lets choose changes them here. Saving deals every open application again among
+ * them, on the server (`back-end/review_team.py`).
+ *
+ * A reviewer who no longer holds a role on the market is marked as no longer able to review here,
+ * and is never folded out of sight: they lead the line, and it ends with how many more of them are
+ * folded. "and N more" opens the Change dialog, whose chips are the whole list and mark them too,
+ * for someone who may choose, and for anyone else a read-only list.
  */
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import { MarketPhase, type Market } from '@/assets/types/datatypes';
 import AppDialog from '@/components/AppDialog.vue';
+import NameList from '@/components/NameList.vue';
+import ReviewerName from '@/components/market/ReviewerName.vue';
 import ReviewerPicker from '@/components/market/ReviewerPicker.vue';
 import { getApiErrorMessage } from '@/utils/api';
 import { MarketAction, mayTake } from '@/utils/marketActions';
 import { NONE_CHOSEN, RESHUFFLE, chooseReviewers, reviewerAddresses } from '@/utils/reviewTeam';
-import { signedInEmail } from '@/utils/signedIn';
 import { useMarketStore } from '@/stores/market';
+
+/** How many the line names before "and N more". */
+const NAMED = 3;
+const REVIEWER = { one: 'reviewer', many: 'reviewers' };
 
 const props = defineProps<{ market: Market | null }>();
 /** The choice landed: the views read their lists again, to show whom each application went to. */
@@ -27,12 +36,24 @@ const shown = computed(
     props.market.phase !== MarketPhase.Archived &&
     !props.market.verdictsSettledReason,
 );
-const reviewers = computed(() => props.market?.reviewTeam?.reviewers ?? []);
+/** Those who can no longer review first, each side in the order they are dealt to. */
+const reviewers = computed(() => {
+  const team = props.market?.reviewTeam?.reviewers ?? [];
+  return [...team.filter(({ able }) => !able), ...team.filter(({ able }) => able)];
+});
+const addresses = computed(() => reviewers.value.map(({ email }) => email));
+const unable = computed(() =>
+  reviewers.value.filter(({ able }) => !able).map(({ email }) => email),
+);
+/** Who can no longer review here past those the line names, as they come first. */
+const unableFolded = computed(() => Math.max(unable.value.length - NAMED, 0));
 const chooses = computed(() => mayTake(props.market, MarketAction.ChooseReviewers));
-const me = computed(() => (signedInEmail() ?? '').toLowerCase());
 const action = computed(() => (reviewers.value.length ? 'Change reviewers' : 'Choose reviewers'));
 
+const changeButton = ref<HTMLButtonElement | null>(null);
 const open = ref(false);
+/** The read-only list, for someone who may not choose. */
+const listOpen = ref(false);
 const ticked = ref<string[]>([]);
 const saving = ref(false);
 const error = ref('');
@@ -41,6 +62,11 @@ function start() {
   ticked.value = reviewerAddresses(props.market);
   error.value = '';
   open.value = true;
+}
+
+function showAll() {
+  if (chooses.value) start();
+  else listOpen.value = true;
 }
 
 async function save() {
@@ -52,6 +78,11 @@ async function save() {
     open.value = false;
     await useMarketStore().refresh();
     emit('saved');
+    await nextTick();
+    // "and N more" may have opened this and gone with the save, so focus has nowhere to go back to.
+    if (reviewers.value.length <= NAMED && document.activeElement === document.body) {
+      changeButton.value?.focus();
+    }
   } catch (err) {
     error.value = getApiErrorMessage(err, 'Could not save the reviewers.');
   } finally {
@@ -67,6 +98,7 @@ async function save() {
       <h2 id="reviewers-title" class="field-label reviewers-title">Reviewers</h2>
       <button
         v-if="chooses"
+        ref="changeButton"
         type="button"
         class="btn btn--secondary btn--compact"
         data-testid="reviewers-change"
@@ -75,21 +107,24 @@ async function save() {
         {{ action }}
       </button>
     </div>
-    <ul v-if="reviewers.length" class="reviewers-list" data-testid="reviewers-list">
-      <li
-        v-for="reviewer in reviewers"
-        :key="reviewer.email"
-        class="reviewers-person"
-        data-testid="reviewers-person"
-      >
-        {{ reviewer.email
-        }}<span v-if="reviewer.email.toLowerCase() === me" class="reviewers-note"> (you)</span>
-        <!-- No longer holds a role here: dealt nothing until an Admin removes them (E38/F07/S02). -->
-        <span v-if="!reviewer.able" class="chip chip--attention" data-testid="reviewers-unable"
-          >Can no longer review here</span
+    <NameList
+      v-if="reviewers.length"
+      :names="addresses"
+      :noun="REVIEWER"
+      :named="NAMED"
+      testid="reviewers-line"
+      @more="showAll"
+    >
+      <template #name="{ index }">
+        <ReviewerName :reviewer="reviewers[index]!" />
+      </template>
+      <template v-if="unableFolded" #end>
+        <span class="visually-hidden">,</span>{{ ' '
+        }}<span class="chip chip--attention" data-testid="reviewers-unable-more"
+          >{{ unableFolded }} more can no longer review here</span
         >
-      </li>
-    </ul>
+      </template>
+    </NameList>
     <p v-else class="reviewers-none" data-testid="reviewers-none">{{ NONE_CHOSEN }}</p>
 
     <AppDialog
@@ -108,8 +143,29 @@ async function save() {
         v-model="ticked"
         :candidates="market?.reviewerCandidates ?? []"
         :current="reviewerAddresses(market)"
+        :unable="unable"
         :disabled="saving"
       />
+    </AppDialog>
+
+    <AppDialog
+      :open="listOpen"
+      title="Reviewers"
+      testid="reviewers-all"
+      size="wide"
+      scroll="body"
+      @close="listOpen = false"
+    >
+      <ul class="reviewers-all">
+        <li
+          v-for="reviewer in reviewers"
+          :key="reviewer.email"
+          class="reviewers-person"
+          data-testid="reviewers-person"
+        >
+          <ReviewerName :reviewer="reviewer" />
+        </li>
+      </ul>
     </AppDialog>
   </section>
 </template>
@@ -124,17 +180,21 @@ async function save() {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-1);
 }
 
 .reviewers-title {
   margin: 0;
 }
 
-.reviewers-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-4);
-  margin: var(--space-1) 0 0;
+.reviewers-none {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-text-muted);
+}
+
+.reviewers-all {
+  margin: 0;
   padding: 0;
   list-style: none;
   font-size: var(--text-sm);
@@ -142,22 +202,12 @@ async function save() {
 }
 
 .reviewers-person {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1) var(--space-2);
-  min-width: 0;
-  overflow-wrap: anywhere;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--mm-border);
 }
 
-.reviewers-note {
-  color: var(--mm-text-muted);
-}
-
-.reviewers-none {
-  margin: var(--space-1) 0 0;
-  font-size: var(--text-sm);
-  color: var(--mm-text-muted);
+.reviewers-person:last-child {
+  border-bottom: none;
 }
 
 .reviewers-reshuffle {

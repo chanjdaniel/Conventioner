@@ -7,11 +7,12 @@ describes:
   - back-end/api/markets.py#reviewer_candidate_ids
   - back-end/review_team.py#deal_arrivals
   - front-end/src/components/market/ReviewersPanel.vue
+  - front-end/src/components/market/ReviewerName.vue
   - front-end/src/components/market/ReviewerPicker.vue
   - front-end/src/utils/personChoice.ts
   - front-end/src/utils/reviewTeam.ts
   - front-end/src/utils/reviewers.ts
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - E38/F07
   - E38/F07/S01
@@ -50,7 +51,7 @@ A follow-up handed to someone who was never a reviewer stays theirs.
 Saving the same people again changes nothing and records nothing; choosing no one returns every open application to first come, first served, and leaves every follow-up with its owner.
 
 **A chosen reviewer who no longer holds a role on the market can no longer review here**: their role taken in Manage market, or their place in the organization gone, or their role one the table's row "Be chosen as a reviewer, and then give verdicts and follow-ups" no longer reaches.
-Every deal skips them, the panel marks them "Can no longer review here", and their share stays theirs until an Admin removes them, which deals it again as any removal does; nothing removes them silently.
+Every deal skips them, the panel marks them "Can no longer review here" and never folds them out of sight, naming them first in its one line and saying how many more of them are folded, the dialog that changes the reviewers marks them on their chips, and their share stays theirs until an Admin removes them, which deals it again as any removal does; nothing removes them silently.
 With nobody able, nothing is dealt.
 
 **Being dealt an application is never a lock**: the hold of [ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md) is who is looking at a card now, the reviewer is whose share it is, and a deal never moves a hold.
@@ -84,7 +85,7 @@ One by one hands a chosen reviewer their own share first, and once it is done sa
 - `PUT /markets/:id/reviewers` (`choose_reviewers` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)) is the one write of the team, asking [the market's actions](../../implementation/modules/market-actions.md) row `choose-reviewers`; [`back-end/review_team.py`](../../../back-end/review_team.py) deals, and nothing else writes either field.
 - The market read serves every reader the reviewers, each with whether they may still review here, and serves whom the reader may choose only to someone who may choose, while the review is open ([one market, from the server](../../implementation/conventions/one-market-from-the-server.md)).
 - A choice and the deal it made are entries of [the market's history](../../implementation/data/history.md), worded on Manage market's History and, for one vendor, in their drawer ([reading the market's history](../flows/reading-the-markets-history.md)).
-- The Reviewers panel on the Applications tab ([`ReviewersPanel.vue`](../../../front-end/src/components/market/ReviewersPanel.vue)) shows the reviewers and changes them, through one picker, a `SearchPicker` of several choices, its people from [`front-end/src/utils/personChoice.ts`](../../../front-end/src/utils/personChoice.ts) ([`ReviewerPicker.vue`](../../../front-end/src/components/market/ReviewerPicker.vue)), and the words [`front-end/src/utils/reviewTeam.ts`](../../../front-end/src/utils/reviewTeam.ts) holds ([reviewing applications](../flows/review.md#dividing-the-review)).
+- The Reviewers panel on the Applications tab ([`ReviewersPanel.vue`](../../../front-end/src/components/market/ReviewersPanel.vue)) says the reviewers in one line ([`NameList.vue`](../../../front-end/src/components/NameList.vue), each reviewer drawn by [`ReviewerName.vue`](../../../front-end/src/components/market/ReviewerName.vue)), whose "and N more" opens the whole list, and changes them, through one picker, a `SearchPicker` of several choices, its people from [`front-end/src/utils/personChoice.ts`](../../../front-end/src/utils/personChoice.ts) ([`ReviewerPicker.vue`](../../../front-end/src/components/market/ReviewerPicker.vue)), and the words [`front-end/src/utils/reviewTeam.ts`](../../../front-end/src/utils/reviewTeam.ts) holds ([reviewing applications](../flows/review.md#dividing-the-review)).
   Whose share each application is, and the warning on deciding another's, are worded by [`front-end/src/utils/reviewers.ts`](../../../front-end/src/utils/reviewers.ts) for the All view's rows, its drawer and One by one's card, and the same file decides what the All view's "Assigned to" filter offers and opens on, and which of One by one's queue is the reader's share, by one test of whose share an application is (`inShareOf`) ([reviewing applications](../flows/review.md#dividing-the-review)).
   `POST /markets/:id/review/next` hands a chosen reviewer their share first, and with `mineOnly` nothing else (`claim_next_for_review` and `_in_share_of` in [`back-end/api/applications.py`](../../../back-end/api/applications.py)).
   The same picker is offered as an own-form market opens applications, in the phase rail's dialog ([the phase rail](../../implementation/modules/phase-rail.md), [taking applications](../flows/taking-applications.md#h1-open-applications)), and on a Google Form market's first import, in its preview step ([`CsvImportView.vue`](../../../front-end/src/views/CsvImportView.vue), [the import](../flows/import.md#h2a-first-import-everything-maps)).
