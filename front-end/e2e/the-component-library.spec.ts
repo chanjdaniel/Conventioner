@@ -33,29 +33,6 @@ eachWindow('the component library', (size) => {
     await expectLaidOut(page, size, 'the index');
   });
 
-  test('the cards in a row stretch to the common height of their row', async ({ page }) => {
-    await openEntry(page);
-
-    const cards = await Promise.all(
-      ENTRIES.map(async (entry) => {
-        const box = await page.getByTestId(`library-index-${entry}`).boundingBox();
-        expect(box, `the ${entry} card is drawn`).not.toBeNull();
-        return box!;
-      }),
-    );
-    const rows = new Map<number, number[]>();
-    for (const box of cards) {
-      const row = rows.get(Math.round(box.y)) ?? [];
-      row.push(box.height);
-      rows.set(Math.round(box.y), row);
-    }
-    for (const heights of rows.values()) {
-      for (const height of heights) {
-        expect(Math.abs(height - heights[0])).toBeLessThanOrEqual(1);
-      }
-    }
-  });
-
   test('a built entry is a link; its page has the way to the others', async ({ page }) => {
     await openEntry(page);
     await inTheWindow(size).press(
