@@ -797,7 +797,7 @@ onUnmounted(() => {
 
 .sg-delete-btn:hover {
   background: rgba(220, 20, 60, 0.1);
-  color: #dc143c;
+  color: var(--mm-red);
 }
 
 .sg-empty {
