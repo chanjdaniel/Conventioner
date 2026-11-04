@@ -50,4 +50,18 @@ export class ChoiceField {
     await this.option(value).click();
     await this.list.waitFor({ state: 'detached' });
   }
+
+  /**
+   * Choose by value without typing, for a short list whose labels the spec need not know: at the
+   * field, from the list as it opens, so its row must be within the cap.
+   */
+  async pick(value: string): Promise<void> {
+    if (await this.isSelect()) {
+      await this.root.selectOption(value);
+      return;
+    }
+    await this.field.click();
+    await this.option(value).click();
+    await this.list.waitFor({ state: 'detached' });
+  }
 }

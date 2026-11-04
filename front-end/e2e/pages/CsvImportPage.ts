@@ -162,14 +162,14 @@ export class CsvImportPage {
 
   /** Map a target onto one column, by its position in the file. */
   private async mapColumnAt(index: number, targetKey: string): Promise<void> {
-    await this.targetSelectAt(index).selectOption(targetKey);
+    await this.targetSelectAt(index).pick(targetKey);
   }
 
   /**
    * Map targets onto columns named by their headers.
    *
    * `headers` is the file's header row, which is what turns a header into the column position the
-   * view addresses its selects by.
+   * view addresses its "Maps to" by.
    */
   async mapColumns(headers: string[], mapping: Record<string, string>): Promise<void> {
     for (const [header, targetKey] of Object.entries(mapping)) {
@@ -186,7 +186,7 @@ export class CsvImportPage {
 
   /** Map every column of a grid at once, by the position of its first member. */
   private async mapGroupAt(index: number, targetKey: string): Promise<void> {
-    await this.page.getByTestId(`import-group-select-${index}`).selectOption(targetKey);
+    await this.groupSelectAt(index).pick(targetKey);
   }
 
   /** Map a whole grid, naming it by the header of its first member column. */
@@ -273,8 +273,13 @@ export class CsvImportPage {
     await expect(this.resultSummary).toBeVisible();
   }
 
-  /** The column select at a position, for asserting one is offered at all. */
-  targetSelectAt(index: number): Locator {
-    return this.page.getByTestId(`import-target-select-${index}`);
+  /** A column's "Maps to", at its position in the file. */
+  targetSelectAt(index: number): ChoiceField {
+    return new ChoiceField(this.page, `import-target-select-${index}`);
+  }
+
+  /** A grid's "Maps to", at the position of its first member. */
+  groupSelectAt(index: number): ChoiceField {
+    return new ChoiceField(this.page, `import-group-select-${index}`);
   }
 }

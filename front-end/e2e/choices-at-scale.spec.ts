@@ -246,3 +246,140 @@ test.describe('the import, on a later file', () => {
     await expect(clubs.getByTestId('import-decided-show-all')).toHaveCount(0);
   });
 });
+
+test.describe('"Maps to", on a file of 30 columns', () => {
+  test('finds a question by a word of its long label, and says which column holds it', async ({
+    authenticatedPage: page,
+    request,
+    expectAccessible,
+  }) => {
+    test.setTimeout(120_000);
+    const marketId = await startFromFiveDay(page, request, { keepAll: false });
+    const res = await request.get(`${BACKEND_URL}/markets/${marketId}`);
+    const { market } = (await res.json()) as {
+      market: { applicationForm: { fields: Array<{ key: string; label: string }> } };
+    };
+    const question = market.applicationForm.fields.find((field) =>
+      field.label.startsWith('I confirm that everything I sell'),
+    )!;
+
+    const importer = new CsvImportPage(page);
+    await importer.open({ id: marketId });
+    const csv = exportOf('four-day-grid');
+    await importer.chooseFile(csv);
+    const headers = headersOf(csv);
+    const at = (start: string) => headers.findIndex((header) => header.startsWith(start));
+    const certify = at('I certify');
+    const certifyHeader = headers[certify]!.replace(/\s+/g, ' ').trim();
+    const holder = importer.targetSelectAt(certify);
+    const other = importer.targetSelectAt(at('Business Twitter'));
+    const below = importer.targetSelectAt(at('Are you an Example College student'));
+
+    // One field a row, with no native list of what it offers.
+    await expect(holder.field).toBeVisible();
+    await expect(importer.map.locator('.ledger-select option')).toHaveCount(0);
+    await expect(other.field).toHaveValue('Ignore this column');
+
+    // Grouped, and opening it moves nothing: it lies over the rows below.
+    await holder.field.scrollIntoViewIfNeeded();
+    const tableBefore = await page.locator('.ledger-table').boundingBox();
+    const belowBefore = await below.field.boundingBox();
+    await holder.field.click();
+    await expect(holder.list.getByRole('group')).toHaveCount(3);
+    const inGroup = (name: string) => holder.list.getByRole('group', { name, exact: true });
+    await expect(inGroup('Essential').getByRole('option').first()).toContainText(
+      'Applicant email *',
+    );
+    await expect(inGroup('Essential').getByRole('option')).toContainText(['Submitted at']);
+    await expect(inGroup('Your questions').getByRole('option')).toContainText([
+      'From your sheet',
+      question.label,
+    ]);
+    await expect(inGroup('Ignore').getByRole('option')).toHaveText([
+      'Ignore this column',
+      'This column has nowhere to go…',
+    ]);
+    expect(await below.field.boundingBox()).toEqual(belowBefore);
+    expect(await page.locator('.ledger-table').boundingBox()).toEqual(tableBefore);
+    await expectAccessible('"Maps to" open, grouped');
+
+    // A word from the middle of a long label finds it, read whole on as many lines as it takes.
+    await holder.field.fill('designed and made');
+    const row = holder.option(question.key);
+    await expect(holder.options).toHaveCount(1);
+    await expect(row).toHaveText(question.label);
+    expect((await row.boundingBox())!.height).toBeGreaterThan(44);
+    await row.click();
+    await expect(holder.list).toHaveCount(0);
+
+    // The field holds it, and shows what fits.
+    await expect(holder.field).toHaveValue(question.label);
+    await expect(importer.columnRow('Business Twitter')).toBeVisible();
+
+    // Another row finds it too, taken, and by which column; a press takes nothing.
+    await other.field.fill('designed and made');
+    const taken = other.option(question.key);
+    await expect(taken).toHaveAttribute('aria-disabled', 'true');
+    await expect(taken).toContainText(`Mapped from "${certifyHeader}"`);
+    // Forced, since Playwright itself will not press what is `aria-disabled`; a person can.
+    await taken.click({ force: true });
+    await expect(other.list).toBeVisible();
+    await other.field.press('Enter');
+    await other.field.press('Tab');
+    await expect(other.field).toHaveValue('Ignore this column');
+
+    // Free again once that column lets it go.
+    await holder.pick('');
+    await expect(holder.field).toHaveValue('Ignore this column');
+    await other.field.fill('designed and made');
+    await expect(other.option(question.key)).not.toHaveAttribute('aria-disabled', 'true');
+    await expect(other.option(question.key)).not.toContainText('Mapped from');
+    await other.field.press('Escape');
+
+    // A grid holds a target as a column does, and offers its one way out.
+    const firstDay = at('For each day of the fair');
+    const grid = importer.groupSelectAt(firstDay);
+    await grid.field.click();
+    await expect(grid.list.getByRole('group', { name: 'Ignore' }).getByRole('option')).toHaveText([
+      'Ignore these columns',
+    ]);
+    await grid.field.press('Escape');
+    await importer.mapGroup(headers, headers[firstDay]!, 'essential_tier_preference');
+    await other.field.fill('tier');
+    await expect(other.option('essential_tier_preference')).toContainText('Mapped from "For each');
+    await other.field.press('Escape');
+
+    // The way through for a column nothing answers.
+    await other.pick('__needs_a_field__');
+    await expect(
+      importer.columnRow('Business Twitter').getByTestId('import-needs-a-field'),
+    ).toBeVisible();
+    await other.pick('');
+
+    // A list on the last row is whole, by scrolling the page.
+    const last = importer.targetSelectAt(headers.length - 1);
+    await last.field.click();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const list = (await last.list.boundingBox())!;
+    expect(list.y + list.height).toBeLessThanOrEqual(page.viewportSize()!.height + 0.5);
+    const atFoot = await last.list.evaluate((element) => {
+      const { left, bottom, width } = element.getBoundingClientRect();
+      return element.contains(document.elementFromPoint(left + width / 2, bottom - 2));
+    });
+    expect(atFoot).toBe(true);
+    await last.field.press('Escape');
+
+    // The required list empties as the mapping completes.
+    const waiting = page.locator('[data-testid="import-required-target"]:not(.served)');
+    await expect(waiting).not.toHaveCount(0);
+    await importer.mapColumns(headers, {
+      'Full Name': 'essential_full_name',
+      [SELLING_ON_FOUR_DAY]: await sellingKey(request, marketId),
+      [headers.find((header) => header.startsWith('Would you like a half table'))!]:
+        'essential_table_choice',
+    });
+    await expect(waiting).toHaveCount(0);
+    await expect(importer.allMapped).toBeVisible();
+    await expect(importer.unmappedWarning).toHaveCount(0);
+  });
+});

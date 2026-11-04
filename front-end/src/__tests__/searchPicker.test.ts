@@ -2330,4 +2330,141 @@ describe('what ChoiceField asks of the picker', () => {
       wrapper.unmount();
     });
   });
+
+  describe('an option that may not be taken', () => {
+    const TARGETS: PickerGroup[] = [
+      {
+        label: 'Essential',
+        options: [
+          { value: 'email', label: 'Email address', disabled: true, detail: 'Mapped from "Mail"' },
+          { value: 'name', label: 'Full name' },
+          { value: 'tier', label: 'Tier', disabled: true, detail: 'Mapped from "Tiers"' },
+          { value: 'dates', label: 'Dates' },
+        ],
+      },
+    ];
+    const activeRow = (wrapper: ReturnType<typeof mountIt>) =>
+      wrapper.find('.search-picker-option--active').attributes('data-value');
+    const press = (wrapper: ReturnType<typeof mountIt>, key: string) =>
+      wrapper.get('input').trigger('keydown', { key });
+
+    it('is drawn muted and says so to a reader, with its detail saying why', async () => {
+      const wrapper = mountIt({ groups: TARGETS });
+      await open(wrapper);
+
+      const taken = row(wrapper, 'Email addressMapped from "Mail"');
+      expect(taken.attributes('aria-disabled')).toBe('true');
+      expect(taken.classes()).toContain('search-picker-option--disabled');
+      expect(taken.text()).toContain('Mapped from "Mail"');
+      expect(row(wrapper, 'Full name').attributes('aria-disabled')).toBeUndefined();
+      wrapper.unmount();
+    });
+
+    it('is not the first active row', async () => {
+      const wrapper = mountIt({ groups: TARGETS });
+      await open(wrapper);
+      expect(activeRow(wrapper)).toBe('name');
+
+      await wrapper.get('input').setValue('a');
+      expect(activeRow(wrapper)).toBe('name');
+      wrapper.unmount();
+    });
+
+    it('is skipped by the arrow keys, each way, and the last that can be taken stays', async () => {
+      const wrapper = mountIt({ groups: TARGETS });
+      await open(wrapper);
+
+      await press(wrapper, 'ArrowDown');
+      expect(activeRow(wrapper)).toBe('dates');
+      await press(wrapper, 'ArrowDown');
+      expect(activeRow(wrapper)).toBe('dates');
+      await press(wrapper, 'ArrowUp');
+      expect(activeRow(wrapper)).toBe('name');
+      await press(wrapper, 'ArrowUp');
+      expect(activeRow(wrapper)).toBe('name');
+      wrapper.unmount();
+    });
+
+    it('is not taken by a click, and the list stays open', async () => {
+      const wrapper = mountIt({ groups: TARGETS });
+      await open(wrapper);
+      await row(wrapper, 'Email addressMapped from "Mail"').trigger('click');
+
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+      expect(wrapper.find('[role="listbox"]').exists()).toBe(true);
+      wrapper.unmount();
+    });
+
+    it('does not become active under the pointer, so Enter never lands on it', async () => {
+      const wrapper = mountIt({ groups: TARGETS });
+      await open(wrapper);
+      await row(wrapper, 'Email addressMapped from "Mail"').trigger('mousemove');
+      expect(activeRow(wrapper)).toBe('name');
+
+      await press(wrapper, 'Enter');
+      expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual(['name']);
+      wrapper.unmount();
+    });
+
+    it('is still found by words, and Enter on nothing else to take takes nothing', async () => {
+      const wrapper = mountIt({ groups: TARGETS });
+      await wrapper.get('input').setValue('Email');
+
+      expect(wrapper.findAll('[role="option"]').map((o) => o.attributes('data-value'))).toEqual([
+        'email',
+      ]);
+      expect(wrapper.find('.search-picker-option--active').exists()).toBe(false);
+      await press(wrapper, 'Enter');
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+      expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+      wrapper.unmount();
+    });
+
+    it('counts as a match against the cap', async () => {
+      const wrapper = mountIt({ groups: TARGETS, cap: 2 });
+      await open(wrapper);
+
+      expect(wrapper.findAll('[role="option"]')).toHaveLength(2);
+      expect(wrapper.get('[data-testid="who-more"]').text()).toBe('2 more, type to narrow');
+      wrapper.unmount();
+    });
+
+    it('held as the choice, is named by the field with no row active, and Enter keeps it', async () => {
+      const wrapper = mountIt({ groups: TARGETS, modelValue: 'email', holdsChoice: true });
+      expect(inField(wrapper)).toBe('Email address');
+
+      await open(wrapper);
+      expect(wrapper.find('.search-picker-option--active').exists()).toBe(false);
+      await press(wrapper, 'Enter');
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+      expect(inField(wrapper)).toBe('Email address');
+      wrapper.unmount();
+    });
+
+    it('is not toggled among several', async () => {
+      const wrapper = mountIt({ groups: TARGETS, multiple: true, modelValue: [] });
+      await open(wrapper);
+      await row(wrapper, 'Email addressMapped from "Mail"').trigger('click');
+
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+      wrapper.unmount();
+    });
+
+    it('is not taken by words naming it, one choice or several, and offers no `Use` row', async () => {
+      for (const props of [
+        { acceptsTyped: true },
+        { acceptsTyped: true, multiple: true, modelValue: [] },
+      ]) {
+        const wrapper = mountIt({ groups: TARGETS, ...props });
+        await wrapper.get('input').setValue('email address');
+        expect(wrapper.findAll('[role="option"]').map((o) => o.text())).toEqual([
+          'Email addressMapped from "Mail"',
+        ]);
+
+        await wrapper.get('input').trigger('blur');
+        expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+        wrapper.unmount();
+      }
+    });
+  });
 });

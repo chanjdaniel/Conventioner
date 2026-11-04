@@ -421,8 +421,8 @@ test.describe('CSV vendor import', () => {
     await expect(importPage.groupRows).toHaveCount(1);
     await importPage.splitGroup(headers, 'Notes [internal]');
     await expect(importPage.groupRows).toHaveCount(0);
-    await expect(importPage.targetSelectAt(1)).toBeVisible();
-    await expect(importPage.targetSelectAt(2)).toBeVisible();
+    await expect(importPage.targetSelectAt(1).root).toBeVisible();
+    await expect(importPage.targetSelectAt(2).root).toBeVisible();
   });
 
   test('a value the market does not recognise is resolved before anything is written', async ({

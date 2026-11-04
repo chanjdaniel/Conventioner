@@ -22,6 +22,8 @@ export const COMBOBOX_PAST = LIST_FIND_FROM;
  * - Past 12 the field's root carries `testid`, it draws 50 of what the words find, its list lies over
  *   what follows and moves no row, at least 22rem wide with its right edge on the field's, so a long
  *   answer reads on a line or two in a narrow column; words it does not find say "Nothing".
+ * - An option that is `disabled` may not be taken either way, its `detail` saying why: a row of the
+ *   list muted, words still finding it, or an `option` that is `disabled`, its detail on its line.
  * - It never takes typed words: words not chosen clear on leaving the field. A free-text field is
  *   `SearchPicker` itself, as a screen with a need this does not name uses it directly.
  * - `writes` says the choice is acted on as it is taken, `SearchPicker`'s `holdsChoice`: typing
@@ -70,6 +72,10 @@ const isField = computed(
 
 const labelHolds = (option: PickerOption, words: string) =>
   option.label.toLowerCase().includes(words.toLowerCase());
+
+/** A select's row has one line, so its detail stands on it. */
+const rowWords = (option: PickerOption) =>
+  option.detail ? `${option.label} - ${option.detail}` : option.label;
 
 const selectId = useId();
 const select = ref<HTMLSelectElement | null>(null);
@@ -130,13 +136,23 @@ defineExpose({ open });
       <option v-if="placeholder !== undefined" value="">{{ placeholder }}</option>
       <template v-for="(group, at) in groups" :key="group.label ?? at">
         <optgroup v-if="group.label && group.options.length" :label="group.label">
-          <option v-for="option in group.options" :key="option.value" :value="option.value">
-            {{ option.label }}
+          <option
+            v-for="option in group.options"
+            :key="option.value"
+            :value="option.value"
+            :disabled="option.disabled"
+          >
+            {{ rowWords(option) }}
           </option>
         </optgroup>
         <template v-else-if="!group.label">
-          <option v-for="option in group.options" :key="option.value" :value="option.value">
-            {{ option.label }}
+          <option
+            v-for="option in group.options"
+            :key="option.value"
+            :value="option.value"
+            :disabled="option.disabled"
+          >
+            {{ rowWords(option) }}
           </option>
         </template>
       </template>

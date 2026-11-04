@@ -83,7 +83,7 @@ test.describe('Fixing the form from inside the import', () => {
     const importPage = await reachTheLedger(page, request, seed.marketId);
 
     // The column with nowhere to go used to print four manual steps. It offers the walk now.
-    await importPage.targetSelectAt(HEADERS.length - 1).selectOption('__needs_a_field__');
+    await importPage.targetSelectAt(HEADERS.length - 1).pick('__needs_a_field__');
     await expect(page.getByTestId('import-needs-a-field')).toBeVisible();
     await page.getByTestId('import-add-a-field-button').click();
 
@@ -101,9 +101,10 @@ test.describe('Fixing the form from inside the import', () => {
     // target the ledger offers.
     expect(await phaseOf(request, seed.marketId)).toBe('draft');
     await expect(importPage.map).toBeVisible();
-    await expect(
-      importPage.targetSelectAt(HEADERS.length - 1).locator('option[value="our_secret_handshake"]'),
-    ).toHaveCount(1);
+    const target = importPage.targetSelectAt(HEADERS.length - 1);
+    await target.field.click();
+    await expect(target.option('our_secret_handshake')).toHaveCount(1);
+    await target.field.press('Escape');
 
     // And Market Setup, reached without a reload, shows the market as the dialog left it: the
     // question it added (E21/F02/S04). The import used to read and never write a stored copy of
@@ -155,8 +156,8 @@ test.describe('Fixing the form from inside the import', () => {
     const seed = await seedPlannedMarket(request);
     const importPage = await reachTheLedger(page, request, seed.marketId);
 
-    await importPage.targetSelectAt(2).selectOption('essential_full_name');
-    await importPage.targetSelectAt(HEADERS.length - 1).selectOption('__needs_a_field__');
+    await importPage.targetSelectAt(2).pick('essential_full_name');
+    await importPage.targetSelectAt(HEADERS.length - 1).pick('__needs_a_field__');
     await page.getByTestId('import-add-a-field-button').click();
     await expect(page.getByTestId('amend-form-window')).toBeVisible({ timeout: 5000 });
     await page.getByTestId('amend-form-submit-button').click();
@@ -165,7 +166,7 @@ test.describe('Fixing the form from inside the import', () => {
     // Same file, same row count, and the mapping the organizer had already made.
     await expect(importPage.filename).toContainText('.csv');
     await expect(importPage.columnRows).toHaveCount(HEADERS.length);
-    await expect(importPage.targetSelectAt(2)).toHaveValue('essential_full_name');
+    await expect(importPage.targetSelectAt(2).field).toHaveValue('Full name *');
   });
 
   test('once something is imported the questions are fixed, and a Redo import says why', async ({
@@ -182,7 +183,7 @@ test.describe('Fixing the form from inside the import', () => {
 
     // The wizard says so where the offer would have been, rather than offering and failing.
     const importPage = await reachTheLedger(page, request, seed.marketId);
-    await importPage.targetSelectAt(HEADERS.length - 1).selectOption('__needs_a_field__');
+    await importPage.targetSelectAt(HEADERS.length - 1).pick('__needs_a_field__');
     await expect(page.getByTestId('import-needs-a-field')).toContainText('The questions are fixed');
     await expect(page.getByTestId('import-add-a-field-button')).toHaveCount(0);
   });

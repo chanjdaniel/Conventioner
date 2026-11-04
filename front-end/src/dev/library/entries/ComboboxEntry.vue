@@ -5,7 +5,8 @@
  * cap on a long plain list and across groups, and the states the cap brings. Several choices follow:
  * C5, the reviewers as Choose reviewers draws them, and C10's answers.
  * Next, `ChoiceField`, a select or a field by how many choices it has: C1, the import's value fixes,
- * on each side of the threshold, then every value of a long list of them.
+ * on each side of the threshold, then every value of a long list of them, and C2, "Maps to", grouped
+ * with a target another column holds taken.
  * Typed text ends it: C3's option input, which keeps a new answer as typed, and the field whose words
  * are its value, for a screen that writes as it is typed.
  *
@@ -173,6 +174,54 @@ function fixReadOut(fix: string | undefined): string {
   return fix === IGNORE_VALUE ? IGNORE_LABEL : fix;
 }
 
+/** C2: a column's "Maps to" as the import builds it, one question held by another column. */
+const NOWHERE_TO_GO = 'nowhere';
+const targetGroups: PickerGroup[] = [
+  {
+    label: 'Essential',
+    options: [
+      {
+        value: 'email',
+        label: 'Applicant email *',
+        detail: 'Mapped from "Email Address"',
+        disabled: true,
+      },
+      { value: 'submitted', label: 'Submitted at' },
+      { value: 'name', label: 'Full name *' },
+      { value: 'preferred', label: 'Preferred name' },
+      { value: 'dates', label: 'Which days can you come? *' },
+      { value: 'tiers', label: 'Which table tiers would you accept? *' },
+      { value: 'table', label: 'Would you like a half table or a full table? *' },
+    ],
+  },
+  {
+    label: 'Your questions',
+    options: [
+      { value: 'sheet', label: 'From your sheet (your own notes)' },
+      { value: 'business', label: 'Business name' },
+      {
+        value: 'made',
+        label: question.label,
+      },
+      {
+        value: 'confirm',
+        label:
+          "I confirm that everything I sell at the fair is designed and made by me, and that I have the right to sell it. If a piece uses someone else's pattern, I will say so in my comments.",
+        detail: 'Mapped from "I certify that I designed and made the work I will sell"',
+        disabled: true,
+      },
+    ],
+  },
+  {
+    label: 'Ignore',
+    options: [
+      { value: '', label: 'Ignore this column' },
+      { value: NOWHERE_TO_GO, label: 'This column has nowhere to go…' },
+    ],
+  },
+];
+const mapsTo = ref('');
+
 /** C3: an option's input, which takes one of the answers already offered or a new one. */
 const newAnswer = ref('');
 const keptAnswer = ref('Hand-poured soap');
@@ -185,7 +234,7 @@ const writtenAnswer = ref('');
 <template>
   <LibrarySection
     title="One choice from many"
-    about="One choice serves C2, C6, C7, C8, C9, C13 and C14. C6, C7 and C8 are on their screens; the others are the native selects and the datalist that hold a long list today."
+    about="One choice serves C2, C6, C7, C8, C9, C13 and C14. C2, C6, C7 and C8 are on their screens; the others are the native selects and the datalist that hold a long list today."
   >
     <LibraryPanel :label="`Found by name or address, capped at ${CAP} (C7's shape)`">
       <div class="library-demo">
@@ -507,6 +556,25 @@ const writtenAnswer = ref('');
             <ReadOut label="Fixed" :value="`${fixedCount} of ${waitingFixes.length}`" />
           </div>
         </div>
+      </div>
+    </LibraryPanel>
+  </LibrarySection>
+
+  <LibrarySection
+    title="A target another column holds"
+    about='C2, the import&apos;s "Maps to": a ChoiceField under Essential, Your questions and Ignore. A choice another column holds stays in the list and is found by words, muted, saying which column; neither a press nor the keys take it.'
+  >
+    <LibraryPanel label="C2, two questions taken">
+      <div class="library-demo">
+        <ChoiceField
+          v-model="mapsTo"
+          :groups="targetGroups"
+          label="What Business Twitter maps to"
+          testid="library-c2"
+          hide-label
+          writes
+        />
+        <ReadOut label="Maps to" :value="mapsTo || 'Ignored'" />
       </div>
     </LibraryPanel>
   </LibrarySection>

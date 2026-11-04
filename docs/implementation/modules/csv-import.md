@@ -10,6 +10,7 @@ describes:
   - back-end/app.py#import_applications
   - front-end/src/utils/csvFile.ts
   - front-end/src/components/ValueFixes.vue
+  - front-end/src/views/CsvImportView.vue#mapsTo
 verified: 2026-11-05
 sources:
   - wayfinding/readable-journey/05
@@ -85,6 +86,12 @@ A re-import updates each applicant's main application by the market and the addr
 
 **`submitted_at` is the form's own timestamp**, an ordinary mapping target, optional, and auto-detected from Google Forms' "Timestamp" heading; it is normalised to ISO 8601 at the boundary (`normalized_submitted_at`, [the application document](../data/application-document.md#the-fields-that-matter)).
 A row without one gets the import's moment, so the screen warns when the market orders by arrival and nothing maps it (`orders_by_submitted_at`, [priority and tie-breaks](../../business/rules/priority-and-tie-breaks.md)); the warning, not a refusal, because a market with no rule on arrival does not need the column.
+
+**A column's "Maps to" is found by typing.**
+Each row of the ledger is one [`ChoiceField`](../../design-system.md#the-primitive-layer), built by `mapsTo` in [`CsvImportView.vue`](../../../front-end/src/views/CsvImportView.vue) and written as it is chosen; past 12 choices its list lies over the rows below, so no row moves, and a list on the last row is reached by scrolling the page.
+Every row counts the same choices, each target and a column's two ways out, though a grid has one way out, so a ledger never mixes a select with a field.
+The groups follow `ImportTarget.kind`: Essential (`identity`, `essential`, and Submitted at), Your questions (`custom`, and "From your sheet"), and Ignore ("Ignore this column" or "Ignore these columns", value `''`, and on a column "This column has nowhere to go…", which never reaches the server).
+A target another row holds is disabled with `Mapped from "<heading>"`, cut to two lines as the row's own heading is, and is free again once that row lets it go.
 
 **Values are matched forgivingly, once.**
 Surrounding space and capitals match silently; anything else is shown once per distinct value and settled by hand, and those settlements (`resolutions`) are saved with the mapping.

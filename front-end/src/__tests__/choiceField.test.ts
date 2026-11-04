@@ -266,3 +266,33 @@ describe('open()', () => {
     expect(opener(wrapper)()).toBe(false);
   });
 });
+
+describe('an option that may not be taken', () => {
+  const TAKEN = {
+    value: 'name',
+    label: 'Full name',
+    detail: 'Mapped from "Legal name"',
+    disabled: true,
+  };
+  const taking = (count: number): PickerGroup[] => [
+    { options: [TAKEN, ...choices(count - 1)[0]!.options] },
+  ];
+
+  it('is an option that is disabled at 12, its detail on its line', () => {
+    const wrapper = field({ groups: taking(12) });
+    const option = wrapper.get('option[value="name"]');
+
+    expect(option.attributes('disabled')).toBeDefined();
+    expect(option.text()).toBe('Full name - Mapped from "Legal name"');
+    expect(wrapper.get('option[value="v0"]').attributes('disabled')).toBeUndefined();
+  });
+
+  it('is a row that is disabled at 13, found by words', async () => {
+    const wrapper = field({ groups: taking(13) });
+    await input(wrapper).setValue('Full');
+
+    const row = wrapper.get('[data-testid="fix-option"]');
+    expect(row.attributes('aria-disabled')).toBe('true');
+    expect(row.text()).toContain('Mapped from "Legal name"');
+  });
+});

@@ -84,6 +84,11 @@
  *   for a reader.
  * - Given `invalid`, its field is `aria-invalid="true"` and ringed in red, as a field is on Pricing;
  *   the words saying why are the caller's, through `describedBy`.
+ * - An option that is `disabled` may not be taken, as a target another column holds: drawn muted with
+ *   `aria-disabled="true"`, its `detail` saying why. The keys and the first active row pass it by, and
+ *   neither a click nor Enter nor words naming it take it. Words still find it and the cap still
+ *   counts it, so nobody wonders where it went. Held as the choice, the field names it and no row is
+ *   active, so Enter keeps it.
  * - `show()`, exposed, takes the focus and opens the list, for a link elsewhere on the screen, and
  *   answers whether the list is open. A disabled field takes neither; with no rows to list, the
  *   field has the focus and no list.
@@ -103,6 +108,8 @@ export interface PickerOption {
   chip?: string;
   /** Its label and chip hold an address, so a line breaks it only before its "@" or a dot. */
   address?: boolean;
+  /** It may not be taken; its `detail` says why. Words still find it. */
+  disabled?: boolean;
 }
 
 export interface PickerGroup {
@@ -298,10 +305,19 @@ const moreCount = computed(
     leadRows.value.length -
     cappedGroups.value.reduce((count, group) => count + group.shown.length, 0),
 );
+/** The next row past `from` in the direction of `step` that can be taken, or `from` if none is. */
+function rowFrom(from: number, step: 1 | -1): number {
+  const rows = shownOptions.value;
+  for (let at = from + step; at >= 0 && at < rows.length; at += step) {
+    if (!rows[at]!.disabled) return at;
+  }
+  return from;
+}
 /** With nothing chosen, the row the keys start on; words that name an option lead to it. */
 const firstRow = computed(() => {
-  if (!shownOptions.value.length) return -1;
-  return Math.max(shownOptions.value.indexOf(namedOption.value as PickerOption), 0);
+  const named = namedOption.value?.disabled ? undefined : namedOption.value;
+  const at = named ? shownOptions.value.indexOf(named) : -1;
+  return at >= 0 ? at : rowFrom(-1, 1);
 });
 /** Whether there is anything to list: an option, or words to use. */
 const hasRows = computed(() => hasChoices.value || Boolean(typedOption.value));
@@ -341,7 +357,9 @@ function openList(): void {
   if (open.value || !hasRows.value || props.disabled) return;
   pinTheChosen();
   open.value = true;
-  const chosenAt = shownOptions.value.findIndex((option) => option.value === props.modelValue);
+  const chosenAt = shownOptions.value.findIndex(
+    (option) => option.value === props.modelValue && !option.disabled,
+  );
   const heldUndrawn = chosenOption.value || keptWords.value;
   // A choice the cap leaves undrawn, or that no option offers, makes no row active, so Enter keeps
   // it.
@@ -363,6 +381,7 @@ function show(): boolean {
 defineExpose({ show });
 
 function choose(option: PickerOption): void {
+  if (option.disabled) return;
   if (props.multiple) {
     emit(
       'update:modelValue',
@@ -402,7 +421,8 @@ function typed(): void {
 function keepTheWords(): void {
   if (!props.acceptsTyped || holds.value) return;
   const option = namedOption.value ?? (writesWords.value ? undefined : typedOption.value);
-  if (!option || (writesWords.value && option.value === props.modelValue)) return;
+  if (!option || option.disabled || (writesWords.value && option.value === props.modelValue))
+    return;
   if (!props.multiple) choose(option);
   else if (!isChosen(option)) emit('update:modelValue', [...props.modelValue, option.value]);
 }
@@ -423,17 +443,16 @@ async function removeChip(at: number): Promise<void> {
 function onKeydown(event: KeyboardEvent): void {
   // A press still under way when a key comes never got its end, as a scrollbar's may not.
   pressing = false;
-  const last = shownOptions.value.length - 1;
   switch (event.key) {
     case 'ArrowDown':
       event.preventDefault();
       if (!open.value) openList();
-      else active.value = Math.min(active.value + 1, last);
+      else active.value = rowFrom(active.value, 1);
       return;
     case 'ArrowUp':
       event.preventDefault();
       if (!open.value) openList();
-      else active.value = Math.max(active.value - 1, Math.min(0, last));
+      else active.value = active.value < 0 ? rowFrom(-1, 1) : rowFrom(active.value, -1);
       return;
     case 'Enter': {
       // With the list closed the key goes on to the form, which reads the words as kept.
@@ -610,12 +629,14 @@ function onFocus(): void {
           :class="{
             'search-picker-option--active': active === groupStarts[g]! + o,
             'search-picker-option--several': multiple,
+            'search-picker-option--disabled': option.disabled,
           }"
           :aria-selected="isChosen(option) ? 'true' : 'false'"
+          :aria-disabled="option.disabled ? 'true' : undefined"
           :data-value="option.value"
           :data-testid="`${testid}-option`"
           @click="choose(option)"
-          @mousemove="active = groupStarts[g]! + o"
+          @mousemove="option.disabled || (active = groupStarts[g]! + o)"
         >
           <IconCheck
             v-if="multiple && isChosen(option)"
@@ -793,6 +814,11 @@ function onFocus(): void {
 
 .search-picker-option[aria-selected='true'] .search-picker-option-label {
   font-weight: 600;
+}
+
+.search-picker-option--disabled {
+  color: var(--mm-text-muted);
+  cursor: not-allowed;
 }
 
 .search-picker-option-label {

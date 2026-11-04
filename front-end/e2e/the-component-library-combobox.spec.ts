@@ -11,7 +11,8 @@ import { eachWindow, expectLaidOut, openEntry } from './helpers/componentLibrary
  * top, removed by a chip's button and by Backspace, and C10 chooses among the 228 answers. C1 fixes the
  * import's values through `ChoiceField`, a select at 12 answers and a field at 13, by typing and
  * choosing, its words clearing when they choose nothing, with every value still waiting shown and
- * those already decided behind "Show all". C3 keeps a new answer as typed, and a field whose words
+ * those already decided behind "Show all". C2 draws a target another column holds muted, found by
+ * words and taken by neither a press nor the keys. C3 keeps a new answer as typed, and a field whose words
  * are its value writes them as they are typed and keeps them when it is left.
  */
 
@@ -551,6 +552,37 @@ eachWindow('the combobox entry', (size) => {
     const list = (await fix.list.boundingBox())!;
     expect(list.x + list.width).toBeCloseTo(field.x + field.width, 0);
     expect(list.x).toBeGreaterThanOrEqual(0);
+  });
+
+  test('C2 shows a taken target, which neither a press nor the keys take', async ({
+    page,
+    expectAccessible,
+  }) => {
+    const c2 = picker(page, 'library-c2');
+    await expect(c2.field).toHaveValue('Ignore this column');
+    await c2.field.fill('confirm');
+
+    const taken = c2.options;
+    await expect(taken).toHaveCount(1);
+    await expect(taken).toHaveAttribute('aria-disabled', 'true');
+    await expect(taken).toContainText('Mapped from "I certify that I designed');
+    await expectLaidOut(page, size, 'C2 open on a taken target');
+    await expectAccessible('C2 open on a taken target');
+    const { failures } = await sweep(page);
+    expect(failures).toEqual([]);
+
+    // Forced, since Playwright itself will not press what is `aria-disabled`; a person can.
+    await taken.click({ force: true });
+    await c2.field.press('Enter');
+    await c2.field.press('Tab');
+    await expect(c2.field).toHaveValue('Ignore this column');
+    await expect(readOutOf(page, 'library-c2')).toHaveText('Maps to: Ignored');
+
+    // The first row these words find is taken, so Enter takes the first that is not.
+    await c2.field.fill('e');
+    await expect(c2.options.first()).toHaveAttribute('data-value', 'email');
+    await c2.field.press('Enter');
+    await expect(readOutOf(page, 'library-c2')).toHaveText('Maps to: submitted');
   });
 
   test('C1 can ignore a value, as today', async ({ page }) => {

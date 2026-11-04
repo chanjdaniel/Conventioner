@@ -4,7 +4,7 @@ kind: module
 describes:
   - front-end/src/components/application/AmendFormDialog.vue
   - front-end/src/views/CsvImportView.vue#amendAvailability
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - wayfinding/the-order-of-the-work/07
   - wayfinding/the-order-of-the-work/map

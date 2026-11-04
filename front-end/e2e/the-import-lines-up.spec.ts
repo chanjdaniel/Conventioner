@@ -65,10 +65,21 @@ test('a long heading keeps to two lines, a grid reads as ignored, and the value 
   await expect(terms).toHaveAttribute('title', TERMS);
 
   // Unmapped, a grid says so, as every column does.
-  const grid = page.getByTestId('import-group-select-8');
-  expect(await grid.evaluate((el: HTMLSelectElement) => el.selectedOptions[0]?.text)).toBe(
-    'Ignore these columns',
-  );
+  await expect(importPage.groupSelectAt(8).field).toHaveValue('Ignore these columns');
+
+  // Every "Maps to", a grid's among them, is one column of one width.
+  const fields = await page
+    .locator(
+      '[data-testid^="import-target-select-"][data-testid$="-input"], [data-testid^="import-group-select-"][data-testid$="-input"]',
+    )
+    .evaluateAll((els) =>
+      els.map((el) => {
+        const { left, width } = el.getBoundingClientRect();
+        return `${Math.round(left)} ${Math.round(width)}`;
+      }),
+    );
+  expect(fields).toHaveLength(headers.length - 1);
+  expect(new Set(fields).size, `"Maps to" stands at ${fields.join(', ')}`).toBe(1);
 
   await importPage.mapColumns(headers, {
     'Full Legal Name': 'essential_full_name',
