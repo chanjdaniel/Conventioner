@@ -25,6 +25,7 @@ import { loginViaApi } from './seeds';
 import { calendarToday } from './vendorSignIn';
 import {
   FIRST_IMPORT,
+  LATER_IMPORT,
   SCREENS_EDITOR,
   seedTheScreens,
   type TheScreensSeed,
@@ -677,6 +678,24 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: ORGANIZER,
     open: at(screen('csv', 'import'), 'import-view'),
+  },
+  {
+    // A later file on a saved mapping: restored and new columns, a grid, values waiting on a column
+    // and on the grid, and every required question ticked, each on its own ground (T223).
+    name: 'a CSV market, Map columns with values waiting',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: async (page, seed) => {
+      const importing = new CsvImportPage(page);
+      await page.goto(screen('csv', 'import')(seed));
+      await expect(importing.view).toBeVisible({ timeout: 15000 });
+      await importing.chooseFile(LATER_IMPORT.csv);
+      await expect(importing.groupRows.getByTestId('import-restored-badge')).toBeVisible();
+      await expect(importing.columnRows.getByTestId('import-new-badge')).toBeVisible();
+      await expect(importing.allMapped).toBeVisible();
+      await expect(importing.groupRows.getByTestId('import-unmatched-value')).toHaveCount(2);
+      await expect(importing.unresolvedWarning).toBeVisible();
+    },
   },
   {
     // The first import offers the reviewers on its preview, as "Open applications" does on a

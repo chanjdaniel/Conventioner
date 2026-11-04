@@ -166,7 +166,8 @@ function choicesFor({ target, offered }: ValueFix): PickerGroup[] {
   padding: var(--space-2);
   border: 1px solid var(--mm-red);
   border-radius: var(--radius-control);
-  background: rgba(192, 57, 43, 0.14);
+  /* Opaque, so a grid row's tint does not darken it past what its ink is chosen for. */
+  background: var(--mm-chip-destructive);
 }
 
 .ledger-fixes-title,
@@ -177,7 +178,7 @@ function choicesFor({ target, offered }: ValueFix): PickerGroup[] {
 .ledger-fixes-title {
   margin: 0;
   font-size: var(--text-xs);
-  /* `--mm-red` is 4.41 on this tint. */
+  /* `--mm-red` is 4.41 on this ground. */
   color: var(--mm-text-red-on-tint);
 }
 
@@ -192,8 +193,7 @@ function choicesFor({ target, offered }: ValueFix): PickerGroup[] {
 }
 
 /* Muted on beige needs the beige's own muted ink to stay AA (E31/F04). */
-.ledger-fixes--decided .ledger-fixes-title,
-.ledger-fixes--decided .ledger-fix-rows {
+.ledger-fixes--decided .ledger-fixes-title {
   color: var(--mm-text-muted-on-beige);
 }
 
@@ -217,7 +217,8 @@ function choicesFor({ target, offered }: ValueFix): PickerGroup[] {
 
 .ledger-fix-rows {
   font-size: var(--text-xs);
-  color: var(--mm-text-muted);
+  /* Its ground is the red tint or beige: `--mm-text-muted` is 4.24 on the tint. */
+  color: var(--mm-text-muted-on-beige);
   white-space: nowrap;
 }
 </style>

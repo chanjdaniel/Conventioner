@@ -1650,7 +1650,8 @@ function startOver() {
   margin-top: var(--space-hairline);
   font-weight: 400;
   font-size: var(--text-xs);
-  color: var(--mm-green);
+  /* It reads on a grid row's tint, where `--mm-green` is 3.75. */
+  color: var(--mm-text-green);
 }
 
 .ledger-member td {
@@ -1684,15 +1685,20 @@ function startOver() {
   margin-left: var(--space-2);
   padding: var(--space-hairline) var(--space-2);
   border-radius: var(--radius-pill);
-  background: rgba(54, 130, 111, 0.16);
-  color: var(--mm-green);
+  background: var(--mm-chip-positive);
+  color: var(--mm-text-green);
   font-size: var(--text-xs);
   font-weight: 400;
 }
 
+/* On a grid row's own tint the chip's ground would vanish. */
+.ledger-group-row .ledger-badge {
+  background: white;
+}
+
 .ledger-badge.new {
-  background: rgba(228, 166, 41, 0.18);
-  color: var(--mm-text-yellow);
+  background: var(--mm-chip-attention);
+  color: var(--mm-text-yellow-on-tint);
 }
 
 .ledger-split {
@@ -1700,7 +1706,8 @@ function startOver() {
   background: none;
   padding: 0;
   font-size: var(--text-xs);
-  color: var(--mm-text-muted);
+  /* It reads on a grid row's tint, where `--mm-text-muted` is 4.26. */
+  color: var(--mm-text-muted-on-beige);
   text-decoration: underline;
   cursor: pointer;
 }
@@ -1748,20 +1755,22 @@ function startOver() {
   font-size: var(--text-sm);
 }
 
+/* The rail is beige: both inks are its own, as the plain muted and green fall below AA there. */
 .rail-tick {
   display: inline-block;
   width: 16px;
-  color: var(--mm-text-muted);
+  color: var(--mm-text-muted-on-beige);
 }
 
 .rail-list .served .rail-tick {
-  color: var(--mm-green);
+  color: var(--mm-text-green);
 }
 
 .rail-ok {
   margin: 0;
   font-size: var(--text-xs);
-  color: var(--mm-green);
+  /* The rail is beige, where `--mm-green` is 3.68. */
+  color: var(--mm-text-green);
 }
 
 .rail-unasked {
@@ -1791,7 +1800,8 @@ function startOver() {
 .rail-warning {
   margin: 0;
   font-size: var(--text-xs);
-  color: var(--mm-red);
+  /* The rail is beige, where `--mm-red` is 4.37. */
+  color: var(--mm-text-red-on-tint);
 }
 
 .preview-rows {
