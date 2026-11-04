@@ -111,13 +111,14 @@ function goToDashboard() {
   aspect-ratio: 1;
 }
 
+/* Room inside its edge for the focus border, which the window's top would cut off outside it: the
+   logo stays `--space-2` from the menu button. */
 .logo-button {
-  --focus-border-offset: var(--focus-border-width);
   display: flex;
   align-items: center;
   height: 100%;
-  padding: 0;
-  margin-left: var(--space-2);
+  padding: 0 var(--space-1);
+  margin-left: var(--space-1);
   background: none;
   border: none;
   cursor: pointer;

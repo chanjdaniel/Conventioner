@@ -714,13 +714,15 @@ const submitOTPLogin = async () => {
   color: var(--mm-text-muted);
 }
 
+/* Room inside its edge for the focus border, which would cross the field's own outside it: the
+   word stays where the field's padding puts it. */
 .show-button {
-  --focus-border-offset: var(--focus-border-width);
   border: none;
   background-color: transparent;
   width: fit-content;
   min-width: var(--target-min);
-  padding: 0 0 0 var(--space-2);
+  padding: 0 var(--space-1) 0 var(--space-2);
+  margin-right: calc(-1 * var(--space-1));
   color: var(--mm-text-link);
   font-size: var(--text-xs);
   cursor: pointer;

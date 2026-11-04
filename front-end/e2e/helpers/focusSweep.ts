@@ -263,6 +263,18 @@ export async function installTheSweep(page: Page): Promise<void> {
         if (square) problems.push(`a border with square corners: border-radius ${square}`);
         const clippedBy = clipper(wearer);
         if (clippedBy) problems.push(`a border cut off by ${clippedBy}`);
+        // The window clips too what is drawn past a button's edge, and a bar along it has no room.
+        const reach = offset + width;
+        const edges = wearer.getBoundingClientRect();
+        if (
+          reach > 0 &&
+          (edges.left - reach < 0 ||
+            edges.top - reach < 0 ||
+            edges.right + reach > document.documentElement.clientWidth ||
+            edges.bottom + reach > window.innerHeight)
+        ) {
+          problems.push('a border runs off the window');
+        }
         if (wearer === el) {
           // Drawn inside the edge, it must not lie over the words, which a padless button's reach:
           // the words on show, since a screen reader's lie wherever they are clipped to nothing.

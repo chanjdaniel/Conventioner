@@ -236,11 +236,11 @@ h1 {
 /* Its focus border is the primitives' own: this set `outline: none`, so a keyboard user could not
    see they were on it. */
 .show-button {
-  --focus-border-offset: var(--focus-border-width);
   min-width: var(--target-min);
   border: none;
   background-color: transparent;
-  padding: 0 0 0 var(--space-2);
+  padding: 0 var(--space-1) 0 var(--space-2);
+  margin-right: calc(-1 * var(--space-1));
   color: var(--mm-text-link);
   font-size: var(--text-xs);
   cursor: pointer;

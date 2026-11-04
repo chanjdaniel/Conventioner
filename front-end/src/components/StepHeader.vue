@@ -68,7 +68,6 @@ const currentIndex = computed(() => props.steps.findIndex((step) => step.id === 
 }
 
 .step-button {
-  --focus-border-offset: var(--focus-border-width);
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -82,8 +81,10 @@ const currentIndex = computed(() => props.steps.findIndex((step) => step.id === 
 }
 
 /* The first step starts at the header's edge, so its number lines up with the card below. It was
-   pulled back by a negative margin, which left the list 8px outside its header (T79). */
+   pulled back by a negative margin, which left the list 8px outside its header (T79). With no
+   padding its focus border runs clear of its number rather than over it. */
 .step-item:first-child .step-button {
+  --focus-border-offset: var(--focus-border-width);
   padding-left: 0;
 }
 

@@ -122,7 +122,7 @@ test.describe('The focus sweep', () => {
   });
 
   test('a border outside the edge is caught', async ({ page }) => {
-    await show(page, button('', 'outline-offset: 2px;'));
+    await show(page, button('margin: 8px;', 'outline-offset: 2px;'));
     expect(await problemsOfTheFirstStop(page)).toEqual([
       "a button's border is not on its edge: offset 2px",
     ]);
@@ -160,24 +160,27 @@ test.describe('The focus sweep', () => {
     ]);
   });
 
+  /** A padless text button whose border runs clear around its words, `at` from the window's edge. */
+  const textButton = (at: number) =>
+    button(
+      `width: auto; padding: 0; border: none; background: none; margin: ${at}px;`,
+      'outline-offset: 2px;',
+    );
+
   test('a padless text button whose border runs clear around its words passes', async ({
     page,
   }) => {
-    await show(
-      page,
-      button('width: auto; padding: 0; border: none; background: none;', 'outline-offset: 2px;'),
-    );
+    await show(page, textButton(8));
     expect(await problemsOfTheFirstStop(page)).toEqual([]);
   });
 
+  test("a text button whose border runs off the window's edge is caught", async ({ page }) => {
+    await show(page, textButton(0));
+    expect(await problemsOfTheFirstStop(page)).toEqual(['a border runs off the window']);
+  });
+
   test('a text button whose border is cut off is caught', async ({ page }) => {
-    await show(
-      page,
-      `<div class="box" style="margin: 0">${button(
-        'width: auto; padding: 0; border: none; background: none;',
-        'outline-offset: 2px;',
-      )}</div>`,
-    );
+    await show(page, `<div class="box" style="margin: 8px">${textButton(0)}</div>`);
     expect(await problemsOfTheFirstStop(page)).toEqual([
       'a border cut off by div.box (overflow hidden hidden), at its left top',
     ]);
