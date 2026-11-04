@@ -350,11 +350,16 @@
   white-space: nowrap;
 }
 
-/* Paper does not scroll, so a table wraps to the page rather than running off it, an address too. */
+/* Paper does not scroll, so a table wraps to the page rather than running off it. A word stays whole
+   and sizes its column, as does each piece of an address drawn by `EmailAddress`, which breaks only
+   before its "@" or a dot. */
 @media print {
   .data-table :is(th, td) {
     white-space: normal;
-    overflow-wrap: anywhere;
+  }
+
+  .data-table :is(th, td) .email-address {
+    overflow-wrap: normal;
   }
 }
 

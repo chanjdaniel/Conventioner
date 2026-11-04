@@ -7,6 +7,7 @@
  */
 import { computed, ref } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
+import EmailAddress from '@/components/EmailAddress.vue';
 import FilterToggles from '@/components/FilterToggles.vue';
 import PhaseBadge from '@/components/PhaseBadge.vue';
 import ScrollBox from '@/components/ScrollBox.vue';
@@ -286,7 +287,7 @@ const panelReadOut = computed(
           <tbody>
             <tr v-for="row in rows" :key="row.id" data-testid="library-table-row">
               <th scope="row">{{ row.name }}</th>
-              <td>{{ row.email }}</td>
+              <td><EmailAddress :words="row.email" /></td>
               <td>{{ row.business }}</td>
               <td>{{ row.sells }}</td>
               <td>
@@ -294,7 +295,7 @@ const panelReadOut = computed(
                   statusLabel(row.status)
                 }}</span>
               </td>
-              <td>{{ addressOf(row.reviewer) }}</td>
+              <td><EmailAddress :words="addressOf(row.reviewer)" /></td>
             </tr>
           </tbody>
         </table>

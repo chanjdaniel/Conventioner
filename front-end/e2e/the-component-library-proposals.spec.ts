@@ -96,7 +96,8 @@ eachWindow('the proposals entry', (size) => {
   });
 
   test('prints the table of 30 whole on a Letter page, with nothing clipped', async ({ page }) => {
-    await page.setViewportSize({ width: 816, height: 1056 });
+    // A Letter page's width, less half an inch each side.
+    await page.setViewportSize({ width: 720, height: 1056 });
     await expect(page.getByTestId('library-table-row')).toHaveCount(30);
 
     await page.emulateMedia({ media: 'print' });
@@ -108,7 +109,27 @@ eachWindow('the proposals entry', (size) => {
     );
     await expect(scroller).toHaveCSS('overflow-x', 'visible');
     const last = (await page.getByRole('columnheader', { name: 'Reviewer' }).boundingBox())!;
-    expect(last.x + last.width, 'the last column ends on the page').toBeLessThanOrEqual(816);
+    expect(last.x + last.width, 'the last column ends on the page').toBeLessThanOrEqual(720);
+
+    // Each word on one line, up to a hyphen, and each piece of an address, which is its own text.
+    const split = await scroller.locator('th, td').evaluateAll((cells) =>
+      cells.flatMap((cell) => {
+        const texts = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+        const words: string[] = [];
+        while (texts.nextNode()) {
+          const text = texts.currentNode as Text;
+          for (const word of text.data.matchAll(/[^\s-]+/g)) {
+            const range = document.createRange();
+            range.setStart(text, word.index);
+            range.setEnd(text, word.index + word[0].length);
+            const tops = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
+            if (tops.size > 1) words.push(word[0]);
+          }
+        }
+        return words;
+      }),
+    );
+    expect(split, 'the words split across lines').toEqual([]);
   });
 
   test('scrolls the table of 30 inside its scroller, its corners kept, the page still', async ({
