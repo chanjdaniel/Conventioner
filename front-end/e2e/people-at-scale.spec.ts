@@ -38,6 +38,9 @@ import { uniqueMarketName } from './helpers/uniqueName';
  * "Users with access" drew every one of the 154 people, about 4,900px before Add user at a desk. It
  * is a list frame now: a find field, a count line, 50 rows and "Show N more". Manage organization's
  * Members, all 150 of them, and Admins are too.
+ *
+ * Every chooser of a person finds them by typing, among however many there are: Choose reviewers,
+ * "Who will follow up", the card's "Followed up by" and the All view's "Assigned to".
  */
 
 /** A market like the seed's, in an organization whose only person is the seed owner. */
@@ -731,6 +734,126 @@ for (const size of PHONE_AND_DESK) {
         await press(monitor.followUpOwner.field);
         await expect(monitor.followUpOwner.options).toHaveCount(PAGE);
         await expectLaidOut(page, 'the card, its list open at 320');
+      });
+    }
+  });
+
+  test.describe(`"Assigned to" among the chosen reviewers, ${size.name}`, () => {
+    test.use(size.use);
+    test.setTimeout(120_000);
+
+    const press = (locator: Locator) => (size.phone ? locator.tap() : locator.click());
+
+    test('finds one by typing, and a reload keeps the filter and its rows', async ({
+      authenticatedPage: page,
+      request,
+    }) => {
+      const seed = await seedPeopleAtScale(request);
+      const all = new ApplicationsAllPage(page);
+      await all.goto(seed.marketId);
+      const { field, options } = all.assignedTo;
+      await expect(field).toHaveValue('Anyone');
+      await expect(all.count).toHaveText('5 of 5');
+      await expectLaidOut(page, 'the filter row');
+
+      // The seed owner is no reviewer, so "Anyone" leads and every reviewer follows.
+      await press(field);
+      await expect(options).toHaveText(['Anyone', ...seed.reviewers.map(({ email }) => email)]);
+      await expectLaidOut(page, 'the filter row, its list open');
+
+      // Someone with an application, read off a row: five are dealt among the twelve.
+      const dealt = ((await all.rowReviewers.first().textContent()) ?? '').replace(
+        'Reviewer: ',
+        '',
+      );
+      await field.fill(dealt.split('@')[0]!);
+      await expect(options).toHaveText([dealt]);
+      await expect(all.count).toHaveText('5 of 5');
+      await expectLaidOut(page, 'one reviewer found');
+
+      await press(options.first());
+      await expect(field).toHaveValue(dealt);
+      await expect.poll(() => new URL(page.url()).searchParams.get('reviewer')).toBe(dealt);
+      await expect(all.count).toHaveText('1 of 5');
+      await expect(all.rowReviewers).toHaveText([`Reviewer: ${dealt}`]);
+
+      await page.reload();
+      await expect(field).toHaveValue(dealt);
+      await expect(all.count).toHaveText('1 of 5');
+      await expect(all.rowReviewers).toHaveText([`Reviewer: ${dealt}`]);
+      await expectLaidOut(page, 'the filter row on a reviewer');
+    });
+
+    test('moves nothing beside the field as its list opens, and Export ends the row', async ({
+      authenticatedPage: page,
+      request,
+    }) => {
+      const seed = await seedPeopleAtScale(request);
+      const all = new ApplicationsAllPage(page);
+      await all.goto(seed.marketId);
+      await expect(all.exportButton).toBeVisible();
+
+      // The list lies over the rows, so neither the filters nor the rows move.
+      const beside = [
+        page.getByTestId('applications-all-filter-all'),
+        all.mine,
+        all.exportButton,
+        all.rows.first(),
+      ];
+      /** Where each stands on the page, since opening the field may scroll to it. */
+      const where = () =>
+        Promise.all(
+          beside.map((item) =>
+            item.evaluate((element) => {
+              const { x, y } = element.getBoundingClientRect();
+              return { x, y: y + window.scrollY };
+            }),
+          ),
+        );
+      const before = await where();
+
+      await press(all.assignedTo.field);
+      await expect(all.assignedTo.list).toBeVisible();
+      expect(await where()).toEqual(before);
+      await expectLaidOut(page, 'the list over the rows');
+
+      await all.assignedTo.field.press('Escape');
+      await expect(all.assignedTo.list).toBeHidden();
+      expect(await where()).toEqual(before);
+
+      // The last row of the list is under no row of the page: a press takes it.
+      await press(all.assignedTo.field);
+      const last = seed.reviewers.at(-1)!.email;
+      await all.assignedTo.option(last).scrollIntoViewIfNeeded();
+      await press(all.assignedTo.option(last));
+      await expect(all.assignedTo.field).toHaveValue(last);
+
+      const rowEnd = await page
+        .locator('.all-filters')
+        .evaluate((row) => row.getBoundingClientRect().right);
+      const exportEnd = await all.exportButton.evaluate(
+        (button) => button.getBoundingClientRect().right,
+      );
+      expect(exportEnd).toBeCloseTo(rowEnd, 0);
+    });
+
+    if (size.phone) {
+      test('fits 320 wide', async ({ authenticatedPage: page, request }) => {
+        await page.setViewportSize({ width: 320, height: 568 });
+        const seed = await seedPeopleAtScale(request);
+        const all = new ApplicationsAllPage(page);
+        const reviewer = seed.reviewers[0]!.email;
+        await all.goto(seed.marketId, reviewer);
+        await expect(all.assignedTo.field).toHaveValue(reviewer);
+        await expectLaidOut(page, 'the filter row at 320');
+
+        await press(all.assignedTo.field);
+        await expect(all.assignedTo.options).toHaveCount(seed.reviewers.length + 1);
+        await expectLaidOut(page, 'its list open at 320');
+
+        await all.assignedTo.field.fill(reviewer);
+        await expect(all.assignedTo.options).toHaveText([reviewer]);
+        await expectLaidOut(page, 'one reviewer found at 320');
       });
     }
   });

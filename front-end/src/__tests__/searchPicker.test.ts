@@ -233,6 +233,29 @@ describe('the searchable picker', () => {
   });
 });
 
+describe('a group with no name that nothing matches', () => {
+  const NAMED_AND_NOT: PickerGroup[] = [
+    { options: [{ value: 'anyone', label: 'Anyone' }] },
+    { label: 'Reviewers', options: [{ value: 'sam@example.com', label: 'sam@example.com' }] },
+  ];
+
+  it('draws nothing, since "None match" would have no heading to speak of', async () => {
+    const wrapper = picker('', NAMED_AND_NOT);
+    await field(wrapper).setValue('sam');
+    expect(shown(wrapper)).toEqual(['sam@example.com']);
+    expect(wrapper.text()).not.toContain('None match');
+    wrapper.unmount();
+  });
+
+  it('leaves a named group saying that none match', async () => {
+    const wrapper = picker('', NAMED_AND_NOT);
+    await field(wrapper).setValue('anyone');
+    expect(shown(wrapper)).toEqual(['anyone']);
+    expect(wrapper.text()).toContain('None match "anyone".');
+    wrapper.unmount();
+  });
+});
+
 describe('a capped match list', () => {
   /** Five in the first group and four in the second, each findable by its letter and number. */
   const CAPPED: PickerGroup[] = [

@@ -600,6 +600,15 @@ export const SCREENS: Screen[] = [
     open: at(setup('dealt', 'applications'), 'applications-all-assigned-to'),
   },
   {
+    name: 'the review divided, "Assigned to" open',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(setup('dealt', 'applications'), 'applications-all-assigned-to', [
+      'applications-all-assigned-to-input',
+      'applications-all-assigned-to-list',
+    ]),
+  },
+  {
     name: "the review divided, another's application in the drawer",
     who: 'organizer',
     sizes: FITS_A_PHONE,

@@ -12,12 +12,14 @@
  * - Named by its own label, and worked from the keyboard alone: the arrow keys move through the
  *   list, Enter takes the active choice, Escape closes the list. While the list is closed, Enter
  *   and Escape belong to the dialog around it, so Enter still submits and Escape still closes.
- * - A group is never hidden by a search, only narrowed: one with nothing matching says so. A group
- *   with no choices at all is not drawn, as an empty `optgroup` was not. A picker with no choices
- *   at all never opens its list; the note beside it says why there is nothing to choose.
+ * - A group is never hidden by a search, only narrowed: one with a name and nothing matching says
+ *   so, and one with no name has no heading to say it under. A group with no choices at all is not
+ *   drawn, as an empty `optgroup` was not. A picker with no choices at all never opens its list; the
+ *   note beside it says why there is nothing to choose.
  * - What the words find is the caller's (`finds`), so every use searches by its own terms.
  * - The list opens in the page's flow, under the field, rather than over what follows: inside a
- *   dialog a floating list is clipped by the dialog's own scroller.
+ *   dialog a floating list is clipped by the dialog's own scroller. A filter on a page, where nothing
+ *   clips it, may lay it over the rows with its own style, as the All view's "Assigned to" does.
  * - The field shows no focus ring, as no field does (E38/F01, `primitives.css`): its caret is its
  *   focus. The active choice is drawn as a tint, since it is never focused itself
  *   (`aria-activedescendant`).
@@ -551,7 +553,10 @@ function onFocus(): void {
           <span class="search-picker-option-label">{{ option.label }}</span>
           <span v-if="option.detail" class="search-picker-option-detail">{{ option.detail }}</span>
         </div>
-        <p v-if="!group.shown.length && cappedGroups.length > 1" class="search-picker-none">
+        <p
+          v-if="group.label && !group.shown.length && cappedGroups.length > 1"
+          class="search-picker-none"
+        >
           None match "{{ words }}".
         </p>
       </div>

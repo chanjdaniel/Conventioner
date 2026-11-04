@@ -4,9 +4,9 @@
  * fixture application, with its status toggles and an "Assigned to" combobox (C6), and a switch to
  * today's every-row list on the same filters; L1, the 150 people with access, a role select per row;
  * then a panel per state. Only the chosen view of L2 is mounted, so the first paint draws the frame's
- * first page and never today's every row. L2's reviewers read as they do today, by address, through
- * the real filter's options and row words (`utils/reviewers.ts`). Nothing here is a read: the failed
- * and loading panels are the frame told so.
+ * first page and never today's every row. L2's reviewers read as they do on the screen, by address,
+ * through the real filter's choices and row words (`utils/reviewers.ts`). Nothing here is a read: the
+ * failed and loading panels are the frame told so.
  */
 import { computed, onMounted, reactive, ref } from 'vue';
 import { MarketRole } from '@/assets/types/datatypes';
@@ -16,7 +16,14 @@ import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/
 import { OFFLINE_MESSAGE } from '@/utils/api';
 import { getRoleDisplayName } from '@/utils/permissions';
 import { ALL_VIEW_FILTERS, allViewLists, type AllViewFilter } from '@/utils/reviewQueue';
-import { assignedAddress, assignedToOptions, reviewerLine } from '@/utils/reviewers';
+import { PEOPLE_CAP } from '@/utils/personChoice';
+import {
+  assignedAddress,
+  assignedToGroups,
+  assignedToOptions,
+  findsAssignedTo,
+  reviewerLine,
+} from '@/utils/reviewers';
 import ApplicationRow from '../parts/ApplicationRow.vue';
 import LibraryPanel from '../parts/LibraryPanel.vue';
 import LibrarySection from '../parts/LibrarySection.vue';
@@ -48,10 +55,8 @@ const TEAM = {
 };
 const ANYONE = 'anyone';
 const assignedOptions: PickerOption[] = assignedToOptions(READER, TEAM);
-const assignedGroups: PickerGroup[] = [{ options: assignedOptions }];
-/** By the address; "Me" is the reader's own, so their address finds it too. */
-const findsReviewer = (option: PickerOption, words: string) =>
-  holds(option.label, words) || (option.value === 'me' && holds(READER, words));
+const assignedGroups: PickerGroup[] = assignedToGroups(READER, TEAM);
+const findsReviewer = findsAssignedTo(READER);
 
 const view = ref('proposed');
 const viewOptions: FilterToggle[] = [
@@ -170,6 +175,7 @@ onMounted(() => {
                 holds-choice
                 :groups="assignedGroups"
                 :finds="findsReviewer"
+                :cap="PEOPLE_CAP"
                 label="Assigned to"
                 placeholder="Type an address…"
                 testid="library-l2-assigned"
@@ -213,19 +219,17 @@ onMounted(() => {
                 {{ option.label }}
               </button>
             </div>
-            <label class="library-today-assigned">
-              <span class="library-today-assigned__label">Assigned to</span>
-              <select
-                class="field field--select library-today-select"
-                name="library-l2-today-assigned"
-                :value="assigned"
-                @change="assigned = ($event.target as HTMLSelectElement).value"
-              >
-                <option v-for="option in assignedOptions" :key="option.value" :value="option.value">
-                  {{ option.label }}
-                </option>
-              </select>
-            </label>
+            <SearchPicker
+              v-model="assigned"
+              class="library-today-assigned"
+              holds-choice
+              :groups="assignedGroups"
+              :finds="findsReviewer"
+              :cap="PEOPLE_CAP"
+              label="Assigned to"
+              placeholder="Type an address…"
+              testid="library-l2-today-assigned"
+            />
             <span class="library-today-count" data-testid="library-l2-today-count">
               {{ filtered.length }} of {{ applications.length }}
             </span>
@@ -417,23 +421,37 @@ onMounted(() => {
   min-width: var(--target-min);
 }
 
-.library-today-assigned {
-  display: inline-flex;
+.library-today-tools .library-today-assigned {
+  position: relative;
+  flex: 1 1 22rem;
+  flex-flow: row wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
   min-width: 0;
-  font-size: var(--text-sm);
-  color: var(--mm-black);
+  max-width: 28rem;
 }
 
-.library-today-assigned__label {
+.library-today-assigned :deep(.field-label) {
+  margin-bottom: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
   white-space: nowrap;
 }
 
-.library-today-select {
+.library-today-assigned :deep(.field) {
+  flex: 1 1 14rem;
+  width: auto;
+  min-width: 0;
   height: var(--control-height-compact);
-  min-width: var(--target-min);
-  field-sizing: content;
+}
+
+.library-today-assigned :deep(.search-picker-list) {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  z-index: 1;
+  box-shadow: var(--shadow-card);
 }
 
 .library-today-count {

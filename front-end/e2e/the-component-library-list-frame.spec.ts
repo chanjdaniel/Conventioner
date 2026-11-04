@@ -158,8 +158,9 @@ eachWindow('the list frame entry', (size) => {
     await expect(options).toHaveText([address]);
 
     await field.fill('Chloe Walker');
-    await expect(page.getByTestId('library-l2-assigned-none')).toHaveText(
-      'Nobody matches "Chloe Walker".',
+    await expect(options).toHaveCount(0);
+    await expect(page.getByTestId('library-l2-assigned-list')).toContainText(
+      'None match "Chloe Walker".',
     );
 
     // "Me" is the reader's own, so their address finds it, and the reader's rows say "you".
@@ -170,34 +171,39 @@ eachWindow('the list frame entry', (size) => {
     await expect(page.getByTestId('library-l2-row').first()).toContainText('Reviewer: you');
   });
 
-  test("today's select draws the reviewers as today's filter does: Me, Anyone, then addresses", async ({
+  test("today's view chooses with the same picker: Me, Anyone, then addresses", async ({
     page,
   }) => {
     const { press } = inTheWindow(size);
     await press(page.getByTestId('library-l2-view-today'));
-    const select = page.getByTestId('library-l2-today').getByRole('combobox', {
-      name: 'Assigned to',
-    });
-    const options = await select.getByRole('option').allInnerTexts();
-    expect(options.slice(0, 2)).toEqual(['Me', 'Anyone']);
-    expect(options).toHaveLength(13);
-    for (const address of options.slice(2)) expect(address).toMatch(/^[^\s@]+@example\.com$/);
-    // One line, label and select, even with the longest address chosen.
-    const label = page.locator('.library-today-assigned').getByText('Assigned to');
-    const longest = options.reduce((a, b) => (b.length > a.length ? b : a));
-    await select.selectOption({ label: longest });
-    const lines = await label.evaluate((span) => {
-      const words = document.createRange();
-      words.selectNodeContents(span);
-      return words.getClientRects().length;
+    const today = page.getByTestId('library-l2-today');
+    const field = today.getByTestId('library-l2-today-assigned-input');
+    const options = today.getByTestId('library-l2-today-assigned-option');
+    await press(field);
+    await expect(options).toHaveCount(13);
+    const words = await options.allInnerTexts();
+    expect(words.slice(0, 2)).toEqual(['Me', 'Anyone']);
+    for (const address of words.slice(2)) expect(address).toMatch(/^[^\s@]+@example\.com$/);
+    await expectLaidOut(page, size, "today's filter, its list open");
+
+    // One line for the label, even with the longest address chosen.
+    const longest = words.reduce((a, b) => (b.length > a.length ? b : a));
+    await field.fill(longest);
+    await expect(options).toHaveText([longest]);
+    await field.press('Enter');
+    await expect(field).toHaveValue(longest);
+    const label = today.locator('label').filter({ hasText: 'Assigned to' });
+    const lines = await label.evaluate((element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      return range.getClientRects().length;
     });
     expect(lines).toBe(1);
-    await expectLaidOut(page, size, "today's select on the longest address");
-    await select.selectOption({ label: options[2]! });
-    const rows = page.getByTestId('library-l2-today').getByTestId('library-application-row');
-    await expect(rows).toHaveCount(30);
-    await expect(rows.first()).toContainText(`Reviewer: ${options[2]}`);
-    await expectLaidOut(page, size, "today's select of addresses");
+    await expectLaidOut(page, size, "today's filter on the longest address");
+    await expect(today.getByTestId('library-application-row')).toHaveCount(30);
+    await expect(today.getByTestId('library-application-row').first()).toContainText(
+      `Reviewer: ${longest}`,
+    );
   });
 
   test('words in "Assigned to" only search: the reviewer holds, and the field names them again', async ({
@@ -215,7 +221,7 @@ eachWindow('the list frame entry', (size) => {
 
     await field.click();
     await field.fill('zzz');
-    await expect(page.getByTestId('library-l2-assigned-none')).toHaveText('Nobody matches "zzz".');
+    await expect(page.getByTestId('library-l2-assigned-list')).toContainText('None match "zzz".');
     await expect(count).toHaveText('30 applications');
     await expect(filters).toContainText(`assigned to ${address}`);
 
