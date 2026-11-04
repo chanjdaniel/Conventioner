@@ -73,8 +73,9 @@ test.describe('on a browser that draws classic scroll bars', () => {
       TEST_USER.password,
     );
     await withClassicBars({ playwright, baseURL }, { width: 1280, height: 400 }, async (page) => {
-      await new LoginPage(page).login(TEST_USER.email, TEST_USER.password);
-      await page.waitForURL('**/dashboard');
+      const login = new LoginPage(page);
+      await login.login(TEST_USER.email, TEST_USER.password);
+      await login.waitForMarkets();
 
       const tables = new TablesPage(page);
       await tables.goto(seed.marketId);

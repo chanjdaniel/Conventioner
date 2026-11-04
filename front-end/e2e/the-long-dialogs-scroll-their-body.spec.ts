@@ -28,8 +28,9 @@ test.beforeAll(async ({ request }) => {
 });
 
 async function signIn(page: Page) {
-  await new LoginPage(page).login(TEST_USER.email, TEST_USER.password);
-  await page.waitForURL('**/dashboard');
+  const login = new LoginPage(page);
+  await login.login(TEST_USER.email, TEST_USER.password);
+  await login.waitForMarkets();
 }
 
 async function openManageMarket(page: Page) {
@@ -266,7 +267,7 @@ test.describe('in a window too short to show the whole body', () => {
 /*
  * What the rule for "long" named and no other spec reads (`dialogs.md`): each scrolls its `-body`,
  * and has no `-scroll`, which is what a dialog scrolling whole has. The rest are read where a spec
- * already opens them: Fix the form, Load market, Load Template and the permissions reset.
+ * already opens them: Fix the form, Load Template and the permissions reset.
  */
 test.describe('each dialog a market can outgrow scrolls only its body', () => {
   for (const [state, testid] of [
