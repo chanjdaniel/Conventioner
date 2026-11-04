@@ -85,6 +85,34 @@ test.describe('The layout detectors', () => {
     expect(of(found, 'overlap')).toEqual([]);
   });
 
+  test('a text scrolled past its box keeps its own edge, so it slips against nothing', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.setContent(`<!doctype html><html><body style="margin: 0; font: 14px/20px sans-serif">
+      <div id="box" style="margin-left: 100px; width: 300px; overflow: hidden">
+        <p style="margin: 0; width: 800px">Scrolled past the box's edge</p>
+      </div>
+      <p style="margin: 0 0 0 103px">A line 3px from that edge</p>
+    </body></html>`);
+    const slips = async () =>
+      of(
+        await page.evaluate(detectLayout, {
+          spaceScale: SPACE_SCALE,
+          textScale: TYPE_SCALE,
+          minTarget: minTargetAt(1440),
+        }),
+        'text-edge-slip',
+      );
+
+    // Unscrolled it does slip, 3px, so the quiet below is the scroll's and no accident.
+    expect(await slips()).toHaveLength(1);
+    await page.locator('#box').evaluate((box) => {
+      box.scrollLeft = 50;
+    });
+    expect(await slips()).toEqual([]);
+  });
+
   test('two texts drawn over each other overlap', async ({ page }) => {
     const found = await findingsOn(
       page,

@@ -452,25 +452,25 @@ export function detectLayout(opts: DetectOptions): Finding[] {
         !/fixed|sticky/.test(styleOf(x.el).position) &&
         !clippedAway(x.r, x.el),
     )
-    .map((x) => ({ ...x, r: shownPart(x.r, x.el) }))
+    .map((x) => ({ ...x, shown: shownPart(x.r, x.el) }))
     .slice(0, 4000);
-  L.sort((a, b) => a.r.left - b.r.left);
+  L.sort((a, b) => a.shown.left - b.shown.left);
   let overlaps = 0;
   for (let i = 0; i < L.length && overlaps < 50; i++) {
-    for (let j = i + 1; j < L.length && L[j].r.left < L[i].r.right; j++) {
+    for (let j = i + 1; j < L.length && L[j].shown.left < L[i].shown.right; j++) {
       const a = L[i];
       const b = L[j];
       if (a.el === b.el || a.el.contains(b.el) || b.el.contains(a.el)) continue;
       if (layer(a.el) !== layer(b.el)) continue;
-      const w = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left);
-      const h = Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top);
+      const w = Math.min(a.shown.right, b.shown.right) - Math.max(a.shown.left, b.shown.left);
+      const h = Math.min(a.shown.bottom, b.shown.bottom) - Math.max(a.shown.top, b.shown.top);
       if (w > 2 && h > 2) {
         overlaps++;
         findings.push({
           kind: 'overlap',
           el: `${path(a.el)} ~ ${path(b.el)}`,
           detail: `${Math.round(w)}x${Math.round(h)}px overlap`,
-          box: box(a.r),
+          box: box(a.shown),
         });
       }
     }
