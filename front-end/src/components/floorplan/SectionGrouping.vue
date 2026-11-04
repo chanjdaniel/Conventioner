@@ -608,6 +608,7 @@ onUnmounted(() => {
   top: 12px;
   left: 12px;
   display: flex;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 6px;
   z-index: 20;
   pointer-events: all;
@@ -619,11 +620,12 @@ onUnmounted(() => {
   justify-content: center;
   min-width: 32px;
   height: 32px;
-  padding: 0 12px;
+  padding: 0 var(--space-3);
 
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
   border: none;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 5px, and the nearest would change this floorplan beta corner */
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
@@ -656,6 +658,7 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
   color: var(--mm-black);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 2px 12px rgba(39, 35, 35, 0.12);
 }
 
@@ -680,19 +683,22 @@ onUnmounted(() => {
   z-index: 20;
   pointer-events: none;
 
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px and 18px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 6px 18px;
   background: rgba(39, 35, 35, 0.82);
   backdrop-filter: blur(6px);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 
   font-size: var(--text-xs);
-  color: #ffffff;
+  color: white;
 }
 
 .sg-hint kbd {
   display: inline-block;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 5px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 0 5px;
   background: rgba(255, 255, 255, 0.18);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 4px, and the nearest would change this floorplan beta corner */
   border-radius: 4px;
   font-family: inherit;
   font-size: var(--text-xs);
@@ -715,12 +721,15 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(39, 35, 35, 0.1);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 8px 32px rgba(39, 35, 35, 0.12);
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 14px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 14px 0 8px;
 }
 
 .sg-panel-title {
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   margin: 0 16px 10px;
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-md);
@@ -737,7 +746,9 @@ onUnmounted(() => {
 .sg-list-item {
   display: flex;
   align-items: center;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 10px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 14px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 8px 14px;
   transition: background-color 0.12s ease-in-out;
 }
@@ -750,6 +761,7 @@ onUnmounted(() => {
   flex-shrink: 0;
   width: 14px;
   height: 14px;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 3px, and the nearest would change this floorplan beta corner */
   border-radius: 3px;
 }
 
@@ -758,6 +770,7 @@ onUnmounted(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 1px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 1px;
 }
 
@@ -775,6 +788,12 @@ onUnmounted(() => {
   color: var(--mm-text-muted);
 }
 
+/* A hovered row's grey takes `--mm-text-muted` to 4.13, and this to 5.04. */
+.sg-list-item:hover .sg-item-meta,
+.sg-list-item:hover .sg-delete-btn:not(:hover) {
+  color: var(--mm-text-muted-on-beige);
+}
+
 .sg-delete-btn {
   flex-shrink: 0;
   display: inline-flex;
@@ -784,6 +803,7 @@ onUnmounted(() => {
   height: 24px;
   padding: 0;
   border: none;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 4px, and the nearest would change this floorplan beta corner */
   border-radius: 4px;
   background: transparent;
   color: var(--mm-text-muted);
@@ -795,14 +815,15 @@ onUnmounted(() => {
     color 0.12s ease-in-out;
 }
 
+/* Opaque, so the pair reads the same over the hovered row's grey under it. */
 .sg-delete-btn:hover {
-  background: rgba(220, 20, 60, 0.1);
-  color: #dc143c;
+  background: var(--mm-chip-destructive);
+  color: var(--mm-text-red-on-tint);
 }
 
 .sg-empty {
   margin: 0;
-  padding: 12px 16px;
+  padding: var(--space-3) var(--space-4);
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
   text-align: center;
@@ -842,13 +863,17 @@ onUnmounted(() => {
   max-height: 90vh;
   overflow-y: auto;
 
-  background: #ffffff;
+  background: white;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 14px, and the nearest would change this floorplan beta corner */
   border-radius: 14px;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 16px 48px rgba(39, 35, 35, 0.18);
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 28px and 22px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 28px 28px 22px;
 }
 
 .sg-dialog-title {
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   margin: 0 0 6px;
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-lg);
@@ -857,6 +882,7 @@ onUnmounted(() => {
 }
 
 .sg-dialog-sub {
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 20px is off the spacing scale, and the nearest token would change this floorplan beta size */
   margin: 0 0 20px;
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
@@ -866,7 +892,9 @@ onUnmounted(() => {
 .sg-field {
   display: flex;
   flex-direction: column;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 5px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 5px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 14px is off the spacing scale, and the nearest token would change this floorplan beta size */
   margin-bottom: 14px;
 }
 
@@ -886,15 +914,16 @@ onUnmounted(() => {
 .sg-field-input {
   width: 100%;
   height: 38px;
-  padding: 0 12px;
+  padding: 0 var(--space-3);
 
   border: 2px solid rgba(39, 35, 35, 0.15);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
   outline: none;
 
   font-size: var(--text-sm);
   color: var(--mm-black);
-  background: #ffffff;
+  background: white;
 }
 
 .sg-field-input::placeholder {
@@ -903,6 +932,7 @@ onUnmounted(() => {
 
 /* ── Code preview ───────────────────────────────────────────────── */
 .sg-code-preview {
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 18px is off the spacing scale, and the nearest token would change this floorplan beta size */
   margin: 0 0 18px;
   font-size: var(--text-xs);
   color: var(--mm-black);
@@ -910,8 +940,10 @@ onUnmounted(() => {
 
 .sg-code-preview code {
   display: inline;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 7px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 2px 7px;
   background: var(--mm-beige);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 4px, and the nearest would change this floorplan beta corner */
   border-radius: 4px;
   font-family: 'Courier New', monospace;
   font-size: var(--text-xs);
@@ -922,6 +954,7 @@ onUnmounted(() => {
 .sg-dialog-actions {
   display: flex;
   justify-content: flex-end;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 10px;
 }
 
@@ -930,11 +963,12 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   height: 36px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 18px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 0 18px;
 
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
@@ -957,7 +991,7 @@ onUnmounted(() => {
 
 .sg-btn--confirm {
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
 }
 
 .sg-btn--confirm:hover:not(:disabled) {

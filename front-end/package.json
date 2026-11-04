@@ -21,7 +21,7 @@
     "format:check": "prettier --check .",
     "test:unit": "vitest run",
     "test:e2e": "npx playwright test",
-    "lint:css": "stylelint \"src/**/*.{css,vue}\""
+    "lint:css": "stylelint --max-warnings 0 \"src/**/*.{css,vue}\""
   },
   "dependencies": {
     "@vueuse/core": "^15.0.0",
