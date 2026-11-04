@@ -709,15 +709,18 @@ const submitOTPLogin = async () => {
   color: var(--mm-text-muted);
 }
 
-/* Room inside its edge for the focus border, which would cross the field's own outside it: the
-   word stays where the field's padding puts it. */
+/* A field with a Show button hands it `--space-1` of its padding: the button's room inside its edge
+   for the focus border, which would cross the field's own outside it. The word stays put. */
+.login-input:has(.show-button) {
+  padding-right: var(--space-2);
+}
+
 .show-button {
   border: none;
   background-color: transparent;
   width: fit-content;
-  min-width: var(--target-min);
+  min-width: calc(var(--target-min) + var(--space-1));
   padding: 0 var(--space-1) 0 var(--space-2);
-  margin-right: calc(-1 * var(--space-1));
   color: var(--mm-text-link);
   font-size: var(--text-xs);
   cursor: pointer;
