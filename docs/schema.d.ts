@@ -68,6 +68,10 @@ export interface MarketSchema {
     state: string;
   }[];
   exampleColumns?: {
+    answers?: {
+      multiSelect?: string[];
+      select?: string[];
+    };
     headers?: string[];
     helpText?: string;
     key: string;
@@ -92,6 +96,8 @@ export interface MarketSchema {
   modificationList: {
   }[];
   name: string;
+  noAutomaticRejections?: boolean;
+  nothingLeadsTheCard?: boolean;
   organizationId?: string;
   permissions?: Record<string, {
     role: string;

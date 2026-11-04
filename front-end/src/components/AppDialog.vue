@@ -118,11 +118,19 @@ const FOCUSABLE =
 /**
  * The control a dialog opens on: its first, never a destructive one. For the same reason a
  * destructive dialog opens on Cancel, a dialog listing people never opens on the first person's
- * Remove, which one stray Enter would take: Manage organization opened on its first admin's.
+ * Remove, which one stray Enter would take: Manage organization opened on its first admin's. A
+ * control that takes something away without looking destructive, a chip's Remove, says so with
+ * `data-dialog-not-first`.
  */
 function firstSafeControl(): HTMLElement | null {
   const controls = windowEl.value?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [];
-  return [...controls].find((control) => !control.classList.contains('btn--destructive')) ?? null;
+  return (
+    [...controls].find(
+      (control) =>
+        !control.classList.contains('btn--destructive') &&
+        !control.hasAttribute('data-dialog-not-first'),
+    ) ?? null
+  );
 }
 
 /** Focus goes back to what opened the dialog when it closes, by any path. */
@@ -430,8 +438,11 @@ onUnmounted(() => observer?.disconnect());
   min-height: 0;
 }
 
-/* Its block padding is room for a control's focus halo at the body's top and bottom edge. */
+/* Its block padding is room for a control's focus halo at the body's top and bottom edge. Relative,
+   or something absolute inside it, a chip's `.visually-hidden` words, answers to the box around it,
+   neither scrolling nor clipped with the body, and can run past the window's foot. */
 .dialog-scroller {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -442,6 +453,7 @@ onUnmounted(() => observer?.disconnect());
 /* A body with nothing to focus is a keyboard stop of the browser's own; the window clips any halo
    drawn outside it. */
 .dialog-scroller:focus-visible {
+  border-radius: var(--radius-control);
   box-shadow: var(--focus-halo-inset);
 }
 
@@ -480,8 +492,10 @@ onUnmounted(() => observer?.disconnect());
 }
 
 /* Pinned, it keeps its height up to its cap, the body giving way, and scrolls inside itself past
-   the cap. */
+   the cap; relative, or something absolute inside it answers to the window and is not clipped with
+   the tray. */
 .dialog-body--pinned > .dialog-tray {
+  position: relative;
   flex: none;
   max-height: 40dvh;
   overflow-y: auto;

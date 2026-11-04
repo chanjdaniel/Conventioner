@@ -37,6 +37,7 @@ sources:
   - E46/F01/S05
   - E46/F01/S04
   - E38/F10/S01
+  - T206
 ---
 
 # The market's history
@@ -61,7 +62,7 @@ Stored snake_case with the market foreign key `market_id` (an organization's own
 | --- | --- |
 | `id` | a UUID |
 | `market_id` | the market; an organization's own change holds `organization_id` in its place, and no `market_id` |
-| `actor` | the address of the signed-in person who made the change; an applicant's own when they submit or edit their application; null for a check-in made on the vendors' public check-in page, which asks only an address and a date and so proves nobody (its detail says `via: check_in_page`) |
+| `actor` | the address of the signed-in person who made the change; an applicant's own when they submit or edit their application; null for a vendor's own check-in or undo, on their vendor page, which names the vendor among its `vendors` and says how in its detail (`via`), and for one made on the public check-in page before it was removed, which asked only an address and a date and so proved nobody (`via: check_in_page`) |
 | `at` | ISO 8601, UTC |
 | `action` | the id of the [E39 action](../modules/market-actions.md) the change was, the verb its check asked: `assign` for a placement; `apply` for an applicant's own change, which no row asks; an organization's own change uses one of the history's own verbs instead, since an organization has no table, except a market deleted from it, which keeps the table's `delete-market` ([below](#what-an-organization-records)) |
 | `kind` | the finer kind where one action covers several changes, else null: a placement's is `placed`, `freed`, `swapped` or `assigned` |
@@ -105,9 +106,10 @@ One block per action, in the order of [the actions table](../modules/market-acti
 - `form`: the form builder
   - Detail: the changed questions by key, null on the side where a question is absent, and `order` and `unasked_essentials` when they changed; and `rejected`, `returned`: what the rules decided as the form landed
 - `review_highlights`: the [review highlights](../../business/rules/review-highlights.md)
-  - Detail: `review_highlights`
+  - Detail: `review_highlights`, and `nothing_leads_the_card` when it changed (T206); read "decided nothing leads the card" when it turned true
 - `rejection_rules`: the [automatic rejections](../../business/rules/automatic-rejections.md)
   - Detail: `rejection_rules`, and `rejected`, `returned`: how many applications the rules rejected, and returned to undecided, as they were saved
+  - Detail: `no_automatic_rejections` when it changed (T206); read "decided no automatic rejections" when it turned true
 
 **`import-applications`**
 
@@ -240,10 +242,12 @@ One block per action, in the order of [the actions table](../modules/market-acti
 
 **`check-in`**
 
-- `checked_in`, `check_in_undone`: a check-in or its undo, at the organizer's door or the public check-in page, only when it changed whether the vendor is here
+- `checked_in`, `check_in_undone`: a check-in or its undo, at the organizer's door or by the vendor on their vendor page, only when it changed whether the vendor is here
   - Vendors: the vendor
   - Subject: `date`
-  - Detail: `checked_in`, and `via: check_in_page` from the public page, whose actor is null
+  - Detail: `checked_in`, and for the vendor's own, whose actor is null, `via`: `door_code` for a check-in, `vendor_page` for an undo, and `check_in_page` on an entry from the removed public page; the readers word them "with the door code", "on their vendor page" and "on the check-in page"
+- `door_code_made`: a new [door code](../modules/attendance-and-door.md#sharp-edges), the first or one that ended the old
+  - Detail: `replaced`, whether a code stood before it; never the code
 
 **`connect-discord`**
 
@@ -346,7 +350,7 @@ One block per action, in the order its constants stand in `history.py`; a new ki
 
 No rule is a person, so a rule's verdict is never an entry of its own: the write that judged counts what the rules did in its own entry, as the form, the rules, an applicant's save and an import (`rejected_by_rules`, `returned_by_rules`) do, and a move counts the offers it swept.
 
-Not recorded, each for its reason in `NOT_A_CHANGE` and `NOT_RECORDED` of [`back-end/tests/test_every_write_records.py`](../../../back-end/tests/test_every_write_records.py): a review claim ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)), which is who holds a card open and not a change; reads and exports; a vendor signing in; a market's creation, whose own history starts empty and which [its organization's history](#what-an-organization-records) records; its deletion, which takes the history with it while its organization's history keeps that it went (the [deletion trail](../modules/market-deletion.md) records a market only when its organization is deleted); the floorplan routes that keep nothing, or an upload the market uses only once a floorplan is saved; and starting Discord's approval screen, which keeps a state in the person's session and nothing on the market.
+Not recorded, each for its reason in `NOT_A_CHANGE` and `NOT_RECORDED` of [`back-end/tests/test_every_write_records.py`](../../../back-end/tests/test_every_write_records.py): a review claim ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)), which is who holds a card open and not a change; reads and exports; a vendor signing in or out; a market's creation, whose own history starts empty and which [its organization's history](#what-an-organization-records) records; its deletion, which takes the history with it while its organization's history keeps that it went (the [deletion trail](../modules/market-deletion.md) records a market only when its organization is deleted); the floorplan routes that keep nothing, or an upload the market uses only once a floorplan is saved; and starting Discord's approval screen, which keeps a state in the person's session and nothing on the market.
 That test sends every write route as the screen sends it and asserts its one entry; it fails on a market write route, or a row of the table, that records nothing without saying why there, and on an entry Mongo could not store.
 
 **Entries are stored structured, never as a sentence**: the wording belongs to the surface showing it, [`front-end/src/utils/marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts) for the whole history, which composes each area's words from its own file under [`historyReaders/`](../../../front-end/src/utils/historyReaders/) ([two features never share a line](../conventions/two-features-never-share-a-line.md#the-historys-words)), and [`front-end/src/utils/placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts) for a placement, on the Assignment history's trail and in the whole history alike, and must be changeable without a migration.

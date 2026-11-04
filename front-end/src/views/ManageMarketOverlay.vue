@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
 import {
-  IntakeMode,
   type Market,
   MarketPhase,
   MarketRole,
@@ -23,7 +22,15 @@ import {
 } from '@/utils/permissions';
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { intakeModeOf } from '@/utils/marketGuide';
-import { alsoWords, marketRemoval, roleAddingNothing, roleWords } from '@/utils/peopleWithAccess';
+import { hasVendorPage } from '@/utils/vendorPage';
+import { openInsteadOfStepping } from '@/utils/openInsteadOfStepping';
+import {
+  alsoWords,
+  marketRemoval,
+  marketRoleChange,
+  roleAddingNothing,
+  roleWords,
+} from '@/utils/peopleWithAccess';
 
 const props = defineProps<{
   manageOpen: boolean;
@@ -48,7 +55,7 @@ const deleteError = ref('');
 /** Counts the changes this dialog has made, so its History reads them as they land. */
 const changesMade = ref(0);
 /** A refused change to one person's role, said beneath their row. */
-const userError = ref<{ userId: string; message: string } | null>(null);
+const userError = ref<{ userId: string; email: string; message: string } | null>(null);
 /**
  * The person a Remove is asking about, until it is confirmed or cancelled (E38/F15/S01), and the
  * words the confirmation says, taken when it opens: the re-read after a confirm may name the market
@@ -63,6 +70,21 @@ const removing = ref<{
 const removeError = ref('');
 const removeBusy = ref(false);
 const peopleList = ref<HTMLElement | null>(null);
+/**
+ * The role a select has chosen, until it is confirmed or cancelled (T211), with the select that
+ * chose it, to put back, and the words the confirmation says, taken when it opens, as Remove's are.
+ */
+const roleChange = ref<
+  | ({
+      userId: string;
+      email: string;
+      held: MarketRole;
+      role: MarketRole;
+      select: HTMLSelectElement;
+    } & ReturnType<typeof marketRoleChange>)
+  | null
+>(null);
+const roleChangeBusy = ref(false);
 
 watch(
   () => [props.manageOpen, props.market] as const,
@@ -74,6 +96,7 @@ watch(
       deleteConfirming.value = false;
       removing.value = null;
       removeError.value = '';
+      roleChange.value = null;
       errorMessage.value = '';
       userError.value = null;
       addUserError.value = '';
@@ -112,6 +135,13 @@ const accessList = computed(() =>
     ...person,
     addingNothing: roleAddingNothing(person),
   })),
+);
+
+/** A refusal whose row the re-read took away, someone else having removed them first. */
+const refusalWithNoRow = computed(() =>
+  userError.value && !accessList.value.some((row) => row.userId === userError.value?.userId)
+    ? userError.value
+    : null,
 );
 
 /** The organization a row's role comes through, by name. */
@@ -159,6 +189,9 @@ async function handleAddUser() {
     // is named after, and this dialog is the same shape.
     newUserEmail.value = '';
     newUserRole.value = MarketRole.Editor;
+    // A later change ends a refusal's words, as choosing a role or removing someone does, and adding
+    // back the person it named must not bring them back with the row.
+    userError.value = null;
     changesMade.value++;
     await fetchMarket(false);
   } catch (err) {
@@ -216,21 +249,70 @@ async function handleRemoveUser() {
   peopleList.value?.focus();
 }
 
-/** A refused change puts the select back on the role they still hold, and says why under it. */
-async function handleRoleChange(userId: string, held: MarketRole, select: HTMLSelectElement) {
-  if (!marketData.value) return;
+/**
+ * A role change asks first (T211): one slip of the select changed someone's access at once. The
+ * select keeps showing the choice behind the confirmation, and nothing is sent until it is confirmed.
+ */
+function askToChangeRole(person: PersonWithAccess, select: HTMLSelectElement) {
+  const role = select.value as MarketRole;
+  if (!marketData.value || role === person.role) return;
   userError.value = null;
+  // Safari focuses no select on a click, and the shell gives focus back to what held it on opening.
+  select.focus();
+  roleChange.value = {
+    userId: person.userId,
+    email: person.email,
+    held: person.role,
+    role,
+    select,
+    ...marketRoleChange(
+      person,
+      role,
+      marketData.value.name,
+      marketData.value.permissionTable ?? [],
+    ),
+  };
+}
+
+/** Cancel, Escape and the backdrop change nothing; the shell gives focus back to the select. */
+function cancelRoleChange() {
+  if (!roleChange.value || roleChangeBusy.value) return;
+  roleChange.value.select.value = roleChange.value.held;
+  roleChange.value = null;
+}
+
+/**
+ * Confirmed: the role is changed, and the list re-read in place with Manage market still open. A
+ * refusal is said beneath the row, where it has always been said (bug 43), and the list is re-read
+ * too, since someone else may have moved or removed them first, as the refusal itself often means.
+ * The shell gives focus back to the select, unless the re-read took it away, as it does when the
+ * person looking changed their own role, when focus goes to the list.
+ */
+async function handleRoleChange() {
+  const target = roleChange.value;
+  if (!marketData.value || !target || roleChangeBusy.value) return;
+  roleChangeBusy.value = true;
   try {
     await api.put(
-      `/markets/${encodeURIComponent(marketData.value.id)}/roles/${encodeURIComponent(userId)}`,
-      { role: select.value as MarketRole },
+      `/markets/${encodeURIComponent(marketData.value.id)}/roles/${encodeURIComponent(target.userId)}`,
+      { role: target.role },
     );
     changesMade.value++;
-    await fetchMarket(false);
   } catch (err) {
-    select.value = held;
-    userError.value = { userId, message: getApiErrorMessage(err, 'The role was not changed.') };
+    target.select.value = target.held;
+    userError.value = {
+      userId: target.userId,
+      email: target.email,
+      message: getApiErrorMessage(err, 'The role was not changed.'),
+    };
   }
+  // Busy until the confirmation closes: during the re-read its confirm would send a second write.
+  await fetchMarket(false);
+  roleChange.value = null;
+  roleChangeBusy.value = false;
+  // Once the confirmation has closed and the page behind it is no longer inert.
+  await nextTick();
+  if (!target.select.isConnected) peopleList.value?.focus();
 }
 
 /**
@@ -259,22 +341,13 @@ async function handleRename() {
 }
 
 /**
- * Which of its public pages go with it, in words: a form market's application page from the moment
- * it opens, and a check-in page while it runs or kept as a record once it has (E26/F06/S02).
+ * Its one public page, which goes with it, in words: its vendor page while it has one (ADR 0022),
+ * where its vendors also check in, and which is the record once it has run (E26/F06/S02).
  */
 const publicPages = computed(() => {
   const market = marketData.value;
-  if (!market) return '';
-  const pages: string[] = [];
-  if (market.intakeMode === IntakeMode.Form && market.phase !== MarketPhase.Draft) {
-    pages.push('application page');
-  }
-  const ran = market.phasesReached?.includes(MarketPhase.MarketDays);
-  if (market.phase === MarketPhase.MarketDays || (market.phase === MarketPhase.Archived && ran)) {
-    pages.push('check-in page');
-  }
-  if (!pages.length) return '';
-  return `Its ${pages.join(' and ')} will stop working for anyone who has the link.`;
+  if (!market || !hasVendorPage(market)) return '';
+  return 'Its vendor page will stop working for anyone who has the link.';
 });
 
 async function handleDeleteConfirm() {
@@ -375,7 +448,8 @@ async function closeAddUser() {
                 :aria-label="`${row.email}'s role`"
                 class="field field--select role-select"
                 data-testid="manage-market-role-select"
-                @change="handleRoleChange(row.userId, row.role, $event.target as HTMLSelectElement)"
+                @keydown="openInsteadOfStepping"
+                @change="askToChangeRole(row, $event.target as HTMLSelectElement)"
               >
                 <option :value="row.role">{{ getRoleDisplayName(row.role) }}</option>
                 <option v-for="r in changeableRoles(row.role)" :key="r" :value="r">
@@ -420,6 +494,9 @@ async function closeAddUser() {
               {{ userError.message }}
             </p>
           </div>
+          <p v-if="refusalWithNoRow" class="form-error" data-testid="manage-market-user-error">
+            {{ refusalWithNoRow.email }}: {{ refusalWithNoRow.message }}
+          </p>
         </div>
         <p
           v-if="anyThroughOrganization"
@@ -595,6 +672,29 @@ async function closeAddUser() {
         {{ ' ' }}<span data-testid="manage-market-remove-keeps">{{ removing.keeps }}</span>
       </template>
     </p>
+  </AppDialog>
+
+  <!-- Not destructive, since another change undoes it. Its body scrolls: Viewer to Admin lists about
+       twenty rows on the default table, and the question and its answer stay in sight. -->
+  <AppDialog
+    :open="manageOpen && !!roleChange"
+    :title="roleChange?.title ?? ''"
+    testid="manage-market-role-change"
+    scroll="body"
+    confirm-label="Change role"
+    :confirm-disabled="roleChangeBusy"
+    @close="cancelRoleChange"
+    @submit="handleRoleChange"
+  >
+    <template v-if="roleChange">
+      <p class="confirm-text" data-testid="manage-market-role-change-was">{{ roleChange.was }}</p>
+      <div :data-testid="`manage-market-role-change-${roleChange.kind}`">
+        <p class="confirm-text">{{ roleChange.lead }}</p>
+        <ul v-if="roleChange.rows.length" class="role-change-rows">
+          <li v-for="label in roleChange.rows" :key="label">{{ label }}</li>
+        </ul>
+      </div>
+    </template>
   </AppDialog>
 
   <!--
@@ -823,6 +923,17 @@ async function closeAddUser() {
 
 .confirm-text {
   margin: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
+}
+
+.role-change-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
   font-size: var(--text-sm);
   color: var(--mm-black);
 }

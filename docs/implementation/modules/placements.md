@@ -42,6 +42,8 @@ sources:
   - E44/F01/S02
   - T139
   - T142
+  - T208
+  - T213
 ---
 
 # Placements
@@ -56,13 +58,13 @@ Its routes are in [`back-end/app.py`](../../../back-end/app.py).
 | Route | Function | Does |
 | --- | --- | --- |
 | `POST /markets/:id/assignment` | `run_assignment` | runs the solver over the approved applications and stores what it produced, with [what it was made from](made-from.md), the review the verdicts were given in among it; a day it seats forgets that vendor's freed line, and the $0 a free's deduction set on it ([payments](../data/payments.md)) |
-| `PUT /markets/:id/placements` | `write_placement` | places one vendor in one seat on one date, replacing whatever they held that date; the day forgets that vendor's freed line, and the $0 a free's deduction set on it ([payments](../data/payments.md)) |
+| `PUT /markets/:id/placements` | `write_placement` | places one vendor in one seat on one date, replacing whatever they held that date, so it is also the move to an empty seat, from either end of the dialog: the vendor's seat or the empty one (T208); the day forgets that vendor's freed line, and the $0 a free's deduction set on it ([payments](../data/payments.md)) |
 | `DELETE /markets/:id/placements` | `remove_placement` | frees the seat one vendor holds on one date, first keeping the seat's line of what they owe for it, which freeing never changes ([payments](../data/payments.md)), unless `deductOwed` asks that it owe $0, which asks the row "Change the amount owed" too, before anything is freed; freeing a seat nobody holds is not an error |
 | `POST /markets/:id/placements/swap` | `swap_placements` | trades two vendors' seats on one date in one document update: both change or neither does |
 
 **All four ask the table's Assignment row** ([the market's actions](market-actions.md)), whose default is EDITOR, the bar every other market write sets, and deliberately not stricter: an EDITOR already owns the tiers, sections and table counts the whole assignment is computed from, so withholding "move one vendor between two seats" protects nothing.
 Each loads its market through `_load_market_to_change`, so an archived market is refused.
-A placement that names no seat the plan has is a `PlacementError` (400); a seat someone else holds is a `SeatTakenError` (409), naming the occupant; a run outside its phase is an `AssignPhaseError` (409).
+A placement that names no seat the plan has is a `PlacementError` (400); a seat someone else holds is a `SeatTakenError` (409), naming the occupant; a run outside its phase is an `AssignPhaseError` (409); a change that would land over another is an `AssignmentChangedUnderRequest` (409), below.
 Each is a [client error](../conventions/an-exception-never-reaches-a-client.md) carrying that status.
 The routes catch nothing: each refusal reaches the handler with its own status and copy, and anything else answers the generic 500.
 Each reads its body with `json_object` ([a body that is not an object is refused in words](../conventions/an-exception-never-reaches-a-client.md)): a body that is not a JSON object answers `A JSON object is required`, 400, a placement with no body or an empty one `No data provided`, 400, and a swap or a freed seat with none is read as empty and refused by the API in its own words; a swap whose `emails` is not a list names no vendor, and is refused as such.
@@ -71,9 +73,16 @@ Each reads its body with `json_object` ([a body that is not an object is refused
 The whole-market PUT that once let a stale client copy move vendors on market day is deleted ([ADR 0008](../../adr/0008-each-write-names-what-it-changes.md)).
 Seeds and specs store an assignment through `POST /markets/:id/assignment` too, after walking the market to `assignment` ([assign runs only in assignment](../../business/rules/assign-runs-only-in-assignment.md)).
 
-**No "move" displaces an occupant.**
-Placing into a taken seat is refused while the organizer can see both vendors; freeing a seat first mirrors what an organizer physically does, and a swap says out loud that two people are changing places.
+**No change displaces an occupant.**
+A move into an empty seat displaces nobody, so it is allowed, as one write: `write_placement` replaces the seat the vendor held that date, and its history entry names the table left.
+Placing into a taken seat is still refused while the organizer can see both vendors, and trading two seated vendors is still the swap, which says out loud that two people are changing places.
 A swap is atomic because three separate operations invite a half-finished state, and the half-finished state is a vendor standing at no table on market day.
+
+**No change lands over another.**
+Each of the four reads the whole assignment and writes it back whole (`_store_vendor_assignments`), so two changes at once would each store the assignment as it was before the other, and one would be lost without a word: two organizers moving two vendors into one empty seat both got a 200, and only one was seated, while the history recorded both moves.
+So the write lands only while `assignmentObject.revision` is still the one the change read, and counts it one more; otherwise it is refused, `AssignmentChangedUnderRequest` (409), "Someone else changed this market's tables while this change was being saved, so it was not saved. Reload the tables and try again.", before any history or payments line is recorded.
+An assignment stored before the count existed has none, and reads as 0.
+A free refused this way puts back the line it kept for the seat, unless a free of the same seat landed meanwhile and kept its own ([payments](../data/payments.md)).
 
 **A seat goes only to an applicant.**
 `write_placement` writes the applicant's normalised address, and a placement or a swap naming someone the market has no application for is refused (`has_applied`, `_applicant_address`): [a seat only for an applicant](../../business/rules/a-seat-only-for-an-applicant.md).
@@ -112,6 +121,7 @@ A market with nothing stored is shown nobody placed, never the run it would get 
 `GET /markets/:id/assignment` is the one preview: VIEWER, it computes a run over the approved applications and stores nothing, with the stored rows (and so the pins) left out.
 That it recomputes while every other read serves the stored assignment is deliberate: a preview answers "what would Assign give me", and the point of `assignment_to_show` is that nothing else recomputes.
 No screen calls it; `section-preference.spec.ts` does.
+It and the run's own response dump the whole market, less every answer `exampleColumns` keeps for an option to offer (`leave_out_every_answer`, [ADR 0023](../../adr/0023-every-answer-for-an-option-to-offer.md)).
 
 **`MarketTableRow.assignment` is the occupants and nothing else.**
 Its length is what `derive_unassigned_tables_from_rows` reads to count spare capacity.
@@ -119,7 +129,7 @@ Which side of a table is free lives in `assignment_slots` (`[left, right]`, None
 Do not conflate them; see `MarketTableRow` in [`back-end/datatypes.py`](../../../back-end/datatypes.py), beside `VendorAssignmentResult` and `AssignmentObject`.
 
 **Statistics are never stored.**
-A write sets `vendorAssignments`, `assignmentDate` and, for a run alone, `madeFrom`, and clears `assignmentStatistics`, so a stale copy is never resurrected.
+A write sets `vendorAssignments`, `assignmentDate` and, for a run alone, `madeFrom`, counts `assignmentObject.revision` one up, and clears `assignmentStatistics`, so a stale copy is never resurrected.
 
 ## The trail
 
@@ -137,6 +147,6 @@ Every change here is recorded in [the market's history](../data/history.md), und
 - [The half-table share](../../business/rules/half-table-share.md): a pin on half a table counts against it.
 - [Why a vendor was not placed](../../business/rules/why-a-vendor-was-not-placed.md): each date with no table says why, read off the placements stored here, and a pin that overrides an answer is marked.
 
-The organizer places, swaps and frees seats through these doors in [placing by hand](../../business/flows/placing-by-hand.md).
+The organizer places, moves, swaps and frees seats through these doors in [placing by hand](../../business/flows/placing-by-hand.md).
 
 The glossary concepts it serves: [Assignment](../../business/concepts/assignment.md) and [Placement and pin](../../business/concepts/placement-and-pin.md).

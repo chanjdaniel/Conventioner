@@ -166,6 +166,55 @@ describe('what an entry says', () => {
     ).toBe('dana@ember.test changed Market Setup: tiers and market dates');
   });
 
+  it('words choosing nothing to lead the card as that decision, and any other change as before (T206)', () => {
+    const highlights = (before: object, after: object) =>
+      sentence({
+        action: 'change-form',
+        kind: 'review_highlights',
+        vendors: [],
+        detail: { before, after },
+      });
+
+    expect(
+      highlights(
+        { review_highlights: ['business_name'], nothing_leads_the_card: false },
+        { review_highlights: [], nothing_leads_the_card: true },
+      ),
+    ).toBe('dana@ember.test decided nothing leads the card');
+    expect(highlights({ nothing_leads_the_card: false }, { nothing_leads_the_card: true })).toBe(
+      'dana@ember.test decided nothing leads the card',
+    );
+    expect(
+      highlights(
+        { review_highlights: [], nothing_leads_the_card: true },
+        { review_highlights: ['business_name'], nothing_leads_the_card: false },
+      ),
+    ).toBe('dana@ember.test changed the review highlights');
+    expect(highlights({ review_highlights: [] }, { review_highlights: ['business_name'] })).toBe(
+      'dana@ember.test changed the review highlights',
+    );
+  });
+
+  it('words choosing no automatic rejections as that decision, and any other change as before (T206)', () => {
+    const rules = (before: object, after: object) =>
+      sentence({
+        action: 'change-form',
+        kind: 'rejection_rules',
+        vendors: [],
+        detail: { before, after, rejected: 0, returned: 0 },
+      });
+
+    expect(rules({ no_automatic_rejections: false }, { no_automatic_rejections: true })).toBe(
+      'dana@ember.test decided no automatic rejections',
+    );
+    expect(
+      rules(
+        { rejection_rules: [], no_automatic_rejections: true },
+        { rejection_rules: [{ key: 'student', answers: ['No'] }], no_automatic_rejections: false },
+      ),
+    ).toBe('dana@ember.test changed the automatic rejections');
+  });
+
   it('words a change of the prices by what on the Pricing card changed (E43/F01/S02)', () => {
     expect(
       sentence({
@@ -248,7 +297,7 @@ describe('what an entry says', () => {
     ).toBe('dana@ember.test took applications again');
   });
 
-  it('words a check-in made on the public page as the vendor’s own', () => {
+  it('words a check-in made on the old public check-in page as the vendor’s own', () => {
     expect(
       sentence({
         actor: null,
@@ -262,6 +311,42 @@ describe('what an entry says', () => {
         },
       }),
     ).toBe('[Ana Rivera] checked in on the check-in page on Nov 19, 2026');
+  });
+
+  it('words a vendor’s own check-in with the door code, and their undo on their page', () => {
+    const own = (kind: string, via: string, here: boolean) =>
+      sentence({
+        actor: null,
+        action: 'check-in',
+        kind,
+        subject: { date: '2026-11-19' },
+        detail: { before: { checked_in: !here }, after: { checked_in: here }, via },
+      });
+
+    expect(own('checked_in', 'door_code', true)).toBe(
+      '[Ana Rivera] checked in with the door code on Nov 19, 2026',
+    );
+    expect(own('check_in_undone', 'vendor_page', false)).toBe(
+      '[Ana Rivera] undid their check-in on their vendor page on Nov 19, 2026',
+    );
+    expect(own('check_in_undone', 'check_in_page', false)).toBe(
+      '[Ana Rivera] undid their check-in on the check-in page on Nov 19, 2026',
+    );
+  });
+
+  it('words the first door code as made, and a new one as ending the old', () => {
+    const made = (replaced: boolean) =>
+      sentence({
+        action: 'check-in',
+        kind: 'door_code_made',
+        vendors: [],
+        detail: { replaced },
+      });
+
+    expect(made(false)).toBe('dana@ember.test made the door code');
+    expect(made(true)).toBe(
+      'dana@ember.test made a new door code, which ended the old one and every poster of it',
+    );
   });
 
   it('words a change to a row of the permission table by its label and both roles', () => {

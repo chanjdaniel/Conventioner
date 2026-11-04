@@ -70,7 +70,7 @@ for (const size of PHONE_AND_DESK) {
       const attendance = new AttendanceStatusPage(page);
       await page.waitForURL(/\/attendance$/);
       await expect(attendance.row(VENDOR)).toBeVisible({ timeout: 15000 });
-      await expect(page.getByTestId('phase-rail-checkin')).toBeVisible();
+      await expect(page.getByTestId('phase-rail-vendor-page')).toBeVisible();
       await expectFits(page, 'the door');
       if (size.phone) {
         // The door has the screen, on first paint: the list starts within the top 340px of 844.
@@ -118,7 +118,7 @@ for (const size of PHONE_AND_DESK) {
       // It slides in from the window's edge.
       await expect(drawer).toBeInViewport({ ratio: 1 });
       await expectInside(drawer, 'the drawer');
-      const tabs = page.getByRole('tablist', { name: 'Vendor detail' });
+      const tabs = page.getByRole('tablist', { name: 'Vendor details', exact: true });
       for (const [tab, shown] of [
         ['Application', 'vendors-detail-update-info'],
         ['Assignments', 'vendors-detail-assignment-item'],

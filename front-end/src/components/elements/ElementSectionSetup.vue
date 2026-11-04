@@ -88,9 +88,9 @@ const countTables = () => {
             />
           </div>
         </div>
-        <div class="row-item enum-item">
+        <div class="row-item">
           <select
-            class="dropdown"
+            class="field field--select"
             v-model="sections[index].location"
             :aria-label="`Section ${index + 1} location`"
             :data-testid="'setup-section-location-select-' + index"
@@ -108,9 +108,9 @@ const countTables = () => {
             </option>
           </select>
         </div>
-        <div class="row-item enum-item">
+        <div class="row-item">
           <select
-            class="dropdown"
+            class="field field--select"
             v-model="sections[index].tier"
             :aria-label="`Section ${index + 1} tier`"
             :data-testid="'setup-section-tier-select-' + index"
@@ -241,9 +241,9 @@ const countTables = () => {
 }
 
 .input-container {
-  /* The column already decides how much room this field gets; 80% of it threw a fifth away. */
+  /* The column already decides how much room this field gets; 80% of it threw a fifth away. Its own
+     height, so the cell centres the field on the row's line, with the selects beside it. */
   width: 100%;
-  height: 100%;
   border-radius: var(--radius-card);
 }
 
@@ -279,29 +279,6 @@ input[type='number'] {
   height: 20px;
   flex: 0 0 auto;
   cursor: pointer;
-}
-
-.enum-item {
-  cursor: pointer;
-}
-
-.dropdown {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  /* Bordered like the name and count fields beside it. With `border: none` it read as bare text
-     with a stray chevron rather than as something you could operate. */
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-pill);
-  padding-left: var(--space-2);
-  outline: none;
-  cursor: pointer;
-  font-size: var(--text-sm);
-  padding-right: var(--space-1);
-  background-color: white;
-  /* A location name that still will not fit says so, rather than stopping mid-word. */
-  text-overflow: ellipsis;
 }
 
 .number-input {

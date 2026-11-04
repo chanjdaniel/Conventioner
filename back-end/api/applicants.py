@@ -28,9 +28,12 @@ from application_write import record_application_answers, validate_application_a
 import table_share as TableShare
 from market_documents import (
     applicant_intake_market_by_slug,
+    market_dates_of,
     market_doc_field,
     market_from_document,
     market_serves_applicants,
+    results_are_out,
+    vendor_page_market_by_slug,
 )
 from datatypes import (
     Application,
@@ -43,6 +46,7 @@ from datatypes import (
     MarketPhase,
     LEGACY_STAGE_PHASES,
     applications_stopped_from_market_document,
+    intake_mode_from_market_document,
     phase_from_market_document,
     phase_label,
 )
@@ -51,6 +55,7 @@ from utils.application_token import (
 )
 
 import api.applications as ApplicationsApi
+import api.attendance as AttendanceApi
 import api.market_actions as Actions
 import history as History
 import review_team as ReviewTeam
@@ -58,6 +63,7 @@ import result_outcome as ResultOutcome
 from assignment.utils import convert_keys_to_snake_case
 from assignment.made_from import changed_since_run
 import rejection_rules as RejectionRules
+import remembered_sign_ins as RememberedSignIns
 import essential_fields as EssentialFields
 
 logger = logging.getLogger(__name__)
@@ -90,20 +96,31 @@ def applicant_visible_status(
 def _application_response(
     app: Application, results_published: bool,
     placements: Iterable[VendorAssignmentResult] = (),
+    checked_in: Optional[Dict[str, Optional[str]]] = None,
+    with_answers: bool = True,
 ) -> Dict[str, Any]:
     """Serialize an application for the applicant-facing API with the publication gate applied.
 
     After publication it carries the applicant's outcome and their own seats (E36/F05/S02), read
-    off the stored placements on every read, so a seat changed by hand shows at once.
+    off the stored placements on every read, so a seat changed by hand shows at once. Each seat
+    says when they checked in to it, from ``checked_in`` (``{date: checked_in_at}``), or null.
+
+    ``with_answers`` is false on a market that imports its vendors (ADR 0022): its page shows no
+    application, and the answers are the organizer's import of their own Google Form, so the read
+    carries no ``formData``.
     """
     placed = list(placements)
     outcome = (
         ResultOutcome.outcome_of(app.applicant_email, ResultOutcome.seated_from(placed))
         if results_published else None
     )
-    return {
+    seats = ResultOutcome.seats_of(app.applicant_email, placed) if results_published else []
+    when = checked_in or {}
+    response = {
         "outcome": outcome,
-        "seats": ResultOutcome.seats_of(app.applicant_email, placed) if results_published else [],
+        "seats": [{**seat, "checkedInAt": when.get(seat["date"])} for seat in seats],
+        # The name the vendor goes by, as the organizer reads it, so their page greets them by it.
+        "vendorName": EssentialFields.display_name(ApplicationsApi.effective_answers(app)),
         "id": app.id,
         "marketId": app.market_id,
         "applicantEmail": app.applicant_email,
@@ -114,6 +131,9 @@ def _application_response(
         "submittedAt": app.submitted_at,
         "updatedAt": app.updated_at,
     }
+    if not with_answers:
+        del response["formData"]
+    return response
 
 
 def _application_response_organizer(
@@ -235,6 +255,43 @@ def applicant_phase_label(market_doc: Dict[str, Any]) -> str:
 
 # ── Public (unauthenticated) endpoints ─────────────────────────────────────
 
+#: What every public read answers for a market it does not serve, and for a slug that names none.
+MARKET_NOT_FOUND = "Market not found. Check the URL and try again."
+
+
+def get_vendor_page(market_slug: str) -> Tuple[Dict[str, Any], int]:
+    """What a market's vendor page needs before anyone signs in (ADR 0022).
+
+    Served for a market ``vendor_page_market_by_slug`` serves, and otherwise the same 404 a slug
+    naming nothing gets. ``ended`` is an archived market that ran, whose page is the record of where
+    its vendors sat; ``rememberUntil`` is the date "Remember me" would end, or null once the
+    market's last date has passed.
+    """
+    from db_config import get_database
+    db = get_database()
+    market_doc = vendor_page_market_by_slug(
+        db["markets"],
+        market_slug,
+        fields=(
+            "id", "phase", "applicationsStopped", "resultsPublished", "setupObject",
+            "phaseHistory",
+        ),
+    )
+    if not market_doc:
+        return {"error": MARKET_NOT_FOUND}, 404
+
+    dates = market_dates_of(market_doc)
+    return {
+        "marketName": market_doc_field(market_doc, "name") or "",
+        "intakeMode": intake_mode_from_market_document(market_doc).value,
+        "phase": phase_from_market_document(market_doc).value,
+        "takesApplications": takes_applications(market_doc),
+        "resultsPublished": results_are_out(market_doc),
+        "marketDates": dates,
+        "ended": AttendanceApi.ended_after_it_ran(market_doc),
+        "rememberUntil": RememberedSignIns.remembered_until_date(dates, RememberedSignIns.now()),
+    }, 200
+
 
 def get_public_application_form(
     market_slug: str,
@@ -268,7 +325,7 @@ def get_public_application_form(
         ),
     )
     if not market_doc:
-        return {"error": "Market not found. Check the URL and try again."}, 404
+        return {"error": MARKET_NOT_FOUND}, 404
 
     phase = phase_from_market_document(market_doc)
     application_form = market_doc_field(market_doc, "application_form")
@@ -321,10 +378,10 @@ def get_applicant_application(
     # Verify the token belongs to this market
     from db_config import get_database
     db = get_database()
-    market_doc = applicant_intake_market_by_slug(
+    market_doc = vendor_page_market_by_slug(
         db["markets"], market_slug, fields=("id", "resultsPublished", "assignmentObject"))
     if not market_doc:
-        return {"error": "Market not found."}, 404
+        return {"error": MARKET_NOT_FOUND}, 404
 
     market_id = market_doc.get("id", "")
     token_market_id = token_payload.get("market_id", "")
@@ -338,9 +395,11 @@ def get_applicant_application(
         return {"application": None}, 200
 
     app = Application(**app_doc)
-    results_published = bool(market_doc.get("resultsPublished"))
+    results_published = results_are_out(market_doc)
     return {"application": _application_response(
-        app, results_published, _stored_placements(market_doc))}, 200
+        app, results_published, _stored_placements(market_doc),
+        AttendanceApi.check_ins_of(market_id, app.applicant_email),
+        with_answers=market_serves_applicants(market_doc))}, 200
 
 
 def _stored_placements(market_doc: Dict[str, Any]) -> List[VendorAssignmentResult]:
@@ -843,11 +902,6 @@ def reassign_follow_up(
     return {"application": _application_response_organizer(app)}, 200
 
 
-NO_APPLICANTS_TO_TELL = (
-    "This market takes its vendors by import, so it has no applicants to publish results to."
-)
-
-
 def publish_results_refusal(market: Market) -> Optional[str]:
     """Why results cannot be published now, or None while they can (E36/F04/S01).
 
@@ -855,9 +909,10 @@ def publish_results_refusal(market: Market) -> Optional[str]:
     applicant is told what the market will hold, and nobody's answer shifts under them through a
     later run. Served as ``publishWaitsReason``, beside the table's Publish results answer, so the
     button is offered exactly when the endpoint would take it.
+
+    The same rule on both kinds of market: a Google Form market's vendors read their result on its
+    vendor page, which opens with it (ADR 0022).
     """
-    if market.intake_mode is not IntakeMode.FORM:
-        return NO_APPLICANTS_TO_TELL
     if market.results_published:
         return "Results are already published."
     if market.phase is not MarketPhase.ASSIGNMENT:
@@ -935,10 +990,8 @@ def publish_results(market_id: str, by: str) -> Tuple[Dict[str, Any], int]:
     application reads as ``under_review`` to its applicant. After it, applicants see their
     actual outcome.
 
-    Refused on a CSV market, because on one the flag has no reader: every endpoint that consults
-    it goes through ``applicant_intake_market_by_slug``, which serves form-intake markets only. The
-    button is hidden there too, but a hidden button is not a rule - the endpoint is reachable
-    directly.
+    On a Google Form market it is also what opens the vendor page (``vendor_page_market_by_slug``),
+    since its vendors have nothing to read there before it.
     """
     from db_config import get_database
     db = get_database()
@@ -947,8 +1000,6 @@ def publish_results(market_id: str, by: str) -> Tuple[Dict[str, Any], int]:
     if not doc:
         return {"error": "Market not found."}, 404
 
-    if not market_serves_applicants(doc):
-        return {"error": NO_APPLICANTS_TO_TELL}, 409
     refusal = publish_results_refusal(market_from_document(doc))
     if refusal:
         return {"error": refusal}, 409

@@ -12,8 +12,8 @@
  *   beside it, with the market's position marked and completed stages filled.
  * - **The actions.** One prominent forward action; back and destructive edges behind a menu.
  *   Which is which is read off the spine, not special-cased per phase.
- * - **The check-in URL.** Publishing puts a public page on the air and nothing in the product has
- *   ever told the organizer that URL exists (`E10/F01/S02`).
+ * - **The vendor page's address.** The market's one public page, with Copy, from the moment it
+ *   has one: nothing in the product used to tell the organizer its address existed (`E10/F01/S02`).
  * - **The next step** (E31/F02/S02). One sentence for the market's phase and intake path, from
  *   `utils/marketGuide.ts`, linking to where it is done. A move the server would refuse is drawn
  *   disabled and the sentence is its first blocker, so the rail says no before the click.
@@ -25,6 +25,7 @@
  * is laid out for one: the spine scrolls sideways, each address is named rather than shown, and the
  * next step's link is a line of its own (T142).
  */
+import { useCopyAddress } from '@/utils/useCopyAddress';
 import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { useMediaQuery } from '@vueuse/core';
@@ -39,7 +40,7 @@ import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import { useScrollsSideways } from '@/utils/useScrollsSideways';
 import AppDialog from '@/components/AppDialog.vue';
 import OpenApplicationsDialog from '@/components/market/OpenApplicationsDialog.vue';
-import { marketPath, resolutionPath } from '@/utils/market';
+import { isHere, marketPath, resolutionPath } from '@/utils/market';
 import {
   blockersFor,
   forwardFrom,
@@ -54,6 +55,7 @@ import {
   type StageAction,
 } from '@/utils/marketGuide';
 import { OFF_SPINE_PHASES, transitionDirection, transitionNeedsConfirmation } from '@/utils/phase';
+import { sharesVendorPage } from '@/utils/vendorPage';
 
 const props = defineProps<{
   market: Market | null;
@@ -98,7 +100,7 @@ const reached = computed(() => new Set(props.market?.phasesReached ?? []));
  */
 const recordComplete = computed(() => props.market?.phaseRecordComplete === true);
 
-/** Did it run - is there a check-in page that archiving would turn into a record? */
+/** Did it run - so that archiving leaves its vendor page up as the record of where vendors sat? */
 const ran = computed(
   () => currentPhase.value === MarketPhase.MarketDays || reached.value.has(MarketPhase.MarketDays),
 );
@@ -126,7 +128,7 @@ const frozenNote = computed(() => {
   if (has(MarketPhase.MarketDays)) return 'It was published and ran its market days.';
   if (has(MarketPhase.Assignment, MarketPhase.Offers)) {
     return whole
-      ? 'Its tables were allocated but it was never published, so no check-in page went on the air.'
+      ? 'Its tables were allocated but it was never published, so it never ran its market days.'
       : 'Its tables were allocated.';
   }
   if (has(MarketPhase.Applications)) {
@@ -148,56 +150,32 @@ function stepState(index: number): 'done' | 'current' | 'todo' | 'frozen' {
   return 'todo';
 }
 
-// ── The check-in URL (E10/F01/S02) ────────────────────────────────────────────
+// ── The vendor page's URL (ADR 0022) ───────────────────────────────────────
 
 /**
- * Only a published market has one. Before that it would be a link to a 404. An archived market
- * that ran keeps it: the page stays up as the record its archive dialog promises (E30/F01/S03).
+ * A market's vendor page, `/<slug>`, from the moment it has one: the one address its vendors keep,
+ * from applying, or from their results on a Google Form market, to the last market day
+ * (`sharesVendorPage`).
+ *
+ * Before then the page answers as a market that does not exist, and a chip would hand the
+ * organizer a link to a page that deliberately tells them nothing. Archived, it stays only for a
+ * market that ran: its page is then the record of where its vendors sat.
  */
-const checkInUrl = computed(() => {
-  const running = currentPhase.value === MarketPhase.MarketDays;
-  const aRecord = isArchived.value && reached.value.has(MarketPhase.MarketDays);
-  if (!running && !aRecord) return '';
-  const slug = props.market?.slug;
+const vendorPageUrl = computed(() => {
+  if (!props.market || !sharesVendorPage(props.market)) return '';
+  const slug = props.market.slug;
   if (!slug) return '';
-  return `${window.location.origin}/${slug}/check-in`;
+  return `${window.location.origin}/${slug}`;
 });
-
-// ── The public application URL (E18/F04/S02) ─────────────────────────────────
 
 /**
- * A form-intake market's own address, from the moment it has one.
- *
- * Much wider than the check-in chip, which appears only once the market is running: this shows
- * before applications open, while they are open, and after they close, because the apply page has
- * a real answer in each - it names the phase and says the market is not currently taking
- * applications. Seeing that is the point.
- *
- * NOT in draft, though, and the walk's plan said otherwise (ticket 09). A draft market is not
- * published, so the applicant lookup treats it as one that does not exist: the URL redirects to a
- * login that shows the SLUG rather than the market, revealing nothing - correctly, because a draft
- * must not be discoverable. A chip pointing there would hand the organizer a link to a page that
- * deliberately tells them nothing. The threshold is the same reasoning the check-in chip uses,
- * with a different phase.
- *
- * A CSV market shows nothing at all, in any phase. Its `/apply` URL answers exactly as a market
- * that does not exist, and a chip here would be the one place the product admitted it was real.
+ * The market's public addresses, each a chip on the rail: its vendor page, where its vendors also
+ * check in, with the door code (ADR 0022).
  */
-const applyUrl = computed(() => {
-  if (props.market?.intakeMode !== IntakeMode.Form) return '';
-  // Archived, the page takes nobody anywhere: the check-in record is the address that stays.
-  if (currentPhase.value === MarketPhase.Draft || isArchived.value) return '';
-  const slug = props.market?.slug;
-  if (!slug) return '';
-  return `${window.location.origin}/${slug}/apply`;
-});
-
-/** The market's public addresses, each a chip on the rail, the application page first. */
 const addresses = computed(() =>
-  [
-    { id: 'apply', label: 'Application page', url: applyUrl.value },
-    { id: 'checkin', label: 'Check-in page', url: checkInUrl.value },
-  ].filter((address) => address.url),
+  [{ id: 'vendor-page', label: 'Vendor page', url: vendorPageUrl.value }].filter(
+    (address) => address.url,
+  ),
 );
 
 /** The app's phone break (`base.css`), where a chip names its address rather than showing it. */
@@ -213,21 +191,7 @@ function shown(url: string): string {
 }
 
 /** Which chip last confirmed a copy, so two chips do not share one "Copied". */
-const copiedUrl = ref('');
-
-async function copyUrl(url: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(url);
-    copiedUrl.value = url;
-    window.setTimeout(() => {
-      if (copiedUrl.value === url) copiedUrl.value = '';
-    }, 2000);
-  } catch {
-    // Clipboard access can be refused, and the URL is the link and its hover text either way - so
-    // the copy is a convenience, never the only way to get it.
-    copiedUrl.value = '';
-  }
-}
+const { copied: copiedUrl, copy: copyUrl } = useCopyAddress();
 
 // ── The actions ───────────────────────────────────────────────────────────────
 
@@ -251,11 +215,14 @@ function firstBlocker(toPhase: string): PreconditionResult | null {
 /** The rail's sentence: the next step, or why it cannot be taken yet. */
 const step = computed(() => (props.market ? nextStep(props.market) : null));
 const route = useRoute();
-/** A page of this market as an address, unless it is the one the organizer is already on. */
+/**
+ * A page of this market as an address, unless it is the one the organizer is already on: its path,
+ * and the step its query names, as `form?step=review` is Review setup and not Your questions (T206).
+ */
 function elsewhere(relative: string | null | undefined): string | null {
   if (!props.market || !relative) return null;
   const link = resolutionPath(props.market.id, relative);
-  return route?.path === link ? null : link;
+  return isHere(link, route) ? null : link;
 }
 
 /**
@@ -450,6 +417,10 @@ async function doTransition(toPhase: string): Promise<boolean> {
 
     if (response?.status === 409 && response.data?.blockers) {
       transitionBlockers.value = response.data.blockers;
+      // The market may have changed since it was read (another organizer's write, say): read it
+      // again, or a fix in the panel leads to a page that still shows it as it was, Review setup
+      // reading back a decision since undone (T206).
+      await marketStore.refresh();
     } else {
       transitionError.value = getApiErrorMessage(err, 'The market did not move to the next phase.');
     }
@@ -541,7 +512,8 @@ function confirmPending() {
 async function openApplications(wrote: boolean) {
   showingOpenApplications.value = false;
   const moved = await doTransition(MarketPhase.Applications);
-  if (!moved && wrote) await marketStore.refresh();
+  // A refused move has read the market again already.
+  if (!moved && wrote && !transitionBlockers.value.length) await marketStore.refresh();
 }
 
 function cancelPending() {
@@ -580,13 +552,7 @@ function cancelPending() {
       <!-- The rail's end: the public addresses and the actions travel together, so a row that cannot
            hold them all gives them a second row of their own rather than leaving a lone button
            beside an empty band (bug 11, claims-and-room 07). -->
-      <div
-        class="phase-rail-end"
-        :class="{
-          'phase-rail-end--addresses': addresses.length,
-          'phase-rail-end--both': addresses.length > 1,
-        }"
-      >
+      <div class="phase-rail-end" :class="{ 'phase-rail-end--addresses': addresses.length }">
         <!-- Publishing put a public page on the air and nothing has ever said so (E10/F01/S02). -->
         <div
           v-for="address in addresses"
@@ -599,6 +565,7 @@ function cancelPending() {
           <a
             v-if="onAPhone"
             class="url-chip-name"
+            :data-testid="`phase-rail-${address.id}-link`"
             :href="address.url"
             :title="address.url"
             target="_blank"
@@ -609,6 +576,7 @@ function cancelPending() {
             <span class="url-chip-label">{{ address.label }}</span>
             <a
               class="url-chip-url"
+              :data-testid="`phase-rail-${address.id}-link`"
               :href="address.url"
               :title="address.url"
               target="_blank"
@@ -782,8 +750,9 @@ function cancelPending() {
       @submit="confirmPending"
     >
       <p class="rail-confirm-text">
-        Publishing puts this market's check-in page on the air: every vendor you assigned can look
-        themselves up and check in on the day. The tables they see are the ones you have now.
+        Publishing opens the market's days: every vendor you assigned checks in on their vendor page
+        with the door code you show at the entrance, from Attendance. The tables they see are the
+        ones you have now.
       </p>
       <p class="rail-confirm-text">A published market cannot be returned to an earlier phase.</p>
     </AppDialog>
@@ -804,8 +773,7 @@ function cancelPending() {
       </p>
       <p class="rail-confirm-text">
         The tables you allocated are kept, but they no longer count. Once every application is
-        decided, begin assignment and allocate tables again before you
-        {{ path === IntakeMode.Csv ? 'publish the market' : 'publish results' }}.
+        decided, begin assignment and allocate tables again before you publish results.
       </p>
       <p class="rail-confirm-text">
         A seat you placed by hand stays, even for a vendor you then reject. Free it on Assignments.
@@ -839,8 +807,8 @@ function cancelPending() {
       <!-- What happens to the one public page a market that ran has (bug 9): said here, before
            it happens, rather than discovered at the door. -->
       <p v-if="ran" class="rail-confirm-text" data-testid="archive-confirm-check-in">
-        Its check-in page stays up as a record: vendors can still look up where they were assigned,
-        but nobody can check in.
+        Its vendor page stays up as a record: vendors can still read where they sat and when they
+        came, but nobody can check in.
       </p>
     </AppDialog>
   </Teleport>
@@ -973,9 +941,7 @@ function cancelPending() {
  * The addresses and the actions, as one item of the row (bug 11). With only actions it is as wide as
  * they are. With an address it asks for room enough to show a useful part of one beside them, and
  * takes a row of its own where the row has less - so at the workspace width the rail is one row, and
- * below it the second row is designed: addresses at its start, actions at its end. With both
- * addresses it asks for room to show each whole, which takes the second row: 34rem fitted beside
- * the spine and squeezed the two into "localhost:5…" (E30/F01/S03).
+ * below it the second row is designed: addresses at its start, actions at its end (E30/F01/S03).
  */
 .phase-rail-end {
   display: flex;
@@ -994,41 +960,7 @@ function cancelPending() {
   flex: 1 1 34rem;
 }
 
-.phase-rail-end--both {
-  flex-basis: auto;
-  flex-wrap: wrap;
-}
-
-/* Both addresses share the end's row with the actions, each shortening alike to make room and
-   never past its floor: as wide as its whole address they took a row each, with More… alone beside
-   an empty band at 1920 (T142). Above the phone break only, as is the tablet's rule within it: a
-   phone's rail is under 45rem too, and the phone's own rule below is the one that sizes its chips. */
-@media (width > 640px) {
-  .phase-rail-end--both .url-chip {
-    flex: 1 1 18rem;
-    max-width: max-content;
-  }
-
-  /* Narrower than both floors, the gaps and More… (about 703px of rail), as the door, Tools and
-     the Assignments page are on a tablet, a chip takes a row of its own and More… stands beside the
-     second: the two filled the first row and left More… alone on the next (T142). */
-  @container phase-rail (width < 45rem) {
-    .phase-rail-end--both {
-      row-gap: var(--space-2);
-    }
-
-    /* As tall as More… beside the second, so the two read as a pair: alone, the first was 5px
-       less. */
-    .phase-rail-end--both .url-chip {
-      flex-basis: calc(50% + var(--space-6));
-      max-width: none;
-      min-height: var(--control-height);
-      justify-content: space-between;
-    }
-  }
-}
-
-/* One chip, two users: the application page and the check-in page (E18/F04/S02). */
+/* The vendor page's address, with Copy (E18/F04/S02). */
 .url-chip {
   display: flex;
   align-items: center;
@@ -1068,9 +1000,9 @@ function cancelPending() {
   }
 
   /* A chip takes what its row leaves, its name at its start and Copy at its end, so a row starts
-     with an address and ends with an action. It asks for over half the row, so two chips never
-     share one: side by side at a 326px rail they left More… alone on the row beneath, where the
-     second chip has room for it beside. */
+     with an address and ends with an action. It asks for over half the row, the rest the actions'
+     beside it (when there were two chips, side by side at a 326px rail they left More… alone on
+     the row beneath). */
   .url-chip {
     flex: 1 0 calc(50% + var(--space-2));
     justify-content: space-between;

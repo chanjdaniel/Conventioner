@@ -19,6 +19,10 @@ describes:
   - front-end/e2e/removing-someone-asks-first.spec.ts
   - front-end/src/__tests__/appDialog.test.ts
   - front-end/e2e/the-component-library-dialog.spec.ts
+  - front-end/src/__tests__/changingARoleAsksFirst.test.ts
+  - front-end/e2e/changing-a-role-asks-first.spec.ts
+  - front-end/e2e/the-component-library-summaries.spec.ts
+  - front-end/src/components/DoorCodeScreen.vue
 verified: 2026-11-04
 sources:
   - wayfinding/the-order-of-the-work/08
@@ -39,21 +43,26 @@ sources:
   - E38/F15/S01
   - T181
   - T200
+  - T211
 ---
 
 # Dialogs
 
 **[`AppDialog.vue`](../../../front-end/src/components/AppDialog.vue) is what a dialog is in this product**: a native `<form>` in a modal doing one small job.
 It owns the scrim, the window, the close control, Escape and backdrop dismissal, holding the page behind inert, focus on open, and the `type="submit"` confirm.
-A new dialog is built on it, never hand-rolled.
-[The app bar's sheet](../modules/app-bar.md#the-sheet-on-a-phone) is not one: it is a list of places hanging from the bar and not a form in a window, so it holds no form, title or actions for the shell to own, and it keeps the same contract with the same parts below (`useInertBehind`, `useEscapeToClose`, `useFocusGoesBack`).
+A new dialog is built on it, never hand-rolled; a panel that slides in from a side is [`SidePanel`](../../design-system.md#the-primitive-layer), through the same composables.
+Not every modal is a dialog on it.
+Three take the shell's parts rather than copying them: the [vendor drawer](../../business/flows/vendor-drawer.md), a panel beside the page; the door code's full screen ([`DoorCodeScreen.vue`](../../../front-end/src/components/DoorCodeScreen.vue), [attendance and the door](../modules/attendance-and-door.md)), which fills the window at the entrance where a dialog is a small window over the page; and [the app bar's sheet](../modules/app-bar.md#the-sheet-on-a-phone), a list of places hanging from the bar, which holds no form, title or actions for the shell to own and keeps the same contract with `useInertBehind`, `useEscapeToClose` and `useFocusGoesBack`.
+The floorplan's [`SaveFlow.vue`](../../../front-end/src/components/floorplan/SaveFlow.vue) and [`SectionGrouping.vue`](../../../front-end/src/components/floorplan/SectionGrouping.vue) are hand-rolled, with their own scrim and window and, of the shell's parts, only `useModalRoot`.
+The door code's screen declares `role="dialog"` and `aria-modal` itself, and makes it true with `useModalRoot`, `useEscapeToClose` and `useFocusGoesBack`, so the page behind is inert, Escape closes it while it is on top, and focus opens on its Close and goes back to "Door code"; its one confirmation, New code, is an `AppDialog`, teleported beside it as a sibling.
 
 ## The rules
 
 **The form is the Enter contract.**
 Enter in a field runs the same handler as the confirm button, so it inherits that handler's guard, and a disabled submit makes Enter inert with no key handler anywhere.
-Do not add `@keydown.enter`: five views each invented their own answer, and one of them (`ApplicantLogin`) bypassed its own resend cooldown by doing so.
-The one exception is a picker's open list ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): while its list is open, Enter takes the highlighted choice and is kept from the form, and Escape closes the list and is kept from the dialog; once the list is closed both keys are the dialog's again, so Enter submits through the form's guard and Escape closes.
+Do not add `@keydown.enter`: five views each invented their own answer, and one of them, the vendor's sign-in, bypassed its own resend cooldown by doing so.
+One exception is a picker's open list ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): while its list is open, Enter takes the highlighted choice, or closes the list when none is highlighted, and is kept from the form (with `multiple` the list stays open after a choice, so the next Enter is the list's too), and Escape closes the list and is kept from the dialog; once the list is closed both keys are the dialog's again, so Enter submits through the form's guard and Escape closes.
+The other is a field that only narrows what is shown, as a [`ListFrame.vue`](../../../front-end/src/components/ListFrame.vue)'s find field and the library's export prototype's name or email field, column checklist's find field and Mine tick have, in which Enter does nothing: it narrows the rows as it is typed in or ticked, so Enter there would only save what the person was looking through.
 
 **A dialog of several independent actions passes no `confirmLabel`** and hosts its own `<form>`s in its body; Manage organization has three.
 Their submits are their own: the shell listens for `submit` only when its body is the form, so an inner form's submit neither is prevented by it nor makes it emit `submit`.
@@ -64,7 +73,7 @@ Narrow holds two controls, wide a list, and broad a list beside what it gathers,
 The `wide` boolean still means `size="wide"`, and a `size` wins over it.
 Taller than the window, a dialog scrolls within itself, the whole window by default (`scroll="window"`).
 So a dialog on a page that fits a phone opens inside a 390px window, on each place [the design language](../../design-system.md#layout) lists as fitting one; only the people and add rows of Manage market and Manage organization needed a phone rule of their own.
-The footer's buttons wrap where they are wider than the window, as the placement dialog's Cancel, Free this seat and Swap seats are on a phone; a row that could not wrap ran out past the window's left edge, where nothing scrolls to it.
+The footer's buttons wrap where they are wider than the window, as the placement dialog's Cancel, Free this seat and Move them are on a phone; a row that could not wrap ran out past the window's left edge, where nothing scrolls to it.
 
 **A long dialog scrolls only its body, with `scroll="body"`** (T200): the title and close stay at the top and the error and actions at the bottom, and only the body scrolls, inside a box of its own between them.
 When the whole window scrolls, its title and Save leave the view, and its scroll bar runs down the window's rounded edge, squaring its corners and taking its width from the body, which clipped the export dialog's column order on the right (T191 F03).
@@ -73,10 +82,12 @@ The window takes the height its content needs, up to the window's height less a 
 A shade at the body's top or bottom edge, `--edge-shade` over `--edge-shade-depth` from `base.css`, is drawn only while there is more that way; it is measured as the body scrolls and as it or its content is resized.
 The body, the error and the actions are still the one `<form>`, so the Enter contract holds as it is.
 **What the dialog has gathered goes in its `tray` slot**, drawn only when given, between the body and the error and actions: in `scroll="body"` it is pinned, keeps its height up to 40% of the window, the body giving way, and scrolls inside itself past that; in `scroll="window"` it is in the flow after the body.
+The body's scroller and a pinned tray are each `position: relative`, or something absolute inside them, a chip's `.visually-hidden` words, would not scroll and clip with them and could run past the window's foot.
 **On a phone (640px wide or less) a `scroll="body"` dialog is as tall as the window less the gutter**, so its pinned parts never crowd its body to nothing.
 `dvh` sizes it, since a phone's browser bar would otherwise cover its pinned actions.
 **`scroll="body"` is expand-contract**: it is opt-in, so no dialog changed when it came; each dialog moves to it as it is converted, the export dialog first, then those whose body can outgrow a laptop window (Manage market, Manage organization, Change reviewers, Fix the form, Open applications, the assignment history); `scroll="window"` and the `wide` boolean are deleted when no dialog uses them.
-The library's `dialog` entry shows each width, today's scroll beside the body's on 150 people, the tray, and every behaviour below in either scroll ([the component library](../modules/component-library.md)).
+The library's `dialog` entry shows each width, today's scroll beside the body's on 150 people, the tray, and every behaviour below in either scroll, and its `export-vendors` entry a broad dialog with its whole tray, the export redesigned ([the component library](../modules/component-library.md)).
+A long list goes in that body as a [`ListFrame.vue`](../../../front-end/src/components/ListFrame.vue), whose field keeps its Enter, as above, and which needs nothing else there: the library's `summaries` entry holds Change reviewers and the reviewed list so ([`the-component-library-summaries.spec.ts`](../../../front-end/e2e/the-component-library-summaries.spec.ts)).
 
 **A dialog sits centred, unless its body grows as it is used**: `anchored` holds its top where it opened, so a field's error appearing as a key is typed does not move the dialog half a line under the pointer (the amendment's dialog, E38/F02).
 
@@ -88,18 +99,19 @@ Three closes are correct and are pinned: deleting the thing, the explicit close 
 The parent learns about a save through its own event, never through `close`: `OrganizationsView` treating close as its refresh signal is why every membership change used to close the dialog.
 
 **A destructive dialog opens focused on Cancel**, deliberately: one stray Enter would otherwise be the whole irreversible action, and Cancel is a `type="button"`, so Enter there cancels.
-Any other dialog focuses its first enabled control that is not destructive, else its window: a dialog listing people never opens on the first person's Remove, which one stray Enter would take (Manage organization did, on its first admin's).
+Any other dialog focuses its first enabled control that is not destructive, else its window: a dialog listing people never opens on the first person's Remove, which one stray Enter would take (Manage organization did, on its first admin's), and a control that takes something away without being drawn destructive, as a [`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue) chip's Remove does, carries `data-dialog-not-first` for the same reason.
 The window draws no ring when it takes focus, as Manage market's does while its market loads: `primitives.css` draws nothing around what only a script focuses ([the design language](../../design-system.md#the-primitive-layer)).
 Focus skips `:disabled` controls, because `focus()` on a disabled element is a silent no-op; that left the create-market dialog opening with focus on `<body>` while its organization select loaded.
 **Closing gives focus back to what opened the dialog**, whichever way it closes, and when it is unmounted while open: closing unmounts the window, which dropped focus to `<body>`, so the next Tab started at the top of the page (T45).
 The opener is taken as the dialog opens, before focus moves in, and focused once the page behind is no longer inert.
 It is left alone when it has left the page, a deleted row or a navigation, and when the parent has already put focus somewhere itself in the same tick.
 So a confirmation whose confirm takes its opener away puts focus somewhere itself: Manage organization's and Manage market's Remove asks first (E38/F15/S01), and confirming takes that Remove away with what it removed (the row, or the line of a market role that added nothing), so focus goes to the list it was in, a `tabindex="-1"` group named by its heading, once the confirmation has closed and the page behind is no longer inert; Cancel and Escape leave the row, and focus goes back to its Remove.
+Manage market's role select asks first too (T211), and the shell gives focus back to the select, by Cancel, Escape, the backdrop, a refusal or a confirm, and the view focuses the select on opening, since Safari does not on a click; only when the re-read leaves no select, as it does for someone who changed their own role, does focus go to that same list.
 So an opener that goes away with the click hands focus on first: the phase rail's "More…" menu focuses its button as a choice closes it, as its Escape does, and a Publish or Archive confirm then gives focus back there ([`PhaseRail.vue`](../../../front-end/src/components/PhaseRail.vue)).
 `AppDialog` holds no focus trap, so a dialog that swaps one view for another moves focus itself: swapping unmounts the focused button.
 So does a row that takes the place of the button that opened it: Manage market's "Add user" and Manage organization's "Add admin" and "Add member" focus the row's field as it opens, and their button again as its Cancel closes it.
 Load Template focuses its confirm view's Cancel, then the chosen card again on Cancel ([`TemplatePanel.vue`](../../../front-end/src/components/floorplan/TemplatePanel.vue)).
-[`useFocusGoesBack`](../../../front-end/src/utils/useFocusGoesBack.ts) holds that, for `AppDialog` and for the [vendor drawer](../../business/flows/vendor-drawer.md), a modal that is not a dialog on the shell (T123).
+[`useFocusGoesBack`](../../../front-end/src/utils/useFocusGoesBack.ts) holds that, for `AppDialog` and for three modals that are not dialogs on the shell: the [vendor drawer](../../business/flows/vendor-drawer.md) (T123), the door code's full screen, and [`SidePanel`](../../design-system.md#the-primitive-layer), the shell proposed for the drawer (T200).
 The drawer moved no focus in and gave none back, so after every vendor a keyboard user started again from the top of the page; it now opens on its close, its first control, since what follows it may be a verdict or a note, and gives focus back to what opened it: a row on the Vendors page or in the review's All view, a seat's name, or a name at the door.
 Another vendor shown in the open drawer takes focus to its close the same way: a vendor named in its History tab is shown in place on the Vendors page, and the focused name goes with the panel it sat in, which left focus on `<body>` (T162).
 
@@ -146,6 +158,7 @@ With exactly one organization it names it rather than offering a select with one
   It cannot see a cover painted from outside the component, by a shared stylesheet or a component library, and need not: the app installs no component library ([ADR 0015](../../adr/0015-the-app-owns-its-components.md)), since the floorplan's Edit Table Type, Save Template and Load Template dialogs, which were a library's and drew with no window and no scrim, moved onto `AppDialog` (T45).
 - [`useInertBehind.test.ts`](../../../front-end/src/__tests__/useInertBehind.test.ts) holds the walk: the page's other branches marked and the modal not, the marks given back on close and on unmount, an element already `inert` left as it was found, the counted marks of two modals open at once, a dialog on top kept live while the one beneath walks again, and a modal mounted already open with its root bound by template ref, the choose-a-path overlay among them; [`a-dialog-mounted-open-holds-the-page.spec.ts`](../../../front-end/e2e/a-dialog-mounted-open-holds-the-page.spec.ts) opens the change-placement dialog on the screens seed's big market at 390 and 1440, finds the market frame and the rail inert, Tab walking only the dialog's controls, and Escape giving the page and focus on the seat's Change back.
 - [`removingSomeoneAsksFirst.test.ts`](../../../front-end/src/__tests__/removingSomeoneAsksFirst.test.ts) and [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) open each Remove's confirmation, find it named by its question and opened on Cancel, close it by Cancel and by Escape (only it, not the dialog beneath) with focus back on the Remove and nothing removed, and confirm it, with focus on the list.
+- [`changingARoleAsksFirst.test.ts`](../../../front-end/src/__tests__/changingARoleAsksFirst.test.ts) and [`changing-a-role-asks-first.spec.ts`](../../../front-end/e2e/changing-a-role-asks-first.spec.ts) choose a role, find the confirmation named by its question with nothing sent, close it by Cancel, Escape and the backdrop (only it, not the dialog beneath) with the select back on the role held and focused, confirm it with one write and focus on the select, or on the list when the select has gone, and find a refusal said beneath the row, with the list re-read.
 - [`dialog-idiom.spec.ts`](../../../front-end/e2e/dialog-idiom.spec.ts) drives, in a browser, Enter in every dialog, focus on open and focus given back on close (the create-market dialog, a dialog opened from a dialog, and Edit Table Type), Manage organization staying open through saves and closing by its close control, the backdrop and Escape, its controls at the product's height with each add row's own Cancel and opening on no Remove, a dialog opened from a dialog, Escape there closing only the one on top, the floorplan's Edit Table Type dialog (its window and scrim, Enter from any field, and a unit change that saves the same millimetres), and its template dialogs (Save Template's Enter through its guard, its three closes, and staying open through a save in flight; Load Template's list, its confirm view, Cancel back to the list, and Replace, with focus following each view).
 
 ## What breaks it

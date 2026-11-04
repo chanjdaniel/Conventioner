@@ -119,10 +119,13 @@ export async function installTheSweep(page: Page): Promise<void> {
       if (box.width === 0 || box.height === 0) return { id, name, problems: null };
 
       const problems: string[] = [];
+      // A file input is no field: nothing is typed into it, and it is drawn invisible inside the
+      // drop zone that stands for it (`FileDropZone.vue`), so it is a control whose zone wears
+      // its halo (T205).
       const isField =
         el.matches('textarea, select') ||
         (el.matches('input') &&
-          !el.matches('[type=button], [type=submit], [type=reset], [type=image]'));
+          !el.matches('[type=button], [type=submit], [type=reset], [type=image], [type=file]'));
       if (isField) {
         let node: Element | null = el;
         for (let depth = 0; node && depth < 3; depth++, node = node.parentElement) {

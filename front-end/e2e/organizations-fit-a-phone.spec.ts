@@ -23,7 +23,7 @@ async function ensureTheOrganization(request: APIRequestContext): Promise<void> 
   ensureVerifiedUser(OWNER.email, OWNER.password);
   ensureVerifiedUser(MEMBER, OWNER.password);
   await loginViaApi(request, BACKEND_URL, OWNER.email, OWNER.password);
-  type Listed = { id: string; name: string; memberEmails?: string[] };
+  type Listed = { id: string; name: string; memberPeople?: { email: string }[] };
   const mine = async () => {
     const res = await request.get(`${BACKEND_URL}/organizations`);
     expect(res.ok(), await res.text()).toBe(true);
@@ -36,7 +36,7 @@ async function ensureTheOrganization(request: APIRequestContext): Promise<void> 
     expect(made.ok(), await made.text()).toBe(true);
     org = (await mine())!;
   }
-  if (!org.memberEmails?.includes(MEMBER)) {
+  if (!org.memberPeople?.some((member) => member.email === MEMBER)) {
     const added = await request.post(`${BACKEND_URL}/organizations/${org.id}/members`, {
       data: { user_email: MEMBER },
     });

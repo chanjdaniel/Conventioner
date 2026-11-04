@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { APIRequestContext } from '@playwright/test';
 import { loginViaApi, ensureTestOrgAuthenticated, marketNameToSlug } from './seeds';
+import { decideReviewSetup } from './decideReviewSetup';
 import { seedApplication } from './seedApplication';
 import { mongoEval } from './mongo';
 import { uniqueMarketName } from './uniqueName';
@@ -108,6 +109,9 @@ export async function seedApplicantMarket(
     draft?: boolean;
     // A market's name is its public address, so a spec about an address names the market.
     name?: string;
+    // Its review setup is decided (T206), a Google Form draft's too, unless a spec about the
+    // decisions asks for them left undecided.
+    reviewSetupUndecided?: boolean;
   } = {},
 ): Promise<ApplicantMarketSeed> {
   const userId = await loginViaApi(request, baseURL, email, password);
@@ -145,6 +149,7 @@ export async function seedApplicantMarket(
   if (!formRes.ok()) {
     throw new Error(`Application form save failed: ${formRes.status()} ${await formRes.text()}`);
   }
+  if (!options.reviewSetupUndecided) await decideReviewSetup(request, baseURL, marketId);
 
   // A Google Form market stays a draft, ready for its first import, which is its way into Review
   // (E38/F04/S01); a market whose vendors apply on its page opens applications.
@@ -185,32 +190,44 @@ export function seedApplicationDoc(
  * Create a login challenge in `applicant_login_challenges` with a known
  * plaintext code.
  *
- * The 5d back end stores codes as salted SHA-256 hashes (`salt:digest`),
- * so the test cannot read a code out of MongoDB after requesting one. This
- * helper inserts a challenge directly with the correct hash for a known
- * code, letting the test verify the full end-to-end flow.
+ * The back end stores codes as salted SHA-256 hashes (`salt:digest`), so the
+ * test cannot read a code out of MongoDB after requesting one. This helper
+ * writes the challenge as a request does, with the correct hash for a known
+ * code: unconsumed, no tries yet (`attempts`), ten minutes to run, and the
+ * code's number (`sequence`) kept from the request it stands in for, or 1.
  *
- * Call this BEFORE requesting a code through the UI (or intercept the
- * request-code API call so the manually inserted challenge is not overwritten).
+ * Call it AFTER requesting a code through the UI or the API, which stores a
+ * random code of its own: this replaces that code with the known one, as the
+ * email the stack does not send would have carried it.
+ *
+ * `attempts` plants a code with that many of its five tries already used, so a
+ * screen reaches a used-up code with one wrong try rather than five.
  */
-export function createApplicantLoginChallenge(marketId: string, email: string, code: string): void {
+export function createApplicantLoginChallenge(
+  marketId: string,
+  email: string,
+  code: string,
+  { attempts = 0 }: { attempts?: number } = {},
+): void {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.createHash('sha256').update(`${salt}:${code}`).digest('hex');
   const codeHash = `${salt}:${hash}`;
   const emailLower = email.toLowerCase();
-  const expiryTs = Date.now() + 300_000;
+  const expiryTs = Date.now() + 600_000;
   const createdAt = new Date().toISOString();
 
   const evalJs = [
-    `db.applicant_login_challenges.replaceOne(`,
+    `db.applicant_login_challenges.updateOne(`,
     `  { market_id: ${JSON.stringify(marketId)}, email: ${JSON.stringify(emailLower)} },`,
     `  {`,
-    `    market_id: ${JSON.stringify(marketId)},`,
-    `    email: ${JSON.stringify(emailLower)},`,
-    `    code_hash: ${JSON.stringify(codeHash)},`,
-    `    consumed: false,`,
-    `    expires_at: new Date(${expiryTs}),`,
-    `    created_at: ${JSON.stringify(createdAt)}`,
+    `    $set: {`,
+    `      code_hash: ${JSON.stringify(codeHash)},`,
+    `      consumed: false,`,
+    `      attempts: ${attempts},`,
+    `      expires_at: new Date(${expiryTs}),`,
+    `      created_at: ${JSON.stringify(createdAt)}`,
+    `    },`,
+    `    $setOnInsert: { sequence: 1 }`,
     `  },`,
     `  { upsert: true }`,
     `)`,

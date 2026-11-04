@@ -1,5 +1,4 @@
-import { test, expect, BACKEND_URL, ApplicantLoginPage } from './fixtures';
-import { ApplyPage } from './pages/ApplyPage';
+import { test, expect, BACKEND_URL, VendorPage } from './fixtures';
 import { runBackendScript } from './helpers/backendScript';
 import { mongoEval } from './helpers/mongo';
 import { createApplicantLoginChallenge } from './helpers/seedApplicantMarket';
@@ -71,9 +70,9 @@ test.describe('The test markets', () => {
     ).toBe('0');
 
     // The online market takes a vendor's sign-in; the Google Form market reads as no market.
-    await page.goto(`/${marketNameToSlug(ONLINE)}/applicant-login`);
-    await expect(page.getByTestId('applicant-login-market')).toHaveText(ONLINE);
-    await page.goto(`/${marketNameToSlug(GOOGLE_FORM)}/applicant-login`);
+    await page.goto(`/${marketNameToSlug(ONLINE)}`);
+    await expect(page.getByTestId('vendor-page-market-name')).toHaveText(ONLINE);
+    await page.goto(`/${marketNameToSlug(GOOGLE_FORM)}`);
     await expect(page.getByTestId('page-not-found')).toBeVisible();
   });
 
@@ -104,24 +103,23 @@ test.describe('The test markets', () => {
     );
     const slug = marketNameToSlug(ONLINE);
 
-    const login = new ApplicantLoginPage(page);
-    await page.goto(`/${slug}/applicant-login?redirect=apply`);
+    const login = new VendorPage(page);
+    await page.goto(`/${slug}`);
     await login.requestCode(vendor);
     createApplicantLoginChallenge(marketId(ONLINE), vendor, code);
     await login.enterCode(code);
+    await login.applyButton.click();
 
-    const apply = new ApplyPage(page);
-    await page.waitForURL(new RegExp(`/${slug}/apply`));
-    await expect(apply.form).toBeVisible({ timeout: 30000 });
-    await apply.fullNameInput.fill('Test Vendor');
-    await apply.tierCheckbox(firstDate, 'Gold').check();
-    await apply.maxDatesInput.fill('1');
-    await apply.tableChoiceRadio('full').check();
-    await apply.fillField('business_name', 'Test Stall');
-    await apply.fillField('product_type', 'Test goods');
-    await apply.submit();
+    await expect(login.form).toBeVisible({ timeout: 30000 });
+    await login.fullNameInput.fill('Test Vendor');
+    await login.tierCheckbox(firstDate, 'Gold').check();
+    await login.maxDatesInput.fill('1');
+    await login.tableChoiceRadio('full').check();
+    await login.fillField('business_name', 'Test Stall');
+    await login.fillField('product_type', 'Test goods');
+    await login.submit();
 
-    await page.waitForURL(new RegExp(`/${slug}/applicant/dashboard`));
-    await expect(page.getByTestId('applicant-dashboard-status')).toContainText('Submitted');
+    await expect(login.form).toHaveCount(0, { timeout: 10000 });
+    await expect(page.getByTestId('vendor-page-status')).toContainText('Submitted');
   });
 });

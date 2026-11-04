@@ -1,5 +1,6 @@
 import {
   type Organization,
+  type OrganizationPerson,
   type OrganizationRoleType,
   type PermissionTableRow,
   type ThemeObject,
@@ -14,10 +15,8 @@ export type RawOrganization = {
   members?: string[];
   ownerEmail?: string;
   owner_email?: string;
-  adminEmails?: string[];
-  admin_emails?: string[];
-  memberEmails?: string[];
-  member_emails?: string[];
+  adminPeople?: OrganizationPerson[];
+  memberPeople?: OrganizationPerson[];
   theme?: ThemeObject;
   userRole?: OrganizationRoleType;
   user_role?: OrganizationRoleType;
@@ -35,8 +34,8 @@ export function parseOrgFromApi(org: RawOrganization): Organization {
     admins: org.admins || [],
     members: org.members || [],
     ownerEmail: org.ownerEmail ?? org.owner_email,
-    adminEmails: org.adminEmails ?? org.admin_emails,
-    memberEmails: org.memberEmails ?? org.member_emails,
+    adminPeople: org.adminPeople ?? [],
+    memberPeople: org.memberPeople ?? [],
     theme: org.theme,
     userRole: userRole ?? undefined,
     defaultPermissionTable: org.defaultPermissionTable,

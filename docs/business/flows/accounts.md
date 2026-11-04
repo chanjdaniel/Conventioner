@@ -17,6 +17,7 @@ sources:
   - T176
   - T181
   - T209
+  - T211
 ---
 
 # Accounts
@@ -47,6 +48,7 @@ Covered by:
 - `account-links.spec.ts`
 - `auth.spec.ts` ("Register new user")
 - `sign-in-fits-a-phone.spec.ts`
+- `the-sign-in-fits-a-small-phone.spec.ts`
 
 ## A1a. Resend the verification email
 
@@ -94,6 +96,7 @@ Covered by:
 - `remember-me.spec.ts`
 - `sign-in-fits-a-phone.spec.ts`
 - `smoke.spec.ts`
+- `the-sign-in-fits-a-small-phone.spec.ts`
 - `the-sign-in-says-what-to-do-next.spec.ts`
 - `the-way-in-lines-up.spec.ts` ("every row of the sheet is one shape, Sign out included")
 
@@ -111,6 +114,7 @@ Covered by:
 - `auth.spec.ts` ("shows error for invalid OTP code"), which stubs the send and walks only a wrong code
 - `remember-me.spec.ts`, which stubs the send and sets the code where the server keeps it, then signs in with it
 - `sign-in-fits-a-phone.spec.ts`
+- `the-sign-in-fits-a-small-phone.spec.ts`
 - `the-sign-in-says-what-to-do-next.spec.ts`, which stubs the send and walks only a wrong code
 
 ## A4. Reset a forgotten password

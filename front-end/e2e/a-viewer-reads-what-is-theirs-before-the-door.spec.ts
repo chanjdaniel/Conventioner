@@ -36,7 +36,7 @@ const SIZES = [
 ] as const;
 
 const STAGE_ONLOOKER =
-  'Applications are open on the application page. Read where each application stands.';
+  'Applications are open on the vendor page. Read where each application stands.';
 const ASSIGNED_ONLOOKER =
   'Tables are allocated, and the market is not published yet. Read the assignments.';
 
@@ -118,7 +118,7 @@ for (const size of SIZES) {
 
       await page.goto(`/markets/${stageId}/applications`);
       await expect(railSentence(page)).toContainText(
-        'Applications are open on your application page: review them as they arrive. Finish deciding: 1 application is still awaiting review.',
+        'Applications are open on your vendor page: review them as they arrive. Finish deciding: 1 application is still awaiting review.',
         { timeout: 15000 },
       );
 

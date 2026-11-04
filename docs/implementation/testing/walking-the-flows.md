@@ -84,7 +84,7 @@ The map keeps each flow and the gap worth a spec it still has.
 | [H3 Applying online](../../business/flows/applying-online.md) | none noted |
 | [I Reviewing](../../business/flows/review.md) | I1 verdicts by keyboard (A and R; S and N are walked) |
 | [I7 and J1 to J5, J14](../../business/flows/assignment-and-result.md) | none noted |
-| [J6 to J10, J13 Placing by hand](../../business/flows/placing-by-hand.md) | none noted |
+| [J6 to J10, J13, J19 Placing by hand](../../business/flows/placing-by-hand.md) | none noted |
 | [J11, J12, J15, J16, J18 Vendors](../../business/flows/vendors.md) | J16 and J18 against a real Discord server |
 | [The vendor drawer](../../business/flows/vendor-drawer.md) | none noted |
 | [K Publishing and market days](../../business/flows/market-day-door.md) | none noted |

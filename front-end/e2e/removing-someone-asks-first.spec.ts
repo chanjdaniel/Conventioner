@@ -5,6 +5,7 @@ import { OrganizationsPage } from './pages/OrganizationsPage';
 import { loginViaApi } from './helpers/seeds';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { uniqueMarketName } from './helpers/uniqueName';
+import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
 
 /**
  * Removing someone asks first, and says what they lose (E38/F15/S01).
@@ -279,6 +280,7 @@ test.describe('Removing someone asks first, on a phone', () => {
 /** The organization's admin, signed in in a window of their own, as another organizer would be. */
 async function anotherOrganizer(browser: Browser, viewport: { width: number; height: number }) {
   const context = await browser.newContext({ viewport });
+  await hideDevToolsPanel(context);
   const page = await context.newPage();
   const login = new LoginPage(page);
   await login.login(ADMIN, PASSWORD);

@@ -36,7 +36,7 @@ beforeEach(async () => {
       { path: '/login', component: Page, meta: { public: true } },
       { path: '/markets', component: Page },
       { path: '/markets/:id/applications', component: Page },
-      { path: '/:marketSlug/apply', component: Page, meta: { public: true } },
+      { path: '/:marketSlug', component: Page, meta: { public: true } },
     ],
   });
   uninstall = installSessionEnded(router);
@@ -92,13 +92,13 @@ describe('a session that ended', () => {
   });
 
   it('leaves a 401 on a public page to the page', async () => {
-    await router.push('/spring/apply');
+    await router.push('/spring');
     answer(401);
 
     await expect(api.get('/markets/m-1')).rejects.toThrow();
     await flushPromises();
 
-    expect(router.currentRoute.value.path).toBe('/spring/apply');
+    expect(router.currentRoute.value.path).toBe('/spring');
   });
 
   it('leaves any other refusal to the screen', async () => {

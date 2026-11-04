@@ -40,6 +40,7 @@ import api.payments as PaymentsApi
 import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
 import api.users as UsersApi
+import api.vendor_check_in as VendorCheckInApi
 import api.vendor_info as VendorInfoApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
@@ -133,6 +134,7 @@ class TestTheTypes:
         (PlacementsApi.PlacementError, BadRequestError),
         (PlacementsApi.SeatTakenError, BadRequestError),
         (PlacementsApi.AssignPhaseError, ConflictError),
+        (PlacementsApi.AssignmentChangedUnderRequest, ConflictError),
         (AddedVendorsApi.AddVendorRefused, ConflictError),
         (AddedVendorsApi.AddVendorInvalid, BadRequestError),
         (CsvStart.ConfirmRefused, ConflictError),
@@ -958,20 +960,19 @@ APPLICANT_SESSION_EXPIRED = (
 # Each applicant, review, import and door route, with a body it accepts, the function it answers
 # through, and the view argument its failure is logged with.
 APPLICANT_REVIEW_IMPORT_AND_DOOR_ROUTES = [
-    ("get", f"/public/markets/{SLUG}/vendors/ana@example.com/assignments", None,
-     AttendanceApi, "get_vendor_assignment_summary", SLUG),
-    ("get", f"/public/markets/{SLUG}/check-in", None, AttendanceApi, "get_checkin_page", SLUG),
-    ("delete", f"/public/markets/{SLUG}/attendance/checkin",
-     {"vendorEmail": "ana@example.com", "date": "2099-08-01"},
-     AttendanceApi, "get_published_market_by_slug", SLUG),
-    ("post", f"/public/markets/{SLUG}/attendance/checkin",
-     {"vendorEmail": "ana@example.com", "date": "2099-08-01"},
-     AttendanceApi, "get_published_market_by_slug", SLUG),
+    ("post", f"/public/markets/{SLUG}/vendor/check-in",
+     {"date": "2099-08-01", "doorCode": "K7M4QP"}, VendorCheckInApi, "check_in", SLUG),
+    ("delete", f"/public/markets/{SLUG}/vendor/check-in", {"date": "2099-08-01"},
+     VendorCheckInApi, "undo_check_in", SLUG),
     ("post", f"/public/markets/{SLUG}/applicant-login/request-code", {"email": "ana@example.com"},
      ApplicantAuthApi, "request_login_code", SLUG),
     ("post", f"/public/markets/{SLUG}/applicant-login/verify-code",
      {"email": "ana@example.com", "code": "123456"},
      ApplicantAuthApi, "verify_login_code", SLUG),
+    ("post", f"/public/markets/{SLUG}/applicant-login/resume", None,
+     ApplicantAuthApi, "resume_sign_in", SLUG),
+    ("post", f"/public/markets/{SLUG}/applicant-login/sign-out", None,
+     ApplicantAuthApi, "sign_out", SLUG),
     ("get", f"/public/markets/{SLUG}/application-form", None,
      ApplicantsApi, "get_public_application_form", SLUG),
     ("get", f"/public/markets/{SLUG}/applicant/application", None,
@@ -1011,6 +1012,8 @@ APPLICANT_REVIEW_IMPORT_AND_DOOR_ROUTES = [
     ("delete", "/markets/market-123/attendance",
      {"vendorEmail": "ana@example.com", "date": "2099-08-01"},
      DoorApi, "undo_check_in", "market-123"),
+    ("get", "/markets/market-123/door-code", None, DoorApi, "door_code", "market-123"),
+    ("post", "/markets/market-123/door-code", None, DoorApi, "make_door_code", "market-123"),
 ]
 
 
@@ -1022,17 +1025,15 @@ class TestTheApplicantReviewImportAndDoorRoutes:
 
     # Public
 
-    def test_a_check_in_where_there_is_no_market(self, monkeypatch):
-        monkeypatch.setattr(AttendanceApi, "get_published_market_by_slug", lambda _slug: None)
-        monkeypatch.setattr(AttendanceApi, "get_check_in_market", lambda _slug: None)
-
-        response = app_module.app.test_client().post(
-            f"/public/markets/{SLUG}/attendance/checkin",
-            json={"vendorEmail": "ana@example.com", "date": "2099-08-01"},
+    @pytest.mark.parametrize("method", ["post", "delete"])
+    def test_a_vendor_checking_in_signed_out_is_asked_to_sign_in_again(self, method):
+        response = call(
+            app_module.app.test_client(), method,
+            f"/public/markets/{SLUG}/vendor/check-in", {"date": "2099-08-01"},
         )
 
-        assert response.status_code == 404
-        assert response.get_json() == {"error": "Market not found"}
+        assert response.status_code == 401
+        assert response.get_json() == {"error": APPLICANT_SESSION_EXPIRED}
 
     @pytest.mark.parametrize("method", ["get", "put"])
     def test_an_applicant_whose_session_expired_is_asked_to_sign_in_again(self, method):
@@ -1332,8 +1333,8 @@ OPTIONAL_BODIES = [
     ("put", "/organizations/<org_id>/default-permissions/<action_id>", None),
     ("post", "/markets/<market_id>/placements/swap", None),
     ("delete", "/markets/<market_id>/placements", None),
-    ("post", "/public/markets/<market_slug>/attendance/checkin", None),
-    ("delete", "/public/markets/<market_slug>/attendance/checkin", None),
+    ("post", "/public/markets/<market_slug>/vendor/check-in", MarketPhase.MARKET_DAYS),
+    ("delete", "/public/markets/<market_slug>/vendor/check-in", MarketPhase.MARKET_DAYS),
     ("post", "/markets/<market_id>/applications/verdicts", MarketPhase.APPLICATIONS),
     ("post", "/markets/<market_id>/applications/verdicts/undo", MarketPhase.APPLICATIONS),
     ("post", "/markets/<market_id>/review/next", MarketPhase.APPLICATIONS),
@@ -1388,6 +1389,11 @@ READS_NO_BODY = [
      [(DiscordConnectionApi, "check", {"counts": {}, "checkedAt": "2026-10-31T00:00:00+00:00"})]),
     ("post", "/markets/<market_id>/discord/role-run",
      [(DiscordConnectionApi, "give_roles", {"counts": {}, "ranAt": "2026-10-31T00:00:00+00:00"})]),
+    ("post", "/public/markets/<market_slug>/applicant-login/resume",
+     [(ApplicantAuthApi, "resume_sign_in", HANDED_ON)]),
+    ("post", "/public/markets/<market_slug>/applicant-login/sign-out",
+     [(ApplicantAuthApi, "sign_out", HANDED_ON)]),
+    ("post", "/markets/<market_id>/door-code", [(DoorApi, "make_door_code", HANDED_ON)]),
 ]
 # Each write route in app.py with a body another module reads: the view hands `request` to the
 # account API in api/users.py, or the applicant sign-in in api/applicant_auth.py reads it for its
@@ -1442,14 +1448,14 @@ def body_reads(monkeypatch):
 
 def send_body(client, monkeypatch, method, rule, phase, **kwargs):
     """``kwargs`` sent to the route at ``rule``, on a market in ``phase``, by an applicant signed in
-    where the route is theirs; the public check-in finds no market, nor an organization's route
-    its organization."""
+    where the route is theirs; an organization's route finds no organization, nor a vendor's own
+    check-in its vendor page."""
     monkeypatch.setattr(OrgsApi, "organizations_collection", FakeOrganizations())
     use_market(monkeypatch, stored_market(
         phase=phase or MarketPhase.APPLICATIONS, setupObject=COMPLETE_PLAN,
     ))
-    monkeypatch.setattr(AttendanceApi, "get_published_market_by_slug", lambda _slug: None)
-    monkeypatch.setattr(AttendanceApi, "get_check_in_market", lambda _slug: None)
+    monkeypatch.setattr(
+        db_config, "get_database", lambda *_a, **_kw: {"markets": FakeSlugMarketsCollection([])})
     monkeypatch.setattr(
         ApplicantsApi, "authenticate_request",
         lambda _header: {"market_id": "market-123", "email": "vendor@example.com"},

@@ -177,3 +177,53 @@ test('the owner resets every row to its built-in default, and the reset is recor
   await expect(reset).toContainText('Check vendors in: Admin to Editor');
   await expect(reset).toContainText(TEST_USER.email);
 });
+
+const ON_A_PHONE = {
+  viewport: { width: 390, height: 844 },
+  isMobile: true,
+  hasTouch: true,
+  deviceScaleFactor: 3,
+};
+
+/**
+ * A group's title belongs to its own rows (T211): it stood as far from them as from the group above,
+ * so the groups blurred. What a reader sees of the row above is its lowest part, the caption at a
+ * desk and the select where a phone wraps it, so that is what the far gap is measured from.
+ */
+for (const { name, use } of [
+  { name: 'at a desk', use: { viewport: { width: 1280, height: 800 } } },
+  { name: 'on a phone', use: ON_A_PHONE },
+]) {
+  test.describe(name, () => {
+    test.use(use);
+
+    test("a group's title sits at most half as far from its rows as from the group above", async ({
+      authenticatedPage: page,
+    }) => {
+      const manage = await openPermissions(page);
+      const edges = await manage.permissionGroupEdges();
+      expect(edges.length, 'a table of several groups').toBeGreaterThan(1);
+      for (const [index, group] of edges.entries()) {
+        if (index === 0) continue;
+        const toItsRows = group.firstLabelTop - group.titleBottom;
+        const fromTheGroupAbove = group.titleTop - edges[index - 1].lastRowBottom;
+        expect(toItsRows, `group ${index + 1}, against the group above`).toBeLessThanOrEqual(
+          fromTheGroupAbove / 2,
+        );
+      }
+      // The space under the section's own heading does not change.
+      await expect(manage.permissionGroupTitles.first()).toHaveCSS('margin-top', '16px');
+    });
+  });
+}
+
+test.describe('a row on a phone', () => {
+  test.use(ON_A_PHONE);
+
+  test('it keeps its label above and its select beneath', async ({ authenticatedPage: page }) => {
+    const manage = await openPermissions(page);
+    const label = (await manage.permissionLabel('check-in').boundingBox())!;
+    const select = (await manage.permissionSelect('check-in').boundingBox())!;
+    expect(select.y).toBeGreaterThanOrEqual(label.y + label.height);
+  });
+});

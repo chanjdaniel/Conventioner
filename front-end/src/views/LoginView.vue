@@ -3,6 +3,7 @@ import axios from 'axios';
 import { computed, ref, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AuthCard from '@/components/AuthCard.vue';
+import CodeInput from '@/components/CodeInput.vue';
 import SignInMessage from '@/components/SignInMessage.vue';
 import { SESSION_ENDED_MESSAGE } from '@/utils/api';
 import { executeRecaptcha } from '@/utils/captcha';
@@ -361,7 +362,7 @@ const submitOTPLogin = async () => {
         data-testid="login-form"
       >
         <label class="field-label" for="email">Email</label>
-        <div class="login-input">
+        <div class="login-input" data-testid="login-field-box">
           <input
             id="email"
             type="email"
@@ -374,7 +375,7 @@ const submitOTPLogin = async () => {
           />
         </div>
         <label class="field-label" for="password">Password</label>
-        <div class="login-input">
+        <div class="login-input" data-testid="login-field-box">
           <input
             id="password"
             :type="showPassword ? 'text' : 'password'"
@@ -446,7 +447,7 @@ const submitOTPLogin = async () => {
         data-testid="login-register-form"
       >
         <label class="field-label" for="register-email">Email</label>
-        <div class="login-input">
+        <div class="login-input" data-testid="login-field-box">
           <input
             id="register-email"
             type="email"
@@ -459,7 +460,7 @@ const submitOTPLogin = async () => {
           />
         </div>
         <label class="field-label" for="register-password">Password</label>
-        <div class="login-input">
+        <div class="login-input" data-testid="login-field-box">
           <input
             id="register-password"
             :type="showRegisterPassword ? 'text' : 'password'"
@@ -481,7 +482,7 @@ const submitOTPLogin = async () => {
         </div>
         <p class="field-help">At least 8 characters.</p>
         <label class="field-label" for="register-password-confirm">Confirm password</label>
-        <div class="login-input">
+        <div class="login-input" data-testid="login-field-box">
           <input
             id="register-password-confirm"
             :type="showRegisterPassword ? 'text' : 'password'"
@@ -540,7 +541,7 @@ const submitOTPLogin = async () => {
         data-testid="login-otp-form"
       >
         <label class="field-label" for="otp-email">Email</label>
-        <div class="login-input">
+        <div class="login-input" data-testid="login-field-box">
           <input
             id="otp-email"
             type="email"
@@ -555,21 +556,15 @@ const submitOTPLogin = async () => {
         </div>
         <!-- Named, not only hinted: the placeholder went the moment typing started (bug 44). -->
         <label v-if="otpRequested" class="field-label" for="otp-code">Sign-in code</label>
-        <div v-if="otpRequested" class="login-input">
-          <input
-            id="otp-code"
-            type="text"
-            v-model="otpCode"
-            placeholder="6 digits"
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            class="email-input"
-            required
-            maxlength="6"
-            pattern="[0-9]{6}"
-            data-testid="login-otp-code-input"
-          />
-        </div>
+        <!-- The vendor's code field, so the two sign-ins' code steps read alike (T191 F21). -->
+        <CodeInput
+          v-if="otpRequested"
+          id="otp-code"
+          v-model="otpCode"
+          required
+          pattern="[0-9]{6}"
+          data-testid="login-otp-code-input"
+        />
         <SignInMessage
           :notice="otpNotice"
           testid-prefix="login-otp"
@@ -621,10 +616,11 @@ const submitOTPLogin = async () => {
 
 /* Equal thirds wherever they fit; on a phone a third is narrower than "Sign-in code", which
    wrapped to two lines, so no tab wraps and the longest takes the room it needs. The tabs' text is
-   centred in them, so their side padding only matters there, and 8px lets all three fit (T73). */
+   centred in them, so their side padding only matters there, and 4px lets all three fit at 320
+   (T73; T211: at 8px, "Sign-in code" ran 12px past the column). */
 .mode-tab {
   flex: 1;
-  padding: var(--space-3) var(--space-2);
+  padding: var(--space-3) var(--space-1);
   white-space: nowrap;
   background: none;
   border: none;
@@ -720,16 +716,11 @@ const submitOTPLogin = async () => {
   cursor: pointer;
 }
 
-.email-input {
-  width: auto;
-  border: none;
-  font-size: var(--text-sm);
-  flex-grow: 1;
-  outline: none;
-  background: transparent;
-}
-
+/* `min-width: 0`: a flex item keeps an input's intrinsic width otherwise, about 207px, where the
+   box holds 198px at 320 wide, so it pushes the Show button out past the box and the card (T211). */
+.email-input,
 .password-input {
+  min-width: 0;
   width: auto;
   border: none;
   font-size: var(--text-sm);

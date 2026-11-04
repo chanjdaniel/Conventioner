@@ -6,7 +6,7 @@ describes:
   - back-end/api/placements.py#_applicant_address
   - front-end/src/utils/placementChange.ts#groupCandidates
   - front-end/src/utils/placementChange.ts#notApprovedWarning
-verified: 2026-10-30
+verified: 2026-11-03
 sources:
   - wayfinding/rejection-visibility/02
   - E36/F02/S01

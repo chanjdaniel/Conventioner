@@ -267,8 +267,8 @@ const ORG: Organization = {
   marketCount: 0,
   marketsWithOwnRole: {},
   ownerEmail: 'olive@ember.test',
-  adminEmails: [],
-  memberEmails: [],
+  adminPeople: [],
+  memberPeople: [],
   userRole: 'owner',
 };
 
@@ -390,7 +390,7 @@ describe('Manage organization holds together as Manage market does', () => {
   const WITH_AN_ADMIN: Organization = {
     ...ORG,
     admins: ['user-ada'],
-    adminEmails: ['ada@ember.test'],
+    adminPeople: [{ userId: 'user-ada', email: 'ada@ember.test' }],
   };
 
   it('puts focus in the field an add opens, and back on its button when the row closes', async () => {

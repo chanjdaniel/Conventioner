@@ -12,7 +12,7 @@ verified: 2026-10-22
 
 - [The setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md): what a market's plan may still change once it is past draft.
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md): a finished market is the record of what happened.
-- [An archived market that ran stays a record](../rules/an-archived-market-that-ran-stays-a-record.md): its check-in page stays up, marked ended.
+- [An archived market that ran stays a record](../rules/an-archived-market-that-ran-stays-a-record.md): its vendor page stays up, each vendor's seats and check-ins marked ended.
 - [What each role may do](../rules/what-each-role-may-do.md): who reads a market, who works on it, who moves and publishes it.
 - [When an organization may be deleted](../rules/when-an-organization-may-be-deleted.md): which of its markets go with it, and which refuse it.
 

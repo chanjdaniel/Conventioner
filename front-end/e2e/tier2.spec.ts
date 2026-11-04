@@ -174,6 +174,8 @@ test.describe('Tier 2 - Market role management', () => {
     await expect(roleSelect).toHaveValue('editor');
 
     await roleSelect.selectOption('viewer');
+    await manageMarket.roleChangeConfirmButton.click();
+    await expect(manageMarket.roleChangeConfirm).toHaveCount(0);
     await expect(roleSelect).toHaveValue('viewer', { timeout: 5000 });
 
     const removeButton = page
@@ -289,16 +291,17 @@ test.describe('Tier 2 - Publish market', () => {
       expect(res.ok(), `transition to ${toPhase}: ${await res.text()}`).toBeTruthy();
     }
 
-    await page.goto(marketSetupPath(marketId));
     const setupPage = new MarketSetupPage(page);
+    // Its vendors are told first, on its vendor page, on this path too (ADR 0022).
+    await setupPage.publishResults(marketId);
+    await page.goto(marketSetupPath(marketId));
     await setupPage.advancePhaseTo('market_days', 'Market Days');
 
-    // Its vendors reach check-in on the URL publishing put on the air. This market takes its
-    // vendors by CSV import, so its market home answers as a market that does not exist; check-in
-    // is open to every published market regardless.
-    await page.goto(`/${slug}/check-in`);
-    await expect(page.locator('.attendance-view')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByTestId('attendance-checkin-email-input')).toBeVisible({ timeout: 5000 });
-    await expect(page.getByTestId('market-home-not-found')).toHaveCount(0);
+    // Its vendors reach their vendor page, where they check in; it is open to every published
+    // market, however its vendors arrived (ADR 0022).
+    await page.goto(`/${slug}`);
+    await expect(page.getByTestId('vendor-page-market-name')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('vendor-sign-in-email-input')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('vendor-page-not-found')).toHaveCount(0);
   });
 });

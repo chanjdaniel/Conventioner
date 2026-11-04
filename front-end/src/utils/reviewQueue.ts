@@ -109,7 +109,9 @@ export function reviewQueue(applications: Application[], includeFollowUps: boole
  * `vendor_refused`. A list of the two reviewer verdicts alone would drop each application the
  * moment the market moved on.
  */
-export function reviewed(applications: Application[]): Application[] {
+export function reviewed<T extends Pick<Application, 'status' | 'verdictAt' | 'submittedAt'>>(
+  applications: T[],
+): T[] {
   return newestVerdictFirst(
     applications.filter(
       (a) => !AWAITING.includes(a.status) && a.status !== ApplicationStatus.NeedsFollowUp,

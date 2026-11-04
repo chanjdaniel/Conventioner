@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { defineComponent, h, ref, type PropType } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
+import SearchPicker from '@/components/SearchPicker.vue';
 
 const byTestId = (id: string) => document.querySelector<HTMLElement>(`[data-testid="${id}"]`);
 
@@ -329,5 +330,32 @@ describe('the tray', () => {
     await openFromTheButton({ scroll: 'body' });
 
     expect(byTestId('people-tray')).toBeNull();
+  });
+});
+
+describe('a dialog that opens on a picker of several choices (T200)', () => {
+  it("opens on the field, never on a chip's Remove, which one stray Enter would take", async () => {
+    const options = ['Ana', 'Ben'].map((label) => ({ value: label, label }));
+    const wrapper = mount(AppDialog, {
+      props: { open: false, title: 'Choose reviewers', testid: 'reviewers', confirmLabel: 'Save' },
+      slots: {
+        default: () =>
+          h(SearchPicker, {
+            multiple: true,
+            modelValue: ['Ana', 'Ben'],
+            groups: [{ options }],
+            finds: () => true,
+            label: 'Reviewers',
+            testid: 'reviewer-picker',
+          }),
+      },
+      attachTo: document.body,
+    });
+
+    await wrapper.setProps({ open: true });
+    await flushPromises();
+
+    expect(document.activeElement).toBe(byTestId('reviewer-picker-input'));
+    wrapper.unmount();
   });
 });

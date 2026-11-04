@@ -27,7 +27,9 @@ const COMPONENTS = [
   'StepHeader',
   'AnswerValue',
   'SignInMessage',
+  'CodeInput',
   'BarLedger',
+  'FileDropZone',
 ];
 
 /**
@@ -111,5 +113,32 @@ eachWindow('the existing components entry', (size) => {
     await expect(
       page.getByRole('region', { name: 'Chosen', exact: true }).getByTestId('read-out'),
     ).toHaveText('Chose: sign-out');
+  });
+
+  test('its drop zone reads out the file it takes, and takes none while reading one', async ({
+    page,
+  }) => {
+    await openEntry(page, 'components');
+
+    await page.getByTestId('library-zone-input').setInputFiles({
+      name: 'responses.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from('Name\n'),
+    });
+    await expect(
+      page.getByRole('region', { name: 'File taken', exact: true }).getByTestId('read-out'),
+    ).toHaveText('Took: responses.csv');
+
+    await expect(page.getByTestId('library-zone-busy')).toHaveAttribute('aria-busy', 'true');
+    await expect(page.getByTestId('library-zone-busy-input')).toBeDisabled();
+    // Held by the real component's own rule for a file over it, not a copy of its colours.
+    const over = page.getByTestId('library-zone-over');
+    await expect(over).toHaveAttribute('data-dragging', 'true');
+    await expect(over).not.toHaveCSS(
+      'background-color',
+      await page
+        .getByTestId('library-zone')
+        .evaluate((zone) => getComputedStyle(zone).backgroundColor),
+    );
   });
 });

@@ -19,8 +19,10 @@ import {
 } from '../fixtures';
 import { EmailVerificationPage } from '../pages/EmailVerificationPage';
 import { marketScreenPath, marketSetupPath, oneByOnePath } from './marketScreens';
+import { mongoEval } from './mongo';
 import { createApplicantLoginChallenge } from './seedApplicantMarket';
 import { loginViaApi } from './seeds';
+import { calendarToday } from './vendorSignIn';
 import {
   FIRST_IMPORT,
   SCREENS_EDITOR,
@@ -124,6 +126,23 @@ function marketsRemembering(market: keyof TheScreensSeed) {
 const marketsRememberingOneGone = (page: Page) =>
   openRemembering(page, 'a-market-that-has-gone', 'markets-last-market-gone');
 
+/**
+ * `market`'s Questions tab as the start from a Google Form's confirm lands on it (T205/F20): the
+ * file's name in the entry's history state, under the key `utils/draftedFrom.ts` reads. Planted and
+ * reloaded rather than confirmed, since a confirm writes the seeded draft every other state reads.
+ */
+function landedFromAFile(market: keyof TheScreensSeed) {
+  return async (page: Page, seed: TheScreensSeed) => {
+    await page.goto(setup(market, 'form')(seed));
+    await visible(page, 'form-steps');
+    await page.evaluate(() =>
+      history.replaceState({ ...history.state, draftedFrom: 'five-day-grid.csv' }, ''),
+    );
+    await page.reload();
+    await visible(page, 'drafted-from');
+  };
+}
+
 const setup = (market: keyof TheScreensSeed, page: string) => (seed: TheScreensSeed) =>
   marketSetupPath((seed[market] as { marketId: string }).marketId, page);
 /** The review's One by one view: the Applications tab opens on All (E38/F05/S01). */
@@ -207,6 +226,16 @@ const removingAMarketRole = async (page: Page, seed: TheScreensSeed) => {
     .getByTestId('manage-market-remove-user-button')
     .click();
   await visible(page, 'manage-market-remove-keeps');
+};
+
+/**
+ * Manage market on the divided market, its Viewer's select choosing Admin (T211): the longest list
+ * the confirmation has, every row above Viewer up to Admin, in a body that scrolls.
+ */
+const changingAMarketRole = async (page: Page, seed: TheScreensSeed) => {
+  await managing('dealt')(page, seed);
+  await page.getByTestId('manage-market-role-select').selectOption('admin');
+  await visible(page, 'manage-market-role-change-gains');
 };
 
 const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
@@ -350,6 +379,13 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: FITS_A_PHONE,
     open: removingAMarketRole,
+  },
+  {
+    // Its role select asking first (T211), Viewer to Admin, the confirmation's longest list.
+    name: 'the manage-market dialog, changing a market role',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: changingAMarketRole,
   },
   {
     // Its History section, loaded, with an entry opened to its before and after (E40/F01/S03).
@@ -498,6 +534,20 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: ORGANIZER,
     open: at(marketAddress('csvDraft', '/start-from-csv'), 'start-from-csv'),
+  },
+  {
+    // A bare draft's first import lists everything it waits on, each with its link (T205/F09).
+    name: "a CSV draft's first import, refused for what its plan lacks",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(screen('csvDraft', 'import'), 'blocker-item'),
+  },
+  {
+    // What the start drafted and what the first import still waits on, said once (T205/F20, F09).
+    name: 'a CSV draft, its Questions tab after drafting from a Google Form',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: landedFromAFile('csvDraft'),
   },
 
   // Applications open, closed and in review, each with 40 applications in every review state.
@@ -732,6 +782,7 @@ export const SCREENS: Screen[] = [
         'tables-seat-change',
         'placement-dialog-window',
       ])(page, seed);
+      await page.getByTestId('placement-dialog-action-swap').check();
       const field = page.getByTestId('placement-dialog-swap-target-input');
       await field.fill('a');
       await field.press('ArrowDown');
@@ -739,7 +790,23 @@ export const SCREENS: Screen[] = [
     },
   },
   {
-    // And the place picker's groups, open on a free seat.
+    // A taken seat's move picker open (T208): the day's empty seats, grouped by section.
+    name: 'the move picker, open',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: async (page, seed) => {
+      await at(screen('big', 'assignments'), 'tables-count-assigned', [
+        'tables-seat-change',
+        'placement-dialog-window',
+      ])(page, seed);
+      await page.getByTestId('placement-dialog-action-move').check();
+      await page.getByTestId('placement-dialog-move-target-input').click();
+      await visible(page, 'placement-dialog-move-target-list');
+    },
+  },
+  {
+    // And the place picker's groups, open on a free seat: its market has vendors seated already,
+    // so the last is "Seated elsewhere today (moves them)" (T208).
     name: 'the place picker, open',
     who: 'organizer',
     sizes: FITS_A_PHONE,
@@ -750,6 +817,7 @@ export const SCREENS: Screen[] = [
       ])(page, seed);
       await page.getByTestId('placement-dialog-vendor-input').click();
       await visible(page, 'placement-dialog-vendor-list');
+      await visible(page, 'placement-dialog-seated-elsewhere');
     },
   },
   {
@@ -952,6 +1020,42 @@ export const SCREENS: Screen[] = [
     sizes: FITS_A_PHONE,
     open: at(screen('big', 'tools'), 'plan-card-discord'),
   },
+  // The door code over the attendance (ADR 0022), on the tablet or laptop at the entrance or the
+  // phone in the organizer's hand: before one is made, full screen, and New code's confirmation.
+  {
+    name: 'the door code, none made yet',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: async (page, seed) => {
+      mongoEval(
+        `db.markets.updateOne({ id: '${seed.big.marketId}' }, { $unset: { doorCode: 1 } })`,
+      );
+      await at(screen('big', 'attendance'), 'attendance-row', [
+        'attendance-door-code',
+        'door-code-make',
+      ])(page, seed);
+    },
+  },
+  ...(
+    [
+      ['full screen', []],
+      ["New code's confirmation", [['door-code-new', 'door-code-new-confirm-window']]],
+    ] as const
+  ).map(([state, then]): Screen => ({
+    name: `the door code, ${state}`,
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: async (page, seed) => {
+      const made = await page.request.post(`${APP_API}/markets/${seed.big.marketId}/door-code`);
+      expect(made.ok(), await made.text()).toBeTruthy();
+      await at(
+        screen('big', 'attendance'),
+        'attendance-row',
+        ['attendance-door-code', 'door-code-qr'],
+        ...then.map(([click, shows]): [string, string] => [click, shows]),
+      )(page, seed);
+    },
+  })),
   // What else the organizer reaches at the door, on the phone in their hand (T82).
   {
     name: 'the sheet, at the door',
@@ -1034,6 +1138,16 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: ORGANIZER,
     open: at(screen('big', 'floorplan'), 'market-bar-title'),
+  },
+  // Its upload step is the app's one drop zone (T205), so it is walked at a phone's width too.
+  {
+    name: 'the floorplan, its upload step',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: async (page, seed) => {
+      await new FloorplanWorkflowPage(page).goto(seed.draft.marketId);
+      await visible(page, 'floorplan-upload-dropzone');
+    },
   },
   // The floorplan beta's wizard is laid out for a desk: at a phone's width its calibration field
   // is off the screen, so its steps cannot be walked there.
@@ -1240,55 +1354,154 @@ export const SCREENS: Screen[] = [
     open: at(fixed('/no/such/page'), 'page-not-found'),
   },
   {
-    name: "a market's public page",
+    // A market's vendor page, signed out (ADR 0022): its name and the email step.
+    name: 'the vendor page, signed out',
     who: 'nobody',
     sizes: PUBLIC,
-    open: at(slug('open'), 'market-home-name'),
+    open: at(slug('open'), 'vendor-sign-in-email-input'),
   },
   {
-    name: "a market's public page, signed in",
+    name: 'the vendor page, an organizer signed in',
     who: 'organizer',
     sizes: PUBLIC,
-    open: at(slug('open'), 'market-home-name'),
+    open: at(slug('open'), 'vendor-sign-in-email-input'),
   },
   {
-    name: 'the application form',
-    who: 'applicant',
-    sizes: PUBLIC,
-    open: at(slug('open', '/apply'), 'apply-market-name'),
-  },
-  {
-    name: 'applicant sign-in',
-    who: 'nobody',
-    sizes: PUBLIC,
-    open: at(slug('open', '/applicant-login'), 'applicant-login-email-input'),
-  },
-  {
-    name: "an applicant's dashboard",
-    who: 'applicant',
-    sizes: PUBLIC,
-    open: at(slug('open', '/applicant/dashboard'), 'applicant-dashboard-status'),
-  },
-  {
-    name: 'the check-in page',
-    who: 'nobody',
-    sizes: PUBLIC,
-    open: at(slug('big', '/check-in'), 'attendance-checkin-market-name'),
-  },
-  {
-    // What a vendor at the door sees once they have looked themselves up: a card and a Check in
-    // button for each of their days.
-    name: 'the check-in page, a vendor looked up',
+    name: 'the vendor page, the code step',
     who: 'nobody',
     sizes: PUBLIC,
     open: async (page, seed) => {
-      await at(slug('big', '/check-in'), 'attendance-checkin-email-input')(page, seed);
-      await page.getByTestId('attendance-checkin-email-input').fill('vendor0@example.com');
-      await page.getByTestId('attendance-checkin-lookup-button').click();
-      await visible(page, 'attendance-checkin-checkin-button');
+      await at(slug('open'), 'vendor-sign-in-email-input')(page, seed);
+      // An address of its own each time: every sweep opens this at every size, past the limit of
+      // codes one address may ask for (`sign_in_limits`).
+      const address = `e2e-screens-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+      await page.getByTestId('vendor-sign-in-email-input').fill(address);
+      await page.getByTestId('vendor-sign-in-request-btn').click();
+      await visible(page, 'vendor-sign-in-code-input');
     },
   },
+  {
+    // A code that no longer works (T191 F22): the field and Sign in give way to Send a new code.
+    name: 'the vendor page, a used-up code',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: async (page, seed) => {
+      await at(slug('open'), 'vendor-sign-in-email-input')(page, seed);
+      const address = `e2e-screens-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+      await page.getByTestId('vendor-sign-in-email-input').fill(address);
+      await page.getByTestId('vendor-sign-in-request-btn').click();
+      await visible(page, 'vendor-sign-in-code-input');
+      // Four of its five tries used, so one wrong try uses it up through the real verify.
+      createApplicantLoginChallenge(seed.open.marketId, address, '424242', { attempts: 4 });
+      await page.getByTestId('vendor-sign-in-code-input').fill('000000');
+      await page.getByTestId('vendor-sign-in-verify-btn').click();
+      await visible(page, 'vendor-sign-in-send-new-code-btn');
+    },
+  },
+  {
+    name: 'the vendor page, signed in',
+    who: 'applicant',
+    sizes: PUBLIC,
+    open: at(slug('open'), 'vendor-page-status'),
+  },
+  {
+    // The form, opened in place on the vendor page by Edit (ADR 0022).
+    name: 'the vendor page, the application form',
+    who: 'applicant',
+    sizes: PUBLIC,
+    open: async (page, seed) => {
+      await at(slug('open'), 'vendor-page-edit-btn')(page, seed);
+      await page.getByTestId('vendor-page-edit-btn').click();
+      await visible(page, 'apply-form');
+    },
+  },
+  {
+    // A vendor on a market day (ADR 0022): today's seat on top, with the door code's field.
+    name: 'the vendor page, on a market day',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: asAVendorAt(
+      'big',
+      (today) => [seatOn(today), seatOn('2099-08-22')],
+      'vendor-check-in-btn',
+    ),
+  },
+  {
+    name: 'the vendor page, checked in',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: asAVendorAt(
+      'big',
+      (today) => [seatOn(today, `${today}T09:41:00+00:00`), seatOn('2099-08-22')],
+      'vendor-check-in-undo-btn',
+    ),
+  },
+  {
+    // Archived after it ran: each seat, and when they came.
+    name: 'the vendor page, the record',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: asAVendorAt(
+      'archived',
+      () => [seatOn('2099-05-01', '2099-05-01T09:41:00+00:00'), seatOn('2099-05-02')],
+      'vendor-check-in-record',
+    ),
+  },
 ];
+
+/** One seat, as the vendor's own read lists it. */
+function seatOn(date: string, checkedInAt: string | null = null) {
+  return {
+    date,
+    tableCode: 'Indoors 12',
+    tableChoice: 'Full Table',
+    section: 'Indoors',
+    location: 'Indoors - the old cannery warehouse',
+    checkedInAt,
+  };
+}
+
+/**
+ * A vendor signed in at `market`'s page, their own read answered with `seats` (today's date given):
+ * every sweep opens each state at every size, and a real sign-in each time would pass the limits a
+ * caller and an address may sign in by (`sign_in_limits`). The page's own read is the server's.
+ */
+function asAVendorAt(
+  market: 'big' | 'archived',
+  seats: (today: string) => ReturnType<typeof seatOn>[],
+  ready: string,
+) {
+  return async (page: Page, seed: TheScreensSeed) => {
+    const { marketId, marketSlug } = seed[market];
+    const session = {
+      marketId,
+      marketSlug,
+      applicantEmail: 'vendor0@example.com',
+      token: 'a-sweep-sign-in',
+    };
+    await page.addInitScript(
+      (kept) => sessionStorage.setItem('conventioner.applicantSession', kept),
+      JSON.stringify(session),
+    );
+    const application = {
+      id: 'sweep-application',
+      marketId,
+      applicantEmail: session.applicantEmail,
+      status: 'open',
+      applicationType: 'main',
+      submittedAt: '2099-06-01T00:00:00+00:00',
+      updatedAt: '2099-06-01T00:00:00+00:00',
+      outcome: 'has_a_table',
+      seats: seats(calendarToday()),
+      vendorName: 'Maximilian Alexander Featherstonehaugh-Montgomery',
+    };
+    await page.route(`**/public/markets/${marketSlug}/applicant/application`, (route) =>
+      route.fulfill({ json: { application } }),
+    );
+    await page.goto(`/${marketSlug}`);
+    await visible(page, ready);
+  };
+}
 
 /** Signs the page's browser in as `who`, over the API: the sign-in pages are screens of their own. */
 export async function signIn(page: Page, who: Who, seed: TheScreensSeed): Promise<void> {

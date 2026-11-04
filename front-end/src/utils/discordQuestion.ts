@@ -6,10 +6,17 @@
  * `back-end/api/discord_connection.py`). The form builder offers a ready-made one, which that rule
  * picks up, until the form has such a question.
  */
-import type { FormField } from '@/assets/types/datatypes';
+import type { FormField, Market } from '@/assets/types/datatypes';
 
 export const DISCORD_USERNAME_LABEL = 'Discord username';
 const DISCORD_USERNAME_KEY = 'discord_username';
+
+/** The form's questions the card may read a username from, the one reading of which those are. */
+export function formTextQuestions(
+  market: Pick<Market, 'applicationForm'> | null | undefined,
+): FormField[] {
+  return (market?.applicationForm?.fields ?? []).filter((field) => field.type === 'text');
+}
 
 /** Whether a question is one the card would pick up: a text question labelled for Discord. */
 export function asksForDiscord(field: Pick<FormField, 'type' | 'label'>): boolean {

@@ -13,7 +13,7 @@
  * finer distinction than that; ranking is more to author for something nobody is saying.
  */
 import { computed } from 'vue';
-import { askedEssentialAnswers } from '@/utils/essentialFields';
+import { highlightCandidates } from '@/utils/reviewHighlights';
 import type { EssentialFormOptions, FormField } from '@/assets/types/datatypes';
 
 const props = defineProps<{
@@ -26,12 +26,7 @@ const props = defineProps<{
 const emit = defineEmits<{ (event: 'update:highlights', value: string[]): void }>();
 
 /** The organizer's own questions first, then the essential ones - the card's own order. */
-const offered = computed(() => [
-  ...props.fields
-    .filter((field) => field.key)
-    .map((field) => ({ key: field.key, label: field.label || field.key, custom: true })),
-  ...askedEssentialAnswers(props.essentialOptions).map((answer) => ({ ...answer, custom: false })),
-]);
+const offered = computed(() => highlightCandidates(props.fields, props.essentialOptions));
 
 /**
  * Anything already marked that this screen would not otherwise offer, so a mark can always be
@@ -72,9 +67,10 @@ function toggle(key: string, on: boolean) {
 <template>
   <div class="highlights" data-testid="review-highlights">
     <p class="highlights-help">
-      A reviewer reads these first, and everything else folds away behind them. Leave it empty and
-      the card shows every answer, as it always has.
+      A reviewer reads these first, and everything else folds away behind them.
     </p>
+    <!-- Review setup's decision (T206): under the help, which explains the answers below it. -->
+    <slot name="decision" />
 
     <p v-if="!candidates.length" class="highlights-empty" data-testid="review-highlights-empty">
       This market asks nothing yet, so there is nothing to put first.

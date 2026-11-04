@@ -185,11 +185,11 @@ interface Standing {
   assigned: boolean;
   /** Every one of its dates is over. */
   ended: boolean;
-  /** It reached market days: its check-in page is the record. */
+  /** It reached market days: its vendor page is the record. */
   ran: boolean;
   /** Its applicants have been told whether they have a table, which settles the result. */
   published?: boolean;
-  /** Its application page has stopped taking applications, inside the stage (E38/F04/S02). */
+  /** Its vendor page has stopped taking applications, inside the stage (E38/F04/S02). */
   stopped?: boolean;
 }
 
@@ -236,16 +236,16 @@ interface GuideRow {
 function stageLead({ path, stopped }: Pick<Standing, 'path' | 'stopped'>): string {
   if (path === IntakeMode.Csv) return 'Every imported response is here.';
   return stopped
-    ? 'Your application page is not taking applications.'
-    : 'Applications are open on your application page: review them as they arrive.';
+    ? 'Your vendor page is not taking applications.'
+    : 'Applications are open on your vendor page: review them as they arrive.';
 }
 
 /** The stage as someone who may not decide reads it: nothing in it asks them to review. */
 function watchedStageLead({ path, stopped }: Pick<Standing, 'path' | 'stopped'>): string {
   if (path === IntakeMode.Csv) return 'Every imported response is here.';
   return stopped
-    ? 'The application page is not taking applications.'
-    : 'Applications are open on the application page.';
+    ? 'The vendor page is not taking applications.'
+    : 'Applications are open on the vendor page.';
 }
 
 /**
@@ -271,7 +271,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
         : "Plan the market, from your Google Form's responses or by hand, then import the responses.",
     onlooker: 'The market is being planned. Read its plan on Market Setup.',
   }),
-  // The application page's address is in the rail beside this, under the same name, with Copy.
+  // The vendor page's address is in the rail beside this, under the same name, with Copy.
   [MarketPhase.Applications]: (standing) => ({
     page: 'applications',
     action: MarketAction.GiveVerdicts,
@@ -279,29 +279,27 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
     onlooker: watchedStage(standing),
   }),
   // Worked on the rules until there are assignments, and on the assignments after. Once results
-  // are published the assignments are settled, and what is left is the move.
-  [MarketPhase.Assignment]: ({ assigned, published, path }) =>
+  // are published the assignments are settled, and what is left is the move. Both paths publish
+  // results before the market goes live (ADR 0022), so the sentences are the same on both.
+  [MarketPhase.Assignment]: ({ assigned, published }) =>
     published
       ? {
           page: 'assignments',
           action: MarketAction.MovePhase,
           statement:
-            'Results are published, so the assignments are settled. Publish the market to put the check-in page up; that cannot be undone.',
+            'Results are published, so the assignments are settled. Publish the market to open check-in with the door code; that cannot be undone.',
           onlooker:
-            'Results are published, so the assignments are settled. The check-in page goes up when the market is published.',
+            'Results are published, so the assignments are settled. Check-in with the door code opens when the market is published.',
         }
       : assigned
         ? {
             page: 'assignments',
             action: MarketAction.Assign,
             statement:
-              'Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone.',
+              'Check the assignments, then publish the market: that opens check-in with the door code, and cannot be undone.',
             onlooker:
               'Tables are allocated, and the market is not published yet. Read the assignments.',
-            helper:
-              path === IntakeMode.Form
-                ? 'Check the assignments; the results are published by whoever may publish them.'
-                : 'Check the assignments; the market is published by whoever may publish it.',
+            helper: 'Check the assignments; the results are published by whoever may publish them.',
           }
         : {
             page: 'settings',
@@ -338,7 +336,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
   [MarketPhase.Archived]: ({ assigned, ran }) => ({
     page: assigned ? 'assignments' : 'setup',
     statement: ran
-      ? 'Archived: the record of what happened stays on its check-in page.'
+      ? 'Archived: the record of what happened stays on its vendor page.'
       : 'Archived: this market is the record of what happened.',
     action: null,
   }),
@@ -500,6 +498,16 @@ const FORM_STEPS: readonly FormStep[] = [
  */
 export function formSteps(path: IntakeMode): readonly FormStep[] {
   return path === IntakeMode.Form ? FORM_STEPS : FORM_STEPS.filter((step) => step.id !== 'preview');
+}
+
+/**
+ * The step a form tab address names in its `step` query (T206), while this path has it: a blocker's
+ * fix, a bookmark or a shared link opens Review setup as `form?step=review`. Null for no step, an
+ * unknown one, or one the path lacks (`preview` on a Google Form market), so the tab opens where it
+ * would with none.
+ */
+export function formStepNamed(named: unknown, path: IntakeMode): FormStepId | null {
+  return formSteps(path).find((step) => step.id === named)?.id ?? null;
 }
 
 /** A tab as the market's own path names it: a CSV market's form is the questions its file maps onto. */

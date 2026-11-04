@@ -44,6 +44,10 @@ const LOCALLY_DEFINED = new Set([
   '--tier-columns',
   // The history list's one Field width, defined and set on the list it lines up (HistoryEntries).
   '--history-field-width',
+  // The sign-in code's spacing, read by its letter-spacing and its indent alike (CodeInput).
+  '--code-spacing',
+  // A picker row's space over and under, read by the row and its tick alike (SearchPicker).
+  '--row-inset',
 ]);
 
 function sourceFiles(dir: string, extensions: string[]): string[] {

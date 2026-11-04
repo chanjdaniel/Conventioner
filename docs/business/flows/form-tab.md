@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/market/MarketFormTab.vue
-verified: 2026-11-01
+verified: 2026-11-03
 sources:
   - brain-dump/2026-10-19#5
   - brain-dump/2026-10-19#6
@@ -24,6 +24,8 @@ sources:
   - E38/F02/S02
   - E38/F06/S01
   - E46/F01/S02
+  - T206
+  - T213
 ---
 
 # Building the application form
@@ -43,7 +45,9 @@ The step header is a named navigation of buttons, the current one marked as the 
 Moving between steps never loses an unsaved edit; only "Save Form" writes the questions, and it sits on Your questions and on Preview, while how the last save went shows on every step, since "Ask this" saves the moment it is ticked.
 A locked form opens on Review setup, the step still the organizer's to change; the earlier steps stay one click away, read only under the lock's reason, and Review setup shows no lock.
 A person who may change nothing finds every step read only, Review setup included, and reads why once, above the page; a step's banner says only the form's own lock (T15).
-The step is chosen once, as the tab opens: a lock that lands while the organizer is on a step does not move them off it.
+The step is in the address, `form?step=review` for Review setup, so a link, a bookmark or a refresh opens the step it names ([every market page has an address](../../implementation/conventions/every-market-page-has-an-address.md), T206).
+Choosing a step from the header, Back or Next replaces the address rather than adding to the browser's history, so Back leaves the tab; a link naming another step while the tab is open moves there.
+With no step named, or one the path lacks, the step is chosen once, as the tab opens: a lock that lands while the organizer is on a step does not move them off it.
 The preview is a step inside the tab rather than the public page in a new browser tab, because a draft market has no public page to open.
 On the Google Form path the essential questions are the answers each import reads from a column, nothing describes what an applicant would see, and the field editor offers no help text for applicants; the mapping of columns to questions stays in [the import](import.md), where the file is.
 
@@ -92,17 +96,31 @@ On a market started from its Google Form's responses, the questions also draw on
    Options the organizer edited stay through any change of type, and "Use the answers in your file" puts the file's back on purpose.
 5. "Add from your file" lists the columns the start left out, such as a team's own "Status", and any question since removed; choosing one adds it with its label, type and options, and its key held, so the first import restores its column too.
    A Select or Multi-Select the file gives no options to choose from becomes Text, since a choice needs at least one option.
+6. An option on a Select or Multi-Select made from the file is a field with a list under it: every answer the file gave for that type's reading that is no other option on the question, most chosen first, with no counts ([ADR 0023](../../adr/0023-every-answer-for-an-option-to-offer.md)).
+   A click or an arrow key opens it, not Tab; with nothing typed it shows all of them, and typing narrows it.
+   Enter or a click takes a row and Escape closes the list.
+   Whatever is typed is the option, less the spaces around it, so words in no list are kept when the field is left and Save never reports a blank option over them.
+   An option keeps its own answer in its own list, and an answer comes back to the others' lists when the option holding it is removed or changed.
+   The list follows a change of type, and opens in the page's flow, moving the rows below it down.
+   A market started before this kept no answers, so its options offer only the common ones it kept; "Use the answers in your file", a type change and "Add from your file" (steps 4 and 5) fill only the common ones on every market.
 
-A question that did not come from the file behaves as above, and a market not started from one offers neither.
+A question that did not come from the file behaves as above, its options plain inputs, and a market not started from one offers none of this; nor does a locked form, whose options stay read only.
 Covered by:
+- `exampleColumns.test.ts`
+- `formBuilder.test.ts`
 - `the-questions-come-from-the-file.spec.ts`
 
 ## F3. What a reviewer reads first
 
 **Status:** Works (walked live; the Review setup step and the automatic rejections read from the code as of E33/F01 and E33/F03/S01, and `automatic-rejections.spec.ts`).
 On Review setup, under "What a reviewer reads first", tick the questions that should lead each review card; it saves itself and stays editable in every phase but Archived.
+In a draft that has not decided, the section says "Not decided yet. Opening applications waits on this." ("Your first import waits on this." on a Google Form market) and offers "Nothing leads the card", one click; chosen, it reads back "Nothing leads the card: a reviewer reads every answer, in the form's order.", with the questions still below it, and ticking one replaces it ([review waits on the review setup](../rules/review-waits-on-the-review-setup.md)).
+Someone who may not change the form reads the notice and the read-back, with no button; a market past draft shows no notice.
+A mark counts as the form is saved, as the move into Review judges it: a mark on a question not yet saved leaves the notice up until Save Form.
 Under "Automatic rejections", "Add a rule on" a choice question and tick the answers that reject: "An application that gives one of these answers arrives in review already rejected, with the reason. An Admin or the owner can overturn it, and the applicant never sees the reason.", naming whoever the market's row "Change a verdict, or overturn an automatic rejection" lets overturn it.
+In a draft that has not decided, the section says "Not decided yet. Opening applications waits on this." (or "Your first import waits on this.") and offers "No automatic rejections", one click, while no rule rejects an answer; chosen, it reads back "No automatic rejections: every application arrives undecided.", with "Add a rule on" still below it, and a rule replaces it, though a rule rejects nobody, and so decides nothing, until an answer is ticked.
 The rules stay editable while the review is open; from Assignment on they are shown fixed, saying why in the review's words ([automatic rejections](../rules/automatic-rejections.md)): in Assignment, "The automatic rejections are closed while tables are allocated. To change a rule, choose Back to review under More… on the phase rail; tables are then allocated again."
+Once the rules are fixed, the section shows no notice, no "No automatic rejections" button and no read-back.
 Covered by:
 - `automatic-rejections.spec.ts`
 - `review-highlights.spec.ts`
@@ -146,5 +164,6 @@ Assignment uses one type in this release, so even a floorplan with several types
 - [What each role may do](../rules/what-each-role-may-do.md): the form, the highlights and the automatic rejections are an Editor's.
 - [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md) and [automatic rejections](../rules/automatic-rejections.md): what a rule may name, what it judges, and that it closes with the review.
 - [Vendor notes](../rules/vendor-notes.md): the request question, asked unless switched off.
+- [Review waits on the review setup](../rules/review-waits-on-the-review-setup.md): a draft decides what a reviewer reads first and the automatic rejections before it enters Review.
 
 Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

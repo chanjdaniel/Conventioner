@@ -28,6 +28,8 @@ from essential_fields import (
 )
 from placement_reasons import orphaned_pins
 import pricing as Pricing
+from rejection_rules import Rulebook
+from review_highlights import highlights_decided
 
 
 # ── Wire shape (backend/frontend contract) ──────────────────────────────
@@ -348,7 +350,7 @@ class AssignmentComputedGuard:
                 id=self.id,
                 passed=False,
                 message=(
-                    "No tables have been allocated for this market, so its check-in page could "
+                    "No tables have been allocated for this market, so its vendor page could "
                     "not tell anyone where to stand. Allocate tables first."
                 ),
                 resolution_link="settings",
@@ -362,10 +364,9 @@ class AssignmentNotBeforeReviewGuard:
     """A market does not go live on tables allocated before its review was reopened (T207, ADR 0021).
 
     An ENTRY INVARIANT on ``market_days``, ahead of the results it would otherwise wait on. Publish
-    results already refuses an out-of-date run, so a market whose vendors apply on its page meets
-    this only before publishing, and Back to review is refused after; it is a Google Form market,
-    which has no Publish results, that this binds: without it, a vendor rejected in the reopened
-    review could keep the run's seat and check in.
+    results already refuses an out-of-date run and Back to review is refused after it, on both
+    kinds of market (ADR 0022), so a market meets this only before publishing, where it names the
+    fix that comes first: allocate tables, then publish them.
 
     Reads only the ``review`` group (``assignment.made_from``), never the approved applications:
     it stays cheap, and a plan or rule edit made after publishing, when runs are refused, never
@@ -392,25 +393,26 @@ class AssignmentNotBeforeReviewGuard:
 
 
 class ResultsPublishedGuard:
-    """A market whose vendors apply on its page does not go live until they have been told whether
-    they have a table (E36/F04/S02).
+    """A market does not go live until its vendors have been told whether they have a table
+    (E36/F04/S02).
 
     An ENTRY INVARIANT on ``market_days``, like the assignment it follows: check-in on the air with
-    applicants still reading "Submitted" was the state this closes. A CSV market has no applicant
-    page and nobody to tell, so it passes. Reads the intake mode and the flag, never the phase.
+    applicants still reading "Submitted" was the state this closes. It holds on both kinds of
+    market: a Google Form market's vendors read their table on its vendor page, which opens with
+    its results (ADR 0022). Reads the flag, never the phase.
     """
 
     id: str = "results_published"
-    description: str = "Results are published to applicants"
+    description: str = "Results are published to vendors"
 
     def evaluate(self, market: Market, _db) -> PreconditionResult:
-        if market.intake_mode is not IntakeMode.FORM or market.results_published:
+        if market.results_published:
             return PreconditionResult(id=self.id, passed=True, message="")
         return PreconditionResult(
             id=self.id,
             passed=False,
             message=(
-                "Applicants have not been told whether they have a table. Publish the results "
+                "Vendors have not been told whether they have a table. Publish the results "
                 "before the market goes live."
             ),
             resolution_link="applications",
@@ -425,8 +427,8 @@ class ResultsNotPublishedGuard:
     On ``assignment -> applications`` alone, Back to review. Once results are published an
     applicant has read whether they have a table, so a verdict changed after it would change what
     they were told; from then on a seat placed or freed by hand is the way to change who has one.
-    A Google Form market never publishes results, so it passes for the whole of Assignment. Reads
-    the flag, never the phase, and offers no way back: no page reopens the review.
+    It holds on both kinds of market, since a Google Form market publishes results too (ADR 0022).
+    Reads the flag, never the phase, and offers no way back: no page reopens the review.
     """
 
     id: str = "results_not_published"
@@ -530,6 +532,59 @@ class NoApprovedApplicationsGuard:
                 resolution_action="assign",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
+
+
+# ── The review setup is decided before Review opens (T206) ──────────────
+#
+# Leaving draft opens Review, and a reviewer meets the card as Review setup left it. Nothing on the
+# way asked about that step, so a market reached Review with every answer in form order because
+# nobody asked, not because anybody chose it. Each decision is its own guard, on leaving draft only:
+# never an entry invariant, so a market that entered Review before this existed is never refused a
+# way back into it.
+
+
+class ReviewHighlightsDecidedGuard:
+    """The organizer has decided what a reviewer reads first: marked an answer the market asks, or
+    chosen "Nothing leads the card" (``review_highlights.highlights_decided``)."""
+
+    id: str = "review_highlights_decided"
+    description: str = "What a reviewer reads first is decided"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        if highlights_decided(market):
+            return PreconditionResult(id=self.id, passed=True, message="")
+        return PreconditionResult(
+            id=self.id, passed=False,
+            resolution_link="form?step=review",
+            resolution_label="Decide what reviewers read first",
+            resolution_action="change-form",
+            message=(
+                "Nothing says what a reviewer reads first. On Review setup, tick the answers that "
+                "lead the card, or choose Nothing leads the card."
+            ),
+        )
+
+
+class RejectionRulesDecidedGuard:
+    """The organizer has decided the automatic rejections: a rule names an answer that rejects, or
+    "No automatic rejections" is chosen (``rejection_rules.Rulebook.decided``)."""
+
+    id: str = "rejection_rules_decided"
+    description: str = "The automatic rejections are decided"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        if Rulebook(market).decided():
+            return PreconditionResult(id=self.id, passed=True, message="")
+        return PreconditionResult(
+            id=self.id, passed=False,
+            resolution_link="form?step=review",
+            resolution_label="Decide the automatic rejections",
+            resolution_action="change-form",
+            message=(
+                "The automatic rejections are not decided. On Review setup, add a rule that rejects "
+                "an answer, or choose No automatic rejections."
+            ),
+        )
 
 
 class ResponsesImportedGuard:
@@ -765,6 +820,8 @@ _NO_APPROVED = NoApprovedApplicationsGuard()
 _NO_EMPTY_TIER_ASKED_FOR = NoAskedForTierWithoutTablesGuard()
 _NO_ORPHANED_PIN = NoOrphanedPinGuard()
 _RESPONSES_IMPORTED = ResponsesImportedGuard()
+_REVIEW_HIGHLIGHTS_DECIDED = ReviewHighlightsDecidedGuard()
+_REJECTION_RULES_DECIDED = RejectionRulesDecidedGuard()
 
 # Entry invariants: what must hold of a market SITTING IN a phase, regardless of the
 # route it took to get there. Every inbound edge to the phase must enforce these, so
@@ -799,11 +856,14 @@ PHASE_ENTRY_INVARIANTS: dict[str, list] = {
 # Keyed by edge, not by target phase, because a precondition can be specific to the route.
 # An edge carries its phase's entry invariants PLUS whatever else that route demands.
 TRANSITION_GUARDS: dict[tuple[str, str], list] = {
-    # The setup's three first, so the rail offers what Market Setup lacks before the import: a
-    # Google Form market's first import judges this edge less its own guard before it writes.
+    # The setup's four first, then the form, then Review setup, so the rail offers each in the
+    # order the organizer works through them, before the import: a Google Form market's first import
+    # judges this edge less its own guard before it writes. Review setup's two guards are this
+    # edge's own, never the phase's entry invariants: no other way into Review is refused them
+    # (T206).
     ("draft", "applications"): [
         _SETUP_HAS_DATES, _SETUP_HAS_A_LOCATION, _EVERY_TIER_HAS_TABLES, _PRICE_GROUPS_STAND,
-        _FORM_HAS_FIELDS, _RESPONSES_IMPORTED,
+        _FORM_HAS_FIELDS, _REVIEW_HIGHLIGHTS_DECIDED, _REJECTION_RULES_DECIDED, _RESPONSES_IMPORTED,
     ],
     # TODO: Add _PRIORITY_CONFIGURED guard here (append to list) once it exists.
     # The guard should verify that the market's setup_object has at least one

@@ -535,6 +535,10 @@ class AssignmentObject(BaseModel):
     # What the run read, one fingerprint per group (E22/F03/S01, ``assignment/made_from.py``).
     # Written only by a run; None on an assignment made before it existed.
     made_from: Optional[Dict[str, str]] = None
+    # How many times the rows have been written; each write is conditional on the count it read,
+    # so two changes at once never store one over the other (``api/placements.py``). 0 on an
+    # assignment written before it existed.
+    revision: int = 0
 
 
 class MappingAuthor(str, Enum):
@@ -578,7 +582,8 @@ class ExampleColumn(BaseModel):
     """What a market started from a Google Form's responses keeps of one column (E38/F02/S01).
 
     Only what the Review step showed and the privacy view lets through: the organizer's own
-    heading, and the options at least 3 applicants chose that name nobody (``csv_proposal``).
+    heading, and the options at least 3 applicants chose that name nobody (``csv_proposal``); and,
+    for an option to offer, every answer that no pattern finds naming someone (ADR 0023).
     """
     # The column's heading, or a grid's, as the import mapping names them.
     headers: List[str] = []
@@ -591,6 +596,10 @@ class ExampleColumn(BaseModel):
     # Whether the start made it a question of the organizer's own, rather than left it out.
     question: bool = False
     options: ExampleOptions = Field(default_factory=ExampleOptions)
+    # Every answer, served only to someone who may change the form while it can still change
+    # (``leave_out_every_answer``). None on a column of mostly different answers, on a market
+    # started before they were kept, and to every other reader: the options are all there is.
+    answers: Optional[ExampleOptions] = None
 
 
 class RejectionRule(AnswerCondition):
@@ -623,10 +632,17 @@ class Market(BaseModel):
     # A list of answer keys, so it names both kinds uniformly. Absent means nothing is marked,
     # which renders the card exactly as it did before this existed - so no migration.
     review_highlights: Optional[List[str]] = None
+    # Whether the organizer chose that nothing leads the card (T206): an absent and an empty list
+    # both mean "nothing is marked", so neither can say anyone decided it. Server-owned: only
+    # ``save_review_highlights`` writes it, true only while the list holds nothing. Absent is false.
+    nothing_leads_the_card: bool = False
     # Which answers reject an application automatically (E33/F03), ON THE MARKET beside the
     # highlights and for the same reason: they stay editable after the form locks, while the review
     # is open (`review_is_open`). `rejection_rules.py` owns what a rule may say. Absent is none.
     rejection_rules: Optional[List[RejectionRule]] = None
+    # Whether the organizer chose no automatic rejections (T206), as ``nothing_leads_the_card`` is
+    # for the highlights: only ``save_rejection_rules`` writes it, true only while there is no rule.
+    no_automatic_rejections: bool = False
     results_published: bool = False  # Organizer-controlled gate: verdicts hidden from applicants until flipped
     # Whether the organizer has stopped taking applications, inside the stage (E38/F04/S02): a fact
     # about the applicant form, not a phase (ADR 0005), so reviewing goes on. Server-owned: only
@@ -689,7 +705,7 @@ class Market(BaseModel):
         from ever contradicting the name it belongs to: a rename dumps the model, and the model
         has only one answer. See ``market_name_slug`` for the rule, ``normalize_market_document``
         for the documents written before this field existed, and note that a stored slug is a
-        cached derivation, never an authority - ``published_market_by_slug`` re-checks the name.
+        cached derivation, never an authority - ``market_by_slug`` re-checks the name.
         """
         return market_name_slug(self.name)
 
@@ -1281,6 +1297,7 @@ class ExampleOptionsContract(ExampleOptions, ContractModel):
 class ExampleColumnContract(ExampleColumn, ContractModel):
     """Camel-cased contract view of a column the CSV start kept."""
     options: ExampleOptionsContract = Field(default_factory=ExampleOptionsContract)
+    answers: Optional[ExampleOptionsContract] = None
 
 
 class ServedReviewerContract(ContractModel):
@@ -1350,8 +1367,10 @@ class MarketSchemaContract(ContractModel):
     organization_id: Optional[str] = None
     phase: Optional[str] = None
     review_highlights: Optional[List[str]] = None
+    nothing_leads_the_card: Optional[bool] = None
     review_team: Optional[ServedReviewTeamContract] = None
     rejection_rules: Optional[List[RejectionRule]] = None
+    no_automatic_rejections: Optional[bool] = None
     roles: Dict[str, str]
     permissions: Optional[Dict[str, MarketPermission]] = None
     setup_object: Optional[SetupObjectContract]

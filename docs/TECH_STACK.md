@@ -9,7 +9,7 @@ describes:
   - .nvmrc
   - docker-compose.yml
   - front-end/vite.config.ts
-verified: 2026-11-03
+verified: 2026-11-04
 ---
 # Technology Stack
 
@@ -48,7 +48,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 ### Database
 - **MongoDB 7** - NoSQL document database
   - Primary data storage
-  - Collections: `users`, `organizations`, `markets`, `applications`, `attendance`, `history`, `vendor_notes`, `deletion_trail`, `applicant_login_challenges`, `floorplan_templates`, `schema_migrations`, and the GridFS bucket `floorplan_images` for floorplan uploads
+  - Collections: `users`, `organizations`, `markets`, `applications`, `attendance`, `history`, `vendor_notes`, `deletion_trail`, `applicant_login_challenges`, `vendor_remembered_sign_ins`, `floorplan_templates`, `schema_migrations`, and the GridFS bucket `floorplan_images` for floorplan uploads
   - Connection via PyMongo 4.18, to `MONGODB_URI` when it is set (production's Atlas cluster), otherwise to `MONGODB_HOST` and its siblings
   - Database name: `conventioner`
 
@@ -86,7 +86,8 @@ How each part of the code works is in the implementation layer of the [knowledge
 ### Floorplan (beta)
 - **Shapely 2** and **NumPy** - The geometry of table auto-placement
 - **pyckingsolver** - The packing solver, in `back-end/requirements-floorplan-solver.txt` (Docker, CI and local development) because it has no wheel for production's glibc; production places tables on a grid instead
-- **google-genai**, **openai**, **pdf2image** and **Pillow** - The vision endpoint `POST /floorplans/analyze` and PDF uploads; the wizard calls no model
+- **google-genai**, **openai** and **Pillow** - The vision endpoint `POST /floorplans/analyze` and PDF uploads; the wizard calls no model
+- **pypdfium2** - Draws a PDF floorplan's pages; its `manylinux_2_17` wheel carries PDFium, so it needs no system package, as production's Vercel function requires ([floorplan placement](implementation/modules/floorplan-placement.md))
 
 ### Session Management
 - **Flask-Session 0.8.0** - Server-side session storage
@@ -139,9 +140,11 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **The app's own components, on no component library** ([ADR 0015](adr/0015-the-app-owns-its-components.md))
   - A dialog is [`AppDialog`](../front-end/src/components/AppDialog.vue) ([dialogs](implementation/conventions/dialogs.md)); controls are the primitives of [the design language](design-system.md#the-primitive-layer), `.btn`, `.field` and `.chip`, over native inputs
   - A widget that is hard to get right, a date picker or a menu, would start from a headless library such as Reka UI; the first combobox, the placement dialog's searchable vendor pickers, is the app's own ([`SearchPicker.vue`](../front-end/src/components/SearchPicker.vue), [ADR 0015](adr/0015-the-app-owns-its-components.md)); `theAppOwnsItsComponents.test.ts` keeps PrimeTek's packages out
+- **QR codes are encoded by `qrcode`** and drawn by the app as one SVG path ([attendance and the door](implementation/modules/attendance-and-door.md#sharp-edges)): a library, not a component, so [ADR 0015](adr/0015-the-app-owns-its-components.md) is not touched; `jsqr`, a dev dependency, decodes the drawing in a unit test
 - **Icons are local SVG components** in [`src/components/icons/`](../front-end/src/components/icons/), no icon library or font
-  - Each draws in `currentColor`; the five Lucide icons (`IconPencil`, `IconTrash`, `IconList`, `IconImage`, `IconCloudUpload`) are copied from `lucide-static` 1.61.0 at `1em`, so the `font-size` around them sizes them, with Lucide's ISC notice beside them in `LICENSE-lucide.txt` and in a `/*! @license` banner in each, which reaches the bundle (`theLucideNoticeReachesTheBundle.test.ts`)
+  - Each draws in `currentColor`; the five Lucide icons (`IconCheck`, `IconPencil`, `IconTrash`, `IconList`, `IconImage`) are copied from `lucide-static` 1.61.0 at `1em`, so the `font-size` around them sizes them, with Lucide's ISC notice beside them in `LICENSE-lucide.txt` and in a `/*! @license` banner in each, which reaches the bundle (`theLucideNoticeReachesTheBundle.test.ts`)
   - They replaced an icon font whose next major is proprietary (T45, [ADR 0015](adr/0015-the-app-owns-its-components.md)); `theAppOwnsItsComponents.test.ts` keeps the font out
+- **The logo and the mark are brand files** in [`src/assets/brand/`](../front-end/src/assets/brand/), not icons ([brand files and icons](design-system.md#brand-files-and-icons))
 
 ### State Management
 - **Pinia 4.1.0** - Vue state management
@@ -183,7 +186,7 @@ How each part of the code works is in the implementation layer of the [knowledge
   - Runs component and utility unit tests (`npm run test:unit`)
   - Uses the `happy-dom` environment (configured in `vitest.config.ts`)
 - **@vue/test-utils 2** - Vue component testing utilities
-- **PostCSS 8** - Parses the design language's CSS in `src/__tests__/primitives.test.ts`, which reads every rule it checks through it and no other way
+- **PostCSS 8** - Parses the design language's CSS in `src/__tests__/primitives.test.ts`, and the styles of the components `src/__tests__/everySelectWearsThePrimitive.test.ts` reads, which read every rule they check through it and no other way
 - **Playwright 1.64** - End-to-end browser testing
   - Drives Chromium against the running Docker stack (`npm run test:e2e`)
   - Configured in `playwright.config.ts`

@@ -19,6 +19,24 @@ describes:
   - front-end/e2e/focus-sweep-detectors.spec.ts
   - front-end/e2e/helpers/focusSweep.ts
   - front-end/e2e/a-links-halo-appears-at-once.spec.ts
+  - front-end/src/assets/brand/
+  - front-end/src/__tests__/theBrandHasOneFolder.test.ts
+  - front-end/scripts/brand-icons.ts
+  - front-end/index.html
+  - front-end/public/manifest.webmanifest
+  - front-end/src/components/icons/
+  - front-end/src/__tests__/everyIconIsUsed.test.ts
+  - front-end/src/components/FileDropZone.vue
+  - front-end/src/components/FilterToggles.vue
+  - front-end/src/components/ListFrame.vue
+  - front-end/src/components/CodeInput.vue
+  - front-end/e2e/the-code-field.spec.ts
+  - front-end/src/components/NameList.vue
+  - front-end/src/components/OrderedList.vue
+  - front-end/src/components/RowGroup.vue
+  - front-end/src/components/SidePanel.vue
+  - front-end/src/components/BarLedger.vue
+  - front-end/src/utils/useFold.ts
 verified: 2026-11-04
 sources:
   - wayfinding/claims-and-room/map
@@ -63,6 +81,12 @@ sources:
   - T181
   - T180
   - T209
+  - T212
+  - T205
+  - T200
+  - T211
+  - T202
+  - T213
 ---
 
 # Conventioner's design language
@@ -174,8 +198,9 @@ The market screen's `height: 80%`, which pinned it to most of the window and hid
 `.app-container` used to be `position: absolute; height: 100vh`, which is why no screen could scroll the page and every tall screen grew nested scrollers of its own; do not reintroduce a viewport-height shell.
 
 **The organizer's screens are designed for 1920x1080**, and since T79 the [layout sweep](#what-keeps-this-true) also measures them at 1440x900; no other width is a layout requirement new work is held to (wayfinding/readable-journey/06), though the focus sweep walks every state at a phone's width but the floorplan beta's wizard steps ([what keeps this true](#what-keeps-this-true)).
-The public check-in page is the carve-out: it is not an organizer screen, it is held in a hand at a door, and it works on a phone ([attendance and the door](implementation/modules/attendance-and-door.md#sharp-edges)).
+The vendor page, where vendors check in, is the carve-out: it is not an organizer screen, it is held in a hand at a door, and it works on a phone ([attendance and the door](implementation/modules/attendance-and-door.md#sharp-edges)).
 The [account pages](business/flows/accounts.md) are the way to it, so they work on a phone too: sign in with its tabs, both password-reset pages and email verification stand in one `AuthCard`, 600px wide at most, with a 16px page gutter at each side, and `sign-in-fits-a-phone.spec.ts` fails on any of them that scrolls sideways at 390px (T73).
+`the-sign-in-fits-a-small-phone.spec.ts` holds the sign-in's tabs and fields inside their column and their boxes at 320px, at 390px and at a desk (T211).
 Some organizer places lift the desktop floor too, by `meta.fitsAPhone`, each with the dialogs, menus and drawers that open over it; listed in the router's order, one place a line:
 
 - `/markets`, where sign-in lands on the way to the door, and the way to the market an organizer runs from it (T142, T148);
@@ -203,6 +228,7 @@ Its "Previously opened" line stays one 44px row at every width, the words, the n
 A summary card stacks so whenever it is narrower than its name, its facts and its Manage need side by side (45rem), so a card at 768px stacks too rather than pushing Manage past its edge (T148).
 The Assignments page on a phone narrows its gutter to 16px too: its summary's figures stack, one to a 44px row, and its actions wrap under them; the filters stand in the page's flow rather than pinned, each filling its row and two sharing one where both fit; a half table's two seats stand one under the other, each seat's Change a 44px target; and a dialog's buttons wrap rather than run past its window.
 Vendors on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters, Export and Add a vendor wrapping beneath it, and a vendor's row stacks the name over its chips, which wrap where the Discord state, the badge, "Added" and the date count are wider together than the row.
+Its Discord row stacks as [the Vendors flow](business/flows/vendors.md) lays it out: the filter, then its actions, each from the line's start.
 The Applications page on a phone narrows its gutter to 16px too: the All view's row is one column, read down, the applicant's name and address, the leading answers, then the status chip and its lines, each the row's width; each row's tick stands in a 44px square beside it, and "Mine" is its label's 44px row; the views switch's and the status filters' buttons are never narrower than the target's minimum, at every width, so 44px wide at least on a phone.
 One by one's card is the page's width, its verdict buttons wrapping inside it; "Include the N follow-ups", the reviewed list's toggle and "Choose what leads the card" are 44px targets, and a reviewer's label in the reviewers picker is a 44px row.
 Payments on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters wrapping beneath it, the market's four figures stand two to a row, and each table lays its rows out as blocks, its row heading (the tier, the date or the vendor) on a line of its own and each value on a line beside its column's heading, since neither table's columns share 343px; the vendors' headings stay above as a row of sort buttons, each a 44px target.
@@ -214,7 +240,7 @@ Stats on a phone narrows its gutter to 16px too: its headlines stand one to a li
 | `--workspace-max` | 1440px | Every market page and flow: Market Setup to Attendance, Import, Floorplan |
 | `--list-max` | 1100px | Markets, Organizations |
 
-The applicant's own pages are a reading column, not a screen of cards: `--applicant-max` (640px), the apply page and the applicant's dashboard.
+The applicant's own pages are a reading column, not a screen of cards: `--applicant-max` (640px), the vendor page, its application form included.
 The form tab's preview is drawn at the same width, so it is the form as an applicant sees it (E33/F01/S01).
 
 Two widths rather than one because the content clusters into two groups and **nothing wants the 1536 the workspace was given before**: the plan's widest row needs 1316, the statistics need 1129, and the single-column lists need ~1035. One width for both puts a 1,035px list in a 1,440px page.
@@ -335,7 +361,7 @@ Three of the reds being retired cannot carry white text at all: `#e74c3c` (3.82)
 
 ### The brand green is `--mm-green` (`#36826f`)
 
-The wordmark painted `#00DC82` while every primary button painted `#36826f`. `#00DC82` gives white text 1.7:1, so it can never be a button or a link - a brand colour the product would be forbidden from using on any control. The logo is restyled to `--mm-green`.
+The wordmark painted `#00DC82` while every primary button painted `#36826f`. `#00DC82` gives white text 1.7:1, so it can never be a button or a link - a brand colour the product would be forbidden from using on any control. The logo's mark is `--mm-green`; its wordmark is black ([brand files and icons](#brand-files-and-icons)).
 
 ### Two grounds, not one
 
@@ -344,6 +370,41 @@ A token is only AA on the grounds it was measured against, so the phase rail's g
 
 So a chip carries its own ground: the `--mm-chip-*` tokens are opaque, the tint already laid over white, and `contrast.test.ts` asserts each with its ink.
 Translucent tints took on the beige review card beneath them and fell below AA there (E26/F10/S01).
+
+## Brand files and icons
+
+The brand has one folder, [`front-end/src/assets/brand/`](../front-end/src/assets/brand/):
+
+| File | What it is for |
+| --- | --- |
+| `conventioner-logo.svg` | The full logo, mark and wordmark; the banner draws it. |
+| `conventioner-mark.svg` | The mark alone, in its colour, for wherever the logo does not fit. |
+| `conventioner-mark-currentcolor.svg` | The mark in `currentColor`, for a dark ground or a coloured control. |
+| `conventioner-wordmark.svg` | The wordmark alone. |
+
+The mark is `#36826F`, which is `--mm-green`, and the wordmark is black.
+An `<img>` does not inherit colour, so the `currentColor` copy only takes the colour around it when it is inlined.
+The mark and the wordmark are the logo's own two paths, unchanged, and [`theBrandHasOneFolder.test.ts`](../front-end/src/__tests__/theBrandHasOneFolder.test.ts) fails when either drifts from the logo.
+
+The favicon set in [`front-end/public/`](../front-end/public/) is generated from the mark, and [`front-end/index.html`](../front-end/index.html) links it:
+
+| File | Size | Ground | For |
+| --- | --- | --- | --- |
+| `favicon.svg` | vector | transparent | Every browser that takes an SVG favicon; a byte-for-byte copy of the mark. |
+| `favicon.ico` | 16, 32, 48 | transparent | A browser that does not. |
+| `apple-touch-icon.png` | 180 | white, the mark at 140 | iOS, which fills transparency with black. |
+| `icon-192.png`, `icon-512.png` | 192, 512 | transparent | The manifest's `any` icons. |
+| `icon-maskable-512.png` | 512 | white, the mark at 384 | The manifest's `maskable` icon: a launcher crops it to its own shape, and the mark stays inside the central 409px circle. |
+
+When the mark changes, run `npm run brand-icons` in `front-end/` and commit what it writes.
+[`scripts/brand-icons.ts`](../front-end/scripts/brand-icons.ts) renders with the Chromium `@playwright/test` installs and writes the ICO itself, so it adds no dependency, and neither CI nor the build runs it.
+`index.html`'s ICO link says `sizes="32x32"` on purpose: without it Chrome may choose the ICO over the SVG, and `sizes="any"` makes it download both.
+[`manifest.webmanifest`](../front-end/public/manifest.webmanifest) is written by hand, and its `display` asks for `browser`, since an organizer copies a market's link from the address bar.
+What an icon on a home screen then opens is the phone's to decide: on iOS 26 the "Open as Web App" toggle in the Add to Home Screen dialog decides it, and no phone has tried this yet.
+[`the-brand-reaches-the-browser.spec.ts`](../front-end/e2e/the-brand-reaches-the-browser.spec.ts) fetches every icon as a browser would and holds its content type, since a missing file falls through to `index.html` with a 200.
+
+An icon lives in [`front-end/src/components/icons/`](../front-end/src/components/icons/) as `Icon<Name>.vue`, a local SVG drawing in `currentColor` ([ADR 0015](adr/0015-the-app-owns-its-components.md)).
+An icon is added when a screen uses it, and [`everyIconIsUsed.test.ts`](../front-end/src/__tests__/everyIconIsUsed.test.ts) fails, naming the icon, for one that no source file outside the tests, the icons folder and the dev-only component library in `src/dev/` imports.
 
 ## The primitive layer
 
@@ -359,14 +420,66 @@ A link on a line of its own is `.link-alone`, a target `--target-min` tall in th
 A link inside a sentence is not one, since it sits on the sentence's line.
 A choice among many, found by typing, is [`SearchPicker.vue`](../front-end/src/components/SearchPicker.vue) (E38/F08/S03): a field over a grouped list that it narrows as it is typed in, worked by the arrow keys, Enter and Escape, its list opening in the flow under the field so a dialog's scroller cannot clip it; it narrows a group and never hides one, and the caller says what the words find.
 Reopened on a choice, it selects that choice's label, so typing replaces it and searches afresh rather than running on from the label; left untouched, the choice stays.
-A picker with no choices at all never opens its list, and "Nobody matches" shows only once words are typed, so the note the caller puts beside it says why there is nothing to choose.
-The placement dialog's two vendor pickers are its first use.
+A picker with no choices at all never opens its list, and "Nobody matches" (the caller's `noneWord` in place of "Nobody", where the choices are not people) shows only once words are typed, so the note the caller puts beside it says why there is nothing to choose.
+Given a `cap`, it draws at most that many matches, counted across the groups in order, under a line "N more, type to narrow" that stays in view as the list scrolls and that the keys skip; a group the cap alone leaves out is not drawn, and a choice past the cap is named by the field, with no row active, so Enter keeps it.
+Without a `cap` it draws every match.
+Every row is a `--target-min` target at least, its one line centred in it and its tick on that line, on a phone's 44px too for every picker (`--row-inset`); a row that wraps grows down from there.
+Given `multiple` it holds several choices as `.chip--neutral` chips above the field, each as tall as its remove button's target, Backspace in the empty field taking the last; a chosen row the list draws is ticked, the list and the words stay after a choice, choosing a row again removes it, and a choice past the `cap` is named by its chip and found again by typing.
+Given `acceptsTyped`, trimmed words that are exactly no option's label are offered as `Use "<words>"`, which leads the list outside the `cap`, so the keys reach it first; choosing it makes the words the value, shown by the field or a chip, and the list opens for words even with no options.
+Reopened on such a value no row is active, so Enter keeps it, and words that are exactly an option make that option, when the `cap` draws it, the active row.
+Given `holdsChoice`, one choice holds until another is taken, as a filter or a card that writes on a choice needs: typing emits nothing, and on leaving the field or on Escape the field names the choice again; without it the first word lets the choice go, as a dialog that acts on Save needs.
+Given `wordsAreValue` with `acceptsTyped` on one choice, as a screen that writes as it is typed needs, every keystroke emits the trimmed words as the value, so no empty value comes between a filled one and the words replacing it; the field keeps the words as typed until it is left, then names the value, an option's label or the trimmed words, and Escape closes the list and keeps the words.
+A press of the main button past its open list leaves the field only as the press ends, since changing the list as the focus goes would move what lies below it from under the pointer and lose the click.
+The placement dialog's pickers are its first use, with no `cap`.
+The emailed six-digit sign-in code has one field, [`CodeInput.vue`](../front-end/src/components/CodeInput.vue), which both sign-ins use: the vendor page's code step and the organizer's "Sign-in code" step (T191 F21).
+It is a `.field` 48px tall at `--text-xl`, the one field read at a glance, with tabular figures, and the one field whose text is centred: its `letter-spacing` and `text-indent` take one custom property, `--code-spacing`, since a browser adds the spacing after the last digit too and a centred run without the matching indent sat half a space left of centre.
+Its placeholder, `000000`, clears on focus, so the empty field's caret, drawn at the box's centre, is never drawn inside the digit group; the label over it names it, as every label does.
+[`the-code-field.spec.ts`](../front-end/e2e/the-code-field.spec.ts) holds both sign-ins' field inside its card with its digits centred within 1px, at 1280, 390 and 320 wide.
+A row of pressed buttons that filters a list or switches a view is [`FilterToggles.vue`](../front-end/src/components/FilterToggles.vue) (T200): compact secondary `.btn`s in a named `role="group"`, one choice by default or several with `multiple`, each named by the words it shows, its label then an optional count.
+The row wraps and a long label wraps inside its toggle, so it never scrolls sideways, and on a phone a toggle is at least 44px each way.
+Pressing the chosen toggle again keeps it; several emit in the options' order.
+No screen mounts it yet: the library's `filter-toggles` entry lists the eight rows it would replace.
+
+A list that can grow with a market is [`ListFrame.vue`](../front-end/src/components/ListFrame.vue) (T200), generic over the row: a find field past `findFrom` rows (12), the screen's own filters beside it, a count line, the first `pageSize` rows (50) and "Show N more".
+The screen narrows `items` by its filters and brings `finds`, `itemKey` and the `row` slot; the frame does the finding and the paging on what is already read.
+With `findKey` the words live in the route's query, written with `router.replace`.
+The shown count goes back to one page when the words or the rows change, and a read again that brings the same rows by `itemKey` changes neither.
+`state` draws loading and failed (`ReadFailed`, unless the `failed` slot replaces it), the `empty` slot says why there are no `items`, and the count line says when the words find nothing.
+No screen mounts it yet: the library's `list-frame` entry shows it on Applications All and the people with access.
+Inside a `scroll="body"` dialog it needs nothing of its own, since the dialog's body scrolls it; the library's `summaries` entry shows it there, with no `findKey`, so the words go with the dialog.
+Enter in its field does nothing, so in a dialog's form it never saves what the person was only looking through.
+
+People named above the work rather than listed are [`NameList.vue`](../front-end/src/components/NameList.vue) (T200): one paragraph, so it reads as a sentence, "12 reviewers: Ana, Ben, Cai and 9 more", naming `named` (3), and its text button, "and 9 more", which a `.visually-hidden` noun names on its own, emits `more` for the screen to open the whole list.
+With `named` or fewer names it says them all and draws no button, so a screen keeps its own way to that list.
+No screen mounts it yet: the library's `summaries` entry shows it on the reviewers.
+
+A long list a screen keeps grouped folds by group, in [`RowGroup.vue`](../front-end/src/components/RowGroup.vue) (T200): a heading, the first `fold` (20) rows of `items`, and "Show all 31 in North Wing", which unfolds the rest in place and becomes "Show fewer"; at `fold` rows or fewer it draws no button.
+[`BarLedger.vue`](../front-end/src/components/BarLedger.vue) folds the same way with `fold`: the rows by count, the first `fold`, then "N more answers"; without it the rows are drawn in the order they came, all of them.
+Both take the fold from [`useFold`](../front-end/src/utils/useFold.ts): unfolding hands the focus to the first new row, and folding keeps it on the button and brings the button back into view.
+No screen folds yet: the library's `folds` entry shows both, on the Stats tab's bars and the Assignments page's tables.
+
+A list someone puts in order is [`OrderedList.vue`](../front-end/src/components/OrderedList.vue) (T200), generic over the item: each row has the `.drag-handle` and its own move up and move down buttons, named by `itemLabel`, so the keyboard can do what the mouse can, the first's up and the last's down disabled.
+A move keeps the focus on the moved row's button, or on its other button once that one is disabled.
+A row takes its container's width, its words wrapping and its buttons never shrinking, so nothing is clipped on the right inside a dialog's scrolling body or tray; its words are the `row` slot's when given.
+No screen mounts it yet: the library's `export-vendors` entry shows it alone and in the export dialog's tray.
+
+A panel that slides in from a side is [`SidePanel.vue`](../front-end/src/components/SidePanel.vue) (T200), a proposal for the vendor drawer and the navigation drawer: `side` (right or left), `width` (narrow, 20rem, or wide, 30rem, each leaving a gutter of scrim), its title and close pinned and only its body scrolling.
+It is modal as a dialog is, through the same composables: Escape and the scrim emit `close`, focus moves in to its body, so the keys scroll the panel and never the page behind, and goes back, and the page is inert.
+A dialog opened from it is mounted beside it, lies over it and takes Escape first.
+No screen mounts it yet: the library's `proposals` entry shows it on a fixture application, with `.chip--small` and `.data-table`.
+
+A screen takes a file on [`FileDropZone.vue`](../front-end/src/components/FileDropZone.vue), its one way to (T205): a dashed zone on the beige ground that a click anywhere opens the file chooser from, its main line naming the hidden input and a hint under it saying what files it takes.
+It tints green under the pointer and while a file is over it, and its words take no pointer events, so crossing them does not fire `dragleave` and flicker the tint off.
+Busy, while its caller reads or uploads a file, it takes no file and mutes its main line, never dimming it with opacity; a chosen file clears the input, so the same file chosen again is read again.
+It judges no file: it hands the one chosen or dropped to its caller, which checks it and says any error.
+The import and the start from a Google Form take their CSV on it, and the floorplan wizard its plan image or PDF.
 
 | | Variants | Notes |
 | --- | --- | --- |
 | `.btn` | `--primary`, `--secondary`, `--destructive`, `--compact` | One standard height (36px) and one compact (28px), and no third, both 44px on a phone. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. `--secondary` with `--destructive` is a row's destructive action, below. |
-| `.field` | `--select`, `--textarea` | Left-aligned always - 18 of 27 controls on Market Setup were centred. `--select` carries `min-width: 0`: a select fills its column and never pushes past it, in Firefox as in Chromium. A column that must fit a select's options sizes its own track. |
-| `.chip` | `--neutral`, `--positive`, `--attention`, `--informational`, `--destructive` | One shape, one size, sentence case. Tint with coloured ink rather than a solid fill: a list of six solid pills competes with the content it labels. The tint is an opaque `--mm-chip-*` ground, so a chip reads the same on beige as on white. A status is a chip; the action beside it is a button. |
+| `.field` | `--select`, `--textarea` | Left-aligned always - 18 of 27 controls on Market Setup were centred - but for the sign-in code's field above. `--select` carries `min-width: 0`: a select fills its column and never pushes past it, in Firefox as in Chromium. A column that must fit a select's options sizes its own track. `--select` also draws the one chevron, 13px from the right edge as its text is from the left, with room so a long option ends in an ellipsis before it, muted when disabled: two files, `public/icons/select-chevron.svg` and `select-chevron-disabled.svg`, never a `data:` URI, which the Content-Security-Policy's `img-src 'self' blob:` would refuse once it enforces. Under forced colours it keeps the browser's own arrow. A select's own class may size or place it and never sets `padding`, `background` or `appearance`. `every-select-draws-one-chevron.spec.ts` holds the look on the library's primitives entry and on the screens whose selects once drew their own, and `everySelectWearsThePrimitive.test.ts` holds, from the source, that every `<select>` wears it and that no class of its own draws it, nor any rule of its file that reaches it by `select` or `.field--select`. |
+| `.chip` | `--neutral`, `--positive`, `--attention`, `--informational`, `--destructive`; `--small` | One shape, one size, sentence case. Tint with coloured ink rather than a solid fill: a list of six solid pills competes with the content it labels. The tint is an opaque `--mm-chip-*` ground, so a chip reads the same on beige as on white. A status is a chip; the action beside it is a button. `--small` is a proposal (T200), a size step rather than a tone: the type is already the scale's floor, so it takes the padding in and takes `--radius-control`, and no screen wears it yet. |
+| `.data-table` | `--one-line` | A proposal (T200) for the six tables that each draw their own, and no screen wears it yet: a muted header, a rule between rows and the cells' padding, in a `<table>` whose columns are the screen's own. Inside `.data-table-scroll` it scrolls sideways alone and never moves the page, the scroller keeping the corners; give the scroller `tabindex="0"`, `role="region"` and a name. A cell wraps; `--one-line` keeps each on one line, for a table read across. |
 | `.link-alone` | none | A link on a line of its own is a target: a line box `--target-min` tall, 44px on a phone, with no padding, so it still sits on its text. |
 
 **A button or a menu item names its action in sentence case**, as a chip names its status (T181): the phase rail's moves ("Open applications", "Begin assignment", "Publish market"), its More… menu ("Reopen for editing", "Archive market"), "Publish results", and the titles and buttons of the confirmations they open.
@@ -397,12 +510,14 @@ A browser treats a focused text field as `:focus-visible` whether it was clicked
 **A soft halo on every control**, Daniel's choice on the same walk (E38/F01/S01): `--focus-halo`, a white 2px gap then a translucent green glow, in `base.css`.
 `primitives.css` gives it to the primitives and to every link, button, `summary`, `[role='button']` and `[tabindex='0']` on `:focus-visible`, with no outline, so the browser's own ring is drawn nowhere.
 Any other keyboard stop takes it from a zero-specificity rule beneath those: a scroller the browser makes a stop because nothing inside it takes focus, as the export dialog's preview table is on a phone.
+A file input is drawn invisible inside the drop zone that stands for it, so the zone wears the halo while its input has keyboard focus (`:has(input:focus-visible)`): the zone marking its one control, not a ring around a field's box, and the focus sweep reads a file input as such a control.
 A link's halo appears at once, corners and all, as a button's does: the global `a` rule in `main.css` eases `color` alone, where easing every property drew the halo square and rounded it over 0.4s (T181).
 [`a-links-halo-appears-at-once.spec.ts`](../front-end/e2e/a-links-halo-appears-at-once.spec.ts) reaches each sign-in page's `.link-alone` by Tab at 390px and 1440px and reads its halo whole in the frame after focus.
 The halo hugs what it marks: it takes `--radius-control` on any control that sets no radius of its own, through a `:where` rule that a control's own radius outranks, so a text link, a text button and a disclosure's `summary` wear it rounded rather than as a hard rectangle (T140); and a text control is as wide as its words, so its halo is not the width of the row it sits in ("N more answers", a month's name in the dates card).
 A tab whose underline is a bottom border curls that underline only while it is focused, as the vendor drawer's tabs do.
 What a script focuses and Tab never reaches (`tabindex="-1"`), such as AppDialog's window when no control in it is ready, is not a control and draws nothing, the browser's ring included; a control among them, such as a menu's items, still wears a halo.
 A box that clips what lies past its edge cuts a halo off, so a control that fills such a box wears `--focus-halo-inset`, the same halo drawn inside its edge: every menu's item (`[role='menuitem']`), inside its menu's rounded box (the phase rail's, a Payment line's).
+So does a `scroll="body"` dialog's body when the browser makes it a stop, with `--radius-control`, since the dialog's window clips what lies past its edge.
 Every control carries a `scroll-margin` of `--space-2`, so focus that scrolls it into view leaves its halo room inside the scroller, as a dialog's window would otherwise cut off its last control's.
 A scroller the browser makes focusable, such as the export dialog's preview table, is no control to that rule, so it takes the same `scroll-margin` itself.
 The white gap is what keeps it visible on the green primary button, where a green glow would meet the fill.
@@ -445,16 +560,19 @@ A convention nothing enforces is how the product got here. Six checks, the first
    The noisy kinds (spacing off the scale, uneven gaps, edges 1 to 4px apart, empty bands, truncated names, nested scrollers, small targets on a desktop) are real drift mixed with what is by design, so each test attaches them as a `layout report` and never fails on them; the spacing scale is Stylelint's to hold.
    [`e2e/layout-detectors.spec.ts`](../front-end/e2e/layout-detectors.spec.ts) proves each gating detector fires on a fixture of its defect, and that none fires on a page that only looks broken: a stuck bar over scrolled content, screen-reader-only text, an ellipsis with its title, a closed `<details>`, a menu over the page.
    It proves a link in a sentence is exempt as a target and one drawn on a line of its own is not.
+   It proves an overlap is measured on the part of each box that shows past its clipping ancestors, so a control scrolled half out of a dialog's body overlaps nothing past that body's edge.
+   It proves a text scrolled past its box keeps its own edge for the edge check, so it slips against nothing once it is scrolled.
    It proves `pinnedBottom` counts a pinned header and a block pinned under it, and not a block that scrolls away, one that sticks only sideways, or an open drawer or dialog.
    It holds the sweep's phone break to `base.css`'s by rendering sign-in on each side of it: at the widest width the sweep calls a phone, the sign-in button is 44px tall and `--target-min` 44px, and a pixel wider they are 36px and 24px.
    It landed with what it and the newly walked states found fixed: the form's step list hung 8px outside its header, a long web address in an answer ran 108px past a phone, the sign-in and reset fields and their Show buttons were 20px and 15px tall inside their 36px boxes, the standalone back links and the rail's addresses were 18px and 19px tall, and on states the other sweeps had never opened, role badges and "Results Published" on translucent tints, the import's hint on beige, the verification error in raw `red`, an unmarked link in a note, and the start page's coloured words on black.
 6. **A focus sweep**, [`e2e/focus-sweep.spec.ts`](../front-end/e2e/focus-sweep.spec.ts), presses Tab through every state (E38/F01/S01), with [`e2e/helpers/focusSweep.ts`](../front-end/e2e/helpers/focusSweep.ts)'s judge, Tab walk and menu walk.
    A field it lands on must look as it did unfocused, it and the two boxes around it, and a control must draw no outline and the halo for its ground: white at 35% where the first ancestor with a fill is dark, the green halo elsewhere.
+   A file input is a control, not a field, since nothing is typed into it and the drop zone around it wears its halo.
    It moves the pointer to the window's corner before it reads how the fields look unfocused, since a focus that scrolls a dialog's body can bring the box around the focused field under a pointer left there, and that box's hover fill read as a look focus drew (T180).
    The halo must have rounded corners, no box that clips what lies past its edge may cut it off, and a text control with no fill or border may be no more than 24px wider than its words and its padding, room for a disclosure's marker.
    A box clips only what is placed inside it, so the clip check climbs the chain of containing blocks: a positioned box holds what is placed absolutely, and a box with a `transform`, `translate`, `rotate`, `scale`, `perspective`, `filter` or `backdrop-filter`, a `will-change` naming one of them, a `contain` of `layout`, `paint`, `strict` or `content`, or a `container-type` of `size` or `inline-size` holds what is placed fixed or absolutely.
    A menu's items are no Tab stop, so in every state it opens each menu with Enter on its button (`aria-haspopup="menu"`) and judges each item it reaches with the arrow keys; Enter, and each arrow key that moves to the next item, must land focus on a `[role='menuitem']` of the menu it opened, or the sweep names the menu, its button and where focus is, so a menu that keeps focus on its button cannot pass.
-   [`e2e/focus-sweep-detectors.spec.ts`](../front-end/e2e/focus-sweep-detectors.spec.ts) proves both on fixtures: a halo at the edge of a box that holds it through each of `transform`, `filter`, `will-change: transform` and `contain: paint`, placed absolutely and fixed, is caught, as is one in a static box around a transformed box that holds it, and one in a static box is not; a menu whose arrows leave focus on its button is caught, and a working one passes.
+   [`e2e/focus-sweep-detectors.spec.ts`](../front-end/e2e/focus-sweep-detectors.spec.ts) proves them on fixtures: a halo at the edge of a box that holds it through each of `transform`, `filter`, `will-change: transform` and `contain: paint`, placed absolutely and fixed, is caught, as is one in a static box around a transformed box that holds it, and one in a static box is not; a menu whose arrows leave focus on its button is caught, and a working one passes; and a drop zone that shows no focus for its file input is caught, and one that wears the halo passes.
    It also proves that `alsoAt` adds its size to a copy of a screen's sizes, so a sweep's added size never reaches the sizes another sweep walks, which screens share.
    It walks each state at a phone's width too, as well as at its first size: an organizer's screens ship at a desk, but a desk zoomed to 400% is that narrow, and there a table too wide for its box scrolls and becomes a keyboard stop of its own; the floorplan beta's wizard steps, which cannot be walked that narrow, are marked `deskOnly`.
    Each dialog window a state shows is focused as a keyboard user's would be and must draw no outline, a window behind another dialog on top aside, since it is inert (T148), and a test opens Manage market from the keyboard, where the window takes focus while the market loads (T140).
@@ -476,7 +594,7 @@ The list holds these states, one a line, each beside the state it is most like, 
 - the vendor drawer at the door on each of its tabs at 390
 - an Editor's Update info with its essential questions locked
 - settled rules
-- the floorplan wizard's steps with a plan uploaded
+- the floorplan wizard's upload step, and its steps with a plan uploaded
 - the signed-out pages
 
 They are walked over a stress seed ([`e2e/helpers/seedTheScreens.ts`](../front-end/e2e/helpers/seedTheScreens.ts)) of long names, 40 applications in every review state, a review divided between two reviewers and 36 vendors over four dates and three sections, since a layout that holds on three short names breaks on a real market.

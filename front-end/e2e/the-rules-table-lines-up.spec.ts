@@ -3,6 +3,7 @@ import { marketSetupPath } from './helpers/marketScreens';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { savePlan } from './helpers/savePlan';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
+import { publishResults } from './helpers/seeds';
 
 /**
  * The priority rules table is drawn from the primitives (E28/F03/S01).
@@ -130,6 +131,12 @@ test('a settled market reads its rules as a record, one answer to a line', async
       },
     ],
   });
+  // Run on these rules, so the run is current, and tell the vendors before going live (ADR 0022).
+  const ran = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/assignment`, {
+    headers: { 'X-Owner-Email': TEST_USER.email },
+  });
+  expect(ran.ok(), await ran.text()).toBeTruthy();
+  await publishResults(request, BACKEND_URL, TEST_USER.email, seed.marketId);
   const published = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
     headers: { 'X-Owner-Email': TEST_USER.email },
     data: { toPhase: 'market_days' },
@@ -236,4 +243,39 @@ test("a rule's question stays in its column, however long the form's other quest
     return select.getBoundingClientRect().right - cell.right;
   });
   expect(overflow, 'the question select reaches past its column').toBeLessThanOrEqual(0);
+});
+
+test('the question column shows its longest built-in question whole beside the chevron', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  // The chevron's room took the words' last letters at 1280, with the two columns equal.
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+  );
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(marketSetupPath(marketId, 'settings'));
+  await page.getByRole('button', { name: 'Add a rule' }).click();
+  const target = page.getByTestId('priority-target-select').last();
+  await target.selectOption({ label: 'When the application arrived' });
+
+  const room = await target.evaluate((select: HTMLSelectElement) => {
+    const style = getComputedStyle(select);
+    const pen = document.createElement('canvas').getContext('2d')!;
+    pen.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    // The box's own width, since `clientWidth` rounds and the words were cut by a fraction of a pixel.
+    return (
+      select.getBoundingClientRect().width -
+      parseFloat(style.borderLeftWidth) -
+      parseFloat(style.borderRightWidth) -
+      parseFloat(style.paddingLeft) -
+      parseFloat(style.paddingRight) -
+      pen.measureText(select.selectedOptions[0].text).width
+    );
+  });
+  expect(room, 'the words end before the chevron, with no ellipsis').toBeGreaterThanOrEqual(0);
 });

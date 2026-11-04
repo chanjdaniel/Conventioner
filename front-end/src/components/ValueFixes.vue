@@ -26,7 +26,10 @@ const props = withDefaults(
     labelFor?: (target: string, choice: string) => string;
     /** What the values did not match, as the organizer calls it. */
     against?: string;
-    /** Test id prefix, the view's own: `<testid>-value-fixes`, `-unmatched-value`, `-fix-<value>`. */
+    /**
+     * The view's own prefix: test ids `<testid>-value-fixes`, `-unmatched-value`, `-fix-<value>`, and
+     * each select's field name, `<testid>-fix-<target>-<value>`.
+     */
     testid?: string;
     /**
      * Values already decided rather than waiting on a decision (bug 28): listed so a decision -
@@ -99,6 +102,7 @@ function choose(entry: ValueFix, event: Event) {
       <select
         class="field field--select ledger-fix-select"
         :value="props.resolutionFor(entry.target, entry.value)"
+        :name="`${testid}-fix-${entry.target}-${entry.value}`"
         :aria-label="`What ${entry.value} means`"
         :data-testid="`${testid}-fix-${entry.value}`"
         @change="choose(entry, $event)"
@@ -148,7 +152,8 @@ function choose(entry: ValueFix, event: Event) {
 .ledger-fixes-title {
   margin: 0;
   font-size: var(--text-xs);
-  color: var(--mm-red);
+  /* `--mm-red` is 4.41 on this tint. */
+  color: var(--mm-text-red-on-tint);
 }
 
 .ledger-fixes-more {

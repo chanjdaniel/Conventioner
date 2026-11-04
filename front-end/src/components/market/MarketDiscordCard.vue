@@ -17,13 +17,26 @@
  * person may change it is the table's "Connect Discord and give roles" row; anyone it refuses reads
  * the card. Each choice saves as it is made, and the page re-reads the market after (`changed`),
  * never patching it.
+ *
+ * The invite link is typed, so the field holds its own draft: a link the server refuses stays there
+ * to be finished, under its refusal's words, however often the market is read meanwhile. A stored
+ * link read later shows only if nothing unsaved stands in the field; another server or market
+ * always replaces it.
+ *
+ * "Give roles" and "Check Discord" stand on the Vendors page, so once connected the card says so,
+ * with what is still missing (`rolesStillNeed`), each linked to where it is done. Only someone who
+ * may change the card reads that: it points at controls no one else is offered.
  */
 import { computed, onUnmounted, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { whenDiscordEnds } from '@/utils/discordConnected';
+import { formTextQuestions } from '@/utils/discordQuestion';
+import { rolesStillNeed } from '@/utils/discordRoles';
+import { marketPath } from '@/utils/market';
 import { MarketAction, actionRefusal } from '@/utils/marketActions';
+import type { Ref } from 'vue';
 import type { DiscordRole, Market } from '@/assets/types/datatypes';
 
 const props = defineProps<{ market: Market }>();
@@ -37,9 +50,7 @@ const editable = computed(() => setUp.value && refusal.value === null);
 
 const base = computed(() => `/markets/${encodeURIComponent(props.market.id)}/discord`);
 
-const textQuestions = computed(() =>
-  (props.market.applicationForm?.fields ?? []).filter((field) => field.type === 'text'),
-);
+const textQuestions = computed(() => formTextQuestions(props.market));
 const questionLabel = computed(
   () =>
     textQuestions.value.find((field) => field.key === connection.value?.usernameQuestion)?.label ??
@@ -149,28 +160,86 @@ onUnmounted(() => {
 });
 
 const saveError = ref<string | null>(null);
+/** Apart from `saveError`: saving a role says nothing of a refused link, still in its field. */
+const inviteError = ref<string | null>(null);
 
-async function save(choice: Record<string, string | null>): Promise<void> {
-  saveError.value = null;
+const storedInvite = computed(() => connection.value?.inviteLink ?? '');
+const inviteDraft = ref(storedInvite.value);
+function showStoredInvite(): void {
+  inviteDraft.value = storedInvite.value;
+  inviteError.value = null;
+}
+// What was typed was about that server or market, even with no stored link changing.
+watch([() => props.market.id, () => connection.value?.guildId], showStoredInvite);
+// A re-read never overwrites unsaved work (one market, from the server): the draft follows the
+// stored link only while it held the old one, or once it reads the new one, just saved.
+watch(storedInvite, (stored, was) => {
+  if (inviteDraft.value === was || inviteDraft.value.trim() === stored) showStoredInvite();
+});
+
+async function save(
+  choice: Record<string, string | null>,
+  refusalLine: Ref<string | null>,
+): Promise<void> {
+  refusalLine.value = null;
   try {
     await api.put(base.value, choice);
     emit('changed');
   } catch (err) {
-    saveError.value = getApiErrorMessage(err, 'This choice was not saved.');
+    refusalLine.value = getApiErrorMessage(err, 'This choice was not saved.');
   }
 }
 
 function onRole(event: Event): void {
   stillAbove.value = false;
-  void save({ roleId: (event.target as HTMLSelectElement).value || null });
+  void save({ roleId: (event.target as HTMLSelectElement).value || null }, saveError);
 }
 
 function onQuestion(event: Event): void {
-  void save({ usernameQuestion: (event.target as HTMLSelectElement).value || null });
+  void save({ usernameQuestion: (event.target as HTMLSelectElement).value || null }, saveError);
 }
 
-function onInvite(event: Event): void {
-  void save({ inviteLink: (event.target as HTMLInputElement).value.trim() });
+function onInvite(): void {
+  void save({ inviteLink: inviteDraft.value.trim() }, inviteError);
+}
+
+const stillNeed = computed(() => rolesStillNeed(props.market));
+const roleSelect = ref<HTMLSelectElement | null>(null);
+const questionSelect = ref<HTMLSelectElement | null>(null);
+
+/** A choice's select, by what the checklist calls it. */
+type CardSelect = 'role' | 'question';
+/** The select whose label is responding to its link, in the link's ink, for a moment. */
+const responding = ref<CardSelect | null>(null);
+let respondingEnds: ReturnType<typeof setTimeout> | undefined;
+const RESPONSE_MS = 1500;
+
+function respond(which: CardSelect): void {
+  clearTimeout(respondingEnds);
+  responding.value = which;
+  respondingEnds = setTimeout(() => {
+    responding.value = null;
+  }, RESPONSE_MS);
+}
+onUnmounted(() => clearTimeout(respondingEnds));
+
+/**
+ * The click opens the select's list. Where it cannot, as in Safari, with no `showPicker` as of
+ * 2026-11, the select still takes the focus, but a field shows no focus at all (the design
+ * language), so the select's label responds instead, or the link would look dead.
+ */
+function openSelect(which: CardSelect): void {
+  const select = which === 'role' ? roleSelect.value : questionSelect.value;
+  select?.focus();
+  try {
+    if (select?.showPicker) {
+      select.showPicker();
+      return;
+    }
+  } catch {
+    // Refused somewhere: the list stays shut, as where the method is missing.
+  }
+  respond(which);
 }
 
 const confirmingDisconnect = ref(false);
@@ -227,9 +296,15 @@ async function disconnect(): Promise<void> {
 
           <div v-if="editable" class="discord-choices">
             <div class="discord-choice">
-              <label class="field-label" for="discord-role">Role to give</label>
+              <label
+                class="field-label"
+                for="discord-role"
+                :data-responding="responding === 'role' || undefined"
+                >Role to give</label
+              >
               <select
                 id="discord-role"
+                ref="roleSelect"
                 class="field field--select"
                 :value="connection?.roleId ?? ''"
                 data-testid="discord-role-select"
@@ -246,9 +321,15 @@ async function disconnect(): Promise<void> {
             </div>
 
             <div class="discord-choice">
-              <label class="field-label" for="discord-question">Username question</label>
+              <label
+                class="field-label"
+                for="discord-question"
+                :data-responding="responding === 'question' || undefined"
+                >Username question</label
+              >
               <select
                 id="discord-question"
+                ref="questionSelect"
                 class="field field--select"
                 :value="questionLabel ? connection?.usernameQuestion : ''"
                 data-testid="discord-question-select"
@@ -268,10 +349,12 @@ async function disconnect(): Promise<void> {
               <label class="field-label" for="discord-invite">Invite link (optional)</label>
               <input
                 id="discord-invite"
+                v-model="inviteDraft"
                 class="field"
                 type="url"
-                :value="connection?.inviteLink ?? ''"
                 placeholder="https://discord.gg/abc123"
+                :aria-invalid="!!inviteError"
+                :aria-describedby="inviteError ? 'discord-invite-error' : undefined"
                 data-testid="discord-invite-input"
                 @change="onInvite"
               />
@@ -319,6 +402,15 @@ async function disconnect(): Promise<void> {
             <p v-if="saveError" class="discord-error" data-testid="discord-save-error">
               {{ saveError }}
             </p>
+            <p
+              v-if="inviteError"
+              id="discord-invite-error"
+              class="discord-error"
+              role="alert"
+              data-testid="discord-invite-error"
+            >
+              {{ inviteError }}
+            </p>
           </div>
 
           <dl v-else class="discord-read">
@@ -338,6 +430,59 @@ async function disconnect(): Promise<void> {
               <template v-else>None</template>
             </dd>
           </dl>
+
+          <div v-if="editable" class="discord-giving" data-testid="discord-giving">
+            <p class="field-label">Giving roles</p>
+            <p class="discord-lead">
+              Check who is in the server and give roles on the Vendors page.
+            </p>
+            <template v-if="stillNeed.length">
+              <p class="discord-lead discord-giving-still">Still needed:</p>
+              <ul class="discord-giving-needs" data-testid="discord-giving-needs">
+                <li v-if="stillNeed.includes('role')">
+                  <a
+                    href="#discord-role"
+                    class="link-alone"
+                    data-testid="discord-giving-needs-role"
+                    @click.prevent="openSelect('role')"
+                    >Choose the role to give</a
+                  >
+                </li>
+                <li v-if="stillNeed.includes('question')">
+                  <a
+                    v-if="textQuestions.length"
+                    href="#discord-question"
+                    class="link-alone"
+                    data-testid="discord-giving-needs-question"
+                    @click.prevent="openSelect('question')"
+                    >Choose the question that asks their Discord username</a
+                  >
+                  <RouterLink
+                    v-else
+                    :to="marketPath(market.id, 'form')"
+                    class="link-alone"
+                    data-testid="discord-giving-needs-question"
+                    >Add a question that asks their Discord username</RouterLink
+                  >
+                </li>
+                <li v-if="stillNeed.includes('assignment')">
+                  <RouterLink
+                    :to="marketPath(market.id, 'settings')"
+                    class="link-alone"
+                    data-testid="discord-giving-needs-assignment"
+                    >Make the assignment</RouterLink
+                  >
+                </li>
+              </ul>
+            </template>
+            <RouterLink
+              v-else
+              :to="marketPath(market.id, 'vendors')"
+              class="link-alone"
+              data-testid="discord-giving-vendors"
+              >Give roles on Vendors</RouterLink
+            >
+          </div>
         </template>
 
         <template v-else-if="setUp">
@@ -474,6 +619,27 @@ async function disconnect(): Promise<void> {
 
 .discord-choices > .discord-error {
   grid-column: 1 / -1;
+}
+
+.field-label[data-responding] {
+  color: var(--mm-text-link);
+}
+
+.discord-giving {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.discord-giving-still {
+  margin-top: var(--space-2);
+}
+
+.discord-giving-needs {
+  margin: 0;
+  padding-left: var(--space-6);
+  font-size: var(--text-sm);
+  color: var(--mm-black);
 }
 
 /* On a phone (the Tools tab fits one) the three choices stand one under another. */

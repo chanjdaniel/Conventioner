@@ -111,6 +111,12 @@ describe('the primitives exist and own what tokens cannot', () => {
       ['.field', 'font-size'],
       ['.chip', 'border-radius'],
       ['.chip', 'font-size'],
+      ['.chip--small', 'padding'],
+      ['.chip--small', 'border-radius'],
+      ['.data-table', 'font-size'],
+      ['.data-table :is(th, td)', 'padding'],
+      ['.data-table thead th', 'font-size'],
+      ['.data-table-scroll', 'border-radius'],
       ['.add-row', 'padding'],
       ['.add-row', 'border-radius'],
       ['.add-row', 'font-size'],
@@ -169,6 +175,73 @@ describe('the primitives exist and own what tokens cannot', () => {
     // `min-content` is the widest option in Firefox alone, so a select of questions or answers
     // ran out of its column and under the next one there, and nowhere the suite runs.
     expect(declaration(PRIMITIVES, '.field--select', 'min-width')).toBe('0');
+  });
+
+  it("draws a select's chevron itself, from a file, and leaves room for it", () => {
+    // Daniel's F06: the browser's arrow sat about 5px from the right edge with the text about 17px
+    // from the left. A `data:` image would be refused by `img-src 'self' blob:` once the policy
+    // enforces, so it is a file from `public/`, whose absolute URL Vite leaves alone.
+    expect(declaration(PRIMITIVES, '.field--select', 'appearance')).toBe('none');
+    expect(declaration(PRIMITIVES, '.field--select', 'padding-right')).toBe(
+      'calc(var(--space-3) + var(--space-3) + var(--space-3))',
+    );
+    expect(declaration(PRIMITIVES, '.field--select', 'background-image')).toBe(
+      "url('/icons/select-chevron.svg')",
+    );
+    expect(declaration(PRIMITIVES, '.field--select', 'background-repeat')).toBe('no-repeat');
+    expect(declaration(PRIMITIVES, '.field--select', 'background-position')).toBe(
+      'right var(--space-3) center',
+    );
+    expect(declaration(PRIMITIVES, '.field--select', 'background-size')).toBe(
+      'var(--space-3) var(--space-2)',
+    );
+    expect(declaration(PRIMITIVES, '.field--select', 'text-overflow')).toBe('ellipsis');
+  });
+
+  it('keeps a disabled select its chevron, muted, in the one disabled state', () => {
+    expect(declaration(PRIMITIVES, '.field--select:disabled', 'background-image')).toBe(
+      "url('/icons/select-chevron-disabled.svg')",
+    );
+    // Chromium's own sheet fades a disabled `appearance: none` select to 0.7.
+    expect(declaration(PRIMITIVES, '.field--select:disabled', 'opacity')).toBe('1');
+    // The shorthand out-ranks `.field--select` and would reset the image, its position and size.
+    expect(declaration(PRIMITIVES, '.field:disabled', 'background-color')).toBe('var(--mm-beige)');
+    expect(declaration(PRIMITIVES, '.field:disabled', 'background')).toBeNull();
+  });
+
+  it("keeps the browser's own arrow in forced colours", () => {
+    // The file's dark stroke would vanish on a dark forced canvas.
+    let forced: postcss.AtRule | null = null;
+    PRIMITIVES.walkAtRules('media', (atRule) => {
+      if (atRule.params === '(forced-colors: active)') forced = atRule;
+    });
+    expect(declaration(forced, '.field--select', 'appearance')).toBe('auto');
+    expect(declaration(forced, '.field--select', 'background-image')).toBe('none');
+    expect(declaration(forced, '.field--select', 'padding-right')).toBe('var(--space-3)');
+    // A disabled select's own image out-ranks a rule on `.field--select` alone.
+    expect(declaration(forced, '.field--select:disabled', 'background-image')).toBe('none');
+  });
+
+  it("draws the chevron's two files in the tokens' own ink", () => {
+    // A file cannot read a `var()`, so its colours are the tokens' values, held here.
+    const file = (name: string) =>
+      readFileSync(resolvePath(process.cwd(), 'public/icons', name), 'utf8');
+    const attribute = (svg: string, name: string) =>
+      new RegExp(`\\s${name}="([^"]+)"`).exec(svg)?.[1] ?? null;
+    const black = declaration(BASE, ':root', '--mm-black');
+    const muted = /^rgba\((\d+), (\d+), (\d+), ([\d.]+)\)$/.exec(
+      declaration(BASE, ':root', '--mm-text-muted-on-beige') ?? '',
+    );
+    const blackAsRgb = [1, 3, 5].map((at) => parseInt(black!.slice(at, at + 2), 16).toString());
+    expect(muted?.slice(1, 4)).toEqual(blackAsRgb);
+
+    const enabled = file('select-chevron.svg');
+    expect(attribute(enabled, 'stroke')).toBe(black);
+    expect(attribute(enabled, 'stroke-opacity')).toBeNull();
+
+    const disabled = file('select-chevron-disabled.svg');
+    expect(attribute(disabled, 'stroke')).toBe(black);
+    expect(attribute(disabled, 'stroke-opacity')).toBe(muted?.[4]);
   });
 
   it('draws nothing around a focused field, the browser default included', () => {

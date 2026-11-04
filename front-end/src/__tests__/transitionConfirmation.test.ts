@@ -134,10 +134,10 @@ describe('Back to review asks first, by its edge (T207)', () => {
     ]);
   });
 
-  it('says it in a Google Form market’s words, with no applications line', async () => {
+  it('says the same on a Google Form market, which publishes results too, with no applications line', async () => {
     expect(paragraphs(await back(IntakeMode.Csv))).toEqual([
       'The review opens again: verdicts can be given and changed, and the automatic rejections can change.',
-      'The tables you allocated are kept, but they no longer count. Once every application is decided, begin assignment and allocate tables again before you publish the market.',
+      'The tables you allocated are kept, but they no longer count. Once every application is decided, begin assignment and allocate tables again before you publish results.',
       'A seat you placed by hand stays, even for a vendor you then reject. Free it on Assignments.',
     ]);
   });

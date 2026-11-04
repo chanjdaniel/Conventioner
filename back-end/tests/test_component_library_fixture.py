@@ -121,11 +121,81 @@ def test_the_export_filters_by_the_markets_choice_questions_every_answer_kept():
     assert selling["options"] == [o["label"] for o in FIXTURE["question"]["options"]]
 
 
+def test_the_export_offers_what_the_products_preview_offers():
+    export = FIXTURE["export"]
+    assert export["defaultColumns"] == ["name", "email", "status"]
+    assert [s["label"] for s in export["statuses"]] == [
+        "Open", "Needs follow-up", "Approved", "Rejected", "Added by hand"]
+    assert export["dates"] == ["2024-04-22", "2024-04-23", "2024-04-24", "2024-04-25"]
+    assert export["sections"] == ["North Wing", "South Wing"]
+    assert export["tiers"] == ["Gold", "Silver"]
+    assert [s["label"] for s in export["paymentStates"]] == [
+        "Owes", "Paid in full", "Paid more than owed"]
+    assert [s["label"] for s in export["discordStates"]] == [
+        "Has the role", "In the server", "Possible match", "Not found", "No username",
+        "Check again"]
+    assert export["discordInvite"].startswith("https://")
+
+
+def test_a_seats_tier_is_its_sections():
+    tiers = {(s["section"], s["tier"]) for s in FIXTURE["seats"]}
+    assert tiers == {("North Wing", "Gold"), ("South Wing", "Silver")}
+
+
+def test_each_vendor_answers_the_markets_questions_as_the_import_reads_them():
+    questions = FIXTURE["export"]["questions"]
+    answer_columns = [c["id"].removeprefix("answer:") for c in FIXTURE["export"]["columns"]
+                      if c["group"] == "answers"]
+    vendors = [a["export"] for a in FIXTURE["applications"]]
+    assert all(set(v["answers"]) <= set(answer_columns) for v in vendors)
+    assert all(v["answers"] for v in vendors)
+    for question in questions:
+        held = collections.Counter()
+        for vendor in vendors:
+            answer = vendor["answers"].get(question["key"], [])
+            held.update(answer if isinstance(answer, list) else [answer])
+        # A file's cell the form does not offer is kept, as an import may keep it, and is found by
+        # no filter; an option nobody chose, a box nobody left unticked, finds nobody.
+        assert set(question["options"]) & set(held), question["label"]
+    # Every answer kept is someone's, so C11's filter finds a vendor by any of the 228.
+    selling = {option for v in vendors for option in v["answers"]["what_kinds_of_work_will_you_sell"]}
+    assert {o["label"] for o in FIXTURE["question"]["options"]} <= selling
+
+
+def test_each_vendor_has_a_discord_state_in_the_exact_counts_dealt():
+    vendors = [a["export"] for a in FIXTURE["applications"]]
+    assert collections.Counter(v["discordState"] for v in vendors) == {
+        "has_role": 180, "in_server": 70, "possible_match": 15, "not_found": 60,
+        "no_username": 24, "check_again": 10}
+    assert all(not v["discordUsername"] for v in vendors if v["discordState"] == "no_username")
+    assert all(v["discordUsername"] for v in vendors if v["discordState"] != "no_username")
+
+
+def test_a_seated_vendor_owes_for_each_seat_and_stands_in_the_exact_counts_dealt():
+    seats = collections.defaultdict(list)
+    for seat in FIXTURE["seats"]:
+        seats[seat["application"]].append(seat)
+    states = collections.Counter()
+    for application in FIXTURE["applications"]:
+        payment = application["export"]["payment"]
+        states[payment["state"]] += 1
+        if application["id"] not in seats:
+            assert payment == {"group": "", "owed": "$0.00", "paid": "$0.00",
+                               "stillOwed": "$0.00", "state": None}
+            continue
+        assert set(payment["group"].split(", ")) == {
+            s["tier"] for s in seats[application["id"]]}
+        assert payment["owed"] != "$0.00"
+    assert states["owes"] == 40 and states["over"] == 5
+    assert states["paid"] == len(seats) - 45
+    assert states[None] == 359 - len(seats)
+
+
 def test_it_holds_only_strings_numbers_and_the_shape_the_library_reads():
     assert sorted(FIXTURE) == [
         "applications", "export", "people", "question", "reviewers", "seats", "valuesToFix"]
     assert sorted(FIXTURE["applications"][0]) == [
-        "business", "email", "id", "name", "reviewer", "sells", "status"]
+        "business", "email", "export", "id", "name", "reviewer", "sells", "status"]
     assert sorted(FIXTURE["people"][0]) == ["email", "id", "name", "role"]
-    assert sorted(FIXTURE["seats"][0]) == ["application", "date", "section", "table"]
+    assert sorted(FIXTURE["seats"][0]) == ["application", "date", "section", "table", "tier"]
     json.dumps(FIXTURE)

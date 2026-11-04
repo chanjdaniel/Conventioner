@@ -5,10 +5,9 @@ import type { Component } from 'vue';
  * `component-review.md`): one group of the index each, and what each serves, by T191's F12 survey
  * places (C1-C15 for a choice among many, L1-L13 for a long list), its findings, or the screens.
  *
- * An entry is built when its file exists under `entries/`, named for its id in PascalCase with
- * `Entry` after it (`filter-toggles` is `FilterTogglesEntry.vue`): `import.meta.glob` finds it, and
- * the index links it. One not yet built is listed as coming, without a link. So adding an entry is adding its
- * file, and no other file changes.
+ * An entry's file is under `entries/`, named for its id in PascalCase with `Entry` after it
+ * (`filter-toggles` is `FilterTogglesEntry.vue`), where `import.meta.glob` finds it. So adding an
+ * entry is adding its line here and its file.
  */
 /** Where the library lives, in a development build only. */
 export const LIBRARY_PATH = '/dev/components';
@@ -36,7 +35,7 @@ export const ENTRIES: readonly LibraryEntry[] = [
     id: 'components',
     title: 'Existing components',
     summary:
-      'ReadFailed, PhaseBadge, SummaryCard, EmailAddress, VendorNameButton, RowMenu, StepHeader, AnswerValue, SignInMessage, BarLedger',
+      'ReadFailed, PhaseBadge, SummaryCard, EmailAddress, VendorNameButton, RowMenu, StepHeader, AnswerValue, SignInMessage, CodeInput, BarLedger, FileDropZone',
     serves: 'The screens that use them',
   },
   {
@@ -55,7 +54,8 @@ export const ENTRIES: readonly LibraryEntry[] = [
     id: 'filter-toggles',
     title: 'Filter toggles',
     summary: 'One row of pressed buttons, one choice or several, with counts',
-    serves: 'L2, L5, L6, L8, L12 and the 10 toggle rows',
+    serves:
+      'L2, L5, L6, L8, L12; Applications, Vendors, Payments, Attendance, Assignments, Stats and Markets',
   },
   {
     id: 'list-frame',
@@ -89,7 +89,7 @@ export const ENTRIES: readonly LibraryEntry[] = [
   },
 ];
 
-/** Each built entry's file, by its id: the files under `entries/`, loaded when opened. */
+/** The files under `entries/`, loaded when opened. */
 const FILES = import.meta.glob<{ default: Component }>('./entries/*.vue');
 
 /** The file an entry's id names: `filter-toggles` is `FilterTogglesEntry.vue`. */
@@ -100,10 +100,6 @@ export function entryFileName(id: string): string {
 
 export function entryFile(id: string): (() => Promise<{ default: Component }>) | undefined {
   return FILES[`./entries/${entryFileName(id)}`];
-}
-
-export function isBuilt(id: string): boolean {
-  return entryFile(id) !== undefined;
 }
 
 export function entryById(id: string): LibraryEntry | undefined {

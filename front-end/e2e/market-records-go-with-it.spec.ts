@@ -12,7 +12,7 @@ import { mongoEval } from './helpers/mongo';
  * its applications (each vendor's name, email and answers), its check-ins and its applicant
  * sign-in codes behind for ever, and deleting an organization left the placement trail too: records
  * describing a market nobody can reach any more. Its vendors' payments and amounts owed
- * (E44/F01/S01) go with it too.
+ * (E44/F01/S01) and their remembered sign-ins (T202) go with it too.
  */
 
 const KEPT_WITH_A_MARKET = [
@@ -20,6 +20,7 @@ const KEPT_WITH_A_MARKET = [
   'attendance',
   'history',
   'applicant_login_challenges',
+  'vendor_remembered_sign_ins',
   'payments',
   'amounts_owed',
 ];
@@ -34,6 +35,9 @@ function seedRecords(marketId: string): void {
     db.history.insertOne({ market_id: ${JSON.stringify(marketId)}, at: ${JSON.stringify(at)} });
     db.applicant_login_challenges.insertOne({ market_id: ${JSON.stringify(marketId)},
       email: 'kept@example.test', expires_at: new Date(Date.now() + 3600 * 1000) });
+    db.vendor_remembered_sign_ins.insertOne({ _id: ${JSON.stringify(`fixture-hash-${marketId}`)},
+      market_id: ${JSON.stringify(marketId)}, email: 'kept@example.test',
+      expires_at: new Date(Date.now() + 3600 * 1000), created_at: new Date() });
     db.payments.insertOne({ market_id: ${JSON.stringify(marketId)},
       vendor_email: 'kept@example.test', cents: 3500, method: 'cash', paid_on: '2099-07-01' });
     db.amounts_owed.insertOne({ market_id: ${JSON.stringify(marketId)},

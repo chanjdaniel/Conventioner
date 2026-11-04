@@ -15,7 +15,7 @@ import { build, loadConfigFromFile, mergeConfig, type InlineConfig } from 'vite'
 
 const ROOT = process.cwd();
 const ICONS = resolvePath(ROOT, 'src/components/icons');
-const LUCIDE = ['IconCloudUpload', 'IconImage', 'IconList', 'IconPencil', 'IconTrash'];
+const LUCIDE = ['IconCheck', 'IconImage', 'IconList', 'IconPencil', 'IconTrash'];
 
 /** The minified code the project's build makes of each icon, by name. */
 let bundled: Record<string, string>;

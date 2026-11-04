@@ -6,13 +6,15 @@ that "returns 401" proves nothing about an oracle - the oracle lives in the
 byte for byte, to prove the two paths are indistinguishable.
 """
 import json
-from datetime import datetime, timezone
+import threading
+from datetime import datetime, timedelta, timezone
 
 import pytest
 import time
 from types import SimpleNamespace
 
 import sign_in_limits
+from conftest import mongo_matches, reject_malformed_update
 from datatypes import Application, ApplicationStatus, ApplicationType, MarketPhase
 from market_documents import market_name_slug
 
@@ -22,7 +24,7 @@ from market_documents import market_name_slug
 class FakeMarketsCollection:
     """A minimal fake for the markets collection that supports the slug lookup.
 
-    ``published_market_by_slug`` calls ``find(query, projection)`` and expects
+    ``market_by_slug`` calls ``find(query, projection)`` and expects
     the collection to apply the filter and projection the way Mongo does.
     """
 
@@ -83,68 +85,60 @@ class FakeApplicationsCollection:
 
 
 class FakeChallengesCollection:
-    """Fake for the applicant_login_challenges collection.
+    """The ``applicant_login_challenges`` collection, read and written the way Mongo does.
 
-    Supports:
-    - ``create_index`` (for boot check)
-    - ``update_one`` with upsert (for storing challenges)
-    - ``find_one_and_update`` with atomic consume (the security-critical operation)
+    Its filters go through ``mongo_matches`` and its updates apply ``$set``, ``$inc`` and
+    ``$setOnInsert``, so a verify that counts a try or a request that numbers its code is held to
+    the very filter it sends. Each call holds a lock, as one Mongo operation on one document is
+    atomic, so a test that races two requests races them only between calls.
     """
 
     def __init__(self):
         self.docs = {}
         self.indexes = []
+        self._lock = threading.Lock()
 
     def create_index(self, keys, **kwargs):
         self.indexes.append((keys, kwargs))
         return "fake-index"
 
-    def update_one(self, query, update, upsert=False):
-        key = (query.get("market_id"), query.get("email"))
-        if key in self.docs or upsert:
-            set_values = update.get("$set", {})
-            self.docs[key] = {
-                **(self.docs.get(key, {})),
-                **set_values,
-                "market_id": set_values.get("market_id", query.get("market_id")),
-                "email": set_values.get("email", query.get("email")),
-            }
-            return SimpleNamespace(matched_count=1, modified_count=1,
-                                   upserted_id=None)
-        return SimpleNamespace(matched_count=0, modified_count=0,
-                               upserted_id=None)
-
-    def find_one_and_update(self, query, update):
-        """Atomically find an unconsumed challenge and mark it consumed.
-
-        Returns the pre-update document (Mongo default), or None if no match.
-        """
-        market_id = query.get("market_id")
-        email = query.get("email")
-        consumed_filter = query.get("consumed")
-        key = (market_id, email)
-
-        if key not in self.docs:
-            return None
-
+    def _write(self, query, update, upsert):
+        """Apply ``update`` to the one document ``query`` matches; (before, after), or None."""
+        reject_malformed_update(update)
+        key = next((k for k, doc in self.docs.items() if mongo_matches(doc, query)), None)
+        inserting = key is None
+        if inserting:
+            if not upsert:
+                return None
+            key = (query.get("market_id"), query.get("email"))
+            self.docs[key] = {"market_id": key[0], "email": key[1]}
         doc = self.docs[key]
-        if consumed_filter is False and doc.get("consumed", False):
+        before = dict(doc)
+        doc.update(update.get("$set", {}))
+        if inserting:
+            doc.update(update.get("$setOnInsert", {}))
+        for field, amount in update.get("$inc", {}).items():
+            doc[field] = doc.get(field, 0) + amount
+        return before, dict(doc)
+
+    def update_one(self, query, update, upsert=False):
+        with self._lock:
+            written = self._write(query, update, upsert)
+        matched = 0 if written is None else 1
+        return SimpleNamespace(matched_count=matched, modified_count=matched, upserted_id=None)
+
+    def find_one_and_update(self, query, update, upsert=False, return_document=False):
+        with self._lock:
+            written = self._write(query, update, upsert)
+        if written is None:
             return None
-
-        # Return the pre-update document (before marking consumed)
-        result = dict(doc)
-
-        # Apply the update
-        set_values = update.get("$set", {})
-        for k, v in set_values.items():
-            doc[k] = v
-
-        return result
+        before, after = written
+        return after if return_document else before
 
     def find_one(self, query=None):
-        """Find a challenge without consuming it. Used for tests only."""
-        for key, doc in self.docs.items():
-            if all(doc.get(k) == v for k, v in (query or {}).items()):
+        """Find a challenge without touching it. Used by the tests only."""
+        for doc in self.docs.values():
+            if mongo_matches(doc, query or {}):
                 return dict(doc)
         return None
 
@@ -185,9 +179,9 @@ def _published_market_doc(market_id="test-market-1", name="Test Market",
                           phase="applications", intake_mode="form"):
     """A minimal market document the slug lookup can resolve.
 
-    Applicant login is an applicant-intake surface, so it serves form-intake markets only. A
-    market that takes its vendors by CSV import answers here exactly as a market that does not
-    exist, which is what ``intake_mode="csv"`` is for.
+    Applicant login serves a market with a vendor page (``vendor_page_market_by_slug``). A market
+    that takes its vendors by CSV import has none before its results are published, and answers
+    here exactly as a market that does not exist, which is what ``intake_mode="csv"`` is for.
     """
     slug = market_name_slug(name)
     return {
@@ -332,239 +326,281 @@ class TestRequestCodeIndistinguishable:
         }
 
 
-# ── Verify code: oracle-free ─────────────────────────────────────────
+# ── Verify code: five tries, then spent ──────────────────────────────
+
+RETRY_BODY = {
+    "message": "That code isn't right. Check you typed the newest code and try again.",
+    "codeState": "retry",
+}
+SPENT_BODY = {
+    "message": "That code no longer works. Send yourself a new code.",
+    "codeState": "spent",
+}
+APPLICANT = "applicant@example.com"
+KNOWN_CODE = "246810"
+
+
+def _post(handler, path, payload):
+    from flask import Flask
+
+    with Flask(__name__).test_request_context(path, method="POST", json=payload):
+        return handler()
+
+
+def _request_code(mod, email=APPLICANT, slug="test-market"):
+    return _post(lambda: mod.request_login_code(slug),
+                 f"/public/markets/{slug}/applicant-login/request-code", {"email": email})
+
+
+def _verify(mod, code, email=APPLICANT, slug="test-market"):
+    payload = {"email": email, "code": code}
+    return _post(lambda: mod.verify_login_code(slug),
+                 f"/public/markets/{slug}/applicant-login/verify-code", payload)
+
+
+def _answer(result):
+    """The status and the exact bytes a caller reads."""
+    body, status = result
+    return status, body.get_data()
+
+
+@pytest.fixture
+def known_code(applicant_auth_module, monkeypatch):
+    """Every code this test asks for is ``KNOWN_CODE``, as its email would say."""
+    monkeypatch.setattr(applicant_auth_module, "_generate_code", lambda: KNOWN_CODE)
+    return KNOWN_CODE
+
+
+class TestACodeTakesFiveTries:
+    """A code lasts ten minutes and takes five tries (T202, T191 F22).
+
+    One wrong try used to burn the code, while the page went on offering "Sign in" for it, so a
+    vendor who typed the older of two codes, or slipped once, could never pass with the right one.
+    """
+
+    def test_a_wrong_code_says_so_and_the_right_one_then_signs_in(
+        self, applicant_auth_module, known_code
+    ):
+        _request_code(applicant_auth_module)
+
+        body, status = _verify(applicant_auth_module, "000000")
+        assert (status, body.get_json()) == (401, RETRY_BODY)
+
+        body, status = _verify(applicant_auth_module, known_code)
+        assert status == 200
+        assert body.get_json()["success"] is True
+
+    def test_four_wrong_tries_answer_retry_and_the_fifth_spent(
+        self, applicant_auth_module, known_code
+    ):
+        _request_code(applicant_auth_module)
+
+        for wrong in ("000001", "000002", "000003", "000004"):
+            body, status = _verify(applicant_auth_module, wrong)
+            assert (status, body.get_json()) == (401, RETRY_BODY)
+        body, status = _verify(applicant_auth_module, "000005")
+        assert (status, body.get_json()) == (401, SPENT_BODY)
+
+    def test_the_right_code_after_the_fifth_wrong_try_is_refused(
+        self, applicant_auth_module, test_db, known_code
+    ):
+        _request_code(applicant_auth_module)
+        for wrong in ("000001", "000002", "000003", "000004", "000005"):
+            _verify(applicant_auth_module, wrong)
+
+        body, status = _verify(applicant_auth_module, known_code)
+
+        assert (status, body.get_json()) == (401, SPENT_BODY)
+        challenge = test_db.challenges.find_one({"email": APPLICANT})
+        assert challenge["consumed"] is True
+        assert challenge["attempts"] == 5
+
+    def test_the_right_code_on_the_fifth_try_signs_in(self, applicant_auth_module, known_code):
+        _request_code(applicant_auth_module)
+        for wrong in ("000001", "000002", "000003", "000004"):
+            _verify(applicant_auth_module, wrong)
+
+        assert _verify(applicant_auth_module, known_code)[1] == 200
+
+    def test_a_right_code_signs_in_once(self, applicant_auth_module, known_code):
+        _request_code(applicant_auth_module)
+        assert _verify(applicant_auth_module, known_code)[1] == 200
+
+        body, status = _verify(applicant_auth_module, known_code)
+
+        assert (status, body.get_json()) == (401, SPENT_BODY)
+
+    def test_a_right_code_sent_twice_at_once_signs_in_once(
+        self, applicant_auth_module, known_code, monkeypatch
+    ):
+        """Both tries pass the count and the comparison before either marks the code used.
+
+        Each is counted by one atomic update, so both find the challenge live; what keeps the
+        code to one sign-in is the conditional write that marks it consumed, which only one wins.
+        """
+        _request_code(applicant_auth_module)
+        both_compared = threading.Barrier(2, timeout=5)
+        verify_code = applicant_auth_module._verify_code
+
+        def compare_then_wait(stored, candidate):
+            matched = verify_code(stored, candidate)
+            both_compared.wait()
+            return matched
+
+        monkeypatch.setattr(applicant_auth_module, "_verify_code", compare_then_wait)
+        statuses = []
+
+        def sign_in():
+            statuses.append(_verify(applicant_auth_module, known_code)[1])
+
+        threads = [threading.Thread(target=sign_in) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert sorted(statuses) == [200, 401]
+
+    def test_an_expired_code_is_spent(self, applicant_auth_module, test_db, known_code):
+        _request_code(applicant_auth_module)
+        test_db.challenges.update_one(
+            {"email": APPLICANT},
+            {"$set": {"expires_at": datetime.now(timezone.utc) - timedelta(seconds=1)}},
+        )
+
+        body, status = _verify(applicant_auth_module, known_code)
+
+        assert (status, body.get_json()) == (401, SPENT_BODY)
+
+    def test_a_code_lasts_ten_minutes(self, applicant_auth_module, test_db):
+        before = datetime.now(timezone.utc)
+        _request_code(applicant_auth_module)
+
+        expires_at = test_db.challenges.find_one({"email": APPLICANT})["expires_at"]
+
+        assert expires_at - before >= timedelta(minutes=10)
+        assert expires_at - before < timedelta(minutes=10, seconds=5)
+
+    def test_the_challenge_counts_its_tries_and_numbers_its_codes(
+        self, applicant_auth_module, test_db
+    ):
+        _request_code(applicant_auth_module)
+        first = test_db.challenges.find_one({"email": APPLICANT})
+        _verify(applicant_auth_module, "000000")
+        _verify(applicant_auth_module, "000001")
+        tried = test_db.challenges.find_one({"email": APPLICANT})
+        _request_code(applicant_auth_module)
+        second = test_db.challenges.find_one({"email": APPLICANT})
+
+        assert (first["attempts"], first["sequence"]) == (0, 1)
+        assert tried["attempts"] == 2
+        assert (second["attempts"], second["sequence"], second["consumed"]) == (0, 2, False)
+
+    def test_a_new_code_ends_the_old_one(self, applicant_auth_module, monkeypatch):
+        """The older of two emails' codes is a wrong code now, and says to type the newest."""
+        codes = iter(["111111", "222222"])
+        monkeypatch.setattr(applicant_auth_module, "_generate_code", lambda: next(codes))
+        _request_code(applicant_auth_module)
+        _request_code(applicant_auth_module)
+
+        body, status = _verify(applicant_auth_module, "111111")
+        assert (status, body.get_json()) == (401, RETRY_BODY)
+        assert _verify(applicant_auth_module, "222222")[1] == 200
+
+    def test_a_used_up_code_is_followed_by_a_new_one_that_signs_in(
+        self, applicant_auth_module, monkeypatch
+    ):
+        codes = iter(["111111", "222222"])
+        monkeypatch.setattr(applicant_auth_module, "_generate_code", lambda: next(codes))
+        _request_code(applicant_auth_module)
+        for wrong in ("000001", "000002", "000003", "000004", "000005"):
+            _verify(applicant_auth_module, wrong)
+
+        _request_code(applicant_auth_module)
+
+        assert _verify(applicant_auth_module, "222222")[1] == 200
 
 
 class TestVerifyCodeIndistinguishable:
-    """Every failure branch must collapse to one observable 401 response."""
+    """Every way a code cannot pass answers one 401, byte for byte.
 
-    CANONICAL_FAILURE = {"message": "Invalid or expired code."}
+    "Retry" is the one other answer, and it says only that someone asked for a code for this
+    address in the last ten minutes, which anyone can make true by asking: it says nothing of
+    whether the address applied, so the login ruling holds.
+    """
 
-    def test_unknown_address_produces_canonical_failure(
-        self, applicant_auth_module, monkeypatch
+    def test_every_way_a_code_cannot_pass_answers_the_same_bytes(
+        self, applicant_auth_module, test_db, known_code, monkeypatch
     ):
-        """An email that has never requested a code gets the same 401."""
-        from flask import Flask
-        app = Flask(__name__)
+        answers = {}
 
-        with app.test_request_context(
-            "/public/markets/test-market/verify-code",
-            method="POST",
-            json={"email": "never-requested@example.com", "code": "123456"},
-        ):
-            result = applicant_auth_module.verify_login_code("test-market")
-        body, status = result
+        _request_code(applicant_auth_module, email="tried@example.com")
+        for wrong in ("000001", "000002", "000003", "000004"):
+            _verify(applicant_auth_module, wrong, email="tried@example.com")
+        answers["fifth wrong try"] = _answer(
+            _verify(applicant_auth_module, "000005", email="tried@example.com"))
 
-        assert status == 401
-        assert body.get_json() == self.CANONICAL_FAILURE
-
-    def test_wrong_code_produces_canonical_failure(
-        self, applicant_auth_module, test_db, monkeypatch
-    ):
-        """A wrong code for an address that DID request a code gets the same 401."""
-        # First, request a code for a known applicant to create a challenge
-        from flask import Flask
-        app = Flask(__name__)
-
-        with app.test_request_context(
-            "/public/markets/test-market/request-code",
-            method="POST",
-            json={"email": "applicant@example.com"},
-        ):
-            applicant_auth_module.request_login_code("test-market")
-
-        # Now try to verify with a wrong code
-        with app.test_request_context(
-            "/public/markets/test-market/verify-code",
-            method="POST",
-            json={"email": "applicant@example.com", "code": "000000"},
-        ):
-            result = applicant_auth_module.verify_login_code("test-market")
-        body, status = result
-
-        assert status == 401
-        assert body.get_json() == self.CANONICAL_FAILURE, (
-            f"Wrong code response: {body.get_json()}"
-        )
-
-    def test_all_failure_branches_produce_identical_responses(
-        self, applicant_auth_module, test_db, monkeypatch
-    ):
-        """Enumerate every failure branch and prove they all return the same bytes."""
-        from flask import Flask
-        app = Flask(__name__)
-
-        # Seed: create a challenge for a known applicant
-        with app.test_request_context(
-            "/public/markets/test-market/request-code",
-            method="POST",
-            json={"email": "applicant@example.com"},
-        ):
-            applicant_auth_module.request_login_code("test-market")
-
-        # Get the real code for later consumption
-        challenge = test_db.challenges.find_one(
-            {"market_id": "test-market-1", "email": "applicant@example.com"}
-        )
-
-        # Branch 1: unknown address (never requested a code)
-        with app.test_request_context(
-            "/public/markets/test-market/verify-code",
-            method="POST",
-            json={"email": "stranger@example.com", "code": "123456"},
-        ):
-            r1 = applicant_auth_module.verify_login_code("test-market")
-
-        # Branch 2: wrong code for known address (consumes it)
-        with app.test_request_context(
-            "/public/markets/test-market/verify-code",
-            method="POST",
-            json={"email": "applicant@example.com", "code": "000000"},
-        ):
-            r2 = applicant_auth_module.verify_login_code("test-market")
-
-        # Branch 3: already consumed (replay attempt)
-        with app.test_request_context(
-            "/public/markets/test-market/verify-code",
-            method="POST",
-            json={"email": "applicant@example.com", "code": "123456"},
-        ):
-            r3 = applicant_auth_module.verify_login_code("test-market")
-
-        # All three must be identical
-        all_responses = [r1, r2, r3]
-        for i, (body, status) in enumerate(all_responses):
-            assert status == 401, f"Branch {i+1} status: {status}"
-            assert body.get_json() == self.CANONICAL_FAILURE, (
-                f"Branch {i+1} differs: {body.get_json()}"
-            )
-
-        # All response bodies must be byte-identical
-        bodies = [json.dumps(r[0].get_json(), sort_keys=True) for r in all_responses]
-        assert len(set(bodies)) == 1, (
-            f"Response bodies differ across branches: {bodies}"
-        )
-
-    def test_nonexistent_market_produces_canonical_failure(
-        self, applicant_auth_module, monkeypatch
-    ):
-        """A slug that resolves to no market gets the same 401."""
-        from flask import Flask
-        app = Flask(__name__)
-
-        with app.test_request_context(
-            "/public/markets/no-such-market/verify-code",
-            method="POST",
-            json={"email": "someone@example.com", "code": "123456"},
-        ):
-            result = applicant_auth_module.verify_login_code("no-such-market")
-        body, status = result
-
-        assert status == 401
-        assert body.get_json() == self.CANONICAL_FAILURE
-
-
-# ── One attempt per code ─────────────────────────────────────────────
-
-
-class TestOneAttemptPerCode:
-    """A code is consumed by a single verification attempt, right or wrong."""
-
-    def test_code_cannot_be_replayed_after_wrong_attempt(
-        self, applicant_auth_module, test_db, monkeypatch
-    ):
-        """After one wrong attempt, the correct code should also fail."""
-        from flask import Flask
-        app = Flask(__name__)
-
-        # Request a code
-        with app.test_request_context(
-            "/public/markets/test-market/request-code",
-            method="POST",
-            json={"email": "applicant@example.com"},
-        ):
-            applicant_auth_module.request_login_code("test-market")
-
-        # Get the real code from the challenge
-        challenge = test_db.challenges.find_one(
-            {"market_id": "test-market-1", "email": "applicant@example.com"}
-        )
-        assert challenge is not None, "Challenge was not created"
-        assert challenge.get("consumed") is False
-
-        # First attempt: wrong code (consumes the challenge)
-        with app.test_request_context(
-            "/public/markets/test-market/verify-code",
-            method="POST",
-            json={"email": "applicant@example.com", "code": "000000"},
-        ):
-            r1 = applicant_auth_module.verify_login_code("test-market")
-        assert r1[1] == 401
-
-        # Verify challenge is now consumed
-        challenge_after = test_db.challenges.find_one(
-            {"market_id": "test-market-1", "email": "applicant@example.com"}
-        )
-        assert challenge_after.get("consumed") is True, (
-            "Challenge was not consumed after wrong attempt"
-        )
-
-        # Second attempt: even the correct code should fail (already consumed)
-        with app.test_request_context(
-            "/public/markets/test-market/verify-code",
-            method="POST",
-            json={"email": "applicant@example.com", "code": challenge.get("code_hash", "xxx")},
-        ):
-            r2 = applicant_auth_module.verify_login_code("test-market")
-        assert r2[1] == 401
-
-    def test_code_cannot_be_replayed_after_successful_attempt(
-        self, applicant_auth_module, test_db, monkeypatch
-    ):
-        """After one successful attempt, the code cannot be reused."""
-        from flask import Flask
-        app = Flask(__name__)
-
-        # We need to know the code to test success, so we use a lower-level
-        # approach: store a challenge with a known code hash.
-
-        import hashlib, secrets
-        code = "654321"
-        salt = secrets.token_hex(16)
-        code_hash = f"{salt}:{hashlib.sha256(f'{salt}:{code}'.encode()).hexdigest()}"
-
+        _request_code(applicant_auth_module, email="late@example.com")
         test_db.challenges.update_one(
-            {"market_id": "test-market-1", "email": "applicant@example.com"},
-            {"$set": {
-                "market_id": "test-market-1",
-                "email": "applicant@example.com",
-                "code_hash": code_hash,
-                "expires_at": datetime(2099, 1, 1, tzinfo=timezone.utc),
-                "consumed": False,
-                "created_at": "2026-01-01T00:00:00Z",
-            }},
-            upsert=True,
+            {"email": "late@example.com"},
+            {"$set": {"expires_at": datetime.now(timezone.utc) - timedelta(seconds=1)}},
         )
+        answers["expired"] = _answer(
+            _verify(applicant_auth_module, known_code, email="late@example.com"))
 
-        # First attempt: correct code → success
-        with app.test_request_context(
-            "/public/markets/test-market/verify-code",
-            method="POST",
-            json={"email": "applicant@example.com", "code": code},
-        ):
-            r1 = applicant_auth_module.verify_login_code("test-market")
-        assert r1[1] == 200
-        assert r1[0].get_json()["success"] is True
+        _request_code(applicant_auth_module, email="used@example.com")
+        _verify(applicant_auth_module, known_code, email="used@example.com")
+        answers["consumed"] = _answer(
+            _verify(applicant_auth_module, known_code, email="used@example.com"))
 
-        # Second attempt: same correct code → failure (already consumed)
-        with app.test_request_context(
-            "/public/markets/test-market/verify-code",
-            method="POST",
-            json={"email": "applicant@example.com", "code": code},
-        ):
-            r2 = applicant_auth_module.verify_login_code("test-market")
-        assert r2[1] == 401
-        assert r2[0].get_json() == {"message": "Invalid or expired code."}
+        answers["never asked"] = _answer(
+            _verify(applicant_auth_module, known_code, email="stranger@example.com"))
+        answers["no address"] = _answer(_post(
+            lambda: applicant_auth_module.verify_login_code("test-market"),
+            "/public/markets/test-market/applicant-login/verify-code", {"code": known_code}))
+        answers["no code"] = _answer(_post(
+            lambda: applicant_auth_module.verify_login_code("test-market"),
+            "/public/markets/test-market/applicant-login/verify-code", {"email": APPLICANT}))
+        answers["a code that is not a string"] = _answer(_post(
+            lambda: applicant_auth_module.verify_login_code("test-market"),
+            "/public/markets/test-market/applicant-login/verify-code",
+            {"email": APPLICANT, "code": {"$ne": ""}}))
+        answers["unknown market"] = _answer(
+            _verify(applicant_auth_module, known_code, slug="no-such-market"))
+
+        draft = _published_market_doc("draft-market", "Draft Market", phase="draft")
+        test_db.markets.docs.append(draft)
+        answers["draft market"] = _answer(
+            _verify(applicant_auth_module, known_code, slug=draft["slug"]))
+        imported = _published_market_doc("csv-market", "Imported Market", intake_mode="csv")
+        test_db.markets.docs.append(imported)
+        answers["market that imports its vendors, before its results"] = _answer(
+            _verify(applicant_auth_module, known_code, slug=imported["slug"]))
+
+        for case, (status, body) in answers.items():
+            assert (status, json.loads(body)) == (401, SPENT_BODY), case
+        assert len(set(answers.values())) == 1, answers
+
+    def test_a_retry_reads_alike_for_an_applicant_and_a_stranger(self, applicant_auth_module):
+        """Whoever asked for a code reads the same "retry", applied or not."""
+        _request_code(applicant_auth_module, email=APPLICANT)
+        _request_code(applicant_auth_module, email="stranger@example.com")
+
+        applicant = _answer(_verify(applicant_auth_module, "000000", email=APPLICANT))
+        stranger = _answer(_verify(applicant_auth_module, "000000", email="stranger@example.com"))
+
+        assert applicant == stranger
+        assert json.loads(applicant[1]) == RETRY_BODY
+
+    def test_the_answer_to_asking_for_a_code_never_carries_its_number(
+        self, applicant_auth_module
+    ):
+        """The number would say how often someone asked for that address."""
+        first = _answer(_request_code(applicant_auth_module))
+        second = _answer(_request_code(applicant_auth_module))
+        stranger = _answer(_request_code(applicant_auth_module, email="stranger@example.com"))
+
+        assert first == second == stranger
 
 
 # ── Cross-market isolation ───────────────────────────────────────────
@@ -692,39 +728,11 @@ class TestD9LockPreservation:
 class TestSuccessfulVerification:
     """The happy path: a real applicant requests a code and verifies it."""
 
-    def test_known_applicant_can_verify_code(
-        self, applicant_auth_module, test_db, monkeypatch
-    ):
+    def test_known_applicant_can_verify_code(self, applicant_auth_module, known_code):
         """An applicant who requests a code can verify it successfully."""
-        from flask import Flask
-        import hashlib, secrets
-        app = Flask(__name__)
+        _request_code(applicant_auth_module)
 
-        # Store a known challenge with a known code
-        code = "987654"
-        salt = secrets.token_hex(16)
-        code_hash = f"{salt}:{hashlib.sha256(f'{salt}:{code}'.encode()).hexdigest()}"
-
-        test_db.challenges.update_one(
-            {"market_id": "test-market-1", "email": "applicant@example.com"},
-            {"$set": {
-                "market_id": "test-market-1",
-                "email": "applicant@example.com",
-                "code_hash": code_hash,
-                "expires_at": datetime(2099, 1, 1, tzinfo=timezone.utc),
-                "consumed": False,
-                "created_at": "2026-01-01T00:00:00Z",
-            }},
-            upsert=True,
-        )
-
-        with app.test_request_context(
-            "/public/markets/test-market/verify-code",
-            method="POST",
-            json={"email": "applicant@example.com", "code": code},
-        ):
-            result = applicant_auth_module.verify_login_code("test-market")
-        body, status = result
+        body, status = _verify(applicant_auth_module, known_code)
 
         assert status == 200
         body_json = body.get_json()
@@ -889,11 +897,10 @@ class TestTheCodeIsSentWithinTheRequest:
         This asserted the opposite - no email for an unknown address - which is the rule that kept
         every new vendor out. Sending to every address also makes the work identical for all."""
         from flask import Flask
-        import time
 
         call_recorded = []
 
-        def record_send(email, code, market_name, market_id):
+        def record_send(email, code, market_name, market_id, sequence):
             call_recorded.append(True)
 
         monkeypatch.setattr(applicant_auth_module, "_send_code_email", record_send)
@@ -920,7 +927,8 @@ class TestTheCodeEmail:
     sign-in.
     """
 
-    def test_it_links_to_the_markets_own_sign_in_page(self, monkeypatch):
+    def test_it_links_to_the_markets_own_vendor_page(self, monkeypatch):
+        """The link a vendor receives is the one they keep: the market's page (ADR 0022)."""
         # Not the module fixture: it replaces the very function under test.
         import resend
         from api import applicant_auth as applicant_auth_module
@@ -934,12 +942,54 @@ class TestTheCodeEmail:
         )
 
         assert applicant_auth_module._send_code_email(
-            "vendor@example.com", "123456", "Harbour Night Market", "harbour-night-market"
+            "vendor@example.com", "123456", "Harbour Night Market", "harbour-night-market", 1
         )
 
-        assert "https://app.test/harbour-night-market/applicant-login" in sent[0]["text"]
-        assert "/markets/" not in sent[0]["text"]
-        assert sent[0]["subject"] == "Your sign-in code for Harbour Night Market"
+        for body in (sent[0]["html"], sent[0]["text"]):
+            assert "https://app.test/harbour-night-market\"" in body or (
+                "https://app.test/harbour-night-market\n" in body)
+            assert "your page for" in body
+            assert "your application" not in body.lower()
+            assert "/markets/" not in body
+
+    def test_each_codes_subject_carries_its_own_number_and_never_the_code(self, monkeypatch):
+        """A mail client threads emails by subject, and buried the newest code under the old one.
+
+        The number in each subject keeps them apart, and the body says only the newest works.
+        """
+        import resend
+        from api import applicant_auth as applicant_auth_module
+
+        sent = []
+        monkeypatch.setattr(applicant_auth_module, "_email_disabled", lambda: False)
+        monkeypatch.setattr(applicant_auth_module, "ready_mailer", lambda: True)
+        monkeypatch.setattr(applicant_auth_module, "frontend_url", lambda: "https://app.test")
+        monkeypatch.setattr(
+            resend.Emails, "send", lambda payload: sent.append(payload) or SimpleNamespace(id="m1")
+        )
+
+        applicant_auth_module._send_code_email(
+            "vendor@example.com", "583920", "Harbour Night Market", "harbour-night-market", 3
+        )
+
+        assert sent[0]["subject"] == "Your sign-in code for Harbour Night Market (#3)"
+        for body in (sent[0]["html"], sent[0]["text"]):
+            assert "Only the newest code works." in body
+            assert "10 minutes" in body
+            assert "only be used once" not in body
+
+    def test_asking_again_numbers_the_next_email(self, applicant_auth_module, monkeypatch):
+        numbers = []
+        monkeypatch.setattr(
+            applicant_auth_module, "_send_code_email",
+            lambda email, code, name, slug, sequence: numbers.append(sequence) or True,
+        )
+
+        _request_code(applicant_auth_module)
+        _request_code(applicant_auth_module)
+        _request_code(applicant_auth_module, email="someone-else@example.com")
+
+        assert numbers == [1, 2, 1]
 
 
 # ── Rate limits ──────────────────────────────────────────────────────
@@ -1012,6 +1062,13 @@ class TestSignInIsBounded:
             self._request(applicant_auth_module, email="Applicant@Example.com ",
                           caller=f"198.51.100.{i}")
         self._refused(self._request(applicant_auth_module, caller="198.51.100.99"))
+
+    def test_a_venues_shared_address_may_ask_for_300_codes_in_15_minutes(self):
+        """Vendors on one venue's wifi share a caller, so it is allowed far more than an address."""
+        assert sign_in_limits.REQUEST_CODE_PER_CALLER == sign_in_limits.SignInLimit(
+            "request-code:caller", attempts=300, window=timedelta(minutes=15),
+        )
+        assert sign_in_limits.REQUEST_CODE_PER_ADDRESS.attempts == 5
 
     def test_asking_for_codes_for_many_addresses_from_one_caller_is_refused(
         self, applicant_auth_module, monkeypatch
@@ -1088,6 +1145,13 @@ class TestSignInIsBounded:
         assert "Too many sign-in attempts" in body["message"]
         challenge = test_db.challenges.find_one({"email": "applicant@example.com"})
         assert challenge["consumed"] is False
+
+    def test_a_venues_shared_address_may_enter_300_codes_in_15_minutes(self):
+        """Per caller only: an address may still try ten, which is what bounds a guess at a code."""
+        assert sign_in_limits.VERIFY_CODE_PER_CALLER == sign_in_limits.SignInLimit(
+            "verify-code:caller", attempts=300, window=timedelta(minutes=15),
+        )
+        assert sign_in_limits.VERIFY_CODE_PER_ADDRESS.attempts == 10
 
     def test_guessing_codes_for_many_addresses_from_one_caller_is_refused(
         self, applicant_auth_module

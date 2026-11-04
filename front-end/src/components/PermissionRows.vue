@@ -9,6 +9,7 @@
  */
 import { computed } from 'vue';
 import { MarketRole, type PermissionTableRow } from '@/assets/types/datatypes';
+import { openInsteadOfStepping } from '@/utils/openInsteadOfStepping';
 import {
   WHO_MAY_CHOICES,
   groupedRows,
@@ -38,34 +39,22 @@ function chose(row: PermissionTableRow, select: HTMLSelectElement) {
   const role = select.value as MarketRole;
   if (role !== row.role) emit('ask', row, role, select);
 }
-
-/** The keys that step a closed select's value, each step its own change and so its own question. */
-const STEPPING_KEYS = new Set(['ArrowDown', 'ArrowUp', 'Home', 'End', 'PageDown', 'PageUp']);
-
-/**
- * A closed select steps its value on these keys, and every step is a change, so a keyboard user
- * met a confirmation at the first option past their own (T114's review). They open the list
- * instead, where the keys move among the options and only Enter chooses.
- */
-function openInsteadOfStepping(event: KeyboardEvent) {
-  if (event.altKey || !STEPPING_KEYS.has(event.key)) return;
-  event.preventDefault();
-  const select = event.currentTarget as HTMLSelectElement & { showPicker?: () => void };
-  try {
-    select.showPicker?.();
-  } catch {
-    // Refused without a user gesture somewhere: Space and Alt+ArrowDown still open the list.
-  }
-}
 </script>
 
 <template>
-  <div v-for="{ group, rows } in groups" :key="group">
-    <h4 class="subheading">{{ group }}</h4>
+  <div
+    v-for="{ group, rows } in groups"
+    :key="group"
+    class="group"
+    :data-testid="`${testid}-group`"
+  >
+    <h4 class="subheading" :data-testid="`${testid}-group-title`">{{ group }}</h4>
     <ul class="rows">
       <li v-for="row in rows" :key="row.id" class="row" :data-testid="`${testid}-row-${row.id}`">
         <div class="text">
-          <span :id="`${testid}-${row.id}`" class="label">{{ row.label }}</span>
+          <span :id="`${testid}-${row.id}`" class="label" :data-testid="`${testid}-label`">
+            {{ row.label }}
+          </span>
           <span class="caption" :data-testid="`${testid}-source`">
             {{ row.fixed ? 'Always' : sourceOf(row) }}
           </span>
@@ -99,10 +88,15 @@ function openInsteadOfStepping(event: KeyboardEvent) {
 
 <style scoped>
 .subheading {
-  margin: var(--space-4) 0 var(--space-2);
+  margin: var(--space-4) 0 var(--space-1);
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--mm-black);
+}
+
+/* A title belongs to the rows beneath it. The first keeps its margin, under the section's heading. */
+.group + .group .subheading {
+  margin-top: var(--space-6);
 }
 
 .rows {

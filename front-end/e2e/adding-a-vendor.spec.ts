@@ -1,4 +1,4 @@
-import { test, expect, TEST_USER, BACKEND_URL, ApplicantLoginPage } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
 import { createApplicantLoginChallenge } from './helpers/seedApplicantMarket';
 import { TablesPage } from './pages/TablesPage';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
@@ -81,13 +81,10 @@ test('a walk-in is added on market day, seated, and checked in at the door', asy
 
   // On a market vendors apply on, they sign in and read their table like anyone.
   const vendorPage = await page.context().newPage();
-  const login = new ApplicantLoginPage(vendorPage);
-  await vendorPage.goto(`/${marketSlug}/applicant-login`);
+  const login = new VendorPage(vendorPage);
+  await vendorPage.goto(`/${marketSlug}`);
   await login.requestCode('walk.in@example.com');
   createApplicantLoginChallenge(marketId, 'walk.in@example.com', '135790');
   await login.enterCode('135790');
-  await vendorPage.waitForURL(new RegExp(`/${marketSlug}/applicant/dashboard`));
-  await expect(vendorPage.getByTestId('applicant-dashboard-status')).toContainText(
-    'You have a table',
-  );
+  await expect(login.status).toContainText('You have a table');
 });

@@ -14,7 +14,9 @@ import { computed, ref } from 'vue';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import AnswerValue from '@/components/AnswerValue.vue';
 import BarLedger from '@/components/BarLedger.vue';
+import CodeInput from '@/components/CodeInput.vue';
 import EmailAddress from '@/components/EmailAddress.vue';
+import FileDropZone from '@/components/FileDropZone.vue';
 import PhaseBadge from '@/components/PhaseBadge.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
 import RowMenu from '@/components/RowMenu.vue';
@@ -157,6 +159,10 @@ const NOTICES: { label: string; notice: SignInNotice | null; sending?: boolean }
 ];
 const resent = ref(0);
 
+// CodeInput: the emailed code's field, empty and as a vendor has typed it.
+const noCode = ref('');
+const typedCode = ref('602914');
+
 // BarLedger: the applications by status, each row leading to them, and the question's answers.
 const statusCounts = new Map<string, number>();
 for (const application of applications) {
@@ -180,6 +186,10 @@ const byAnswer = ledgerRows(
   applications.length,
 );
 const answerCount = question.options.length;
+
+// FileDropZone: it judges no file, so the line under it only says which one it took.
+const FILES_TAKEN = '.csv,text/csv';
+const taken = ref('');
 </script>
 
 <template>
@@ -411,6 +421,24 @@ const answerCount = question.options.length;
   </LibrarySection>
 
   <LibrarySection
+    title="CodeInput"
+    about="Used on: Sign in, its code form; a market's vendor page, its code step"
+  >
+    <LibraryPanel label="Empty: its placeholder clears on focus">
+      <div class="library-stack">
+        <label class="field-label" for="library-code-empty">Sign-in code</label>
+        <CodeInput id="library-code-empty" v-model="noCode" />
+      </div>
+    </LibraryPanel>
+    <LibraryPanel label="Six digits, centred on the box">
+      <div class="library-stack">
+        <label class="field-label" for="library-code-filled">Sign-in code</label>
+        <CodeInput id="library-code-filled" v-model="typedCode" />
+      </div>
+    </LibraryPanel>
+  </LibrarySection>
+
+  <LibrarySection
     title="BarLedger"
     about="Used on: the Stats tab, the Assignments page's statistics"
   >
@@ -443,6 +471,67 @@ const answerCount = question.options.length;
         :rows="byAnswer"
         testid="library-answer"
         whole="applications"
+      />
+    </LibraryPanel>
+  </LibrarySection>
+
+  <LibrarySection
+    title="FileDropZone"
+    about="Used on: the import, the start from a Google Form, the floorplan's upload step"
+  >
+    <LibraryPanel label="Takes a file, with a hint of what it takes">
+      <FileDropZone
+        class="library-full"
+        :accept="FILES_TAKEN"
+        label="Drop your CSV here, or choose a file"
+        hint="Any form tool or spreadsheet that exports CSV will do."
+        testid="library-zone"
+        input-testid="library-zone-input"
+        @file="taken = $event.name"
+      />
+    </LibraryPanel>
+    <LibraryPanel label="File taken">
+      <ReadOut label="Took" :value="taken" />
+    </LibraryPanel>
+    <LibraryPanel label="No hint">
+      <FileDropZone
+        class="library-full"
+        :accept="FILES_TAKEN"
+        label="Drop your CSV here, or choose a file"
+        testid="library-zone-bare"
+        input-testid="library-zone-bare-input"
+      />
+    </LibraryPanel>
+    <LibraryPanel label="Waiting: reading a file, it takes no other (disabled)">
+      <FileDropZone
+        class="library-full"
+        :accept="FILES_TAKEN"
+        label="Drop your CSV here, or choose a file"
+        hint="Any form tool or spreadsheet that exports CSV will do."
+        busy
+        testid="library-zone-busy"
+        input-testid="library-zone-busy-input"
+      />
+    </LibraryPanel>
+    <LibraryPanel label="A file over it, held">
+      <FileDropZone
+        class="library-full"
+        data-dragging="true"
+        :accept="FILES_TAKEN"
+        label="Drop your CSV here, or choose a file"
+        hint="Any form tool or spreadsheet that exports CSV will do."
+        testid="library-zone-over"
+        input-testid="library-zone-over-input"
+      />
+    </LibraryPanel>
+    <LibraryPanel label="Keyboard focus on its hidden input, held">
+      <FileDropZone
+        class="library-full library-zone-focused"
+        :accept="FILES_TAKEN"
+        label="Drop your CSV here, or choose a file"
+        hint="Any form tool or spreadsheet that exports CSV will do."
+        testid="library-zone-focused"
+        input-testid="library-zone-focused-input"
       />
     </LibraryPanel>
   </LibrarySection>
@@ -482,6 +571,11 @@ const answerCount = question.options.length;
 
 .library-full {
   width: 100%;
+}
+
+/* Copies what `FileDropZone` draws while its hidden input has keyboard focus. */
+.library-zone-focused {
+  box-shadow: var(--focus-halo);
 }
 
 .library-text {

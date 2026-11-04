@@ -1,4 +1,5 @@
 import type { APIRequestContext } from '@playwright/test';
+import { decideReviewSetup } from './decideReviewSetup';
 import { savePlan } from './savePlan';
 import {
   approvedVendorApplication,
@@ -56,6 +57,25 @@ export interface PublishedSeedResult extends SeedResult {
 /**
  * Replicate the front-end marketNameToKebabSlug logic for URL-safe slugs.
  */
+/**
+ * Publish a market's results, as its owner, in Assignment with a current run stored. Every market
+ * publishes them before it may enter `market_days`, on either path (E36/F04/S02, ADR 0022), and
+ * after it the run is refused, so a spec publishes only once it has the run it wants.
+ */
+export async function publishResults(
+  request: APIRequestContext,
+  baseURL: string,
+  email: string,
+  marketId: string,
+): Promise<void> {
+  const res = await request.post(`${baseURL}/markets/${marketId}/publish-results`, {
+    headers: { 'X-Owner-Email': email },
+  });
+  if (!res.ok()) {
+    throw new Error(`Publishing results failed: ${res.status()} ${await res.text()}`);
+  }
+}
+
 export function marketNameToSlug(name: string): string {
   return name
     .trim()
@@ -147,9 +167,10 @@ export async function ensureOrganizationAdmin(
   if (made.ok()) return;
   const orgs = await request.get(`${baseURL}/organizations`);
   const { organizations = [] } = (await orgs.json()) as {
-    organizations?: { id: string; adminEmails?: string[] }[];
+    organizations?: { id: string; adminPeople?: { email: string }[] }[];
   };
-  if (!organizations.find((o) => o.id === orgId)?.adminEmails?.includes(email)) {
+  const admins = organizations.find((o) => o.id === orgId)?.adminPeople ?? [];
+  if (!admins.some((admin) => admin.email === email)) {
     throw new Error(`Making ${email} an organization admin failed: ${await made.text()}`);
   }
 }
@@ -288,6 +309,8 @@ export async function seedMarketWithVendors(
   if (!formRes.ok()) {
     throw new Error(`Application form save failed: ${formRes.status()} ${await formRes.text()}`);
   }
+  // And its review setup decided (T206): Review waits on it.
+  await decideReviewSetup(request, baseURL, marketId);
 
   // Step 3: Seed the vendors the assignment engine will place. They are approved applications,
   // which is what a vendor is; this used to be a fabricated CSV upload because the solver read a
@@ -305,14 +328,14 @@ export async function seedMarketWithVendors(
  *
  * Unlike seedMarketWithVendors(), this also configures the market's
  * setupObject (dates, sections, tiers, locations) and publishes the market by
- * walking it through the transition endpoint to `market_days`, the phase the
- * check-in page serves, so the check-in API and vendor/table views work.
+ * walking it through the transition endpoint to `market_days`, the phase its vendors check in on
+ * their vendor page, so check-in and the vendor and table views work.
  *
  * Vendors are seeded as approved applications, which is what the solver reads. They used to be
  * a fabricated CSV upload, back when the solver read a separate source_data collection.
  *
  * @returns PublishedSeedResult with marketSlug for navigating to
- *          the public check-in URL.
+ *          the market's vendor page.
  */
 export async function seedPublishedMarketWithAssignments(
   request: APIRequestContext,
@@ -369,6 +392,8 @@ export async function seedPublishedMarketWithAssignments(
   if (!formRes.ok()) {
     throw new Error(`Application form save failed: ${formRes.status()} ${await formRes.text()}`);
   }
+  // And its review setup decided (T206): Review waits on it.
+  await decideReviewSetup(request, baseURL, marketId);
 
   // Step 3: Seed the vendors as approved applications - what a vendor is. This used to upload a
   // fabricated CSV, because the solver read a separate source_data collection.
@@ -405,9 +430,9 @@ export async function seedPublishedMarketWithAssignments(
   const marketSlug = marketNameToSlug(marketName);
 
   // Step 4: Publish, by walking the edges a real organizer walks, running the assignment from the
-  // phase that runs it. `market_days` means "this market is running" and is the only phase
-  // check-in serves; its entry invariant is that an assignment exists, because a market with no
-  // placements would serve a check-in page that can tell nobody where to stand.
+  // phase that runs it. `market_days` means "this market is running" and is the only phase a
+  // vendor checks in in; its entry invariant is that an assignment exists, because a market with
+  // no placements would serve a vendor page that can tell nobody where to stand.
   //
   // The assignment used to be run first, from `draft`. Assign is an operation of the `assignment`
   // phase and refuses everywhere else (E10/F03/S02), so the seed now walks the journey rather
@@ -433,15 +458,8 @@ export async function seedPublishedMarketWithAssignments(
     throw new Error(`Assignment run failed: ${assignRes.status()} ${await assignRes.text()}`);
   }
 
-  // A market whose vendors apply on its page tells them before it goes live (E36/F04/S02).
-  if (options.intakeMode === 'form') {
-    const published = await request.post(`${baseURL}/markets/${marketId}/publish-results`, {
-      headers: { 'X-Owner-Email': email },
-    });
-    if (!published.ok()) {
-      throw new Error(`Publishing results failed: ${published.status()} ${await published.text()}`);
-    }
-  }
+  // A market tells its vendors before it goes live (E36/F04/S02), on either path (ADR 0022).
+  await publishResults(request, baseURL, email, marketId);
 
   await transitionTo('market_days');
 

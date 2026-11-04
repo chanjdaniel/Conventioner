@@ -264,7 +264,7 @@ export interface Market {
   id: string;
   name: string;
   /** The market's public identifier, computed and persisted server-side from the name. Every
-   *  public URL names it - `/<slug>/check-in` is the page publishing puts on the air. */
+   *  public URL names it - `/<slug>` is its vendor page (ADR 0022). */
   slug?: string;
   creationDate: string;
   /** Derived server-side from phase: true when phase is ``draft``, false otherwise. The
@@ -310,12 +310,18 @@ export interface Market {
    * freezes at the first application and an organizer learns what they needed while reviewing.
    */
   reviewHighlights?: string[];
+  /** Whether the organizer chose that nothing leads the card (T206), true only while
+   *  `reviewHighlights` is empty; written only by the highlights' own write. */
+  nothingLeadsTheCard?: boolean;
   /** What the start from a Google Form's responses kept of the example file (E38/F02/S01), for
    *  the Questions tab to fill options from. Server-owned; absent on any market not started so. */
   exampleColumns?: ExampleColumn[];
   /** Which answers reject an application automatically (E33/F03/S01). On the market, beside the
    *  highlights: they outlast the form's lock, until the market reaches Assignment. */
   rejectionRules?: RejectionRule[];
+  /** Whether the organizer chose no automatic rejections (T206), true only while there is no
+   *  rule; written only by the rules' own write. */
+  noAutomaticRejections?: boolean;
   /** Every question a rule may name, with the answers it offers: served, so the review setup
    *  offers exactly what the write takes (`back-end/rejection_rules.py`). */
   rejectionQuestions?: RejectionQuestion[];
@@ -380,7 +386,7 @@ export interface Market {
   publishWaitsReason?: string | null;
   /** Why the assignment cannot be run now, or null while it can (E36/F04/S02). */
   assignRefusalReason?: string | null;
-  /** How many applicants will read each outcome, while results may be published; else null. */
+  /** How many vendors will read each outcome, while results may be published; else null. */
   publishOutcomes?: { haveATable: number; notAssigned: number } | null;
   /**
    * What would refuse each move open from this phase, judged by the guards the move runs; empty
@@ -460,6 +466,12 @@ export interface DiscordRole {
 
 export type OrganizationRoleType = 'owner' | 'admin' | 'member';
 
+/** One of an organization's admins or members, as the organizations read serves them. */
+export interface OrganizationPerson {
+  userId: string;
+  email: string;
+}
+
 export interface Organization {
   id: string;
   name: string;
@@ -467,8 +479,10 @@ export interface Organization {
   admins: string[]; // 0+ admin user ids
   members: string[]; // 0+ member user ids
   ownerEmail?: string; // Resolved display (from API)
-  adminEmails?: string[]; // Resolved display (from API)
-  memberEmails?: string[]; // Resolved display (from API)
+  /** Its admins and members, each with their id, in the stored order, an account that is gone left
+   *  out (T204): a row is keyed and removed by its own `userId`, never by its place in `admins`. */
+  adminPeople: OrganizationPerson[];
+  memberPeople: OrganizationPerson[];
   theme?: ThemeObject; // Organization theming
   userRole?: OrganizationRoleType; // Current user's role (from API, for Manage button)
   /** The table each market created in it starts with, copied (E39/F02/S01). */
@@ -525,7 +539,8 @@ export interface FormField {
 
 /**
  * One column of the file a market was started from (E38/F02/S01): a question the start made, or a
- * column it left out. Its options are only the answers at least 3 applicants gave that name nobody.
+ * column it left out. Its options are only the answers at least 3 applicants gave that name nobody;
+ * its answers, when it has them, are every answer that names nobody (ADR 0023).
  */
 export interface ExampleColumn {
   headers: string[];
@@ -538,6 +553,12 @@ export interface ExampleColumn {
   question: boolean;
   /** Its answers read as one choice (whole answers), and as several (the options inside them). */
   options: { select: string[]; multiSelect: string[] };
+  /**
+   * Every answer the file gave, read the same two ways, most chosen first: what an option's list
+   * offers. Served only to someone who may change the form, while it can still change; no key means
+   * the common `options` are all there is.
+   */
+  answers?: { select: string[]; multiSelect: string[] };
 }
 
 /**
@@ -605,7 +626,8 @@ export interface Application {
   id: string;
   marketId: string;
   applicantEmail: string;
-  formData: Record<string, unknown>;
+  /** Absent from a vendor's own read on a Google Form market, whose page shows no application. */
+  formData?: Record<string, unknown>;
   status: ApplicationStatus;
   applicationType: ApplicationType;
   mainApplicationId?: string;
@@ -630,6 +652,8 @@ export interface Application {
    */
   outcome?: 'has_a_table' | 'not_assigned' | null;
   seats?: ApplicantSeat[];
+  /** Applicant's only: the name they go by, as the organizer reads it; empty when they gave none. */
+  vendorName?: string;
   /** Who recorded a vendor who never applied, and when (E36/F03/S01). Absent on any who applied. */
   addedBy?: { userId?: string | null; email: string } | null;
   addedAt?: string | null;
@@ -647,6 +671,8 @@ export interface ApplicantSeat {
   tableChoice: string;
   section: string;
   location: string;
+  /** When they checked in to this seat, or null when they have not. */
+  checkedInAt?: string | null;
 }
 
 /** A person, or an automatic rejection rule (E33/F03), named as a verdict's giver. */

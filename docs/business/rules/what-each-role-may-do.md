@@ -99,7 +99,7 @@ Everything a Viewer may, and:
 - marking and handing on follow-ups
 - vendor notes
 - [updating a vendor's info](an-update-is-kept-beside-the-vendors-answer.md)
-- allocating tables and assigning, swapping or freeing a seat
+- allocating tables and assigning, moving, swapping or freeing a seat
 - [recording a vendor's payment](../../implementation/data/payments.md) (Daniel, T92 Q15: "editors can")
 - check-ins at the door
 
