@@ -10,8 +10,9 @@ import { eachWindow, expectLaidOut, openEntry } from './helpers/componentLibrary
  * scrolls, and is never a choice. C5 chooses reviewers as chips, every choice opening ticked at the
  * top, removed by a chip's button and by Backspace, and C10 chooses among the 228 answers. C1 fixes the
  * import's values beside today's native select, each by typing and choosing or kept as typed, with
- * the rows behind "Show all", C3 keeps a new answer as typed, and a field whose words are its value
- * writes them as they are typed and keeps them when it is left.
+ * every value still waiting shown and those already decided behind "Show all", C3 keeps a new answer
+ * as typed, and a field whose words are its value writes them as they are typed and keeps them when
+ * it is left.
  */
 
 /** Three people share this family name, all past the first 50. */
@@ -33,11 +34,11 @@ eachWindow('the combobox entry', (size) => {
     await openEntry(page, 'combobox');
   });
 
-  test('names what it serves and ends with the choices left', async ({ page }) => {
+  test('names what it serves, with no choice left to ask', async ({ page }) => {
     const entry = page.getByTestId('library-entry-combobox');
     await expect(entry).toContainText('C2, C6, C7, C8, C9, C13 and C14');
 
-    await expect(page.getByTestId('choices-for-you')).toContainText("The value fixes' rows");
+    await expect(page.getByTestId('choices-for-you')).toHaveCount(0);
     await expectLaidOut(page, size, 'the combobox entry');
   });
 
@@ -475,7 +476,7 @@ eachWindow('the combobox entry', (size) => {
     const readOut = (at: number) => readOutOf(page, `library-c1-fix-${at}`);
     const fixed = page.getByTestId('library-c1-fixed');
     await expect(readOut(0)).toHaveText('Fix: nothing');
-    await expect(fixed).toHaveText('Fixed: 0 of 43');
+    await expect(fixed).toHaveText('Fixed: 0 of 7');
 
     // By the keys: the words' own row leads, and the first match is one press on.
     await fix(0).field.fill('sticker');
@@ -507,7 +508,7 @@ eachWindow('the combobox entry', (size) => {
     await expect(fix(2).list).toHaveCount(0);
     await expect(readOut(2)).toHaveText('Fix: Hand-poured soap, as typed');
 
-    await expect(fixed).toHaveText('Fixed: 3 of 43');
+    await expect(fixed).toHaveText('Fixed: 3 of 7');
     await expectLaidOut(page, size, 'three values fixed');
   });
 
@@ -520,11 +521,18 @@ eachWindow('the combobox entry', (size) => {
     await expect(readOutOf(page, 'library-c1-fix-3')).toHaveText('Fix: Ignore this value');
   });
 
-  test('C1 shows the first 6 rows, and "Show all 43" the rest, fixes kept', async ({ page }) => {
+  test('C1 shows every waiting value, and 6 decided then "Show all 36", fixes kept', async ({
+    page,
+  }) => {
     const rows = page.getByTestId('library-c1-value');
     const button = page.getByTestId('library-c1-show-all');
-    await expect(rows).toHaveCount(6);
-    await expect(button).toHaveText('Show all 43');
+    const fixed = page.getByTestId('library-c1-fixed');
+    await expect(page.getByTestId('library-c1-waiting')).toHaveText('7 values still waiting');
+    await expect(page.getByTestId('library-c1-decided')).toHaveText('36 values already decided');
+    await expect(rows).toHaveCount(7 + 6);
+    await expect(button).toHaveText('Show all 36');
+    await expect(readOutOf(page, 'library-c1-fix-6')).toHaveText('Fix: nothing');
+    await expect(readOutOf(page, 'library-c1-fix-7')).toHaveText('Fix: Ignore this value');
 
     await picker(page, 'library-c1-fix-5').field.fill('A word of my own');
     await picker(page, 'library-c1-fix-5').field.press('Enter');
@@ -535,15 +543,16 @@ eachWindow('the combobox entry', (size) => {
     await expectLaidOut(page, size, 'every value to fix');
 
     const lastRow = picker(page, 'library-c1-fix-42');
+    await lastRow.field.click();
     await lastRow.field.fill('Keychains');
     await lastRow.field.press('Enter');
     await expect(readOutOf(page, 'library-c1-fix-42')).toHaveText('Fix: Keychains');
-    await expect(page.getByTestId('library-c1-fixed')).toHaveText('Fixed: 2 of 43');
+    await expect(fixed).toHaveText('Fixed: 1 of 7');
 
     await button.click();
-    await expect(rows).toHaveCount(6);
-    await expect(button).toHaveText('Show all 43');
-    await expect(page.getByTestId('library-c1-fixed')).toHaveText('Fixed: 2 of 43');
+    await expect(rows).toHaveCount(7 + 6);
+    await expect(button).toHaveText('Show all 36');
+    await expect(fixed).toHaveText('Fixed: 1 of 7');
     await expect(picker(page, 'library-c1-fix-5').field).toHaveValue('A word of my own');
   });
 

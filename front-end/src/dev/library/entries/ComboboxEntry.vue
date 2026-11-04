@@ -18,7 +18,6 @@ import { IGNORE_VALUE } from '@/utils/valueFixes';
 import LibrarySection from '../parts/LibrarySection.vue';
 import LibraryPanel from '../parts/LibraryPanel.vue';
 import TodayAndProposed from '../parts/TodayAndProposed.vue';
-import ChoicesForYou from '../parts/ChoicesForYou.vue';
 import ReadOut from '../parts/ReadOut.vue';
 import { fixture } from '../fixture';
 
@@ -147,14 +146,23 @@ const offeredAnswers = question.options.map(({ label }) => label);
 const todayFixes = [{ target: question.label, value: valuesToFix[0]!, offered: offeredAnswers }];
 const todayFix = ref('');
 
-/** The rows shown before "Show all", as the start's set-aside values are today. */
-const FIRST_FIXES = 6;
+/**
+ * The values still waiting are all shown, since they are the work; only those already decided,
+ * here set aside as the start sets them aside, stop at 6 and "Show all" (Daniel's choice).
+ */
+const WAITING_FIXES = 7;
+const FIRST_DECIDED = 6;
+const waitingFixes = valuesToFix.slice(0, WAITING_FIXES);
+const decidedFixes = valuesToFix.slice(WAITING_FIXES);
 const allFixes = ref(false);
-const shownFixes = computed(() =>
-  allFixes.value ? valuesToFix : valuesToFix.slice(0, FIRST_FIXES),
+const shownFixes = computed(() => [
+  ...waitingFixes,
+  ...(allFixes.value ? decidedFixes : decidedFixes.slice(0, FIRST_DECIDED)),
+]);
+const fixes = ref<Record<string, string>>(
+  Object.fromEntries(decidedFixes.map((value) => [value, IGNORE_VALUE])),
 );
-const fixes = ref<Record<string, string>>({});
-const fixedCount = computed(() => valuesToFix.filter((value) => fixes.value[value]).length);
+const fixedCount = computed(() => waitingFixes.filter((value) => fixes.value[value]).length);
 function fixReadOut(fix: string | undefined): string {
   if (!fix) return '';
   if (fix === IGNORE_VALUE) return IGNORE_LABEL;
@@ -300,7 +308,7 @@ const writtenAnswer = ref('');
 
   <LibrarySection
     title="Several choices, as chips"
-    about="Several choices serve C5, C10, C11 and C12: a checkbox per person or per answer today, up to 150 people and 230 answers, and the rule that ranks a field's options."
+    about="Several choices serve C5, C10, C11 and C12. C5 is on its screen; the others are a checkbox per answer today, up to 230 answers, and the rule that ranks a field's options."
   >
     <LibraryPanel
       :label="`C5: the reviewers among ${people.length}, as Choose reviewers draws them`"
@@ -426,7 +434,7 @@ const writtenAnswer = ref('');
   >
     <TodayAndProposed
       :today="`Today: a native select of ${question.options.length} answers on every row (C1)`"
-      proposed="Proposed: found by typing, or kept as typed, the rows behind a cap"
+      proposed="Proposed: found by typing, or kept as typed, every waiting value shown"
     >
       <template #today>
         <div class="library-demo" data-testid="library-c1-today">
@@ -441,29 +449,39 @@ const writtenAnswer = ref('');
       </template>
       <template #proposed>
         <div class="library-fixes">
-          <div
-            v-for="(value, at) in shownFixes"
-            :key="value"
-            class="library-demo"
-            role="group"
-            :aria-labelledby="`library-c1-value-${at}`"
-            data-testid="library-c1-value"
-          >
-            <code :id="`library-c1-value-${at}`" class="library-fix-value">{{ value }}</code>
-            <SearchPicker
-              :model-value="fixes[value] ?? ''"
-              :groups="fixGroups"
-              :finds="findsByLabel"
-              :cap="CAP"
-              accepts-typed
-              label="What it means"
-              placeholder="Type to find an answer…"
-              none-word="Nothing"
-              :testid="`library-c1-fix-${at}`"
-              @update:model-value="fixes[value] = $event as string"
-            />
-            <ReadOut label="Fix" :value="fixReadOut(fixes[value])" />
-          </div>
+          <template v-for="(value, at) in shownFixes" :key="value">
+            <p v-if="at === 0" class="library-fixes-heading" data-testid="library-c1-waiting">
+              {{ waitingFixes.length }} values still waiting
+            </p>
+            <p
+              v-if="at === waitingFixes.length"
+              class="library-fixes-heading"
+              data-testid="library-c1-decided"
+            >
+              {{ decidedFixes.length }} values already decided
+            </p>
+            <div
+              class="library-demo"
+              role="group"
+              :aria-labelledby="`library-c1-value-${at}`"
+              data-testid="library-c1-value"
+            >
+              <code :id="`library-c1-value-${at}`" class="library-fix-value">{{ value }}</code>
+              <SearchPicker
+                :model-value="fixes[value] ?? ''"
+                :groups="fixGroups"
+                :finds="findsByLabel"
+                :cap="CAP"
+                accepts-typed
+                label="What it means"
+                placeholder="Type to find an answer…"
+                none-word="Nothing"
+                :testid="`library-c1-fix-${at}`"
+                @update:model-value="fixes[value] = $event as string"
+              />
+              <ReadOut label="Fix" :value="fixReadOut(fixes[value])" />
+            </div>
+          </template>
           <div class="library-fixes-foot">
             <button
               type="button"
@@ -471,10 +489,10 @@ const writtenAnswer = ref('');
               data-testid="library-c1-show-all"
               @click="allFixes = !allFixes"
             >
-              {{ allFixes ? 'Show fewer' : `Show all ${valuesToFix.length}` }}
+              {{ allFixes ? 'Show fewer' : `Show all ${decidedFixes.length}` }}
             </button>
             <div data-testid="library-c1-fixed">
-              <ReadOut label="Fixed" :value="`${fixedCount} of ${valuesToFix.length}`" />
+              <ReadOut label="Fixed" :value="`${fixedCount} of ${waitingFixes.length}`" />
             </div>
           </div>
         </div>
@@ -565,13 +583,6 @@ const writtenAnswer = ref('');
       </div>
     </LibraryPanel>
   </LibrarySection>
-
-  <ChoicesForYou>
-    <li>
-      The value fixes' rows: 6 and "Show all", as here, on values still waiting too; or every
-      waiting value shown, as today, with the cap only on those already decided.
-    </li>
-  </ChoicesForYou>
 </template>
 
 <style scoped>
@@ -599,6 +610,12 @@ const writtenAnswer = ref('');
   border-radius: var(--radius-control);
   background: var(--mm-beige);
   font-size: var(--text-xs);
+}
+
+.library-fixes-heading {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
 }
 
 .library-fixes-foot {

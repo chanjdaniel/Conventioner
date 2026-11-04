@@ -45,7 +45,8 @@ import { uniqueMarketName } from './helpers/uniqueName';
  * Members, all 150 of them, and Admins are too.
  *
  * Every chooser of a person finds them by typing, among however many there are: Choose reviewers,
- * "Who will follow up", the card's "Followed up by" and the All view's "Assigned to".
+ * "Who will follow up", the card's "Followed up by", the All view's "Assigned to" and the history's
+ * "Who".
  */
 
 /** A market like the seed's, in an organization whose only person is the seed owner. */
