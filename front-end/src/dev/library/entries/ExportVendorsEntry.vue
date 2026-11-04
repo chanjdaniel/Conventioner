@@ -58,6 +58,7 @@ const labels = (list: ExportColumn[]) => list.map(columnLabel);
             v-model="variantId"
             :options="VARIANTS"
             label="How the columns are chosen"
+            rest="checklist"
             testid="library-export-variant"
           />
         </div>
