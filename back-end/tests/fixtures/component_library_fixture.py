@@ -19,9 +19,9 @@ the product's own readers:
 
 What no file holds (each application's status and reviewer, each person's role, who reviews, who
 sits where, each vendor's Discord state and what they have paid) is dealt here from a seeded
-``random.Random``, in the exact counts stated below, so the output is the same bytes every run. ``tests/test_component_library_fixture.py`` fails when the
-committed JSON is not exactly what this makes. Change the data by changing this file, never the
-JSON.
+``random.Random``, in the exact counts stated below, so the output is the same bytes every run.
+``tests/test_component_library_fixture.py`` fails when the committed JSON is not exactly what this
+makes. Change the data by changing this file, never the JSON.
 
 Usage, from ``back-end/``:
     python tests/fixtures/component_library_fixture.py

@@ -82,7 +82,7 @@ const labels = (list: ExportColumn[]) => list.map(columnLabel);
 
   <LibrarySection
     title="The ordered list"
-    about="OrderedList, which the cart is made of, on the export's own columns. Every row has the drag handle and its own move buttons, so the keyboard can do what the mouse can; five places order a list today, and only the export has the buttons."
+    about="OrderedList, which the cart is made of, on the export's own columns. Every row has the drag handle and its own move buttons, so the keyboard can do what the mouse can; the assignment priority, the tier setup and the form builder are drag alone today."
   >
     <LibraryPanel label="Several rows">
       <div class="library-demo" data-testid="library-order-several">

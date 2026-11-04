@@ -6,7 +6,7 @@ import { fixture } from './fixture';
  * The export's server, in the browser, over the fixture: which vendors the filters keep and what
  * each column writes for one, as `back-end/api/vendor_export.py`'s `vendor_shown` and
  * `offered_columns` do, so the prototype's preview and summary answer as the product's would and no
- * endpoint is called.
+ * endpoint is called. They differ in the order: the fixture's, where the server's is newest first.
  */
 export type Vendor = (typeof fixture.applications)[number];
 
@@ -15,6 +15,7 @@ const { export: offered, seats } = fixture;
 /** `_STATUS_OF`: the review's statuses as the export names them. */
 const STATUS_OF: Partial<Record<ApplicationStatus, ExportStatus>> = {
   [ApplicationStatus.Open]: 'open',
+  [ApplicationStatus.UnderReview]: 'open',
   [ApplicationStatus.NeedsFollowUp]: 'follow_up',
   [ApplicationStatus.ReviewerApproved]: 'approved',
   [ApplicationStatus.ReviewerRejected]: 'rejected',
@@ -64,10 +65,12 @@ export function vendorsKept(filters: ExportFilters, reader: string): Vendor[] {
         return false;
       }
     }
+    // By the name they chose, as the Vendors page's search finds them (`display_name`).
+    const called = vendor.export.preferredName || vendor.name;
     return (
       !search ||
       vendor.email.toLowerCase().includes(search) ||
-      vendor.name.toLowerCase().includes(search)
+      called.toLowerCase().includes(search)
     );
   });
 }
@@ -78,34 +81,43 @@ const labelOf = (list: { id: string; label: string }[], id: string | undefined) 
 const ANSWER_PREFIX = 'answer:';
 const DATE_PREFIX = 'date:';
 
-/** A seat's part on one date, as the Assignments page's table codes read here. */
+/** `as_text_cell`: a cell no spreadsheet runs. */
+const asTextCell = (cell: string) => (/^[=+\-@\t\r\n]/.test(cell) ? `'${cell}` : cell);
+
+/** A seat's part on one date. */
 function seatCell(vendor: Vendor, columnId: string): string {
   const [date, part] = columnId.slice(DATE_PREFIX.length).split(':') as [string, string];
   const seat = seatsOf(vendor).get(date);
   if (!seat) return '';
-  if (part === 'table') return `${seat.section.charAt(0)}${seat.table}`;
+  if (part === 'table') return `${seat.section} ${seat.table}`;
   if (part === 'section') return seat.section;
   if (part === 'tier') return seat.tier;
   return 'Full table';
 }
 
-/** What one column writes for one vendor. */
+/** What one column writes for one vendor. Only an amount, the server's own, goes unescaped. */
 export function cellOf(vendor: Vendor, columnId: string): string {
+  const { payment } = vendor.export;
+  const amounts: Record<string, string> = {
+    owed: payment.owed,
+    paid: payment.paid,
+    stillOwed: payment.stillOwed,
+  };
+  return amounts[columnId] ?? asTextCell(textCell(vendor, columnId));
+}
+
+function textCell(vendor: Vendor, columnId: string): string {
   if (columnId.startsWith(ANSWER_PREFIX)) {
     return answerValues(vendor.export.answers[columnId.slice(ANSWER_PREFIX.length)]).join(', ');
   }
   if (columnId.startsWith(DATE_PREFIX)) return seatCell(vendor, columnId);
-  const { payment } = vendor.export;
   const cells: Record<string, string> = {
     name: vendor.name,
     preferredName: vendor.export.preferredName,
     email: vendor.email,
     status: labelOf(offered.statuses, STATUS_OF[vendor.status]),
     datesPlaced: String(seatsOf(vendor).size),
-    priceGroup: payment.group,
-    owed: payment.owed,
-    paid: payment.paid,
-    stillOwed: payment.stillOwed,
+    priceGroup: vendor.export.payment.group,
     discordUsername: vendor.export.discordUsername,
     discordState: labelOf(offered.discordStates, vendor.export.discordState),
     discordInvite: offered.discordInvite,

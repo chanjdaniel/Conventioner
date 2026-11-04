@@ -16,6 +16,7 @@ import { settle } from './helpers/settle';
 const DIALOG = 'library-export-dialog';
 const STICKERS = 181;
 const OPEN = 110;
+const REJECTED = 64;
 const OPEN_WITH_STICKERS = 62;
 /** Seated on the first date: 31 in the North Wing, the rest in the South. */
 const FIRST_DATE = '2024-04-22';
@@ -23,19 +24,24 @@ const FIRST_DATE = '2024-04-22';
 const LONGEST =
   'I understand that a vendor who does not come, without telling the team, will not be refunded, and may not be offered a table at a later fair.';
 const LONGEST_ID = 'answer:i_understand_that_a_vendor_who_does_not';
+/** Someone whose chosen name is the first part of their full one. */
+const CHOSEN = { name: 'Angela', full: 'Angela Lee' };
+/** Someone whose answer begins with a formula's lead. */
+const WITH_A_HANDLE = { email: 'mary.li13@example.com', twitter: "'@examplemaryli13" };
 
 const dialog = (page: Page) => page.getByTestId(`${DIALOG}-window`);
 const body = (page: Page) => page.getByTestId(`${DIALOG}-body`);
 const tray = (page: Page) => page.getByTestId(`${DIALOG}-tray`);
 const summary = (page: Page) => page.getByTestId('library-export-summary');
 const orderRows = (page: Page) => page.getByTestId('library-export-order-row');
-const header = (page: Page) => page.getByTestId('library-export-preview-header').locator('th');
+const header = (page: Page) =>
+  page.getByTestId('library-export-preview-header').getByRole('columnheader');
 const previewRows = (page: Page) => page.getByTestId('library-export-preview-row');
 const answerField = (page: Page, at: number) =>
   page.getByTestId(`library-export-answer-${at}-input`);
 
 /** The chosen columns' names, as the order list reads them with its row's buttons left out. */
-const orderWords = (page: Page) => page.locator('.export-cart__label');
+const orderWords = (page: Page) => page.getByTestId('library-export-order-label');
 
 /** The bottom of a thing is inside the window, and its top. */
 async function expectInView(page: Page, thing: Locator, what: string) {
@@ -86,10 +92,10 @@ eachWindow('the export-vendors entry', (size) => {
     await expect(page.getByTestId('library-export-search')).toBeFocused();
 
     const box = (await dialog(page).boundingBox())!;
-    const window = page.viewportSize()!;
+    const viewport = page.viewportSize()!;
     // 60rem at a desk; a phone's window less its gutter.
-    expect(box.width).toBe(size.phone ? window.width - 32 : 960);
-    expect(box.height).toBeLessThanOrEqual(window.height - 48);
+    expect(box.width).toBe(size.phone ? viewport.width - 32 : 960);
+    expect(box.height).toBeLessThanOrEqual(viewport.height - 48);
     await expectInside(dialog(page), 'the dialog');
 
     await expectLaidOut(page, size, 'the dialog');
@@ -164,7 +170,7 @@ eachWindow('the export-vendors entry', (size) => {
     await expect(orderWords(page)).toHaveText(['Name', 'Email', 'Status', 'Amount owed']);
     await expect(header(page)).toHaveText(['Name', 'Email', 'Status', 'Amount owed']);
     await expect(summary(page)).toHaveText('359 vendors, 4 columns');
-    await expect(previewRows(page).first().locator('td').last()).toHaveText('$0.00');
+    await expect(previewRows(page).first().getByRole('cell').last()).toHaveText('$0.00');
 
     // Enter only looks: it never downloads what the person was looking through.
     await find.press('Enter');
@@ -229,7 +235,7 @@ eachWindow('the export-vendors entry', (size) => {
     await press(up('status'));
     await expect(orderWords(page)).toHaveText(['Name', 'Status', 'Email']);
     await expect(header(page)).toHaveText(['Name', 'Status', 'Email']);
-    await expect(previewRows(page).first().locator('td')).toHaveText([
+    await expect(previewRows(page).first().getByRole('cell')).toHaveText([
       'Angela Lee',
       'Open',
       'angela.lee0@example.com',
@@ -321,11 +327,16 @@ eachWindow('the export-vendors entry', (size) => {
 
     await page.getByTestId('library-export-search').fill('LOPEZ');
     await vendors(5);
+    // By the name they chose or their address, as the Vendors page's search finds them.
+    await page.getByTestId('library-export-search').fill(CHOSEN.name);
+    await vendors(1);
+    await page.getByTestId('library-export-search').fill(CHOSEN.full);
+    await vendors(0);
     await page.getByTestId('library-export-search').fill('');
 
     await press(page.getByTestId('library-export-status-open'));
     await press(page.getByTestId('library-export-status-rejected'));
-    await vendors(110 + 64);
+    await vendors(OPEN + REJECTED);
     await press(page.getByTestId('library-export-status-open'));
     await press(page.getByTestId('library-export-status-rejected'));
 
@@ -337,9 +348,10 @@ eachWindow('the export-vendors entry', (size) => {
     await expect(page.getByTestId('library-export-preview')).toHaveCount(0);
     await press(page.getByTestId('library-export-status-added'));
 
-    await page.getByTestId('library-export-mine').check({ force: size.phone });
+    const mine = page.locator('label', { hasText: 'Mine: the follow-ups I own' });
+    await press(mine);
     await vendors(1);
-    await page.getByTestId('library-export-mine').uncheck({ force: size.phone });
+    await press(mine);
 
     await press(page.getByTestId('library-export-discord-not_found'));
     await vendors(60);
@@ -387,11 +399,11 @@ eachWindow('the export-vendors entry', (size) => {
       await find.fill(words);
       await press(page.getByTestId(`library-export-column-${id}`));
     }
-    await expect(previewRows(page).nth(2).locator('td')).toHaveText([
+    await expect(previewRows(page).nth(2).getByRole('cell')).toHaveText([
       'Brian Singh',
       'brian.singh2@example.com',
       'Approved',
-      'S27',
+      'South Wing 27',
       'Gold',
       'Full table',
       '2',
@@ -401,6 +413,26 @@ eachWindow('the export-vendors entry', (size) => {
       'examplebriansingh2',
       'Wren Lab',
     ]);
+  });
+
+  test('a cell a spreadsheet would run is written as text, and an amount as it is', async ({
+    page,
+  }) => {
+    await open(page);
+    await openTray(page);
+    const find = page.getByTestId('library-export-columns-find');
+    await find.fill('Business Twitter');
+    await press(page.getByTestId('library-export-column-answer:business_twitter_optional'));
+    await page.getByTestId('library-export-search').fill(WITH_A_HANDLE.email);
+    await expect(previewRows(page).first().getByRole('cell').last()).toHaveText(
+      WITH_A_HANDLE.twitter,
+    );
+
+    await page.getByTestId('library-export-search').fill('');
+    await page.getByTestId('library-export-payment').selectOption('over');
+    await find.fill('Still owed');
+    await press(page.getByTestId('library-export-column-stillOwed'));
+    await expect(previewRows(page).first().getByRole('cell').last()).toHaveText(/^-\$\d/);
   });
 
   test('Download only reads out what it would export, and asks no server', async ({ page }) => {
@@ -457,8 +489,8 @@ eachWindow('the export-vendors entry', (size) => {
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await expect(toggle).toHaveText('Show the file');
     const folded = (await tray(page).boundingBox())!;
-    const window = page.viewportSize()!;
-    expect(folded.height, 'the body keeps the room').toBeLessThan(window.height * 0.15);
+    const viewport = page.viewportSize()!;
+    expect(folded.height, 'the body keeps the room').toBeLessThan(viewport.height * 0.15);
 
     await press(toggle);
     await expect(order).toBeVisible();
@@ -469,9 +501,9 @@ eachWindow('the export-vendors entry', (size) => {
     // The bar keeps its place under the thumb, and no row shows beneath it as the tray scrolls.
     await tray(page).evaluate((el) => (el.scrollTop = 40));
     await settle(page);
-    const bar = (await page.locator('.export-cart__bar').boundingBox())!;
-    const open_ = (await tray(page).boundingBox())!;
-    expect(Math.round(bar.y + bar.height)).toBe(Math.round(open_.y + open_.height));
+    const bar = (await page.getByTestId('library-export-cart-bar').boundingBox())!;
+    const opened = (await tray(page).boundingBox())!;
+    expect(Math.round(bar.y + bar.height)).toBe(Math.round(opened.y + opened.height));
 
     await press(toggle);
     await expect(order).toBeHidden();
@@ -497,6 +529,20 @@ eachWindow('the export-vendors entry', (size) => {
   });
 });
 
+test.describe('at 1280 wide', () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test('broad, within the window less its gutter, with the tray in view', async ({ page }) => {
+    await openEntry(page, 'export-vendors');
+    await page.getByTestId('library-export-open').click();
+    await expect(dialog(page)).toBeVisible();
+    const box = (await dialog(page).boundingBox())!;
+    expect(box.width).toBe(960);
+    expect(box.height).toBeLessThanOrEqual(800 - 48);
+    await expectInView(page, tray(page), 'the tray');
+  });
+});
+
 test.describe('dragging a row, at a desk', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -506,7 +552,7 @@ test.describe('dragging a row, at a desk', () => {
     await expect(dialog(page)).toBeVisible();
 
     const rows = orderRows(page);
-    const handle = (await rows.nth(2).locator('.drag-handle').boundingBox())!;
+    const handle = (await rows.nth(2).getByTestId('library-export-order-handle').boundingBox())!;
     const x = handle.x + handle.width / 2;
     await page.mouse.move(x, handle.y + handle.height / 2);
     await page.mouse.down();

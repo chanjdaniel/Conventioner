@@ -143,9 +143,7 @@ function download(): void {
     @close="emit('close')"
     @submit="download"
   >
-    <p class="export-note">
-      A CSV for a Google Sheet, one row per vendor. It starts from what the page shows.
-    </p>
+    <p class="export-note">A CSV for a Google Sheet, one row per vendor.</p>
 
     <section class="export-section" aria-labelledby="library-export-vendors">
       <h3 id="library-export-vendors" class="export-heading">Vendors</h3>
@@ -352,11 +350,14 @@ function download(): void {
             >
               <template #row="{ item, index }">
                 <span class="export-cart__row">
-                  <span class="export-cart__label">{{ item.label }}</span>
+                  <span class="export-cart__label" data-testid="library-export-order-label">{{
+                    item.label
+                  }}</span>
                   <button
                     type="button"
                     class="export-cart__remove"
                     data-cart-remove
+                    data-dialog-not-first
                     :data-testid="`library-export-remove-${item.id}`"
                     @click="removeColumn(item, index)"
                   >
@@ -405,7 +406,7 @@ function download(): void {
           </section>
         </div>
 
-        <div class="export-cart__bar">
+        <div class="export-cart__bar" data-testid="library-export-cart-bar">
           <p class="export-cart__summary" aria-live="polite" data-testid="library-export-summary">
             {{ summary }}
           </p>

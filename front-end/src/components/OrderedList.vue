@@ -1,8 +1,8 @@
 <script setup lang="ts" generic="T">
 /**
  * A list someone puts in order (T200): each row has the `.drag-handle` and its own move up and move
- * down buttons, so the order can be set with the mouse or the keyboard. Five places order a list
- * today and only the export dialog has the buttons.
+ * down buttons, so the order can be set with the mouse or the keyboard. Today the assignment
+ * priority, the tier setup and the form builder are drag alone.
  *
  * - The first row's up and the last row's down are disabled. A move keeps the focus on the moved
  *   row's button so it can be pressed again; one that reaches the end, and so is disabled, hands the
@@ -68,7 +68,10 @@ async function move(index: number, by: -1 | 1): Promise<void> {
     >
       <template #item="{ element, index }">
         <li class="ordered-list__row" :data-testid="`${testid}-row`">
-          <span class="drag-handle ordered-list__handle" aria-hidden="true"
+          <span
+            class="drag-handle ordered-list__handle"
+            aria-hidden="true"
+            :data-testid="`${testid}-handle`"
             ><IconClickDrag class="drag-handle__icon"
           /></span>
           <span class="ordered-list__words">
@@ -159,8 +162,8 @@ async function move(index: number, by: -1 | 1): Promise<void> {
   color: var(--mm-black);
 }
 
-/* Drawn as the application form's order arrows are (`RankedChoiceInput.vue`), so the app has one
-   order control, and its disabled beige is the primitives' one disabled state (`.btn:disabled`). */
+/* Drawn as the application form's order arrows are (`RankedChoiceInput.vue`), and its disabled beige
+   is the primitives' one disabled state (`.btn:disabled`). */
 .ordered-list__move {
   display: inline-flex;
   flex: none;
