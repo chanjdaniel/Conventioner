@@ -210,7 +210,9 @@ test.describe('in a window too short to show the whole body', () => {
         el.getBoundingClientRect().bottom - parts.lastElementChild!.getBoundingClientRect().bottom
       );
     });
-    expect(inset).toBeCloseTo(24, 0);
+    // Within a pixel, since a browser rounds the extent of a body whose content is a fractional
+    // height, so the same inset can read 24.5 at its end.
+    expect(Math.abs(inset - 24)).toBeLessThanOrEqual(1);
   });
 
   test("Manage market's Add row scrolls into view, and its form still submits by Enter", async ({
