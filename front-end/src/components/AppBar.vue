@@ -3,9 +3,11 @@
  * The app bar: the way between the organizer's places, always in sight and always the same (T209).
  * The market bar under it is the market's own navigation; this one is the organizer's.
  *
- * The bar reads the route and the signed-in organizer itself, so the shell only places it. A public
- * page shows the logo alone. At 640px and below, the market frame's break, the menu button stands
- * for the links and the account menu, in CSS, so the two layouts never disagree with the frame's.
+ * The bar reads the route and the signed-in organizer itself, so the shell only places it. One rule
+ * says who sees what: a known signed-in organizer gets all of it, on every route, and nobody else
+ * gets more than the logo, with no per-role or per-screen list. At 640px and below, the market
+ * frame's break, the menu button stands for the links and the account menu, in CSS, so the two
+ * layouts never disagree with the frame's.
  *
  * The button opens a sheet under the bar. A list of places and not a form in a window, so it is not
  * an `AppDialog`, but it keeps a modal's contract: the page behind is inert, focus moves in, and
@@ -32,19 +34,16 @@ const ACCOUNT_ITEMS = [{ id: 'sign-out', label: 'Sign out' }];
 const route = useRoute();
 const router = useRouter();
 const user = inject<Ref<string | null>>('user', ref(null));
-const setUser = inject<(user: string | null) => void>('setUser', () => {});
 
-const isOrganizerPage = computed(() => !route.matched.some((r) => r.meta.public === true));
 const here = computed(() => currentPlace(route));
 
-async function leave() {
+function leave() {
   closeSheet();
-  await signOut(router);
-  setUser(null);
+  void signOut(router);
 }
 
 function chooseFromAccount(id: string) {
-  if (id === 'sign-out') void leave();
+  if (id === 'sign-out') leave();
 }
 
 const sheetOpen = ref(false);
@@ -95,7 +94,7 @@ onUnmounted(stopWatchingTheWindow);
 <template>
   <div class="app-bar" data-testid="app-bar">
     <div class="app-bar-row">
-      <template v-if="isOrganizerPage">
+      <template v-if="user">
         <RouterLink to="/markets" class="app-bar-logo-link">
           <img
             class="app-bar-logo"
@@ -116,7 +115,6 @@ onUnmounted(stopWatchingTheWindow);
           </RouterLink>
         </nav>
         <RowMenu
-          v-if="user"
           class="app-bar-account"
           label="Account"
           :items="ACCOUNT_ITEMS"
@@ -165,17 +163,15 @@ onUnmounted(stopWatchingTheWindow);
             {{ label }}
           </RouterLink>
         </nav>
-        <template v-if="user">
-          <p class="app-bar-sheet-row app-bar-sheet-address" :title="user">{{ user }}</p>
-          <button
-            type="button"
-            class="app-bar-sheet-row"
-            data-testid="app-bar-sheet-sign-out"
-            @click="leave"
-          >
-            Sign out
-          </button>
-        </template>
+        <p class="app-bar-sheet-row app-bar-sheet-address" :title="user ?? undefined">{{ user }}</p>
+        <button
+          type="button"
+          class="app-bar-sheet-row"
+          data-testid="app-bar-sheet-sign-out"
+          @click="leave"
+        >
+          Sign out
+        </button>
       </div>
     </template>
   </div>

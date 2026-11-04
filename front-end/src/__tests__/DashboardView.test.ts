@@ -32,9 +32,7 @@ function serverHas(...markets: unknown[]) {
 }
 
 async function mountDashboard() {
-  const wrapper = mount(DashboardView, {
-    global: { provide: { setUser: vi.fn() } },
-  });
+  const wrapper = mount(DashboardView);
   // onMounted asks the server; the render follows its answer.
   await flushPromises();
   return wrapper;

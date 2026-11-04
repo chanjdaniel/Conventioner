@@ -1,8 +1,13 @@
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, BACKEND_URL, TEST_USER } from './fixtures';
+import { test, expect, BACKEND_URL, NO_ORG_USER, TEST_USER } from './fixtures';
+import { LoginPage } from './pages/LoginPage';
 import { MarketsPage } from './pages/MarketsPage';
+import { grantMarketRole } from './helpers/grantMarketRole';
 import { marketScreenPath } from './helpers/marketScreens';
+import { seedApplicantMarket } from './helpers/seedApplicantMarket';
 import { ensureTestOrg, seedMarketWithVendors } from './helpers/seeds';
+import { settle } from './helpers/settle';
+import { ensureVerifiedUser } from './helpers/verifiedUser';
 
 /**
  * The app bar (T209): the way between an organizer's places, always in sight and always the same.
@@ -545,9 +550,6 @@ test.describe('the bar on a phone', () => {
     await page.setViewportSize({ width: 390, height: 180 });
     await page.goto('/markets');
     await menuButton(page).tap();
-    // The account's rows come with the session probe's answer.
-    await expect(sheetSignOut(page)).toBeAttached();
-
     const box = await sheet(page).boundingBox();
     expect(box!.y + box!.height).toBeLessThanOrEqual(180);
     expect(await sheet(page).evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
@@ -640,3 +642,363 @@ test.describe('the bar on a floored screen in a narrow desk window', () => {
     }
   });
 });
+
+/**
+ * Who sees the bar: a known signed-in organizer gets all of it, on every route; nobody else gets more
+ * than the logo.
+ */
+const VIEWER = { email: 'e2e-bar-viewer@example.com', password: 'e2epassword123' };
+const SIZES = [
+  { name: 'at a desk', phone: false, use: { viewport: DESK } },
+  {
+    name: 'on a phone',
+    phone: true,
+    use: {
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+      deviceScaleFactor: 3,
+    },
+  },
+] as const;
+
+for (const size of SIZES) {
+  test.describe(`who sees the bar, ${size.name}`, () => {
+    test.use(size.use);
+
+    let marketId: string;
+    let marketSlug: string;
+
+    /** A person's press: a thumb's on a phone. */
+    const press = (locator: Locator) => (size.phone ? locator.tap() : locator.click());
+    const logoLink = (page: Page) =>
+      bar(page).getByRole('link', { name: 'Conventioner, Markets', exact: true });
+    const menuButton = (page: Page) => page.getByTestId('app-bar-menu-button');
+
+    async function expectLogoAlone(page: Page): Promise<void> {
+      await expect(bar(page).getByAltText('Conventioner', { exact: true })).toBeVisible();
+      await expect(bar(page).getByRole('link')).toHaveCount(0);
+      await expect(bar(page).getByRole('navigation')).toHaveCount(0);
+      await expect(bar(page).getByRole('button')).toHaveCount(0);
+    }
+
+    /** Runs `then` with the places in sight, on a phone in the sheet the menu button opens. */
+    async function withPlacesOpen(page: Page, then: () => Promise<void>): Promise<void> {
+      if (size.phone) await press(menuButton(page));
+      await then();
+    }
+
+    /** Everything the bar holds for an organizer, its menu closed again as it was found. */
+    async function expectFullBar(page: Page, email = TEST_USER.email): Promise<void> {
+      await expect(logoLink(page)).toBeVisible();
+      if (size.phone) {
+        await press(menuButton(page));
+        const sheet = page.getByTestId('app-bar-sheet');
+        await expect(sheet.getByRole('link', { name: 'Markets' })).toBeVisible();
+        await expect(sheet.getByRole('link', { name: 'Organizations' })).toBeVisible();
+        await expect(sheet.getByText(email)).toBeVisible();
+        await expect(sheet.getByRole('button', { name: 'Sign out' })).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expect(sheet).toHaveCount(0);
+      } else {
+        await expect(placeLink(page, 'Markets')).toBeVisible();
+        await expect(placeLink(page, 'Organizations')).toBeVisible();
+        await expect(accountButton(page)).toHaveText(email);
+      }
+    }
+
+    const place = (page: Page, name: string) =>
+      size.phone
+        ? page.getByTestId('app-bar-sheet').getByRole('link', { name })
+        : placeLink(page, name);
+
+    async function signOutFromTheBar(page: Page): Promise<void> {
+      if (size.phone) {
+        await press(menuButton(page));
+        await press(page.getByTestId('app-bar-sheet-sign-out'));
+      } else {
+        await accountButton(page).click();
+        await signOutItem(page).click();
+      }
+    }
+
+    /** Marks this document, so a later `expectSameDocument` says nothing reloaded it. */
+    const markTheDocument = (page: Page) =>
+      page.evaluate(() => {
+        (window as unknown as { sameDocument: boolean }).sameDocument = true;
+      });
+    const expectSameDocument = async (page: Page) =>
+      expect(
+        await page.evaluate(
+          () => (window as unknown as { sameDocument?: boolean }).sameDocument === true,
+        ),
+        'the page did not reload',
+      ).toBe(true);
+
+    /** Answers the shell's probe only when the test says to, so it can act while it is in flight. */
+    async function holdTheProbe(page: Page): Promise<(status: number) => Promise<void>> {
+      let answer: (status: number) => void = () => {};
+      const answered = new Promise<number>((resolve) => {
+        answer = resolve;
+      });
+      await page.route(/\/check-session$/, async (route) => {
+        const status = await answered;
+        await route.fulfill({ status, json: status === 200 ? { email: TEST_USER.email } : {} });
+      });
+      return async (status) => {
+        const finished = page.waitForEvent('requestfinished', (request) =>
+          request.url().endsWith('/check-session'),
+        );
+        answer(status);
+        await finished;
+        await settle(page);
+      };
+    }
+
+    test.beforeAll(async ({ request }) => {
+      ensureVerifiedUser(VIEWER.email, VIEWER.password);
+      const applying = await seedApplicantMarket(
+        request,
+        BACKEND_URL,
+        TEST_USER.email,
+        TEST_USER.password,
+      );
+      marketId = applying.marketId;
+      marketSlug = applying.marketSlug;
+      // The seed leaves the owner's session on `request`.
+      await grantMarketRole(request, marketId, VIEWER, 'viewer');
+    });
+
+    test('signed out, sign-in, a password page, a public page and Page not found show the logo alone', async ({
+      page,
+    }) => {
+      for (const path of ['/login', '/reset-password-request', `/${marketSlug}`, '/no/such/page']) {
+        await page.goto(path);
+        await expect(page.locator('main')).not.toBeEmpty();
+        await expectLogoAlone(page);
+      }
+    });
+
+    test('signed in, a public page and Page not found show the full bar with nothing current', async ({
+      authenticatedPage: page,
+    }) => {
+      for (const path of [`/${marketSlug}`, '/no/such/page']) {
+        await page.goto(path);
+        await expectFullBar(page);
+        await withPlacesOpen(page, async () => {
+          await expect(place(page, 'Markets')).not.toHaveAttribute('aria-current');
+          await expect(place(page, 'Organizations')).not.toHaveAttribute('aria-current');
+        });
+        if (size.phone) await page.keyboard.press('Escape');
+      }
+    });
+
+    test("signed in on a public page, the bar's logo and links work", async ({
+      authenticatedPage: page,
+    }) => {
+      await page.goto(`/${marketSlug}`);
+      await press(logoLink(page));
+      await page.waitForURL(/\/markets$/);
+
+      await page.goto(`/${marketSlug}`);
+      await withPlacesOpen(page, () => press(place(page, 'Organizations')));
+      await page.waitForURL(/\/organizations$/);
+
+      await page.goto('/no/such/page');
+      await withPlacesOpen(page, () => press(place(page, 'Markets')));
+      await page.waitForURL(/\/markets$/);
+    });
+
+    test('Sign out from a public page leaves sign-in with the logo alone, with no reload', async ({
+      authenticatedPage: page,
+    }) => {
+      await page.goto(`/${marketSlug}`);
+      await expectFullBar(page);
+      await markTheDocument(page);
+
+      await signOutFromTheBar(page);
+
+      await page.waitForURL(/\/login$/);
+      await expectLogoAlone(page);
+      await expectSameDocument(page);
+    });
+
+    test('a 401 mid-work leaves sign-in with the logo alone, with no reload', async ({
+      authenticatedPage: page,
+    }) => {
+      await page.goto('/markets');
+      await expectFullBar(page);
+      await markTheDocument(page);
+      await page.route(/\/organizations/, (route) =>
+        ['xhr', 'fetch'].includes(route.request().resourceType())
+          ? route.fulfill({ status: 401, json: {} })
+          : route.continue(),
+      );
+
+      await withPlacesOpen(page, () => press(place(page, 'Organizations')));
+
+      await page.waitForURL(/\/login\?.*ended=1/);
+      await expectLogoAlone(page);
+      await expectSameDocument(page);
+    });
+
+    for (const status of [401, 403]) {
+      test(`a probe answering ${status} leaves sign-in with the logo alone, with no reload`, async ({
+        authenticatedPage: page,
+      }) => {
+        const answer = await holdTheProbe(page);
+        await page.goto('/markets');
+        await expect(logoLink(page)).toBeVisible();
+        await markTheDocument(page);
+
+        await answer(status);
+
+        await page.waitForURL(/\/login\?/);
+        await expectLogoAlone(page);
+        await expectSameDocument(page);
+      });
+
+      // The bar stands before the probe has answered, so a person can sign out under it. That answer
+      // is about a session already over: it brings back neither the bar nor a note of a session ended.
+      test(`signing out with the probe in flight, its later ${status} changes nothing`, async ({
+        authenticatedPage: page,
+      }) => {
+        const answer = await holdTheProbe(page);
+        await page.goto('/markets');
+        await expect(logoLink(page)).toBeVisible();
+
+        await signOutFromTheBar(page);
+        await page.waitForURL(/\/login$/);
+
+        await answer(status);
+
+        await expect(page).toHaveURL(/\/login$/);
+        await expectLogoAlone(page);
+        expect(await page.evaluate(() => localStorage.getItem('user'))).toBeNull();
+      });
+    }
+
+    test('signing out with the probe in flight, its later 200 brings nothing back', async ({
+      authenticatedPage: page,
+    }) => {
+      const answer = await holdTheProbe(page);
+      await page.goto('/markets');
+      await expect(logoLink(page)).toBeVisible();
+
+      await signOutFromTheBar(page);
+      await page.waitForURL(/\/login$/);
+
+      await answer(200);
+
+      await expectLogoAlone(page);
+      expect(await page.evaluate(() => localStorage.getItem('user'))).toBeNull();
+    });
+
+    test('signing in shows the full bar at once, with no reload', async ({ page }) => {
+      const login = new LoginPage(page);
+      await login.goto();
+      await expectLogoAlone(page);
+      await markTheDocument(page);
+
+      await login.signIn(TEST_USER.email, TEST_USER.password);
+      await login.waitForDashboardRedirect();
+
+      await expectFullBar(page);
+      await expectSameDocument(page);
+    });
+
+    test('a stale stored user on a public page shows the full bar, and its links lead to sign-in', async ({
+      authenticatedPage: page,
+    }) => {
+      await page.context().clearCookies();
+      await page.goto(`/${marketSlug}`);
+      await expect(logoLink(page)).toBeVisible();
+
+      await withPlacesOpen(page, () => press(place(page, 'Markets')));
+
+      await page.waitForURL(/\/login\?/);
+      await expectLogoAlone(page);
+    });
+
+    test("a Viewer's bar is the same as an Owner's", async ({ authenticatedPage: page }) => {
+      /** The bar as a person reads it, with the one thing that differs, whose it is, taken out. */
+      const readTheBar = async (email: string) => {
+        await page.goto(marketScreenPath(marketId, 'stats'));
+        await expect(logoLink(page)).toBeVisible();
+        if (size.phone) await press(menuButton(page));
+        const read = (await bar(page).ariaSnapshot()).split(email).join('<address>');
+        if (size.phone) await page.keyboard.press('Escape');
+        return read;
+      };
+
+      const owners = await readTheBar(TEST_USER.email);
+      expect(owners).toContain('<address>');
+      await signOutFromTheBar(page);
+      await page.waitForURL(/\/login$/);
+
+      const login = new LoginPage(page);
+      await login.signIn(VIEWER.email, VIEWER.password);
+      await login.waitForDashboardRedirect();
+
+      expect(await readTheBar(VIEWER.email)).toBe(owners);
+    });
+
+    test('an organizer with no organization has the same bar', async ({ page }) => {
+      const login = new LoginPage(page);
+      await login.login(NO_ORG_USER.email, NO_ORG_USER.password);
+      await login.waitForDashboardRedirect();
+
+      await expectFullBar(page, NO_ORG_USER.email);
+    });
+
+    test('Page not found offers Sign in signed out', async ({ page }) => {
+      await page.goto('/no/such/page');
+      const notFound = page.getByTestId('page-not-found');
+      await expect(notFound.getByRole('button', { name: 'Markets' })).toHaveCount(0);
+
+      await press(notFound.getByRole('button', { name: 'Sign in' }));
+
+      await page.waitForURL(/\/login$/);
+    });
+
+    test('Page not found leads a signed-in organizer to Markets', async ({
+      authenticatedPage: page,
+    }) => {
+      await page.goto('/no/such/page');
+      const notFound = page.getByTestId('page-not-found');
+      await expect(notFound.getByRole('button', { name: 'Sign in' })).toHaveCount(0);
+
+      await press(notFound.getByRole('button', { name: 'Markets' }));
+
+      await page.waitForURL(/\/markets$/);
+    });
+
+    test('the shell makes no session probe on a public page, signed in or out', async ({
+      page,
+    }) => {
+      let probes = 0;
+      page.on('request', (request) => {
+        if (request.url().endsWith('/check-session')) probes += 1;
+      });
+      const visit = async (paths: string[]) => {
+        for (const path of paths) {
+          await page.goto(path);
+          await page.waitForLoadState('networkidle');
+          expect(probes, path).toBe(0);
+        }
+      };
+
+      await visit(['/login', '/reset-password-request', `/${marketSlug}`, '/no/such/page']);
+
+      const login = new LoginPage(page);
+      await login.login(TEST_USER.email, TEST_USER.password);
+      await login.waitForDashboardRedirect();
+      probes = 0;
+      await visit(['/reset-password-request', `/${marketSlug}`, '/no/such/page']);
+
+      // That the count can move at all: an organizer's page does probe.
+      await page.goto('/markets');
+      await expect.poll(() => probes).toBe(1);
+    });
+  });
+}

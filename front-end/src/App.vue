@@ -3,11 +3,12 @@ import axios from 'axios';
 import { RouterView } from 'vue-router';
 import AppBar from './components/AppBar.vue';
 
-import { onMounted, ref, provide, inject, computed } from 'vue';
+import { onMounted, onUnmounted, ref, provide, inject, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { routerSettled } from '@/utils/routerReady';
 import { fitsAPhone as routeFitsAPhone } from '@/utils/fitsAPhone';
 import { endSession, keepsTheSession } from '@/utils/sessionEnded';
+import { signedInEmail } from '@/utils/signedIn';
 import ReadFailed from '@/components/ReadFailed.vue';
 import { PAGE_FAILED, openAfresh } from '@/utils/pageFailed';
 
@@ -26,13 +27,17 @@ const fitsAPhone = computed(() => isPublicPage.value || routeFitsAPhone(route));
 // A page whose code could not be fetched: the click did nothing, so the shell says why.
 const pageFailed = inject(PAGE_FAILED, ref(null));
 
-const user = ref<string | null>(null);
-const setUser = (user_data: string | null) => {
-  user.value = user_data;
-};
-
+/**
+ * Who is signed in, as the app bar and "Page not found" read it. It starts from the stored user and is read again after
+ * every navigation, so each way a session starts or ends (signing in, Sign out, `endSession`, a 401)
+ * only has to change what is stored and move: none of them has to tell the shell.
+ */
+const user = ref<string | null>(signedInEmail());
 provide('user', user);
-provide('setUser', setUser);
+const stopReadingTheUser = router.afterEach(() => {
+  user.value = signedInEmail();
+});
+onUnmounted(stopReadingTheUser);
 
 onMounted(async () => {
   // Wait for the first navigation to settle before probing the session.
@@ -44,23 +49,29 @@ onMounted(async () => {
   // Public pages do not require an organizer session.
   if (isPublicPage.value) return;
 
+  // The bar stands before the probe answers, so an organizer can sign out under it. The answer is
+  // then about a session already over, and brings back neither the bar nor a note that it ended.
+  const asked = signedInEmail();
+  const sameSession = () => signedInEmail() === asked;
+
   try {
     const response = await axios.get(`${hostname}/check-session`, {
       withCredentials: true,
     });
 
+    if (!sameSession()) return;
+
     if (response.status === 200) {
       const user_email = response.data.email;
       localStorage.setItem('user', JSON.stringify(user_email));
-      setUser(user_email);
+      user.value = user_email;
     } else {
       endSession(router, { ended: false });
     }
   } catch (err) {
     // A lost session forgets the open market too, for the reason signing out does, and signing in
-    // returns to this page (E38/F11/S01). No answer, or a fault on the server, keeps it: the menu
-    // names the organizer it held.
-    if (keepsTheSession(router, err)) setUser(JSON.parse(localStorage.getItem('user') || 'null'));
+    // returns to this page (E38/F11/S01). No answer, or a fault on the server, keeps it.
+    if (sameSession()) keepsTheSession(router, err);
   }
 });
 </script>

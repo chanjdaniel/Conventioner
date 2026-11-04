@@ -3,8 +3,11 @@ layer: implementation
 kind: module
 describes:
   - front-end/src/components/AppBar.vue
+  - front-end/src/components/PageNotFound.vue
+  - front-end/src/App.vue#user
   - front-end/index.html
   - front-end/src/utils/currentPlace.ts
+  - front-end/src/utils/signedIn.ts
   - front-end/src/utils/sessionEnded.ts#signOut
   - front-end/e2e/the-app-bar.spec.ts
   - front-end/src/__tests__/theBarsCurrentPlace.test.ts
@@ -26,7 +29,7 @@ Its `--space-4` of side padding lines the logo up with the market frame's card e
 On a phone a market screen pins 44 + 94 = 138px, inside the layout sweep's 150px limit.
 
 **The whole logo, 26px tall, leads to Markets.**
-On an organizer's page it is a link named "Conventioner, Markets"; on a public page it is an image with no link.
+Signed in, it is a link named "Conventioner, Markets"; signed out, it is an image with no link.
 
 **Markets and Organizations are links in a `nav` named "Main".**
 Each is the band's full height; the current one is `--mm-green`, semibold, with a 2px underline over the band's line, and carries `aria-current="page"`.
@@ -39,6 +42,24 @@ A new market screen needs nothing there; [`theBarsCurrentPlace.test.ts`](../../.
 The button shows the address and a chevron, 32px tall and at most 260px wide; the address gives way first when the window is short of room, cut with an ellipsis, with its whole value as a `title` on the words.
 The words name the button, as [every control is named](../conventions/every-control-is-named.md#the-rules) asks, so `RowMenu`'s `label` then names the open menu alone.
 It holds Sign out.
+
+## Who sees what
+
+**One rule: a known signed-in organizer gets the full bar, on every route, and nobody else gets more than the logo.**
+There is no list by role or by screen, since a role belongs to a market or an organization and not to the account.
+So a Viewer's bar is an Owner's, an organizer with no organization has Organizations to make one in, sign-in and a vendor's page show a vendor the logo alone, and an organizer who opens their own market's public page or "Page not found" keeps the full bar, with no place marked current.
+
+**The bar's reading of who is signed in is one, the shell's.**
+[`App.vue`](../../../front-end/src/App.vue)'s `user` starts from the stored user ([`signedInEmail`](../../../front-end/src/utils/signedIn.ts)) and is read again after every navigation, so each way a session starts or ends (signing in, Sign out, `endSession`, a 401) only changes what is stored and moves, without telling the shell.
+The session probe corrects the stored address when it answers, and `user` is provided to the bar and to "Page not found".
+So the bar stands before the probe answers, with the account menu in it from the first paint.
+A person can then sign out under the probe, so its answer counts only if the stored user is still the one it asked about: a late answer brings back neither the bar nor a note that the session ended.
+
+**The shell makes no probe on a public page**, so a stale stored user there shows a full bar.
+That says nothing about any market, and its links lead to sign-in, since the first read of the page they open answers 401 ([a session that ends mid-work](../conventions/an-exception-never-reaches-a-client.md)).
+
+**["Page not found"](../../../front-end/src/components/PageNotFound.vue) offers Markets to a signed-in organizer and Sign in to anyone else.**
+It decides on the person alone, never on the address, so a gated market and a missing one read identically to each ([a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md)).
 
 ## The sheet, on a phone
 
@@ -57,7 +78,7 @@ Choosing a row closes it, as does any route change, and a window that widens pas
 
 ## Sign out
 
-**[`signOut`](../../../front-end/src/utils/sessionEnded.ts) is the one sign-out of the bar**, the account menu's and the sheet's, beside `endSession`.
+**[`signOut`](../../../front-end/src/utils/sessionEnded.ts) is the one sign-out**, the account menu's, the sheet's and the dashboard's, beside `endSession`.
 It posts `/logout`, then forgets `localStorage` and the market store and goes to `/login`, whether or not the post succeeded, so a sign-out that failed on the wire still leaves this browser signed out.
 It uses `fetch`, not the app's `axios`, so a 401 from `/logout` is not told as a session that ended under the organizer.
 
@@ -74,10 +95,6 @@ Without it a phone's browser answers a page wider than the window by widening th
 With it the layout viewport stays the window's and the page scrolls sideways, as [the market frame](market-frame.md#sharp-edges) says it does, and a fixed box, a dialog's scrim among them, is the window's width.
 The cost is that a person can no longer pinch such a screen out to see all of it; zooming in is untouched.
 This is measured in Chromium's phone emulation only; Safari on an iPhone has not been tried.
-
-**A public page shows the logo alone**, signed in or not, read off the route's `meta.public`.
-
-**`App.vue` starts `user` empty and fills it from the session probe**, so the account menu draws once the probe has answered.
 
 **The bar does not print**: `App.vue` hides its `header` under `@media print`.
 

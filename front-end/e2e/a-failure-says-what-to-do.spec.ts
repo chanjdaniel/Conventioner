@@ -414,9 +414,10 @@ test.describe("the shell's session probe", () => {
     }) => {
       await failOnce(page, /\/check-session$/, kind);
       await page.goto('/markets');
+      // The bar stands from the stored user, so nothing on screen waits for the probe; this does. An
+      // ended session would have left for the sign-in page, which has no account menu.
+      await page.waitForLoadState('networkidle');
 
-      // The bar names the organizer only once the probe's answer has been read, so this waits for
-      // it: an ended session would have left for the sign-in page, which has no account menu.
       await expect(page.getByTestId('app-bar-account-button')).toHaveText(TEST_USER.email);
       await expect(page).toHaveURL(/\/markets$/);
       expect(await page.evaluate(() => localStorage.getItem('user'))).toContain(TEST_USER.email);

@@ -276,6 +276,7 @@ The request still fails as it would have, so the screen's own catch runs too.
 
 **The shell's session probe at load ends a session only on an answer that says so.**
 No answer, or a 5xx, says nothing of the session, so `keepsTheSession` keeps the stored user and the page, whose own read says what went wrong; any other failure goes to sign in carrying the page, with `ended=1` on a 401.
+An answer that arrives after the organizer has signed out under it counts for nothing, since it is about a session already over ([the app bar](../modules/app-bar.md#who-sees-what)).
 It used to sign the organizer out on any failure, so a dropped connection at load sent them to sign in, saying nothing.
 
 **A link opened signed out keeps its place**: `requireSignIn` in [`front-end/src/router/index.ts`](../../../front-end/src/router/index.ts) sends it to `/login?next=<its full path>`, and both ways of signing in, by password and by code, continue to `next`, else to `/dashboard`; so does a signed-in visit to `/login?next=`.

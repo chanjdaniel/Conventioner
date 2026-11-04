@@ -1219,8 +1219,21 @@ export const SCREENS: Screen[] = [
     open: at(fixed('/no/such/page'), 'page-not-found'),
   },
   {
+    // A signed-in organizer keeps the full bar on a public page, and is offered Markets here.
+    name: 'a page that is not there, signed in',
+    who: 'organizer',
+    sizes: PUBLIC,
+    open: at(fixed('/no/such/page'), 'page-not-found'),
+  },
+  {
     name: "a market's public page",
     who: 'nobody',
+    sizes: PUBLIC,
+    open: at(slug('open'), 'market-home-name'),
+  },
+  {
+    name: "a market's public page, signed in",
+    who: 'organizer',
     sizes: PUBLIC,
     open: at(slug('open'), 'market-home-name'),
   },

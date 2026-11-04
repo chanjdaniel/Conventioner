@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import { inject, ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { type Market } from '@/assets/types/datatypes';
 import { fetchMarkets, openMarket } from '@/utils/market';
 import { forgetLastMarket, lastMarketId } from '@/utils/lastMarket';
-import { useMarketStore } from '@/stores/market';
+import { signOut } from '@/utils/sessionEnded';
 import MarketSummaryCard from '@/components/MarketSummaryCard.vue';
 
-const setUser: (user: unknown) => void = inject('setUser')!;
-const hostname = import.meta.env.VITE_FLASK_HOST;
 const router = useRouter();
 
 /**
@@ -128,22 +126,6 @@ const handleMarkets = () => {
 const handleOrganizations = () => {
   router.push('/organizations');
 };
-
-const handleSignOut = async () => {
-  try {
-    await fetch(`${hostname}/logout`, {
-      method: 'POST',
-      credentials: 'include',
-    });
-  } catch (error) {
-    console.error('Logout failed:', error);
-  } finally {
-    localStorage.clear();
-    useMarketStore().clear();
-    setUser(null);
-    router.push('/login');
-  }
-};
 </script>
 
 <template>
@@ -203,7 +185,7 @@ const handleSignOut = async () => {
     <div class="secondary-buttons">
       <button
         class="button button-small"
-        @click="handleSignOut"
+        @click="signOut(router)"
         data-testid="dashboard-sign-out-button"
       >
         <span class="button-small-label">Sign out</span>

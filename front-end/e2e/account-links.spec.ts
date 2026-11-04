@@ -81,11 +81,14 @@ test.describe('Account links, opened signed out', () => {
     }
   });
 
-  test('the reset-request page loads directly, with no navigation menu', async ({ page }) => {
+  test('the reset-request page loads directly, with the logo alone', async ({ page }) => {
     await page.goto('/reset-password-request');
     await expect(new PasswordResetPage(page).requestForm).toBeVisible();
     await page.waitForLoadState('networkidle');
     await expect(page).toHaveURL(/\/reset-password-request$/);
-    await expect(page.getByRole('button', { name: 'Open menu' })).toHaveCount(0);
+    const bar = page.getByTestId('app-bar');
+    await expect(bar.getByAltText('Conventioner', { exact: true })).toBeVisible();
+    await expect(bar.getByRole('link')).toHaveCount(0);
+    await expect(bar.getByRole('button')).toHaveCount(0);
   });
 });

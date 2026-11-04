@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import axios from 'axios';
-import { computed, ref, inject, nextTick } from 'vue';
+import { computed, ref, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AuthCard from '@/components/AuthCard.vue';
 import SignInMessage from '@/components/SignInMessage.vue';
@@ -135,8 +135,6 @@ const remember = ref(false);
 const REMEMBER_ME_HELP =
   'Keeps you signed in on this device for 30 days. Leave it unticked on a shared one.';
 
-const setUser = inject<(user: unknown) => void>('setUser', () => {});
-
 const submitLogin = async () => {
   loginNotice.value = null;
   const address = email.value;
@@ -160,7 +158,6 @@ const submitLogin = async () => {
     if (response.status === 200) {
       const user_email = response.data.user_data.email;
       localStorage.setItem('user', JSON.stringify(user_email));
-      setUser(user_email);
       router.push(afterSignIn.value);
     }
   } catch (err: unknown) {
@@ -311,7 +308,6 @@ const submitOTPLogin = async () => {
     if (response.status === 200) {
       const user_email = response.data.user_data.email;
       localStorage.setItem('user', JSON.stringify(user_email));
-      setUser(user_email);
       router.push(afterSignIn.value);
     }
   } catch (err: unknown) {
