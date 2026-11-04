@@ -642,7 +642,7 @@ watch(
         </svg>
       </button>
 
-      <div class="toolbar-separator" />
+      <div class="toolbar-separator" data-testid="floorplan-wall-toolbar-separator" />
 
       <!-- Select tool -->
       <button
@@ -709,7 +709,7 @@ watch(
         </svg>
       </button>
 
-      <div class="toolbar-separator" />
+      <div class="toolbar-separator" data-testid="floorplan-wall-toolbar-separator" />
 
       <!-- Delete button -->
       <button
@@ -736,7 +736,7 @@ watch(
         </svg>
       </button>
 
-      <div class="toolbar-separator" />
+      <div class="toolbar-separator" data-testid="floorplan-wall-toolbar-separator" />
 
       <!-- Zoom controls -->
       <button class="toolbar-btn" @click="zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
@@ -820,8 +820,7 @@ watch(
   height: 22px;
   margin: 0 var(--space-1);
   background: var(--mm-border);
-  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 1px, and the nearest would change this floorplan beta corner */
-  border-radius: 1px;
+  border-radius: var(--radius-pill);
 }
 
 .toolbar-btn {

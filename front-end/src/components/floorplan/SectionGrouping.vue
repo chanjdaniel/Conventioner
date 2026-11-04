@@ -788,6 +788,12 @@ onUnmounted(() => {
   color: var(--mm-text-muted);
 }
 
+/* A hovered row's grey takes `--mm-text-muted` to 4.13, and this to 5.04. */
+.sg-list-item:hover .sg-item-meta,
+.sg-list-item:hover .sg-delete-btn:not(:hover) {
+  color: var(--mm-text-muted-on-beige);
+}
+
 .sg-delete-btn {
   flex-shrink: 0;
   display: inline-flex;
@@ -809,9 +815,10 @@ onUnmounted(() => {
     color 0.12s ease-in-out;
 }
 
+/* Opaque, so the pair reads the same over the hovered row's grey under it. */
 .sg-delete-btn:hover {
-  background: rgba(220, 20, 60, 0.1);
-  color: var(--mm-red);
+  background: var(--mm-chip-destructive);
+  color: var(--mm-text-red-on-tint);
 }
 
 .sg-empty {

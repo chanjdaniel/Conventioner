@@ -211,8 +211,7 @@ function onSaved(payload: { market_id: string }) {
   color: var(--mm-text-muted-on-beige);
   /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px and 14px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 6px 14px;
-  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 20px, and the nearest would change this floorplan beta corner */
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
   background: transparent;
   transition:
     color 0.2s ease,
