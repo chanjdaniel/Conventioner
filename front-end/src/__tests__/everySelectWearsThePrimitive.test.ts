@@ -43,7 +43,7 @@ function vueFiles(dir: string): string[] {
  * a control, and nothing is stripped and then re-read, where a removal can splice a new tag together.
  */
 const TOKENS =
-  /<!--[\s\S]*?-->|<(?:script|style)\b[^>]*>[\s\S]*?<\/(?:script|style)>|<select\b((?:[^>"']|"[^"]*"|'[^']*')*)>/gi;
+  /<!--[\s\S]*?-->|<(?:script|style)\b[^>]*>[\s\S]*?<\/(?:script|style)\s*>|<select\b((?:[^>"']|"[^"]*"|'[^']*')*)>/gi;
 
 function selectTags(source: string): RegExpMatchArray[] {
   return [...source.matchAll(TOKENS)].filter((match) => match[1] !== undefined);
@@ -65,7 +65,7 @@ function reachesASelect(selector: string): boolean {
 
 /** What is wrong with each `<select>` of a single-file component's source, in words. */
 function faultsOf(source: string): string[] {
-  const rules = [...source.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/g)]
+  const rules = [...source.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi)]
     .map((style) => style[1].replace(/\/\*[\s\S]*?\*\//g, ''))
     .flatMap((css) => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)])
     .map(([, selector, block]) => ({
@@ -141,6 +141,11 @@ describe('faultsOf, on a component written for it', () => {
 
   it('ignores a <select> in an upper-case script block', () => {
     const source = `<SCRIPT setup>const html = '<select class="dropdown"></select>'</SCRIPT><template><div></div></template>`;
+    expect(faultsOf(source)).toEqual([]);
+  });
+
+  it('ignores a <select> in a script whose end tag has a space before its ">"', () => {
+    const source = `<script setup>const html = '<select class="dropdown"></select>'</script ><template><div></div></template>`;
     expect(faultsOf(source)).toEqual([]);
   });
 
