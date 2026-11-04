@@ -14,7 +14,7 @@ describes:
   - front-end/src/views/PasswordResetView.vue
   - front-end/e2e/the-app-bar.spec.ts
   - front-end/src/__tests__/theBarsCurrentPlace.test.ts
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - T209
 ---
@@ -33,6 +33,7 @@ On a phone a market screen pins 44 + 94 = 138px, inside the layout sweep's 150px
 
 **The whole logo, 26px tall, leads to Markets.**
 Signed in, it is a link named "Conventioner, Markets"; signed out, it is an image with no link.
+On Markets the link says nothing of being current, `aria-current-value="false"`, so a screen reader hears the current page once, on the place's own link.
 
 **Markets and Organizations are links in a `nav` named "Main".**
 Each is the band's full height; the current one is `--mm-green`, semibold, with a 2px underline over the band's line, and carries `aria-current="page"`.

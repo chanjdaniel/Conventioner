@@ -100,7 +100,7 @@ onUnmounted(stopWatchingTheWindow);
   <div class="app-bar" data-testid="app-bar">
     <div class="app-bar-row">
       <template v-if="user">
-        <RouterLink to="/markets" class="app-bar-logo-link">
+        <RouterLink to="/markets" class="app-bar-logo-link" aria-current-value="false">
           <img
             class="app-bar-logo"
             alt="Conventioner, Markets"

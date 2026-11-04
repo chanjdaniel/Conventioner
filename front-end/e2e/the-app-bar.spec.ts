@@ -72,6 +72,8 @@ test.describe('the bar on a desk', () => {
       await page.goto(path);
       await expect(markets, path).toHaveAttribute('aria-current', 'page');
       await expect(organizations, path).not.toHaveAttribute('aria-current');
+      // The logo leads to Markets too, and a screen reader hears the current page once.
+      await expect(bar(page).locator('[aria-current="page"]'), path).toHaveCount(1);
     }
 
     await page.goto('/organizations');
