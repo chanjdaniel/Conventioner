@@ -160,18 +160,19 @@ Covered by:
 ## I7. Publish results
 
 **Status:** Works (re-walked live on 2026-10-03; where and when it is offered, and what a vendor reads, changed since, read from the code as of E36/F04 and E36/F05: `back-end/api/applicants.py`, `results-wait-for-the-allocation.spec.ts`).
-On a market whose vendors apply on its own page only, from the Applications page, above both of the review's views ([`PublishResults.vue`](../../../front-end/src/components/application/PublishResults.vue)); a Google Form market has nobody to tell, and offers no button.
+On both paths, from the Applications page, above both of the review's views ([`PublishResults.vue`](../../../front-end/src/components/application/PublishResults.vue)); on a Google Form market it is also what opens the vendor page ([a gated market answers as absent](../rules/a-gated-market-answers-as-absent.md)).
 
-1. "Publish results", beside "Tells every applicant, on their application page, whether they have a table.", is shown from Assignment on, and offered once a current run is stored; until then it is disabled and says why ("Allocate tables first: …", "The table allocation is out of date. Allocate tables again before publishing, …").
+1. "Publish results", beside "Vendors read whether they have a table on the market's vendor page. No email is sent.", is shown from Assignment on, and offered once a current run is stored; until then it is disabled and says why ("Allocate tables first: …", "The table allocation is out of date. Allocate tables again before publishing, …").
    Before Assignment the Applications page shows no Publish results at all, not even a disabled one.
-   In Assignment the rail leads there: Publish market is disabled with "Applicants have not been told whether they have a table. Publish the results before the market goes live." and "Publish results" as the main button.
-2. "Publish results" asks first: 'N applicants will read "You have a table". M will read "You did not get assigned".' and "Publishing cannot be undone, and tables cannot be allocated again after it: assignments change only by hand."
+   In Assignment the rail leads there: Publish market is disabled with "Vendors have not been told whether they have a table. Publish the results before the market goes live." and "Publish results" as the main button.
+2. "Publish results" asks first: 'N vendors will read "You have a table". M will read "You did not get assigned".', "Vendors read their result on the market's vendor page. No email is sent, so share the page's address with them.", the page's address with Copy ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)), and "Publishing cannot be undone, and tables cannot be allocated again after it: assignments change only by hand."
 3. Confirm: the button gives way to a "Results published" chip; the run and the rules are settled (J3b, J14), and the market can be published (K1).
-4. Each applicant reads their outcome on "Your application" ([H3c](applying-online.md#h3c-a-vendor-checks-their-application)).
+4. Each vendor reads their outcome on the market's vendor page ([H3c](applying-online.md#h3c-a-vendor-checks-their-application)); a Google Form market's imported vendor signs in there with the address their response gave ([the Google Form path](the-google-form-path.md#p3-an-imported-vendor-reads-their-table)).
 
 The Applications page fits a phone, so on one the button is a 44px target and its dialog opens inside the window (T180).
 
 Covered by:
+- `a-google-form-markets-vendor-page.spec.ts`, on a Google Form market
 - `results-wait-for-the-allocation.spec.ts`
 - `the-market-on-a-phone.spec.ts`
 - `vendors-see-their-application-after-close.spec.ts`

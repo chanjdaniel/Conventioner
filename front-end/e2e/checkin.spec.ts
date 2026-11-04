@@ -1,297 +1,234 @@
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { SEED_MARKET_DATE, seedPublishedMarketWithAssignments } from './helpers/seeds';
-import { CheckinPage } from './pages/CheckinPage';
+import type { Browser } from '@playwright/test';
+import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
+import { seedPublishedMarketWithAssignments } from './helpers/seeds';
+import {
+  calendarToday,
+  forgetSignInAttempts,
+  signInOnThePage,
+  vendorToken,
+} from './helpers/vendorSignIn';
 import { AttendanceStatusPage } from './pages/AttendanceStatusPage';
+import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
 
-test.describe('Public vendor check-in', () => {
-  test('vendor looks up assignment, checks in, confirmation pill appears, and attendance shows timestamp', async ({
-    page,
-    authenticatedPage: ownerPage,
+/**
+ * A vendor checks in on their own vendor page, with the market's door code (T202, ADR 0022).
+ *
+ * The check-in was a public page at `/<slug>/check-in`: anyone with the market's address typed any
+ * vendor's email, read their seats and checked them in or out, so a check-in proved nothing about
+ * who was at the door. Now the organizer shows a door code at the entrance; the vendor scans its
+ * QR code with their phone's own camera, which opens their vendor page, signs them in if it has to,
+ * and checks them in for today. A vendor whose camera will not read it types the code. The old page
+ * is gone.
+ *
+ * Each test seats vendors of its own: the sign-in limits count an address across every market.
+ */
+const TODAY = calendarToday();
+
+function vendorsOf(name: string) {
+  const at = Date.now();
+  return [`${name}-a-${at}@example.com`, `${name}-b-${at}@example.com`];
+}
+
+/** A market on its days, on `marketDate` (today unless a test says), with `vendors` seated. */
+async function aMarketOnItsDay(
+  request: Parameters<typeof seedPublishedMarketWithAssignments>[0],
+  vendors: string[],
+  marketDate = TODAY,
+) {
+  return seedPublishedMarketWithAssignments(
     request,
-  }) => {
-    const seed = await seedPublishedMarketWithAssignments(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-    );
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { marketDate, vendors },
+  );
+}
 
-    const checkinPage = new CheckinPage(page);
-    await checkinPage.goto(seed.marketSlug);
+/** Make a door code, the first or a new one, over the organizer's API; its address, as a path. */
+async function makeDoorCode(
+  request: Parameters<typeof seedPublishedMarketWithAssignments>[0],
+  marketId: string,
+): Promise<{ code: string; path: string }> {
+  const made = await request.post(`${BACKEND_URL}/markets/${marketId}/door-code`);
+  expect(made.ok(), await made.text()).toBeTruthy();
+  const { code, url } = (await made.json()) as { code: string; url: string };
+  const at = new URL(url);
+  return { code, path: `${at.pathname}${at.search}` };
+}
 
-    await checkinPage.fillEmail('alice@example.com');
-    await checkinPage.clickLookup();
+/** A vendor's phone: a browser of its own, signed in as nobody. */
+async function aPhone(browser: Browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await hideDevToolsPanel(context);
+  const page = await context.newPage();
+  return { context, page, vendorPage: new VendorPage(page) };
+}
 
-    await expect(checkinPage.checkinButtons.first()).toBeVisible({ timeout: 10000 });
+test.beforeEach(() => forgetSignInAttempts());
 
-    await checkinPage.clickCheckIn();
+test('the organizer opens the door code, and a vendor who scans it signed out lands checked in', async ({
+  authenticatedPage: ownerPage,
+  browser,
+  request,
+}) => {
+  const [vendor] = vendorsOf('scan');
+  const seed = await aMarketOnItsDay(request, [vendor]);
 
-    await expect(checkinPage.confirmationPills.first()).toBeVisible({ timeout: 10000 });
+  // The organizer puts the door code up at the entrance, from Attendance.
+  const attendance = new AttendanceStatusPage(ownerPage);
+  await attendance.goto(seed.marketId);
+  await attendance.doorCodeButton.click();
+  await attendance.doorCodeMake.click();
+  const url = await attendance.doorCodeQr.getAttribute('data-url');
+  expect(url).toMatch(new RegExp(`/${seed.marketSlug}\\?door=[A-Z0-9]{6}$`));
+  const scanned = new URL(url!);
 
-    const attendancePage = new AttendanceStatusPage(ownerPage);
-    await attendancePage.goto(seed.marketId);
+  // The vendor's camera opens it. Signed out, the code waits through the sign-in, off the address.
+  const phone = await aPhone(browser);
+  await phone.page.goto(`${scanned.pathname}${scanned.search}`);
+  await expect(phone.vendorPage.doorCodeHeld).toHaveText(
+    "Sign in, and you'll be checked in for today.",
+  );
+  await expect.poll(() => new URL(phone.page.url()).search).toBe('');
+  await signInOnThePage(phone.vendorPage, seed.marketId, vendor);
 
-    // A time a person would say aloud, with nobody else named: alice checked herself in.
-    await expect(attendancePage.status('alice@example.com')).toHaveText(/^\d{1,2}:\d{2}\s?[AP]M$/, {
-      timeout: 10000,
-    });
-  });
+  await expect(phone.vendorPage.checkedIn).toContainText('Checked in at');
+  await expect(phone.vendorPage.todayCard).toContainText('Today');
+  // Where they sit, in words, not as a stored seat label.
+  await expect(phone.vendorPage.todayCard).toContainText(/a whole table|left half|right half/);
+  await expect(phone.vendorPage.todayCard).not.toContainText('(');
+  // Used once: a reload checks nobody in again, and draws no notice.
+  await phone.page.reload();
+  await expect(phone.vendorPage.checkedIn).toBeVisible();
+  await expect(phone.vendorPage.checkInNotice).toHaveCount(0);
+  await phone.context.close();
 
-  test('names the market before the vendor types anything', async ({ page, request }) => {
-    // The page read "Vendor Check-in" until after a lookup, so a vendor handed a QR code at a
-    // door had to enter their address to find out whether they were in the right place.
-    const seed = await seedPublishedMarketWithAssignments(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-    );
+  // The roster says how they came.
+  await attendance.doorCodeClose.click();
+  await attendance.goto(seed.marketId);
+  await expect(attendance.status(vendor)).toHaveText(/^Scanned in at \d{1,2}:\d{2}\s[AP]M$/);
+});
 
-    const checkinPage = new CheckinPage(page);
-    await checkinPage.goto(seed.marketSlug);
+test('a new door code ends the old one; a vendor types the new one, and undoes a mis-tap', async ({
+  browser,
+  request,
+}) => {
+  const [vendor] = vendorsOf('typed');
+  const seed = await aMarketOnItsDay(request, [vendor]);
+  const old = await makeDoorCode(request, seed.marketId);
+  const current = await makeDoorCode(request, seed.marketId);
+  expect(current.code).not.toBe(old.code);
 
-    await expect(checkinPage.marketName).toHaveText(seed.marketName, { timeout: 10000 });
-    await expect(checkinPage.emailInput).toHaveValue('');
-  });
+  // A poster of the old code checks nobody in.
+  const phone = await aPhone(browser);
+  await phone.page.goto(old.path);
+  await signInOnThePage(phone.vendorPage, seed.marketId, vendor);
+  await expect(phone.vendorPage.checkInError).toHaveText(
+    "That isn't this market's door code. Check it, or ask at the door.",
+  );
+  await expect(phone.vendorPage.checkedIn).toHaveCount(0);
 
-  test('a check-in on the wrong day can be undone', async ({ page, request }) => {
-    // Every date offered an identical button with nothing marking today, so on a multi-day market
-    // one mis-tap recorded a vendor present on a day they were not - and there was no way back.
-    const seed = await seedPublishedMarketWithAssignments(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-    );
+  // Typed as a vendor reads it off the poster: in two groups, in lower case.
+  const typed = `${current.code.slice(0, 3)} ${current.code.slice(3)}`.toLowerCase();
+  await phone.vendorPage.checkInWith(typed);
+  await expect(phone.vendorPage.checkedIn).toContainText('Checked in at');
 
-    const checkinPage = new CheckinPage(page);
-    await checkinPage.goto(seed.marketSlug);
-    await checkinPage.fillEmail('alice@example.com');
-    await checkinPage.clickLookup();
+  await phone.vendorPage.undoButton.click();
+  await expect(phone.vendorPage.checkedIn).toHaveCount(0);
+  await expect(phone.vendorPage.doorCodeInput).toBeVisible();
+  await phone.context.close();
 
-    await expect(checkinPage.checkinButtons.first()).toBeVisible({ timeout: 10000 });
-    await checkinPage.clickCheckIn();
-    await expect(checkinPage.confirmationPills.first()).toBeVisible({ timeout: 10000 });
+  // The server holds what the page says.
+  const roster = await request.get(`${BACKEND_URL}/markets/${seed.marketId}/attendance`);
+  const { roster: rows } = (await roster.json()) as {
+    roster: { vendorEmail: string; checkedInAt: string | null }[];
+  };
+  expect(rows.find((row) => row.vendorEmail === vendor)?.checkedInAt).toBeNull();
+});
 
-    await checkinPage.clickUndo();
+test('a scan on a day the vendor has no table says so, and checks nothing in', async ({
+  browser,
+  request,
+}) => {
+  const [vendor] = vendorsOf('notoday');
+  const seed = await aMarketOnItsDay(request, [vendor], '2099-05-01');
+  const { path } = await makeDoorCode(request, seed.marketId);
 
-    await expect(checkinPage.confirmationPills).toHaveCount(0, { timeout: 10000 });
-    await expect(checkinPage.checkinButtons.first()).toBeVisible();
-  });
+  const phone = await aPhone(browser);
+  await phone.page.goto(path);
+  await signInOnThePage(phone.vendorPage, seed.marketId, vendor);
 
-  test('a vendor looking up on another day is not invited to check in for it', async ({
-    page,
-    request,
-  }) => {
-    // The page told a vendor whose day was not today "You can still check in for a day below."
-    // Check-in is how the organizer knows a vendor is present on the day, so the page must not
-    // suggest checking in on any other (2026-10-18 dry run). It is not refused in code.
-    const seed = await seedPublishedMarketWithAssignments(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-    );
+  await expect(phone.vendorPage.checkInNotice).toHaveText(
+    'You have no table today, so you are not checked in.',
+  );
+  await expect(phone.vendorPage.todayCard).toHaveCount(0);
+  await expect(phone.vendorPage.otherDays).toContainText('2099');
+  await phone.context.close();
+});
 
-    const checkinPage = new CheckinPage(page);
-    await checkinPage.goto(seed.marketSlug);
-    await checkinPage.fillEmail('alice@example.com');
-    await checkinPage.clickLookup();
-
-    await expect(checkinPage.checkinButtons.first()).toBeVisible({ timeout: 10000 });
-    await expect(page.getByTestId('attendance-not-today')).toHaveCount(0);
-    await expect(page.getByText(/still check in/i)).toHaveCount(0);
-  });
-
-  test('the vendor is greeted by name, with the address they matched on', async ({
-    page,
-    request,
-  }) => {
-    const seed = await seedPublishedMarketWithAssignments(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-    );
-
-    const checkinPage = new CheckinPage(page);
-    await checkinPage.goto(seed.marketSlug);
-    await checkinPage.fillEmail('alice@example.com');
-    await checkinPage.clickLookup();
-
-    const vendor = page.getByTestId('attendance-checkin-vendor');
-    await expect(vendor).toBeVisible({ timeout: 10000 });
-    await expect(vendor).toContainText('Alice Example');
-    // The address stays: it is what this lookup matched on, and how a vendor spots that they
-    // typed someone else's.
-    await expect(vendor).toContainText('alice@example.com');
-  });
-
-  test('the table is said in words, not as a stored seat label', async ({ page, request }) => {
-    // Found on the November 2026 rehearsal: "Table: A 1 (Half Table (Left))" on a phone.
-    const seed = await seedPublishedMarketWithAssignments(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-    );
-
-    const checkinPage = new CheckinPage(page);
-    await checkinPage.goto(seed.marketSlug);
-    await checkinPage.fillEmail('alice@example.com');
-    await checkinPage.clickLookup();
-    const card = page.getByTestId('attendance-checkin-card').first();
-    await expect(card).toBeVisible({ timeout: 10000 });
-    await expect(card).toContainText(/Table: .+, (a whole table|left half|right half)/);
-    await expect(card).not.toContainText('(');
-  });
-
-  test('the confirmation states a time a person would say aloud', async ({ page, request }) => {
-    const seed = await seedPublishedMarketWithAssignments(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-    );
-
-    const checkinPage = new CheckinPage(page);
-    await checkinPage.goto(seed.marketSlug);
-    await checkinPage.fillEmail('alice@example.com');
-    await checkinPage.clickLookup();
-    await expect(checkinPage.checkinButtons.first()).toBeVisible({ timeout: 10000 });
-    await checkinPage.clickCheckIn();
-
-    const pill = checkinPage.confirmationPills.first();
-    await expect(pill).toBeVisible({ timeout: 10000 });
-
-    // "9/15/2026, 7:20:18 AM" was a machine's idea of a time. No seconds, and a named month. The
-    // time keeps "AM" on its line by a no-break space, which a regular expression reads as `\s`.
-    await expect(pill).toHaveText(
-      /Checked in .* [A-Z][a-z]{2} \d{1,2}, \d{4} at \d{1,2}:\d{2}\s(AM|PM)/,
-    );
-  });
-
-  /**
-   * The vendor-facing page on market day, usually on a phone, where a phantom scrollbar is felt
-   * most (E14/F02/S01, QC finding F12).
-   *
-   * `.attendance-view` carried `min-height: 100vh` inside a layout whose header already takes 5vh,
-   * so the page was a banner taller than the window and scrolled on every load with roughly 350px
-   * of content in it. `VendorsView.vue` had the identical bug and still carries the comment
-   * explaining it; the check-in view was not updated at the time.
-   */
-  test('does not scroll when everything already fits, and still scrolls when it does not', async ({
-    page,
-    request,
-  }) => {
-    const seed = await seedPublishedMarketWithAssignments(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-    );
-    const checkinPage = new CheckinPage(page);
-
-    const overflow = () =>
-      page.evaluate(() => {
-        const d = document.documentElement;
-        return { scrollHeight: d.scrollHeight, clientHeight: d.clientHeight };
-      });
-
-    // A desk monitor and a phone: the content fits in both, so neither should offer to scroll.
-    for (const size of [
-      { width: 1920, height: 1080 },
-      { width: 390, height: 844 },
-    ]) {
-      await page.setViewportSize(size);
-      await checkinPage.goto(seed.marketSlug);
-      await expect(checkinPage.emailInput).toBeVisible({ timeout: 10000 });
-
-      const { scrollHeight, clientHeight } = await overflow();
-      expect(
-        scrollHeight,
-        `${size.width}x${size.height} scrolled ${scrollHeight - clientHeight}px past the window`,
-      ).toBeLessThanOrEqual(clientHeight);
-    }
-
-    // Squeezed well below what the card needs, so the page must scroll. 240px is chosen to leave
-    // an unambiguous margin: the card alone is a little over 320px, so this does not turn on a
-    // font loading a few pixels differently.
-    await page.setViewportSize({ width: 390, height: 240 });
-    await checkinPage.goto(seed.marketSlug);
-    await expect(checkinPage.emailInput).toBeVisible({ timeout: 10000 });
-
-    const squeezed = await overflow();
-    expect(squeezed.scrollHeight).toBeGreaterThan(squeezed.clientHeight);
-
-    // Scrolling has to actually reach the bottom of the card. A page that merely reports overflow
-    // while clipping its own content would pass the line above; that is the way this fix could go
-    // wrong, so it is the thing worth asserting.
-    const cardBottomAfterScrolling = await page.evaluate(() => {
-      const d = document.documentElement;
-      window.scrollTo(0, d.scrollHeight);
-      const card = document.querySelector('[data-testid="attendance-checkin-card"]');
-      return card ? Math.round(card.getBoundingClientRect().bottom) : Infinity;
-    });
-    expect(cardBottomAfterScrolling).toBeLessThanOrEqual(squeezed.clientHeight + 2);
-  });
-
-  test('a vendor is sent to the seat stored for them, after a swap, a freed seat and a placement', async ({
-    page,
-    request,
-  }) => {
-    // Bug 1 (E26/F05/S01): the lookup ran the solver afresh on every request, so a vendor moved by
-    // hand was sent to their old seat - now another vendor's - and could check in there.
-    const seed = await seedPublishedMarketWithAssignments(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-    );
-    const date = SEED_MARKET_DATE;
-    const stored = async () => {
-      const res = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`);
-      const { market } = (await res.json()) as {
-        market: { assignmentObject: { vendorAssignments: { email: string; tableCode: string }[] } };
-      };
-      return Object.fromEntries(
-        market.assignmentObject.vendorAssignments.map((row) => [row.email, row.tableCode]),
-      );
+test('a vendor is shown the seat stored for them, after a swap', async ({ browser, request }) => {
+  // Bug 1 (E26/F05/S01): the lookup ran the solver afresh on every request, so a vendor moved by
+  // hand was sent to their old seat - now another vendor's - and could check in there.
+  const vendors = vendorsOf('swap');
+  const seed = await aMarketOnItsDay(request, vendors);
+  const stored = async () => {
+    const res = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`);
+    const { market } = (await res.json()) as {
+      market: { assignmentObject: { vendorAssignments: { email: string; tableCode: string }[] } };
     };
-    const checkinPage = new CheckinPage(page);
-    const lookUp = async (email: string) => {
-      await checkinPage.goto(seed.marketSlug);
-      await checkinPage.fillEmail(email);
-      await checkinPage.clickLookup();
-    };
-
-    const before = await stored();
-    const swapped = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/placements/swap`, {
-      data: { emails: ['alice@example.com', 'bob@example.com'], date },
-    });
-    expect(swapped.ok(), await swapped.text()).toBeTruthy();
-    const after = await stored();
-    expect(after['alice@example.com']).toBe(before['bob@example.com']);
-
-    await lookUp('alice@example.com');
-    await expect(checkinPage.card).toContainText(after['alice@example.com']);
-    await expect(checkinPage.card).not.toContainText(before['alice@example.com']);
-
-    // Freed: no seat to go to, and none to check in at.
-    const freed = await request.delete(`${BACKEND_URL}/markets/${seed.marketId}/placements`, {
-      data: { email: 'bob@example.com', date },
-    });
-    expect(freed.ok(), await freed.text()).toBeTruthy();
-    await lookUp('bob@example.com');
-    await expect(checkinPage.checkinButtons).toHaveCount(0);
-
-    // Placed by hand into the seat nobody had.
-    const empty = ['A 1', 'A 2', 'A 3'].find((code) => !Object.values(after).includes(code));
-    const placed = await request.put(`${BACKEND_URL}/markets/${seed.marketId}/placements`, {
-      data: { email: 'bob@example.com', date, table_code: empty, table_choice: 'Full Table' },
-    });
-    expect(placed.ok(), await placed.text()).toBeTruthy();
-    await lookUp('bob@example.com');
-    await expect(checkinPage.card).toContainText(empty!);
+    return Object.fromEntries(
+      market.assignmentObject.vendorAssignments.map((row) => [row.email, row.tableCode]),
+    );
+  };
+  const before = await stored();
+  const swapped = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/placements/swap`, {
+    data: { emails: vendors, date: TODAY },
   });
+  expect(swapped.ok(), await swapped.text()).toBeTruthy();
+  const after = await stored();
+  expect(after[vendors[0]]).toBe(before[vendors[1]]);
+
+  const phone = await aPhone(browser);
+  await phone.vendorPage.goto(seed.marketSlug);
+  await signInOnThePage(phone.vendorPage, seed.marketId, vendors[0]);
+  await expect(phone.vendorPage.todayCard).toContainText(after[vendors[0]]);
+  await expect(phone.vendorPage.todayCard).not.toContainText(before[vendors[0]]);
+  await phone.context.close();
+});
+
+test('nobody checks in at the old public check-in page, which is gone', async ({
+  page,
+  request,
+}) => {
+  const [vendor] = vendorsOf('gone');
+  const seed = await aMarketOnItsDay(request, [vendor]);
+
+  await page.goto(`/${seed.marketSlug}/check-in`);
+  await expect(page.getByTestId('page-not-found')).toBeVisible();
+
+  for (const [method, path] of [
+    ['get', `/public/markets/${seed.marketSlug}/check-in`],
+    ['get', `/public/markets/${seed.marketSlug}/vendors/${vendor}/assignments`],
+    ['post', `/public/markets/${seed.marketSlug}/attendance/checkin`],
+    ['delete', `/public/markets/${seed.marketSlug}/attendance/checkin`],
+  ] as const) {
+    const answer = await request[method](`${BACKEND_URL}${path}`, {
+      data: { vendorEmail: vendor, date: TODAY },
+    });
+    expect(answer.status(), `${method} ${path}`).toBe(404);
+  }
+
+  // Nor without signing in as the vendor at their own page's.
+  const { code } = await makeDoorCode(request, seed.marketId);
+  const signedOut = await request.post(
+    `${BACKEND_URL}/public/markets/${seed.marketSlug}/vendor/check-in`,
+    { data: { date: TODAY, doorCode: code } },
+  );
+  expect(signedOut.status()).toBe(401);
+  const token = await vendorToken(request, BACKEND_URL, seed.marketSlug, seed.marketId, vendor);
+  const signedIn = await request.post(
+    `${BACKEND_URL}/public/markets/${seed.marketSlug}/vendor/check-in`,
+    { data: { date: TODAY, doorCode: code }, headers: { Authorization: `Bearer ${token}` } },
+  );
+  expect(signedIn.ok(), await signedIn.text()).toBeTruthy();
 });

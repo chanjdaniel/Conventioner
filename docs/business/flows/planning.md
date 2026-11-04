@@ -98,7 +98,7 @@ Covered by:
 
 **Status:** Works (walked live).
 
-1. Choose "I collect applications elsewhere" ("You import a spreadsheet of the responses you already have.") or "Vendors apply on this market's page" (the form goes live at `/<market-slug>/apply` while applications are open); the create-market dialog asked first, so one is already chosen.
+1. Choose "I collect applications elsewhere" ("You import a spreadsheet of the responses you already have.") or "Vendors apply on this market's page" (the form goes live on the market's vendor page, `/<market-slug>`, while applications are open); the create-market dialog asked first, so one is already chosen.
 2. It saves at once, and is greyed out once the market leaves Draft: "This is fixed once a market leaves draft, because changing it would strand whatever the previous choice produced."
 
 Under it, "Draft from a Google Form's responses" opens the start from a Google Form ([G2](starting-from-a-google-form.md#g2-from-an-existing-draft)) and leaves this choice as it is.

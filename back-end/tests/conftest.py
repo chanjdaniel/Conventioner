@@ -330,10 +330,10 @@ def mongo_matches(doc: dict, query: dict) -> bool:
     filter is a fake that passes a document Mongo would never have handed back - which is exactly
     how a lookup querying a field no document carries would go unnoticed here and 404 in
     production. ``$ne``, ``$exists``, ``$in`` and ``$nor`` are modelled because the public slug
-    lookup is built out of them, ``$gt`` because a deal's lease is, ``$type: object`` because the
-    applications waiting to be dealt are read by it, and a value matching a list that holds it
-    because a vendor's history is. A dotted key reaches into sub-documents, as an assignment's
-    revision is read by every write of it.
+    lookup is built out of them, ``$gt`` because a deal's lease is, ``$lt`` because a sign-in
+    code's tries are, ``$type: object`` because the applications waiting to be dealt are read by
+    it, and a value matching a list that holds it because a vendor's history is. A dotted key
+    reaches into sub-documents, as an assignment's revision is read by every write of it.
     """
     for key, condition in (query or {}).items():
         if key == "$nor":
@@ -361,6 +361,8 @@ def mongo_matches(doc: dict, query: dict) -> bool:
                 return False
             # Mongo compares a missing or null field as matching no range (a lease's end, say).
             if "$gt" in condition and (doc.get(key) is None or not doc[key] > condition["$gt"]):
+                return False
+            if "$lt" in condition and (doc.get(key) is None or not doc[key] < condition["$lt"]):
                 return False
         elif condition is None:
             # A null matches a field that is null or absent.
@@ -599,10 +601,12 @@ def market_records(monkeypatch):
     import api.attendance as AttendanceApi
     import history as History
     import payments as Payments
+    import remembered_sign_ins as RememberedSignIns
     import vendor_notes as VendorNotes
 
     fakes = SimpleNamespace(
         attendance=FakeApplicationsCollection(), challenges=FakeApplicationsCollection(),
+        remembered=FakeApplicationsCollection(),
         history=FakeApplicationsCollection(), notes=FakeApplicationsCollection(),
         placement_history=FakeApplicationsCollection(), payments=FakeApplicationsCollection(),
         amounts_owed=FakeApplicationsCollection(),
@@ -612,6 +616,7 @@ def market_records(monkeypatch):
     monkeypatch.setattr(VendorNotes, "vendor_notes_collection", fakes.notes)
     monkeypatch.setattr(AttendanceApi, "attendance_collection", fakes.attendance)
     monkeypatch.setattr(ApplicantAuth, "challenges_collection", fakes.challenges)
+    monkeypatch.setattr(RememberedSignIns, "remembered_collection", fakes.remembered)
     monkeypatch.setattr(History, "history_collection", fakes.history)
     monkeypatch.setattr(History, "legacy_placement_collection", fakes.placement_history)
     return fakes
@@ -626,6 +631,10 @@ class FakeAttemptsCollection:
     def create_index(self, keys, **kwargs):
         self.indexes.append((keys, kwargs))
         return kwargs.get("name", "fake-index")
+
+    def find_one(self, query):
+        doc = self.docs.get(query["_id"])
+        return dict(doc) if doc else None
 
     def find_one_and_update(self, query, update, upsert=False, return_document=None):
         key = query["_id"]
@@ -726,6 +735,11 @@ if not STUBBED_MODULES:
     import sign_in_limits as _sign_in_limits_module
 
     _sign_in_limits_module.attempts_collection = FakeAttemptsCollection()
+
+    # And the vendors' remembered sign-ins, whose expiry index the same boot check builds (T202).
+    import remembered_sign_ins as _remembered_sign_ins_module
+
+    _remembered_sign_ins_module.remembered_collection = FakeApplicationsCollection()
 
     # And the users collection, whose unique address index the boot builds (E32/F03/S04).
     import api.users as _users_module

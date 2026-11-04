@@ -350,7 +350,7 @@ class AssignmentComputedGuard:
                 id=self.id,
                 passed=False,
                 message=(
-                    "No tables have been allocated for this market, so its check-in page could "
+                    "No tables have been allocated for this market, so its vendor page could "
                     "not tell anyone where to stand. Allocate tables first."
                 ),
                 resolution_link="settings",
@@ -364,10 +364,9 @@ class AssignmentNotBeforeReviewGuard:
     """A market does not go live on tables allocated before its review was reopened (T207, ADR 0021).
 
     An ENTRY INVARIANT on ``market_days``, ahead of the results it would otherwise wait on. Publish
-    results already refuses an out-of-date run, so a market whose vendors apply on its page meets
-    this only before publishing, and Back to review is refused after; it is a Google Form market,
-    which has no Publish results, that this binds: without it, a vendor rejected in the reopened
-    review could keep the run's seat and check in.
+    results already refuses an out-of-date run and Back to review is refused after it, on both
+    kinds of market (ADR 0022), so a market meets this only before publishing, where it names the
+    fix that comes first: allocate tables, then publish them.
 
     Reads only the ``review`` group (``assignment.made_from``), never the approved applications:
     it stays cheap, and a plan or rule edit made after publishing, when runs are refused, never
@@ -394,25 +393,26 @@ class AssignmentNotBeforeReviewGuard:
 
 
 class ResultsPublishedGuard:
-    """A market whose vendors apply on its page does not go live until they have been told whether
-    they have a table (E36/F04/S02).
+    """A market does not go live until its vendors have been told whether they have a table
+    (E36/F04/S02).
 
     An ENTRY INVARIANT on ``market_days``, like the assignment it follows: check-in on the air with
-    applicants still reading "Submitted" was the state this closes. A CSV market has no applicant
-    page and nobody to tell, so it passes. Reads the intake mode and the flag, never the phase.
+    applicants still reading "Submitted" was the state this closes. It holds on both kinds of
+    market: a Google Form market's vendors read their table on its vendor page, which opens with
+    its results (ADR 0022). Reads the flag, never the phase.
     """
 
     id: str = "results_published"
-    description: str = "Results are published to applicants"
+    description: str = "Results are published to vendors"
 
     def evaluate(self, market: Market, _db) -> PreconditionResult:
-        if market.intake_mode is not IntakeMode.FORM or market.results_published:
+        if market.results_published:
             return PreconditionResult(id=self.id, passed=True, message="")
         return PreconditionResult(
             id=self.id,
             passed=False,
             message=(
-                "Applicants have not been told whether they have a table. Publish the results "
+                "Vendors have not been told whether they have a table. Publish the results "
                 "before the market goes live."
             ),
             resolution_link="applications",
@@ -427,8 +427,8 @@ class ResultsNotPublishedGuard:
     On ``assignment -> applications`` alone, Back to review. Once results are published an
     applicant has read whether they have a table, so a verdict changed after it would change what
     they were told; from then on a seat placed or freed by hand is the way to change who has one.
-    A Google Form market never publishes results, so it passes for the whole of Assignment. Reads
-    the flag, never the phase, and offers no way back: no page reopens the review.
+    It holds on both kinds of market, since a Google Form market publishes results too (ADR 0022).
+    Reads the flag, never the phase, and offers no way back: no page reopens the review.
     """
 
     id: str = "results_not_published"

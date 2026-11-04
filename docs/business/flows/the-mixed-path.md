@@ -19,7 +19,7 @@ A path is one way of running a market from start to finish; this one would take 
 **Status:** Not offered (read from the code as of E36: `import_refusal` in [`back-end/csv_import.py`](../../../back-end/csv_import.py); `what-to-show-and-when.spec.ts`, "past draft the setup is settled, and a form market imports nothing").
 A market takes its vendors one way, chosen in draft, and since E31/F03/S04 each path offers only its own actions.
 A market whose vendors apply on its own page shows no import, and the server refuses one: "This market takes applications on its own page, so nothing is imported into it."
-A market whose vendors are imported has no applicant pages at all, so an imported vendor has nothing to sign in to: since E32/F03/S01 even its sign-in page reads as a market that does not exist.
+A market whose vendors are imported has no application on its page: its vendor page reads as a market that does not exist until its results are published (E32/F03/S01), and then shows an imported vendor their result, never a form ([a gated market answers as absent](../rules/a-gated-market-answers-as-absent.md)).
 
 What each step of the path does now:
 

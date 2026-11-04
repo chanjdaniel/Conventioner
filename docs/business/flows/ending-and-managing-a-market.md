@@ -68,25 +68,25 @@ Covered by:
 **Status:** Works (re-walked live on 2026-10-03; archiving as the step onward and the landing read from the code as of E31/F02/S03 and E32/F01/S01).
 
 1. Once every market date has passed, "Archive market" is the rail's main button and the rail says "The market has run. Archive it to keep it as the record of what happened."; until then it is under More….
-2. "Archive this market?": "Archiving is permanent. Once archived, a market cannot be returned to an active phase. This action cannot be undone." and "Its check-in page stays up as a record: vendors can still look up where they were assigned, but nobody can check in."; focus on Cancel; "Archive".
+2. "Archive this market?": "Archiving is permanent. Once archived, a market cannot be returned to an active phase. This action cannot be undone." and "Its vendor page stays up as a record: vendors can still read where they sat and when they came, but nobody can check in."; focus on Cancel; "Archive".
 3. Expect the rail frozen with "This market is archived. It was published and ran its market days." (bug 8), landing on Assignments; every page is read only (bug 30), and Attendance keeps the record, every vendor who never checked in reading "Did not come".
-4. The check-in page stays up as a record: "This market has ended. You can still look up where you were placed, and when you checked in.", each date "Checked in" or "Not checked in", and no check-in (bug 9).
+4. The vendor page stays up as a record: each vendor, signed in, reads "Where you sat", "This market has ended.", each date "Checked in at <time>" or "Not checked in", and no check-in (bug 9).
 
 Covered by:
 - `an-archive-is-read-only.spec.ts`
-- `an-archive-keeps-its-check-in-page.spec.ts`
+- `an-archive-keeps-its-vendor-page.spec.ts`
 - `phase-state-machine.spec.ts`
 
 ## L2. Abandon a market early
 
 **Status:** Works (walked live; the notes' words read from the code, `PhaseRail.vue`).
-More…, "Archive market" from any earlier phase, with the same confirmation less the check-in line.
-It is read only, lands on Assignments if it was assigned and on Market Setup if not, and no check-in page is served.
-The rail's note says how far it got: "It was abandoned before it opened applications.", "It opened applications but never allocated tables." or "Its tables were allocated but it was never published, so no check-in page went on the air."; a market older than the phase record says only what it can prove ("It opened applications.", "Its tables were allocated.").
+More…, "Archive market" from any earlier phase, with the same confirmation less the vendor page line.
+It is read only, lands on Assignments if it was assigned and on Market Setup if not, and keeps no record of check-ins; a Google Form market that never published its results has no vendor page.
+The rail's note says how far it got: "It was abandoned before it opened applications.", "It opened applications but never allocated tables." or "Its tables were allocated but it was never published, so it never ran its market days."; a market older than the phase record says only what it can prove ("It opened applications.", "Its tables were allocated.").
 Its Attendance tab says "This market was archived without being published, so nobody checked in."
 Covered by:
 - `an-archive-is-read-only.spec.ts` ("an archived market that never ran says it has no attendance")
-- `an-archive-keeps-its-check-in-page.spec.ts`
+- `an-archive-keeps-its-vendor-page.spec.ts`
 - `market-remembers-phases.spec.ts`
 
 ## L3. Manage who has access
@@ -164,7 +164,7 @@ Covered by:
 ## L5. Delete a market
 
 **Status:** Works (walked live; what it names read from the code as of bug 43's fix and E30/F01/S03).
-Owner only, in any phase: "Delete market" opens "Delete <market>?", which names what goes ("This deletes the market with its applications, its assignments, its check-in records and the record of who changed what. It cannot be undone."), adds "Its application page and check-in page will stop working for anyone who has the link." for whichever of those it has, and opens on Cancel (bug 43).
+Owner only, in any phase: "Delete market" opens "Delete <market>?", which names what goes ("This deletes the market with its applications, its assignments, its check-in records and the record of who changed what. It cannot be undone."), adds "Its vendor page will stop working for anyone who has the link." while its vendor page answers (a form market after draft, a Google Form market once its results are published or it reached its market days), and opens on Cancel (bug 43).
 Everything the market kept beside itself is deleted with it (bug 47).
 Covered by:
 - `market-records-go-with-it.spec.ts`

@@ -6,18 +6,26 @@ The design is the captain's ruling in full - see the decision file at
 ``/home/danielc/.firstmate/data/decision-applicant-login-oracle.md``. The key
 constraints:
 
-1. **No attempt counter on an application.** A code is consumed by a single
-   verification attempt, right or wrong. No "attempts remaining", and nothing
-   counted only for addresses that applied: such a counter answers whether they
-   had. The rate limits (``sign_in_limits``) count every address and every
-   caller alike, before the market is looked up, so their refusal leaks nothing.
+1. **A code takes five tries, counted on the code, never on an application.**
+   A code lasts ten minutes and takes ``MAX_CODE_ATTEMPTS`` tries; the fifth wrong
+   one ends it (T202, superseding "one code, one attempt", which burnt a code on a
+   slip while the page went on offering it). The count lives on the challenge,
+   which every address that asks is given alike, so it says nothing of who applied:
+   no "attempts remaining", and nothing counted only for addresses that applied,
+   since such a counter answers whether they had. The rate limits
+   (``sign_in_limits``) count every address and every caller alike, before the
+   market is looked up, so their refusal leaks nothing, and they bound the guesses
+   at a six-digit code to 10 per address per 15 minutes.
 
 2. **Requesting a code is indistinguishable, always.** Same HTTP status, shape
    and body whether or not the address is known.
 
-3. **Verifying a code is indistinguishable, always.** Every failure branch
-   (unknown address, no code issued, expired, already consumed, wrong code)
-   collapses to one observable response.
+3. **Verifying a code tells nothing about who applied.** Every way a code cannot
+   pass (unknown address, no code issued, expired, already consumed, the fifth wrong
+   try, a gated or unknown market) collapses to one observable response, "spent".
+   The one other refusal, "retry", is a wrong try on a live code: it says only that
+   someone asked for a code for this address in the last ten minutes, which anyone
+   can make true by asking, so it says nothing of whether the address applied.
 
 4. **Enforced on the back end.** The front end is 5e; this must stand alone.
 
@@ -31,22 +39,32 @@ constraints:
    work is the same for all, and the send runs on a thread so the response goes out
    as soon as the challenge is stored.
 
+7. **Remember me spares the code, never the proof.** A right code with ``remember``
+   ticked also gives the browser a remembered sign-in (``remembered_sign_ins``): an
+   HttpOnly cookie holding a secret the server keeps only as a hash. ``resume``
+   answers for a live one exactly as a right code does, and every way one cannot
+   pass (none, tampered, ended, signed out, another market's, a gated market) is one
+   401, which also forgets and clears a cookie the browser sent. It is counted per
+   caller before the cookie is read.
+
 A first-time vendor signs in exactly as a returning one does: the token names the
 address and the market, not an application, and their first save creates it.
 """
 import hashlib
 import logging
-import math
 import secrets
 from datetime import datetime, timedelta, timezone
+from enum import Enum
 from typing import Optional
 
-from flask import jsonify, request
+from flask import current_app, jsonify, request
+from pymongo import ReturnDocument
 from pymongo.errors import PyMongoError
 
+import remembered_sign_ins as RememberedSignIns
 import sign_in_limits
 from db_config import get_database
-from market_documents import applicant_intake_market_by_slug
+from market_documents import market_dates_of, market_id_at_slug, vendor_page_market_by_slug
 from utils.email import _email_disabled, ready_mailer, from_email, frontend_url
 from utils.application_token import generate_application_token
 from utils.email_address import normalized_email
@@ -61,6 +79,10 @@ MARKET_ID_FIELD = "market_id"
 EMAIL_FIELD = "email"
 CONSUMED_FIELD = "consumed"
 EXPIRES_AT_FIELD = "expires_at"
+# Wrong and right tries at the current code so far; a new code starts it at 0.
+ATTEMPTS_FIELD = "attempts"
+# How many codes this address has asked for at this market; numbers each email's subject.
+SEQUENCE_FIELD = "sequence"
 
 db = get_database()
 challenges_collection = db[APPLICANT_LOGIN_CHALLENGES_COLLECTION]
@@ -69,24 +91,27 @@ _indexes_ready = False
 
 
 class ApplicantLoginIndexError(RuntimeError):
-    """The indexes that make one code one attempt are not in place."""
+    """The indexes that keep one live code per address are not in place."""
 
 
 def ensure_applicant_login_indexes() -> None:
     """Build the indexes the applicant login endpoints rest on.
 
-    Three indexes:
+    Four indexes:
     1. A unique compound index on ``(market_id, email)`` so an address has at
        most one active challenge per market - a new request overwrites the old one.
     2. A TTL index on ``expires_at`` so expired challenges are cleaned up by
        the database, not by application code.
     3. The TTL index that expires the sign-in rate limit counters
        (``sign_in_limits``), without which they would pile up for ever.
+    4. The TTL index that removes a vendor's remembered sign-in once it has ended
+       (``remembered_sign_ins``).
 
     A build that fails raises, and the caller fails with it. This index is not
-    a decoration; it is the guarantee that find_one_and_update with a consumed
-    filter is atomic, and that a process serving on without it is silently
-    allowing code replay.
+    a decoration; it is the guarantee that an address has one challenge, so the
+    conditional updates that count its tries and mark it used act on the one
+    code it was sent, and that a process serving on without it is silently
+    allowing a code to be tried and replayed beyond its bounds.
     """
     global _indexes_ready
     if _indexes_ready:
@@ -105,12 +130,14 @@ def ensure_applicant_login_indexes() -> None:
             name="challenge_ttl",
         )
         sign_in_limits.ensure_expiry_index()
+        RememberedSignIns.ensure_expiry_index()
     except PyMongoError as exc:
         message = (
-            f"The indexes on {APPLICANT_LOGIN_CHALLENGES_COLLECTION} and "
-            f"{sign_in_limits.SIGN_IN_ATTEMPTS_COLLECTION} could not be built, so nothing "
-            f"is enforcing one-code-one-attempt or cleaning up expired challenges and "
-            f"rate limit counters: {exc}"
+            f"The indexes on {APPLICANT_LOGIN_CHALLENGES_COLLECTION}, "
+            f"{sign_in_limits.SIGN_IN_ATTEMPTS_COLLECTION} and "
+            f"{RememberedSignIns.REMEMBERED_SIGN_INS_COLLECTION} could not be built, so nothing "
+            f"is keeping one code per address or cleaning up expired challenges, rate limit "
+            f"counters and remembered sign-ins: {exc}"
         )
         logger.critical("%s", message)
         raise ApplicantLoginIndexError(message) from exc
@@ -120,7 +147,8 @@ def ensure_applicant_login_indexes() -> None:
 # ── Code generation and verification ──────────────────────────────────────
 
 CODE_LENGTH = 6
-CODE_EXPIRY_MINUTES = 5
+CODE_EXPIRY_MINUTES = 10
+MAX_CODE_ATTEMPTS = 5
 
 
 def _generate_code() -> str:
@@ -161,8 +189,20 @@ def _verify_code(stored: str, candidate: str) -> bool:
 _REQUEST_CODE_BODY = {"message": "We've sent a code to this address."}
 _REQUEST_CODE_STATUS = 200
 
-_VERIFY_FAILURE_BODY = {"message": "Invalid or expired code."}
 _VERIFY_FAILURE_STATUS = 401
+# A wrong try on a live code with tries left. The page clears the field for another.
+_RETRY_BODY = {
+    "message": "That code isn't right. Check you typed the newest code and try again.",
+    "codeState": "retry",
+}
+# Every other way a code cannot pass, one body for all; the page offers only "Send a new code".
+_SPENT_BODY = {
+    "message": "That code no longer works. Send yourself a new code.",
+    "codeState": "spent",
+}
+
+# Every way a remembered sign-in cannot pass, one body for all; the page then asks for a code.
+_RESUME_FAILURE_BODY = {"message": "Sign in with a code."}
 
 
 # ── Rate limits ──────────────────────────────────────────────────────────
@@ -187,17 +227,8 @@ def _address_refusal(limit: sign_in_limits.SignInLimit, email: Optional[str]):
 
 
 def _too_many(retry_after: Optional[int]):
-    """The refusal for a limit that says to wait ``retry_after`` seconds, or None when it does not.
-
-    It says plainly how long to wait, and the sign-in screen shows the message as it stands.
-    """
-    if retry_after is None:
-        return None
-    minutes = math.ceil(retry_after / 60)
-    wait = "1 minute" if minutes == 1 else f"{minutes} minutes"
-    response = jsonify({"message": f"Too many sign-in attempts. Please try again in {wait}."})
-    response.headers["Retry-After"] = str(retry_after)
-    return response, 429
+    """The sign-in's refusal for a limit that says to wait, or None (``sign_in_limits.too_many``)."""
+    return sign_in_limits.too_many(retry_after, "sign-in")
 
 
 def _email_from(data) -> Optional[str]:
@@ -208,11 +239,15 @@ def _email_from(data) -> Optional[str]:
 
 # ── Email sending ─────────────────────────────────────────────────────────
 
-def _send_code_email(email: str, code: str, market_name: str, market_slug: str) -> bool:
-    """Send the sign-in code to the applicant's email address.
+def _send_code_email(
+    email: str, code: str, market_name: str, market_slug: str, sequence: int
+) -> bool:
+    """Send the sign-in code to the vendor's email address.
 
-    It links to the market's own sign-in page, by its public address. It linked to
-    ``/markets/<id>/login``, which the product has no page for (E26/F10/S02).
+    It links to the market's own vendor page, ``/<slug>``, by its public address: the link a vendor
+    receives is the one they keep (ADR 0022). Its subject carries the code's number, ``sequence``,
+    and never the code: a mail client threads emails by subject, and with one subject for all it
+    buried the newest code under an older one, which a vendor then typed (T191 F22).
 
     Returns True when the email was accepted by the provider (or disabled in dev),
     False when it was not.
@@ -228,7 +263,7 @@ def _send_code_email(email: str, code: str, market_name: str, market_slug: str) 
     import resend
 
     base_url = frontend_url()
-    login_url = f"{base_url}/{market_slug}/applicant-login"
+    page_url = f"{base_url}/{market_slug}"
 
     html_content = f"""
     <!DOCTYPE html>
@@ -240,12 +275,12 @@ def _send_code_email(email: str, code: str, market_name: str, market_slug: str) 
     </head>
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <h1 style="color: #36826f;">Your sign-in code</h1>
-        <p>You requested access to your application for <strong>{market_name}</strong>.</p>
+        <p>You asked to sign in to your page for <strong>{market_name}</strong>.</p>
         <div style="background-color: #f5f5f5; border: 2px dashed #36826f; padding: 20px; text-align: center; margin: 30px 0;">
             <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #36826f; margin: 0;">{code}</p>
         </div>
-        <p>Enter it on <a href="{login_url}">the sign-in page</a> to see your application.</p>
-        <p style="color: #777474; font-size: 12px; margin-top: 30px;">This code will expire in {CODE_EXPIRY_MINUTES} minutes and can only be used once.</p>
+        <p>Enter it on <a href="{page_url}">your page for {market_name}</a>.</p>
+        <p style="color: #777474; font-size: 12px; margin-top: 30px;">This code expires in {CODE_EXPIRY_MINUTES} minutes. Only the newest code works.</p>
         <p style="color: #777474; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
     </body>
     </html>
@@ -254,13 +289,13 @@ def _send_code_email(email: str, code: str, market_name: str, market_slug: str) 
     text_content = f"""
     Your sign-in code
 
-    You requested access to your application for "{market_name}".
+    You asked to sign in to your page for "{market_name}".
 
     Your code: {code}
 
-    Enter it on the sign-in page: {login_url}
+    Enter it on your page for {market_name}: {page_url}
 
-    This code will expire in {CODE_EXPIRY_MINUTES} minutes and can only be used once.
+    This code expires in {CODE_EXPIRY_MINUTES} minutes. Only the newest code works.
 
     If you didn't request this code, please ignore this email.
     """
@@ -269,7 +304,7 @@ def _send_code_email(email: str, code: str, market_name: str, market_slug: str) 
         response = resend.Emails.send({
             "from": from_email(),
             "to": [email],
-            "subject": f"Your sign-in code for {market_name}",
+            "subject": f"Your sign-in code for {market_name} (#{sequence})",
             "html": html_content,
             "text": text_content,
         })
@@ -285,74 +320,85 @@ def _send_code_email(email: str, code: str, market_name: str, market_slug: str) 
 
 # ── Challenge storage ─────────────────────────────────────────────────────
 
-def _store_challenge(market_id: str, email: str, code: str, expires_at: datetime) -> None:
-    """Store (or overwrite) a login challenge for (market_id, email).
+def _store_challenge(market_id: str, email: str, code: str, expires_at: datetime) -> int:
+    """Store (or overwrite) a login challenge for (market_id, email); return the code's number.
 
     The unique index on (market_id, email) means a new request overwrites any
-    existing challenge - one code per address per market. The previous code is
-    dead after this overwrite.
+    existing challenge - one code per address per market, its tries counted
+    afresh. The previous code is dead after this overwrite. ``sequence`` counts
+    the codes this address has asked for here while a challenge stands, and
+    numbers the email's subject; it starts again once the TTL index removes an
+    expired challenge.
     """
-    code_hash = _hash_code(code)
-    challenges_collection.update_one(
+    challenge = challenges_collection.find_one_and_update(
         {MARKET_ID_FIELD: market_id, EMAIL_FIELD: email},
         {
             "$set": {
-                MARKET_ID_FIELD: market_id,
-                EMAIL_FIELD: email,
-                "code_hash": code_hash,
+                "code_hash": _hash_code(code),
                 EXPIRES_AT_FIELD: expires_at,
                 CONSUMED_FIELD: False,
+                ATTEMPTS_FIELD: 0,
                 "created_at": datetime.now(timezone.utc).isoformat(),
-            }
+            },
+            "$inc": {SEQUENCE_FIELD: 1},
         },
         upsert=True,
+        return_document=ReturnDocument.AFTER,
     )
+    return challenge[SEQUENCE_FIELD]
 
 
-def _consume_and_verify(market_id: str, email: str, candidate_code: str) -> bool:
-    """Atomically consume a challenge and verify the code.
+class _Verified(Enum):
+    """What a try at a code came to."""
 
-    Uses find_one_and_update with a consumed=False filter so only the first
-    concurrent request ever sees the challenge. The code is checked AFTER the
-    consume, so a wrong code also consumes the challenge.
+    SIGNED_IN = "signed_in"
+    RETRY = "retry"
+    SPENT = "spent"
 
-    Returns True when the code was valid (and the challenge was consumed).
-    Returns False for every other outcome: no challenge, already consumed,
-    expired, wrong code.
+
+def _try_code(market_id: str, email: str, candidate_code: str) -> _Verified:
+    """Count a try at the address's code, then compare it; at most one right try signs in.
+
+    The try is counted by one atomic update that matches only a live challenge: unconsumed,
+    unexpired and with tries left. No match is "spent", whichever of those it was, and a code
+    never issued answers the same. The code is then compared in constant time. A right code
+    marks the challenge consumed with a write conditional on it still being unconsumed and still
+    the same code, so of two right tries at once only one signs in; the fifth wrong try marks it
+    consumed too.
     """
-    # Atomic: find one unconsumed challenge for this (market, email) and mark
-    # it consumed. Only the first request that gets here succeeds at the find.
     challenge = challenges_collection.find_one_and_update(
         {
             MARKET_ID_FIELD: market_id,
             EMAIL_FIELD: email,
             CONSUMED_FIELD: False,
+            EXPIRES_AT_FIELD: {"$gt": datetime.now(timezone.utc)},
+            ATTEMPTS_FIELD: {"$lt": MAX_CODE_ATTEMPTS},
         },
-        {"$set": {CONSUMED_FIELD: True}},
+        {"$inc": {ATTEMPTS_FIELD: 1}},
+        return_document=ReturnDocument.AFTER,
     )
-
     if challenge is None:
-        # No unconsumed challenge exists. Don't distinguish "no challenge at
-        # all" from "already consumed" - both return the same failure.
-        return False
+        return _Verified.SPENT
 
-    # Check expiry. MongoDB returns datetime objects from the TTL-indexed field,
-    # so compare directly. Do NOT distinguish "expired" from "wrong code" - both
-    # return the same failure.
-    expires_at = challenge.get(EXPIRES_AT_FIELD)
-    if expires_at is None:
-        return False
-    if not isinstance(expires_at, datetime):
-        return False
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
-    if datetime.now(timezone.utc) >= expires_at:
-        return False
-
-    # Constant-time code comparison. The consumed flag is already set, so a
-    # wrong code here still consumes the challenge.
     stored_hash = challenge.get("code_hash", "")
-    return _verify_code(stored_hash, candidate_code)
+    # Only this code's challenge, unconsumed: a new request between the count and here made a new
+    # code, which this try does not touch.
+    this_code_unconsumed = {
+        MARKET_ID_FIELD: market_id,
+        EMAIL_FIELD: email,
+        "code_hash": stored_hash,
+        CONSUMED_FIELD: False,
+    }
+    if _verify_code(stored_hash, candidate_code):
+        won = challenges_collection.update_one(
+            this_code_unconsumed, {"$set": {CONSUMED_FIELD: True}}
+        )
+        return _Verified.SIGNED_IN if won.modified_count == 1 else _Verified.SPENT
+
+    if challenge.get(ATTEMPTS_FIELD, MAX_CODE_ATTEMPTS) >= MAX_CODE_ATTEMPTS:
+        challenges_collection.update_one(this_code_unconsumed, {"$set": {CONSUMED_FIELD: True}})
+        return _Verified.SPENT
+    return _Verified.RETRY
 
 
 # ── Public endpoint handlers ──────────────────────────────────────────────
@@ -378,7 +424,7 @@ def request_login_code(market_slug: str) -> tuple:
     # Resolve the slug to a market. If the market does not exist, return the
     # same response - the caller cannot distinguish "no such market" from
     # "no such application."
-    market_doc = applicant_intake_market_by_slug(
+    market_doc = vendor_page_market_by_slug(
         db["markets"],
         market_slug,
         fields=("id", "name"),
@@ -394,7 +440,7 @@ def request_login_code(market_slug: str) -> tuple:
     # for both applicants and non-applicants alike.
     code = _generate_code()
     expires_at = _code_expiry()
-    _store_challenge(market_id, email, code, expires_at)
+    sequence = _store_challenge(market_id, email, code, expires_at)
 
     # Every address is sent its code, applicant or not (E26/F07/S01). Codes went only to addresses
     # with an application, and nothing creates a first application before sign-in, so a vendor
@@ -408,7 +454,7 @@ def request_login_code(market_slug: str) -> tuple:
     # to arrive. The thread closed a timing oracle between applicants and strangers that sending to
     # every address has already closed. A failed send is logged and answered as a sent one.
     try:
-        delivered = _send_code_email(email, code, market_name, market_slug)
+        delivered = _send_code_email(email, code, market_name, market_slug, sequence)
     except Exception:
         logger.exception("Applicant sign-in code for market %s could not be sent", market_slug)
     else:
@@ -421,13 +467,14 @@ def request_login_code(market_slug: str) -> tuple:
 def verify_login_code(market_slug: str) -> tuple:
     """Handle POST /public/markets/<slug>/applicant-login/verify-code.
 
-    All failure paths collapse to an identical 401 response. The caller cannot
-    distinguish "no such address", "no code requested", "code expired",
-    "code already used", or "wrong code" - one response for all.
+    A wrong try at a live code with tries left answers 401 "retry"; every other
+    failure answers one identical 401 "spent": the fifth wrong try, "code expired",
+    "code already used", "no code requested", "no such address", a missing address
+    or code, and a gated or unknown market. Neither says whether the address applied.
 
     On success, returns the market ID and applicant email so the front end
     can proceed with authenticated applicant operations. Past the caller's or the
-    address's rate limit it answers 429 and consumes nothing.
+    address's rate limit it answers 429 and counts no try.
     """
     refused = _caller_refusal(sign_in_limits.VERIFY_CODE_PER_CALLER)
     if refused:
@@ -441,37 +488,109 @@ def verify_login_code(market_slug: str) -> tuple:
     code = (string_field(data, "code") or "").strip()
 
     if not email or not code:
-        return jsonify(_VERIFY_FAILURE_BODY), _VERIFY_FAILURE_STATUS
+        return jsonify(_SPENT_BODY), _VERIFY_FAILURE_STATUS
 
     # Resolve the slug. Unknown market → same failure response.
-    market_doc = applicant_intake_market_by_slug(
+    market_doc = vendor_page_market_by_slug(
         db["markets"],
         market_slug,
-        fields=("id",),
+        fields=("id", "setupObject"),
     )
     if market_doc is None:
-        return jsonify(_VERIFY_FAILURE_BODY), _VERIFY_FAILURE_STATUS
+        return jsonify(_SPENT_BODY), _VERIFY_FAILURE_STATUS
 
     market_id = market_doc.get("id", "")
     if not market_id:
-        return jsonify(_VERIFY_FAILURE_BODY), _VERIFY_FAILURE_STATUS
+        return jsonify(_SPENT_BODY), _VERIFY_FAILURE_STATUS
 
-    # Consume and verify. All failure branches inside this function return the
-    # same observable outcome.
-    if _consume_and_verify(market_id, email, code):
+    verified = _try_code(market_id, email, code)
+    if verified is _Verified.SIGNED_IN:
         # A token for whoever proved the address, applied or not (E26/F07/S01). It used to be
         # issued only when an application existed, so a new vendor holding a good code got a 200
         # with no token and was sent back to "Sign In" without a word (bug 6). Telling the person
         # who just read the code whether they have applied leaks nothing; the ruling is about
-        # strangers, and every failure below still collapses to one response.
-        return jsonify({
-            "success": True,
-            "marketId": market_id,
-            "applicantEmail": email,
-            "token": generate_application_token(market_id, email),
-        }), 200
+        # strangers, and no failure says it.
+        response = _signed_in(market_id, email)
+        _remember_on_this_device(
+            response, market_id, email, market_dates_of(market_doc),
+            remember=isinstance(data, dict) and data.get("remember") is True,
+        )
+        return response, 200
+    if verified is _Verified.RETRY:
+        return jsonify(_RETRY_BODY), _VERIFY_FAILURE_STATUS
+    return jsonify(_SPENT_BODY), _VERIFY_FAILURE_STATUS
 
-    return jsonify(_VERIFY_FAILURE_BODY), _VERIFY_FAILURE_STATUS
+
+def _signed_in(market_id: str, email: str):
+    """The answer to a right code, and to a live remembered sign-in: a 30-minute token."""
+    return jsonify({
+        "success": True,
+        "marketId": market_id,
+        "applicantEmail": email,
+        "token": generate_application_token(market_id, email),
+    })
+
+
+def _remember_on_this_device(response, market_id: str, email: str, market_dates, remember: bool):
+    """After a right code: remember this address on this device when ticked, and no one else.
+
+    A sign-in ends the remembered one the browser held for this market, whoever it named, so a
+    shared device left unticked remembers nobody, as an organizer's sign-in clears theirs. A market
+    whose last date has ended remembers nothing; the page offers no "Remember me" then.
+    """
+    held = RememberedSignIns.held_secret(market_id)
+    if held:
+        RememberedSignIns.forget(market_id, held)
+    made = RememberedSignIns.remember(market_id, email, market_dates) if remember else None
+    if made:
+        secret, expires_at = made
+        RememberedSignIns.set_cookie(response, market_id, secret, expires_at)
+    elif held:
+        RememberedSignIns.clear_cookie(response, market_id)
+
+
+def resume_sign_in(market_slug: str) -> tuple:
+    """Handle POST /public/markets/<slug>/applicant-login/resume.
+
+    A browser holding a live remembered sign-in for this market is answered exactly as a right
+    code is. Every way it cannot pass - no cookie, a tampered or ended one, one signed out, another
+    market's secret under this market's name, a market the vendor page gate no longer serves, a
+    slug naming nothing - answers one identical 401; a cookie the browser sent is forgotten on the
+    server and cleared, so it is refused for good. Never written on success, so use never moves
+    when it ends. Counted against the caller before the cookie is read.
+    """
+    refused = _caller_refusal(sign_in_limits.RESUME_PER_CALLER)
+    if refused:
+        return refused
+
+    market_doc = vendor_page_market_by_slug(db["markets"], market_slug, fields=("id",))
+    market_id = (market_doc or {}).get("id") or market_id_at_slug(db["markets"], market_slug)
+    secret = RememberedSignIns.held_secret(market_id) if market_id else None
+    email = RememberedSignIns.recall(market_id, secret) if market_doc and secret else None
+    if email:
+        return _signed_in(market_id, email), 200
+
+    response = jsonify(_RESUME_FAILURE_BODY)
+    if secret:
+        RememberedSignIns.forget(market_id, secret)
+        RememberedSignIns.clear_cookie(response, market_id)
+    return response, _VERIFY_FAILURE_STATUS
+
+
+def sign_out(market_slug: str) -> tuple:
+    """Handle POST /public/markets/<slug>/applicant-login/sign-out.
+
+    Ends the remembered sign-in the browser holds for this market, on the server and in the
+    browser, so a copy of the cookie stops working too. 204 whether or not there was one, and for a
+    market the gate no longer serves, whose cookie the browser may still hold.
+    """
+    market_id = market_id_at_slug(db["markets"], market_slug)
+    secret = RememberedSignIns.held_secret(market_id) if market_id else None
+    response = current_app.response_class(status=204)
+    if secret:
+        RememberedSignIns.forget(market_id, secret)
+        RememberedSignIns.clear_cookie(response, market_id)
+    return response, 204
 
 
 def delete_challenges_for_market(market_id: str) -> int:

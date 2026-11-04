@@ -48,7 +48,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 ### Database
 - **MongoDB 7** - NoSQL document database
   - Primary data storage
-  - Collections: `users`, `organizations`, `markets`, `applications`, `attendance`, `history`, `vendor_notes`, `deletion_trail`, `applicant_login_challenges`, `floorplan_templates`, `schema_migrations`, and the GridFS bucket `floorplan_images` for floorplan uploads
+  - Collections: `users`, `organizations`, `markets`, `applications`, `attendance`, `history`, `vendor_notes`, `deletion_trail`, `applicant_login_challenges`, `vendor_remembered_sign_ins`, `floorplan_templates`, `schema_migrations`, and the GridFS bucket `floorplan_images` for floorplan uploads
   - Connection via PyMongo 4.18, to `MONGODB_URI` when it is set (production's Atlas cluster), otherwise to `MONGODB_HOST` and its siblings
   - Database name: `conventioner`
 
@@ -140,6 +140,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **The app's own components, on no component library** ([ADR 0015](adr/0015-the-app-owns-its-components.md))
   - A dialog is [`AppDialog`](../front-end/src/components/AppDialog.vue) ([dialogs](implementation/conventions/dialogs.md)); controls are the primitives of [the design language](design-system.md#the-primitive-layer), `.btn`, `.field` and `.chip`, over native inputs
   - A widget that is hard to get right, a date picker or a menu, would start from a headless library such as Reka UI; the first combobox, the placement dialog's searchable vendor pickers, is the app's own ([`SearchPicker.vue`](../front-end/src/components/SearchPicker.vue), [ADR 0015](adr/0015-the-app-owns-its-components.md)); `theAppOwnsItsComponents.test.ts` keeps PrimeTek's packages out
+- **QR codes are encoded by `qrcode`** and drawn by the app as one SVG path ([attendance and the door](implementation/modules/attendance-and-door.md#sharp-edges)): a library, not a component, so [ADR 0015](adr/0015-the-app-owns-its-components.md) is not touched; `jsqr`, a dev dependency, decodes the drawing in a unit test
 - **Icons are local SVG components** in [`src/components/icons/`](../front-end/src/components/icons/), no icon library or font
   - Each draws in `currentColor`; the five Lucide icons (`IconCheck`, `IconPencil`, `IconTrash`, `IconList`, `IconImage`) are copied from `lucide-static` 1.61.0 at `1em`, so the `font-size` around them sizes them, with Lucide's ISC notice beside them in `LICENSE-lucide.txt` and in a `/*! @license` banner in each, which reaches the bundle (`theLucideNoticeReachesTheBundle.test.ts`)
   - They replaced an icon font whose next major is proprietary (T45, [ADR 0015](adr/0015-the-app-owns-its-components.md)); `theAppOwnsItsComponents.test.ts` keeps the font out

@@ -43,9 +43,9 @@ def test_a_seated_applicant_has_a_table_with_each_seat():
     assert served["outcome"] == ResultOutcome.HAS_A_TABLE
     assert served["seats"] == [
         {"date": "2026-11-18", "tableCode": "A 1", "tableChoice": "Full Table",
-         "section": "A", "location": "North Wing"},
+         "section": "A", "location": "North Wing", "checkedInAt": None},
         {"date": "2026-11-19", "tableCode": "A 2", "tableChoice": "Full Table",
-         "section": "A", "location": "North Wing"},
+         "section": "A", "location": "North Wing", "checkedInAt": None},
     ]
 
 

@@ -32,7 +32,7 @@ What made a way back unsafe in ADR 0013 is what an applicant has been told, and 
 
 **A new edge, `assignment -> applications`, offered as "Back to review".**
 It carries the stage's entry invariants, which pass on any market past draft, and one guard of its own, `ResultsNotPublishedGuard` in [`back-end/guards.py`](../../back-end/guards.py): it refuses once `results_published` is set, reading the flag, never the phase, and names no remedy, since no page reopens the review.
-A Google Form market never publishes results, so its way back stays open for the whole of Assignment.
+A Google Form market publishes results too since [ADR 0022](0022-the-vendor-page-is-signed-in.md), so its way back closes with them as well.
 Who may take it is the table's Move the phase row, as for every move.
 The move and Publish results each check the other's fact before they write, so each write holds that fact too: the move's update asks that `resultsPublished` is still not set (`_what_the_move_stood_on`, a `MoveBlockedUnderRequest` 409 with the guard's blocker when it is), and Publish results' update in [`back-end/api/applicants.py`](../../back-end/api/applicants.py) asks for the phase it read and no results published yet (409 when it moved).
 So two requests in flight together, two organizers or a stale tab, never leave a market in the review with its results published.
@@ -46,7 +46,7 @@ Entering the stage from `assignment` sets a form market's `applicationsStopped` 
 So [ADR 0016](0016-one-stage-for-applications-and-review.md) stays true: Begin assignment closed the form, and Take applications again under More… is the organizer's way to reopen it ([taking applications](../business/flows/taking-applications.md)).
 
 **The move asks first.**
-The phase rail's `AppDialog` ([`PhaseRail.vue`](../../front-end/src/components/PhaseRail.vue)) says what it does before the review reopens: verdicts and automatic rejections can change, the allocated tables are kept but must be allocated again before results are published (on a Google Form market, before the market is published), a seat placed by hand stays even for a vendor then rejected, and on a form market applications stay closed.
+The phase rail's `AppDialog` ([`PhaseRail.vue`](../../front-end/src/components/PhaseRail.vue)) says what it does before the review reopens: verdicts and automatic rejections can change, the allocated tables are kept but must be allocated again before results are published, a seat placed by hand stays even for a vendor then rejected, and on a form market applications stay closed.
 It confirms by its edge, not by `transitionNeedsConfirmation`, which confirms only what cannot be undone.
 
 **The stored run is kept, and out of date until the next run.**
@@ -57,7 +57,7 @@ A run recorded before the group existed is not known to be out of date by it; a 
 
 **Results and going live wait for the new run.**
 Publish results already refuses an out-of-date run, and the `review` group joins what it reads.
-A Google Form market has no Publish results, so a new guard, `AssignmentNotBeforeReviewGuard` (`assignment_after_review`), is an entry invariant of `market_days`, ahead of `ResultsPublishedGuard`, its fix "Allocate tables".
+A new guard, `AssignmentNotBeforeReviewGuard` (`assignment_after_review`), is an entry invariant of `market_days`, ahead of `ResultsPublishedGuard`, its fix "Allocate tables"; it was made for a Google Form market, which had no Publish results until [ADR 0022](0022-the-vendor-page-is-signed-in.md), and now names the fix that comes first on both kinds.
 It reads only the `review` group, never the approved applications, so it stays cheap and never refuses a market for a plan or rule edit made after publishing, when runs are refused.
 
 **A pin stays the override it was.**

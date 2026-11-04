@@ -1,7 +1,7 @@
 """No two markets answer the same public address (E21/F03/S03).
 
-A market's slug, derived from its name, is the unauthenticated address its applicant links and its
-check-in page are served under. Uniqueness used to be checked on the exact NAME, and only at
+A market's slug, derived from its name, is the unauthenticated address its vendor page is served
+under, from applying to checking in. Uniqueness used to be checked on the exact NAME, and only at
 creation, so both of these were accepted - reproduced on a running stack:
 
 - renaming a market onto another market's exact name (200, and both then stored one slug);

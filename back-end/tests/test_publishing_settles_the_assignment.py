@@ -63,11 +63,17 @@ class TestGoingLive:
 
         assert result.passed
 
-    def test_a_csv_market_has_nobody_to_tell(self):
+    def test_a_google_form_market_waits_for_its_results_too(self):
+        """Its vendors read their table on its vendor page (ADR 0022): it never goes live first."""
         result = self.guard.evaluate(
             client_market(phase=MarketPhase.ASSIGNMENT, intake_mode=IntakeMode.CSV), None)
 
-        assert result.passed
+        assert not result.passed
+        assert result.resolution_action == "publish-results"
+        assert result.message.startswith("Vendors have not been told whether they have a table.")
+
+    def test_a_google_form_market_may_go_once_published(self):
+        assert self.guard.evaluate(published(intake_mode=IntakeMode.CSV), None).passed
 
     def test_every_way_into_market_days_carries_it(self):
         assert self.guard.id in {g.id for g in Guards.PHASE_ENTRY_INVARIANTS["market_days"]}

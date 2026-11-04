@@ -85,6 +85,7 @@ const SENTENCES = [
   'change-verdicts/verdicts',
   'check-in/check_in_undone',
   'check-in/checked_in',
+  'check-in/door_code_made',
   'choose-reviewers/reviewers',
   'connect-discord/discord',
   'connect-discord/discord_checked',

@@ -3,6 +3,7 @@ import axios from 'axios';
 import { computed, ref, inject, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AuthCard from '@/components/AuthCard.vue';
+import CodeInput from '@/components/CodeInput.vue';
 import SignInMessage from '@/components/SignInMessage.vue';
 import { SESSION_ENDED_MESSAGE } from '@/utils/api';
 import { executeRecaptcha } from '@/utils/captcha';
@@ -559,21 +560,15 @@ const submitOTPLogin = async () => {
         </div>
         <!-- Named, not only hinted: the placeholder went the moment typing started (bug 44). -->
         <label v-if="otpRequested" class="field-label" for="otp-code">Sign-in code</label>
-        <div v-if="otpRequested" class="login-input" data-testid="login-field-box">
-          <input
-            id="otp-code"
-            type="text"
-            v-model="otpCode"
-            placeholder="6 digits"
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            class="email-input"
-            required
-            maxlength="6"
-            pattern="[0-9]{6}"
-            data-testid="login-otp-code-input"
-          />
-        </div>
+        <!-- The vendor's code field, so the two sign-ins' code steps read alike (T191 F21). -->
+        <CodeInput
+          v-if="otpRequested"
+          id="otp-code"
+          v-model="otpCode"
+          required
+          pattern="[0-9]{6}"
+          data-testid="login-otp-code-input"
+        />
         <SignInMessage
           :notice="otpNotice"
           testid-prefix="login-otp"

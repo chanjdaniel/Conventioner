@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
 import {
-  IntakeMode,
   type Market,
   MarketPhase,
   MarketRole,
@@ -23,6 +22,7 @@ import {
 } from '@/utils/permissions';
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { intakeModeOf } from '@/utils/marketGuide';
+import { hasVendorPage } from '@/utils/vendorPage';
 import { openInsteadOfStepping } from '@/utils/openInsteadOfStepping';
 import {
   alsoWords,
@@ -341,22 +341,13 @@ async function handleRename() {
 }
 
 /**
- * Which of its public pages go with it, in words: a form market's application page from the moment
- * it opens, and a check-in page while it runs or kept as a record once it has (E26/F06/S02).
+ * Its one public page, which goes with it, in words: its vendor page while it has one (ADR 0022),
+ * where its vendors also check in, and which is the record once it has run (E26/F06/S02).
  */
 const publicPages = computed(() => {
   const market = marketData.value;
-  if (!market) return '';
-  const pages: string[] = [];
-  if (market.intakeMode === IntakeMode.Form && market.phase !== MarketPhase.Draft) {
-    pages.push('application page');
-  }
-  const ran = market.phasesReached?.includes(MarketPhase.MarketDays);
-  if (market.phase === MarketPhase.MarketDays || (market.phase === MarketPhase.Archived && ran)) {
-    pages.push('check-in page');
-  }
-  if (!pages.length) return '';
-  return `Its ${pages.join(' and ')} will stop working for anyone who has the link.`;
+  if (!market || !hasVendorPage(market)) return '';
+  return 'Its vendor page will stop working for anyone who has the link.';
 });
 
 async function handleDeleteConfirm() {
