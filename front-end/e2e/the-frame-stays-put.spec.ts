@@ -149,8 +149,10 @@ test.describe('The frame stays put', () => {
     authenticatedPage: page,
   }) => {
     // Short enough that Attendance with no check-ins still scrolls: at the full frame width its rail
-    // no longer wraps (E22/F04/S01), and it has no Back footer any more (E22/F04/S02).
-    await page.setViewportSize({ width: 1920, height: 300 });
+    // no longer wraps (E22/F04/S01), and it has no Back footer any more (E22/F04/S02). Tall enough
+    // that Vendors' 247px block fits between the 44px bar and the page's gutter, or the card's end
+    // pushes it up however it sticks.
+    await page.setViewportSize({ width: 1920, height: 320 });
 
     for (const screen of ['assignments', 'attendance', 'vendors'] as const) {
       await page.goto(marketScreenPath(marketId, screen));

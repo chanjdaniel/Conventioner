@@ -1,34 +1,14 @@
 <script setup lang="ts">
 import { inject } from 'vue';
 import { useRouter } from 'vue-router';
-import { useMarketStore } from '@/stores/market';
+import { signOut } from '@/utils/sessionEnded';
 
 const setUser = inject<(user: unknown) => void>('setUser', () => {});
-const hostname = import.meta.env.VITE_FLASK_HOST;
 const router = useRouter();
-// The market store outlives a route change, so signing out has to forget it: otherwise the next
-// account to sign in on this browser is shown this one's market until its own arrives.
-const marketStore = useMarketStore();
 
 const logout = async () => {
-  try {
-    await fetch(`${hostname}/logout`, {
-      method: 'POST',
-      credentials: 'include',
-    });
-
-    localStorage.clear();
-    marketStore.clear();
-    setUser(null);
-    router.push('/login');
-  } catch (error) {
-    console.error('Logout failed:', error);
-
-    localStorage.clear();
-    marketStore.clear();
-    setUser(null);
-    router.push('/login');
-  }
+  await signOut(router);
+  setUser(null);
 };
 </script>
 

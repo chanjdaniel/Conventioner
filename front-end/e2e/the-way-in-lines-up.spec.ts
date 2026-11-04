@@ -21,6 +21,8 @@ const box = async (locator: Locator) => {
 test('every row of the navigation drawer is one shape, Sign out included', async ({
   authenticatedPage: page,
 }) => {
+  // The drawer is the phone's until the sheet replaces it.
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/markets');
   await page.getByRole('button', { name: 'Open navigation' }).click();
   const rows = await page.evaluate(() =>
@@ -112,10 +114,7 @@ test('the market chooser fits a 1440px window', async ({ authenticatedPage: page
  * are: it read in Outfit and the body's slate while they read in Merge One and the product's black
  * (rereview note 14).
  */
-for (const size of [
-  { width: 390, height: 844 },
-  { width: 1440, height: 900 },
-]) {
+for (const size of [{ width: 390, height: 844 }]) {
   test(`Sign out reads like the drawer's links at ${size.width}px`, async ({
     authenticatedPage: page,
   }) => {

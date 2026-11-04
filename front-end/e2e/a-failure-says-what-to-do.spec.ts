@@ -372,7 +372,6 @@ test.describe('a page that could not be opened', () => {
     await page.route(code, (route) => route.abort('internetdisconnected'));
     await page.context().setOffline(true);
 
-    await page.getByTestId('app-menu-button').click();
     await page.getByRole('link', { name: 'Organizations' }).click();
 
     await expect(page.getByTestId('page-read-failed')).toContainText(OFFLINE);
@@ -393,7 +392,6 @@ test.describe('a page that could not be opened', () => {
     const code = /\/src\/views\/OrganizationsView\.vue/;
     await page.route(code, (route) => route.fulfill({ status: 404, body: '' }));
 
-    await page.getByTestId('app-menu-button').click();
     await page.getByRole('link', { name: 'Organizations' }).click();
 
     await expect(page.getByTestId('page-read-failed')).toContainText(
@@ -417,10 +415,9 @@ test.describe("the shell's session probe", () => {
       await failOnce(page, /\/check-session$/, kind);
       await page.goto('/markets');
 
-      // The menu names the organizer only once the probe's answer has been read, so this waits
-      // for it: an ended session would have left for the sign-in page, which has no menu.
-      await page.getByTestId('app-menu-button').click();
-      await expect(page.locator('.user-email')).toHaveText(TEST_USER.email);
+      // The bar names the organizer only once the probe's answer has been read, so this waits for
+      // it: an ended session would have left for the sign-in page, which has no account menu.
+      await expect(page.getByTestId('app-bar-account-button')).toHaveText(TEST_USER.email);
       await expect(page).toHaveURL(/\/markets$/);
       expect(await page.evaluate(() => localStorage.getItem('user'))).toContain(TEST_USER.email);
     });

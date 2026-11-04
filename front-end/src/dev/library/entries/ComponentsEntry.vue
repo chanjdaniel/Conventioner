@@ -97,7 +97,7 @@ const sentence = `${owner.email} changed ${people[1]!.email}'s role to ${getRole
 const opened = ref<string | null>(null);
 const unnamed: VendorNames = {};
 
-// RowMenu: the two menus the Payments tab gives a line and an entry.
+// RowMenu: the two menus the Payments tab gives a line and an entry, and the app bar's account menu.
 const LINE_ITEMS = [
   { id: 'owed', label: 'Change the amount owed' },
   { id: 'calculated', label: 'Use the calculated price' },
@@ -106,6 +106,7 @@ const ENTRY_ITEMS = [
   { id: 'edit', label: 'Edit' },
   { id: 'remove', label: 'Remove', destructive: true },
 ];
+const ACCOUNT_ITEMS = [{ id: 'sign-out', label: 'Sign out' }];
 const chosenItem = ref<string | null>(null);
 const dayLabel = new Date(`${seats[0]!.date}T00:00:00`).toLocaleDateString('en-US', {
   weekday: 'long',
@@ -308,7 +309,10 @@ const answerCount = question.options.length;
     </LibraryPanel>
   </LibrarySection>
 
-  <LibrarySection title="RowMenu" about="Used on: the vendor drawer's Payments tab, on each line">
+  <LibrarySection
+    title="RowMenu"
+    about="Used on: the vendor drawer's Payments tab, on each line, and the app bar's account menu"
+  >
     <LibraryPanel label="A day's line: what it owes">
       <div class="library-line">
         <span>{{ dayLabel }}</span>
@@ -329,6 +333,19 @@ const answerCount = question.options.length;
           testid="library-entry-menu"
           @select="chosenItem = $event"
         />
+      </div>
+    </LibraryPanel>
+    <LibraryPanel label="With words on its button: the app bar's account menu">
+      <div class="library-line">
+        <span>An account</span>
+        <RowMenu
+          label="Account"
+          :items="ACCOUNT_ITEMS"
+          testid="library-account-menu"
+          @select="chosenItem = $event"
+        >
+          <template #trigger>organizer@example.com</template>
+        </RowMenu>
       </div>
     </LibraryPanel>
     <LibraryPanel label="Chosen">

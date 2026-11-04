@@ -358,11 +358,22 @@ export const SCREENS: Screen[] = [
     ),
   },
   {
-    // The app's own menu, behind the banner's button on every organizer screen.
+    // The app's own menu, behind the bar's button on a phone.
     name: 'the navigation drawer',
     who: 'organizer',
-    sizes: FITS_A_PHONE,
+    sizes: [PHONE],
     open: at(fixed('/markets'), 'markets-result-count', ['app-menu-button', 'app-nav']),
+  },
+  {
+    // The bar's account menu, on every organizer screen at a desk.
+    name: 'the account menu',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: at(fixed('/markets'), 'markets-result-count', [
+      'app-bar-account-button',
+      'app-bar-account',
+    ]),
   },
   {
     name: 'the organizations',

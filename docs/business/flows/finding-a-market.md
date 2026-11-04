@@ -1,8 +1,9 @@
 ---
 layer: business
 kind: flow
-verified: 2026-11-01
+verified: 2026-11-04
 sources:
+  - T209
   - wayfinding/readable-journey/07
   - E21/F02/S02
   - E22/F04/S02
@@ -92,8 +93,10 @@ Covered by:
 ## C4. The navigation menu
 
 **Status:** Works (walked live).
-The menu button top left opens Markets, Organizations, "Market vendors" (only while a market is open; goes to its Vendors page) and Sign out.
+At a desk [the app bar](../../implementation/modules/app-bar.md) holds Markets and Organizations as links, the current one marked, and an account menu showing the address and holding Sign out.
+At 640px and below the menu button top left opens Markets, Organizations, "Market vendors" (only while a market is open; goes to its Vendors page) and Sign out.
 Covered by:
+- `the-app-bar.spec.ts`
 - `the-way-in-lines-up.spec.ts`
 
 ## C5. The old start screen

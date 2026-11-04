@@ -94,6 +94,8 @@ test('the market chooser opens with its title and heads neither of its buttons',
 
 /** The drawer's links are named by their words; only its account line is a heading. */
 test('the navigation drawer heads none of its links', async ({ authenticatedPage: page }) => {
+  // The drawer is the phone's until the sheet replaces it.
+  await page.setViewportSize({ width: 390, height: 844 });
   await new MarketsPage(page).goto();
   await page.getByRole('button', { name: 'Open navigation' }).click();
   const drawer = page.getByTestId('app-nav');

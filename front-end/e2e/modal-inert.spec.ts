@@ -95,6 +95,8 @@ test.describe('A modal holds the page out of the keyboard, not just the mouse', 
   test('the navigation drawer, whose scrim and panel are separate siblings', async ({
     authenticatedPage: page,
   }) => {
+    // The drawer is the phone's until the sheet replaces it.
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/markets');
     await expect(page.getByTestId('markets-create-button')).toBeVisible({ timeout: 10000 });
 

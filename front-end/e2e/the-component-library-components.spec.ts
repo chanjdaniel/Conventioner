@@ -100,5 +100,16 @@ eachWindow('the existing components entry', (size) => {
     await expect(
       page.getByRole('region', { name: 'Chosen', exact: true }).getByTestId('read-out'),
     ).toHaveText('Chose: remove');
+
+    // Words on the button: named by them, and the same menu behind it.
+    const words = page.getByRole('button', { name: 'organizer@example.com' });
+    await press(words);
+    await expect(page.getByTestId('library-account-menu')).toBeVisible();
+    await press(page.getByTestId('library-account-menu-sign-out'));
+    await expect(page.getByTestId('library-account-menu')).toBeHidden();
+    await expect(words).toBeFocused();
+    await expect(
+      page.getByRole('region', { name: 'Chosen', exact: true }).getByTestId('read-out'),
+    ).toHaveText('Chose: sign-out');
   });
 });

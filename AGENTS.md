@@ -77,6 +77,7 @@ The market on screen:
 
 - Before changing how a screen gets, holds or writes a market, read [one market, from the server](docs/implementation/conventions/one-market-from-the-server.md) and [the market store](docs/implementation/modules/market-store.md).
 - Before changing a market route or link, read [every market page has an address](docs/implementation/conventions/every-market-page-has-an-address.md).
+- Before changing the app bar, the sheet or who sees what in it, read [the app bar](docs/implementation/modules/app-bar.md).
 - Before changing the market bar, its tabs or a market screen's layout, read [the market frame](docs/implementation/modules/market-frame.md).
 - Before changing what a screen says in a phase or on an intake path, read [the market guide](docs/implementation/modules/market-guide.md).
 - Before changing the phase rail, read [the phase rail](docs/implementation/modules/phase-rail.md).

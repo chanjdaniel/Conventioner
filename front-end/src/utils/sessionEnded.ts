@@ -19,6 +19,28 @@ export function endSession(router: Router, { ended }: { ended: boolean }): void 
 }
 
 /**
+ * Sign out: tell the server, then forget what `endSession` forgets and go to sign in, whether or
+ * not the server heard. A sign-out that failed on the wire still leaves this browser signed out to
+ * whoever sits down at it next.
+ *
+ * `fetch`, not the app's `axios`: a 401 here is a session already over, not one that ended under
+ * the organizer, and must not be told as one (`onSessionEnded`).
+ */
+export async function signOut(router: Router): Promise<void> {
+  try {
+    await fetch(`${import.meta.env.VITE_FLASK_HOST}/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+  } catch (error) {
+    console.error('Logout failed:', error);
+  }
+  localStorage.clear();
+  useMarketStore().clear();
+  await router.push('/login');
+}
+
+/**
  * What the shell makes of its session probe at load failing, and whether the session is kept.
  * No answer, or a fault on the server, says nothing of the session: the organizer stays on the
  * page, whose own read says what went wrong and offers Try again, and a request that answers 401

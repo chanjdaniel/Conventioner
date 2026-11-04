@@ -59,6 +59,7 @@ const rawScale = (options) => [
 
 /** Each file a slice has migrated: an error there is a regression, not the backlog. */
 const MIGRATED = [
+  'src/components/AppBar.vue',
   'src/components/BlockerPanel.vue',
   'src/components/MarketSummaryCard.vue',
   'src/components/MarketPermissions.vue',
@@ -110,7 +111,6 @@ const MIGRATED = [
   'src/components/StepHeader.vue',
   'src/components/VendorDrawer.vue',
   'src/components/elements/ElementAssignmentPriority.vue',
-  'src/components/elements/ElementBanner.vue',
   'src/components/elements/ElementInitButton.vue',
   'src/components/elements/ElementLocationSetup.vue',
   'src/components/elements/ElementMarketDates.vue',

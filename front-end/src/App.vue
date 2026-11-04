@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import axios from 'axios';
 import { RouterView } from 'vue-router';
-import ElementBanner from './components/elements/ElementBanner.vue';
+import AppBar from './components/AppBar.vue';
 import ElementNavigation from './components/elements/ElementNavigation.vue';
 import { useInertBehind } from '@/utils/useInertBehind';
 
@@ -90,10 +90,10 @@ watch(isLogin, (newValue) => {
 <template>
   <div class="app-container" :class="{ 'app-public': fitsAPhone }">
     <header>
-      <ElementBanner @menuOpen="navOpen = true" :isLogin="isLogin" :hasMenu="!isPublicPage" />
+      <AppBar @menu-open="navOpen = true" />
     </header>
 
-    <!-- The one `main` landmark, on every route: the page's own content, apart from the banner and
+    <!-- The one `main` landmark, on every route: the page's own content, apart from the bar and
          the drawer. A wrapper, not the routed view's root, so no view has to remember to be it. -->
     <main class="app-main" :class="{ 'app-main-public': fitsAPhone }">
       <ReadFailed
@@ -184,9 +184,11 @@ header {
   max-height: 100vh;
 }
 
-.logo {
-  display: block;
-  margin: 0 auto var(--space-8);
+/* A printed page is the page: the way between the organizer's places has no use on paper. */
+@media print {
+  header {
+    display: none;
+  }
 }
 
 .nav-bar {
@@ -217,12 +219,6 @@ header {
   transition:
     opacity 0.3s ease-in-out,
     visibility 0.3s ease-in-out;
-}
-
-.banner {
-  width: 100%;
-  /* A token, because the market frame sticks at exactly this offset (E21/F04/S01). */
-  height: var(--banner-h);
 }
 
 .app-main {

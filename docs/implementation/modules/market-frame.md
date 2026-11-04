@@ -9,8 +9,9 @@ describes:
   - front-end/src/utils/marketPage.ts
   - front-end/src/views/ToolsView.vue
   - front-end/src/views/PaymentsView.vue
-verified: 2026-11-01
+verified: 2026-11-04
 sources:
+  - T209
   - wayfinding/the-market-frame/map
   - wayfinding/the-market-frame/01
   - wayfinding/the-order-of-the-work/map
@@ -38,7 +39,7 @@ sources:
 # The market frame
 
 Every market screen stands in [`MarketFrame`](../../../front-end/src/components/MarketFrame.vue): a card whose top, the market's bar and the whole [phase rail](phase-rail.md), sticks under the app banner while the page scrolls on a desk; on a phone only the bar does.
-On a desk three layers are pinned, the app banner, the bar and the rail, about 150px at 1920x1080, a cost accepted for always seeing where the market is; and every screen that carries the rail carries the frame, since a frame pinned on one market screen and scrolling away on the next is the inconsistency it exists to remove.
+On a desk three layers are pinned, [the app bar](app-bar.md), the market bar and the rail, 182px on a draft market with its line of blockers, at 1280x800 and 1920x1080 alike, a cost accepted for always seeing where the market is; and every screen that carries the rail carries the frame, since a frame pinned on one market screen and scrolling away on the next is the inconsistency it exists to remove.
 The import, floorplan and start-from-CSV flows stand in it too.
 A screen hands it the market from [the market store](market-store.md) and renders its own content in the frame's slot.
 
@@ -79,7 +80,7 @@ A screen that pads itself or renders its own arrival is how one market's pages c
 A page inside the card insets its content `--space-6`, the rail's inset, so what the frame says above a page (`market-read-only`) lines up with it; Market Setup's tabs were 40px in until T15, and [the import](../../business/flows/import.md) 32px until T181.
 
 **Sticky, never a scroller.**
-On a desk the bar, the rail and everything the rail grows (a refused move's blockers, an error, the archived note) stick together at `top: var(--banner-h)`, the banner's height as a token.
+On a desk the bar, the rail and everything the rail grows (a refused move's blockers, an error, the archived note) stick together at `top: var(--banner-h)`, the app bar's height as a token, a fixed 44px.
 Never give a frame screen an `overflow` scroller of its own: a sticky element inside an `overflow` ancestor silently stops sticking.
 The height of what is pinned under the banner is measured (a `ResizeObserver`) and published as `--market-frame-h` on the card, so a screen's own sticky column sits at `top: calc(var(--banner-h) + var(--market-frame-h))`: the frame's block on a desk, the bar on a phone.
 
@@ -87,7 +88,7 @@ The height of what is pinned under the banner is measured (a `ResizeObserver`) a
 At 640px and below the frame's wrapper gives up its box (`display: contents`) and the bar takes `position: sticky` at `top: var(--banner-h)` itself, since a sticky element sticks only inside its parent and the bar must stick against the card.
 The rail, the page row and the `pinned` slot are then the card's own children, in the page's flow, and scroll away with it; what the rail grows grows in that flow, under the rail.
 The observer cannot measure a box-less element, so on a phone it measures the bar.
-The layout sweep fails on any phone market screen whose banner and pinned bar reach lower than 150px of the window ([the design language](../../design-system.md#what-keeps-this-true)); at 390x844 the banner and the bar end at 138px, against 409 at the door when the whole block pinned.
+The layout sweep fails on any phone market screen whose app bar and pinned bar reach lower than 150px of the window ([the design language](../../design-system.md#what-keeps-this-true)); at 390x844 the two end at 138px, against 409 at the door when the whole block pinned.
 Above 640px, a tablet included, the frame is the desk's.
 
 **The phone's gutter follows the screen's layout, not the window.**
