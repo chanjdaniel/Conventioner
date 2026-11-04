@@ -81,18 +81,6 @@ test('Markets opens with its title, the remembered market adding no heading', as
   await expect(page.getByRole('heading', { level: 2 }).filter({ hasText: name })).toHaveCount(1);
 });
 
-/** The market chooser behind the Load market dialog, reached by its address. */
-test('the market chooser opens with its title and heads neither of its buttons', async ({
-  authenticatedPage: page,
-}) => {
-  await page.goto('/init');
-  await expect(page.getByTestId('init-load-existing-market-button')).toBeVisible();
-
-  expect(await outlineViolations(page)).toEqual([]);
-  expect(await headingsInsideControls(page)).toEqual([]);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Set up or load a market');
-});
-
 /** The sheet's links are named by their words, and it adds no heading to the page's outline. */
 test('the sheet heads none of its links', async ({ authenticatedPage: page }) => {
   await page.setViewportSize({ width: 390, height: 844 });

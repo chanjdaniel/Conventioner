@@ -32,7 +32,7 @@ Every market page has its own address, built from the market's id, so a link to 
 
 ## What a market's row says
 
-A market is one row wherever a list shows it (the Markets list, the old start screen's picker), drawn by `MarketSummaryCard.vue`: its name, its phase badge, its dates, and its organization.
+A market is one row on the Markets list, drawn by `MarketSummaryCard.vue`: its name, its phase badge, its dates, and its organization.
 A market whose organization is gone says "No longer available" there rather than dropping the line, which kept the rows from lining up.
 
 - **Dates, not when it was created**: an organizer knows a market by when it runs.
@@ -87,7 +87,8 @@ Covered by:
 
 1. `/markets/<id>` lands on the page the market is worked on in its phase (see [the lifecycle](lifecycle.md#the-phases)).
 2. Every page has its own address: `/markets/<id>/setup`, `/form`, `/applications`, `/settings`, `/assignments`, `/vendors`, `/attendance`, `/stats`, plus the `/import`, `/start-from-csv` and `/floorplan` flows.
-3. Old addresses redirect: `/markets/<id>/tables` and `/result` to `/assignments`, `/markets/<id>/assignment` to `/settings`, `setup?tab=<page>` to that page, `/market-setup` and the other id-less paths to `/markets`, `/floorplan-editor?marketId=<id>` to the floorplan flow.
+3. Two old names forward, each with its query: `/markets/<id>/assignment` to `/settings` and `/markets/<id>/result` to `/assignments`.
+   Nothing older forwards: its address answers "Page not found", and `setup?tab=<page>` opens the plan ([old addresses](../../implementation/conventions/every-market-page-has-an-address.md#old-addresses)).
 4. An id you cannot reach shows "This market does not exist, or you do not have access to it." with "Choose a market".
 
 Covered by:
@@ -104,11 +105,5 @@ Every organizer account has the same bar, whatever their role and on every page,
 Covered by:
 - `the-app-bar.spec.ts`
 - `the-way-in-lines-up.spec.ts`
-
-## C5. The old start screen
-
-**Status:** No screen (reachable at `/init` by URL only).
-Two buttons, "Set Up New Market" (opens the create-market dialog) and "Load Existing Market" (a market picker).
-Nothing links to it; it predates the Markets list.
 
 The rule on who sees which markets is [what each role may do](../rules/what-each-role-may-do.md); its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

@@ -6,8 +6,7 @@ import {
 } from 'vue-router';
 import { marketPath } from '@/utils/market';
 import { loginAddress, safeNext } from '@/utils/signInNext';
-import { SETUP_VIEW_PAGES, type MarketPage } from '@/utils/marketPage';
-import InitView from '@/views/InitView.vue';
+import { SETUP_VIEW_PAGES } from '@/utils/marketPage';
 import LoginView from '@/views/LoginView.vue';
 import EmailVerificationView from '@/views/EmailVerificationView.vue';
 import PasswordResetRequestView from '@/views/PasswordResetRequestView.vue';
@@ -36,11 +35,6 @@ const router = createRouter({
       meta: { public: true },
     },
     {
-      path: '/register',
-      name: 'register',
-      redirect: '/login',
-    },
-    {
       path: '/verify-email',
       name: 'verify-email',
       component: EmailVerificationView,
@@ -57,11 +51,6 @@ const router = createRouter({
       name: 'reset-password',
       component: PasswordResetView,
       meta: { public: true },
-    },
-    {
-      path: '/init',
-      name: 'init',
-      component: InitView,
     },
     // Signing in landed here until Markets took over from the dashboard, so it is bookmarked.
     {
@@ -99,22 +88,6 @@ const router = createRouter({
       // (T180), so the Applications page fits one; the plan, the form and Settings are built at a
       // desk before it, and keep the desktop floor.
       meta: { fitsAPhone: ['applications'] },
-      // The pages were a `?tab=` on `setup` until E22/F04/S02, and a bookmark or an emailed link may
-      // still say so; it lands on the page it named, by the name it has now.
-      beforeEnter: (to) => {
-        const named = String(to.query.tab ?? '');
-        const tab = named === 'assignment' ? 'settings' : named;
-        if (
-          to.params.page !== 'setup' ||
-          tab === 'setup' ||
-          !(SETUP_VIEW_PAGES as readonly string[]).includes(tab)
-        ) {
-          return true;
-        }
-        const query = { ...to.query };
-        delete query.tab;
-        return { path: marketPath(String(to.params.marketId), tab as MarketPage), query };
-      },
     },
     {
       path: '/markets/:marketId/assignments',
@@ -126,12 +99,12 @@ const router = createRouter({
     },
     // The Assignment tab's pages took the names of what they hold (E38/F08/S01): Assignment became
     // Settings and Result became Assignments. A saved link or a bookmark lands on the page it named,
-    // and so does Tables, which became Result (E22/F04/S02); their filters travel with them.
+    // its filters with it. Production's last release still serves the old names, so they stay until
+    // a release or two has passed.
     ...(
       [
         ['assignment', 'settings'],
         ['result', 'assignments'],
-        ['tables', 'assignments'],
       ] as const
     ).map(([old, page]) => ({
       path: `/markets/:marketId/${old}`,
@@ -149,7 +122,6 @@ const router = createRouter({
       // so the page and its drawer fit a phone, as the door does.
       meta: { fitsAPhone: true },
     },
-    { path: '/vendors', redirect: '/markets' },
     // The market's money at a glance, and who has yet to pay (E44/F02/S01).
     {
       path: '/markets/:marketId/payments',
@@ -193,18 +165,11 @@ const router = createRouter({
       // An AuthCard page, as the account pages are, so it fits a phone as they do.
       meta: { fitsAPhone: true },
     },
-    // Every market screen is addressed by id (E21/F02/S02). The id-less path never held one to
-    // preserve, so it can only send the organizer to choose a market.
-    {
-      path: '/market-setup',
-      redirect: '/markets',
-    },
     {
       path: '/markets/:marketId/import',
       name: 'import-applications',
       component: () => import('@/views/CsvImportView.vue'),
     },
-    { path: '/import-applications', redirect: '/markets' },
     {
       // Starting a draft's plan and form from a Google Form's responses (E24/F03).
       path: '/markets/:marketId/start-from-csv',
@@ -215,18 +180,6 @@ const router = createRouter({
       path: '/markets/:marketId/floorplan',
       name: 'floorplan-editor',
       component: () => import('@/views/FloorplanEditorView.vue'),
-    },
-    // This one did carry an id, in the query, so an old link still opens the market it named.
-    {
-      path: '/floorplan-editor',
-      redirect: (to) =>
-        to.query.marketId ? marketPath(String(to.query.marketId), 'floorplan') : '/markets',
-    },
-    // Assignment is a tab on the market now (E10/F03/S01). The old path carried no market
-    // id, so, like `/market-setup`, all it can do is send the organizer to choose a market.
-    {
-      path: '/assignment-results',
-      redirect: '/markets',
     },
     {
       path: '/:marketSlug/check-in',

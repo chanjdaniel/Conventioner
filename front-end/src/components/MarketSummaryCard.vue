@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * What a market's row says, in one place, for the three lists that show one.
+ * What a market's row on the Markets list says.
  *
  * Settled by wayfinding ticket 07. Against what it replaced:
  *
@@ -22,16 +22,7 @@ import { getDateRange } from '@/utils/utils';
 import SummaryCard from '@/components/SummaryCard.vue';
 import PhaseBadge from '@/components/PhaseBadge.vue';
 
-const props = defineProps<{
-  market: Market;
-  /** The row's own action, when the list has one beyond opening the market. */
-  showManage?: boolean;
-  /**
-   * The name's heading level: one under the heading the list stands under, so the page's outline
-   * skips none. 2 under a page's `h1` (Markets), 3 under a dialog's `h2` title, the default.
-   */
-  headingLevel?: 2 | 3;
-}>();
+const props = defineProps<{ market: Market }>();
 
 defineEmits<{ open: []; manage: [] }>();
 
@@ -56,9 +47,10 @@ const facts = computed<SummaryFact[]>(() => [
 <template>
   <SummaryCard :facts="facts" selectable data-testid="market-card" @select="$emit('open')">
     <template #name>
-      <component :is="`h${headingLevel ?? 3}`" data-testid="market-card-name" :title="market.name">
+      <!-- One level under the page's title, so the outline skips none. -->
+      <h2 data-testid="market-card-name" :title="market.name">
         <button type="button" class="summary-card-open">{{ market.name }}</button>
-      </component>
+      </h2>
     </template>
     <template #badge>
       <PhaseBadge :phase="market.phase" :intake-mode="market.intakeMode" />
@@ -68,7 +60,7 @@ const facts = computed<SummaryFact[]>(() => [
            is renamed and deleted, and burying a destructive action one level down is what the
            rest of this epic is undoing. It is secondary to Open, which is the row itself. -->
       <button
-        v-if="showManage && canManage"
+        v-if="canManage"
         type="button"
         class="btn btn--secondary"
         data-testid="market-card-manage-button"

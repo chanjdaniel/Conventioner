@@ -196,12 +196,11 @@ The setup screens keep the floor, since they are built at a desk before the mark
 - Settings, the assignment rules;
 - the import;
 - start-from-CSV;
-- the floorplan beta;
-- the market chooser at `/init`.
+- the floorplan beta.
 
 `/markets` on a phone narrows its gutter to 16px, as the door does, and its finder's fields and phase toggles wrap; a market's card stacks its facts and Manage under its name, which keeps one line and its ellipsis.
 Its "Previously opened" line stays one 44px row at every width, the words, the name cut with an ellipsis and a chevron, and drops its phase badge at 640px and below so the name keeps the room; the note that a remembered market has gone and the first-time message are a `.note`, wrapping to the column.
-A summary card stacks so whenever it is narrower than its name, its facts and its Manage need side by side (45rem with Manage, 37.5rem without), so a card at 768px stacks too rather than pushing Manage past its edge (T148).
+A summary card stacks so whenever it is narrower than its name, its facts and its Manage need side by side (45rem), so a card at 768px stacks too rather than pushing Manage past its edge (T148).
 The Assignments page on a phone narrows its gutter to 16px too: its summary's figures stack, one to a 44px row, and its actions wrap under them; the filters stand in the page's flow rather than pinned, each filling its row and two sharing one where both fit; a half table's two seats stand one under the other, each seat's Change a 44px target; and a dialog's buttons wrap rather than run past its window.
 Vendors on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters, Export and Add a vendor wrapping beneath it, and a vendor's row stacks the name over its chips, which wrap where the Discord state, the badge, "Added" and the date count are wider together than the row.
 The Applications page on a phone narrows its gutter to 16px too: the All view's row is one column, read down, the applicant's name and address, the leading answers, then the status chip and its lines, each the row's width; each row's tick stands in a 44px square beside it, and "Mine" is its label's 44px row; the views switch's and the status filters' buttons are never narrower than the target's minimum, at every width, so 44px wide at least on a phone.
@@ -372,7 +371,7 @@ The placement dialog's two vendor pickers are its first use.
 
 **A button or a menu item names its action in sentence case**, as a chip names its status (T181): the phase rail's moves ("Open applications", "Begin assignment", "Publish market"), its More… menu ("Reopen for editing", "Archive market"), "Publish results", and the titles and buttons of the confirmations they open.
 A proper name keeps its capitals: "Connect Discord", "Back to Market Setup", where Market Setup is the tab's name.
-A few older buttons still read in Title Case, to be changed rather than copied: the form builder's "Add Field", the start screen's "Set Up New Market" and the floorplan beta's buttons.
+A few older buttons still read in Title Case, to be changed rather than copied: the form builder's "Add Field" and the floorplan beta's buttons.
 
 **A row's destructive action is quiet; the confirmation's is filled** (E38/F15/S01).
 `.btn--secondary.btn--destructive` is the destructive intent at the secondary weight: red ink (`--mm-red`, 5.44:1 on white) on the secondary button's white and border, at 400, not a fourth intent.

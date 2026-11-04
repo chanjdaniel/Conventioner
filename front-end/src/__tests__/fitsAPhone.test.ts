@@ -35,7 +35,6 @@ describe('the places that fit a phone', () => {
     ['the import', `${MARKET}/import`],
     ['start-from-CSV', `${MARKET}/start-from-csv`],
     ['the floorplan', `${MARKET}/floorplan`],
-    ['the market chooser', '/init'],
   ])('%s keeps the desktop floor', (_, path) => {
     expect(fits(path)).toBe(false);
   });

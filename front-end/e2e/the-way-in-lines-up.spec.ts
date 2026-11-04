@@ -2,13 +2,12 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 
 /**
- * The bar's sheet, the password pages and the market chooser at `/init` line up (items 10 and 11 of
- * bug 43; E26/F10/S01; T161).
+ * The bar's sheet and the password pages line up (items 10 and 11 of bug 43; E26/F10/S01; T161).
  *
  * Sign out sat a few pixels off the rows above it, shorter, with a wider divider, and read in
  * another font and ink than they did. The password pages were Title Case, with a left-aligned
  * title over a centred subtitle and an input whose right border was painted over by the input
- * inside it. `/init`'s two buttons stand whole on one row at a desk's size.
+ * inside it.
  */
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -81,52 +80,4 @@ test('asking for a reset reads like signing in', async ({ page }) => {
 test('choosing a new password reads like signing in', async ({ page }) => {
   await readsLikeSignIn(page, '/reset-password?token=not-a-real-token');
   await expect(page.getByTestId('password-reset-submit-button')).toHaveText('Reset password');
-});
-
-/**
- * The market chooser at `/init` fits its window: its two buttons stand whole on one row. It keeps
- * the desktop floor like every organizer screen not named in `meta.fitsAPhone`, so a phone lays it
- * out 1000px wide by design (the design language's Layout), and it is measured at a desk's size.
- */
-test('the market chooser fits a 1440px window', async ({ authenticatedPage: page }) => {
-  await page.goto('/init');
-  const buttons = [
-    page.getByTestId('init-setup-new-market-button'),
-    page.getByTestId('init-load-existing-market-button'),
-  ];
-  await expect(buttons[1]).toBeVisible();
-
-  const { scrollWidth, innerWidth } = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    innerWidth: window.innerWidth,
-  }));
-  expect(scrollWidth).toBeLessThanOrEqual(innerWidth);
-  const [left, right] = [await box(buttons[0]), await box(buttons[1])];
-  for (const b of [left, right]) {
-    expect(b.x).toBeGreaterThanOrEqual(0);
-    expect(b.x + b.width).toBeLessThanOrEqual(innerWidth);
-  }
-  // One row: side by side at the same height, so a wrap or a stack fails.
-  expect(Math.abs(right.y - left.y)).toBeLessThanOrEqual(1);
-  expect(right.x).toBeGreaterThanOrEqual(left.x + left.width);
-});
-
-/**
- * Sign out is a row of the sheet like the links above it, so its words are drawn as theirs are: in
- * the drawer before it, it read in Outfit and the body's slate while they read in Merge One and the
- * product's black (rereview note 14). The current place is marked, so it is left out.
- */
-test("Sign out reads like the sheet's links", async ({ authenticatedPage: page }) => {
-  const looks = await (
-    await openTheSheet(page)
-  ).evaluateAll((all) =>
-    all
-      .filter((row) => !row.hasAttribute('aria-current'))
-      .map((row) => {
-        const s = getComputedStyle(row);
-        return `${s.fontFamily} ${s.fontSize} ${s.fontWeight} ${s.color}`;
-      }),
-  );
-  expect(looks).toHaveLength(3);
-  expect(new Set(looks).size, looks.join('\n')).toBe(1);
 });

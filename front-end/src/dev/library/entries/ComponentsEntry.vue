@@ -195,10 +195,7 @@ const answerCount = question.options.length;
     </LibraryPanel>
   </LibrarySection>
 
-  <LibrarySection
-    title="PhaseBadge"
-    about="Used on: Markets and the market chooser, on each market's row"
-  >
+  <LibrarySection title="PhaseBadge" about="Used on: Markets, on each market's row">
     <LibraryPanel v-for="path in PATHS" :key="path.mode" :label="`Each phase: ${path.label}`">
       <PhaseBadge v-for="phase in PHASES" :key="phase" :phase="phase" :intake-mode="path.mode" />
     </LibraryPanel>
@@ -208,16 +205,13 @@ const answerCount = question.options.length;
     </LibraryPanel>
   </LibrarySection>
 
-  <LibrarySection
-    title="SummaryCard"
-    about="Used on: Markets and the market chooser (each market's row), Organizations"
-  >
+  <LibrarySection title="SummaryCard" about="Used on: Markets (each market's row), Organizations">
     <LibraryPanel label="A market's row: opens, with a badge and Manage" class="library-wide">
       <SummaryCard :facts="marketFacts" selectable @select="cardOpened = first.business">
         <template #name>
-          <h3 :title="first.business">
+          <h2 :title="first.business">
             <button type="button" class="summary-card-open">{{ first.business }}</button>
-          </h3>
+          </h2>
         </template>
         <template #badge>
           <PhaseBadge :phase="MarketPhase.Applications" :intake-mode="IntakeMode.Csv" />
@@ -234,9 +228,9 @@ const answerCount = question.options.length;
     <LibraryPanel label="A market's row: a missing fact, and no action" class="library-wide">
       <SummaryCard :facts="marketFactsMissing" selectable @select="cardOpened = third.business">
         <template #name>
-          <h3 :title="third.business">
+          <h2 :title="third.business">
             <button type="button" class="summary-card-open">{{ third.business }}</button>
-          </h3>
+          </h2>
         </template>
         <template #badge>
           <PhaseBadge :phase="MarketPhase.MarketDays" :intake-mode="IntakeMode.Form" />
@@ -246,7 +240,7 @@ const answerCount = question.options.length;
     <LibraryPanel label="An organization's row: not a click target" class="library-wide">
       <SummaryCard :facts="organizationFacts">
         <template #name>
-          <h3 :title="second.business">{{ second.business }}</h3>
+          <h2 :title="second.business">{{ second.business }}</h2>
         </template>
         <template #actions>
           <button type="button" class="btn btn--secondary" @click="cardManaged = second.business">
@@ -255,12 +249,12 @@ const answerCount = question.options.length;
         </template>
       </SummaryCard>
     </LibraryPanel>
-    <LibraryPanel label="Narrow, as the market chooser's dialog holds it: the facts go under">
+    <LibraryPanel label="Narrow: the facts go under">
       <SummaryCard :facts="marketFacts" selectable @select="cardOpened = second.business">
         <template #name>
-          <h3 :title="second.business">
+          <h2 :title="second.business">
             <button type="button" class="summary-card-open">{{ second.business }}</button>
-          </h3>
+          </h2>
         </template>
         <template #badge>
           <PhaseBadge :phase="MarketPhase.Draft" />

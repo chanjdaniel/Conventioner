@@ -44,7 +44,7 @@ A bug the status once named is cited where its fix changed what a step says.
 
 - [A. Accounts](business/flows/accounts.md) - A1, A1a, A2 to A5
 - [B. Organizations](business/flows/organizations.md) - B1 to B7, with B5a to B5c
-- [C. Finding and opening markets](business/flows/finding-a-market.md) - C1 to C5
+- [C. Finding and opening markets](business/flows/finding-a-market.md) - C1 to C4
 - [D. Creating a market](business/flows/creating-a-market.md) - D1 to D5
 - [E. Planning the market](business/flows/planning.md) - E1 to E8
 - [F. Building the application form](business/flows/form-tab.md) - F1 to F6
@@ -119,7 +119,6 @@ No bug blocks a flow any more: the fourteen rows that once stood here for bugs w
 | --- | --- | --- | --- |
 | [A5](business/flows/accounts.md#a5-delete-my-account) Delete my account | No screen | API only | A screen |
 | [B6](business/flows/organizations.md#b6-transfer-ownership) Transfer an organization | No screen | API only | A screen |
-| [C5](business/flows/finding-a-market.md#c5-the-old-start-screen) Old start screen | No screen | `/init` by URL | Remove it, or link it |
 | [F6](business/flows/form-tab.md#f6-table-type-preference) Table type preference | Stubbed | One table type in MVP | Assignment that uses several table types |
 | [E6](business/flows/planning.md#e6-sections-from-a-floorplan) Floorplan sections | Beta | Experimental | Real-gesture test coverage; several table types in assignment |
 | M1 to M4 Offers and outcome mail | Planned | E05 | The epic |

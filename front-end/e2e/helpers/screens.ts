@@ -450,12 +450,6 @@ export const SCREENS: Screen[] = [
     sizes: FITS_A_PHONE,
     open: removingFromTheOrganization,
   },
-  {
-    name: 'the start page',
-    who: 'organizer',
-    sizes: ORGANIZER,
-    open: at(fixed('/init'), 'init-setup-new-market-button'),
-  },
 
   // A draft with a long name: its plan, its form being written, its applications not yet open.
   {

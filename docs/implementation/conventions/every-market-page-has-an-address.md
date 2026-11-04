@@ -8,7 +8,7 @@ describes:
   - front-end/src/utils/market.ts#openMarket
   - front-end/src/views/MarketLanding.vue
   - front-end/src/utils/vendorDrawer.ts
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - wayfinding/readable-journey/map
   - wayfinding/the-assignment-tab/01
@@ -25,6 +25,7 @@ sources:
   - E44/F02/S01
   - E38/F13/S01
   - T200
+  - T209
 ---
 
 # Every market page has an address
@@ -56,10 +57,15 @@ Its tab and another vendor while it is open replace the entry, a vendor its Hist
 
 ## Old addresses
 
-- `setup?tab=<page>` lands on the page it named, keeping the rest of its query; `setup?tab=assignment` lands on `settings`.
-- `/markets/:marketId/assignment` redirects to `settings`, and `/markets/:marketId/result` and `/markets/:marketId/tables` to `assignments`, each with its query: the Tables screen became the Result page, and the Assignment and Result pages became Settings and Assignments ([the assignment and its result](../../business/flows/assignment-and-result.md)).
-- `/floorplan-editor?marketId=` opens that market's floorplan flow: unlike the other old paths it carried the market's id, so an old link still opens the market it named.
-- The id-less paths (`/market-setup`, `/vendors`, `/import-applications`, `/floorplan-editor` with no id, `/assignment-results`) redirect to `/markets`: they never held an id to preserve.
+Two old names of a market's pages forward, each with its query: `/markets/:marketId/assignment` to `settings` and `/markets/:marketId/result` to `assignments`.
+The Assignment and Result pages took those names ([the assignment and its result](../../business/flows/assignment-and-result.md)) after production's release of 2026-10-18, which still serves the old ones, so they are what organizers have bookmarked; they can go after a release or two.
+`/dashboard`, where signing in landed until Markets took over, and `/` forward to `/markets`.
+
+Nothing else is kept for an old link, since nothing links to it:
+
+- `/init`, `/register`, `/vendors`, `/market-setup`, `/import-applications`, `/assignment-results` and `/floorplan-editor` fall to `/:marketSlug`, so each answers as a market that does not exist, and a market may hold the name.
+- `/markets/:marketId/tables` falls to the catch-all, "Page not found".
+- `setup?tab=<page>` opens the plan: nothing reads `tab`.
 
 ## A guard names a page
 
@@ -70,7 +76,7 @@ A transition guard's `resolution_link` (in [`back-end/guards.py`](../../../back-
 
 - A screen that reads its market from anything but the route's id.
 - A link built by string concatenation instead of `marketPath()`.
-- A `resolution_link` naming an old address: it would be followed through a redirect, or nowhere.
+- A `resolution_link` naming an old address: it would be followed through a forward, or to "Page not found".
 - A new market page added without its route, so it cannot be bookmarked.
 
 What an organizer sees of the addresses, from the Markets list to an old bookmark, is [finding and opening markets](../../business/flows/finding-a-market.md).
