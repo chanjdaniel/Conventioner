@@ -246,7 +246,7 @@ watch(
     <div v-if="open && email" class="detail-content" data-testid="vendors-detail-content">
       <div class="detail-header">
         <div class="detail-title-wrap">
-          <span class="detail-eyebrow">Vendor detail</span>
+          <span class="detail-eyebrow" data-testid="vendors-detail-eyebrow">Vendor details</span>
           <h2 id="vendor-drawer-title" class="detail-title">{{ vendorHeadline(email, names) }}</h2>
           <!-- The address always, beneath the name: it is what ties this panel to a check-in,
                a CSV row and an application, and two vendors can share a name. -->
@@ -265,7 +265,7 @@ watch(
           type="button"
           ref="closeButton"
           class="detail-close"
-          aria-label="Close vendor detail"
+          aria-label="Close vendor details"
           @click="emit('close')"
           data-testid="vendors-detail-close"
         >
@@ -290,7 +290,7 @@ watch(
         />
       </section>
 
-      <div class="detail-tabs" role="tablist" aria-label="Vendor detail" @keydown="onTabKey">
+      <div class="detail-tabs" role="tablist" aria-label="Vendor details" @keydown="onTabKey">
         <button
           v-for="t in tabs"
           :id="`vendor-drawer-tab-${t.id}`"

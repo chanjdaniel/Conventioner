@@ -450,6 +450,7 @@ onUnmounted(() => observer?.disconnect());
 /* A body with nothing to focus is a keyboard stop of the browser's own; the window clips any halo
    drawn outside it. */
 .dialog-scroller:focus-visible {
+  border-radius: var(--radius-control);
   box-shadow: var(--focus-halo-inset);
 }
 
