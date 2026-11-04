@@ -592,6 +592,7 @@ function onBlur(): void {
 .search-picker-option {
   display: flex;
   flex-wrap: wrap;
+  align-content: center;
   align-items: baseline;
   justify-content: space-between;
   gap: 0 var(--space-3);

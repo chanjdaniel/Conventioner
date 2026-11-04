@@ -547,6 +547,17 @@ eachWindow('the combobox entry', (size) => {
     await expect(readOut).toHaveText('Answer: nothing');
   });
 
+  test("a row's words stand in the middle of its height", async ({ page }) => {
+    const written = picker(page, 'library-words-value');
+    await written.field.click();
+    const off = await written.options.first().evaluate((row) => {
+      const words = row.querySelector('.search-picker-option-label')!.getBoundingClientRect();
+      const box = row.getBoundingClientRect();
+      return Math.abs(words.top + words.height / 2 - (box.top + box.height / 2));
+    });
+    expect(off).toBeLessThanOrEqual(1);
+  });
+
   test('several, a typed answer is a chip of its own', async ({ page, expectAccessible }) => {
     const chips = picker(page, 'library-typed-chips');
     const readOut = readOutOf(page, 'library-typed-chips');
