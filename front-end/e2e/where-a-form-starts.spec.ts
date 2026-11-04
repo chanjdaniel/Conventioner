@@ -11,6 +11,7 @@ import { marketSetupPath } from './helpers/marketScreens';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { StartFromCsvPage } from './pages/StartFromCsvPage';
+import { MarketSetupPage } from './pages/MarketSetupPage';
 import { finishStartedPlan, UPCOMING_YEAR } from './helpers/finishStartedPlan';
 
 /**
@@ -88,7 +89,18 @@ test.describe('I already have a Google Form, at creation', () => {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CORPUS = join(HERE, '..', '..', 'back-end', 'tests', 'test_data', 'google_forms');
 
-test.describe("Start from a draft's Market Setup", () => {
+/** What the start drafts, worded for each intake (T205/F20, the spec's table): it imports no one. */
+const DRAFTS_HELP = {
+  csv:
+    "Drafts this market's dates, tiers and questions from your Google Form's responses. " +
+    'It imports no one yet: once the market is ready, import the responses with Import responses, ' +
+    "the next step at the top of the market's pages.",
+  form:
+    "Drafts this market's dates, tiers and questions from a past Google Form's responses. " +
+    "It imports no one: vendors apply on the market's page once applications open.",
+};
+
+test.describe("Drafting from a Google Form, from a draft's Market Setup", () => {
   test('a draft with no questions of its own opens the Upload step', async ({
     authenticatedPage: page,
     request,
@@ -104,6 +116,51 @@ test.describe("Start from a draft's Market Setup", () => {
     await expect(new StartFromCsvPage(page).upload).toBeVisible();
   });
 
+  test('the button says it drafts, and its help follows the intake as it is chosen', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // F20: "Start from my Google Form's responses" under "Vendors apply on this market's page" read
+    // as bringing the vendors in; it drafts the plan and questions and imports no one.
+    const { marketId } = await seedDraftMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { intakeMode: 'csv' },
+    );
+    const setup = new MarketSetupPage(page);
+    await page.goto(marketSetupPath(marketId));
+    await expect(setup.startFromCsvButton).toHaveText("Draft from a Google Form's responses");
+    await expect(setup.startFromCsvHelp).toHaveText(DRAFTS_HELP.csv);
+
+    await setup.chooseIntake('form');
+    await expect(setup.startFromCsvHelp).toHaveText(DRAFTS_HELP.form);
+    await setup.chooseIntake('csv');
+    await expect(setup.startFromCsvHelp).toHaveText(DRAFTS_HELP.csv);
+
+    // The import is reached from the phase rail's next step; the Applications tab offers none
+    // (E38/F04/S03), so no line here may send the organizer there.
+    const card = page.getByTestId('plan-card-intake');
+    await expect(card).not.toContainText('Applications tab');
+  });
+
+  test('a market whose vendors apply on its page is told so under the button', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { marketId } = await seedDraftMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { intakeMode: 'form' },
+    );
+    const setup = new MarketSetupPage(page);
+    await page.goto(marketSetupPath(marketId));
+    await expect(setup.startFromCsvHelp).toHaveText(DRAFTS_HELP.form);
+  });
+
   test('a form with a question of its own is refused, here and by the server', async ({
     authenticatedPage: page,
     request,
@@ -114,11 +171,16 @@ test.describe("Start from a draft's Market Setup", () => {
       TEST_USER.email,
       TEST_USER.password,
     );
+    const setup = new MarketSetupPage(page);
     await page.goto(marketSetupPath(marketId));
-    await expect(page.getByTestId('plan-start-from-csv-disabled')).toBeDisabled();
-    await expect(page.getByTestId('plan-start-from-csv-reason')).toContainText(
-      'questions of its own',
-    );
+    await expect(setup.startFromCsvDisabled).toBeDisabled();
+    await expect(setup.startFromCsvDisabled).toHaveText("Draft from a Google Form's responses");
+    await expect(setup.startFromCsvReason).toContainText('questions of its own');
+    // The card reads the same either way: what the start does, then why it cannot here.
+    await expect(setup.startFromCsvHelp).toHaveText(DRAFTS_HELP.csv);
+    const help = await setup.startFromCsvHelp.boundingBox();
+    const reason = await setup.startFromCsvReason.boundingBox();
+    expect(reason!.y).toBeGreaterThan(help!.y + help!.height - 1);
     const refused = await page.request.post(`${APP_API}/markets/${marketId}/csv-proposal`, {
       data: { csvContent: 'Timestamp,Email Address\n1/1/2026 9:00:00,a@mail.test\n' },
     });
@@ -126,6 +188,8 @@ test.describe("Start from a draft's Market Setup", () => {
     // And the flow's own address says the same, rather than offering a file picker.
     const flow = new StartFromCsvPage(page);
     await flow.open(marketId);
+    await expect(flow.title).toHaveText('Draft this market from a Google Form');
+    await expect(flow.refusedHeading).toHaveText("This market can't be drafted from a Google Form");
     await expect(flow.refused).toContainText('questions of its own');
     await expect(flow.upload).toHaveCount(0);
   });

@@ -16,6 +16,7 @@ sources:
   - E32/F02/S02
   - E38/F04/S01
   - E38/F04/S03
+  - T205
 ---
 
 # Review needs an import
@@ -30,7 +31,7 @@ A late export is a "Redo import" under the rail's More…, which reads the whole
 An organizer on the Google Form path already holds the responses when the market leaves draft; there is no form of the market's own taking applications, so a review with nothing imported is a review of nothing, and the import is what begins it ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
 
 **The first import takes the move itself.**
-The import runs in Draft, and before it reads a row it judges the move into Review less its own wait, so a setup that would keep the market out ("This market has no location. …") is said on the import before a file is picked, and nothing is written.
+The import runs in Draft, and before it reads a row it judges the move into Review less its own wait, so everything a setup lacks that would keep the market out ("This market has no market dates. …", "This market has no location. …") is listed on the import at once before a file is picked, and the server's refusal names every one too; nothing is written.
 Once the rows are written the import takes `draft -> applications` through the one judged move, under the person importing; leaving the import before that keeps the market a draft.
 Market Setup settles at that moment, as on leaving Draft by any move ([the setup settles on leaving draft](the-setup-settles-on-leaving-draft.md)).
 "Reopen for editing" is refused once anything has been imported: "N applications are already in, so this market cannot return to draft. The questions are fixed once anyone has applied or been imported." ([the form locks at the first application](the-form-locks-at-the-first-application.md)).

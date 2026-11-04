@@ -27,6 +27,7 @@ sources:
   - T15
   - E43/F01/S01
   - E43/F01/S02
+  - T205
 ---
 
 # Planning the market
@@ -100,10 +101,12 @@ Covered by:
 1. Choose "I collect applications elsewhere" ("You import a spreadsheet of the responses you already have.") or "Vendors apply on this market's page" (the form goes live at `/<market-slug>/apply` while applications are open); the create-market dialog asked first, so one is already chosen.
 2. It saves at once, and is greyed out once the market leaves Draft: "This is fixed once a market leaves draft, because changing it would strand whatever the previous choice produced."
 
-Under it, "Start from my Google Form's responses" opens the start from a Google Form ([G2](starting-from-a-google-form.md#g2-from-an-existing-draft)) and leaves this choice as it is.
+Under it, "Draft from a Google Form's responses" opens the start from a Google Form ([G2](starting-from-a-google-form.md#g2-from-an-existing-draft)) and leaves this choice as it is.
+A help line under the button says, by the choice above as it is clicked, that it drafts the market's dates, tiers and questions and imports no one, and how vendors come in after: on the market's page, or by Import responses, the phase rail's next step, once the market is ready (T205).
 A market whose vendors are imported has applicant pages that answer exactly as a nonexistent market's ([a gated market answers as absent](../rules/a-gated-market-answers-as-absent.md)).
 Covered by:
 - `intake-mode.spec.ts`
+- `where-a-form-starts.spec.ts`
 
 ## E6. Sections from a floorplan
 
@@ -112,7 +115,7 @@ Offered as "Set up sections from a floorplan instead" on Section Setup while the
 
 1. "Choose your setup path": "Manual setup" (Recommended, "Get started") or "From a floorplan" (Beta, "Try the beta").
 2. `/markets/<id>/floorplan`, a five-step wizard with "← Back" and "Next →":
-   1. **Upload:** drop or "Browse Files" (PNG, JPG, WebP, PDF; a PDF asks which page).
+   1. **Upload:** "Drop a floorplan image or PDF here, or choose a file", the app's one drop zone (PNG, JPG, WebP or PDF; a PDF of more than one page asks which page).
    2. **Calibrate:** drag a reference line starting on the image, "Enter Reference Length" with a unit, "Calibrate", "Done" (or "Redraw").
    3. **Place Tables:** define "Table Types" (name, width, height, unit, max capacity), optionally "Save as Template" / "Load Template", then "Auto-Place Tables", which asks how many of each type to place and says how many fitted.
    4. **Edit Layout:** draw walls and no-go zones with the "Wall Editor" toggle, move tables, "Group Sections" by lasso and "Assign Section" (name, location, optional tier), "Export PNG" with or without table codes and sections; "Next" stays disabled until sections are grouped.

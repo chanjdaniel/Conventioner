@@ -1,6 +1,6 @@
 """
 Floorplan API endpoints for uploading, retrieving, and deleting floorplan images.
-Uses GridFS for storage and pdf2image for PDF-to-image conversion.
+Uses GridFS for storage and pypdfium2 for PDF-to-image conversion.
 """
 
 import io

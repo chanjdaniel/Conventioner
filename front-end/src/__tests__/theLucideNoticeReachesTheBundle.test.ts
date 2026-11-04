@@ -2,7 +2,7 @@
  * Lucide's licence notice reaches the bundle the app ships, not only the source tree (T45).
  *
  * ISC asks for the copyright and permission notice "in all copies", and the copy a visitor
- * downloads is the minified bundle. `LICENSE-lucide.txt` sits beside the five copied icons, but
+ * downloads is the minified bundle. `LICENSE-lucide.txt` sits beside the four copied icons, but
  * the build never emits it, and minifying drops every comment unless told to keep legal ones; so
  * each icon carries a `/*! @license` banner comment, as Lucide's own packages do, and `vite.config.ts`
  * keeps legal comments. This builds the icons with the project's own configuration, minified, and
@@ -15,7 +15,7 @@ import { build, loadConfigFromFile, mergeConfig, type InlineConfig } from 'vite'
 
 const ROOT = process.cwd();
 const ICONS = resolvePath(ROOT, 'src/components/icons');
-const LUCIDE = ['IconCloudUpload', 'IconImage', 'IconList', 'IconPencil', 'IconTrash'];
+const LUCIDE = ['IconImage', 'IconList', 'IconPencil', 'IconTrash'];
 
 /** The minified code the project's build makes of each icon, by name. */
 let bundled: Record<string, string>;
