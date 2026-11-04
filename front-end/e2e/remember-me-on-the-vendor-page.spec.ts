@@ -59,10 +59,18 @@ test('a vendor who ticks Remember me is signed straight in in a new tab, until t
   expect(remembered?.domain.startsWith('.')).toBe(false);
   expect(await page.evaluate(() => document.cookie)).not.toContain('vendor_remember_');
 
-  const secondTab = new VendorPage(await context.newPage());
+  const secondTabPage = await context.newPage();
+  const secondTab = new VendorPage(secondTabPage);
   await secondTab.goto(market.marketSlug);
   await expect(secondTab.signedInAs).toContainText(vendor);
   await expect(secondTab.emailStep).toHaveCount(0);
+
+  // A second tab of the fixture's context hides the DevTools panel too, so it cannot stand over
+  // Sign out and hold the click. Read its `display`: its box is 0 tall with the panel drawn inside
+  // it, so Playwright calls it hidden either way.
+  const panel = secondTabPage.locator('#__vue-devtools-container__');
+  await expect(panel).toBeAttached();
+  await expect(panel).toHaveCSS('display', 'none');
 
   await secondTab.signOutButton.click();
   await expect(secondTab.emailInput).toBeVisible();

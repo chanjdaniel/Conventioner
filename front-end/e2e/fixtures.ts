@@ -115,7 +115,7 @@ export const test = base.extend<{
   expectAccessible: (state: string) => Promise<void>;
 }>({
   page: async ({ page }, use, testInfo) => {
-    await hideDevToolsPanel(page);
+    await hideDevToolsPanel(page.context());
     await withBrowserDiagnostics(page, use, testInfo);
   },
   authenticatedPage: async ({ page }, use) => {
