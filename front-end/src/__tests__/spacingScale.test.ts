@@ -121,4 +121,28 @@ describe('margins, paddings and gaps keep to the spacing scale', () => {
       expect(severities).toEqual(['error']);
     }
   });
+
+  // The rule's strength rests on its disable comments, so nothing lets one go by unread.
+  it.each([
+    [
+      'with no reason',
+      `/* stylelint-disable-next-line ${RULE} */\n  padding: 10px`,
+      '--report-descriptionless-disables',
+    ],
+    [
+      'with nothing to disable',
+      `/* stylelint-disable-next-line ${RULE} -- a reason */\n  padding: var(--space-2)`,
+      '--report-needless-disables',
+    ],
+  ])('refuses a disable %s', async (_case, declaration, report) => {
+    const reported = (await findings(BETA, declaration)).map((w) => [w.rule, w.severity]);
+
+    expect(reported).toEqual([[report, 'error']]);
+  });
+
+  it('lets a disable with its reason and a value to disable go by', async () => {
+    const declaration = `/* stylelint-disable-next-line ${RULE} -- a reason */\n  padding: 10px`;
+
+    expect(await findings(BETA, declaration)).toEqual([]);
+  });
 });

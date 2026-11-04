@@ -2,8 +2,10 @@
  * The design language's gate (`npm run lint:css`; `docs/design-system.md#what-keeps-this-true`).
  *
  * Every rule is an error in every file, and `lint:css` passes `--max-warnings 0` too: a warning on
- * old code lands on whichever later change touches the file. A value no token says carries a
- * `stylelint-disable` with its reason on that declaration.
+ * old code lands on whichever later change touches the file. A legitimate value the patterns refuse
+ * widens them; only the floorplan beta's own values and a raw pixel that is not spacing carry a
+ * `stylelint-disable`, with its reason on that declaration, and a disable with no reason or nothing
+ * to disable is refused too.
  *
  * A module rather than JSON (T82) so the spacing patterns are built once, from named parts, rather
  * than one 300-character regex written four times; `src/__tests__/spacingScale.test.ts` runs this
@@ -39,6 +41,8 @@ const GAP = values(...SPACED);
 /** @type {import('stylelint').Config} */
 export default {
   extends: ['stylelint-config-html/vue'],
+  reportDescriptionlessDisables: true,
+  reportNeedlessDisables: true,
   rules: {
     'color-no-hex': [
       true,
