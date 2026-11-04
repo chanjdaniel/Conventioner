@@ -62,10 +62,10 @@ eachWindow('the folds entry', (size) => {
     await expect(choices).toContainText('Unfolding the bars in place, or in a dialog');
     await expect(choices).toContainText('Rows before a group folds');
     await expect(choices).toContainText('Unfolding a section in place');
-    await expect(choices.locator('strong').first(), 'a choice leads with its name').toHaveCSS(
-      'font-weight',
-      '600',
-    );
+    await expect(
+      choices.getByText('Bars before the fold:'),
+      'a choice leads with its name',
+    ).toHaveCSS('font-weight', '600');
 
     await expectLaidOut(page, size, 'the folds entry');
     await expectAccessible('the folds entry');
