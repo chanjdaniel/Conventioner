@@ -468,6 +468,16 @@ describe('moving the vendor of a taken seat to an empty one (T208)', () => {
     expect(list.text()).toContain('None match "silver".');
   });
 
+  it('says nothing matches, not nobody, of the empty seats of one section', async () => {
+    const wrapper = dialog({ ...taken, emptySeats: [empty({ tableCode: 'Back 2' })] });
+
+    await wrapper.get('[data-testid="placement-dialog-move-target-input"]').setValue('zzz');
+
+    expect(wrapper.get('[data-testid="placement-dialog-move-target-none"]').text()).toBe(
+      'Nothing matches "zzz".',
+    );
+  });
+
   it('offers which seat at a wholly free table, starting at the shape they hold now', async () => {
     const wrapper = dialog({ ...taken, seat: HALF_TABLE_RIGHT });
     await choose(wrapper, 'placement-dialog-move-target', 'Back 2');

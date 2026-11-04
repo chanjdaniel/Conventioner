@@ -17,10 +17,10 @@ describes:
   - front-end/src/components/SearchPicker.vue
   - front-end/src/__tests__/removingSomeoneAsksFirst.test.ts
   - front-end/e2e/removing-someone-asks-first.spec.ts
-  - front-end/src/__tests__/changingARoleAsksFirst.test.ts
-  - front-end/e2e/changing-a-role-asks-first.spec.ts
   - front-end/src/__tests__/appDialog.test.ts
   - front-end/e2e/the-component-library-dialog.spec.ts
+  - front-end/src/__tests__/changingARoleAsksFirst.test.ts
+  - front-end/e2e/changing-a-role-asks-first.spec.ts
 verified: 2026-11-04
 sources:
   - wayfinding/the-order-of-the-work/08
@@ -55,7 +55,7 @@ A new dialog is built on it, never hand-rolled.
 **The form is the Enter contract.**
 Enter in a field runs the same handler as the confirm button, so it inherits that handler's guard, and a disabled submit makes Enter inert with no key handler anywhere.
 Do not add `@keydown.enter`: five views each invented their own answer, and one of them (`ApplicantLogin`) bypassed its own resend cooldown by doing so.
-The one exception is a picker's open list ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): while its list is open, Enter takes the highlighted choice and is kept from the form, and Escape closes the list and is kept from the dialog; once the list is closed both keys are the dialog's again, so Enter submits through the form's guard and Escape closes.
+The one exception is a picker's open list ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): while its list is open, Enter takes the highlighted choice, or closes the list when none is highlighted, and is kept from the form (with `multiple` the list stays open after a choice, so the next Enter is the list's too), and Escape closes the list and is kept from the dialog; once the list is closed both keys are the dialog's again, so Enter submits through the form's guard and Escape closes.
 
 **A dialog of several independent actions passes no `confirmLabel`** and hosts its own `<form>`s in its body; Manage organization has three.
 Their submits are their own: the shell listens for `submit` only when its body is the form, so an inner form's submit neither is prevented by it nor makes it emit `submit`.
@@ -90,7 +90,7 @@ Three closes are correct and are pinned: deleting the thing, the explicit close 
 The parent learns about a save through its own event, never through `close`: `OrganizationsView` treating close as its refresh signal is why every membership change used to close the dialog.
 
 **A destructive dialog opens focused on Cancel**, deliberately: one stray Enter would otherwise be the whole irreversible action, and Cancel is a `type="button"`, so Enter there cancels.
-Any other dialog focuses its first enabled control that is not destructive, else its window: a dialog listing people never opens on the first person's Remove, which one stray Enter would take (Manage organization did, on its first admin's).
+Any other dialog focuses its first enabled control that is not destructive, else its window: a dialog listing people never opens on the first person's Remove, which one stray Enter would take (Manage organization did, on its first admin's), and a control that takes something away without being drawn destructive, as a [`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue) chip's Remove does, carries `data-dialog-not-first` for the same reason.
 The window draws no ring when it takes focus, as Manage market's does while its market loads: `primitives.css` draws nothing around what only a script focuses ([the design language](../../design-system.md#the-primitive-layer)).
 Focus skips `:disabled` controls, because `focus()` on a disabled element is a silent no-op; that left the create-market dialog opening with focus on `<body>` while its organization select loaded.
 **Closing gives focus back to what opened the dialog**, whichever way it closes, and when it is unmounted while open: closing unmounts the window, which dropped focus to `<body>`, so the next Tab started at the top of the page (T45).

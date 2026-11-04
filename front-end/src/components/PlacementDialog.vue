@@ -470,6 +470,7 @@ function findsToMove(option: PickerOption, words: string): boolean {
           :finds="findsToMove"
           label="Move them to"
           placeholder="Search by table, section or tier…"
+          none-word="Nothing"
           testid="placement-dialog-move-target"
         />
         <p v-if="emptySeats.length === 0" class="placement-note">

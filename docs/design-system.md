@@ -19,7 +19,6 @@ describes:
   - front-end/e2e/focus-sweep-detectors.spec.ts
   - front-end/e2e/helpers/focusSweep.ts
   - front-end/e2e/a-links-halo-appears-at-once.spec.ts
-  - front-end/src/components/FileDropZone.vue
   - front-end/src/assets/brand/
   - front-end/src/__tests__/theBrandHasOneFolder.test.ts
   - front-end/scripts/brand-icons.ts
@@ -27,6 +26,9 @@ describes:
   - front-end/public/manifest.webmanifest
   - front-end/src/components/icons/
   - front-end/src/__tests__/everyIconIsUsed.test.ts
+  - front-end/src/components/FileDropZone.vue
+  - front-end/src/components/FilterToggles.vue
+  - front-end/src/components/ListFrame.vue
 verified: 2026-11-04
 sources:
   - wayfinding/claims-and-room/map
@@ -70,9 +72,10 @@ sources:
   - E38/F15/S01
   - T181
   - T180
-  - T205
-  - T211
   - T212
+  - T205
+  - T200
+  - T211
 ---
 
 # Conventioner's design language
@@ -407,8 +410,26 @@ A link on a line of its own is `.link-alone`, a target `--target-min` tall in th
 A link inside a sentence is not one, since it sits on the sentence's line.
 A choice among many, found by typing, is [`SearchPicker.vue`](../front-end/src/components/SearchPicker.vue) (E38/F08/S03): a field over a grouped list that it narrows as it is typed in, worked by the arrow keys, Enter and Escape, its list opening in the flow under the field so a dialog's scroller cannot clip it; it narrows a group and never hides one, and the caller says what the words find.
 Reopened on a choice, it selects that choice's label, so typing replaces it and searches afresh rather than running on from the label; left untouched, the choice stays.
-A picker with no choices at all never opens its list, and "Nobody matches" shows only once words are typed, so the note the caller puts beside it says why there is nothing to choose.
-The placement dialog's two vendor pickers are its first use.
+A picker with no choices at all never opens its list, and "Nobody matches" (the caller's `noneWord` in place of "Nobody", where the choices are not people) shows only once words are typed, so the note the caller puts beside it says why there is nothing to choose.
+Given a `cap`, it draws at most that many matches, counted across the groups in order, under a line "N more, type to narrow" that stays in view as the list scrolls and that the keys skip; a group the cap alone leaves out is not drawn, and a choice past the cap is named by the field, with no row active, so Enter keeps it.
+Without a `cap` it draws every match.
+Given `multiple` it holds several choices as `.chip--neutral` chips above the field, each as tall as its remove button's target, Backspace in the empty field taking the last; a chosen row the list draws is ticked, the list and the words stay after a choice, choosing a row again removes it, and a choice past the `cap` is named by its chip and found again by typing.
+Given `acceptsTyped`, trimmed words that are exactly no option's label are offered as `Use "<words>"`, which leads the list outside the `cap`, so the keys reach it first; choosing it makes the words the value, shown by the field or a chip, and the list opens for words even with no options.
+Reopened on such a value no row is active, so Enter keeps it, and words that are exactly an option make that option, when the `cap` draws it, the active row.
+Given `holdsChoice`, one choice holds until another is taken, as a filter or a card that writes on a choice needs: typing emits nothing, and on leaving the field or on Escape the field names the choice again; without it the first word lets the choice go, as a dialog that acts on Save needs.
+The placement dialog's pickers are its first use, with no `cap`.
+A row of pressed buttons that filters a list or switches a view is [`FilterToggles.vue`](../front-end/src/components/FilterToggles.vue) (T200): compact secondary `.btn`s in a named `role="group"`, one choice by default or several with `multiple`, each named by the words it shows, its label then an optional count.
+The row wraps and a long label wraps inside its toggle, so it never scrolls sideways, and on a phone a toggle is at least 44px each way.
+Pressing the chosen toggle again keeps it; several emit in the options' order.
+No screen mounts it yet: the library's `filter-toggles` entry lists the eight rows it would replace.
+
+A list that can grow with a market is [`ListFrame.vue`](../front-end/src/components/ListFrame.vue) (T200), generic over the row: a find field past `findFrom` rows (12), the screen's own filters beside it, a count line, the first `pageSize` rows (50) and "Show N more".
+The screen narrows `items` by its filters and brings `finds`, `itemKey` and the `row` slot; the frame does the finding and the paging on what is already read.
+With `findKey` the words live in the route's query, written with `router.replace`.
+The shown count goes back to one page when the words or the rows change, and a read again that brings the same rows by `itemKey` changes neither.
+`state` draws loading and failed (`ReadFailed`, unless the `failed` slot replaces it), the `empty` slot says why there are no `items`, and the count line says when the words find nothing.
+No screen mounts it yet: the library's `list-frame` entry shows it on Applications All and the people with access.
+
 A screen takes a file on [`FileDropZone.vue`](../front-end/src/components/FileDropZone.vue), its one way to (T205): a dashed zone on the beige ground that a click anywhere opens the file chooser from, its main line naming the hidden input and a hint under it saying what files it takes.
 It tints green under the pointer and while a file is over it, and its words take no pointer events, so crossing them does not fire `dragleave` and flicker the tint off.
 Busy, while its caller reads or uploads a file, it takes no file and mutes its main line, never dimming it with opacity; a chosen file clears the input, so the same file chosen again is read again.
