@@ -41,6 +41,9 @@ export const VALID_TRANSITIONS: Array<[string, string]> = [
   ['applications', 'draft'],
   ['applications', 'assignment'],
   ['applications', 'archived'],
+  // Back to review (T207, ADR 0021): the review reopens until results are published, which the
+  // server's guard decides. It asks first, by its edge (`PhaseRail`), though it can be undone.
+  ['assignment', 'applications'],
   // Publishing (E03/F03): market_days means the market is running.
   ['assignment', 'market_days'],
   ['assignment', 'offers'],
@@ -65,7 +68,9 @@ export function isReversible(phase: string, table = VALID_TRANSITIONS): boolean 
  *
  * It confirms when it cannot be undone. Today that is exactly `market_days` and `archived`:
  * `archived` has no outbound edge at all, and `market_days` reaches only `archived`. Everything
- * else has a documented reverse edge and fires on one click, which is right.
+ * else can be undone, so this asks nothing of it. A move that asks for another reason asks in
+ * `PhaseRail`, by its edge: Open applications offers the reviewers, and Back to review (T207) says
+ * what reopening the review costs.
  *
  * Derived from the table rather than listed, and that is the whole point: the answer stays correct
  * when the table changes. Adding a reverse edge stops that transition confirming without anyone

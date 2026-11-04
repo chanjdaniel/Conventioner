@@ -9,10 +9,12 @@ describes:
   - front-end/src/__tests__/theAppOwnsItsComponents.test.ts
   - front-end/src/__tests__/theLucideNoticeReachesTheBundle.test.ts
   - front-end/src/components/SearchPicker.vue
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - T45
   - E38/F08/S03
+  - T200
+  - T211
 status: accepted
 ---
 
@@ -36,7 +38,7 @@ The app owns its components and its icons, and depends on no component library o
 
 - A dialog is [`AppDialog`](../../front-end/src/components/AppDialog.vue); a text field is `.field`; a number is a native `<input type="number">`; a choice of a few is native radios in a `<fieldset>` with a `<legend>`.
 - An icon is a local SVG component in [`src/components/icons/`](../../front-end/src/components/icons/), drawing in `currentColor`; one copied from an icon set keeps that set's licence beside it and in the bundle the app ships.
-  The five Lucide icons (ISC; `trash` also Feather's MIT) keep the full texts in `LICENSE-lucide.txt`, and each carries a `/*! @license` banner, as Lucide's own packages do, which the build keeps because [`vite.config.ts`](../../front-end/vite.config.ts) keeps legal comments when it minifies; [`theLucideNoticeReachesTheBundle.test.ts`](../../front-end/src/__tests__/theLucideNoticeReachesTheBundle.test.ts) builds them with that configuration and reads the notice in the output.
+  The five Lucide icons (ISC; `check` and `trash` also Feather's MIT) keep the full texts in `LICENSE-lucide.txt`, and each carries a `/*! @license` banner, as Lucide's own packages do, which the build keeps because [`vite.config.ts`](../../front-end/vite.config.ts) keeps legal comments when it minifies; [`theLucideNoticeReachesTheBundle.test.ts`](../../front-end/src/__tests__/theLucideNoticeReachesTheBundle.test.ts) builds them with that configuration and reads the notice in the output.
 - PrimeVue, PrimeIcons and every `@primevue/*` and `@primeuix/*` package are gone: [`main.ts`](../../front-end/src/main.ts) installs no UI plugin, [`package.json`](../../front-end/package.json) names no UI kit, and [`theAppOwnsItsComponents.test.ts`](../../front-end/src/__tests__/theAppOwnsItsComponents.test.ts) fails if `package.json` or the lockfile brings one back.
 - If a screen ever needs a widget that is hard to get right, a combobox, a date picker or a popover menu, the first stop is a headless library such as Reka UI (MIT), styled with the app's own tokens; a data table would be TanStack Table.
   That is a decision for the day a screen needs one, and a styled kit, which brings its own design language, is not.
@@ -46,6 +48,12 @@ The app owns its components and its icons, and depends on no component library o
   It added about 12.5 KB gzipped to the entry JavaScript, since the Vue runtime it uses lands in the chunk every first paint loads: measured on the same dev on 2026-10-30, 99,310 B with it against 86,808 B with the owned picker, the bundle budget being 89,000 B.
   And the behaviour the dialog needs is not what it gives unasked: a search narrows each group and never hides one, where its filter drops a group with no match, and the list opens in the dialog's flow, so the dialog's scroller cannot clip it.
   A date picker or a popover menu, which must place itself over the page, is still a headless library's first.
+  The picker grows by opt-in props, and a use that passes none draws as it did before them:
+  - `cap`, a match list cut short with a line saying how many more;
+  - `multiple`, several choices as chips above the field;
+  - `acceptsTyped`, words that are exactly no option kept as the value;
+  - `noneWord`, what the list says finds no match, where the choices are not people;
+  - `holdsChoice`, one choice that holds under typed words until another is taken.
 
 ## Consequences
 

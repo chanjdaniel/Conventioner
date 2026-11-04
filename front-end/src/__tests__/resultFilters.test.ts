@@ -7,6 +7,7 @@ import {
   placeFilterQuery,
   readResultFilters,
   sectionsInPlanOrder,
+  sectionsOnTheGrid,
   vendorShown,
   rowStatus,
   statusCounts,
@@ -266,6 +267,36 @@ describe('the order a date lists its sections in (E30/F01/S05)', () => {
       'Alpha',
       'Zed',
     ]);
+  });
+});
+
+/** The grid's order, said once: the Assignments page and the placement dialog's pickers read it. */
+describe('a date’s tables in the grid’s order', () => {
+  const plan = { tiers: [{ name: 'Gold' }, { name: 'Silver' }], sections: [] };
+
+  it('groups the tables by section, sections as the plan ranks them, tables by number', () => {
+    const rows = [
+      row({ tableCode: 'B 1', section: 'B', tier: 'Silver', location: 'Annex' }),
+      row({ tableCode: 'A 10' }),
+      row({ tableCode: 'A 2' }),
+    ];
+    expect(
+      sectionsOnTheGrid(rows, plan).map((group) => [
+        group.section,
+        group.tier,
+        group.location,
+        group.rows.map((r) => r.tableCode),
+      ]),
+    ).toEqual([
+      ['A', 'Gold', 'Hall', ['A 2', 'A 10']],
+      ['B', 'Silver', 'Annex', ['B 1']],
+    ]);
+  });
+
+  it('leaves the rows it is given in their order', () => {
+    const rows = [row({ tableCode: 'A 2' }), row({ tableCode: 'A 1' })];
+    sectionsOnTheGrid(rows, plan);
+    expect(rows.map((r) => r.tableCode)).toEqual(['A 2', 'A 1']);
   });
 });
 

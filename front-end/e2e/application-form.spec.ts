@@ -187,9 +187,10 @@ test.describe('Application form builder', () => {
     // An applicant applies.
     seedApplication(marketId);
 
-    // The builder reflects the lock before any edit is attempted
-    await page.reload();
-    await formPage.openFormTab();
+    // The builder reflects the lock before any edit is attempted. The tab's own address, with no
+    // step, since a refresh keeps the step the address names (T206).
+    await page.goto(marketSetupPath(marketId, 'form'));
+    await formPage.steps.waitFor({ state: 'visible' });
     // A locked form opens on what is still the organizer's to change, and saves it (E33/F01/S03).
     await expect(formPage.step('review')).toHaveAttribute('aria-current', 'step');
     await expect(formPage.lockBanner).toHaveCount(0);

@@ -6,7 +6,7 @@ describes:
   - front-end/src/utils/openMarket.ts
   - front-end/src/utils/lastMarket.ts
   - front-end/src/utils/marketActions.ts
-verified: 2026-10-31
+verified: 2026-11-03
 sources:
   - E38/F04/S02
   - wayfinding/the-market-frame/03
@@ -20,6 +20,7 @@ sources:
   - E41/F01/S02
   - E40/F01/S03
   - E40/F01/S04
+  - T205
 ---
 
 # The market store
@@ -57,6 +58,7 @@ A new control is one line under its screen, and a new screen is a block beside t
 
 **Market Setup, the plan and the floorplan flow**
 - every plan card, the plan's autosave: Change Market Setup
+- How vendors apply's "Draft from a Google Form's responses": Import applications, since the start it opens prepares the import; the start's own page asks no row, and the server asks Import applications on its proposal and its confirm
 
 **The Assignment tab's Settings page**
 - the rules: Allocate tables, change the assignment rules, and assign, swap or free seats, and Change Market Setup, since the rules ride in the plan
@@ -68,8 +70,8 @@ A new control is one line under its screen, and a new screen is a block beside t
 **The form tab, and the review's highlights**
 - the questions, the highlights, the automatic rejections: Change the form
 
-**Applications, the import and the start from a CSV**
-- Import, Start from a CSV: Import applications
+**The import**
+- Import: Import applications
 
 **Applications, the review and All**
 - verdicts and follow-ups: Give verdicts, while `verdictsSettledReason` is null; on an application already approved or rejected, Change a verdict, or overturn an automatic rejection too
@@ -80,7 +82,7 @@ A new control is one line under its screen, and a new screen is a block beside t
 
 **Assignments, and the drawer's link to it**
 - Change on a seat: Allocate tables, change the assignment rules, and assign, swap or free seats
-- "Also remove its $15…" beside Free this seat: Change the amount owed, besides the Assignment row the free itself asks
+- "Also remove its $15.00…" beside Free this seat: Change the amount owed, besides the Assignment row the free itself asks
 
 **Vendors**
 - Add a vendor: Add a vendor, while `addingVendorsReason` is null

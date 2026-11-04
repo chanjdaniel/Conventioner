@@ -1,4 +1,5 @@
 import type { APIRequestContext } from '@playwright/test';
+import { decideReviewSetup } from './decideReviewSetup';
 import { savePlan } from './savePlan';
 import {
   approvedVendorApplication,
@@ -166,9 +167,10 @@ export async function ensureOrganizationAdmin(
   if (made.ok()) return;
   const orgs = await request.get(`${baseURL}/organizations`);
   const { organizations = [] } = (await orgs.json()) as {
-    organizations?: { id: string; adminEmails?: string[] }[];
+    organizations?: { id: string; adminPeople?: { email: string }[] }[];
   };
-  if (!organizations.find((o) => o.id === orgId)?.adminEmails?.includes(email)) {
+  const admins = organizations.find((o) => o.id === orgId)?.adminPeople ?? [];
+  if (!admins.some((admin) => admin.email === email)) {
     throw new Error(`Making ${email} an organization admin failed: ${await made.text()}`);
   }
 }
@@ -307,6 +309,8 @@ export async function seedMarketWithVendors(
   if (!formRes.ok()) {
     throw new Error(`Application form save failed: ${formRes.status()} ${await formRes.text()}`);
   }
+  // And its review setup decided (T206): Review waits on it.
+  await decideReviewSetup(request, baseURL, marketId);
 
   // Step 3: Seed the vendors the assignment engine will place. They are approved applications,
   // which is what a vendor is; this used to be a fabricated CSV upload because the solver read a
@@ -388,6 +392,8 @@ export async function seedPublishedMarketWithAssignments(
   if (!formRes.ok()) {
     throw new Error(`Application form save failed: ${formRes.status()} ${await formRes.text()}`);
   }
+  // And its review setup decided (T206): Review waits on it.
+  await decideReviewSetup(request, baseURL, marketId);
 
   // Step 3: Seed the vendors as approved applications - what a vendor is. This used to upload a
   // fabricated CSV, because the solver read a separate source_data collection.

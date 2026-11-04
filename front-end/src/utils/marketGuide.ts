@@ -50,7 +50,8 @@ export function pathPhaseLabel(phase: string | null | undefined, path: IntakeMod
 
 /**
  * A move as the market's own path names it - for what the organizer wants to do, not for the
- * phase. Going back to draft exists so the setup and the form become editable again.
+ * phase. Going back to draft exists so the setup and the form become editable again; going back
+ * from Assignment, so a verdict can change (T207).
  */
 export function pathTransitionLabel(from: string, to: string, path: IntakeMode): string {
   const csv = path === IntakeMode.Csv;
@@ -62,6 +63,7 @@ export function pathTransitionLabel(from: string, to: string, path: IntakeMode):
     // A Google Form market's first import takes this move once its rows are written, so beside the
     // rail's "Import responses" it is the step after, never pressed (E38/F04/S01).
     case MarketPhase.Applications:
+      if (from === MarketPhase.Assignment) return 'Back to review';
       return csv ? 'Begin review' : 'Open applications';
     case MarketPhase.Assignment:
       return 'Begin assignment';
@@ -496,6 +498,16 @@ const FORM_STEPS: readonly FormStep[] = [
  */
 export function formSteps(path: IntakeMode): readonly FormStep[] {
   return path === IntakeMode.Form ? FORM_STEPS : FORM_STEPS.filter((step) => step.id !== 'preview');
+}
+
+/**
+ * The step a form tab address names in its `step` query (T206), while this path has it: a blocker's
+ * fix, a bookmark or a shared link opens Review setup as `form?step=review`. Null for no step, an
+ * unknown one, or one the path lacks (`preview` on a Google Form market), so the tab opens where it
+ * would with none.
+ */
+export function formStepNamed(named: unknown, path: IntakeMode): FormStepId | null {
+  return formSteps(path).find((step) => step.id === named)?.id ?? null;
 }
 
 /** A tab as the market's own path names it: a CSV market's form is the questions its file maps onto. */

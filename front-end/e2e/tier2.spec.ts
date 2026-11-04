@@ -174,6 +174,8 @@ test.describe('Tier 2 - Market role management', () => {
     await expect(roleSelect).toHaveValue('editor');
 
     await roleSelect.selectOption('viewer');
+    await manageMarket.roleChangeConfirmButton.click();
+    await expect(manageMarket.roleChangeConfirm).toHaveCount(0);
     await expect(roleSelect).toHaveValue('viewer', { timeout: 5000 });
 
     const removeButton = page

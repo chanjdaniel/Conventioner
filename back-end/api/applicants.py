@@ -1004,10 +1004,15 @@ def publish_results(market_id: str, by: str) -> Tuple[Dict[str, Any], int]:
     if refusal:
         return {"error": refusal}, 409
 
-    db["markets"].update_one(
-        {"id": market_id},
+    # Conditional on what the refusal read (T207): Back to review checks the flag and then moves
+    # the phase, so this write holds the phase, and the flag against a second publish, as they
+    # were read; two requests in flight together never leave the review open on published results.
+    result = db["markets"].update_one(
+        {"id": market_id, "phase": doc.get("phase"), "resultsPublished": {"$ne": True}},
         {"$set": {"resultsPublished": True}},
     )
+    if not result.matched_count:
+        return {"error": "This market moved while the request was in flight. Reload it and try again."}, 409
     History.record(market_id, by, Actions.PUBLISH_RESULTS,
                    detail=lambda: History.changes(
                        {"results_published": False}, {"results_published": True}))

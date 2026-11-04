@@ -6,7 +6,7 @@
  * builder the price groups use too (`ChoiceConditions.vue`). Which questions may carry a rule, and
  * which answers each offers, are the server's (`rejectionQuestions` on the market, from
  * `back-end/rejection_rules.py`): this writes the whole list on every change, as the highlights
- * beside it do. Settled rules - the market has reached Assignment - are shown fixed, with the reason.
+ * beside it do. Settled rules - the review is closed - are shown fixed, with the server's reason.
  */
 import { computed } from 'vue';
 import type { RejectionQuestion, RejectionRule } from '@/assets/types/datatypes';
@@ -24,6 +24,11 @@ const props = defineProps<{
    * owner" (E38/F06/S01). Null when the market read carries no such row.
    */
   overturnedBy?: string | null;
+  /**
+   * "No automatic rejections" is chosen and read back above this (T206), so the empty list is not
+   * said again here.
+   */
+  noneReadBack?: boolean;
 }>();
 
 const emit = defineEmits<{ 'update:rules': [rules: RejectionRule[]] }>();
@@ -42,11 +47,15 @@ const fixed = computed(() => props.disabled || !!props.lockReason);
       </template>
       <template v-else>The applicant never sees the reason.</template>
     </p>
+    <!-- Review setup's decision (T206): under the help, which explains the rules below it. -->
+    <slot name="decision" />
     <p v-if="lockReason" class="rejections-locked" data-testid="rejection-rules-locked">
       {{ lockReason }}
     </p>
 
-    <p v-if="!rules.length && fixed" class="rejections-empty">No answer rejects automatically.</p>
+    <p v-if="!rules.length && fixed && !noneReadBack" class="rejections-empty">
+      No answer rejects automatically.
+    </p>
 
     <ChoiceConditions
       :questions="questions"

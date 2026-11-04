@@ -149,6 +149,27 @@ class TestAStopBelongsToItsStay:
 
         assert written["applicationsStopped"] is False
 
+    def test_coming_back_from_assignment_keeps_applying_closed(self, monkeypatch):
+        """Back to review (T207) is the review again, not applying: a form market enters the stage
+        with its form stopped, in the move's own update, and Take applications again reopens it."""
+        written = self._move(
+            monkeypatch, MarketPhase.ASSIGNMENT.value, MarketPhase.APPLICATIONS.value,
+            stopped=False,
+        )
+
+        assert written["applicationsStopped"] is True
+
+    def test_a_google_form_market_coming_back_is_left_as_it_is(self, monkeypatch):
+        import api.markets as MarketsApi
+        from conftest import FakeMarketsCollection
+
+        markets = FakeMarketsCollection(_doc(phase=MarketPhase.ASSIGNMENT.value, intakeMode="csv"))
+        monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+        MarketsApi.apply_phase_transition(
+            "market-123", markets.doc, MarketPhase.APPLICATIONS.value, by="owner@example.com")
+
+        assert "applicationsStopped" not in markets.last_update["$set"]
+
     def test_entering_assignment_leaves_it_to_the_phase(self, monkeypatch):
         written = self._move(
             monkeypatch, MarketPhase.APPLICATIONS.value, MarketPhase.ASSIGNMENT.value,

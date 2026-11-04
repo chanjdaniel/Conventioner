@@ -20,6 +20,10 @@ export class CsvImportPage {
   readonly map: Locator;
   readonly preview: Locator;
   readonly wrongPhase: Locator;
+  /** The refusal's checklist of what a draft's first import waits on (T205/F09). */
+  readonly waitsOnHeading: Locator;
+  readonly waitsOn: Locator;
+  readonly waitsOnLinks: Locator;
 
   // Choosing a file
   readonly fileInput: Locator;
@@ -84,6 +88,9 @@ export class CsvImportPage {
     this.map = page.getByTestId('import-map');
     this.preview = page.getByTestId('import-preview');
     this.wrongPhase = page.getByTestId('import-wrong-phase');
+    this.waitsOnHeading = this.wrongPhase.getByTestId('blocker-heading');
+    this.waitsOn = this.wrongPhase.getByTestId('blocker-item');
+    this.waitsOnLinks = this.wrongPhase.getByTestId('blocker-resolution-link');
 
     this.fileInput = page.getByTestId('import-file-input');
     this.error = page.getByTestId('import-error');

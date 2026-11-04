@@ -140,9 +140,11 @@ Covered by:
 **Status:** Works (walked live; what can still change read from the code as of E31/F01 and E36/F01).
 When the rules, the plan or the approved applications change after a run, a note on the Assignments page says which: "Your rules changed since tables were allocated. Allocate tables again to bring the result up to date." ([an assignment knows when it is out of date](../rules/an-assignment-knows-when-it-is-out-of-date.md)).
 Changing an input does not unassign anyone until the run is repeated, and a hand placement is not a change.
-The plan settles on leaving Draft and the verdicts on entering Assignment, so in Assignment it is the rules an organizer changes; the plan and the applications change after a run only in the database, as specs do.
+The plan settles on leaving Draft and the verdicts on entering Assignment, so in Assignment it is the rules an organizer changes; the plan changes after a run only in the database, as specs do.
+The approved applications change after a run when the organizer goes Back to review and changes a verdict; going back says so in a sentence of its own, "The review was reopened after tables were allocated.", whether or not a verdict changed, and results and going live wait for tables allocated again ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)).
 The note shows only in Assignment, where running again is possible.
 Covered by:
+- `a-reopened-review-waits-for-a-new-run.spec.ts`
 - `the-result-knows-what-it-was-made-from.spec.ts`
 
 ## J14. The rules close with the assignment

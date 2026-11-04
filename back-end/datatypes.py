@@ -535,6 +535,10 @@ class AssignmentObject(BaseModel):
     # What the run read, one fingerprint per group (E22/F03/S01, ``assignment/made_from.py``).
     # Written only by a run; None on an assignment made before it existed.
     made_from: Optional[Dict[str, str]] = None
+    # How many times the rows have been written; each write is conditional on the count it read,
+    # so two changes at once never store one over the other (``api/placements.py``). 0 on an
+    # assignment written before it existed.
+    revision: int = 0
 
 
 class MappingAuthor(str, Enum):
@@ -623,10 +627,17 @@ class Market(BaseModel):
     # A list of answer keys, so it names both kinds uniformly. Absent means nothing is marked,
     # which renders the card exactly as it did before this existed - so no migration.
     review_highlights: Optional[List[str]] = None
+    # Whether the organizer chose that nothing leads the card (T206): an absent and an empty list
+    # both mean "nothing is marked", so neither can say anyone decided it. Server-owned: only
+    # ``save_review_highlights`` writes it, true only while the list holds nothing. Absent is false.
+    nothing_leads_the_card: bool = False
     # Which answers reject an application automatically (E33/F03), ON THE MARKET beside the
-    # highlights and for the same reason: they stay editable after the form locks, until the market
-    # can no longer return to review. `rejection_rules.py` owns what a rule may say. Absent is none.
+    # highlights and for the same reason: they stay editable after the form locks, while the review
+    # is open (`review_is_open`). `rejection_rules.py` owns what a rule may say. Absent is none.
     rejection_rules: Optional[List[RejectionRule]] = None
+    # Whether the organizer chose no automatic rejections (T206), as ``nothing_leads_the_card`` is
+    # for the highlights: only ``save_rejection_rules`` writes it, true only while there is no rule.
+    no_automatic_rejections: bool = False
     results_published: bool = False  # Organizer-controlled gate: verdicts hidden from applicants until flipped
     # Whether the organizer has stopped taking applications, inside the stage (E38/F04/S02): a fact
     # about the applicant form, not a phase (ADR 0005), so reviewing goes on. Server-owned: only
@@ -1350,8 +1361,10 @@ class MarketSchemaContract(ContractModel):
     organization_id: Optional[str] = None
     phase: Optional[str] = None
     review_highlights: Optional[List[str]] = None
+    nothing_leads_the_card: Optional[bool] = None
     review_team: Optional[ServedReviewTeamContract] = None
     rejection_rules: Optional[List[RejectionRule]] = None
+    no_automatic_rejections: Optional[bool] = None
     roles: Dict[str, str]
     permissions: Optional[Dict[str, MarketPermission]] = None
     setup_object: Optional[SetupObjectContract]

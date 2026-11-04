@@ -114,7 +114,7 @@ test.describe('price groups', () => {
       .locator('td')
       .nth(1);
     await expect(after).toHaveText(
-      'Gold $25, Silver $22\n' +
+      'Gold $25.00, Silver $22.00\n' +
         'when “Are you an Example College student or alumni?” includes “Example College alumni/staff”\n' +
         'and “Do you belong to any of these clubs?” includes “Art Club” or “Craft Club”',
       { useInnerText: true },
@@ -167,14 +167,14 @@ test.describe('price groups', () => {
 
     const student = await priceLines(page, marketId, 'student@example.com');
     await expect(student[0]).toHaveText(
-      'Gold, full table, Example College student + club member, $12',
+      'Gold, full table, Example College student + club member, $12.00',
     );
     await expect(student[1]).toHaveText(
-      'Silver, full table, Example College student + club member, $10',
+      'Silver, full table, Example College student + club member, $10.00',
     );
     const alumnus = await priceLines(page, marketId, 'alumnus@example.com');
-    await expect(alumnus[0]).toHaveText('Gold, full table, Everyone else, $35');
-    await expect(alumnus[1]).toHaveText('Silver, full table, Everyone else, $30');
+    await expect(alumnus[0]).toHaveText('Gold, full table, Everyone else, $35.00');
+    await expect(alumnus[1]).toHaveText('Silver, full table, Everyone else, $30.00');
   });
 
   test('a condition on a question the form no longer asks is broken, and holds the draft', async ({

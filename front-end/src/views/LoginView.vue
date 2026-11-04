@@ -366,7 +366,7 @@ const submitOTPLogin = async () => {
         data-testid="login-form"
       >
         <label class="field-label" for="email">Email</label>
-        <div class="login-input">
+        <div class="login-input" data-testid="login-field-box">
           <input
             id="email"
             type="email"
@@ -379,7 +379,7 @@ const submitOTPLogin = async () => {
           />
         </div>
         <label class="field-label" for="password">Password</label>
-        <div class="login-input">
+        <div class="login-input" data-testid="login-field-box">
           <input
             id="password"
             :type="showPassword ? 'text' : 'password'"
@@ -451,7 +451,7 @@ const submitOTPLogin = async () => {
         data-testid="login-register-form"
       >
         <label class="field-label" for="register-email">Email</label>
-        <div class="login-input">
+        <div class="login-input" data-testid="login-field-box">
           <input
             id="register-email"
             type="email"
@@ -464,7 +464,7 @@ const submitOTPLogin = async () => {
           />
         </div>
         <label class="field-label" for="register-password">Password</label>
-        <div class="login-input">
+        <div class="login-input" data-testid="login-field-box">
           <input
             id="register-password"
             :type="showRegisterPassword ? 'text' : 'password'"
@@ -486,7 +486,7 @@ const submitOTPLogin = async () => {
         </div>
         <p class="field-help">At least 8 characters.</p>
         <label class="field-label" for="register-password-confirm">Confirm password</label>
-        <div class="login-input">
+        <div class="login-input" data-testid="login-field-box">
           <input
             id="register-password-confirm"
             :type="showRegisterPassword ? 'text' : 'password'"
@@ -545,7 +545,7 @@ const submitOTPLogin = async () => {
         data-testid="login-otp-form"
       >
         <label class="field-label" for="otp-email">Email</label>
-        <div class="login-input">
+        <div class="login-input" data-testid="login-field-box">
           <input
             id="otp-email"
             type="email"
@@ -620,10 +620,11 @@ const submitOTPLogin = async () => {
 
 /* Equal thirds wherever they fit; on a phone a third is narrower than "Sign-in code", which
    wrapped to two lines, so no tab wraps and the longest takes the room it needs. The tabs' text is
-   centred in them, so their side padding only matters there, and 8px lets all three fit (T73). */
+   centred in them, so their side padding only matters there, and 4px lets all three fit at 320
+   (T73; T211: at 8px, "Sign-in code" ran 12px past the column). */
 .mode-tab {
   flex: 1;
-  padding: var(--space-3) var(--space-2);
+  padding: var(--space-3) var(--space-1);
   white-space: nowrap;
   background: none;
   border: none;
@@ -719,16 +720,11 @@ const submitOTPLogin = async () => {
   cursor: pointer;
 }
 
-.email-input {
-  width: auto;
-  border: none;
-  font-size: var(--text-sm);
-  flex-grow: 1;
-  outline: none;
-  background: transparent;
-}
-
+/* `min-width: 0`: a flex item keeps an input's intrinsic width otherwise, about 207px, where the
+   box holds 198px at 320 wide, so it pushes the Show button out past the box and the card (T211). */
+.email-input,
 .password-input {
+  min-width: 0;
   width: auto;
   border: none;
   font-size: var(--text-sm);

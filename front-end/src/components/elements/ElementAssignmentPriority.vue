@@ -353,9 +353,10 @@ const dragOptions = computed(() => ({
 .priority {
   /* Four columns, one per control in a rule row: rank, question, its answers in order, remove.
      The question and the answers hold sentences and take the width; the rank and the remove need
-     only their own content. Headings and rows share the one template, so each heading stands over
-     its column. */
-  --priority-columns: 4rem minmax(0, 1fr) minmax(0, 1fr) 3rem;
+     only their own content. The question has a little more, so its select shows "When the
+     application arrived" whole beside the chevron at 1280. Headings and rows share the one
+     template, so each heading stands over its column. */
+  --priority-columns: 4rem minmax(0, 6fr) minmax(0, 5fr) 3rem;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -363,7 +364,7 @@ const dragOptions = computed(() => ({
 
 /* A record offers nothing to remove, so it has no column for it. */
 .priority--record {
-  --priority-columns: 4rem minmax(0, 1fr) minmax(0, 1fr);
+  --priority-columns: 4rem minmax(0, 6fr) minmax(0, 5fr);
 }
 
 .column-titles {

@@ -19,7 +19,7 @@ verified: 2026-10-22
 - [Tier filters, section prefers](../rules/tier-filters-section-prefers.md): never a tier a vendor refused.
 - [Dates fill one at a time, in the plan's order](../rules/dates-fill-in-calendar-order.md).
 - [The half-table share](../rules/half-table-share.md) and [table-share pairing](../rules/table-share-pairing.md): who shares a table.
-- [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md): from then on a seat, not a verdict, is changed.
+- [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md): from then on a seat is changed, not a verdict, until Back to review reopens the review before results are published.
 - [Adding a vendor who never applied](../rules/adding-a-vendor-who-never-applied.md): seated by hand, never in the run.
 - [Why a vendor was not placed](../rules/why-a-vendor-was-not-placed.md): every date with no table says why, read off the assignment as it stands.
 - [Publish results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md) and [an applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md): what applicants learn of the assignment, and when.
@@ -28,7 +28,7 @@ verified: 2026-10-22
 ## Flows
 
 - [The assignment and its result](../flows/assignment-and-result.md): the rules, the run, the result, publishing results.
-- [Placing by hand](../flows/placing-by-hand.md): placing, swapping and freeing a seat after the run.
+- [Placing by hand](../flows/placing-by-hand.md): placing, moving, swapping and freeing a seat after the run.
 - [Begin assignment](../flows/review.md#i5-begin-assignment): the move into the Assignment phase.
 - [Vendors](../flows/vendors.md): what each vendor got, and why a date was not given.
 - [The vendor drawer](../flows/vendor-drawer.md): one vendor's assignments.

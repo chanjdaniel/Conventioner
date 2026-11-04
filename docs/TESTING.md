@@ -5,13 +5,15 @@ describes:
   - front-end/playwright.config.ts
   - scripts/seed_fixture.sh
   - scripts/nm-test.sh
-verified: 2026-10-28
+verified: 2026-11-03
 sources:
   - E34/F03/S02
   - E35/F02/S01
   - T47
   - T74
   - E41/F01/S01
+  - T200
+  - T205
 ---
 
 # Testing Conventioner
@@ -63,6 +65,7 @@ python -m pytest tests/ -v
 Install **both** files. `requirements-dev.txt` is only `pytest`, uv (for the lock check) and what they need; it does not pull in the runtime
 dependencies, and the suite imports the application. `scripts/nm-test.sh` installs both, which is
 why the gate passes where a hand-run `pip install -r requirements-dev.txt` does not.
+The suite also uploads a real PDF floorplan, with an empty `PATH`, so it proves the Python requirements alone draw a PDF, as they must on production's Vercel function, which installs no system package.
 
 The suite covers the assignment algorithm, statistics, attendance,
 CSV import column mapping, schema generation, role validation, CAPTCHA verification/bypass, the
@@ -140,7 +143,7 @@ wins over the file).
 
 Requirements: `pytest` (listed in `requirements-dev.txt`), no database connection needed
 (tests use in-memory fakes). The fakes read a filter (`mongo_matches`) and a projection
-(`mongo_project`) as Mongo does, a sub-document compared whole, so a read that fetches too
+(`mongo_project`) as Mongo does, a sub-document compared whole and a dotted key reaching into one, so a read that fetches too
 little fails here rather than in production. Shared module stubs live in `back-end/tests/conftest.py`, which
 also points the `.env` loader at a path that does not exist - the suite reads no `.env`, so a
 stale one on your machine cannot change its result.
@@ -189,6 +192,8 @@ npm run bundle-budget
 
 It prints the gzipped size of each chunk a first visit loads before any page paints, and fails when their total passes the limit in `front-end/scripts/bundle-budget.ts`.
 CI and `scripts/nm-test.sh` run it; what it measures, and how to raise the limit on purpose, is [the bundle budget](implementation/testing/ci-and-the-gate.md#the-bundle-budget).
+On the same build they run `npm run no-eval`: no built file calls `eval` or `Function`.
+The build itself fails if any module of the development-only [component library](implementation/modules/component-library.md) is in it ([CI and the gate](implementation/testing/ci-and-the-gate.md#no-development-page-in-the-build)).
 
 ## End-to-End (E2E) Tests
 

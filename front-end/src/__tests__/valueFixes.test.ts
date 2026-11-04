@@ -43,3 +43,14 @@ describe('the decided values', () => {
     );
   });
 });
+
+describe('a value to fix', () => {
+  it('draws a select with a name of its own, as every form field has', () => {
+    const wrapper = mount(ValueFixes, {
+      props: { entries: [value('Platinum')], resolutionFor: () => '', testid: 'import' },
+    });
+    expect(wrapper.get('[data-testid="import-fix-Platinum"]').attributes('name')).toBe(
+      'import-fix-essential_tier_preference-Platinum',
+    );
+  });
+});

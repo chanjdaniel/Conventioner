@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/market/MarketPlanTab.vue
   - front-end/src/components/elements/ElementPricing.vue
-verified: 2026-10-30
+verified: 2026-11-03
 sources:
   - wayfinding/the-order-of-the-work/02
   - wayfinding/the-order-of-the-work/03
@@ -27,6 +27,7 @@ sources:
   - T15
   - E43/F01/S01
   - E43/F01/S02
+  - T205
 ---
 
 # Planning the market
@@ -43,7 +44,7 @@ A draft opens on Market Setup, and an address naming a tab opens that tab, so a 
 One edit is one save, and another tab's edits survive it (bug 25, `plan-saves-once.spec.ts`).
 Any pending edit is saved before a phase move, so the guards judge what the organizer sees.
 The cards share rows by the design language's one rule ([a screen of cards is a two-track grid](../../design-system.md#layout)): Market Dates, Section Setup and Pricing are wide, Tier Setup sits beside Location Setup, and How vendors apply beside Application form, at every width with room for two.
-The plan is the market's setup, and it settles when the market leaves Draft ([E7](#e7-edit-the-plan-after-draft)); leaving Draft asks for dates none of which has passed, a location, and tables at every tier ([the lifecycle](lifecycle.md#what-refuses-a-move)).
+The plan is the market's setup, and it settles when the market leaves Draft ([E7](#e7-edit-the-plan-after-draft)); leaving Draft asks for dates none of which has passed, a location, tables at every tier, and Review setup's two decisions ([the lifecycle](lifecycle.md#what-refuses-a-move), [review waits on the review setup](../rules/review-waits-on-the-review-setup.md)).
 Covered by:
 - `plan-saves-once.spec.ts`
 
@@ -100,10 +101,12 @@ Covered by:
 1. Choose "I collect applications elsewhere" ("You import a spreadsheet of the responses you already have.") or "Vendors apply on this market's page" (the form goes live on the market's vendor page, `/<market-slug>`, while applications are open); the create-market dialog asked first, so one is already chosen.
 2. It saves at once, and is greyed out once the market leaves Draft: "This is fixed once a market leaves draft, because changing it would strand whatever the previous choice produced."
 
-Under it, "Start from my Google Form's responses" opens the start from a Google Form ([G2](starting-from-a-google-form.md#g2-from-an-existing-draft)) and leaves this choice as it is.
+Under it, "Draft from a Google Form's responses" opens the start from a Google Form ([G2](starting-from-a-google-form.md#g2-from-an-existing-draft)) and leaves this choice as it is.
+A help line under the button says, by the choice above as it is clicked, that it drafts the market's dates, tiers and questions and imports no one, and how vendors come in after: on the market's page, or by Import responses, the phase rail's next step, once the market is ready (T205).
 A market whose vendors are imported has applicant pages that answer exactly as a nonexistent market's ([a gated market answers as absent](../rules/a-gated-market-answers-as-absent.md)).
 Covered by:
 - `intake-mode.spec.ts`
+- `where-a-form-starts.spec.ts`
 
 ## E6. Sections from a floorplan
 
@@ -112,7 +115,7 @@ Offered as "Set up sections from a floorplan instead" on Section Setup while the
 
 1. "Choose your setup path": "Manual setup" (Recommended, "Get started") or "From a floorplan" (Beta, "Try the beta").
 2. `/markets/<id>/floorplan`, a five-step wizard with "← Back" and "Next →":
-   1. **Upload:** drop or "Browse Files" (PNG, JPG, WebP, PDF; a PDF asks which page).
+   1. **Upload:** "Drop a floorplan image or PDF here, or choose a file", the app's one drop zone (PNG, JPG, WebP or PDF; a PDF of more than one page asks which page).
    2. **Calibrate:** drag a reference line starting on the image, "Enter Reference Length" with a unit, "Calibrate", "Done" (or "Redraw").
    3. **Place Tables:** define "Table Types" (name, width, height, unit, max capacity), optionally "Save as Template" / "Load Template", then "Auto-Place Tables", which asks how many of each type to place and says how many fitted.
    4. **Edit Layout:** draw walls and no-go zones with the "Wall Editor" toggle, move tables, "Group Sections" by lasso and "Assign Section" (name, location, optional tier), "Export PNG" with or without table codes and sections; "Next" stays disabled until sections are grouped.
@@ -158,7 +161,7 @@ Covered by:
 **Status:** Works (E43/F01/S01, S02; `the-pricing-card.spec.ts`, `price-groups.spec.ts`).
 Optional: a market with no prices shows no price anywhere ([a price follows the table](../rules/a-price-follows-the-table.md)).
 
-1. In "Pricing" ([`ElementPricing.vue`](../../../front-end/src/components/elements/ElementPricing.vue)), the columns are the plan's tiers and the last row is "Everyone else"; type a full table's price for one market day in each tier's cell ("35" or "35.50"), or leave it blank for no price.
+1. In "Pricing" ([`ElementPricing.vue`](../../../front-end/src/components/elements/ElementPricing.vue)), the columns are the plan's tiers and the last row is "Everyone else"; type a full table's price for one market day in each tier's cell ("35", "35.50" or "$35"), paste one ("$1,234.50"), or leave it blank for no price.
    "Add a group" adds a row above it, its name field focused, with a column "In the group when" beside its prices: name it ("Example College student + club member"), add a condition on one of the form's questions with answers to choose ("Do you belong to any of these clubs? includes any of", then tick the answers that meet it), as many as must all hold, and price it per tier.
    A group with another group's name says "Another group is called this.", and one left with no name "Name this group."; either way the plan waits to save until it is fixed; "Remove group", under the name, takes the row away.
    A vendor pays the cheapest group they are in at their table's tier, and "Everyone else" when they are in none ([a price follows the table](../rules/a-price-follows-the-table.md#price-groups)).
@@ -166,12 +169,12 @@ Optional: a market with no prices shows no price anywhere ([a price follows the 
    A form that asks no question with answers to choose offers no group: the card says every vendor pays "Everyone else".
 2. "Half table costs [50] % of a full table" sets a half table's share, a whole number from 0 to 100.
 3. "Currency" is the market's one currency, "CAD - Canadian dollars" until another is picked.
-4. Expect "Plan saved"; a cell shows what is typed until it is left, then the price as kept ("35.5" becomes "35.50").
+4. Expect "Plan saved"; a cell shows what is typed until it is left, then the price as kept in the market's currency ("35.5" becomes "$35.50", "US$35.50" in US dollars, and a currency picked re-reads every cell); focused again, it gives the plain number, "35.50" ([an amount reads to the cent](../rules/an-amount-reads-to-the-cent.md#an-amount-field)).
 5. A cell that is not an amount turns its border red, and the card says "Enter a price like 35 or 35.50, or leave it blank for no price."; a share that is not a whole number from 0 to 100 says "The half table's share is a whole number from 0 to 100."
    Either keeps the value it had before the typing - a blank cell keeps no price, never the prefix before the error ("3" then "3x" keeps nothing) - and the plan waits to save until it is fixed, so "Plan saved" never stands beside text that was not kept.
 
 A tier renamed in Tier Setup keeps its price, and a removed tier's price goes with it; a plan with no tiers says "Prices are set by tier. Add a tier in Tier Setup to price its tables." and offers neither the share nor the currency until it has one.
-Each assignment then shows its price on its date card in the vendor drawer ("Gold, full table, $35", naming the vendor's group where the card has groups; [the vendor drawer](vendor-drawer.md)).
+Each assignment then shows its price on its date card in the vendor drawer ("Gold, full table, $35.00", naming the vendor's group where the card has groups; [the vendor drawer](vendor-drawer.md)).
 The card sits after Section Setup because its columns are the tiers the sections give tables, and it settles with the rest of the setup (E7).
 
 ## Superseded

@@ -16,8 +16,9 @@
  * condition this epic exists to end.
  *
  * `src/__tests__/primitives.test.ts` is the reference the slices check against: it renders every
- * variant and asserts the contract below. That is deliberately a test rather than a demo page -
- * a page would be product surface nobody ships, and a test fails when the contract drifts.
+ * variant and asserts the contract below, and fails when the contract drifts. The component
+ * library (`/dev/components`, a development build's only, T200) draws every variant for the eye,
+ * but holds no contract.
  */
 
 /* ============================================================================================
@@ -169,9 +170,26 @@
  * column: the priority rules' question select ran under the answers and past the card's edge.
  * `0` also overrides a flex item's automatic minimum, which in Firefox is that same widest option.
  * A column that must fit a select's options says so in its own track.
+ *
+ * It draws the app's own chevron, and nothing else does: the browser's arrow sat about 5px from the
+ * right edge with the text about 17px from the left (F06 of the 2026-11-02 walk). The file's
+ * viewBox is cropped to the drawn stroke, so `right var(--space-3)` puts the chevron's tip 13px
+ * from the outer edge, the same as the text's 12px of padding and 1px of border. It is a file in
+ * `public/`, never a `data:` URI: the Content-Security-Policy says `img-src 'self' blob:`. A file
+ * cannot read a `var()`, so its colours are the tokens' values, held by `primitives.test.ts`.
+ *
+ * A select's own class may size or place it, and never draws it: no `padding`, `background` or
+ * `appearance`, since a scoped rule out-ranks this one.
  */
 .field--select {
   min-width: 0;
+  appearance: none;
+  padding-right: calc(var(--space-3) + var(--space-3) + var(--space-3)); /* inset, chevron, gap */
+  background-image: url('/icons/select-chevron.svg');
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  background-size: var(--space-3) var(--space-2);
+  text-overflow: ellipsis;
 }
 
 .field--textarea {
@@ -182,10 +200,26 @@
   resize: vertical;
 }
 
+/* `background-color`, since the shorthand out-ranks `.field--select` and would reset its chevron. */
 .field:disabled {
-  background: var(--mm-beige);
+  background-color: var(--mm-beige);
   color: var(--mm-text-muted-on-beige);
   cursor: not-allowed;
+}
+
+.field--select:disabled {
+  background-image: url('/icons/select-chevron-disabled.svg');
+  opacity: 1; /* Chromium's own sheet fades a disabled appearance-none select to 0.7 */
+}
+
+/* The file's dark stroke would vanish on a dark forced canvas, so the browser's own arrow stays. */
+@media (forced-colors: active) {
+  .field--select,
+  .field--select:disabled {
+    appearance: auto;
+    padding-right: var(--space-3);
+    background-image: none;
+  }
 }
 
 /*

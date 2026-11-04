@@ -164,12 +164,33 @@ def _owed_key(market_id: str, vendor_email: str, date: str) -> Dict[str, str]:
     return {**_vendor(market_id, vendor_email), "date": date}
 
 
-def keep_freed_line(market_id: str, vendor_email: str, date: str, seat: Seat, by: str) -> None:
-    """Keep the line of a seat being freed, as it stood: its table and what it cost that day."""
-    amounts_owed_collection.find_one_and_update(
+def keep_freed_line(
+    market_id: str, vendor_email: str, date: str, seat: Seat, by: str,
+) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
+    """Keep the line of a seat being freed, as it stood: its table and what it cost that day.
+
+    Returns the freed record the line held before, if any, and the one written, so a free that is
+    then refused can put the line back (``restore_freed_line``).
+    """
+    written = {**asdict(seat), "by": by, "at": _now()}
+    before = amounts_owed_collection.find_one_and_update(
         _owed_key(market_id, vendor_email, date),
-        {"$set": {"freed": {**asdict(seat), "by": by, "at": _now()}}},
+        {"$set": {"freed": written}},
         upsert=True,
+    )
+    return (before or {}).get("freed"), written
+
+
+def restore_freed_line(
+    market_id: str, vendor_email: str, date: str,
+    written: Dict[str, Any], before: Optional[Dict[str, Any]],
+) -> None:
+    """Put a line back as it held before ``keep_freed_line`` wrote ``written``, for a free that was
+    then refused, and only while the line still holds ``written``: a free of the same seat that
+    landed meanwhile kept its own record over it, and that record is the line's now."""
+    amounts_owed_collection.update_one(
+        {**_owed_key(market_id, vendor_email, date), "freed": written},
+        {"$set": {"freed": before}},
     )
 
 
@@ -262,7 +283,7 @@ def lines(
             "owedCents": by_hand["cents"] if by_hand else seat.cents,
             "owedSetBy": by_hand["by"] if by_hand else None,
             "owedSetAt": by_hand["at"] if by_hand else None,
-            # Set by the free that asked "Also remove its $35 …?", not by hand: seating the day
+            # Set by the free that asked "Also remove its $35.00 …?", not by hand: seating the day
             # again takes it back, so the tab says which amounts hold.
             "owedByFree": bool(by_hand and by_hand.get("by_free")),
             "freed": held is None,
@@ -305,8 +326,8 @@ def account(
 
 
 #: How what a vendor paid compares with what they owe, as the Payment tab reads it
-#: (``balanceText`` in ``front-end/src/utils/payments.ts``): "Owes $27", "Paid in full", or
-#: "Paid $15 more than owed", a refund to issue (Q26). Nothing owed and nothing paid is none.
+#: (``balanceText`` in ``front-end/src/utils/payments.ts``): "Owes $27.00", "Paid in full", or
+#: "Paid $15.00 more than owed", a refund to issue (Q26). Nothing owed and nothing paid is none.
 OWES = "owes"
 PAID_IN_FULL = "paid"
 PAID_MORE = "over"

@@ -306,7 +306,7 @@ function deleteType(tt: TableTypeObject) {
             id="tt-name"
             v-model="form.name"
             type="text"
-            class="tt-input"
+            class="field"
             placeholder="e.g. 6ft Rectangle"
             data-testid="floorplan-table-type-name-input"
             :class="{ 'tt-input--error': !!formError }"
@@ -320,7 +320,7 @@ function deleteType(tt: TableTypeObject) {
               id="tt-width"
               type="number"
               step="any"
-              class="tt-input"
+              class="field"
               placeholder="Width"
               data-testid="floorplan-table-type-width-input"
               :value="formWidth"
@@ -334,7 +334,7 @@ function deleteType(tt: TableTypeObject) {
               id="tt-height"
               type="number"
               step="any"
-              class="tt-input"
+              class="field"
               placeholder="Height"
               data-testid="floorplan-table-type-height-input"
               :value="formHeight"
@@ -346,7 +346,7 @@ function deleteType(tt: TableTypeObject) {
 
         <div class="tt-field">
           <label class="tt-label" for="tt-unit">Unit</label>
-          <select id="tt-unit" v-model="selectedUnit" class="tt-input">
+          <select id="tt-unit" v-model="selectedUnit" class="field field--select">
             <option v-for="u in UNIT_OPTIONS" :key="u.value" :value="u.value">
               {{ u.label }}
             </option>
@@ -640,22 +640,6 @@ function deleteType(tt: TableTypeObject) {
   font-size: var(--text-xs);
   font-weight: 400;
   color: var(--mm-black);
-}
-
-.tt-input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1.5px solid var(--mm-border);
-  border-radius: 8px;
-  background: var(--mm-beige);
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-  outline: none;
-  transition: border-color 0.15s ease-in-out;
-}
-
-.tt-input::placeholder {
-  color: rgba(39, 35, 35, 0.4);
 }
 
 .tt-input--error {

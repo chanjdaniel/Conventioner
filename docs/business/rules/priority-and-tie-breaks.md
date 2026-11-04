@@ -17,6 +17,7 @@ sources:
   - E02
   - brain-dump/2026-10-19#17
   - E34/F05/S01
+  - T211
 ---
 
 # Priority and tie-breaks
@@ -64,6 +65,7 @@ Most constrained first places the vendors with the fewest chances while they sti
 
 - The order of turns is `MarketAssignment.sort_vendors` in [`back-end/assignment/assignment.py`](../../../back-end/assignment/assignment.py), and a rule's score is `_rule_score`, `_arranged_score` and `_magnitude_score`; the module is [the assignment solver](../../implementation/modules/assignment-solver.md).
 - The rule editor is [`ElementAssignmentPriority.vue`](../../../front-end/src/components/elements/ElementAssignmentPriority.vue): it offers the market's select, multi-select, number, date and checkbox fields, and the built-in attributes; a free-text question has nothing to arrange and is not offered.
+  Its question column is a little wider than its answers column, so "When the application arrived", the longest built-in target, reads whole beside the chevron at 1280.
 - The import's warning is `orders_by_submitted_at` in [`back-end/csv_import.py`](../../../back-end/csv_import.py), which normalises each row's timestamp ([the CSV import](../../implementation/modules/csv-import.md)).
 - Once the market can no longer reach `assignment`, the rules lock ([the assignment rules close with the assignment](the-assignment-rules-close-with-the-assignment.md)).
 - The cases are pinned in [the assignment behaviour suite](../../implementation/testing/assignment-behaviour-suite.md).

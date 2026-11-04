@@ -15,7 +15,8 @@ describes:
   - front-end/e2e/helpers/networkSettles.ts
   - front-end/e2e/helpers/settle.ts
   - front-end/src/utils/utils.ts#getFormattedDate
-verified: 2026-11-03
+  - front-end/e2e/helpers/phoneWindow.ts#inTheWindow
+verified: 2026-11-04
 sources:
   - E21/F02/S02
   - E22/F04/S02
@@ -35,6 +36,8 @@ sources:
   - E42/F01/S05
   - T177
   - T181
+  - T211
+  - T205
 ---
 
 # E2E patterns
@@ -52,6 +55,7 @@ Adding a `data-testid` changes no behaviour; a view gains them as specs need the
 A new page follows the existing ones (`LoginPage`, `MarketsPage`, `NewMarketPage`, `MarketSetupPage`, `ResultPage`, `OrganizationsPage`, `ManageMarketPage`); TESTING.md lists them all.
 `MarketSetupPage` holds more than the plan: the market's tabs and the phase rail are there too, because every market page stands in the same frame, and `publishResults`, which a walk into market days takes on either path.
 `VendorPage` is the one object for a market's vendor page, signed out and in, the application form on it included.
+Its `decideOnReviewSetup` follows the rail's "Decide what reviewers read first" to Review setup and chooses "Nothing leads the card" and "No automatic rejections", so a walk that opens Review through the screens decides as an organizer does ([review waits on the review setup](../../business/rules/review-waits-on-the-review-setup.md)).
 A dialog that more than one screen opens has an object of its own (`FollowUpDialog`, opened from One by one's card and from the All view's drawer), so a test id renamed in it is one line to change for every spec that drives the dialog through the object.
 
 **The Application Form tab is a sequence of steps** (E33/F01): the builder, the preview and the highlights are never all on screen.
@@ -65,6 +69,7 @@ A spec that needs several people at once drives each in a browser context of its
 Every `page` is wrapped so that a failing test carries what the browser said (console errors, page errors, crashes, failed requests other than a navigation's aborts), since the suite has failed on pages that never painted with nothing in the stack's logs to say why.
 `expectAccessible(state)` runs axe over the page as it stands and fails on any WCAG A or AA violation, one line per element as `rule (impact) target`; its configuration and why `color-contrast` is off are [the design language's](../../design-system.md#what-keeps-this-true).
 `settle(page)` ([`helpers/settle.ts`](../../../front-end/e2e/helpers/settle.ts)) waits, bounded, for CSS transitions to end, since a control mid-transition reports its passing paint rather than its own; every sweep calls it before it looks.
+So does `expectInside`, the window check of the phone journeys ([`helpers/phoneWindow.ts`](../../../front-end/e2e/helpers/phoneWindow.ts)), since a box read in a slide's last frames stands a fraction of a thousandth of a pixel past where it rests, enough to fail an exact comparison with the window's edge.
 The same fixture hides the Vue DevTools floating panel (`#__vue-devtools-container__`) that the dev server injects: it overlays the app and intercepts clicks aimed at it, so a test failed on a click that hit that button instead of its own target.
 
 ## Opening a market, and shelling into Mongo
@@ -117,6 +122,15 @@ The back end holds a session to the client that signed in, its address and brows
 A page of another browser context (`withUser()`'s) is a page too; a request context of its own (the `request` fixture, `playwright.request.newContext()`) is a client of its own, and may call either.
 A request with no cookie at all answers 401; [`a-failure-says-what-to-do.spec.ts`](../../../front-end/e2e/a-failure-says-what-to-do.spec.ts) holds that, from a page of the app's origin that runs none of its code.
 
+**Focus an amount field before you `fill` it once it holds an amount** ([an amount field](../../business/rules/an-amount-reads-to-the-cent.md#an-amount-field)).
+Such a field rewrites its text on focus, "$50.00" to "50.00", and `fill` selects the text before it focuses the field, so the rewrite drops the selection and what is filled lands after the number ("50.003x").
+`await field.focus()` first, as a person focuses it, and `fill` then selects the plain number and replaces it ([`the-pricing-card.spec.ts`](../../../front-end/e2e/the-pricing-card.spec.ts)).
+Likewise `selectOption` leaves the focus where it was, so focus a select first where a field must have been left.
+
 **`waitForURL` returns when the route changes, not when the new page has loaded.**
 An element assertion made straight after it spends its budget on the page's own fetch, which under a full suite's contention sometimes takes longer: the applicant form's spec failed one full run in two this way, on "Loading application form...", while passing alone every time.
 Wait for the page to have finished loading, either way, then assert what it shows ([`essential-fields.spec.ts`](../../../front-end/e2e/essential-fields.spec.ts) waits for the signed-in vendor page or its load-failed state, `vendor-page-signed-in-as` or `vendor-page-load-failed`, and takes the retry the page offers).
+
+**A spec that waits on a file chooser listens for it from before the page loads.**
+`page.waitForEvent('filechooser')` turns on Playwright's catching of choosers as it is called, without waiting for the browser to agree, so a chooser opened by the very next key press can slip past it and the wait times out with focus still on the input: [`the-upload-steps-are-one.spec.ts`](../../../front-end/e2e/the-upload-steps-are-one.spec.ts) missed its first Enter in 4 runs of 20 this way.
+It adds `page.on('filechooser', () => {})` before it opens the page, then waits for each chooser as before.

@@ -120,7 +120,7 @@ for (const size of PHONE_AND_DESK) {
       // It slides in from the window's edge.
       await expect(drawer).toBeInViewport({ ratio: 1 });
       await expectInside(drawer, 'the drawer');
-      const tabs = page.getByRole('tablist', { name: 'Vendor detail' });
+      const tabs = page.getByRole('tablist', { name: 'Vendor details', exact: true });
       for (const [tab, shown] of [
         ['Application', 'vendors-detail-update-info'],
         ['Assignments', 'vendors-detail-assignment-item'],

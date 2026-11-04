@@ -20,6 +20,7 @@ async function mountPanelAt(
   path: string,
   blockers: PreconditionResult[],
   actionRefusals: Record<string, string | null> = answersRefusing(),
+  heading?: string,
 ) {
   const router = createRouter({
     history: createMemoryHistory(),
@@ -32,7 +33,7 @@ async function mountPanelAt(
   await router.push(path);
   await router.isReady();
   return mount(BlockerPanel, {
-    props: { blockers, market: { id: 'm1', actionRefusals } },
+    props: { blockers, market: { id: 'm1', actionRefusals }, ...(heading ? { heading } : {}) },
     global: { plugins: [router] },
   });
 }
@@ -52,6 +53,28 @@ describe('BlockerPanel', () => {
   it('renders nothing when there are no blockers', async () => {
     const wrapper = await mountPanelAt('/markets/m1/setup', []);
     expect(wrapper.find('.blocker-panel').exists()).toBe(false);
+  });
+
+  it('heads the list "Cannot proceed:" when given no heading, as the rail reads it', async () => {
+    const wrapper = await mountPanelAt('/markets/m1/setup', [reviewBlocker]);
+
+    expect(wrapper.get('.blocker-heading').text()).toBe('Cannot proceed:');
+    expect(wrapper.get('[data-testid="blocker-resolution-link"]').text()).toBe('Finish deciding →');
+  });
+
+  it('heads the list with the heading it is given, keeping the same links', async () => {
+    const wrapper = await mountPanelAt(
+      '/markets/m1/import',
+      [reviewBlocker],
+      answersRefusing(),
+      'Before its first import, this market needs:',
+    );
+
+    expect(wrapper.get('.blocker-heading').text()).toBe(
+      'Before its first import, this market needs:',
+    );
+    expect(wrapper.text()).not.toContain('Cannot proceed');
+    expect(wrapper.get('[data-testid="blocker-resolution-link"]').text()).toBe('Finish deciding →');
   });
 
   it('names each blocker', async () => {

@@ -13,7 +13,7 @@ verified: 2026-10-29
 - [The setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md): what leaving `draft` asks for, and what it fixes.
 - [The form locks at the first application](../rules/the-form-locks-at-the-first-application.md): the form is editable only in `draft`, and only until anyone has applied.
 - [A gated market answers as absent](../rules/a-gated-market-answers-as-absent.md): a draft answers applicants as no market at all.
-- [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md): verdicts are open while the market can reach `applications`, the stage where they are given.
+- [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md): verdicts are open while Assignment still lies ahead of the market, in the stage where they are given.
 - [Review needs an import](../rules/review-needs-an-import.md): a CSV market enters the stage, its Review, by its first import.
 - [Assign runs only in assignment](../rules/assign-runs-only-in-assignment.md): the run is refused in every other phase.
 - [The assignment rules close with the assignment](../rules/the-assignment-rules-close-with-the-assignment.md): the rules lock once the market can no longer reach `assignment`.

@@ -107,7 +107,7 @@ function updateOption(idx: number, value: string) {
       <label class="field-label" :for="`question-${index}-label`">Label</label>
       <input
         :id="`question-${index}-label`"
-        class="field-input"
+        class="field field-input"
         :value="local.label"
         @input="updateLabel(($event.target as HTMLInputElement).value)"
         :disabled="readonly"
@@ -120,7 +120,7 @@ function updateOption(idx: number, value: string) {
       <label class="field-label" :for="`question-${index}-key`">Key</label>
       <input
         :id="`question-${index}-key`"
-        class="field-input field-input-sm"
+        class="field field-input field-input-sm"
         :value="local.key"
         @input="updateKey(($event.target as HTMLInputElement).value)"
         @blur="keyBlurred()"
@@ -134,7 +134,7 @@ function updateOption(idx: number, value: string) {
       <label class="field-label" :for="`question-${index}-type`">Type</label>
       <select
         :id="`question-${index}-type`"
-        class="field-input"
+        class="field field--select field-input"
         :value="local.type"
         @change="changeType(($event.target as HTMLSelectElement).value)"
         :disabled="readonly"
@@ -163,7 +163,7 @@ function updateOption(idx: number, value: string) {
       <div class="options-list" role="group" :aria-labelledby="`question-${index}-options`">
         <div v-for="(opt, optIdx) in local.options" :key="optIdx" class="option-row">
           <input
-            class="field-input"
+            class="field field-input"
             :value="opt"
             @input="updateOption(optIdx, ($event.target as HTMLInputElement).value)"
             :disabled="readonly"
@@ -216,7 +216,7 @@ function updateOption(idx: number, value: string) {
       <label class="field-label" :for="`question-${index}-help`">Help text</label>
       <input
         :id="`question-${index}-help`"
-        class="field-input"
+        class="field field-input"
         :value="local.helpText || ''"
         @input="emitUpdate({ helpText: ($event.target as HTMLInputElement).value || undefined })"
         :disabled="readonly"
@@ -290,20 +290,11 @@ function updateOption(idx: number, value: string) {
   text-align: right;
 }
 
+/* The primitive, smaller: the editor's rows are a compact column, one 12px text inset down it. */
 .field-input {
   flex: 1;
   height: 28px;
-  padding: var(--space-hairline) var(--space-2);
   font-size: var(--text-xs);
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-}
-
-.field-input:disabled,
-.field-input[disabled] {
-  background: var(--mm-beige);
-  color: var(--mm-text-muted);
-  cursor: not-allowed;
 }
 
 .field-input-sm {

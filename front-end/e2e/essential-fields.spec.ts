@@ -231,9 +231,11 @@ test.describe('Essential form fields', () => {
     await formPage.save();
     await expect(formPage.saveSuccess).toBeVisible();
 
-    // Everything survives a reload: the offering is derived server-side from the saved plan.
+    // Everything survives a reload: the offering is derived server-side from the saved plan. A
+    // refresh keeps the step the address names (T206), so the essentials are read on their own.
     await page.reload();
     await formPage.openFormTab();
+    await formPage.openStep('essentials');
     await expect(formPage.essentialDateChips).toHaveCount(2);
     await expect(formPage.essentialSectionChips).toHaveCount(2);
     // Still stubbed after the round trip: the offering is derived server-side, and the server

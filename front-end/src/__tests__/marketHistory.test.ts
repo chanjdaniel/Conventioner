@@ -166,6 +166,55 @@ describe('what an entry says', () => {
     ).toBe('dana@ember.test changed Market Setup: tiers and market dates');
   });
 
+  it('words choosing nothing to lead the card as that decision, and any other change as before (T206)', () => {
+    const highlights = (before: object, after: object) =>
+      sentence({
+        action: 'change-form',
+        kind: 'review_highlights',
+        vendors: [],
+        detail: { before, after },
+      });
+
+    expect(
+      highlights(
+        { review_highlights: ['business_name'], nothing_leads_the_card: false },
+        { review_highlights: [], nothing_leads_the_card: true },
+      ),
+    ).toBe('dana@ember.test decided nothing leads the card');
+    expect(highlights({ nothing_leads_the_card: false }, { nothing_leads_the_card: true })).toBe(
+      'dana@ember.test decided nothing leads the card',
+    );
+    expect(
+      highlights(
+        { review_highlights: [], nothing_leads_the_card: true },
+        { review_highlights: ['business_name'], nothing_leads_the_card: false },
+      ),
+    ).toBe('dana@ember.test changed the review highlights');
+    expect(highlights({ review_highlights: [] }, { review_highlights: ['business_name'] })).toBe(
+      'dana@ember.test changed the review highlights',
+    );
+  });
+
+  it('words choosing no automatic rejections as that decision, and any other change as before (T206)', () => {
+    const rules = (before: object, after: object) =>
+      sentence({
+        action: 'change-form',
+        kind: 'rejection_rules',
+        vendors: [],
+        detail: { before, after, rejected: 0, returned: 0 },
+      });
+
+    expect(rules({ no_automatic_rejections: false }, { no_automatic_rejections: true })).toBe(
+      'dana@ember.test decided no automatic rejections',
+    );
+    expect(
+      rules(
+        { rejection_rules: [], no_automatic_rejections: true },
+        { rejection_rules: [{ key: 'student', answers: ['No'] }], no_automatic_rejections: false },
+      ),
+    ).toBe('dana@ember.test changed the automatic rejections');
+  });
+
   it('words a change of the prices by what on the Pricing card changed (E43/F01/S02)', () => {
     expect(
       sentence({
@@ -1317,7 +1366,7 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
         },
       }),
     ).toEqual([
-      { field: '"Everyone else"', before: 'Gold $35', after: 'Gold $36, Silver $30' },
+      { field: '"Everyone else"', before: 'Gold $35.00', after: 'Gold $36.00, Silver $30.00' },
       { field: "Half table's share", before: '50%', after: '40%' },
     ]);
   });
@@ -1332,7 +1381,7 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
         'EUR',
       ),
     ).toEqual([
-      { field: '"Everyone else"', before: 'Gold US$35', after: 'Gold €35' },
+      { field: '"Everyone else"', before: 'Gold US$35.00', after: 'Gold €35.00' },
       { field: 'Currency', before: 'USD', after: 'EUR' },
     ]);
   });
@@ -1353,19 +1402,19 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
     ).toEqual([
       {
         field: 'Group “Alumni”',
-        before: 'Gold $25\nno condition yet, so it prices nobody',
-        after: 'Gold $22\nno condition yet, so it prices nobody',
+        before: 'Gold $25.00\nno condition yet, so it prices nobody',
+        after: 'Gold $22.00\nno condition yet, so it prices nobody',
         hanging: true,
       },
       {
         field: 'Group “Volunteers”',
         before: 'not on the card',
-        after: 'Gold $5\nno condition yet, so it prices nobody',
+        after: 'Gold $5.00\nno condition yet, so it prices nobody',
         hanging: true,
       },
       {
         field: 'Group “Students, first year”',
-        before: 'Gold $10\nno condition yet, so it prices nobody',
+        before: 'Gold $10.00\nno condition yet, so it prices nobody',
         after: 'removed',
         hanging: true,
       },
@@ -1389,8 +1438,8 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
     ).toEqual([
       {
         field: 'Group “B”',
-        before: 'Gold $10\nno condition yet, so it prices nobody',
-        after: 'Gold $9\nno condition yet, so it prices nobody',
+        before: 'Gold $10.00\nno condition yet, so it prices nobody',
+        after: 'Gold $9.00\nno condition yet, so it prices nobody',
         hanging: true,
       },
       { field: 'Order of the groups', before: 'A\nB', after: 'B\nA' },
@@ -1434,7 +1483,7 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
         ({ field, before, after }) => [field, before, after],
       ),
     ).toEqual([
-      ['Group “C”', 'not on the card', 'Gold $15\nno condition yet, so it prices nobody'],
+      ['Group “C”', 'not on the card', 'Gold $15.00\nno condition yet, so it prices nobody'],
       ['Order of the groups', 'A\nB', 'A\nC\nB'],
     ]);
   });
@@ -1451,7 +1500,7 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
     );
 
     expect(row.after).toBe(
-      'Gold $15\nwhen “Are you an Example College student or alumni?” includes “Current Example College student” or “Example College alumni/staff”',
+      'Gold $15.00\nwhen “Are you an Example College student or alumni?” includes “Current Example College student” or “Example College alumni/staff”',
     );
   });
 
@@ -1466,7 +1515,7 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
     );
 
     expect(row.after).toBe(
-      'Gold $15\n' +
+      'Gold $15.00\n' +
         'when “I agree to the terms” includes “Ticked”\n' +
         'and “Table choice” includes “Half a table, shared” or “Either is fine”\n' +
         'and “Available dates” includes “Thursday, May 7, 2099”',
@@ -1483,7 +1532,7 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
     );
 
     expect(row.after).toBe(
-      'Gold $15\n' +
+      'Gold $15.00\n' +
         'when “year_of_study” (no longer on the form) includes “First”\n' +
         'and “Are you an Example College student or alumni?” includes “Current Example College student” or “Faculty”',
     );
@@ -1496,7 +1545,7 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
     );
 
     expect(row.after).toBe(
-      'Gold $15\nwhen “Are you an Example College student or alumni?” has no answer ticked yet, so it prices nobody',
+      'Gold $15.00\nwhen “Are you an Example College student or alumni?” has no answer ticked yet, so it prices nobody',
     );
   });
 
@@ -1520,7 +1569,7 @@ describe("a vendor's payments, as the drawer's History and Manage market's say t
         subject: { payment_id: 'p1', ...CAD },
         detail: { before: none, after: fields },
       }),
-    ).toBe('dana@ember.test recorded a payment of $35 from [Ana Rivera]');
+    ).toBe('dana@ember.test recorded a payment of $35.00 from [Ana Rivera]');
     expect(
       sentence({
         action: 'adjust-paid',
@@ -1528,7 +1577,7 @@ describe("a vendor's payments, as the drawer's History and Manage market's say t
         subject: { payment_id: 'p2', ...CAD },
         detail: { before: none, after: { ...fields, cents: -1500 } },
       }),
-    ).toBe('dana@ember.test recorded a refund of $15 to [Ana Rivera]');
+    ).toBe('dana@ember.test recorded a refund of $15.00 to [Ana Rivera]');
     expect(
       sentence({
         action: 'adjust-paid',
@@ -1566,7 +1615,7 @@ describe("a vendor's payments, as the drawer's History and Manage market's say t
         subject: { date: '2099-05-08', ...CAD },
         detail: { before: { owed_cents: 1500 }, after: { owed_cents: 0 } },
       }),
-    ).toBe('dana@ember.test set what [Ana Rivera] owes on May 8, 2099 to $0');
+    ).toBe('dana@ember.test set what [Ana Rivera] owes on May 8, 2099 to $0.00');
     expect(
       sentence({
         action: 'change-owed',
@@ -1587,10 +1636,10 @@ describe("a vendor's payments, as the drawer's History and Manage market's say t
       detail: { before: { owed_cents: 0 }, after: { owed_cents: 1500 } },
     });
     expect(said(entryParts(takenBack, { names: NAMES }))).toBe(
-      'dana@ember.test seated [Ana Rivera] again on May 8, 2099, taking back the $0 set when the table was freed',
+      'dana@ember.test seated [Ana Rivera] again on May 8, 2099, taking back the $0.00 set when the table was freed',
     );
     expect(entryChanges(takenBack).changed).toEqual([
-      { field: 'Amount owed', before: '$0', after: '$15' },
+      { field: 'Amount owed', before: '$0.00', after: '$15.00' },
     ]);
   });
 
@@ -1604,7 +1653,7 @@ describe("a vendor's payments, as the drawer's History and Manage market's say t
       }),
     );
     expect(changed).toEqual([
-      { field: 'Amount', before: 'none', after: '$35' },
+      { field: 'Amount', before: 'none', after: '$35.00' },
       { field: 'Paid by', before: 'none', after: 'Cash' },
       { field: 'Paid on', before: 'none', after: 'Apr 1, 2099' },
       { field: 'Note', before: 'none', after: 'At the desk' },
@@ -1620,7 +1669,7 @@ describe("a vendor's payments, as the drawer's History and Manage market's say t
         }),
       ),
     ).toEqual({
-      changed: [{ field: 'Amount owed', before: '$15', after: '$0' }],
+      changed: [{ field: 'Amount owed', before: '$15.00', after: '$0.00' }],
       recorded: [{ field: 'Date', value: 'May 8, 2099' }],
     });
   });

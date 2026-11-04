@@ -34,12 +34,12 @@ DEFAULT_CURRENCY = "CAD"
 
 
 def money_text(cents: int, currency: Optional[str]) -> str:
-    """An amount as the Payment tab writes it: "$35", "$15.01" where there are cents,
-    "$1,234,567.50", and "-$15" below zero (``money`` in ``front-end/src/utils/payments.ts``)."""
+    """An amount as the Payment tab writes it, always to the cent: "$35.00", "$15.01",
+    "$1,234,567.50", and "-$15.00" below zero (``money`` in ``front-end/src/utils/payments.ts``).
+    ``tests/fixtures/money_texts.json`` holds the cases both sides are tested against."""
     sign = CURRENCY_SIGNS[currency or DEFAULT_CURRENCY]
     whole, part = divmod(abs(cents), 100)
-    amount = f"{whole:,}" + (f".{part:02d}" if part else "")
-    return f"{'-' if cents < 0 else ''}{sign}{amount}"
+    return f"{'-' if cents < 0 else ''}{sign}{whole:,}.{part:02d}"
 
 
 def half_price(cents: int, percent: int) -> int:

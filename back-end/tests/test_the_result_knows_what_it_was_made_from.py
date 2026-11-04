@@ -4,6 +4,10 @@ Editing the rules, the plan or the approved applications never changes a stored 
 running it again does. So each run records a fingerprint of each of the three things the solver
 read, and the market says which of them has changed since. Hand placements are not an input: they
 are edits to the result, so they never make it out of date.
+
+A fourth group, ``review`` (T207, ADR 0021), is how many times the market has entered the review
+stage: Back to review makes the stored run out of date until the next one, whether or not a verdict
+changed.
 """
 import pytest
 
@@ -15,7 +19,9 @@ import api.placements as PlacementsApi
 import assignment.made_from as MadeFrom
 from assignment.utils import convert_keys_to_snake_case
 from assignment.vendor_input import SolverVendor
-from datatypes import AssignmentObject, MarketPhase, SetupObject, VendorAssignmentResult
+from datatypes import (
+    AssignmentObject, MarketPhase, PhaseEntry, SetupObject, VendorAssignmentResult,
+)
 
 
 PLAN = {
@@ -52,8 +58,18 @@ def plan(**changes) -> SetupObject:
     return SetupObject(**convert_keys_to_snake_case({**PLAN, **changes}))
 
 
-def prints(setup=None, vendors=None):
-    return MadeFrom.fingerprint(setup or plan(), vendors if vendors is not None else [vendor()])
+def entries(*phases):
+    return [PhaseEntry(phase=phase, entered_at="2026-01-01T00:00:00Z") for phase in phases]
+
+
+#: A market that entered the review stage once and then Assignment, as a run in Assignment reads it.
+ONCE = ("draft", "applications", "assignment")
+
+
+def prints(setup=None, vendors=None, history=ONCE):
+    return MadeFrom.fingerprint(
+        setup or plan(), vendors if vendors is not None else [vendor()], entries(*history)
+    )
 
 
 # --- The fingerprint: one per group, and only its own group moves ---------------------------
@@ -61,7 +77,7 @@ def prints(setup=None, vendors=None):
 
 def test_the_same_inputs_are_the_same_fingerprint():
     assert prints() == prints()
-    assert set(prints()) == {"rules", "plan", "applications"}
+    assert set(prints()) == {"rules", "plan", "applications", "review"}
 
 
 @pytest.mark.parametrize(
@@ -99,6 +115,44 @@ def test_a_change_to_the_approved_applications_moves_only_that_group(vendors):
     assert [group for group in before if before[group] != after[group]] == ["applications"]
 
 
+@pytest.mark.parametrize(
+    "history",
+    [
+        # Back to review, then Begin assignment again.
+        ("draft", "applications", "assignment", "applications", "assignment"),
+        # Back to review, still in the stage.
+        ("draft", "applications", "assignment", "applications"),
+        # Reopened for editing before assignment, then into the stage again.
+        ("draft", "applications", "draft", "applications", "assignment"),
+    ],
+)
+def test_entering_the_review_again_moves_only_the_review_group(history):
+    before, after = prints(), prints(history=history)
+    assert [group for group in before if before[group] != after[group]] == ["review"]
+
+
+@pytest.mark.parametrize(
+    "history",
+    [
+        # Moves that never enter the stage again.
+        ("draft", "applications", "assignment", "market_days"),
+        ("draft", "applications", "assignment", "offers", "market_days", "archived"),
+        # An old stage name is the stage, and walking through the old stage's phases is one entry.
+        ("draft", "applications_open", "applications_closed", "review", "assignment"),
+        ("draft", "review", "assignment"),
+        # A record begun partway through: its first entry is the phase the market was already in.
+        ("applications", "assignment"),
+    ],
+)
+def test_the_review_group_counts_entries_into_the_stage(history):
+    assert prints(history=history)["review"] == prints()["review"]
+
+
+def test_a_record_begun_in_assignment_has_not_entered_the_review():
+    assert prints(history=("assignment", "market_days"))["review"] == prints(history=())["review"]
+    assert prints(history=("assignment", "applications"))["review"] == prints()["review"]
+
+
 def test_the_order_things_arrive_in_is_not_a_change():
     """Dates are a set of days and vendors a set of people; neither is changed by being re-read."""
     reordered_dates = plan(marketDates=[{"date": "2026-08-02"}, {"date": "2026-08-01"}])
@@ -114,8 +168,12 @@ def test_the_order_things_arrive_in_is_not_a_change():
 def market_with(monkeypatch):
     """A market in `assignment` with a stored assignment, and the approved vendors it now has."""
 
-    def build(made_from, setup=PLAN, vendors=None):
-        doc = stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=setup)
+    def build(made_from, setup=PLAN, vendors=None, history=ONCE):
+        doc = stored_market(
+            phase=MarketPhase.ASSIGNMENT,
+            setupObject=setup,
+            phaseHistory=[{"phase": phase, "enteredAt": "2026-01-01T00:00:00Z"} for phase in history],
+        )
         doc["assignmentObject"]["vendorAssignments"] = [
             {
                 "email": "app-1@example.com",
@@ -151,6 +209,45 @@ def test_it_names_exactly_the_groups_that_changed(market_with):
 
 def test_changing_a_thing_back_is_up_to_date_again(market_with):
     assert MadeFrom.changed_since_run(market_with(prints(), setup={**PLAN})) == []
+
+
+def test_the_review_reopened_since_the_run_is_named(market_with):
+    again = ONCE + ("applications", "assignment")
+    market = market_with(prints(), history=again)
+    assert MadeFrom.changed_since_run(market) == ["review"]
+    assert MadeFrom.review_reopened_since_run(market)
+
+
+def test_it_names_the_review_last_beside_the_others(market_with):
+    again = ONCE + ("applications", "assignment")
+    market = market_with(prints(), vendors=[vendor(), vendor("app-2")], history=again)
+    assert MadeFrom.changed_since_run(market) == ["applications", "review"]
+
+
+def test_a_run_after_the_review_reopened_is_up_to_date(market_with):
+    again = ONCE + ("applications", "assignment")
+    market = market_with(prints(history=again), history=again)
+    assert MadeFrom.changed_since_run(market) == []
+    assert not MadeFrom.review_reopened_since_run(market)
+
+
+def test_a_run_recorded_without_the_review_is_not_out_of_date_by_it(market_with):
+    """Runs before the group existed record three groups; the review is not known to have moved."""
+    before_the_group = {group: value for group, value in prints().items() if group != "review"}
+    market = market_with(before_the_group, history=ONCE + ("applications", "assignment"))
+    assert MadeFrom.changed_since_run(market) == []
+    assert not MadeFrom.review_reopened_since_run(market)
+
+
+def test_whether_the_review_reopened_reads_no_application(market_with, monkeypatch):
+    """The go-live guard asks it, so it reads the phase record and the run's record of it only."""
+    market = market_with(prints(), history=ONCE + ("applications", "assignment"))
+
+    def refuse(*_args):
+        raise AssertionError("read the approved applications")
+
+    monkeypatch.setattr(MadeFrom, "approved_solver_vendors", refuse)
+    assert MadeFrom.review_reopened_since_run(market)
 
 
 def test_an_assignment_from_before_fingerprints_is_not_known_to_be_out_of_date(market_with):
@@ -191,7 +288,7 @@ def test_a_run_records_what_it_was_made_from(monkeypatch):
 
     assert status == 200
     assert fake.last_update["$set"]["assignmentObject.madeFrom"] == MadeFrom.fingerprint(
-        plan(), vendors
+        plan(), vendors, []
     )
 
 
@@ -216,7 +313,7 @@ def test_a_run_made_before_extra_share_addresses_existed_still_matches():
 
     The literal is what the build before E27 computed for this vendor.
     """
-    assert MadeFrom.fingerprint(plan(), [vendor()])["applications"] == (
+    assert prints()["applications"] == (
         "fe3cddcf1025e300d75e0147bf2c4d3412d04d3388c1187b8e417b83a07b093e"
     )
 

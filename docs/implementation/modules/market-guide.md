@@ -17,6 +17,7 @@ sources:
   - E38/F04
   - T142
   - E38/F15/S04
+  - T207
 ---
 
 # The market guide
@@ -67,7 +68,7 @@ A CSV market's vendors apply on the organizer's own Google Form, so nothing it s
 - **The step onward** (`forwardFrom`): read off the spine; once every date of a running market has passed, the step onward is archiving it, and before then archiving stays in the menu.
 - **The moves open to the market** (`movesOf`): the keys of `transitionBlockers` as the read served them; the browser keeps no copy of which moves a path has.
 - **The spine a market is drawn on** (`spineFor`): the lifecycle, with a phase it leaves out, such as `offers`, put where the table places it when the market is actually in it.
-- **Each phase's and each move's name on each path** (`pathPhaseLabel`, `pathTransitionLabel`): on the CSV path `applications` is "Review" and the move into it "Begin review", on the other "Applications" and "Open applications" ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)); a CSV market's form tab is "Questions" (`pathTabLabel`), and its form has no preview step (`formSteps`).
+- **Each phase's and each move's name on each path** (`pathPhaseLabel`, `pathTransitionLabel`): on the CSV path `applications` is "Review" and the move into it from draft "Begin review", on the other "Applications" and "Open applications" ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)), and the move into it from `assignment` is "Back to review" on both ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)); a CSV market's form tab is "Questions" (`pathTabLabel`), and its form has no preview step (`formSteps`), so `formStepNamed` reads a `?step=` address as a step only while the path has it.
 - **What the stage says it is** (`stageLead`): every imported response is here, or the vendor page takes applications, or it is not taking applications; it leads the stage's statement and its blocker alike, and `watchedStageLead` says the same in words that ask nobody to review, for someone who may not decide.
 - **The stage's actions that are not moves** (`stageActions`): "Redo import" on the CSV path, and "Stop taking applications" or "Take applications again" on the other, each for someone the server would let take it.
 - **The line a tab shows while out of its phase** (`tabNote`), rendered in place of the tab's pages, never a flow it holds, once, by [the market frame](market-frame.md): Applications before the market leaves draft, and Attendance before it is published, or for an archived market that never ran.

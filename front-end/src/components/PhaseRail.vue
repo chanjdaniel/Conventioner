@@ -40,7 +40,7 @@ import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import { useScrollsSideways } from '@/utils/useScrollsSideways';
 import AppDialog from '@/components/AppDialog.vue';
 import OpenApplicationsDialog from '@/components/market/OpenApplicationsDialog.vue';
-import { marketPath, resolutionPath } from '@/utils/market';
+import { isHere, marketPath, resolutionPath } from '@/utils/market';
 import {
   blockersFor,
   forwardFrom,
@@ -215,11 +215,14 @@ function firstBlocker(toPhase: string): PreconditionResult | null {
 /** The rail's sentence: the next step, or why it cannot be taken yet. */
 const step = computed(() => (props.market ? nextStep(props.market) : null));
 const route = useRoute();
-/** A page of this market as an address, unless it is the one the organizer is already on. */
+/**
+ * A page of this market as an address, unless it is the one the organizer is already on: its path,
+ * and the step its query names, as `form?step=review` is Review setup and not Your questions (T206).
+ */
 function elsewhere(relative: string | null | undefined): string | null {
   if (!props.market || !relative) return null;
   const link = resolutionPath(props.market.id, relative);
-  return route?.path === link ? null : link;
+  return isHere(link, route) ? null : link;
 }
 
 /**
@@ -352,6 +355,15 @@ function directionOf(toPhase: string): string {
 const showingArchiveConfirm = ref(false);
 const showingPublishConfirm = ref(false);
 /**
+ * Back to review asks first (T207), by its edge rather than by `transitionNeedsConfirmation`, which
+ * confirms only what cannot be undone: this can be, but it costs the allocation, so the organizer
+ * reads what it does before the review reopens.
+ */
+const showingBackToReview = ref(false);
+function isBackToReview(toPhase: string): boolean {
+  return currentPhase.value === MarketPhase.Assignment && toPhase === MarketPhase.Applications;
+}
+/**
  * Opening applications on a market whose vendors apply on its own page offers the reviewers first
  * (E38/F07/S02), to someone who may choose them. A Google Form market's way into the stage is its
  * first import, which offers them there, so its rail is unchanged.
@@ -405,6 +417,10 @@ async function doTransition(toPhase: string): Promise<boolean> {
 
     if (response?.status === 409 && response.data?.blockers) {
       transitionBlockers.value = response.data.blockers;
+      // The market may have changed since it was read (another organizer's write, say): read it
+      // again, or a fix in the panel leads to a page that still shows it as it was, Review setup
+      // reading back a decision since undone (T206).
+      await marketStore.refresh();
     } else {
       transitionError.value = getApiErrorMessage(err, 'The market did not move to the next phase.');
     }
@@ -468,6 +484,11 @@ function handleTransitionClick(toPhase: string) {
     showingOpenApplications.value = true;
     return;
   }
+  if (isBackToReview(toPhase)) {
+    pendingPhase.value = toPhase;
+    showingBackToReview.value = true;
+    return;
+  }
   if (!transitionNeedsConfirmation(toPhase)) {
     doTransition(toPhase);
     return;
@@ -480,6 +501,7 @@ function handleTransitionClick(toPhase: string) {
 function confirmPending() {
   showingPublishConfirm.value = false;
   showingArchiveConfirm.value = false;
+  showingBackToReview.value = false;
   doTransition(pendingPhase.value);
 }
 
@@ -490,12 +512,14 @@ function confirmPending() {
 async function openApplications(wrote: boolean) {
   showingOpenApplications.value = false;
   const moved = await doTransition(MarketPhase.Applications);
-  if (!moved && wrote) await marketStore.refresh();
+  // A refused move has read the market again already.
+  if (!moved && wrote && !transitionBlockers.value.length) await marketStore.refresh();
 }
 
 function cancelPending() {
   showingPublishConfirm.value = false;
   showingArchiveConfirm.value = false;
+  showingBackToReview.value = false;
   pendingPhase.value = '';
 }
 </script>
@@ -731,6 +755,33 @@ function cancelPending() {
         ones you have now.
       </p>
       <p class="rail-confirm-text">A published market cannot be returned to an earlier phase.</p>
+    </AppDialog>
+
+    <!-- Back to review (T207): what reopening the review costs, said before it does. -->
+    <AppDialog
+      :open="showingBackToReview"
+      title="Back to review?"
+      testid="back-to-review-confirm"
+      confirm-label="Back to review"
+      :confirm-disabled="transitioning"
+      @close="cancelPending"
+      @submit="confirmPending"
+    >
+      <p class="rail-confirm-text">
+        The review opens again: verdicts can be given and changed, and the automatic rejections can
+        change.
+      </p>
+      <p class="rail-confirm-text">
+        The tables you allocated are kept, but they no longer count. Once every application is
+        decided, begin assignment and allocate tables again before you
+        {{ path === IntakeMode.Csv ? 'publish the market' : 'publish results' }}.
+      </p>
+      <p class="rail-confirm-text">
+        A seat you placed by hand stays, even for a vendor you then reject. Free it on Assignments.
+      </p>
+      <p v-if="path === IntakeMode.Form" class="rail-confirm-text">
+        Applications stay closed. To take new ones, choose Take applications again under More…
+      </p>
     </AppDialog>
 
     <!--

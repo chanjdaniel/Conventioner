@@ -128,7 +128,7 @@ test("a refused change is said beneath the person's row, which keeps the role th
     data: { user_email: COLLEAGUE.email, role: 'editor' },
   });
   expect(added.ok(), await added.text()).toBeTruthy();
-  await openManage(page, marketName);
+  const manage = await openManage(page, marketName);
 
   // The server's refusal, whatever it is, for a change this page offers.
   await page.route('**/api/markets/*/roles/*', (route) =>
@@ -139,7 +139,9 @@ test("a refused change is said beneath the person's row, which keeps the role th
   const row = page.locator('.user-entry').filter({ hasText: COLLEAGUE.email });
   const select = row.getByTestId('manage-market-role-select');
   await select.selectOption('viewer');
+  await manage.roleChangeConfirmButton.click();
 
+  await expect(manage.roleChangeConfirm).toHaveCount(0);
   await expect(row.getByTestId('manage-market-user-error')).toHaveText(
     'You cannot make that change.',
   );

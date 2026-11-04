@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { APIRequestContext } from '@playwright/test';
 import { loginViaApi, ensureTestOrgAuthenticated, marketNameToSlug } from './seeds';
+import { decideReviewSetup } from './decideReviewSetup';
 import { seedApplication } from './seedApplication';
 import { mongoEval } from './mongo';
 import { uniqueMarketName } from './uniqueName';
@@ -106,6 +107,9 @@ export async function seedApplicantMarket(
     intakeMode?: 'csv' | 'form';
     fields?: Record<string, unknown>[];
     draft?: boolean;
+    // Its review setup is decided (T206), a Google Form draft's too, unless a spec about the
+    // decisions asks for them left undecided.
+    reviewSetupUndecided?: boolean;
   } = {},
 ): Promise<ApplicantMarketSeed> {
   const userId = await loginViaApi(request, baseURL, email, password);
@@ -143,6 +147,7 @@ export async function seedApplicantMarket(
   if (!formRes.ok()) {
     throw new Error(`Application form save failed: ${formRes.status()} ${await formRes.text()}`);
   }
+  if (!options.reviewSetupUndecided) await decideReviewSetup(request, baseURL, marketId);
 
   // A Google Form market stays a draft, ready for its first import, which is its way into Review
   // (E38/F04/S01); a market whose vendors apply on its page opens applications.

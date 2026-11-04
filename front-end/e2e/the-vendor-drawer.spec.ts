@@ -1,5 +1,12 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { marketScreenPath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
+import {
+  seedApplicationWithStatus,
+  seedPhaseMarket,
+  transitionMarket,
+} from './helpers/seedPhaseMarket';
+import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
 import { VendorsPage } from './pages/VendorsPage';
 
 /**
@@ -18,7 +25,12 @@ test('the drawer opens on the application, each tab a click away, the notes on e
   await vendors.goto(seed.marketId);
   await vendors.clickVendor(0);
 
-  const tabs = page.getByRole('tablist', { name: 'Vendor detail' });
+  // What a sighted reader reads and what a screen reader hears say the same words (T211).
+  await expect(page.getByTestId('vendors-detail-eyebrow')).toHaveText('Vendor details');
+  await expect(
+    page.getByRole('button', { name: 'Close vendor details', exact: true }),
+  ).toBeVisible();
+  const tabs = page.getByRole('tablist', { name: 'Vendor details', exact: true });
   await expect(tabs.getByRole('tab')).toHaveText([
     'Application',
     'Assignments',
@@ -56,4 +68,27 @@ test('the drawer opens on the application, each tab a click away, the notes on e
     'aria-selected',
     'true',
   );
+});
+
+test('the drawer reads the same from the review', async ({ authenticatedPage: page, request }) => {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
+  seedApplicationWithStatus(marketId, 'reviewer_approved', 'nadia@ember.test');
+
+  const all = new ApplicationsAllPage(page);
+  await page.goto(marketScreenPath(marketId, 'applications'));
+  await expect(all.rows).toHaveCount(1, { timeout: 15000 });
+  await all.open('nadia@ember.test');
+
+  await expect(page.getByTestId('vendors-detail-eyebrow')).toHaveText('Vendor details');
+  await expect(
+    page.getByRole('button', { name: 'Close vendor details', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('tablist', { name: 'Vendor details', exact: true })).toBeVisible();
 });

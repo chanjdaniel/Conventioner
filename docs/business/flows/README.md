@@ -23,7 +23,7 @@ One line per node, sorted by file name.
 - [Publishing, and the door on market day](market-day-door.md) - K1 to K5: publishing, the door code, the vendor's check-in on their vendor page and Attendance
 - [Organizations](organizations.md) - B: creating one, its people, renaming and deleting it, and reading its history
 - [Payments](payments.md) - J17: the Payments page, the market's money by tier and by date, who owes and whose refund is due
-- [Placing by hand](placing-by-hand.md) - J6 to J10, J13: assigning, swapping and freeing a seat, pins, the assignment history
+- [Placing by hand](placing-by-hand.md) - J6 to J10, J13, J19: assigning, moving, swapping and freeing a seat, pins, the assignment history
 - [Planning the market](planning.md) - E: Market Setup's dates, tiers, locations, sections, prices and intake, and the setup settling
 - [Reading the market's history](reading-the-markets-history.md) - L6: Manage market's History section, its filters and its pages
 - [Reviewing applications](review.md) - I1 to I6: one by one and All, follow-ups, two reviewers at once, the moves around review

@@ -82,9 +82,9 @@ async function truncatedSelects(page: Page): Promise<string[]> {
       const style = getComputedStyle(select);
       canvas.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
       const text = select.options[select.selectedIndex]?.text ?? '';
-      // The room for the value: the box less its padding and the native arrow (about 20px).
+      // The room for the value: the box less its padding, which holds the chevron's room too.
       const room =
-        select.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - 20;
+        select.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
       return canvas.measureText(text).width > room ? [text] : [];
     });
   });

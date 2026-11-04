@@ -2,6 +2,7 @@ import type { APIRequestContext } from '@playwright/test';
 import { mongoEval } from './mongo';
 import { approvedVendorApplication, insertApplications } from './seedApplication';
 import { seedDraftMarket } from './seedDraftMarket';
+import { decideReviewSetup } from './decideReviewSetup';
 import { transitionMarket } from './seedPhaseMarket';
 import {
   ensureOrganizationAdmin,
@@ -229,6 +230,8 @@ async function createMarket(
     data: { fields: FIELDS },
   });
   if (!form.ok()) throw new Error(`Form save failed: ${form.status()} ${await form.text()}`);
+  // And its review setup decided (T206): Review waits on it.
+  await decideReviewSetup(api, backend, marketId);
   return { marketId, marketName: name, marketSlug: marketNameToSlug(name) };
 }
 
@@ -402,7 +405,12 @@ async function organizationWithPeople(
 ): Promise<{ id: string; name: string }> {
   ensureVerifiedUser(DEALT_REVIEWER, DEALT_REVIEWER_PASSWORD);
   ensureVerifiedUser(ORGANIZATION_MEMBER, ORGANIZATION_MEMBER_PASSWORD);
-  type Listed = { id: string; name: string; userRole?: string; memberEmails?: string[] };
+  type Listed = {
+    id: string;
+    name: string;
+    userRole?: string;
+    memberPeople?: { email: string }[];
+  };
   const mine = async () => {
     const res = await api.get(`${backend}/organizations`);
     if (!res.ok()) throw new Error(`Organization list failed: ${res.status()} ${await res.text()}`);
@@ -416,7 +424,7 @@ async function organizationWithPeople(
     org = (await mine())!;
   }
   await ensureOrganizationAdmin(api, backend, org.id, DEALT_REVIEWER);
-  if (!org.memberEmails?.includes(ORGANIZATION_MEMBER)) {
+  if (!org.memberPeople?.some((member) => member.email === ORGANIZATION_MEMBER)) {
     const member = await api.post(`${backend}/organizations/${org.id}/members`, {
       data: { user_email: ORGANIZATION_MEMBER },
     });

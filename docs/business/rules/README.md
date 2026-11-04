@@ -17,6 +17,7 @@ One line per node, sorted by file name.
 - [A vendor is called by their chosen name](a-vendor-is-called-by-their-chosen-name.md) - the name they chose, else their full name, with their address beside it; the address alone when there is none
 - [A vendor signs in before they have applied](a-vendor-signs-in-before-applying.md) - every address is sent a code, the token names market and address, the first valid save creates the application
 - [Adding a vendor who never applied](adding-a-vendor-who-never-applied.md) - from Assignment on, added by name, address and the answers its prices read, approved, assigned by hand, never in the table allocation
+- [An amount reads to the cent](an-amount-reads-to-the-cent.md) - every amount on screen and in the file reads in the market's currency with two decimals, "$50.00", "-$15.00"; one table of cases pins both sides
 - [An applicant never reads a verdict early](an-applicant-never-reads-a-verdict-early.md) - "Submitted" until results are published, then a table or none, read off the stored seats
 - [An archived market is read-only](an-archived-market-is-read-only.md) - nobody changes a finished market's record; roles and deletion are not changes
 - [An archived market that ran stays a record](an-archived-market-that-ran-stays-a-record.md) - its vendor page stays up, marked ended, and takes no check-in
@@ -36,6 +37,7 @@ One line per node, sorted by file name.
 - [Publish results waits for the allocation](publish-results-waits-for-the-allocation.md) - a market publishes in assignment once a current run is stored, which settles it
 - [Review highlights](review-highlights.md) - the market marks the answers a reviewer reads first; on the market, never the form, so they change after it locks
 - [Review needs an import](review-needs-an-import.md) - on the Google Form path the first import is the way into Review, and a late export is a Redo import
+- [Review waits on the review setup](review-waits-on-the-review-setup.md) - a draft enters Review only once what a reviewer reads first and the automatic rejections are decided, each "none" one click; only leaving draft asks
 - [Table-share pairing](table-share-pairing.md) - one-way is enough, a person's own request outranks one about them, the first applicant named
 - [The assignment rules close with the assignment](the-assignment-rules-close-with-the-assignment.md) - the priority and the options lock once the market can no longer reach assignment
 - [The form locks at the first application](the-form-locks-at-the-first-application.md) - the form is editable only in draft and only until anyone has applied (D9)

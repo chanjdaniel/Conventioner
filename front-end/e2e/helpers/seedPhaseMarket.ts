@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { APIRequestContext } from '@playwright/test';
 import { completePlan, loginViaApi, ensureTestOrgAuthenticated } from './seeds';
+import { decideReviewSetup } from './decideReviewSetup';
 import { mongoEval } from './mongo';
 import { uniqueMarketName } from './uniqueName';
 
@@ -17,8 +18,9 @@ const TWO_FIELDS = [
 ];
 
 /**
- * Create a draft market with an application form (two fields) and a complete plan, so it may open
- * applications (E31/F01/S01). Does NOT transition - leaves the market in draft.
+ * Create a draft market with an application form (two fields), a complete plan and its review
+ * setup decided, so it may open applications (E31/F01/S01, T206). Does NOT transition - leaves the
+ * market in draft.
  */
 export async function seedPhaseMarket(
   request: APIRequestContext,
@@ -26,11 +28,13 @@ export async function seedPhaseMarket(
   email: string,
   password: string,
   // How vendors reach it; absent, a CSV market, as the server reads it. A spec about the form
-  // path's words asks for `form` (E31/F03/S03).
-  options: { intakeMode?: 'csv' | 'form' } = {},
+  // path's words asks for `form` (E31/F03/S03). `orgId` is the organization it belongs to, which
+  // `email` must run; absent, the seed owner's first. A spec about the review setup's decisions
+  // asks for them left undecided (T206).
+  options: { intakeMode?: 'csv' | 'form'; orgId?: string; reviewSetupUndecided?: boolean } = {},
 ): Promise<PhaseMarketSeed> {
   const userId = await loginViaApi(request, baseURL, email, password);
-  const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
+  const orgId = options.orgId ?? (await ensureTestOrgAuthenticated(request, baseURL, email));
 
   const marketName = uniqueMarketName('E2E Phase');
   const createRes = await request.post(`${baseURL}/markets`, {
@@ -58,6 +62,7 @@ export async function seedPhaseMarket(
   if (!formRes.ok()) {
     throw new Error(`Form save failed: ${formRes.status()} ${await formRes.text()}`);
   }
+  if (!options.reviewSetupUndecided) await decideReviewSetup(request, baseURL, marketId);
 
   return { marketId, marketName, orgId, userId };
 }
@@ -108,7 +113,8 @@ export function seedApplicationWithStatus(
 }
 
 /**
- * Create a draft market whose application form has no custom fields.
+ * Create a draft market whose application form has no custom fields, its review setup decided
+ * (T206) unless a spec asks for it undecided.
  *
  * `withDates` decides whether the market plan offers anything: a market with a date asks the
  * essential questions, and a market with an empty plan asks nothing at all. That is the whole
@@ -121,7 +127,7 @@ export async function seedFormlessPhaseMarket(
   email: string,
   password: string,
   withDates: boolean,
-  options: { intakeMode?: 'csv' | 'form' } = {},
+  options: { intakeMode?: 'csv' | 'form'; reviewSetupUndecided?: boolean } = {},
 ): Promise<PhaseMarketSeed> {
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
@@ -155,6 +161,7 @@ export async function seedFormlessPhaseMarket(
     throw new Error(`Market creation failed: ${createRes.status()} ${await createRes.text()}`);
   }
   const { market_id: marketId } = (await createRes.json()) as { market_id: string };
+  if (!options.reviewSetupUndecided) await decideReviewSetup(request, baseURL, marketId);
 
   return { marketId, marketName, orgId, userId };
 }

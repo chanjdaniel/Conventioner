@@ -280,18 +280,72 @@ def read_only_reason(market: Market, refusals: Dict[str, Optional[str]]) -> Opti
     return VIEWER_REFUSAL
 
 
-VERDICTS_SETTLED = (
-    "The review is closed: the verdicts settled when this market entered Assignment. To assign "
-    "someone or free a seat, change the assignment on the Assignments page."
-)
-
-
 def review_is_open(phase: MarketPhase) -> bool:
-    """Whether this market can still get back to the stage where applications are reviewed, the one
-    rule both the verdicts and the automatic rejections settle on (E36/F01/S01). A rule and a
-    reviewer judge the same applications, so they close together; derived from the transition table
-    rather than listed."""
-    return route_between(phase.value, MarketPhase.APPLICATIONS.value) is not None
+    """Whether Assignment still lies ahead of this market, the one rule both the verdicts and the
+    automatic rejections settle on (E36/F01/S01). A rule and a reviewer judge the same applications,
+    so they close together; derived from the transition table rather than listed.
+
+    Ahead, not merely reachable: Back to review (T207) leads from ``assignment`` to the stage, so
+    asking whether the stage can be reached would open the review in Assignment itself. The review
+    opens again only once the market is back in the stage.
+    """
+    return (
+        phase is not MarketPhase.ASSIGNMENT
+        and route_between(phase.value, MarketPhase.ASSIGNMENT.value) is not None
+    )
+
+
+#: What to do instead once the review cannot reopen: applicants have read their results, or the
+#: market went live, so who has a table changes seat by seat.
+_A_SEAT_INSTEAD = "To change who has a table, place or free a seat on Assignments."
+
+#: Why the review is closed, by where the market stands (T207), in the words of each subject that
+#: closes with it: the verdicts and the automatic rejections.
+_REVIEW_CLOSED = {
+    "allocating": (
+        "The review is closed while tables are allocated. To change a verdict, choose Back to "
+        "review under More… on the phase rail; tables are then allocated again."),
+    "published": f"The review closed when results were published. {_A_SEAT_INSTEAD}",
+    "live": f"The review closed when the market went live. {_A_SEAT_INSTEAD}",
+}
+_RULES_CLOSED = {
+    "allocating": (
+        "The automatic rejections are closed while tables are allocated. To change a rule, choose "
+        "Back to review under More… on the phase rail; tables are then allocated again."),
+    "published": f"The automatic rejections closed when results were published. {_A_SEAT_INSTEAD}",
+    "live": f"The automatic rejections closed when the market went live. {_A_SEAT_INSTEAD}",
+}
+
+
+def _why_the_review_is_closed(market: Market) -> Optional[str]:
+    """Why this market's review is closed, as a key of ``_REVIEW_CLOSED``, or None while it is open
+    (T207). The one place the cases are told apart, so the verdicts, the automatic rejections and
+    the reviewers say the same thing in every phase.
+
+    Archived is the caller's: every write there gives the archived refusal. Published comes before
+    the phase, since no way back is left once applicants have read their results; a Google Form
+    market never publishes them, so it is told the market went live.
+    """
+    if review_is_open(market.phase):
+        return None
+    if market.results_published:
+        return "published"
+    if market.phase is MarketPhase.ASSIGNMENT:
+        return "allocating"
+    return "live"
+
+
+def review_closed_reason(market: Market) -> Optional[str]:
+    """Why the review is closed on this market and what to do instead, or None while it is open
+    (T207): Back to review while tables are allocated, a seat on Assignments once results are
+    published or the market went live, the archived refusal on an archived market. Served as
+    ``verdictsSettledReason``, which the Applications tab says in place of the review's controls,
+    and returned by ``verdict_refusal``."""
+    archived = archived_refusal(market)
+    if archived:
+        return archived
+    why = _why_the_review_is_closed(market)
+    return _REVIEW_CLOSED[why] if why else None
 
 
 def verdict_refusal(
@@ -301,17 +355,14 @@ def verdict_refusal(
 
     A verdict - and a follow-up, a claim on a card - is the table's "Give verdicts and follow-ups"
     row (E34/F01/S01, E39/F01/S01), and open while the review is (E36/F01/S01): from assignment on,
-    a verdict is the review's record, and a mistake is fixed with a seat placed or freed by hand.
+    a verdict is the review's record, changed through Back to review until results are published
+    (T207), or after that with a seat placed or freed by hand (``review_closed_reason``).
     The screens read its parts from the market read: the row in ``actionRefusals`` and the review's
     close as ``verdictsSettledReason``.
     """
     refused = archived_refusal(market) or Actions.refusal(
         Actions.GIVE_VERDICTS, user_email, market, organization)
-    if refused:
-        return refused
-    if not review_is_open(market.phase):
-        return VERDICTS_SETTLED
-    return None
+    return refused or review_closed_reason(market)
 
 
 def may_overturn(user_email: str, market: Market) -> bool:
@@ -426,25 +477,19 @@ def assignment_rules_lock_reason(market: Market) -> Optional[str]:
     return None
 
 
-REJECTION_RULES_SETTLED = (
-    "The automatic rejections are settled: the market has reached Assignment, and a rule judges "
-    "applications only while they can still be reviewed."
-)
-
-
-def rejection_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
+def rejection_rules_lock_reason(market: Market) -> Optional[str]:
     """Why the automatic rejections may no longer change, or None while they can (E33/F03/S01).
 
-    A rule judges applications in review, so the rules are open exactly as long as the market can
-    still get back there (decision 24), derived from the transition table rather than listed. Not
-    the form's lock: the form freezes at the first application, and the rules are worth most once
-    applications are arriving.
+    A rule judges applications in review, so the rules are open exactly as long as the review is
+    and closed for the same reason (``_why_the_review_is_closed``, T207), said in their own
+    subject. Not the form's lock: the form freezes at the first application, and the rules are
+    worth most once applications are arriving.
     """
-    if phase is MarketPhase.ARCHIVED:
-        return ARCHIVED_REFUSAL
-    if review_is_open(phase):
-        return None
-    return REJECTION_RULES_SETTLED
+    archived = archived_refusal(market)
+    if archived:
+        return archived
+    why = _why_the_review_is_closed(market)
+    return _RULES_CLOSED[why] if why else None
 
 
 def rejection_facts(market: Market) -> Dict[str, Any]:
@@ -454,7 +499,7 @@ def rejection_facts(market: Market) -> Dict[str, Any]:
     return {
         "rejectionQuestions": book.questions,
         "rejectionRules": book.served_rules(),
-        "rejectionRulesLockReason": rejection_rules_lock_reason(market.phase),
+        "rejectionRulesLockReason": rejection_rules_lock_reason(market),
     }
 
 
@@ -878,15 +923,16 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
 
     # The person's role, resolved once: every answer below is asked of it (E39/F01/S02), and of
     # whether they are a chosen reviewer, which lets them give verdicts (E38/F07/S03).
-    # The reader's account is read here once, and every account the read names through ``accounts``,
-    # so each person is looked up once however many of the lists below name them (E38/F12/S01).
+    # The reader's account is read here once, and every other account the read names through
+    # ``accounts``, all of them in one database read however many people the lists below name
+    # (E38/F12/S01, T204), and only once the reader is let in: a refused read reads no one else.
     reader = UsersApi.get_user(user_email)
-    accounts = _Accounts(reader)
     user_role = PermissionsApi.get_user_market_role(
         user_email, market, context.organization, user=reader)
     chosen = Actions.is_chosen(user_email, market)
     if read_refused(market, user_role):
         return None
+    accounts = _Accounts(reader, _named_by_the_read(market, context.organization))
 
     market_dict['_id'] = str(market_dict['_id'])
     leave_out_what_no_read_serves(market_dict)
@@ -906,6 +952,10 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['assignRefusalReason'] = assign_refusal(market)
     # And what an automatic rejection may name, and whether it may change (E33/F03/S01).
     market_dict.update(rejection_facts(market))
+    # And whether the review setup's two "none"s were chosen (T206), false when the document has
+    # neither, as the model reads them.
+    market_dict['nothingLeadsTheCard'] = market.nothing_leads_the_card
+    market_dict['noAutomaticRejections'] = market.no_automatic_rejections
     # And what the price groups read, which adding a vendor asks and updating guards (E43/F01/S03).
     market_dict.update(price_facts(market))
     # And the setup's (E31/F01/S02), for Market Setup to read as settled rather than as editable.
@@ -945,10 +995,11 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # (E39/F01/S03): the rows this market holds, the built-in default for the rest.
     market_dict['permissionTable'] = Actions.table(market)
     # The rules of the market's life the table never overrides, each on its own: the verdicts
-    # settle on entering assignment (E36/F01/S01), a vendor is added from the assignment on
-    # (E36/F03/S01), and results wait for the allocation (E36/F04/S01), with how many will read
-    # each outcome for the confirmation of someone who may publish now.
-    verdicts_settled = None if review_is_open(market.phase) else VERDICTS_SETTLED
+    # settle on entering assignment, served as why the review is closed (E36/F01/S01, T207), a
+    # vendor is added from the assignment on (E36/F03/S01), and results wait for the allocation
+    # (E36/F04/S01), with how many will read each outcome for the confirmation of someone who may
+    # publish now.
+    verdicts_settled = review_closed_reason(market)
     market_dict['verdictsSettledReason'] = verdicts_settled
     adding_vendors = adding_refusal(market.phase)
     market_dict['addingVendorsReason'] = adding_vendors
@@ -1040,15 +1091,35 @@ def get_markets_by_owner_email(owner_email: str) -> List[Dict[str, Any]]:
     return list(markets_collection.find({f"roles.{owner_email}": MarketRole.OWNER.value}))
 
 
+def _named_by_the_read(market: Market, organization: Optional[Organization]) -> List[str]:
+    """Every user id the market read can name: the market's roles, and its organization's owner,
+    admins and members when it is the market's. ``people_with_market_role``,
+    ``follow_up_owners_for`` and ``reviewer_candidate_ids`` only ever name ids from these, so the
+    read needs no account beyond them. Reading an account here serves it to no one: each list keeps
+    its own rule on whom a reader is served."""
+    named = list(market.roles or {})
+    if organization is not None and organization.id == market.organization_id:
+        named += [organization.owner, *organization.admins, *organization.members]
+    return named
+
+
 class _Accounts:
     """Memo for the accounts the read of one market names, by user id: the reader's, already read
-    by address, and each other one read once, however many of its lists name them."""
+    by address, and every other one it can name read up front in one ``get_users_by_ids``, however
+    many of its lists name them (T204)."""
 
-    def __init__(self, reader: Any) -> None:
-        self._by_id: Dict[str, Any] = {reader.id: reader} if reader else {}
+    def __init__(self, reader: Any, named: List[str]) -> None:
+        others = [user_id for user_id in dict.fromkeys(named) if user_id and not (
+            reader and user_id == reader.id)]
+        # An id with no account is remembered as None, so it is never read again alone.
+        self._by_id: Dict[str, Any] = dict.fromkeys(others)
+        self._by_id.update(UsersApi.get_users_by_ids(others))
+        if reader:
+            self._by_id[reader.id] = reader
 
     def of(self, user_id: str) -> Any:
-        """The account with this id, or None when there is none."""
+        """The account with this id, or None when there is none; an id the read did not name up
+        front, which none of its lists makes, falls back to a read of its own."""
         if user_id not in self._by_id:
             self._by_id[user_id] = UsersApi.get_user_by_id(user_id)
         return self._by_id[user_id]
@@ -1223,6 +1294,9 @@ def create_market(market: Market, owner_email: str) -> tuple:
     market_dict["permissions"] = _organization_default_rows(market.organization_id)
     # And the reviewers: chosen on the market once it exists, by their own write (E38/F07/S02).
     market_dict["review_team"] = None
+    # And the review setup's two "none"s, each decided by its list's own write (T206).
+    market_dict["nothing_leads_the_card"] = False
+    market_dict["no_automatic_rejections"] = False
     market_dict["application_form"] = (
         _normalized_application_form(market.application_form).model_dump()
         if market.application_form
@@ -1888,16 +1962,26 @@ def finalization_update(
     return {}
 
 
-def taking_applications_update(to_phase: str) -> Dict[str, Any]:
+def taking_applications_update(
+    from_phase: str, to_phase: str, document: Dict[str, Any],
+) -> Dict[str, Any]:
     """A stop belongs to the one stay in the stage it was made in (E38/F04/S02).
 
     Reopen for editing and then Open applications is opening applications, so a stop made before
-    must not leave the form shut; cleared on entering draft and on entering the stage, in the
-    update that moves the phase. Elsewhere it is left alone: past the stage the phase closes the
-    form whatever the flag says.
+    must not leave the form shut; cleared on entering draft and on entering the stage from draft, in
+    the update that moves the phase. Back to review (T207) is the review again, not applying: a
+    market whose vendors apply on its page enters the stage from Assignment with its form stopped,
+    and Take applications again is the organizer's way to reopen it; a Google Form market has no
+    form to stop, and is left as it is. Elsewhere it is left alone: past the stage the phase closes
+    the form whatever the flag says.
     """
+    stopped_key = market_doc_key("applications_stopped")
+    if to_phase == MarketPhase.APPLICATIONS.value and from_phase == MarketPhase.ASSIGNMENT.value:
+        if intake_mode_from_market_document(document) is IntakeMode.FORM:
+            return {stopped_key: True}
+        return {}
     if to_phase in (MarketPhase.DRAFT.value, MarketPhase.APPLICATIONS.value):
-        return {market_doc_key("applications_stopped"): False}
+        return {stopped_key: False}
     return {}
 
 
@@ -1929,6 +2013,42 @@ class PhaseChangedUnderRequest(ConflictError):
         })
 
 
+class MoveBlockedUnderRequest(ConflictError):
+    """The phase stayed, but a fact the move's guards passed on changed under this request: a 409.
+
+    Answered as the guards answer, with the blockers the move meets now, so the rail shows why
+    where it shows a guard.
+    """
+
+    def __init__(self, current_phase: str, target_phase: str, blockers: List[PreconditionResult]):
+        self.current_phase = current_phase
+        self.target_phase = target_phase
+        self.blockers = blockers
+        super().__init__(blockers[0].message if blockers else (
+            "This market changed while the request was in flight. Reload it and try again."))
+
+    def body(self) -> Dict[str, Any]:
+        return convert_keys_to_camel_case({
+            "error": "preconditions_not_met",
+            "current_phase": self.current_phase,
+            "target_phase": self.target_phase,
+            "blockers": [b.payload() for b in self.blockers],
+        })
+
+
+def _what_the_move_stood_on(from_phase: str, to_phase: str) -> Dict[str, Any]:
+    """What a move's guards passed on that another request can change under it, as a filter.
+
+    Back to review (T207) is refused once results are published, and Publish results writes the
+    flag without moving the phase, so the move's write holds the flag as its guard read it: two
+    requests in flight together never leave a market in the review with its results published.
+    Publish results' write holds the phase the same way (``publish_results``).
+    """
+    if (from_phase, to_phase) == (MarketPhase.ASSIGNMENT.value, MarketPhase.APPLICATIONS.value):
+        return {market_doc_key("results_published"): {"$ne": True}}
+    return {}
+
+
 def apply_phase_transition(
     market_id: str, document: Dict[str, Any], to_phase: str, by: Optional[str] = None,
 ) -> None:
@@ -1942,10 +2062,13 @@ def apply_phase_transition(
     the stamp would leave a market whose two answers disagree, which is the class of bug
     `migrate_is_draft_consistency` exists to repair, and a lost update would move a market a
     concurrent request had already moved. The same update records the phase entered, and who
-    moved it there, in the market's phase history (E26/F06/S03).
+    moved it there, in the market's phase history (E26/F06/S03). A move whose guard read a fact
+    another write can change without moving the phase holds that fact too
+    (``_what_the_move_stood_on``).
 
     Raises:
         PhaseChangedUnderRequest: the stored phase moved under this request.
+        MoveBlockedUnderRequest: the phase stayed, but what the move stood on changed.
         MarketNotFoundError: the market is gone.
     """
     phase_key = market_doc_key("phase")
@@ -1954,13 +2077,13 @@ def apply_phase_transition(
     stored_phase = document[phase_key] if phase_key in document else {"$exists": False}
 
     result = markets_collection.update_one(
-        {"id": market_id, phase_key: stored_phase},
+        {"id": market_id, phase_key: stored_phase, **_what_the_move_stood_on(from_phase, to_phase)},
         {
             "$set": {
                 phase_key: to_phase,
                 is_draft_key: to_phase == MarketPhase.DRAFT.value,
                 **finalization_update(from_phase, to_phase, document),
-                **taking_applications_update(to_phase),
+                **taking_applications_update(from_phase, to_phase, document),
             },
             "$push": PhaseRecord.push_entries(document, to_phase, by),
         },
@@ -1972,7 +2095,11 @@ def apply_phase_transition(
     latest = markets_collection.find_one({"id": market_id})
     if latest is None:
         raise MarketNotFoundError("Market not found")
-    raise PhaseChangedUnderRequest(phase_from_market_document(latest).value, from_phase, to_phase)
+    actual_phase = phase_from_market_document(latest).value
+    if actual_phase == from_phase and latest.get(phase_key) == document.get(phase_key):
+        raise MoveBlockedUnderRequest(
+            from_phase, to_phase, evaluate_transition(market_from_document(latest), to_phase, db))
+    raise PhaseChangedUnderRequest(actual_phase, from_phase, to_phase)
 
 
 class MoveUnavailable(BadRequestError):
@@ -2577,15 +2704,30 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
     return update
 
 
+#: Why "Nothing leads the card" is refused beside a marked answer (T206): it would read as decided
+#: both ways at once.
+NOTHING_LEADS_BESIDE_A_MARK = (
+    "Choose Nothing leads the card only while no answer is marked to lead it: take the marks off "
+    "first, or keep them."
+)
+
+
 def save_review_highlights(
-    market_id: str, keys: List[str], requesting_user: str
-) -> List[str]:
-    """Set which answers a reviewer reads first. Asks ``Actions.CHANGE_FORM``.
+    market_id: str, keys: List[str], requesting_user: str, nothing_leads_the_card: bool = False,
+) -> Dict[str, Any]:
+    """Set which answers a reviewer reads first, or that nothing leads the card, and answer both as
+    stored. Asks ``Actions.CHANGE_FORM``.
 
     The list IS the order the card leads with, so a repeat is dropped where it recurs rather than
     resorting what an organizer arranged. An empty list clears them, and clearing is a write of
     ``[]`` rather than a delete: absent and empty both mean "nothing is marked", and one shape for
     that keeps the card from having to tell them apart.
+
+    Neither shape says anyone decided it, so ``nothing_leads_the_card`` does (T206): the only
+    writer of ``Market.nothing_leads_the_card``, true only beside an empty list (refused with a
+    mark), and stored false by every write that does not ask for it, so marking an answer replaces it.
+    Whether the two decide what a reviewer reads first, which a draft must before Review, is
+    ``review_highlights.highlights_decided``: a kept mark may name a question the form has dropped.
 
     Deliberately NOT gated on ``application_form_lock_reason``. That lock freezes the form the
     moment an applicant submits - which is the moment these first become knowable, because an
@@ -2599,13 +2741,20 @@ def save_review_highlights(
         cleaned = key.strip()
         if cleaned and cleaned not in seen:
             seen.append(cleaned)
+    if nothing_leads_the_card and seen:
+        raise BadRequestError(NOTHING_LEADS_BESIDE_A_MARK)
 
-    markets_collection.update_one({"id": market_id}, market_doc_set("review_highlights", seen))
+    markets_collection.update_one({"id": market_id}, {"$set": {
+        market_doc_key("review_highlights"): seen,
+        market_doc_key("nothing_leads_the_card"): nothing_leads_the_card,
+    }})
     History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.REVIEW_HIGHLIGHTS,
                    detail=lambda: History.changes(
-                       {"review_highlights": market.review_highlights or []},
-                       {"review_highlights": seen}))
-    return seen
+                       {"review_highlights": market.review_highlights or [],
+                        "nothing_leads_the_card": market.nothing_leads_the_card},
+                       {"review_highlights": seen,
+                        "nothing_leads_the_card": nothing_leads_the_card}))
+    return {"reviewHighlights": seen, "nothingLeadsTheCard": nothing_leads_the_card}
 
 
 def follow_up_owner(
@@ -2644,10 +2793,7 @@ def reviewer_candidate_ids(
     ]
 
 
-REVIEWERS_SETTLED = (
-    "The review is closed: the verdicts settled when this market entered Assignment, so its "
-    "reviewers no longer change."
-)
+REVIEWERS_SETTLED = "The review is closed, so its reviewers no longer change."
 
 
 def choose_reviewers(market_id: str, addresses: Any, requesting_user: str) -> Dict[str, Any]:
@@ -2662,8 +2808,9 @@ def choose_reviewers(market_id: str, addresses: Any, requesting_user: str) -> Di
     if not isinstance(addresses, list) or not all(isinstance(a, str) for a in addresses):
         raise BadRequestError("reviewers is a list of addresses")
     market = _load_market_to_change(market_id, requesting_user, Actions.CHOOSE_REVIEWERS)
-    if not review_is_open(market.phase):
-        raise BadRequestError(REVIEWERS_SETTLED)
+    closed = review_closed_reason(market)
+    if closed:
+        raise BadRequestError(f"{REVIEWERS_SETTLED} {closed}")
     organization = _load_organization(market.organization_id)
     chooser = UsersApi.get_user(requesting_user)
     offered = set(reviewer_candidate_ids(market, organization, chooser))
@@ -2684,37 +2831,56 @@ def choose_reviewers(market_id: str, addresses: Any, requesting_user: str) -> Di
     return {"reviewTeam": ReviewTeam.served(team, market, organization), "dealt": dealt}
 
 
+#: Why "No automatic rejections" is refused beside a rule (T206), one with no answer yet included:
+#: it is a rule the organizer is building, which the "none" would silently discard.
+NO_REJECTIONS_BESIDE_A_RULE = (
+    "Choose No automatic rejections only while the market has no rule: remove its rules first, or "
+    "keep them."
+)
+
+
 def save_rejection_rules(
-    market_id: str, rules: Any, requesting_user: str
-) -> List[Dict[str, Any]]:
-    """Set which answers reject an application automatically (E33/F03/S01). Asks
-    ``Actions.CHANGE_FORM``.
+    market_id: str, rules: Any, requesting_user: str, no_automatic_rejections: bool = False,
+) -> Dict[str, Any]:
+    """Set which answers reject an application automatically (E33/F03/S01), or that none does, and
+    answer both as stored. Asks ``Actions.CHANGE_FORM``.
 
     The rules' own write, the whole list at once like the highlights. Not gated on the form's lock:
-    rules are worth most once applications arrive, which is when the form freezes. Refused once the
-    market can no longer return to review (``rejection_rules_lock_reason``). A rule narrowed or
+    rules are worth most once applications arrive, which is when the form freezes. Refused while the
+    review is closed (``rejection_rules_lock_reason``). A rule narrowed or
     taken away returns what it rejected to open only for someone who may overturn an automatic
     rejection (``may_overturn``, E38/F06/S01); for anyone else those rejections stand.
+
+    The only writer of ``Market.no_automatic_rejections`` (T206), as ``save_review_highlights`` is
+    of ``nothing_leads_the_card``: true only with no rule at all, stored false by every write that
+    does not ask for it.
     """
     market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_FORM)
-    settled = rejection_rules_lock_reason(market.phase)
+    settled = rejection_rules_lock_reason(market)
     if settled:
         raise BadRequestError(settled)
     prepared = RejectionRules.Rulebook(market).prepared(rules)
-    markets_collection.update_one({"id": market_id}, market_doc_set("rejection_rules", prepared))
+    if no_automatic_rejections and prepared:
+        raise BadRequestError(NO_REJECTIONS_BESIDE_A_RULE)
+    markets_collection.update_one({"id": market_id}, {"$set": {
+        market_doc_key("rejection_rules"): prepared,
+        market_doc_key("no_automatic_rejections"): no_automatic_rejections,
+    }})
     # Every undecided application, and every one a rule rejected, is judged again (E33/F03/S02).
     judged = market.model_copy(update={"rejection_rules": [RejectionRule(**r) for r in prepared]})
     verdicts = RejectionRules.judge(RejectionRules.Rulebook(judged), market_id,
                                     overturns=may_overturn(requesting_user, market))
     History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.REJECTION_RULES,
                    detail=lambda: _with_counts(History.changes(
-                       {"rejection_rules": [rule.model_dump() for rule in market.rejection_rules or []]},
-                       {"rejection_rules": [rule.model_dump() for rule in judged.rejection_rules or []]},
+                       {"rejection_rules": [rule.model_dump() for rule in market.rejection_rules or []],
+                        "no_automatic_rejections": market.no_automatic_rejections},
+                       {"rejection_rules": [rule.model_dump() for rule in judged.rejection_rules or []],
+                        "no_automatic_rejections": no_automatic_rejections},
                    ), verdicts))
     # What the rules returned to open is an arrival, dealt to the next reviewer (E38/F07/S03).
     if verdicts.returned:
         ReviewTeam.deal_arrivals(judged, requesting_user, Actions.CHANGE_FORM)
-    return prepared
+    return {"rejectionRules": prepared, "noAutomaticRejections": no_automatic_rejections}
 
 
 def save_application_form(market_id: str, application_form_data: dict, requesting_user: str) -> dict:

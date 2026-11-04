@@ -4,12 +4,13 @@ kind: data
 describes:
   - back-end/lookup_indexes.py
   - back-end/app.py#build_lookup_indexes
-verified: 2026-10-30
+verified: 2026-11-03
 sources:
   - E32/F03/S04
   - E40/F01/S03
   - E40/F02/S01
   - E44/F01/S01
+  - T204
 ---
 
 # Lookup indexes
@@ -38,6 +39,7 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 
 Market fields are named through `market_doc_key`, so the list holds the stored camelCase spelling ([the market document](market-document.md#key-spelling)).
 The three organization indexes serve "the organizations this person is in", an `$or` over `owner`, `admins` and `members`.
+The users' `id` index serves one account read alone and many read at once: `get_users_by_ids` reads every account a read names with one `$in` over it ([users and email](users-and-email.md#lookups)).
 
 **A role is a key of a market's `roles` map**, so "markets this person has a role on" is `{"roles.<user id>": {"$exists": true}}`, served by the wildcard index `roles.$**`.
 It used to turn every market's map into an array first, which no index can serve, so every Markets page read every market ([the organization document](organization-document.md#roles-on-a-market)).

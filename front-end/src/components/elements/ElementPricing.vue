@@ -28,13 +28,16 @@ import {
   EVERYONE_ELSE,
   UNPRICED,
   centsFromText,
+  focusedAmountText,
   groupNameProblem,
   groupsOf,
+  leftAmountText,
   percentFromText,
   priceText,
   pricingAfterTierChange,
   tierRenamed,
 } from '@/utils/pricing';
+import { useAmountCaret } from '@/utils/useAmountField';
 
 const props = withDefaults(
   defineProps<{
@@ -108,8 +111,29 @@ const cellOf = (key: string) => JSON.parse(key) as [Row, string];
 
 const cells = ref<Record<string, Typing<number | null>>>({});
 
+/** The cell that has the focus: it gives its plain number to edit, where every other reads as currency. */
+const focusedCell = ref<string | null>(null);
+
+/**
+ * What a cell shows: the text being typed in it, as typed; otherwise its stored price, as the plain
+ * number while focused ("50.00") and in the card's currency once left ("$50.00"), blank for none.
+ */
 function cellText(row: Row, tier: string): string {
-  return cells.value[cellKey(row, tier)]?.text ?? priceText(storedCents(row, tier));
+  const key = cellKey(row, tier);
+  const typing = cells.value[key];
+  if (typing) return typing.text;
+  const text = priceText(storedCents(row, tier));
+  return focusedCell.value === key
+    ? focusedAmountText(text)
+    : leftAmountText(text, pricing.value.currency);
+}
+
+/** A focused cell gives its plain number with the caret at its end, as every amount field does. */
+const caret = useAmountCaret();
+
+function onPriceFocused(row: Row, tier: string, event: FocusEvent) {
+  focusedCell.value = cellKey(row, tier);
+  caret.focused(event.target as HTMLInputElement, cellText(row, tier));
 }
 
 function onPrice(row: Row, tier: string, text: string) {
@@ -122,9 +146,10 @@ function onPrice(row: Row, tier: string, text: string) {
   if (kept !== storedCents(row, tier)) write(withPrice(row, tier, kept));
 }
 
-/** Leaving a cell redraws it from what is kept, unless what it holds is not an amount. */
+/** Leaving a cell reads it as currency from what is kept, unless what it holds is not an amount. */
 function onPriceLeft(row: Row, tier: string) {
   const key = cellKey(row, tier);
+  if (focusedCell.value === key) focusedCell.value = null;
   const typing = cells.value[key];
   if (!typing || centsFromText(typing.text) === undefined) return;
   cells.value = Object.fromEntries(Object.entries(cells.value).filter(([other]) => other !== key));
@@ -356,6 +381,9 @@ onBeforeUnmount(() => {
                   :aria-invalid="isInvalid(g, tier) || undefined"
                   :data-testid="`pricing-group-${g}-price-${index}`"
                   @input="onPrice(g, tier, ($event.target as HTMLInputElement).value)"
+                  @focus="onPriceFocused(g, tier, $event)"
+                  @pointerdown="caret.onPointerdown"
+                  @click="caret.onClick"
                   @blur="onPriceLeft(g, tier)"
                 />
               </td>
@@ -404,6 +432,9 @@ onBeforeUnmount(() => {
                   :aria-invalid="isInvalid(ELSE, tier) || undefined"
                   :data-testid="`pricing-price-${index}`"
                   @input="onPrice(ELSE, tier, ($event.target as HTMLInputElement).value)"
+                  @focus="onPriceFocused(ELSE, tier, $event)"
+                  @pointerdown="caret.onPointerdown"
+                  @click="caret.onClick"
                   @blur="onPriceLeft(ELSE, tier)"
                 />
               </td>

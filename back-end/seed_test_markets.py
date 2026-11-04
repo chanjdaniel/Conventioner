@@ -10,7 +10,8 @@ makes them, owned by an operator's own account:
   which takes it into Review.
 
 Both are in "Conventioner Test Organization", carry a plan a year out and two plain questions, and
-hold no applicant. Every write goes through the product's own (create, the plan, the form, the
+hold no applicant, with nothing leading the review card and no automatic rejection, each decided.
+Every write goes through the product's own (create, the plan, the form, the review setup, the
 judged move), so a seeded market is one the product could have made. Running it again changes
 nothing that exists, and finishes a market a failed run left in draft.
 
@@ -153,6 +154,10 @@ def seed_test_market(test_market: TestMarket, organization_id: str, owner: User,
         "intakeMode": test_market.intake_mode.value,
     }, owner.email)
     MarketsApi.save_application_form(market_id, {"fields": TEST_FORM_FIELDS}, owner.email)
+    # Its review setup, decided as an organizer decides it on Review setup (T206): nothing leads
+    # the card and no answer rejects. Review waits on both, the Google Form market's first import too.
+    MarketsApi.save_review_highlights(market_id, [], owner.email, nothing_leads_the_card=True)
+    MarketsApi.save_rejection_rules(market_id, [], owner.email, no_automatic_rejections=True)
     if test_market.intake_mode is IntakeMode.CSV:
         return MarketPhase.DRAFT.value
     blockers = MarketsApi.take_move(
