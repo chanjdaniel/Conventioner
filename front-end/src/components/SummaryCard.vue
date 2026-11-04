@@ -2,8 +2,8 @@
 /**
  * One row in a list of things: a name, a fixed column of facts about it, and its actions.
  *
- * The same markup was copied into the markets list, the organizations list, the dashboard card
- * and the market chooser, with the facts laid out *after* the name rather than in a column of
+ * The same markup was copied into the lists of markets and of organizations,
+ * with the facts laid out *after* the name rather than in a column of
  * their own - so the left edge of "Created:" followed the length of the market's name. Measured
  * down one list it landed at x = 289, 339, 345, 393, 336, 327, 327 and 323.
  *
@@ -74,8 +74,8 @@ defineEmits<{ select: [] }>();
 
    "Can spare" is the facts' own measure: a 7.5rem label, its gap, and room for the longest date a
    row says ("Dec 30, 2026 - Jan 2, 2027 (4 days)") - 22rem. The name took its whole 28rem
-   whatever the card's width, and on the dashboard, where the card is the width of the two buttons
-   below it, that left the facts a sliver: every date broke after two or three characters. */
+   whatever the card's width, and on a card narrower than the page's that left the facts a sliver:
+   every date broke after two or three characters. */
 .summary-card-body {
   display: grid;
   grid-template-columns: minmax(200px, 28rem) minmax(22rem, 1fr) auto;
@@ -83,10 +83,10 @@ defineEmits<{ select: [] }>();
   gap: var(--space-6);
 }
 
-/* Too narrow for the name and the facts side by side (the market chooser dialog): the facts go
-   under the name rather than into a column too thin to read. 37.5rem is the two minimums and the
-   gaps between the three columns. */
-@container (width < 37.5rem) {
+/* Too narrow for the three columns: the facts and the actions go under the name rather than into a
+   column too thin to read, or Manage past the card's edge (T148, at 768px). 45rem is the two
+   minimums, the gaps between the three columns and Manage. */
+@container (width < 45rem) {
   .summary-card-body {
     display: flex;
     flex-direction: column;
@@ -96,18 +96,6 @@ defineEmits<{ select: [] }>();
 
   .summary-card-actions:empty {
     display: none;
-  }
-}
-
-/* With an action beside them the three columns need its width too, and between the two widths
-   Manage ran past the card's edge (T148, at 768px). 45rem is 37.5rem, a gap and Manage. A card
-   with no action (the dashboard's) keeps its columns down to 37.5rem. */
-@container (width < 45rem) {
-  .summary-card-body:has(> .summary-card-actions:not(:empty)) {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-3);
   }
 }
 
@@ -143,10 +131,8 @@ defineEmits<{ select: [] }>();
 }
 
 /* One line, so every card in a list is one height; a name longer than its column is shortened,
-   and the slot gives it its whole name as hover text (bug 14). One look at either level: the
-   name is an `h2` under a page's title and an `h3` under a dialog's. */
-.summary-card-name :slotted(h2),
-.summary-card-name :slotted(h3) {
+   and the slot gives it its whole name as hover text (bug 14). */
+.summary-card-name :slotted(h2) {
   margin: 0;
   min-width: 0;
   color: var(--mm-black);

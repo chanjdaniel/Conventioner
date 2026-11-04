@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import axios from 'axios';
-import { computed, ref, inject, nextTick } from 'vue';
+import { computed, ref, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AuthCard from '@/components/AuthCard.vue';
 import CodeInput from '@/components/CodeInput.vue';
@@ -17,9 +17,9 @@ const route = useRoute();
 
 /**
  * Where a sign-in continues to (E38/F11/S01): the page a signed-out link or an ended session was
- * on, when it is one of this app's, else the dashboard.
+ * on, when it is one of this app's, else Markets.
  */
-const afterSignIn = computed(() => safeNext(route.query.next) ?? '/dashboard');
+const afterSignIn = computed(() => safeNext(route.query.next) ?? '/markets');
 /** Brought here by a session that ended mid-work, which is said rather than left to guess. */
 const sessionEnded = computed(() => route.query.ended === '1');
 
@@ -136,8 +136,6 @@ const remember = ref(false);
 const REMEMBER_ME_HELP =
   'Keeps you signed in on this device for 30 days. Leave it unticked on a shared one.';
 
-const setUser = inject<(user: unknown) => void>('setUser', () => {});
-
 const submitLogin = async () => {
   loginNotice.value = null;
   const address = email.value;
@@ -161,7 +159,6 @@ const submitLogin = async () => {
     if (response.status === 200) {
       const user_email = response.data.user_data.email;
       localStorage.setItem('user', JSON.stringify(user_email));
-      setUser(user_email);
       router.push(afterSignIn.value);
     }
   } catch (err: unknown) {
@@ -312,7 +309,6 @@ const submitOTPLogin = async () => {
     if (response.status === 200) {
       const user_email = response.data.user_data.email;
       localStorage.setItem('user', JSON.stringify(user_email));
-      setUser(user_email);
       router.push(afterSignIn.value);
     }
   } catch (err: unknown) {

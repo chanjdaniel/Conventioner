@@ -174,7 +174,11 @@ test('each filter narrows the list, and a vendor links to their drawer', async (
   await expect(manage.historySentences.last()).toContainText('to Approved');
 
   // Who may be narrowed to is whoever changed something here: the colleague only received.
-  await expect(manage.historyWho.locator('option')).toHaveText(['Anyone', TEST_USER.email]);
+  await manage.historyWho.field.click();
+  await expect(manage.historyWho.options).toHaveCount(2);
+  await expect(manage.historyWho.options.first()).toHaveText('Anyone');
+  await expect(manage.historyWho.option(TEST_USER.email)).toBeVisible();
+  await manage.historyWho.field.press('Escape');
 
   await manage.historyVendorLinks.first().click();
   await expect(page).toHaveURL(`/markets/${marketId}/vendors?vendor=${VENDOR}`);

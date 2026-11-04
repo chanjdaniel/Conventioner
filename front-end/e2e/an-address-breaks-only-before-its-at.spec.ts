@@ -3,6 +3,9 @@ import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedTheScreens } from './helpers/seedTheScreens';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
+import { ManageMarketPage } from './pages/ManageMarketPage';
+import { OrganizationsPage } from './pages/OrganizationsPage';
+import { ReviewersPanel } from './pages/ReviewersPanel';
 import { VendorsPage } from './pages/VendorsPage';
 
 /**
@@ -27,12 +30,15 @@ const SIZES = [
 ] as const;
 
 let dealtMarketId: string;
+let dealtMarketName: string;
 let reviewer: string;
+let organizationName: string;
 
 test.beforeAll(async ({ request }) => {
   test.setTimeout(120_000);
   ({
-    dealt: { marketId: dealtMarketId, reviewer },
+    dealt: { marketId: dealtMarketId, marketName: dealtMarketName, reviewer },
+    organization: { name: organizationName },
   } = await seedTheScreens(request, BACKEND_URL, TEST_USER.email, TEST_USER.password));
 });
 
@@ -136,6 +142,89 @@ for (const size of SIZES) {
     await expectWholeAddress(sentence, reviewer);
   });
 }
+
+test('Manage organization\'s rows break an address only before its "@" or a dot', async ({
+  authenticatedPage: page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/organizations');
+  await page
+    .getByTestId('organization-card')
+    .filter({ hasText: organizationName })
+    .getByTestId('organizations-manage-button')
+    .click();
+  const orgs = new OrganizationsPage(page);
+  await expect(orgs.manageWindow).toBeVisible();
+
+  // A row's address takes what the row leaves it, so it is freed to take the width it is given.
+  const admin = orgs.adminEmails.filter({ hasText: reviewer });
+  const member = orgs.memberEmails.first();
+  for (const cell of [admin, member]) {
+    await cell.evaluate((element) => (element.style.flex = 'none'));
+    await expectWholeAddress(cell, (await cell.textContent())!, true);
+  }
+});
+
+test('Manage market\'s rows break an address only before its "@" or a dot', async ({
+  authenticatedPage: page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/markets?q=${encodeURIComponent(dealtMarketName)}`);
+  await page.getByTestId('market-card-manage-button').click();
+  const manage = new ManageMarketPage(page);
+  await manage.waitForOverlay();
+
+  // A row's address takes what the row leaves it, so it is freed to take the width it is given.
+  const cell = manage.personEmail(reviewer);
+  await cell.evaluate((element) => (element.style.flex = 'none'));
+  await expectWholeAddress(cell, reviewer, true);
+});
+
+test('a chooser of a market\'s team, its rows and chips, breaks an address only before its "@" or a dot', async ({
+  authenticatedPage: page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  const monitor = new ApplicationMonitorPage(page);
+  await monitor.goto(dealtMarketId);
+  const reviewers = new ReviewersPanel(page);
+  await reviewers.change.click();
+  await reviewers.dialog.waitFor();
+  await reviewers.chooser.field.click();
+
+  const row = reviewers.chooser.option(reviewer).locator('.search-picker-option-label');
+  const chip = reviewers.chooser.chip(reviewer).locator('.search-picker-chip-label');
+  // As the phone draws them, then in a line narrower than the address, where it must break.
+  for (const words of [row, chip]) {
+    await expectWholeAddress(words, reviewer);
+    await expectWholeAddress(words, reviewer, true);
+  }
+});
+
+test('the Reviewers panel\'s line breaks an address only before its "@" or a dot', async ({
+  authenticatedPage: page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  const monitor = new ApplicationMonitorPage(page);
+  await monitor.goto(dealtMarketId);
+  const { line } = new ReviewersPanel(page);
+  await expectWholeAddress(line, reviewer);
+  await expectWholeAddress(line, reviewer, true);
+});
+
+test('"Assigned to", which offers reviewers of its own, breaks an address only before its "@" or a dot', async ({
+  authenticatedPage: page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  const all = new ApplicationsAllPage(page);
+  await all.goto(dealtMarketId, 'anyone');
+  await all.assignedTo.field.click();
+
+  const row = all.assignedTo.options
+    .filter({ hasText: reviewer })
+    .locator('.search-picker-option-label');
+  await expectWholeAddress(row, reviewer);
+  await expectWholeAddress(row, reviewer, true);
+});
 
 test('in a line narrower than the address, each sentence breaks it only before its "@" or a dot', async ({
   authenticatedPage: page,

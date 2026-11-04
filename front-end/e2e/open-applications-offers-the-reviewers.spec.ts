@@ -105,42 +105,46 @@ test('an Admin opens applications choosing two reviewers, and each new applicati
   const opening = new OpenApplicationsDialog(page);
   const { currentPhase } = new MarketSetupPage(page);
 
-  // Its keys are a dialog's: it opens on its first control, Escape closes it writing nothing, and
-  // focus goes back to the rail's button.
+  // Its keys are a dialog's: it opens on the picker's field, Escape closes the picker's list first
+  // and then the dialog, writing nothing, and focus goes back to the rail's button.
   await opening.start();
   await expect(opening.dialog).toContainText('Open applications');
   await expect(opening.dialog).toContainText(
     'Choose no one and everyone reviews first come, first served.',
   );
-  // The organization's other people are offered too, so the first control is whoever sorts first.
-  await expect(opening.choices.first()).toBeFocused();
-  await expect(opening.choice(ANA)).not.toBeChecked();
-  await opening.choice(ANA).check();
+  await expect(opening.chooser.field).toBeFocused();
+  await expect(opening.chooser.chips).toHaveCount(0);
+  await opening.chooser.choose(ANA);
+  await page.keyboard.press('Escape');
+  await expect(opening.chooser.list).toBeHidden();
+  await expect(opening.dialog).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(opening.dialog).toBeHidden();
   await expect(opening.opener).toBeFocused();
   await expect(currentPhase).toHaveText('Draft');
 
-  // Cancel the same, and nothing ticked then was kept.
+  // Cancel the same, and no one chosen then was kept.
   await opening.start();
-  await expect(opening.choice(ANA)).not.toBeChecked();
+  await expect(opening.chooser.chips).toHaveCount(0);
   await opening.cancel.click();
   await expect(opening.dialog).toBeHidden();
   await expect(opening.opener).toBeFocused();
   const untouched = await request.get(`${BACKEND_URL}/markets/${market.marketId}`);
   expect((await untouched.json()).market.reviewTeam.reviewers).toEqual([]);
 
-  // Enter confirms, as the form's submit.
+  // Enter takes the match while the list is open; with it closed, Enter confirms, as the form's
+  // submit.
   await opening.start();
-  await opening.choice(ANA).check();
-  await opening.choice(BEN).check();
-  await opening.choice(BEN).focus();
+  await opening.chooser.choose(ANA, BEN);
+  await expect(opening.dialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(opening.chooser.list).toBeHidden();
   await page.keyboard.press('Enter');
   await expect(opening.dialog).toBeHidden();
   await expect(currentPhase).toHaveText('Applications', { timeout: 10000 });
   // It lands where the move always has.
   await expect(page).toHaveURL(/\/applications$/);
-  await expect(new ReviewersPanel(page).people).toHaveText([ANA, BEN]);
+  await expect(new ReviewersPanel(page).line).toHaveText(`2 reviewers: ${ANA} and ${BEN}`);
 
   const first = await apply(browser, market, 'Iris');
   const second = await apply(browser, market, 'Jude');

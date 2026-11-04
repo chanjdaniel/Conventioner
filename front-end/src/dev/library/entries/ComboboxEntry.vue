@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
  * The combobox (T200): `SearchPicker` grown, on the fixture's data at a real market's size. It
- * opens on C7, "Who will follow up", beside today's native select of the same 150 people, then the
+ * opens on C7, "Who will follow up", capped among 150 people as its dialog and card are, then the
  * cap on a long plain list and across groups, and the states the cap brings. Several choices follow:
- * C5, the reviewers, beside today's real chooser with its checkbox per person, and C10's answers.
+ * C5, the reviewers as Choose reviewers draws them, and C10's answers.
  * Typed text ends it: C1, the import's value fixes, beside today's real row with its native select,
  * C3's option input, which keeps a new answer as typed, and the field whose words are its value,
  * for a screen that writes as it is typed.
@@ -13,13 +13,11 @@
  */
 import { computed, ref } from 'vue';
 import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
-import ReviewerPicker from '@/components/market/ReviewerPicker.vue';
 import ValueFixes from '@/components/ValueFixes.vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
 import LibrarySection from '../parts/LibrarySection.vue';
 import LibraryPanel from '../parts/LibraryPanel.vue';
 import TodayAndProposed from '../parts/TodayAndProposed.vue';
-import ChoicesForYou from '../parts/ChoicesForYou.vue';
 import ReadOut from '../parts/ReadOut.vue';
 import { fixture } from '../fixture';
 
@@ -46,9 +44,6 @@ const personGroups: PickerGroup[] = [
 ];
 const nameOf = (email: string) => people.find((person) => person.email === email)?.name ?? '';
 
-/** C7 today: every address in a native select, on the reviewer themself until they choose. */
-const me = people[0]!.email;
-const todayOwner = ref(me);
 const proposedOwner = ref('');
 
 const optionGroups: PickerGroup[] = [
@@ -74,11 +69,14 @@ const assigneeGroups: PickerGroup[] = [
     options: [
       { value: 'me', label: 'Me' },
       { value: 'anyone', label: 'Anyone' },
-      ...reviewers.map((id) => {
-        const { email } = people.find((candidate) => candidate.id === id)!;
-        return { value: email, label: email };
-      }),
     ],
+  },
+  {
+    label: 'Reviewers',
+    options: reviewers.map((id) => {
+      const { email } = people.find((candidate) => candidate.id === id)!;
+      return { value: email, label: email };
+    }),
   },
 ];
 const assignee = ref('');
@@ -91,13 +89,13 @@ const pastTheCap = ref(people[120]!.email);
 
 /** A filter's choice, which words only search over. */
 const heldChoice = ref(people[0]!.email);
+const overChoice = ref(people[0]!.email);
 
 const nobody = ref('');
 
 /** C5 on both sides: the fixture's 12 reviewers already chosen, by address as the market keeps them. */
 const reviewerAddresses = reviewers.map((id) => people.find((person) => person.id === id)!.email);
 const allAddresses = people.map((person) => person.email);
-const todayReviewers = ref([...reviewerAddresses]);
 const proposedReviewers = ref([...reviewerAddresses]);
 /** An account holds an address and no name, so a reviewer's row and chip are the address. */
 const accountGroups: PickerGroup[] = [
@@ -107,8 +105,21 @@ const accountGroups: PickerGroup[] = [
 /** C10's answers, none chosen yet. */
 const rejected = ref<string[]>([]);
 
-/** The first page's rows hold neither: both are found again only by the words. */
+/** The first page's rows would hold neither: past the cap, both are drawn first. */
 const pastTheCapSeveral = ref([people[120]!.email, people[140]!.email]);
+
+/** The reader's own address: "You" beside it in the list, "(you)" on its chip. */
+const withMeGroups: PickerGroup[] = [
+  {
+    options: allAddresses.slice(0, 10).map((email) => ({
+      value: email,
+      label: email,
+      address: true,
+      ...(email === allAddresses[0] ? { detail: 'You', chip: `${email} (you)` } : {}),
+    })),
+  },
+];
+const withMe = ref([allAddresses[0]!, allAddresses[1]!]);
 
 /** A reviewer the reader is no longer offered is still chosen: their chip is their address. */
 const notOfferedGroups: PickerGroup[] = [{ options: personGroups[0]!.options.slice(0, 10) }];
@@ -134,14 +145,23 @@ const offeredAnswers = question.options.map(({ label }) => label);
 const todayFixes = [{ target: question.label, value: valuesToFix[0]!, offered: offeredAnswers }];
 const todayFix = ref('');
 
-/** The rows shown before "Show all", as the start's set-aside values are today. */
-const FIRST_FIXES = 6;
+/**
+ * The values still waiting are all shown, since they are the work; only those already decided,
+ * here set aside as the start sets them aside, stop at 6 and "Show all" (Daniel's choice).
+ */
+const WAITING_FIXES = 7;
+const FIRST_DECIDED = 6;
+const waitingFixes = valuesToFix.slice(0, WAITING_FIXES);
+const decidedFixes = valuesToFix.slice(WAITING_FIXES);
 const allFixes = ref(false);
-const shownFixes = computed(() =>
-  allFixes.value ? valuesToFix : valuesToFix.slice(0, FIRST_FIXES),
+const shownFixes = computed(() => [
+  ...waitingFixes,
+  ...(allFixes.value ? decidedFixes : decidedFixes.slice(0, FIRST_DECIDED)),
+]);
+const fixes = ref<Record<string, string>>(
+  Object.fromEntries(decidedFixes.map((value) => [value, IGNORE_VALUE])),
 );
-const fixes = ref<Record<string, string>>({});
-const fixedCount = computed(() => valuesToFix.filter((value) => fixes.value[value]).length);
+const fixedCount = computed(() => waitingFixes.filter((value) => fixes.value[value]).length);
 function fixReadOut(fix: string | undefined): string {
   if (!fix) return '';
   if (fix === IGNORE_VALUE) return IGNORE_LABEL;
@@ -160,40 +180,22 @@ const writtenAnswer = ref('');
 <template>
   <LibrarySection
     title="One choice from many"
-    about="One choice serves C2, C6, C7, C8, C9, C13 and C14: the native selects and the datalist that hold a long list today."
+    about="One choice serves C2, C6, C7, C8, C9, C13 and C14. C6, C7 and C8 are on their screens; the others are the native selects and the datalist that hold a long list today."
   >
-    <TodayAndProposed
-      :today="`Today: a native select of ${people.length} addresses (C7)`"
-      :proposed="`Proposed: found by name or address, capped at ${CAP}`"
-    >
-      <template #today>
-        <div class="library-demo" data-testid="library-c7-today">
-          <div>
-            <label class="field-label" for="library-c7-today-field">Who will follow up</label>
-            <select id="library-c7-today-field" v-model="todayOwner" class="field field--select">
-              <option v-for="person in people" :key="person.id" :value="person.email">
-                {{ person.email === me ? `${person.email} (you)` : person.email }}
-              </option>
-            </select>
-          </div>
-          <ReadOut label="Chosen" :value="todayOwner" />
-        </div>
-      </template>
-      <template #proposed>
-        <div class="library-demo">
-          <SearchPicker
-            v-model="proposedOwner"
-            :groups="personGroups"
-            :finds="findsPerson"
-            :cap="CAP"
-            label="Who will follow up"
-            placeholder="Type a name or address…"
-            testid="library-c7"
-          />
-          <ReadOut label="Chosen" :value="nameOf(proposedOwner)" />
-        </div>
-      </template>
-    </TodayAndProposed>
+    <LibraryPanel :label="`Found by name or address, capped at ${CAP} (C7's shape)`">
+      <div class="library-demo">
+        <SearchPicker
+          v-model="proposedOwner"
+          :groups="personGroups"
+          :finds="findsPerson"
+          :cap="CAP"
+          label="Who will follow up"
+          placeholder="Type a name or address…"
+          testid="library-c7"
+        />
+        <ReadOut label="Chosen" :value="nameOf(proposedOwner)" />
+      </div>
+    </LibraryPanel>
 
     <LibraryPanel :label="`${question.options.length} options, capped at ${CAP} (C13's shape)`">
       <div class="library-demo">
@@ -271,6 +273,22 @@ const writtenAnswer = ref('');
       </div>
     </LibraryPanel>
 
+    <LibraryPanel label="A list over what follows: for a filter beside others">
+      <div class="library-demo">
+        <SearchPicker
+          v-model="overChoice"
+          holds-choice
+          list-over
+          :groups="personGroups"
+          :finds="findsPerson"
+          :cap="CAP"
+          label="Who"
+          testid="library-list-over"
+        />
+        <ReadOut label="Chosen" :value="nameOf(overChoice)" />
+      </div>
+    </LibraryPanel>
+
     <LibraryPanel label="No choices at all: the list never opens">
       <div class="library-demo">
         <SearchPicker
@@ -289,38 +307,25 @@ const writtenAnswer = ref('');
 
   <LibrarySection
     title="Several choices, as chips"
-    about="Several choices serve C5, C10, C11 and C12: a checkbox per person or per answer today, up to 150 people and 230 answers, and the rule that ranks a field's options."
+    about="Several choices serve C5, C10, C11 and C12. C5 is on its screen; the others are a checkbox per answer today, up to 230 answers, and the rule that ranks a field's options."
   >
-    <TodayAndProposed
-      :today="`Today: a checkbox per person, all ${people.length} drawn (C5)`"
-      proposed="Proposed: the chosen as chips, the rest found by typing"
+    <LibraryPanel
+      :label="`C5: the reviewers among ${people.length}, as Choose reviewers draws them`"
     >
-      <template #today>
-        <div class="library-demo" data-testid="library-c5-today">
-          <ReviewerPicker
-            v-model="todayReviewers"
-            :candidates="allAddresses"
-            :current="reviewerAddresses"
-          />
-          <ReadOut label="Ticked" :value="`${todayReviewers.length} of ${people.length}`" />
-        </div>
-      </template>
-      <template #proposed>
-        <div class="library-demo">
-          <SearchPicker
-            v-model="proposedReviewers"
-            multiple
-            :groups="accountGroups"
-            :finds="findsByLabel"
-            :cap="CAP"
-            label="Reviewers"
-            placeholder="Type an address…"
-            testid="library-c5"
-          />
-          <ReadOut label="Chosen" :value="proposedReviewers" />
-        </div>
-      </template>
-    </TodayAndProposed>
+      <div class="library-demo">
+        <SearchPicker
+          v-model="proposedReviewers"
+          multiple
+          :groups="accountGroups"
+          :finds="findsByLabel"
+          :cap="CAP"
+          label="Reviewers"
+          placeholder="Type an address…"
+          testid="library-c5"
+        />
+        <ReadOut label="Chosen" :value="proposedReviewers" />
+      </div>
+    </LibraryPanel>
 
     <LibraryPanel
       :label="`${question.options.length} answers, capped at ${CAP}, none chosen yet (C10's shape)`"
@@ -341,7 +346,9 @@ const writtenAnswer = ref('');
       </div>
     </LibraryPanel>
 
-    <LibraryPanel label="Choices past the cap: not in the list, still chips">
+    <LibraryPanel
+      label="Choices past the cap: drawn first, so every choice opens ticked at the top"
+    >
       <div class="library-demo">
         <SearchPicker
           v-model="pastTheCapSeveral"
@@ -354,6 +361,36 @@ const writtenAnswer = ref('');
           testid="library-several-past-cap"
         />
         <ReadOut label="Chosen" :value="pastTheCapSeveral" />
+      </div>
+    </LibraryPanel>
+
+    <LibraryPanel label="A chip's own words: the reader's address reads (you)">
+      <div class="library-demo">
+        <SearchPicker
+          v-model="withMe"
+          multiple
+          :groups="withMeGroups"
+          :finds="findsByLabel"
+          label="Reviewers"
+          placeholder="Type an address…"
+          testid="library-chip-words"
+        />
+        <ReadOut label="Chosen" :value="withMe" />
+      </div>
+    </LibraryPanel>
+
+    <LibraryPanel label="Disabled: nothing is taken while the choice is being saved">
+      <div class="library-demo">
+        <SearchPicker
+          :model-value="withMe"
+          multiple
+          disabled
+          :groups="withMeGroups"
+          :finds="findsByLabel"
+          label="Reviewers"
+          placeholder="Type an address…"
+          testid="library-disabled"
+        />
       </div>
     </LibraryPanel>
 
@@ -396,7 +433,7 @@ const writtenAnswer = ref('');
   >
     <TodayAndProposed
       :today="`Today: a native select of ${question.options.length} answers on every row (C1)`"
-      proposed="Proposed: found by typing, or kept as typed, the rows behind a cap"
+      proposed="Proposed: found by typing, or kept as typed, every waiting value shown"
     >
       <template #today>
         <div class="library-demo" data-testid="library-c1-today">
@@ -411,29 +448,39 @@ const writtenAnswer = ref('');
       </template>
       <template #proposed>
         <div class="library-fixes">
-          <div
-            v-for="(value, at) in shownFixes"
-            :key="value"
-            class="library-demo"
-            role="group"
-            :aria-labelledby="`library-c1-value-${at}`"
-            data-testid="library-c1-value"
-          >
-            <code :id="`library-c1-value-${at}`" class="library-fix-value">{{ value }}</code>
-            <SearchPicker
-              :model-value="fixes[value] ?? ''"
-              :groups="fixGroups"
-              :finds="findsByLabel"
-              :cap="CAP"
-              accepts-typed
-              label="What it means"
-              placeholder="Type to find an answer…"
-              none-word="Nothing"
-              :testid="`library-c1-fix-${at}`"
-              @update:model-value="fixes[value] = $event as string"
-            />
-            <ReadOut label="Fix" :value="fixReadOut(fixes[value])" />
-          </div>
+          <template v-for="(value, at) in shownFixes" :key="value">
+            <p v-if="at === 0" class="library-fixes-heading" data-testid="library-c1-waiting">
+              {{ waitingFixes.length }} values still waiting
+            </p>
+            <p
+              v-if="at === waitingFixes.length"
+              class="library-fixes-heading"
+              data-testid="library-c1-decided"
+            >
+              {{ decidedFixes.length }} values already decided
+            </p>
+            <div
+              class="library-demo"
+              role="group"
+              :aria-labelledby="`library-c1-value-${at}`"
+              data-testid="library-c1-value"
+            >
+              <code :id="`library-c1-value-${at}`" class="library-fix-value">{{ value }}</code>
+              <SearchPicker
+                :model-value="fixes[value] ?? ''"
+                :groups="fixGroups"
+                :finds="findsByLabel"
+                :cap="CAP"
+                accepts-typed
+                label="What it means"
+                placeholder="Type to find an answer…"
+                none-word="Nothing"
+                :testid="`library-c1-fix-${at}`"
+                @update:model-value="fixes[value] = $event as string"
+              />
+              <ReadOut label="Fix" :value="fixReadOut(fixes[value])" />
+            </div>
+          </template>
           <div class="library-fixes-foot">
             <button
               type="button"
@@ -441,10 +488,10 @@ const writtenAnswer = ref('');
               data-testid="library-c1-show-all"
               @click="allFixes = !allFixes"
             >
-              {{ allFixes ? 'Show fewer' : `Show all ${valuesToFix.length}` }}
+              {{ allFixes ? 'Show fewer' : `Show all ${decidedFixes.length}` }}
             </button>
             <div data-testid="library-c1-fixed">
-              <ReadOut label="Fixed" :value="`${fixedCount} of ${valuesToFix.length}`" />
+              <ReadOut label="Fixed" :value="`${fixedCount} of ${waitingFixes.length}`" />
             </div>
           </div>
         </div>
@@ -535,54 +582,6 @@ const writtenAnswer = ref('');
       </div>
     </LibraryPanel>
   </LibrarySection>
-
-  <ChoicesForYou>
-    <li>
-      The threshold: past how many choices a native select becomes a combobox. About 12 to start.
-    </li>
-    <li>The cap: how many matches are drawn before "N more, type to narrow". 50, or fewer.</li>
-    <li>
-      The match order: matches in the option order, as here, or those starting with the words first.
-    </li>
-    <li>
-      The chips: above the field, as here, or inside it. C5's are addresses, as an account holds no
-      name, so judge this on them: a name, as the other panels draw, is about half as wide.
-    </li>
-    <li>
-      Chosen rows past the cap: left where they fall, as here, so 8 of C5's 12 are not drawn until
-      typed for and each still has its chip; or drawn first, so every choice opens ticked at the top
-      of the list.
-    </li>
-    <li>
-      After a choice among several: the words stay, selected so the next word replaces them, as
-      here, so more of what they found can be chosen in a row; or the field clears and the list
-      starts again.
-    </li>
-    <li>
-      The keyboard's way past the chips: each chip's button is a stop before the field, as here, or
-      the chips are one stop, walked by the arrow keys.
-    </li>
-    <li>
-      The wording of the row that keeps the words: <code>Use "&lt;words&gt;"</code>, or another.
-    </li>
-    <li>
-      Enter on words that find something: the words as typed, as here, since their row leads and the
-      keys reach it first; or the first match, with the words' row one press away. The first keeps a
-      new answer safe, and the second saves a press on the usual fix.
-    </li>
-    <li>
-      Words that differ from an option only in capitals: their own row, as here, since they are not
-      exactly the option, so "stickers" can stand beside "Stickers"; or that option alone.
-    </li>
-    <li>
-      Leaving the field with words not chosen: they are no value, as here, though the field still
-      shows them; or leaving keeps them as typed.
-    </li>
-    <li>
-      The value fixes' rows: 6 and "Show all", as here, on values still waiting too; or every
-      waiting value shown, as today, with the cap only on those already decided.
-    </li>
-  </ChoicesForYou>
 </template>
 
 <style scoped>
@@ -610,6 +609,12 @@ const writtenAnswer = ref('');
   border-radius: var(--radius-control);
   background: var(--mm-beige);
   font-size: var(--text-xs);
+}
+
+.library-fixes-heading {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
 }
 
 .library-fixes-foot {

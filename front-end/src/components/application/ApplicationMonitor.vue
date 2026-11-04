@@ -22,7 +22,7 @@
  * sits beside the counts, and the list is newest verdict first.
  */
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
 import type { Application, Market } from '@/assets/types/datatypes';
 import { ApplicationStatus } from '@/assets/types/datatypes';
 import { fetchMarketApplications, reassignFollowUp } from '@/utils/applicantApi';
@@ -35,6 +35,8 @@ import {
   reviewed,
 } from '@/utils/reviewQueue';
 import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
+import SearchPicker from '@/components/SearchPicker.vue';
+import { PEOPLE_CAP, findsPerson, personOption } from '@/utils/personChoice';
 import { useReviewHighlights } from '@/utils/reviewHighlights';
 import { EMPTY_ESSENTIAL_OPTIONS, TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
@@ -276,6 +278,15 @@ const progress = computed(() => {
 const ownerChoices = computed(() => {
   const owner = current.value?.followUpOwner?.email;
   return owner && !people.value.includes(owner) ? [owner, ...people.value] : people.value;
+});
+const ownerGroups = computed(() => [{ options: ownerChoices.value.map(personOption) }]);
+
+/** The hand-on under way: the field names them, and names the owner again if it is refused. */
+const handingOn = shallowRef<{ applicationId: string; email: string } | null>(null);
+const followedUpBy = computed(() => {
+  const app = current.value;
+  if (app && handingOn.value?.applicationId === app.id) return handingOn.value.email;
+  return app?.followUpOwner?.email ?? '';
 });
 
 /**
@@ -598,12 +609,16 @@ async function markFollowUp(choice: { ownerEmail: string; note?: string }) {
 }
 
 async function reassign(app: Application, ownerEmail: string) {
-  if (!props.market) return;
+  if (!props.market || ownerEmail === followedUpBy.value) return;
   errorMessage.value = '';
+  const handing = { applicationId: app.id, email: ownerEmail };
+  handingOn.value = handing;
   try {
     adopt(await reassignFollowUp(props.market.id, app.id, ownerEmail));
   } catch (err) {
     errorMessage.value = getApiErrorMessage(err, 'Could not hand the follow-up over.');
+  } finally {
+    if (handingOn.value === handing) handingOn.value = null;
   }
 }
 
@@ -863,24 +878,27 @@ function submittedOn(app: Application): string {
         </p>
         <!-- Who is reaching out, and who can be handed it (E34/F02/S01). A Viewer reads the recorded
              owner as plain text - the people it could be handed to are a verdict-giver's list. -->
-        <div v-if="current.status === ApplicationStatus.NeedsFollowUp" class="follow-up-owner">
-          <label :for="decides ? 'app-monitor-follow-up-owner' : undefined">Followed up by</label>
-          <select
+        <template v-if="current.status === ApplicationStatus.NeedsFollowUp">
+          <SearchPicker
             v-if="decides"
-            id="app-monitor-follow-up-owner"
-            class="field field--select"
-            :value="current.followUpOwner?.email ?? ''"
-            data-testid="app-monitor-follow-up-owner"
-            @change="reassign(current, ($event.target as HTMLSelectElement).value)"
-          >
-            <option v-for="person in ownerChoices" :key="person" :value="person">
-              {{ person === me ? `${person} (you)` : person }}
-            </option>
-          </select>
-          <span v-else class="follow-up-owner-value" data-testid="app-monitor-follow-up-owner">
-            {{ current.followUpOwner?.email ?? '-' }}
-          </span>
-        </div>
+            class="follow-up-owner-picker"
+            :model-value="followedUpBy"
+            :groups="ownerGroups"
+            :finds="findsPerson"
+            :cap="PEOPLE_CAP"
+            holds-choice
+            label="Followed up by"
+            placeholder="Type an address…"
+            testid="app-monitor-follow-up-owner"
+            @update:model-value="reassign(current, $event as string)"
+          />
+          <div v-else class="follow-up-owner">
+            <span>Followed up by</span>
+            <span class="follow-up-owner-value" data-testid="app-monitor-follow-up-owner">
+              {{ current.followUpOwner?.email ?? '-' }}
+            </span>
+          </div>
+        </template>
 
         <!-- Above the answers, never behind the disclosure: it is something to act on (E27). -->
         <TableShareNotice
@@ -1245,10 +1263,7 @@ function submittedOn(app: Application): string {
   color: var(--mm-black);
 }
 
-/*
- * The select is as wide as its longest person, and no wider than the card. A fixed 20rem cut a
- * long address's "(you)" off against the chevron.
- */
+/* A Viewer's "Followed up by": the words, then the address, wrapping within the card. */
 .follow-up-owner {
   display: grid;
   grid-template-columns: auto minmax(0, max-content);
@@ -1256,6 +1271,18 @@ function submittedOn(app: Application): string {
   align-items: center;
   gap: var(--space-2);
   margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--mm-black);
+}
+
+/* The chooser is as wide as a long address needs, and no wider than the card. On the card's beige
+   its label reads in the card's own ink, where the plain muted ink falls below AA. */
+.follow-up-owner-picker {
+  max-width: 28rem;
+  margin-bottom: var(--space-3);
+}
+
+.follow-up-owner-picker :deep(.field-label) {
   font-size: var(--text-sm);
   color: var(--mm-black);
 }

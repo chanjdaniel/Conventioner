@@ -44,6 +44,7 @@ sources:
   - T181
   - T200
   - T211
+  - T204
 ---
 
 # Dialogs
@@ -52,8 +53,8 @@ sources:
 It owns the scrim, the window, the close control, Escape and backdrop dismissal, holding the page behind inert, focus on open, and the `type="submit"` confirm.
 A new dialog is built on it, never hand-rolled; a panel that slides in from a side is [`SidePanel`](../../design-system.md#the-primitive-layer), through the same composables.
 Not every modal is a dialog on it.
-Two take the shell's parts rather than copying them: the [vendor drawer](../../business/flows/vendor-drawer.md), a panel beside the page, and the door code's full screen ([`DoorCodeScreen.vue`](../../../front-end/src/components/DoorCodeScreen.vue), [attendance and the door](../modules/attendance-and-door.md)), which fills the window at the entrance where a dialog is a small window over the page.
-The floorplan's [`SaveFlow.vue`](../../../front-end/src/components/floorplan/SaveFlow.vue) and [`SectionGrouping.vue`](../../../front-end/src/components/floorplan/SectionGrouping.vue) are hand-rolled, with their own scrim and window and, of the shell's parts, only `useModalRoot`; the app's navigation drawer holds the page inert with `useInertBehind` in [`App.vue`](../../../front-end/src/App.vue).
+Three take the shell's parts rather than copying them: the [vendor drawer](../../business/flows/vendor-drawer.md), a panel beside the page; the door code's full screen ([`DoorCodeScreen.vue`](../../../front-end/src/components/DoorCodeScreen.vue), [attendance and the door](../modules/attendance-and-door.md)), which fills the window at the entrance where a dialog is a small window over the page; and [the app bar's sheet](../modules/app-bar.md#the-sheet-on-a-phone), a list of places hanging from the bar, which holds no form, title or actions for the shell to own and keeps the same contract with `useInertBehind`, `useEscapeToClose` and `useFocusGoesBack`.
+The floorplan's [`SaveFlow.vue`](../../../front-end/src/components/floorplan/SaveFlow.vue) and [`SectionGrouping.vue`](../../../front-end/src/components/floorplan/SectionGrouping.vue) are hand-rolled, with their own scrim and window and, of the shell's parts, only `useModalRoot`.
 The door code's screen declares `role="dialog"` and `aria-modal` itself, and makes it true with `useModalRoot`, `useEscapeToClose` and `useFocusGoesBack`, so the page behind is inert, Escape closes it while it is on top, and focus opens on its Close and goes back to "Door code"; its one confirmation, New code, is an `AppDialog`, teleported beside it as a sibling.
 
 ## The rules
@@ -62,6 +63,7 @@ The door code's screen declares `role="dialog"` and `aria-modal` itself, and mak
 Enter in a field runs the same handler as the confirm button, so it inherits that handler's guard, and a disabled submit makes Enter inert with no key handler anywhere.
 Do not add `@keydown.enter`: five views each invented their own answer, and one of them, the vendor's sign-in, bypassed its own resend cooldown by doing so.
 One exception is a picker's open list ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): while its list is open, Enter takes the highlighted choice, or closes the list when none is highlighted, and is kept from the form (with `multiple` the list stays open after a choice, so the next Enter is the list's too), and Escape closes the list and is kept from the dialog; once the list is closed both keys are the dialog's again, so Enter submits through the form's guard and Escape closes.
+The list stays through a press past it, until the press ends, so the click lands on the Save below it, which closing it as the focus goes would move away.
 The other is a field that only narrows what is shown, as a [`ListFrame.vue`](../../../front-end/src/components/ListFrame.vue)'s find field and the library's export prototype's name or email field, column checklist's find field and Mine tick have, in which Enter does nothing: it narrows the rows as it is typed in or ticked, so Enter there would only save what the person was looking through.
 
 **A dialog of several independent actions passes no `confirmLabel`** and hosts its own `<form>`s in its body; Manage organization has three.
@@ -87,7 +89,7 @@ The body's scroller and a pinned tray are each `position: relative`, or somethin
 `dvh` sizes it, since a phone's browser bar would otherwise cover its pinned actions.
 **`scroll="body"` is expand-contract**: it is opt-in, so no dialog changed when it came; each dialog moves to it as it is converted, the export dialog first, then those whose body can outgrow a laptop window (Manage market, Manage organization, Change reviewers, Fix the form, Open applications, the assignment history); `scroll="window"` and the `wide` boolean are deleted when no dialog uses them.
 The library's `dialog` entry shows each width, today's scroll beside the body's on 150 people, the tray, and every behaviour below in either scroll, and its `export-vendors` entry a broad dialog with its whole tray, the export redesigned ([the component library](../modules/component-library.md)).
-A long list goes in that body as a [`ListFrame.vue`](../../../front-end/src/components/ListFrame.vue), whose field keeps its Enter, as above, and which needs nothing else there: the library's `summaries` entry holds Change reviewers and the reviewed list so ([`the-component-library-summaries.spec.ts`](../../../front-end/e2e/the-component-library-summaries.spec.ts)).
+A long list goes in that body as a [`ListFrame.vue`](../../../front-end/src/components/ListFrame.vue), whose field keeps its Enter, as above, and which needs nothing else there: the library's `summaries` entry holds the reviewed list so ([`the-component-library-summaries.spec.ts`](../../../front-end/e2e/the-component-library-summaries.spec.ts)).
 
 **A dialog sits centred, unless its body grows as it is used**: `anchored` holds its top where it opened, so a field's error appearing as a key is typed does not move the dialog half a line under the pointer (the amendment's dialog, E38/F02).
 

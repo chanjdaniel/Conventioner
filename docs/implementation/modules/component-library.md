@@ -9,7 +9,7 @@ describes:
   - back-end/tests/fixtures/component_library_fixture.py
   - back-end/tests/test_component_library_fixture.py
   - front-end/e2e/helpers/componentLibrary.ts
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - T200
   - T191
@@ -79,7 +79,7 @@ Prettier leaves the file alone (`.prettierignore`), so the bytes stay the derive
 
 ## Adding an entry
 
-1. Add its line to `ENTRIES` and write `entries/<Id>Entry.vue` from the parts above, ending with `ChoicesForYou`; the index links it with no other change.
+1. Add its line to `ENTRIES` and write `entries/<Id>Entry.vue` from the parts above, ending with `ChoicesForYou` for what it leaves to choose; the index links it with no other change.
 2. Write its spec, `front-end/e2e/the-component-library-<id>.spec.ts`, with [`helpers/componentLibrary.ts`](../../../front-end/e2e/helpers/componentLibrary.ts): `eachWindow` declares its tests at a desk and on a phone, `openEntry` opens it, and `expectLaidOut` holds it to the window's width and to the layout detectors' gating findings.
    It needs no seed and no sign-in.
    An entry that mounts an existing component as it is shows that component's faults too: its spec may leave out a finding the component brings, by name and with why, and fail on every other (`the-component-library-components.spec.ts` leaves out `StepHeader`'s 32px steps, whose one screen is built for a desk).

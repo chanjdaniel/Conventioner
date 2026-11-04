@@ -5,7 +5,7 @@
  * each patched their own copy, read by five screens, and trusted over the server by the ones that
  * never fetched. It is how the form builder ignored a phase change until the organizer changed tabs,
  * and how a stale copy came to be sent back to the server. The back end is the only source of truth
- * now, held in one store; the dashboard's `lastMarketId` is a pointer, never a copy.
+ * now, held in one store; `lastMarketId` is a pointer, never a copy.
  *
  * This reads the source rather than the running app, so the next file that reaches for the old key
  * fails here, by name, instead of drifting back in unnoticed.

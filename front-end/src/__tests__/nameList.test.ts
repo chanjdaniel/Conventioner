@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mount } from '@vue/test-utils';
+import { h } from 'vue';
 import NameList from '@/components/NameList.vue';
 
 const NAMES = [
@@ -74,5 +75,38 @@ describe('"and N more"', () => {
     expect(wrapper.emitted('more')).toBeUndefined();
     await more(wrapper).trigger('click');
     expect(wrapper.emitted('more')).toHaveLength(1);
+  });
+});
+
+describe('what a screen draws in the sentence', () => {
+  const drawn = (count: number, slots: Record<string, unknown>) =>
+    mount(NameList, {
+      props: { names: NAMES.slice(0, count), noun: NOUN, testid: 'line' },
+      slots: slots as never,
+    });
+
+  it('draws each name it names through the name slot, keeping the sentence', () => {
+    const wrapper = drawn(12, {
+      name: ({ text, index }: { text: string; index: number }) =>
+        h('b', { 'data-testid': 'a-name' }, `${index + 1}. ${text}`),
+    });
+    expect(wrapper.findAll('[data-testid="a-name"]').map((b) => b.text())).toEqual([
+      '1. Ana',
+      '2. Ben',
+      '3. Cai',
+    ]);
+    expect(sentence(wrapper)).toBe('12 reviewers: 1. Ana, 2. Ben, 3. Cai and 9 more reviewers');
+  });
+
+  it('with nothing folded, joins them as a sentence does', () => {
+    const wrapper = drawn(3, { name: ({ text }: { text: string }) => h('b', text) });
+    expect(wrapper.findAll('b')).toHaveLength(3);
+    expect(sentence(wrapper)).toBe('3 reviewers: Ana, Ben and Cai');
+  });
+
+  it('ends the sentence with the end slot, after the button', () => {
+    const wrapper = drawn(12, { end: () => h('i', 'and so on') });
+    expect(sentence(wrapper)).toBe('12 reviewers: Ana, Ben, Cai and 9 more reviewersand so on');
+    expect(wrapper.get('[data-testid="line-more"]').element.nextElementSibling?.tagName).toBe('I');
   });
 });

@@ -5,7 +5,7 @@
  * `next` is a value anyone can put in a link, so it is honoured only when it is a path of this app:
  * one leading `/` (not `//` or `/\`, which a browser reads as another host), no backslash or control
  * character anywhere, not the sign-in page itself, and resolving to this origin. Anything else is
- * dropped, and signing in goes to the dashboard as it always did.
+ * dropped, and signing in goes to Markets.
  *
  * The sign-in page is any spelling the router matches as it: the router ignores case and one
  * trailing slash, so `/Login` and `/login/` are the sign-in page too.

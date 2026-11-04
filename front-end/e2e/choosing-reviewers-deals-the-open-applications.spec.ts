@@ -27,6 +27,8 @@ const BEN = 'e2e-reviewers-ben@example.com';
 const CAT = 'e2e-reviewers-cat@example.com';
 const DEE = 'e2e-reviewers-dee@example.com';
 const VIEWER = 'e2e-reviewers-viewer@example.com';
+/** The panel's line on all four, as a reader hears it. */
+const FOUR = `4 reviewers: ${ANA}, ${BEN}, ${CAT} and 1 more reviewer`;
 
 /** The open applications, in the order they arrive. */
 const OPEN = ['v1@moss.test', 'v2@moss.test', 'v3@moss.test', 'v4@moss.test', 'v5@moss.test'];
@@ -86,24 +88,25 @@ test('the owner chooses reviewers, and the open applications are dealt among the
   );
   await expect(reviewers.change).toHaveText('Choose reviewers');
 
-  await reviewers.tick(CAT, ANA, BEN);
+  await reviewers.choose(CAT, ANA, BEN);
   const first = await dealtAfter(page, () => reviewers.submit());
 
   expect(OPEN.map((vendor) => first[vendor])).toEqual([ANA, BEN, CAT, ANA, BEN]);
   expect([first['decided@moss.test'], first['follow-up@moss.test']]).toEqual([null, null]);
-  await expect(reviewers.people).toHaveText([ANA, BEN, CAT]);
+  await expect(reviewers.line).toHaveText(`3 reviewers: ${ANA}, ${BEN} and ${CAT}`);
   await expect(reviewers.change).toHaveText('Change reviewers');
 
-  // The current reviewers are ticked when the dialog opens; a fourth deals every open one again.
-  await reviewers.tick();
-  await expect(reviewers.choice(ANA)).toBeChecked();
-  await expect(reviewers.choice(DEE)).not.toBeChecked();
-  await reviewers.choice(DEE).check();
+  // The current reviewers are chips when the dialog opens; a fourth deals every open one again.
+  await reviewers.choose();
+  await expect(reviewers.chooser.chips).toHaveCount(3);
+  await expect(reviewers.chooser.chip(ANA)).toBeVisible();
+  await expect(reviewers.chooser.chip(DEE)).toHaveCount(0);
+  await reviewers.chooser.choose(DEE);
   const again = await dealtAfter(page, () => reviewers.submit());
 
   expect(OPEN.map((vendor) => again[vendor])).toEqual([ANA, BEN, CAT, DEE, ANA]);
   expect([again['decided@moss.test'], again['follow-up@moss.test']]).toEqual([null, null]);
-  await expect(reviewers.people).toHaveText([ANA, BEN, CAT, DEE]);
+  await expect(reviewers.line).toHaveText(FOUR);
 
   // The fourth vendor's own history tells whom their application went to, each time.
   const vendors = new VendorsPage(page);
@@ -122,7 +125,11 @@ test('a Viewer reads the reviewers and is offered no choice of them', async ({ b
     const reviewers = new ReviewersPanel(page);
     await all.goto(marketId);
 
-    await expect(reviewers.people).toHaveText([ANA, BEN, CAT, DEE]);
+    await expect(reviewers.line).toHaveText(FOUR);
     await expect(reviewers.change).toHaveCount(0);
+
+    await reviewers.more.click();
+    await expect(reviewers.all).toBeVisible();
+    await expect(reviewers.allPeople).toHaveText([ANA, BEN, CAT, DEE]);
   });
 });

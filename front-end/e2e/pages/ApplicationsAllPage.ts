@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { marketScreenPath } from '../helpers/marketScreens';
+import { PersonChooser } from './PersonChooser';
 
 type AllViewFilter =
   'all' | 'undecided' | 'needs_follow_up' | 'reviewer_approved' | 'reviewer_rejected';
@@ -37,9 +38,8 @@ export class ApplicationsAllPage {
   /** What a selection's confirmation says of the ticked rows dealt to others (E38/F07/S03). */
   readonly confirmDealt: Locator;
   /** Whose share the rows show, with reviewers chosen (E38/F07/S04). */
-  readonly assignedTo: Locator;
-  /** The shares "Assigned to" offers, in its order. */
-  readonly assignedToOptions: Locator;
+  /** Whose share the rows show: its `field` names the choice, and finds another by typing. */
+  readonly assignedTo: PersonChooser;
   /** Every listed row's reviewer line, in the rows' order. */
   readonly rowReviewers: Locator;
   /** "N of M": how many rows show of every application. */
@@ -66,8 +66,7 @@ export class ApplicationsAllPage {
     this.drawerReviewer = page.getByTestId('applications-all-drawer-reviewer');
     this.drawerDealtWarning = page.getByTestId('applications-all-drawer-dealt-warning');
     this.confirmDealt = page.getByTestId('applications-all-confirm-dealt');
-    this.assignedTo = page.getByLabel('Assigned to');
-    this.assignedToOptions = this.assignedTo.locator('option');
+    this.assignedTo = new PersonChooser(page, 'applications-all-assigned-to');
     this.rowReviewers = this.rows.getByTestId('applications-all-reviewer');
     this.count = page.getByTestId('applications-all-count');
   }
@@ -81,9 +80,19 @@ export class ApplicationsAllPage {
     await this.page.goto(`${marketScreenPath(marketId, 'applications')}?view=all${share}`);
   }
 
-  /** Choose whose share the rows show, by the option's words ("Me", "Anyone" or an address). */
-  async assignTo(label: string): Promise<void> {
-    await this.assignedTo.selectOption({ label });
+  /** Choose whose share the rows show by typing its words ("Me", "Anyone" or an address). */
+  async assignTo(words: string): Promise<void> {
+    const { field, options, list } = this.assignedTo;
+    await field.fill(words);
+    await options.filter({ hasText: words }).first().waitFor();
+    await field.press('Enter');
+    await list.waitFor({ state: 'detached' });
+  }
+
+  /** The shares "Assigned to" offers, in its order: opens its list and leaves it open. */
+  async openAssignedTo(): Promise<Locator> {
+    await this.assignedTo.field.click();
+    return this.assignedTo.options;
   }
 
   /** Back from the one-by-one review, by its switch. */
