@@ -420,7 +420,9 @@ Given `holdsChoice`, one choice holds until another is taken, as a filter or a c
 The placement dialog's pickers are its first use, with no `cap`.
 A row of pressed buttons that filters a list or switches a view is [`FilterToggles.vue`](../front-end/src/components/FilterToggles.vue) (T200): compact secondary `.btn`s in a named `role="group"`, one choice by default or several with `multiple`, each named by the words it shows, its label then an optional count.
 The row wraps and a long label wraps inside its toggle, so it never scrolls sideways, and on a phone a toggle is at least 44px each way.
-Pressing the chosen toggle again keeps it; several emit in the options' order.
+One rule holds in every row, Daniel's choice on 2026-11-04: pressing the chosen toggle again lets it go, and nothing pressed means all, so a row needs no All toggle, and Markets' phase filter has none.
+With one choice, letting go empties the value, unless the row names in `rest` an option to return to: the All toggle a row still draws, which stays pressed when it is pressed again.
+Several emit in the options' order.
 No screen mounts it yet: the library's `filter-toggles` entry lists the eight rows it would replace.
 
 A list that can grow with a market is [`ListFrame.vue`](../front-end/src/components/ListFrame.vue) (T200), generic over the row: a find field past `findFrom` rows (12), the screen's own filters beside it, a count line, the first `pageSize` rows (50) and "Show N more".

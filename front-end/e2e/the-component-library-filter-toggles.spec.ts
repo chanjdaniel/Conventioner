@@ -6,8 +6,9 @@ import { inTheWindow } from './helpers/phoneWindow';
 /**
  * The component library's `filter-toggles` entry (T200): `FilterToggles` on the fixture's counts, at
  * a desk and on a phone. Application statuses read their counts and choose one at a time, a view
- * switch has no counts, and several phases press in and out; the row wraps and a label longer than
- * the row wraps inside its toggle, so nothing scrolls sideways, and a phone's toggle is a 44px target.
+ * switch has no counts, and several phases press in and out; pressing the chosen toggle again lets
+ * it go, in every row; the row wraps and a label longer than the row wraps inside its toggle, so
+ * nothing scrolls sideways, and a phone's toggle is a 44px target.
  */
 
 const readOutOf = (toggles: Locator): Locator =>
@@ -19,7 +20,7 @@ eachWindow('the filter toggles entry', (size) => {
     await openEntry(page, 'filter-toggles');
   });
 
-  test('names what it serves, lists its places and ends with the choices left', async ({
+  test('names what it serves and lists its places, with no choices left', async ({
     page,
     expectAccessible,
   }) => {
@@ -29,9 +30,7 @@ eachWindow('the filter toggles entry', (size) => {
 
     await expect(page.getByTestId('library-toggles-place')).toHaveCount(10);
 
-    const choices = page.getByTestId('choices-for-you');
-    await expect(choices).toContainText('Counts');
-    await expect(choices).toContainText('pressed look');
+    await expect(page.getByTestId('choices-for-you')).toHaveCount(0);
 
     await expectLaidOut(page, size, 'the filter toggles entry');
     await expectAccessible('the filter toggles entry');
@@ -63,8 +62,12 @@ eachWindow('the filter toggles entry', (size) => {
       '600',
     );
 
+    // Pressed again it lets go, back to the row's All toggle, which itself has nowhere to go.
     await press(approved);
-    await expect(pressedIn(statuses)).toHaveText(['Approved 160']);
+    await expect(pressedIn(statuses)).toHaveText(['Any status 359']);
+    await expect(readOutOf(statuses)).toHaveText('Showing: Any status, 359 applications');
+    await press(page.getByTestId('library-toggles-statuses-all'));
+    await expect(pressedIn(statuses)).toHaveText(['Any status 359']);
   });
 
   test("today's row beside it has no counts, and draws the same pressed look", async ({ page }) => {
@@ -93,6 +96,21 @@ eachWindow('the filter toggles entry', (size) => {
     await inTheWindow(size).press(page.getByTestId('library-toggles-view-one'));
     await expect(pressedIn(view)).toHaveText(['One by one']);
     await expect(readOutOf(view)).toHaveText('View: One by one');
+
+    await inTheWindow(size).press(page.getByTestId('library-toggles-view-one'));
+    await expect(pressedIn(view)).toHaveText(['All']);
+  });
+
+  test('one choice with no All toggle: letting go presses nothing and reads as all', async ({
+    page,
+  }) => {
+    const { press } = inTheWindow(size);
+    const nothing = page.getByTestId('library-toggles-zero');
+    await expect(pressedIn(nothing)).toHaveText(['Approved 160']);
+
+    await press(nothing.getByRole('button', { name: 'Approved 160' }));
+    await expect(pressedIn(nothing)).toHaveCount(0);
+    await expect(readOutOf(nothing)).toHaveText('Showing: All');
   });
 
   test('several: a press takes a phase in and out, and none reads as all', async ({ page }) => {

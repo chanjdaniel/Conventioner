@@ -3,10 +3,11 @@
  * One row of pressed buttons that filters a list or switches a view (T200): the row ten places
  * each draw their own way, drawn from the `.btn` primitive and its pressed look.
  *
- * With one choice `modelValue` is the chosen option's id: pressing a toggle chooses it, and pressing
- * the chosen one again keeps it. With `multiple` it is the chosen ids, in the options' order:
- * pressing a toggle takes it in or out, and an id no option offers goes with the next press, since
- * no toggle could let it go.
+ * One rule, Daniel's (2026-11-04): pressing the chosen toggle again lets it go, and nothing pressed
+ * means all. With one choice `modelValue` is the chosen option's id, or `''` with nothing chosen; a
+ * row with an All toggle of its own names it in `rest`, and letting go chooses it. With `multiple`
+ * it is the chosen ids, in the options' order: pressing a toggle takes it in or out, and an id no
+ * option offers goes with the next press, since no toggle could let it go.
  *
  * A toggle is named by the words it shows, its label then its count. The row wraps and so does a
  * long label, so it never scrolls sideways; a phone's tokens make each toggle at least a 44px target.
@@ -24,7 +25,15 @@ const props = defineProps<
     /** The group's name, for a screen reader: what the row chooses. */
     label: string;
     testid: string;
-  } & ({ multiple?: false; modelValue: string } | { multiple: true; modelValue: string[] })
+  } & (
+    | {
+        multiple?: false;
+        modelValue: string;
+        /** The option letting go returns to; without one, nothing is pressed. */
+        rest?: string;
+      }
+    | { multiple: true; modelValue: string[]; rest?: never }
+  )
 >();
 
 const emit = defineEmits<{ 'update:modelValue': [value: string | string[]] }>();
@@ -41,8 +50,9 @@ function press(id: string): void {
       'update:modelValue',
       props.options.map((option) => option.id).filter((optionId) => chosen.has(optionId)),
     );
-  } else if (props.modelValue !== id) {
-    emit('update:modelValue', id);
+  } else {
+    const next = props.modelValue === id ? (props.rest ?? '') : id;
+    if (next !== props.modelValue) emit('update:modelValue', next);
   }
 }
 </script>

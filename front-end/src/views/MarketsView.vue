@@ -222,15 +222,6 @@ function handleNewClose() {
             <span id="markets-phase-label" class="field-label">Phase</span>
             <div class="phase-toggles">
               <button
-                type="button"
-                class="btn btn--compact btn--secondary phase-toggle"
-                :aria-pressed="query.phases.length === 0"
-                data-testid="markets-phase-toggle-all"
-                @click="setQuery({ phases: [] })"
-              >
-                All phases
-              </button>
-              <button
                 v-for="phase in FILTERABLE_PHASES"
                 :key="phase"
                 type="button"

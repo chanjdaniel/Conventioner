@@ -56,7 +56,7 @@ An entry is drawn from the parts in `parts/`:
 - `LibraryPanel`: one variant or state in a labelled box, a region named by its label;
 - `TodayAndProposed`: how a place looks today beside how it would look, two columns at a desk, stacked on a phone;
 - `ReadOut`: the line under a live demo that reads out its value ("Chosen: North Wing"), so a choice is seen to land;
-- `ChoicesForYou`: the note that ends every entry, one item per choice left for Daniel.
+- `ChoicesForYou`: the note that ends an entry with choices left for Daniel, one item per choice; an entry whose choices are all answered has none.
 
 The page uses only the design tokens, the primitives and the app's components; its files are in Stylelint's migrated set, so a raw colour, size or spacing is an error there.
 A state the pointer or the keyboard makes (hover, held down, focus) is drawn held beside the live control by a class of the entry's own that copies what `primitives.css`, or the component it mounts, draws for it (`FileDropZone`'s focus halo); the live control is the one to trust.
