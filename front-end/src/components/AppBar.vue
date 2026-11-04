@@ -104,7 +104,8 @@ onUnmounted(stopWatchingTheWindow);
           <img
             class="app-bar-logo"
             alt="Conventioner, Markets"
-            src="@/assets/icons/conventioner-logo.svg"
+            data-testid="app-bar-logo"
+            src="@/assets/brand/conventioner-logo.svg"
           />
         </RouterLink>
         <nav class="app-bar-links" aria-label="Main">
@@ -149,7 +150,8 @@ onUnmounted(stopWatchingTheWindow);
         v-else
         class="app-bar-logo"
         alt="Conventioner"
-        src="@/assets/icons/conventioner-logo.svg"
+        data-testid="app-bar-logo"
+        src="@/assets/brand/conventioner-logo.svg"
       />
     </div>
 

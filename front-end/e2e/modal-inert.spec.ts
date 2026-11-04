@@ -15,8 +15,8 @@ import type { Page } from '@playwright/test';
  *
  *   - the overlay whose root is always in the DOM and only made visible (`NewMarketOverlay`), where
  *     a mis-wired open state leaves the page inert forever rather than never;
- *   - the overlay whose scrim and panel are separate siblings (the app's navigation drawer), where
- *     naming only the scrim would mark the drawer itself and trap the keyboard in nothing.
+ *   - the overlay whose scrim and panel are separate siblings (the app bar's sheet), where
+ *     naming only the scrim would mark the sheet itself and trap the keyboard in nothing.
  *
  * The third shape - a root that wraps the whole modal and is `v-if`'d in - is the vendor drawer's,
  * covered by `vendors.spec.ts`.

@@ -210,7 +210,7 @@ onBeforeUnmount(() => observer?.disconnect());
 .market-frame {
   position: sticky;
   top: var(--banner-h);
-  /* Above the surface it pins over; below the banner (30), the nav scrim and the drawer. */
+  /* Above the surface it pins over; below the app bar (30), and the sheet and the drawer. */
   z-index: 20;
   background-color: white;
 }

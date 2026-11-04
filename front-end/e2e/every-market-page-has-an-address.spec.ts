@@ -204,7 +204,7 @@ test.describe('Every market page has its own address', () => {
       );
       try {
         await page.goto(path);
-        await expect(page.getByTestId('market-home-name')).toHaveText(name);
+        await expect(page.getByTestId('vendor-page-market-name')).toHaveText(name);
         await expect(page.getByTestId('page-not-found')).toHaveCount(0);
         await expect.poll(() => new URL(page.url()).pathname).toBe(path);
       } finally {
