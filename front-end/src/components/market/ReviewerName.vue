@@ -7,6 +7,7 @@
 import { computed } from 'vue';
 import type { ReviewTeam } from '@/assets/types/datatypes';
 import EmailAddress from '@/components/EmailAddress.vue';
+import { CAN_NO_LONGER_REVIEW } from '@/utils/reviewTeam';
 import { signedInEmail } from '@/utils/signedIn';
 
 const props = defineProps<{ reviewer: ReviewTeam['reviewers'][number] }>();
@@ -20,9 +21,9 @@ const isMe = computed(
   <EmailAddress :words="reviewer.email" /><span v-if="isMe" class="reviewer-you"> (you)</span
   ><template v-if="!reviewer.able"
     >{{ ' '
-    }}<span class="chip chip--attention" data-testid="reviewers-unable"
-      >Can no longer review here</span
-    ></template
+    }}<span class="chip chip--attention" data-testid="reviewers-unable">{{
+      CAN_NO_LONGER_REVIEW
+    }}</span></template
   >
 </template>
 

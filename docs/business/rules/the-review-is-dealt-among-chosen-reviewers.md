@@ -51,7 +51,7 @@ A follow-up handed to someone who was never a reviewer stays theirs.
 Saving the same people again changes nothing and records nothing; choosing no one returns every open application to first come, first served, and leaves every follow-up with its owner.
 
 **A chosen reviewer who no longer holds a role on the market can no longer review here**: their role taken in Manage market, or their place in the organization gone, or their role one the table's row "Be chosen as a reviewer, and then give verdicts and follow-ups" no longer reaches.
-Every deal skips them, the panel marks them "Can no longer review here" and never folds them out of sight, naming them first in its one line and saying how many more of them are folded, and their share stays theirs until an Admin removes them, which deals it again as any removal does; nothing removes them silently.
+Every deal skips them, the panel marks them "Can no longer review here" and never folds them out of sight, naming them first in its one line and saying how many more of them are folded, the dialog that changes the reviewers marks them on their chips, and their share stays theirs until an Admin removes them, which deals it again as any removal does; nothing removes them silently.
 With nobody able, nothing is dealt.
 
 **Being dealt an application is never a lock**: the hold of [ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md) is who is looking at a card now, the reviewer is whose share it is, and a deal never moves a hold.

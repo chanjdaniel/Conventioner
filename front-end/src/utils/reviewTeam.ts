@@ -11,6 +11,8 @@ import { api } from '@/utils/api';
 
 /** What the picker and the panel say, alike wherever they are drawn. */
 export const NONE_CHOSEN = 'No reviewers chosen. Everyone reviews first come, first served.';
+/** Of a chosen reviewer who no longer holds a role on the market: dealt nothing until removed. */
+export const CAN_NO_LONGER_REVIEW = 'Can no longer review here';
 export const PICKER_HINT =
   'Choose no one and everyone reviews first come, first served. You can choose reviewers later from the Applications tab.';
 export const RESHUFFLE =

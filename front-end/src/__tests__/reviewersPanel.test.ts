@@ -173,6 +173,17 @@ describe('"and N more", for someone who may choose the reviewers', () => {
     expect(byId('reviewers-all-window')).toBeNull();
   });
 
+  it('says on its chip which reviewers can no longer review here, folded ones too', async () => {
+    mountPanel(team(12, [2, 4, 6, 8, 10]), true);
+    expect(line()).toContain('2 more can no longer review here');
+    await pressMore();
+    const marked = allById('reviewer-picker-chip')
+      .map((chip) => words(chip))
+      .filter((chip) => chip?.includes('can no longer review here'))
+      .map((chip) => chip?.split(' ')[0]);
+    expect(marked).toEqual([address(2), address(4), address(6), address(8), address(10)]);
+  });
+
   it('gives focus back to itself when the dialog closes', async () => {
     mountPanel(team(12), true);
     await pressMore();

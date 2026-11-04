@@ -781,6 +781,20 @@ for (const size of PHONE_AND_DESK) {
         await expectLaidOut(page, `the line with its marks at ${width}`);
         expect((await sweep(page)).failures, 'the line has text below AA').toEqual([]);
       });
+
+      // The owner, who must remove them, reads which they are, the folded two among them.
+      await reviewers.more.click();
+      await expect(reviewers.dialog).toBeVisible();
+      await expect(
+        reviewers.chooser.chips.filter({ hasText: 'can no longer review here' }),
+      ).toHaveCount(taken.length);
+      for (const { email } of taken) {
+        await expect(reviewers.chooser.chip(email)).toContainText('can no longer review here');
+      }
+      await atEachWidth(page, async (width) => {
+        await expectLaidOut(page, `the marked chips at ${width}`);
+        expect((await sweep(page)).failures, 'the marked chips have text below AA').toEqual([]);
+      });
     });
   });
 }

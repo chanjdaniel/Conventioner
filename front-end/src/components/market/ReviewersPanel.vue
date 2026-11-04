@@ -7,8 +7,8 @@
  *
  * A reviewer who no longer holds a role on the market is marked as no longer able to review here,
  * and is never folded out of sight: they lead the line, and it ends with how many more of them are
- * folded. "and N more" opens the Change dialog, whose chips are the whole list, for someone who may
- * choose, and for anyone else a read-only list.
+ * folded. "and N more" opens the Change dialog, whose chips are the whole list and mark them too,
+ * for someone who may choose, and for anyone else a read-only list.
  */
 import { computed, nextTick, ref } from 'vue';
 import { MarketPhase, type Market } from '@/assets/types/datatypes';
@@ -42,10 +42,11 @@ const reviewers = computed(() => {
   return [...team.filter(({ able }) => !able), ...team.filter(({ able }) => able)];
 });
 const addresses = computed(() => reviewers.value.map(({ email }) => email));
-/** Who can no longer review here past those the line names, as they come first. */
-const unableFolded = computed(() =>
-  Math.max(reviewers.value.filter(({ able }) => !able).length - NAMED, 0),
+const unable = computed(() =>
+  reviewers.value.filter(({ able }) => !able).map(({ email }) => email),
 );
+/** Who can no longer review here past those the line names, as they come first. */
+const unableFolded = computed(() => Math.max(unable.value.length - NAMED, 0));
 const chooses = computed(() => mayTake(props.market, MarketAction.ChooseReviewers));
 const action = computed(() => (reviewers.value.length ? 'Change reviewers' : 'Choose reviewers'));
 
@@ -142,6 +143,7 @@ async function save() {
         v-model="ticked"
         :candidates="market?.reviewerCandidates ?? []"
         :current="reviewerAddresses(market)"
+        :unable="unable"
         :disabled="saving"
       />
     </AppDialog>
