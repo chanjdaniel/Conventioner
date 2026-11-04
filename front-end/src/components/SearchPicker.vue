@@ -18,8 +18,10 @@
  *   note beside it says why there is nothing to choose.
  * - What the words find is the caller's (`finds`), so every use searches by its own terms.
  * - The list opens in the page's flow, under the field, rather than over what follows: inside a
- *   dialog a floating list is clipped by the dialog's own scroller. A filter on a page, where nothing
- *   clips it, may lay it over the rows with its own style, as the All view's "Assigned to" does.
+ *   dialog a floating list is clipped by the dialog's own scroller. Given `listOver`, it lies over
+ *   what follows and moves nothing, as a filter beside others needs ("Assigned to", the history's
+ *   "Who"), as wide as the picker unless the caller gives it a width; in a dialog, what passes the
+ *   scroller's edge then takes a scroll.
  * - The field shows no focus ring, as no field does (E38/F01, `primitives.css`): its caret is its
  *   focus. The active choice is drawn as a tint, since it is never focused itself
  *   (`aria-activedescendant`).
@@ -107,6 +109,8 @@ const props = defineProps<
     disabled?: boolean;
     /** The id of words beside the picker that describe its field, such as a hint. */
     describedBy?: string;
+    /** The list lies over what follows the picker, rather than pushing it down. */
+    listOver?: boolean;
   } & (
     | { multiple?: false; modelValue: string }
     /** Several choices, shown as chips above the field. */
@@ -449,7 +453,11 @@ function onFocus(): void {
 </script>
 
 <template>
-  <div class="search-picker" :data-testid="testid">
+  <div
+    class="search-picker"
+    :class="{ 'search-picker--list-over': listOver }"
+    :data-testid="testid"
+  >
     <label class="field-label" :for="inputId">{{ label }}</label>
     <!-- `mousedown.prevent` keeps the field's focus, its words and its open list while a pointer
          removes a chip. -->
@@ -648,6 +656,19 @@ function onFocus(): void {
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: white;
+}
+
+.search-picker--list-over {
+  position: relative;
+}
+
+.search-picker--list-over .search-picker-list {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  z-index: 1;
+  box-shadow: var(--shadow-card);
 }
 
 /* The keys bring the active choice into view clear of the line pinned over the list's foot. */

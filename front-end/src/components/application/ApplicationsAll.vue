@@ -549,6 +549,7 @@ async function decideSelection() {
           :finds="findsAssigned"
           :cap="PEOPLE_CAP"
           holds-choice
+          list-over
           label="Assigned to"
           placeholder="Type an address…"
           testid="applications-all-assigned-to"
@@ -941,7 +942,6 @@ async function decideSelection() {
  * then over it.
  */
 .all-filters .all-assigned {
-  position: relative;
   flex: 1 1 22rem;
   flex-flow: row wrap;
   align-items: center;
@@ -963,20 +963,6 @@ async function decideSelection() {
   width: auto;
   min-width: 0;
   height: var(--control-height-compact);
-}
-
-/*
- * Over the rows, rather than in the flow as in a dialog, whose scroller would clip it: no scroller
- * clips it here, and in the flow it would push the hint and the rows down and leave a wide empty band
- * beside it.
- */
-.all-assigned :deep(.search-picker-list) {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  left: 0;
-  z-index: 1;
-  box-shadow: var(--shadow-card);
 }
 
 .all-count {

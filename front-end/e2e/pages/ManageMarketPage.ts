@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { PersonChooser } from './PersonChooser';
 
 /**
  * Page object for the ManageMarketOverlay reached from MarketsView.
@@ -60,7 +61,7 @@ export class ManageMarketPage {
   readonly historyEntries: Locator;
   readonly historySentences: Locator;
   readonly historyVendorLinks: Locator;
-  readonly historyWho: Locator;
+  readonly historyWho: PersonChooser;
   readonly historyKind: Locator;
   readonly historyVendor: Locator;
   readonly historyLoadMore: Locator;
@@ -123,7 +124,7 @@ export class ManageMarketPage {
     this.historyEntries = page.getByTestId('market-history-entry');
     this.historySentences = page.getByTestId('market-history-sentence');
     this.historyVendorLinks = page.getByTestId('market-history-vendor-link');
-    this.historyWho = page.getByTestId('market-history-who');
+    this.historyWho = new PersonChooser(page, 'market-history-who');
     this.historyKind = page.getByTestId('market-history-kind');
     this.historyVendor = page.getByTestId('market-history-vendor');
     this.historyLoadMore = page.getByTestId('market-history-load-more');
@@ -133,6 +134,15 @@ export class ManageMarketPage {
   async openHistory(): Promise<void> {
     await this.historyToggle.click();
     await this.page.getByTestId('market-history').waitFor();
+  }
+
+  /** Narrows the History section by typing "Who"'s words ("Anyone", or part of an address). */
+  async narrowHistoryTo(words: string): Promise<void> {
+    const { field, options, list } = this.historyWho;
+    await field.fill(words);
+    await options.filter({ hasText: words }).first().waitFor();
+    await field.press('Enter');
+    await list.waitFor({ state: 'detached' });
   }
 
   /** Opens one change of the History section to its before and after, and answers that table. */

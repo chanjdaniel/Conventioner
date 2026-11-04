@@ -1084,6 +1084,25 @@ describe('without acceptsTyped', () => {
   });
 });
 
+describe('a list that lies over what follows', () => {
+  it('is asked for, and the list stays in the flow without it', () => {
+    const shaped = (listOver: boolean) =>
+      mount(SearchPicker, {
+        props: {
+          groups: [{ options: [{ value: 'ana', label: 'Ana Ceramics' }] }],
+          finds: () => true,
+          label: 'Vendor',
+          testid: 'over',
+          modelValue: '',
+          listOver,
+        },
+      });
+
+    expect(shaped(true).classes()).toContain('search-picker--list-over');
+    expect(shaped(false).classes()).not.toContain('search-picker--list-over');
+  });
+});
+
 describe('a choice that holds until another is taken', () => {
   function held(props: Record<string, unknown> = {}) {
     return mount(SearchPicker, {

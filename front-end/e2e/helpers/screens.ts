@@ -392,6 +392,19 @@ export const SCREENS: Screen[] = [
     ),
   },
   {
+    // Its "Who" open, the list lying over the filters below it (T204).
+    name: "the manage-market dialog's history, Who open",
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(
+      fixed('/markets'),
+      'markets-result-count',
+      ['market-card-manage-button', 'manage-market-history-toggle'],
+      ['manage-market-history-toggle', 'market-history-who-input'],
+      ['market-history-who-input', 'market-history-who-list'],
+    ),
+  },
+  {
     // The app's own menu, behind the banner's button on every organizer screen.
     name: 'the navigation drawer',
     who: 'organizer',

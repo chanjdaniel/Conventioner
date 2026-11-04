@@ -314,7 +314,7 @@ The page objects in `front-end/e2e/pages/` are these, one a line, sorted by clas
 - `OpenApplicationsDialog` (the rail's Open applications dialog, choosing reviewers)
 - `OrganizationsPage`
 - `PasswordResetPage`
-- `PersonChooser` (a chooser of one person: "Who will follow up", "Followed up by", "Assigned to")
+- `PersonChooser` (a chooser of one person: "Who will follow up", "Followed up by", "Assigned to", the history's "Who")
 - `ResultPage`
 - `ReviewersPanel` (the Applications tab's Reviewers panel and its dialog)
 - `StartFromCsvPage`

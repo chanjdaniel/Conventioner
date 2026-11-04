@@ -158,6 +158,24 @@ eachWindow('the combobox entry', (size) => {
     await expect(readOutOf(page, 'library-past-cap')).toHaveText('Chosen: Lily Chang');
   });
 
+  test('a list over what follows moves nothing', async ({ page }) => {
+    const over = picker(page, 'library-list-over');
+    const readOut = readOutOf(page, 'library-list-over');
+    /** Where it stands on the page, since a click on the field may scroll to it. */
+    const where = () =>
+      readOut.evaluate((element) => {
+        const { x, y } = element.getBoundingClientRect();
+        return { x, y: y + window.scrollY };
+      });
+    const before = await where();
+
+    await over.field.click();
+
+    await expect(over.options).toHaveCount(50);
+    expect(await where()).toEqual(before);
+    await expectLaidOut(page, size, 'a list over what follows');
+  });
+
   test('a choice that holds stays under words, and the field names it again', async ({ page }) => {
     const holds = picker(page, 'library-holds');
     const readOut = readOutOf(page, 'library-holds');

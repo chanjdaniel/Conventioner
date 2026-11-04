@@ -424,7 +424,9 @@ Reached with a choice in it, by any path, the field has that choice selected, so
 Given `holdsChoice`, one choice holds until another is taken, as a filter or a card that writes on a choice needs: typing emits nothing, and on leaving the field or on Escape the field names the choice again; without it the first word lets the choice go, as a dialog that acts on Save needs.
 Given `disabled`, its field and chips take nothing and its list closes, as while the choice is being saved; `describedBy` names words beside it that describe its field, such as a hint.
 The placement dialog's pickers are its first use, with no `cap`; Choose reviewers is the first of several, in [`ReviewerPicker.vue`](../front-end/src/components/market/ReviewerPicker.vue); "Who will follow up" and the review card's "Followed up by" choose one person, the card with `holdsChoice`.
-The All view's "Assigned to" holds its choice too, as a filter, and lays its list over the rows with its own style, since no scroller clips it there and in the flow it would push the rows down beside a wide empty band.
+The All view's "Assigned to" and the market history's "Who" hold their choice too, as filters.
+Given `listOver`, its list lies over what follows and moves nothing, as those two need: in the flow, "Assigned to" would push the rows down beside a wide empty band, and "Who" would push the filters below it down beside an empty half of its row.
+"Who" gives its list the width of both its columns, so a phone reads an address on one line; in a dialog, what passes the scroller's edge takes a scroll.
 A row of pressed buttons that filters a list or switches a view is [`FilterToggles.vue`](../front-end/src/components/FilterToggles.vue) (T200): compact secondary `.btn`s in a named `role="group"`, one choice by default or several with `multiple`, each named by the words it shows, its label then an optional count.
 The row wraps and a long label wraps inside its toggle, so it never scrolls sideways, and on a phone a toggle is at least 44px each way.
 Pressing the chosen toggle again keeps it; several emit in the options' order.

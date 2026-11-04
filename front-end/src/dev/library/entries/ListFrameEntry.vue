@@ -223,6 +223,7 @@ onMounted(() => {
               v-model="assigned"
               class="library-today-assigned"
               holds-choice
+              list-over
               :groups="assignedGroups"
               :finds="findsReviewer"
               :cap="PEOPLE_CAP"
@@ -422,7 +423,6 @@ onMounted(() => {
 }
 
 .library-today-tools .library-today-assigned {
-  position: relative;
   flex: 1 1 22rem;
   flex-flow: row wrap;
   align-items: center;
@@ -443,15 +443,6 @@ onMounted(() => {
   width: auto;
   min-width: 0;
   height: var(--control-height-compact);
-}
-
-.library-today-assigned :deep(.search-picker-list) {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  left: 0;
-  z-index: 1;
-  box-shadow: var(--shadow-card);
 }
 
 .library-today-count {

@@ -1,4 +1,4 @@
-import type { APIRequestContext, Locator, Page } from '@playwright/test';
+import type { APIRequestContext, Locator, Page, PlaywrightWorkerArgs } from '@playwright/test';
 import { test, expect, BACKEND_URL, TEST_USER } from './fixtures';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
@@ -21,7 +21,11 @@ import {
   seedPhaseMarket,
   transitionMarket,
 } from './helpers/seedPhaseMarket';
-import { seedPeopleAtScale, type PeopleAtScaleSeed } from './helpers/seedPeopleAtScale';
+import {
+  PEOPLE_AT_SCALE_PASSWORD,
+  seedPeopleAtScale,
+  type PeopleAtScaleSeed,
+} from './helpers/seedPeopleAtScale';
 import { loginViaApi } from './helpers/seeds';
 import { uniqueMarketName } from './helpers/uniqueName';
 
@@ -854,6 +858,159 @@ for (const size of PHONE_AND_DESK) {
         await all.assignedTo.field.fill(reviewer);
         await expect(all.assignedTo.options).toHaveText([reviewer]);
         await expectLaidOut(page, 'one reviewer found at 320');
+      });
+    }
+  });
+}
+
+for (const size of PHONE_AND_DESK) {
+  test.describe(`The history's "Who" among the people who changed something, ${size.name}`, () => {
+    test.use(size.use);
+    test.setTimeout(120_000);
+
+    const press = (locator: Locator) => (size.phone ? locator.tap() : locator.click());
+
+    /** The seed, with one of its admins having changed something too, History open. */
+    async function openTheHistory(
+      page: Page,
+      request: APIRequestContext,
+      playwright: PlaywrightWorkerArgs['playwright'],
+    ): Promise<{ manage: ManageMarketPage; admin: string }> {
+      const seed = await seedPeopleAtScale(request);
+      const admin = seed.admins[0]!.email;
+      const api = await playwright.request.newContext({
+        baseURL: BACKEND_URL,
+        ignoreHTTPSErrors: true,
+      });
+      try {
+        await loginViaApi(api, BACKEND_URL, admin, PEOPLE_AT_SCALE_PASSWORD);
+        const granted = await api.post(`${BACKEND_URL}/markets/${seed.marketId}/roles`, {
+          data: { user_email: seed.members.at(-1)!.email, role: 'editor' },
+        });
+        expect(granted.ok(), await granted.text()).toBeTruthy();
+      } finally {
+        await api.dispose();
+      }
+      await toTheMarket(page, seed.marketName);
+      const manage = await openManage(page);
+      await manage.openHistory();
+      await expect(manage.historySentences.first()).toContainText(admin);
+      return { manage, admin };
+    }
+
+    test('finds one by typing and narrows to them, and Anyone takes it back', async ({
+      authenticatedPage: page,
+      request,
+      playwright,
+    }) => {
+      const { manage, admin } = await openTheHistory(page, request, playwright);
+      const who = manage.historyWho;
+      await expect(who.field).toHaveValue('Anyone');
+      const everything = await manage.historySentences.count();
+      expect(everything).toBeGreaterThan(1);
+      await expectLaidOut(page, 'the filters');
+
+      await press(who.field);
+      await expect(who.options).toHaveCount(3);
+      await expect(who.options.first()).toHaveText('Anyone');
+      await expect(who.option(admin)).toBeVisible();
+      await expect(who.option(TEST_USER.email)).toContainText('You');
+      await expectLaidOut(page, 'the filters, its list open');
+
+      // Words only search: the list narrows, and the history waits for a choice.
+      await who.field.fill(admin.split('@')[0]!.toUpperCase());
+      await expect(who.options).toHaveText([admin]);
+      await expect(manage.historySentences).toHaveCount(everything);
+      await expectLaidOut(page, 'one person found');
+
+      await press(who.options.first());
+      await expect(who.field).toHaveValue(admin);
+      await expect(manage.historySentences).toHaveCount(1);
+      await expect(manage.historySentences.first()).toContainText(`${admin} `);
+
+      await manage.narrowHistoryTo('Anyone');
+      await expect(who.field).toHaveValue('Anyone');
+      await expect(manage.historySentences).toHaveCount(everything);
+    });
+
+    test('moves nothing as its list opens, and Escape closes the list before the dialog', async ({
+      authenticatedPage: page,
+      request,
+      playwright,
+    }) => {
+      const { manage } = await openTheHistory(page, request, playwright);
+      const who = manage.historyWho;
+      const kind = manage.historyKind;
+      const others = [
+        kind,
+        manage.historyVendor,
+        page.getByTestId('market-history-from'),
+        page.getByTestId('market-history-to'),
+        manage.historySentences.first(),
+      ];
+      const where = () =>
+        Promise.all(
+          others.map((item) =>
+            item.evaluate((element) => {
+              const scroller = element.closest('[data-testid="manage-market-window"]');
+              const { x, y } = element.getBoundingClientRect();
+              return { x, y: y + (scroller?.scrollTop ?? 0) };
+            }),
+          ),
+        );
+
+      // "Who" and "Kind of change" stand as one row of two, one height.
+      const whoBox = (await who.field.boundingBox())!;
+      const kindBox = (await kind.boundingBox())!;
+      expect(whoBox.y).toBeCloseTo(kindBox.y, 0);
+      expect(whoBox.height).toBeCloseTo(kindBox.height, 0);
+      expect(whoBox.width).toBeCloseTo(kindBox.width, 0);
+
+      const before = await where();
+      await press(who.field);
+      await expect(who.list).toBeVisible();
+      expect(await where()).toEqual(before);
+
+      // Its list is as wide as the two columns, so an address reads on one line.
+      const listBox = (await who.list.boundingBox())!;
+      expect(listBox.x).toBeCloseTo(whoBox.x, 0);
+      expect(listBox.x + listBox.width).toBeCloseTo(kindBox.x + kindBox.width, 0);
+
+      await who.field.press('Escape');
+      await expect(who.list).toBeHidden();
+      await expect(manage.window).toBeVisible();
+      expect(await where()).toEqual(before);
+
+      // The last row lies over the filters below, and a press takes it.
+      await press(who.field);
+      const last = who.options.last();
+      await last.scrollIntoViewIfNeeded();
+      await press(last);
+      await expect(who.list).toBeHidden();
+      await expect(who.field).not.toHaveValue('Anyone');
+
+      await who.field.press('Escape');
+      await expect(manage.window).toBeHidden();
+    });
+
+    if (size.phone) {
+      test('fits 320 wide', async ({ authenticatedPage: page, request, playwright }) => {
+        await page.setViewportSize({ width: 320, height: 568 });
+        const { manage, admin } = await openTheHistory(page, request, playwright);
+        const who = manage.historyWho;
+        await expectLaidOut(page, 'the filters at 320');
+
+        await press(who.field);
+        await expect(who.options).toHaveCount(3);
+        await expectLaidOut(page, 'its list open at 320');
+
+        await who.field.fill(admin);
+        await expect(who.options).toHaveText([admin]);
+        await expectLaidOut(page, 'one person found at 320');
+
+        await press(who.options.first());
+        await expect(who.field).toHaveValue(admin);
+        await expectLaidOut(page, 'the filters on one person at 320');
       });
     }
   });

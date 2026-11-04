@@ -89,6 +89,7 @@ const pastTheCap = ref(people[120]!.email);
 
 /** A filter's choice, which words only search over. */
 const heldChoice = ref(people[0]!.email);
+const overChoice = ref(people[0]!.email);
 
 const nobody = ref('');
 
@@ -169,7 +170,7 @@ const typedAnswers = ref<string[]>([]);
 <template>
   <LibrarySection
     title="One choice from many"
-    about="One choice serves C2, C6, C7, C8, C9, C13 and C14. C6 and C7 are on their screens; the others are the native selects and the datalist that hold a long list today."
+    about="One choice serves C2, C6, C7, C8, C9, C13 and C14. C6, C7 and C8 are on their screens; the others are the native selects and the datalist that hold a long list today."
   >
     <LibraryPanel :label="`Found by name or address, capped at ${CAP} (C7's shape)`">
       <div class="library-demo">
@@ -259,6 +260,22 @@ const typedAnswers = ref<string[]>([]);
           testid="library-holds"
         />
         <ReadOut label="Chosen" :value="nameOf(heldChoice)" />
+      </div>
+    </LibraryPanel>
+
+    <LibraryPanel label="A list over what follows: for a filter beside others">
+      <div class="library-demo">
+        <SearchPicker
+          v-model="overChoice"
+          holds-choice
+          list-over
+          :groups="personGroups"
+          :finds="findsPerson"
+          :cap="CAP"
+          label="Who"
+          testid="library-list-over"
+        />
+        <ReadOut label="Chosen" :value="nameOf(overChoice)" />
       </div>
     </LibraryPanel>
 
