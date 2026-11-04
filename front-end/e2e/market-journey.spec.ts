@@ -14,6 +14,7 @@ import {
 } from './fixtures';
 import { ensureTestOrg, marketNameToSlug } from './helpers/seeds';
 import { createApplicantLoginChallenge } from './helpers/seedApplicantMarket';
+import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
 
 /**
  * The MVP journey, walked once, by one organizer, in one session (E04/F01/S02).
@@ -260,6 +261,7 @@ test.describe('The MVP journey', () => {
     // --- 3. A vendor applies on the market's own page, in a browser of their own -------------
     const slug = marketNameToSlug(marketName);
     const vendorContext = await browser.newContext();
+    await hideDevToolsPanel(vendorContext);
     const vendorPage = await vendorContext.newPage();
     const login = new VendorPage(vendorPage);
     await vendorPage.goto(`/${slug}`);

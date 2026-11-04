@@ -8,6 +8,7 @@ import {
   vendorToken,
 } from './helpers/vendorSignIn';
 import { AttendanceStatusPage } from './pages/AttendanceStatusPage';
+import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
 
 /**
  * A vendor checks in on their own vendor page, with the market's door code (T202, ADR 0022).
@@ -58,6 +59,7 @@ async function makeDoorCode(
 /** A vendor's phone: a browser of its own, signed in as nobody. */
 async function aPhone(browser: Browser) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await hideDevToolsPanel(context);
   const page = await context.newPage();
   return { context, page, vendorPage: new VendorPage(page) };
 }

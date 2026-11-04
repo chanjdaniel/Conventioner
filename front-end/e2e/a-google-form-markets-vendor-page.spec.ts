@@ -7,6 +7,7 @@ import {
 } from './helpers/seedApplicantMarket';
 import { transitionMarket } from './helpers/seedPhaseMarket';
 import { marketSetupPath } from './helpers/marketScreens';
+import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
 
 /**
  * A Google Form market's vendor page opens with its results (T202 ticket 05, ADR 0022).
@@ -109,6 +110,7 @@ for (const [label, viewport] of [
 
       // In a browser of their own, the vendor's page reads as a market that does not exist.
       const vendorContext = await browser.newContext({ viewport });
+      await hideDevToolsPanel(vendorContext);
       const page = await vendorContext.newPage();
       const vendorPage = new VendorPage(page);
       expect(await vendorPage.renderedText(market.marketSlug)).toBe(

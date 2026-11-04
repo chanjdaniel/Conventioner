@@ -6,6 +6,7 @@ import {
   planSetupObject,
   seedApplicantMarket,
 } from './helpers/seedApplicantMarket';
+import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
 
 /**
  * An organizer stops taking applications, and takes them again, inside the Applications phase
@@ -22,6 +23,7 @@ const CODE = '135790';
 /** The vendor, in a browser of their own, signed in on the market's vendor page. */
 async function vendorSignedIn(browser: Browser, marketId: string, slug: string) {
   const context = await browser.newContext();
+  await hideDevToolsPanel(context);
   const page = await context.newPage();
   const vendorPage = new VendorPage(page);
   await page.goto(`/${slug}`);

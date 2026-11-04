@@ -10,6 +10,7 @@ import {
 } from './helpers/seedApplicantMarket';
 import { marketScreenPath } from './helpers/marketScreens';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
+import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
 
 /**
  * "Open applications" offers the reviewers (E38/F07/S02).
@@ -52,6 +53,7 @@ async function apply(
 ) {
   const vendor = `${name.toLowerCase()}-${Date.now()}@moss.test`;
   const context = await browser.newContext();
+  await hideDevToolsPanel(context);
   try {
     const page = await context.newPage();
     const login = new VendorPage(page);
