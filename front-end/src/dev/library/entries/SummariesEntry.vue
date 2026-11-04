@@ -14,7 +14,8 @@ import NameList from '@/components/NameList.vue';
 import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
 import ReviewersPanel from '@/components/market/ReviewersPanel.vue';
 import { NONE_CHOSEN, RESHUFFLE } from '@/utils/reviewTeam';
-import { isDecided, statusChip, statusLabel } from '@/utils/verdicts';
+import { reviewed } from '@/utils/reviewQueue';
+import { statusChip, statusLabel } from '@/utils/verdicts';
 import ChoicesForYou from '../parts/ChoicesForYou.vue';
 import LibraryPanel from '../parts/LibraryPanel.vue';
 import LibrarySection from '../parts/LibrarySection.vue';
@@ -51,7 +52,7 @@ const chosen = ref([...firstReviewers]);
 const held = ref<string[]>([]);
 const changing = ref(false);
 const action = computed(() => (chosen.value.length ? 'Change reviewers' : 'Choose reviewers'));
-const change = ref<HTMLButtonElement>();
+const changeButton = ref<HTMLButtonElement>();
 
 function startChanging(): void {
   held.value = [...chosen.value];
@@ -63,20 +64,20 @@ async function save(): Promise<void> {
   changing.value = false;
   await nextTick();
   // "and N more" may have opened this and gone with the save, and the page is live again by now.
-  if (chosen.value.length <= NAMED) change.value?.focus();
+  if (chosen.value.length <= NAMED) changeButton.value?.focus();
 }
 
 const findsReviewer = (address: string, words: string) => holds(address, words);
 const addressKey = (address: string) => address;
 
-/** L3: every verdict given, in the order they arrived, since the fixture keeps no verdict's time. */
-const reviewed = applications.filter(isDecided);
+/** L3: today's own list, in the order they arrived, since the fixture keeps no verdict's time. */
+const reviewedApplications = reviewed(applications);
 const reviewedOpen = ref(false);
 const findsApplication = (item: { name: string; email: string }, words: string) =>
   holds(item.name, words) || holds(item.email, words);
 const idKey = (item: { id: string }) => item.id;
 
-/** The states of the line itself, on short names, so the sentence is what shows. */
+/** The states of the line itself, on people's names, as it reads once an account holds one. */
 const names = people.map(({ name }) => name);
 const presses = ref(0);
 </script>
@@ -96,9 +97,9 @@ const presses = ref(0);
       <template #proposed>
         <div class="library-demo">
           <div class="library-reviewers-head">
-            <p class="field-label library-reviewers-title">Reviewers</p>
+            <h2 class="field-label library-reviewers-title">Reviewers</h2>
             <button
-              ref="change"
+              ref="changeButton"
               type="button"
               class="btn btn--secondary btn--compact"
               data-testid="library-l4-change"
@@ -115,7 +116,7 @@ const presses = ref(0);
             testid="library-l4-line"
             @more="startChanging"
           />
-          <p v-else class="library-none" data-testid="library-l4-none">{{ NONE_CHOSEN }}</p>
+          <p v-else class="library-quiet" data-testid="library-l4-none">{{ NONE_CHOSEN }}</p>
           <ReadOut label="Saved" :value="`${chosen.length} chosen`" />
         </div>
       </template>
@@ -165,20 +166,19 @@ const presses = ref(0);
 
   <LibrarySection
     title='L3: "Show N reviewed", on Applications One by one'
-    :about="`Every verdict given unfolds above the card today, ${reviewed.length} rows here. In a dialog the card stays where it is, and the frame finds one. L9, the Discord report's &quot;Show who&quot;, unfolds its vendors the same way and would take the same dialog.`"
+    :about="`Every verdict given unfolds above the card today, ${reviewedApplications.length} rows here. In a dialog the card stays where it is, and the frame finds one. L9, the Discord report's &quot;Show who&quot;, unfolds its vendors the same way and would take the same dialog.`"
   >
     <LibraryPanel label="The reviewed list in a dialog" class="library-wide">
       <div class="library-demo">
         <button
           type="button"
           class="library-reviewed-toggle"
-          aria-haspopup="dialog"
           data-testid="library-l3-open"
           @click="reviewedOpen = true"
         >
-          Show {{ reviewed.length }} reviewed
+          Show {{ reviewedApplications.length }} reviewed
         </button>
-        <p class="library-none">
+        <p class="library-quiet">
           Rows as today's, without who gave the verdict, which the fixture does not hold, and
           without "Approve instead" and "Reject instead", which only someone who may change a
           verdict sees.
@@ -195,7 +195,7 @@ const presses = ref(0);
       @close="reviewedOpen = false"
     >
       <ListFrame
-        :items="reviewed"
+        :items="reviewedApplications"
         :finds="findsApplication"
         :itemKey="idKey"
         :noun="APPLICATION"
@@ -217,7 +217,7 @@ const presses = ref(0);
 
   <LibrarySection
     title="The names line"
-    about="NameList on short names, each count it can be given. Past what it names, its button is the way to the whole list; at or under it, the sentence has said everyone."
+    about="NameList on people's names, each count it can be given. Past what it names, its button is the way to the whole list; at or under it, the sentence has said everyone."
   >
     <LibraryPanel label="No names">
       <NameList :names="[]" :noun="REVIEWER" testid="library-names-0" />
@@ -269,6 +269,12 @@ const presses = ref(0);
       here?
     </li>
     <li>
+      <strong>A reviewer who can no longer review:</strong> today's panel marks them, and "(you)",
+      on their row. The line says only addresses, so one could sit unseen inside "and 9 more", and
+      the frame's rows here do not mark them either. Should the line say how many cannot, and the
+      frame mark them?
+    </li>
+    <li>
       <strong>The words in a dialog:</strong> both dialogs forget them on closing and keep nothing
       in the address. The same for every dialog, or should a reviewed list's words come back?
     </li>
@@ -311,14 +317,14 @@ const presses = ref(0);
   margin: 0;
 }
 
-.library-none,
+.library-quiet,
 .library-reshuffle {
   margin: 0;
   font-size: var(--text-sm);
   line-height: 1.4;
 }
 
-.library-none {
+.library-quiet {
   color: var(--mm-text-muted);
 }
 

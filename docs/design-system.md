@@ -431,8 +431,9 @@ The shown count goes back to one page when the words or the rows change, and a r
 `state` draws loading and failed (`ReadFailed`, unless the `failed` slot replaces it), the `empty` slot says why there are no `items`, and the count line says when the words find nothing.
 No screen mounts it yet: the library's `list-frame` entry shows it on Applications All and the people with access.
 Inside a `scroll="body"` dialog it needs nothing of its own, since the dialog's body scrolls it; the library's `summaries` entry shows it there, with no `findKey`, so the words go with the dialog.
+Enter in its field does nothing, so in a dialog's form it never saves what the person was only looking through.
 
-People named above the work rather than listed are [`NameList.vue`](../front-end/src/components/NameList.vue) (T200): one paragraph, so it reads as a sentence, "12 reviewers: Ana, Ben, Cai and 9 more", naming `named` (3), and its text button, "and 9 more", emits `more` for the screen to open the whole list.
+People named above the work rather than listed are [`NameList.vue`](../front-end/src/components/NameList.vue) (T200): one paragraph, so it reads as a sentence, "12 reviewers: Ana, Ben, Cai and 9 more", naming `named` (3), and its text button, "and 9 more", which a `.visually-hidden` noun names on its own, emits `more` for the screen to open the whole list.
 With `named` or fewer names it says them all and draws no button, so a screen keeps its own way to that list.
 No screen mounts it yet: the library's `summaries` entry shows it on the reviewers.
 

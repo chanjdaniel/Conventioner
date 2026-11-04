@@ -24,6 +24,9 @@ defineEmits<{ more: [] }>();
 
 const rest = computed(() => Math.max(props.names.length - props.named, 0));
 
+/** What the rest are, so the button says so on its own, reached by Tab. */
+const restNoun = computed(() => (rest.value === 1 ? props.noun.one : props.noun.many));
+
 /** The sentence up to the button, or the whole of it when there is none. */
 const words = computed(() => {
   const { names, noun } = props;
@@ -47,7 +50,7 @@ const words = computed(() => {
       :data-testid="`${testid}-more`"
       @click="$emit('more')"
     >
-      and {{ rest }} more
+      and {{ rest }} more <span class="visually-hidden">{{ restNoun }}</span>
     </button>
   </p>
 </template>

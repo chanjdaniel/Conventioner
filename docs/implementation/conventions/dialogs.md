@@ -56,7 +56,8 @@ A new dialog is built on it, never hand-rolled.
 **The form is the Enter contract.**
 Enter in a field runs the same handler as the confirm button, so it inherits that handler's guard, and a disabled submit makes Enter inert with no key handler anywhere.
 Do not add `@keydown.enter`: five views each invented their own answer, and one of them (`ApplicantLogin`) bypassed its own resend cooldown by doing so.
-The one exception is a picker's open list ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): while its list is open, Enter takes the highlighted choice, or closes the list when none is highlighted, and is kept from the form (with `multiple` the list stays open after a choice, so the next Enter is the list's too), and Escape closes the list and is kept from the dialog; once the list is closed both keys are the dialog's again, so Enter submits through the form's guard and Escape closes.
+One exception is a picker's open list ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): while its list is open, Enter takes the highlighted choice, or closes the list when none is highlighted, and is kept from the form (with `multiple` the list stays open after a choice, so the next Enter is the list's too), and Escape closes the list and is kept from the dialog; once the list is closed both keys are the dialog's again, so Enter submits through the form's guard and Escape closes.
+The other is a [`ListFrame.vue`](../../../front-end/src/components/ListFrame.vue)'s find field, in which Enter does nothing: it narrows the rows as it is typed in, so Enter there would only save what the person was looking through.
 
 **A dialog of several independent actions passes no `confirmLabel`** and hosts its own `<form>`s in its body; Manage organization has three.
 Their submits are their own: the shell listens for `submit` only when its body is the form, so an inner form's submit neither is prevented by it nor makes it emit `submit`.
@@ -80,7 +81,7 @@ The body, the error and the actions are still the one `<form>`, so the Enter con
 `dvh` sizes it, since a phone's browser bar would otherwise cover its pinned actions.
 **`scroll="body"` is expand-contract**: it is opt-in, so no dialog changed when it came; each dialog moves to it as it is converted, the export dialog first, then those whose body can outgrow a laptop window (Manage market, Manage organization, Change reviewers, Fix the form, Open applications, the assignment history); `scroll="window"` and the `wide` boolean are deleted when no dialog uses them.
 The library's `dialog` entry shows each width, today's scroll beside the body's on 150 people, the tray, and every behaviour below in either scroll ([the component library](../modules/component-library.md)).
-A long list goes in that body as a [`ListFrame.vue`](../../../front-end/src/components/ListFrame.vue), which needs nothing of its own there: the library's `summaries` entry holds Change reviewers and the reviewed list so ([`the-component-library-summaries.spec.ts`](../../../front-end/e2e/the-component-library-summaries.spec.ts)).
+A long list goes in that body as a [`ListFrame.vue`](../../../front-end/src/components/ListFrame.vue), whose field keeps its Enter, as above, and which needs nothing else there: the library's `summaries` entry holds Change reviewers and the reviewed list so ([`the-component-library-summaries.spec.ts`](../../../front-end/e2e/the-component-library-summaries.spec.ts)).
 
 **A dialog sits centred, unless its body grows as it is used**: `anchored` holds its top where it opened, so a field's error appearing as a key is typed does not move the dialog half a line under the pointer (the amendment's dialog, E38/F02).
 

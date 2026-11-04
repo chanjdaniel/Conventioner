@@ -16,6 +16,8 @@
  * - The shown count goes back to one page when the words or the items change. A read again that
  *   brings the same rows, by `itemKey`, is no change, so a refresh never folds what was unfolded.
  * - "Show N more" hands the focus to the first new row, since the button goes with the last page.
+ * - Enter in the field does nothing, since the rows narrow as it is typed in: in a dialog's form it
+ *   would otherwise submit the form, and save what the person was only looking through.
  * - `state` says what the screen's read is doing: only `'ready'` draws rows. `'failed'` is
  *   `ReadFailed` unless the screen brings its own, and its Try again is the `retry` event. With no
  *   `items` the `empty` slot says why, or "No <many>." without one; the words alone finding nothing
@@ -155,6 +157,7 @@ async function showMore(): Promise<void> {
           :data-testid="`${testid}-find`"
           @input="setTyped(($event.target as HTMLInputElement).value)"
           @focus="fieldKept = true"
+          @keydown.enter.prevent
         />
       </div>
       <div v-if="$slots.filters" class="list-frame__filters"><slot name="filters" /></div>

@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 import { eachWindow, expectLaidOut, openEntry } from './helpers/componentLibrary';
 import { inTheWindow } from './helpers/phoneWindow';
+import { settle } from './helpers/settle';
 
 /**
  * The component library's `summaries` entry (T200): L4's reviewers as one line beside today's real
@@ -32,8 +33,13 @@ const newcomer = 'daniela.morgan1@example.com';
 const REVIEWED = 224;
 /** A reviewed application past the first page. */
 const reviewedPastThePage = { name: 'Brandon Lin', email: 'brandon.lin196@example.com' };
-/** The first people with access, the names line's short names. */
-const [ana, ben, cai, dee] = ['Daniela Morgan', 'Evan Wilson', 'Faith Martin', 'Ellen Ho'];
+/** The first people with access, on the names line. */
+const [first, second, third, fourth] = [
+  'Daniela Morgan',
+  'Evan Wilson',
+  'Faith Martin',
+  'Ellen Ho',
+];
 
 const LINE = 'library-l4-line';
 const CHANGE = 'library-l4-dialog';
@@ -42,14 +48,15 @@ const more = (page: Page) => page.getByTestId(`${LINE}-more`);
 const body = (page: Page, dialog: string) => page.getByTestId(`${dialog}-body`);
 const chips = (page: Page) => page.getByTestId('library-l4-picker-chip');
 const chipRemove = (page: Page, address: string) =>
-  page.getByRole('button', { name: `Remove ${address}`, exact: true });
+  chips(page).filter({ hasText: address }).getByTestId('library-l4-picker-chip-remove');
 const chosenCount = (page: Page) => page.getByTestId('library-l4-chosen-count');
 
 const lineWords = (chosen: readonly string[]) =>
-  `${chosen.length} reviewers: ${chosen.slice(0, 3).join(', ')} and ${chosen.length - 3} more`;
+  `${chosen.length} reviewers: ${chosen.slice(0, 3).join(', ')} and ${chosen.length - 3} more reviewers`;
 
 /** The top and bottom of a thing, inside the window. */
 async function expectInTheWindow(page: Page, thing: Locator, what: string) {
+  await settle(page);
   const box = (await thing.boundingBox())!;
   const { height } = page.viewportSize()!;
   expect(box.y, `${what}: its top is in the window`).toBeGreaterThanOrEqual(0);
@@ -109,19 +116,19 @@ eachWindow('the summaries entry', (size) => {
     page,
   }) => {
     await expect(page.getByTestId('library-names-0')).toHaveText('No reviewers');
-    await expect(page.getByTestId('library-names-1')).toHaveText(`1 reviewer: ${ana}`);
+    await expect(page.getByTestId('library-names-1')).toHaveText(`1 reviewer: ${first}`);
     await expect(page.getByTestId('library-names-3')).toHaveText(
-      `3 reviewers: ${ana}, ${ben} and ${cai}`,
+      `3 reviewers: ${first}, ${second} and ${third}`,
     );
     await expect(page.getByTestId('library-names-3-more')).toHaveCount(0);
     await expect(page.getByTestId('library-names-4')).toHaveText(
-      `4 reviewers: ${ana}, ${ben}, ${cai} and 1 more`,
+      `4 reviewers: ${first}, ${second}, ${third} and 1 more reviewer`,
     );
     await expect(page.getByTestId('library-names-all')).toContainText('and 147 more');
     await expect(page.getByTestId('library-named-1')).toHaveText(
-      `12 reviewers: ${ana} and 11 more`,
+      `12 reviewers: ${first} and 11 more reviewers`,
     );
-    await expect(page.getByTestId('library-named-5')).toContainText(dee!);
+    await expect(page.getByTestId('library-named-5')).toContainText(fourth!);
 
     await press(page.getByTestId('library-names-12-more'));
     const readOut = page.getByRole('region', { name: 'Twelve names' }).getByTestId('read-out');
@@ -132,6 +139,7 @@ eachWindow('the summaries entry', (size) => {
     page,
     expectAccessible,
   }) => {
+    await expect(more(page)).toHaveAccessibleName('and 9 more reviewers');
     await press(more(page));
     await expect(page.getByTestId(`${CHANGE}-window`)).toBeVisible();
     await expect(page.getByTestId('library-l4-picker-input')).toBeFocused();
@@ -188,6 +196,21 @@ eachWindow('the summaries entry', (size) => {
     await press(more(page));
     await press(chipRemove(page, newcomer));
     await press(submit);
+    await expect(line(page)).toHaveText(lineWords(addresses));
+  });
+
+  test("Enter in the frame's find field stays in the dialog, and saves nothing", async ({
+    page,
+  }) => {
+    await press(more(page));
+    await page.getByTestId('library-l4-picker-input').fill(newcomer);
+    await press(page.getByTestId('library-l4-picker-option').first());
+    const find = page.getByTestId('library-l4-chosen-find');
+    await find.fill(addresses[0]!);
+    await find.press('Enter');
+
+    await expect(page.getByTestId(`${CHANGE}-window`)).toBeVisible();
+    await expect(chosenCount(page)).toHaveText(`1 of 13 matches "${addresses[0]}"`);
     await expect(line(page)).toHaveText(lineWords(addresses));
   });
 

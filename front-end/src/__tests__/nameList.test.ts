@@ -35,8 +35,8 @@ describe('the line', () => {
     [1, '1 reviewer: Ana'],
     [2, '2 reviewers: Ana and Ben'],
     [3, '3 reviewers: Ana, Ben and Cai'],
-    [4, '4 reviewers: Ana, Ben, Cai and 1 more'],
-    [12, '12 reviewers: Ana, Ben, Cai and 9 more'],
+    [4, '4 reviewers: Ana, Ben, Cai and 1 more reviewer'],
+    [12, '12 reviewers: Ana, Ben, Cai and 9 more reviewers'],
   ])('reads %i names as one sentence', (count, words) => {
     expect(sentence(mountLine(count))).toBe(words);
   });
@@ -52,7 +52,9 @@ describe('the line', () => {
   });
 
   it('names as many as it is told before the rest', () => {
-    expect(sentence(mountLine(12, 5))).toBe('12 reviewers: Ana, Ben, Cai, Dee, Eli and 7 more');
+    expect(sentence(mountLine(12, 5))).toBe(
+      '12 reviewers: Ana, Ben, Cai, Dee, Eli and 7 more reviewers',
+    );
     expect(sentence(mountLine(5, 5))).toBe('5 reviewers: Ana, Ben, Cai, Dee and Eli');
     expect(more(mountLine(5, 5)).exists()).toBe(false);
   });
@@ -63,7 +65,8 @@ describe('"and N more"', () => {
     const button = more(mountLine(12));
     expect(button.element.tagName).toBe('BUTTON');
     expect(button.attributes('type')).toBe('button');
-    expect(button.text()).toBe('and 9 more');
+    expect(button.text()).toBe('and 9 more reviewers');
+    expect(button.get('.visually-hidden').text()).toBe('reviewers');
   });
 
   it('emits more when pressed', async () => {
