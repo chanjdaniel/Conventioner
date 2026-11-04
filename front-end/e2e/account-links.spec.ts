@@ -209,9 +209,7 @@ test.describe('Changing a password, signed in', () => {
       await expect(page.getByTestId('login-session-ended')).toBeVisible();
     } finally {
       deleteUser(email);
-      const deleted = await request.delete(`${BACKEND_URL}/markets/${marketId}`, {
-        headers: { 'X-Owner-Email': TEST_USER.email },
-      });
+      const deleted = await request.delete(`${BACKEND_URL}/markets/${marketId}`);
       expect(deleted.ok(), await deleted.text()).toBeTruthy();
     }
   });

@@ -90,9 +90,7 @@ test('Markets opens with its title, the remembered market adding no heading', as
     await expect(page.getByTestId('markets-previously-opened').getByRole('heading')).toHaveCount(0);
     await expect(page.getByRole('heading', { level: 2 }).filter({ hasText: name })).toHaveCount(1);
   } finally {
-    const deleted = await request.delete(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const deleted = await request.delete(`${BACKEND_URL}/markets/${marketId}`);
     expect(deleted.ok(), await deleted.text()).toBeTruthy();
   }
 });

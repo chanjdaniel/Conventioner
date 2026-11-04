@@ -194,9 +194,7 @@ test.describe('signing in on a phone', () => {
       await expectInside(line, 'the remembered market');
       await expectMarketsFits(page);
     } finally {
-      const deleted = await request.delete(`${BACKEND_URL}/markets/${marketId}`, {
-        headers: { 'X-Owner-Email': TEST_USER.email },
-      });
+      const deleted = await request.delete(`${BACKEND_URL}/markets/${marketId}`);
       expect(deleted.ok(), await deleted.text()).toBeTruthy();
     }
   });

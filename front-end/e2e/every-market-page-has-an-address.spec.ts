@@ -209,9 +209,7 @@ test.describe('Every market page has its own address', () => {
         await expect.poll(() => new URL(page.url()).pathname).toBe(path);
       } finally {
         // The addresses above answer as absent only while no market holds the name.
-        const deleted = await request.delete(`${BACKEND_URL}/markets/${marketId}`, {
-          headers: { 'X-Owner-Email': TEST_USER.email },
-        });
+        const deleted = await request.delete(`${BACKEND_URL}/markets/${marketId}`);
         expect(deleted.ok(), await deleted.text()).toBeTruthy();
       }
     });
