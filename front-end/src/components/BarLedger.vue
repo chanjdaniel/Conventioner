@@ -7,9 +7,15 @@
  * (E45/F01/S01), so the two say a count the same way. A row that leads somewhere is a link to it -
  * the tables filtered to its answer, the applications with its status - and one that leads nowhere
  * is only read.
+ *
+ * With `fold` (T200) it answers a question of up to 230 options: the rows by count, the first `fold`
+ * of them, and "N more answers" unfolding the rest in place (`utils/useFold.ts`). Without it the rows
+ * are drawn in the order they came, all of them.
  */
+import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import type { LedgerRow } from '@/utils/barLedger';
+import { useFold } from '@/utils/useFold';
 
 const props = defineProps<{
   title: string;
@@ -20,7 +26,19 @@ const props = defineProps<{
   whole: string;
   /** What choosing a row does, in a screen reader's words: "Show these tables". */
   action?: string;
+  /** How many rows, by count, to draw before folding the rest; none draws them all as they came. */
+  fold?: number;
 }>();
+
+/** Largest first, and rows of one count as they came, since a sort is stable. */
+const ordered = computed(() =>
+  props.fold === undefined ? props.rows : [...props.rows].sort((a, b) => b.count - a.count),
+);
+
+const { button, list, rest, rowTabindex, shown, toggle, unfolded } = useFold(
+  () => ordered.value,
+  () => props.fold,
+);
 
 /** What follows the share for a screen reader: what it is of, and what the row does. */
 function tail(row: LedgerRow): string {
@@ -32,8 +50,8 @@ function tail(row: LedgerRow): string {
   <div class="bar-ledger">
     <h3>{{ title }}</h3>
     <p v-if="!rows.length" class="bar-ledger-none">None.</p>
-    <ul v-else>
-      <li v-for="row in rows" :key="row.value">
+    <ul v-else ref="list">
+      <li v-for="(row, index) in shown" :key="row.value" :tabindex="rowTabindex(index)">
         <!-- Named by the words it shows, with the rest hidden between them: an `aria-label`
              replaced what a voice user sees with words they do not (WCAG 2.5.3). -->
         <component
@@ -59,6 +77,23 @@ function tail(row: LedgerRow): string {
         </component>
       </li>
     </ul>
+    <button
+      v-if="rest"
+      ref="button"
+      type="button"
+      class="btn btn--secondary bar-ledger-fold"
+      :data-testid="`${testid}-fold`"
+      @click="toggle"
+    >
+      <!-- A tab of questions has one of these each, so a reader hears which. -->
+      <template v-if="unfolded"
+        >Show fewer<span class="visually-hidden"> answers to {{ title }}</span></template
+      >
+      <template v-else
+        >{{ rest }} more {{ rest === 1 ? 'answer' : 'answers'
+        }}<span class="visually-hidden"> to {{ title }}</span></template
+      >
+    </button>
   </div>
 </template>
 
@@ -149,6 +184,10 @@ function tail(row: LedgerRow): string {
   height: 100%;
   border-radius: var(--radius-pill);
   background: var(--mm-green);
+}
+
+.bar-ledger-fold {
+  align-self: flex-start;
 }
 
 .bar-ledger-none {

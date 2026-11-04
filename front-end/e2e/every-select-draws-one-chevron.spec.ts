@@ -427,8 +427,8 @@ test.describe('the editors, at a desk', () => {
           color: style.borderTopColor,
           radius: style.borderRadius,
           background: style.backgroundColor,
-          // Whole pixels: the same 36px field can lay out a sub-pixel fraction off the others.
-          height: Math.round(element.getBoundingClientRect().height),
+          // To a tenth of a pixel: CI's layout can read 36 as 36.00003, a flake and no difference.
+          height: Math.round(element.getBoundingClientRect().height * 10) / 10,
           paddingLeft: style.paddingLeft,
         };
       });
