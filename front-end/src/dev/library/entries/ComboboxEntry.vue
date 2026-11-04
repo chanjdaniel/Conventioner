@@ -5,8 +5,8 @@
  * cap on a long plain list and across groups, and the states the cap brings. Several choices follow:
  * C5, the reviewers as Choose reviewers draws them, and C10's answers.
  * Next, `ChoiceField`, a select or a field by how many choices it has: C1, the import's value fixes,
- * on each side of the threshold, then every value of a long list of them, and C2, "Maps to", grouped
- * with a target another column holds taken.
+ * on each side of the threshold, then every value of a long list of them, C2, "Maps to", grouped
+ * with a target another column holds taken, and C12, "Add an answer", a choice that adds.
  * Typed text ends it: C3's option input, which keeps a new answer as typed, and the field whose words
  * are its value, for a screen that writes as it is typed.
  *
@@ -222,6 +222,17 @@ const targetGroups: PickerGroup[] = [
 ];
 const mapsTo = ref('');
 
+/** C12: a rule's "Add an answer", where each choice leaves the list for the ranked answers. */
+const ALL_OTHERS_LABEL = '<All others>';
+const ranked = ref<string[]>([]);
+const rankOptions = computed<PickerGroup[]>(() => [
+  {
+    options: [ALL_OTHERS_LABEL, ...question.options.map(({ label }) => label)]
+      .filter((label) => !ranked.value.includes(label))
+      .map((label) => ({ value: label, label })),
+  },
+]);
+
 /** C3: an option's input, which takes one of the answers already offered or a new one. */
 const newAnswer = ref('');
 const keptAnswer = ref('Hand-poured soap');
@@ -234,7 +245,7 @@ const writtenAnswer = ref('');
 <template>
   <LibrarySection
     title="One choice from many"
-    about="One choice serves C2, C6, C7, C8, C9, C13 and C14. C2, C6, C7 and C8 are on their screens; the others are the native selects and the datalist that hold a long list today."
+    about="One choice serves C2, C6, C7, C8, C9, C12, C13 and C14. C2, C6, C7, C8, C12 and C14 are on their screens; the others are the native selects and the datalist that hold a long list today."
   >
     <LibraryPanel :label="`Found by name or address, capped at ${CAP} (C7's shape)`">
       <div class="library-demo">
@@ -575,6 +586,28 @@ const writtenAnswer = ref('');
           writes
         />
         <ReadOut label="Maps to" :value="mapsTo || 'Ignored'" />
+      </div>
+    </LibraryPanel>
+  </LibrarySection>
+
+  <LibrarySection
+    title="A choice that adds"
+    about='C12, a rule&apos;s "Add an answer", and C14, "Add from your file": each choice leaves the list for what it adds to, and the field empties with the focus still in it, ready for the next. It counts the whole set, so it stays one control as the set shrinks, and "<All others>" comes first, so the cap never hides it.'
+  >
+    <LibraryPanel :label="`C12, ranking among ${question.options.length} answers`">
+      <div class="library-demo">
+        <ChoiceField
+          model-value=""
+          :groups="rankOptions"
+          label="Rule 1: add an answer"
+          placeholder="Add an answer"
+          testid="library-c12"
+          :whole-count="question.options.length + 1"
+          adds
+          hide-label
+          @update:model-value="ranked.push($event)"
+        />
+        <ReadOut label="Ranked" :value="ranked.join(', ')" />
       </div>
     </LibraryPanel>
   </LibrarySection>

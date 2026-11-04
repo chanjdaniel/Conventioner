@@ -2239,6 +2239,82 @@ describe('what ChoiceField asks of the picker', () => {
   const row = (wrapper: ReturnType<typeof mountIt>, label: string) =>
     wrapper.findAll('[role="option"]').find((option) => option.text() === label)!;
 
+  describe('clearsOnChoice', () => {
+    const adding: PickerGroup[] = [
+      {
+        options: [
+          { value: 'gold', label: 'Gold' },
+          { value: 'silver', label: 'Silver' },
+        ],
+      },
+    ];
+    const choosing = () => {
+      const chosen: unknown[] = [];
+      const wrapper = mount(SearchPicker, {
+        props: {
+          modelValue: '',
+          groups: adding,
+          finds,
+          label: 'Add an answer',
+          testid: 'who',
+          clearsOnChoice: true,
+          'onUpdate:modelValue': (value: string | string[]) => chosen.push(value),
+        },
+        attachTo: document.body,
+      });
+      return { wrapper, chosen, input: wrapper.get('[data-testid="who-input"]') };
+    };
+
+    it('empties the field, closes the list and keeps the focus, on a click', async () => {
+      const { wrapper, chosen, input } = choosing();
+      (input.element as HTMLInputElement).focus();
+      await input.setValue('sil');
+      await wrapper.get('[role="option"]').trigger('click');
+
+      expect(chosen).toEqual(['silver']);
+      expect((input.element as HTMLInputElement).value).toBe('');
+      expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+      expect(document.activeElement).toBe(input.element);
+      wrapper.unmount();
+    });
+
+    it('stands ready for the next, by the keys alone', async () => {
+      const { wrapper, chosen, input } = choosing();
+      (input.element as HTMLInputElement).focus();
+      await input.setValue('gol');
+      await input.trigger('keydown', { key: 'Enter' });
+      await input.setValue('sil');
+      await input.trigger('keydown', { key: 'Enter' });
+
+      expect(chosen).toEqual(['gold', 'silver']);
+      expect((input.element as HTMLInputElement).value).toBe('');
+      wrapper.unmount();
+    });
+
+    it('opens on every row again, the words gone', async () => {
+      const { wrapper, input } = choosing();
+      await input.setValue('sil');
+      await input.trigger('keydown', { key: 'Enter' });
+      await input.trigger('keydown', { key: 'ArrowDown' });
+
+      expect(wrapper.findAll('[role="option"]').map((row) => row.text())).toEqual([
+        'Gold',
+        'Silver',
+      ]);
+      wrapper.unmount();
+    });
+
+    it('leaves words not chosen to clear as the field is left, emitting nothing', async () => {
+      const { wrapper, chosen, input } = choosing();
+      await input.setValue('sil');
+      await input.trigger('blur');
+
+      expect(chosen).toEqual([]);
+      expect((input.element as HTMLInputElement).value).toBe('');
+      wrapper.unmount();
+    });
+  });
+
   it('hides its label from the eye and keeps it naming the field, given hideLabel', () => {
     const wrapper = mountIt({ hideLabel: true });
     const label = wrapper.get('label');

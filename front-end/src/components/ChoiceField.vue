@@ -37,6 +37,9 @@ export const labelHolds = (option: PickerOption, words: string) =>
  * - `writes` says the choice is acted on as it is taken, `SearchPicker`'s `holdsChoice`: typing
  *   writes nothing, and only another choice replaces this one. Without it, as on a form that acts on
  *   Save, the first word lets the choice go.
+ * - `adds` says each choice is added elsewhere, as a ranked list's next answer: the value stays `''`,
+ *   the select goes back to its empty row, and the field empties with the focus still in it, ready
+ *   for the next. Such a set shrinks as it is used, so the screen gives `wholeCount`.
  * - `open()` opens the list from a link elsewhere on the screen, and answers false where nothing
  *   opened: a select on a browser with no `showPicker` (Safari), or one that refused it, has only
  *   its focus, so the screen can respond.
@@ -63,6 +66,8 @@ const props = defineProps<{
   finds?: (option: PickerOption, words: string) => boolean;
   /** The choice is acted on as it is taken. */
   writes?: boolean;
+  /** Each choice is added elsewhere: the control empties after it. */
+  adds?: boolean;
   disabled?: boolean;
   describedBy?: string;
 }>();
@@ -81,6 +86,12 @@ const rowWords = (option: PickerOption) =>
 
 const selectId = useId();
 const select = ref<HTMLSelectElement | null>(null);
+
+function selected(event: Event): void {
+  const element = event.target as HTMLSelectElement;
+  emit('update:modelValue', element.value);
+  if (props.adds) element.value = '';
+}
 const picker = ref<InstanceType<typeof SearchPicker> | null>(null);
 
 function open(): boolean {
@@ -114,6 +125,7 @@ defineExpose({ open });
     :cap="COMBOBOX_CAP"
     :hide-label="hideLabel"
     :holds-choice="writes"
+    :clears-on-choice="adds"
     :disabled="disabled"
     :described-by="describedBy"
     list-over
@@ -133,7 +145,7 @@ defineExpose({ open });
       :disabled="disabled"
       :aria-describedby="describedBy"
       :data-testid="testid"
-      @change="emit('update:modelValue', ($event.target as HTMLSelectElement).value)"
+      @change="selected"
     >
       <option v-if="placeholder !== undefined" value="">{{ placeholder }}</option>
       <template v-for="(group, at) in groups" :key="group.label ?? at">

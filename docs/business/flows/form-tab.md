@@ -103,6 +103,7 @@ On a market started from its Google Form's responses, the questions also draw on
 4. Change a question the start made to Select and its options are its column's answers; to Multi-Select, the options inside them ("Filled from the answers in your file.").
    Options the organizer edited stay through any change of type, and "Use the answers in your file" puts the file's back on purpose.
 5. "Add from your file" lists the columns the start left out, such as a team's own "Status", and any question since removed; choosing one adds it with its label, type and options, and its key held, so the first import restores its column too.
+   It is a select while the file offered 12 such columns or fewer, counting those already questions, and past that a field that finds a column by typing and stands empty for the next, with the focus still in it.
    A Select or Multi-Select the file gives no options to choose from becomes Text, since a choice needs at least one option.
 6. An option on a Select or Multi-Select made from the file is a field with a list under it: every answer the file gave for that type's reading that is no other option on the question, most chosen first, with no counts ([ADR 0023](../../adr/0023-every-answer-for-an-option-to-offer.md)).
    A click or an arrow key opens it, not Tab; with nothing typed it shows all of them, and typing narrows it.

@@ -56,6 +56,17 @@ export class ChoiceField {
     await this.list.waitFor({ state: 'detached' });
   }
 
+  /** Choose by the words on the row, for a spec that knows those and not the value. */
+  async chooseLabelled(label: string): Promise<void> {
+    if (await this.isSelect()) {
+      await this.root.selectOption({ label });
+      return;
+    }
+    await this.field.fill(label);
+    await this.options.getByText(label, { exact: true }).click();
+    await this.list.waitFor({ state: 'detached' });
+  }
+
   /**
    * Choose by value without typing, for a short list whose labels the spec need not know: at the
    * field, from the list as it opens, so its row must be within the cap.

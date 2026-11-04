@@ -3,6 +3,8 @@ import { computed } from 'vue';
 import draggable from 'vuedraggable';
 import { type ApplicationForm, type ExampleColumn, type FormField } from '@/assets/types/datatypes';
 import { columnOf, columnsToAdd, questionFrom } from '@/utils/exampleColumns';
+import ChoiceField from '@/components/ChoiceField.vue';
+import type { PickerGroup } from '@/components/SearchPicker.vue';
 import { asksForDiscord, discordUsernameQuestion } from '@/utils/discordQuestion';
 import FormFieldEditor from './FormFieldEditor.vue';
 import IconAddRound from '@/components/icons/IconAddRound.vue';
@@ -81,15 +83,16 @@ function addDiscordUsername() {
 
 /** The columns of the file no question is made from yet, for "Add from your file". */
 const columnsOffered = computed(() => columnsToAdd(props.exampleColumns, fields.value));
+const columnGroups = computed<PickerGroup[]>(() => [
+  { options: columnsOffered.value.map((column) => ({ value: column.key, label: column.label })) },
+]);
 
 /**
  * A question made from a column of the file, its key held as the organizer's own: it is the key
  * the saved import mapping names the column under, so relabelling the question must not move it.
  */
-function addFromFile(event: Event) {
-  const select = event.target as HTMLSelectElement;
-  const column = columnsOffered.value.find((c) => c.key === select.value);
-  select.value = '';
+function addFromFile(key: string) {
+  const column = columnsOffered.value.find((c) => c.key === key);
   if (props.readonly || !column) return;
   emit('update:keyTouched', [...props.keyTouched, true]);
   fields.value = [...fields.value, questionFrom(column, fields.value.length)];
@@ -133,21 +136,20 @@ const fieldCount = computed(() => fields.value.length);
       <span class="field-count"> {{ fieldCount }} field{{ fieldCount !== 1 ? 's' : '' }} </span>
       <div v-if="!readonly" class="builder-actions">
         <div v-if="columnsOffered.length" class="add-from-file">
-          <label class="add-from-file__label" for="form-builder-add-from-file">
-            Add from your file
-          </label>
-          <select
-            id="form-builder-add-from-file"
-            class="field field--select add-from-file__select"
-            value=""
-            @change="addFromFile"
-            data-testid="form-builder-add-from-file"
-          >
-            <option value="" disabled>Choose a column</option>
-            <option v-for="column in columnsOffered" :key="column.key" :value="column.key">
-              {{ column.label }}
-            </option>
-          </select>
+          <span class="add-from-file__label" aria-hidden="true">Add from your file</span>
+          <!-- Counts every column the file offered, so it stays one control as they are added. -->
+          <ChoiceField
+            class="add-from-file__choice"
+            model-value=""
+            :groups="columnGroups"
+            label="Add from your file"
+            hide-label
+            placeholder="Choose a column"
+            testid="form-builder-add-from-file"
+            :whole-count="exampleColumns?.length"
+            adds
+            @update:model-value="addFromFile"
+          />
         </div>
         <button
           v-if="discordOffered"
@@ -251,9 +253,8 @@ const fieldCount = computed(() => fields.value.length);
   white-space: nowrap;
 }
 
-.add-from-file__select {
-  width: auto;
-  max-width: 16rem;
+.add-from-file__choice {
+  width: 16rem;
 }
 
 .field-count {

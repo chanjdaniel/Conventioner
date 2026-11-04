@@ -296,3 +296,57 @@ describe('an option that may not be taken', () => {
     expect(row.text()).toContain('Mapped from "Legal name"');
   });
 });
+
+describe('a choice that adds', () => {
+  const adding = (count: number, added: string[]) =>
+    field({
+      groups: choices(count),
+      placeholder: 'Add an answer',
+      adds: true,
+      'onUpdate:modelValue': (value: string) => added.push(value),
+    });
+
+  it('sends the select back to its empty row after each choice', async () => {
+    const added: string[] = [];
+    const wrapper = adding(12, added);
+    const control = select(wrapper);
+
+    await control.setValue('v3');
+    expect(added).toEqual(['v3']);
+    expect((control.element as HTMLSelectElement).value).toBe('');
+
+    await control.setValue('v4');
+    expect(added).toEqual(['v3', 'v4']);
+    expect((control.element as HTMLSelectElement).value).toBe('');
+  });
+
+  it('empties the field after each choice, the list closed and the focus still there', async () => {
+    const added: string[] = [];
+    const wrapper = adding(13, added);
+    const words = input(wrapper);
+    (words.element as HTMLInputElement).focus();
+
+    await words.setValue('Answer 12');
+    await wrapper.get('[data-testid="fix-option"]').trigger('click');
+
+    expect(added).toEqual(['v12']);
+    expect((words.element as HTMLInputElement).value).toBe('');
+    expect(wrapper.find('[data-testid="fix-list"]').exists()).toBe(false);
+    expect(document.activeElement).toBe(words.element);
+  });
+
+  it('stays the one control as the set shrinks under wholeCount', async () => {
+    const added: string[] = [];
+    const wrapper = field({
+      groups: choices(13),
+      wholeCount: 13,
+      adds: true,
+      'onUpdate:modelValue': (value: string) => added.push(value),
+    });
+    const words = input(wrapper);
+    await wrapper.setProps({ groups: choices(5) });
+
+    expect(picker(wrapper).exists()).toBe(true);
+    expect(input(wrapper).element).toBe(words.element);
+  });
+});

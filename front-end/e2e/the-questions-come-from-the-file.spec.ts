@@ -121,7 +121,7 @@ test('the Questions tab fills options from the example file and adds a left-out 
   await expect.poll(() => form.optionValues(booth)).toEqual(['Small', 'Large', 'Medium']);
 
   // The team's own "Status" column was left out; it can come back as a question.
-  await expect(form.addFromFile.locator('option')).toHaveText([
+  await expect(form.addFromFile.root.locator('option')).toHaveText([
     'Choose a column',
     'Status',
     'Notes',
@@ -132,7 +132,7 @@ test('the Questions tab fills options from the example file and adds a left-out 
   await expect(form.keyInput(status)).toHaveValue('status');
   await expect(form.typeSelect(status)).toHaveValue('select');
   await expect.poll(() => form.optionValues(status)).toEqual(['Accepted', 'Waitlist', 'Rejected']);
-  await expect(form.addFromFile.locator('option')).toHaveText(['Choose a column', 'Notes']);
+  await expect(form.addFromFile.root.locator('option')).toHaveText(['Choose a column', 'Notes']);
 
   // The walk of every control never sees a market started from a file, so this screen is looked
   // at here: the new controls are named by the words they show.

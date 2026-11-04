@@ -344,9 +344,8 @@ describe('FormBuilder, on a market started from a file (E38/F02/S02)', () => {
     ]);
     const add = wrapper.get('[data-testid="form-builder-add-from-file"]');
     expect(add.findAll('option').map((o) => o.text())).toEqual(['Choose a column', 'Status']);
-    expect(wrapper.get('label[for="form-builder-add-from-file"]').text()).toBe(
-      'Add from your file',
-    );
+    expect(wrapper.get('.add-from-file label').text()).toBe('Add from your file');
+    expect(wrapper.get('.add-from-file label').attributes('for')).toBe(add.attributes('id'));
 
     await add.setValue('status');
 
@@ -360,6 +359,72 @@ describe('FormBuilder, on a market started from a file (E38/F02/S02)', () => {
     // Its key is the one the saved import mapping names: relabelling it must not move it.
     expect(keyTouched.value).toEqual([true, true]);
     expect(wrapper.find('[data-testid="form-builder-add-from-file"]').exists()).toBe(false);
+  });
+
+  describe('past 12 columns the file offered (T223)', () => {
+    const left = (count: number): ExampleColumn[] =>
+      Array.from({ length: count }, (_, at) => ({
+        headers: [`Column ${at}`],
+        key: `column_${at}`,
+        label: `Column ${at}`,
+        helpText: null,
+        type: 'text',
+        question: false,
+        options: { select: [], multiSelect: [] },
+      }));
+
+    it('stays a select at 12, back on its empty row after each added', async () => {
+      const { wrapper, form } = mountWithParent({ fields: [] }, false, left(12));
+      const add = wrapper.get('select[data-testid="form-builder-add-from-file"]');
+      expect(add.findAll('option')).toHaveLength(13);
+
+      await add.setValue('column_3');
+
+      expect(form.value!.fields.map((f) => f.key)).toEqual(['column_3']);
+      expect((add.element as HTMLSelectElement).value).toBe('');
+      expect(add.findAll('option').map((o) => o.text())).not.toContain('Column 3');
+    });
+
+    it('is a field at 13, ready for the next, and a column added leaves the list', async () => {
+      const attachTo = document.createElement('div');
+      document.body.appendChild(attachTo);
+      const { wrapper, form, keyTouched } = mountWithParent(
+        { fields: [] },
+        false,
+        left(13),
+        attachTo,
+      );
+      const input = wrapper.get('[data-testid="form-builder-add-from-file-input"]');
+      (input.element as HTMLInputElement).focus();
+
+      await input.setValue('Column 12');
+      await input.trigger('keydown', { key: 'Enter' });
+
+      expect(form.value!.fields.map((f) => f.key)).toEqual(['column_12']);
+      expect(keyTouched.value).toEqual([true]);
+      expect((input.element as HTMLInputElement).value).toBe('');
+      expect(document.activeElement).toBe(input.element);
+
+      await input.setValue('Column 12');
+      expect(wrapper.find('[data-testid="form-builder-add-from-file-none"]').exists()).toBe(true);
+      wrapper.unmount();
+      attachTo.remove();
+    });
+
+    it('stays a field as the columns left to add fall to 12 and below', async () => {
+      const taken = left(13).slice(0, 9);
+      const { wrapper } = mountWithParent(
+        { fields: taken.map((c, order) => question({ key: c.key, order })) },
+        false,
+        left(13),
+      );
+      expect(wrapper.find('select[data-testid="form-builder-add-from-file"]').exists()).toBe(false);
+      const input = wrapper.get('[data-testid="form-builder-add-from-file-input"]');
+      await input.trigger('click');
+      expect(
+        wrapper.findAll('[data-testid="form-builder-add-from-file-option"]').map((o) => o.text()),
+      ).toEqual(['Column 9', 'Column 10', 'Column 11', 'Column 12']);
+    });
   });
 
   it('leaves a question of no column as it always was', async () => {

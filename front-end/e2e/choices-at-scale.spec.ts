@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { APIRequestContext, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { ApplicationFormPage } from './pages/ApplicationFormPage';
 import { ChoiceField } from './pages/ChoiceField';
 import { StartFromCsvPage } from './pages/StartFromCsvPage';
 import { CsvImportPage } from './pages/CsvImportPage';
@@ -552,5 +553,136 @@ test.describe('an automatic rejection, on the question of 129 answers', () => {
       await expect(viewerPage.getByTestId('rejection-rule-add')).toHaveCount(0);
       expect((await sweep(viewerPage)).failures, 'the fixed rule has text below AA').toEqual([]);
     });
+  });
+});
+
+test.describe('a choice that adds, on the question of 129 answers', () => {
+  async function startedForm(request: APIRequestContext, marketId: string) {
+    const res = await request.get(`${BACKEND_URL}/markets/${marketId}`);
+    const { market } = (await res.json()) as {
+      market: {
+        applicationForm: { fields: Array<{ key: string; options: string[] }> };
+        setupObject: { priority: Array<{ target: string; ordering: string[] }> };
+        exampleColumns: Array<{ key: string; label: string }>;
+      };
+    };
+    return market;
+  }
+
+  test('three answers found and added in a row by the keys, read back in order', async ({
+    authenticatedPage: page,
+    request,
+    expectAccessible,
+  }) => {
+    test.setTimeout(120_000);
+    const marketId = await startFromFiveDay(page, request, { keepAll: true });
+    const key = await sellingKey(request, marketId);
+    const started = await startedForm(request, marketId);
+    const offered = started.applicationForm.fields.find((field) => field.key === key)!.options;
+    expect(offered).toHaveLength(129);
+    // Whole words only one answer holds, so the first row the words find is the one wanted.
+    const unique = offered.filter(
+      (answer) => offered.filter((other) => other.includes(answer)).length === 1,
+    );
+    const wanted = [unique.at(-1)!, unique.at(-2)!, unique.at(-3)!];
+
+    await page.goto(marketSetupPath(marketId, 'settings'));
+    await page.getByTestId('priority-add-rule').click({ timeout: 15000 });
+    const rule = page.getByTestId('priority-rule-row');
+    await new ChoiceField(rule, 'priority-target-select').choose(key);
+
+    const add = new ChoiceField(rule, 'priority-ordering-add');
+    await expect(add.field).toHaveAttribute('placeholder', 'Add an answer');
+    await expect(rule.locator('.ordering-hint')).toBeVisible();
+
+    // "All others" leads the 129, so the cap never hides it, and the list says what it left out.
+    await add.field.focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(add.options).toHaveCount(50);
+    await expect(add.options.first()).toHaveText('<All others>');
+    await expect(add.more).toHaveText('80 more, type to narrow');
+    await sweep(page);
+    await page.keyboard.press('Escape');
+
+    for (const [at, answer] of wanted.entries()) {
+      await page.keyboard.type(answer);
+      await expect(add.options.first()).toHaveText(answer);
+      await page.keyboard.press('Enter');
+
+      await expect(rule.getByTestId('priority-ordering-answer')).toHaveCount(at + 1);
+      await expect(add.field).toHaveValue('');
+      await expect(add.list).toHaveCount(0);
+      await expect(add.field).toBeFocused();
+    }
+    await expect(rule.getByTestId('priority-ordering-answer')).toHaveText(wanted);
+    await expect(rule.locator('.ordering-hint')).toHaveCount(0);
+
+    // The hint gone, the list lies past the card's foot, whole: a body that scrolled cut it off there.
+    await page.keyboard.press('ArrowDown');
+    const pastTheCard = await add.list.evaluate((list) => {
+      list.scrollIntoView({ block: 'end' });
+      const box = list.getBoundingClientRect();
+      const foot = list.closest('.setting-container')!.getBoundingClientRect().bottom;
+      const under = document.elementFromPoint(box.left + 8, box.bottom - 8);
+      return { past: box.bottom > foot, seen: list.contains(under) };
+    });
+    expect(pastTheCard).toEqual({ past: true, seen: true });
+    await page.keyboard.press('Escape');
+
+    // An answer added is no longer offered.
+    await page.keyboard.type(wanted[0]!);
+    await expect(add.none).toBeVisible();
+    await add.field.fill('');
+    await page.keyboard.press('Escape');
+
+    await expect
+      .poll(async () => (await startedForm(request, marketId)).setupObject.priority[0]?.ordering, {
+        timeout: 15000,
+      })
+      .toEqual(wanted);
+
+    await page.reload();
+    const again = page.getByTestId('priority-rule-row');
+    await expect(again.getByTestId('priority-ordering-answer')).toHaveText(wanted, {
+      timeout: 15000,
+    });
+    await expect(new ChoiceField(again, 'priority-ordering-add').field).toHaveValue('');
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expectAccessible('a rule on a question of 129 answers');
+  });
+
+  test('"Add from your file" finds a column by typing, and stands ready for the next', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    test.setTimeout(120_000);
+    const marketId = await startFromFiveDay(page, request, { keepAll: false });
+    const { exampleColumns, applicationForm } = await startedForm(request, marketId);
+    expect(exampleColumns.length).toBeGreaterThan(12);
+    const held = new Set(applicationForm.fields.map((field) => field.key));
+    const toAdd = exampleColumns.filter((column) => !held.has(column.key));
+    expect(toAdd.length).toBeGreaterThanOrEqual(2);
+    const [first, second] = toAdd;
+
+    const form = new ApplicationFormPage(page);
+    await page.goto(marketSetupPath(marketId, 'form'));
+    await form.openStep('questions');
+    const before = await form.builder.locator('.field-item').count();
+
+    await form.addFromFile.field.fill(first!.label);
+    await form.addFromFile.option(first!.key).click();
+    await expect(form.builder.locator('.field-item')).toHaveCount(before + 1);
+    await expect(form.addFromFile.field).toHaveValue('');
+    await expect(form.addFromFile.list).toHaveCount(0);
+    await expect(form.addFromFile.field).toBeFocused();
+
+    // Gone from the list, and the next found without leaving the field.
+    await page.keyboard.type(first!.label);
+    await expect(form.addFromFile.option(first!.key)).toHaveCount(0);
+    await form.addFromFile.field.fill('');
+    await page.keyboard.type(second!.label);
+    await page.keyboard.press('Enter');
+    await expect(form.builder.locator('.field-item')).toHaveCount(before + 2);
+    await expect(form.labelInput(before + 1)).toHaveValue(second!.label);
   });
 });

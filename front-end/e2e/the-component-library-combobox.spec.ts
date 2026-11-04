@@ -37,7 +37,7 @@ eachWindow('the combobox entry', (size) => {
 
   test('names what it serves, with no choice left to ask', async ({ page }) => {
     const entry = page.getByTestId('library-entry-combobox');
-    await expect(entry).toContainText('C2, C6, C7, C8, C9, C13 and C14');
+    await expect(entry).toContainText('C2, C6, C7, C8, C9, C12, C13 and C14');
 
     await expect(page.getByTestId('choices-for-you')).toHaveCount(0);
     await expectLaidOut(page, size, 'the combobox entry');
@@ -552,6 +552,32 @@ eachWindow('the combobox entry', (size) => {
     const list = (await fix.list.boundingBox())!;
     expect(list.x + list.width).toBeCloseTo(field.x + field.width, 0);
     expect(list.x).toBeGreaterThanOrEqual(0);
+  });
+
+  test('C12 adds each choice and stands ready for the next, "<All others>" first', async ({
+    page,
+    expectAccessible,
+  }) => {
+    const c12 = picker(page, 'library-c12');
+    await c12.field.click();
+    await expect(c12.options).toHaveCount(50);
+    await expect(c12.options.first()).toHaveText('<All others>');
+    await expectLaidOut(page, size, 'C12 open');
+    await expectAccessible('C12 open');
+
+    await c12.options.nth(1).click();
+    await expect(c12.list).toHaveCount(0);
+    await expect(c12.field).toHaveValue('');
+    await expect(c12.field).toBeFocused();
+
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect(c12.field).toHaveValue('');
+    await expect(c12.field).toBeFocused();
+    await expect(readOutOf(page, 'library-c12')).toContainText('<All others>');
+
+    await page.keyboard.press('ArrowDown');
+    await expect(c12.options.first()).not.toHaveText('<All others>');
   });
 
   test('C2 shows a taken target, which neither a press nor the keys take', async ({

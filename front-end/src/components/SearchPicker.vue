@@ -89,6 +89,9 @@
  *   neither a click nor Enter nor words naming it take it. Words still find it and the cap still
  *   counts it, so nobody wonders where it went. Held as the choice, the field names it and no row is
  *   active, so Enter keeps it.
+ * - Given `clearsOnChoice`, on one choice, each choice is added elsewhere, as a ranked list's next
+ *   answer: after emitting, the field empties, the list closes and the focus stays, ready for the next
+ *   word, and the value stays `''`.
  * - `show()`, exposed, takes the focus and opens the list, for a link elsewhere on the screen, and
  *   answers whether the list is open. A disabled field takes neither; with no rows to list, the
  *   field has the focus and no list.
@@ -147,6 +150,8 @@ const props = defineProps<
     hideLabel?: boolean;
     /** Its field reads as wrong, and says so to a reader. */
     invalid?: boolean;
+    /** On one choice: each is added elsewhere, so the field empties, ready for the next word. */
+    clearsOnChoice?: boolean;
   } & (
     | { multiple?: false; modelValue: string }
     /** Several choices, shown as chips above the field. */
@@ -393,7 +398,8 @@ function choose(option: PickerOption): void {
     return;
   }
   // The field shows the words themselves, not the row that offered them.
-  text.value = option === typedOption.value ? option.value : option.label;
+  if (props.clearsOnChoice) text.value = '';
+  else text.value = option === typedOption.value ? option.value : option.label;
   searching.value = false;
   open.value = false;
   active.value = -1;

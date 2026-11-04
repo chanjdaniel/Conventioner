@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { ChoiceField } from './ChoiceField';
 
 /** The form tab's steps, in order (E33/F01/S01). */
 export type FormStep = 'essentials' | 'questions' | 'preview' | 'review';
@@ -25,7 +26,7 @@ export class ApplicationFormPage {
   readonly builderEmpty: Locator;
   readonly addFieldButton: Locator;
   /** "Add from your file", on a market started from a Google Form's responses (E38/F02/S02). */
-  readonly addFromFile: Locator;
+  readonly addFromFile: ChoiceField;
   /** The one-click "Discord username" question (E46/F01/S02). */
   readonly addDiscordButton: Locator;
   readonly lockBanner: Locator;
@@ -67,7 +68,7 @@ export class ApplicationFormPage {
     this.builder = page.getByTestId('form-builder');
     this.builderEmpty = page.getByTestId('form-builder-empty');
     this.addFieldButton = page.getByTestId('form-builder-add-field-button');
-    this.addFromFile = page.getByTestId('form-builder-add-from-file');
+    this.addFromFile = new ChoiceField(page, 'form-builder-add-from-file');
     this.addDiscordButton = page.getByTestId('form-builder-add-discord-button');
     this.lockBanner = page.getByTestId('form-builder-lock-banner');
     this.loadError = page.getByTestId('form-builder-load-error');
@@ -224,7 +225,7 @@ export class ApplicationFormPage {
 
   /** Add a question from a column of the file the market was started from, by its label. */
   async addQuestionFromFile(label: string): Promise<void> {
-    await this.addFromFile.selectOption({ label });
+    await this.addFromFile.chooseLabelled(label);
   }
 
   async save(): Promise<void> {
