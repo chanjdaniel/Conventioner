@@ -57,6 +57,8 @@ An entry is drawn from the parts in `parts/`:
 - `ReadOut`: the line under a live demo that reads out its value ("Chosen: North Wing"), so a choice is seen to land;
 - `ChoicesForYou`: the note that ends every entry, one item per choice left for Daniel.
 
+An entry's own parts sit beside these in `parts/`, such as `ColumnChecklist`, `ExportDialogPrototype` and `SeatRow`.
+
 The page uses only the design tokens, the primitives and the app's components; its files are in Stylelint's migrated set, so a raw colour, size or spacing is an error there.
 A state the pointer or the keyboard makes (hover, held down, focus) is drawn held beside the live control by a class of the entry's own that copies what `primitives.css`, or the component it mounts, draws for it (`FileDropZone`'s focus halo); the live control is the one to trust.
 A state its component draws from an attribute of its own needs no copy: the entry passes the attribute, as `FileDropZone`'s panel "A file over it, held" passes `data-dragging`, so the component's own rule draws it.
