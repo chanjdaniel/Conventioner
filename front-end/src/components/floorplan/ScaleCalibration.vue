@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import {
   Circle as VCircle,
   Image as VImage,
@@ -36,6 +36,19 @@ const store = useFloorplanStore();
 // ── Phase state machine ─────────────────────────────────────────────
 type Phase = 'loading' | 'idle' | 'drawing' | 'input' | 'calibrated' | 'done' | 'error';
 const phase = ref<Phase>('loading');
+
+/**
+ * Focus goes into each panel as it opens, since a press on the canvas or the form it replaces leaves
+ * it on `<body>`. `autofocus` does this only once a page, so a redraw's panel opened without it. The
+ * result opens on its panel and not on Done, where the Enter that confirmed the length would land.
+ */
+const lengthInput = ref<HTMLInputElement | null>(null);
+const resultPanel = ref<HTMLElement | null>(null);
+watch(phase, async () => {
+  await nextTick();
+  lengthInput.value?.focus();
+  resultPanel.value?.focus();
+});
 const errorMsg = ref('');
 
 // ── Container & stage ───────────────────────────────────────────────
@@ -503,13 +516,13 @@ onUnmounted(() => {
             <label class="cal-input-label" for="cal-length-input"> Length </label>
             <input
               id="cal-length-input"
+              ref="lengthInput"
               v-model.number="realLength"
               type="number"
               step="any"
               min="0"
               class="cal-input"
               placeholder="e.g. 3.5"
-              autofocus
               data-testid="scale-calibration-length-input"
             />
           </div>
@@ -557,7 +570,12 @@ onUnmounted(() => {
 
       <!-- ── Calibrated result ──────────────────────────────────────── -->
       <div v-if="phase === 'calibrated'" class="cal-dialog-overlay">
-        <div class="cal-dialog cal-dialog--result">
+        <div
+          ref="resultPanel"
+          class="cal-dialog cal-dialog--result"
+          tabindex="-1"
+          data-testid="scale-calibration-result"
+        >
           <h3 class="cal-dialog-title">Calibration Complete</h3>
 
           <div class="cal-result-grid">

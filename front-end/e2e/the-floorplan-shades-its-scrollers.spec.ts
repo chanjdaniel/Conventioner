@@ -107,7 +107,23 @@ test('the floorplan shades what scrolls, and its steps leave scrolling to the pa
     await page.setViewportSize(DESK);
     await wizard.calibrateStage.scrollIntoViewIfNeeded();
     await wizard.drawCalibrationLine();
-    await wizard.completeCalibration('30');
+    await expect(
+      page.getByTestId('scale-calibration-length-input'),
+      'focus goes into the dialog',
+    ).toBeFocused();
+    await page.getByTestId('scale-calibration-btn-redraw').click();
+    await wizard.drawCalibrationLine();
+    await expect(
+      page.getByTestId('scale-calibration-length-input'),
+      'and again on a redraw',
+    ).toBeFocused();
+    await wizard.calibrateLengthInput.fill('30');
+    await page.keyboard.press('Enter');
+    await expect(
+      page.getByTestId('scale-calibration-result'),
+      'the result takes focus, and the Enter that confirmed the length leaves it open',
+    ).toBeFocused();
+    await wizard.calibrateBtnDone.click();
     await wizard.tableTypeAddBtn.waitFor({ state: 'visible', timeout: 5000 });
   });
 
@@ -198,6 +214,10 @@ test('the floorplan shades what scrolls, and its steps leave scrolling to the pa
     await wizard.clickNext();
     await wizard.openSaveDialog();
     await expect(page.getByTestId('floorplan-save-dialog-body')).toBeVisible();
+    await expect(
+      page.getByTestId('floorplan-save-section-name').first(),
+      'focus goes into the dialog',
+    ).toBeFocused();
     await expectShadesFollowTheScroll(
       page,
       page.getByTestId('floorplan-save-dialog-body'),
@@ -216,6 +236,10 @@ test('the floorplan shades what scrolls, and its steps leave scrolling to the pa
     );
     expect(new Set(widths).size, `the name fields' widths: ${widths.join(', ')}`).toBe(1);
     await expectAccessible('the save dialog, scrolled');
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('floorplan-save-dialog')).toBeHidden();
+    await expect(wizard.saveOpenBtn, 'focus goes back to what opened it').toBeFocused();
   });
 });
 

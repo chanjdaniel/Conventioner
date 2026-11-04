@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue';
+import { ref, computed, watch, nextTick, onUnmounted } from 'vue';
 import { useFloorplanStore } from '@/stores/floorplan';
 import { api, getApiErrorMessage } from '@/utils/api';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
+import { useFocusGoesBack } from '@/utils/useFocusGoesBack';
 import { useModalRoot } from '@/utils/useModalRoot';
 import ScrollBox from '@/components/ScrollBox.vue';
 
@@ -24,6 +25,8 @@ const dialogOpen = ref(false);
 
 /** Modal: the page behind it goes out of the tab order, not just out of reach of the mouse. */
 const modalRoot = useModalRoot(dialogOpen);
+const dialogWindow = ref<HTMLElement | null>(null);
+useFocusGoesBack(() => dialogOpen.value);
 const saving = ref(false);
 const error = ref('');
 const successMessage = ref('');
@@ -112,13 +115,22 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
+/**
+ * Focus goes in to the first section's name: the page behind is inert, so it would otherwise fall
+ * to `<body>`. The window stays in the page closed, and visible through its fade, so closing takes
+ * focus out by hand, or `useFocusGoesBack` would find it still in there and leave it.
+ */
 watch(
   () => dialogOpen.value,
-  (isOpen) => {
+  async (isOpen) => {
     if (isOpen) {
       window.addEventListener('keydown', handleKeydown);
+      await nextTick();
+      dialogWindow.value?.querySelector('input')?.focus();
     } else {
       window.removeEventListener('keydown', handleKeydown);
+      const focused = document.activeElement;
+      if (focused instanceof HTMLElement && dialogWindow.value?.contains(focused)) focused.blur();
     }
   },
 );
@@ -207,6 +219,7 @@ async function handleSave() {
       >
         <div class="save-dialog-background" @click="handleBackdropClick" />
         <div
+          ref="dialogWindow"
           class="save-dialog-window"
           role="dialog"
           aria-modal="true"
@@ -478,6 +491,8 @@ async function handleSave() {
   pointer-events: auto;
   visibility: visible;
   opacity: 1;
+  /* Visible at once, not after the fade's first frame, or the field cannot take focus as it opens. */
+  transition: opacity 0.15s ease;
 }
 
 .save-dialog-background {
