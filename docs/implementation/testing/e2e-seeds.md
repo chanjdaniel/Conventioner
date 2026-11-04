@@ -24,7 +24,7 @@ describes:
   - front-end/e2e/helpers/exampleCollegeMarket.ts
   - front-end/e2e/helpers/decideReviewSetup.ts
   - front-end/e2e/helpers/seedPeopleAtScale.ts
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - E02
   - E11/F01/S01
@@ -166,7 +166,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - `SCREENS_EDITOR` an Editor on that market, so a `SCREENS` state signed in as `'editor'` reads Update info with the answers the assignment reads locked
   - settled rules, on a priced market, so Payments draws the market's money and its tables by tier and by date (T180)
   - an archive
-  - the CSV markets the import screens serve: one taking applications, a draft with no plan, and a draft with a plan and the Viewer on it, whose first import's preview offers the reviewers
+  - the CSV markets the import screens serve: one taking applications, whose saved `importMapping` the `LATER_IMPORT` export reads, so Map columns opens with values waiting, a draft with no plan, and a draft with a plan and the Viewer on it, whose first import's preview offers the reviewers
   - an organization of the organizer's own:
     - its name 72 characters and its admin's and member's addresses 32 and 43, found by name on a later run, so Manage organization draws its people
     - holding a draft of its own, made anew on each run and dated after every other seeded market, its admin also Editor on it, so Manage market draws an organization's people and a market role that adds nothing (E38/F12/S01)

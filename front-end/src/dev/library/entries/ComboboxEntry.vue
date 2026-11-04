@@ -372,7 +372,7 @@ const writtenAnswer = ref('');
 
   <LibrarySection
     title="Several choices, as chips"
-    about="Several choices serve C5, C10, C11 and C12. C5 is on its screen; the others are a checkbox per answer today, up to 230 answers, and the rule that ranks a field's options."
+    about="Several choices serve C5, C10, C11 and C12. C5 is on its screen, and so is C10 past 12 answers; C11 is the export dialog's own, a checkbox per column today; and C12 takes one choice at a time, ranked as it is added."
   >
     <LibraryPanel
       :label="`C5: the reviewers among ${people.length}, as Choose reviewers draws them`"
