@@ -157,7 +157,7 @@ describe('the favicon set', () => {
     });
   });
 
-  it('the manifest says what the app is, and keeps the address bar', () => {
+  it('the manifest says what the app is, and asks for the browser display', () => {
     const manifest = JSON.parse(readFileSync(join(PUBLIC, 'manifest.webmanifest'), 'utf8'));
     expect(manifest).toMatchObject({
       name: 'Conventioner',
