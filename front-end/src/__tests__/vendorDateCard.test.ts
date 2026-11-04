@@ -83,13 +83,13 @@ describe('an unplaced date states its reason in words', () => {
 
 describe('a free table is actionable, the other reasons are reports', () => {
   it('offers a way to place them when a table is open', () => {
-    const wrapper = card({ placement: null, reason: 'free', placeHref: '/markets/m/tables' });
+    const wrapper = card({ placement: null, reason: 'free', placeHref: '/markets/m/assignments' });
 
     expect(wrapper.find('[data-testid="vendor-date-card-place-link"]').exists()).toBe(true);
   });
 
   it('emits rather than navigating, so the view decides where', async () => {
-    const wrapper = card({ placement: null, reason: 'free', placeHref: '/markets/m/tables' });
+    const wrapper = card({ placement: null, reason: 'free', placeHref: '/markets/m/assignments' });
 
     await wrapper.get('[data-testid="vendor-date-card-place-link"]').trigger('click');
 
@@ -103,7 +103,7 @@ describe('a free table is actionable, the other reasons are reports', () => {
     'no_table_at_their_tier',
     'taken',
   ])('offers nothing to press for %s, because the answer is elsewhere', (reason) => {
-    const wrapper = card({ placement: null, reason, placeHref: '/markets/m/tables' });
+    const wrapper = card({ placement: null, reason, placeHref: '/markets/m/assignments' });
 
     expect(wrapper.find('[data-testid="vendor-date-card-place-link"]').exists()).toBe(false);
     expect(reasonIsActionable(reason as never)).toBe(false);
@@ -114,7 +114,7 @@ describe('a free table is actionable, the other reasons are reports', () => {
     // at one; only the Tables view can answer "where can they go" (E11/F03/S02).
     const wrapper = card({
       placement: 'Hall A 1',
-      placeHref: '/markets/m/tables',
+      placeHref: '/markets/m/assignments',
     });
 
     expect(wrapper.get('[data-testid="vendor-date-card-place-link"]').text()).toBe(
@@ -123,7 +123,7 @@ describe('a free table is actionable, the other reasons are reports', () => {
   });
 
   it('says assign, not change, when there is nobody there yet', () => {
-    const wrapper = card({ placement: null, reason: 'free', placeHref: '/markets/m/tables' });
+    const wrapper = card({ placement: null, reason: 'free', placeHref: '/markets/m/assignments' });
 
     expect(wrapper.get('[data-testid="vendor-date-card-place-link"]').text()).toBe('Assign them');
   });

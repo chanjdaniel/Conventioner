@@ -24,7 +24,7 @@ async function atLogin() {
     history: createMemoryHistory(),
     routes: [
       { path: '/login', component: LoginView },
-      { path: '/dashboard', component: Page },
+      { path: '/markets', component: Page },
     ],
   });
   await router.push('/login');

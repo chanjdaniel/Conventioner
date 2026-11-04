@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import axios from 'axios';
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { inject, ref, type Ref } from 'vue';
 import AuthCard from '@/components/AuthCard.vue';
 
 const hostname = import.meta.env.VITE_FLASK_HOST;
-const router = useRouter();
 
-const email = ref('');
+// The bar's Change password leads here, so someone signed in only presses the button. The address
+// stays editable, and nothing of it goes in the URL.
+const user = inject<Ref<string | null>>('user', ref(null));
+
+const email = ref(user.value ?? '');
 const errorMessage = ref('');
 const successMessage = ref('');
 const isLoading = ref(false);
@@ -68,7 +70,11 @@ const submitRequest = async () => {
   <AuthCard>
     <h1>Reset your password</h1>
     <p class="description">
-      Enter your email address and we'll send you a link to reset your password.
+      {{
+        user
+          ? "We'll send a link to this address to reset your password."
+          : "Enter your email address and we'll send you a link to reset your password."
+      }}
     </p>
 
     <form
@@ -116,12 +122,11 @@ const submitRequest = async () => {
       </button>
 
       <div class="form-links">
-        <a
-          href="#"
-          @click.prevent="router.push('/login')"
+        <RouterLink
+          :to="user ? '/markets' : '/login'"
           class="link-alone"
           data-testid="password-reset-request-back-link"
-          >Back to sign in</a
+          >{{ user ? 'Back to Markets' : 'Back to sign in' }}</RouterLink
         >
       </div>
     </form>

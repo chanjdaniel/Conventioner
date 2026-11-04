@@ -1,110 +1,82 @@
 <script setup lang="ts">
 /**
- * The choice of a market's reviewers (E38/F07/S02): a checkbox per person the reader may choose,
- * their own address marked "(you)". One picker for every place that offers the choice: the
- * Reviewers panel, and where the stage begins (phase 2).
+ * The choice of a market's reviewers (E38/F07/S02, T204): a `SearchPicker` of several, the chosen as
+ * chips above a field that finds a person by their address, the reader's own marked "(you)". One
+ * picker for every place that offers the choice: the Reviewers panel, and where the stage begins
+ * (phase 2).
  *
- * The current reviewers are listed and ticked even when the reader is not offered them, so saving
- * without touching one keeps them. Nothing is ticked by default otherwise.
+ * The current reviewers are offered and chosen even when the reader is not offered them, so saving
+ * without touching one keeps them. Nothing is chosen by default otherwise. An address compares
+ * case-folded: a chosen one is shown and offered in the one spelling the choices hold, so one person
+ * never stands twice. A place that knows who can no longer review here passes them, so their chip
+ * and their row say so: the one who must remove them can tell which they are.
  */
 import { computed, useId } from 'vue';
-import { signedInEmail } from '@/utils/signedIn';
-import { PICKER_HINT, pickerChoices } from '@/utils/reviewTeam';
+import SearchPicker from '@/components/SearchPicker.vue';
+import type { PickerOption } from '@/components/SearchPicker.vue';
+import { PEOPLE_CAP, findsPerson, personOption } from '@/utils/personChoice';
+import { CAN_NO_LONGER_REVIEW, PICKER_HINT, pickerChoices } from '@/utils/reviewTeam';
 
 const props = defineProps<{
   /** Whom the reader may choose: the market read's `reviewerCandidates`. */
   candidates: readonly string[];
-  /** The market's reviewers now, listed whether or not the reader is offered them. */
+  /** The market's reviewers now, offered whether or not the reader is offered them. */
   current: readonly string[];
+  /** Those of them who can no longer review here, to mark. */
+  unable?: readonly string[];
   disabled?: boolean;
 }>();
 
-/** The addresses ticked. */
-const ticked = defineModel<string[]>({ required: true });
+/** The addresses chosen. */
+const chosen = defineModel<string[]>({ required: true });
 
 const hintId = useId();
-const me = computed(() => (signedInEmail() ?? '').toLowerCase());
 const choices = computed(() => pickerChoices(props.candidates, props.current));
+const unableKeys = computed(
+  () => new Set((props.unable ?? []).map((address) => address.toLowerCase())),
+);
 
-function isTicked(address: string): boolean {
-  const key = address.toLowerCase();
-  return ticked.value.some((chosen) => chosen.toLowerCase() === key);
+function reviewerOption(address: string): PickerOption {
+  const option = personOption(address);
+  if (!unableKeys.value.has(address.toLowerCase())) return option;
+  const mark = CAN_NO_LONGER_REVIEW.toLowerCase();
+  return option.detail
+    ? { ...option, detail: `You, ${mark}`, chip: `${address} (you, ${mark})` }
+    : { ...option, detail: CAN_NO_LONGER_REVIEW, chip: `${address} (${mark})` };
 }
 
-function toggle(address: string, on: boolean) {
-  const key = address.toLowerCase();
-  const others = ticked.value.filter((chosen) => chosen.toLowerCase() !== key);
-  ticked.value = on ? [...others, address] : others;
-}
+const groups = computed(() => [{ options: choices.value.map(reviewerOption) }]);
+
+const spellings = computed(
+  () => new Map(choices.value.map((address) => [address.toLowerCase(), address])),
+);
+const chosenAsOffered = computed(() => [
+  ...new Set(chosen.value.map((address) => spellings.value.get(address.toLowerCase()) ?? address)),
+]);
 </script>
 
 <template>
-  <fieldset class="reviewer-picker" :aria-describedby="hintId" data-testid="reviewer-picker">
-    <legend class="field-label">Reviewers</legend>
-    <ul class="reviewer-picker-list">
-      <li v-for="address in choices" :key="address">
-        <label class="reviewer-picker-choice">
-          <input
-            type="checkbox"
-            name="reviewers"
-            :value="address"
-            :checked="isTicked(address)"
-            :disabled="disabled"
-            :data-testid="`reviewer-picker-${address}`"
-            @change="toggle(address, ($event.target as HTMLInputElement).checked)"
-          />
-          <span class="reviewer-picker-address">{{ address }}</span>
-          <span v-if="address.toLowerCase() === me" class="reviewer-picker-you">(you)</span>
-        </label>
-      </li>
-    </ul>
+  <div class="reviewer-picker">
+    <SearchPicker
+      multiple
+      :model-value="chosenAsOffered"
+      :groups="groups"
+      :finds="findsPerson"
+      :cap="PEOPLE_CAP"
+      :disabled="disabled"
+      :described-by="hintId"
+      label="Reviewers"
+      placeholder="Type an address…"
+      testid="reviewer-picker"
+      @update:model-value="chosen = $event as string[]"
+    />
     <p :id="hintId" class="reviewer-picker-hint">{{ PICKER_HINT }}</p>
-  </fieldset>
+  </div>
 </template>
 
 <style scoped>
 .reviewer-picker {
   min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-/* A legend's own inline padding would set it 2px right of the boxes below it. */
-.reviewer-picker legend {
-  padding: 0;
-}
-
-/* A market's organization can name dozens of people: the list scrolls inside the dialog. Ruled
-   above and below, so a row cut off at its foot reads as more to scroll, not as the last one. */
-.reviewer-picker-list {
-  max-height: 16rem;
-  margin: var(--space-1) 0 0;
-  padding: var(--space-1) 0;
-  overflow-y: auto;
-  list-style: none;
-  border-block: 1px solid var(--mm-border);
-}
-
-/* The label is the target, the box inside it: 32px at a desk, a thumb's 44px on a phone. */
-.reviewer-picker-choice {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: max(2rem, var(--target-min));
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-  cursor: pointer;
-}
-
-.reviewer-picker-address {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.reviewer-picker-you {
-  flex-shrink: 0;
-  color: var(--mm-text-muted);
 }
 
 .reviewer-picker-hint {

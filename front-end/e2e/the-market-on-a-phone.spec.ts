@@ -25,8 +25,7 @@ import {
  *
  * At the November market an organizer runs the door from a phone (T142), then turns to the
  * Assignment tab's pages to see who still owes. Each of them opened as a desk's 1000px layout in a
- * 390px window, and under a phone's own emulation the layout viewport widened to 1001px and zoomed
- * out, so the vendor drawer opened off screen. A leg per place that fits a phone; each also runs at
+ * 390px window, so the vendor drawer opened off screen. A leg per place that fits a phone; each also runs at
  * a desk, where nothing may move.
  *
  * Vendors is one tap from the door's own list: the organizer looks a vendor up, reads every tab of
@@ -613,21 +612,28 @@ for (const size of PHONE_AND_DESK) {
       }
       await expectFits(page, 'One by one, a verdict given');
 
-      // The organizer deals the review to the Editor from the reviewers dialog, every choice a
-      // thumb's target.
+      // The organizer deals the review to the Editor from the reviewers dialog, the field and every
+      // choice a thumb's target.
       await press(page.getByTestId('reviewers-change'));
       const dealing = page.getByTestId('reviewers-dialog-window');
       await expect(dealing).toBeVisible();
       await expectInside(dealing, 'the reviewers dialog');
-      for (const choice of await dealing.getByTestId(/^reviewer-picker-/).all()) {
-        await expectLabelTarget(choice, 'a reviewer');
+      const field = dealing.getByTestId('reviewer-picker-input');
+      await expectTargets(field, "the reviewers' field");
+      await press(field);
+      for (const choice of await dealing.getByTestId('reviewer-picker-option').all()) {
+        await expectAcross(choice, 'a reviewer');
+        await expectTargets(choice, 'a reviewer');
       }
-      await press(dealing.getByTestId(`reviewer-picker-${EDITOR.email}`));
+      await press(dealing.locator(`[data-value="${EDITOR.email}"]`));
+      await expect(dealing.getByTestId('reviewer-picker-chip')).toHaveText(
+        new RegExp(EDITOR.email),
+      );
       const save = page.getByTestId('reviewers-dialog-submit-button');
       await expectInside(save, 'Save reviewers');
       await press(save);
       await expect(dealing).toHaveCount(0);
-      await expect(page.getByTestId('reviewers-person')).toHaveText([EDITOR.email]);
+      await expect(page.getByTestId('reviewers-line')).toHaveText(`1 reviewer: ${EDITOR.email}`);
       await expectFits(page, 'One by one, the review dealt');
 
       // The chosen reviewer reads their share, then decides it One by one, at the window.

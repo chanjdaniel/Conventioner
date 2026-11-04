@@ -5,11 +5,10 @@ import { inTheWindow } from './helpers/phoneWindow';
 import { settle } from './helpers/settle';
 
 /**
- * The component library's `summaries` entry (T200): L4's reviewers as one line beside today's real
- * panel, whose "and 9 more" opens Change reviewers, and L3's reviewed list in a dialog, at a desk and
- * on a phone. A reviewer is added and removed through the combobox, a change lands only on Save, the
- * dialog's body scrolls under its pinned title and actions with its shades, and a reviewed
- * application is found in the frame.
+ * The component library's `summaries` entry (T200): L4's reviewers, the real panel, whose line's
+ * "and 9 more" opens the whole list, the names line at each count, and L3's reviewed list in a
+ * dialog, at a desk and on a phone. L3's body scrolls under its pinned title and close with its
+ * shades, and a reviewed application is found in the frame.
  */
 
 /** The fixture's 12 reviewers, by address, as the market keeps them. */
@@ -27,8 +26,6 @@ const addresses = [
   'amy.li139@example.com',
   'charles.wang150@example.com',
 ];
-/** Someone with access who is not a reviewer yet. */
-const newcomer = 'daniela.morgan1@example.com';
 /** Every verdict the fixture holds: 160 approved and 64 rejected. */
 const REVIEWED = 224;
 /** A reviewed application past the first page. */
@@ -41,18 +38,12 @@ const [first, second, third, fourth] = [
   'Ellen Ho',
 ];
 
-const LINE = 'library-l4-line';
-const CHANGE = 'library-l4-dialog';
-const line = (page: Page) => page.getByTestId(LINE);
-const more = (page: Page) => page.getByTestId(`${LINE}-more`);
 const body = (page: Page, dialog: string) => page.getByTestId(`${dialog}-body`);
-const chips = (page: Page) => page.getByTestId('library-l4-picker-chip');
-const chipRemove = (page: Page, address: string) =>
-  chips(page).filter({ hasText: address }).getByTestId('library-l4-picker-chip-remove');
-const chosenCount = (page: Page) => page.getByTestId('library-l4-chosen-count');
-
-const lineWords = (chosen: readonly string[]) =>
-  `${chosen.length} reviewers: ${chosen.slice(0, 3).join(', ')} and ${chosen.length - 3} more reviewers`;
+/** The panel that holds one of L4's states, named by its label. */
+const panel = (page: Page, label: string) => page.getByRole('region', { name: label, exact: true });
+/** The line on the fixture's 12 reviewers, naming these three. */
+const lineWords = (named: readonly string[]) =>
+  `12 reviewers: ${named.join(', ')} and 9 more reviewers`;
 
 /** The top and bottom of a thing, inside the window. */
 async function expectInTheWindow(page: Page, thing: Locator, what: string) {
@@ -92,20 +83,18 @@ eachWindow('the summaries entry', (size) => {
     await openEntry(page, 'summaries');
   });
 
-  test('names what it serves, draws both sides of L4, and ends with the choices left', async ({
+  test('names what it serves, draws the real panel for L4, and ends with the choices left', async ({
     page,
     expectAccessible,
   }) => {
     await expect(page.getByTestId('library-serves')).toContainText('L3, L4, L9');
 
-    const today = page.getByRole('region', { name: 'Today: every reviewer listed', exact: true });
-    await expect(today.getByTestId('reviewers-person')).toHaveText(addresses);
-    // Beside the proposed side's button, today's must not read as having no way to change them.
-    await expect(page.getByText('someone who may has "Change reviewers" as well')).toBeVisible();
-    await expect(line(page)).toHaveText(lineWords(addresses));
+    const twelve = panel(page, 'Twelve reviewers');
+    await expect(twelve.getByTestId('reviewers-line')).toHaveText(lineWords(addresses.slice(0, 3)));
+    await expect(twelve.getByTestId('reviewers-change')).toHaveCount(0);
+    await expect(page.getByText('as well, and their "and 9 more" opens that dialog')).toBeVisible();
 
     const choices = page.getByTestId('choices-for-you');
-    await expect(choices).toContainText('Names named before "and N more"');
     await expect(choices).toContainText('Bars before the fold');
     await expect(choices).toContainText('in place or in a dialog');
     await expect(choices).toContainText('rows before a group');
@@ -137,111 +126,56 @@ eachWindow('the summaries entry', (size) => {
     await expect(readOut).toHaveText('More pressed: 1');
   });
 
-  test('"and 9 more" opens the dialog on the field, whose body scrolls under its pinned parts', async ({
+  test('"and 9 more" opens every reviewer, read only, and focus comes back to it', async ({
     page,
     expectAccessible,
   }) => {
-    await expect(more(page)).toHaveAccessibleName('and 9 more reviewers');
-    await press(more(page));
-    await expect(page.getByTestId(`${CHANGE}-window`)).toBeVisible();
-    await expect(page.getByTestId('library-l4-picker-input')).toBeFocused();
-    await expect(chips(page)).toHaveCount(12);
-    await expect(chosenCount(page)).toHaveText('12 reviewers');
-    await expect(page.getByTestId('library-l4-reviewer')).toHaveText(addresses);
+    const twelve = panel(page, 'Twelve reviewers');
+    const more = twelve.getByTestId('reviewers-line-more');
+    await expect(more).toHaveAccessibleName('and 9 more reviewers');
+    await press(more);
 
-    await expectBodyScrollsUnderPinnedParts(page, CHANGE, [
-      page.getByRole('heading', { name: 'Change reviewers', exact: true }),
-      page.getByTestId(`${CHANGE}-close-button`),
-      page.getByTestId(`${CHANGE}-cancel-button`),
-      page.getByTestId(`${CHANGE}-submit-button`),
-    ]);
-    await expectAccessible('Change reviewers, scrolled');
+    const list = page.getByTestId('reviewers-all-window');
+    await expect(list).toBeVisible();
+    await expect(list.getByTestId('reviewers-person')).toHaveText(addresses);
+    await expectLaidOut(page, size, 'the read-only list');
+    await expectAccessible('the read-only list');
 
     await page.keyboard.press('Escape');
-    await expect(page.getByTestId(`${CHANGE}-window`)).toHaveCount(0);
-    await expect(more(page)).toBeFocused();
+    await expect(list).toHaveCount(0);
+    await expect(more).toBeFocused();
   });
 
-  test('a reviewer added and removed through the combobox lands on Save, and Cancel leaves it', async ({
+  test('who can no longer review leads the line, and it says how many more are folded', async ({
     page,
   }) => {
-    const field = page.getByTestId('library-l4-picker-input');
-    const submit = page.getByTestId(`${CHANGE}-submit-button`);
+    const chip = 'Can no longer review here';
+    const one = panel(page, 'One can no longer review: named first');
+    await expect(one.getByTestId('reviewers-line')).toHaveText(
+      lineWords([`${addresses[6]} ${chip}`, addresses[0]!, addresses[1]!]),
+    );
+    await expect(one.getByTestId('reviewers-unable-more')).toHaveCount(0);
 
-    await press(more(page));
-    await field.fill(newcomer);
-    await press(page.getByTestId('library-l4-picker-option').first());
-    await expect(chips(page)).toHaveCount(13);
-    await expect(chosenCount(page)).toHaveText('13 reviewers');
-    await expect(page.getByTestId('library-l4-reviewer').last()).toHaveText(newcomer);
-    // Past the threshold the frame gains its field, which finds the one just added.
-    const find = page.getByTestId('library-l4-chosen-find');
-    await find.fill(newcomer);
-    await expect(chosenCount(page)).toHaveText(`1 of 13 matches "${newcomer}"`);
-    await find.fill('');
-
-    // Nothing lands until Save.
-    await expect(line(page)).toHaveText(lineWords(addresses));
-    await press(submit);
-    await expect(page.getByTestId(`${CHANGE}-window`)).toHaveCount(0);
-    await expect(line(page)).toHaveText(lineWords([...addresses, newcomer]));
-    await expect(more(page)).toBeFocused();
-
-    await press(more(page));
-    await press(chipRemove(page, newcomer));
-    await expect(chips(page)).toHaveCount(12);
-    await expect(chosenCount(page)).toHaveText('12 reviewers');
-    await press(chipRemove(page, addresses[0]!));
-    await press(page.getByTestId(`${CHANGE}-cancel-button`));
-    await expect(line(page)).toHaveText(lineWords([...addresses, newcomer]));
-
-    await press(more(page));
-    await press(chipRemove(page, newcomer));
-    await press(submit);
-    await expect(line(page)).toHaveText(lineWords(addresses));
+    const five = panel(page, 'Five can no longer review: two folded');
+    await expect(five.getByTestId('reviewers-unable')).toHaveCount(3);
+    await expect(five.getByTestId('reviewers-unable-more')).toHaveText(
+      '2 more can no longer review here',
+    );
+    await expect(five.getByTestId('reviewers-line')).toContainText(`${addresses[1]} ${chip}`);
   });
 
-  test("Enter in the frame's find field stays in the dialog, and saves nothing", async ({
+  test('three are all said with no button, and none chosen says what it means', async ({
     page,
   }) => {
-    await press(more(page));
-    await page.getByTestId('library-l4-picker-input').fill(newcomer);
-    await press(page.getByTestId('library-l4-picker-option').first());
-    const find = page.getByTestId('library-l4-chosen-find');
-    await find.fill(addresses[0]!);
-    await find.press('Enter');
-
-    await expect(page.getByTestId(`${CHANGE}-window`)).toBeVisible();
-    await expect(chosenCount(page)).toHaveText(`1 of 13 matches "${addresses[0]}"`);
-    await expect(line(page)).toHaveText(lineWords(addresses));
-  });
-
-  test('saving down to three takes the button, and focus goes to Change reviewers', async ({
-    page,
-  }) => {
-    await press(more(page));
-    for (const address of addresses.slice(3)) await press(chipRemove(page, address));
-    await expect(chosenCount(page)).toHaveText('3 reviewers');
-    await press(page.getByTestId(`${CHANGE}-submit-button`));
-
-    await expect(line(page)).toHaveText(
+    const three = panel(page, 'Three: all said, no button');
+    await expect(three.getByTestId('reviewers-line')).toHaveText(
       `3 reviewers: ${addresses[0]}, ${addresses[1]} and ${addresses[2]}`,
     );
-    await expect(more(page)).toHaveCount(0);
-    await expect(page.getByTestId('library-l4-change')).toBeFocused();
-  });
+    await expect(three.getByTestId('reviewers-line-more')).toHaveCount(0);
 
-  test('nobody chosen says what it means, and the button says Choose', async ({ page }) => {
-    await press(page.getByTestId('library-l4-change'));
-    for (const address of addresses) await press(chipRemove(page, address));
-    await expect(page.getByTestId('library-l4-chosen-empty')).toContainText('No reviewers chosen');
-    await press(page.getByTestId(`${CHANGE}-submit-button`));
-
-    await expect(page.getByTestId('library-l4-none')).toContainText('No reviewers chosen');
-    await expect(line(page)).toHaveCount(0);
-    await expect(page.getByTestId('library-l4-change')).toHaveText('Choose reviewers');
-    await expect(page.getByTestId('library-l4-change')).toBeFocused();
-    await expectLaidOut(page, size, 'nobody chosen');
+    const none = panel(page, 'None chosen');
+    await expect(none.getByTestId('reviewers-none')).toContainText('No reviewers chosen');
+    await expect(none.getByTestId('reviewers-line')).toHaveCount(0);
   });
 
   test("L3's dialog finds a reviewed application, shows more, and forgets its words", async ({

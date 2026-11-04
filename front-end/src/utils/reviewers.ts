@@ -9,7 +9,9 @@
  * through `EmailAddress.vue` and a narrow line breaks it only before its "@" or a dot (T181).
  */
 import { ApplicationStatus, type Application, type Market } from '@/assets/types/datatypes';
+import type { PickerGroup, PickerOption } from '@/components/SearchPicker.vue';
 import { addressParts, type AddressPart } from '@/utils/addressParts';
+import { findsPerson } from '@/utils/personChoice';
 import { reviewerAddresses } from '@/utils/reviewTeam';
 
 /** Not decided yet, so whose share it is still matters: open, or waiting on a follow-up. */
@@ -109,7 +111,7 @@ export type AssignedTo = 'me' | 'anyone' | (string & {});
 export function assignedToOptions(
   reader: string,
   market: Team,
-): Array<{ value: AssignedTo; label: string }> {
+): Array<{ value: AssignedTo; label: string; address?: boolean }> {
   const reviewers = reviewerAddresses(market);
   if (!reviewers.length) return [];
   return [
@@ -117,8 +119,25 @@ export function assignedToOptions(
     { value: 'anyone', label: 'Anyone' },
     ...reviewers
       .filter((address) => !same(address, reader))
-      .map((address) => ({ value: address, label: address })),
+      .map((address) => ({ value: address, label: address, address: true })),
   ];
+}
+
+/** What the filter offers as its picker lists it: Me and Anyone first, then the other reviewers. */
+export function assignedToGroups(reader: string, market: Team): PickerGroup[] {
+  const options = assignedToOptions(reader, market);
+  const isReviewer = ({ value }: PickerOption) => value !== 'me' && value !== 'anyone';
+  return [
+    { options: options.filter((option) => !isReviewer(option)) },
+    { label: 'Reviewers', options: options.filter(isReviewer) },
+  ];
+}
+
+/** What words find in the filter: a choice by its label, and "Me" by the reader's own address too. */
+export function findsAssignedTo(reader: string): (option: PickerOption, words: string) => boolean {
+  return (option, words) =>
+    findsPerson(option, words) ||
+    (option.value === 'me' && reader.toLowerCase().includes(words.toLowerCase()));
 }
 
 /**

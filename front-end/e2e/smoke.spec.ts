@@ -1,7 +1,7 @@
 import { test, expect, TEST_USER, LoginPage } from './fixtures';
 
 test.describe('Conventioner smoke test', () => {
-  test('login and access dashboard', async ({ page }) => {
+  test('login and land on Markets', async ({ page }) => {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
     await expect(loginPage.loginForm).toBeVisible();
@@ -10,9 +10,8 @@ test.describe('Conventioner smoke test', () => {
     await loginPage.fillPassword(TEST_USER.password);
     await loginPage.clickSubmit();
 
-    await page.waitForURL('**/dashboard', { timeout: 10000 });
-    await expect(page).toHaveURL(/dashboard/);
-    await expect(page.locator('.main-buttons')).toBeVisible();
+    await loginPage.waitForMarkets();
+    await expect(page.getByTestId('markets-result-count')).toBeVisible();
   });
 
   test('navigate to markets and see seeded market', async ({ authenticatedPage: page }) => {

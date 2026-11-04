@@ -130,7 +130,11 @@ export class LoginPage {
     await this.clickSubmit();
   }
 
-  async waitForDashboardRedirect(): Promise<void> {
-    await this.page.waitForURL('**/dashboard', { timeout: 10000 });
+  /**
+   * Where signing in lands. By the path, not a glob: `/login?next=/markets` ends in `/markets` too,
+   * so a glob would be met before the sign-in had happened.
+   */
+  async waitForMarkets(): Promise<void> {
+    await this.page.waitForURL((url) => url.pathname === '/markets', { timeout: 10000 });
   }
 }

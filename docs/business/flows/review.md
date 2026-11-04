@@ -7,9 +7,10 @@ describes:
   - front-end/src/components/market/MarketApplicationsTab.vue
   - front-end/src/components/application/ListFreshness.vue
   - front-end/src/components/market/ReviewersPanel.vue
+  - front-end/src/components/market/ReviewerName.vue
   - front-end/src/components/application/VerdictUndoLine.vue
   - front-end/src/utils/verdictUndo.ts
-verified: 2026-11-03
+verified: 2026-11-05
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/08
@@ -53,6 +54,7 @@ sources:
   - E38/F10/S01
   - T180
   - T181
+  - T204
 ---
 
 # Reviewing applications
@@ -94,7 +96,7 @@ The queue is triage: one application at a time, carrying every answer it holds, 
 3. "Reject" (R), "Needs follow-up" (S), "Next" (N), "Approve" (A); the keyboard letters work.
    After a verdict or a follow-up on an open application or a follow-up, a line under the counts and above the next card says what was decided, "Rejected Jane Doe (jane@example.com).", "Approved …" or "Marked … for follow-up.", with "Undo" (Z), for 2 minutes or until the next verdict ([undoing a verdict just given](#undoing-a-verdict-just-given)).
    Above them, on an open application or a follow-up dealt to another reviewer and not in the reader's share, so never on a follow-up the reader owns ([a follow-up is in its owner's share too](../rules/the-review-is-dealt-among-chosen-reviewers.md#why)), someone who may decide it reads "This application is dealt to <email>. If you decide it, its history will say you decided it for them."
-4. "Needs follow-up" opens "Needs a follow-up": "<email>'s application waits until someone reaches out.", "Who will follow up" (anyone with a role on the market, the organization's owner, admins and members included, or, to a reviewer from outside the organization, only the people the market's roles name; the reviewer unless they choose another; nothing is sent to them) and, to someone who may write vendor notes, "Their notes: what is needed (optional)"; "Mark for follow-up".
+4. "Needs follow-up" opens "Needs a follow-up": "<email>'s application waits until someone reaches out.", "Who will follow up" (found by typing part of an address, anyone with a role on the market, the organization's owner, admins and members included, or, to a reviewer from outside the organization, only the people the market's roles name; the reviewer unless they choose another; nothing is sent to them) and, to someone who may write vendor notes, "Their notes: what is needed (optional)"; "Mark for follow-up".
    A chosen Viewer, who writes no notes, marks the follow-up without that box.
    A follow-up waits out of the queue, and "Include the N follow-ups" brings them back; on its card "Followed up by" hands it to someone else.
 5. When the queue is empty: "All N reviewed", "Nothing left to review." (or "Nothing else to review; N need a follow-up.").
@@ -160,7 +162,8 @@ Covered by:
 1. "All" lists every application by name and email, its highlighted answers on one line, its status, who gave the verdict, with reviewers chosen whose share it is ("Reviewer: <email>", or "Reviewer: you"), "Followed up by <email>" and who has it open.
    The highlighted answers and the status lines share the row's room; with no highlighted answer in any listed row, the rows hold no column for them, so the status lines take that room rather than wrap beside an empty band (`theAllViewsRowsUseTheirRoom.test.ts`).
 2. "Filter": "Any status", "Open" (every application not decided yet, `?status=undecided` in the address), "Needs follow-up", "Approved", "Rejected", and "Mine: the follow-ups I own"; a line under it says what Open and Needs follow-up mean, and "N of M" says how many show.
-   With reviewers chosen, "Assigned to" beside them narrows the rows to one reviewer's share, decided applications included: "Me" (offered only to a chosen reviewer), "Anyone", or another reviewer by address, kept in the address as `?reviewer=me`, `anyone` or the address.
+   With reviewers chosen, "Assigned to" beside them narrows the rows to one reviewer's share, decided applications included: "Me" (offered only to a chosen reviewer) and "Anyone" lead its list, and the other reviewers follow under "Reviewers", kept in the address as `?reviewer=me`, `anyone` or the address.
+   It is a field that finds a reviewer by typing part of their address, "Me" by the reader's own address too, its list laid over the rows; words only search, so the rows stay the chosen share until another is taken, and the arrow keys move, Enter takes and Escape names the choice again.
    With none in the address it is "Me" for a chosen reviewer, who lands on their own share, and "Anyone" for everyone else, an Admin overseeing the review among them; an address naming nobody chosen reads as that default, and the reader's own address as "Me".
    A share holds the follow-ups its reviewer owns on another's share too ([a follow-up is in its owner's share too](../rules/the-review-is-dealt-among-chosen-reviewers.md#why)), so "Me" with Mine lists every follow-up the reader owns (`allViewApplications` in [`front-end/src/utils/reviewQueue.ts`](../../../front-end/src/utils/reviewQueue.ts)).
    It narrows together with the status filter and Mine, so "N of M", Select all and the ticks follow what it shows; with no reviewers chosen it is not there and every application shows (`assignedTo` in [`front-end/src/utils/reviewers.ts`](../../../front-end/src/utils/reviewers.ts)).
@@ -187,10 +190,14 @@ The list is read again every 30 seconds while the tab is in view, quietly, which
 The rule is [the review is dealt among chosen reviewers](../rules/the-review-is-dealt-among-chosen-reviewers.md).
 
 1. A "Reviewers" panel sits between the line on where the market stands and Publish results while the review is open, and is gone from Assignment on ([`ReviewersPanel.vue`](../../../front-end/src/components/market/ReviewersPanel.vue)).
-   It lists the chosen reviewers' addresses, "(you)" beside the reader's own and "Can no longer review here" beside one who no longer holds a role on the market, or whose role the market's table no longer lets be chosen, or says "No reviewers chosen. Everyone reviews first come, first served."
+   It says the chosen reviewers in one line, "12 reviewers: a, b, c and 9 more" ([`NameList.vue`](../../../front-end/src/components/NameList.vue)), "(you)" beside the reader's own address ([`ReviewerName.vue`](../../../front-end/src/components/market/ReviewerName.vue)); with three or fewer it names them all and has no button, and with none it says "No reviewers chosen. Everyone reviews first come, first served."
+   A reviewer who no longer holds a role on the market, or whose role the market's table no longer lets be chosen, is never folded out of sight: such reviewers are named first, each marked "Can no longer review here", and when more of them are folded the line ends with how many ("2 more can no longer review here").
 2. Someone who may choose reviewers (an Admin or the owner, by default) is offered "Choose reviewers", or "Change reviewers" once some are chosen; anyone else reads the panel without it.
-3. It opens a dialog: "Saving deals every open application again among the reviewers you choose. Decided applications stay where they are, and so do follow-ups, unless their owner is no longer a reviewer.", then a checkbox for each person the reader may choose, their own marked "(you)", the current reviewers ticked and no one else, and the hint "Choose no one and everyone reviews first come, first served. You can choose reviewers later from the Applications tab." ([`ReviewerPicker.vue`](../../../front-end/src/components/market/ReviewerPicker.vue)).
-4. "Save reviewers" deals every open application among the ticked people, re-reads the market and the open view's list, and closes; a refused save keeps the dialog open with its error.
+   "and 9 more" opens that same dialog for someone who may choose, whose chips are every reviewer, each who can no longer review here saying so; for anyone else it opens a read-only "Reviewers" dialog listing every reviewer, in the line's order, with "(you)" and the mark, closed by Close or Escape, focus going back to the button.
+3. It opens a dialog: "Saving deals every open application again among the reviewers you choose. Decided applications stay where they are, and so do follow-ups, unless their owner is no longer a reviewer.", then the current reviewers as chips above a field that finds anyone else the reader may choose by typing part of their address (the reader's own reads "(you)" on its chip and "You" in the list, and a reviewer who can no longer review here says so on both), and the hint "Choose no one and everyone reviews first come, first served. You can choose reviewers later from the Applications tab." ([`ReviewerPicker.vue`](../../../front-end/src/components/market/ReviewerPicker.vue)).
+   A chip's remove button or Backspace in the empty field takes someone off; opened past 50 matches, the list draws the chosen first, then the rest up to 50, and says how many more there are.
+4. "Save reviewers" deals every open application among the chosen people, re-reads the market and the open view's list, and closes; a refused save keeps the dialog open with its error.
+   A save from "and 9 more" that leaves three or fewer takes that button away, so focus goes to "Change reviewers" or, with none left, "Choose reviewers".
 5. The people offered are those whose role the row "Be chosen as a reviewer, and then give verdicts and follow-ups" lets be chosen (any role, by default); once chosen, they give verdicts and follow-ups on any application, a Viewer included, and the frame no longer says the market is read-only to them.
 6. The same picker is offered as an own-form market opens applications, and in a Google Form market's first import, on its preview step, so the reviewers can be chosen before the first application arrives ([taking applications](taking-applications.md#h1-open-applications), [the import](import.md#h2a-first-import-everything-maps)).
 7. Deciding someone else's share is not refused, to anyone who may give verdicts: every row and card names its reviewer, and an open application or follow-up dealt to someone else and not in the reader's share carries the warning on its card, in its drawer and in a selection's confirmation, every time and never as a dialog to click through (I1, [the All view](#the-all-view)); the words are [`front-end/src/utils/reviewers.ts`](../../../front-end/src/utils/reviewers.ts)'s.

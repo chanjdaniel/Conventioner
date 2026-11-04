@@ -6,9 +6,8 @@ import { settle } from './settle';
  * A journey on the phone in an organizer's hand and at a desk (T142, T180): the two windows, and
  * what each journey checks in them.
  *
- * The phone is a phone's own emulation, not a narrow window: there a page wider than the window
- * widens the layout viewport and zooms out, so a dialog it opens lands off screen, which a plain
- * 390px window only shows as a sideways scroll.
+ * The phone is a phone's own emulation, not a narrow window: touch, device scaling and a phone's
+ * reading of the page's viewport meta, which a plain 390px window has none of.
  */
 export const PHONE_AND_DESK = [
   {

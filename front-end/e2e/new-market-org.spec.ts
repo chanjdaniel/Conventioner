@@ -139,7 +139,7 @@ test.describe('New market - organization is required', () => {
   }, testInfo) => {
     const loginPage = new LoginPage(page);
     await loginPage.login(NO_ORG_USER.email, NO_ORG_USER.password);
-    await loginPage.waitForDashboardRedirect();
+    await loginPage.waitForMarkets();
 
     const newMarketPage = new NewMarketPage(page);
     await page.goto('/markets');

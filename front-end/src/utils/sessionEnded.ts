@@ -4,18 +4,54 @@ import { getApiErrorStatus, onSessionEnded } from '@/utils/api';
 import { loginAddress } from '@/utils/signInNext';
 
 /**
+ * Forget what this browser holds of a session: `localStorage`, the stored user with it, and the open
+ * market. A tab hears only another tab's change as a `storage` event, so this says so to its own, for
+ * a session that ends with no navigation to read the stored user again on (a finished reset).
+ */
+export function forgetTheSession(): void {
+  localStorage.clear();
+  useMarketStore().clear();
+  window.dispatchEvent(new StorageEvent('storage', { key: null }));
+}
+
+/**
  * Forget the session this browser held and go to sign in again, carrying the page it was on so
  * signing in returns there (E38/F11/S01). `ended` says the session ended under the organizer, which
  * the sign-in page tells them.
- *
- * What is forgotten is what signing out forgets: `localStorage`, the stored user with it, and the
- * open market.
  */
 export function endSession(router: Router, { ended }: { ended: boolean }): void {
   const here = router.currentRoute.value;
-  localStorage.clear();
-  useMarketStore().clear();
+  forgetTheSession();
   void router.push(loginAddress(here.fullPath, { ended }));
+}
+
+/**
+ * Tell the server this browser's session is over, whatever it answers: a failure on the wire is
+ * logged and goes no further.
+ *
+ * `fetch`, not the app's `axios`: a 401 here is a session already over, not one that ended under
+ * the organizer, and must not be told as one (`onSessionEnded`).
+ */
+export async function endTheSessionOnTheServer(): Promise<void> {
+  try {
+    await fetch(`${import.meta.env.VITE_FLASK_HOST}/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+  } catch (error) {
+    console.error('Logout failed:', error);
+  }
+}
+
+/**
+ * Sign out: tell the server, then forget what `endSession` forgets and go to sign in, whether or
+ * not the server heard. A sign-out that failed on the wire still leaves this browser signed out to
+ * whoever sits down at it next.
+ */
+export async function signOut(router: Router): Promise<void> {
+  await endTheSessionOnTheServer();
+  forgetTheSession();
+  await router.push('/login');
 }
 
 /**

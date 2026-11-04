@@ -79,7 +79,7 @@ export const ENTRIES: readonly LibraryEntry[] = [
     id: 'proposals',
     title: 'Proposals',
     summary: 'The badge tones, the data table, the side panel',
-    serves: 'The 15 one-off badges, the 6 tables, the vendor drawer and the navigation drawer',
+    serves: 'The 15 one-off badges, the 6 tables, the vendor drawer',
   },
   {
     id: 'export-vendors',
