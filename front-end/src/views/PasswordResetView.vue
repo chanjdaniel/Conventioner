@@ -233,9 +233,10 @@ h1 {
   font-size: var(--text-sm);
 }
 
-/* Its focus halo is the primitives' own: this set `outline: none`, so a keyboard user could not
+/* Its focus border is the primitives' own: this set `outline: none`, so a keyboard user could not
    see they were on it. */
 .show-button {
+  --focus-border-offset: var(--focus-border-width);
   min-width: var(--target-min);
   border: none;
   background-color: transparent;

@@ -10,6 +10,14 @@ import { expect, type Page } from '@playwright/test';
 const HALO = 'rgba(54, 130, 111, 0.35)';
 const HALO_ON_DARK = 'rgba(255, 255, 255, 0.35)';
 
+/** A focused button's border, as the browser computes `--focus-border` and its `-on-fill`. */
+const BORDER = 'rgb(54, 130, 111)';
+const BORDER_ON_FILL = 'rgb(7, 35, 28)';
+const BORDER_WIDTH = '2px';
+
+/** What the primitives draw the border on, rather than the halo. */
+const BUTTONS = ".btn, .add-row, .drag-handle, .step-button, button, [role='button']";
+
 /** How much wider than its words a text control's box may be: room for a marker before them. */
 const WORDS_SLACK = 24;
 
@@ -39,10 +47,22 @@ export interface SweepInPage {
 interface Looks {
   halo: string;
   haloOnDark: string;
+  border: string;
+  borderOnFill: string;
+  borderWidth: string;
+  buttons: string;
   wordsSlack: number;
 }
 
-export const LOOKS: Looks = { halo: HALO, haloOnDark: HALO_ON_DARK, wordsSlack: WORDS_SLACK };
+export const LOOKS: Looks = {
+  halo: HALO,
+  haloOnDark: HALO_ON_DARK,
+  border: BORDER,
+  borderOnFill: BORDER_ON_FILL,
+  borderWidth: BORDER_WIDTH,
+  buttons: BUTTONS,
+  wordsSlack: WORDS_SLACK,
+};
 
 /** One focused element's verdict: its walk id, its name, and its problems (null: not judged). */
 interface Verdict {
@@ -53,17 +73,22 @@ interface Verdict {
 
 /**
  * Installs the page's half of the sweep: how a box looks, what clips a control's halo, and the
- * verdict on the focused element.
+ * verdict on the focused element, a field, a button or any other control.
  */
 export async function installTheSweep(page: Page): Promise<void> {
   await page.evaluate(() => {
     const sweep = window as unknown as SweepInPage;
     sweep.focusSweepClipper = (wearer) => {
-      // How far the halo reaches outside the edge: the widest of its rings not drawn inset.
+      // How far it reaches outside the edge: the widest of the halo's rings not drawn inset, or
+      // a text button's border, drawn around its words.
+      const worn = getComputedStyle(wearer);
       const reach = Math.max(
         0,
-        ...getComputedStyle(wearer)
-          .boxShadow.split(/,(?![^(]*\))/)
+        worn.outlineStyle === 'none'
+          ? 0
+          : parseFloat(worn.outlineWidth) + parseFloat(worn.outlineOffset),
+        ...worn.boxShadow
+          .split(/,(?![^(]*\))/)
           .filter((ring) => !ring.includes('inset'))
           .map((ring) => Number(ring.match(/0px 0px 0px ([\d.]+)px/)?.[1] ?? 0)),
       );
@@ -104,7 +129,8 @@ export async function installTheSweep(page: Page): Promise<void> {
       }
       return null;
     };
-    sweep.focusSweepJudge = ({ halo, haloOnDark, wordsSlack }) => {
+    sweep.focusSweepJudge = (looks) => {
+      const { halo, haloOnDark, border, borderOnFill, borderWidth, buttons, wordsSlack } = looks;
       const { focusSweepLook: look, focusSweepClipper: clipper } = sweep;
       const el = document.activeElement as HTMLElement | null;
       if (!el || el === document.body) return null;
@@ -145,20 +171,127 @@ export async function installTheSweep(page: Page): Promise<void> {
       }
 
       const s = getComputedStyle(el);
+      // The fill a box is drawn on: its own, or the first ancestor's with one.
+      const fillUnder = (from: Element | null): number[] => {
+        for (let node = from; node; node = node.parentElement) {
+          const fill = getComputedStyle(node)
+            .backgroundColor.match(/[\d.]+/g)
+            ?.map(Number);
+          if (fill && (fill[3] ?? 1) > 0.5) return fill;
+        }
+        return [255, 255, 255];
+      };
+      // A text control has no box of its own: no fill and no border.
+      const isText = (w: CSSStyleDeclaration): boolean =>
+        (w.backgroundColor.match(/[\d.]+/g)?.map(Number)[3] ?? 1) === 0 &&
+        ['top', 'right', 'bottom', 'left'].every(
+          (side) => parseFloat(w.getPropertyValue(`border-${side}-width`)) === 0,
+        );
+      // It is as wide as its words and its padding, and a marker before them.
+      const runsPastWords = (w: CSSStyleDeclaration): number | null => {
+        // A box held at a tap target's least width is that wide for the thumb, not the row.
+        const atLeast = parseFloat(w.minWidth) || 0;
+        if (!isText(w) || box.width <= atLeast + 0.5) return null;
+        const words = document.createRange();
+        words.selectNodeContents(el);
+        const room =
+          box.width -
+          parseFloat(w.paddingLeft) -
+          parseFloat(w.paddingRight) -
+          words.getBoundingClientRect().width;
+        // A marker drawn before the words, as a disclosure's is, takes about 16px.
+        return room > wordsSlack ? room : null;
+      };
+      const squareCorners = (w: CSSStyleDeclaration): string | null => {
+        const corners = [
+          w.borderTopLeftRadius,
+          w.borderTopRightRadius,
+          w.borderBottomRightRadius,
+          w.borderBottomLeftRadius,
+        ];
+        return corners.some((corner) => parseFloat(corner) === 0) ? corners.join(' ') : null;
+      };
+
+      if (el.matches(buttons)) {
+        // Focus moves nothing: the box is the size it was at rest.
+        const atRest = el.dataset.sizeAtRest;
+        const now = `${Math.round(box.width)}x${Math.round(box.height)}`;
+        if (atRest !== undefined && atRest !== now) {
+          problems.push(`focus resized a button: ${atRest} -> ${now}`);
+        }
+        if (s.boxShadow.includes(halo) || s.boxShadow.includes(haloOnDark)) {
+          problems.push(`a button wore the halo: box-shadow ${s.boxShadow}`);
+        }
+        // A button with no border of its own may have a box up to four levels around it draw
+        // the border, as a market card does for its name.
+        const draws = (node: Element) => {
+          const n = getComputedStyle(node);
+          return n.outlineStyle === 'solid' && n.outlineWidth === borderWidth;
+        };
+        let wearer: Element | null = el;
+        for (let up = 0; wearer && !draws(wearer) && up < 4; up++) wearer = wearer.parentElement;
+        if (!wearer || !draws(wearer)) {
+          problems.push(`a button drew no green border: outline ${s.outlineStyle}`);
+          return { id, name, problems };
+        }
+        const w = getComputedStyle(wearer);
+        const width = parseFloat(borderWidth);
+        const offset = parseFloat(w.outlineOffset);
+        // On the edge; a text button's may run clear around its words instead.
+        if (offset !== -width && !(offset === width && isText(w))) {
+          problems.push(`a button's border is not on its edge: offset ${w.outlineOffset}`);
+        }
+        // The plain green, unless it would not show: on a fill it is under 3:1 with, or over a
+        // green border the button draws itself. A fill that hides it is what the deep green is for.
+        const linear = (v: number) =>
+          v / 255 <= 0.03928 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4;
+        const luminance = (c: number[]) =>
+          0.2126 * linear(c[0]) + 0.7152 * linear(c[1]) + 0.0722 * linear(c[2]);
+        const contrast = (a: number[], b: number[]) => {
+          const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+          return (hi + 0.05) / (lo + 0.05);
+        };
+        const green = border.match(/[\d.]+/g)!.map(Number);
+        const hidden =
+          contrast(green, fillUnder(wearer)) < 3 ||
+          (w.borderTopColor === border && parseFloat(w.borderTopWidth) > 0);
+        const wanted = hidden ? borderOnFill : border;
+        if (w.outlineColor !== wanted) {
+          problems.push(`a button's border is ${w.outlineColor}, where ${wanted} would show`);
+        }
+        const square = squareCorners(w);
+        if (square) problems.push(`a border with square corners: border-radius ${square}`);
+        const clippedBy = clipper(wearer);
+        if (clippedBy) problems.push(`a border cut off by ${clippedBy}`);
+        if (wearer === el) {
+          // Drawn inside the edge, it must not lie over the words, which a padless button's reach:
+          // the words on show, since a screen reader's lie wherever they are clipped to nothing.
+          const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+          const words = document.createRange();
+          for (let node = walker.nextNode(); offset < 0 && node; node = walker.nextNode()) {
+            if (node.parentElement?.closest('.visually-hidden')) continue;
+            words.selectNodeContents(node);
+            const held = words.getBoundingClientRect();
+            if (
+              held.width > 0 &&
+              (held.left < box.left + width - 0.5 || held.right > box.right - width + 0.5)
+            ) {
+              problems.push('a button draws its border over its words');
+              break;
+            }
+          }
+          const past = runsPastWords(w);
+          if (past)
+            problems.push(`a text button's border runs ${Math.round(past)}px past its words`);
+        }
+        return { id, name, problems };
+      }
+
       if (s.outlineStyle !== 'none' && s.outlineWidth !== '0px') {
         problems.push(`a control drew an outline: ${s.outlineStyle} ${s.outlineWidth}`);
       }
       // The ground the halo is drawn on: the first ancestor with a fill.
-      let ground: number[] = [255, 255, 255];
-      for (let node = el.parentElement; node; node = node.parentElement) {
-        const fill = getComputedStyle(node)
-          .backgroundColor.match(/[\d.]+/g)
-          ?.map(Number);
-        if (fill && (fill[3] ?? 1) > 0.5) {
-          ground = fill;
-          break;
-        }
-      }
+      const ground = fillUnder(el.parentElement);
       const dark = 0.2126 * ground[0] + 0.7152 * ground[1] + 0.0722 * ground[2] < 96;
       const wanted = dark ? haloOnDark : halo;
       // A control with no shadow of its own may have a box up to four levels around it wear
@@ -183,35 +316,13 @@ export async function installTheSweep(page: Page): Promise<void> {
       let wearer: Element = el;
       while (!wears(wearer) && wearer.parentElement) wearer = wearer.parentElement;
       const w = getComputedStyle(wearer);
-      const corners = [
-        w.borderTopLeftRadius,
-        w.borderTopRightRadius,
-        w.borderBottomRightRadius,
-        w.borderBottomLeftRadius,
-      ];
-      if (corners.some((corner) => parseFloat(corner) === 0)) {
-        problems.push(`a halo with square corners: border-radius ${corners.join(' ')}`);
-      }
+      const square = squareCorners(w);
+      if (square) problems.push(`a halo with square corners: border-radius ${square}`);
       const clippedBy = clipper(wearer);
       if (clippedBy) problems.push(`a halo cut off by ${clippedBy}`);
-      const unfilled = (w.backgroundColor.match(/[\d.]+/g)?.map(Number)[3] ?? 1) === 0;
-      const unbordered = ['top', 'right', 'bottom', 'left'].every(
-        (side) => parseFloat(w.getPropertyValue(`border-${side}-width`)) === 0,
-      );
-      // A box held at a tap target's least width is that wide for the thumb, not the row.
-      const atLeast = parseFloat(w.minWidth) || 0;
-      if (wearer === el && unfilled && unbordered && box.width > atLeast + 0.5) {
-        const words = document.createRange();
-        words.selectNodeContents(el);
-        const room =
-          box.width -
-          parseFloat(w.paddingLeft) -
-          parseFloat(w.paddingRight) -
-          words.getBoundingClientRect().width;
-        // A marker drawn before the words, as a disclosure's is, takes about 16px.
-        if (room > wordsSlack) {
-          problems.push(`a text control's halo runs ${Math.round(room)}px past its words`);
-        }
+      if (wearer === el) {
+        const past = runsPastWords(w);
+        if (past) problems.push(`a text control's halo runs ${Math.round(past)}px past its words`);
       }
       return { id, name, problems };
     };
@@ -240,13 +351,17 @@ export async function installTheSweep(page: Page): Promise<void> {
 
 /**
  * Marks every field and the two boxes around it with how they look with nothing focused, and
- * says how many keyboard stops the state draws.
+ * every button with its size, and says how many keyboard stops the state draws.
  */
 export async function rememberFieldsAtRest(page: Page): Promise<number> {
   await installTheSweep(page);
-  return page.evaluate(() => {
+  return page.evaluate((buttons) => {
     const sweep = window as unknown as SweepInPage;
     (document.activeElement as HTMLElement | null)?.blur();
+    for (const button of document.querySelectorAll<HTMLElement>(buttons)) {
+      const box = button.getBoundingClientRect();
+      button.dataset.sizeAtRest = `${Math.round(box.width)}x${Math.round(box.height)}`;
+    }
     for (const field of document.querySelectorAll('input, textarea, select')) {
       let el: Element | null = field;
       for (let depth = 0; el && depth < 3; depth++, el = el.parentElement) {
@@ -259,7 +374,7 @@ export async function rememberFieldsAtRest(page: Page): Promise<number> {
       const box = el.getBoundingClientRect();
       return box.width > 0 && box.height > 0 && !el.closest('[inert]') && !el.matches(':disabled');
     }).length;
-  });
+  }, BUTTONS);
 }
 
 /** Presses Tab through the state and judges each element it lands on. */

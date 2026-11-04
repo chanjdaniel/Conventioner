@@ -345,6 +345,7 @@ function onSaved(payload: { market_id: string }) {
 }
 
 .nav-btn--next {
+  --focus-border: var(--focus-border-on-fill);
   background: var(--mm-green);
   color: #ffffff;
   margin-left: auto;

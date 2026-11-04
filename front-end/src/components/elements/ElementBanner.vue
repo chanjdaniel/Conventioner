@@ -112,6 +112,7 @@ function goToDashboard() {
 }
 
 .logo-button {
+  --focus-border-offset: var(--focus-border-width);
   display: flex;
   align-items: center;
   height: 100%;

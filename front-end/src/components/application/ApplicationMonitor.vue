@@ -1300,6 +1300,7 @@ function submittedOn(app: Application): string {
 }
 
 .choose-highlights-toggle {
+  --focus-border-offset: var(--focus-border-width);
   border: none;
   background: none;
   padding: 0;
@@ -1351,7 +1352,7 @@ function submittedOn(app: Application): string {
   margin-left: auto;
 }
 
-/* The verdicts are the primitives' (`.btn`): one height, one focus halo, one disabled state. */
+/* The verdicts are the primitives' (`.btn`): one height, one focus border, one disabled state. */
 .card-actions kbd {
   font-family: monospace;
   font-size: var(--text-xs);
@@ -1387,6 +1388,7 @@ function submittedOn(app: Application): string {
 }
 
 .decided-toggle {
+  --focus-border-offset: var(--focus-border-width);
   min-height: var(--target-min);
   background: none;
   border: none;

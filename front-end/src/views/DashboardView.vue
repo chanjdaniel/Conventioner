@@ -286,11 +286,6 @@ const handleSignOut = async () => {
   opacity: 0.9;
 }
 
-/* Its resting shadow outranks the primitives' focus rule, so it says its halo itself. */
-.button:focus-visible {
-  box-shadow: var(--focus-halo), var(--shadow-card);
-}
-
 /* Markets and Organizations share the row equally: 346px each in a desk's 716px column. */
 .button-half {
   flex: 1;
@@ -343,6 +338,7 @@ const handleSignOut = async () => {
 }
 
 .welcome-action {
+  --focus-border: var(--focus-border-on-fill);
   background: var(--mm-green);
   color: white;
   border: none;
@@ -370,10 +366,6 @@ const handleSignOut = async () => {
   background: none;
   box-shadow: none;
   border-radius: var(--radius-control);
-}
-
-.button-small:focus-visible {
-  box-shadow: var(--focus-halo);
 }
 
 .button-small:hover {

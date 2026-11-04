@@ -639,6 +639,7 @@ const nobodyShown = computed(() => {
 }
 
 .payments-sort {
+  --focus-border-offset: var(--focus-border-width);
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -676,9 +677,10 @@ const nobodyShown = computed(() => {
   color: var(--mm-text-muted-on-beige);
 }
 
-/* As wide as the vendor's name or address, so its halo hugs the words in the wide Vendor column;
+/* As wide as the vendor's name or address, so its focus border hugs the words in the wide Vendor column;
    a click on the rest of the row opens the drawer as well. */
 .payments-row-open {
+  --focus-border-offset: var(--focus-border-width);
   display: block;
   width: fit-content;
   max-width: 100%;

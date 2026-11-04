@@ -14,12 +14,17 @@ import {
  *   ring, glow, or border or fill change, on it or on the two boxes around it, which is where the
  *   plan cards and the sign-in page drew theirs. A text field shows its caret and nothing else, by
  *   Daniel's decision on the 2026-10-29 walk.
- * - A control focused by Tab draws the soft halo and no outline, so neither the old ring nor the
- *   browser's own is left anywhere; a control with no shadow of its own may have a box around it
- *   wear the halo, as a market card does for its name. The halo is `--focus-halo` on a light
- *   ground and `--focus-halo-on-dark` on a dark one (the market bar, the vendor drawer's head).
- * - The halo hugs what it marks: its corners are rounded, and a text control with no fill or
- *   border is about as wide as its words, not the row it sits in.
+ * - A button focused by Tab draws a green border and no halo, its own size still: `--focus-border`
+ *   on what the green shows on and `--focus-border-on-fill` on a fill it does not, or over a green
+ *   border of the button's own. A box around a button may draw it, as a market card does for its
+ *   name. It lies inside the edge and not over the words, or clear around the words of a text
+ *   button, which has no fill or border to lie on.
+ * - Any other control focused by Tab draws the soft halo and no outline, so neither the old ring
+ *   nor the browser's own is left anywhere; a control with no shadow of its own may have a box
+ *   around it wear the halo. The halo is `--focus-halo` on a light ground and
+ *   `--focus-halo-on-dark` on a dark one (the market bar's tabs).
+ * - Both hug what they mark: the corners are rounded, and a text control with no fill or border is
+ *   about as wide as its words, not the row it sits in.
  * - A dialog's window, which AppDialog focuses when no control in it is ready, draws no outline.
  * - Every menu the state shows (`aria-haspopup="menu"`) is opened with Enter and walked with the
  *   arrow keys, since its items are no Tab stop, and each item is judged as a control.
@@ -49,7 +54,7 @@ const focusTest = test.extend<{ check: Check }>({
   },
 });
 
-test.describe('Focus shows on controls only, as the soft halo', () => {
+test.describe('Focus shows on controls only, as a green border or the soft halo', () => {
   walkTheScreens(focusTest, { everySize: false, alsoAt: PHONE });
 
   // AppDialog focuses its window when no control is ready to take focus, as Manage market's is

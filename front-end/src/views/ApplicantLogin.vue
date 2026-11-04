@@ -316,6 +316,7 @@ function goBack() {
 }
 
 .login-link-btn {
+  --focus-border-offset: var(--focus-border-width);
   background: none;
   border: none;
   color: var(--mm-text-muted);

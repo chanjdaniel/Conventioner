@@ -147,6 +147,7 @@ async function publish() {
 }
 
 .publish-button {
+  --focus-border: var(--focus-border-on-fill);
   min-height: var(--target-min);
   background: var(--mm-green);
   color: white;

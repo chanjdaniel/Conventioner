@@ -45,6 +45,7 @@ const logout = async () => {
 
 <style scoped>
 .signout-button {
+  --focus-border-offset: var(--focus-border-width);
   border: none;
   background-color: transparent;
   cursor: pointer;

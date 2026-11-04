@@ -418,6 +418,7 @@ async function undoCheckIn(date: string): Promise<void> {
 }
 
 .primary-button {
+  --focus-border: var(--focus-border-on-fill);
   background: var(--mm-green);
   color: white;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */

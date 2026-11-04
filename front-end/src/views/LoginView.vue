@@ -715,6 +715,7 @@ const submitOTPLogin = async () => {
 }
 
 .show-button {
+  --focus-border-offset: var(--focus-border-width);
   border: none;
   background-color: transparent;
   width: fit-content;
@@ -786,7 +787,7 @@ const submitOTPLogin = async () => {
   margin-bottom: 0;
 }
 
-/* `.btn btn--primary` carries the height, radius, fill, weight, focus halo and disabled state.
+/* `.btn btn--primary` carries the height, radius, fill, weight, focus border and disabled state.
    All this adds is the one thing that is local: it spans the form, which gives the page's primary
    action presence without inventing a fourth button height (E16/F05). */
 .submit-button {

@@ -293,6 +293,7 @@ onUpdated(measureFields);
 }
 
 .history-toggle {
+  --focus-border-offset: var(--focus-border-width);
   min-height: var(--target-min);
   padding: 0;
   border: 0;

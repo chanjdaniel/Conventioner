@@ -856,6 +856,7 @@ watch(
 }
 
 .toolbar-btn.is-active {
+  --focus-border: var(--focus-border-on-fill);
   background: var(--mm-green);
   color: #ffffff;
 }

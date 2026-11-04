@@ -109,6 +109,7 @@ function toggleDropdown() {
 
 /* ── Main button ─────────────────────────────────── */
 .export-btn {
+  --focus-border: var(--focus-border-on-fill);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -224,6 +225,7 @@ function toggleDropdown() {
 }
 
 .export-action-btn {
+  --focus-border: var(--focus-border-on-fill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
