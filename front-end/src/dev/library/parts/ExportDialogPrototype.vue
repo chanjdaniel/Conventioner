@@ -268,6 +268,7 @@ function download(): void {
               type="checkbox"
               name="library-export-mine"
               data-testid="library-export-mine"
+              @keydown.enter.prevent
             />
             Mine: the follow-ups I own
           </label>

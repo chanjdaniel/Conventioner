@@ -448,6 +448,18 @@ eachWindow('the export-vendors entry', (size) => {
     ).toHaveText('Download CSV would export: nothing');
   });
 
+  test('Enter on the Mine tick only looks', async ({ page }) => {
+    await open(page);
+    const mine = page.getByTestId('library-export-mine');
+    await mine.focus();
+    await mine.press('Enter');
+
+    await expect(dialog(page)).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Open it on either column choice' }).getByTestId('read-out'),
+    ).toHaveText('Download CSV would export: nothing');
+  });
+
   test('Download only reads out what it would export, and asks no server', async ({ page }) => {
     const asked: string[] = [];
     page.on('request', (request) => {
