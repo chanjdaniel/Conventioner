@@ -180,7 +180,7 @@ test.describe('Authentication journeys', () => {
 
     test('redirects to login when session is absent', async ({ page }) => {
       // Clear any stored user data to simulate expired/absent session
-      await page.goto('/dashboard');
+      await page.goto('/organizations');
       // If no user in localStorage, the router guard redirects to /login
       await expect(page).toHaveURL(/login/, { timeout: 10000 });
     });

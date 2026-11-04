@@ -439,7 +439,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
   <div class="market-setup-view" :class="{ 'market-setup-view--fits-a-phone': onAPhoneLayout }">
     <ChoosePathOverlay v-if="market && showPathChoice" @select="handlePathChoice" />
     <!-- The frame (E21/F04/S01): the market's bar and the whole phase rail stay put under the
-         banner while the page scrolls. Nothing about a market is kept in the browser, so until the
+         app bar while the page scrolls. Nothing about a market is kept in the browser, so until the
          server answers the frame paints the state of asking (E21/F02/S02). -->
     <MarketFrame :market="market" :beforeTransition="flushPlanSave">
       <template v-if="market">

@@ -17,8 +17,8 @@ import { useInertBehind } from '@/utils/useInertBehind';
  * ```
  *
  * A modal whose scrim and panel are separate siblings, rather than one inside the other, cannot use
- * this: it has to name both, so it calls `useInertBehind` directly. The app's navigation drawer and
- * the vendor detail drawer are the two.
+ * this: it has to name both, so it calls `useInertBehind` directly. The app bar's sheet and the
+ * vendor detail drawer are the two.
  */
 export function useModalRoot(isOpen: Ref<boolean> | (() => boolean)): Ref<HTMLElement | null> {
   const root = ref<HTMLElement | null>(null);

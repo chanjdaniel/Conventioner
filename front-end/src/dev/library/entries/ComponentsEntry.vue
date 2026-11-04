@@ -100,7 +100,7 @@ const sentence = `${owner.email} changed ${people[1]!.email}'s role to ${getRole
 const opened = ref<string | null>(null);
 const unnamed: VendorNames = {};
 
-// RowMenu: the two menus the Payments tab gives a line and an entry.
+// RowMenu: the two menus the Payments tab gives a line and an entry, and the app bar's account menu.
 const LINE_ITEMS = [
   { id: 'owed', label: 'Change the amount owed' },
   { id: 'calculated', label: 'Use the calculated price' },
@@ -109,6 +109,7 @@ const ENTRY_ITEMS = [
   { id: 'edit', label: 'Edit' },
   { id: 'remove', label: 'Remove', destructive: true },
 ];
+const ACCOUNT_ITEMS = [{ id: 'sign-out', label: 'Sign out' }];
 const chosenItem = ref<string | null>(null);
 const dayLabel = new Date(`${seats[0]!.date}T00:00:00`).toLocaleDateString('en-US', {
   weekday: 'long',
@@ -210,10 +211,7 @@ const shrinking = computed(() => applications.slice(0, shrinkingCount.value));
     </LibraryPanel>
   </LibrarySection>
 
-  <LibrarySection
-    title="PhaseBadge"
-    about="Used on: Markets, the dashboard and the market chooser, on each market's row"
-  >
+  <LibrarySection title="PhaseBadge" about="Used on: Markets, on each market's row">
     <LibraryPanel v-for="path in PATHS" :key="path.mode" :label="`Each phase: ${path.label}`">
       <PhaseBadge v-for="phase in PHASES" :key="phase" :phase="phase" :intake-mode="path.mode" />
     </LibraryPanel>
@@ -223,16 +221,13 @@ const shrinking = computed(() => applications.slice(0, shrinkingCount.value));
     </LibraryPanel>
   </LibrarySection>
 
-  <LibrarySection
-    title="SummaryCard"
-    about="Used on: Markets, the dashboard and the market chooser (each market's row), Organizations"
-  >
+  <LibrarySection title="SummaryCard" about="Used on: Markets (each market's row), Organizations">
     <LibraryPanel label="A market's row: opens, with a badge and Manage" class="library-wide">
       <SummaryCard :facts="marketFacts" selectable @select="cardOpened = first.business">
         <template #name>
-          <h3 :title="first.business">
+          <h2 :title="first.business">
             <button type="button" class="summary-card-open">{{ first.business }}</button>
-          </h3>
+          </h2>
         </template>
         <template #badge>
           <PhaseBadge :phase="MarketPhase.Applications" :intake-mode="IntakeMode.Csv" />
@@ -249,9 +244,9 @@ const shrinking = computed(() => applications.slice(0, shrinkingCount.value));
     <LibraryPanel label="A market's row: a missing fact, and no action" class="library-wide">
       <SummaryCard :facts="marketFactsMissing" selectable @select="cardOpened = third.business">
         <template #name>
-          <h3 :title="third.business">
+          <h2 :title="third.business">
             <button type="button" class="summary-card-open">{{ third.business }}</button>
-          </h3>
+          </h2>
         </template>
         <template #badge>
           <PhaseBadge :phase="MarketPhase.MarketDays" :intake-mode="IntakeMode.Form" />
@@ -261,7 +256,7 @@ const shrinking = computed(() => applications.slice(0, shrinkingCount.value));
     <LibraryPanel label="An organization's row: not a click target" class="library-wide">
       <SummaryCard :facts="organizationFacts">
         <template #name>
-          <h3 :title="second.business">{{ second.business }}</h3>
+          <h2 :title="second.business">{{ second.business }}</h2>
         </template>
         <template #actions>
           <button type="button" class="btn btn--secondary" @click="cardManaged = second.business">
@@ -270,12 +265,12 @@ const shrinking = computed(() => applications.slice(0, shrinkingCount.value));
         </template>
       </SummaryCard>
     </LibraryPanel>
-    <LibraryPanel label="Narrow, as the market chooser's dialog holds it: the facts go under">
+    <LibraryPanel label="Narrow: the facts go under">
       <SummaryCard :facts="marketFacts" selectable @select="cardOpened = second.business">
         <template #name>
-          <h3 :title="second.business">
+          <h2 :title="second.business">
             <button type="button" class="summary-card-open">{{ second.business }}</button>
-          </h3>
+          </h2>
         </template>
         <template #badge>
           <PhaseBadge :phase="MarketPhase.Draft" />
@@ -324,7 +319,10 @@ const shrinking = computed(() => applications.slice(0, shrinkingCount.value));
     </LibraryPanel>
   </LibrarySection>
 
-  <LibrarySection title="RowMenu" about="Used on: the vendor drawer's Payments tab, on each line">
+  <LibrarySection
+    title="RowMenu"
+    about="Used on: the vendor drawer's Payments tab, on each line, and the app bar's account menu"
+  >
     <LibraryPanel label="A day's line: what it owes">
       <div class="library-line">
         <span>{{ dayLabel }}</span>
@@ -345,6 +343,19 @@ const shrinking = computed(() => applications.slice(0, shrinkingCount.value));
           testid="library-entry-menu"
           @select="chosenItem = $event"
         />
+      </div>
+    </LibraryPanel>
+    <LibraryPanel label="With words on its button: the app bar's account menu">
+      <div class="library-line">
+        <span>An account</span>
+        <RowMenu
+          label="Account"
+          :items="ACCOUNT_ITEMS"
+          testid="library-account-menu"
+          @select="chosenItem = $event"
+        >
+          <template #trigger>organizer@example.com</template>
+        </RowMenu>
       </div>
     </LibraryPanel>
     <LibraryPanel label="Chosen">

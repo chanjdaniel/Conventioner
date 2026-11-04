@@ -25,8 +25,9 @@ sources:
   - E46/F01/S02
   - E44/F02/S01
   - E38/F13/S01
-  - T206
   - T200
+  - T209
+  - T206
 ---
 
 # Every market page has an address
@@ -47,7 +48,7 @@ The routes are in [`front-end/src/router/index.ts`](../../../front-end/src/route
 - `/dev/components` and `/dev/components/:entry` are not market pages either: they are the [component library](../modules/component-library.md), registered only in a development build, so in production they are "page not found" as any unknown address is.
 - `/discord/connected` is not a market page: it is where Discord's approval screen sends the organizer back, its market named by the state it carries, in the tab Connect Discord opened; it says the outcome and links to that market's Tools ([the Discord connection](../modules/discord.md)).
 - `/markets/:marketId` alone is [`MarketLanding`](../../../front-end/src/views/MarketLanding.vue), which opens the market, shows the frame's arrival, and then replaces itself with the page the market is worked on in its phase: `currentPage` in [the market guide](../modules/market-guide.md), a reading of the guide's table.
-  Opening a market from a list, the dashboard or a new market all come through it ([`openMarket`](../../../front-end/src/utils/market.ts)), so none of them has to know which page a phase belongs to.
+  Opening a market from the list, its "Previously opened" line or a new market all come through it ([`openMarket`](../../../front-end/src/utils/market.ts)), so none of them has to know which page a phase belongs to.
 
 **Every address is built with [`marketPath()`](../../../front-end/src/utils/market.ts)**; nothing spells a market path by hand.
 
@@ -59,10 +60,15 @@ Its tab and another vendor while it is open replace the entry, a vendor its Hist
 
 ## Old addresses
 
-- `setup?tab=<page>` lands on the page it named, keeping the rest of its query; `setup?tab=assignment` lands on `settings`.
-- `/markets/:marketId/assignment` redirects to `settings`, and `/markets/:marketId/result` and `/markets/:marketId/tables` to `assignments`, each with its query: the Tables screen became the Result page, and the Assignment and Result pages became Settings and Assignments ([the assignment and its result](../../business/flows/assignment-and-result.md)).
-- `/floorplan-editor?marketId=` opens that market's floorplan flow: unlike the other old paths it carried the market's id, so an old link still opens the market it named.
-- The id-less paths (`/market-setup`, `/vendors`, `/import-applications`, `/floorplan-editor` with no id, `/assignment-results`) redirect to `/markets`: they never held an id to preserve.
+Two old names of a market's pages forward, each with its query: `/markets/:marketId/assignment` to `settings` and `/markets/:marketId/result` to `assignments`.
+The Assignment and Result pages took those names ([the assignment and its result](../../business/flows/assignment-and-result.md)) after production's release of 2026-10-18, which still serves the old ones, so they are what organizers have bookmarked; they can go after a release or two.
+`/dashboard`, where signing in landed until Markets took over, and `/` forward to `/markets`.
+
+Nothing else is kept for an old link, since nothing links to it:
+
+- `/init`, `/register`, `/vendors`, `/market-setup`, `/import-applications`, `/assignment-results` and `/floorplan-editor` fall to `/:marketSlug`, so each answers as a market that does not exist, and a market may hold the name.
+- `/markets/:marketId/tables` falls to the catch-all, "Page not found".
+- `setup?tab=<page>` opens the plan: nothing reads `tab`.
 
 ## A guard names a page
 
@@ -76,7 +82,7 @@ The blocker panel compares the resolved full address.
 
 - A screen that reads its market from anything but the route's id.
 - A link built by string concatenation instead of `marketPath()`.
-- A `resolution_link` naming an old address: it would be followed through a redirect, or nowhere.
+- A `resolution_link` naming an old address: it would be followed through a forward, or to "Page not found".
 - A new market page added without its route, so it cannot be bookmarked.
 
 What an organizer sees of the addresses, from the Markets list to an old bookmark, is [finding and opening markets](../../business/flows/finding-a-market.md).

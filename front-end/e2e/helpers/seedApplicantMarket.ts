@@ -107,6 +107,8 @@ export async function seedApplicantMarket(
     intakeMode?: 'csv' | 'form';
     fields?: Record<string, unknown>[];
     draft?: boolean;
+    // A market's name is its public address, so a spec about an address names the market.
+    name?: string;
     // Its review setup is decided (T206), a Google Form draft's too, unless a spec about the
     // decisions asks for them left undecided.
     reviewSetupUndecided?: boolean;
@@ -115,7 +117,7 @@ export async function seedApplicantMarket(
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
 
-  const marketName = uniqueMarketName('E2E Applicant');
+  const marketName = options.name ?? uniqueMarketName('E2E Applicant');
   const createRes = await request.post(`${baseURL}/markets`, {
     headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
     data: {

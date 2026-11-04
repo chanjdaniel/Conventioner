@@ -24,7 +24,7 @@ async function atLogin(query: Record<string, string>) {
     history: createMemoryHistory(),
     routes: [
       { path: '/login', component: LoginView },
-      { path: '/dashboard', component: Page },
+      { path: '/markets', component: Page },
       { path: '/markets/:id/applications', component: Page },
     ],
   });
@@ -84,7 +84,7 @@ describe('signing in', () => {
     expect(router.currentRoute.value.fullPath).toBe(PLACE);
   });
 
-  it('goes to the dashboard when the page carried is not one of ours', async () => {
+  it('goes to Markets when the page carried is not one of ours', async () => {
     post.mockResolvedValue(signedIn);
     const { router, wrapper } = await atLogin({ next: 'https://evil.example/' });
 
@@ -93,6 +93,6 @@ describe('signing in', () => {
     await wrapper.get('[data-testid="login-form"]').trigger('submit');
     await flushPromises();
 
-    expect(router.currentRoute.value.path).toBe('/dashboard');
+    expect(router.currentRoute.value.path).toBe('/markets');
   });
 });

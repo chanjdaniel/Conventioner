@@ -37,7 +37,7 @@ The rules all code follows are [one market, from the server](../implementation/c
 - No caller needs to know which fields its write touched, and a field the server adds reaches every screen without a change to any of them.
 - A screen open in two browser tabs is current the moment its tab is shown again; live push is not needed for that, and is not built.
   What the screens follow at once is a change made in this browser tab; another organizer's change reaches a screen at its next arrival or return, and two people editing one market at once is not handled.
-- The dashboard's "continue where you left off" is a pointer (`lastMarketId`), forgotten silently when that market is gone.
+- Markets' "Previously opened" is a pointer (`lastMarketId`), forgotten when that market is gone.
 - A rule about the market lives once, on the server; a front-end copy of a judgement (a role threshold, a move's verdict, the form lock) is drift by construction.
 - Specs open a market by its URL; none plants a market in storage.
 

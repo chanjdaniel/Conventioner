@@ -6,9 +6,8 @@ import { effectivePhase, phaseSpine } from '@/utils/phase';
  * Finding a market on the Markets page (E25/F01/S01): a search, an organization, phases and an
  * order, applied together to the markets the organizer can reach.
  *
- * Pure, and kept out of the view, so the Dashboard and the Load Market dialog can adopt it without
- * copying it. The list endpoint already answers every market in one response, so this is a view
- * over that list rather than a query to the server.
+ * Pure, and kept out of the view. The list endpoint already answers every market in one response,
+ * so this is a view over that list rather than a query to the server.
  */
 
 export type MarketSort = 'date' | 'name' | 'created';

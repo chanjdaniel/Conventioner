@@ -217,7 +217,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-/* The whole window, white, above the app's banner and drawers and under its dialogs (100). */
+/* The whole window, white, above the app bar and drawers and under its dialogs (100). */
 .door-code {
   position: fixed;
   inset: 0;

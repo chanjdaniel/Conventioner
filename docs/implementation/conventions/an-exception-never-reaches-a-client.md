@@ -94,7 +94,7 @@ describes:
   - front-end/e2e/a-failure-says-what-to-do.spec.ts
   - back-end/app.py#vendor_check_in
   - back-end/app.py#vendor_undo_check_in
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - T74
   - E41/F01/S01
@@ -275,14 +275,15 @@ The request still fails as it would have, so the screen's own catch runs too.
 
 **The shell's session probe at load ends a session only on an answer that says so.**
 No answer, or a 5xx, says nothing of the session, so `keepsTheSession` keeps the stored user and the page, whose own read says what went wrong; any other failure goes to sign in carrying the page, with `ended=1` on a 401.
+An answer that arrives after the organizer has signed out under it counts for nothing, since it is about a session already over ([the app bar](../modules/app-bar.md#who-sees-what)).
 It used to sign the organizer out on any failure, so a dropped connection at load sent them to sign in, saying nothing.
 
-**A link opened signed out keeps its place**: `requireSignIn` in [`front-end/src/router/index.ts`](../../../front-end/src/router/index.ts) sends it to `/login?next=<its full path>`, and both ways of signing in, by password and by code, continue to `next`, else to `/dashboard`; so does a signed-in visit to `/login?next=`.
-`next` is honoured only when `safeNext` in [`front-end/src/utils/signInNext.ts`](../../../front-end/src/utils/signInNext.ts) finds it a path of this app: one leading `/` (not `//`, not `/\`), no backslash or control character, not the sign-in page itself in any spelling the router matches to it (`/Login`, `/login/`: the router ignores case and one trailing slash), and resolving to this origin; anything else is dropped for `/dashboard`.
+**A link opened signed out keeps its place**: `requireSignIn` in [`front-end/src/router/index.ts`](../../../front-end/src/router/index.ts) sends it to `/login?next=<its full path>`, and both ways of signing in, by password and by code, continue to `next`, else to `/markets`; so does a signed-in visit to `/login?next=`.
+`next` is honoured only when `safeNext` in [`front-end/src/utils/signInNext.ts`](../../../front-end/src/utils/signInNext.ts) finds it a path of this app: one leading `/` (not `//`, not `/\`), no backslash or control character, not the sign-in page itself in any spelling the router matches to it (`/Login`, `/login/`: the router ignores case and one trailing slash), and resolving to this origin; anything else is dropped for `/markets`.
 `requireSignIn` tells the sign-in page by its route's name, not its path, for the same reason.
 
 **A page whose code could not be fetched says so**: a screen's code is fetched the first time it is opened, so with no connection, or once a deploy has replaced the files, the navigation fails and the click did nothing.
-`watchPageFailed` in [`front-end/src/utils/pageFailed.ts`](../../../front-end/src/utils/pageFailed.ts), installed from `main.ts` before the router, catches any failed navigation, and `App.vue` shows a `ReadFailed` strip (`page-read-failed`, `page-retry`) under the banner: the offline line when the browser is offline, else "The page could not be opened. Try again to load it.".
+`watchPageFailed` in [`front-end/src/utils/pageFailed.ts`](../../../front-end/src/utils/pageFailed.ts), installed from `main.ts` before the router, catches any failed navigation, and `App.vue` shows a `ReadFailed` strip (`page-read-failed`, `page-retry`) under the app bar: the offline line when the browser is offline, else "The page could not be opened. Try again to load it.".
 Try again loads the page afresh, which fetches the files a deploy put in their place, and only where `safeNext` says it is a path of this app, as sign-in's `next` is; any other address, `//host` say, reloads the page the organizer is on instead.
 The strip goes once a page opens.
 

@@ -37,7 +37,7 @@ let marketName: string;
 async function signIn(page: Page, person: { email: string; password: string }, width: number) {
   const login = new LoginPage(page);
   await login.login(person.email, person.password);
-  await login.waitForDashboardRedirect();
+  await login.waitForMarkets();
   expect(await page.evaluate(() => window.innerWidth)).toBe(width);
 }
 

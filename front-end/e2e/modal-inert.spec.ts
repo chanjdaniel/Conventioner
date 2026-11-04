@@ -15,8 +15,8 @@ import type { Page } from '@playwright/test';
  *
  *   - the overlay whose root is always in the DOM and only made visible (`NewMarketOverlay`), where
  *     a mis-wired open state leaves the page inert forever rather than never;
- *   - the overlay whose scrim and panel are separate siblings (the app's navigation drawer), where
- *     naming only the scrim would mark the drawer itself and trap the keyboard in nothing.
+ *   - the overlay whose scrim and panel are separate siblings (the app bar's sheet), where
+ *     naming only the scrim would mark the sheet itself and trap the keyboard in nothing.
  *
  * The third shape - a root that wraps the whole modal and is `v-if`'d in - is the vendor drawer's,
  * covered by `vendors.spec.ts`.
@@ -92,48 +92,45 @@ test.describe('A modal holds the page out of the keyboard, not just the mouse', 
     expect(await canFocus(page, 'markets-create-button')).toBe(true);
   });
 
-  test('the navigation drawer, whose scrim and panel are separate siblings', async ({
+  test('the sheet, whose scrim and panel are separate siblings and whose button stays live', async ({
     authenticatedPage: page,
   }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/markets');
     await expect(page.getByTestId('markets-create-button')).toBeVisible({ timeout: 10000 });
 
-    await page.getByTestId('app-menu-button').click();
-    await expect(page.getByTestId('app-nav')).toBeVisible();
+    const menuButton = page.getByTestId('app-bar-menu-button');
+    await menuButton.click();
+    await expect(page.getByTestId('app-bar-sheet')).toBeVisible();
 
     // The page behind is out of play...
     expect(await canFocus(page, 'markets-create-button')).toBe(false);
-    // ...and the drawer itself is not, which is the half that naming only the scrim would break.
-    const navInert = await page.evaluate(
-      () => document.querySelector('[data-testid="app-nav"]')?.closest('[inert]') !== null,
-    );
-    expect(navInert, 'the drawer marked itself out of play').toBe(false);
+    // ...and the sheet and the button that closes it are not, the half that naming only the scrim
+    // would break.
+    for (const part of ['app-bar-sheet', 'app-bar-scrim', 'app-bar-menu-button']) {
+      const inert = await page.evaluate(
+        (testid) =>
+          document.querySelector(`[data-testid="${testid}"]`)?.closest('[inert]') !== null,
+        part,
+      );
+      expect(inert, `${part} marked itself out of play`).toBe(false);
+    }
+    await menuButton.focus();
+    await expect(menuButton).toBeFocused();
 
-    const navButton = page.getByTestId('app-nav').getByRole('button').first();
-    await navButton.focus();
-    await expect(navButton).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('app-bar-sheet')).toBeHidden();
+    expect(await inertRegions(page)).toEqual([]);
+    expect(await canFocus(page, 'markets-create-button')).toBe(true);
   });
 
-  /**
-   * The same defect standing the other way round, found while fixing the first: the drawer closes by
-   * sliding to `left: -300px`, which moves it off screen without taking it out of the tab order. So
-   * on every authenticated page a keyboard user could tab into a menu nobody can see (E14/F02/S04).
-   */
-  test('the closed navigation drawer is not in the tab order either', async ({
-    authenticatedPage: page,
-  }) => {
+  /** Closed, nothing of it can be tabbed onto, as a menu nobody can see must not be (E14/F02/S04). */
+  test('the closed sheet is not in the tab order either', async ({ authenticatedPage: page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/markets');
     await expect(page.getByTestId('markets-create-button')).toBeVisible({ timeout: 10000 });
 
-    const navButton = page.getByTestId('app-nav').getByRole('button').first();
-    await expect(navButton).toBeHidden();
-    expect(
-      await page.evaluate(() => {
-        const el = document.querySelector('[data-testid="app-nav"] button') as HTMLElement | null;
-        el?.focus();
-        return el !== null && document.activeElement === el;
-      }),
-      'a link in the closed drawer took focus',
-    ).toBe(false);
+    await expect(page.getByTestId('app-bar-sheet')).toHaveCount(0);
+    await expect(page.getByTestId('app-bar-scrim')).toHaveCount(0);
   });
 });

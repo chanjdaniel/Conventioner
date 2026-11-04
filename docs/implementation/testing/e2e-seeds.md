@@ -24,7 +24,7 @@ describes:
   - front-end/e2e/helpers/exampleCollegeMarket.ts
   - front-end/e2e/helpers/decideReviewSetup.ts
   - front-end/e2e/helpers/seedPeopleAtScale.ts
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - E02
   - E11/F01/S01

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
  * What a side panel is (T200): a modal that slides in from a side of the window, its title and close
- * pinned at its top and only its body scrolling. A proposal for now, with the vendor drawer and the
- * navigation drawer each drawing their own (`dev/library`'s `proposals` entry): no screen mounts it.
+ * pinned at its top and only its body scrolling. A proposal for now, with the vendor drawer drawing its
+ * own (`dev/library`'s `proposals` entry): no screen mounts it.
  *
  * Modal the way `AppDialog` is, through the same composables: Escape and the scrim close it, focus
  * moves in and goes back, and the page behind is inert. It never closes itself: it emits `close`, and

@@ -24,14 +24,14 @@ sources:
 # Organizations
 
 **Who:** an organizer; what each can change depends on their role in the organization.
-**Where they start:** the dashboard's "Organizations", the navigation menu, or `/organizations`.
+**Where they start:** "Organizations" in the app bar, or `/organizations`.
 **Serves:** [A request can only do what its session may](../intents/a-request-can-only-do-what-its-session-may.md).
 
 A market must belong to an organization, and its organization never changes after creation.
 An organization's people are its Owner, its Admins and its Members; only the owner renames it or adds an admin, the owner or an admin adds a member or changes its default permissions for new markets, and the owner removes anyone but themselves while an admin removes only members ([the organization document, and roles](../../implementation/data/organization-document.md#the-organization)).
 Its owner and admins run every market it holds as the market's Admin does, and a member reads them; a role a market gives someone counts beside that, and the higher one is held ([what each role may do](../rules/what-each-role-may-do.md)).
 
-The list and its dialogs (New organization, Manage organization and Delete organization) fit a phone, as the dashboard that leads here does: nothing scrolls sideways or zooms out, and on Manage organization each person's address takes a line of its own ([the design language](../../design-system.md#layout)).
+The list and its dialogs (New organization, Manage organization and Delete organization) fit a phone, as the Markets list beside it does: nothing scrolls sideways or zooms out, and on Manage organization each person's address takes a line of its own ([the design language](../../design-system.md#layout)).
 Covered by:
 - [`*-sweep.spec.ts`](../../design-system.md#what-keeps-this-true), the sweeps, at 390px
 - `organizations-fit-a-phone.spec.ts`
@@ -41,14 +41,14 @@ Covered by:
 **Status:** Works (walked live).
 **Task:** "Set up an organization for your market team."
 
-1. Dashboard, "Organizations" (or `/organizations`).
+1. "Organizations" in the app bar (or `/organizations`).
 2. "New organization", name it, "Create".
 3. Expect a card with the name and your role (Owner).
 
 Each organization's card says its name, your role in it, how many markets it holds and its owner.
 The count is the organization read's `marketCount`, counted from the markets themselves, the count Remove's confirmation says too ([B3](#b3-remove-a-person)), so the two never disagree on one screen (E38/F15/S01); [`OrganizationsView.test.ts`](../../../front-end/src/__tests__/OrganizationsView.test.ts) pins it.
 
-A person with no organization is told on the dashboard and in the create-market dialog to make one here first ([D4](creating-a-market.md#d4-create-a-market-with-no-organization-yet)).
+A person with no organization is told on the Markets list and in the create-market dialog to make one here first ([D4](creating-a-market.md#d4-create-a-market-with-no-organization-yet)).
 Covered by:
 - `tier2.spec.ts` ("Organization CRUD")
 
