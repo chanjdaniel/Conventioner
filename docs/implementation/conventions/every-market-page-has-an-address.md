@@ -9,7 +9,7 @@ describes:
   - front-end/src/views/MarketLanding.vue
   - front-end/src/utils/vendorDrawer.ts
   - front-end/src/utils/market.ts#isHere
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - wayfinding/readable-journey/map
   - wayfinding/the-assignment-tab/01
