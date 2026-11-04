@@ -391,12 +391,13 @@ async function handleSave() {
   justify-content: center;
   min-width: 160px;
   height: 40px;
-  padding: 0 24px;
+  padding: 0 var(--space-6);
 
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 5px, and the nearest would change this floorplan beta corner */
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
@@ -409,12 +410,14 @@ async function handleSave() {
     background-color 0.15s ease-in-out,
     box-shadow 0.15s ease-in-out;
 
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 2px 8px rgba(39, 35, 35, 0.15);
 }
 
 .save-button:hover:not(:disabled) {
   opacity: 0.9;
   background: color-mix(in srgb, var(--mm-green) 85%, black);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 4px 14px rgba(39, 35, 35, 0.22);
 }
 
@@ -449,12 +452,15 @@ async function handleSave() {
   transform: translateX(-50%);
   z-index: 3000;
 
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 28px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 12px 28px;
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
 
   font-size: var(--text-sm);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 4px 20px rgba(39, 35, 35, 0.22);
 }
 
@@ -509,7 +515,8 @@ async function handleSave() {
   max-height: min(88vh, 700px);
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: white;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 14px, and the nearest would change this floorplan beta corner */
   border-radius: 14px;
   box-shadow: var(--shadow-card);
   overflow: hidden;
@@ -522,11 +529,12 @@ async function handleSave() {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   min-height: 56px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 10px 16px 12px;
   background-color: var(--mm-black);
-  color: #fff;
+  color: white;
 }
 
 .save-dialog-header-side {
@@ -553,9 +561,10 @@ async function handleSave() {
   padding: 0;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
   background: transparent;
-  color: #fff;
+  color: white;
   cursor: pointer;
 }
 
@@ -587,29 +596,33 @@ async function handleSave() {
   font-size: var(--text-lg);
   font-weight: 400;
   letter-spacing: 0.02em;
-  color: #fff;
+  color: white;
   text-align: center;
 }
 
 /* ── Dialog Body ────────────────────────────────────────────── */
 .save-dialog-body {
   flex: 1;
-  background: #fff;
+  background: white;
 }
 
 .save-dialog-parts {
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 22px and 20px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 24px 22px 20px;
   display: flex;
   flex-direction: column;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 20px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 20px;
 }
 
 /* ── Messages ───────────────────────────────────────────────── */
 .save-dialog-success {
   margin: 0;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 10px 16px;
   background: color-mix(in srgb, var(--mm-green) 18%, transparent);
   border: 1px solid var(--mm-green);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
   color: var(--mm-green);
   font-size: var(--text-sm);
@@ -618,9 +631,11 @@ async function handleSave() {
 
 .save-dialog-error {
   margin: 0;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 10px 16px;
   background: color-mix(in srgb, var(--mm-yellow) 20%, transparent);
   border: 1px solid var(--mm-yellow);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
   color: var(--mm-black);
   font-size: var(--text-sm);
@@ -631,17 +646,18 @@ async function handleSave() {
 .save-summary-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .save-stat {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 14px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 14px 12px;
   background: var(--mm-beige);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
 }
 
 .save-stat--warn {
@@ -671,6 +687,7 @@ async function handleSave() {
 .save-section {
   display: flex;
   flex-direction: column;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 10px;
 }
 
@@ -680,6 +697,7 @@ async function handleSave() {
   font-size: var(--text-md);
   color: var(--mm-black);
   border-bottom: 2px solid var(--mm-border);
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding-bottom: 6px;
 }
 
@@ -694,16 +712,17 @@ async function handleSave() {
 .save-tag-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
 .save-tag {
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 5px and 14px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 5px 14px;
   background: var(--mm-beige);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: var(--text-xs);
   color: var(--mm-black);
   border: 1px solid transparent;
@@ -713,6 +732,7 @@ async function handleSave() {
 .save-sections-grid {
   display: flex;
   flex-direction: column;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 10px;
 }
 
@@ -720,10 +740,12 @@ async function handleSave() {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 10px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 14px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 14px 16px;
   background: var(--mm-beige);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   border: 1px solid transparent;
   transition: border-color 0.15s ease;
 }
@@ -735,7 +757,7 @@ async function handleSave() {
 .save-section-card-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   flex: 1;
   min-width: 140px;
 }
@@ -746,16 +768,17 @@ async function handleSave() {
   color: var(--mm-text-muted-on-beige);
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  padding-left: 2px;
+  padding-left: var(--space-hairline);
 }
 
 .save-section-card-input {
   width: 100%;
   height: 34px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 0 10px;
-  background: #ffffff;
+  background: white;
   border: 1px solid var(--mm-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 
   font-size: var(--text-sm);
   color: var(--mm-black);
@@ -774,7 +797,7 @@ async function handleSave() {
   display: flex;
   align-items: center;
   flex: 0 0 4.5rem;
-  padding-bottom: 2px;
+  padding-bottom: var(--space-hairline);
 }
 
 .save-section-card-tables {
@@ -789,7 +812,7 @@ async function handleSave() {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px 16px;
+  padding: var(--space-8) var(--space-4);
 }
 
 .save-empty p {
@@ -804,9 +827,11 @@ async function handleSave() {
   flex-shrink: 0;
   display: flex;
   justify-content: flex-end;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 10px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 14px and 22px and 18px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 14px 22px 18px;
-  background: #fff;
+  background: white;
   border-top: 1px solid var(--mm-border);
 }
 
@@ -814,12 +839,14 @@ async function handleSave() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--space-2);
   min-width: 100px;
   height: 36px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 20px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 0 20px;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 5px, and the nearest would change this floorplan beta corner */
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
@@ -851,7 +878,7 @@ async function handleSave() {
 
 .save-dialog-btn--primary {
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
   min-width: 150px;
 }
 
@@ -866,7 +893,7 @@ async function handleSave() {
   width: 14px;
   height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.35);
-  border-top-color: #ffffff;
+  border-top-color: white;
   border-radius: 50%;
   animation: save-spin 0.7s linear infinite;
 }

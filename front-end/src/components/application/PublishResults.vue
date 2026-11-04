@@ -176,6 +176,7 @@ async function publish() {
   border: 1px solid transparent;
   border-radius: var(--radius-control);
   /* Less the line's 1px, so the button stands as tall as before it had one. */
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- a border's width, not spacing: no token says 1px, and --space-hairline is 2px */
   padding: calc(var(--space-2) - 1px) var(--space-4);
   cursor: pointer;
   font-family: 'Merge One';

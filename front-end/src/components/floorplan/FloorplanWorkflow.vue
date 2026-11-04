@@ -197,8 +197,8 @@ function onSaved(payload: { market_id: string }) {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 16px 24px;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-6);
   background: var(--mm-beige);
   border-bottom: 1.5px solid var(--mm-border);
   flex-shrink: 0;
@@ -209,8 +209,9 @@ function onSaved(payload: { market_id: string }) {
 .workflow-progress span {
   font-size: var(--text-xs);
   color: var(--mm-text-muted-on-beige);
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px and 14px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 6px 14px;
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
   background: transparent;
   transition:
     color 0.2s ease,
@@ -218,7 +219,7 @@ function onSaved(payload: { market_id: string }) {
 }
 
 .workflow-progress span.active {
-  color: #ffffff;
+  color: white;
   background: var(--mm-green);
   font-weight: 400;
 }
@@ -246,8 +247,8 @@ function onSaved(payload: { market_id: string }) {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px;
+  gap: var(--space-4);
+  padding: var(--space-4);
 }
 
 /* ── Step 3: Edit ───────────────────────────────────────────────── */
@@ -261,8 +262,8 @@ function onSaved(payload: { market_id: string }) {
 .step-edit-toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
   background: var(--mm-beige);
   border-bottom: 1px solid var(--mm-border);
   flex-shrink: 0;
@@ -271,6 +272,7 @@ function onSaved(payload: { market_id: string }) {
 .wall-toggle {
   display: inline-flex;
   align-items: center;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 6px;
   font-size: var(--text-xs);
   color: var(--mm-black);
@@ -291,8 +293,8 @@ function onSaved(payload: { market_id: string }) {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px;
+  gap: var(--space-4);
+  padding: var(--space-4);
 }
 
 /* ── Navigation ──────────────────────────────────────────────────── */
@@ -300,8 +302,9 @@ function onSaved(payload: { market_id: string }) {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 14px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 14px 24px;
-  background: #ffffff;
+  background: white;
   border-top: 1.5px solid var(--mm-border);
   flex-shrink: 0;
 }
@@ -309,14 +312,17 @@ function onSaved(payload: { market_id: string }) {
 .nav-btn {
   display: inline-flex;
   align-items: center;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 6px;
   height: 38px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 20px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 0 20px;
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
   line-height: 1;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
   cursor: pointer;
   transition:
@@ -344,7 +350,7 @@ function onSaved(payload: { market_id: string }) {
 
 .nav-btn--next {
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
   margin-left: auto;
 }
 </style>
