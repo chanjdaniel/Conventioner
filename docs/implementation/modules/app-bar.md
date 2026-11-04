@@ -121,6 +121,9 @@ With it the layout viewport stays the window's and the page scrolls sideways, as
 The cost is that a person can no longer pinch such a screen out to see all of it; zooming in is untouched.
 This is measured in Chromium's phone emulation only; Safari on an iPhone has not been tried.
 
+**The links that fill the band or the scrolling sheet wear `--focus-halo-inset`, since those edges would cut a halo off.**
+The menu button and the sheet's Sign out are buttons, so they draw the [green border](../../design-system.md), which lies inside the edge already.
+
 **The bar does not print**: `App.vue` hides its `header` under `@media print`.
 
 **Tests drive it as a person does**: [`the-app-bar.spec.ts`](../../../front-end/e2e/the-app-bar.spec.ts) at 1280 and under a phone's own emulation, dragging a floored screen sideways with a synthesized gesture, since `window.scrollTo` moves the layout viewport and says nothing of a thumb; `helpers/screens.ts` walks the account menu and the sheet through the layout, contrast, focus and accessibility sweeps.
