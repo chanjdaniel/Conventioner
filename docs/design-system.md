@@ -86,6 +86,7 @@ sources:
   - T211
   - T202
   - T213
+  - T221
 ---
 
 # Conventioner's design language
@@ -186,6 +187,7 @@ A raw pixel that is not spacing, such as a tab's `-1px` margin over a border, ca
 - A CSS-wide keyword (`inherit`, `initial`, `unset`, `revert`, `revert-layer`) as the whole value.
 
 A legitimate value it refuses widens the patterns in `stylelint.config.js`, with an example in `spacingScale.test.ts`, rather than a disable comment.
+The floorplan GUI, a beta, is the exception: each value of its own off the scale carries a disable comment with its reason (T221), and bringing one onto the scale is a change to what it draws.
 
 ## Layout
 
@@ -539,8 +541,8 @@ A convention nothing enforces is how the product got here. Six checks, the first
 
 1. **Stylelint** bans raw hex, raw `font-size`, raw `border-radius` and a raw `box-shadow` outside `base.css` and the primitive files.
    It holds every `margin*`, `padding*`, `gap`, `row-gap` and `column-gap` to the spacing scale with `declaration-property-value-allowed-list`, by the values the [Spacing](#spacing) section lists, and [`spacingScale.test.ts`](../front-end/src/__tests__/spacingScale.test.ts) runs the real config over what it allows and refuses.
-   `npm run lint:css` is the design-language gate, and it is **warnings globally, errors per migrated file** (`MIGRATED` in `stylelint.config.js`): a rule that fails the build on a pre-existing backlog gets switched off, so a slice adds its files to that list when it lands.
-   Everything MVP serves is on the list, the applicant views included since vendors apply online (E26/F07); the 264 remaining warnings are the floorplan GUI, a beta, 148 of them spacing.
+   `npm run lint:css` is the design-language gate, and **every rule is an error in every file**, with `--max-warnings 0` on the script as well: a warning passes CI and reaches `dev`, and then lands on whichever later change touches the file (T221).
+   A value no token says carries a `stylelint-disable` with its reason on that declaration, as the floorplan GUI's off-scale values do: it is a beta, and the nearest token would change what it draws.
 2. **A custom-property resolution check**, `src/__tests__/everyTokenResolves.test.ts`, fails the build when any `var(--x)` references a property nothing defines. This is the one that matters: `var(--mm-text-red)` is not a raw value, it is a well-formed reference to nothing, and it rendered the market-archive confirmation button as white text on a white dialog with no border for as long as it existed. Stylelint cannot see that.
    **Never write `var(--mm-x, #fallback)`**, and the same test refuses one: a fallback on a defined token is a second definition waiting to drift, and on an undefined one it hides the bug.
 3. **A rendered-usage contrast sweep**, [`e2e/contrast-sweep.spec.ts`](../front-end/e2e/contrast-sweep.spec.ts), walks each screen and fails on any text node below its AA threshold. The token test stays as well - it fails in milliseconds with a precise message when `base.css` changes, where the sweep would only say "something on the Applications screen went dark".

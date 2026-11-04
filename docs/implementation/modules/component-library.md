@@ -59,7 +59,7 @@ An entry is drawn from the parts in `parts/`:
 
 An entry's own parts sit beside these in `parts/`, such as `ColumnChecklist`, `ExportDialogPrototype` and `SeatRow`.
 
-The page uses only the design tokens, the primitives and the app's components; its files are in Stylelint's migrated set, so a raw colour, size or spacing is an error there.
+The page uses only the design tokens, the primitives and the app's components; Stylelint holds its files as it holds every file, so a raw colour, size or spacing is an error there.
 A state the pointer or the keyboard makes (hover, held down, focus) is drawn held beside the live control by a class of the entry's own that copies what `primitives.css`, or the component it mounts, draws for it (`FileDropZone`'s focus halo); the live control is the one to trust.
 A state its component draws from an attribute of its own needs no copy: the entry passes the attribute, as `FileDropZone`'s panel "A file over it, held" passes `data-dragging`, so the component's own rule draws it.
 What a proposal would replace is listed by its file and left in its screen rather than copied, as the `proposals` entry lists its one-off badges and six tables, so nothing of a screen's markup lives in the library to drift.
