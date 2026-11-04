@@ -153,6 +153,7 @@ eachWindow('the combobox entry', (size) => {
     await under.field.click();
 
     await expect(under.options).toHaveCount(14);
+    await expect(under.options.nth(2)).toHaveText(/^[^\s@]+@example\.com$/);
     await expect(under.more).toHaveCount(0);
   });
 

@@ -131,13 +131,79 @@ eachWindow('the list frame entry', (size) => {
     const count = countOf(page, 'library-l2');
 
     await picker.click();
-    await page.getByTestId('library-l2-assigned-option').first().waitFor();
+    const options = page.getByTestId('library-l2-assigned-option');
+    await options.first().waitFor();
     // Me, Anyone and the 11 other reviewers: past a native select's short set.
-    await expect(page.getByTestId('library-l2-assigned-option')).toHaveCount(13);
-    await press(page.getByTestId('library-l2-assigned-option').nth(2));
+    await expect(options).toHaveCount(13);
+    await expect(options.first()).toHaveText('Me');
+    await expect(options.nth(1)).toHaveText('Anyone');
+    const reviewer = options.nth(2);
+    const address = (await reviewer.innerText()).trim();
+    expect(address).toMatch(/^[^\s@]+@example\.com$/);
+    await press(reviewer);
     await expect(count).toHaveText('30 applications');
     await expect(rowsOf(page, 'library-l2')).toHaveCount(30);
     await expect(page.getByTestId('library-l2-status-all')).toHaveText('Any status 30');
+    // The read-out and every row say the one address, as the real filter's label and rows do.
+    await expect(page.getByTestId('read-out').filter({ hasText: 'Filters:' })).toHaveText(
+      `Filters: Any status, assigned to ${address}`,
+    );
+    await expect(rowsOf(page, 'library-l2').first()).toContainText(`Reviewer: ${address}`);
+  });
+
+  test('"Assigned to" finds a reviewer by their address, and not by a name no account holds', async ({
+    page,
+  }) => {
+    const field = page.getByTestId('library-l2-assigned-input');
+    const options = page.getByTestId('library-l2-assigned-option');
+    await expect(field).toHaveAttribute('placeholder', 'Type an address…');
+    await field.click();
+    const address = (await options.nth(2).innerText()).trim();
+
+    await field.fill(address.toUpperCase());
+    await expect(options).toHaveText([address]);
+
+    await field.fill('Chloe Walker');
+    await expect(page.getByTestId('library-l2-assigned-none')).toHaveText(
+      'Nobody matches "Chloe Walker".',
+    );
+
+    // "Me" is the reader's own, so their address finds it, and the reader's rows say "you".
+    await field.fill('robert.bailey11@example.com');
+    await expect(options).toHaveText(['Me']);
+    await inTheWindow(size).press(options.first());
+    await expect(page.getByTestId('library-l2-count')).toHaveText('30 applications');
+    await expect(page.getByTestId('library-l2-row').first()).toContainText('Reviewer: you');
+  });
+
+  test("today's select draws the reviewers as today's filter does: Me, Anyone, then addresses", async ({
+    page,
+  }) => {
+    const { press } = inTheWindow(size);
+    await press(page.getByTestId('library-l2-view-today'));
+    const select = page.getByTestId('library-l2-today').getByRole('combobox', {
+      name: 'Assigned to',
+    });
+    const options = await select.getByRole('option').allInnerTexts();
+    expect(options.slice(0, 2)).toEqual(['Me', 'Anyone']);
+    expect(options).toHaveLength(13);
+    for (const address of options.slice(2)) expect(address).toMatch(/^[^\s@]+@example\.com$/);
+    // One line, label and select, even with the longest address chosen.
+    const label = page.locator('.library-today-assigned').getByText('Assigned to');
+    const longest = options.reduce((a, b) => (b.length > a.length ? b : a));
+    await select.selectOption({ label: longest });
+    const lines = await label.evaluate((span) => {
+      const words = document.createRange();
+      words.selectNodeContents(span);
+      return words.getClientRects().length;
+    });
+    expect(lines).toBe(1);
+    await expectLaidOut(page, size, "today's select on the longest address");
+    await select.selectOption({ label: options[2]! });
+    const rows = page.getByTestId('library-l2-today').getByTestId('library-application-row');
+    await expect(rows).toHaveCount(30);
+    await expect(rows.first()).toContainText(`Reviewer: ${options[2]}`);
+    await expectLaidOut(page, size, "today's select of addresses");
   });
 
   test('words in "Assigned to" only search: the reviewer holds, and the field names them again', async ({
@@ -149,7 +215,7 @@ eachWindow('the list frame entry', (size) => {
     const filters = page.getByTestId('read-out').filter({ hasText: 'Filters:' });
     await field.click();
     const reviewer = page.getByTestId('library-l2-assigned-option').nth(2);
-    const name = (await reviewer.locator('.search-picker-option-label').innerText()).trim();
+    const address = (await reviewer.innerText()).trim();
     await press(reviewer);
     await expect(count).toHaveText('30 applications');
 
@@ -157,15 +223,15 @@ eachWindow('the list frame entry', (size) => {
     await field.fill('zzz');
     await expect(page.getByTestId('library-l2-assigned-none')).toHaveText('Nobody matches "zzz".');
     await expect(count).toHaveText('30 applications');
-    await expect(filters).toContainText(`assigned to ${name}`);
+    await expect(filters).toContainText(`assigned to ${address}`);
 
     await field.press('Escape');
-    await expect(field).toHaveValue(name);
+    await expect(field).toHaveValue(address);
 
     await field.fill('zzz');
     await page.getByTestId('library-l2-status-all').focus();
-    await expect(field).toHaveValue(name);
-    await expect(filters).toContainText(`assigned to ${name}`);
+    await expect(field).toHaveValue(address);
+    await expect(filters).toContainText(`assigned to ${address}`);
     await expect(rowsOf(page, 'library-l2').first()).toBeVisible();
   });
 

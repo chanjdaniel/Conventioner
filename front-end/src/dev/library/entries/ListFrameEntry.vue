@@ -4,8 +4,9 @@
  * fixture application, with its status toggles and an "Assigned to" combobox (C6), and a switch to
  * today's every-row list on the same filters; L1, the 150 people with access, a role select per row;
  * then a panel per state. Only the chosen view of L2 is mounted, so the first paint draws the frame's
- * first page and never today's every row. Nothing here is a read: the failed and loading panels are
- * the frame told so.
+ * first page and never today's every row. L2's reviewers read as they do today, by address, through
+ * the real filter's options and row words (`utils/reviewers.ts`). Nothing here is a read: the failed
+ * and loading panels are the frame told so.
  */
 import { computed, onMounted, reactive, ref } from 'vue';
 import { MarketRole } from '@/assets/types/datatypes';
@@ -15,6 +16,7 @@ import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/
 import { OFFLINE_MESSAGE } from '@/utils/api';
 import { getRoleDisplayName } from '@/utils/permissions';
 import { ALL_VIEW_FILTERS, allViewLists, type AllViewFilter } from '@/utils/reviewQueue';
+import { assignedAddress, assignedToOptions, reviewerLine } from '@/utils/reviewers';
 import ApplicationRow from '../parts/ApplicationRow.vue';
 import ChoicesForYou from '../parts/ChoicesForYou.vue';
 import LibraryPanel from '../parts/LibraryPanel.vue';
@@ -38,22 +40,19 @@ const findsByNameOrAddress = (item: { name: string; email: string }, words: stri
 const findsByAddress = (item: { email: string }, words: string) => holds(item.email, words);
 const keyOf = (item: { id: string }) => item.id;
 
+const addressOf = (id: string) => personById.get(id)?.email ?? '';
+
 /** The reader is the first reviewer, so "Me" means something; they open on everyone's, to see 359. */
-const ME = reviewers[0]!;
+const READER = addressOf(reviewers[0]!);
+const TEAM = {
+  reviewTeam: { reviewers: reviewers.map((id) => ({ email: addressOf(id), able: true })) },
+};
 const ANYONE = 'anyone';
-const assignedOptions: PickerOption[] = [
-  { value: ME, label: 'Me', detail: personById.get(ME)!.name },
-  { value: ANYONE, label: 'Anyone' },
-  ...reviewers
-    .filter((id) => id !== ME)
-    .map((id) => {
-      const { name, email } = personById.get(id)!;
-      return { value: id, label: name, detail: email };
-    }),
-];
+const assignedOptions: PickerOption[] = assignedToOptions(READER, TEAM);
 const assignedGroups: PickerGroup[] = [{ options: assignedOptions }];
+/** By the address; "Me" is the reader's own, so their address finds it too. */
 const findsReviewer = (option: PickerOption, words: string) =>
-  holds(option.label, words) || holds(option.detail ?? '', words);
+  holds(option.label, words) || (option.value === 'me' && holds(READER, words));
 
 const view = ref('proposed');
 const viewOptions: FilterToggle[] = [
@@ -68,11 +67,12 @@ const assignedLabel = computed(
   () => assignedOptions.find(({ value }) => value === assigned.value)!.label,
 );
 
-const inShare = computed(() =>
-  assigned.value === ANYONE
-    ? applications
-    : applications.filter(({ reviewer }) => reviewer === assigned.value),
-);
+const inShare = computed(() => {
+  const address = assignedAddress(assigned.value, READER);
+  return address
+    ? applications.filter(({ reviewer }) => addressOf(reviewer) === address)
+    : applications;
+});
 const statusOptions = computed<FilterToggle[]>(() =>
   ALL_VIEW_FILTERS.map(({ id, label }) => ({
     id,
@@ -96,8 +96,9 @@ function tick(id: string, on: boolean): void {
   if (on) ticked.add(id);
   else ticked.delete(id);
 }
-const reviewerOf = (application: LibraryApplication) =>
-  personById.get(application.reviewer)?.email ?? '';
+/** "Reviewer: you" on the reader's own, as today's row says it. */
+const reviewerWords = ({ status, reviewer }: LibraryApplication) =>
+  reviewerLine({ status, reviewer: { email: addressOf(reviewer) } }, READER, TEAM) ?? [];
 
 /** The role each person holds here: the demo's own, so a change is seen to land. */
 const ROLES = Object.values(MarketRole);
@@ -167,7 +168,7 @@ onMounted(() => {
                 :groups="assignedGroups"
                 :finds="findsReviewer"
                 label="Assigned to"
-                placeholder="Type a name or address…"
+                placeholder="Type an address…"
                 testid="library-l2-assigned"
               />
             </div>
@@ -182,7 +183,7 @@ onMounted(() => {
           <template #row="{ item }">
             <ApplicationRow
               :application="item"
-              :reviewer="reviewerOf(item)"
+              :reviewer="reviewerWords(item)"
               :ticked="ticked.has(item.id)"
               @open="opened = item.name"
               @tick="tick(item.id, $event)"
@@ -210,7 +211,7 @@ onMounted(() => {
               </button>
             </div>
             <label class="library-today-assigned">
-              <span>Assigned to</span>
+              <span class="library-today-assigned__label">Assigned to</span>
               <select
                 class="field field--select library-today-select"
                 name="library-l2-today-assigned"
@@ -230,7 +231,7 @@ onMounted(() => {
             <li v-for="application in filtered" :key="application.id">
               <ApplicationRow
                 :application="application"
-                :reviewer="reviewerOf(application)"
+                :reviewer="reviewerWords(application)"
                 :ticked="ticked.has(application.id)"
                 @open="opened = application.name"
                 @tick="tick(application.id, $event)"
@@ -366,8 +367,8 @@ onMounted(() => {
 
   <ChoicesForYou>
     <li>
-      <strong>A person's row:</strong> L1 draws the address alone, since an account holds no name;
-      the state panels' short names only stand for a row.
+      <strong>A person's row:</strong> L1's rows and L2's "Assigned to" draw the address alone,
+      since an account holds no name; the state panels' short names only stand for a row.
     </li>
     <li><strong>Page size:</strong> 50 rows, or another number.</li>
     <li>
@@ -455,6 +456,10 @@ onMounted(() => {
   color: var(--mm-black);
 }
 
+.library-today-assigned__label {
+  white-space: nowrap;
+}
+
 .library-today-select {
   height: var(--control-height-compact);
   min-width: var(--target-min);
@@ -490,8 +495,6 @@ onMounted(() => {
 }
 
 .library-person__words {
-  display: flex;
-  flex-direction: column;
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -499,10 +502,5 @@ onMounted(() => {
 .library-person__role {
   flex: none;
   width: auto;
-}
-
-.library-quiet {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
 }
 </style>

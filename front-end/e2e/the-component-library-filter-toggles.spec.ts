@@ -151,6 +151,7 @@ eachWindow('the filter toggles entry', (size) => {
   }) => {
     const reviewers = page.getByTestId('library-toggles-reviewers').getByRole('button');
     await expect(reviewers).toHaveCount(12);
+    await expect(reviewers.first()).toHaveText(/^[^\s@]+@example\.com \d+$/);
     const first = (await reviewers.first().boundingBox())!;
     const last = (await reviewers.last().boundingBox())!;
     expect(last.y).toBeGreaterThan(first.y);

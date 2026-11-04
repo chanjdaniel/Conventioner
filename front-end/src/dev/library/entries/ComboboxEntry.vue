@@ -74,8 +74,8 @@ const assigneeGroups: PickerGroup[] = [
       { value: 'me', label: 'Me' },
       { value: 'anyone', label: 'Anyone' },
       ...reviewers.map((id) => {
-        const person = people.find((candidate) => candidate.id === id)!;
-        return { value: person.email, label: person.name };
+        const { email } = people.find((candidate) => candidate.id === id)!;
+        return { value: email, label: email };
       }),
     ],
   },
@@ -232,7 +232,7 @@ const typedAnswers = ref<string[]>([]);
           :finds="findsByLabel"
           :cap="CAP"
           label="Assigned to"
-          placeholder="Type a name…"
+          placeholder="Type an address…"
           testid="library-under-cap"
         />
         <ReadOut label="Chosen" :value="assigneeLabel" />

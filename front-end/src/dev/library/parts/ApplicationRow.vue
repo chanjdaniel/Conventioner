@@ -6,25 +6,19 @@
  * `ApplicationsAll.vue`'s, copied rather than shared, since no real screen changes here. A row there
  * opens the vendor drawer; here it emits `open`, and the entry reads that and the ticks out.
  */
-import { computed } from 'vue';
 import EmailAddress from '@/components/EmailAddress.vue';
-import { addressParts, type AddressPart } from '@/utils/addressParts';
+import type { AddressPart } from '@/utils/addressParts';
 import { statusChip, statusLabel } from '@/utils/verdicts';
 import type { LibraryFixture } from '../fixture';
 
-const props = defineProps<{
+defineProps<{
   application: LibraryFixture['applications'][number];
-  /** The address of the reviewer it is dealt to. */
-  reviewer: string;
+  /** Whose share it is, as `reviewerLine` words it for the reader. */
+  reviewer: AddressPart[];
   ticked: boolean;
 }>();
 
 defineEmits<{ open: []; tick: [on: boolean] }>();
-
-const reviewerWords = computed<AddressPart[]>(() => [
-  { kind: 'text', text: 'Reviewer: ' },
-  ...addressParts(props.reviewer),
-]);
 </script>
 
 <template>
@@ -58,7 +52,7 @@ const reviewerWords = computed<AddressPart[]>(() => [
         <span :class="statusChip(application.status)" data-testid="library-application-status">
           {{ statusLabel(application.status) }}
         </span>
-        <span class="application-row__meta"><EmailAddress :words="reviewerWords" /></span>
+        <span class="application-row__meta"><EmailAddress :words="reviewer" /></span>
       </span>
     </button>
   </div>

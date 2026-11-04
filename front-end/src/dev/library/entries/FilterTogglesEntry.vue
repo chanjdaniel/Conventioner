@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /**
- * The filter toggles (T200): `FilterToggles`, the one row the ten toggle places each draw their own
- * way, on the fixture's counts. It opens on Applications All's status filter, today's row beside the
- * proposed one with what each status holds, then a view switch and several phases at once, the
- * states a row meets, and the places it would replace. Every row here is the real component; the
- * line under each reads out what it holds, so a press is seen to land.
+ * The filter toggles (T200): `FilterToggles`, the one row eight of the ten toggle places each draw
+ * their own way, on the fixture's counts. It opens on Applications All's status filter, today's row
+ * beside the proposed one with what each status holds, then a view switch and several phases at
+ * once, the states a row meets, and all ten places, of which it would replace the first eight. Every
+ * row here is the real component; the line under each reads out what it holds, so a press is seen to
+ * land.
  */
 import { computed, ref } from 'vue';
 import { ApplicationStatus, MarketPhase } from '@/assets/types/datatypes';
@@ -76,10 +77,10 @@ const longOptions: FilterToggle[] = [...offered.questions]
   .map(({ key, label }) => ({ id: key, label }));
 const longChosen = ref<string[]>([longOptions[0]!.id]);
 
-/** Each reviewer and their share of the applications, a row that wraps on any window. */
+/** Each reviewer, by the address an account holds, and their share: a row that wraps on any window. */
 const reviewerOptions: FilterToggle[] = reviewers.map((id) => ({
   id,
-  label: people.find((person) => person.id === id)!.name,
+  label: people.find((person) => person.id === id)!.email,
   count: applications.filter(({ reviewer }) => reviewer === id).length,
 }));
 const reviewersChosen = ref<string[]>([]);
