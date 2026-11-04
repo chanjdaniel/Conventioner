@@ -15,25 +15,25 @@ import { settle } from './helpers/settle';
 const ANSWERS = 228;
 const MOST_CHOSEN = 'Stickers';
 const SECOND_CHOSEN = 'Art prints';
+const QUESTION = 'What kinds of work will you sell?';
 /** The fixture's seats: four dates, each with these sections. */
 const DATES = ['2024-04-22', '2024-04-23', '2024-04-24', '2024-04-25'];
 const NORTH = 31;
 const SOUTH = 28;
 
-const bars = (page: Page, testid: string) => page.getByTestId(testid);
 const foldOf = (page: Page, testid: string) => page.getByTestId(`${testid}-fold`);
-const section = (date: string, wing: string) => `library-l7-${date}-${wing}`;
+const sectionId = (date: string, wing: string) => `library-l7-${date}-${wing}`;
 const seats = (page: Page, testid: string) => page.getByTestId(`${testid}-row`);
 
-/** The button's top and bottom, inside the window and clear of the shell's sticky header. */
-async function expectButtonInTheWindow(page: Page, button: Locator, what: string) {
+/** A thing's top and bottom, inside the window and clear of the shell's sticky header. */
+async function expectInTheWindow(page: Page, thing: Locator, what: string) {
   await settle(page);
-  const box = (await button.boundingBox())!;
+  const box = (await thing.boundingBox())!;
   const { height } = page.viewportSize()!;
   expect(box.y, `${what}: its top is in the window`).toBeGreaterThanOrEqual(0);
   expect(box.y + box.height, `${what}: its bottom is in the window`).toBeLessThanOrEqual(height);
   // What is on top at its middle is the button, not a header pinned over it.
-  const onTop = await button.evaluate((element) => {
+  const onTop = await thing.evaluate((element) => {
     const { x, y, width, height: tall } = element.getBoundingClientRect();
     const top = document.elementFromPoint(x + width / 2, y + tall / 2);
     return Boolean(top && (element === top || element.contains(top)));
@@ -54,14 +54,18 @@ eachWindow('the folds entry', (size) => {
   }) => {
     await expect(page.getByTestId('library-serves')).toContainText('L7, L11');
 
-    await expect(bars(page, 'library-l11-today')).toHaveCount(ANSWERS);
-    await expect(bars(page, 'library-l11')).toHaveCount(10);
+    await expect(page.getByTestId('library-l11-today')).toHaveCount(ANSWERS);
+    await expect(page.getByTestId('library-l11')).toHaveCount(10);
 
     const choices = page.getByTestId('choices-for-you');
     await expect(choices).toContainText('Bars before the fold');
     await expect(choices).toContainText('Unfolding the bars in place, or in a dialog');
     await expect(choices).toContainText('Rows before a group folds');
     await expect(choices).toContainText('Unfolding a section in place');
+    await expect(choices.locator('strong').first(), 'a choice leads with its name').toHaveCSS(
+      'font-weight',
+      '600',
+    );
 
     await expectLaidOut(page, size, 'the folds entry');
     await expectAccessible('the folds entry');
@@ -76,35 +80,42 @@ eachWindow('the folds entry', (size) => {
     expect(scrollHeight).toBeGreaterThan(clientHeight);
 
     await box.focus();
+    await expect(box, 'its halo is inside, since the box would clip one outside').toHaveCSS(
+      'box-shadow',
+      /inset/,
+    );
     await page.keyboard.press('End');
     await expect.poll(() => box.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
   });
 
   test('the bars unfold in place, by count, and fold again', async ({ page, expectAccessible }) => {
-    const rows = bars(page, 'library-l11');
+    const rows = page.getByTestId('library-l11');
     const fold = foldOf(page, 'library-l11');
     await expect(rows.first()).toContainText(MOST_CHOSEN);
     await expect(rows.nth(1)).toContainText(SECOND_CHOSEN);
-    await expect(fold).toHaveText(`${ANSWERS - 10} more answers`);
+    await expect(fold).toHaveText(`${ANSWERS - 10} more answers to ${QUESTION}`);
 
     await press(fold);
     await expect(rows).toHaveCount(ANSWERS);
-    await expect(fold).toHaveText('Show fewer');
+    await expect(fold).toHaveText(`Show fewer answers to ${QUESTION}`);
     await expect(rows.first()).toContainText(MOST_CHOSEN);
-    await expect(rows.nth(10).locator('xpath=..')).toBeFocused();
+    const focusIsOnItsItem = await rows
+      .nth(10)
+      .evaluate((row) => row.parentElement === document.activeElement);
+    expect(focusIsOnItsItem, 'the first new row has the focus').toBe(true);
     await expectLaidOut(page, size, 'the bars unfolded');
     await expectAccessible('the bars unfolded');
 
     await fold.scrollIntoViewIfNeeded();
     await press(fold);
     await expect(rows).toHaveCount(10);
-    await expect(fold).toHaveText(`${ANSWERS - 10} more answers`);
+    await expect(fold).toHaveText(`${ANSWERS - 10} more answers to ${QUESTION}`);
     await expect(fold).toBeFocused();
-    await expectButtonInTheWindow(page, fold, 'the button, folded again');
+    await expectInTheWindow(page, fold, 'the button, folded again');
   });
 
   test('the fold goes by count whatever order the rows came in', async ({ page }) => {
-    const rows = bars(page, 'library-bars-order');
+    const rows = page.getByTestId('library-bars-order');
     await expect(rows).toHaveCount(10);
     await expect(rows.first()).toContainText(MOST_CHOSEN);
     await expect(rows.nth(1)).toContainText(SECOND_CHOSEN);
@@ -113,22 +124,28 @@ eachWindow('the folds entry', (size) => {
   test('the bars draw no button at the fold or under it, and one past says it singly', async ({
     page,
   }) => {
-    await expect(bars(page, 'library-bars-under')).toHaveCount(8);
+    await expect(page.getByTestId('library-bars-under')).toHaveCount(8);
     await expect(foldOf(page, 'library-bars-under')).toHaveCount(0);
-    await expect(bars(page, 'library-bars-at')).toHaveCount(10);
+    await expect(page.getByTestId('library-bars-at')).toHaveCount(10);
     await expect(foldOf(page, 'library-bars-at')).toHaveCount(0);
-    await expect(bars(page, 'library-bars-past')).toHaveCount(10);
-    await expect(foldOf(page, 'library-bars-past')).toHaveText('1 more answer');
+    await expect(page.getByTestId('library-bars-past')).toHaveCount(10);
+    await expect(foldOf(page, 'library-bars-past')).toContainText('1 more answer');
   });
 
   test('rows that lead somewhere fold as well, and the first new one still leads there', async ({
     page,
   }) => {
-    const rows = bars(page, 'library-bars-links');
+    const rows = page.getByTestId('library-bars-links');
     await expect(rows).toHaveCount(2);
     await press(foldOf(page, 'library-bars-links'));
     await expect(rows).toHaveCount(4);
-    await expect(rows.nth(2)).toHaveAttribute('href', /\/dev\/components\/folds\?status=/);
+    await expect(rows.nth(2)).toHaveAttribute('href', /\/dev\/components\/folds\?answer=/);
+
+    const panel = page.getByRole('region', { name: 'Rows that lead somewhere, folded past 2' });
+    await expect(panel.getByTestId('read-out')).toHaveText('Led to: nothing');
+    await press(rows.first());
+    await expect(panel.getByTestId('read-out')).toHaveText(`Led to: ${MOST_CHOSEN}`);
+    await expect(rows, 'the press leaves the fold as it was').toHaveCount(4);
   });
 
   test('every date holds its two sections, each folded past 20', async ({ page }) => {
@@ -137,7 +154,7 @@ eachWindow('the folds entry', (size) => {
         ['north', 'North Wing', NORTH],
         ['south', 'South Wing', SOUTH],
       ] as const) {
-        const testid = section(date, wing);
+        const testid = sectionId(date, wing);
         await expect(page.getByTestId(`${testid}-heading`)).toHaveText(heading);
         await expect(seats(page, testid)).toHaveCount(20);
         await expect(foldOf(page, testid)).toHaveText(`Show all ${count} in ${heading}`);
@@ -146,13 +163,13 @@ eachWindow('the folds entry', (size) => {
   });
 
   test('a section unfolds in place alone, and folds again', async ({ page, expectAccessible }) => {
-    const north = section(DATES[0]!, 'north');
-    const south = section(DATES[0]!, 'south');
+    const north = sectionId(DATES[0]!, 'north');
+    const south = sectionId(DATES[0]!, 'south');
     const fold = foldOf(page, north);
 
     await press(fold);
     await expect(seats(page, north)).toHaveCount(NORTH);
-    await expect(fold).toHaveText('Show fewer');
+    await expect(fold).toHaveText('Show fewer in North Wing');
     await expect(seats(page, north).nth(20)).toBeFocused();
     await expect(seats(page, south)).toHaveCount(20);
     await expect(foldOf(page, south)).toHaveText(`Show all ${SOUTH} in South Wing`);
@@ -164,19 +181,28 @@ eachWindow('the folds entry', (size) => {
     await expect(seats(page, north)).toHaveCount(20);
     await expect(fold).toHaveText(`Show all ${NORTH} in North Wing`);
     await expect(fold).toBeFocused();
-    await expectButtonInTheWindow(page, fold, 'the button, folded again');
+    await expectInTheWindow(page, fold, 'the button, folded again');
   });
 
-  test("a seat row is the result's: its code, its size, its name and Change", async ({ page }) => {
-    const row = seats(page, section(DATES[0]!, 'north')).first();
-    await expect(row).toContainText('N1');
-    await expect(row.locator('.chip')).toHaveText('Full Table');
+  test("a seat row is the result's, and a press reads out under it, in view", async ({ page }) => {
+    // A section far down the page, where a line at the section's top would be out of the window.
+    const row = seats(page, sectionId(DATES[3]!, 'south')).nth(19);
+    await expect(row).toContainText('S20');
+    await expect(row.getByTestId('tables-table-choice')).toHaveText('Full Table');
     await expect(row.getByTestId('tables-seat-occupied')).toHaveCount(1);
+    await expect(row.getByTestId('read-out')).toHaveCount(0);
 
     await press(row.getByTestId('tables-seat-change'));
-    await expect(page.getByTestId('read-out').first()).toContainText('Pressed: Change N1');
+    await expect(row.getByTestId('read-out')).toContainText('Pressed: Change S20');
+    await expectInTheWindow(page, row.getByTestId('read-out'), 'the read-out');
     await press(row.getByTestId('tables-seat-vendor'));
-    await expect(page.getByTestId('read-out').first()).toContainText('Pressed: The drawer of');
+    await expect(row.getByTestId('read-out')).toContainText('Pressed: The drawer of');
+  });
+
+  test('a seat in the states panels reads out as well', async ({ page }) => {
+    const row = seats(page, 'library-group-under').first();
+    await press(row.getByTestId('tables-seat-vendor'));
+    await expect(row.getByTestId('read-out')).toContainText('Pressed: The drawer of');
   });
 
   test('a group shows every row at the fold or under it, and folds one past', async ({ page }) => {
@@ -192,6 +218,13 @@ eachWindow('the folds entry', (size) => {
   test('a heading longer than the line wraps inside its button', async ({ page }) => {
     const fold = foldOf(page, 'library-group-long');
     await expect(fold).toContainText('Show all 31 in');
+    // A flex item's own rects stay one however it wraps, so its text is measured.
+    const lines = await fold.evaluate((element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      return new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size;
+    });
+    expect(lines, 'its words take more than one line').toBeGreaterThan(1);
     const { scrollWidth, clientWidth } = await fold.evaluate((element) => ({
       scrollWidth: element.scrollWidth,
       clientWidth: element.clientWidth,

@@ -6,7 +6,7 @@
  * is the fold's to settle:
  *
  * - Unfolding hands the focus to the first new row, or Tab would go on past every row just shown.
- *   That row is the one `tabindex="-1"` a list carries, at index `fold`.
+ *   That row is the one a list gives `tabindex="-1"`, by `rowTabindex`.
  * - Folding keeps the focus on the button, which has just moved up the page past the rows that
  *   went, so it is brought back into view: centred, since a phone's sticky header would cover it at
  *   the window's top edge.
@@ -14,7 +14,8 @@
  * It stays as it was when the rows change: a fold is the reader's, and unlike a list frame's pages it
  * starts nothing new.
  *
- * Bind `list` to the rows' parent and `button` to the button, with `ref="list"` and `ref="button"`.
+ * Bind `list` to the rows' parent and `button` to the button, with `ref="list"` and `ref="button"`,
+ * and each row's `tabindex` to `rowTabindex(index)`.
  */
 import { computed, nextTick, ref } from 'vue';
 
@@ -31,12 +32,15 @@ export function useFold<T>(items: () => readonly T[], fold: () => number | undef
     rest.value && !unfolded.value ? items().slice(0, fold()) : items(),
   );
 
+  /** Only the row the fold hands the focus to may take it, and Tab still passes it by. */
+  const rowTabindex = (index: number) => (index === fold() ? -1 : undefined);
+
   async function toggle(): Promise<void> {
     unfolded.value = !unfolded.value;
     await nextTick();
-    if (unfolded.value) (list.value?.children[fold() ?? 0] as HTMLElement | undefined)?.focus();
+    if (unfolded.value) (list.value?.children[fold()!] as HTMLElement | undefined)?.focus();
     else button.value?.scrollIntoView({ block: 'center' });
   }
 
-  return { button, list, rest, shown, toggle, unfolded };
+  return { button, list, rest, rowTabindex, shown, toggle, unfolded };
 }

@@ -28,7 +28,7 @@ const props = withDefaults(
 
 defineSlots<{ row(scope: { item: T; index: number }): unknown }>();
 
-const { button, list, rest, shown, toggle, unfolded } = useFold(
+const { button, list, rest, rowTabindex, shown, toggle, unfolded } = useFold(
   () => props.items,
   () => props.fold,
 );
@@ -43,7 +43,7 @@ const { button, list, rest, shown, toggle, unfolded } = useFold(
       <li
         v-for="(item, index) in shown"
         :key="itemKey(item)"
-        :tabindex="index === fold ? -1 : undefined"
+        :tabindex="rowTabindex(index)"
         :data-testid="`${testid}-row`"
       >
         <slot name="row" :item="item" :index="index" />
@@ -57,7 +57,11 @@ const { button, list, rest, shown, toggle, unfolded } = useFold(
       :data-testid="`${testid}-fold`"
       @click="toggle"
     >
-      {{ unfolded ? 'Show fewer' : `Show all ${items.length} in ${heading}` }}
+      <!-- A page has one of these each section, so a reader hears which. -->
+      <template v-if="unfolded"
+        >Show fewer<span class="visually-hidden"> in {{ heading }}</span></template
+      >
+      <template v-else>Show all {{ items.length }} in {{ heading }}</template>
     </button>
   </div>
 </template>
@@ -94,6 +98,7 @@ const { button, list, rest, shown, toggle, unfolded } = useFold(
   min-height: var(--control-height);
   max-width: 100%;
   padding-block: var(--space-1);
+  overflow-wrap: anywhere;
   white-space: normal;
 }
 </style>

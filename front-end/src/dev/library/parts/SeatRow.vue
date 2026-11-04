@@ -3,29 +3,26 @@
  * One table on the Assignments page, on the fixture: its code, its size and the real `ResultSeat`.
  * The fixture seats one vendor at a table, so every row holds a whole one. The look is
  * `ResultView.vue`'s, copied rather than shared, since no real screen changes here. A seat there
- * opens the placement dialog and the vendor drawer; here it emits `open` and `view`, and the entry
- * reads them out.
+ * opens the placement dialog and the vendor drawer; here a press reads out under the row it was
+ * made on, since a page of sections has no one place that would be in view.
  */
+import { ref } from 'vue';
 import ResultSeat from '@/components/ResultSeat.vue';
 import { FULL_TABLE } from '@/utils/placementChange';
-import type { VendorNames } from '@/utils/vendorIdentity';
+import { vendorHeadline, type VendorNames } from '@/utils/vendorIdentity';
+import ReadOut from './ReadOut.vue';
 
-defineProps<{
-  code: string;
-  email: string;
-  names: VendorNames;
-  /** A record: shown, never offered. */
-  readOnly?: boolean;
-}>();
+const props = defineProps<{ code: string; email: string; names: VendorNames }>();
 
-defineEmits<{ open: []; view: [] }>();
+const pressed = ref<string | null>(null);
+const who = () => vendorHeadline(props.email, props.names);
 </script>
 
 <template>
-  <div class="seat-row" data-testid="library-seat-row">
+  <div class="seat-row">
     <div class="seat-row__head">
       <span class="seat-row__code">{{ code }}</span>
-      <span class="chip chip--positive">{{ FULL_TABLE }}</span>
+      <span class="chip chip--positive" data-testid="tables-table-choice">{{ FULL_TABLE }}</span>
     </div>
     <div class="seat-row__assignment">
       <ResultSeat
@@ -33,11 +30,12 @@ defineEmits<{ open: []; view: [] }>();
         vacantLabel="Unassigned"
         whole
         :names="names"
-        :readOnly="readOnly ?? false"
-        @open="$emit('open')"
-        @view="$emit('view')"
+        :readOnly="false"
+        @open="pressed = `Change ${code}, ${who()}`"
+        @view="pressed = `The drawer of ${who()}`"
       />
     </div>
+    <ReadOut v-if="pressed" label="Pressed" :value="pressed" />
   </div>
 </template>
 

@@ -85,7 +85,7 @@ describe('RowGroup', () => {
     await button(wrapper).trigger('click');
     await nextTick();
     expect(rows(wrapper)).toHaveLength(31);
-    expect(button(wrapper).text()).toBe('Show fewer');
+    expect(button(wrapper).text()).toBe('Show fewer in North Wing');
     expect(document.activeElement).toBe(rows(wrapper)[20]!.element);
     expect(rows(wrapper)[20]!.attributes('tabindex')).toBe('-1');
     wrapper.unmount();
@@ -105,6 +105,13 @@ describe('RowGroup', () => {
     wrapper.unmount();
   });
 
+  it('names the group after Show fewer for a reader only, as each section has one', async () => {
+    const wrapper = mountGroup(31);
+    await button(wrapper).trigger('click');
+    expect(button(wrapper).find('.visually-hidden').text()).toBe('in North Wing');
+    wrapper.unmount();
+  });
+
   it('keeps each row by its key when the items change, and stays unfolded', async () => {
     const wrapper = mountGroup(31);
     await button(wrapper).trigger('click');
@@ -112,7 +119,7 @@ describe('RowGroup', () => {
     await wrapper.setProps({ items: seats(31).slice(1) });
     expect(rows(wrapper)).toHaveLength(30);
     expect(rows(wrapper)[0]!.element).toBe(first);
-    expect(button(wrapper).text()).toBe('Show fewer');
+    expect(button(wrapper).text()).toBe('Show fewer in North Wing');
     wrapper.unmount();
   });
 });

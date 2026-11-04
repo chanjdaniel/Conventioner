@@ -89,14 +89,20 @@ describe('BarLedger with fold', () => {
 
   it('says how many more answers the button holds', () => {
     const wrapper = mountLedger(30, 10);
-    expect(button(wrapper).text()).toBe('20 more answers');
+    expect(button(wrapper).text()).toBe('20 more answers to Kinds of work');
     expect(button(wrapper).attributes('type')).toBe('button');
     wrapper.unmount();
   });
 
   it('says one more answer in the singular', () => {
     const wrapper = mountLedger(11, 10);
-    expect(button(wrapper).text()).toBe('1 more answer');
+    expect(button(wrapper).text()).toBe('1 more answer to Kinds of work');
+    wrapper.unmount();
+  });
+
+  it('names which card it folds for a reader only: the eye sees the short words', () => {
+    const wrapper = mountLedger(30, 10);
+    expect(button(wrapper).find('.visually-hidden').text()).toBe('to Kinds of work');
     wrapper.unmount();
   });
 
@@ -113,7 +119,7 @@ describe('BarLedger with fold', () => {
     const wrapper = mountLedger(30, 10);
     await button(wrapper).trigger('click');
     expect(drawn(wrapper)).toEqual(Array.from({ length: 30 }, (_, at) => `answer-${30 - at}`));
-    expect(button(wrapper).text()).toBe('Show fewer');
+    expect(button(wrapper).text()).toBe('Show fewer answers to Kinds of work');
     wrapper.unmount();
   });
 
@@ -134,7 +140,7 @@ describe('BarLedger with fold', () => {
     await button(wrapper).trigger('click');
     await nextTick();
     expect(drawn(wrapper)).toHaveLength(10);
-    expect(button(wrapper).text()).toBe('20 more answers');
+    expect(button(wrapper).text()).toBe('20 more answers to Kinds of work');
     expect(document.activeElement).toBe(button(wrapper).element);
     expect(scrollIntoView).toHaveBeenCalledOnce();
     expect(scrollIntoView.mock.contexts[0]).toBe(button(wrapper).element);
@@ -146,7 +152,7 @@ describe('BarLedger with fold', () => {
     await button(wrapper).trigger('click');
     await wrapper.setProps({ rows: answers(25) });
     expect(drawn(wrapper)).toHaveLength(25);
-    expect(button(wrapper).text()).toBe('Show fewer');
+    expect(button(wrapper).text()).toBe('Show fewer answers to Kinds of work');
     wrapper.unmount();
   });
 

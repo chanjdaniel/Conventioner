@@ -35,7 +35,7 @@ const ordered = computed(() =>
   props.fold === undefined ? props.rows : [...props.rows].sort((a, b) => b.count - a.count),
 );
 
-const { button, list, rest, shown, toggle, unfolded } = useFold(
+const { button, list, rest, rowTabindex, shown, toggle, unfolded } = useFold(
   () => ordered.value,
   () => props.fold,
 );
@@ -51,11 +51,7 @@ function tail(row: LedgerRow): string {
     <h3>{{ title }}</h3>
     <p v-if="!rows.length" class="bar-ledger-none">None.</p>
     <ul v-else ref="list">
-      <li
-        v-for="(row, index) in shown"
-        :key="row.value"
-        :tabindex="index === fold ? -1 : undefined"
-      >
+      <li v-for="(row, index) in shown" :key="row.value" :tabindex="rowTabindex(index)">
         <!-- Named by the words it shows, with the rest hidden between them: an `aria-label`
              replaced what a voice user sees with words they do not (WCAG 2.5.3). -->
         <component
@@ -89,7 +85,14 @@ function tail(row: LedgerRow): string {
       :data-testid="`${testid}-fold`"
       @click="toggle"
     >
-      {{ unfolded ? 'Show fewer' : `${rest} more ${rest === 1 ? 'answer' : 'answers'}` }}
+      <!-- A tab of questions has one of these each, so a reader hears which. -->
+      <template v-if="unfolded"
+        >Show fewer<span class="visually-hidden"> answers to {{ title }}</span></template
+      >
+      <template v-else
+        >{{ rest }} more {{ rest === 1 ? 'answer' : 'answers'
+        }}<span class="visually-hidden"> to {{ title }}</span></template
+      >
     </button>
   </div>
 </template>
