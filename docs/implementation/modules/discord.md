@@ -15,7 +15,7 @@ describes:
   - scripts/discord_rest_proof.py
   - front-end/src/utils/discordRoles.ts
   - back-end/datatypes.py#DiscordRoleRun
-verified: 2026-11-01
+verified: 2026-11-04
 sources:
   - T92
   - E46
@@ -26,6 +26,7 @@ sources:
   - T137
   - E42/F01/S05
   - E46/F01/S04
+  - T210
 ---
 
 # The Discord connection
@@ -49,6 +50,34 @@ The choices:
 - **Invite link**: optional, an `https://` address of at most 200 characters.
 
 Each choice saves as it is made (`PUT /markets/:id/discord`, any of `roleId`, `usernameQuestion`, `inviteLink`, each a string or null), and the page then re-reads the market ([one market, from the server](../conventions/one-market-from-the-server.md)).
+
+**A refused invite link stays in its field, under its refusal's words** (`discord-invite-error`, `T210`).
+The field holds its own draft, since it saves only when left: a value bound to the stored link would be written back by the render that shows the refusal, leaving the organizer to retype what they are told to correct.
+A re-read never overwrites what is unsaved ([one market, from the server](../conventions/one-market-from-the-server.md)): a stored link read later shows only while the field still holds the link it held before, so a re-read after saving another choice or on coming back to the tab leaves typed text alone, and so does one that brings a link saved elsewhere.
+Another server or market always replaces the draft and drops the words, since what was typed was about the last one.
+The link's refusal stands apart from the role's and the question's (`discord-save-error`), so saving those clears only their own: the refused text is still in the field and still not saved, and the next save of the link clears its words, whether it was finished or cleared.
+
+**A refused save is logged by `save`, at warning level, in the refusal's own words with the market's id**: `Discord card save refused for market <id>: <words>`.
+The words are copy our code wrote with nothing sent in them (`NOT_A_ROLE`, `NOT_A_TEXT_QUESTION`, `NOT_AN_INVITE_LINK`, `NOT_CONNECTED`, a key's `must be a string.`, and `BOT_NOT_IN_SERVER`, the `DiscordRefused` a role's choice meets on a server the bot has left), so the log says which refusal it was and never holds the link, the role id or the question key sent ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
+The refusals of `_load_market_to_change` are not the card's, and `DiscordUnavailable` and `DiscordNotSetUp` are not 400s, so none of them is this line.
+
+**Once a server is connected, the card says where roles are given** (`T210`): a "Giving roles" block ends it, "Check who is in the server and give roles on the Vendors page.", since those controls stand on [the Vendors page](../../business/flows/vendors.md) and the card alone read as a dead end (Daniel's walk).
+Under that, "Still needed:" and a list of only what is missing, in this order, each item a link to where it is done:
+
+- **"Choose the role to give"**, to the role's select.
+- **"Choose the question that asks their Discord username"**, to the question's select; on a form with no text question, "Add a question that asks their Discord username", to the form page, since that select would be empty.
+- **"Make the assignment"**, to the Settings page, in every phase, where Vendors' own "Nothing assigned yet" sends the same reader: in a phase that refuses a run the page there says why, so the card does not repeat it.
+
+With nothing missing there is no list, and one link, "Give roles on Vendors".
+A link to a select is a real `href`, whose click stays on the address, focuses the select and opens its list with `showPicker()`.
+A browser without that method, as every released Safari on a desk and on an iPhone is by MDN's compatibility data on 2026-11-04, or one that refuses the call, opens no list: the select still takes the focus, and since [a field shows no focus at all](../../design-system.md), its `field-label` takes the link ink for a moment (1.5 seconds), or the link would look dead (Daniel's choice, T210).
+Every link in the block is `.link-alone`, 44px tall on a phone.
+Someone the row refuses, an archived market and a Conventioner without Discord's values read no block, since it would point at controls they are not offered.
+
+**What is missing is one reading, `rolesStillNeed`, beside `mayGiveRoles`** ([`discordRoles.ts`](../../../front-end/src/utils/discordRoles.ts)): a role when the connection names none, an assignment by `hasAssignment`, and a question unless the connection names one that is still among the form's text questions (`formTextQuestions`, [`discordQuestion.ts`](../../../front-end/src/utils/discordQuestion.ts), which the card's select reads too).
+So nothing missing always means Vendors offers "Give roles" to someone the row allows.
+The reverse does not hold: `mayCheckDiscord` reads only that a question is named, so a question gone from the form is on the list while Vendors still offers the button, and the server refuses it in its own words.
+A role above the bot's counts as chosen, since the card's warning, right above the block, already says what to do about it.
 
 **It stands on the Tools tab, not Market Setup**, because it is a manual tool the organizer runs when they choose (Q10, Q19): [the setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md), and this card stays editable in every phase until the market is archived; it stood beneath the plan until Daniel's hand walk moved it to a tab of its own ([the market frame](market-frame.md)).
 The Tools tab fits a phone, and the card's choices stand one under another there.
