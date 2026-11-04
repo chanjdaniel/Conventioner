@@ -44,7 +44,7 @@ test('every icon, the manifest and the banner logo reach a browser with no sign-
   expect(manifest.icons).toHaveLength(3);
   for (const { src } of manifest.icons) await expectAnImage(page, src);
 
-  const logo = page.getByTestId('banner-logo');
+  const logo = page.getByTestId('app-bar-logo');
   await expect(logo).toBeVisible();
   await expect
     .poll(() => logo.evaluate((img: HTMLImageElement) => img.naturalWidth))

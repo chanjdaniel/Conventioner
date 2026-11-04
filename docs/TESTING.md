@@ -227,7 +227,7 @@ has the details.
 in one organizer session, and every other spec is a slice of it; [the market journey
 spec](implementation/testing/the-market-journey-spec.md) says what each slice covers and where a
 new test belongs. `phase-state-machine.spec.ts` walks every phase edge and the guards that refuse
-them, and `smoke.spec.ts` covers login, dashboard, and markets navigation.
+them, and `smoke.spec.ts` covers login, the landing on Markets, and markets navigation.
 Which specs walk a user flow is the "Covered by" list under each of its steps, and the gaps worth
 a spec are the coverage map in [walking the flows](implementation/testing/walking-the-flows.md#coverage-map).
 Coverage also includes tier-1 market operations journeys: public vendor check-in

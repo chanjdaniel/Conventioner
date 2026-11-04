@@ -8,7 +8,7 @@ import type { Page } from '@playwright/test';
  * market in the URL now, the way a bookmark or a shared link would.
  */
 export function marketSetupPath(marketId: string, page: string = 'setup'): string {
-  // Every market page has its own address since E22/F04/S02; the `?tab=` form redirects.
+  // Every market page has its own address since E22/F04/S02.
   return `/markets/${encodeURIComponent(marketId)}/${page}`;
 }
 

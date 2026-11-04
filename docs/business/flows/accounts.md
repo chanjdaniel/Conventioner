@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-11-01
+verified: 2026-11-04
 sources:
   - E26/F01/S01
   - E32/F03/S04
@@ -16,6 +16,7 @@ sources:
   - E38/F14/S02
   - T176
   - T181
+  - T209
   - T211
 ---
 
@@ -23,7 +24,7 @@ sources:
 
 **Who:** an organizer, or someone about to become one; vendors have no account (they sign in per market with a code, [H3](applying-online.md#h3-vendors-apply-online)).
 **Where they start:** `/login`, which has three tabs: Sign in, Register and Sign-in code.
-The pages that get an organizer in fit a phone, since the door on market day sits behind sign-in, and so does the dashboard sign-in lands on ([C1](finding-a-market.md#c1-the-dashboard), T148; [the design language](../../design-system.md#layout); `sign-in-fits-a-phone.spec.ts`).
+The pages that get an organizer in fit a phone, since the door on market day sits behind sign-in, and so does the Markets list sign-in lands on ([C1](finding-a-market.md#c1-signing-in-lands-on-markets), T148; [the design language](../../design-system.md#layout); `sign-in-fits-a-phone.spec.ts`).
 **Serves:** [A request can only do what its session may](../intents/a-request-can-only-do-what-its-session-may.md).
 
 An account is one email address: an address differing only in case or spacing is the same account ([users, and the one spelling of an address](../../implementation/data/users-and-email.md#one-address-is-one-account)).
@@ -76,11 +77,11 @@ Covered by:
 1. At `/login`, Sign in tab, enter email and password, choose "Sign in".
    "Remember me" under the password is unticked: the sign-in then ends when the browser closes, and at the latest 12 hours after it; ticked, it lasts 30 days from signing in, however the browser is used.
    Either way it lasts only as long as the browser's address and the browser stay the same: a phone that moves from the venue's wifi to cellular is signed out, an E47 follow-up ([the cookies](../../implementation/conventions/security-invariants.md#the-cookies)).
-2. Expect the dashboard (`/dashboard`), or the page the address carried in `next` (E38/F11/S01).
-3. Choose "Sign out" on the dashboard or in the navigation menu ([C4](finding-a-market.md#c4-the-navigation-menu)); expect `/login`.
+2. Expect the Markets list (`/markets`), or the page the address carried in `next` (E38/F11/S01).
+3. Choose "Sign out" in the app bar ([C4](finding-a-market.md#c4-the-navigation-menu)); expect `/login`.
 
-Branches: wrong password, unverified account, "Show" password toggle, visiting an organizer URL while signed out (redirects to `/login`, which returns there after signing in), visiting `/login` while signed in (redirects to that `next`, else the dashboard).
-A market link opened while signed out returns there after sign-in, by password or by code, rather than to the dashboard.
+Branches: wrong password, unverified account, "Show" password toggle, visiting an organizer URL while signed out (redirects to `/login`, which returns there after signing in), visiting `/login` while signed in (redirects to that `next`, else the Markets list).
+A market link opened while signed out returns there after sign-in, by password or by code, rather than to the Markets list.
 A session that ends mid-work lands on sign-in saying "Your session has ended. Sign in again.", and signing in returns to the page it was on.
 A browser closed and reopened is signed out unless "Remember me" was ticked.
 
@@ -97,7 +98,7 @@ Covered by:
 - `smoke.spec.ts`
 - `the-sign-in-fits-a-small-phone.spec.ts`
 - `the-sign-in-says-what-to-do-next.spec.ts`
-- `the-way-in-lines-up.spec.ts` ("every row of the navigation drawer is one shape, Sign out included")
+- `the-way-in-lines-up.spec.ts` ("every row of the sheet is one shape, Sign out included")
 
 ## A3. Sign in with an emailed code
 
@@ -129,6 +130,23 @@ Covered by:
 - `auth.spec.ts` ("Password reset")
 - `sign-in-fits-a-phone.spec.ts`
 - `the-way-in-lines-up.spec.ts` ("asking for a reset reads like signing in")
+
+## A4a. Change a password while signed in
+
+**Status:** Works as far as it can be walked without a mailer: `account-links.spec.ts` walks it to the new password in one browser, reading the link's token from where the server keeps it (T209).
+**Task:** "Change your password."
+
+1. Choose "Change password" in [the bar's account menu, or its sheet on a phone](finding-a-market.md#c4-the-navigation-menu); it opens `/reset-password-request` with the address filled in.
+2. Choose "Send reset link"; the address stays editable, and "Back to Markets" leaves without sending anything.
+3. Follow the emailed link and set a new password, as in A4; every browser signed in to the account is signed out, this one with it.
+   A link for another account signs this browser out too, whoever it was signed in as.
+4. Expect the password's confirmation, then sign-in with nothing said of a session ending; sign in with the new password.
+
+A link that is refused, as expired or already used, changes nothing, and the person stays signed in.
+How the bar and the two password pages do this is in [the app bar](../../implementation/modules/app-bar.md#change-password).
+Covered by:
+- `account-links.spec.ts`
+- `the-app-bar.spec.ts` ("Change password, at a desk" and "on a phone")
 
 ## A5. Delete my account
 

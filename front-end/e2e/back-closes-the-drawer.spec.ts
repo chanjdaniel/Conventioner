@@ -10,7 +10,7 @@ import { marketScreenPath } from './helpers/marketScreens';
  * Back closes the vendor drawer (E38/F13/S01).
  *
  * The drawer opened and closed by replacing the address, so a phone's back gesture with it open left
- * the page: from Vendors, it went to the dashboard. Opening it is a step of the browser's history
+ * the page: from Vendors, it went to Markets. Opening it is a step of the browser's history
  * now, and closing it takes that step back, so Back closes the drawer and leaves the page as it was,
  * its search and scroll included. A drawer reached by a link or a reload opens, and closing it stays
  * on the page.
@@ -55,7 +55,7 @@ test.describe('on a phone', () => {
     );
 
     // Attendance: search, scroll to the last vendor, open their drawer, and Back.
-    await page.goto('/dashboard');
+    await page.goto('/markets');
     const attendance = new AttendanceStatusPage(page);
     await attendance.goto(seed.marketId);
     const attendancePath = new URL(page.url()).pathname;
@@ -73,10 +73,10 @@ test.describe('on a phone', () => {
     await expect(attendance.status(LAST)).toHaveText('Not yet');
 
     await page.goBack();
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page).toHaveURL(/\/markets$/);
 
     // Vendors: the same, from its own list.
-    await page.goto('/dashboard');
+    await page.goto('/markets');
     const vendors = new VendorsPage(page);
     await vendors.goto(seed.marketId);
     const vendorsPath = new URL(page.url()).pathname;
@@ -93,7 +93,7 @@ test.describe('on a phone', () => {
     await expectThePageAsItWas(page, vendorsPath, vendors.searchInput, inTheList);
 
     await page.goBack();
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page).toHaveURL(/\/markets$/);
   });
 
   test('one Back closes the drawer whatever tab it is on, and closing it leaves no step behind', async ({
@@ -110,7 +110,7 @@ test.describe('on a phone', () => {
     const vendorsPath = marketScreenPath(seed.marketId, 'vendors');
 
     // Two tab changes are no steps of their own.
-    await page.goto('/dashboard');
+    await page.goto('/markets');
     await vendors.goto(seed.marketId);
     await vendors.clickVendor(0);
     await vendors.openTab('assignments');
@@ -128,7 +128,7 @@ test.describe('on a phone', () => {
       'a tap outside': () => vendors.detailOverlay.tap({ position: { x: 10, y: 400 } }),
     };
     for (const [how, close] of Object.entries(closes)) {
-      await page.goto('/dashboard');
+      await page.goto('/markets');
       await vendors.goto(seed.marketId);
       await vendors.clickVendor(0);
       await vendors.openTab('history');
@@ -137,7 +137,7 @@ test.describe('on a phone', () => {
       await expect(page, how).toHaveURL((url) => url.pathname === vendorsPath && url.search === '');
 
       await page.goBack();
-      await expect(page, how).toHaveURL(/\/dashboard$/);
+      await expect(page, how).toHaveURL(/\/markets$/);
       await expect(vendors.detailCloseButton, how).toBeHidden();
     }
   });
@@ -167,7 +167,7 @@ test.describe('on a phone', () => {
 
     // A reload with the drawer open.
     const vendors = new VendorsPage(page);
-    await page.goto('/dashboard');
+    await page.goto('/markets');
     await vendors.goto(seed.marketId);
     await vendors.clickVendor(0);
     await expect(vendors.detailCloseButton).toBeVisible();
@@ -192,7 +192,7 @@ test('on a desktop, Back closes a drawer opened from a seat and keeps the Assign
     TEST_USER.password,
   );
   const tables = new TablesPage(page);
-  await page.goto('/dashboard');
+  await page.goto('/markets');
   await tables.goto(seed.marketId);
   await tables.setFilter('date', SEED_MARKET_DATE);
   await expect(page).toHaveURL(/date=/);
@@ -207,7 +207,7 @@ test('on a desktop, Back closes a drawer opened from a seat and keeps the Assign
   await expect(seat).toBeVisible();
 
   await page.goBack();
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(/\/markets$/);
 });
 
 test.describe('a vendor named in the History tab', () => {
@@ -229,10 +229,10 @@ test.describe('a vendor named in the History tab', () => {
     return seed.marketId;
   }
 
-  /** From the dashboard to Vendors, Alice's drawer on its History tab, then Bob's name in it. */
+  /** From Markets to Vendors, Alice's drawer on its History tab, then Bob's name in it. */
   async function toBobFromAlice(page: Page, marketId: string): Promise<VendorsPage> {
     const vendors = new VendorsPage(page);
-    await page.goto('/dashboard');
+    await page.goto('/markets');
     await vendors.goto(marketId);
     await vendors.search(ALICE);
     await vendors.clickVendor(0);
@@ -266,7 +266,7 @@ test.describe('a vendor named in the History tab', () => {
     await vendors.closeDetail();
     await expect(vendors.detailCloseButton).toBeHidden();
     await page.goBack();
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page).toHaveURL(/\/markets$/);
     await expect(vendors.detailCloseButton).toBeHidden();
   });
 

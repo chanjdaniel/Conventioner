@@ -36,7 +36,7 @@ async function signInByPassword(page: Page, remember: boolean) {
   await expect(login.rememberMe).not.toBeChecked();
   if (remember) await login.rememberMe.check();
   await login.signIn(TEST_USER.email, TEST_USER.password);
-  await login.waitForDashboardRedirect();
+  await login.waitForMarkets();
 }
 
 async function signInByCode(page: Page, remember: boolean) {
@@ -63,24 +63,24 @@ async function signInByCode(page: Page, remember: boolean) {
   );
   await login.otpCodeInput.fill('246810');
   await login.otpSubmitButton.click();
-  await login.waitForDashboardRedirect();
+  await login.waitForMarkets();
 }
 
 async function expectSignedIn(page: Page) {
-  await page.goto('/dashboard');
-  await expect(page.getByTestId('dashboard-sign-out-button')).toBeVisible();
+  await page.goto('/markets');
+  await expect(page.getByTestId('markets-result-count')).toBeVisible();
   // Past the request that signed it back in, too: that session is the browser's from then on.
   await page.reload();
-  await expect(page.getByTestId('dashboard-sign-out-button')).toBeVisible();
+  await expect(page.getByTestId('markets-result-count')).toBeVisible();
   for (let i = 0; i < 2; i += 1) {
     expect((await page.request.get(`${APP_API}/check-session`)).status()).toBe(200);
   }
-  expect(new URL(page.url()).pathname).toBe('/dashboard');
+  expect(new URL(page.url()).pathname).toBe('/markets');
   expect((await page.context().cookies()).map((cookie) => cookie.name)).toContain('remember_token');
 }
 
 async function expectSignedOut(page: Page) {
-  await page.goto('/dashboard');
+  await page.goto('/markets');
   await page.waitForURL(/\/login/);
   await expect(page.getByTestId('login-session-ended')).toHaveText(SESSION_ENDED);
 }

@@ -10,7 +10,7 @@ describe('where signing in continues to', () => {
     expect(safeNext('/markets/m-1/applications?view=all&status=undecided')).toBe(
       '/markets/m-1/applications?view=all&status=undecided',
     );
-    expect(safeNext('/dashboard')).toBe('/dashboard');
+    expect(safeNext('/organizations')).toBe('/organizations');
   });
 
   it.each([
@@ -36,7 +36,7 @@ describe('where signing in continues to', () => {
   it('drops a value that is not one string', () => {
     expect(safeNext(undefined)).toBeNull();
     expect(safeNext(null)).toBeNull();
-    expect(safeNext(['/markets', '/dashboard'])).toBeNull();
+    expect(safeNext(['/markets', '/organizations'])).toBeNull();
   });
 
   it('builds the sign-in address that returns to a page', () => {
@@ -52,9 +52,9 @@ describe('where signing in continues to', () => {
 
   it('builds no next for a page that is not one to return to', () => {
     expect(loginAddress('/login?next=/markets')).toEqual({ path: '/login', query: {} });
-    expect(loginAddress('/dashboard', { ended: true })).toEqual({
+    expect(loginAddress('/organizations', { ended: true })).toEqual({
       path: '/login',
-      query: { next: '/dashboard', ended: '1' },
+      query: { next: '/organizations', ended: '1' },
     });
   });
 });

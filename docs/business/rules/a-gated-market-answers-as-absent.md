@@ -2,14 +2,14 @@
 layer: business
 kind: rule
 describes:
-  - back-end/market_documents.py#vendor_page_market_by_slug
   - back-end/market_documents.py#applicant_intake_market_by_slug
   - back-end/market_documents.py#APPLICANT_SURFACE_PHASES
   - back-end/api/applicant_auth.py#request_login_code
   - back-end/api/applicant_auth.py#verify_login_code
   - back-end/tests/test_applicant_intake_gate.py
-  - back-end/tests/test_a_google_form_markets_page.py
   - front-end/e2e/intake-mode.spec.ts
+  - back-end/market_documents.py#vendor_page_market_by_slug
+  - back-end/tests/test_a_google_form_markets_page.py
   - front-end/e2e/a-google-form-markets-vendor-page.spec.ts
 verified: 2026-11-04
 sources:
@@ -82,7 +82,7 @@ Manage market's Delete names the vendor page among what stops working by the sam
 - **It is not the check-in lookup**, because check-in must stay open to every market that runs ([attendance and the door](../../implementation/modules/attendance-and-door.md)); both narrow `market_by_slug`, each with its own phases.
 - What the mode is and when it may change: [intake mode decides how vendors arrive](intake-mode-decides-how-vendors-arrive.md), and why absence is CSV, [ADR 0006](../../adr/0006-intake-mode-fails-closed.md).
 - The intake-mode control exists because this gate is what keeps the address from simply being shown: which mode a market has decides whether the page is real ([intake mode decides how vendors arrive](intake-mode-decides-how-vendors-arrive.md)).
-- [`front-end/e2e/intake-mode.spec.ts`](../../../front-end/e2e/intake-mode.spec.ts) asserts the gated and absent renders are identical, text and final address alike, at `/<slug>` (and at the deleted `/apply`, `/applicant-login` and `/applicant/dashboard`, which every market answers as not found), rather than asserting each alone; and that a vendor already signed in to a market taken back to draft is shown what a stranger is.
+- [`front-end/e2e/intake-mode.spec.ts`](../../../front-end/e2e/intake-mode.spec.ts) asserts the gated and absent renders are identical, text and final address alike, at `/<slug>` (and at the deleted `/apply`, `/applicant-login` and `/applicant/dashboard`, which every market answers as not found), rather than asserting each alone; that they read alike to the market's own owner signed in, since "Page not found" offers an organizer Markets on who they are and never on the address ([the app bar](../../implementation/modules/app-bar.md#who-sees-what)); and that a vendor already signed in to a market taken back to draft is shown what a stranger is.
   [`back-end/tests/test_applicant_intake_gate.py`](../../../back-end/tests/test_applicant_intake_gate.py) pins the applying endpoints, the sign-in and the vendor's read on a CSV market, and the open check-in, and [`back-end/tests/test_the_vendor_page.py`](../../../back-end/tests/test_the_vendor_page.py) the vendor page's gate and its public read, byte for byte against an unknown slug.
   [`back-end/tests/test_a_google_form_markets_page.py`](../../../back-end/tests/test_a_google_form_markets_page.py) pins a CSV market's page per phase, results and record, every public vendor endpoint answering for it before its results byte for byte as for an unknown slug, and the read after; [`front-end/e2e/a-google-form-markets-vendor-page.spec.ts`](../../../front-end/e2e/a-google-form-markets-vendor-page.spec.ts) walks it at 1280 and 390, from absent to the vendor's table.
 

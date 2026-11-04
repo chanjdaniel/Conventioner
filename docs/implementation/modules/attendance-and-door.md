@@ -4,22 +4,22 @@ kind: module
 describes:
   - back-end/api/attendance.py
   - back-end/api/door.py
-  - back-end/api/vendor_check_in.py
-  - back-end/app.py#vendor_check_in
-  - back-end/app.py#vendor_undo_check_in
   - back-end/app.py#get_market_attendance
   - back-end/app.py#_door_write
   - back-end/app.py#organizer_check_in
   - back-end/app.py#organizer_undo_check_in
+  - front-end/src/views/AttendanceStatusView.vue
+  - front-end/src/App.vue#fitsAPhone
+  - front-end/src/utils/fitsAPhone.ts
+  - back-end/api/vendor_check_in.py
+  - back-end/app.py#vendor_check_in
+  - back-end/app.py#vendor_undo_check_in
   - back-end/app.py#get_door_code
   - back-end/app.py#make_door_code
-  - front-end/src/views/AttendanceStatusView.vue
   - front-end/src/components/DoorCodeScreen.vue
   - front-end/src/utils/doorCode.ts
   - front-end/src/utils/qrDrawing.ts
   - front-end/src/components/vendorPage/VendorCheckIn.vue
-  - front-end/src/App.vue#fitsAPhone
-  - front-end/src/utils/fitsAPhone.ts
 verified: 2026-11-04
 sources:
   - wayfinding/real-market-readiness/map
@@ -118,10 +118,10 @@ The vendor page, where vendors check in, is not an organizer screen at all, so t
 A route with `meta: { fitsAPhone: true }`, or a page its `meta.fitsAPhone` lists on a route that is several pages ([the market frame](market-frame.md#sharp-edges)), lifts the app's 1000px desktop floor ([`fitsAPhone`](../../../front-end/src/utils/fitsAPhone.ts), read by [`App.vue`](../../../front-end/src/App.vue)), as every public page does, and gives the market frame the phone's 16px gutter ([the market frame](market-frame.md#sharp-edges)); at 640px and below the rail's spine scrolls sideways inside itself, and below about a 990px window the market bar's tabs do ([the market frame](market-frame.md)).
 Of the organizer market screens Attendance has it, because the door is sometimes a person standing up, and so does each place the door's journey reaches; [the design language](../../design-system.md#layout) lists every place that has it, one a line.
 So the door's journey fits a phone from end to end: `/markets`, the door, a check-in, each of the vendor drawer's tabs, and "Change assignment" to the Assignments page and its change-placement dialog.
-[`the-door-on-a-phone.spec.ts`](../../../front-end/e2e/the-door-on-a-phone.spec.ts) walks it at 390x844 under a phone's own emulation (touch, device scaling), where a page wider than the window widens the layout viewport and zooms out rather than scrolling sideways, and at 1440x900, where the bar and the whole rail stay pinned.
-At that width only the banner and the market bar stay pinned, 138px of an 844px window, and the rail scrolls away with the page ([the market frame](market-frame.md)); the rail is laid out for a phone, its addresses named as chips and its actions wrapping beside them, so on a form market in market days the door starts within the top 340px of 844 on first paint rather than at 409px, which `phase-rail.spec.ts` holds it to ([the phase rail](phase-rail.md)).
+[`the-door-on-a-phone.spec.ts`](../../../front-end/e2e/the-door-on-a-phone.spec.ts) walks it at 390x844 under a phone's own emulation (touch, device scaling), and at 1440x900, where the bar and the whole rail stay pinned.
+At that width only the app bar and the market bar stay pinned, 138px of an 844px window, and the rail scrolls away with the page ([the market frame](market-frame.md)); the rail is laid out for a phone, its addresses named as chips and its actions wrapping beside them, so on a form market in market days the door starts within the top 340px of 844 on first paint rather than at 409px, which `phase-rail.spec.ts` holds it to ([the phase rail](phase-rail.md)).
 At that width the door's gutter narrows to `--space-4` and stays on both sides; at 0 its rows ran to the card's edges (T15).
-Every target the door's organizer and its vendors tap there is 44px, through the design language's [target tokens](../../design-system.md#the-primitive-layer); the layout sweep walks the attendance, its navigation drawer, the vendor drawer on each of its tabs, rail menu and archive confirmation, and the vendor page on a market day, checked in and as the record, at 390px, and fails on a target under 44px (T82).
+Every target the door's organizer and its vendors tap there is 44px, through the design language's [target tokens](../../design-system.md#the-primitive-layer); the layout sweep walks the attendance, the app bar's sheet, the vendor drawer on each of its tabs, rail menu and archive confirmation, and the vendor page on a market day, checked in and as the record, at 390px, and fails on a target under 44px (T82).
 A roster that could not be read says which kind of failure it was, with a Try again, 44px on a phone, that reads it once more, apart from a check-in or undo the server did not record ([what the organizer reads](../conventions/an-exception-never-reaches-a-client.md#what-the-organizer-reads)).
 
 **The door code is the market's, one at a time, and no market read serves it** ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)).

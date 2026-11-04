@@ -119,9 +119,9 @@ test.describe('No element falls through to a user-agent font', () => {
   });
 
   /**
-   * `/market-setup` reads its market from `localStorage`, so a bare `goto` renders an empty shell
-   * and this spec would pass by having nothing to check. Same injection `date-display-timezone`
-   * and `market-pipeline` use.
+   * A market's screens want a stored user, or a bare `goto` lands on sign-in and this spec would
+   * pass by having nothing to check. Same injection `date-display-timezone` and `market-pipeline`
+   * use.
    */
   async function openTheSeededMarket(page: Page): Promise<void> {
     await page.goto('/login');
@@ -182,7 +182,7 @@ test.describe('No element falls through to a user-agent font', () => {
       timeout: 10000,
     });
 
-    await expectNoUserAgentFont(authenticatedPage, '/tables');
+    await expectNoUserAgentFont(authenticatedPage, '/assignments');
 
     const metaFace = await authenticatedPage
       .locator('.section-heading-meta')

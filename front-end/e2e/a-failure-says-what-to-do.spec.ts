@@ -350,11 +350,11 @@ test.describe('signing in keeps the place', () => {
     await expect(new ApplicationsAllPage(page).rows).toHaveCount(3);
   });
 
-  test('a next that is not a path of this app lands on the dashboard', async ({ page }) => {
+  test('a next that is not a path of this app lands on Markets', async ({ page }) => {
     await page.goto('/login?next=%2F%2Fevil.example%2Fmarkets');
     await new LoginPage(page).signIn(TEST_USER.email, TEST_USER.password);
 
-    await page.waitForURL(/\/dashboard$/);
+    await new LoginPage(page).waitForMarkets();
     expect(new URL(page.url()).host).not.toBe('evil.example');
   });
 });
@@ -372,7 +372,6 @@ test.describe('a page that could not be opened', () => {
     await page.route(code, (route) => route.abort('internetdisconnected'));
     await page.context().setOffline(true);
 
-    await page.getByTestId('app-menu-button').click();
     await page.getByRole('link', { name: 'Organizations' }).click();
 
     await expect(page.getByTestId('page-read-failed')).toContainText(OFFLINE);
@@ -393,7 +392,6 @@ test.describe('a page that could not be opened', () => {
     const code = /\/src\/views\/OrganizationsView\.vue/;
     await page.route(code, (route) => route.fulfill({ status: 404, body: '' }));
 
-    await page.getByTestId('app-menu-button').click();
     await page.getByRole('link', { name: 'Organizations' }).click();
 
     await expect(page.getByTestId('page-read-failed')).toContainText(
@@ -416,11 +414,11 @@ test.describe("the shell's session probe", () => {
     }) => {
       await failOnce(page, /\/check-session$/, kind);
       await page.goto('/markets');
+      // The bar stands from the stored user, so nothing on screen waits for the probe; this does. An
+      // ended session would have left for the sign-in page, which has no account menu.
+      await page.waitForLoadState('networkidle');
 
-      // The menu names the organizer only once the probe's answer has been read, so this waits
-      // for it: an ended session would have left for the sign-in page, which has no menu.
-      await page.getByTestId('app-menu-button').click();
-      await expect(page.locator('.user-email')).toHaveText(TEST_USER.email);
+      await expect(page.getByTestId('app-bar-account-button')).toHaveText(TEST_USER.email);
       await expect(page).toHaveURL(/\/markets$/);
       expect(await page.evaluate(() => localStorage.getItem('user'))).toContain(TEST_USER.email);
     });

@@ -97,7 +97,7 @@ test.describe('Finding a market', () => {
   test.beforeEach(async ({ page }) => {
     const login = new LoginPage(page);
     await login.login(USER.email, USER.password);
-    await login.waitForDashboardRedirect();
+    await login.waitForMarkets();
   });
 
   test('search narrows as it is typed, and composes with filters and sort', async ({ page }) => {
@@ -196,9 +196,8 @@ test.describe('Finding a market', () => {
     ]);
   });
 
-  // The way to the market an organizer runs from the door on a phone (T142). Under a phone's own
-  // emulation a page wider than the window does not scroll sideways: it widens the layout viewport
-  // and zooms out, and a dialog opens off screen. The 1000px floor did exactly that here.
+  // The way to the market an organizer runs from the door on a phone (T142). The 1000px floor had
+  // it scrolling sideways here, its dialogs off screen under a phone's own emulation.
   test.describe('on a phone', () => {
     test.use({
       viewport: { width: 390, height: 844 },

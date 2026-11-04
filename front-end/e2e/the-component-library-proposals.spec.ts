@@ -57,7 +57,7 @@ eachWindow('the proposals entry', (size) => {
     const serves = page.getByTestId('library-serves');
     await expect(serves).toContainText('The 15 one-off badges');
     await expect(serves).toContainText('the 6 tables');
-    await expect(serves).toContainText('the vendor drawer and the navigation drawer');
+    await expect(serves).toContainText('the vendor drawer');
 
     const choices = page.getByTestId('choices-for-you');
     await expect(choices).toContainText('Which one-off badges become which tone');

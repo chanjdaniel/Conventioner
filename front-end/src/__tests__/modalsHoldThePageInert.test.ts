@@ -82,9 +82,11 @@ describe('every modal holds the page inert', () => {
      * idiom spreads, and lowering it is a migration landing rather than a rule being weakened.
      * What must never fall is the shell itself, which is why it is named below. Six since
      * `VendorsModal` went with the old results page (E22/F04/S04): a modal removed, not unwired.
-     * Five since the floorplan path choice moved onto the shell (E26/F10/S03).
+     * Five since the floorplan path choice moved onto the shell (E26/F10/S03). Four since the app's
+     * drawer went: the bar's sheet has a scrim that starts under the bar, which this rule does not
+     * read as a cover, so `modal-inert.spec.ts` holds its wiring (T209).
      */
-    expect(fullViewportCovers().length).toBeGreaterThanOrEqual(5);
+    expect(fullViewportCovers().length).toBeGreaterThanOrEqual(4);
   });
 
   it('includes the dialog shell, which paints the cover for every dialog built on it', () => {

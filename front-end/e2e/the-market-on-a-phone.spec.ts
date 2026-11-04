@@ -25,8 +25,7 @@ import {
  *
  * At the November market an organizer runs the door from a phone (T142), then turns to the
  * Assignment tab's pages to see who still owes. Each of them opened as a desk's 1000px layout in a
- * 390px window, and under a phone's own emulation the layout viewport widened to 1001px and zoomed
- * out, so the vendor drawer opened off screen. A leg per place that fits a phone; each also runs at
+ * 390px window, so the vendor drawer opened off screen. A leg per place that fits a phone; each also runs at
  * a desk, where nothing may move.
  *
  * Vendors is one tap from the door's own list: the organizer looks a vendor up, reads every tab of

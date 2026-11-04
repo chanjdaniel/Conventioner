@@ -66,7 +66,7 @@ async function signedIn(browser: Browser, who: { email: string; password: string
   await login.fillEmail(who.email);
   await login.fillPassword(who.password);
   await login.clickSubmit();
-  await page.waitForURL('**/dashboard', { timeout: 10000 });
+  await login.waitForMarkets();
   return { context, page };
 }
 
