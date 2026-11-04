@@ -277,16 +277,24 @@ export async function installTheSweep(page: Page): Promise<void> {
         }
         if (wearer === el) {
           // Drawn inside the edge, it must not lie over the words, which a padless button's reach:
-          // the words on show, since a screen reader's lie wherever they are clipped to nothing.
+          // the words on show, since a screen reader's lie wherever they are clipped to nothing,
+          // and a Range measures a long name whole, past the box inside the button that cuts it.
           const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
           const words = document.createRange();
           for (let node = walker.nextNode(); offset < 0 && node; node = walker.nextNode()) {
             if (node.parentElement?.closest('.visually-hidden')) continue;
             words.selectNodeContents(node);
             const held = words.getBoundingClientRect();
+            let { left, right } = held;
+            for (let cut = node.parentElement; cut && cut !== el; cut = cut.parentElement) {
+              if (getComputedStyle(cut).overflowX === 'visible') continue;
+              const edge = cut.getBoundingClientRect();
+              left = Math.max(left, edge.left);
+              right = Math.min(right, edge.right);
+            }
             if (
-              held.width > 0 &&
-              (held.left < box.left + width - 0.5 || held.right > box.right - width + 0.5)
+              right > left &&
+              (left < box.left + width - 0.5 || right > box.right - width + 0.5)
             ) {
               problems.push('a button draws its border over its words');
               break;

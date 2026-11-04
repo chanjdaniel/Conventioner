@@ -160,6 +160,32 @@ test.describe('The focus sweep', () => {
     ]);
   });
 
+  test('a long name cut short inside a button, clear of its border, passes', async ({ page }) => {
+    await show(
+      page,
+      button(
+        'display: flex; width: 200px; padding: 0 12px;',
+        '',
+        `<span style="min-width: 0; overflow: hidden; white-space: nowrap;">${'A long name '.repeat(9)}</span>`,
+      ),
+    );
+    expect(await problemsOfTheFirstStop(page)).toEqual([]);
+  });
+
+  test('a name cut short only at a padless button’s edge is caught', async ({ page }) => {
+    await show(
+      page,
+      button(
+        'display: flex; width: 200px; padding: 0; border: none; background: none;',
+        '',
+        `<span style="min-width: 0; overflow: hidden; white-space: nowrap;">${'A long name '.repeat(9)}</span>`,
+      ),
+    );
+    expect(await problemsOfTheFirstStop(page)).toEqual([
+      'a button draws its border over its words',
+    ]);
+  });
+
   /** A padless text button whose border runs clear around its words, `at` from the window's edge. */
   const textButton = (at: number) =>
     button(
