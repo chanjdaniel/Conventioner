@@ -25,9 +25,11 @@ export class VendorsPage {
   readonly exportButton: Locator;
   /** Who is in the Discord server (E46/F01/S03): each row's state, the filter, and the check. */
   readonly discordStates: Locator;
+  readonly discordRow: Locator;
   readonly discordFilter: Locator;
   readonly discordChecked: Locator;
   readonly checkDiscordButton: Locator;
+  readonly discordError: Locator;
   /** Giving the market's role (E46/F01/S04): the button, and the last run's report. */
   readonly giveRolesButton: Locator;
   readonly roleReport: Locator;
@@ -53,9 +55,11 @@ export class VendorsPage {
     this.unassignedOnly = page.getByTestId('vendors-filter-unassigned');
     this.exportButton = page.getByTestId('vendors-export-button');
     this.discordStates = page.getByTestId('vendors-list-discord');
+    this.discordRow = page.getByTestId('vendors-discord');
     this.discordFilter = page.getByTestId('vendors-discord-filter');
     this.discordChecked = page.getByTestId('vendors-discord-checked');
     this.checkDiscordButton = page.getByTestId('vendors-discord-check');
+    this.discordError = page.getByTestId('vendors-discord-error');
     this.giveRolesButton = page.getByTestId('vendors-discord-give');
     this.roleReport = page.getByTestId('vendors-role-report');
   }

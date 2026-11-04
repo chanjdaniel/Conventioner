@@ -427,7 +427,8 @@ test.describe('the editors, at a desk', () => {
           color: style.borderTopColor,
           radius: style.borderRadius,
           background: style.backgroundColor,
-          height: element.getBoundingClientRect().height,
+          // Whole pixels: the same 36px field can lay out a sub-pixel fraction off the others.
+          height: Math.round(element.getBoundingClientRect().height),
           paddingLeft: style.paddingLeft,
         };
       });
