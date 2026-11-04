@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { PersonChooser } from './PersonChooser';
 
 /**
  * Page object for the dialog that marks an application as needing a follow-up (E34/F02/S01),
@@ -10,6 +11,8 @@ export class FollowUpDialog {
 
   readonly dialog: Locator;
   /** "Who will follow up": the reviewer, unless they choose someone else on the market. */
+  readonly chooser: PersonChooser;
+  /** The chooser's field, which names who will follow up. */
   readonly owner: Locator;
   /** "Their notes: what is needed", absent for someone who may not write vendor notes. */
   readonly note: Locator;
@@ -18,7 +21,8 @@ export class FollowUpDialog {
   constructor(page: Page) {
     this.page = page;
     this.dialog = page.getByTestId('follow-up-window');
-    this.owner = page.getByTestId('follow-up-owner');
+    this.chooser = new PersonChooser(page, 'follow-up-owner');
+    this.owner = this.chooser.field;
     this.note = page.getByTestId('follow-up-note');
     this.submit = page.getByTestId('follow-up-submit-button');
   }

@@ -122,6 +122,19 @@ describe('the find field', () => {
     expect(field(wrapper).exists()).toBe(false);
   });
 
+  it('counts the whole list when told it, so a narrow filter leaves the field where it is', async () => {
+    const { wrapper } = await mountFrame({ items: rows(3), wholeCount: 359 });
+    expect(field(wrapper).exists()).toBe(true);
+    expect(count(wrapper)).toBe('3 applications');
+    await wrapper.setProps({ items: [] });
+    expect(field(wrapper).exists()).toBe(true);
+  });
+
+  it('shows no field on a whole list at the threshold, however many rows it is told of', async () => {
+    const { wrapper } = await mountFrame({ items: rows(13), wholeCount: 12 });
+    expect(field(wrapper).exists()).toBe(false);
+  });
+
   it('draws the filters slot with or without the field', async () => {
     const filters = () => h('button', { 'data-testid': 'a-filter' }, 'Open');
     const short = await mountFrame({ items: rows(3) }, { filters });
@@ -267,19 +280,36 @@ describe('the rows and "Show N more"', () => {
     expect(drawn(wrapper)).toBe(100);
   });
 
-  it('goes back to one page when the items change', async () => {
-    const { wrapper } = await mountFrame();
+  it('goes back to one page when the filters change, by filterKey', async () => {
+    const { wrapper } = await mountFrame({ filterKey: 'open' });
     await more(wrapper).trigger('click');
-    await wrapper.setProps({ items: rows(200, 'Other') });
+    await wrapper.setProps({ items: rows(200, 'Other'), filterKey: 'approved' });
     expect(drawn(wrapper)).toBe(50);
     expect(count(wrapper)).toBe('Showing 50 of 200');
   });
 
-  it('keeps the page through a read again that brings the same rows', async () => {
+  it('holds the place when a read again brings other rows under the same filters', async () => {
+    const { wrapper } = await mountFrame({ filterKey: 'open' });
+    await more(wrapper).trigger('click');
+    await wrapper.setProps({ items: rows(311, 'Other') });
+    expect(drawn(wrapper)).toBe(100);
+    expect(count(wrapper)).toBe('Showing 100 of 311');
+  });
+
+  it('holds the place through a change of the rows on a list with no filters', async () => {
     const { wrapper } = await mountFrame();
     await more(wrapper).trigger('click');
-    await wrapper.setProps({ items: rows(312) });
+    await wrapper.setProps({ items: rows(311) });
     expect(drawn(wrapper)).toBe(100);
+  });
+
+  it('holds the place when a change of the rows leaves fewer than were drawn', async () => {
+    const { wrapper } = await mountFrame();
+    await more(wrapper).trigger('click');
+    await wrapper.setProps({ items: rows(60) });
+    expect(drawn(wrapper)).toBe(60);
+    expect(count(wrapper)).toBe('60 applications');
+    expect(more(wrapper).exists()).toBe(false);
   });
 
   it('gives the row slot each item and its index', async () => {
@@ -288,6 +318,42 @@ describe('the rows and "Show N more"', () => {
       '0: Row 0',
       '1: Row 1',
     ]);
+  });
+});
+
+describe('the words set from outside', () => {
+  it('finds by them, and shows them in the field', async () => {
+    const { wrapper } = await mountFrame();
+    await wrapper.setProps({ words: 'row 311' });
+    expect((field(wrapper).element as HTMLInputElement).value).toBe('row 311');
+    expect(count(wrapper)).toBe('1 of 312 matches "row 311"');
+    expect(wrapper.findAll('[data-testid="row-words"]').map((row) => row.text())).toEqual([
+      '0: Row 311',
+    ]);
+  });
+
+  it('opens on them', async () => {
+    const { wrapper } = await mountFrame({ words: 'row 311' });
+    expect(count(wrapper)).toBe('1 of 312 matches "row 311"');
+  });
+
+  it('says what is typed, so the screen holding them can follow', async () => {
+    const { wrapper } = await mountFrame();
+    await type(wrapper, 'row');
+    expect(wrapper.emitted('update:words')).toEqual([['row']]);
+  });
+
+  it('goes back to one page when they change, as typed words do', async () => {
+    const { wrapper } = await mountFrame();
+    await more(wrapper).trigger('click');
+    await wrapper.setProps({ words: 'row 1' });
+    expect(drawn(wrapper)).toBe(50);
+  });
+
+  it('shows the field for them on a short list, so they can be cleared', async () => {
+    const { wrapper } = await mountFrame({ items: rows(3), words: 'row 1' });
+    expect(field(wrapper).exists()).toBe(true);
+    expect(count(wrapper)).toBe('1 of 3 matches "row 1"');
   });
 });
 

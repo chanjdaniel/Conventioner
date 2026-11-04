@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { marketScreenPath } from '../helpers/marketScreens';
+import { ReviewerChooser } from './ReviewerChooser';
 
 /**
  * Page object for the CSV vendor import flow (`/markets/:marketId/import`).
@@ -214,9 +215,9 @@ export class CsvImportPage {
     return this.page.getByTestId(`import-decided-fix-${value}`);
   }
 
-  /** A person's box in the preview step's reviewer picker. */
-  reviewer(email: string): Locator {
-    return this.reviewers.getByTestId(`reviewer-picker-${email}`);
+  /** The preview step's chooser of reviewers. */
+  get reviewerChooser(): ReviewerChooser {
+    return new ReviewerChooser(this.reviewers);
   }
 
   /** Ask for the dry run. Writes nothing. */

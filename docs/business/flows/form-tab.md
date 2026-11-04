@@ -100,6 +100,7 @@ On a market started from its Google Form's responses, the questions also draw on
    A click or an arrow key opens it, not Tab; with nothing typed it shows all of them, and typing narrows it.
    Enter or a click takes a row and Escape closes the list.
    Whatever is typed is the option, less the spaces around it, so words in no list are kept when the field is left and Save never reports a blank option over them.
+   Words that name an answer in its list in other capitals become that answer on leaving, so "felted tote bags" reads "Felted tote bags"; words in other capitals under another option's answer are in no list, since that option holds it, and stay as typed.
    An option keeps its own answer in its own list, and an answer comes back to the others' lists when the option holding it is removed or changed.
    The list follows a change of type, and opens in the page's flow, moving the rows below it down.
    A market started before this kept no answers, so its options offer only the common ones it kept; "Use the answers in your file", a type change and "Add from your file" (steps 4 and 5) fill only the common ones on every market.

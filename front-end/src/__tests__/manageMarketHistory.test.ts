@@ -67,8 +67,23 @@ function mountHistory() {
   });
 }
 
-const sentences = (wrapper: ReturnType<typeof mountHistory>) =>
+type History = ReturnType<typeof mountHistory>;
+
+const sentences = (wrapper: History) =>
   wrapper.findAll('[data-testid="market-history-sentence"]').map((p) => p.text());
+
+const whoField = (wrapper: History) => wrapper.get('[data-testid="market-history-who-input"]');
+const whoList = (wrapper: History) => wrapper.find('[data-testid="market-history-who-list"]');
+const whoOptions = (wrapper: History) =>
+  wrapper.findAll('[data-testid="market-history-who-option"]');
+const whoValue = (wrapper: History) => (whoField(wrapper).element as HTMLInputElement).value;
+
+/** Finds someone by typing, and takes the first row with Enter. */
+async function chooseWho(wrapper: History, words: string) {
+  await whoField(wrapper).setValue(words);
+  await whoField(wrapper).trigger('keydown', { key: 'Enter' });
+  await flushPromises();
+}
 
 beforeEach(() => {
   setActivePinia(createPinia());
@@ -102,11 +117,10 @@ describe('the History section', () => {
     const wrapper = mountHistory();
     await flushPromises();
 
-    await wrapper.get('[data-testid="market-history-who"]').setValue('priya@ember.test');
-    await flushPromises();
+    await chooseWho(wrapper, 'priya');
     expect(asked.at(-1)).toBe('/markets/market-1/history?actor=priya%40ember.test');
 
-    await wrapper.get('[data-testid="market-history-who"]').setValue('');
+    await chooseWho(wrapper, 'Anyone');
     await wrapper.get('[data-testid="market-history-kind"]').setValue('Assignment');
     await flushPromises();
     expect(asked.at(-1)).toBe('/markets/market-1/history?group=Assignment');
@@ -353,6 +367,178 @@ describe('the History section', () => {
     expect(wrapper.get('[data-testid="market-history-empty"]').text()).toBe(
       'No change matches these filters.',
     );
+  });
+});
+
+describe('the History section\'s "Who"', () => {
+  /** Answers every read with one page and these `actors`, and records what it was asked. */
+  function serveActors(actors: string[]) {
+    const asked: string[] = [];
+    api.get.mockImplementation(async (url: string) => {
+      asked.push(url);
+      return {
+        data: { entries: [assigned('e1', 1)], next: null, vendorNames: {}, actors, groups: GROUPS },
+      };
+    });
+    return asked;
+  }
+
+  const person = (n: number) => `person-${String(n).padStart(3, '0')}@people.test`;
+  const everyone = Array.from({ length: 150 }, (_, at) => person(at + 1));
+
+  it('is a combobox named Who, Anyone first and chosen, then who changed something', async () => {
+    serveActors(['dana@ember.test', 'priya@ember.test']);
+    const wrapper = mountHistory();
+    await flushPromises();
+
+    const field = whoField(wrapper);
+    expect(field.attributes('role')).toBe('combobox');
+    expect(wrapper.get(`label[for="${field.attributes('id')}"]`).text()).toBe('Who');
+    expect(whoValue(wrapper)).toBe('Anyone');
+
+    await field.trigger('click');
+    expect(whoOptions(wrapper).map((option) => option.text())).toEqual([
+      'Anyone',
+      'dana@ember.test',
+      'priya@ember.test',
+    ]);
+    expect(whoOptions(wrapper)[0]!.attributes('aria-selected')).toBe('true');
+    expect(whoOptions(wrapper)[0]!.attributes('data-value')).toBe('');
+    wrapper.unmount();
+  });
+
+  it('marks the reader in the list, and finds nobody it was not served', async () => {
+    localStorage.setItem('user', JSON.stringify('dana@ember.test'));
+    serveActors(['dana@ember.test', 'priya@ember.test']);
+    const wrapper = mountHistory();
+    await flushPromises();
+
+    await whoField(wrapper).trigger('click');
+    const dana = wrapper.get(
+      '[data-testid="market-history-who-option"][data-value="dana@ember.test"]',
+    );
+    expect(dana.get('.search-picker-option-detail').text()).toBe('You');
+
+    await whoField(wrapper).setValue('zelda');
+    expect(whoOptions(wrapper)).toHaveLength(0);
+    expect(wrapper.get('[data-testid="market-history-who-none"]').text()).toBe(
+      'Nobody matches "zelda".',
+    );
+    localStorage.removeItem('user');
+    wrapper.unmount();
+  });
+
+  it('finds one of 150 by typing, and narrows the history to them', async () => {
+    const asked = serveActors(everyone);
+    const wrapper = mountHistory();
+    await flushPromises();
+
+    await whoField(wrapper).trigger('click');
+    expect(whoOptions(wrapper)).toHaveLength(50);
+    expect(whoOptions(wrapper)[0]!.text()).toBe('Anyone');
+    expect(wrapper.get('[data-testid="market-history-who-more"]').text()).toBe(
+      '101 more, type to narrow',
+    );
+
+    await whoField(wrapper).setValue('PERSON-123');
+    expect(whoOptions(wrapper).map((option) => option.text())).toEqual([person(123)]);
+
+    await whoField(wrapper).trigger('keydown', { key: 'Enter' });
+    await flushPromises();
+    expect(whoList(wrapper).exists()).toBe(false);
+    expect(whoValue(wrapper)).toBe(person(123));
+    expect(asked.at(-1)).toBe(`/markets/market-1/history?actor=${encodeURIComponent(person(123))}`);
+    wrapper.unmount();
+  });
+
+  it('takes the row the arrow keys reach', async () => {
+    const asked = serveActors(['dana@ember.test', 'priya@ember.test']);
+    const wrapper = mountHistory();
+    await flushPromises();
+
+    await whoField(wrapper).trigger('keydown', { key: 'ArrowDown' });
+    await whoField(wrapper).trigger('keydown', { key: 'ArrowDown' });
+    await whoField(wrapper).trigger('keydown', { key: 'ArrowDown' });
+    await whoField(wrapper).trigger('keydown', { key: 'Enter' });
+    await flushPromises();
+
+    expect(asked.at(-1)).toBe('/markets/market-1/history?actor=priya%40ember.test');
+    wrapper.unmount();
+  });
+
+  it('asks nothing for words alone, and names who it holds on leaving', async () => {
+    const asked = serveActors(['dana@ember.test', 'priya@ember.test']);
+    const wrapper = mountHistory();
+    await flushPromises();
+    await chooseWho(wrapper, 'priya');
+    const reads = asked.length;
+
+    await whoField(wrapper).setValue('dana');
+    await flushPromises();
+    expect(asked).toHaveLength(reads);
+
+    await whoField(wrapper).trigger('blur');
+    expect(whoValue(wrapper)).toBe('priya@ember.test');
+    expect(asked).toHaveLength(reads);
+    wrapper.unmount();
+  });
+
+  it('keeps Escape from the dialog while its list is open, then lets it go', async () => {
+    serveActors(['dana@ember.test', 'priya@ember.test']);
+    const wrapper = mountHistory();
+    await flushPromises();
+    const dialogHears = vi.fn();
+    wrapper.element.addEventListener('keydown', dialogHears);
+
+    await whoField(wrapper).trigger('click');
+    expect(whoList(wrapper).exists()).toBe(true);
+    await whoField(wrapper).trigger('keydown', { key: 'Escape' });
+    expect(whoList(wrapper).exists()).toBe(false);
+    expect(dialogHears).not.toHaveBeenCalled();
+
+    await whoField(wrapper).trigger('keydown', { key: 'Escape' });
+    expect(dialogHears).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+  });
+
+  it('goes back to Anyone on Clear filters, and asks for everything again', async () => {
+    const asked = serveActors(['dana@ember.test', 'priya@ember.test']);
+    const wrapper = mountHistory();
+    await flushPromises();
+    await chooseWho(wrapper, 'priya');
+
+    await wrapper.get('[data-testid="market-history-clear"]').trigger('click');
+    await flushPromises();
+
+    expect(whoValue(wrapper)).toBe('Anyone');
+    expect(asked.at(-1)).toBe('/markets/market-1/history');
+    expect(wrapper.find('[data-testid="market-history-clear"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('keeps who it holds through a read of the first page again', async () => {
+    const asked = serveActors(['dana@ember.test', 'priya@ember.test']);
+    const wrapper = mountHistory();
+    await flushPromises();
+    await chooseWho(wrapper, 'priya');
+
+    await wrapper.setProps({ changesMade: 1 });
+    await flushPromises();
+
+    expect(whoValue(wrapper)).toBe('priya@ember.test');
+    expect(asked.at(-1)).toBe('/markets/market-1/history?actor=priya%40ember.test');
+    wrapper.unmount();
+  });
+
+  it("is not drawn on one vendor's history", async () => {
+    serveActors(['dana@ember.test']);
+    const wrapper = mount(MarketHistory, {
+      props: { marketId: 'market-1', path: IntakeMode.Form, vendor: 'ana@ember.test' },
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    });
+    await flushPromises();
+    expect(wrapper.find('[data-testid="market-history-who"]').exists()).toBe(false);
+    wrapper.unmount();
   });
 });
 

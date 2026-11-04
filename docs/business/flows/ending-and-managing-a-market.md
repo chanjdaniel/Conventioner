@@ -13,7 +13,8 @@ describes:
   - front-end/e2e/removing-someone-asks-first.spec.ts
   - front-end/e2e/changing-a-role-asks-first.spec.ts
   - front-end/src/utils/openInsteadOfStepping.ts
-verified: 2026-11-04
+  - front-end/e2e/people-at-scale.spec.ts
+verified: 2026-11-05
 sources:
   - E20/F01/S03
   - E21/F03/S04
@@ -37,6 +38,7 @@ sources:
   - E38/F15/S01
   - T181
   - T211
+  - T204
 ---
 
 # Ending and managing a market
@@ -96,6 +98,9 @@ Covered by:
 1. "Manage" opens "Manage market"; "Users with access" lists everyone with a role on the market, by its own roles or through its organization, each once at the role that counts: the owner first, then Admin, Editor and Viewer, then by address, so someone just added takes their place in that order, never the top.
    The market read serves the list in that order as `peopleWithAccess` ([one market, from the server](../../implementation/conventions/one-market-from-the-server.md)), and the dialog words each row with [`peopleWithAccess.ts`](../../../front-end/src/utils/peopleWithAccess.ts).
    The organization's people are listed only to a reader who belongs to the organization or may give and take Editor and Viewer roles here; anyone else reads the market's own roles alone ([what each role may do](../rules/what-each-role-may-do.md)).
+   The list is a [list frame](../../design-system.md), so 154 people never push "Add user" and the sections below 4,900px down: it says "Showing 50 of 154", draws 50 rows and "Show 50 more", and past 12 people has a field, "Find in users with access", that finds by any part of an address, capitals aside, since an account holds no name.
+   The words last as long as the dialog and never reach the address; a role change, a removal and the re-read after them keep the words and the rows shown, and only new words go back to the first 50.
+   An address breaks before its "@" or a dot, never just after a hyphen, drawn by [`EmailAddress.vue`](../../../front-end/src/components/EmailAddress.vue).
 2. A role that comes from the organization says where: "Admin, through <organization>" for its owner and admins, "Viewer, through <organization>" for a member, with no select and no Remove, since only Manage organization changes it.
    A person whose market role adds nothing beside the organization's (the organization's reaches it, a tie included) reads, under that, "Also Editor on this market: this adds nothing while they are an admin of <organization>." ("a member of" for a member), with a Remove that takes only the market role, to tidy it away.
 3. A market role that counts, the organization's being lower or none, is a dropdown of the roles the reader may give (Admin, Editor, Viewer); any other role, the owner's always, is stated as a word, not offered.
@@ -103,7 +108,7 @@ Covered by:
    Choosing a role asks first, since one slip of the dropdown changed someone's access at once (T211): "Make e2e@example.com an Editor?", then "They are a Viewer on Spring Market now." and what the move changes, read from this market's own table.
    Moving up lists under "As an Editor they could also:" the rows above the role held, up to the role chosen; moving down lists under "As a Viewer they could no longer:" the rows above the role chosen, up to the role held; with no row between them it says "This market's permissions treat the two roles alike, so nothing they may do changes."
    It is not a destructive dialog, since another change undoes it, and only its body scrolls, so the question and "Change role" stay in sight above and below Viewer to Admin's list.
-   Cancel, Escape and the backdrop put the dropdown back on the role held and give it focus, with nothing sent; "Change role" writes the role, the list re-reads in place with the dialog open, and focus is on the dropdown, or on the list when the re-read leaves that row without one, as it does for someone who changed their own role.
+   Cancel, Escape and the backdrop put the dropdown back on the role held and give it focus, with nothing sent; "Change role" writes the role, the list re-reads in place with the dialog open, and focus is on the dropdown, or on the list when the re-read leaves that row without one, as it does for someone who changed their own role, or moves the row past those shown.
 4. "Remove" beside each such person the reader may remove; never the owner.
    It asks first, in a destructive confirmation that opens on Cancel (E38/F15/S01): "Remove walk390@example.com from Spring Market?", then "They lose their Editor role on it." and, for someone in the organization, "They can still view it as a member of <organization>." ("run it as an admin of" for an admin).
    Cancel and Escape change nothing and give focus back to that Remove; "Remove" takes the market role, the list re-reads in place with the dialog open, and focus goes to the list; a refusal is said in the confirmation, whose Remove may be pressed again.
@@ -112,15 +117,19 @@ Covered by:
 5. Under the list, when a row comes through the organization: "Organization admins and members are managed in Manage organization.", "Manage organization" a link to `/organizations?manage=<id>`, which opens that organization's dialog, for a reader who belongs to it, and plain words for anyone else.
 6. "Add user", for an Admin or the owner only (bug 37): the email, the role, "Add", and "Cancel" on the same row, or on a phone the email above the rest.
    An address that already has a role on the market is refused beneath the row, pointing to that person's own row: adding once overwrote any role, the owner's too, around the guards a role change keeps (T15).
+   On a list with a find field, or words in it, the field then takes the added address, so their row is the one shown and their role reads at once; clearing the field shows the whole list.
 7. A refused change of role closes the confirmation, re-reads the list and is said beneath that person's row, which states the role the server holds, since someone else may have moved it first.
+   When that moved the row past those shown, the find field takes their address, so the refusal is still read.
    When someone else removed them first, the row is gone and the words stand at the foot of the list, after their address; adding them back brings the row back without the words.
 
 The organization line says "Belongs to <organization>. Its admins run it; its members can view it."
 Covered by:
 - `*-sweep.spec.ts`, the sweeps' states "the manage-market dialog, an organization's people", "the manage-market dialog, removing a market role" and "the manage-market dialog, changing a market role"
 - `access-control.spec.ts`
+- [`an-address-breaks-only-before-its-at.spec.ts`](../../../front-end/e2e/an-address-breaks-only-before-its-at.spec.ts) (its rows)
 - [`changing-a-role-asks-first.spec.ts`](../../../front-end/e2e/changing-a-role-asks-first.spec.ts) (the confirmation's words, its closes, one write on confirm and where focus goes, a table whose owner moved a row, a refusal, one after someone else moved or removed them first, the arrow keys, and Viewer to Admin in sight at 1280 and 390)
 - [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (the walk's case, and at 390 nothing overflowing and each Remove a 44px target, on one edge)
+- [`people-at-scale.spec.ts`](../../../front-end/e2e/people-at-scale.spec.ts) (the list at 154 people: a page at a time, finding one person, the place kept, someone just added; on a phone at 390 and 320)
 - [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) (the confirmation's words, Cancel, Escape, confirming and where focus goes, someone removed in another window included, at 1440 and 390)
 - `the-manage-market-dialog-holds-together.spec.ts`
 - `tier2.spec.ts` ("add user, change role, and remove user from market")

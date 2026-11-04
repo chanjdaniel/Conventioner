@@ -79,7 +79,7 @@ test('a first import with two reviewers ticked deals its three rows 2 and 1, in 
   await importPage.clickPreview();
   await expect(importPage.previewCounts).toContainText('3 of 3 rows');
 
-  // The section names itself, offers the choice with its hint, and ticks no one.
+  // The section names itself, offers the choice with its hint, and chooses no one.
   await expect(page.getByRole('region', { name: 'Reviewers' })).toHaveAttribute(
     'data-testid',
     'import-reviewers',
@@ -87,9 +87,8 @@ test('a first import with two reviewers ticked deals its three rows 2 and 1, in 
   await expect(importPage.reviewers).toContainText(
     'Choose no one and everyone reviews first come, first served.',
   );
-  await expect(importPage.reviewer(ANA)).not.toBeChecked();
-  await importPage.reviewer(ANA).check();
-  await importPage.reviewer(BEN).check();
+  await expect(importPage.reviewerChooser.chips).toHaveCount(0);
+  await importPage.reviewerChooser.choose(ANA, BEN);
   await importPage.clickConfirm();
   await expect(importPage.resultSummary).toContainText('Imported 3 new applications');
 

@@ -102,11 +102,19 @@ async function atPreview(shown: Market | Ref<Market>): Promise<VueWrapper> {
   return wrapper;
 }
 
+/** Finds each person by typing their address, and takes the match. */
 async function tick(wrapper: VueWrapper, ...emails: string[]) {
+  const field = wrapper.get(`${SECTION} [data-testid="reviewer-picker-input"]`);
   for (const email of emails) {
-    await wrapper.get(`${SECTION} [data-testid="reviewer-picker-${email}"]`).setValue(true);
+    await field.setValue(email);
+    await field.trigger('keydown', { key: 'Enter' });
   }
 }
+
+const chips = (wrapper: VueWrapper) =>
+  wrapper
+    .findAll(`${SECTION} [data-testid="reviewer-picker-chip"] > span:first-child`)
+    .map((chip) => chip.text());
 
 async function confirm(wrapper: VueWrapper) {
   await wrapper.get(CONFIRM).trigger('click');
@@ -123,12 +131,7 @@ describe('who meets the reviewers on the preview step', () => {
     expect(section.attributes('aria-label')).toBe('Reviewers');
     expect(section.find('[data-testid="reviewer-picker"]').exists()).toBe(true);
     expect(section.text()).toContain(PICKER_HINT);
-    for (const email of [ANA, BEN, CAT]) {
-      expect(
-        (section.get(`[data-testid="reviewer-picker-${email}"]`).element as HTMLInputElement)
-          .checked,
-      ).toBe(false);
-    }
+    expect(chips(wrapper)).toEqual([]);
     const html = wrapper.html();
     expect(html.indexOf('data-testid="import-reviewers"')).toBeLessThan(
       html.indexOf('data-testid="import-confirm-button"'),
@@ -140,12 +143,7 @@ describe('who meets the reviewers on the preview step', () => {
       market({ reviewTeam: { reviewers: [{ email: BEN, able: true }] } }),
     );
 
-    const box = (email: string) =>
-      (
-        wrapper.get(`${SECTION} [data-testid="reviewer-picker-${email}"]`)
-          .element as HTMLInputElement
-      ).checked;
-    expect([box(ANA), box(BEN), box(CAT)]).toEqual([false, true, false]);
+    expect(chips(wrapper)).toEqual([BEN]);
   });
 
   it('a redo import shows no picker: the reviewers are the panel s', async () => {
@@ -246,10 +244,7 @@ describe('confirming', () => {
       'Something went wrong on our side. Try again in a moment.',
     );
     expect(wrapper.find('[data-testid="import-preview"]').exists()).toBe(true);
-    expect(
-      (wrapper.get(`${SECTION} [data-testid="reviewer-picker-${ANA}"]`).element as HTMLInputElement)
-        .checked,
-    ).toBe(true);
+    expect(chips(wrapper)).toEqual([ANA]);
 
     // Trying again imports with the reviewers already stored: nothing to write before it.
     await confirm(wrapper);
