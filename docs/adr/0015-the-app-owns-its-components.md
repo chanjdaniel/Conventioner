@@ -58,6 +58,7 @@ The app owns its components and its icons, and depends on no component library o
   - `holdsChoice`, one choice that holds under typed words until another is taken;
   - `wordsAreValue`, with `acceptsTyped` on one choice, typed words written as the value on every keystroke and kept on leaving;
   - `disabled`, a field and chips that take nothing;
+  - an option's `address`, a label and chip that break only before an address's "@" or a dot;
   - `describedBy`, words beside it that describe its field;
   - `listOver`, a list that lies over what follows it, rather than pushing it down.
 

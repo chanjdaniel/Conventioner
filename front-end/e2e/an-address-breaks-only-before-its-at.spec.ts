@@ -5,6 +5,7 @@ import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
 import { ManageMarketPage } from './pages/ManageMarketPage';
 import { OrganizationsPage } from './pages/OrganizationsPage';
+import { ReviewersPanel } from './pages/ReviewersPanel';
 import { VendorsPage } from './pages/VendorsPage';
 
 /**
@@ -177,6 +178,26 @@ test('Manage market\'s rows break an address only before its "@" or a dot', asyn
   const cell = manage.personEmail(reviewer);
   await cell.evaluate((element) => (element.style.flex = 'none'));
   await expectWholeAddress(cell, reviewer, true);
+});
+
+test('a chooser of people, its rows and chips, breaks an address only before its "@" or a dot', async ({
+  authenticatedPage: page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  const monitor = new ApplicationMonitorPage(page);
+  await monitor.goto(dealtMarketId);
+  const reviewers = new ReviewersPanel(page);
+  await reviewers.change.click();
+  await reviewers.dialog.waitFor();
+  await reviewers.chooser.field.click();
+
+  const row = reviewers.chooser.option(reviewer).locator('.search-picker-option-label');
+  const chip = reviewers.chooser.chip(reviewer).locator('.search-picker-chip-label');
+  // As the phone draws them, then in a line narrower than the address, where it must break.
+  for (const words of [row, chip]) {
+    await expectWholeAddress(words, reviewer);
+    await expectWholeAddress(words, reviewer, true);
+  }
 });
 
 test('in a line narrower than the address, each sentence breaks it only before its "@" or a dot', async ({

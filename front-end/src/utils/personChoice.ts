@@ -15,6 +15,7 @@ export function personOption(address: string): PickerOption {
   return {
     value: address,
     label: address,
+    address: true,
     ...(isMe ? { detail: 'You', chip: `${address} (you)` } : {}),
   };
 }

@@ -40,6 +40,8 @@
  *   chip's button leaves the field its focus; the keyboard's focus goes on to the next chip. An
  *   option's `chip` is its chip's words when they differ from its label. A chip's button is never
  *   where a dialog opens (`data-dialog-not-first`): one stray Enter would take that choice away.
+ * - An option's `address` says its label and chip hold an address, drawn by `EmailAddress`, so a row
+ *   or chip narrower than the address breaks it only before its "@" or a dot.
  * - Given `multiple` and a `cap` that the matches pass, every chosen match is drawn first, in the
  *   option order, so every choice opens ticked at the top, and the rest fill what the cap has left.
  *   Who leads is settled as the list opens and as the words change, never by a choice made in the
@@ -51,11 +53,13 @@
  *   them, or a chip does; reopened on them, as on a choice past the cap, no row is active and Enter
  *   keeps them. Words that differ from an option only in capitals take that option, the one spelt
  *   exactly so if two differ only in capitals, so "stickers" never stands beside "Stickers": it is
- *   the active row ahead of others they find, drawn first if the cap would leave it out. The list
- *   opens for words even with no options at all.
+ *   the active row ahead of others they find, drawn first if the cap would leave it out. Among
+ *   several, words a typed chip holds in other capitals are that chip, so they make no second one.
+ *   The list opens for words even with no options at all.
  * - Words left in the field when it is left, or when Enter goes on to the form: with `acceptsTyped`
- *   they are kept, as the option they name or as typed (a chip, among several); `wordsAreValue` has
- *   written them already, as typed. Without it they go, since nothing was chosen by them.
+ *   they are kept, as the option they name or as typed (a chip, among several). `wordsAreValue` has
+ *   written them already as typed, so only an option they name in other capitals is written then.
+ *   Without `acceptsTyped` they go, since nothing was chosen by them.
  * - A main button's press past an open list leaves the field only as the press ends: the list sits
  *   in the page's flow, so closing it as the focus goes would move what lies below it from under the
  *   pointer, and the click would be lost, a dialog's Save among them. Words a free-text field keeps
@@ -78,6 +82,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue';
 import IconCheck from '@/components/icons/IconCheck.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
+import EmailAddress from '@/components/EmailAddress.vue';
 
 export interface PickerOption {
   value: string;
@@ -87,6 +92,8 @@ export interface PickerOption {
   detail?: string;
   /** The words on its chip, among several, where they differ from the label. */
   chip?: string;
+  /** Its label and chip hold an address, so a line breaks it only before its "@" or a dot. */
+  address?: boolean;
 }
 
 export interface PickerGroup {
@@ -156,7 +163,7 @@ const chips = computed(() => {
   return chosenValues.value.map((value) => {
     const option = options.get(value);
     const label = option?.label ?? value;
-    return { value, label, words: option?.chip ?? label };
+    return { value, label, words: option?.chip ?? label, address: option?.address };
   });
 });
 
@@ -247,11 +254,13 @@ const cappedGroups = computed(() => {
   });
 });
 /** The words as a choice of their own, while they name no option. */
-const typedOption = computed<PickerOption | undefined>(() =>
-  props.acceptsTyped && words.value && !namedOption.value
-    ? { value: words.value, label: `Use "${words.value}"` }
-    : undefined,
-);
+const typedOption = computed<PickerOption | undefined>(() => {
+  if (!props.acceptsTyped || !words.value || namedOption.value) return undefined;
+  // Among several, words a typed chip already holds in other capitals are that chip.
+  const folded = words.value.toLowerCase();
+  const value = chosenValues.value.find((chosen) => chosen.toLowerCase() === folded) ?? words.value;
+  return { value, label: `Use "${value}"` };
+});
 type ShownGroup = (typeof cappedGroups.value)[number];
 const leadGroup = (options: PickerOption[], testid?: string): ShownGroup => ({
   testid,
@@ -363,11 +372,14 @@ function typed(): void {
   if (!props.multiple && !holds.value && props.modelValue) emit('update:modelValue', '');
 }
 
-/** A free-text field keeps the words not chosen: as the option they name, or as typed. */
+/**
+ * A free-text field keeps the words not chosen: as the option they name, or as typed. Words that
+ * are the value were written as typed already, so only an option they name has more to write.
+ */
 function keepTheWords(): void {
-  if (!props.acceptsTyped || holds.value || writesWords.value) return;
-  const option = namedOption.value ?? typedOption.value;
-  if (!option) return;
+  if (!props.acceptsTyped || holds.value) return;
+  const option = namedOption.value ?? (writesWords.value ? undefined : typedOption.value);
+  if (!option || (writesWords.value && option.value === props.modelValue)) return;
   if (!props.multiple) choose(option);
   else if (!isChosen(option)) emit('update:modelValue', [...props.modelValue, option.value]);
 }
@@ -499,7 +511,11 @@ function onFocus(): void {
         class="chip chip--neutral search-picker-chip"
         :data-testid="`${testid}-chip`"
       >
-        <span class="search-picker-chip-label">{{ chip.words }}</span>
+        <span class="search-picker-chip-label"
+          ><EmailAddress v-if="chip.address" :words="chip.words" /><template v-else>{{
+            chip.words
+          }}</template></span
+        >
         <button
           type="button"
           class="search-picker-chip-remove"
@@ -582,7 +598,11 @@ function onFocus(): void {
             class="search-picker-option-tick"
             :data-testid="`${testid}-option-tick`"
           />
-          <span class="search-picker-option-label">{{ option.label }}</span>
+          <span class="search-picker-option-label"
+            ><EmailAddress v-if="option.address" :words="option.label" /><template v-else>{{
+              option.label
+            }}</template></span
+          >
           <span v-if="option.detail" class="search-picker-option-detail">{{ option.detail }}</span>
         </div>
         <p

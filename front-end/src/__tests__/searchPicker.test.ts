@@ -1445,6 +1445,22 @@ describe("Daniel's choices (T204)", () => {
       wrapper.unmount();
     });
 
+    it('among several, make no second chip beside a typed one', async () => {
+      const wrapper = chooser({
+        acceptsTyped: true,
+        multiple: true,
+        modelValue: ['soap'],
+        groups: ANSWERS,
+      });
+      await input(wrapper).setValue('SOAP');
+      expect(wrapper.findAll('[role="option"]')[0]!.get('span').text()).toBe('Use "soap"');
+
+      await input(wrapper).trigger('blur');
+      expect(last(wrapper)).toBeUndefined();
+      expect(wrapper.findAll('[data-testid="who-chip"]')).toHaveLength(1);
+      wrapper.unmount();
+    });
+
     it('still offer words that merely hold an option', async () => {
       const wrapper = chooser({ acceptsTyped: true, groups: ANSWERS });
       await input(wrapper).setValue('art p');
@@ -1730,6 +1746,46 @@ describe("Daniel's choices (T204)", () => {
   });
 });
 
+describe('an option that holds an address', () => {
+  const ADDRESS = 'person-004@people-at-scale.test';
+
+  function holdingAddress(address: boolean | undefined) {
+    return mount(SearchPicker, {
+      props: {
+        multiple: true,
+        modelValue: [ADDRESS],
+        groups: [{ options: [{ value: ADDRESS, label: ADDRESS, address }] }],
+        finds,
+        label: 'Reviewers',
+        testid: 'who',
+      } as never,
+      attachTo: document.body,
+    });
+  }
+
+  it('draws it on its row and chip as one word that holds its hyphens', async () => {
+    const wrapper = holdingAddress(true);
+    await wrapper.get('[data-testid="who-input"]').trigger('click');
+
+    const chip = wrapper.get('[data-testid="who-chip"] .search-picker-chip-label');
+    const row = wrapper.get('[data-testid="who-option"] .search-picker-option-label');
+    for (const words of [chip, row]) {
+      expect(words.text()).toBe(ADDRESS);
+      expect(words.find('.email-address-held').exists()).toBe(true);
+    }
+    wrapper.unmount();
+  });
+
+  it('leaves any other choice as plain words', async () => {
+    const wrapper = holdingAddress(undefined);
+    await wrapper.get('[data-testid="who-input"]').trigger('click');
+
+    expect(wrapper.find('.email-address').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="who-option"]').text()).toBe(ADDRESS);
+    wrapper.unmount();
+  });
+});
+
 describe('words that are the value', () => {
   const ANSWERS: PickerGroup[] = [
     {
@@ -1766,6 +1822,93 @@ describe('words that are the value', () => {
   const values = (wrapper: Writing) =>
     wrapper.emitted('update:modelValue')?.map(([value]) => value);
   const held = (wrapper: Writing) => wrapper.props('modelValue');
+
+  describe('words that differ from an option only in capitals (choice 9)', () => {
+    /** The answers as a file can give them, with two that differ only in capitals. */
+    const TWINS: PickerGroup[] = [
+      {
+        options: [
+          { value: 'stickers', label: 'stickers' },
+          { value: 'Stickers', label: 'Stickers' },
+        ],
+      },
+    ];
+
+    it('leaving the field writes the option, as Enter on those words does', async () => {
+      const wrapper = writing();
+      (input(wrapper).element as HTMLInputElement).focus();
+      await input(wrapper).setValue('stickers');
+      expect(held(wrapper)).toBe('stickers');
+
+      await input(wrapper).trigger('blur');
+
+      expect(held(wrapper)).toBe('Stickers');
+      expect(inField(wrapper)).toBe('Stickers');
+      wrapper.unmount();
+    });
+
+    it('a press past the list writes the option ahead of its click', async () => {
+      vi.useFakeTimers();
+      const wrapper = writing();
+      (input(wrapper).element as HTMLInputElement).focus();
+      await input(wrapper).setValue('stickers');
+
+      window.dispatchEvent(new MouseEvent('mousedown'));
+      (input(wrapper).element as HTMLInputElement).blur();
+      await wrapper.vm.$nextTick();
+      window.dispatchEvent(new MouseEvent('mouseup'));
+
+      // The click comes before any timer, and a Save below the field reads the value.
+      expect(values(wrapper)?.at(-1)).toBe('Stickers');
+      vi.runAllTimers();
+      await wrapper.vm.$nextTick();
+      expect(inField(wrapper)).toBe('Stickers');
+      expect(wrapper.find('[data-testid="who-list"]').exists()).toBe(false);
+      wrapper.unmount();
+      vi.useRealTimers();
+    });
+
+    it('Enter on a closed list writes the option too, ahead of the form', async () => {
+      const wrapper = writing();
+      await input(wrapper).setValue('stickers');
+      await input(wrapper).trigger('keydown', { key: 'Escape' });
+      expect(held(wrapper)).toBe('stickers');
+
+      await input(wrapper).trigger('keydown', { key: 'Enter' });
+
+      expect(held(wrapper)).toBe('Stickers');
+      wrapper.unmount();
+    });
+
+    it('the exact spelling still wins when the file gave both', async () => {
+      const wrapper = writing('', { groups: TWINS });
+      await input(wrapper).setValue('stickers');
+      await input(wrapper).trigger('blur');
+
+      expect(held(wrapper)).toBe('stickers');
+      expect(inField(wrapper)).toBe('stickers');
+      wrapper.unmount();
+    });
+
+    it('words that name no option stay as typed', async () => {
+      const wrapper = writing();
+      await input(wrapper).setValue('Soap ');
+      await input(wrapper).trigger('blur');
+
+      expect(held(wrapper)).toBe('Soap');
+      expect(inField(wrapper)).toBe('Soap');
+      wrapper.unmount();
+    });
+
+    it('an option written already is written no second time', async () => {
+      const wrapper = writing();
+      await input(wrapper).setValue('Stickers');
+      await input(wrapper).trigger('blur');
+
+      expect(values(wrapper)).toEqual(['Stickers']);
+      wrapper.unmount();
+    });
+  });
 
   describe('a press elsewhere, while the list that moves its target is open', () => {
     const listOf = (wrapper: Writing) => wrapper.find('[data-testid="who-list"]');

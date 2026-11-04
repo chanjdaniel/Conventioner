@@ -2,8 +2,9 @@
 /**
  * Words with addresses in them, each address drawn so it breaks, if a line is too narrow for it,
  * only before its "@" or before a dot, never at a hyphen inside a name (T137 review note 7, T181).
- * The history's table and sentences, the review's warnings and reviewer lines, and the rows of
- * Manage market and Manage organization draw their addresses with it.
+ * The history's table and sentences, the review's warnings and reviewer lines, the rows of Manage
+ * market and Manage organization, and a chooser of people's rows and chips draw their addresses
+ * with it.
  *
  * Each address is one word in the accessible name, and a copy of it is the address: every piece is
  * an inline span, so nothing is added between them, and the break before a piece is a zero-width
