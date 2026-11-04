@@ -14,7 +14,7 @@ describes:
   - front-end/e2e/changing-a-role-asks-first.spec.ts
   - front-end/src/utils/openInsteadOfStepping.ts
   - front-end/e2e/people-at-scale.spec.ts
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - E20/F01/S03
   - E21/F03/S04
@@ -100,6 +100,7 @@ Covered by:
    The organization's people are listed only to a reader who belongs to the organization or may give and take Editor and Viewer roles here; anyone else reads the market's own roles alone ([what each role may do](../rules/what-each-role-may-do.md)).
    The list is a [list frame](../../design-system.md), so 154 people never push "Add user" and the sections below 4,900px down: it says "Showing 50 of 154", draws 50 rows and "Show 50 more", and past 12 people has a field, "Find in users with access", that finds by any part of an address, capitals aside, since an account holds no name.
    The words last as long as the dialog and never reach the address; a role change, a removal and the re-read after them keep the words and the rows shown, and only new words go back to the first 50.
+   An address breaks before its "@" or a dot, never just after a hyphen, drawn by [`EmailAddress.vue`](../../../front-end/src/components/EmailAddress.vue).
 2. A role that comes from the organization says where: "Admin, through <organization>" for its owner and admins, "Viewer, through <organization>" for a member, with no select and no Remove, since only Manage organization changes it.
    A person whose market role adds nothing beside the organization's (the organization's reaches it, a tie included) reads, under that, "Also Editor on this market: this adds nothing while they are an admin of <organization>." ("a member of" for a member), with a Remove that takes only the market role, to tidy it away.
 3. A market role that counts, the organization's being lower or none, is a dropdown of the roles the reader may give (Admin, Editor, Viewer); any other role, the owner's always, is stated as a word, not offered.
@@ -125,6 +126,7 @@ The organization line says "Belongs to <organization>. Its admins run it; its me
 Covered by:
 - `*-sweep.spec.ts`, the sweeps' states "the manage-market dialog, an organization's people", "the manage-market dialog, removing a market role" and "the manage-market dialog, changing a market role"
 - `access-control.spec.ts`
+- [`an-address-breaks-only-before-its-at.spec.ts`](../../../front-end/e2e/an-address-breaks-only-before-its-at.spec.ts) (its rows)
 - [`changing-a-role-asks-first.spec.ts`](../../../front-end/e2e/changing-a-role-asks-first.spec.ts) (the confirmation's words, its closes, one write on confirm and where focus goes, a table whose owner moved a row, a refusal, one after someone else moved or removed them first, the arrow keys, and Viewer to Admin in sight at 1280 and 390)
 - [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (the walk's case, and at 390 nothing overflowing and each Remove a 44px target, on one edge)
 - [`people-at-scale.spec.ts`](../../../front-end/e2e/people-at-scale.spec.ts) (the list at 154 people: a page at a time, finding one person, the place kept, someone just added; on a phone at 390 and 320)

@@ -161,6 +161,11 @@ export class ManageMarketPage {
     return this.peopleRows.filter({ hasText: email });
   }
 
+  /** The address in that person's row. */
+  personEmail(email: string): Locator {
+    return this.person(email).locator('.user-email');
+  }
+
   // ── Add user with role ──
 
   async clickAddUser(): Promise<void> {

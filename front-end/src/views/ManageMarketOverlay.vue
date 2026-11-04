@@ -11,6 +11,7 @@ import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import { useMarketStore } from '@/stores/market';
 import AppDialog from '@/components/AppDialog.vue';
+import EmailAddress from '@/components/EmailAddress.vue';
 import MarketPermissions from '@/components/MarketPermissions.vue';
 import HistorySection from '@/components/HistorySection.vue';
 import ListFrame, { LIST_FIND_FROM } from '@/components/ListFrame.vue';
@@ -454,7 +455,7 @@ async function closeAddUser() {
             <template #row="{ item: row }">
               <div class="user-entry" data-testid="manage-market-person">
                 <div class="user-card">
-                  <span class="user-email">{{ row.email }}</span>
+                  <span class="user-email"><EmailAddress :words="row.email" /></span>
                   <!--
                   A role with nowhere to go is stated, not offered (E20/F01/S03). The owner's own row
                   rendered a select whose only option was "Owner" - a control that looks like a

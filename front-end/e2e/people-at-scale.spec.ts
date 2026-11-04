@@ -13,6 +13,7 @@ import {
   SPACE_SCALE,
   TYPE_SCALE,
 } from './helpers/layoutDetectors';
+import { sweep } from './helpers/contrastSweep';
 import { oneByOnePath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
 import { PHONE_AND_DESK, widths } from './helpers/phoneWindow';
@@ -688,6 +689,8 @@ for (const size of PHONE_AND_DESK) {
       const { followUpOwner } = monitor;
       await expect(followUpOwner.field).toHaveValue(first);
       await expectLaidOut(page, 'the card with its chooser');
+      // No sweep walks a card that needs a follow-up: its label on the card's beige is measured here.
+      expect((await sweep(page)).failures, 'the card has text below AA').toEqual([]);
 
       await press(followUpOwner.field);
       await expect(followUpOwner.options).toHaveCount(PAGE);
