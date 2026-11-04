@@ -32,6 +32,7 @@ import { useInertBehind } from '@/utils/useInertBehind';
 import AnswerUpdateNote from '@/components/AnswerUpdateNote.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
 import MarketHistory from '@/components/MarketHistory.vue';
+import ScrollBox from '@/components/ScrollBox.vue';
 import TableShareNotice from '@/components/TableShareNotice.vue';
 import UpdateInfoDialog from '@/components/UpdateInfoDialog.vue';
 import VendorDateCard from '@/components/VendorDateCard.vue';
@@ -243,8 +244,9 @@ watch(
     :aria-hidden="!open"
     @click.stop
   >
-    <div v-if="open && email" class="detail-content" data-testid="vendors-detail-content">
-      <div class="detail-header">
+    <template v-if="open && email">
+      <!-- Pinned over what scrolls, so a shade starts at its foot rather than on its dark ground. -->
+      <div class="detail-header" data-testid="vendors-detail-head">
         <div class="detail-title-wrap">
           <span class="detail-eyebrow" data-testid="vendors-detail-eyebrow">Vendor details</span>
           <h2 id="vendor-drawer-title" class="detail-title">{{ vendorHeadline(email, names) }}</h2>
@@ -273,158 +275,162 @@ watch(
         </button>
       </div>
 
-      <!-- What the screen that opened it offers here: the review's verdicts (E34/F04/S01). -->
-      <slot name="actions" />
+      <ScrollBox class="detail-content" testid="vendors-detail-content">
+        <!-- What the screen that opened it offers here: the review's verdicts (E34/F04/S01). -->
+        <slot name="actions" />
 
-      <!-- Pinned above the tabs: what the organizer knows reads on every tab. A reader with nothing
+        <!-- Pinned above the tabs: what the organizer knows reads on every tab. A reader with nothing
            noted sees no empty band for it. -->
-      <section v-if="showNotes" class="detail-section">
-        <VendorNotes
-          :marketId="marketId"
-          :email="email"
-          :entry="entryFor(email)"
-          :canWrite="writesNotes"
-          open
-          testid="vendors-detail-notes"
-          @changed="notesChanged"
-        />
-      </section>
-
-      <div class="detail-tabs" role="tablist" aria-label="Vendor details" @keydown="onTabKey">
-        <button
-          v-for="t in tabs"
-          :id="`vendor-drawer-tab-${t.id}`"
-          :key="t.id"
-          ref="tabButtons"
-          type="button"
-          role="tab"
-          class="detail-tab"
-          :class="{ 'detail-tab--current': t.id === shownTab }"
-          :aria-selected="t.id === shownTab"
-          :aria-controls="`vendor-drawer-panel-${t.id}`"
-          :tabindex="t.id === shownTab ? 0 : -1"
-          :data-testid="`vendor-drawer-tab-${t.id}`"
-          @click="emit('update:tab', t.id)"
-        >
-          {{ t.label }}
-        </button>
-      </div>
-
-      <section
-        :id="`vendor-drawer-panel-${shownTab}`"
-        role="tabpanel"
-        :aria-labelledby="`vendor-drawer-tab-${shownTab}`"
-        class="detail-panel-body"
-        :data-testid="`vendor-drawer-panel-${shownTab}`"
-      >
-        <!-- What the read could not get, on every tab: the server's reason when where anyone sits
-             could not be read (T123). -->
-        <p
-          v-if="details.loadError.value && !details.isLoading.value"
-          class="detail-error"
-          role="alert"
-          data-testid="vendors-detail-load-error"
-        >
-          {{ details.loadError.value }}
-        </p>
-
-        <p v-if="details.isLoading.value && !vendor" class="detail-empty">Loading…</p>
-
-        <template v-else-if="shownTab === 'application'">
-          <div v-if="vendor?.tableShareNotice" class="detail-section">
-            <TableShareNotice
-              :notice="vendor.tableShareNotice"
-              :words="String(vendor.answers[TABLE_SHARE_ANSWER_KEY] ?? '')"
-              testid="vendors-detail-table-share-notice"
-            />
-          </div>
-          <div v-if="discordAsks(discordVendor)" class="detail-section">
-            <h3 class="detail-section-title">Discord</h3>
-            <VendorDiscordOffer
-              :market="market"
-              :application="application"
-              :vendor="discordVendor"
-              :canAnswer="answersDiscord"
-              @confirmed="infoSaved"
-            />
-          </div>
-          <div class="detail-section">
-            <div class="detail-section-head">
-              <h3 class="detail-section-title">Submission</h3>
-              <button
-                v-if="updatesInfo && application"
-                type="button"
-                class="btn btn--secondary btn--compact"
-                data-testid="vendors-detail-update-info"
-                @click="updating = true"
-              >
-                Update info
-              </button>
-            </div>
-            <dl v-if="submission.length" class="detail-grid">
-              <template v-for="field in submission" :key="field.key">
-                <dt>{{ field.label }}</dt>
-                <!-- Through AnswerValue, as every answer is, so an address is a link (E28/F04/S03). -->
-                <dd :data-testid="`vendors-detail-answer-${field.key}`">
-                  <AnswerValue :value="field.value" />
-                  <AnswerUpdateNote
-                    :update="field.update"
-                    :testid="`vendors-detail-answer-${field.key}`"
-                  />
-                </dd>
-              </template>
-            </dl>
-            <p v-else-if="vendor" class="detail-empty">This market asks no questions of its own.</p>
-          </div>
-        </template>
-
-        <div v-else-if="shownTab === 'assignments'" class="detail-section">
-          <div v-if="details.marketDates.value.length === 0" class="detail-empty">
-            No market dates configured.
-          </div>
-          <ul v-else-if="vendor && details.placementsRead.value" class="assignment-list">
-            <VendorDateCard
-              v-for="date in details.marketDates.value"
-              :key="date.date"
-              :data-date="date.date"
-              :label="dateLabel(date.date)"
-              :placement="details.placementOn(vendor, date.date)"
-              :price="details.priceOn(vendor, date.date)"
-              :reason="details.reasonFor(email, date.date)"
-              :overrides="details.overridesFor(email, date.date)"
-              :placeHref="resultLinkFor(date.date)"
-              :orphaned="details.isOrphaned(email, date.date)"
-              @place="goToResult(date.date)"
-            />
-          </ul>
-        </div>
-
-        <div v-else-if="tab === 'payment'" class="detail-section">
-          <VendorPaymentTab
-            v-if="market?.id"
-            :marketId="market.id"
+        <section v-if="showNotes" class="detail-section">
+          <VendorNotes
+            :marketId="marketId"
             :email="email"
-            :canRecord="mayTake(market, MarketAction.RecordPayment)"
-            :canChangeOwed="mayTake(market, MarketAction.ChangeOwed)"
-            :canAdjustPaid="mayTake(market, MarketAction.AdjustPaid)"
-            @changed="emit('paymentChanged')"
+            :entry="entryFor(email)"
+            :canWrite="writesNotes"
+            open
+            testid="vendors-detail-notes"
+            @changed="notesChanged"
           />
+        </section>
+
+        <div class="detail-tabs" role="tablist" aria-label="Vendor details" @keydown="onTabKey">
+          <button
+            v-for="t in tabs"
+            :id="`vendor-drawer-tab-${t.id}`"
+            :key="t.id"
+            ref="tabButtons"
+            type="button"
+            role="tab"
+            class="detail-tab"
+            :class="{ 'detail-tab--current': t.id === shownTab }"
+            :aria-selected="t.id === shownTab"
+            :aria-controls="`vendor-drawer-panel-${t.id}`"
+            :tabindex="t.id === shownTab ? 0 : -1"
+            :data-testid="`vendor-drawer-tab-${t.id}`"
+            @click="emit('update:tab', t.id)"
+          >
+            {{ t.label }}
+          </button>
         </div>
 
-        <!-- Everything the market's history holds about this vendor, newest first, in the words
+        <section
+          :id="`vendor-drawer-panel-${shownTab}`"
+          role="tabpanel"
+          :aria-labelledby="`vendor-drawer-tab-${shownTab}`"
+          class="detail-panel-body"
+          :data-testid="`vendor-drawer-panel-${shownTab}`"
+        >
+          <!-- What the read could not get, on every tab: the server's reason when where anyone sits
+             could not be read (T123). -->
+          <p
+            v-if="details.loadError.value && !details.isLoading.value"
+            class="detail-error"
+            role="alert"
+            data-testid="vendors-detail-load-error"
+          >
+            {{ details.loadError.value }}
+          </p>
+
+          <p v-if="details.isLoading.value && !vendor" class="detail-empty">Loading…</p>
+
+          <template v-else-if="shownTab === 'application'">
+            <div v-if="vendor?.tableShareNotice" class="detail-section">
+              <TableShareNotice
+                :notice="vendor.tableShareNotice"
+                :words="String(vendor.answers[TABLE_SHARE_ANSWER_KEY] ?? '')"
+                testid="vendors-detail-table-share-notice"
+              />
+            </div>
+            <div v-if="discordAsks(discordVendor)" class="detail-section">
+              <h3 class="detail-section-title">Discord</h3>
+              <VendorDiscordOffer
+                :market="market"
+                :application="application"
+                :vendor="discordVendor"
+                :canAnswer="answersDiscord"
+                @confirmed="infoSaved"
+              />
+            </div>
+            <div class="detail-section">
+              <div class="detail-section-head">
+                <h3 class="detail-section-title">Submission</h3>
+                <button
+                  v-if="updatesInfo && application"
+                  type="button"
+                  class="btn btn--secondary btn--compact"
+                  data-testid="vendors-detail-update-info"
+                  @click="updating = true"
+                >
+                  Update info
+                </button>
+              </div>
+              <dl v-if="submission.length" class="detail-grid">
+                <template v-for="field in submission" :key="field.key">
+                  <dt>{{ field.label }}</dt>
+                  <!-- Through AnswerValue, as every answer is, so an address is a link (E28/F04/S03). -->
+                  <dd :data-testid="`vendors-detail-answer-${field.key}`">
+                    <AnswerValue :value="field.value" />
+                    <AnswerUpdateNote
+                      :update="field.update"
+                      :testid="`vendors-detail-answer-${field.key}`"
+                    />
+                  </dd>
+                </template>
+              </dl>
+              <p v-else-if="vendor" class="detail-empty">
+                This market asks no questions of its own.
+              </p>
+            </div>
+          </template>
+
+          <div v-else-if="shownTab === 'assignments'" class="detail-section">
+            <div v-if="details.marketDates.value.length === 0" class="detail-empty">
+              No market dates configured.
+            </div>
+            <ul v-else-if="vendor && details.placementsRead.value" class="assignment-list">
+              <VendorDateCard
+                v-for="date in details.marketDates.value"
+                :key="date.date"
+                :data-date="date.date"
+                :label="dateLabel(date.date)"
+                :placement="details.placementOn(vendor, date.date)"
+                :price="details.priceOn(vendor, date.date)"
+                :reason="details.reasonFor(email, date.date)"
+                :overrides="details.overridesFor(email, date.date)"
+                :placeHref="resultLinkFor(date.date)"
+                :orphaned="details.isOrphaned(email, date.date)"
+                @place="goToResult(date.date)"
+              />
+            </ul>
+          </div>
+
+          <div v-else-if="tab === 'payment'" class="detail-section">
+            <VendorPaymentTab
+              v-if="market?.id"
+              :marketId="market.id"
+              :email="email"
+              :canRecord="mayTake(market, MarketAction.RecordPayment)"
+              :canChangeOwed="mayTake(market, MarketAction.ChangeOwed)"
+              :canAdjustPaid="mayTake(market, MarketAction.AdjustPaid)"
+              @changed="emit('paymentChanged')"
+            />
+          </div>
+
+          <!-- Everything the market's history holds about this vendor, newest first, in the words
              of Manage market's History section (E40/F01/S04). -->
-        <div v-else class="detail-section">
-          <MarketHistory
-            v-if="market?.id"
-            :marketId="market.id"
-            :vendor="email"
-            :rowLabels="rowLabels"
-            :path="intakeModeOf(market)"
-            :fields="market.applicationForm?.fields ?? []"
-          />
-        </div>
-      </section>
-    </div>
+          <div v-else class="detail-section">
+            <MarketHistory
+              v-if="market?.id"
+              :marketId="market.id"
+              :vendor="email"
+              :rowLabels="rowLabels"
+              :path="intakeModeOf(market)"
+              :fields="market.applicationForm?.fields ?? []"
+            />
+          </div>
+        </section>
+      </ScrollBox>
+    </template>
   </aside>
 
   <UpdateInfoDialog
@@ -479,14 +485,10 @@ watch(
 
 .detail-content {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
 }
 
 .detail-header {
-  position: sticky;
-  top: 0;
+  flex: none;
   background: var(--mm-black);
   color: white;
   padding: var(--space-4) var(--space-6);
@@ -494,7 +496,6 @@ watch(
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
-  z-index: 1;
 }
 
 .detail-title-wrap {

@@ -285,7 +285,6 @@ function handleManageChanged() {
 
 .content-block {
   flex: 1;
-  overflow-y: auto;
   padding-top: var(--space-6);
 }
 

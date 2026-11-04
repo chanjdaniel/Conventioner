@@ -54,10 +54,6 @@
 
 .setting-body {
   flex-grow: 1;
-  /* Without min-height: 0 this flex item cannot shrink below its content, so tall
-           content grows the card past its parent instead of scrolling inside it. */
-  min-height: 0;
-  overflow-y: auto;
   background-color: white;
   border-bottom-left-radius: 10px;
   border-bottom-right-radius: 10px;
@@ -68,16 +64,11 @@
 }
 
 /*
- * The row spans its container, and the room its shadow needs is the scroll container's padding
- * (E17/F02/S01).
+ * The row spans its container, and the room its shadow needs is this padding (E17/F02/S01).
  *
  * It used to be `margin: 0 8px` with `width: calc(100% - 8px)`, which is 8px of margin plus a
  * width short by only 8 - so the border box sat flush with the right edge (0px for a shadow that
- * paints 14px sideways) while the left had 8, and the MARGIN box overhung by 8px. Four of the six
- * cards reported horizontal overflow, silently clipped by `overflow-x: hidden`.
- *
- * Padding rather than margin because overflow clips at the PADDING box: a child's shadow paints
- * into its scroll container's padding and stays visible, where a margin only moves the child.
+ * paints 14px sideways) while the left had 8, and the MARGIN box overhung by 8px.
  */
 ::v-deep(.rows) {
   padding: var(--space-2);

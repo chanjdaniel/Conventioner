@@ -210,9 +210,6 @@ const countTables = () => {
   align-items: center;
 
   gap: var(--space-2);
-
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 
 .row {

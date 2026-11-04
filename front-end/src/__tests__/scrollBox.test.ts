@@ -262,6 +262,15 @@ describe('its tone', () => {
 describe('the Tab stop', () => {
   const stop = (scroller: HTMLElement) => scroller.getAttribute('tabindex');
 
+  it('is always there when a screen moves focus to the box, whatever it holds or overflows', async () => {
+    const scroller = mountBox({ focusable: true }, () => h('button', 'Ask'));
+    expect(stop(scroller)).toBe('0');
+
+    layOut(scroller, TALL);
+    await resized();
+    expect(stop(scroller)).toBe('0');
+  });
+
   it('is there while it overflows with nothing inside to take focus', async () => {
     const scroller = mountBox();
     expect(stop(scroller)).toBeNull();

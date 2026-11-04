@@ -9,7 +9,8 @@
  *
  * With its bar gone a keyboard needs a way in, and Safari gives a scroller no Tab stop of its own: so
  * while it overflows with nothing inside it to take focus it carries `tabindex="0"`, and otherwise
- * none, since a focusable child already takes the arrow keys.
+ * none, since a focusable child already takes the arrow keys. A screen that moves focus to the box
+ * itself says `focusable`, and the stop stays whatever the box holds.
  */
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 
@@ -25,6 +26,8 @@ const props = withDefaults(
     shadeTestid?: string;
     /** Names the scroller as a region, for a table a keyboard scrolls sideways. */
     label?: string;
+    /** Always a Tab stop, for a panel that puts focus on its body as it opens. */
+    focusable?: boolean;
   }>(),
   { axis: 'y', tone: 'light' },
 );
@@ -107,7 +110,7 @@ defineExpose({ scroller });
       :data-testid="testid"
       :role="label ? 'region' : undefined"
       :aria-label="label"
-      :tabindex="needsStop ? 0 : undefined"
+      :tabindex="focusable || needsStop ? 0 : undefined"
       @scroll="measure"
     >
       <div ref="content" class="scroll-box__content">

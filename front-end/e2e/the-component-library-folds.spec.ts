@@ -78,6 +78,7 @@ eachWindow('the folds entry', (size) => {
       clientHeight: element.clientHeight,
     }));
     expect(scrollHeight).toBeGreaterThan(clientHeight);
+    await expect(page.getByTestId('library-l11-today-box-shade-bottom')).toBeVisible();
 
     await box.focus();
     await expect(box, 'its halo is inside, since the box would clip one outside').toHaveCSS(
@@ -86,6 +87,8 @@ eachWindow('the folds entry', (size) => {
     );
     await page.keyboard.press('End');
     await expect.poll(() => box.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await expect(page.getByTestId('library-l11-today-box-shade-bottom')).toHaveCount(0);
+    await expect(page.getByTestId('library-l11-today-box-shade-top')).toBeVisible();
   });
 
   test('the bars unfold in place, by count, and fold again', async ({ page, expectAccessible }) => {

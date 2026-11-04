@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/views/OrganizationsView.vue
   - front-end/src/__tests__/OrganizationsView.test.ts
-verified: 2026-11-01
+verified: 2026-11-04
 sources:
   - E26/F06/S02
   - E26/F08/S01

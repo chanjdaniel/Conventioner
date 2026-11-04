@@ -32,22 +32,6 @@ const OWNERS = ['components/ScrollBox.vue', 'assets/base.css'];
  * What must never happen is a line added to it: a new scroller is a `ScrollBox`.
  */
 const NOT_YET_CONVERTED = [
-  // Panes and drawers (ticket 03).
-  'components/VendorDrawer.vue .detail-content',
-  'components/SidePanel.vue .side-panel__body',
-  'components/DoorCodeScreen.vue .door-code',
-  'components/elements/ElementTierSetup.vue .sorting-order-container',
-  'dev/library/entries/FoldsEntry.vue .library-today-box',
-  // Rules that never scrolled, to be deleted (ticket 03).
-  'components/elements/ElementSectionSetup.vue .rows',
-  'components/elements/ElementTierSetup.vue .rows',
-  'components/elements/ElementLocationSetup.vue .rows',
-  'components/elements/ElementTierSetup.vue h4',
-  'components/elements/ElementSettingContainer.vue .setting-body',
-  'components/market/MarketAssignmentTab.vue .settings-body-stacked',
-  'components/market/MarketApplicationsTab.vue .settings-body.settings-body-stacked',
-  'views/MarketSetupView.vue .settings-body-stacked',
-  'views/OrganizationsView.vue .content-block',
   // The floorplan (ticket 04).
   'components/floorplan/FloorplanWorkflow.vue .step-body',
   'components/floorplan/FloorplanWorkflow.vue .step-place',

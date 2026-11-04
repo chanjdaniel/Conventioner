@@ -185,7 +185,6 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
 .settings-body-stacked {
   flex-direction: column;
   gap: var(--space-8);
-  overflow-y: auto;
 }
 
 /* A card ends at its own content, as on the plan (the row rule, E23/F01): stretched to the rules

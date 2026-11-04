@@ -172,8 +172,12 @@ eachWindow('the proposals entry', (size) => {
     const body = page.getByTestId('library-side-panel-body');
     const overflow = await body.evaluate((element) => element.scrollHeight - element.clientHeight);
     expect(overflow, 'the body is longer than the panel').toBeGreaterThan(0);
+    await expect(page.getByTestId('library-side-panel-shade-bottom')).toBeVisible();
+    await expect(page.getByTestId('library-side-panel-shade-top')).toHaveCount(0);
 
     await body.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
+    await expect(page.getByTestId('library-side-panel-shade-bottom')).toHaveCount(0);
+    await expect(page.getByTestId('library-side-panel-shade-top')).toBeVisible();
     await expectInside(closeButton(page), 'the close button');
     await expectInside(page.getByTestId('library-side-panel-title'), 'the title');
     await expect(page.getByTestId('library-panel-other').last()).toBeInViewport();
