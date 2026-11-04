@@ -5,7 +5,8 @@
  * cap on a long plain list and across groups, and the states the cap brings. Several choices follow:
  * C5, the reviewers, beside today's real chooser with its checkbox per person, and C10's answers.
  * Typed text ends it: C1, the import's value fixes, beside today's real row with its native select,
- * and C3's option input, which keeps a new answer as typed.
+ * C3's option input, which keeps a new answer as typed, and the field whose words are its value,
+ * for a screen that writes as it is typed.
  *
  * Every picker here is the real `SearchPicker`; the line under each reads out what it holds, so a
  * choice is seen to land.
@@ -152,6 +153,8 @@ const newAnswer = ref('');
 const keptAnswer = ref('Hand-poured soap');
 const firstAnswer = ref('');
 const typedAnswers = ref<string[]>([]);
+/** A question's option in the form builder: written as typed, and every answer can be seen. */
+const writtenAnswer = ref('');
 </script>
 
 <template>
@@ -494,6 +497,23 @@ const typedAnswers = ref<string[]>([]);
           testid="library-typed-first"
         />
         <ReadOut label="Answer" :value="firstAnswer" />
+      </div>
+    </LibraryPanel>
+
+    <LibraryPanel label="The words are the value: written as typed, kept on leaving, no cap">
+      <div class="library-demo">
+        <SearchPicker
+          v-model="writtenAnswer"
+          :groups="optionGroups"
+          :finds="findsByLabel"
+          accepts-typed
+          words-are-value
+          label="Option 1"
+          placeholder="Option 1"
+          none-word="Nothing"
+          testid="library-words-value"
+        />
+        <ReadOut label="Answer" :value="writtenAnswer" />
       </div>
     </LibraryPanel>
 

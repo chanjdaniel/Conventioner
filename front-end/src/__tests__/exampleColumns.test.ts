@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest';
 
 import type { ExampleColumn, FormField } from '@/assets/types/datatypes';
 import {
+  answersToOffer,
   columnOf,
   columnsToAdd,
+  fileAnswers,
   fileOptions,
   optionsForType,
   questionFrom,
@@ -104,5 +106,69 @@ describe('the example file on the Questions tab (E38/F02/S02)', () => {
   it('makes a choice with nothing to choose from a question answered in words, as the start does', () => {
     const bare = { ...STATUS, options: { select: [], multiSelect: [] } };
     expect(questionFrom(bare, 0)).toMatchObject({ type: 'text', options: [] });
+  });
+});
+
+describe('what an option on a question from the file offers (T213)', () => {
+  const EVERY: ExampleColumn = {
+    ...SELLS,
+    answers: {
+      select: ['Prints', 'Prints, Stickers', 'Stickers', 'Candles, Pins', 'Late fee'],
+      multiSelect: ['Prints', 'Stickers', 'Candles', 'Pins', 'Late fee'],
+    },
+  };
+
+  it('reads every answer for the type: whole answers, or the options inside them', () => {
+    expect(fileAnswers(EVERY, 'select')).toEqual(EVERY.answers!.select);
+    expect(fileAnswers(EVERY, 'multi_select')).toEqual(EVERY.answers!.multiSelect);
+  });
+
+  it('offers nothing for a type that is not a choice', () => {
+    expect(fileAnswers(EVERY, 'text')).toEqual([]);
+    expect(fileAnswers(SELLS, 'checkbox')).toEqual([]);
+  });
+
+  it('falls back on the common answers for a column with no `answers`', () => {
+    expect(fileAnswers(SELLS, 'select')).toEqual(SELLS.options.select);
+    expect(fileAnswers(SELLS, 'multi_select')).toEqual(SELLS.options.multiSelect);
+  });
+
+  it('leaves `answers` as all there is when it exists, even when it holds nothing', () => {
+    const emptied = { ...SELLS, answers: { select: [], multiSelect: [] } };
+    expect(fileAnswers(emptied, 'select')).toEqual([]);
+  });
+
+  it('leaves out every other option, in the order the file gave', () => {
+    expect(answersToOffer(EVERY, 'multi_select', ['Stickers', ''], 1)).toEqual([
+      'Prints',
+      'Candles',
+      'Pins',
+      'Late fee',
+    ]);
+  });
+
+  it('keeps the option being edited in its own list', () => {
+    expect(answersToOffer(EVERY, 'multi_select', ['Stickers', 'Pins'], 1)).toEqual([
+      'Prints',
+      'Candles',
+      'Pins',
+      'Late fee',
+    ]);
+  });
+
+  it('compares an option with an answer after trimming', () => {
+    expect(answersToOffer(EVERY, 'multi_select', ['  Stickers ', ''], 1)).not.toContain('Stickers');
+  });
+
+  it('still leaves out an answer another option holds when this option holds it too', () => {
+    expect(answersToOffer(EVERY, 'multi_select', ['Pins', 'Pins'], 0)).not.toContain('Pins');
+  });
+
+  it('holds capitals apart, as the form’s own uniqueness check does', () => {
+    expect(answersToOffer(EVERY, 'multi_select', ['stickers', ''], 1)).toContain('Stickers');
+  });
+
+  it('offers the common answers a column with no `answers` kept', () => {
+    expect(answersToOffer(SELLS, 'multi_select', ['Prints', ''], 1)).toEqual(['Stickers']);
   });
 });

@@ -537,3 +537,78 @@ def test_the_rules_read_through_the_filter_they_were_measured_with():
     assert field["type"] == "select"
     # Every range is kept: six applicants chose each, so they come alphabetically.
     assert CsvProposal.kept_readings(field)["select"] == sorted(ranges)
+
+
+# --- Every answer the file gave, for an option to offer (T213, ADR 0023) ---------------------------
+
+def _field_answering(answers):
+    """The proposal's field for a column these applicants answered, one answer each."""
+    rows = [[f"vendor{i:03d}@example.com", answer] for i, answer in enumerate(answers)]
+    return CsvProposal.proposal(
+        ["Email Address", "What do you sell?"], rows)["columns"][1]["field"]
+
+
+def test_every_reading_keeps_a_one_off_most_chosen_first_less_what_names_someone():
+    field = _field_answering(
+        ["Prints"] * 5 + ["Prints, Stickers"] * 3 + ["Stickers, www.example.com"]
+        + ["Candles", "Vendor Amber", "@shop01", "Call 604-555-0101"])
+
+    assert CsvProposal.every_reading(field) == {
+        "select": ["Prints", "Prints, Stickers", "Candles", "Vendor Amber"],
+        "multiSelect": ["Prints", "Stickers", "Candles", "Vendor Amber"],
+    }
+
+
+def test_every_reading_holds_values_only():
+    reading = CsvProposal.every_reading(_field_answering(["Prints"] * 5 + ["Candles"]))
+    assert set(reading) == {"select", "multiSelect"}
+    assert all(isinstance(value, str) for values in reading.values() for value in values)
+
+
+def test_every_reading_is_a_superset_of_what_the_defaults_keep():
+    field = _field_answering(["Prints"] * 30 + ["Stickers"] * 3 + ["Pins", "Candles"])
+    every, kept = CsvProposal.every_reading(field), CsvProposal.kept_readings(field)
+    # The defaults do not change: a one-off, or an option under the share, stays out of them.
+    assert kept == {"select": ["Prints", "Stickers"], "multiSelect": ["Prints", "Stickers"]}
+    assert every["select"][:2] == kept["select"]
+    assert every["multiSelect"][:2] == kept["multiSelect"]
+    assert set(every["select"]) == {"Prints", "Stickers", "Pins", "Candles"}
+
+
+def _answered_with_distinct(answered, distinct):
+    """``answered`` applicants' answers holding ``distinct`` different ones."""
+    return [f"Goods {i}" for i in range(distinct)] + ["Goods 0"] * (answered - distinct)
+
+
+@pytest.mark.parametrize("answered, distinct, keeps", [
+    # Under the floor every answer can differ by chance, so a small file's choice column keeps them.
+    (19, 19, True),
+    (20, 20, False),
+    (20, 13, True),
+    (20, 14, False),
+    # Either side of 70%: what they sell stands near 66%, free text and handles from 75%.
+    (100, 70, False),
+    (100, 69, True),
+    (200, 140, False),
+    (200, 139, True),
+])
+def test_a_column_of_mostly_different_answers_keeps_nothing_new(answered, distinct, keeps):
+    field = _field_answering(_answered_with_distinct(answered, distinct))
+    reading = CsvProposal.every_reading(field)
+    if keeps:
+        assert len(reading["select"]) == distinct
+    else:
+        assert reading is None
+
+
+def _usernames_and_na(usernames, na):
+    return [f"maker{i:03d}" for i in range(usernames)] + ["NA"] * na
+
+
+def test_a_few_repeated_words_do_not_let_a_column_of_who_they_are_through():
+    assert CsvProposal.every_reading(_field_answering(_usernames_and_na(96, 4))) is None
+
+
+def test_a_column_of_who_they_are_passes_only_when_a_third_of_it_is_the_same_words():
+    """The case ADR 0023 accepts by name: the rule counts how different the answers are, not whose."""
+    assert CsvProposal.every_reading(_field_answering(_usernames_and_na(68, 32))) is not None

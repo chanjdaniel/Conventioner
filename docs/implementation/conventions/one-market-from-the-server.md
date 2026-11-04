@@ -17,6 +17,7 @@ sources:
   - E38/F07/S02
   - E38/F12/S01
   - T204
+  - T213
 ---
 
 # One market, from the server
@@ -50,6 +51,7 @@ Every screen makes this read, so it reads the accounts its lists name in one rea
 Reading an account serves it to no one: each list keeps its own rule on whom it names to this reader.
 Nothing a client sends can write one of these.
 One stored field is never served on it, or on a Markets list entry: the door code (`doorCode`, `NEVER_SERVED_FIELDS` in [`market_documents.py`](../../../back-end/market_documents.py), taken off by `leave_out_what_no_read_serves`), which a Viewer could otherwise read and check vendors in by proxy; only its own endpoints serve it ([attendance and the door](../modules/attendance-and-door.md#the-routes)).
+Every answer a column of `exampleColumns` keeps (`answers`) is served only on this read, to someone who may change the form while it can still change ([ADR 0023](../../adr/0023-every-answer-for-an-option-to-offer.md)); a screen finds no `answers` for every other reader, and reads that as the common options being all there is.
 
 **`parseMarketFromApi` carries every field the server sends.**
 [`parseMarketFromApi`](../../../front-end/src/utils/market.ts) spreads the payload, and the plan inside it, first, and normalises only the fields it names over them.

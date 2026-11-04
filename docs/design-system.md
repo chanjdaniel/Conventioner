@@ -19,6 +19,8 @@ describes:
   - front-end/e2e/focus-sweep-detectors.spec.ts
   - front-end/e2e/helpers/focusSweep.ts
   - front-end/e2e/a-links-halo-appears-at-once.spec.ts
+  - front-end/src/components/CodeInput.vue
+  - front-end/e2e/the-code-field.spec.ts
   - front-end/src/assets/brand/
   - front-end/src/__tests__/theBrandHasOneFolder.test.ts
   - front-end/scripts/brand-icons.ts
@@ -29,15 +31,13 @@ describes:
   - front-end/src/components/FileDropZone.vue
   - front-end/src/components/FilterToggles.vue
   - front-end/src/components/ListFrame.vue
-  - front-end/src/components/CodeInput.vue
-  - front-end/e2e/the-code-field.spec.ts
-  - front-end/e2e/a-focused-button-moves-nothing.spec.ts
   - front-end/src/components/NameList.vue
   - front-end/src/components/OrderedList.vue
   - front-end/src/components/RowGroup.vue
   - front-end/src/components/SidePanel.vue
   - front-end/src/components/BarLedger.vue
   - front-end/src/utils/useFold.ts
+  - front-end/e2e/a-focused-button-moves-nothing.spec.ts
 verified: 2026-11-04
 sources:
   - wayfinding/claims-and-room/map
@@ -81,12 +81,13 @@ sources:
   - E38/F15/S01
   - T181
   - T180
+  - T202
   - T212
   - T205
   - T200
   - T211
-  - T202
   - T214
+  - T213
 ---
 
 # Conventioner's design language
@@ -425,10 +426,13 @@ Reopened on a choice, it selects that choice's label, so typing replaces it and 
 A picker with no choices at all never opens its list, and "Nobody matches" (the caller's `noneWord` in place of "Nobody", where the choices are not people) shows only once words are typed, so the note the caller puts beside it says why there is nothing to choose.
 Given a `cap`, it draws at most that many matches, counted across the groups in order, under a line "N more, type to narrow" that stays in view as the list scrolls and that the keys skip; a group the cap alone leaves out is not drawn, and a choice past the cap is named by the field, with no row active, so Enter keeps it.
 Without a `cap` it draws every match.
+Every row is a `--target-min` target at least, its one line centred in it and its tick on that line, on a phone's 44px too for every picker (`--row-inset`); a row that wraps grows down from there.
 Given `multiple` it holds several choices as `.chip--neutral` chips above the field, each as tall as its remove button's target, Backspace in the empty field taking the last; a chosen row the list draws is ticked, the list and the words stay after a choice, choosing a row again removes it, and a choice past the `cap` is named by its chip and found again by typing.
 Given `acceptsTyped`, trimmed words that are exactly no option's label are offered as `Use "<words>"`, which leads the list outside the `cap`, so the keys reach it first; choosing it makes the words the value, shown by the field or a chip, and the list opens for words even with no options.
 Reopened on such a value no row is active, so Enter keeps it, and words that are exactly an option make that option, when the `cap` draws it, the active row.
 Given `holdsChoice`, one choice holds until another is taken, as a filter or a card that writes on a choice needs: typing emits nothing, and on leaving the field or on Escape the field names the choice again; without it the first word lets the choice go, as a dialog that acts on Save needs.
+Given `wordsAreValue` with `acceptsTyped` on one choice, as a screen that writes as it is typed needs, every keystroke emits the trimmed words as the value, so no empty value comes between a filled one and the words replacing it; the field keeps the words as typed until it is left, then names the value, an option's label or the trimmed words, and Escape closes the list and keeps the words.
+A press of the main button past its open list leaves the field only as the press ends, since changing the list as the focus goes would move what lies below it from under the pointer and lose the click.
 The placement dialog's pickers are its first use, with no `cap`.
 The emailed six-digit sign-in code has one field, [`CodeInput.vue`](../front-end/src/components/CodeInput.vue), which both sign-ins use: the vendor page's code step and the organizer's "Sign-in code" step (T191 F21).
 It is a `.field` 48px tall at `--text-xl`, the one field read at a glance, with tabular figures, and the one field whose text is centred: its `letter-spacing` and `text-indent` take one custom property, `--code-spacing`, since a browser adds the spacing after the last digit too and a centred run without the matching indent sat half a space left of centre.
