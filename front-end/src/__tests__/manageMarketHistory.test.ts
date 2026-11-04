@@ -78,6 +78,12 @@ const whoOptions = (wrapper: History) =>
   wrapper.findAll('[data-testid="market-history-who-option"]');
 const whoValue = (wrapper: History) => (whoField(wrapper).element as HTMLInputElement).value;
 
+const vendorField = (wrapper: History) =>
+  wrapper.get('[data-testid="market-history-vendor-input"]');
+const vendorRows = (wrapper: History) =>
+  wrapper.findAll('[data-testid="market-history-vendor-option"]');
+const vendorValue = (wrapper: History) => (vendorField(wrapper).element as HTMLInputElement).value;
+
 /** Finds someone by typing, and takes the first row with Enter. */
 async function chooseWho(wrapper: History, words: string) {
   await whoField(wrapper).setValue(words);
@@ -126,11 +132,11 @@ describe('the History section', () => {
     expect(asked.at(-1)).toBe('/markets/market-1/history?group=Assignment');
 
     await wrapper.get('[data-testid="market-history-kind"]').setValue('');
-    await wrapper.get('[data-testid="market-history-vendor"]').setValue('Ben');
+    await wrapper.get('[data-testid="market-history-vendor-input"]').setValue('Ben');
     await flushPromises();
     expect(asked.at(-1)).toBe('/markets/market-1/history?vendor=ben%40ember.test');
 
-    await wrapper.get('[data-testid="market-history-vendor"]').setValue('');
+    await wrapper.get('[data-testid="market-history-vendor-input"]').setValue('');
     await wrapper.get('[data-testid="market-history-from"]').setValue('2026-11-19');
     await wrapper.get('[data-testid="market-history-to"]').setValue('2026-11-19');
     await flushPromises();
@@ -144,7 +150,7 @@ describe('the History section', () => {
     const wrapper = mountHistory();
     await flushPromises();
 
-    await wrapper.get('[data-testid="market-history-vendor"]').setValue('ember');
+    await wrapper.get('[data-testid="market-history-vendor-input"]').setValue('ember');
     await flushPromises();
 
     expect(asked).toEqual(['/markets/market-1/history']);
@@ -158,7 +164,7 @@ describe('the History section', () => {
     const wrapper = mountHistory();
     await flushPromises();
 
-    await wrapper.get('[data-testid="market-history-vendor"]').setValue('Zelda');
+    await wrapper.get('[data-testid="market-history-vendor-input"]').setValue('Zelda');
     await flushPromises();
 
     expect(asked).toEqual(['/markets/market-1/history']);
@@ -177,7 +183,7 @@ describe('the History section', () => {
     const wrapper = mountHistory();
 
     // Typed while the first read is still on its way: no vendor is known yet.
-    await wrapper.get('[data-testid="market-history-vendor"]').setValue('Ana');
+    await wrapper.get('[data-testid="market-history-vendor-input"]').setValue('Ana');
     await flushPromises();
 
     expect(asked.at(-1)).toBe('/markets/market-1/history?vendor=ana%40ember.test');
@@ -190,13 +196,132 @@ describe('the History section', () => {
     const wrapper = mountHistory();
     await flushPromises();
 
-    await wrapper.get('[data-testid="market-history-vendor"]').setValue('cy.vend');
+    await wrapper.get('[data-testid="market-history-vendor-input"]').setValue('cy.vend');
     await flushPromises();
 
     expect(asked.at(-1)).toBe('/markets/market-1/history?vendor=cy.vendor%40ember.test');
-    expect(
-      wrapper.findAll('datalist option').map((option) => option.attributes('value')),
-    ).toContain('cy.vendor@ember.test');
+    expect(wrapper.find('datalist').exists()).toBe(false);
+    expect(vendorRows(wrapper).map((row) => row.attributes('data-value'))).toContain(
+      'cy.vendor@ember.test',
+    );
+  });
+
+  describe('the vendor field', () => {
+    async function mountServed() {
+      const asked = serve({ entries: [assigned('e1', 1, 'cy.vendor@ember.test')], next: null });
+      const wrapper = mountHistory();
+      await flushPromises();
+      return { asked, wrapper };
+    }
+
+    it('lists each vendor by name beside address, and an address alone where no name was given', async () => {
+      const { wrapper } = await mountServed();
+      await vendorField(wrapper).trigger('click');
+
+      expect(vendorRows(wrapper).map((row) => row.text())).toEqual([
+        'Ana Rivera (ana@ember.test)',
+        'Ben Okafor (ben@ember.test)',
+        'cy.vendor@ember.test',
+      ]);
+    });
+
+    it('names the hint as the words describing the field, while there is one', async () => {
+      const { asked, wrapper } = await mountServed();
+      await vendorField(wrapper).setValue('ember');
+      await flushPromises();
+
+      const hint = wrapper.get('[data-testid="market-history-vendor-hint"]');
+      expect(vendorField(wrapper).attributes('aria-describedby')).toBe(hint.attributes('id'));
+      expect(asked).toEqual(['/markets/market-1/history']);
+
+      await vendorField(wrapper).setValue('ana');
+      await flushPromises();
+      expect(wrapper.find('[data-testid="market-history-vendor-hint"]').exists()).toBe(false);
+      expect(vendorField(wrapper).attributes('aria-describedby')).toBeUndefined();
+    });
+
+    it('narrows to a vendor chosen from the list, names them, and Clear filters empties it', async () => {
+      const { asked, wrapper } = await mountServed();
+      await vendorField(wrapper).setValue('ember');
+      await vendorRows(wrapper)
+        .find((row) => row.attributes('data-value') === 'ben@ember.test')!
+        .trigger('click');
+      await flushPromises();
+
+      expect(asked.at(-1)).toBe('/markets/market-1/history?vendor=ben%40ember.test');
+      expect(vendorValue(wrapper)).toBe('Ben Okafor (ben@ember.test)');
+      expect(wrapper.find('[data-testid="market-history-vendor-list"]').exists()).toBe(false);
+
+      await wrapper.get('[data-testid="market-history-clear"]').trigger('click');
+      await flushPromises();
+      expect(vendorValue(wrapper)).toBe('');
+      expect(asked.at(-1)).toBe('/markets/market-1/history');
+    });
+
+    it('keeps words that narrow as typed, on leaving and on Escape', async () => {
+      const { asked, wrapper } = await mountServed();
+      await vendorField(wrapper).setValue('Ana');
+      await flushPromises();
+      expect(asked.at(-1)).toBe('/markets/market-1/history?vendor=ana%40ember.test');
+
+      await vendorField(wrapper).trigger('keydown', { key: 'Escape' });
+      await vendorField(wrapper).trigger('blur');
+      await flushPromises();
+
+      expect(vendorValue(wrapper)).toBe('Ana');
+      expect(asked.at(-1)).toBe('/markets/market-1/history?vendor=ana%40ember.test');
+    });
+
+    it('narrows to an address typed whole that no entry it has loaded names', async () => {
+      const { asked, wrapper } = await mountServed();
+      await vendorField(wrapper).setValue('New.Vendor@Ember.test');
+      await flushPromises();
+
+      expect(asked.at(-1)).toBe('/markets/market-1/history?vendor=new.vendor%40ember.test');
+      expect(wrapper.find('[data-testid="market-history-vendor-hint"]').exists()).toBe(false);
+    });
+
+    it('names a vendor whose whole address was typed, once the field is left', async () => {
+      const { asked, wrapper } = await mountServed();
+      await vendorField(wrapper).setValue('ana@ember.test');
+      await vendorField(wrapper).trigger('blur');
+      await flushPromises();
+
+      expect(vendorValue(wrapper)).toBe('Ana Rivera (ana@ember.test)');
+      expect(asked.at(-1)).toBe('/markets/market-1/history?vendor=ana%40ember.test');
+    });
+
+    it('draws at most 50 and says how many more, finding past them by typing', async () => {
+      const many = Array.from({ length: 60 }, (_, n) => `vendor${n}@ember.test`);
+      serve({
+        entries: [{ ...assigned('e1', 1), vendors: many }],
+        next: null,
+      });
+      const wrapper = mountHistory();
+      await flushPromises();
+      await vendorField(wrapper).trigger('click');
+
+      expect(vendorRows(wrapper)).toHaveLength(50);
+      expect(wrapper.get('[data-testid="market-history-vendor-more"]').text()).toBe(
+        '12 more, type to narrow',
+      );
+
+      await vendorField(wrapper).setValue('vendor59');
+      expect(vendorRows(wrapper).map((row) => row.attributes('data-value'))).toContain(
+        'vendor59@ember.test',
+      );
+    });
+
+    it("is not drawn in a vendor's own history", async () => {
+      serve({ entries: [assigned('e1', 1)], next: null });
+      const wrapper = mount(MarketHistory, {
+        props: { marketId: 'market-1', path: IntakeMode.Form, vendor: 'ana@ember.test' },
+        global: { stubs: { RouterLink: RouterLinkStub } },
+      });
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="market-history-vendor"]').exists()).toBe(false);
+    });
   });
 
   it('links a vendor to their drawer on the Vendors page', async () => {
@@ -590,14 +715,15 @@ describe('in Manage market', () => {
     expect(wrapper.get('[data-testid="market-history"]').isVisible()).toBe(true);
     expect(historyRead()).toHaveLength(1);
 
-    await wrapper.get('[data-testid="market-history-vendor"]').setValue('cy@ember.test');
+    await wrapper.get('[data-testid="market-history-vendor-input"]').setValue('cy@ember.test');
     await flushPromises();
     await toggle.trigger('click');
     await toggle.trigger('click');
     await flushPromises();
 
     expect(
-      (wrapper.get('[data-testid="market-history-vendor"]').element as HTMLInputElement).value,
+      (wrapper.get('[data-testid="market-history-vendor-input"]').element as HTMLInputElement)
+        .value,
     ).toBe('cy@ember.test');
   });
 
@@ -620,7 +746,7 @@ describe('in Manage market', () => {
     await flushPromises();
     await wrapper.get('[data-testid="manage-market-history-toggle"]').trigger('click');
     await flushPromises();
-    await wrapper.get('[data-testid="market-history-vendor"]').setValue('cy@ember.test');
+    await wrapper.get('[data-testid="market-history-vendor-input"]').setValue('cy@ember.test');
     await flushPromises();
     const before = historyRead().length;
 

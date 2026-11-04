@@ -245,7 +245,7 @@ const writtenAnswer = ref('');
 <template>
   <LibrarySection
     title="One choice from many"
-    about="One choice serves C2, C6, C7, C8, C9, C12, C13 and C14. C2, C6, C7, C8, C12 and C14 are on their screens; the others are the native selects and the datalist that hold a long list today."
+    about="One choice serves C2, C6, C7, C8, C9, C12, C13 and C14, each on its screen."
   >
     <LibraryPanel :label="`Found by name or address, capped at ${CAP} (C7's shape)`">
       <div class="library-demo">

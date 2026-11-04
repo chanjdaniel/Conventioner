@@ -12,6 +12,7 @@ describes:
   - front-end/e2e/the-markets-history.spec.ts
   - front-end/e2e/an-address-breaks-only-before-its-at.spec.ts
   - front-end/src/utils/historyReaders/
+  - front-end/src/utils/personChoice.ts
 verified: 2026-11-05
 sources:
   - E40/F01/S03
@@ -30,6 +31,7 @@ sources:
   - T137
   - E38/F13/S01
   - T181
+  - T223
 ---
 
 # Reading the market's history
@@ -86,7 +88,7 @@ An organizer reads it to investigate a problem or a mistake, which is why it liv
    The Field column is one width down the whole list, as wide as the widest name of any table open, the column, its padding and border included, at most a third of the table (a longer name wraps), so Before and After, halves of the rest, line up from one change to the next; a change whose every Before is "none" draws one column instead, "Answer" for an applicant's own answers and "After" for anything else, an arrival's reviewer included; an address breaks, where a column is too narrow for it, before its "@" or a dot, in the Field column as in the values, and a part still wider than the column then inside a word, never just after a hyphen and never running over the next column (T137 review note 7, T181); every address of the history is drawn by [`EmailAddress.vue`](../../../front-end/src/components/EmailAddress.vue) from [`addressParts.ts`](../../../front-end/src/utils/addressParts.ts)'s parts, so its accessible name keeps it one word ([`an-address-breaks-only-before-its-at.spec.ts`](../../../front-end/e2e/an-address-breaks-only-before-its-at.spec.ts)), and the review's warnings and reviewer lines ([dividing the review](review.md#dividing-the-review)) and Manage organization's rows ([its people](organizations.md#b2-add-an-admin-or-a-member)) draw theirs with it; a team of reviewers reads one address a line.
 5. "Load more", under the list while older changes remain, adds the next 10 beneath, in the open dialog.
    A change made in the dialog (a person given, changed or taken a role, a rename, a row of the permission table) reads the first page again, under the filters as they are, so it shows without reopening the dialog.
-6. The filters above the list narrow it, and stay set while the dialog is open: "Who" (a field that finds anyone who changed something as an organizer by typing part of their address, "Anyone" first; its list lies over the filters below it, the arrow keys move, Enter takes, Escape closes the list before the dialog, and the words only search, so the list of changes stays narrowed as it was until another is taken), "Kind of change" (the table's groups: Market Setup, Applications, Lifecycle, Vendors, Assignment, Payments, The door, Discord, People; a seat filled again that takes back the $0 a free set reads under both Assignment and Payments), "Vendor" (a name or part of an address, offering the market's vendors who gave a name and every address a loaded change names; while it matches several it says "2 vendors match. Keep typing, or choose one.", and a name or address that matches nobody narrows the list to nothing), and "From" and "To" (calendar days in the reader's timezone, both kept).
+6. The filters above the list narrow it, and stay set while the dialog is open: "Who" (a field that finds anyone who changed something as an organizer by typing part of their address, "Anyone" first; its list lies over the filters below it, the arrow keys move, Enter takes, Escape closes the list before the dialog, and the words only search, so the list of changes stays narrowed as it was until another is taken), "Kind of change" (the table's groups: Market Setup, Applications, Lifecycle, Vendors, Assignment, Payments, The door, Discord, People; a seat filled again that takes back the $0 a free set reads under both Assignment and Payments), "Vendor" (a field that finds, by a name or part of an address, the market's vendors who gave a name and every address a loaded change names, each row the name beside the address ([`personChoice.ts`](../../../front-end/src/utils/personChoice.ts)) and at most 50 drawn before "N more, type to narrow"; its list lies over the filters below it and looks the same on every browser, the words narrow as they are typed and stay as typed on leaving unless they are a vendor's whole address or label, when the field names that vendor, one match narrows to that vendor, and choosing a row narrows to them and the field names them; while the words match several it says "2 vendors match. Keep typing, or choose one.", words that match nobody narrow the list to nothing, and an address typed whole that no loaded change names is asked for all the same), and "From" and "To" (calendar days in the reader's timezone, both kept).
    "Clear filters" sets them all back; with nothing to show the list says "No change matches these filters.", or "Nothing has changed on this market yet." when unfiltered.
 
 Someone below the row is shown no History section, and the server refuses them the read in the row's words.

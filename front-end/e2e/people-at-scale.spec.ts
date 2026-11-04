@@ -947,7 +947,7 @@ for (const size of PHONE_AND_DESK) {
       const kind = manage.historyKind;
       const others = [
         kind,
-        manage.historyVendor,
+        manage.historyVendor.field,
         page.getByTestId('market-history-from'),
         page.getByTestId('market-history-to'),
         manage.historySentences.first(),

@@ -3,6 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/PlacementDialog.vue
+  - front-end/src/utils/personChoice.ts
   - front-end/src/components/SearchPicker.vue
 verified: 2026-11-05
 sources:
@@ -28,6 +29,7 @@ sources:
   - E44/F01/S02
   - T142
   - T208
+  - T223
 ---
 
 # Placing by hand
@@ -45,6 +47,7 @@ The two ceilings are separate sentences because they are separate promises: "Thi
 A tier is warned only on a date the vendor offered, since a date they never offered carries no tier answer; a swap or a move warns each vendor only about the new seat's tier and size, because changing tables on one date never changes whether they are there or how many dates they hold.
 A vendor fits a seat when placing them overrides nothing, and a sharing vendor fits a wholly free table, since the organizer can give them half of it.
 The dialog's lists are searched by typing ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): part of a name, a business or an address narrows its two vendor lists, by the same terms as the Assignments page's search, and "Swap them with" and "Seated elsewhere today" by the table the vendor sits at too, its code or its section; "Move them to" finds an empty seat by its table code, its section, its location or its tier (T208).
+A row of a vendor list names the vendor and their address ([`personChoice.ts`](../../../front-end/src/utils/personChoice.ts)), and a line narrower than the address breaks it only before its "@" or a dot, never at a hyphen (T223).
 The keyboard works them alone: the arrow keys move through the list, Enter takes the active choice, Escape closes the list and leaves the dialog open.
 None of them passes the picker's `cap`, so each draws every choice it finds.
 The dialog is the wide size, since a real name and address with a table and a side did not fit the standard one.

@@ -10,7 +10,8 @@
 import { computed, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
 import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
-import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
+import { vendorLabel, vendorOption } from '@/utils/personChoice';
+import { type VendorNames } from '@/utils/vendorIdentity';
 import { vendorFound, type VendorSearch } from '@/utils/resultFilters';
 import {
   FULL_TABLE,
@@ -246,17 +247,8 @@ function submitPrimary() {
   emit('swap', swapWith.value);
 }
 
-/**
- * Both halves, in a list where the organizer is choosing between people.
- *
- * The address alone is what every vendor surface used to show; the name alone is ambiguous in a
- * dropdown, where two traders may share one. So: the name, and the address that identifies them.
- */
-function label(email: string | null | undefined): string {
-  const address = String(email ?? '').trim();
-  const name = vendorName(address, props.vendorNames);
-  return name ? `${name} (${address})` : address;
-}
+/** Both halves, in a list where the organizer is choosing between people. */
+const label = (email: string | null | undefined): string => vendorLabel(email, props.vendorNames);
 
 /** A seated vendor's table, in words: "Hall B 1, left half" rather than a stored spelling. */
 function whereTheySit(target: SeatedVendor): string {
@@ -268,32 +260,32 @@ function whereTheySit(target: SeatedVendor): string {
  * The vendor pickers, searched by the pages' terms (E38/F08/S03): a vendor's name, business or
  * address, and for anyone seated the table they sit at, by its code or its section.
  */
-const vendorOption = (email: string): PickerOption => ({ value: email, label: label(email) });
+const vendorChoice = (email: string): PickerOption => vendorOption(email, props.vendorNames);
 
 /** "Who sits here", grouped and never filtered (claims-and-room 05): a search only narrows. */
 const placeGroups = computed((): PickerGroup[] => [
   {
     label: 'Fits this seat',
     testid: 'placement-dialog-fits',
-    options: groups.value.fits.map((v) => vendorOption(v.email)),
+    options: groups.value.fits.map((v) => vendorChoice(v.email)),
   },
   {
     label: 'Would override their answers',
     testid: 'placement-dialog-overrides',
-    options: groups.value.overrides.map((v) => vendorOption(v.email)),
+    options: groups.value.overrides.map((v) => vendorChoice(v.email)),
   },
   // Anyone may be seated by hand (E36/F02/S02): the review governs the run, and an applicant it
   // left out is one deliberate, warned pick away.
   {
     label: 'Not approved',
     testid: 'placement-dialog-not-approved',
-    options: groups.value.notApproved.map((v) => vendorOption(v.email)),
+    options: groups.value.notApproved.map((v) => vendorChoice(v.email)),
   },
   // Recorded on the day, with no answers to fit or override (E36/F03/S01).
   {
     label: 'Added by hand',
     testid: 'placement-dialog-added',
-    options: groups.value.addedByHand.map((v) => vendorOption(v.email)),
+    options: groups.value.addedByHand.map((v) => vendorChoice(v.email)),
   },
   // Last and named for what choosing one does, so nobody is moved by someone thinking they are
   // placing a vendor with no table (T208).
@@ -301,7 +293,7 @@ const placeGroups = computed((): PickerGroup[] => [
     label: 'Seated elsewhere today (moves them)',
     testid: 'placement-dialog-seated-elsewhere',
     options: seatedElsewhere.value.map((vendor) => ({
-      ...vendorOption(vendor.email),
+      ...vendorChoice(vendor.email),
       detail: `Leaves ${tableInWords(vendor.tableCode, vendor.seat)}`,
     })),
   },
@@ -320,7 +312,7 @@ const swapPartners = computed(() => {
 const swapGroups = computed((): PickerGroup[] => [
   {
     options: swapPartners.value.map((target) => ({
-      ...vendorOption(target.email),
+      ...vendorChoice(target.email),
       detail: whereTheySit(target),
     })),
   },

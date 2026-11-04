@@ -9,14 +9,14 @@
  * the dialog holds this section, which is while it is open. Given a `vendor`, it is that vendor's
  * history alone, with no filters: the same entries in the same words, narrowed by the server.
  */
-import { computed, ref, watch } from 'vue';
+import { computed, ref, useId, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import type { FormField, IntakeMode, RejectionQuestion } from '@/assets/types/datatypes';
 import HistoryEntries from '@/components/HistoryEntries.vue';
-import SearchPicker, { type PickerGroup } from '@/components/SearchPicker.vue';
+import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { marketPath } from '@/utils/market';
-import { findsPerson, PEOPLE_CAP, personOption } from '@/utils/personChoice';
+import { findsPerson, PEOPLE_CAP, personOption, vendorOption } from '@/utils/personChoice';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
 import { vendorMatches, type VendorNames } from '@/utils/vendorIdentity';
 import {
@@ -111,6 +111,13 @@ function see(page: MarketHistoryEntry[]) {
   seenVendors.value = seen;
 }
 
+/** "Vendor": everyone the section knows, each by name beside address, found by either. */
+const vendorGroups = computed<PickerGroup[]>(() => [
+  { options: knownVendors.value.map((email) => vendorOption(email, vendorNames.value)) },
+]);
+const findsVendor = (option: PickerOption, words: string): boolean =>
+  vendorMatches(words, option.value, vendorNames.value);
+
 /** The market's vendors who answer to what was typed in the vendor filter: name or address. */
 const vendorCandidates = computed(() => {
   const typed = vendorText.value.trim();
@@ -143,6 +150,8 @@ const vendorHint = computed(() =>
     ? `${vendorCandidates.value.length} vendors match. Keep typing, or choose one.`
     : '',
 );
+
+const vendorHintId = useId();
 
 const filters = computed(() => ({
   actor: actor.value,
@@ -282,22 +291,20 @@ const emptyText = computed(() => {
           <option v-for="g in groups" :key="g.group" :value="g.group">{{ g.group }}</option>
         </select>
       </label>
-      <label class="history-filter history-filter--vendor">
-        <span class="field-label">Vendor</span>
-        <input
-          v-model="vendorText"
-          type="search"
-          class="field"
-          placeholder="Name or email"
-          :list="`market-history-vendors-${marketId}`"
-          data-testid="market-history-vendor"
-        />
-        <datalist :id="`market-history-vendors-${marketId}`">
-          <option v-for="email in knownVendors" :key="email" :value="email">
-            {{ vendorNames[email] ?? '' }}
-          </option>
-        </datalist>
-      </label>
+      <SearchPicker
+        v-model="vendorText"
+        class="history-filter history-filter--vendor"
+        :groups="vendorGroups"
+        :finds="findsVendor"
+        :cap="PEOPLE_CAP"
+        :described-by="vendorHint ? vendorHintId : undefined"
+        accepts-typed
+        words-are-value
+        list-over
+        label="Vendor"
+        placeholder="Name or email"
+        testid="market-history-vendor"
+      />
       <label class="history-filter">
         <span class="field-label">From</span>
         <input
@@ -320,7 +327,12 @@ const emptyText = computed(() => {
       </label>
     </div>
     <div v-if="vendorHint || filtered" class="history-filter-notes">
-      <p v-if="vendorHint" class="history-note" data-testid="market-history-vendor-hint">
+      <p
+        v-if="vendorHint"
+        :id="vendorHintId"
+        class="history-note"
+        data-testid="market-history-vendor-hint"
+      >
         {{ vendorHint }}
       </p>
       <button
