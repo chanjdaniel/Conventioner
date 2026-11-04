@@ -1,6 +1,7 @@
 /**
- * A list folded past a size (T200), the behaviour `BarLedger` and `RowGroup` share: the first rows,
- * a count of the rest, and one button that unfolds them in place and folds them again.
+ * A list folded past a size (T200), the behaviour `BarLedger`, `RowGroup` and a question's options in
+ * `FormFieldEditor` share: the first rows, a count of the rest, and one button that unfolds them in
+ * place and folds them again.
  *
  * The button stays one element through both, at the list's foot, so where the focus and the eye go
  * is the fold's to settle:
@@ -14,8 +15,8 @@
  * It stays as it was when the rows change: a fold is the reader's, and unlike a list frame's pages it
  * starts nothing new.
  *
- * Bind `list` to the rows' parent and `button` to the button, with `ref="list"` and `ref="button"`,
- * and each row's `tabindex` to `rowTabindex(index)`.
+ * Bind `list` to the rows' parent, with the rows its first children, and `button` to the button, with
+ * `ref="list"` and `ref="button"`, and each row's `tabindex` to `rowTabindex(index)`.
  */
 import { computed, nextTick, ref } from 'vue';
 

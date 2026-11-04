@@ -481,7 +481,8 @@ No screen mounts it yet: the library's `summaries` entry shows it on the reviewe
 A long list a screen keeps grouped folds by group, in [`RowGroup.vue`](../front-end/src/components/RowGroup.vue) (T200): a heading, the first `fold` (20) rows of `items`, and "Show all 31 in North Wing", which unfolds the rest in place and becomes "Show fewer"; at `fold` rows or fewer it draws no button.
 [`BarLedger.vue`](../front-end/src/components/BarLedger.vue) folds the same way with `fold`: the rows by count, the first `fold`, then "N more answers"; without it the rows are drawn in the order they came, all of them.
 Both take the fold from [`useFold`](../front-end/src/utils/useFold.ts): unfolding hands the focus to the first new row, and folding keeps it on the button and brings the button back into view.
-No screen folds yet: the library's `folds` entry shows both, on the Stats tab's bars and the Assignments page's tables.
+Neither is on a screen yet: the library's `folds` entry shows both, on the Stats tab's bars and the Assignments page's tables.
+A question's options on the form builder take the same fold in [`FormFieldEditor.vue`](../front-end/src/components/application/FormFieldEditor.vue), past 20, and "Add option" unfolds them, so a new row is never behind it.
 
 A list someone puts in order is [`OrderedList.vue`](../front-end/src/components/OrderedList.vue) (T200), generic over the item: each row has the `.drag-handle` and its own move up and move down buttons, named by `itemLabel`, so the keyboard can do what the mouse can, the first's up and the last's down disabled.
 A move keeps the focus on the moved row's button, or on its other button once that one is disabled.

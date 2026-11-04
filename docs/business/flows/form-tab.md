@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/market/MarketFormTab.vue
-verified: 2026-11-03
+verified: 2026-11-05
 sources:
   - brain-dump/2026-10-19#5
   - brain-dump/2026-10-19#6
@@ -26,6 +26,7 @@ sources:
   - E46/F01/S02
   - T206
   - T213
+  - T223
 ---
 
 # Building the application form
@@ -84,6 +85,13 @@ It is not offered once the form has a Text question whose label names Discord.
 Covered by:
 - `formBuilder.test.ts`
 - `the-tools-tab.spec.ts`
+
+A question with more than 20 options shows its first 20 and "Show all 230 options", which unfolds the rest in place and becomes "Show fewer", so one question does not fill the step; it folds on a locked form too.
+"Add option" on a folded question unfolds it and brings the new row into view; removing an option leaves the fold as it is.
+A fold changes what is drawn and nothing the question holds, so "Save Form" and "Use the answers in your file" reach the options behind it.
+Covered by:
+- `formBuilder.test.ts`
+- `the-questions-come-from-the-file.spec.ts`
 
 "Save Form" is disabled and says why while a field is invalid ('Field "Product category" is a select and needs at least one option.'); keys may not start with `essential_`, may not be one the import reads as something else (`applicant_email`, `submitted_at`, `sheet_note`), and must be unique.
 A form with no questions of its own says "No questions of your own yet. Add Field adds one."

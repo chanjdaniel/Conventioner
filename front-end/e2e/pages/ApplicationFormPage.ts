@@ -176,6 +176,11 @@ export class ApplicationFormPage {
     );
   }
 
+  /** The button that unfolds a question's options past the first 20, and folds them again. */
+  optionsFold(index: number): Locator {
+    return this.fieldCard(index).getByTestId('form-field-options-fold');
+  }
+
   /** The note that a question's options are its file's answers. */
   optionsFromFile(index: number): Locator {
     return this.fieldCard(index).getByTestId('form-field-options-from-file');
