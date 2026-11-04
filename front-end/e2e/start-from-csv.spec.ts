@@ -73,7 +73,7 @@ async function marketState(request: import('@playwright/test').APIRequestContext
 function uploadHelp(market: string, intake: 'csv' | 'form'): string {
   const wayOn =
     intake === 'csv'
-      ? ': once the plan is ready, you import the responses with Import responses, the next step ' +
+      ? ': once the market is ready, you import the responses with Import responses, the next step ' +
         "at the top of the market's pages."
       : ": vendors apply on the market's page once applications open.";
   return (

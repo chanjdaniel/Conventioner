@@ -35,7 +35,7 @@ const parts = computed((): Part[] => {
   const blockers = firstImportBlockers(props.market);
   if (!blockers.length) return [...line, { text: ` ${IMPORT_NEXT}.` }];
 
-  line.push({ text: ` ${IMPORT_NEXT}, once the plan is ready. Still needed before the import:` });
+  line.push({ text: ` ${IMPORT_NEXT}, once the market is ready. Still needed before the import:` });
   // The links read as one list, joined by commas; a blocker offered no link is a sentence of its
   // own (the guard's message), after them.
   const linked = blockers.flatMap((blocker) => {

@@ -10,7 +10,7 @@ import { marketSetupPath } from './helpers/marketScreens';
 /**
  * The landing after the start from a Google Form (T205/F20, F09): the Questions tab says once which
  * file the market was drafted from and that no one was imported, and on a Google Form market that
- * the import comes next, where, and what the plan still needs before it, each a link to where it is
+ * the import comes next, where, and what it still waits on before it, each a link to where it is
  * done.
  */
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -52,15 +52,28 @@ test.describe('The landing after drafting from a Google Form', () => {
     await draftFromTheFile(page, marketId);
 
     // The file gave the market its dates, tiers and questions; where it is and its tables it never
-    // says, so those two are what the import still waits on.
+    // says, and Review setup's two decisions are the organizer's, so those four are what the import
+    // still waits on.
     const setup = new MarketSetupPage(page);
     await expect(setup.draftedFrom).toHaveText(
       `${DRAFTED} Import them with Import responses, the next step at the top of the market's ` +
-        'pages, once the plan is ready. Still needed before the import: Add a location, Add tables.',
+        'pages, once the market is ready. Still needed before the import: Add a location, ' +
+        'Add tables, Decide what reviewers read first, Decide the automatic rejections.',
     );
-    await expect(setup.draftedFromLinks).toHaveText(['Add a location', 'Add tables']);
-    for (const link of await setup.draftedFromLinks.all()) {
-      await expect(link).toHaveAttribute('href', marketSetupPath(marketId));
+    await expect(setup.draftedFromLinks).toHaveText([
+      'Add a location',
+      'Add tables',
+      'Decide what reviewers read first',
+      'Decide the automatic rejections',
+    ]);
+    const reviewSetup = `${marketSetupPath(marketId, 'form')}?step=review`;
+    for (const [index, href] of [
+      marketSetupPath(marketId),
+      marketSetupPath(marketId),
+      reviewSetup,
+      reviewSetup,
+    ].entries()) {
+      await expect(setup.draftedFromLinks.nth(index)).toHaveAttribute('href', href);
     }
     await expect(setup.draftedFrom).not.toContainText('Applications tab');
 
@@ -97,6 +110,26 @@ test.describe('The landing after drafting from a Google Form', () => {
     await page.goBack();
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
     await expect(page.getByTestId('form-steps')).toBeVisible();
+    await expect(setup.draftedFrom).toHaveCount(0);
+  });
+
+  test("a decision's link opens Review setup from the Questions tab it is read on", async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { marketId } = await seedDraftMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { intakeMode: 'csv' },
+    );
+    await draftFromTheFile(page, marketId);
+
+    const setup = new MarketSetupPage(page);
+    await setup.draftedFromLinks.filter({ hasText: 'Decide what reviewers read first' }).click();
+    await expect(page).toHaveURL(/\/form\?step=review$/);
+    await expect(page.getByTestId('review-highlights-undecided')).toBeVisible();
     await expect(setup.draftedFrom).toHaveCount(0);
   });
 

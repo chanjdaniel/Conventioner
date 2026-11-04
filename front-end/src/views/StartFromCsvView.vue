@@ -82,7 +82,7 @@ const refusal = computed(() => market.value?.csvStartRefusal ?? '');
 const wayOn = computed(() =>
   (market.value?.intakeMode ?? IntakeMode.Csv) === IntakeMode.Form
     ? ": vendors apply on the market's page once applications open."
-    : ': once the plan is ready, you import the responses with Import responses, the next step ' +
+    : ': once the market is ready, you import the responses with Import responses, the next step ' +
       "at the top of the market's pages.",
 );
 

@@ -102,7 +102,7 @@ Covered by:
 2. It saves at once, and is greyed out once the market leaves Draft: "This is fixed once a market leaves draft, because changing it would strand whatever the previous choice produced."
 
 Under it, "Draft from a Google Form's responses" opens the start from a Google Form ([G2](starting-from-a-google-form.md#g2-from-an-existing-draft)) and leaves this choice as it is.
-A help line under the button says, by the choice above as it is clicked, that it drafts the market's dates, tiers and questions and imports no one, and how vendors come in after: on the market's page, or by Import responses, the phase rail's next step, once the plan is ready (T205).
+A help line under the button says, by the choice above as it is clicked, that it drafts the market's dates, tiers and questions and imports no one, and how vendors come in after: on the market's page, or by Import responses, the phase rail's next step, once the market is ready (T205).
 A market whose vendors are imported has applicant pages that answer exactly as a nonexistent market's ([a gated market answers as absent](../rules/a-gated-market-answers-as-absent.md)).
 Covered by:
 - `intake-mode.spec.ts`

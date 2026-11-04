@@ -90,7 +90,7 @@ describe('DraftedFrom', () => {
     );
 
     expect(wrapper.text()).toContain(DRAFTED);
-    expect(wrapper.text()).toContain(`${IMPORT_NEXT}, once the plan is ready.`);
+    expect(wrapper.text()).toContain(`${IMPORT_NEXT}, once the market is ready.`);
     expect(wrapper.text()).toContain('Still needed before the import: Add a location, Add tables.');
     expect(wrapper.text()).not.toContain('Nothing has been imported yet');
     const links = wrapper.findAll('a');
@@ -129,12 +129,12 @@ describe('DraftedFrom', () => {
     expect(wrapper.findAll('a').map((link) => link.text())).toEqual(['Add tables']);
   });
 
-  it('lists nothing, and drops "once the plan is ready", when nothing is left before the import', async () => {
+  it('lists nothing, and drops "once the market is ready", when nothing is left before the import', async () => {
     const wrapper = await mountNotice(marketWith(IntakeMode.Csv, [nothingImported]));
 
     expect(wrapper.text()).toBe(`${DRAFTED} ${IMPORT_NEXT}.`);
     expect(wrapper.text()).not.toContain('Still needed');
-    expect(wrapper.text()).not.toContain('once the plan is ready');
+    expect(wrapper.text()).not.toContain('once the market is ready');
   });
 
   it('drops a blocker from the line once the market is read without it', async () => {

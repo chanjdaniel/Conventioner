@@ -64,7 +64,7 @@ const startFromCsvHelp = computed(() =>
     ? "Drafts this market's dates, tiers and questions from a past Google Form's responses. " +
       "It imports no one: vendors apply on the market's page once applications open."
     : "Drafts this market's dates, tiers and questions from your Google Form's responses. " +
-      'It imports no one yet: once the plan is ready, import the responses with Import responses, ' +
+      'It imports no one yet: once the market is ready, import the responses with Import responses, ' +
       "the next step at the top of the market's pages.",
 );
 
