@@ -601,6 +601,7 @@ function onBlur(): void {
   align-items: baseline;
   justify-content: space-between;
   gap: 0 var(--space-3);
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- the row's inset, which centres one line in a --target-min target: a length from that token, not a spacing step */
   padding: var(--row-inset) var(--space-3);
   font-size: var(--text-sm);
   color: var(--mm-black);

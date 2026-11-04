@@ -102,7 +102,7 @@ On a market started from its Google Form's responses, the questions also draw on
    Whatever is typed is the option, less the spaces around it, so words in no list are kept when the field is left and Save never reports a blank option over them.
    An option keeps its own answer in its own list, and an answer comes back to the others' lists when the option holding it is removed or changed.
    The list follows a change of type, and opens in the page's flow, moving the rows below it down.
-   A market started before the start kept every answer offers the common ones it kept, and "Use the answers in your file", a type change and "Add from your file" (steps 4 and 5) fill only the common ones on every market.
+   A market started before this kept no answers, so its options offer only the common ones it kept; "Use the answers in your file", a type change and "Add from your file" (steps 4 and 5) fill only the common ones on every market.
 
 A question that did not come from the file behaves as above, its options plain inputs, and a market not started from one offers none of this; nor does a locked form, whose options stay read only.
 Covered by:

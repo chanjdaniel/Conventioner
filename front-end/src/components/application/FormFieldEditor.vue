@@ -372,6 +372,7 @@ function updateOption(idx: number, value: string) {
   width: 1px;
   height: 1px;
   padding: 0;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- the utility's own value, not spacing: it pulls the 1px box off the layout */
   margin: -1px;
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
