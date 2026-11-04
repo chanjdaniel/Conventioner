@@ -389,6 +389,19 @@ eachWindow('the combobox entry', (size) => {
     await expect(mine.options.first()).toContainText('You');
   });
 
+  test("a person's row and chip draw their address as the product's do", async ({ page }) => {
+    const mine = picker(page, 'library-chip-words');
+    await mine.field.click();
+    for (const words of [
+      mine.chips.first().locator('.search-picker-chip-label'),
+      mine.chips.nth(1).locator('.search-picker-chip-label'),
+      mine.options.first().locator('.search-picker-option-label'),
+      mine.options.nth(1).locator('.search-picker-option-label'),
+    ]) {
+      await expect(words.locator('.email-address')).toHaveCount(2);
+    }
+  });
+
   test('disabled, it takes nothing', async ({ page }) => {
     const off = picker(page, 'library-disabled');
     await expect(off.field).toBeDisabled();

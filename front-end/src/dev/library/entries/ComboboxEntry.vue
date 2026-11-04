@@ -111,13 +111,12 @@ const pastTheCapSeveral = ref([people[120]!.email, people[140]!.email]);
 /** The reader's own address: "You" beside it in the list, "(you)" on its chip. */
 const withMeGroups: PickerGroup[] = [
   {
-    options: allAddresses
-      .slice(0, 10)
-      .map((email) =>
-        email === allAddresses[0]
-          ? { value: email, label: email, detail: 'You', chip: `${email} (you)` }
-          : { value: email, label: email },
-      ),
+    options: allAddresses.slice(0, 10).map((email) => ({
+      value: email,
+      label: email,
+      address: true,
+      ...(email === allAddresses[0] ? { detail: 'You', chip: `${email} (you)` } : {}),
+    })),
   },
 ];
 const withMe = ref([allAddresses[0]!, allAddresses[1]!]);

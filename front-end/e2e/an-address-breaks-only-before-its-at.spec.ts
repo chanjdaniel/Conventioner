@@ -180,7 +180,7 @@ test('Manage market\'s rows break an address only before its "@" or a dot', asyn
   await expectWholeAddress(cell, reviewer, true);
 });
 
-test('a chooser of people, its rows and chips, breaks an address only before its "@" or a dot', async ({
+test('a chooser of a market\'s team, its rows and chips, breaks an address only before its "@" or a dot', async ({
   authenticatedPage: page,
 }) => {
   await page.setViewportSize({ width: 320, height: 568 });
