@@ -210,3 +210,85 @@ test.describe('The rules reject, with a reason (E33/F03/S02)', () => {
     );
   });
 });
+
+/**
+ * Review waits on the automatic rejections (T206): a draft whose organizer has decided nothing is
+ * not opened for review with no rule by accident. The rail leads to Review setup, which offers "No
+ * automatic rejections" as one click; a rule that rejects an answer decides it too and replaces the
+ * "none", while a rule with no answer ticked rejects nobody and decides nothing.
+ */
+test.describe('A draft decides the automatic rejections', () => {
+  test('the rail leads to Review setup, and No automatic rejections decides it in one click', async ({
+    authenticatedPage: page,
+  }) => {
+    const { marketId } = await seedPhaseMarket(
+      page.request,
+      APP_API,
+      TEST_USER.email,
+      TEST_USER.password,
+      { intakeMode: 'form', reviewSetupUndecided: true },
+    );
+    const form = await page.request.put(`${APP_API}/markets/${marketId}/application-form`, {
+      data: { fields: FIELDS },
+    });
+    expect(form.ok(), await form.text()).toBeTruthy();
+    // What a reviewer reads first decided, so this is all the move waits on.
+    const highlights = await page.request.put(`${APP_API}/markets/${marketId}/review-highlights`, {
+      data: { keys: [], nothingLeadsTheCard: true },
+    });
+    expect(highlights.ok(), await highlights.text()).toBeTruthy();
+
+    await page.goto(marketSetupPath(marketId, 'form'));
+    const fix = page.getByTestId('phase-rail-fix');
+    const open = page.getByTestId('phase-transition-applications');
+    await expect(fix).toHaveText('Decide the automatic rejections', { timeout: 15000 });
+    await expect(open).toBeDisabled();
+
+    await fix.click();
+
+    await expect(page).toHaveURL(/\/form\?step=review$/);
+    // The rail offers no link to where the organizer already is.
+    await expect(fix).toHaveCount(0);
+    const notice = page.getByTestId('rejection-rules-undecided');
+    await expect(notice).toHaveText('Not decided yet. Opening applications waits on this.');
+
+    const rulesWrite = () =>
+      page.waitForResponse(
+        (response) =>
+          response.url().includes(`/markets/${marketId}/rejection-rules`) &&
+          response.request().method() === 'PUT',
+      );
+    const none = page.getByTestId('rejection-rules-none');
+    await Promise.all([rulesWrite(), none.click()]);
+
+    const readBack = page.getByTestId('rejection-rules-none-chosen');
+    await expect(readBack).toHaveText(
+      'No automatic rejections: every application arrives undecided.',
+    );
+    await expect(notice).toHaveCount(0);
+    await expect(none).toHaveCount(0);
+    // The rail moves on: nothing else refuses the move, so it offers the move itself.
+    await expect(open).toBeEnabled();
+
+    // A rule replaces the "none", but rejects nobody until an answer is ticked, so it decides
+    // nothing yet.
+    await page.getByTestId('rejection-rule-question').selectOption('no_shows');
+    await Promise.all([rulesWrite(), page.getByTestId('rejection-rule-add').click()]);
+    await expect(readBack).toHaveCount(0);
+    await expect(notice).toBeVisible();
+    await expect(open).toBeDisabled();
+
+    // Ticking an answer decides it.
+    const answer = page.getByTestId('rejection-answer-no_shows-not ticked').locator('input');
+    await Promise.all([rulesWrite(), answer.check()]);
+    await expect(notice).toHaveCount(0);
+    await expect(none).toHaveCount(0);
+    await expect(open).toBeEnabled();
+
+    // Removing the last such rule in draft asks again.
+    await Promise.all([rulesWrite(), page.getByTestId('rejection-rule-remove-no_shows').click()]);
+    await expect(notice).toBeVisible();
+    await expect(none).toBeVisible();
+    await expect(open).toBeDisabled();
+  });
+});

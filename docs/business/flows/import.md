@@ -38,6 +38,7 @@ sources:
   - E38/F15/S02
   - T181
   - T211
+  - T205
 ---
 
 # Importing a Google Form's responses
@@ -73,14 +74,16 @@ Covered by:
 - `form-amendment.spec.ts`
 - `market-journey.spec.ts`
 - `the-import-lines-up.spec.ts`
+- `the-upload-steps-are-one.spec.ts`
 
 ### H2a. First import, everything maps
 
 **Status:** Works (re-walked live on 2026-10-03 for P1 and P2; the automatic rejections read from the code as of E33/F03/S02, the preview's rows as of E38/F03/S02, and its reviewers as of E38/F07/S02: `the-first-import-offers-the-reviewers.spec.ts`).
 On a first import only Timestamp and Email Address are mapped for you, even where a heading matches a question word for word (a usability observation, not a bug).
 
-1. **Upload:** "Choose the CSV your form produced", by dropping it or choosing a file; the page names the market ("Importing into …") and says what the import does: on a first import, "Once the import is written, the market enters Review."; on a Redo import, that the whole responses file is read again and the market stays in Review.
-   A draft whose setup would keep it out of Review is told what it lacks before a file is picked ("This market is not ready for its first import"), and nothing is written.
+1. **Upload:** "Choose the CSV your form produced", by dropping it on the drop zone or choosing a file ("Drop your CSV here, or choose a file", hinting "Any form tool or spreadsheet that exports CSV will do." and that every column comes across), which takes no other file while one is read; the page names the market ("Importing into …") and says what the import does: on a first import, "Once the import is written, the market enters Review."; on a Redo import, that the whole responses file is read again and the market stays in Review.
+   A draft that would be kept out of Review, by an incomplete setup or by Review setup's two decisions not yet taken ([review waits on the review setup](../rules/review-waits-on-the-review-setup.md)), is told everything it lacks before a file is picked, and nothing is written: "This market is not ready for its first import", then "Before its first import, this market needs:" and every blocker of the move into Review at once, in the guards' order, each with its link to where it is done for someone who may do it ("Pick market dates", "Add a location" and "Add tables" to Market Setup, "Decide what reviewers read first" and "Decide the automatic rejections" to Review setup), and without a link for anyone else (`the-first-import-lists-what-it-waits-on.spec.ts`).
+   Someone who may not import reads "Importing into this market is not yours to do" and its reason instead; a market whose vendors apply on its page, reached by its address, reads "Vendors apply on this market's page" and the server's own sentence, "This market takes applications on its own page, so nothing is imported into it.", in any phase; and a market past Review its one sentence; "Back to the market" sits under all four.
    A file that is not a CSV export, such as a binary named `.csv`, stays on Upload with "This file does not look like a CSV export. Download the responses again from Google Forms as .csv.", and another file can be chosen (E38/F15/S02).
 2. **Map columns:** "N columns in this file" ("1 column in this file" for one), then every column in file order with sample answers, mapped to a question or "Ignore this column"; "Required questions" ticks each one off; "All required questions are mapped."
 3. **Preview** ("Preview import"): "N of M rows will be imported", ending "; K of them will be rejected by your automatic rejections" when a rule rejects any, then "Each imported row becomes an application awaiting your review. Nothing has been written yet.", which, when a rule rejects any, reads "...awaiting your review, except the K listed below, which arrive already rejected. Nothing has been written yet."

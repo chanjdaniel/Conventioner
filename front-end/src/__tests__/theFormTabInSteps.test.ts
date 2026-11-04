@@ -8,6 +8,8 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
+import { createMemoryHistory, createRouter, type Router } from 'vue-router';
+import { defineComponent, h } from 'vue';
 
 import MarketFormTab from '@/components/market/MarketFormTab.vue';
 import type { ApplicationForm, Market, SetupObject } from '@/assets/types/datatypes';
@@ -55,7 +57,21 @@ beforeEach(() => {
   api.get.mockResolvedValue({ data: { application_form: FORM, essential_options: null } });
 });
 
-async function mountTab(market: Partial<Market> = {}): Promise<VueWrapper> {
+const Blank = defineComponent({ render: () => h('div') });
+
+/** The tab keeps its step in the address (T206), so it is mounted on a real router, at `at`. */
+let router: Router;
+
+async function mountTab(
+  market: Partial<Market> = {},
+  at = '/markets/market-1/form',
+): Promise<VueWrapper> {
+  router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/markets/:marketId/:page', component: Blank }],
+  });
+  await router.push(at);
+  await router.isReady();
   const wrapper = mount(MarketFormTab, {
     props: {
       market: {
@@ -71,6 +87,7 @@ async function mountTab(market: Partial<Market> = {}): Promise<VueWrapper> {
       setupObject: SETUP,
     },
     global: {
+      plugins: [router],
       stubs: {
         FormBuilder: stub('stub-builder'),
         FormPreview: stub('stub-preview'),
@@ -298,5 +315,101 @@ describe('Back and Next', () => {
 
     expect(scrolled).toHaveBeenCalledWith({ top: 0 });
     scrolled.mockRestore();
+  });
+});
+
+/*
+ * Review setup has an address (T206): a blocker's fix, a bookmark or a shared link names the step
+ * as `form?step=review`, and the tab keeps the step it shows in its query, replaced rather than
+ * pushed, as a page's own view is.
+ */
+describe('the step is in the address', () => {
+  it.each([
+    ['essentials', 'Essential questions'],
+    ['questions', 'Your questions'],
+    ['preview', 'Preview'],
+    ['review', 'Review setup'],
+  ])('opens ?step=%s on its step', async (id, label) => {
+    const wrapper = await mountTab({}, `/markets/market-1/form?step=${id}`);
+
+    expect(currentStep(wrapper)).toContain(label);
+  });
+
+  it('opens where it always did when the address names no step, or one it does not have', async () => {
+    for (const at of ['/markets/market-1/form', '/markets/market-1/form?step=everything']) {
+      expect(currentStep(await mountTab({}, at))).toContain('Essential questions');
+      expect(currentStep(await mountTab({ applicationFormLockReason: 'Locked.' }, at))).toContain(
+        'Review setup',
+      );
+    }
+  });
+
+  it("opens a Google Form market's ?step=preview where it always did: it has no preview", async () => {
+    const wrapper = await mountTab(
+      { intakeMode: 'csv' } as Partial<Market>,
+      '/markets/market-1/form?step=preview',
+    );
+
+    expect(currentStep(wrapper)).toContain('Essential questions');
+    expect(shown(wrapper, 'stub-preview')).toBe(false);
+  });
+
+  it('opens ?step=review on a Google Form market', async () => {
+    const wrapper = await mountTab(
+      { intakeMode: 'csv' } as Partial<Market>,
+      '/markets/market-1/form?step=review',
+    );
+
+    expect(currentStep(wrapper)).toContain('Review setup');
+  });
+
+  it('replaces the address as the header, Next and Back choose a step', async () => {
+    const wrapper = await mountTab();
+    const replaced = vi.spyOn(router, 'replace');
+    const pushed = vi.spyOn(router, 'push');
+
+    await wrapper.get('[data-testid="form-step-review"]').trigger('click');
+    await flushPromises();
+    expect(router.currentRoute.value.fullPath).toBe('/markets/market-1/form?step=review');
+
+    await wrapper.get('[data-testid="form-step-back"]').trigger('click');
+    await flushPromises();
+    expect(router.currentRoute.value.fullPath).toBe('/markets/market-1/form?step=preview');
+
+    await wrapper.get('[data-testid="form-step-next"]').trigger('click');
+    await flushPromises();
+    expect(router.currentRoute.value.fullPath).toBe('/markets/market-1/form?step=review');
+    expect(replaced).toHaveBeenCalledTimes(3);
+    expect(pushed).not.toHaveBeenCalled();
+  });
+
+  it('keeps the rest of the query as it names the step', async () => {
+    const wrapper = await mountTab({}, '/markets/market-1/form?from=rail');
+
+    await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
+    await flushPromises();
+
+    expect(router.currentRoute.value.query).toEqual({ from: 'rail', step: 'questions' });
+  });
+
+  it('moves to the step a link names while the tab is open', async () => {
+    const wrapper = await mountTab({}, '/markets/market-1/form?step=questions');
+
+    await router.push('/markets/market-1/form?step=review');
+    await flushPromises();
+
+    expect(currentStep(wrapper)).toContain('Review setup');
+    expect(shown(wrapper, 'stub-highlights')).toBe(true);
+  });
+
+  it('stays on its step when a link names none, or one it does not have', async () => {
+    const wrapper = await mountTab({}, '/markets/market-1/form?step=questions');
+
+    for (const at of ['/markets/market-1/form?step=nowhere', '/markets/market-1/form']) {
+      await router.push(at);
+      await flushPromises();
+
+      expect(currentStep(wrapper)).toContain('Your questions');
+    }
   });
 });

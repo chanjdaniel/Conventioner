@@ -35,9 +35,10 @@ class TestSavingThem:
             "market-123", ["business_name", "essential_full_name"], "user-1"
         )
 
-        assert markets.last_update == {
-            "$set": {"reviewHighlights": ["business_name", "essential_full_name"]}
-        }
+        assert markets.last_update == {"$set": {
+            "reviewHighlights": ["business_name", "essential_full_name"],
+            "nothingLeadsTheCard": False,
+        }}
 
     def test_a_repeated_key_is_kept_once_in_the_order_it_was_first_marked(self, markets):
         stored = MarketsApi.save_review_highlights(
@@ -45,18 +46,20 @@ class TestSavingThem:
         )
 
         # The list IS the order the card leads with, so dedup must not resort it.
-        assert stored == ["b", "a", "c"]
+        assert stored["reviewHighlights"] == ["b", "a", "c"]
 
     def test_blank_keys_are_dropped_rather_than_stored(self, markets):
-        assert MarketsApi.save_review_highlights("market-123", ["", "  ", "a"], "user-1") == ["a"]
+        stored = MarketsApi.save_review_highlights("market-123", ["", "  ", "a"], "user-1")
+        assert stored["reviewHighlights"] == ["a"]
 
     def test_clearing_them_is_a_write_of_the_empty_list(self, markets):
         """Not a delete: the card then shows every answer, which is what absent means too.
 
         One shape for "nothing is marked" keeps `reviewAnswers` from having to tell them apart.
         """
-        assert MarketsApi.save_review_highlights("market-123", [], "user-1") == []
-        assert markets.last_update == {"$set": {"reviewHighlights": []}}
+        stored = MarketsApi.save_review_highlights("market-123", [], "user-1")
+        assert stored == {"reviewHighlights": [], "nothingLeadsTheCard": False}
+        assert markets.last_update == {"$set": {"reviewHighlights": [], "nothingLeadsTheCard": False}}
 
     def test_it_is_refused_to_anyone_below_editor(self, markets, monkeypatch):
         monkeypatch.setattr(
@@ -90,4 +93,4 @@ class TestSavingThem:
             MarketsApi.market_from_document(stored_market(MarketPhase.APPLICATIONS))
         )
 
-        assert MarketsApi.save_review_highlights("market-123", ["a"], "user-1") == ["a"]
+        assert MarketsApi.save_review_highlights("market-123", ["a"], "user-1")["reviewHighlights"] == ["a"]

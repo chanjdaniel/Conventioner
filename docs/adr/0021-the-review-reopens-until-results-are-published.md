@@ -72,6 +72,7 @@ The orphaned-pin guard checks the seat, never the vendor, and is unchanged.
 - A form market comes back with its form stopped, so no new applicant arrives unless the organizer takes applications again.
 - An applicant reads "Submitted" throughout, as ADR 0013 decided, since nothing is published before the review is.
 - The move is an ordinary one: the phase record and the market's history record it as `move-phase`, with nothing else written.
+- The way back never asks Review setup's two decisions, which only leaving draft asks ([review waits on the review setup](../business/rules/review-waits-on-the-review-setup.md)).
 
 ## Considered and rejected
 

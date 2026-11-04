@@ -6,6 +6,7 @@ import { StartFromCsvPage } from './pages/StartFromCsvPage';
 import { finishStartedPlan, UPCOMING_YEAR } from './helpers/finishStartedPlan';
 import { CsvImportPage } from './pages/CsvImportPage';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
+import { decideReviewSetup } from './helpers/decideReviewSetup';
 import { marketSetupPath } from './helpers/marketScreens';
 
 /**
@@ -68,7 +69,47 @@ async function marketState(request: import('@playwright/test').APIRequestContext
   });
 }
 
-test.describe('Start from your Google Form', () => {
+/** The upload step's help, worded for the stored market's intake (T205/F20, the spec's table). */
+function uploadHelp(market: string, intake: 'csv' | 'form'): string {
+  const wayOn =
+    intake === 'csv'
+      ? ': once the market is ready, you import the responses with Import responses, the next step ' +
+        "at the top of the market's pages."
+      : ": vendors apply on the market's page once applications open.";
+  return (
+    "In Google Sheets, open the form's responses and choose File, Download, Comma-separated " +
+    `values. Conventioner reads the columns and answers to propose ${market}'s dates, tiers and ` +
+    `questions. No one is imported${wayOn} Nothing is written until you confirm, and the file is ` +
+    'not kept.'
+  );
+}
+
+test.describe('What the start says it does', () => {
+  // F20: the start read as importing the responses; it drafts the plan and questions, imports no
+  // one, and each intake has its own way on, never the Applications tab (E38/F04/S03).
+  for (const intake of ['csv', 'form'] as const) {
+    test(`${intake}: the title and Upload step say it drafts, and how vendors come in after`, async ({
+      authenticatedPage: page,
+      request,
+    }) => {
+      const { marketId, marketName } = await seedDraftMarket(
+        request,
+        BACKEND_URL,
+        TEST_USER.email,
+        TEST_USER.password,
+        { intakeMode: intake },
+      );
+      const flow = new StartFromCsvPage(page);
+      await flow.open(marketId);
+      await expect(flow.title).toHaveText('Draft this market from a Google Form');
+      await expect(flow.uploadHeading).toHaveText('Choose a responses file to draft from');
+      await expect(flow.uploadHelp).toHaveText(uploadHelp(marketName, intake));
+      await expect(flow.view).not.toContainText('Applications tab');
+    });
+  }
+});
+
+test.describe('Draft this market from a Google Form', () => {
   for (const [file, year] of Object.entries(FIXTURES)) {
     test(`${file}: the ledger shows every column once, and nothing is written`, async ({
       authenticatedPage: page,
@@ -127,6 +168,7 @@ test.describe('Start from your Google Form', () => {
       await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
 
       await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
+      await decideReviewSetup(request, BACKEND_URL, marketId);
       const importer = new CsvImportPage(page);
       await importer.open({ id: marketId });
       await importer.chooseFile(readFileSync(join(CORPUS, `${file}.csv`), 'utf8'));
@@ -189,6 +231,7 @@ test.describe('Start from your Google Form', () => {
     await page.getByTestId('proposal-confirm').click();
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
+    await decideReviewSetup(request, BACKEND_URL, marketId);
     const importer = new CsvImportPage(page);
     await importer.open({ id: marketId });
     await importer.chooseFile(readFileSync(join(CORPUS, 'five-day-grid.csv'), 'utf8'));
@@ -222,6 +265,7 @@ test.describe('Start from your Google Form', () => {
     await page.getByTestId('proposal-confirm').click();
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
+    await decideReviewSetup(request, BACKEND_URL, marketId);
 
     const importer = new CsvImportPage(page);
     await importer.open({ id: marketId });
@@ -376,6 +420,32 @@ test.describe('Start from your Google Form', () => {
     ).toBeVisible();
     await expect(page.getByTestId('form-field-help-input')).toHaveCount(0);
     await expect(page.getByTestId('form-step-next')).toHaveText('Next: Review setup');
+    // The first import waits on Review setup (T206), decided there as the organizer would.
+    await page.getByTestId('form-step-next').click();
+    await expect(page.getByTestId('review-highlights-undecided')).toHaveText(
+      'Not decided yet. Your first import waits on this.',
+    );
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes(`/markets/${marketId}/review-highlights`) &&
+          response.request().method() === 'PUT',
+      ),
+      page.getByTestId('review-highlights-none').click(),
+    ]);
+    await expect(page.getByTestId('review-highlights-none-chosen')).toBeVisible();
+    await expect(page.getByTestId('rejection-rules-undecided')).toHaveText(
+      'Not decided yet. Your first import waits on this.',
+    );
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes(`/markets/${marketId}/rejection-rules`) &&
+          response.request().method() === 'PUT',
+      ),
+      page.getByTestId('rejection-rules-none').click(),
+    ]);
+    await expect(page.getByTestId('rejection-rules-none-chosen')).toBeVisible();
 
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
     const importer = new CsvImportPage(page);

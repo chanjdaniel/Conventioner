@@ -51,6 +51,18 @@ export class MarketSetupPage {
   readonly currentPhase: Locator;
   readonly phaseBlockers: Locator;
 
+  // How vendors apply: the intake choice, and the start from a Google Form's responses under it
+  readonly startFromCsvButton: Locator;
+  readonly startFromCsvDisabled: Locator;
+  /** What the start drafts and that it imports no one, worded for the intake chosen (T205/F20). */
+  readonly startFromCsvHelp: Locator;
+  readonly startFromCsvReason: Locator;
+
+  /** What the start from a Google Form drafted, said once on the Questions tab it lands on (T205). */
+  readonly draftedFrom: Locator;
+  /** The notice's links to where what the first import still waits on is done. */
+  readonly draftedFromLinks: Locator;
+
   readonly assignError: Locator;
   /** Why Assign is unavailable in this market's phase (E10/F03/S02). */
   readonly assignPhaseHint: Locator;
@@ -77,11 +89,24 @@ export class MarketSetupPage {
     this.currentPhase = page.getByTestId('phase-rail-current');
     this.phaseBlockers = page.getByTestId('phase-rail-blockers');
 
+    this.startFromCsvButton = page.getByTestId('plan-start-from-csv-link');
+    this.startFromCsvDisabled = page.getByTestId('plan-start-from-csv-disabled');
+    this.startFromCsvHelp = page.getByTestId('plan-start-from-csv-help');
+    this.startFromCsvReason = page.getByTestId('plan-start-from-csv-reason');
+
+    this.draftedFrom = page.getByTestId('drafted-from');
+    this.draftedFromLinks = page.getByTestId('drafted-from-link');
+
     this.assignError = page.getByTestId('market-setup-assign-error');
     this.assignPhaseHint = page.getByTestId('market-setup-assign-phase-hint');
   }
 
   // --- Tabs ---
+
+  /** Choose how vendors reach this market on the How vendors apply card. */
+  async chooseIntake(mode: 'csv' | 'form'): Promise<void> {
+    await this.page.getByTestId(`setup-intake-mode-${mode}`).click();
+  }
 
   async openSetupTab(): Promise<void> {
     await this.setupTab.click();
@@ -93,13 +118,6 @@ export class MarketSetupPage {
 
   // --- Phase control ---
 
-  /**
-   * Move the market to a phase, and wait for the panel to say it got there.
-   *
-   * `expectedLabel` is the phase as the organizer reads it, not the stored value: asserting on it
-   * is what turns a refused transition into a failure that names the phase rather than a timeout
-   * somewhere later.
-   */
   /**
    * Fire a transition from the rail.
    *
@@ -114,6 +132,13 @@ export class MarketSetupPage {
     await action.click();
   }
 
+  /**
+   * Move the market to a phase, and wait for the panel to say it got there.
+   *
+   * `expectedLabel` is the phase as the organizer reads it, not the stored value: asserting on it
+   * is what turns a refused transition into a failure that names the phase rather than a timeout
+   * somewhere later.
+   */
   async advancePhaseTo(toPhase: string, expectedLabel: string): Promise<void> {
     await this.clickTransition(toPhase);
     const arrived = this.page.getByTestId('phase-rail-current').filter({ hasText: expectedLabel });
@@ -135,6 +160,37 @@ export class MarketSetupPage {
 
     await this.page.getByTestId('phase-rail-current').waitFor({ state: 'visible' });
     await arrived.waitFor({ timeout: 10000 });
+  }
+
+  /**
+   * Decide Review setup as an organizer does (T206): follow the rail's fix to Review setup and choose
+   * "Nothing leads the card" and "No automatic rejections", one click each. Review waits on both, so
+   * a walk that takes a draft into Review through the screens takes it here, and the rail then
+   * offers what comes next.
+   */
+  async decideOnReviewSetup(): Promise<void> {
+    await this.page
+      .getByTestId('phase-rail-fix')
+      .filter({ hasText: 'Decide what reviewers read first' })
+      .click();
+    // Its write landed before anything goes on: a navigation may cancel a request in flight.
+    await Promise.all([
+      this.page.waitForResponse(
+        (response) =>
+          response.url().includes('/review-highlights') && response.request().method() === 'PUT',
+      ),
+      this.page.getByTestId('review-highlights-none').click(),
+    ]);
+    await this.page.getByTestId('review-highlights-none-chosen').waitFor();
+    // The rail offers no link to the page it is on, so the second decision is taken here.
+    await Promise.all([
+      this.page.waitForResponse(
+        (response) =>
+          response.url().includes('/rejection-rules') && response.request().method() === 'PUT',
+      ),
+      this.page.getByTestId('rejection-rules-none').click(),
+    ]);
+    await this.page.getByTestId('rejection-rules-none-chosen').waitFor();
   }
 
   /**

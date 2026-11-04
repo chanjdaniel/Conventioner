@@ -39,7 +39,7 @@ import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import { useScrollsSideways } from '@/utils/useScrollsSideways';
 import AppDialog from '@/components/AppDialog.vue';
 import OpenApplicationsDialog from '@/components/market/OpenApplicationsDialog.vue';
-import { marketPath, resolutionPath } from '@/utils/market';
+import { isHere, marketPath, resolutionPath } from '@/utils/market';
 import {
   blockersFor,
   forwardFrom,
@@ -251,11 +251,14 @@ function firstBlocker(toPhase: string): PreconditionResult | null {
 /** The rail's sentence: the next step, or why it cannot be taken yet. */
 const step = computed(() => (props.market ? nextStep(props.market) : null));
 const route = useRoute();
-/** A page of this market as an address, unless it is the one the organizer is already on. */
+/**
+ * A page of this market as an address, unless it is the one the organizer is already on: its path,
+ * and the step its query names, as `form?step=review` is Review setup and not Your questions (T206).
+ */
 function elsewhere(relative: string | null | undefined): string | null {
   if (!props.market || !relative) return null;
   const link = resolutionPath(props.market.id, relative);
-  return route?.path === link ? null : link;
+  return isHere(link, route) ? null : link;
 }
 
 /**
@@ -450,6 +453,10 @@ async function doTransition(toPhase: string): Promise<boolean> {
 
     if (response?.status === 409 && response.data?.blockers) {
       transitionBlockers.value = response.data.blockers;
+      // The market may have changed since it was read (another organizer's write, say): read it
+      // again, or a fix in the panel leads to a page that still shows it as it was, Review setup
+      // reading back a decision since undone (T206).
+      await marketStore.refresh();
     } else {
       transitionError.value = getApiErrorMessage(err, 'The market did not move to the next phase.');
     }
@@ -541,7 +548,8 @@ function confirmPending() {
 async function openApplications(wrote: boolean) {
   showingOpenApplications.value = false;
   const moved = await doTransition(MarketPhase.Applications);
-  if (!moved && wrote) await marketStore.refresh();
+  // A refused move has read the market again already.
+  if (!moved && wrote && !transitionBlockers.value.length) await marketStore.refresh();
 }
 
 function cancelPending() {

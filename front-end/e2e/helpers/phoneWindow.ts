@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '../fixtures';
+import { settle } from './settle';
 
 /**
  * A journey on the phone in an organizer's hand and at a desk (T142, T180): the two windows, and
@@ -49,8 +50,12 @@ export function inTheWindow(size: PhoneOrDesk) {
       });
     },
 
-    /** A box wholly inside the window, across and down. */
+    /**
+     * A box wholly inside the window, across and down, read where it rests: the last frames of a
+     * slide stand a fraction of a thousandth of a pixel past the place it comes to.
+     */
     async expectInside(locator: Locator, what: string): Promise<void> {
+      await settle(locator.page());
       const box = await locator.boundingBox();
       expect(box, `${what} is drawn`).not.toBeNull();
       expect(box!.x, `${what} starts inside the window`).toBeGreaterThanOrEqual(0);
