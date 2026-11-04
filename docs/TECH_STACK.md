@@ -185,7 +185,7 @@ How each part of the code works is in the implementation layer of the [knowledge
   - Runs component and utility unit tests (`npm run test:unit`)
   - Uses the `happy-dom` environment (configured in `vitest.config.ts`)
 - **@vue/test-utils 2** - Vue component testing utilities
-- **PostCSS 8** - Parses the design language's CSS in `src/__tests__/primitives.test.ts`, which reads every rule it checks through it and no other way
+- **PostCSS 8** - Parses the design language's CSS in `src/__tests__/primitives.test.ts`, and the styles of the components `src/__tests__/everySelectWearsThePrimitive.test.ts` reads, which read every rule they check through it and no other way
 - **Playwright 1.64** - End-to-end browser testing
   - Drives Chromium against the running Docker stack (`npm run test:e2e`)
   - Configured in `playwright.config.ts`
