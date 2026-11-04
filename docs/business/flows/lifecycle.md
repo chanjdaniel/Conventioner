@@ -67,8 +67,8 @@ On the Google Form path the move into Review waits on an import, so the rail's m
 Inside the stage, More… also offers what is not a move: "Redo import" on the Google Form path, and "Stop taking applications" or "Take applications again" on the online path ([taking applications](taking-applications.md)).
 
 From Assignment, More… offers "Back to review" until results are published ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)).
-It asks first, in a dialog that says what it does: the review opens again, its verdicts and automatic rejections can change, the tables allocated so far are kept but must be allocated again before results are published (on the Google Form path, before the market is published), a seat placed by hand stays even for a vendor then rejected, and on the online path applications stay closed.
-Confirmed, the market is back in the stage on the Applications tab, with the review open again; on the online path the application page stays stopped until the organizer chooses "Take applications again".
+It asks first, in a dialog that says what it does: the review opens again, its verdicts and automatic rejections can change, the tables allocated so far are kept but must be allocated again before results are published, a seat placed by hand stays even for a vendor then rejected, and on the online path applications stay closed.
+Confirmed, the market is back in the stage on the Applications tab, with the review open again; on the online path the vendor page takes no applications until the organizer chooses "Take applications again".
 The review stays closed while the market sits in Assignment ([verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md)).
 
 ## The phases

@@ -364,10 +364,9 @@ class AssignmentNotBeforeReviewGuard:
     """A market does not go live on tables allocated before its review was reopened (T207, ADR 0021).
 
     An ENTRY INVARIANT on ``market_days``, ahead of the results it would otherwise wait on. Publish
-    results already refuses an out-of-date run, so a market whose vendors apply on its page meets
-    this only before publishing, and Back to review is refused after; it is a Google Form market,
-    which has no Publish results, that this binds: without it, a vendor rejected in the reopened
-    review could keep the run's seat and check in.
+    results already refuses an out-of-date run and Back to review is refused after it, on both
+    kinds of market (ADR 0022), so a market meets this only before publishing, where it names the
+    fix that comes first: allocate tables, then publish them.
 
     Reads only the ``review`` group (``assignment.made_from``), never the approved applications:
     it stays cheap, and a plan or rule edit made after publishing, when runs are refused, never
@@ -428,8 +427,8 @@ class ResultsNotPublishedGuard:
     On ``assignment -> applications`` alone, Back to review. Once results are published an
     applicant has read whether they have a table, so a verdict changed after it would change what
     they were told; from then on a seat placed or freed by hand is the way to change who has one.
-    A Google Form market never publishes results, so it passes for the whole of Assignment. Reads
-    the flag, never the phase, and offers no way back: no page reopens the review.
+    It holds on both kinds of market, since a Google Form market publishes results too (ADR 0022).
+    Reads the flag, never the phase, and offers no way back: no page reopens the review.
     """
 
     id: str = "results_not_published"

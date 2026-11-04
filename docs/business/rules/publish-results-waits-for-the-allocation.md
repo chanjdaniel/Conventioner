@@ -46,7 +46,7 @@ A CSV market already in its market days before this rule reached it stays there;
 
 **A review reopened after the run waits for a new one.**
 Back to review keeps the stored run, but it was made before the review the market now stands on, so it reads out of date (the `review` group of [what it was made from](../../implementation/modules/made-from.md)) whether or not a verdict changed, and Publish results waits until tables are allocated again ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)).
-A Google Form market has no Publish results, so `AssignmentNotBeforeReviewGuard`, an entry invariant on `market_days` ahead of `ResultsPublishedGuard`, keeps it from going live on that run, its fix "Allocate tables".
+`AssignmentNotBeforeReviewGuard`, an entry invariant on `market_days` ahead of `ResultsPublishedGuard`, names that fix first when the market is taken live on that run: "Allocate tables".
 
 **The outcome is read off the stored seats, never the verdict.**
 An applicant seated on any date has a table; everyone else (rejected, or approved and not placed) reads "You did not get assigned", with no reason (`back-end/result_outcome.py`).

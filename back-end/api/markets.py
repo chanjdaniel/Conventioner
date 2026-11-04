@@ -324,7 +324,7 @@ def _why_the_review_is_closed(market: Market) -> Optional[str]:
 
     Archived is the caller's: every write there gives the archived refusal. Published comes before
     the phase, since no way back is left once applicants have read their results; a Google Form
-    market never publishes them, so it is told the market went live.
+    market that went live before it could publish them (ADR 0022) is told the market went live.
     """
     if review_is_open(market.phase):
         return None

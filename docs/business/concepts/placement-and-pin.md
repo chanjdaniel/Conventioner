@@ -15,7 +15,7 @@ verified: 2026-10-22
 - [Tier filters, section prefers](../rules/tier-filters-section-prefers.md): which tables a vendor may be placed at.
 - [The half-table share](../rules/half-table-share.md): how many of a section's tables go to vendors on halves.
 - [The setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md): the sections and their tables are fixed once the market leaves draft.
-- [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md): once the review can no longer reopen (results published, or a Google Form market gone live), a seat placed or freed by hand is how a review's mistake is fixed.
+- [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md): once the review can no longer reopen (results published, or a Google Form market that went live before it could publish them), a seat placed or freed by hand is how a review's mistake is fixed.
 - [Why a vendor was not placed](../rules/why-a-vendor-was-not-placed.md): a vendor's date is placed, placed against their answer, or not placed and why.
 
 ## Flows

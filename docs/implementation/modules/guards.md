@@ -89,11 +89,11 @@ Every move is one edge of the table; [the phase rail](phase-rail.md) draws the m
 
 **Back to review is the one way back past the stage** ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)).
 `assignment -> applications` carries the stage's two entry invariants, which pass on any market past draft, and `ResultsNotPublishedGuard`, which refuses once results are published and offers no way back, since no page reopens the review; its message names the seat to change instead.
-A Google Form market never publishes results, so it may go back for the whole of Assignment.
+It holds on both paths, since a Google Form market publishes results too ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)).
 Taking it, the phase writer sets a form market's `applicationsStopped` (`taking_applications_update`), so applying stays closed; Reopen for editing and entering the stage from `draft` clear it.
 The stored run is kept, and out of date by the `review` group of [what it was made from](made-from.md) until tables are allocated again.
 `AssignmentNotBeforeReviewGuard` (`assignment_after_review`), an entry invariant on `market_days` ahead of `ResultsPublishedGuard`, refuses going live on that run, its fix "Allocate tables"; it reads only the `review` group, never the approved applications.
-A form market's Publish results already waits on any out-of-date run, so it binds a Google Form market, which has no Publish results: without it, a vendor rejected in the reopened review could keep the run's seat and check in.
+Publish results already waits on any out-of-date run, so a market meets it only before publishing, where it names the fix that comes first: allocate tables, then publish them.
 
 **The read and the move cannot disagree about a move.**
 `transition_verdicts` calls `evaluate_transition`, the function the endpoint runs, so the rail disables a refused move and names its first blocker before the click.

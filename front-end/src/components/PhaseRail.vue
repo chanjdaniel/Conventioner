@@ -773,8 +773,7 @@ function cancelPending() {
       </p>
       <p class="rail-confirm-text">
         The tables you allocated are kept, but they no longer count. Once every application is
-        decided, begin assignment and allocate tables again before you
-        {{ path === IntakeMode.Csv ? 'publish the market' : 'publish results' }}.
+        decided, begin assignment and allocate tables again before you publish results.
       </p>
       <p class="rail-confirm-text">
         A seat you placed by hand stays, even for a vendor you then reject. Free it on Assignments.
