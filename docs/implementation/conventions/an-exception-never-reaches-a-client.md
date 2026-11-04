@@ -283,7 +283,7 @@ It used to sign the organizer out on any failure, so a dropped connection at loa
 `requireSignIn` tells the sign-in page by its route's name, not its path, for the same reason.
 
 **A page whose code could not be fetched says so**: a screen's code is fetched the first time it is opened, so with no connection, or once a deploy has replaced the files, the navigation fails and the click did nothing.
-`watchPageFailed` in [`front-end/src/utils/pageFailed.ts`](../../../front-end/src/utils/pageFailed.ts), installed from `main.ts` before the router, catches any failed navigation, and `App.vue` shows a `ReadFailed` strip (`page-read-failed`, `page-retry`) under the banner: the offline line when the browser is offline, else "The page could not be opened. Try again to load it.".
+`watchPageFailed` in [`front-end/src/utils/pageFailed.ts`](../../../front-end/src/utils/pageFailed.ts), installed from `main.ts` before the router, catches any failed navigation, and `App.vue` shows a `ReadFailed` strip (`page-read-failed`, `page-retry`) under the app bar: the offline line when the browser is offline, else "The page could not be opened. Try again to load it.".
 Try again loads the page afresh, which fetches the files a deploy put in their place, and only where `safeNext` says it is a path of this app, as sign-in's `next` is; any other address, `//host` say, reloads the page the organizer is on instead.
 The strip goes once a page opens.
 

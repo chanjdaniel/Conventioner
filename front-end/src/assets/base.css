@@ -142,7 +142,7 @@
      beneath it, never has to measure it. One value at every window size (T209): a phone's 44px is
      already a thumb's target, and a desk has no more use for a taller bar on a taller window. */
   --banner-h: 44px;
-  /* What the market frame pins under the banner (bar, phase rail, page row on a desk; the bar alone
+  /* What the market frame pins under the app bar (bar, phase rail, page row on a desk; the bar alone
      on a phone): measured by MarketFrame and set on its card, so a screen's own sticky column can
      sit under it. Zero outside a frame. */
   --market-frame-h: 0px;

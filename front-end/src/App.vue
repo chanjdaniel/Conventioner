@@ -169,7 +169,7 @@ header {
 }
 
 /* A page that could not be opened is the shell's to say, not the page's, so it is a strip under
-   the banner, above the page the organizer is still on, its line centred on the window as every
+   the app bar, above the page the organizer is still on, its line centred on the window as every
    page's frame is. A notice's padding, `--space-2` by `--space-3`. */
 .app-main > .page-failed {
   justify-content: center;

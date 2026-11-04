@@ -38,7 +38,7 @@ sources:
 
 # The market frame
 
-Every market screen stands in [`MarketFrame`](../../../front-end/src/components/MarketFrame.vue): a card whose top, the market's bar and the whole [phase rail](phase-rail.md), sticks under the app banner while the page scrolls on a desk; on a phone only the bar does.
+Every market screen stands in [`MarketFrame`](../../../front-end/src/components/MarketFrame.vue): a card whose top, the market's bar and the whole [phase rail](phase-rail.md), sticks under the app bar while the page scrolls on a desk; on a phone only the bar does.
 On a desk three layers are pinned, [the app bar](app-bar.md), the market bar and the rail, 182px on a draft market with its line of blockers, at 1280x800 and 1920x1080 alike, a cost accepted for always seeing where the market is; and every screen that carries the rail carries the frame, since a frame pinned on one market screen and scrolling away on the next is the inconsistency it exists to remove.
 The import, floorplan and start-from-CSV flows stand in it too.
 A screen hands it the market from [the market store](market-store.md) and renders its own content in the frame's slot.
@@ -73,7 +73,7 @@ Tools, just left of it, has none either: it holds the manual tools an organizer 
 ## Sharp edges
 
 **The frame places itself and says what shows until the market arrives.**
-The page gutter (on three sides; the card hangs from the banner), the card's width, corners and white ground, and the loading, missing and failed states are the frame's own.
+The page gutter (on three sides; the card hangs from the app bar), the card's width, corners and white ground, and the loading, missing and failed states are the frame's own.
 Until the market is in hand the bar holds its place and [`MarketArrival`](../../../front-end/src/components/MarketArrival.vue) says "Loading market…", that the market could not be loaded with a retry, or the one message for a market that is missing or not this organizer's.
 A screen's content is rendered only once its market is in hand, and `@retry` lets a screen refetch its own data beside the market.
 A screen that pads itself or renders its own arrival is how one market's pages came to put the frame in four different places.
@@ -82,7 +82,7 @@ A page inside the card insets its content `--space-6`, the rail's inset, so what
 **Sticky, never a scroller.**
 On a desk the bar, the rail and everything the rail grows (a refused move's blockers, an error, the archived note) stick together at `top: var(--banner-h)`, the app bar's height as a token, a fixed 44px.
 Never give a frame screen an `overflow` scroller of its own: a sticky element inside an `overflow` ancestor silently stops sticking.
-The height of what is pinned under the banner is measured (a `ResizeObserver`) and published as `--market-frame-h` on the card, so a screen's own sticky column sits at `top: calc(var(--banner-h) + var(--market-frame-h))`: the frame's block on a desk, the bar on a phone.
+The height of what is pinned under the app bar is measured (a `ResizeObserver`) and published as `--market-frame-h` on the card, so a screen's own sticky column sits at `top: calc(var(--banner-h) + var(--market-frame-h))`: the frame's block on a desk, the bar on a phone.
 
 **On a phone only the bar pins.**
 At 640px and below the frame's wrapper gives up its box (`display: contents`) and the bar takes `position: sticky` at `top: var(--banner-h)` itself, since a sticky element sticks only inside its parent and the bar must stick against the card.
@@ -99,7 +99,7 @@ The meta is typed (a `RouteMeta` augmentation in `fitsAPhone.ts`), so a misspelt
 Scoped to the window instead, at 390 on Payments, while it kept the floor, the market's name, the rail, the page row's labels and the read-only note stood 8px left of the page's own notes and titles (T153 review finding 7).
 Only the gutters are scoped: the pinned bar, the rail's sideways spine and its wrapping end follow the window, since the window's height is what they spare.
 `the-payments-page.spec.ts` ("in a phone-sized window, a page that keeps the desktop floor ...") measures both at 390x844: on Settings the frame stands on the page's inset, and on Payments and Assignments on the phone's.
-The card is at least the height of the window under the banner, so a short page fills it.
+The card is at least the height of the window under the app bar, so a short page fills it.
 
 **A page says only its own lock; the frame says the person's.**
 The plan says why its setup settled (`setupLockReason`), the form's steps why the form locked, and the Settings page why its rules settled; each disables a control on the table's answer for the action it takes (`mayTake`, [the market store](market-store.md#where-a-screens-permission-comes-from)), but none repeats `readOnlyReason`, or a Viewer reads the same sentence twice on one page.
@@ -122,7 +122,7 @@ A focused tab wears the white halo for the dark bar, drawn inside the tab there,
 
 The bar and the whole rail pin as one block on a desk, whatever the rail grows, because the two alternatives prototyped each lost something the frame exists for: condensing on scroll hid every stage but the current one, which is the rail's reason to exist, and made the frame jump as it changed size; pinning one line and letting the blockers float laid "add market dates" over the very Dates card it asked the organizer to fix.
 
-On a phone the same block cost half the screen: at 390x844 the banner and the pinned frame took 409px at the door and on Tools in market days, 442 with an application page on the rail and 280 in draft, so the check-in list scrolled in the lower half of the window (T142).
+On a phone the same block cost half the screen: at 390x844 the app bar and the pinned frame took 409px at the door and on Tools in market days, 442 with an application page on the rail and 280 in draft, so the check-in list scrolled in the lower half of the window (T142).
 Pinning the rail costs a desk 150px for always seeing where the market is; a phone keeps that through the bar's dot, which says where the market is worked on, and the rail is one scroll up.
 Letting the rail scroll away loses neither of what the condensed rails lost, the spine or a still frame: it only moves the rail into the page.
 
