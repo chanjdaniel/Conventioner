@@ -69,7 +69,9 @@ Under that, "Still needed:" and a list of only what is missing, in this order, e
 - **"Make the assignment"**, to the Settings page, in every phase, where Vendors' own "Nothing assigned yet" sends the same reader: in a phase that refuses a run the page there says why, so the card does not repeat it.
 
 With nothing missing there is no list, and one link, "Give roles on Vendors".
-A link to a select is a real `href`, whose click stays on the address, focuses the select and opens it with `showPicker()` where the browser can, since focus alone looks dead on a desk with the select a few lines above; every link in the block is `.link-alone`, 44px tall on a phone.
+A link to a select is a real `href`, whose click stays on the address, focuses the select and opens its list with `showPicker()`.
+A browser without that method, as every released Safari on a desk and on an iPhone is by MDN's compatibility data on 2026-11-04, or one that refuses the call, opens no list: the select still takes the focus, and since [a field shows no focus at all](../../design-system.md), its `field-label` takes the link ink for a moment (1.5 seconds), or the link would look dead (Daniel's choice, T210).
+Every link in the block is `.link-alone`, 44px tall on a phone.
 Someone the row refuses, an archived market and a Conventioner without Discord's values read no block, since it would point at controls they are not offered.
 
 **What is missing is one reading, `rolesStillNeed`, beside `mayGiveRoles`** ([`discordRoles.ts`](../../../front-end/src/utils/discordRoles.ts)): a role when the connection names none, an assignment by `hasAssignment`, and a question unless the connection names one that is still among the form's text questions (`formTextQuestions`, [`discordQuestion.ts`](../../../front-end/src/utils/discordQuestion.ts), which the card's select reads too).

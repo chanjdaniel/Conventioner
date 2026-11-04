@@ -233,6 +233,47 @@ test('the card says where roles are given, and walks what is missing down to the
   await expect(page).toHaveURL(new RegExp(`${marketScreenPath(marketId, 'settings')}$`));
 });
 
+// Safari, on a desk and on an iPhone, has no `showPicker` on a select (MDN, 2026-11-04), and CI
+// runs Chromium only, so the method is taken away here.
+test('a link to a select still answers in a browser that cannot open its list', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  await page.addInitScript(() => {
+    delete (HTMLSelectElement.prototype as Partial<HTMLSelectElement>).showPicker;
+  });
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  const roleId = connectWithNothingChosen(marketId);
+  const tools = new ToolsPage(page);
+  await tools.goto(marketId);
+  await expect(tools.roleOption(roleId)).toBeAttached({ timeout: 15000 });
+  const linkInk = await tools.givingNeedsRole.evaluate((link) => getComputedStyle(link).color);
+  const labelInk = await tools.roleLabel.evaluate((label) => getComputedStyle(label).color);
+  expect(labelInk, 'the label reads in its own ink first').not.toBe(linkInk);
+
+  for (const [link, label, select] of [
+    [tools.givingNeedsRole, tools.roleLabel, tools.roleSelect],
+    [tools.givingNeedsQuestion, tools.questionLabel, tools.questionSelect],
+  ] as const) {
+    await link.click();
+
+    await expect(select).toBeFocused();
+    await expect(label).toHaveCSS('color', linkInk);
+    // The field itself shows no focus (the design language), so the answer stands outside it.
+    await expect(select).toHaveCSS('box-shadow', 'none');
+    await expect(select).toHaveCSS('outline-style', 'none');
+
+    await expect(label).toHaveCSS('color', labelInk);
+    await expect(select).toBeFocused();
+  }
+});
+
 test('a form with no text question sends the organizer to the form, not an empty select', async ({
   authenticatedPage: page,
   request,

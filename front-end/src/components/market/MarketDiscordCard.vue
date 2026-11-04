@@ -207,17 +207,39 @@ const stillNeed = computed(() => rolesStillNeed(props.market));
 const roleSelect = ref<HTMLSelectElement | null>(null);
 const questionSelect = ref<HTMLSelectElement | null>(null);
 
+/** A choice's select, by what the checklist calls it. */
+type CardSelect = 'role' | 'question';
+/** The select whose label is responding to its link, in the link's ink, for a moment. */
+const responding = ref<CardSelect | null>(null);
+let respondingEnds: ReturnType<typeof setTimeout> | undefined;
+const RESPONSE_MS = 1500;
+
+function respond(which: CardSelect): void {
+  clearTimeout(respondingEnds);
+  responding.value = which;
+  respondingEnds = setTimeout(() => {
+    responding.value = null;
+  }, RESPONSE_MS);
+}
+onUnmounted(() => clearTimeout(respondingEnds));
+
 /**
- * Focus alone would look dead on a desk, where the select stands a few lines above its link, so the
- * click opens it too, where the browser can.
+ * The click opens the select's list. Where it cannot, as in Safari, with no `showPicker` as of
+ * 2026-11, the select still takes the focus, but a field shows no focus at all (the design
+ * language), so the select's label responds instead, or the link would look dead.
  */
-function openSelect(select: HTMLSelectElement | null): void {
+function openSelect(which: CardSelect): void {
+  const select = which === 'role' ? roleSelect.value : questionSelect.value;
   select?.focus();
   try {
-    select?.showPicker?.();
+    if (select?.showPicker) {
+      select.showPicker();
+      return;
+    }
   } catch {
-    // Refused somewhere: the select holds the focus, and Space opens its list.
+    // Refused somewhere: the list stays shut, as where the method is missing.
   }
+  respond(which);
 }
 
 const confirmingDisconnect = ref(false);
@@ -274,7 +296,12 @@ async function disconnect(): Promise<void> {
 
           <div v-if="editable" class="discord-choices">
             <div class="discord-choice">
-              <label class="field-label" for="discord-role">Role to give</label>
+              <label
+                class="field-label"
+                for="discord-role"
+                :data-responding="responding === 'role' || undefined"
+                >Role to give</label
+              >
               <select
                 id="discord-role"
                 ref="roleSelect"
@@ -294,7 +321,12 @@ async function disconnect(): Promise<void> {
             </div>
 
             <div class="discord-choice">
-              <label class="field-label" for="discord-question">Username question</label>
+              <label
+                class="field-label"
+                for="discord-question"
+                :data-responding="responding === 'question' || undefined"
+                >Username question</label
+              >
               <select
                 id="discord-question"
                 ref="questionSelect"
@@ -412,7 +444,7 @@ async function disconnect(): Promise<void> {
                     href="#discord-role"
                     class="link-alone"
                     data-testid="discord-giving-needs-role"
-                    @click.prevent="openSelect(roleSelect)"
+                    @click.prevent="openSelect('role')"
                     >Choose the role to give</a
                   >
                 </li>
@@ -422,7 +454,7 @@ async function disconnect(): Promise<void> {
                     href="#discord-question"
                     class="link-alone"
                     data-testid="discord-giving-needs-question"
-                    @click.prevent="openSelect(questionSelect)"
+                    @click.prevent="openSelect('question')"
                     >Choose the question that asks their Discord username</a
                   >
                   <RouterLink
@@ -587,6 +619,10 @@ async function disconnect(): Promise<void> {
 
 .discord-choices > .discord-error {
   grid-column: 1 / -1;
+}
+
+.field-label[data-responding] {
+  color: var(--mm-text-link);
 }
 
 .discord-giving {

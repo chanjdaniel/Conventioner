@@ -6,7 +6,8 @@
  * Discord and give roles" row refuses reads the card and changes nothing; a Conventioner without
  * Discord's values says so and offers nothing.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { nextTick } from 'vue';
 import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils';
 
 import MarketDiscordCard from '@/components/market/MarketDiscordCard.vue';
@@ -655,27 +656,114 @@ describe('the "Giving roles" block', () => {
       wrapper.unmount();
     });
 
-    it('still focuses the select when the browser refuses to open it', async () => {
-      const wrapper = card(market({ discord: CONNECTED }));
-      await flushPromises();
-      withPicker(wrapper, 'discord-role-select', () => {
-        throw new DOMException('Refused', 'NotAllowedError');
+    describe('where the list cannot open', () => {
+      const RESPONSE_MS = 1500;
+      const withNoPicker = (wrapper: ReturnType<typeof card>, id: string) =>
+        withPicker(wrapper, id, undefined as unknown as () => void);
+      /** Its label reads in the link ink; the field itself draws nothing (the design language). */
+      const respondsOn = (wrapper: ReturnType<typeof card>, id: string) =>
+        wrapper.get(`label[for="${id}"]`).attributes('data-responding') !== undefined;
+
+      beforeEach(() => {
+        vi.useFakeTimers();
+      });
+      afterEach(() => {
+        vi.useRealTimers();
       });
 
-      expect(() => clickLink(wrapper, NEEDS.role)).not.toThrow();
+      it.each([
+        [NEEDS.role, 'discord-role-select', 'discord-role', 'discord-question'],
+        [NEEDS.question, 'discord-question-select', 'discord-question', 'discord-role'],
+      ])(
+        '%s focuses the select, and its label alone responds for a moment',
+        async (link, select, label, otherLabel) => {
+          const wrapper = card(market({ discord: CONNECTED }));
+          await flushPromises();
+          withNoPicker(wrapper, select);
 
-      expect(document.activeElement).toBe(find(wrapper, 'discord-role-select').element);
-      wrapper.unmount();
+          clickLink(wrapper, link);
+          await nextTick();
+
+          expect(document.activeElement).toBe(find(wrapper, select).element);
+          expect(respondsOn(wrapper, label)).toBe(true);
+          expect(respondsOn(wrapper, otherLabel)).toBe(false);
+
+          await vi.runAllTimersAsync();
+          expect(respondsOn(wrapper, label)).toBe(false);
+          wrapper.unmount();
+        },
+      );
+
+      it('responds the same when the browser refuses to open it', async () => {
+        const wrapper = card(market({ discord: CONNECTED }));
+        await flushPromises();
+        withPicker(wrapper, 'discord-role-select', () => {
+          throw new DOMException('Refused', 'NotAllowedError');
+        });
+
+        expect(() => clickLink(wrapper, NEEDS.role)).not.toThrow();
+        await nextTick();
+
+        expect(document.activeElement).toBe(find(wrapper, 'discord-role-select').element);
+        expect(respondsOn(wrapper, 'discord-role')).toBe(true);
+        wrapper.unmount();
+      });
+
+      it('lasts its full moment from the last click', async () => {
+        const wrapper = card(market({ discord: CONNECTED }));
+        await flushPromises();
+        withNoPicker(wrapper, 'discord-role-select');
+
+        clickLink(wrapper, NEEDS.role);
+        await vi.advanceTimersByTimeAsync(RESPONSE_MS - 1);
+        clickLink(wrapper, NEEDS.role);
+        await vi.advanceTimersByTimeAsync(RESPONSE_MS - 1);
+        expect(respondsOn(wrapper, 'discord-role')).toBe(true);
+
+        await vi.advanceTimersByTimeAsync(1);
+        expect(respondsOn(wrapper, 'discord-role')).toBe(false);
+        wrapper.unmount();
+      });
+
+      it('moves to the other label at once when the other link is clicked', async () => {
+        const wrapper = card(market({ discord: CONNECTED }));
+        await flushPromises();
+        withNoPicker(wrapper, 'discord-role-select');
+        withNoPicker(wrapper, 'discord-question-select');
+
+        clickLink(wrapper, NEEDS.role);
+        await nextTick();
+        clickLink(wrapper, NEEDS.question);
+        await nextTick();
+
+        expect(respondsOn(wrapper, 'discord-role')).toBe(false);
+        expect(respondsOn(wrapper, 'discord-question')).toBe(true);
+        wrapper.unmount();
+      });
+
+      it('leaves no timer running once the card is gone', async () => {
+        const wrapper = card(market({ discord: CONNECTED }));
+        await flushPromises();
+        withNoPicker(wrapper, 'discord-role-select');
+
+        clickLink(wrapper, NEEDS.role);
+        wrapper.unmount();
+
+        expect(vi.getTimerCount()).toBe(0);
+      });
     });
 
-    it('still focuses the select in a browser with no way to open it', async () => {
+    it('leaves the label as it is where the list opens', async () => {
       const wrapper = card(market({ discord: CONNECTED }));
       await flushPromises();
-      withPicker(wrapper, 'discord-question-select', undefined as unknown as () => void);
+      withPicker(wrapper, 'discord-role-select', vi.fn());
 
-      clickLink(wrapper, NEEDS.question);
+      clickLink(wrapper, NEEDS.role);
+      await nextTick();
 
-      expect(document.activeElement).toBe(find(wrapper, 'discord-question-select').element);
+      expect(
+        wrapper.get('label[for="discord-role"]').attributes('data-responding'),
+      ).toBeUndefined();
       wrapper.unmount();
     });
   });

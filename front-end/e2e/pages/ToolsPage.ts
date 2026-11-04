@@ -18,6 +18,8 @@ export class ToolsPage {
   readonly inviteError: Locator;
   readonly roleWarning: Locator;
   readonly questionSelect: Locator;
+  readonly roleLabel: Locator;
+  readonly questionLabel: Locator;
   readonly giving: Locator;
   readonly givingNeedsRole: Locator;
   readonly givingNeedsQuestion: Locator;
@@ -38,6 +40,8 @@ export class ToolsPage {
     this.inviteError = page.getByTestId('discord-invite-error');
     this.roleWarning = page.getByTestId('discord-role-warning');
     this.questionSelect = page.getByTestId('discord-question-select');
+    this.roleLabel = page.locator('label[for="discord-role"]');
+    this.questionLabel = page.locator('label[for="discord-question"]');
     this.giving = page.getByTestId('discord-giving');
     this.givingNeedsRole = page.getByTestId('discord-giving-needs-role');
     this.givingNeedsQuestion = page.getByTestId('discord-giving-needs-question');
