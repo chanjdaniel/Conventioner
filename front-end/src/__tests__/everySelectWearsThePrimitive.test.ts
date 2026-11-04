@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve as resolvePath } from 'node:path';
+import postcss from 'postcss';
+import { parse } from 'vue/compiler-sfc';
 
 /**
  * Every select in the app draws one look (F06 of the 2026-11-02 walk): `.field field--select`, whose
@@ -16,8 +18,6 @@ import { join, relative, resolve as resolvePath } from 'node:path';
  *
  * - Only `.vue` files, and only a rule in the select's own file. A select drawn from a shared
  *   stylesheet, or from a parent's `:deep()`, is invisible here.
- * - `\{[^{}]*\}` matches innermost blocks only, so a rule containing a nested block (CSS nesting,
- *   which this repo does not use yet) would hide the declarations around it.
  * - A `:class` is read for its words, so a variable naming a class is not followed.
  * - A plain `.field` rule is not read, since it reaches a file's inputs too and may well set their
  *   padding, so a select can still be drawn over through it.
@@ -37,16 +37,30 @@ function vueFiles(dir: string): string[] {
   });
 }
 
-/**
- * The `<select>` tags of a component's template, as matches whose group 1 is the tag's attributes.
- * One pass over the tokens: a comment, a script or a style is skipped whole, so its `<select>` is not
- * a control, and nothing is stripped and then re-read, where a removal can splice a new tag together.
- */
-const TOKENS =
-  /<!--[\s\S]*?-->|<(?:script|style)\b[^>]*>[\s\S]*?<\/(?:script|style)\s*>|<select\b((?:[^>"']|"[^"]*"|'[^']*')*)>/gi;
+/** As much of the template's tree as this reads; `compiler-sfc` does not export its types. */
+type TemplateNode = {
+  tag?: string;
+  loc: { source: string };
+  children?: TemplateNode[];
+  props?: {
+    name: string;
+    value?: { content: string };
+    arg?: { content?: string };
+    exp?: { loc: { source: string } };
+  }[];
+};
 
-function selectTags(source: string): RegExpMatchArray[] {
-  return [...source.matchAll(TOKENS)].filter((match) => match[1] !== undefined);
+/**
+ * The `<select>` elements of a component's template, by Vue's own parser, so that a comment's, a
+ * script's or a style's `<select>` is no control, and an attribute's `>` ends no tag.
+ */
+function selectsOf(source: string): TemplateNode[] {
+  const walk = (node: TemplateNode): TemplateNode[] => [
+    ...(node.tag === 'select' ? [node] : []),
+    ...(node.children ?? []).flatMap(walk),
+  ];
+  const root = parse(source).descriptor.template?.ast as unknown as TemplateNode | undefined;
+  return root ? walk(root) : [];
 }
 
 /**
@@ -65,36 +79,40 @@ function reachesASelect(selector: string): boolean {
 
 /** What is wrong with each `<select>` of a single-file component's source, in words. */
 function faultsOf(source: string): string[] {
-  const rules = [...source.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi)]
-    .map((style) => style[1].replace(/\/\*[\s\S]*?\*\//g, ''))
-    .flatMap((css) => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)])
-    .map(([, selector, block]) => ({
-      selector: selector.trim(),
-      properties: block.split(';').map((declaration) => declaration.split(':')[0].trim()),
-    }));
+  const rules = parse(source).descriptor.styles.flatMap((style) => {
+    const found: { selector: string; properties: string[] }[] = [];
+    postcss.parse(style.content).walkRules((rule) => {
+      const properties = rule.nodes.flatMap((node) => (node.type === 'decl' ? [node.prop] : []));
+      found.push(...rule.selectors.map((selector) => ({ selector, properties })));
+    });
+    return found;
+  });
 
-  // A quoted value may hold a `>`, as an arrow function in a listener does.
-  const tags = selectTags(source);
+  const selects = selectsOf(source);
 
   // Whichever select it reaches: a rule naming the element or the primitive names no one of them.
-  const drawnOver = tags.length
-    ? rules.flatMap(({ selector, properties }) =>
-        selector
-          .split(',')
-          .map((part) => part.trim())
-          .filter(reachesASelect)
-          .flatMap((part) =>
-            properties
-              .filter((p) => DRAWS.test(p))
-              .map((property) => `a rule of this file draws a select: "${part}" sets ${property}`),
-          ),
-      )
+  const drawnOver = selects.length
+    ? rules
+        .filter(({ selector }) => reachesASelect(selector))
+        .flatMap(({ selector, properties }) =>
+          properties
+            .filter((p) => DRAWS.test(p))
+            .map(
+              (property) => `a rule of this file draws a select: "${selector}" sets ${property}`,
+            ),
+        )
     : [];
 
-  const faultsOfEach = tags.flatMap(([, attributes]) => {
-    const name = /data-testid="([^"]+)"/.exec(attributes)?.[1] ?? attributes.trim().split('\n')[0];
-    const worn = /(?<![:\w-])class="([^"]*)"/.exec(attributes)?.[1].split(/\s+/) ?? [];
-    const bound = /:class="([^"]*)"/.exec(attributes)?.[1].match(/[A-Za-z_][\w-]*/g) ?? [];
+  const faultsOfEach = selects.flatMap((select) => {
+    const attribute = (attr: string) =>
+      select.props?.find((prop) => prop.name === attr)?.value?.content;
+    const binding = select.props?.find(
+      (prop) => prop.name === 'bind' && prop.arg?.content === 'class',
+    );
+
+    const name = attribute('data-testid') ?? select.loc.source.split('\n')[0];
+    const worn = attribute('class')?.split(/\s+/) ?? [];
+    const bound = binding?.exp?.loc.source.match(/[A-Za-z_][\w-]*/g) ?? [];
 
     const faults = ['field', 'field--select']
       .filter((primitive) => !worn.includes(primitive))
@@ -137,16 +155,15 @@ describe('faultsOf, on a component written for it', () => {
 
   it('ignores a <select> in a template comment or in the script', () => {
     expect(faultsOf(sfc('<!-- the <select> below --><div></div>'))).toEqual([]);
+    const inScript = `<script setup>const html = '<select class="dropdown"></select>'</script ><template><div></div></template>`;
+    expect(faultsOf(inScript)).toEqual([]);
   });
 
-  it('ignores a <select> in an upper-case script block', () => {
-    const source = `<SCRIPT setup>const html = '<select class="dropdown"></select>'</SCRIPT><template><div></div></template>`;
-    expect(faultsOf(source)).toEqual([]);
-  });
-
-  it('ignores a <select> in a script whose end tag has a space before its ">"', () => {
-    const source = `<script setup>const html = '<select class="dropdown"></select>'</script ><template><div></div></template>`;
-    expect(faultsOf(source)).toEqual([]);
+  it('finds a select however deep it stands, behind a v-if or in a slot', () => {
+    const source = sfc(
+      '<div><template v-if="open"><AppDialog><select class="field"></select></AppDialog></template></div>',
+    );
+    expect(faultsOf(source)).toEqual([expect.stringContaining('does not wear .field--select')]);
   });
 
   it('reads a tag whose attribute holds a ">"', () => {
@@ -267,7 +284,7 @@ describe('every select in the app', () => {
 
   it('finds the selects at all', () => {
     const count = vueFiles(SRC).reduce(
-      (sum, file) => sum + selectTags(readFileSync(file, 'utf-8')).length,
+      (sum, file) => sum + selectsOf(readFileSync(file, 'utf-8')).length,
       0,
     );
     // A floor, so a broken reader cannot pass by seeing nothing; 49 when this was written.
