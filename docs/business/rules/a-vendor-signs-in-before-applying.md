@@ -69,10 +69,10 @@ Telling the person who just read the code whether they have applied leaks nothin
 ## Sign-in is bounded
 
 Each code request sends an email and each verify is a guess at a six-digit code, so an unbounded caller could use the product to flood any address with mail or keep guessing.
-**Both endpoints are rate limited per address and per caller**, every limit in one table in [`back-end/sign_in_limits.py`](../../../back-end/sign_in_limits.py): 5 code requests per address and 30 per caller, 10 verifies per address and 60 per caller, each per 15 minutes.
+**Both endpoints are rate limited per address and per caller**, every limit in one table in [`back-end/sign_in_limits.py`](../../../back-end/sign_in_limits.py): 5 code requests per address and 300 per caller, 10 verifies per address and 300 per caller, each per 15 minutes, since vendors on one venue's wifi share a caller.
 A refused attempt still counts.
 So at most 10 guesses per address per 15 minutes reach a six-digit code, however many codes are asked for, and each code takes at most five of them.
-A resume is counted per caller only, 60 per 15 minutes (`resume:caller`), before the cookie is read: its secret is 32 random bytes, so the limit bounds the work a caller asks of the database, not a guess.
+A resume is counted per caller only, 300 per 15 minutes (`resume:caller`), before the cookie is read: its secret is 32 random bytes, so the limit bounds the work a caller asks of the database, not a guess.
 Past it the page asks for a code, as it does for no cookie.
 A vendor's check-in with the door code is bounded differently: 10 tries per signed-in address and 60 wrong door codes per caller per 15 minutes (`check-in:address`, `check-in:caller`), so a venue's shared address checks every vendor in rightly and the undo counts nothing, and a vendor at home cannot guess the code ([attendance and the door](../../implementation/modules/attendance-and-door.md#sharp-edges)).
 

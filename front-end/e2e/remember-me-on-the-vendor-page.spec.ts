@@ -22,7 +22,7 @@ const CODE = '602914';
 let market: ApplicantMarketSeed;
 
 test.beforeEach(async ({ request }) => {
-  // Every signed-out vendor page asks to resume, counted per caller (60 in 15 minutes), and the
+  // Every signed-out vendor page asks to resume, counted per caller (300 in 15 minutes), and the
   // serial run is one caller: by this spec the run's earlier pages may have used them up, and a
   // refused resume draws the sign-in, as no cookie does. The counters start again here.
   mongoEval('db.sign_in_attempts.deleteMany({})');

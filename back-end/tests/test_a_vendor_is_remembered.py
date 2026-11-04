@@ -418,9 +418,9 @@ class TestTheResumeLimit:
         assert response.status_code == 429
         assert "Too many sign-in attempts" in response.get_json()["message"]
 
-    def test_the_limit_is_60_in_15_minutes_per_caller(self):
+    def test_the_limit_is_300_in_15_minutes_per_caller(self):
         assert sign_in_limits.RESUME_PER_CALLER == sign_in_limits.SignInLimit(
-            "resume:caller", attempts=60, window=timedelta(minutes=15),
+            "resume:caller", attempts=300, window=timedelta(minutes=15),
         )
         assert sign_in_limits.RESUME_PER_CALLER in sign_in_limits.LIMITS
 

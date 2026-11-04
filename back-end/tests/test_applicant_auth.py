@@ -1063,6 +1063,13 @@ class TestSignInIsBounded:
                           caller=f"198.51.100.{i}")
         self._refused(self._request(applicant_auth_module, caller="198.51.100.99"))
 
+    def test_a_venues_shared_address_may_ask_for_300_codes_in_15_minutes(self):
+        """Vendors on one venue's wifi share a caller, so it is allowed far more than an address."""
+        assert sign_in_limits.REQUEST_CODE_PER_CALLER == sign_in_limits.SignInLimit(
+            "request-code:caller", attempts=300, window=timedelta(minutes=15),
+        )
+        assert sign_in_limits.REQUEST_CODE_PER_ADDRESS.attempts == 5
+
     def test_asking_for_codes_for_many_addresses_from_one_caller_is_refused(
         self, applicant_auth_module, monkeypatch
     ):
@@ -1138,6 +1145,13 @@ class TestSignInIsBounded:
         assert "Too many sign-in attempts" in body["message"]
         challenge = test_db.challenges.find_one({"email": "applicant@example.com"})
         assert challenge["consumed"] is False
+
+    def test_a_venues_shared_address_may_enter_300_codes_in_15_minutes(self):
+        """Per caller only: an address may still try ten, which is what bounds a guess at a code."""
+        assert sign_in_limits.VERIFY_CODE_PER_CALLER == sign_in_limits.SignInLimit(
+            "verify-code:caller", attempts=300, window=timedelta(minutes=15),
+        )
+        assert sign_in_limits.VERIFY_CODE_PER_ADDRESS.attempts == 10
 
     def test_guessing_codes_for_many_addresses_from_one_caller_is_refused(
         self, applicant_auth_module

@@ -49,16 +49,16 @@ class SignInLimit:
     window: timedelta
 
 
-# Every limit, in one place. A vendor asks for a code, perhaps once more, and enters it; a shared
-# network (an office, a venue) may hold several vendors at once, so a caller is allowed more than
-# an address.
+# Every limit, in one place. A vendor asks for a code, perhaps once more, and enters it; vendors on
+# one venue's wifi share an address, so a caller is allowed far more than an address is. What bounds
+# a guess at a code, and the mail one address is sent, stays the per-address limit.
 REQUEST_CODE_PER_ADDRESS = SignInLimit("request-code:address", attempts=5, window=timedelta(minutes=15))
-REQUEST_CODE_PER_CALLER = SignInLimit("request-code:caller", attempts=30, window=timedelta(minutes=15))
+REQUEST_CODE_PER_CALLER = SignInLimit("request-code:caller", attempts=300, window=timedelta(minutes=15))
 VERIFY_CODE_PER_ADDRESS = SignInLimit("verify-code:address", attempts=10, window=timedelta(minutes=15))
-VERIFY_CODE_PER_CALLER = SignInLimit("verify-code:caller", attempts=60, window=timedelta(minutes=15))
+VERIFY_CODE_PER_CALLER = SignInLimit("verify-code:caller", attempts=300, window=timedelta(minutes=15))
 # A remembered vendor's page asks once per visit (``applicant-login/resume``). Its secret is not to
 # be guessed, so this bounds the work a caller makes the database do, not a guess.
-RESUME_PER_CALLER = SignInLimit("resume:caller", attempts=60, window=timedelta(minutes=15))
+RESUME_PER_CALLER = SignInLimit("resume:caller", attempts=300, window=timedelta(minutes=15))
 # A vendor checking in on their page sends the door code (``api/vendor_check_in.py``): every try is
 # bounded per signed-in address, and only the WRONG codes are bounded per caller, so a vendor at
 # home cannot guess the code from the poster's alphabet while a venue's shared address still checks
