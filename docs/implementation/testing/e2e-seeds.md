@@ -22,7 +22,7 @@ describes:
   - front-end/e2e/helpers/backendScript.ts
   - back-end/create_test_user.py
   - front-end/e2e/helpers/exampleCollegeMarket.ts
-verified: 2026-11-01
+verified: 2026-11-04
 sources:
   - E02
   - E11/F01/S01

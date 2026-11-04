@@ -11,7 +11,7 @@ describes:
   - front-end/src/utils/permissionTable.ts
   - front-end/e2e/the-permissions-section.spec.ts
   - front-end/e2e/removing-someone-asks-first.spec.ts
-verified: 2026-11-01
+verified: 2026-11-04
 sources:
   - E20/F01/S03
   - E21/F03/S04
