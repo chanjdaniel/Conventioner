@@ -582,7 +582,8 @@ class ExampleColumn(BaseModel):
     """What a market started from a Google Form's responses keeps of one column (E38/F02/S01).
 
     Only what the Review step showed and the privacy view lets through: the organizer's own
-    heading, and the options at least 3 applicants chose that name nobody (``csv_proposal``).
+    heading, and the options at least 3 applicants chose that name nobody (``csv_proposal``); and,
+    for an option to offer, every answer that no pattern finds naming someone (ADR 0022).
     """
     # The column's heading, or a grid's, as the import mapping names them.
     headers: List[str] = []
@@ -595,6 +596,10 @@ class ExampleColumn(BaseModel):
     # Whether the start made it a question of the organizer's own, rather than left it out.
     question: bool = False
     options: ExampleOptions = Field(default_factory=ExampleOptions)
+    # Every answer, served only to someone who may change the form while it can still change
+    # (``leave_out_every_answer``). None on a column of nearly all different answers, on a market
+    # started before they were kept, and to every other reader: the options are all there is.
+    answers: Optional[ExampleOptions] = None
 
 
 class RejectionRule(AnswerCondition):
@@ -1292,6 +1297,7 @@ class ExampleOptionsContract(ExampleOptions, ContractModel):
 class ExampleColumnContract(ExampleColumn, ContractModel):
     """Camel-cased contract view of a column the CSV start kept."""
     options: ExampleOptionsContract = Field(default_factory=ExampleOptionsContract)
+    answers: Optional[ExampleOptionsContract] = None
 
 
 class ServedReviewerContract(ContractModel):

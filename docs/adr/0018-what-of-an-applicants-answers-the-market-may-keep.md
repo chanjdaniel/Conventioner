@@ -6,7 +6,7 @@ describes:
   - back-end/csv_proposal.py#kept_readings
   - back-end/csv_proposal.py#_names_someone
   - back-end/datatypes.py#ExampleColumn
-verified: 2026-10-30
+verified: 2026-11-04
 sources:
   - E38/F02
   - E38/F02/S01
@@ -38,6 +38,7 @@ It decided that rule for what may be sent to a third party, not for what may be 
 
 - This reverses the start's stated invariant: the file is still never stored, but what it said of each kept column is.
 - Everyone who may read the market reads `exampleColumns`, on the market's read and the Markets list; each of them already reads every application.
+- [ADR 0022](0022-every-answer-for-an-option-to-offer.md) narrows this decision: for an option to offer, a column whose answers are not nearly all different also keeps every answer less what `_names_someone` catches, which only someone who may change the form reads, while it can still change.
 - A later import does not refresh it, since the form locks at the first application and nothing reads it after.
 - Widening what may be kept narrowed what may be sent: a heading either filter matches is not sent to TypeSafe (ADR 0007's consequences).
 - Keeping any other part of an applicant's answers outside their application, or keeping these under a weaker filter, is a new ADR that narrows this one.

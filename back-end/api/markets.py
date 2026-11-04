@@ -910,6 +910,18 @@ def _stamp_effective_market_state(market: Dict[str, Any], phase: MarketPhase) ->
     market[market_doc_key('intake_mode')] = intake_mode_from_market_document(market).value
 
 
+def leave_out_every_answer(market_document: Dict[str, Any]) -> None:
+    """Serve a market's columns without ``answers``, as a copy, so the document it was read from
+    keeps them (ADR 0022). The read keeps them for someone who may change the form while it can
+    still change; every other answer that holds a market asks this unconditionally."""
+    key = market_doc_key("example_columns")
+    columns = market_document.get(key)
+    if isinstance(columns, list):
+        market_document[key] = [
+            {field: value for field, value in column.items() if field != "answers"}
+            for column in columns]
+
+
 def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, Any]]:
     """Get a market by id, checking user has access."""
     context = load_market_context(market_id)
@@ -941,7 +953,8 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # The form lock rides on the market every screen reads (E21/F02/S03): it depends on whether an
     # application exists, which only the server knows, and the store re-reads the market after every
     # write - so a transition reaches the form builder the moment it lands. Served, never stored.
-    market_dict['applicationFormLockReason'] = application_form_lock_reason(market)
+    form_lock_reason = application_form_lock_reason(market)
+    market_dict['applicationFormLockReason'] = form_lock_reason
     # So does the assignment rules' (E22/F02/S02): the rules page mirrors the plan write's refusal
     # from the market it holds, rather than deciding the phases for itself.
     market_dict['assignmentRulesLockReason'] = assignment_rules_lock_reason(market)
@@ -1031,6 +1044,9 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     from api.discord_connection import leave_out_what_is_not_served, shown_vendors
     market_dict['discordVendors'] = [vendor.served() for vendor in shown_vendors(market).values()]
     leave_out_what_is_not_served(market_dict)
+    if form_lock_reason is not None or Actions.role_refusal(
+            Actions.CHANGE_FORM, user_role, market.permissions) is not None:
+        leave_out_every_answer(market_dict)
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     # Everyone with access, at the role that counts and where it comes from, which Manage market
@@ -1171,6 +1187,8 @@ def _decorate_market_summary(
     # A Discord check's stored inputs, which no list entry serves, as no market read does.
     from api.discord_connection import leave_out_what_is_not_served
     leave_out_what_is_not_served(market)
+    # Every answer a market keeps, which would grow the list by every market it names (ADR 0022).
+    leave_out_every_answer(market)
     # Deprecated, as the market read's: an old bundle's card offers Manage on it.
     market['user_role'] = user_role.value if user_role else None
     phase = phase_from_market_document(market)
@@ -1483,6 +1501,7 @@ def get_assigned_market(market_id: str, requesting_user: Optional[str] = None) -
     assigned_market_dict = assigned_market.model_dump()
 
     assigned_market_dict = convert_keys_to_camel_case(assigned_market_dict)
+    leave_out_every_answer(assigned_market_dict)
     if context.organization_dict:
         assigned_market_dict['organizationName'] = context.organization_dict.get('name')
     return assigned_market_dict, 200

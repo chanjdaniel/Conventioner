@@ -7,6 +7,7 @@ describes:
   - back-end/app.py#csv_proposal_typesafe
   - back-end/app.py#propose_from_csv
   - back-end/app.py#confirm_csv_proposal
+  - back-end/api/markets.py#leave_out_every_answer
   - back-end/tests/test_csv_proposal.py
   - front-end/src/utils/exampleColumns.ts
 verified: 2026-10-30
@@ -22,6 +23,7 @@ sources:
   - E38/F02/S01
   - E38/F02/S02
   - E38/F15/S02
+  - T213
   - bug/40
 ---
 
@@ -61,19 +63,29 @@ Confirm judges the plan and the form through the plan's and the form's own write
 A market that changed since is written nothing, and told to start again.
 **The plan's own values win**: the file's dates (in the year the organizer confirms) and tiers fill a plan that has none, and its ceiling a plan with none set.
 
-**The file is sent twice and stored never; what the start keeps of it is the privacy view.**
+**The file is sent twice and stored never; what the start keeps of it is filtered.**
 Confirm reads it again rather than trusting the browser's copy of the columns, and re-runs the rules on it; the organizer's choices for each ledger row are the only thing the request adds, and the browser sends one for every row, so what TypeSafe settled reaches confirm as the organizer's choice, never by asking again.
 
 **The start keeps what the file said of each question of the organizer's own and each left-out column** (`exampleColumns`, E38/F02/S01), so the Questions tab can fill a question's options, or add a question from a left-out column, after the file is gone ([building the application form](../../business/flows/form-tab.md#f2-custom-questions), [`exampleColumns.ts`](../../../front-end/src/utils/exampleColumns.ts)).
 For each ledger row the organizer confirmed as a question of their own or left out, and that had answers, it keeps the headings, the key its question has or would have, the label and help text, the type written or read, whether it became a question, and both readings of its answers as choices (`kept_readings`): whole answers for Select, the options inside them for Multi-Select.
 A reading keeps only the options the Review step keeps by default, those at least 3 applicants chose (`SHARED_BY`, and for a multi-select at least `OPTION_SHARE` of the answers), less any that names someone (`_names_someone`); values only, most chosen first.
 `_names_someone` finds an address, also spelled out ("info AT example DOT com", "info[at]example[dot]com"); a link with or without its scheme ("linktr.ee/makers"); a handle wherever its `@` sits ("IG:@makers", "@ makers"); every phone number the measured filter finds, and one of 7 digits, unless its digits are only clock times, years and dates of a day, a month and a year ("9.30 - 4.30", "2023 - 2024", "15.11.2025"), or a range of numbers around a dash, two of 3 to 5 digits and 9 at most together, the lower first, each end within one of round ("500-1000", "501-1000", "100-1499"); and a street address (ordinal streets and the usual abbreviations), a unit, suite or apartment number, or a post office box.
-What no pattern sees only `SHARED_BY` guards, such as a bare name, a shop's name, a handle without its `@` or with a full-width `＠`, a domain with its dot spelled, bracketed or a comma ("example dot com", "makers[.]ca", "example,com"), an address with no top-level domain ("makers@gmail", "makers@"), a domain in another script, a postal code, a unit by letter or a room ("Unit B", "Room 101"), a street with no street word ("42 Broadway"), a box with no "PO" ("Box 45"), a number spelled in words, a phone number grouped oddly ("555 01 99"), and a round local number that reads as a range ("200-3000"); `test_csv_proposal.py` pins what it catches and what it leaves.
+In these readings, what no pattern sees only `SHARED_BY` guards, such as a bare name, a shop's name, a handle without its `@` or with a full-width `＠`, a domain with its dot spelled, bracketed or a comma ("example dot com", "makers[.]ca", "example,com"), an address with no top-level domain ("makers@gmail", "makers@"), a domain in another script, a postal code, a unit by letter or a room ("Unit B", "Room 101"), a street with no street word ("42 Broadway"), a box with no "PO" ("Box 45"), a number spelled in words, a phone number grouped oddly ("555 01 99"), and a round local number that reads as a range ("200-3000"); `test_csv_proposal.py` pins what it catches and what it leaves.
 [ADR 0018](../../adr/0018-what-of-an-applicants-answers-the-market-may-keep.md) records the decision; that is safe to keep for the reason it was safe to read: an answer 3 applicants share names none of them, which is the uniqueness rule [ADR 0007](../../adr/0007-what-may-be-sent-to-hosted-typesafe.md) measured, and the headings are the organizer's own words, which the import mapping already keeps.
-Nothing kept leaves the server but to everyone who may read the market, a Viewer and up, organization members included, on the market's read and the Markets list; each of them already reads every application.
+These readings leave the server only to everyone who may read the market, a Viewer and up, organization members included, on the market's read and the Markets list; each of them already reads every application.
 It is server-owned: the start writes it, and a create body that carries it, or an import mapping, is stored without either (`create_market`).
 Who applied, when and the essential questions are not kept: none is a question to add or retype.
 A later import does not refresh it: the form locks at the first application, so it is never read after one.
+
+**The start also keeps every answer of a column, for an option on the Questions tab to offer** (`answers`, [ADR 0022](../../adr/0022-every-answer-for-an-option-to-offer.md), T213).
+`every_reading` holds both readings, each less what `_names_someone` catches, values only, most chosen first, so it is a superset of `kept_readings`, which it leaves as it was.
+A column whose answers are nearly all different returns nothing and is written with no `answers` key: its Select reading holds at least `NEARLY_ALL` (97%) as many answers as applicants who answered, and at least `NEARLY_ALL_DIFFERENT_FROM` (20) answered, which keeps whole columns of Discord usernames and shop names off the market.
+Elsewhere no share of applicants guards it, so what no pattern sees, such as a bare name or a shop's name typed into a choice column, is kept.
+No `answers` on a column always means its common options are all there is: a market started before this has none, and no migration adds them.
+The market read serves `answers` only to a role that passes `CHANGE_FORM` on the market's table, while `application_form_lock_reason` is `None`.
+Everything else that answers with a market removes it through `leave_out_every_answer` in [`back-end/api/markets.py`](../../../back-end/api/markets.py): the read for anyone else, the Markets list, and the two assignment responses that dump the whole market (`get_assigned_market`, `run_assignment`).
+They stay stored after the form locks, unread, and go when the market is deleted; a later change to an application does not change them, and there is no way to remove one answer from them.
+On the five synthetic exports they add 13 KB to 61 KB to a market, beside about 2 KB of common readings.
 
 **A left-out column is saved in the mapping under the key a question made from it would have.**
 A key the mapping already holds is never replaced by one.

@@ -8,10 +8,12 @@ import copy
 import csv
 import io
 import os
+import re
 
 import pytest
 
 import csv_import as CsvImport
+import csv_proposal as CsvProposal
 import csv_start as CsvStart
 import essential_fields as EssentialFields
 
@@ -375,13 +377,77 @@ def test_the_start_keeps_both_readings_of_each_question_it_made():
 
 def test_what_the_start_keeps_passes_the_privacy_filter():
     """An answer at least 3 applicants gave that holds a link or a phone number is shown on the
-    Review step but never kept; nor is one fewer than 3 gave, nor a free-text answer."""
+    Review step but never kept; one fewer than 3 gave is kept only among every answer, for an option
+    to offer, and never among the options a type change fills (ADR 0022)."""
     kept = _kept(_confirmed_update(_draft(), _example(), {}))
     stored = repr(kept)
-    for value in ("www.example.com", "555-0101", "Candles", "Pins", "Late fee", "@shop",
-                  "vendor01@example.com", "Vendor Amber"):
+    for value in ("www.example.com", "555-0101", "@shop", "vendor01@example.com", "Vendor Amber"):
         assert value not in stored
+    options = repr([column["options"] for column in kept.values()])
+    for value in ("Candles", "Pins", "Late fee"):
+        assert value not in options
+    assert "Candles" in kept["what_do_you_sell"]["answers"]["multiSelect"]
+    assert "Pins" in kept["what_do_you_sell"]["answers"]["multiSelect"]
+    assert "Late fee" in kept["notes"]["answers"]["select"]
     assert kept["instagram"]["options"] == {"select": [], "multiSelect": []}
+    # Every handle differs, so the column keeps nothing new, and no filter had to catch them.
+    assert "answers" not in kept["instagram"]
+
+
+# Each export's "what do you sell" question, which no pattern alone can prove the filter on.
+WHAT_THEY_SELL = {"days-as-one-question": "what_will_you_bring_to_sell",
+                  "four-day-grid": "what_kinds_of_work_will_you_sell",
+                  "no-timestamp": "what_are_you_planning_to_sell",
+                  "five-day-grid": "what_do_you_plan_to_sell_at_the_fair",
+                  "team-status-column": "what_will_you_be_selling_at_the_fair"}
+
+
+def _kept_of(name):
+    return _kept(_confirmed_update(_draft(), _csv(name), {"year": YEARS[name]}))
+
+
+def _answers_in_the_file(name, heading):
+    """The column's answers read straight from the export, whole and as the options inside them."""
+    rows = list(csv.reader(io.StringIO(_csv(name))))
+    at = [header.strip() for header in rows[0]].index(heading)
+    whole = [row[at].strip() for row in rows[1:] if at < len(row) and row[at].strip()]
+    return whole, [option for answer in whole for option in CsvImport.split_options(answer)]
+
+
+@pytest.mark.parametrize("name", YEARS)
+def test_what_they_sell_keeps_every_answer_of_both_readings(name):
+    column = _kept_of(name)[WHAT_THEY_SELL[name]]
+    whole, inside = _answers_in_the_file(name, column["headers"][0])
+
+    def named_nobody(values):
+        return {value for value in values if not CsvProposal._names_someone(value)}
+
+    assert set(column["answers"]["select"]) == named_nobody(whole)
+    assert set(column["answers"]["multiSelect"]) == named_nobody(inside)
+    # Every one of them, a one-off included, and every option a type change fills.
+    assert any(inside.count(value) == 1 for value in column["answers"]["multiSelect"])
+    assert set(column["options"]["select"]) <= set(column["answers"]["select"])
+    assert set(column["options"]["multiSelect"]) <= set(column["answers"]["multiSelect"])
+
+
+# The one export of the five with neither column does not ask who they are in a column of its own.
+@pytest.mark.parametrize("name", [name for name in YEARS if name != "days-as-one-question"])
+@pytest.mark.parametrize("key", ["discord_username", "business_name"])
+def test_a_column_of_who_they_are_keeps_no_answers(name, key):
+    """Whole columns of Discord usernames and shop names stay off the market (ADR 0018)."""
+    assert "answers" not in _kept_of(name)[key]
+
+
+NEVER_STORED = re.compile(r"@|://|\d{7}")
+
+
+@pytest.mark.parametrize("name", YEARS)
+def test_no_stored_answer_holds_an_address_a_link_or_a_phone_number(name):
+    """Checked apart from the filter it checks, across every answer the export's market keeps."""
+    stored = [value for column in _kept_of(name).values()
+              for reading in column.get("answers", {}).values() for value in reading]
+    assert stored
+    assert [value for value in stored if NEVER_STORED.search(value)] == []
 
 
 def test_a_column_the_start_left_out_is_kept_with_its_readings_and_mapped_under_its_key():
