@@ -5,11 +5,13 @@ market's page on that device until the market's last date has ended, and never l
 ``REMEMBER_AT_MOST`` from the sign-in; use never extends it.
 
 **The device holds a secret; the server holds its hash.** The secret is 32 random bytes in a
-cookie, ``vendor_remember_<market id>``, which is ``Secure``, ``SameSite=None`` and ``HttpOnly``
-(set in ``app.py``'s cookie settings block), so no script on the page reads it. The server keeps a
-document whose ``_id`` is the secret's SHA-256, with the market, the address, when it ends and when
-it was made, so a leaked backup signs nobody in. A cookie names one market, so remembering a vendor
-at one market changes nothing at another.
+cookie, ``__Host-vendor_remember_<market id>``, which is ``Secure``, ``SameSite=None`` and
+``HttpOnly`` (set in ``app.py``'s cookie settings block), so no script on the page reads it. The
+prefix holds it to this one host, so a subdomain cannot overwrite it: a browser takes such a cookie
+only with ``Secure``, ``Path=/`` and no ``Domain``, whether setting or clearing it. The server keeps
+a document whose ``_id`` is the secret's SHA-256, with the market, the address, when it ends and
+when it was made, so a leaked backup signs nobody in. A cookie names one market, so remembering a
+vendor at one market changes nothing at another.
 
 **It ends for good.** Sign out deletes the document, so a copy of the cookie stops working; a
 cookie refused for any reason is forgotten the same way; deleting the market deletes its documents
@@ -91,7 +93,7 @@ def remembered_until_date(market_dates: Iterable[str], at: datetime) -> Optional
 
 def cookie_name(market_id: str) -> str:
     """The cookie a market's remembered sign-in is kept in: one per market, so one per page."""
-    return f"vendor_remember_{market_id}"
+    return f"__Host-vendor_remember_{market_id}"
 
 
 def _cookie_settings() -> dict:

@@ -29,6 +29,8 @@ test.beforeEach(async ({ request }) => {
   market = await seedApplicantMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
 });
 
+const COOKIE = () => `__Host-vendor_remember_${market.marketId}`;
+
 async function signInWithTheCode(vendorPage: VendorPage, vendor: string, remember: boolean) {
   await vendorPage.goto(market.marketSlug);
   await vendorPage.requestCode(vendor);
@@ -48,10 +50,13 @@ test('a vendor who ticks Remember me is signed straight in in a new tab, until t
 
   // Kept where no script on the page can read it.
   const cookies = await context.cookies();
-  const remembered = cookies.find((c) => c.name === `vendor_remember_${market.marketId}`);
+  const remembered = cookies.find((c) => c.name === COOKIE());
   expect(remembered?.httpOnly).toBe(true);
   expect(remembered?.secure).toBe(true);
   expect(remembered?.sameSite).toBe('None');
+  expect(remembered?.path).toBe('/');
+  // Host-only: no Domain was sent, so the browser holds it to the host that set it.
+  expect(remembered?.domain.startsWith('.')).toBe(false);
   expect(await page.evaluate(() => document.cookie)).not.toContain('vendor_remember_');
 
   const secondTab = new VendorPage(await context.newPage());
@@ -61,11 +66,30 @@ test('a vendor who ticks Remember me is signed straight in in a new tab, until t
 
   await secondTab.signOutButton.click();
   await expect(secondTab.emailInput).toBeVisible();
+  // A browser refuses a clearing `__Host-` cookie that breaks the prefix's terms, and keeps the
+  // live one, so the browser is the one to ask whether it went.
+  expect((await context.cookies()).map((c) => c.name)).not.toContain(COOKIE());
 
   const thirdTab = new VendorPage(await context.newPage());
   await thirdTab.goto(market.marketSlug);
   await expect(thirdTab.emailInput).toBeVisible();
   await expect(thirdTab.signedInAs).toHaveCount(0);
+});
+
+test('a device holding a cookie the server refuses is asked for a code, and the browser drops it', async ({
+  page,
+  context,
+}) => {
+  const vendor = `refused-${Date.now()}@example.com`;
+  await signInWithTheCode(new VendorPage(page), vendor, true);
+  const [held] = (await context.cookies()).filter((c) => c.name === COOKIE());
+  await context.addCookies([{ ...held, value: 'not-the-secret' }]);
+
+  const secondTab = new VendorPage(await context.newPage());
+  await secondTab.goto(market.marketSlug);
+
+  await expect(secondTab.emailInput).toBeVisible();
+  expect((await context.cookies()).map((c) => c.name)).not.toContain(COOKIE());
 });
 
 test('a vendor who leaves it unticked is asked for a code in a new tab', async ({

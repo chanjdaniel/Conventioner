@@ -1,7 +1,7 @@
 """Remember me on the vendor page (T202, ADR 0022), at the HTTP seam a browser and an attacker meet.
 
 A vendor who ticks "Remember me on this device" when they enter their code is given a cookie,
-``vendor_remember_<market id>``, holding a random secret; the server keeps only the secret's
+``__Host-vendor_remember_<market id>``, holding a random secret; the server keeps only the secret's
 SHA-256, with the market, the address and when it ends. On their next visit the page asks
 ``applicant-login/resume``, which answers as a right code does while the cookie is live. It ends at
 the earlier of the market's last date and 120 days, use never moves it, and Sign out ends it on the
@@ -26,9 +26,10 @@ from utils.application_token import verify_application_token
 
 SLUG = market_name_slug("Test Market")
 MARKET_ID = "market-123"
-COOKIE = f"vendor_remember_{MARKET_ID}"
+COOKIE = f"__Host-vendor_remember_{MARKET_ID}"
 OTHER_SLUG = market_name_slug("Other Market")
 OTHER_ID = "market-456"
+OTHER_COOKIE = f"__Host-vendor_remember_{OTHER_ID}"
 VENDOR = "vendor@example.com"
 CODE = "123456"
 # The market's dates are 2099-08-01 and 2099-08-02; its last date has ended everywhere at noon UTC
@@ -142,14 +143,27 @@ def _expires(response, name=COOKIE):
     return parsedate_to_datetime(expires)
 
 
+def _holds_the_host_prefix(attributes):
+    """A browser refuses a ``__Host-`` cookie without ``Secure`` and ``Path=/``, or with a ``Domain``."""
+    return (
+        "secure" in attributes
+        and "path=/" in attributes
+        and not any(a.startswith("domain") for a in attributes)
+    )
+
+
 def _cleared(response, name=COOKIE):
-    """Whether the answer tells the browser to drop the cookie now."""
+    """Whether the answer tells the browser to drop the cookie now.
+
+    A browser refuses a ``__Host-`` cookie that breaks the prefix's terms, a clearing one too, and
+    would keep the live one, so every way of clearing is held to them here.
+    """
     headers = _set_cookies(response, name)
     if len(headers) != 1:
         return False
     value, attributes = _set_cookie(response, name)
     return value == "" and _expires(response, name) < datetime.now(timezone.utc) and (
-        "secure" in attributes and "samesite=none" in attributes
+        _holds_the_host_prefix(attributes) and "samesite=none" in attributes
     )
 
 
@@ -178,6 +192,15 @@ class TestTickingRememberMe:
         assert "httponly" in attributes
         assert "samesite=none" in attributes
         assert "path=/" in attributes
+
+    def test_its_name_has_the_host_prefix_a_subdomain_cannot_overwrite(self, client, signing_in):
+        """OWASP's Session Management Cheat Sheet: the browser holds a ``__Host-`` cookie to this
+        one host, so a subdomain cannot set or shadow it."""
+        response = _sign_in(client, remember=True)
+
+        assert RememberedSignIns.cookie_name(MARKET_ID) == f"__Host-vendor_remember_{MARKET_ID}"
+        _value, attributes = _set_cookie(response, f"__Host-vendor_remember_{MARKET_ID}")
+        assert _holds_the_host_prefix(attributes)
 
     def test_it_lasts_until_the_last_date_has_ended(self, client, signing_in):
         assert _expires(_sign_in(client, remember=True)) == LAST_DATE_ENDS
@@ -326,8 +349,7 @@ class TestEveryRefusalIsOne:
 
     def _another_markets(self, client):
         """This market's secret, sent under the other market's name."""
-        name = f"vendor_remember_{OTHER_ID}"
-        return _resume(_on_another_device(_held(client), name=name), OTHER_SLUG)
+        return _resume(_on_another_device(_held(client), name=OTHER_COOKIE), OTHER_SLUG)
 
     def _gated(self, client):
         """The market taken back to draft: its page answers as absent, and so does its cookie."""
@@ -348,7 +370,7 @@ class TestEveryRefusalIsOne:
         _sign_in(client, remember=True)
         response = getattr(self, case)(client)
 
-        name = f"vendor_remember_{OTHER_ID}" if case == "_another_markets" else COOKIE
+        name = OTHER_COOKIE if case == "_another_markets" else COOKIE
         assert _cleared(response, name)
 
     def test_a_refused_cookie_stays_refused_once_the_market_is_back(
