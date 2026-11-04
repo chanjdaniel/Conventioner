@@ -802,11 +802,15 @@ watch(
   left: 10px;
   display: flex;
   align-items: center;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 3px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 3px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 5px and 6px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 5px 6px;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 2px 12px rgba(39, 35, 35, 0.12);
   z-index: 10;
 }
@@ -816,6 +820,7 @@ watch(
   height: 22px;
   margin: 0 var(--space-1);
   background: var(--mm-border);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 1px, and the nearest would change this floorplan beta corner */
   border-radius: 1px;
 }
 
@@ -831,6 +836,7 @@ watch(
   color: var(--mm-black);
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 5px, and the nearest would change this floorplan beta corner */
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
@@ -880,13 +886,16 @@ watch(
   left: 10px;
   display: flex;
   align-items: center;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 6px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 3px and 10px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 3px 10px;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(6px);
   border-radius: var(--radius-control);
   font-size: var(--text-xs);
   color: var(--mm-black);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 1px 6px rgba(39, 35, 35, 0.08);
   z-index: 10;
 }
@@ -900,6 +909,7 @@ watch(
 }
 
 .status-hint {
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   margin-left: 6px;
   padding-left: var(--space-2);
   border-left: 1px solid var(--mm-border);

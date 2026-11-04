@@ -637,6 +637,7 @@ onUnmounted(() => {
   justify-content: center;
   gap: var(--space-4);
   flex: 1;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 40px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 40px 24px;
 }
 
@@ -683,10 +684,12 @@ onUnmounted(() => {
   bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 20px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 8px 20px;
 
   background: rgba(39, 35, 35, 0.78);
   backdrop-filter: blur(6px);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
 
   font-size: var(--text-xs);
@@ -715,12 +718,16 @@ onUnmounted(() => {
   gap: var(--space-4);
   width: 100%;
   max-width: 380px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 28px and 22px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 28px 28px 22px;
   background: white;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 12px, and the nearest would change this floorplan beta corner */
   border-radius: 12px;
+  /* stylelint-disable declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow:
     0 4px 24px rgba(39, 35, 35, 0.16),
     0 1px 4px rgba(39, 35, 35, 0.08);
+  /* stylelint-enable declaration-property-value-disallowed-list */
 }
 
 .cal-dialog--result {
@@ -747,6 +754,7 @@ onUnmounted(() => {
 .cal-input-group {
   display: flex;
   flex-direction: column;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 6px;
 }
 
@@ -775,6 +783,7 @@ onUnmounted(() => {
 /* ── Unit selector ─────────────────────────────────────────────── */
 .cal-unit-group {
   display: flex;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 10px;
   border: none;
   margin: 0;
@@ -826,6 +835,7 @@ onUnmounted(() => {
 .cal-dialog-actions {
   display: flex;
   justify-content: flex-end;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 10px;
   padding-top: var(--space-1);
 }
@@ -835,12 +845,14 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 6px;
   min-width: 90px;
   height: 36px;
   padding: 0 var(--space-4);
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 5px, and the nearest would change this floorplan beta corner */
   border-radius: 5px;
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
@@ -893,7 +905,9 @@ onUnmounted(() => {
 .cal-result-grid {
   display: flex;
   flex-direction: column;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 10px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 6px 0 2px;
 }
 
@@ -902,8 +916,10 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: baseline;
   gap: var(--space-3);
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px and 14px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 10px 14px;
   background: var(--mm-beige);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
 }
 

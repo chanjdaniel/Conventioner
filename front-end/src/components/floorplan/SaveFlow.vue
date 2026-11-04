@@ -376,6 +376,7 @@ async function handleSave() {
   color: white;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 5px, and the nearest would change this floorplan beta corner */
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
@@ -388,12 +389,14 @@ async function handleSave() {
     background-color 0.15s ease-in-out,
     box-shadow 0.15s ease-in-out;
 
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 2px 8px rgba(39, 35, 35, 0.15);
 }
 
 .save-button:hover:not(:disabled) {
   opacity: 0.9;
   background: color-mix(in srgb, var(--mm-green) 85%, black);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 4px 14px rgba(39, 35, 35, 0.22);
 }
 
@@ -428,12 +431,15 @@ async function handleSave() {
   transform: translateX(-50%);
   z-index: 3000;
 
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 28px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 12px 28px;
   background: var(--mm-green);
   color: white;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
 
   font-size: var(--text-sm);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 4px 20px rgba(39, 35, 35, 0.22);
 }
 
@@ -487,6 +493,7 @@ async function handleSave() {
   display: flex;
   flex-direction: column;
   background: white;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 14px, and the nearest would change this floorplan beta corner */
   border-radius: 14px;
   box-shadow: var(--shadow-card);
   overflow: hidden;
@@ -501,6 +508,7 @@ async function handleSave() {
   align-items: center;
   gap: var(--space-3);
   min-height: 56px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 10px 16px 12px;
   background-color: var(--mm-black);
   color: white;
@@ -530,6 +538,7 @@ async function handleSave() {
   padding: 0;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
   background: transparent;
   color: white;
@@ -572,20 +581,24 @@ async function handleSave() {
 .save-dialog-body {
   flex: 1;
   min-height: 0;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 22px and 20px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 24px 22px 20px;
   background: white;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 20px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 20px;
 }
 
 /* ── Messages ───────────────────────────────────────────────── */
 .save-dialog-success {
   margin: 0;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 10px 16px;
   background: color-mix(in srgb, var(--mm-green) 18%, transparent);
   border: 1px solid var(--mm-green);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
   color: var(--mm-green);
   font-size: var(--text-sm);
@@ -594,9 +607,11 @@ async function handleSave() {
 
 .save-dialog-error {
   margin: 0;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 10px 16px;
   background: color-mix(in srgb, var(--mm-yellow) 20%, transparent);
   border: 1px solid var(--mm-yellow);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
   color: var(--mm-black);
   font-size: var(--text-sm);
@@ -615,6 +630,7 @@ async function handleSave() {
   flex-direction: column;
   align-items: center;
   gap: var(--space-1);
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 14px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 14px 12px;
   background: var(--mm-beige);
   border-radius: var(--radius-card);
@@ -647,6 +663,7 @@ async function handleSave() {
 .save-section {
   display: flex;
   flex-direction: column;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 10px;
 }
 
@@ -656,6 +673,7 @@ async function handleSave() {
   font-size: var(--text-md);
   color: var(--mm-black);
   border-bottom: 2px solid var(--mm-border);
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding-bottom: 6px;
 }
 
@@ -677,6 +695,7 @@ async function handleSave() {
 }
 
 .save-tag {
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 5px and 14px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 5px 14px;
   background: var(--mm-beige);
   border-radius: var(--radius-pill);
@@ -689,6 +708,7 @@ async function handleSave() {
 .save-sections-grid {
   display: flex;
   flex-direction: column;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 10px;
 }
 
@@ -696,7 +716,9 @@ async function handleSave() {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 10px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 14px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 14px 16px;
   background: var(--mm-beige);
   border-radius: var(--radius-card);
@@ -728,6 +750,7 @@ async function handleSave() {
 .save-section-card-input {
   width: 100%;
   height: 34px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 0 10px;
   background: white;
   border: 1px solid var(--mm-border);
@@ -779,7 +802,9 @@ async function handleSave() {
   flex-shrink: 0;
   display: flex;
   justify-content: flex-end;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 10px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 14px and 22px and 18px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 14px 22px 18px;
   background: white;
   border-top: 1px solid var(--mm-border);
@@ -792,9 +817,11 @@ async function handleSave() {
   gap: var(--space-2);
   min-width: 100px;
   height: 36px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 20px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 0 20px;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 5px, and the nearest would change this floorplan beta corner */
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;

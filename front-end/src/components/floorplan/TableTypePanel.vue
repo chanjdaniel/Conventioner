@@ -466,6 +466,7 @@ function deleteType(tt: TableTypeObject) {
 .table-type-panel {
   display: flex;
   flex-direction: column;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 14px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 14px;
 }
 
@@ -489,7 +490,9 @@ function deleteType(tt: TableTypeObject) {
 .tt-type-card {
   display: flex;
   align-items: center;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 10px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 10px 12px;
   background: var(--mm-beige);
   border: 1.5px solid transparent;
@@ -503,6 +506,7 @@ function deleteType(tt: TableTypeObject) {
 .tt-type-card:hover {
   border-color: var(--mm-green);
   background: white;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 2px 12px rgba(54, 130, 111, 0.12);
 }
 
@@ -575,6 +579,7 @@ function deleteType(tt: TableTypeObject) {
 /* ── Empty state ─────────────────────────────────────────────── */
 .tt-empty {
   margin: 0;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 20px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 20px 0;
   text-align: center;
   font-size: var(--text-xs);
@@ -592,6 +597,7 @@ function deleteType(tt: TableTypeObject) {
   background: transparent;
   color: var(--mm-green);
   border: 1.5px dashed var(--mm-green);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
@@ -612,10 +618,12 @@ function deleteType(tt: TableTypeObject) {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 14px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 14px;
   background: white;
   border: 1.5px solid var(--mm-green);
   border-radius: var(--radius-card);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 2px 12px rgba(54, 130, 111, 0.1);
 }
 
@@ -623,11 +631,13 @@ function deleteType(tt: TableTypeObject) {
 .tt-field {
   display: flex;
   flex-direction: column;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 5px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 5px;
 }
 
 .tt-field-row {
   display: flex;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 10px;
 }
 
@@ -665,6 +675,7 @@ function deleteType(tt: TableTypeObject) {
 .tt-capacity-option {
   display: flex;
   align-items: center;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 6px;
   font-size: var(--text-sm);
   color: var(--mm-black);
@@ -694,6 +705,7 @@ function deleteType(tt: TableTypeObject) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 6px;
   height: 34px;
   padding: 0 var(--space-4);
@@ -703,6 +715,7 @@ function deleteType(tt: TableTypeObject) {
   color: white;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 5px, and the nearest would change this floorplan beta corner */
   border-radius: 5px;
   cursor: pointer;
   transition:

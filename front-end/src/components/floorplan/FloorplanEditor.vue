@@ -644,11 +644,15 @@ watch(
   top: 12px;
   right: 12px;
   display: flex;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 6px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 6px 8px;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 2px 12px rgba(39, 35, 35, 0.12);
   z-index: 10;
 }
@@ -659,11 +663,13 @@ watch(
   justify-content: center;
   min-width: 32px;
   height: 32px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 0 10px;
 
   background: var(--mm-green);
   color: white;
   border: none;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 5px, and the nearest would change this floorplan beta corner */
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
@@ -698,6 +704,7 @@ watch(
   left: 50%;
   transform: translateX(-50%);
   z-index: 15;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 20px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 8px 20px;
   background: color-mix(in srgb, var(--mm-yellow) 22%, transparent);
   border: 1px solid var(--mm-yellow);

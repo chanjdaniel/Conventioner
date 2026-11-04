@@ -209,7 +209,9 @@ function onSaved(payload: { market_id: string }) {
 .workflow-progress span {
   font-size: var(--text-xs);
   color: var(--mm-text-muted-on-beige);
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px and 14px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 6px 14px;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 20px, and the nearest would change this floorplan beta corner */
   border-radius: 20px;
   background: transparent;
   transition:
@@ -272,6 +274,7 @@ function onSaved(payload: { market_id: string }) {
 .wall-toggle {
   display: inline-flex;
   align-items: center;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 6px;
   font-size: var(--text-xs);
   color: var(--mm-black);
@@ -302,6 +305,7 @@ function onSaved(payload: { market_id: string }) {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 14px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 14px 24px;
   background: white;
   border-top: 1.5px solid var(--mm-border);
@@ -311,14 +315,17 @@ function onSaved(payload: { market_id: string }) {
 .nav-btn {
   display: inline-flex;
   align-items: center;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 6px;
   height: 38px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 20px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 0 20px;
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
   line-height: 1;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
   cursor: pointer;
   transition:
