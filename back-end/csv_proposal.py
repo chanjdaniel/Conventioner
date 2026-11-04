@@ -163,7 +163,7 @@ def _names_someone(value: str) -> bool:
     times, years and dates ("9.30 - 4.30", "2023 - 2024") or a range of numbers around a dash, each
     end within one of round ("500-1000"), which a question offers. What no pattern sees, such as a bare name, a shop's name, a handle with no @
     or a postal code, only SHARED_BY guards in ``kept_readings``, and in ``every_reading`` only its
-    rule on a column of nearly all different answers (ADR 0022).
+    rule on a column of nearly all different answers (ADR 0023).
     """
     if any(pattern.search(value) for pattern in (EMAIL, SPELLED_EMAIL, URL, DOMAIN, ANY_HANDLE,
                                                   STREET)):
@@ -461,7 +461,7 @@ def kept_readings(field: Dict[str, Any]) -> Dict[str, List[str]]:
 
 
 def every_reading(field: Dict[str, Any]) -> Optional[Dict[str, List[str]]]:
-    """Both readings of every answer the column holds, for an option to offer (ADR 0022): each less
+    """Both readings of every answer the column holds, for an option to offer (ADR 0023): each less
     what ``_names_someone`` catches, values only, most chosen first, so always a superset of
     ``kept_readings``. Nothing for a column whose answers are nearly all different, a whole column
     of who they are (a Discord username, a shop's name): at least ``NEARLY_ALL`` as many answers as

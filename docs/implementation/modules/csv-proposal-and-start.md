@@ -77,7 +77,7 @@ It is server-owned: the start writes it, and a create body that carries it, or a
 Who applied, when and the essential questions are not kept: none is a question to add or retype.
 A later import does not refresh it: the form locks at the first application, so it is never read after one.
 
-**The start also keeps every answer of a column, for an option on the Questions tab to offer** (`answers`, [ADR 0022](../../adr/0022-every-answer-for-an-option-to-offer.md), T213).
+**The start also keeps every answer of a column, for an option on the Questions tab to offer** (`answers`, [ADR 0023](../../adr/0023-every-answer-for-an-option-to-offer.md), T213).
 `every_reading` holds both readings, each less what `_names_someone` catches, values only, most chosen first, so it is a superset of `kept_readings`, which it leaves as it was.
 A column whose answers are nearly all different returns nothing and is written with no `answers` key: its Select reading holds at least `NEARLY_ALL` (97%) as many answers as applicants who answered, and at least `NEARLY_ALL_DIFFERENT_FROM` (20) answered, which keeps whole columns of Discord usernames and shop names off the market.
 Elsewhere no share of applicants guards it, so what no pattern sees, such as a bare name or a shop's name typed into a choice column, is kept.

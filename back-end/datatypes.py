@@ -583,7 +583,7 @@ class ExampleColumn(BaseModel):
 
     Only what the Review step showed and the privacy view lets through: the organizer's own
     heading, and the options at least 3 applicants chose that name nobody (``csv_proposal``); and,
-    for an option to offer, every answer that no pattern finds naming someone (ADR 0022).
+    for an option to offer, every answer that no pattern finds naming someone (ADR 0023).
     """
     # The column's heading, or a grid's, as the import mapping names them.
     headers: List[str] = []

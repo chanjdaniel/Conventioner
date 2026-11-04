@@ -14,7 +14,7 @@ update of the market document, everything the ledger holds:
   organizer's own or was left out, its label, help text, key and both readings of its answers as
   choices, privacy-filtered (``csv_proposal.kept_readings``), so the Questions tab can fill a
   question's options, or add one from a left-out column, without the file; and every answer in both
-  readings (``csv_proposal.every_reading``), so an option can offer them (ADR 0022).
+  readings (``csv_proposal.every_reading``), so an option can offer them (ADR 0023).
 
 It writes through the same judgements as the plan's and the form's own writes
 (``prepared_plan``, ``prepared_application_form``) - the form lock above all - and then as one

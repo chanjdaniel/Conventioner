@@ -6,7 +6,7 @@
  * column by key, the same link the saved import mapping keeps; a question of no column behaves as
  * it always did.
  *
- * Two readings stand side by side (ADR 0022). `options`, the common answers, are the defaults: what
+ * Two readings stand side by side (ADR 0023). `options`, the common answers, are the defaults: what
  * a type change, "Use the answers in your file" and "Add from your file" fill. `answers`, every
  * answer, is only what an option's own list offers.
  */

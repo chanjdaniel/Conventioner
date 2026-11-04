@@ -913,7 +913,7 @@ def _stamp_effective_market_state(market: Dict[str, Any], phase: MarketPhase) ->
 
 def leave_out_every_answer(market_document: Dict[str, Any]) -> None:
     """Serve a market's columns without ``answers``, as a copy, so the document it was read from
-    keeps them (ADR 0022). The read keeps them for someone who may change the form while it can
+    keeps them (ADR 0023). The read keeps them for someone who may change the form while it can
     still change; every other answer that holds a market asks this unconditionally."""
     key = market_doc_key("example_columns")
     columns = market_document.get(key)
@@ -1190,7 +1190,7 @@ def _decorate_market_summary(
     # A Discord check's stored inputs, which no list entry serves, as no market read does.
     from api.discord_connection import leave_out_what_is_not_served
     leave_out_what_is_not_served(market)
-    # Every answer a market keeps, which would grow the list by every market it names (ADR 0022).
+    # Every answer a market keeps, which would grow the list by every market it names (ADR 0023).
     leave_out_every_answer(market)
     # Deprecated, as the market read's: an old bundle's card offers Manage on it.
     market['user_role'] = user_role.value if user_role else None

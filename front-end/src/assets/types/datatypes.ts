@@ -540,7 +540,7 @@ export interface FormField {
 /**
  * One column of the file a market was started from (E38/F02/S01): a question the start made, or a
  * column it left out. Its options are only the answers at least 3 applicants gave that name nobody;
- * its answers, when it has them, are every answer that names nobody (ADR 0022).
+ * its answers, when it has them, are every answer that names nobody (ADR 0023).
  */
 export interface ExampleColumn {
   headers: string[];

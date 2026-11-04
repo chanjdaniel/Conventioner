@@ -539,7 +539,7 @@ def test_the_rules_read_through_the_filter_they_were_measured_with():
     assert CsvProposal.kept_readings(field)["select"] == sorted(ranges)
 
 
-# --- Every answer the file gave, for an option to offer (T213, ADR 0022) ---------------------------
+# --- Every answer the file gave, for an option to offer (T213, ADR 0023) ---------------------------
 
 def _field_answering(answers):
     """The proposal's field for a column these applicants answered, one answer each."""

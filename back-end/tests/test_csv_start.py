@@ -378,7 +378,7 @@ def test_the_start_keeps_both_readings_of_each_question_it_made():
 def test_what_the_start_keeps_passes_the_privacy_filter():
     """An answer at least 3 applicants gave that holds a link or a phone number is shown on the
     Review step but never kept; one fewer than 3 gave is kept only among every answer, for an option
-    to offer, and never among the options a type change fills (ADR 0022)."""
+    to offer, and never among the options a type change fills (ADR 0023)."""
     kept = _kept(_confirmed_update(_draft(), _example(), {}))
     stored = repr(kept)
     for value in ("www.example.com", "555-0101", "@shop", "vendor01@example.com", "Vendor Amber"):
