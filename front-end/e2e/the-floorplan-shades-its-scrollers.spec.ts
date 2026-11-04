@@ -160,7 +160,9 @@ test('the floorplan shades what scrolls, and its steps leave scrolling to the pa
       page.evaluate(([px, py]) => document.elementFromPoint(px, py)?.tagName, [x, y]);
     expect(await under(beside.x, beside.y), 'a press beside the panel').toBe('CANVAS');
     const over = await page.evaluate(
-      ([px, py]) => document.elementFromPoint(px, py)?.closest('.sg-panel') !== null,
+      ([px, py]) =>
+        document.elementFromPoint(px, py)?.closest('[data-testid="floorplan-sections-panel"]') !==
+        null,
       [box.x + box.width / 2, box.y + box.height - 2],
     );
     expect(over, 'a press on the panel, the shade taking no pointer').toBe(true);
@@ -180,6 +182,7 @@ test('the floorplan shades what scrolls, and its steps leave scrolling to the pa
     await page.mouse.move(box.x + box.width - 8, inView.bottom - 60, { steps: 8 });
     await page.mouse.up();
     await expect(wizard.sectionDialogNameInput).toBeVisible();
+    await expect(wizard.sectionDialogNameInput, 'focus goes into the dialog').toBeFocused();
 
     await page.setViewportSize(VERY_SHORT);
     const scroller = page.getByTestId('floorplan-section-dialog-body');
@@ -205,6 +208,13 @@ test('the floorplan shades what scrolls, and its steps leave scrolling to the pa
         .getByTestId('floorplan-save-dialog')
         .evaluate((el) => getComputedStyle(el).borderTopLeftRadius),
     ).toBe('14px');
+    // "1 table" beside "0 tables" must not narrow a row's fields, or the column of them does not line up.
+    const names = page.getByTestId('floorplan-save-section-name');
+    expect(await names.count()).toBeGreaterThan(1);
+    const widths = await names.evaluateAll((all) =>
+      all.map((el) => el.getBoundingClientRect().width),
+    );
+    expect(new Set(widths).size, `the name fields' widths: ${widths.join(', ')}`).toBe(1);
     await expectAccessible('the save dialog, scrolled');
   });
 });

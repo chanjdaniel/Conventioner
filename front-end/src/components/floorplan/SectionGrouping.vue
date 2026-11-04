@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { Layer as VLayer, Rect as VRect, Stage as VStage } from 'vue-konva';
 import { useModalRoot } from '@/utils/useModalRoot';
 import ScrollBox from '@/components/ScrollBox.vue';
@@ -48,6 +48,14 @@ const showDialog = ref(false);
  * and marks the whole page in one step.
  */
 const modalRoot = useModalRoot(showDialog);
+
+/** Focus goes into the dialog: `autofocus` does nothing on an element mounted after the page's load. */
+const sectionNameInput = ref<HTMLInputElement | null>(null);
+watch(showDialog, async (open) => {
+  if (!open) return;
+  await nextTick();
+  sectionNameInput.value?.focus();
+});
 const showSectionList = ref(false);
 
 // Dialog fields
@@ -517,8 +525,8 @@ onUnmounted(() => {
                     v-model="dialogSectionName"
                     class="sg-field-input"
                     type="text"
+                    ref="sectionNameInput"
                     placeholder="e.g. A"
-                    autofocus
                     data-testid="floorplan-section-dialog-name-input"
                   />
                 </label>

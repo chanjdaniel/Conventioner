@@ -296,6 +296,7 @@ async function handleSave() {
                         :id="`sec-name-${section.id}`"
                         type="text"
                         class="save-section-card-input"
+                        data-testid="floorplan-save-section-name"
                         :value="section.name"
                         :disabled="saving"
                         @input="
@@ -753,10 +754,11 @@ async function handleSave() {
   cursor: not-allowed;
 }
 
+/* One width, whatever the count says, so "1 table" beside "0 tables" leaves the fields lined up. */
 .save-section-card-meta {
   display: flex;
   align-items: center;
-  flex-shrink: 0;
+  flex: 0 0 4.5rem;
   padding-bottom: 2px;
 }
 
