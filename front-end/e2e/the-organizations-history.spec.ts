@@ -2,6 +2,7 @@ import type { APIRequestContext, Browser, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL, LoginPage, OrganizationsPage } from './fixtures';
 import { loginViaApi } from './helpers/seeds';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
+import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
 
 /**
  * The organization's own changes, read in Manage organization's History section (E40/F02/S01).
@@ -58,6 +59,7 @@ function today(page: Page): Promise<string> {
 
 async function signedIn(browser: Browser, who: { email: string; password: string }) {
   const context = await browser.newContext();
+  await hideDevToolsPanel(context);
   const page = await context.newPage();
   const login = new LoginPage(page);
   await login.goto();

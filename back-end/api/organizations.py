@@ -444,8 +444,9 @@ def _market_summary(document: Dict[str, Any]) -> Dict[str, Any]:
         "phase_label": phase_label(phase, intake_mode_from_market_document(document)),
         "ran": ran,
         "placements": len(placements),
-        # The check-in page an archived market keeps is the one URL deleting it takes off the air
-        # (E26/F06/S02), and only a market that ran has one; any other slug resolves to nothing.
+        # Its vendor page is the one URL deleting it takes off the air that anyone was given: an
+        # archived market keeps it as the record only if it ran (E26/F06/S02, ADR 0022), as the
+        # rail shares it.
         "public_slug": (document.get("slug") or market_name_slug(name)) if ran else None,
     }
 

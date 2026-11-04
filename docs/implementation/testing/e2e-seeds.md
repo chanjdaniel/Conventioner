@@ -141,7 +141,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - `fields` gives its form its own questions
   - its review setup decided before it opens, the drafts' too, unless `reviewSetupUndecided: true`
   - it creates no application
-  - `seedApplicationDoc()` and `createApplicantLoginChallenge()` write one and a known sign-in code into Mongo
+  - `seedApplicationDoc()` and `createApplicantLoginChallenge()` write one and a known sign-in code into Mongo, the code planted after the request it stands in for, with none of its five tries used unless `attempts` says how many
 
 **`seedExampleMarket()`** ([file](../../../front-end/e2e/helpers/exampleCollegeMarket.ts))
 - Leaves: a draft on the vendors' own page, with two dates, Gold and Silver, and the Example College form's two choice questions
@@ -198,8 +198,8 @@ It used to be `GET /markets/{id}/assignment`, which only computes, followed by a
 **A seed walks the market to `assignment` before it assigns** ([assign runs only in assignment](../../business/rules/assign-runs-only-in-assignment.md)): `applications`, then `assignment`, each through `POST /markets/{id}/transition`, its applications seeded first, since a `csv` market enters `applications` only holding some, the only thing that moves a phase; no request body sets `phase` or `isDraft`.
 
 **Publishing is `assignment -> market_days`**, and that move's entry invariant is that an assignment exists, so `seedPublishedMarketWithAssignments()` assigns before it publishes.
-A `form` market must publish its results first ([publish results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md)), so with `intakeMode: 'form'` the helper calls `POST /markets/{id}/publish-results` in between; absent, the market is a CSV market and needs neither.
-It returns the `marketSlug` of the public check-in page, which serves a running market.
+A market must publish its results first, on either path ([publish results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md)), so the helper calls `POST /markets/{id}/publish-results` in between.
+It returns the `marketSlug` of the market's vendor page, where its vendors check in.
 
 ## Sharp edges
 

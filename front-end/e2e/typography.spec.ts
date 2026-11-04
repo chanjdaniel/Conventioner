@@ -192,12 +192,12 @@ test.describe('No element falls through to a user-agent font', () => {
     expect(metaFace, 'the section meta chip should not inherit the heading face').toBe('Outfit');
   });
 
-  test('the public check-in page, which no organizer login protects', async ({ page }) => {
-    await page.goto(`/${marketSlug}/check-in`);
-    await expect(page.getByTestId('attendance-checkin-market-name')).toBeVisible({
+  test('the vendor page, which no organizer login protects', async ({ page }) => {
+    await page.goto(`/${marketSlug}`);
+    await expect(page.getByTestId('vendor-page-market-name')).toBeVisible({
       timeout: 10000,
     });
 
-    await expectNoUserAgentFont(page, '/check-in');
+    await expectNoUserAgentFont(page, '/<slug>');
   });
 });

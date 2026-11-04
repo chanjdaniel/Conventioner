@@ -1,7 +1,16 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
-import { test, expect, TEST_USER, BACKEND_URL, LoginPage, FloorplanWorkflowPage } from './fixtures';
+import {
+  test,
+  expect,
+  TEST_USER,
+  BACKEND_URL,
+  LoginPage,
+  FloorplanWorkflowPage,
+  VendorPage,
+} from './fixtures';
+import { calendarToday, forgetSignInAttempts, signInOnThePage } from './helpers/vendorSignIn';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { TablesPage } from './pages/TablesPage';
 import { namelessControls } from './helpers/accessibleNames';
@@ -145,20 +154,22 @@ test('every field a vendor meets has a name, from signing in to applying', async
     { setupObject: planSetupObject() },
   );
   const vendor = `vendor-${Date.now()}@example.com`;
-  await page.goto(`/${marketSlug}/applicant-login?redirect=apply`);
-  await expect(page.getByTestId('applicant-login-email-input')).toBeVisible();
+  await page.goto(`/${marketSlug}`);
+  await expect(page.getByTestId('vendor-sign-in-email-input')).toBeVisible();
   expect(await namelessControls(page), 'email step').toEqual([]);
 
-  await page.getByTestId('applicant-login-email-input').fill(vendor);
-  await page.getByTestId('applicant-login-request-btn').click();
-  await expect(page.getByTestId('applicant-login-code-input')).toBeVisible();
+  await page.getByTestId('vendor-sign-in-email-input').fill(vendor);
+  await page.getByTestId('vendor-sign-in-request-btn').click();
+  await expect(page.getByTestId('vendor-sign-in-code-input')).toBeVisible();
   expect(await namelessControls(page), 'code step').toEqual([]);
 
   // Email is off on this stack, so the code the vendor would read is planted in its place.
   createApplicantLoginChallenge(marketId, vendor, '135790');
-  await page.getByTestId('applicant-login-code-input').fill('135790');
-  await page.getByTestId('applicant-login-verify-btn').click();
-  await page.waitForURL(new RegExp(`/${marketSlug}/apply`));
+  await page.getByTestId('vendor-sign-in-code-input').fill('135790');
+  await page.getByTestId('vendor-sign-in-verify-btn').click();
+  await expect(page.getByTestId('vendor-page-apply-btn')).toBeVisible();
+  expect(await namelessControls(page), 'the vendor page, signed in').toEqual([]);
+  await page.getByTestId('vendor-page-apply-btn').click();
   await expect(page.getByTestId('apply-form')).toBeVisible();
   expect(await namelessControls(page), 'the application form').toEqual([]);
 });
@@ -278,10 +289,24 @@ test('every field on every other organizer screen and dialog has a name', async 
   await expect(tables.historyEntries.first()).toBeVisible();
   await named('the placement history');
   await page.keyboard.press('Escape');
+});
 
-  await page.goto(`/${published.marketSlug}/check-in`);
-  await page.waitForLoadState('networkidle');
-  await named('the public check-in page');
+test("every field of a vendor's check-in has a name", async ({ page, request }) => {
+  // On their vendor page, on the market's day (ADR 0022): the door code is typed in a field.
+  forgetSignInAttempts();
+  const vendor = `named-check-in-${Date.now()}@example.com`;
+  const seed = await seedPublishedMarketWithAssignments(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { marketDate: calendarToday(), vendors: [vendor] },
+  );
+  const vendorPage = new VendorPage(page);
+  await vendorPage.goto(seed.marketSlug);
+  await signInOnThePage(vendorPage, seed.marketId, vendor);
+  await expect(vendorPage.doorCodeInput).toBeVisible();
+  expect(await namelessControls(page), "today's check-in").toEqual([]);
 });
 
 test('every field of the import has a name', async ({ authenticatedPage: page, request }) => {

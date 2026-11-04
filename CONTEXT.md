@@ -27,7 +27,7 @@ _Avoid_: Status, stage, state (all used for other things; `isDraft` in particula
 See [Phase](docs/business/concepts/phase.md).
 
 **Publish**:
-To put a market's check-in page on the air: the `assignment` -> `market_days` transition, taken once tables have been allocated. A published market is running, not finished.
+To open a market's check-in on its vendor page: the `assignment` -> `market_days` transition, taken once tables have been allocated and the results published. A published market is running, not finished.
 _Avoid_: Archive (that is the opposite), go live, release
 
 **Market days**:
@@ -38,7 +38,7 @@ Finished. A market that has run and is over, or one abandoned before it ever ran
 _Avoid_: Published, closed
 
 **Intake mode**:
-How a market receives its vendors - by importing a CSV, or through the public application form. Exactly one, chosen while the market is a draft and frozen thereafter. It decides whether the public applicant surface answers, but never gates check-in, and never gates authoring the form itself: a CSV market still has an application form, because the essential questions define the offering the CSV maps onto.
+How a market receives its vendors - by importing a CSV, or through the public application form. Exactly one, chosen while the market is a draft and frozen thereafter. It decides whether vendors apply on the market's page and when that page first answers (a CSV market's once its results are published), but never gates check-in, and never gates authoring the form itself: a CSV market still has an application form, because the essential questions define the offering the CSV maps onto.
 See [Intake mode](docs/business/concepts/intake-mode.md).
 
 **CSV import**:

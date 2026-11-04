@@ -143,7 +143,14 @@ for (const { name, width, use } of WINDOWS) {
       await login.otpEmailInput.fill(TEST_USER.email);
       await login.otpSubmitButton.click();
       await expect(login.otpCodeInput).toBeVisible();
-      await expectEachFieldInItsBox(page, login, 2);
+      // The code field is `CodeInput`, its own box: the email keeps to its box, and the code to the
+      // card, as `the-code-field.spec.ts` also holds.
+      await expectEachFieldInItsBox(page, login, 1);
+      expectWithin(
+        await spanOf(login.otpCodeInput),
+        await spanOf(page.getByTestId('auth-card')),
+        'the code field',
+      );
       await expectTheWindowsWidth(page, width);
     });
   });

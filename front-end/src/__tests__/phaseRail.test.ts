@@ -266,34 +266,17 @@ describe('a market that left the spine', () => {
   });
 });
 
-describe('the check-in URL', () => {
-  it('is on the rail once the market is published', () => {
-    const rail = railFor(MarketPhase.MarketDays, { slug: 'riverside-market' });
-
-    expect(rail.get('[data-testid="phase-rail-checkin"]').text()).toContain(
-      '/riverside-market/check-in',
-    );
-  });
-
-  it('is absent before publishing, because it would be a link to a 404', () => {
-    for (const phase of [MarketPhase.Draft, MarketPhase.Applications, MarketPhase.Assignment]) {
-      expect(
-        railFor(phase, { slug: 'riverside-market' })
-          .find('[data-testid="phase-rail-checkin"]')
-          .exists(),
-      ).toBe(false);
+describe('the check-in page (ADR 0022)', () => {
+  it('is gone from the rail in every phase: vendors check in on their vendor page', () => {
+    for (const phase of [MarketPhase.MarketDays, MarketPhase.Archived]) {
+      const rail = railFor(phase, {
+        slug: 'riverside-market',
+        intakeMode: 'form',
+        phasesReached: [MarketPhase.MarketDays],
+      } as Partial<Market>);
+      expect(rail.find('[data-testid="phase-rail-checkin"]').exists()).toBe(false);
+      expect(rail.text()).not.toContain('/riverside-market/check-in');
     }
-  });
-
-  it('copies in one action', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal('navigator', { clipboard: { writeText } });
-
-    const rail = railFor(MarketPhase.MarketDays, { slug: 'riverside-market' });
-    await rail.get('[data-testid="phase-rail-checkin-copy"]').trigger('click');
-
-    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('/riverside-market/check-in'));
-    vi.unstubAllGlobals();
   });
 });
 
@@ -320,8 +303,7 @@ describe('an address on a phone (T142)', () => {
     const rail = railFor(MarketPhase.MarketDays, running);
 
     for (const [testId, name, end] of [
-      ['phase-rail-apply', 'Application page', '/riverside-market/apply'],
-      ['phase-rail-checkin', 'Check-in page', '/riverside-market/check-in'],
+      ['phase-rail-vendor-page', 'Vendor page', '/riverside-market'],
     ]) {
       const chip = rail.get(`[data-testid="${testId}"]`);
       const links = chip.findAll('a');
@@ -335,10 +317,12 @@ describe('an address on a phone (T142)', () => {
 
   it('shows the address itself past the break', () => {
     windowOf(false);
-    const chip = railFor(MarketPhase.MarketDays, running).get('[data-testid="phase-rail-checkin"]');
+    const chip = railFor(MarketPhase.MarketDays, running).get(
+      '[data-testid="phase-rail-vendor-page"]',
+    );
 
-    expect(chip.get('a').text()).toMatch(/\/riverside-market\/check-in$/);
-    expect(chip.text()).toContain('Check-in page');
+    expect(chip.get('a').text()).toMatch(/\/riverside-market$/);
+    expect(chip.text()).toContain('Vendor page');
   });
 });
 
@@ -350,23 +334,15 @@ describe("an archived market's addresses (E30/F01/S03)", () => {
     phaseRecordComplete: true,
   } as Partial<Market>;
 
-  it('keeps the check-in page of a market that ran: it stays up as the record', () => {
-    const rail = railFor(MarketPhase.Archived, ran);
-    expect(rail.get('[data-testid="phase-rail-checkin"]').text()).toContain(
-      '/riverside-market/check-in',
-    );
+  it('keeps the vendor page of a market that ran: it is where its vendors read where they sat', () => {
+    const chip = railFor(MarketPhase.Archived, ran).get('[data-testid="phase-rail-vendor-page"]');
+    expect(chip.get('a').attributes('href')).toMatch(/\/riverside-market$/);
   });
 
-  it('drops the application page, which no longer takes anyone anywhere', () => {
-    expect(
-      railFor(MarketPhase.Archived, ran).find('[data-testid="phase-rail-apply"]').exists(),
-    ).toBe(false);
-  });
-
-  it('shows no check-in page for a market that never ran, since it has none', () => {
+  it('drops the vendor page of a market archived without running', () => {
     const never = { ...ran, phasesReached: [MarketPhase.Draft, MarketPhase.Archived] };
     expect(
-      railFor(MarketPhase.Archived, never).find('[data-testid="phase-rail-checkin"]').exists(),
+      railFor(MarketPhase.Archived, never).find('[data-testid="phase-rail-vendor-page"]').exists(),
     ).toBe(false);
   });
 });
@@ -406,5 +382,62 @@ describe('a phase the lifecycle does not draw', () => {
         .map((s) => s.attributes('data-phase'));
       expect(phases).not.toContain('offers');
     }
+  });
+});
+
+describe("the vendor page's address (ADR 0022)", () => {
+  const form = { slug: 'riverside-market', intakeMode: 'form' } as Partial<Market>;
+
+  it.each([
+    [MarketPhase.Draft, false],
+    [MarketPhase.Applications, true],
+    [MarketPhase.Assignment, true],
+    [MarketPhase.MarketDays, true],
+  ])('in %s, on a market whose vendors apply on its page: %s', (phase, shown) => {
+    const chip = railFor(phase, form).find('[data-testid="phase-rail-vendor-page"]');
+    expect(chip.exists()).toBe(shown);
+    if (shown) {
+      expect(chip.text()).toContain('Vendor page');
+      expect(chip.get('a').attributes('href')).toMatch(/\/riverside-market$/);
+    }
+  });
+
+  const csv = { ...form, intakeMode: 'csv' } as Partial<Market>;
+  const chipOn = (phase: MarketPhase, market: Partial<Market>) =>
+    railFor(phase, market).find('[data-testid="phase-rail-vendor-page"]').exists();
+
+  it('is not shown on a Google Form market before its results', () => {
+    expect(chipOn(MarketPhase.Applications, csv)).toBe(false);
+    expect(chipOn(MarketPhase.Assignment, csv)).toBe(false);
+  });
+
+  it('is shown on a Google Form market once its results are published', () => {
+    const chip = railFor(MarketPhase.Assignment, { ...csv, resultsPublished: true }).get(
+      '[data-testid="phase-rail-vendor-page"]',
+    );
+    expect(chip.get('a').attributes('href')).toMatch(/\/riverside-market$/);
+  });
+
+  it('is shown on a Google Form market in its market days, published or not', () => {
+    expect(chipOn(MarketPhase.MarketDays, csv)).toBe(true);
+  });
+
+  it('stays on an archived Google Form market only if it ran', () => {
+    const ran = { ...csv, resultsPublished: true, phasesReached: [MarketPhase.MarketDays] };
+    expect(chipOn(MarketPhase.Archived, ran)).toBe(true);
+    expect(chipOn(MarketPhase.Archived, { ...ran, phasesReached: [MarketPhase.Assignment] })).toBe(
+      false,
+    );
+  });
+
+  it('copies the whole address', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+
+    const rail = railFor(MarketPhase.Applications, form);
+    await rail.get('[data-testid="phase-rail-vendor-page-copy"]').trigger('click');
+
+    expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/\/riverside-market$/));
+    vi.unstubAllGlobals();
   });
 });

@@ -1,7 +1,7 @@
 """Renaming is its own write, and only while the market is a draft (E21/F03/S04).
 
-The name decides the slug, and the slug is the market's public address - the applicant link while
-applications are open, the check-in page and any printed QR code once published. A rename after
+The name decides the slug, and the slug is the market's public address - the vendor page's link from
+applications to market days, and any printed door code once published. A rename after
 draft moves an address that has already been shared, so it is refused with that reason rather than
 silently breaking the links. Decided in the-market-frame ticket 04.
 """

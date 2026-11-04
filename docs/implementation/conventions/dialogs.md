@@ -19,9 +19,10 @@ describes:
   - front-end/e2e/removing-someone-asks-first.spec.ts
   - front-end/src/__tests__/appDialog.test.ts
   - front-end/e2e/the-component-library-dialog.spec.ts
-  - front-end/e2e/the-component-library-summaries.spec.ts
   - front-end/src/__tests__/changingARoleAsksFirst.test.ts
   - front-end/e2e/changing-a-role-asks-first.spec.ts
+  - front-end/e2e/the-component-library-summaries.spec.ts
+  - front-end/src/components/DoorCodeScreen.vue
 verified: 2026-11-04
 sources:
   - wayfinding/the-order-of-the-work/08
@@ -50,12 +51,14 @@ sources:
 **[`AppDialog.vue`](../../../front-end/src/components/AppDialog.vue) is what a dialog is in this product**: a native `<form>` in a modal doing one small job.
 It owns the scrim, the window, the close control, Escape and backdrop dismissal, holding the page behind inert, focus on open, and the `type="submit"` confirm.
 A new dialog is built on it, never hand-rolled; a panel that slides in from a side is [`SidePanel`](../../design-system.md#the-primitive-layer), through the same composables.
+Two modals are not dialogs on it, and each takes the shell's parts rather than copying them: the [vendor drawer](../../business/flows/vendor-drawer.md), a panel beside the page, and the door code's full screen ([`DoorCodeScreen.vue`](../../../front-end/src/components/DoorCodeScreen.vue), [attendance and the door](../modules/attendance-and-door.md)), which fills the window at the entrance where a dialog is a small window over the page.
+The door code's screen declares `role="dialog"` and `aria-modal` itself, and makes it true with `useModalRoot`, `useEscapeToClose` and `useFocusGoesBack`, so the page behind is inert, Escape closes it while it is on top, and focus opens on its Close and goes back to "Door code"; its one confirmation, New code, is an `AppDialog`, teleported beside it as a sibling.
 
 ## The rules
 
 **The form is the Enter contract.**
 Enter in a field runs the same handler as the confirm button, so it inherits that handler's guard, and a disabled submit makes Enter inert with no key handler anywhere.
-Do not add `@keydown.enter`: five views each invented their own answer, and one of them (`ApplicantLogin`) bypassed its own resend cooldown by doing so.
+Do not add `@keydown.enter`: five views each invented their own answer, and one of them, the vendor's sign-in, bypassed its own resend cooldown by doing so.
 One exception is a picker's open list ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): while its list is open, Enter takes the highlighted choice, or closes the list when none is highlighted, and is kept from the form (with `multiple` the list stays open after a choice, so the next Enter is the list's too), and Escape closes the list and is kept from the dialog; once the list is closed both keys are the dialog's again, so Enter submits through the form's guard and Escape closes.
 The other is a field that only narrows what is shown, as a [`ListFrame.vue`](../../../front-end/src/components/ListFrame.vue)'s find field and the library's export prototype's name or email field, column checklist's find field and Mine tick have, in which Enter does nothing: it narrows the rows as it is typed in or ticked, so Enter there would only save what the person was looking through.
 

@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { LoginPage } from './pages/LoginPage';
 import { settle } from './helpers/settle';
 import { stack } from './helpers/stack';
+import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
 
 export const TEST_USER = {
   email: 'e2e@example.com',
@@ -114,18 +115,7 @@ export const test = base.extend<{
   expectAccessible: (state: string) => Promise<void>;
 }>({
   page: async ({ page }, use, testInfo) => {
-    // The dev server ships vite-plugin-vue-devtools, whose floating panel overlays the app and
-    // intercepts clicks aimed at it. It is a developer tool, not the app, so the tests hide it
-    // rather than race its button for the corner it hovers over.
-    await page.addInitScript(() => {
-      const inject = () => {
-        const style = document.createElement('style');
-        style.textContent = '#__vue-devtools-container__ { display: none !important; }';
-        document.head.appendChild(style);
-      };
-      if (document.head) inject();
-      else document.addEventListener('DOMContentLoaded', inject, { once: true });
-    });
+    await hideDevToolsPanel(page.context());
     await withBrowserDiagnostics(page, use, testInfo);
   },
   authenticatedPage: async ({ page }, use) => {
@@ -142,7 +132,6 @@ export { LoginPage } from './pages/LoginPage';
 export { MarketSetupPage } from './pages/MarketSetupPage';
 export { ResultPage } from './pages/ResultPage';
 export { NewMarketPage } from './pages/NewMarketPage';
-export { CheckinPage } from './pages/CheckinPage';
 export { VendorsPage } from './pages/VendorsPage';
 export { TablesPage } from './pages/TablesPage';
 export { AttendanceStatusPage } from './pages/AttendanceStatusPage';
@@ -151,8 +140,6 @@ export { ManageMarketPage } from './pages/ManageMarketPage';
 export { PasswordResetPage } from './pages/PasswordResetPage';
 export { FloorplanWorkflowPage } from './pages/FloorplanWorkflowPage';
 export { ApplicationFormPage } from './pages/ApplicationFormPage';
-export { ApplicantDashboardPage } from './pages/ApplicantDashboardPage';
-export { ApplicantLoginPage } from './pages/ApplicantLoginPage';
-export { ApplyPage } from './pages/ApplyPage';
+export { VendorPage } from './pages/VendorPage';
 export { CsvImportPage } from './pages/CsvImportPage';
 export { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';

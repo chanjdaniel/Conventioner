@@ -20,7 +20,7 @@ One line per node, sorted by file name.
 - [Building the application form](form-tab.md) - F: the form tab's steps, the essential and custom questions, the review setup, the lock
 - [Importing a Google Form's responses](import.md) - H2: the import's four steps and every branch of them
 - [The market lifecycle at a glance](lifecycle.md) - the phases on both paths, the page each opens on, the moves and what refuses them
-- [Publishing, and the door on market day](market-day-door.md) - K1 to K5: publishing, the vendor's check-in page and Attendance
+- [Publishing, and the door on market day](market-day-door.md) - K1 to K5: publishing, the door code, the vendor's check-in on their vendor page and Attendance
 - [Organizations](organizations.md) - B: creating one, its people, renaming and deleting it, and reading its history
 - [Payments](payments.md) - J17: the Payments page, the market's money by tier and by date, who owes and whose refund is due
 - [Placing by hand](placing-by-hand.md) - J6 to J10, J13, J19: assigning, moving, swapping and freeing a seat, pins, the assignment history

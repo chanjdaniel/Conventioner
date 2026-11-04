@@ -26,7 +26,7 @@ from datatypes import (  # noqa: E402
     AssignmentObject, Market, MarketPhase, MarketRole, market_name_slug,
 )
 from guards import VALID_TRANSITIONS, evaluate_transition  # noqa: E402
-from market_documents import applicant_intake_market_by_slug, published_market_by_slug  # noqa: E402
+from market_documents import applicant_intake_market_by_slug  # noqa: E402
 
 SLUG = market_name_slug("Test Market")
 
@@ -48,6 +48,9 @@ def _market(phase=MarketPhase.ASSIGNMENT, assignments=("vendor@example.com",)):
                 for e in assignments
             ],
         ),
+        # Published, so the one invariant these read is the assignment's: results are its own
+        # (`test_publishing_settles_the_assignment.py`).
+        results_published=True,
         phase=phase,
     )
 
@@ -108,22 +111,12 @@ class TestTheEntryInvariant:
 
 
 class TestWhatEachPublicSurfaceServes:
-    """The two lookups answer different questions, so each names its own phases."""
+    """Applying names its own phases: every one but draft."""
 
     def _collection(self, phase):
         doc = stored_market(phase=phase)
         doc["intakeMode"] = "form"
         return FakeSlugMarketsCollection(doc)
-
-    def test_check_in_serves_a_running_market(self):
-        assert published_market_by_slug(self._collection(MarketPhase.MARKET_DAYS), SLUG)
-
-    def test_check_in_does_not_serve_an_abandoned_market(self):
-        """A market archived from draft has no assignment; nobody can check in to it."""
-        assert published_market_by_slug(self._collection(MarketPhase.ARCHIVED), SLUG) is None
-
-    def test_check_in_does_not_serve_a_draft(self):
-        assert published_market_by_slug(self._collection(MarketPhase.DRAFT), SLUG) is None
 
     def test_applicant_intake_serves_a_market_taking_applications(self):
         found = applicant_intake_market_by_slug(

@@ -25,8 +25,9 @@ import hashlib
 import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional, Tuple
 
+from flask import jsonify
 from pymongo import ReturnDocument
 
 from db_config import get_database
@@ -48,19 +49,31 @@ class SignInLimit:
     window: timedelta
 
 
-# Every limit, in one place. A vendor asks for a code, perhaps once more, and enters it; a shared
-# network (an office, a venue) may hold several vendors at once, so a caller is allowed more than
-# an address.
+# Every limit, in one place. A vendor asks for a code, perhaps once more, and enters it; vendors on
+# one venue's wifi share an address, so a caller is allowed far more than an address is. What bounds
+# a guess at a code, and the mail one address is sent, stays the per-address limit.
 REQUEST_CODE_PER_ADDRESS = SignInLimit("request-code:address", attempts=5, window=timedelta(minutes=15))
-REQUEST_CODE_PER_CALLER = SignInLimit("request-code:caller", attempts=30, window=timedelta(minutes=15))
+REQUEST_CODE_PER_CALLER = SignInLimit("request-code:caller", attempts=300, window=timedelta(minutes=15))
 VERIFY_CODE_PER_ADDRESS = SignInLimit("verify-code:address", attempts=10, window=timedelta(minutes=15))
-VERIFY_CODE_PER_CALLER = SignInLimit("verify-code:caller", attempts=60, window=timedelta(minutes=15))
+VERIFY_CODE_PER_CALLER = SignInLimit("verify-code:caller", attempts=300, window=timedelta(minutes=15))
+# A remembered vendor's page asks once per visit (``applicant-login/resume``). Its secret is not to
+# be guessed, so this bounds the work a caller makes the database do, not a guess.
+RESUME_PER_CALLER = SignInLimit("resume:caller", attempts=300, window=timedelta(minutes=15))
+# A vendor checking in on their page sends the door code (``api/vendor_check_in.py``): every try is
+# bounded per signed-in address, and only the WRONG codes are bounded per caller, so a vendor at
+# home cannot guess the code from the poster's alphabet while a venue's shared address still checks
+# every vendor in.
+CHECK_IN_PER_ADDRESS = SignInLimit("check-in:address", attempts=10, window=timedelta(minutes=15))
+CHECK_IN_PER_CALLER = SignInLimit("check-in:caller", attempts=60, window=timedelta(minutes=15))
 
 LIMITS = (
     REQUEST_CODE_PER_ADDRESS,
     REQUEST_CODE_PER_CALLER,
     VERIFY_CODE_PER_ADDRESS,
     VERIFY_CODE_PER_CALLER,
+    RESUME_PER_CALLER,
+    CHECK_IN_PER_ADDRESS,
+    CHECK_IN_PER_CALLER,
 )
 
 
@@ -77,6 +90,29 @@ def ensure_expiry_index() -> None:
     )
 
 
+def _window(limit: SignInLimit, subject: str, now: datetime) -> Tuple[str, datetime]:
+    """The counter key and end of the window ``now`` falls in."""
+    window_seconds = limit.window.total_seconds()
+    window = math.floor(now.timestamp() / window_seconds)
+    window_ends = datetime.fromtimestamp((window + 1) * window_seconds, tz=timezone.utc)
+    key = hashlib.sha256(f"{limit.name}\0{subject}\0{window}".encode()).hexdigest()
+    return key, window_ends
+
+
+def over_limit(limit: SignInLimit, subject: str, now: Optional[datetime] = None) -> Optional[int]:
+    """Whether ``subject`` has already used all of ``limit``, without counting anything.
+
+    Returns None while the window's count is below the limit, and otherwise the whole seconds
+    until the window ends, as ``count_attempt`` does.
+    """
+    now = now or datetime.now(timezone.utc)
+    key, window_ends = _window(limit, subject, now)
+    counter = attempts_collection.find_one({"_id": key})
+    if not counter or counter[COUNT_FIELD] < limit.attempts:
+        return None
+    return max(1, math.ceil((window_ends - now).total_seconds()))
+
+
 def count_attempt(limit: SignInLimit, subject: str, now: Optional[datetime] = None) -> Optional[int]:
     """Count one attempt by ``subject`` against ``limit``.
 
@@ -85,11 +121,7 @@ def count_attempt(limit: SignInLimit, subject: str, now: Optional[datetime] = No
     knocking stays refused until the window ends.
     """
     now = now or datetime.now(timezone.utc)
-    window_seconds = limit.window.total_seconds()
-    window = math.floor(now.timestamp() / window_seconds)
-    window_ends = datetime.fromtimestamp((window + 1) * window_seconds, tz=timezone.utc)
-
-    key = hashlib.sha256(f"{limit.name}\0{subject}\0{window}".encode()).hexdigest()
+    key, window_ends = _window(limit, subject, now)
     counter = attempts_collection.find_one_and_update(
         {"_id": key},
         {"$inc": {COUNT_FIELD: 1}, "$setOnInsert": {EXPIRES_AT_FIELD: window_ends}},
@@ -99,3 +131,22 @@ def count_attempt(limit: SignInLimit, subject: str, now: Optional[datetime] = No
     if counter[COUNT_FIELD] <= limit.attempts:
         return None
     return max(1, math.ceil((window_ends - now).total_seconds()))
+
+
+def too_many(
+    retry_after: Optional[int], attempts_of: str, key: str = "message",
+) -> Optional[Tuple[Any, int]]:
+    """The 429 for a limit ``count_attempt`` refused, or None when it did not refuse.
+
+    It says plainly how long to wait, in whole minutes rounded up, under ``key``, the one each
+    caller's screen reads its refusals from (the sign-in reads ``message``, the check-in ``error``),
+    with the seconds in ``Retry-After``. One refusal for every limit, so the sign-in's and the
+    check-in's never drift apart.
+    """
+    if retry_after is None:
+        return None
+    minutes = math.ceil(retry_after / 60)
+    wait = "1 minute" if minutes == 1 else f"{minutes} minutes"
+    response = jsonify({key: f"Too many {attempts_of} attempts. Please try again in {wait}."})
+    response.headers["Retry-After"] = str(retry_after)
+    return response, 429

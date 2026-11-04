@@ -26,6 +26,7 @@ import app as app_module
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
 import api.users as UsersApi
+from test_a_vendor_checks_in_with_the_door_code import world  # noqa: E402,F401
 from datatypes import MarketPhase
 
 
@@ -383,37 +384,50 @@ class TestApplicantSignIn:
             missing.status_code, missing.get_json())
 
 
-class TestTheCheckInPage:
-    """A vendor's check-in, and its undo, by the address and date in the body."""
+class TestTheVendorsOwnCheckIn:
+    """A vendor's check-in on their vendor page, and its undo, by the date and door code in the
+    body (ADR 0022)."""
 
-    CHECK_IN = "/public/markets/a-market/attendance/checkin"
-
-    @pytest.fixture(autouse=True)
-    def a_published_market(self, monkeypatch):
-        import api.attendance as AttendanceApi
-
-        monkeypatch.setattr(
-            AttendanceApi, "get_published_market_by_slug", lambda _slug: {"id": "a-market-id"},
-        )
-
-    @pytest.mark.parametrize("method", ["POST", "DELETE"])
-    @pytest.mark.parametrize("field", ["vendorEmail", "date"])
+    @pytest.mark.parametrize("field", ["date", "doorCode"])
     @pytest.mark.parametrize("value", NOT_AN_ADDRESS)
-    def test_an_address_or_date_that_is_not_a_string_is_refused(
-        self, client, market_records, method, field, value,
+    def test_a_date_or_door_code_that_is_not_a_string_checks_nobody_in(
+        self, client, vendor_door, field, value,
     ):
-        body = {"vendorEmail": FIXTURE_EMAIL, "date": "2026-11-14", field: value}
+        body = {"date": vendor_door.TODAY, "doorCode": vendor_door.CODE, field: value}
 
-        response = client.open(self.CHECK_IN, method=method, json=body)
+        response = client.post(vendor_door.PATH, json=body, headers=vendor_door.signed_in())
+
+        assert response.status_code in (403, 404)
+        assert vendor_door.world.attendance.documents == []
+
+    @pytest.mark.parametrize("value", NOT_AN_ADDRESS)
+    def test_a_date_that_is_not_a_string_undoes_nothing(self, client, vendor_door, value):
+        vendor_door.world.attendance.insert_one({
+            "market_id": "market-123", "vendor_email": vendor_door.VENDOR,
+            "date": vendor_door.TODAY, "checked_in_at": "x"})
+
+        response = client.delete(
+            vendor_door.PATH, json={"date": value}, headers=vendor_door.signed_in())
 
         assert response.status_code == 400
-        assert market_records.attendance.documents == []
+        assert len(vendor_door.world.attendance.documents) == 1
 
     @pytest.mark.parametrize("method", ["POST", "DELETE"])
-    def test_a_body_that_is_not_an_object_is_refused(self, client, method):
-        response = client.open(self.CHECK_IN, method=method, json=[FIXTURE_EMAIL, "2026-11-14"])
+    def test_a_body_that_is_not_an_object_is_refused(self, client, vendor_door, method):
+        response = client.open(vendor_door.PATH, method=method, json=["2099-08-01", "K7M4QP"],
+                               headers=vendor_door.signed_in())
 
         assert response.status_code == 400
+        assert vendor_door.world.attendance.documents == []
+
+
+@pytest.fixture
+def vendor_door(world):
+    """A market on its days with a door code, and a vendor seated there, signed in."""
+    import test_a_vendor_checks_in_with_the_door_code as door
+    return SimpleNamespace(
+        world=world, PATH=door.PATH, TODAY=door.TODAY, CODE=door.CODE, VENDOR=door.VENDOR,
+        signed_in=door.signed_in)
 
 
 class TestTheFloorplanTools:

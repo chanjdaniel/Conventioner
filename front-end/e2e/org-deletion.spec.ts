@@ -1,7 +1,7 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import type { APIRequestContext } from '@playwright/test';
 import { OrganizationsPage } from './pages/OrganizationsPage';
-import { SEED_MARKET_DATE, completePlan, loginViaApi } from './helpers/seeds';
+import { SEED_MARKET_DATE, completePlan, loginViaApi, publishResults } from './helpers/seeds';
 import { seedApprovedVendor } from './helpers/seedApplication';
 import { savePlan } from './helpers/savePlan';
 import { decideReviewSetup } from './helpers/decideReviewSetup';
@@ -15,7 +15,7 @@ import { decideReviewSetup } from './helpers/decideReviewSetup';
  * reached them through the organization.
  *
  * The risk is recorded rather than argued: an archived market that RAN is still publicly served and
- * holds the placement record of a market that happened, and deleting one takes a live check-in URL
+ * holds the placement record of a market that happened, and deleting one takes its live vendor page
  * off the air with no undo. Reaffirmed on 2026-09-22 - which is why the confirmation has to NAME
  * what each deletion destroys.
  */
@@ -66,8 +66,8 @@ async function transition(request: APIRequestContext, marketId: string, toPhase:
 
 /**
  * Run a market for real - a form, a plan, an approved vendor, assigned and published - then
- * archive it. Only a market that ran keeps a public check-in page (E26/F06/S02); archiving one
- * straight from draft is abandoning it, and leaves no page to lose.
+ * archive it. Only a market that ran keeps its vendor page as the record (E26/F06/S02); archiving
+ * one straight from draft is abandoning it, and leaves no page to lose.
  */
 async function runThenArchive(request: APIRequestContext, marketId: string) {
   await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
@@ -96,6 +96,7 @@ async function runThenArchive(request: APIRequestContext, marketId: string) {
     headers: { 'X-Owner-Email': TEST_USER.email },
   });
   expect(run.ok(), await run.text()).toBeTruthy();
+  await publishResults(request, BACKEND_URL, TEST_USER.email, marketId);
   await transition(request, marketId, 'market_days');
   await transition(request, marketId, 'archived');
 }

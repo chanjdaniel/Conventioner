@@ -14,6 +14,7 @@ import { computed, ref } from 'vue';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import AnswerValue from '@/components/AnswerValue.vue';
 import BarLedger from '@/components/BarLedger.vue';
+import CodeInput from '@/components/CodeInput.vue';
 import EmailAddress from '@/components/EmailAddress.vue';
 import FileDropZone from '@/components/FileDropZone.vue';
 import PhaseBadge from '@/components/PhaseBadge.vue';
@@ -156,6 +157,10 @@ const NOTICES: { label: string; notice: SignInNotice | null; sending?: boolean }
   { label: 'Success', notice: { tone: 'success', text: LINK_RESENT } },
 ];
 const resent = ref(0);
+
+// CodeInput: the emailed code's field, empty and as a vendor has typed it.
+const noCode = ref('');
+const typedCode = ref('602914');
 
 // BarLedger: the applications by status, each row leading to them, and the question's answers.
 const statusCounts = new Map<string, number>();
@@ -401,6 +406,24 @@ const taken = ref('');
     </LibraryPanel>
     <LibraryPanel label="Send the link again, pressed">
       <ReadOut label="Sent again" :value="times(resent)" />
+    </LibraryPanel>
+  </LibrarySection>
+
+  <LibrarySection
+    title="CodeInput"
+    about="Used on: Sign in, its code form; a market's vendor page, its code step"
+  >
+    <LibraryPanel label="Empty: its placeholder clears on focus">
+      <div class="library-stack">
+        <label class="field-label" for="library-code-empty">Sign-in code</label>
+        <CodeInput id="library-code-empty" v-model="noCode" />
+      </div>
+    </LibraryPanel>
+    <LibraryPanel label="Six digits, centred on the box">
+      <div class="library-stack">
+        <label class="field-label" for="library-code-filled">Sign-in code</label>
+        <CodeInput id="library-code-filled" v-model="typedCode" />
+      </div>
     </LibraryPanel>
   </LibrarySection>
 
