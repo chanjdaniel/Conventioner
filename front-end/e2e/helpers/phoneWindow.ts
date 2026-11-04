@@ -5,9 +5,8 @@ import { expect } from '../fixtures';
  * A journey on the phone in an organizer's hand and at a desk (T142, T180): the two windows, and
  * what each journey checks in them.
  *
- * The phone is a phone's own emulation, not a narrow window: there a page wider than the window
- * widens the layout viewport and zooms out, so a dialog it opens lands off screen, which a plain
- * 390px window only shows as a sideways scroll.
+ * The phone is a phone's own emulation, not a narrow window: touch, device scaling and a phone's
+ * reading of the page's viewport meta, which a plain 390px window has none of.
  */
 export const PHONE_AND_DESK = [
   {
@@ -51,12 +50,15 @@ export function inTheWindow(size: PhoneOrDesk) {
 
     /** A box wholly inside the window, across and down. */
     async expectInside(locator: Locator, what: string): Promise<void> {
-      const box = await locator.boundingBox();
-      expect(box, `${what} is drawn`).not.toBeNull();
-      expect(box!.x, `${what} starts inside the window`).toBeGreaterThanOrEqual(0);
-      expect(box!.y, `${what} starts inside the window`).toBeGreaterThanOrEqual(0);
-      expect(box!.x + box!.width, `${what} ends inside the window`).toBeLessThanOrEqual(width);
-      expect(box!.y + box!.height, `${what} ends inside the window`).toBeLessThanOrEqual(height);
+      // Retried, since a drawer measured on its slide's last frame ends a hair past the window.
+      await expect(async () => {
+        const box = await locator.boundingBox();
+        expect(box, `${what} is drawn`).not.toBeNull();
+        expect(box!.x, `${what} starts inside the window`).toBeGreaterThanOrEqual(0);
+        expect(box!.y, `${what} starts inside the window`).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width, `${what} ends inside the window`).toBeLessThanOrEqual(width);
+        expect(box!.y + box!.height, `${what} ends inside the window`).toBeLessThanOrEqual(height);
+      }).toPass({ timeout: 2000 });
     },
 
     /** A tap on a phone, a click at a desk. */

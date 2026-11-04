@@ -1,11 +1,8 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { mount } from '@vue/test-utils';
-import { createPinia, setActivePinia } from 'pinia';
 
 import InitView from '@/views/InitView.vue';
-import ElementNavigation from '@/components/elements/ElementNavigation.vue';
-import { useMarketStore } from '@/stores/market';
 
 /**
  * A control is named by its words, and a heading inside one puts the control in the page's outline
@@ -38,29 +35,5 @@ describe('the market chooser at /init', () => {
       expect(button.find(HEADINGS).exists(), testid).toBe(false);
       expect(button.text()).toBe(words);
     }
-  });
-});
-
-describe('the navigation drawer', () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
-  function mountDrawer() {
-    return mount(ElementNavigation, {
-      global: {
-        provide: { user: 'e2e@example.com' },
-        stubs: { RouterLink: { template: '<a><slot /></a>' }, ElementSignoutButton: true },
-      },
-    });
-  }
-
-  it('puts no heading inside a link', () => {
-    useMarketStore().$patch({ marketId: 'market-1' } as never);
-    const wrapper = mountDrawer();
-
-    const links = wrapper.findAll('a');
-    expect(links.map((a) => a.text())).toEqual(['Markets', 'Organizations', 'Market vendors']);
-    for (const link of links) expect(link.find(HEADINGS).exists(), link.text()).toBe(false);
   });
 });

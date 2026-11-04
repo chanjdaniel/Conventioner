@@ -19,7 +19,7 @@ describes:
   - front-end/e2e/removing-someone-asks-first.spec.ts
   - front-end/src/__tests__/appDialog.test.ts
   - front-end/e2e/the-component-library-dialog.spec.ts
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - wayfinding/the-order-of-the-work/08
   - wayfinding/the-order-of-the-work/map
@@ -46,6 +46,7 @@ sources:
 **[`AppDialog.vue`](../../../front-end/src/components/AppDialog.vue) is what a dialog is in this product**: a native `<form>` in a modal doing one small job.
 It owns the scrim, the window, the close control, Escape and backdrop dismissal, holding the page behind inert, focus on open, and the `type="submit"` confirm.
 A new dialog is built on it, never hand-rolled.
+[The app bar's sheet](../modules/app-bar.md#the-sheet-on-a-phone) is not one: it is a list of places hanging from the bar and not a form in a window, so it holds no form, title or actions for the shell to own, and it keeps the same contract with the same parts below (`useInertBehind`, `useEscapeToClose`, `useFocusGoesBack`).
 
 ## The rules
 

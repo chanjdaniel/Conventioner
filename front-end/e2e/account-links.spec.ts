@@ -86,6 +86,6 @@ test.describe('Account links, opened signed out', () => {
     await expect(new PasswordResetPage(page).requestForm).toBeVisible();
     await page.waitForLoadState('networkidle');
     await expect(page).toHaveURL(/\/reset-password-request$/);
-    await expect(page.getByRole('button', { name: 'Open navigation' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Open menu' })).toHaveCount(0);
   });
 });

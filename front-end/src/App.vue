@@ -2,10 +2,8 @@
 import axios from 'axios';
 import { RouterView } from 'vue-router';
 import AppBar from './components/AppBar.vue';
-import ElementNavigation from './components/elements/ElementNavigation.vue';
-import { useInertBehind } from '@/utils/useInertBehind';
 
-import { onMounted, ref, provide, inject, computed, watch } from 'vue';
+import { onMounted, ref, provide, inject, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { routerSettled } from '@/utils/routerReady';
 import { fitsAPhone as routeFitsAPhone } from '@/utils/fitsAPhone';
@@ -15,22 +13,8 @@ import { PAGE_FAILED, openAfresh } from '@/utils/pageFailed';
 
 const hostname = import.meta.env.VITE_FLASK_HOST;
 
-const navOpen = ref(false);
-
-/**
- * Modal to the keyboard as well as to the mouse: the scrim stops clicks, and this takes the rest of
- * the page out of the tab order (E14/F02/S04).
- *
- * Both parts are named because they are siblings here rather than one wrapping the other: naming
- * only the scrim would mark the drawer itself, which is the thing that has to stay reachable.
- */
-const navScrim = ref<HTMLElement | null>(null);
-const navDrawer = ref<InstanceType<typeof ElementNavigation> | null>(null);
-useInertBehind(navOpen, () => [navScrim.value, navDrawer.value?.root ?? null]);
 const route = useRoute();
 const router = useRouter();
-// By the route, not the path: the router matches `/Login` and `/login/` to it too.
-const isLogin = computed(() => route.name === 'login');
 const isPublicPage = computed(() => route.matched.some((r) => r.meta.public === true));
 /**
  * A page that must also work on a phone: every public page, and an organizer screen whose route says
@@ -79,22 +63,16 @@ onMounted(async () => {
     if (keepsTheSession(router, err)) setUser(JSON.parse(localStorage.getItem('user') || 'null'));
   }
 });
-
-watch(isLogin, (newValue) => {
-  if (newValue) {
-    navOpen.value = false;
-  }
-});
 </script>
 
 <template>
   <div class="app-container" :class="{ 'app-public': fitsAPhone }">
     <header>
-      <AppBar @menu-open="navOpen = true" />
+      <AppBar />
     </header>
 
-    <!-- The one `main` landmark, on every route: the page's own content, apart from the bar and
-         the drawer. A wrapper, not the routed view's root, so no view has to remember to be it. -->
+    <!-- The one `main` landmark, on every route: the page's own content, apart from the bar. A
+         wrapper, not the routed view's root, so no view has to remember to be it. -->
     <main class="app-main" :class="{ 'app-main-public': fitsAPhone }">
       <ReadFailed
         v-if="pageFailed"
@@ -105,36 +83,6 @@ watch(isLogin, (newValue) => {
       />
       <RouterView class="router-view" />
     </main>
-
-    <!-- Dismissed, the scrim is gone at once for the pointer: its visibility waits for the fade
-         out, and one that swallows clicks for that 0.3s eats the click that follows a menu item,
-         such as Try again on the page whose navigation just failed (E38/F11/S01). -->
-    <div
-      v-if="!isPublicPage"
-      ref="navScrim"
-      class="nav-background"
-      :style="{
-        opacity: navOpen ? '100%' : '0%',
-        visibility: navOpen ? 'visible' : 'hidden',
-        'pointer-events': navOpen ? 'auto' : 'none',
-      }"
-      @click="navOpen = false"
-    ></div>
-
-    <!-- `visibility` as well as `left`: slid off-screen is not the same as gone, and a drawer that
-         is only off-screen keeps every one of its links in the tab order on every authenticated
-         page. That is the defect `E14/F02/S04` removes from behind a modal, standing the other way
-         round - a keyboard user tabbing into a menu nobody can see. -->
-    <ElementNavigation
-      v-if="!isPublicPage"
-      ref="navDrawer"
-      class="nav-bar"
-      :style="{
-        left: navOpen ? '0px' : '-300px',
-        visibility: navOpen ? 'visible' : 'hidden',
-      }"
-      @menuClose="navOpen = false"
-    />
   </div>
 </template>
 
@@ -189,36 +137,6 @@ header {
   header {
     display: none;
   }
-}
-
-.nav-bar {
-  position: fixed;
-  top: 0;
-  left: -300px;
-  /* Above the sticky header, which is 30. Order in the DOM used to be enough; once the header
-     stacks, the drawer has to say so. */
-  z-index: 100;
-  /* `visibility` rides the same duration so it flips only once the drawer has finished sliding out,
-     rather than blinking away at the start of the transition. */
-  transition:
-    left 0.3s ease-in-out,
-    visibility 0.3s ease-in-out;
-}
-
-.nav-bar.nav-open {
-  left: 0;
-}
-
-.nav-background {
-  position: fixed;
-  inset: 0;
-  /* Between the sticky header (30) and the drawer (100), so the scrim dims the bar too. */
-  z-index: 90;
-  background: rgba(0, 0, 0, 0.5);
-  opacity: 100%;
-  transition:
-    opacity 0.3s ease-in-out,
-    visibility 0.3s ease-in-out;
 }
 
 .app-main {

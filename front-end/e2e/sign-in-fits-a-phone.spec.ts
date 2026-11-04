@@ -98,8 +98,7 @@ test('the page Discord returns to fits a phone', async ({ authenticatedPage: pag
 });
 
 // Signing in lands on the dashboard, so an organizer on a phone meets it before `/markets` or the
-// market they remembered (T148). Under a phone's own emulation a page wider than the window does not
-// scroll sideways: it widens the layout viewport and zooms out, which the 1000px floor did here.
+// market they remembered (T148). The 1000px floor had it scrolling sideways here.
 test.describe('signing in on a phone', () => {
   test.use({
     viewport: PHONE,

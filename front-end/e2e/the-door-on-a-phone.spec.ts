@@ -12,9 +12,7 @@ import { TablesPage } from './pages/TablesPage';
  *
  * An organizer finds the market on `/markets`, opens the door, checks a vendor in, reads the
  * vendor's drawer tab by tab and taps "Change assignment". On a phone that action led to the
- * Assignments page's 1000px desk floor, and under a phone's own emulation a page wider than the
- * window widens the layout viewport and zooms out, so the dialog it opened was off screen. The
- * door itself sat under a pinned frame that took half the window.
+ * Assignments page's 1000px desk floor, so the dialog it opened was off screen. The door itself sat under a pinned frame that took half the window.
  */
 
 const VENDOR = 'alice@example.com';

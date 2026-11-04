@@ -2,8 +2,8 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 
 /**
- * The navigation drawer, the password pages and the market chooser at `/init` line up (items 10
- * and 11 of bug 43; E26/F10/S01; T161).
+ * The bar's sheet, the password pages and the market chooser at `/init` line up (items 10 and 11 of
+ * bug 43; E26/F10/S01; T161).
  *
  * Sign out sat a few pixels off the rows above it, shorter, with a wider divider, and read in
  * another font and ink than they did. The password pages were Title Case, with a left-aligned
@@ -18,27 +18,29 @@ const box = async (locator: Locator) => {
   return b;
 };
 
-test('every row of the navigation drawer is one shape, Sign out included', async ({
-  authenticatedPage: page,
-}) => {
-  // The drawer is the phone's until the sheet replaces it.
+/** The sheet's rows a person presses, the places and Sign out. */
+const openTheSheet = async (page: Page) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/markets');
-  await page.getByRole('button', { name: 'Open navigation' }).click();
-  const rows = await page.evaluate(() =>
-    Array.from(document.querySelectorAll('.nav .item')).map((item) => {
-      const row = item.getBoundingClientRect();
-      const icon = item.querySelector('svg')!.getBoundingClientRect();
-      return {
-        x: Math.round(row.x),
-        width: Math.round(row.width),
-        height: Math.round(row.height),
-        icon: Math.round(icon.x),
-      };
+  await page.getByRole('button', { name: 'Open menu' }).click();
+  const sheet = page.getByTestId('app-bar-sheet');
+  await expect(sheet.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  return sheet.locator('a, button');
+};
+
+test('every row of the sheet is one shape, Sign out included', async ({
+  authenticatedPage: page,
+}) => {
+  const rows = await (
+    await openTheSheet(page)
+  ).evaluateAll((all) =>
+    all.map((row) => {
+      const box = row.getBoundingClientRect();
+      return { x: Math.round(box.x), width: Math.round(box.width), height: Math.round(box.height) };
     }),
   );
-  expect(rows.length).toBeGreaterThanOrEqual(3);
-  for (const key of ['x', 'width', 'height', 'icon'] as const) {
+  expect(rows).toHaveLength(3);
+  for (const key of ['x', 'width', 'height'] as const) {
     expect(new Set(rows.map((row) => row[key])).size, `${key}: ${JSON.stringify(rows)}`).toBe(1);
   }
 });
@@ -110,29 +112,21 @@ test('the market chooser fits a 1440px window', async ({ authenticatedPage: page
 });
 
 /**
- * Sign out is a row of the drawer like the three links above it, so its words are drawn as theirs
- * are: it read in Outfit and the body's slate while they read in Merge One and the product's black
- * (rereview note 14).
+ * Sign out is a row of the sheet like the links above it, so its words are drawn as theirs are: in
+ * the drawer before it, it read in Outfit and the body's slate while they read in Merge One and the
+ * product's black (rereview note 14). The current place is marked, so it is left out.
  */
-for (const size of [{ width: 390, height: 844 }]) {
-  test(`Sign out reads like the drawer's links at ${size.width}px`, async ({
-    authenticatedPage: page,
-  }) => {
-    await page.setViewportSize(size);
-    await page.goto('/markets');
-    await page.getByRole('button', { name: 'Open navigation' }).click();
-    const drawer = page.getByTestId('app-nav');
-    await expect(drawer.getByRole('button', { name: 'Sign out' })).toBeVisible();
-
-    const looks = await page.evaluate(() =>
-      Array.from(document.querySelectorAll('[data-testid="app-nav"] .nav .item')).map((item) => {
-        const words = Array.from(item.children).find((c) => c.tagName !== 'svg')!;
-        const s = getComputedStyle(words);
-        return `${words.textContent?.trim()}: ${s.fontFamily} ${s.fontSize} ${s.fontWeight} ${s.color}`;
+test("Sign out reads like the sheet's links", async ({ authenticatedPage: page }) => {
+  const looks = await (
+    await openTheSheet(page)
+  ).evaluateAll((all) =>
+    all
+      .filter((row) => !row.hasAttribute('aria-current'))
+      .map((row) => {
+        const s = getComputedStyle(row);
+        return `${s.fontFamily} ${s.fontSize} ${s.fontWeight} ${s.color}`;
       }),
-    );
-    expect(looks.length).toBeGreaterThanOrEqual(3);
-    const look = (line: string) => line.slice(line.indexOf(':') + 2);
-    expect(new Set(looks.map(look)).size, looks.join('\n')).toBe(1);
-  });
-}
+  );
+  expect(looks).toHaveLength(2);
+  expect(new Set(looks).size, looks.join('\n')).toBe(1);
+});

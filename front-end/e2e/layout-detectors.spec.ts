@@ -249,6 +249,19 @@ test.describe('The pinned area', () => {
     expect(pinned).toEqual({ bottom: 44, el: 'header[banner]' });
   });
 
+  const sheet = `<div data-testid="sheet" style="position: fixed; top: 44px; left: 0; right: 0;
+    height: 190px; background: white">The sheet</div>`;
+
+  test('a short sheet over a page held inert does not count', async ({ page }) => {
+    const pinned = await pinnedOn(page, `${header}${sheet}<main inert></main>`);
+    expect(pinned).toEqual({ bottom: 44, el: 'header[banner]' });
+  });
+
+  test('the same box over a live page does count', async ({ page }) => {
+    const pinned = await pinnedOn(page, `${header}${sheet}<main></main>`);
+    expect(pinned).toEqual({ bottom: 234, el: 'div[sheet]' });
+  });
+
   test('the page is left where it was', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.setContent(`${header}<div style="height: 3000px">The page</div>`);

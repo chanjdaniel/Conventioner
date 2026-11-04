@@ -92,18 +92,17 @@ test('the market chooser opens with its title and heads neither of its buttons',
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Set up or load a market');
 });
 
-/** The drawer's links are named by their words; only its account line is a heading. */
-test('the navigation drawer heads none of its links', async ({ authenticatedPage: page }) => {
-  // The drawer is the phone's until the sheet replaces it.
+/** The sheet's links are named by their words, and it adds no heading to the page's outline. */
+test('the sheet heads none of its links', async ({ authenticatedPage: page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await new MarketsPage(page).goto();
-  await page.getByRole('button', { name: 'Open navigation' }).click();
-  const drawer = page.getByTestId('app-nav');
-  await expect(drawer.getByRole('link', { name: 'Organizations' })).toBeVisible();
+  await page.getByRole('button', { name: 'Open menu' }).click();
+  const sheet = page.getByTestId('app-bar-sheet');
+  await expect(sheet.getByRole('link', { name: 'Organizations' })).toBeVisible();
 
   expect(await outlineViolations(page)).toEqual([]);
   expect(await headingsInsideControls(page)).toEqual([]);
-  await expect(drawer.getByRole('heading')).toHaveCount(1);
+  await expect(sheet.getByRole('heading')).toHaveCount(0);
 });
 
 /** The heading just before the one named, as `h<level> <words>`: what an outline files it under. */

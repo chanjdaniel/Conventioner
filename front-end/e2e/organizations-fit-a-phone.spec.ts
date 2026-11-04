@@ -7,9 +7,8 @@ import { OrganizationsPage } from './pages/OrganizationsPage';
 /**
  * Organizations and its dialogs fit a phone (T148).
  *
- * An organizer on a phone lands on the dashboard, whose other place is Organizations. Under a
- * phone's own emulation a page wider than the window does not scroll sideways: it widens the layout
- * viewport and zooms out, and a dialog opens off screen. The 1000px floor did exactly that here.
+ * An organizer on a phone lands on the dashboard, whose other place is Organizations. The 1000px
+ * floor had it scrolling sideways here, its dialogs off screen under a phone's own emulation.
  *
  * Its own owner, so the list holds one organization, and its member's address is long: on a phone
  * it takes a line of its own. Fixture data.

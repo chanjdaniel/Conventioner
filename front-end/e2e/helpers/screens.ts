@@ -359,10 +359,10 @@ export const SCREENS: Screen[] = [
   },
   {
     // The app's own menu, behind the bar's button on a phone.
-    name: 'the navigation drawer',
+    name: 'the sheet',
     who: 'organizer',
     sizes: [PHONE],
-    open: at(fixed('/markets'), 'markets-result-count', ['app-menu-button', 'app-nav']),
+    open: at(fixed('/markets'), 'markets-result-count', ['app-bar-menu-button', 'app-bar-sheet']),
   },
   {
     // The bar's account menu, on every organizer screen at a desk.
@@ -953,10 +953,13 @@ export const SCREENS: Screen[] = [
   },
   // What else the organizer reaches at the door, on the phone in their hand (T82).
   {
-    name: 'the navigation drawer, at the door',
+    name: 'the sheet, at the door',
     who: 'organizer',
     sizes: [PHONE],
-    open: at(screen('big', 'attendance'), 'attendance-row', ['app-menu-button', 'app-nav']),
+    open: at(screen('big', 'attendance'), 'attendance-row', [
+      'app-bar-menu-button',
+      'app-bar-sheet',
+    ]),
   },
   {
     name: 'the vendor drawer, at the door',

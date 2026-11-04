@@ -94,7 +94,7 @@ Covered by:
 - `sign-in-fits-a-phone.spec.ts`
 - `smoke.spec.ts`
 - `the-sign-in-says-what-to-do-next.spec.ts`
-- `the-way-in-lines-up.spec.ts` ("every row of the navigation drawer is one shape, Sign out included")
+- `the-way-in-lines-up.spec.ts` ("every row of the sheet is one shape, Sign out included")
 
 ## A3. Sign in with an emailed code
 

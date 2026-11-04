@@ -523,7 +523,8 @@ export interface Pinned {
  * one window height, or to its end where it is shorter, and the lowest bottom is taken among the
  * shown elements that are `sticky` or `fixed` and stand at their `top` inset. A dialog, a drawer
  * or a scrim (taller than half the window) is drawn over the page on purpose, so neither it nor
- * what is pinned inside it counts. The page is scrolled back where it was.
+ * what is pinned inside it counts; nor does a fixed box while `main` is inert, as the app bar's
+ * sheet is, shorter than that and opened for a moment. The page is scrolled back where it was.
  *
  * Passed to `page.evaluate`, so, like `detectLayout`, it reaches nothing outside its own body.
  */
@@ -543,7 +544,8 @@ export function pinnedBottom(): Pinned {
     Math.abs(r.top - parseFloat(cs.top)) <= 1;
   const overlay = (el: Element, cs: CSSStyleDeclaration, r: DOMRect) =>
     el.matches('dialog,[role=dialog],[role=alertdialog],[aria-modal=true]') ||
-    (/sticky|fixed/.test(cs.position) && r.height > innerHeight / 2);
+    (/sticky|fixed/.test(cs.position) && r.height > innerHeight / 2) ||
+    (cs.position === 'fixed' && document.querySelector('main[inert]') !== null);
 
   let pinned: Pinned = { bottom: 0, el: 'nothing' };
   // Depth first, so an overlay's whole subtree is skipped.

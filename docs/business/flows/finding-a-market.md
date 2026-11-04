@@ -94,7 +94,7 @@ Covered by:
 
 **Status:** Works (walked live).
 At a desk [the app bar](../../implementation/modules/app-bar.md) holds Markets and Organizations as links, the current one marked, and an account menu showing the address and holding Sign out.
-At 640px and below the menu button top left opens Markets, Organizations, "Market vendors" (only while a market is open; goes to its Vendors page) and Sign out.
+At 640px and below the bar is the logo and a menu button at its right, which opens a sheet under the bar holding Markets and Organizations, the current one marked, the address and Sign out; choosing a row, Escape or a press outside it closes it.
 Covered by:
 - `the-app-bar.spec.ts`
 - `the-way-in-lines-up.spec.ts`

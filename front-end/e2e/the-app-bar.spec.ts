@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { test, expect, BACKEND_URL, TEST_USER } from './fixtures';
 import { MarketsPage } from './pages/MarketsPage';
 import { marketScreenPath } from './helpers/marketScreens';
@@ -205,7 +205,10 @@ test.describe('the bar on a desk', () => {
   }) => {
     await page.goto(marketScreenPath(marketId, 'stats'));
     await expect(page.getByTestId('market-frame').first()).toBeVisible();
-    expect(await page.evaluate(() => localStorage.getItem('lastMarketId'))).toBe(marketId);
+    // Remembered once the market has been read, which the frame does not wait for.
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem('lastMarketId')))
+      .toBe(marketId);
 
     await accountButton(page).click();
     await signOutItem(page).click();
@@ -254,35 +257,386 @@ test.describe('the bar on a desk', () => {
   });
 });
 
-test.describe('the bar at a phone width, until the sheet replaces the drawer', () => {
-  test.beforeEach(async ({ authenticatedPage: page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
+test.describe('the bar on a phone', () => {
+  test.use({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    deviceScaleFactor: 3,
   });
 
-  test('the menu button opens the drawer, and the links and account menu stand aside', async ({
+  const GREEN = 'rgb(54, 130, 111)';
+  let marketId: string;
+
+  const menuButton = (page: Page) => page.getByTestId('app-bar-menu-button');
+  const sheet = (page: Page) => page.getByTestId('app-bar-sheet');
+  const scrim = (page: Page) => page.getByTestId('app-bar-scrim');
+  const sheetLink = (page: Page, name: string) => sheet(page).getByRole('link', { name });
+  const sheetSignOut = (page: Page) => sheet(page).getByRole('button', { name: 'Sign out' });
+
+  /** A box's edges against the window a person sees, whatever the page has scrolled to. */
+  const inWindow = (locator: Locator) =>
+    locator.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      const seen = window.visualViewport!;
+      return {
+        left: box.left - seen.offsetLeft,
+        right: box.right - seen.offsetLeft,
+        windowWidth: seen.width,
+      };
+    });
+
+  async function expectInsideTheWindow(locator: Locator, what: string): Promise<void> {
+    const { left, right, windowWidth } = await inWindow(locator);
+    expect(left, `${what} starts inside the window`).toBeGreaterThanOrEqual(0);
+    expect(right, `${what} ends inside the window`).toBeLessThanOrEqual(windowWidth);
+  }
+
+  /** Drag the page sideways with a thumb, as nothing but a real gesture does on a phone. */
+  async function thumbSideways(page: Page, distance: number): Promise<void> {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.synthesizeScrollGesture', {
+      x: 300,
+      y: 400,
+      xDistance: -distance,
+      yDistance: 0,
+      speed: 2000,
+    });
+    await cdp.detach();
+  }
+
+  const sidewaysOverflow = (page: Page) =>
+    page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+
+  test.beforeAll(async ({ request }) => {
+    await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    const seeded = await seedMarketWithVendors(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    marketId = seeded.marketId;
+  });
+
+  test('is one thin row, the logo and a menu button, with the places behind it', async ({
     authenticatedPage: page,
   }) => {
     await page.goto('/markets');
-    await expect(bar(page).getByRole('link', { name: 'Conventioner, Markets' })).toBeVisible();
+    const logo = bar(page).getByRole('link', { name: 'Conventioner, Markets' });
+    await expect(logo).toBeVisible();
+    expect((await logo.boundingBox())?.height).toBe(44);
     await expect(links(page)).toBeHidden();
     await expect(accountButton(page)).toBeHidden();
     expect((await bar(page).boundingBox())?.height).toBe(44);
 
-    await page.getByTestId('app-menu-button').click();
-    await page.getByTestId('app-nav').getByRole('link', { name: 'Organizations' }).click();
-    await page.waitForURL(/\/organizations$/);
+    const button = page.getByRole('button', { name: 'Open menu' });
+    await expect(button).toBeVisible();
+    await expect(button).toHaveAttribute('aria-expanded', 'false');
+    const box = await button.boundingBox();
+    expect(box).toMatchObject({ width: 44, height: 44, y: 0 });
+    await expectInsideTheWindow(button, 'the menu button');
   });
 
-  test('the phone layout ends at 640, and the desk layout starts at 641', async ({
+  test('a market screen pins no more than 150px', async ({ authenticatedPage: page }) => {
+    await page.goto(marketScreenPath(marketId, 'attendance'));
+    const marketBar = page.getByTestId('market-bar');
+    await expect(marketBar).toBeVisible();
+    const box = await marketBar.boundingBox();
+    expect(box!.y).toBe(44);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(150);
+  });
+
+  test('opens a sheet of 44px rows holding the two places, the address and Sign out', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.goto('/markets');
+    await expect(sheet(page)).toHaveCount(0);
+
+    await menuButton(page).tap();
+    const close = page.getByRole('button', { name: 'Close menu' });
+    await expect(close).toHaveAttribute('aria-expanded', 'true');
+    const controls = await close.getAttribute('aria-controls');
+    expect(await sheet(page).getAttribute('id')).toBe(controls);
+
+    await expect(sheet(page).getByRole('navigation', { name: 'Main' })).toBeVisible();
+    const rows = [
+      sheetLink(page, 'Markets'),
+      sheetLink(page, 'Organizations'),
+      sheet(page).getByText(TEST_USER.email),
+      sheetSignOut(page),
+    ];
+    let above = 0;
+    for (const row of rows) {
+      const box = await row.boundingBox();
+      expect(box!.height).toBe(44);
+      expect(box!.y).toBeGreaterThanOrEqual(above);
+      above = box!.y + box!.height;
+      await expectInsideTheWindow(row, 'a row of the sheet');
+    }
+    expect(await sidewaysOverflow(page)).toBe(0);
+
+    // It hangs from the bar, the window's whole width, over a scrim that starts under the bar.
+    expect((await sheet(page).boundingBox())?.y).toBe(44);
+    expect(await inWindow(sheet(page))).toEqual({ left: 0, right: 390, windowWidth: 390 });
+    expect(await scrim(page).boundingBox()).toEqual({ x: 0, y: 44, width: 390, height: 800 });
+  });
+
+  test('marks the place it is in, green with a bar at its left, its words on the logo', async ({
+    authenticatedPage: page,
+  }) => {
+    const look = (name: string) =>
+      sheetLink(page, name).evaluate((row) => {
+        const style = getComputedStyle(row);
+        const mark = getComputedStyle(row, '::before');
+        const words = document.createRange();
+        words.selectNodeContents(row);
+        return {
+          color: style.color,
+          weight: style.fontWeight,
+          bar: mark.content === 'none' ? null : mark.width,
+          barColor: mark.backgroundColor,
+          words: words.getBoundingClientRect().left,
+        };
+      });
+
+    await page.goto(marketScreenPath(marketId, 'attendance'));
+    const logo = await page.getByAltText('Conventioner, Markets').boundingBox();
+    await menuButton(page).tap();
+    await expect(sheetLink(page, 'Markets')).toHaveAttribute('aria-current', 'page');
+    await expect(sheetLink(page, 'Organizations')).not.toHaveAttribute('aria-current');
+
+    const current = await look('Markets');
+    expect(current).toMatchObject({ color: GREEN, weight: '600', bar: '3px', barColor: GREEN });
+    const other = await look('Organizations');
+    expect(other).toMatchObject({ weight: '400', bar: null });
+    expect(other.color).not.toBe(GREEN);
+    expect(current.words).toBe(logo!.x);
+    expect(other.words).toBe(logo!.x);
+  });
+
+  test('moves focus in, holds the page behind out of play, and leaves the close button reachable', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.goto('/markets');
+    const search = page.getByTestId('markets-search-input');
+    await expect(search).toBeVisible();
+
+    await menuButton(page).tap();
+    await expect(sheetLink(page, 'Markets')).toBeFocused();
+
+    expect(await search.evaluate((el) => el.closest('[inert]') !== null)).toBe(true);
+    const logo = page.getByAltText('Conventioner, Markets');
+    expect(await logo.evaluate((el) => el.closest('[inert]') !== null)).toBe(true);
+    for (const part of [sheet(page), scrim(page), menuButton(page)]) {
+      expect(await part.evaluate((el) => el.closest('[inert]') !== null)).toBe(false);
+    }
+
+    // The tab order holds the sheet and the button, and nothing behind them.
+    const seen = new Set<string>();
+    for (let press = 0; press < 8; press++) {
+      await page.keyboard.press('Tab');
+      seen.add(
+        await page.evaluate(() => {
+          const el = document.activeElement as HTMLElement;
+          if (el === document.body) return '';
+          return el.getAttribute('aria-label') ?? el.textContent!.trim();
+        }),
+      );
+    }
+    seen.delete('');
+    expect(
+      [...seen].filter(
+        (name) => !['Markets', 'Organizations', 'Sign out', 'Close menu'].includes(name),
+      ),
+    ).toEqual([]);
+    expect(seen).toContain('Close menu');
+
+    await page.getByRole('button', { name: 'Close menu' }).tap();
+    await expect(sheet(page)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Open menu' })).toBeFocused();
+    expect(await search.evaluate((el) => el.closest('[inert]') !== null)).toBe(false);
+  });
+
+  test('Escape and a press on the scrim close it and return focus to the button', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.goto('/markets');
+
+    await menuButton(page).tap();
+    await expect(sheet(page)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(sheet(page)).toHaveCount(0);
+    await expect(menuButton(page)).toBeFocused();
+
+    await menuButton(page).tap();
+    await expect(sheet(page)).toBeVisible();
+    await scrim(page).tap({ position: { x: 195, y: 600 } });
+    await expect(sheet(page)).toHaveCount(0);
+    await expect(scrim(page)).toHaveCount(0);
+    await expect(menuButton(page)).toBeFocused();
+    await expect(page).toHaveURL(/\/markets$/);
+  });
+
+  test('choosing a row closes it, and so does any route change', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.goto('/markets');
+
+    await menuButton(page).tap();
+    await sheetLink(page, 'Organizations').tap();
+    await page.waitForURL(/\/organizations$/);
+    await expect(sheet(page)).toHaveCount(0);
+
+    // The place it is already in: nothing navigates, and the sheet closes all the same.
+    await menuButton(page).tap();
+    await sheetLink(page, 'Organizations').tap();
+    await expect(sheet(page)).toHaveCount(0);
+    await expect(menuButton(page)).toBeFocused();
+
+    // Nothing in the sheet moved the route.
+    await menuButton(page).tap();
+    await expect(sheet(page)).toBeVisible();
+    await page.goBack();
+    await page.waitForURL(/\/markets$/);
+    await expect(sheet(page)).toHaveCount(0);
+    expect(
+      await page.getByTestId('markets-search-input').evaluate((el) => el.closest('[inert]')),
+    ).toBeNull();
+  });
+
+  test('its Sign out ends the session and lands on sign-in', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.goto(marketScreenPath(marketId, 'attendance'));
+    await menuButton(page).tap();
+    await sheetSignOut(page).tap();
+
+    await page.waitForURL(/\/login$/);
+    await expect(sheet(page)).toHaveCount(0);
+    await expect(menuButton(page)).toBeHidden();
+    expect(await page.evaluate(() => localStorage.getItem('user'))).toBeNull();
+    expect((await page.request.get('/api/check-session')).status()).toBe(401);
+  });
+
+  test('a long address stays whole in the sheet, and nothing scrolls sideways', async ({
+    authenticatedPage: page,
+  }) => {
+    const long = `an-organizer-with-a-very-long-address-indeed-${'x'.repeat(30)}@example.com`;
+    await page.route(/\/check-session$/, (route) =>
+      route.fulfill({ status: 200, json: { email: long } }),
+    );
+    await page.goto('/markets');
+    await menuButton(page).tap();
+
+    const address = sheet(page).getByText(long);
+    await expect(address).toBeVisible();
+    await expect(address).toHaveAttribute('title', long);
+    await expectInsideTheWindow(address, 'the address');
+    expect(await address.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    expect(await sidewaysOverflow(page)).toBe(0);
+  });
+
+  test('taller than the window, it scrolls within itself to its last row', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 180 });
+    await page.goto('/markets');
+    await menuButton(page).tap();
+    // The account's rows come with the session probe's answer.
+    await expect(sheetSignOut(page)).toBeAttached();
+
+    const box = await sheet(page).boundingBox();
+    expect(box!.y + box!.height).toBeLessThanOrEqual(180);
+    expect(await sheet(page).evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+    await sheetSignOut(page).scrollIntoViewIfNeeded();
+    const last = await sheetSignOut(page).boundingBox();
+    expect(last!.y + last!.height).toBeLessThanOrEqual(180);
+  });
+
+  test('widening past 640px with the sheet open closes it and gives the page back', async ({
     authenticatedPage: page,
   }) => {
     await page.setViewportSize({ width: 640, height: 800 });
     await page.goto('/markets');
-    await expect(page.getByTestId('app-menu-button')).toBeVisible();
+    const search = page.getByTestId('markets-search-input');
+    await expect(menuButton(page)).toBeVisible();
     await expect(links(page)).toBeHidden();
 
+    await menuButton(page).tap();
+    await expect(sheet(page)).toBeVisible();
+
     await page.setViewportSize({ width: 641, height: 800 });
-    await expect(page.getByTestId('app-menu-button')).toBeHidden();
+    await expect(sheet(page)).toHaveCount(0);
+    await expect(scrim(page)).toHaveCount(0);
+    await expect(menuButton(page)).toBeHidden();
     await expect(links(page)).toBeVisible();
+    expect(await search.evaluate((el) => el.closest('[inert]'))).toBeNull();
+  });
+
+  test.describe('on a screen that keeps the desktop floor', () => {
+    test('the menu button stays in the window as the page scrolls sideways, and the sheet opens in it', async ({
+      authenticatedPage: page,
+    }) => {
+      await page.goto(marketScreenPath(marketId, 'setup'));
+      await expect(page.getByTestId('market-frame').first()).toBeVisible();
+      expect(await sidewaysOverflow(page)).toBeGreaterThan(0);
+      // The page scrolls, and does not widen the layout viewport and leave a thumb panning over it,
+      // which no sticky or fixed box could hold still in.
+      expect(await page.evaluate(() => window.innerWidth)).toBe(390);
+      await expectInsideTheWindow(menuButton(page), 'the menu button before scrolling');
+
+      await thumbSideways(page, 300);
+      expect(await page.evaluate(() => window.scrollX)).toBeGreaterThan(0);
+      await expectInsideTheWindow(menuButton(page), 'the menu button after scrolling');
+
+      await menuButton(page).tap();
+      await expect(sheet(page)).toBeVisible();
+      expect(await inWindow(sheet(page))).toEqual({ left: 0, right: 390, windowWidth: 390 });
+      await expectInsideTheWindow(sheetSignOut(page), 'Sign out');
+      expect(await inWindow(scrim(page))).toEqual({ left: 0, right: 390, windowWidth: 390 });
+    });
+
+    test('the band runs the whole width the page scrolls across', async ({
+      authenticatedPage: page,
+    }) => {
+      await page.goto(marketScreenPath(marketId, 'setup'));
+      await expect(page.getByTestId('market-frame').first()).toBeVisible();
+      await thumbSideways(page, 300);
+      expect(await page.evaluate(() => window.scrollX)).toBeGreaterThan(0);
+      const band = await inWindow(bar(page));
+      expect(band.left).toBeLessThanOrEqual(0);
+      expect(band.right).toBeGreaterThanOrEqual(390);
+    });
+  });
+});
+
+test.describe('the bar on a floored screen in a narrow desk window', () => {
+  test('the account menu stays in the window, however far the page has scrolled', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { marketId } = await seedMarketWithVendors(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    await page.setViewportSize({ width: 800, height: 800 });
+    await page.goto(marketScreenPath(marketId, 'setup'));
+    await expect(accountButton(page)).toBeVisible();
+
+    const rightEdge = () =>
+      accountButton(page).evaluate((el) => ({
+        right: el.getBoundingClientRect().right,
+        window: document.documentElement.clientWidth,
+      }));
+    for (const left of [0, 10_000]) {
+      await page.evaluate((x) => window.scrollTo(x, 0), left);
+      const { right, window: width } = await rightEdge();
+      expect(right, `scrolled to ${left}`).toBeLessThanOrEqual(width);
+    }
   });
 });
