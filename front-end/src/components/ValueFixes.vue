@@ -26,7 +26,10 @@ const props = withDefaults(
     labelFor?: (target: string, choice: string) => string;
     /** What the values did not match, as the organizer calls it. */
     against?: string;
-    /** Test id prefix, the view's own: `<testid>-value-fixes`, `-unmatched-value`, `-fix-<value>`. */
+    /**
+     * The view's own prefix: test ids `<testid>-value-fixes`, `-unmatched-value`, `-fix-<value>`, and
+     * each select's field name, `<testid>-fix-<target>-<value>`.
+     */
     testid?: string;
     /**
      * Values already decided rather than waiting on a decision (bug 28): listed so a decision -
