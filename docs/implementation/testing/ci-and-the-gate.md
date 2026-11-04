@@ -14,7 +14,7 @@ describes:
   - front-end/scripts/bundle-budget.ts
   - front-end/scripts/no-eval.ts
   - front-end/vite.config.ts#noDevModules
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - T47
   - T53

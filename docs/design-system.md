@@ -20,6 +20,13 @@ describes:
   - front-end/e2e/helpers/focusSweep.ts
   - front-end/e2e/a-links-halo-appears-at-once.spec.ts
   - front-end/src/components/FileDropZone.vue
+  - front-end/src/assets/brand/
+  - front-end/src/__tests__/theBrandHasOneFolder.test.ts
+  - front-end/scripts/brand-icons.ts
+  - front-end/index.html
+  - front-end/public/manifest.webmanifest
+  - front-end/src/components/icons/
+  - front-end/src/__tests__/everyIconIsUsed.test.ts
 verified: 2026-11-04
 sources:
   - wayfinding/claims-and-room/map
@@ -63,8 +70,9 @@ sources:
   - E38/F15/S01
   - T181
   - T180
-  - T211
   - T205
+  - T211
+  - T212
 ---
 
 # Conventioner's design language
@@ -340,7 +348,7 @@ Three of the reds being retired cannot carry white text at all: `#e74c3c` (3.82)
 
 ### The brand green is `--mm-green` (`#36826f`)
 
-The wordmark painted `#00DC82` while every primary button painted `#36826f`. `#00DC82` gives white text 1.7:1, so it can never be a button or a link - a brand colour the product would be forbidden from using on any control. The logo is restyled to `--mm-green`.
+The wordmark painted `#00DC82` while every primary button painted `#36826f`. `#00DC82` gives white text 1.7:1, so it can never be a button or a link - a brand colour the product would be forbidden from using on any control. The logo's mark is `--mm-green`; its wordmark is black ([brand files and icons](#brand-files-and-icons)).
 
 ### Two grounds, not one
 
@@ -349,6 +357,41 @@ A token is only AA on the grounds it was measured against, so the phase rail's g
 
 So a chip carries its own ground: the `--mm-chip-*` tokens are opaque, the tint already laid over white, and `contrast.test.ts` asserts each with its ink.
 Translucent tints took on the beige review card beneath them and fell below AA there (E26/F10/S01).
+
+## Brand files and icons
+
+The brand has one folder, [`front-end/src/assets/brand/`](../front-end/src/assets/brand/):
+
+| File | What it is for |
+| --- | --- |
+| `conventioner-logo.svg` | The full logo, mark and wordmark; the banner draws it. |
+| `conventioner-mark.svg` | The mark alone, in its colour, for wherever the logo does not fit. |
+| `conventioner-mark-currentcolor.svg` | The mark in `currentColor`, for a dark ground or a coloured control. |
+| `conventioner-wordmark.svg` | The wordmark alone. |
+
+The mark is `#36826F`, which is `--mm-green`, and the wordmark is black.
+An `<img>` does not inherit colour, so the `currentColor` copy only takes the colour around it when it is inlined.
+The mark and the wordmark are the logo's own two paths, unchanged, and [`theBrandHasOneFolder.test.ts`](../front-end/src/__tests__/theBrandHasOneFolder.test.ts) fails when either drifts from the logo.
+
+The favicon set in [`front-end/public/`](../front-end/public/) is generated from the mark, and [`front-end/index.html`](../front-end/index.html) links it:
+
+| File | Size | Ground | For |
+| --- | --- | --- | --- |
+| `favicon.svg` | vector | transparent | Every browser that takes an SVG favicon; a byte-for-byte copy of the mark. |
+| `favicon.ico` | 16, 32, 48 | transparent | A browser that does not. |
+| `apple-touch-icon.png` | 180 | white, the mark at 140 | iOS, which fills transparency with black. |
+| `icon-192.png`, `icon-512.png` | 192, 512 | transparent | The manifest's `any` icons. |
+| `icon-maskable-512.png` | 512 | white, the mark at 384 | The manifest's `maskable` icon: a launcher crops it to its own shape, and the mark stays inside the central 409px circle. |
+
+When the mark changes, run `npm run brand-icons` in `front-end/` and commit what it writes.
+[`scripts/brand-icons.ts`](../front-end/scripts/brand-icons.ts) renders with the Chromium `@playwright/test` installs and writes the ICO itself, so it adds no dependency, and neither CI nor the build runs it.
+`index.html`'s ICO link says `sizes="32x32"` on purpose: without it Chrome may choose the ICO over the SVG, and `sizes="any"` makes it download both.
+[`manifest.webmanifest`](../front-end/public/manifest.webmanifest) is written by hand, and its `display` asks for `browser`, since an organizer copies a market's link from the address bar.
+What an icon on a home screen then opens is the phone's to decide: on iOS 26 the "Open as Web App" toggle in the Add to Home Screen dialog decides it, and no phone has tried this yet.
+[`the-brand-reaches-the-browser.spec.ts`](../front-end/e2e/the-brand-reaches-the-browser.spec.ts) fetches every icon as a browser would and holds its content type, since a missing file falls through to `index.html` with a 200.
+
+An icon lives in [`front-end/src/components/icons/`](../front-end/src/components/icons/) as `Icon<Name>.vue`, a local SVG drawing in `currentColor` ([ADR 0015](adr/0015-the-app-owns-its-components.md)).
+An icon is added when a screen uses it, and [`everyIconIsUsed.test.ts`](../front-end/src/__tests__/everyIconIsUsed.test.ts) fails, naming the icon, for one that no source file outside the tests, the icons folder and the dev-only component library in `src/dev/` imports.
 
 ## The primitive layer
 
