@@ -215,9 +215,10 @@ Some applicant holds two applications of one type at one market, which the index
 `MONGODB_URI='<URI>' .venv/bin/python migrations/create_applications_collection.py --dry-run` ([`create_applications_collection.py`](../back-end/migrations/create_applications_collection.py)) lists each such applicant with their application ids; it prints their addresses, so keep its output off anything shared.
 Which document is the applicant's is the organizer's call: merge each pair by hand in `mongosh`, then redeploy.
 
-**"The indexes on applicant_login_challenges and sign_in_attempts could not be built"**.
+**"The indexes on applicant_login_challenges, sign_in_attempts and vendor_remembered_sign_ins could not be built"**.
 The log quotes Mongo's reason.
-These are applicants' sign-in codes, used once and expiring within five minutes, and the sign-in rate-limit counters, which last fifteen, so nothing lasting is lost by clearing them: drop a conflicting index of the same name (`db.applicant_login_challenges.dropIndex('<name>')`, `db.sign_in_attempts.dropIndex('<name>')`), or remove duplicate challenges (`db.applicant_login_challenges.deleteMany({})`), then redeploy.
+These are applicants' sign-in codes, used once and expiring within ten minutes, and the sign-in rate-limit counters, which last fifteen, so nothing lasting is lost by clearing them: drop a conflicting index of the same name (`db.applicant_login_challenges.dropIndex('<name>')`, `db.sign_in_attempts.dropIndex('<name>')`), or remove duplicate challenges (`db.applicant_login_challenges.deleteMany({})`), then redeploy.
+The third holds vendors' remembered sign-ins ("Remember me" on the vendor page); its one index is the TTL index `remembered_sign_in_ttl`, so drop a conflicting index of that name (`db.vendor_remembered_sign_ins.dropIndex('<name>')`) and keep the documents, whose loss only makes each remembered vendor enter a code once more.
 
 **"Refusing to start: ... are not configured"**, naming variables.
 A configuration refusal, not a database one: set each variable it names ([RELEASING.md](RELEASING.md#pre-deploy-required-production-environment)) and redeploy.
@@ -268,4 +269,4 @@ Vercel's Hobby plan keeps runtime logs for about an hour, so read them while the
 | The browser reports a CORS error | The page's origin is not in `CORS_ALLOWED_ORIGINS` | It must be exactly `https://conventioner.io`, no trailing slash; a new front-end domain must be added. |
 | A write answers 403 `Request origin not allowed` | The page's origin is not in `CORS_ALLOWED_ORIGINS`, which also decides which origins a browser's write is taken from ([where a write comes from](implementation/conventions/security-invariants.md#where-a-write-comes-from)) | The same fix as the CORS error: list the page's origin exactly. This refusal names only a write; CORS still blocks that page's reads, so one listed origin fixes both. |
 | The Deploy workflow fails at "Refuse to run half-configured" or "Deploy the back end" | A GitHub variable is missing, or `VERCEL_TOKEN` expired | Set it again (see [Configuration](#configuration-and-secrets)) and re-run. |
-| Vendors cannot find themselves at check-in | The market is not published (`market_days`), or they use another address | The check-in page serves only a published market, by the address they applied with; an editor can check them in from Attendance. |
+| Vendors cannot check in | The market is not published (`market_days`), they signed in with another address, or the poster is of an old door code | A vendor checks in on their vendor page, signed in with the address they applied with (a Google Form market: the one its form response gave), with the live door code; an editor can check them in from Attendance. |

@@ -2,13 +2,15 @@ import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { ensureTestOrg } from './helpers/seeds';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { marketSetupPath } from './helpers/marketScreens';
+import { MarketSetupPage } from './pages/MarketSetupPage';
 
 /**
  * The assignment rules close with the assignment (E22/F02, from the-assignment-tab ticket 01).
  *
- * A rule only takes effect when the assignment runs, and once the market is published it can never
- * run again - so the rules read as they were run, with one line saying why. Publishing lands at the
- * door (E32/F01/S01); the rules, reached again from there, are closed.
+ * A rule only takes effect when the assignment runs, and once results are published it can never
+ * run again (E36/F04/S02) - so the rules read as they were run, with one line saying why. Results
+ * go out before the market does, on either path (ADR 0022); publishing the market then lands at the
+ * door (E32/F01/S01), and the rules, reached again from there, stay closed.
  */
 test.describe('The assignment rules close with the assignment', () => {
   let marketId: string;
@@ -24,12 +26,19 @@ test.describe('The assignment rules close with the assignment', () => {
     marketId = seeded.marketId;
   });
 
-  test('publishing from the rail settles the rules', async ({ authenticatedPage: page }) => {
+  test('publishing results settles the rules, and they stay settled at the door', async ({
+    authenticatedPage: page,
+  }) => {
     await page.goto(marketSetupPath(marketId, 'settings'));
     const maxPerVendor = page.getByTestId('setup-options-max-assignments-input');
     await expect(maxPerVendor).toBeEnabled({ timeout: 15000 });
     await expect(page.getByTestId('priority-add-rule')).toBeVisible();
     await expect(page.getByTestId('assignment-rules-settled')).toHaveCount(0);
+
+    await new MarketSetupPage(page).publishResults(marketId);
+    await page.goto(marketSetupPath(marketId, 'settings'));
+    await expect(maxPerVendor).toBeDisabled({ timeout: 15000 });
+    await expect(page.getByTestId('assignment-rules-settled')).toContainText('settled');
 
     await page.getByTestId('phase-transition-market_days').click();
     await page.getByTestId('sweep-confirm-submit-button').click();

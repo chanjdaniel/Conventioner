@@ -47,8 +47,8 @@ A verdict can be given from the first application ([review](review.md)); Begin a
    Cancel or Escape closes it and saves nothing.
    Anyone else who may move the market gets the move at once, with no dialog.
 3. Expect Applications, landing on the Applications page, which carries the dot; the form is locked from now on ([F4](form-tab.md#f4-the-form-lock)).
-4. The rail shows "Application page" with the public address and "Copy" on one line, shortening the address rather than wrapping (bug 11), and on a phone "Application page" as the link with "Copy" (T142); it stays there in every phase after Draft until the market is archived.
-5. The rail says "Applications are open on your application page: review them as they arrive. Every application is decided: Begin assignment.", or, while one is undecided, "… Finish deciding: …".
+4. The rail shows "Vendor page" with the market's own address, `/<slug>`, and "Copy" on one line, shortening the address rather than wrapping (bug 11), and on a phone "Vendor page" as the link with "Copy" (T142); it stays there in every phase after Draft until the market is archived, and after that only if it ran.
+5. The rail says "Applications are open on your vendor page: review them as they arrive. Every application is decided: Begin assignment.", or, while one is undecided, "… Finish deciding: …".
 
 Covered by:
 - `every-move-lands.spec.ts`
@@ -73,7 +73,7 @@ Covered by:
 **Status:** Works (read from the code as of E38/F04/S02: `back-end/api/applicants.py`, `front-end/src/components/PhaseRail.vue`; `taking-applications-stops-and-resumes.spec.ts`).
 In Applications, More…, "Stop taking applications": a fact about the form, not a move, so the market stays in Applications and reviewing goes on.
 The application page refuses a new application, or a change to one, in the words a closed market used ("Applications are not currently open for this market. The market is in the Applications Closed phase."), though each vendor can still sign in and read their application ([H3c](applying-online.md#h3c-a-vendor-checks-their-application)).
-The rail says "Your application page is not taking applications. …", and the page "This market is not taking applications. No new ones will arrive."
+The rail says "Your vendor page is not taking applications. …", and the page "This market is not taking applications. No new ones will arrive."
 The stop is recorded in [the market's history](../../implementation/data/history.md) under the organizer who made it, as taking applications again is.
 Covered by:
 - `returning-vendors-edit-their-answers.spec.ts`

@@ -8,7 +8,7 @@ action no write records fails ``test_every_action_in_the_table_records_or_says_w
 write cannot be permitted without being recorded unless someone says here why it is not a change.
 """
 import copy
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any, Callable, Dict, Optional, Tuple
@@ -34,6 +34,7 @@ import api.markets as MarketsApi  # noqa: E402
 import api.permissions as PermissionsApi  # noqa: E402
 import api.placements as PlacementsApi  # noqa: E402
 import api.users as UsersApi  # noqa: E402
+import api.vendor_check_in as VendorCheckIn  # noqa: E402
 import csv_import as CsvImport  # noqa: E402
 import discord_client as Discord  # noqa: E402
 import db_config  # noqa: E402
@@ -41,6 +42,7 @@ import history as History  # noqa: E402
 import payments as Payments  # noqa: E402
 import review_team as ReviewTeam  # noqa: E402
 from bson.errors import InvalidDocument  # noqa: E402
+from utils.application_token import generate_application_token  # noqa: E402
 from datatypes import MarketPerson, MarketPhase, PaymentEntry  # noqa: E402
 from test_csv_import import MAPPING, _csv, _market_doc  # noqa: E402
 from test_csv_proposal_api import CSV as A_GOOGLE_FORM_EXPORT  # noqa: E402
@@ -232,7 +234,7 @@ class Write:
     action: Any
     kind: Optional[str]
     send: Callable[[Any, Any], Any]
-    #: None for the vendors' public check-in page, which proves nobody.
+    #: None for a vendor's own check-in, which names them among its vendors.
     actor: Optional[str] = OWNER
     vendors: Tuple[str, ...] = ()
     subject: Dict[str, Any] = None
@@ -537,17 +539,31 @@ def _remove_payment(client, world):
 
 # --- The door ---------------------------------------------------------------------------------------
 
+DOOR_CODE = "K7M4QP"
+
+
 def _door(organizer: bool, undo: bool):
     def send(client, world):
-        world.market(MarketPhase.MARKET_DAYS, assignmentObject=_seated(VENDOR))
+        world.market(MarketPhase.MARKET_DAYS, assignmentObject=_seated(VENDOR),
+                     doorCode={"code": DOOR_CODE, "madeAt": "x", "madeBy": OWNER})
         if undo:
             world.attendance.insert_one(
                 {"market_id": MARKET, "vendor_email": VENDOR, "date": DATE})
-        path = f"/markets/{MARKET}/attendance" if organizer \
-            else "/public/markets/test-market/attendance/checkin"
         send = client.delete if undo else client.post
-        return send(path, json={"vendorEmail": VENDOR, "date": DATE})
+        if organizer:
+            return send(f"/markets/{MARKET}/attendance", json={"vendorEmail": VENDOR, "date": DATE})
+        # The vendor's own, on their vendor page: signed in, with the door code (ADR 0022).
+        world.patch(VendorCheckIn, "today", lambda: date.fromisoformat(DATE))
+        return send("/public/markets/test-market/vendor/check-in",
+                    json={"date": DATE, "doorCode": DOOR_CODE},
+                    headers={"Authorization":
+                             f"Bearer {generate_application_token(MARKET, VENDOR)}"})
     return send
+
+
+def _door_code(client, world):
+    world.market(MarketPhase.MARKET_DAYS)
+    return client.post(f"/markets/{MARKET}/door-code")
 
 
 # --- Discord ----------------------------------------------------------------------------------------
@@ -668,7 +684,7 @@ def _copy_organization_default(client, world):
 
 M = "/markets/<market_id>"
 APPLICANT = "/public/markets/<market_slug>/applicant/application"
-PUBLIC_DOOR = "/public/markets/<market_slug>/attendance/checkin"
+VENDOR_DOOR = "/public/markets/<market_slug>/vendor/check-in"
 SAM_BY_ID = {"user_id": "user-sam", "email": SAM}
 
 WRITES = [
@@ -769,12 +785,14 @@ WRITES = [
     Write("a check-in undone at the door", "DELETE", f"{M}/attendance", Actions.CHECK_IN,
           History.CHECK_IN_UNDONE, _door(organizer=True, undo=True), vendors=(VENDOR,),
           subject={"date": DATE}),
-    Write("a vendor's own check-in", "POST", PUBLIC_DOOR, Actions.CHECK_IN, History.CHECKED_IN,
+    Write("a vendor's own check-in", "POST", VENDOR_DOOR, Actions.CHECK_IN, History.CHECKED_IN,
           _door(organizer=False, undo=False), actor=None, vendors=(VENDOR,),
           subject={"date": DATE}, detail_keys=("via",)),
-    Write("a vendor's own check-in undone", "DELETE", PUBLIC_DOOR, Actions.CHECK_IN,
+    Write("a vendor's own check-in undone", "DELETE", VENDOR_DOOR, Actions.CHECK_IN,
           History.CHECK_IN_UNDONE, _door(organizer=False, undo=True), actor=None,
           vendors=(VENDOR,), subject={"date": DATE}, detail_keys=("via",)),
+    Write("a door code made", "POST", f"{M}/door-code", Actions.CHECK_IN, History.DOOR_CODE_MADE,
+          _door_code, before_after=False, detail_keys=("replaced",)),
     Write("Discord connected", "POST", f"{M}/discord/connection", Actions.CONNECT_DISCORD,
           History.DISCORD_CONNECTED, _connect_discord),
     Write("a Discord choice", "PUT", f"{M}/discord", Actions.CONNECT_DISCORD,
@@ -827,6 +845,10 @@ NOT_A_CHANGE = {
         "a vendor signing in changes nothing on the market",
     ("POST", "/public/markets/<market_slug>/applicant-login/verify-code"):
         "a vendor signing in changes nothing on the market",
+    ("POST", "/public/markets/<market_slug>/applicant-login/resume"):
+        "a vendor signing in changes nothing on the market",
+    ("POST", "/public/markets/<market_slug>/applicant-login/sign-out"):
+        "a vendor signing out changes nothing on the market",
     ("POST", "/floorplans/upload"):
         "stores an image the market uses only once a floorplan is saved, which records",
     ("POST", "/floorplans/calibrate"): "measures an image and keeps nothing",
@@ -1099,15 +1121,13 @@ class TestWhatAnEntryHolds:
 
         assert len(world.history.documents) == 1
 
-    def test_the_check_in_page_names_nobody_and_says_it_was_the_page(self, client, world):
+    def test_a_vendors_own_check_in_names_them_and_the_door_code(self, client, world):
         _door(organizer=False, undo=False)(client, world)
-        client.post("/public/markets/test-market/attendance/checkin",
-                    json={"vendorEmail": VENDOR, "date": DATE})
 
         [entry] = world.history.documents
         assert entry["actor"] is None
         assert entry["vendors"] == [VENDOR]
-        assert entry["detail"]["via"] == AttendanceApi.CHECK_IN_PAGE
+        assert entry["detail"]["via"] == AttendanceApi.VIA_DOOR_CODE
 
     def test_a_move_counts_the_offers_it_turned_to_refusals(self, client, world):
         world.market(MarketPhase.OFFERS, setupObject=COMPLETE_PLAN)

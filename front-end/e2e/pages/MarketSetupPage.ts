@@ -151,8 +151,8 @@ export class MarketSetupPage {
       if (await opening.isVisible()) await opening.click();
     }
 
-    // Publishing confirms, because it is one of the two edges with no route back: it puts a
-    // public check-in page on the air.
+    // Publishing confirms, because it is one of the two edges with no route back: it opens the
+    // market's days, and check-in on its vendor page.
     const publishConfirm = this.page.getByTestId('sweep-confirm-submit-button');
     if (await publishConfirm.isVisible({ timeout: 2000 }).catch(() => false)) {
       await publishConfirm.click();
@@ -201,6 +201,30 @@ export class MarketSetupPage {
    */
   async goto(marketId: string): Promise<void> {
     await this.page.goto(marketSetupPath(marketId, 'setup'));
+  }
+
+  /**
+   * Publish results on the Applications page, where the rail leads in Assignment, and confirm.
+   * Every market publishes them before it goes live, on either path (ADR 0022).
+   */
+  async publishResults(marketId: string): Promise<void> {
+    await this.openPublishResults(marketId);
+    await this.confirmPublishResults();
+  }
+
+  /** Open Publish results' confirmation on the Applications page; its window, to read. */
+  async openPublishResults(marketId: string): Promise<Locator> {
+    await this.page.goto(marketSetupPath(marketId, 'applications'));
+    await this.page.getByTestId('applications-publish-button').click();
+    const confirm = this.page.getByTestId('publish-results-window');
+    await confirm.waitFor();
+    return confirm;
+  }
+
+  /** Confirm the open Publish results, and wait for the market to say its results are out. */
+  async confirmPublishResults(): Promise<void> {
+    await this.page.getByTestId('publish-results-submit-button').click();
+    await this.page.getByTestId('applications-published-badge').waitFor({ timeout: 10000 });
   }
 
   /**

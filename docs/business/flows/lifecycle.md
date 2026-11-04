@@ -67,8 +67,8 @@ On the Google Form path the move into Review waits on an import, so the rail's m
 Inside the stage, More… also offers what is not a move: "Redo import" on the Google Form path, and "Stop taking applications" or "Take applications again" on the online path ([taking applications](taking-applications.md)).
 
 From Assignment, More… offers "Back to review" until results are published ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)).
-It asks first, in a dialog that says what it does: the review opens again, its verdicts and automatic rejections can change, the tables allocated so far are kept but must be allocated again before results are published (on the Google Form path, before the market is published), a seat placed by hand stays even for a vendor then rejected, and on the online path applications stay closed.
-Confirmed, the market is back in the stage on the Applications tab, with the review open again; on the online path the application page stays stopped until the organizer chooses "Take applications again".
+It asks first, in a dialog that says what it does: the review opens again, its verdicts and automatic rejections can change, the tables allocated so far are kept but must be allocated again before results are published, a seat placed by hand stays even for a vendor then rejected, and on the online path applications stay closed.
+Confirmed, the market is back in the stage on the Applications tab, with the review open again; on the online path the vendor page takes no applications until the organizer chooses "Take applications again".
 The review stays closed while the market sits in Assignment ([verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md)).
 
 ## The phases
@@ -92,16 +92,16 @@ When the server would refuse that step, the sentence is its first blocker for so
 | Phase | Online path | Google Form path |
 | --- | --- | --- |
 | Draft | "Plan the market and its application form, then open applications." | "To begin review: Nothing has been imported yet. Import your Google Form's responses first.", once the plan is complete |
-| Applications / Review | "Applications are open on your application page: review them as they arrive. Every application is decided: Begin assignment.", or, stopped, "Your application page is not taking applications. …" | "Every imported response is here. Every application is decided: Begin assignment." |
+| Applications / Review | "Applications are open on your vendor page: review them as they arrive. Every application is decided: Begin assignment.", or, stopped, "Your vendor page is not taking applications. …" | "Every imported response is here. Every application is decided: Begin assignment." |
 | Assignment, nothing run | "Set the rules and allocate tables." | as the online path |
-| Assignment, run | "Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone." | as the online path |
-| Assignment, results published | "Results are published, so the assignments are settled. Publish the market to put the check-in page up; that cannot be undone." | none: nothing is published to applicants |
+| Assignment, run | "Check the assignments, then publish the market: that opens check-in with the door code, and cannot be undone." | as the online path |
+| Assignment, results published | "Results are published, so the assignments are settled. Publish the market to open check-in with the door code; that cannot be undone." | as the online path |
 | Market Days | "Check vendors in at the door.", and once every date has passed "The market has run. Archive it to keep it as the record of what happened." | as the online path |
-| Archived | "Archived: the record of what happened stays on its check-in page." for a market that ran, else "Archived: this market is the record of what happened." | as the online path |
+| Archived | "Archived: the record of what happened stays on its vendor page." for a market that ran, else "Archived: this market is the record of what happened." | as the online path |
 
 Someone whose role the step is not reads instead what they may do there, and is led to it: a Viewer in Draft reads "The market is being planned. Read its plan on Market Setup.", in the stage what the stage is and "Read where each application stands." (on the Google Form path, "each response"), in Assignment that tables are not allocated yet or are, or that results are published, at the door "Follow who has checked in at the door.", and once every date has passed "The market has run. Who came is on Attendance." (E38/F15/S04).
 This holds while the step is refused too: what would refuse it, such as an application still waiting or a form market's results not yet published, is told only to someone who may put it right, save a plain fact that asks nobody to do anything.
-An Editor in Assignment before results are published may change the seats but publish neither the results nor the market, so reads "Check the assignments; the results are published by whoever may publish them." (on the Google Form path, "the market is published by whoever may publish it").
+An Editor in Assignment before results are published may change the seats but publish neither the results nor the market, so reads "Check the assignments; the results are published by whoever may publish them.", on both paths.
 It never says what they may not: the line under the rail says that once.
 Each sentence, word for word, is in [the market guide](../../implementation/modules/market-guide.md).
 
@@ -130,8 +130,8 @@ Each refusal is a blocker line under the rail and beside the move, before the cl
 | The stage → Assignment | An approved applicant named a tier that has no tables | Names the tier and the applicants |
 | The stage → Assignment, and into Market Days | A hand placement names a seat the plan no longer has | Names the vendor, table and date |
 | Assignment → Offers | Any application is still Approved (always true today: M1) | "N applications are still approved but not yet assigned or unassigned. …" |
-| Into Market Days | No assignment is stored | "No tables have been allocated for this market, so its check-in page could not tell anyone where to stand. Allocate tables first." |
-| Into Market Days, on the online path | Results are not published | "Applicants have not been told whether they have a table. Publish the results before the market goes live." |
+| Into Market Days | No assignment is stored | "No tables have been allocated for this market, so its vendor page could not tell anyone where to stand. Allocate tables first." |
+| Into Market Days, on either path | Results are not published | "Vendors have not been told whether they have a table. Publish the results before the market goes live." |
 
 Moves that cannot be undone (Publish market, Archive market) open a confirmation dialog focused on Cancel, and so does Back to review, which can be undone but costs the allocation.
 On the online path, Open applications first offers the reviewers to someone who may choose them.
@@ -142,9 +142,9 @@ Covered by:
 
 ## Where the check-in address lives
 
-Once a market is published, the rail carries its check-in page's address as a chip between the spine and the moves, with Copy; it is the one place the product tells the organizer the address vendors check in at.
+Once a market has a vendor page, the rail carries its address as a chip between the spine and the moves, with Copy; it is the one place the product tells the organizer the address vendors use, from applying or their result to checking in with the door code.
 The chip stays on an archived market that ran, whose page stays up as its record ([an archived market that ran stays a record](../rules/an-archived-market-that-ran-stays-a-record.md)); before publishing there is none, since it would lead to a page that does not exist yet.
-A form market's application page has a chip of its own on the same row, from the first phase after Draft ([a gated market answers as absent](../rules/a-gated-market-answers-as-absent.md)).
+A form market's vendor page has a chip of its own on the same row, "Vendor page", from the first phase after Draft ([a gated market answers as absent](../rules/a-gated-market-answers-as-absent.md)).
 
 The spine, the addresses and the moves share one row at the organizer's screen width; where the row cannot hold them, the addresses and the moves take a second row together ([the phase rail](../../implementation/modules/phase-rail.md)).
 A market that leaves the spine freezes it at the furthest phase it reached and says in words what became of it, such as "It was published and ran its market days.": a struck-through spine alone reads as stopped, not as archived.

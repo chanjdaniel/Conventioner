@@ -63,6 +63,7 @@ from market_documents import (
     market_doc_key,
     market_doc_set,
     market_from_document,
+    leave_out_what_no_read_serves,
 )
 import api.market_actions as Actions
 import api.permissions as PermissionsApi
@@ -323,7 +324,7 @@ def _why_the_review_is_closed(market: Market) -> Optional[str]:
 
     Archived is the caller's: every write there gives the archived refusal. Published comes before
     the phase, since no way back is left once applicants have read their results; a Google Form
-    market never publishes them, so it is told the market went live.
+    market that went live before it could publish them (ADR 0022) is told the market went live.
     """
     if review_is_open(market.phase):
         return None
@@ -934,6 +935,7 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     accounts = _Accounts(reader, _named_by_the_read(market, context.organization))
 
     market_dict['_id'] = str(market_dict['_id'])
+    leave_out_what_no_read_serves(market_dict)
     # Deprecated: no screen reads the role since each asks the table (E39/F01/S02); an old bundle's
     # Manage market does, and the next release removes it with ``deprecated_screen_reasons``.
     market_dict['user_role'] = user_role.value
@@ -1168,6 +1170,7 @@ def _decorate_market_summary(
     whether it was served by the list endpoint or by ``get_market_for_user``.
     """
     market['_id'] = str(market['_id'])
+    leave_out_what_no_read_serves(market)
     # A Discord check's stored inputs, which no list entry serves, as no market read does.
     from api.discord_connection import leave_out_what_is_not_served
     leave_out_what_is_not_served(market)
@@ -1345,8 +1348,8 @@ def _organization_default_rows(organization_id: Optional[str]) -> Dict[str, Dict
 def public_address_refusal(name: str, market_id: Optional[str] = None) -> Optional[str]:
     """Why no market may be called this, or None when it may (E21/F03/S03).
 
-    The name decides the slug and the slug is the market's public address - its applicant links
-    and its check-in page, served without authentication - so two markets answering one address
+    The name decides the slug and the slug is the market's public address - its vendor page, served
+    before anyone signs in (ADR 0022) - so two markets answering one address
     could hand a stranger the wrong market. Asked by creation and by a rename alike, against every
     OTHER market; the unique ``market_slug`` index is the database's refusal of the same thing.
 
@@ -2544,7 +2547,7 @@ def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
 
 RENAME_REFUSED_AFTER_DRAFT = (
     "This market's public web address comes from its name, and it has already been shared - "
-    "on its application link or its check-in page - so its name can no longer change."
+    "on its vendor page - so its name can no longer change."
 )
 
 

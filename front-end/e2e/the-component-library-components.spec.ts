@@ -27,6 +27,7 @@ const COMPONENTS = [
   'StepHeader',
   'AnswerValue',
   'SignInMessage',
+  'CodeInput',
   'BarLedger',
   'FileDropZone',
 ];

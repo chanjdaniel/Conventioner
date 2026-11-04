@@ -40,7 +40,7 @@ A market whose organization is gone says "No longer available" there rather than
 - **No progress counts**: the list does not carry them, and each would cost a query per row on a list that grows.
 
 **The row itself opens the market**, on its own pages, in every phase, and on the keyboard its name is the button that does; Manage is the one control beside it, visible rather than behind a menu, since renaming, sharing and deleting a market are what an owner looks for there.
-Opening never leads to the market's public page: a Google Form market has none, so opening a published one by its public page once answered "Page not found" for every market of the first release, and what an organizer wants of a published market, its check-in address, is on its rail ([the market lifecycle](lifecycle.md#where-the-check-in-address-lives)).
+Opening never leads to the market's public page: a Google Form market has none before its results are published, so opening a published one by its public page once answered "Page not found" for every market of the first release, and what an organizer wants of a published market, its check-in address, is on its rail ([the market lifecycle](lifecycle.md#where-the-check-in-address-lives)).
 
 ## C1. The dashboard
 

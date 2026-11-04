@@ -8,7 +8,7 @@ describes:
   - back-end/app.py#delete_market
   - front-end/e2e/market-records-go-with-it.spec.ts
   - back-end/history.py#delete_for_market
-verified: 2026-10-30
+verified: 2026-11-03
 sources:
   - E20/F04/S01
   - bug/47
@@ -25,7 +25,7 @@ sources:
 
 | Name | What it does |
 | --- | --- |
-| `delete_market_and_records(markets, market_id)` | deletes the market's applications, check-ins, applicant sign-in codes, history, vendor notes, and its vendors' payments and amounts owed, then the market; returns the market's `DeleteResult` |
+| `delete_market_and_records(markets, market_id)` | deletes the market's applications, check-ins, applicant sign-in codes and remembered sign-ins, history, vendor notes, and its vendors' payments and amounts owed, then the market; returns the market's `DeleteResult` |
 | `record_organization_deletion(organization, markets, actor_email)` | writes one `organization_deleted` entry to `deletion_trail`, and raises rather than swallow a failure |
 | `entries_for_organization(org_id)` | every entry naming an organization; read-only, and nothing removes one; no caller yet |
 
@@ -41,6 +41,7 @@ Deleting the market document alone once left every vendor's name, email and answ
 | applications | `applications` | `delete_applications_for_market` ([the application document](../data/application-document.md)) |
 | check-ins | `attendance` | `delete_attendance_for_market` ([attendance and the door](attendance-and-door.md)) |
 | applicant sign-in codes | `applicant_login_challenges` | `delete_challenges_for_market` ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md)) |
+| vendors' remembered sign-ins | `vendor_remembered_sign_ins` | `delete_for_market` in `back-end/remembered_sign_ins.py` ([the cookies](../conventions/security-invariants.md#the-cookies)) |
 | its history, the placement trail among it | `history` | `delete_for_market` in [`back-end/history.py`](../../../back-end/history.py) ([the market's history](../data/history.md)) |
 | the organizer's vendor notes | `vendor_notes` | `delete_for_market` in `back-end/vendor_notes.py` |
 | its vendors' payments and amounts owed | `payments`, `amounts_owed` | `delete_for_market` in `back-end/payments.py` ([payments](../data/payments.md)) |
@@ -59,9 +60,9 @@ The collection is indexed on `organization_id` ([lookup indexes](../data/lookup-
 ## Why
 
 - [When an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md): the drafts and archived markets go, through here, after the trail.
-- [An archived market that ran stays a record](../../business/rules/an-archived-market-that-ran-stays-a-record.md): deleting one takes a live check-in page and the record of a market that happened, which is why the trail describes what it took.
+- [An archived market that ran stays a record](../../business/rules/an-archived-market-that-ran-stays-a-record.md): deleting one takes a live vendor page and the record of a market that happened, which is why the trail describes what it took.
 
-`front-end/e2e/market-records-go-with-it.spec.ts` ([spec](../../../front-end/e2e/market-records-go-with-it.spec.ts)) deletes a market by each door and finds none of its applications, check-ins, sign-in codes, history, payments or amounts owed left; `back-end/tests/test_vendor_notes.py` does the same for the notes, and `back-end/tests/test_organization_deletion.py` for the trail's order.
+`front-end/e2e/market-records-go-with-it.spec.ts` ([spec](../../../front-end/e2e/market-records-go-with-it.spec.ts)) deletes a market by each door and finds none of its applications, check-ins, sign-in codes, remembered sign-ins, history, payments or amounts owed left; `back-end/tests/test_vendor_notes.py` does the same for the notes, and `back-end/tests/test_organization_deletion.py` for the trail's order.
 
 A market's own Delete, as its owner meets it, is [L5](../../business/flows/ending-and-managing-a-market.md#l5-delete-a-market).
 

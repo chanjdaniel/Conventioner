@@ -1,8 +1,8 @@
 """The slug is stored, derived, and server-owned - because it is a market's public identifier.
 
 Every public URL a market appears on names it by the slug of its name, and every endpoint behind
-those URLs is unauthenticated: public check-in, the application form, applicant sign-in. The slug
-is persisted so that lookup is one indexed query (``published_market_by_slug``) instead of a decode
+those URLs is unauthenticated: the vendor page, the application form, applicant sign-in. The slug
+is persisted so that lookup is one indexed query (``market_by_slug``) instead of a decode
 of every market in the database that any stranger could drive by typing a URL.
 
 Persisting a derived value is only safe while nothing can leave it disagreeing with what it was
@@ -16,7 +16,7 @@ from conftest import FakeMarketsCollection, client_market, stored_market
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 from datatypes import Market, MarketPhase, market_name_slug
-from market_documents import market_from_document, published_market_by_slug
+from market_documents import market_by_slug, market_from_document
 
 
 @pytest.fixture
@@ -83,9 +83,12 @@ class TestEveryWritePersistsIt:
         assert written["slug"] == "renamed-market"
 
 
+RUNNING = (MarketPhase.MARKET_DAYS,)
+
+
 class TestTheLookupUsesTheStoredSlug:
     """The stored slug narrows the query; the name still decides. See
-    ``market_documents.published_market_by_slug``."""
+    ``market_documents.market_by_slug``."""
 
     class _Collection:
         def __init__(self, docs):
@@ -109,7 +112,7 @@ class TestTheLookupUsesTheStoredSlug:
             stored_market(phase=MarketPhase.MARKET_DAYS, name="Café Market"),
         ])
 
-        found = published_market_by_slug(collection, "cafe-market")
+        found = market_by_slug(collection, "cafe-market", RUNNING)
 
         assert found["name"] == "Café Market"
         assert collection.queries[0]["slug"] == "cafe-market"
@@ -136,7 +139,7 @@ class TestThePublicLookupFetchesOnlyWhatItServes:
     def test_a_caller_gets_the_fields_it_asked_for(self):
         collection = self._collection()
 
-        found = published_market_by_slug(collection, "spring-market", ("id", "application_form"))
+        found = market_by_slug(collection, "spring-market", RUNNING, ("id", "application_form"))
 
         assert found["id"]
         assert "assignmentObject" not in found
@@ -147,17 +150,17 @@ class TestThePublicLookupFetchesOnlyWhatItServes:
         for markets that are live. A caller cannot drop those by not asking for them."""
         collection = self._collection()
 
-        found = published_market_by_slug(collection, "spring-market", ("id",))
+        found = market_by_slug(collection, "spring-market", RUNNING, ("id",))
 
         assert found is not None
         for field in ("name", "phase", "isDraft"):
             assert field in collection.projections[0]
 
     def test_a_caller_that_names_nothing_still_gets_the_whole_document(self):
-        """Public check-in reads the assignment out of the market it resolves this way."""
+        """A caller that names no fields is served the whole document."""
         collection = self._collection()
 
-        found = published_market_by_slug(collection, "spring-market")
+        found = market_by_slug(collection, "spring-market", RUNNING)
 
         assert collection.projections[0] is None
         assert "assignmentObject" in found

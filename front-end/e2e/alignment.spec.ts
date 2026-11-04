@@ -13,7 +13,6 @@ import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/see
  *   - Two footer actions sat 21px apart on a row meant to be one line, because an explanation was
  *     stacked ABOVE its button inside a centred
  *     column.
- *   - The check-in email field was 42px and the button beside it 40px, both starting at the same y.
  *   - Section Setup's "Total tables" started 3px left of the section rows above it (T73).
  *
  * Measured rather than asserted against fixed numbers: the point is that peers agree with each
@@ -21,7 +20,6 @@ import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/see
  */
 
 test.describe('Things meant to line up do', () => {
-  let marketSlug: string;
   let marketId: string;
 
   test.beforeAll(async ({ request }) => {
@@ -32,7 +30,6 @@ test.describe('Things meant to line up do', () => {
       TEST_USER.email,
       TEST_USER.password,
     );
-    marketSlug = seeded.marketSlug;
     marketId = seeded.marketId;
   });
 
@@ -65,26 +62,6 @@ test.describe('Things meant to line up do', () => {
     if (varied) {
       const distinct = [...new Set(counts.map((c) => c.left))];
       expect(distinct, `ragged column: ${JSON.stringify(counts)}`).toHaveLength(1);
-    }
-  });
-
-  test('the check-in field and its button are the same height', async ({ page }) => {
-    // On a phone too, where they stack: the field's `flex: 1` became a zero height basis in the
-    // column, and it shrank to a 22px line box under a 44px button (E26 re-walk).
-    for (const size of [
-      { width: 1280, height: 800 },
-      { width: 390, height: 844 },
-    ]) {
-      await page.setViewportSize(size);
-      await page.goto(`/${marketSlug}/check-in`);
-      const input = page.getByTestId('attendance-checkin-email-input');
-      const button = page.getByTestId('attendance-checkin-lookup-button');
-      await expect(input).toBeVisible({ timeout: 10000 });
-
-      const [i, b] = await Promise.all([input.boundingBox(), button.boundingBox()]);
-      expect(Math.round(i!.height), `field and button disagree at ${size.width}px`).toBe(
-        Math.round(b!.height),
-      );
     }
   });
 
