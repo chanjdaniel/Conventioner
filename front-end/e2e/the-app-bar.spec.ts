@@ -916,6 +916,9 @@ for (const size of SIZES) {
     test('a stale stored user on a public page shows the full bar, and its links lead to sign-in', async ({
       authenticatedPage: page,
     }) => {
+      // A read still in flight when the cookies go answers 401, which ends the session in the
+      // browser too, and then the stored user this test is about is gone.
+      await page.waitForLoadState('networkidle');
       await page.context().clearCookies();
       await page.goto(`/${marketSlug}`);
       await expect(logoLink(page)).toBeVisible();
