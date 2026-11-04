@@ -144,4 +144,8 @@ function toggle(key: string, on: boolean) {
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
+
+.highlight-choice.disabled .highlight-kind {
+  color: var(--mm-text-muted-on-beige);
+}
 </style>
