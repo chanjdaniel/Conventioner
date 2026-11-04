@@ -6,8 +6,7 @@ import { eachWindow, expectLaidOut, openEntry } from './helpers/componentLibrary
 /**
  * The component library's `combobox` entry (T200): `SearchPicker` grown with a cap, on the
  * fixture's 150 people and 228 options, at a desk and on a phone. C7 finds a person past the cap
- * by their family name or their address, by the keys and by a click, beside today's native select
- * of the same 150; the line under a capped list counts what is left, stays in view as the list
+ * by their family name or their address, by the keys and by a click; the line under a capped list counts what is left, stays in view as the list
  * scrolls, and is never a choice. C5 chooses reviewers as chips, every choice opening ticked at the
  * top, removed by a chip's button and by Backspace, and C10 chooses among the 228 answers. C1 fixes the
  * import's values beside today's native select, each by typing and choosing or kept as typed, with
@@ -39,12 +38,6 @@ eachWindow('the combobox entry', (size) => {
 
     await expect(page.getByTestId('choices-for-you')).toContainText("The value fixes' rows");
     await expectLaidOut(page, size, 'the combobox entry');
-  });
-
-  test('C7 shows today beside it: a native select of all 150', async ({ page }) => {
-    const today = page.getByTestId('library-c7-today');
-    await expect(today.getByRole('combobox', { name: 'Who will follow up' })).toBeVisible();
-    await expect(today.locator('option')).toHaveCount(150);
   });
 
   test('an empty field shows the cap and how many are left', async ({ page, expectAccessible }) => {

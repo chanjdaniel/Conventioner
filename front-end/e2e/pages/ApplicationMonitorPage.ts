@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { oneByOnePath } from '../helpers/marketScreens';
+import { PersonChooser } from './PersonChooser';
 
 /**
  * Page object for the application monitor: the Applications tab of Market Setup, where an
@@ -55,6 +56,8 @@ export class ApplicationMonitorPage {
   readonly decidedNames: Locator;
   /** "Needs follow-up" on the card, which opens `FollowUpDialog` (E34/F02/S01). */
   readonly followUpButton: Locator;
+  /** "Followed up by" on a follow-up's card, for someone who may hand it on (T204). */
+  readonly followUpOwner: PersonChooser;
   /** The frame's line saying why the person looking may change nothing on the market (T15). */
   readonly readOnly: Locator;
 
@@ -90,6 +93,7 @@ export class ApplicationMonitorPage {
     this.undoButton = page.getByTestId('app-monitor-undo-button');
     this.decidedNames = page.getByTestId('app-monitor-decided-name');
     this.followUpButton = page.getByTestId('app-monitor-follow-up-button');
+    this.followUpOwner = new PersonChooser(page, 'app-monitor-follow-up-owner');
     this.readOnly = page.getByTestId('market-read-only');
   }
 

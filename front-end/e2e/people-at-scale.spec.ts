@@ -1,6 +1,8 @@
 import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import { test, expect, BACKEND_URL, TEST_USER } from './fixtures';
+import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
+import { FollowUpDialog } from './pages/FollowUpDialog';
 import { ManageMarketPage } from './pages/ManageMarketPage';
 import { OrganizationsPage } from './pages/OrganizationsPage';
 import { ReviewersPanel } from './pages/ReviewersPanel';
@@ -11,6 +13,7 @@ import {
   SPACE_SCALE,
   TYPE_SCALE,
 } from './helpers/layoutDetectors';
+import { oneByOnePath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
 import { PHONE_AND_DESK, widths } from './helpers/phoneWindow';
 import {
@@ -623,6 +626,111 @@ for (const size of PHONE_AND_DESK) {
         await press(chooser.field);
         await expect(chooser.options).toHaveCount(PAGE);
         await expectLaidOut(page, 'the list open at 320');
+      });
+    }
+  });
+}
+
+for (const size of PHONE_AND_DESK) {
+  test.describe(`A follow-up among 150 people, ${size.name}`, () => {
+    test.use(size.use);
+    test.setTimeout(120_000);
+
+    const press = (locator: Locator) => (size.phone ? locator.tap() : locator.click());
+    const ownerOf = (marketId: string, applicant: string) =>
+      mongoEval(
+        `db.applications.findOne({ market_id: ${JSON.stringify(marketId)}, ` +
+          `applicant_email: ${JSON.stringify(applicant)} }).follow_up_owner.email`,
+      );
+
+    test('is handed to one found by typing, then on from the card to another', async ({
+      authenticatedPage: page,
+      request,
+    }) => {
+      const seed = await seedPeopleAtScale(request);
+      await page.goto(oneByOnePath(seed.marketId));
+      const monitor = new ApplicationMonitorPage(page);
+      await monitor.waitForLoaded();
+      const applicant = ((await monitor.email.textContent()) ?? '').trim();
+
+      // The dialog: the first page of everyone, then the one person the words find.
+      await press(monitor.followUpButton);
+      const followUp = new FollowUpDialog(page);
+      await expect(followUp.owner).toHaveValue(seed.owner.email);
+      await press(followUp.owner);
+      await expect(followUp.chooser.options).toHaveCount(PAGE);
+      await expect(followUp.chooser.more).toHaveText(
+        `${seed.counts.withAccess - PAGE} more, type to narrow`,
+      );
+      await expectLaidOut(page, 'the follow-up dialog, its list open');
+
+      const first = seed.members.at(-1)!.email;
+      await followUp.owner.fill(first.split('@')[0]!);
+      await expect(followUp.chooser.options).toHaveCount(1);
+      await expect(followUp.submit).toBeDisabled();
+      await expectLaidOut(page, 'one person found');
+      await press(followUp.chooser.option(first));
+      await expect(followUp.owner).toHaveValue(first);
+      await expect(followUp.submit).toBeEnabled();
+      await followUp.confirm();
+      expect(ownerOf(seed.marketId, applicant)).toBe(first);
+
+      // The card: its owner is one the first page never draws.
+      await page.getByTestId('app-monitor-include-follow-ups').check();
+      await monitor.advanceTo(applicant);
+      const { followUpOwner } = monitor;
+      await expect(followUpOwner.field).toHaveValue(first);
+      await expectLaidOut(page, 'the card with its chooser');
+
+      await press(followUpOwner.field);
+      await expect(followUpOwner.options).toHaveCount(PAGE);
+      await expectLaidOut(page, 'the card, its list open');
+
+      // Words let go leave the owner named, and hand it to no one.
+      await followUpOwner.field.fill('person-1');
+      await page.keyboard.press('Escape');
+      await expect(followUpOwner.list).toBeHidden();
+      await expect(followUpOwner.field).toHaveValue(first);
+
+      const second = seed.members.at(-2)!.email;
+      const handed = page.waitForResponse((r) => r.url().endsWith('/follow-up-owner'));
+      await followUpOwner.field.fill(second.split('@')[0]!);
+      await expect(followUpOwner.options).toHaveCount(1);
+      await press(followUpOwner.option(second));
+      expect((await handed).ok()).toBeTruthy();
+      await expect(followUpOwner.field).toHaveValue(second);
+      expect(ownerOf(seed.marketId, applicant)).toBe(second);
+    });
+
+    if (size.phone) {
+      test('fits 320 wide, in the dialog and on the card', async ({
+        authenticatedPage: page,
+        request,
+      }) => {
+        await page.setViewportSize({ width: 320, height: 568 });
+        const seed = await seedPeopleAtScale(request);
+        await page.goto(oneByOnePath(seed.marketId));
+        const monitor = new ApplicationMonitorPage(page);
+        await monitor.waitForLoaded();
+        const applicant = ((await monitor.email.textContent()) ?? '').trim();
+
+        await press(monitor.followUpButton);
+        const followUp = new FollowUpDialog(page);
+        await expect(followUp.owner).toHaveValue(seed.owner.email);
+        await expectLaidOut(page, 'the follow-up dialog at 320');
+        await press(followUp.owner);
+        await expect(followUp.chooser.options).toHaveCount(PAGE);
+        await expectLaidOut(page, 'its list open at 320');
+        await page.keyboard.press('Escape');
+        await followUp.confirm();
+
+        await page.getByTestId('app-monitor-include-follow-ups').check();
+        await monitor.advanceTo(applicant);
+        await expect(monitor.followUpOwner.field).toHaveValue(seed.owner.email);
+        await expectLaidOut(page, 'the card at 320');
+        await press(monitor.followUpOwner.field);
+        await expect(monitor.followUpOwner.options).toHaveCount(PAGE);
+        await expectLaidOut(page, 'the card, its list open at 320');
       });
     }
   });

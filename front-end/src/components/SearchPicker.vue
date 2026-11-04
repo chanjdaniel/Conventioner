@@ -56,6 +56,9 @@
  *   flow, so closing it as the focus goes would move what lies below it from under the pointer, and
  *   the click would be lost, a dialog's Save among them. Words a free-text field keeps are written
  *   before that click, which may read them.
+ * - Reached with a choice in it, by any path, the field has that choice selected, so what is typed
+ *   next searches by itself rather than running on from the label: a dialog opens on such a field
+ *   with no click, and a script's focus leaves the caret at its end.
  * - Given `holdsChoice`, one choice holds until another is taken, as a filter or a card that writes
  *   on a choice needs: typing emits nothing, and on leaving the field or on Escape the field names
  *   the choice again. Without it, the first word lets the choice go, as a dialog that acts on Save
@@ -437,6 +440,10 @@ onBeforeUnmount(() => listenForPresses(false));
 function onBlur(): void {
   if (!pressing) leave();
 }
+
+function onFocus(): void {
+  if (!searching.value && text.value) field.value?.select();
+}
 </script>
 
 <template>
@@ -492,6 +499,7 @@ function onBlur(): void {
       @input="typed"
       @click="show"
       @keydown="onKeydown"
+      @focus="onFocus"
       @blur="onBlur"
     />
     <!-- `mousedown.prevent` keeps the field focused while a choice is clicked, so the list is

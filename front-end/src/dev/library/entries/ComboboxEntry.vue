@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * The combobox (T200): `SearchPicker` grown, on the fixture's data at a real market's size. It
- * opens on C7, "Who will follow up", beside today's native select of the same 150 people, then the
+ * opens on C7, "Who will follow up", capped among 150 people as its dialog and card are, then the
  * cap on a long plain list and across groups, and the states the cap brings. Several choices follow:
  * C5, the reviewers as Choose reviewers draws them, and C10's answers.
  * Typed text ends it: C1, the import's value fixes, beside today's real row with its native select,
@@ -44,9 +44,6 @@ const personGroups: PickerGroup[] = [
 ];
 const nameOf = (email: string) => people.find((person) => person.email === email)?.name ?? '';
 
-/** C7 today: every address in a native select, on the reviewer themself until they choose. */
-const me = people[0]!.email;
-const todayOwner = ref(me);
 const proposedOwner = ref('');
 
 const optionGroups: PickerGroup[] = [
@@ -169,40 +166,22 @@ const typedAnswers = ref<string[]>([]);
 <template>
   <LibrarySection
     title="One choice from many"
-    about="One choice serves C2, C6, C7, C8, C9, C13 and C14: the native selects and the datalist that hold a long list today."
+    about="One choice serves C2, C6, C7, C8, C9, C13 and C14. C7 is on its screens; the others are the native selects and the datalist that hold a long list today."
   >
-    <TodayAndProposed
-      :today="`Today: a native select of ${people.length} addresses (C7)`"
-      :proposed="`Proposed: found by name or address, capped at ${CAP}`"
-    >
-      <template #today>
-        <div class="library-demo" data-testid="library-c7-today">
-          <div>
-            <label class="field-label" for="library-c7-today-field">Who will follow up</label>
-            <select id="library-c7-today-field" v-model="todayOwner" class="field field--select">
-              <option v-for="person in people" :key="person.id" :value="person.email">
-                {{ person.email === me ? `${person.email} (you)` : person.email }}
-              </option>
-            </select>
-          </div>
-          <ReadOut label="Chosen" :value="todayOwner" />
-        </div>
-      </template>
-      <template #proposed>
-        <div class="library-demo">
-          <SearchPicker
-            v-model="proposedOwner"
-            :groups="personGroups"
-            :finds="findsPerson"
-            :cap="CAP"
-            label="Who will follow up"
-            placeholder="Type a name or address…"
-            testid="library-c7"
-          />
-          <ReadOut label="Chosen" :value="nameOf(proposedOwner)" />
-        </div>
-      </template>
-    </TodayAndProposed>
+    <LibraryPanel :label="`Found by name or address, capped at ${CAP} (C7's shape)`">
+      <div class="library-demo">
+        <SearchPicker
+          v-model="proposedOwner"
+          :groups="personGroups"
+          :finds="findsPerson"
+          :cap="CAP"
+          label="Who will follow up"
+          placeholder="Type a name or address…"
+          testid="library-c7"
+        />
+        <ReadOut label="Chosen" :value="nameOf(proposedOwner)" />
+      </div>
+    </LibraryPanel>
 
     <LibraryPanel :label="`${question.options.length} options, capped at ${CAP} (C13's shape)`">
       <div class="library-demo">

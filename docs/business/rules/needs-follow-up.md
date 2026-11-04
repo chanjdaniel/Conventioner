@@ -9,7 +9,7 @@ describes:
   - back-end/api/applications.py#deal_follow_up
   - back-end/guards.py#AllApplicationsReviewedGuard
   - front-end/src/components/application/FollowUpDialog.vue
-verified: 2026-10-31
+verified: 2026-11-04
 sources:
   - brain-dump/2026-10-19#9
   - brain-dump/2026-10-19#21
@@ -22,6 +22,7 @@ sources:
   - E38/F07/S02
   - E38/F07/S03
   - E38/F12/S01
+  - T204
 ---
 
 # Needs follow-up
@@ -61,10 +62,11 @@ They name as its owner one of the people they are offered: everyone with a role 
 - It is marked through the verdict endpoint, and `PUT /markets/:id/applications/:id/follow-up-owner` hands it on (`reassign_follow_up_owner` in [`back-end/api/applications.py`](../../../back-end/api/applications.py), written only while the application still needs one); an owner must be someone `follow_up_owner` in [`back-end/api/markets.py`](../../../back-end/api/markets.py) finds among the people that requester is offered, the very list the market read serves them, and anyone else answers 400: "A follow-up's owner must have a role on this market.", or, to someone outside the organization, "You can hand a follow-up only to someone named in this market's roles." whoever the address belongs to, so the answer never tells them an organization address from a stranger's.
 - The read of one market serves those people's addresses as `peopleOnMarket`, a fact [derived on the market](../../implementation/conventions/one-market-from-the-server.md) (`follow_up_owners_for` in [`back-end/api/permissions.py`](../../../back-end/api/permissions.py): to someone in the organization, `people_with_market_role`, the market's roles and then its organization's people, each once; to anyone else, the market's roles alone), and serves it only to someone who may give a verdict - an Editor or above, or a chosen reviewer, by the verdict's own gate - so a Viewer who is not chosen reads an empty list; Manage market lists everyone with access from its own key, `peopleWithAccess`, read through the same accounts, each looked up once ([managing who has access](../flows/ending-and-managing-a-market.md#l3-manage-who-has-access), E38/F12/S01).
 - `AllApplicationsReviewedGuard` in [`back-end/guards.py`](../../../back-end/guards.py) counts follow-ups apart from the undecided, so Begin assignment's reason names them: "1 application needs a follow-up".
-- [`FollowUpDialog.vue`](../../../front-end/src/components/application/FollowUpDialog.vue) asks who follows up, offering `peopleOnMarket` (read through `verdictActions.ts`) with the reviewer chosen when they are among them, and what is needed; the box opens on the vendor's note as it stands, and is saved to [their notes](vendor-notes.md) only when changed, so nothing there is written over unseen.
+- [`FollowUpDialog.vue`](../../../front-end/src/components/application/FollowUpDialog.vue) asks who follows up, a [`SearchPicker`](../../../front-end/src/components/SearchPicker.vue) of one choice over `peopleOnMarket` (read through `verdictActions.ts`), found by typing part of an address and capped at 50 rows, with the reviewer chosen when they are among them, and what is needed; words that choose no one hold "Mark for follow-up" back, so a follow-up never goes to someone the field does not name (T204); the box opens on the vendor's note as it stands, and is saved to [their notes](vendor-notes.md) only when changed, so nothing there is written over unseen.
   The box is offered only to someone the row "Write vendor notes" lets write them (`writesNotes` from `verdictActions.ts`): a chosen Viewer marks the follow-up without it, and no note is written, rather than being refused on the note after confirming (E38/F07/S03).
-- On the review card's "Followed up by" (`ApplicationMonitor.vue`) anyone who may give verdicts gets the select to hand it on; a Viewer who is not chosen - whose `peopleOnMarket` is empty - reads the recorded owner as plain text (the address, or a dash when the application records none) instead of an empty disabled select.
-  The select always names the recorded owner: when they are not among the people this reader is offered - an organization admin with no market role owns it, and an Editor from outside the organization opens the card - they lead the list as its current choice, so the box never reads blank, and choosing them again hands it to no one new.
+- On the review card's "Followed up by" (`ApplicationMonitor.vue`) anyone who may give verdicts gets the same chooser to hand it on, which writes as soon as someone is taken; a Viewer who is not chosen - whose `peopleOnMarket` is empty - reads the recorded owner as plain text (the address, or a dash when the application records none) instead of an empty control.
+  The field always names the recorded owner: when they are not among the people this reader is offered - an organization admin with no market role owns it, and an Editor from outside the organization opens the card - they lead the list as its current choice, so the field never reads blank, and taking them again hands it to no one new.
+  Words typed and let go hand it to no one, and a hand-on the server refuses says so while the field names the owner again (T204).
 - Two reviewers marking one card at once meet [ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md); a selection marked at once is owned by the reviewer.
 - How it looks in the review is [I1 and the All view](../flows/review.md#i1-work-through-the-queue).
 

@@ -1179,6 +1179,33 @@ describe('a choice that holds until another is taken', () => {
   });
 });
 
+describe('a field reached with a choice in it (T204)', () => {
+  it('has the choice selected, so what is typed next replaces it', async () => {
+    const wrapper = picker('ana@example.com');
+    const input = field(wrapper).element as HTMLInputElement;
+    input.setSelectionRange(input.value.length, input.value.length);
+
+    input.focus();
+
+    expect([input.selectionStart, input.selectionEnd]).toEqual([0, input.value.length]);
+    wrapper.unmount();
+  });
+
+  it('leaves words being typed alone when it is reached again', async () => {
+    const wrapper = picker('');
+    const input = field(wrapper).element as HTMLInputElement;
+    await field(wrapper).setValue('an');
+    input.setSelectionRange(2, 2);
+    input.blur();
+    await field(wrapper).setValue('an');
+
+    input.focus();
+
+    expect([input.selectionStart, input.selectionEnd]).toEqual([2, 2]);
+    wrapper.unmount();
+  });
+});
+
 describe("Daniel's choices (T204)", () => {
   const PEOPLE: PickerGroup[] = [
     {
