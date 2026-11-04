@@ -9,7 +9,7 @@ import { parse } from 'vue/compiler-sfc';
  * chevron is the app's own and which nothing else draws.
  *
  * Eight selects kept a class of their own and the browser's arrow, each written by someone who had
- * not read the primitive. No E2E can reach 49 selects cheaply, so the rule is held from the source,
+ * not read the primitive. No E2E can reach 50 selects cheaply, so the rule is held from the source,
  * as `modalsHoldThePageInert.test.ts` holds its own: a `<select>` in a template wears both classes,
  * and a select's other classes may size or place it but never draw it, since a scoped rule out-ranks
  * `.field--select`. Nor may any rule of its file that reaches it by `select` or `.field--select`.
@@ -65,12 +65,12 @@ function selectsOf(source: string): TemplateNode[] {
 
 /**
  * Whether a selector's subject, what its last compound styles, is a select by its element or by its
- * primitive. An attribute's value and a `:not()` name what is not styled, so neither counts.
+ * primitive. An attribute's value, a `:not()` and a `:has()` name what is not styled, so none counts.
  */
 function reachesASelect(selector: string): boolean {
   const subject = selector
     .replace(/\[[^\]]*\]/g, '')
-    .replace(/:not\([^)]*\)/g, '')
+    .replace(/:(?:not|has)\([^)]*\)/g, '')
     .trim()
     .split(/[\s>+~]+/)
     .pop();
@@ -164,6 +164,24 @@ describe('faultsOf, on a component written for it', () => {
       '<div><template v-if="open"><AppDialog><select class="field"></select></AppDialog></template></div>',
     );
     expect(faultsOf(source)).toEqual([expect.stringContaining('does not wear .field--select')]);
+  });
+
+  for (const selector of ['.row:has(select)', '.row:has(> select)', '.row:has(.field--select)']) {
+    it(`leaves alone "${selector}", which draws the row and not the select`, () => {
+      const source = sfc(
+        '<select class="field field--select"></select>',
+        `${selector} { padding: 0; }`,
+      );
+      expect(faultsOf(source)).toEqual([]);
+    });
+  }
+
+  it('still reads a select that a :has() narrows, which it does draw', () => {
+    const source = sfc(
+      '<select class="field field--select"></select>',
+      'select:has(option:checked) { padding: 0; }',
+    );
+    expect(faultsOf(source)).toEqual([expect.stringContaining('sets padding')]);
   });
 
   it('reads a tag whose attribute holds a ">"', () => {
@@ -287,7 +305,7 @@ describe('every select in the app', () => {
       (sum, file) => sum + selectsOf(readFileSync(file, 'utf-8')).length,
       0,
     );
-    // A floor, so a broken reader cannot pass by seeing nothing; 49 when this was written.
+    // A floor, so a broken reader cannot pass by seeing nothing; 50 when this was written.
     expect(count).toBeGreaterThan(40);
   });
 });
