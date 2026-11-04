@@ -1,6 +1,8 @@
-import { test, expect, LoginPage, PasswordResetPage } from './fixtures';
+import { test, expect, BACKEND_URL, LoginPage, PasswordResetPage, TEST_USER } from './fixtures';
 import { deleteUser } from './helpers/deleteUser';
+import { marketSetupPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
+import { seedDraftMarket } from './helpers/seedDraftMarket';
 
 /**
  * The links an account email carries must work for the person they are sent to, who is signed
@@ -126,9 +128,12 @@ test.describe('Changing a password, signed in', () => {
       const token = userField(email, 'password_reset_token');
       expect(token.length).toBeGreaterThanOrEqual(10);
 
-      // The emailed link, opened in the browser still signed in.
+      // The emailed link, opened in the browser still signed in. The page moves on 2 seconds after
+      // the reset; the clock holds that, so what is true before the move is read before it.
+      await page.clock.install();
       await page.goto(`/reset-password?token=${encodeURIComponent(token)}`);
       await expect(reset.resetForm).toBeVisible();
+      await page.clock.pauseAt(Date.now() + 60_000);
       await expect(account).toHaveText(email);
       await expect(reset.resetBackLink).toHaveText('Back to Markets');
 
@@ -142,6 +147,7 @@ test.describe('Changing a password, signed in', () => {
       expect(new URL(page.url()).pathname).toBe('/reset-password');
 
       // Signed out by what they just did, so it lands on sign-in with nothing to tell them.
+      await page.clock.resume();
       await expect(page).toHaveURL(/\/login$/);
       await expect(signIn.submitButton).toBeVisible();
       await expect(page.getByTestId('login-session-ended')).toHaveCount(0);
@@ -154,6 +160,59 @@ test.describe('Changing a password, signed in', () => {
       await expect(account).toHaveText(email);
     } finally {
       deleteUser(email);
+    }
+  });
+
+  test('a link for another account ends the session of the browser it is finished in', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { marketId } = await seedDraftMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const email = uniqueEmail();
+    const created = await request.post('/api/register-user', {
+      data: { email, password: PASSWORD },
+    });
+    expect(created.ok()).toBeTruthy();
+    try {
+      await page.goto(marketSetupPath(marketId));
+      const day = page.locator('[data-testid^="setup-dates-day-"]').first();
+      await expect(day).toBeVisible();
+
+      expect((await request.post('/api/request-password-reset', { data: { email } })).ok()).toBe(
+        true,
+      );
+      const token = userField(email, 'password_reset_token');
+      const other = await page.context().newPage();
+      await other.goto(`/reset-password?token=${encodeURIComponent(token)}`);
+      const reset = new PasswordResetPage(other);
+      await reset.resetPassword(NEW_PASSWORD);
+      await expect(reset.resetSuccessMessage).toBeVisible();
+      await expect(other).toHaveURL(/\/login$/);
+
+      // This browser reads as signed out everywhere, and now it is.
+      await expect(page.getByTestId('app-bar-account-button')).toHaveCount(0);
+      expect((await other.request.get('/api/check-session')).status()).toBe(401);
+
+      // A tab left open writes as nobody: its next save is refused, and sign-in says why.
+      const save = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'PUT' && /\/markets\/[^/]+\/plan$/.test(response.url()),
+      );
+      await day.click();
+      expect((await save).status()).toBe(401);
+      await expect(page).toHaveURL(/\/login\?.*ended=1/);
+      await expect(page.getByTestId('login-session-ended')).toBeVisible();
+    } finally {
+      deleteUser(email);
+      const deleted = await request.delete(`${BACKEND_URL}/markets/${marketId}`, {
+        headers: { 'X-Owner-Email': TEST_USER.email },
+      });
+      expect(deleted.ok(), await deleted.text()).toBeTruthy();
     }
   });
 });

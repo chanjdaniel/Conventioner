@@ -3,7 +3,7 @@ import axios from 'axios';
 import { computed, inject, ref, onMounted, type Ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import AuthCard from '@/components/AuthCard.vue';
-import { forgetTheSession } from '@/utils/sessionEnded';
+import { endTheSessionOnTheServer, forgetTheSession } from '@/utils/sessionEnded';
 
 const hostname = import.meta.env.VITE_FLASK_HOST;
 const router = useRouter();
@@ -69,10 +69,15 @@ const submitReset = async () => {
 
     if (response.status === 200) {
       successMessage.value = response.data.msg || 'Password reset successfully!';
+      // The answer does not say whose link this was, and a link for another account leaves this
+      // browser's own session good, so the server ends that too: every tab here is about to read as
+      // signed out, and none may go on saving as whoever it was.
+      const ended = endTheSessionOnTheServer();
       // Or the sign-in below would send them on to a page that answers 401, and tell them their
       // session ended, when ending it is what they just did.
       forgetTheSession();
-      setTimeout(() => {
+      setTimeout(async () => {
+        await ended;
         router.push('/login');
       }, 2000);
     }

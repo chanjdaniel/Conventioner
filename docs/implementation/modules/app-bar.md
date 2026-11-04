@@ -10,6 +10,7 @@ describes:
   - front-end/src/utils/signedIn.ts
   - front-end/src/utils/sessionEnded.ts#signOut
   - front-end/src/utils/sessionEnded.ts#forgetTheSession
+  - front-end/src/utils/sessionEnded.ts#endTheSessionOnTheServer
   - front-end/src/views/PasswordResetRequestView.vue
   - front-end/src/views/PasswordResetView.vue
   - front-end/e2e/the-app-bar.spec.ts
@@ -95,13 +96,15 @@ To someone signed in, the request page does not ask for an address it already ho
 **Setting the new password ends the session it is set in.**
 `reset_password` gives the account a new login id, which ends every session of it, so [the reset page](../../../front-end/src/views/PasswordResetView.vue) calls `forgetTheSession`, and its link goes back to reading "Back to sign in".
 Without that the stored user would turn the page's move to `/login` into a move to a page that answers 401, and sign-in would say "Your session has ended", when ending it is what they just did.
-The answer does not say whose link it was, so a link for another account forgets this browser's stored user too, and it signs in again; that other session's cookie stays good until it expires, since the server was told nothing of it, so this browser reads as signed out without being so.
+The answer does not say whose link it was, so a link for another account forgets this browser's stored user too, and the page also posts `/logout` through `endTheSessionOnTheServer`, `signOut`'s own call, so the session this browser held is over and not only forgotten.
+Another tab here drops to the logo at once, as above, and its next write answers 401 and lands on sign-in saying the session ended.
+For the person's own link the post answers 401 and changes nothing, and the page moves on only once the post has been answered.
 A failed reset forgets nothing.
 
 ## Sign out
 
 **[`signOut`](../../../front-end/src/utils/sessionEnded.ts) is the one sign-out**, the account menu's and the sheet's, beside `endSession`.
-It posts `/logout`, then forgets `localStorage` and the market store (`forgetTheSession`) and goes to `/login`, whether or not the post succeeded, so a sign-out that failed on the wire still leaves this browser signed out.
+It posts `/logout` (`endTheSessionOnTheServer`, which a finished reset uses too), then forgets `localStorage` and the market store (`forgetTheSession`) and goes to `/login`, whether or not the post succeeded, so a sign-out that failed on the wire still leaves this browser signed out.
 It uses `fetch`, not the app's `axios`, so a 401 from `/logout` is not told as a session that ended under the organizer.
 
 ## Sharp edges

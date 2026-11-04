@@ -139,6 +139,7 @@ Covered by:
 1. Choose "Change password" in [the bar's account menu, or its sheet on a phone](finding-a-market.md#c4-the-navigation-menu); it opens `/reset-password-request` with the address filled in.
 2. Choose "Send reset link"; the address stays editable, and "Back to Markets" leaves without sending anything.
 3. Follow the emailed link and set a new password, as in A4; every browser signed in to the account is signed out, this one with it.
+   A link for another account signs this browser out too, whoever it was signed in as.
 4. Expect the password's confirmation, then sign-in with nothing said of a session ending; sign in with the new password.
 
 A link that is refused, as expired or already used, changes nothing, and the person stays signed in.

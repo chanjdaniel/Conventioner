@@ -26,14 +26,13 @@ export function endSession(router: Router, { ended }: { ended: boolean }): void 
 }
 
 /**
- * Sign out: tell the server, then forget what `endSession` forgets and go to sign in, whether or
- * not the server heard. A sign-out that failed on the wire still leaves this browser signed out to
- * whoever sits down at it next.
+ * Tell the server this browser's session is over, whatever it answers: a failure on the wire is
+ * logged and goes no further.
  *
  * `fetch`, not the app's `axios`: a 401 here is a session already over, not one that ended under
  * the organizer, and must not be told as one (`onSessionEnded`).
  */
-export async function signOut(router: Router): Promise<void> {
+export async function endTheSessionOnTheServer(): Promise<void> {
   try {
     await fetch(`${import.meta.env.VITE_FLASK_HOST}/logout`, {
       method: 'POST',
@@ -42,6 +41,15 @@ export async function signOut(router: Router): Promise<void> {
   } catch (error) {
     console.error('Logout failed:', error);
   }
+}
+
+/**
+ * Sign out: tell the server, then forget what `endSession` forgets and go to sign in, whether or
+ * not the server heard. A sign-out that failed on the wire still leaves this browser signed out to
+ * whoever sits down at it next.
+ */
+export async function signOut(router: Router): Promise<void> {
+  await endTheSessionOnTheServer();
   forgetTheSession();
   await router.push('/login');
 }
