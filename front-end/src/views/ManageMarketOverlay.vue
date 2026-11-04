@@ -14,6 +14,7 @@ import { useMarketStore } from '@/stores/market';
 import AppDialog from '@/components/AppDialog.vue';
 import MarketPermissions from '@/components/MarketPermissions.vue';
 import HistorySection from '@/components/HistorySection.vue';
+import ListFrame, { LIST_FIND_FROM } from '@/components/ListFrame.vue';
 import MarketHistory from '@/components/MarketHistory.vue';
 import {
   getRoleDisplayName,
@@ -70,6 +71,8 @@ const removing = ref<{
 const removeError = ref('');
 const removeBusy = ref(false);
 const peopleList = ref<HTMLElement | null>(null);
+/** What finds in "Users with access", for as long as the dialog is open: never in the address. */
+const peopleWords = ref('');
 /**
  * The role a select has chosen, until it is confirmed or cancelled (T211), with the select that
  * chose it, to put back, and the words the confirmation says, taken when it opens, as Remove's are.
@@ -96,6 +99,7 @@ watch(
       deleteConfirming.value = false;
       removing.value = null;
       removeError.value = '';
+      peopleWords.value = '';
       roleChange.value = null;
       errorMessage.value = '';
       userError.value = null;
@@ -136,6 +140,19 @@ const accessList = computed(() =>
     addingNothing: roleAddingNothing(person),
   })),
 );
+
+const PERSON = { one: 'person', many: 'people' };
+const findsPerson = (person: PersonWithAccess, words: string) =>
+  person.email.toLowerCase().includes(words.toLowerCase());
+const keyOfPerson = (person: PersonWithAccess) => person.userId;
+
+/**
+ * Narrows the list to one person, so their row is in sight wherever they fall in it. A list too
+ * short for a find field already draws every row, unless words are narrowing it.
+ */
+function findPerson(email: string) {
+  if (accessList.value.length > LIST_FIND_FROM || peopleWords.value) peopleWords.value = email;
+}
 
 /** A refusal whose row the re-read took away, someone else having removed them first. */
 const refusalWithNoRow = computed(() =>
@@ -178,11 +195,12 @@ const canReadHistory = computed(() => mayTake(marketData.value, MarketAction.Rea
 const renameRefusal = computed(() => actionRefusal(marketData.value, MarketAction.ChangeSetup));
 
 async function handleAddUser() {
-  if (!marketData.value || !newUserEmail.value.trim()) return;
+  const email = newUserEmail.value.trim();
+  if (!marketData.value || !email) return;
   addUserError.value = '';
   try {
     await api.post(`/markets/${encodeURIComponent(marketData.value.id)}/roles`, {
-      user_email: newUserEmail.value.trim(),
+      user_email: email,
       role: newUserRole.value,
     });
     // The form stays open with an empty field: adding two people in a row is the case E20/F01/S02
@@ -194,6 +212,8 @@ async function handleAddUser() {
     userError.value = null;
     changesMade.value++;
     await fetchMarket(false);
+    // Someone just added takes their place by role and address, which may be past the fold.
+    findPerson(email);
   } catch (err) {
     addUserError.value = getApiErrorMessage(err, 'The person was not added.');
   }
@@ -286,7 +306,8 @@ function cancelRoleChange() {
  * refusal is said beneath the row, where it has always been said (bug 43), and the list is re-read
  * too, since someone else may have moved or removed them first, as the refusal itself often means.
  * The shell gives focus back to the select, unless the re-read took it away, as it does when the
- * person looking changed their own role, when focus goes to the list.
+ * person looking changed their own role or the row moved past those shown, when focus goes to the
+ * list. A refusal whose row moved past those shown finds that person, or no one would read it.
  */
 async function handleRoleChange() {
   const target = roleChange.value;
@@ -312,7 +333,9 @@ async function handleRoleChange() {
   roleChangeBusy.value = false;
   // Once the confirmation has closed and the page behind it is no longer inert.
   await nextTick();
-  if (!target.select.isConnected) peopleList.value?.focus();
+  if (target.select.isConnected) return;
+  peopleList.value?.focus();
+  if (userError.value && !refusalWithNoRow.value) findPerson(target.email);
 }
 
 /**
@@ -428,81 +451,88 @@ async function closeAddUser() {
           tabindex="-1"
           data-testid="manage-market-people"
         >
-          <div
-            v-for="row in accessList"
-            :key="row.userId"
-            class="user-entry"
-            data-testid="manage-market-person"
+          <ListFrame
+            v-model:words="peopleWords"
+            :items="accessList"
+            :finds="findsPerson"
+            :itemKey="keyOfPerson"
+            :noun="PERSON"
+            findLabel="Find in users with access"
+            testid="manage-market-access"
           >
-            <div class="user-card">
-              <span class="user-email">{{ row.email }}</span>
-              <!--
-              A role with nowhere to go is stated, not offered (E20/F01/S03). The owner's own row
-              rendered a select whose only option was "Owner" - a control that looks like a
-              decision and is not one, which is the same thing S01 settled for the org picker. A
-              role the organization gives is stated too: only Manage organization changes it.
-            -->
-              <span
-                v-if="row.fromOrganization || !changeableRoles(row.role).length"
-                class="role-badge"
-                :class="`role-${row.role}`"
-                data-testid="manage-market-role"
-              >
-                {{ roleWords(row, organizationLabel) }}
-              </span>
-              <select
-                v-else
-                :value="row.role"
-                :name="`role-${row.userId}`"
-                :aria-label="`${row.email}'s role`"
-                class="field field--select role-select"
-                data-testid="manage-market-role-select"
-                @keydown="openInsteadOfStepping"
-                @change="askToChangeRole(row, $event.target as HTMLSelectElement)"
-              >
-                <option :value="row.role">{{ getRoleDisplayName(row.role) }}</option>
-                <option v-for="r in changeableRoles(row.role)" :key="r" :value="r">
-                  {{ getRoleDisplayName(r) }}
-                </option>
-              </select>
-              <button
-                v-if="!row.fromOrganization && canManageRoles(marketData, row.role)"
-                type="button"
-                class="btn btn--secondary btn--destructive"
-                data-testid="manage-market-remove-user-button"
-                @click="askToRemove(row)"
-              >
-                Remove<span class="visually-hidden"> {{ row.email }}</span>
-              </button>
-              <!-- A market role the organization's reaches changes nothing; its Remove tidies it
-                   away and leaves the organization's role (the walk's admin added as Editor). -->
-              <div v-if="row.addingNothing" class="user-also">
-                <p class="user-also-text" data-testid="manage-market-also">
-                  {{ alsoWords(row, organizationLabel) }}
-                </p>
-                <button
-                  v-if="canManageRoles(marketData, row.addingNothing)"
-                  type="button"
-                  class="btn btn--secondary btn--destructive"
-                  data-testid="manage-market-remove-user-button"
-                  @click="askToRemove(row)"
-                >
-                  Remove<span class="visually-hidden">
-                    {{ getRoleDisplayName(row.addingNothing) }} on this market</span
+            <template #row="{ item: row }">
+              <div class="user-entry" data-testid="manage-market-person">
+                <div class="user-card">
+                  <span class="user-email">{{ row.email }}</span>
+                  <!--
+                  A role with nowhere to go is stated, not offered (E20/F01/S03). The owner's own row
+                  rendered a select whose only option was "Owner" - a control that looks like a
+                  decision and is not one, which is the same thing S01 settled for the org picker. A
+                  role the organization gives is stated too: only Manage organization changes it.
+                -->
+                  <span
+                    v-if="row.fromOrganization || !changeableRoles(row.role).length"
+                    class="role-badge"
+                    :class="`role-${row.role}`"
+                    data-testid="manage-market-role"
                   >
-                </button>
+                    {{ roleWords(row, organizationLabel) }}
+                  </span>
+                  <select
+                    v-else
+                    :value="row.role"
+                    :name="`role-${row.userId}`"
+                    :aria-label="`${row.email}'s role`"
+                    class="field field--select role-select"
+                    data-testid="manage-market-role-select"
+                    @keydown="openInsteadOfStepping"
+                    @change="askToChangeRole(row, $event.target as HTMLSelectElement)"
+                  >
+                    <option :value="row.role">{{ getRoleDisplayName(row.role) }}</option>
+                    <option v-for="r in changeableRoles(row.role)" :key="r" :value="r">
+                      {{ getRoleDisplayName(r) }}
+                    </option>
+                  </select>
+                  <button
+                    v-if="!row.fromOrganization && canManageRoles(marketData, row.role)"
+                    type="button"
+                    class="btn btn--secondary btn--destructive"
+                    data-testid="manage-market-remove-user-button"
+                    @click="askToRemove(row)"
+                  >
+                    Remove<span class="visually-hidden"> {{ row.email }}</span>
+                  </button>
+                  <!-- A market role the organization's reaches changes nothing; its Remove tidies it
+                       away and leaves the organization's role (the walk's admin added as Editor). -->
+                  <div v-if="row.addingNothing" class="user-also">
+                    <p class="user-also-text" data-testid="manage-market-also">
+                      {{ alsoWords(row, organizationLabel) }}
+                    </p>
+                    <button
+                      v-if="canManageRoles(marketData, row.addingNothing)"
+                      type="button"
+                      class="btn btn--secondary btn--destructive"
+                      data-testid="manage-market-remove-user-button"
+                      @click="askToRemove(row)"
+                    >
+                      Remove<span class="visually-hidden">
+                        {{ getRoleDisplayName(row.addingNothing) }} on this market</span
+                      >
+                    </button>
+                  </div>
+                </div>
+                <!-- Beneath the row that caused it: a refused change used to be reported at the foot of
+                     the dialog, far from the select that made it (bug 43). -->
+                <p
+                  v-if="userError?.userId === row.userId"
+                  class="form-error"
+                  data-testid="manage-market-user-error"
+                >
+                  {{ userError.message }}
+                </p>
               </div>
-            </div>
-            <!-- Beneath the row that caused it: a refused change used to be reported at the foot of
-                 the dialog, far from the select that made it (bug 43). -->
-            <p
-              v-if="userError?.userId === row.userId"
-              class="form-error"
-              data-testid="manage-market-user-error"
-            >
-              {{ userError.message }}
-            </p>
-          </div>
+            </template>
+          </ListFrame>
           <p v-if="refusalWithNoRow" class="form-error" data-testid="manage-market-user-error">
             {{ refusalWithNoRow.email }}: {{ refusalWithNoRow.message }}
           </p>
@@ -758,6 +788,11 @@ async function closeAddUser() {
   flex-direction: column;
   gap: var(--space-2);
   margin-bottom: var(--space-3);
+}
+
+/* The frame's rows here are cards, each with its border, so they keep the room between them. */
+.users-list :deep(.list-frame__rows) {
+  gap: var(--space-2);
 }
 
 .user-entry {

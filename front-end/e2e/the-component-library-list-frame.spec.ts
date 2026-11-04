@@ -18,10 +18,7 @@ eachWindow('the list frame entry', (size) => {
     await openEntry(page, 'list-frame');
   });
 
-  test('names what it serves, draws one page first and ends with the choices left', async ({
-    page,
-    expectAccessible,
-  }) => {
+  test('names what it serves and draws one page first', async ({ page, expectAccessible }) => {
     await expect(page.getByTestId('library-serves')).toContainText('L1, L2, L5, L6, L10, L12, C6');
 
     await expect(countOf(page, 'library-l2')).toHaveText('Showing 50 of 359');
@@ -29,13 +26,6 @@ eachWindow('the list frame entry', (size) => {
     await expect(page.getByTestId('library-application-row')).toHaveCount(50);
     await expect(countOf(page, 'library-l1')).toHaveText('Showing 50 of 150');
     await expect(rowsOf(page, 'library-l1')).toHaveCount(50);
-
-    const choices = page.getByTestId('choices-for-you');
-    await expect(choices).toContainText('Page size');
-    await expect(choices).toContainText('Find threshold');
-    await expect(choices).toContainText('count line');
-    await expect(choices).toContainText('Show all');
-    await expect(choices).toContainText('in the address');
 
     await expectLaidOut(page, size, 'the list frame entry');
     await expectAccessible('the list frame entry');
@@ -103,24 +93,28 @@ eachWindow('the list frame entry', (size) => {
     await expect(row.getByTestId('library-application-tick')).toBeFocused();
   });
 
-  test('a press on a filter lands when the field it empties would have gone', async ({ page }) => {
+  test('a narrow filter leaves the field where it is, since the threshold counts the whole list', async ({
+    page,
+  }) => {
     const { press } = inTheWindow(size);
     const find = page.getByTestId('library-l2-find');
     const count = countOf(page, 'library-l2');
 
-    await find.fill('a');
     await page.getByTestId('library-l2-assigned').click();
     await press(page.getByTestId('library-l2-assigned-option').nth(2));
     await press(page.getByTestId('library-l2-status-needs_follow_up'));
-    await expect(count).toHaveText(/^\d of \d+ match(es)? "a"$/);
+    await expect(count).toHaveText(/^\d applications?$/);
+    await expect(find).toBeVisible();
+  });
 
-    // Twelve rows or fewer, so the field stays only for the caret in it, which the next press takes.
-    await find.fill('');
+  test('a change of filter folds the list back to its first page', async ({ page }) => {
+    const { press } = inTheWindow(size);
+    const rows = rowsOf(page, 'library-l2');
+    await press(page.getByTestId('library-l2-more'));
+    await expect(rows).toHaveCount(100);
+
     await press(page.getByTestId('library-l2-status-reviewer_approved'));
-    await expect(page.getByTestId('library-l2-status-reviewer_approved')).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    await expect(rows).toHaveCount(50);
   });
 
   test('"Assigned to" narrows to one reviewer\'s share, and the toggles count that share', async ({
@@ -305,7 +299,7 @@ eachWindow('the list frame entry', (size) => {
     await page.getByTestId('library-l1-find').fill('example.com');
     await expect(count).toHaveText('150 of 150 match "example.com"');
     await expect(rows).toHaveCount(50);
-    await expect(page).toHaveURL(/[?&]person=example\.com(&|$)/);
+    await expect(page).not.toHaveURL(/example\.com/);
   });
 
   test('each state reads as it should', async ({ page }) => {

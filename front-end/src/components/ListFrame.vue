@@ -1,3 +1,8 @@
+<script lang="ts">
+/** A list has a find field once it is longer than this, unless a screen gives its own `findFrom`. */
+export const LIST_FIND_FROM = 12;
+</script>
+
 <script setup lang="ts" generic="T">
 /**
  * A list that can grow with a market (T200): the screen's rows behind a find field, the screen's own
@@ -6,15 +11,19 @@
  *
  * - `items` come already narrowed by the screen's filters; the frame narrows them further by the
  *   words in its find field, through the screen's `finds`, which gets the words trimmed.
- * - The field shows once `items` passes `findFrom`. It also stays while it holds words, which would
- *   otherwise narrow the rows with no way to clear them. Once focused it stays until the rows next
- *   change with the focus elsewhere: leaving as the focus left would move the filters under the
- *   press that took the focus, and lose it, and leaving as it was cleared would drop the caret.
- * - With `findKey` the words live in the route's query, written with `router.replace`, so a refresh,
- *   a link and coming Back keep them, and Back itself leaves the page rather than stepping through
- *   each word. Without it they last as long as the frame.
- * - The shown count goes back to one page when the words or the items change. A read again that
- *   brings the same rows, by `itemKey`, is no change, so a refresh never folds what was unfolded.
+ * - The field shows once the whole list passes `findFrom`: `wholeCount` on a screen with filters, so
+ *   a narrow filter never takes the field away, and `items` without one. It also stays while it
+ *   holds words, which would otherwise narrow the rows with no way to clear them. Once focused it
+ *   stays until the rows next change with the focus elsewhere: leaving as the focus left would move
+ *   what follows it under the press that took the focus, and lose it, and leaving as it was cleared
+ *   would drop the caret.
+ * - On a page, `findKey` puts the words in the route's query, written with `router.replace`, so a
+ *   refresh, a link and coming Back keep them, and Back itself leaves the page rather than stepping
+ *   through each word. A dialog gives no `findKey`, since they would outlive it. Without one they
+ *   last as long as the frame, or the screen holds them with `v-model:words` to set them itself, as
+ *   Manage market does to show who was just added. With one, the route is what holds them.
+ * - The shown count goes back to one page only when the words or `filterKey` change, the choice of
+ *   rows being someone's. A read again or a verdict that changes the rows holds the place.
  * - "Show N more" hands the focus to the first new row, since the button goes with the last page.
  * - `state` says what the screen's read is doing: only `'ready'` draws rows. `'failed'` is
  *   `ReadFailed` unless the screen brings its own, and its Try again is the `retry` event. With no
@@ -30,6 +39,10 @@ const props = withDefaults(
   defineProps<{
     /** Every row the screen's filters leave. */
     items: T[];
+    /** How many rows the whole list has before the filters; `items`'s length without any. */
+    wholeCount?: number;
+    /** The screen's filters as one string: a change goes back to one page. */
+    filterKey?: string;
     /** Whether the words, trimmed, find this row. */
     finds: (item: T, words: string) => boolean;
     /** What tells a row from the others, across reads. */
@@ -37,7 +50,7 @@ const props = withDefaults(
     /** What a row is, for the count line and what the frame says of the list. */
     noun: { one: string; many: string };
     pageSize?: number;
-    /** The find field shows when `items` is longer than this. */
+    /** The find field shows when the whole list is longer than this. */
     findFrom?: number;
     /** The route query key that holds the words; without one they stay in the frame. */
     findKey?: string;
@@ -48,7 +61,15 @@ const props = withDefaults(
     /** Prefixes every test id, `ReadFailed`'s two included. */
     testid: string;
   }>(),
-  { pageSize: 50, findFrom: 12, state: 'ready', findKey: undefined, failedMessage: undefined },
+  {
+    wholeCount: undefined,
+    filterKey: undefined,
+    pageSize: 50,
+    findFrom: LIST_FIND_FROM,
+    state: 'ready',
+    findKey: undefined,
+    failedMessage: undefined,
+  },
 );
 
 defineEmits<{ retry: [] }>();
@@ -66,8 +87,8 @@ const route = useRoute();
 const router = useRouter();
 const fieldId = `${useId()}-find`;
 
-/** What the frame holds when no address does. */
-const heldHere = ref('');
+/** The words when no address holds them: the screen's with `v-model:words`, else the frame's own. */
+const heldHere = defineModel<string>('words', { default: '' });
 
 /**
  * The field's text as typed, so a space can be typed on the way to a second word; with `findKey`,
@@ -94,7 +115,10 @@ function setTyped(value: string): void {
 const field = ref<HTMLInputElement>();
 const fieldKept = ref(false);
 const showsField = computed(
-  () => props.items.length > props.findFrom || typed.value !== '' || fieldKept.value,
+  () =>
+    (props.wholeCount ?? props.items.length) > props.findFrom ||
+    typed.value !== '' ||
+    fieldKept.value,
 );
 
 const found = computed(() =>
@@ -106,10 +130,10 @@ const rowsShown = computed(() => found.value.slice(0, pages.value * props.pageSi
 const rowsLeft = computed(() => found.value.length - rowsShown.value.length);
 const nextPageRows = computed(() => Math.min(props.pageSize, rowsLeft.value));
 
-const itemKeys = computed(() => props.items.map(props.itemKey).join('\n'));
-watch([words, itemKeys], () => {
+watch([words, () => props.filterKey], () => {
   pages.value = 1;
 });
+const itemKeys = computed(() => props.items.map(props.itemKey).join('\n'));
 watch(itemKeys, () => {
   fieldKept.value = document.activeElement === field.value;
 });

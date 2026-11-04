@@ -1,8 +1,16 @@
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import { test, expect, BACKEND_URL, TEST_USER } from './fixtures';
 import { ManageMarketPage } from './pages/ManageMarketPage';
 import { OrganizationsPage } from './pages/OrganizationsPage';
+import {
+  detectLayout,
+  gates,
+  minTargetAt,
+  SPACE_SCALE,
+  TYPE_SCALE,
+} from './helpers/layoutDetectors';
 import { mongoEval } from './helpers/mongo';
+import { PHONE_AND_DESK, widths } from './helpers/phoneWindow';
 import {
   seedApplicationWithStatus,
   seedPhaseMarket,
@@ -21,6 +29,9 @@ import { uniqueMarketName } from './helpers/uniqueName';
  * market of one person. The organizations read, which the Organizations page and Manage
  * organization make, did the same for every admin and member of every organization the reader is
  * in, and now names them all in one read too.
+ *
+ * "Users with access" drew every one of the 154 people, about 4,900px before Add user at a desk. It
+ * is a list frame now: a find field, a count line, 50 rows and "Show N more".
  */
 
 /** A market like the seed's, in an organization whose only person is the seed owner. */
@@ -188,7 +199,9 @@ test.describe('Manage market at 150 people', () => {
     const reads = await usersReadsWhile(async () => {
       await requestsWhile(page, {}, async () => {
         await openManage(page);
-        await expect(page.getByTestId('manage-market-person')).toHaveCount(seed.counts.withAccess);
+        await expect(page.getByTestId('manage-market-access-count')).toHaveText(
+          `Showing 50 of ${seed.counts.withAccess}`,
+        );
       });
     });
 
@@ -224,13 +237,141 @@ test.describe('Manage market at 150 people', () => {
       { market: seed.marketId, org: seed.orgId },
       async () => {
         await openManage(page);
-        await expect(page.getByTestId('manage-market-person')).toHaveCount(seed.counts.withAccess);
+        await expect(page.getByTestId('manage-market-access-count')).toHaveText(
+          `Showing 50 of ${seed.counts.withAccess}`,
+        );
       },
     );
 
     expect(forMany).toEqual(forOne);
   });
 });
+
+/** Nothing scrolls sideways at the window's width, and the detectors find nothing clipped. */
+async function expectLaidOut(page: Page, what: string): Promise<void> {
+  const { width } = page.viewportSize()!;
+  expect(await widths(page), `${what} keeps the window's width`).toEqual({
+    layout: width,
+    sideways: 0,
+    zoom: 1,
+  });
+  const findings = await page.evaluate(detectLayout, {
+    spaceScale: SPACE_SCALE,
+    textScale: TYPE_SCALE,
+    minTarget: minTargetAt(width),
+  });
+  expect(
+    findings.filter((finding) => gates(finding, width)),
+    `${what}: the layout detectors' gating findings`,
+  ).toEqual([]);
+}
+
+for (const size of PHONE_AND_DESK) {
+  test.describe(`Users with access at 154 people, ${size.name}`, () => {
+    test.use(size.use);
+    test.setTimeout(120_000);
+
+    let seed: PeopleAtScaleSeed;
+    let manage: ManageMarketPage;
+    const press = (locator: Locator) => (size.phone ? locator.tap() : locator.click());
+
+    test.beforeEach(async ({ authenticatedPage: page, request }) => {
+      seed = await seedPeopleAtScale(request);
+      await toTheMarket(page, seed.marketName);
+      manage = await openManage(page);
+    });
+
+    test('reads a page at a time, and fits', async ({ authenticatedPage: page }) => {
+      const whole = seed.counts.withAccess;
+      await expect(manage.peopleFind).toHaveAccessibleName('Find in users with access');
+      await expect(manage.peopleCount).toHaveText(`Showing 50 of ${whole}`);
+      await expect(manage.peopleRows).toHaveCount(50);
+      await expectLaidOut(page, 'the first page');
+
+      await expect(manage.peopleMore).toHaveText('Show 50 more');
+      await press(manage.peopleMore);
+      await expect(manage.peopleCount).toHaveText(`Showing 100 of ${whole}`);
+      await press(manage.peopleMore);
+      await expect(manage.peopleCount).toHaveText(`Showing 150 of ${whole}`);
+      await expect(manage.peopleMore).toHaveText(`Show ${whole - 150} more`);
+      await press(manage.peopleMore);
+      await expect(manage.peopleCount).toHaveText(`${whole} people`);
+      await expect(manage.peopleRows).toHaveCount(whole);
+      await expect(manage.peopleMore).toHaveCount(0);
+
+      await manage.peopleFind.fill('zzz');
+      await expect(manage.peopleCount).toHaveText('Nothing matches "zzz"');
+      await expect(manage.peopleRows).toHaveCount(0);
+      await manage.peopleFind.fill('');
+      await expect(manage.peopleCount).toHaveText(`Showing 50 of ${whole}`);
+      // A passing search: it never reaches the address, which would outlive the dialog.
+      await manage.peopleFind.fill('person');
+      await expect(page).toHaveURL(new RegExp(`\\?q=${encodeURIComponent(seed.marketName)}$`));
+
+      if (size.phone) {
+        await page.setViewportSize({ width: 320, height: 640 });
+        await expectLaidOut(page, 'the first page at 320');
+      }
+    });
+
+    test('finds one person by part of their address, and their row keeps its place through a role change', async ({
+      authenticatedPage: page,
+    }) => {
+      const { email } = seed.editors[3]!;
+      const part = email.slice(2, 10).toUpperCase();
+      await manage.peopleFind.fill(part);
+      await expect(manage.peopleCount).toHaveText(
+        `1 of ${seed.counts.withAccess} matches "${part}"`,
+      );
+      await expect(manage.peopleRows).toHaveCount(1);
+      await expectLaidOut(page, 'one person found');
+
+      const select = manage.person(email).getByTestId('manage-market-role-select');
+      await select.focus();
+      await select.selectOption('admin');
+      await manage.roleChangeConfirmButton.click();
+      await expect(manage.roleChangeConfirm).toHaveCount(0);
+
+      await expect(manage.peopleFind).toHaveValue(part);
+      await expect(manage.peopleRows).toHaveCount(1);
+      await expect(select).toHaveValue('admin');
+      await expect(select).toBeFocused();
+    });
+
+    test('holds the shown count through a role change and a removal', async () => {
+      const whole = seed.counts.withAccess;
+      await press(manage.peopleMore);
+      await expect(manage.peopleCount).toHaveText(`Showing 100 of ${whole}`);
+
+      const changed = manage.person(seed.editors[0]!.email);
+      await changed.getByTestId('manage-market-role-select').selectOption('viewer');
+      await manage.roleChangeConfirmButton.click();
+      await expect(manage.roleChangeConfirm).toHaveCount(0);
+      await expect(manage.peopleCount).toHaveText(`Showing 100 of ${whole}`);
+      await expect(manage.peopleRows).toHaveCount(100);
+
+      // A member given Editor: the market role goes, and they stay at the organization's.
+      await manage.removeUser(seed.editors[1]!.email);
+      await expect(manage.removeConfirm).toHaveCount(0);
+      await expect(manage.peopleCount).toHaveText(`Showing 100 of ${whole}`);
+      await expect(manage.people).toBeFocused();
+    });
+
+    test('shows someone just added as the one row, until the field is cleared', async () => {
+      const { email } = seed.members[seed.members.length - 1]!;
+      await manage.addUser(email, 'editor');
+
+      await expect(manage.peopleFind).toHaveValue(email);
+      await expect(manage.peopleRows).toHaveCount(1);
+      await expect(manage.person(email).getByTestId('manage-market-role-select')).toHaveValue(
+        'editor',
+      );
+
+      await manage.peopleFind.fill('');
+      await expect(manage.peopleCount).toHaveText(`Showing 50 of ${seed.counts.withAccess}`);
+    });
+  });
+}
 
 /**
  * Manage organization opened from its address, as Manage market's "Manage organization" opens it:

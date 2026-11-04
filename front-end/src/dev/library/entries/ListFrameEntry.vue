@@ -18,7 +18,6 @@ import { getRoleDisplayName } from '@/utils/permissions';
 import { ALL_VIEW_FILTERS, allViewLists, type AllViewFilter } from '@/utils/reviewQueue';
 import { assignedAddress, assignedToOptions, reviewerLine } from '@/utils/reviewers';
 import ApplicationRow from '../parts/ApplicationRow.vue';
-import ChoicesForYou from '../parts/ChoicesForYou.vue';
 import LibraryPanel from '../parts/LibraryPanel.vue';
 import LibrarySection from '../parts/LibrarySection.vue';
 import ReadOut from '../parts/ReadOut.vue';
@@ -83,6 +82,8 @@ const statusOptions = computed<FilterToggle[]>(() =>
 const statusLabelNow = computed(
   () => ALL_VIEW_FILTERS.find(({ id }) => id === status.value)!.label,
 );
+/** A change here is the reader's own choice of rows, so the list goes back to its first page. */
+const filterKey = computed(() => `${status.value} ${assigned.value}`);
 const filtered = computed(() =>
   inShare.value.filter((application) =>
     allViewLists(status.value as AllViewFilter, application.status),
@@ -153,6 +154,8 @@ onMounted(() => {
         <ListFrame
           v-if="view === 'proposed'"
           :items="filtered"
+          :wholeCount="applications.length"
+          :filterKey="filterKey"
           :finds="findsByNameOrAddress"
           :itemKey="keyOf"
           :noun="APPLICATION"
@@ -249,7 +252,7 @@ onMounted(() => {
 
   <LibrarySection
     title="L1: People with access"
-    :about="`All ${people.length} people, as Manage market and Manage organization list them: an account holds an address and no name, so a row is its address. A role is a fixed short set, so a row keeps a native select.`"
+    :about="`All ${people.length} people, as Manage market and Manage organization list them: an account holds an address and no name, so a row is its address. A role is a fixed short set, so a row keeps a native select. These lists stand in dialogs, so their words stay out of the address.`"
   >
     <LibraryPanel label="People with access" class="library-wide">
       <div class="library-demo">
@@ -258,7 +261,6 @@ onMounted(() => {
           :finds="findsByAddress"
           :itemKey="keyOf"
           :noun="PERSON"
-          findKey="person"
           findLabel="Find by address"
           testid="library-l1"
         >
@@ -364,38 +366,6 @@ onMounted(() => {
       </ListFrame>
     </LibraryPanel>
   </LibrarySection>
-
-  <ChoicesForYou>
-    <li>
-      <strong>A person's row:</strong> L1's rows and L2's "Assigned to" draw the address alone,
-      since an account holds no name; the state panels' short names only stand for a row.
-    </li>
-    <li><strong>Page size:</strong> 50 rows, or another number.</li>
-    <li>
-      <strong>Find threshold:</strong> the field shows past 12 rows. It counts what the filters
-      leave, so a narrow filter takes the field away and the filters move left: count the whole list
-      instead?
-    </li>
-    <li>
-      <strong>The count line's wording:</strong> "Showing 50 of 359", "9 of 359 match "Singh"",
-      "Nothing matches "Singh"". With words and more matches than a page, it says how many match and
-      not how many are drawn.
-    </li>
-    <li><strong>"Show N more" or "Show all":</strong> a page at a time, or everything at once.</li>
-    <li>
-      <strong>The words in the address:</strong> always, as here, or only on some screens. Inside a
-      dialog they would outlive the dialog.
-    </li>
-    <li>
-      <strong>When the list folds back:</strong> changing the rows folds to 50, as a filter must. A
-      read again that brings a new application, or a verdict that takes a row out of a filtered
-      list, changes the rows too. Fold there as well, or hold the count?
-    </li>
-    <li>
-      <strong>Select all under a cap:</strong> today it ticks the rows shown. With 50 of 359 drawn,
-      does it tick the 50, or all 359?
-    </li>
-  </ChoicesForYou>
 </template>
 
 <style scoped>

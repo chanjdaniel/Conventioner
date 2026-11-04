@@ -15,6 +15,10 @@ export class ManageMarketPage {
   readonly roleSelects: Locator;
   readonly removeUserButtons: Locator;
   readonly people: Locator;
+  readonly peopleFind: Locator;
+  readonly peopleCount: Locator;
+  readonly peopleRows: Locator;
+  readonly peopleMore: Locator;
   readonly removeConfirm: Locator;
   readonly removeConsequence: Locator;
   readonly removeKeeps: Locator;
@@ -70,6 +74,10 @@ export class ManageMarketPage {
     this.roleSelects = page.getByTestId('manage-market-role-select');
     this.removeUserButtons = page.getByTestId('manage-market-remove-user-button');
     this.people = page.getByTestId('manage-market-people');
+    this.peopleFind = page.getByTestId('manage-market-access-find');
+    this.peopleCount = page.getByTestId('manage-market-access-count');
+    this.peopleRows = page.getByTestId('manage-market-person');
+    this.peopleMore = page.getByTestId('manage-market-access-more');
     // Remove asks first (E38/F15/S01): its own destructive dialog, a sibling of Manage market.
     this.removeConfirm = page.getByTestId('manage-market-remove-window');
     this.removeConsequence = page.getByTestId('manage-market-remove-consequence');
@@ -136,6 +144,11 @@ export class ManageMarketPage {
 
   async waitForOverlay(): Promise<void> {
     await this.window.waitFor({ state: 'visible', timeout: 5000 });
+  }
+
+  /** The row of the person whose address holds `email`. */
+  person(email: string): Locator {
+    return this.peopleRows.filter({ hasText: email });
   }
 
   // ── Add user with role ──
