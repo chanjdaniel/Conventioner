@@ -17,6 +17,7 @@ sources:
   - E30/F02/S01
   - E31/F03/S01
   - E33/F02/S01
+  - T213
   - bug/4
   - bug/24
   - bug/27
@@ -40,6 +41,8 @@ Its heading stands on the frame's inset, in line with the rail, as the import's 
 Nothing is written until the organizer confirms, and the file is not stored ([the CSV proposal and start](../../implementation/modules/csv-proposal-and-start.md)).
 The confirm also saves the import's column mapping, so the first import of the same file opens "Mapped when your form was started from this file."
 It keeps, too, what the file said of each question and each column left out, as far as it names nobody (answers at least 3 applicants gave, holding no address, link, handle, phone number or street address), so the Questions tab can fill a question's options from it, or add a left-out column as a question, after the start ([building the application form](form-tab.md#f2-custom-questions)).
+It keeps every answer too, one-offs included, for an option on the Questions tab to offer: less any holding an address, link, handle, phone number or street address, and none of a column whose answers are mostly different, such as Discord usernames, shop names or answers in sentences.
+Only someone who may change the form reads those, and only while it can still change ([ADR 0023](../../adr/0023-every-answer-for-an-option-to-offer.md)).
 Only column headings and the shape of their answers are sent to TypeSafe, and the upload step says so; no applicant's answer leaves Conventioner.
 Covered by:
 - `start-from-csv.spec.ts`

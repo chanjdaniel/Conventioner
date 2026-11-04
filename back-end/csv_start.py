@@ -13,7 +13,8 @@ update of the market document, everything the ledger holds:
 - **the example file's columns** (E38/F02/S01): for each column that became a question of the
   organizer's own or was left out, its label, help text, key and both readings of its answers as
   choices, privacy-filtered (``csv_proposal.kept_readings``), so the Questions tab can fill a
-  question's options, or add one from a left-out column, without the file.
+  question's options, or add one from a left-out column, without the file; and every answer in both
+  readings (``csv_proposal.every_reading``), so an option can offer them (ADR 0023).
 
 It writes through the same judgements as the plan's and the form's own writes
 (``prepared_plan``, ``prepared_application_form``) - the form lock above all - and then as one
@@ -137,7 +138,9 @@ def _example_columns(proposal: Dict[str, Any], choices: Dict[int, Dict[str, Any]
     """What the start keeps of each column that became a question or was left out, in file order.
 
     Never who applied, when, or an essential question: none is a question to add or retype. A
-    question's type is the one written, a left-out column's the one the organizer last chose.
+    question's type is the one written, a left-out column's the one the organizer last chose. A
+    column of mostly different answers has no ``answers`` at all, as a market started before
+    they were kept has none, so no ``answers`` always means the common options are all there is.
     """
     by_row = {c["index"]: c for c in proposal["columns"]}
     ledger = _ledger_rows(proposal["columns"])
@@ -147,6 +150,7 @@ def _example_columns(proposal: Dict[str, Any], choices: Dict[int, Dict[str, Any]
         field = by_row[first]["field"]
         if not field or choice["fate"] not in (CsvProposal.FATE_CUSTOM, CsvProposal.FATE_LEFT_OUT):
             continue
+        answers = CsvProposal.every_reading(field)
         kept.append({
             "headers": [str(by_row[index]["header"]).strip() for index in ledger[first]],
             "key": field["key"], "label": field["label"], "helpText": field["helpText"],
@@ -155,6 +159,7 @@ def _example_columns(proposal: Dict[str, Any], choices: Dict[int, Dict[str, Any]
                                 else field["type"]),
             "question": choice["fate"] == CsvProposal.FATE_CUSTOM,
             "options": CsvProposal.kept_readings(field),
+            **({} if answers is None else {"answers": answers}),
         })
     return kept
 

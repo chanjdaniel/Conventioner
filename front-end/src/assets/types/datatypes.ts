@@ -539,7 +539,8 @@ export interface FormField {
 
 /**
  * One column of the file a market was started from (E38/F02/S01): a question the start made, or a
- * column it left out. Its options are only the answers at least 3 applicants gave that name nobody.
+ * column it left out. Its options are only the answers at least 3 applicants gave that name nobody;
+ * its answers, when it has them, are every answer that names nobody (ADR 0023).
  */
 export interface ExampleColumn {
   headers: string[];
@@ -552,6 +553,12 @@ export interface ExampleColumn {
   question: boolean;
   /** Its answers read as one choice (whole answers), and as several (the options inside them). */
   options: { select: string[]; multiSelect: string[] };
+  /**
+   * Every answer the file gave, read the same two ways, most chosen first: what an option's list
+   * offers. Served only to someone who may change the form, while it can still change; no key means
+   * the common `options` are all there is.
+   */
+  answers?: { select: string[]; multiSelect: string[] };
 }
 
 /**
