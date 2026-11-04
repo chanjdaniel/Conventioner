@@ -31,7 +31,8 @@ import { uniqueMarketName } from './helpers/uniqueName';
  * in, and now names them all in one read too.
  *
  * "Users with access" drew every one of the 154 people, about 4,900px before Add user at a desk. It
- * is a list frame now: a find field, a count line, 50 rows and "Show N more".
+ * is a list frame now: a find field, a count line, 50 rows and "Show N more". Manage organization's
+ * Members, all 150 of them, and Admins are too.
  */
 
 /** A market like the seed's, in an organization whose only person is the seed owner. */
@@ -373,6 +374,9 @@ for (const size of PHONE_AND_DESK) {
   });
 }
 
+/** The rows a list frame draws before "Show N more". */
+const PAGE = 50;
+
 /**
  * Manage organization opened from its address, as Manage market's "Manage organization" opens it:
  * the Organizations page reads the reader's organizations, then opens the one named.
@@ -385,8 +389,8 @@ async function openManageOrganization(
   await page.goto(`/organizations?manage=${encodeURIComponent(orgId)}`);
   const orgs = new OrganizationsPage(page);
   await expect(orgs.manageWindow).toBeVisible();
-  await expect(orgs.adminEmails).toHaveCount(people.admins);
-  await expect(orgs.memberEmails).toHaveCount(people.members);
+  await expect(orgs.adminEmails).toHaveCount(Math.min(people.admins, PAGE));
+  await expect(orgs.memberEmails).toHaveCount(Math.min(people.members, PAGE));
   return orgs;
 }
 
@@ -439,6 +443,97 @@ test.describe('Manage organization at 150 people', () => {
     expect(forMany).toEqual(forOne);
   });
 });
+
+for (const size of PHONE_AND_DESK) {
+  test.describe(`Admins and Members at 150 people, ${size.name}`, () => {
+    test.use(size.use);
+    test.setTimeout(120_000);
+
+    let seed: PeopleAtScaleSeed;
+    let orgs: OrganizationsPage;
+    const press = (locator: Locator) => (size.phone ? locator.tap() : locator.click());
+
+    test.beforeEach(async ({ authenticatedPage: page, request }) => {
+      seed = await seedPeopleAtScale(request);
+      orgs = await openManageOrganization(page, seed.orgId, seed.counts);
+    });
+
+    test('Members reads a page at a time, and fits', async ({ authenticatedPage: page }) => {
+      const whole = seed.counts.members;
+      await expect(orgs.membersFind).toHaveAccessibleName('Find in members');
+      await expect(orgs.membersCount).toHaveText(`Showing ${PAGE} of ${whole}`);
+      await expect(orgs.memberEmails).toHaveCount(PAGE);
+      await expectLaidOut(page, 'the first page of Members');
+
+      await expect(orgs.membersMore).toHaveText(`Show ${PAGE} more`);
+      await press(orgs.membersMore);
+      await expect(orgs.membersCount).toHaveText(`Showing ${2 * PAGE} of ${whole}`);
+      await press(orgs.membersMore);
+      await expect(orgs.membersCount).toHaveText(`${whole} members`);
+      await expect(orgs.membersMore).toHaveCount(0);
+
+      // A passing search: it never reaches the address, which would outlive the dialog.
+      await orgs.membersFind.fill('person');
+      await expect(page).not.toHaveURL(/[?&]q=/);
+
+      if (size.phone) {
+        await page.setViewportSize({ width: 320, height: 640 });
+        await expectLaidOut(page, 'Members at 320');
+      }
+    });
+
+    test('Admins, three of them, has no find field and reads every row', async () => {
+      await expect(orgs.adminEmails).toHaveCount(seed.counts.admins);
+      await expect(orgs.adminsFind).toHaveCount(0);
+      await expect(orgs.adminsMore).toHaveCount(0);
+      await expect(orgs.adminsCount).toHaveText(`${seed.counts.admins} admins`);
+    });
+
+    test('finds one member, and Remove asks about that member, keeping the words', async ({
+      authenticatedPage: page,
+    }) => {
+      const whole = seed.counts.members;
+      const { email } = seed.members[whole - 1]!;
+      const part = email.slice(2, 10).toUpperCase();
+      await orgs.membersFind.fill(part);
+      await expect(orgs.membersCount).toHaveText(`1 of ${whole} matches "${part}"`);
+      await expect(orgs.memberEmails).toHaveText([email]);
+      await expectLaidOut(page, 'one member found');
+
+      await press(orgs.removeMemberButtons);
+      await expect(orgs.removeConfirm).toHaveAccessibleName(
+        `Remove ${email} from ${seed.orgName}?`,
+      );
+      await press(orgs.removeConfirmButton);
+      await expect(orgs.removeConfirm).toHaveCount(0);
+
+      await expect(orgs.membersFind).toHaveValue(part);
+      await expect(orgs.membersCount).toHaveText(`Nothing matches "${part}"`);
+      await expect(orgs.members).toBeFocused();
+    });
+
+    test('holds the shown count through a removal, and finds someone just added', async () => {
+      const whole = seed.counts.members;
+      await press(orgs.membersMore);
+      await expect(orgs.membersCount).toHaveText(`Showing ${2 * PAGE} of ${whole}`);
+
+      const { email } = seed.members[0]!;
+      await orgs.memberEmails.filter({ hasText: email }).waitFor();
+      await press(orgs.removeMemberButtons.first());
+      await press(orgs.removeConfirmButton);
+      await expect(orgs.removeConfirm).toHaveCount(0);
+      await expect(orgs.membersCount).toHaveText(`Showing ${2 * PAGE} of ${whole - 1}`);
+      await expect(orgs.memberEmails).toHaveCount(2 * PAGE);
+
+      await orgs.addMember(email);
+      await expect(orgs.membersFind).toHaveValue(email);
+      await expect(orgs.memberEmails).toHaveText([email]);
+
+      await orgs.membersFind.fill('');
+      await expect(orgs.membersCount).toHaveText(`Showing ${PAGE} of ${whole}`);
+    });
+  });
+}
 
 test.describe('Counting the reads of accounts', () => {
   /** The profiler's level and, when one is set, its filter. */

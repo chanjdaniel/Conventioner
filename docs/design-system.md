@@ -429,7 +429,7 @@ A screen with filters gives `wholeCount`, so a narrow filter never takes the fie
 On a page, `findKey` puts the words in the route's query, written with `router.replace`; a dialog gives none, since they would outlive it, and a screen that sets the words itself holds them with `v-model:words`.
 The shown count goes back to one page only when the words or `filterKey` change, so a read again or a verdict that changes the rows holds the place.
 `state` draws loading and failed (`ReadFailed`, unless the `failed` slot replaces it), the `empty` slot says why there are no `items`, and the count line says when the words find nothing.
-Manage market's "Users with access" is its first screen, and the library's `list-frame` entry shows it on Applications All and the people with access.
+Manage market's "Users with access" and Manage organization's Admins and Members are its screens, and the library's `list-frame` entry shows it on Applications All and the people with access.
 
 A screen takes a file on [`FileDropZone.vue`](../front-end/src/components/FileDropZone.vue), its one way to (T205): a dashed zone on the beige ground that a click anywhere opens the file chooser from, its main line naming the hidden input and a hint under it saying what files it takes.
 It tints green under the pointer and while a file is over it, and its words take no pointer events, so crossing them does not fire `dragleave` and flicker the tint off.
