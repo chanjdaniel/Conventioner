@@ -3,7 +3,7 @@
  * grouped where the list is, and worked from the keyboard alone. The placement dialog's two vendor
  * pickers are its first use; it is a primitive, so it knows nothing of vendors.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
 
@@ -1212,6 +1212,71 @@ describe('words that are the value', () => {
   const values = (wrapper: Writing) =>
     wrapper.emitted('update:modelValue')?.map(([value]) => value);
   const held = (wrapper: Writing) => wrapper.props('modelValue');
+
+  describe('a press elsewhere, while the list that moves its target is open', () => {
+    const listOf = (wrapper: Writing) => wrapper.find('[data-testid="who-list"]');
+
+    /** A press on something past the list, on its way down: the focus goes with it. */
+    async function pressElsewhere(wrapper: Writing) {
+      window.dispatchEvent(new MouseEvent('mousedown'));
+      (input(wrapper).element as HTMLInputElement).blur();
+      await wrapper.vm.$nextTick();
+    }
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('holds the list until the press ends, so the click lands where it was aimed', async () => {
+      vi.useFakeTimers();
+      const wrapper = writing();
+      (input(wrapper).element as HTMLInputElement).focus();
+      await input(wrapper).setValue('Soap ');
+
+      await pressElsewhere(wrapper);
+      // The list stays as it stood: naming the value now would widen it to every row.
+      expect(listOf(wrapper).findAll('[role="option"]')).toHaveLength(1);
+      expect(inField(wrapper)).toBe('Soap ');
+
+      window.dispatchEvent(new MouseEvent('mouseup'));
+      vi.runAllTimers();
+      await wrapper.vm.$nextTick();
+      expect(listOf(wrapper).exists()).toBe(false);
+      expect(inField(wrapper)).toBe('Soap');
+      wrapper.unmount();
+    });
+
+    it('closes at once when the keyboard leaves the field', async () => {
+      const wrapper = writing();
+      await input(wrapper).setValue('Soap');
+      await input(wrapper).trigger('blur');
+      expect(listOf(wrapper).exists()).toBe(false);
+      wrapper.unmount();
+    });
+
+    it('leaves the list open when the press ends with the focus back in the field', async () => {
+      vi.useFakeTimers();
+      const wrapper = writing();
+      (input(wrapper).element as HTMLInputElement).focus();
+      await input(wrapper).setValue('Soap');
+
+      window.dispatchEvent(new MouseEvent('mousedown'));
+      window.dispatchEvent(new MouseEvent('mouseup'));
+      vi.runAllTimers();
+      await wrapper.vm.$nextTick();
+      expect(listOf(wrapper).exists()).toBe(true);
+      wrapper.unmount();
+    });
+
+    it('does nothing on a picker that does not write its words', async () => {
+      const wrapper = writing('', { wordsAreValue: false });
+      (input(wrapper).element as HTMLInputElement).focus();
+      await input(wrapper).setValue('Soap');
+      await pressElsewhere(wrapper);
+      expect(listOf(wrapper).exists()).toBe(false);
+      wrapper.unmount();
+    });
+  });
 
   it('emits the words trimmed on every keystroke', async () => {
     const wrapper = writing();

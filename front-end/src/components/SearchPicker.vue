@@ -54,9 +54,12 @@
  *   typed, a space in the middle of typing with them, until it is left, when it names the value: an
  *   option's label, or the trimmed words. Escape closes the list and keeps the words, since a plain
  *   input has no undo, and reopened on words still being typed it does not select them, so a click
- *   can place the caret. A row or `Use "<words>"` is taken as with `acceptsTyped` alone.
+ *   can place the caret. A row or `Use "<words>"` is taken as with `acceptsTyped` alone. A press
+ *   past the list leaves the field only as the press ends: on a screen whose rows lie below the
+ *   list, changing it as the focus goes would move them from under the pointer, and the click
+ *   would be lost.
  */
-import { computed, nextTick, ref, useId, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue';
 import IconCheck from '@/components/icons/IconCheck.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 
@@ -344,12 +347,40 @@ function onKeydown(event: KeyboardEvent): void {
   }
 }
 
-function onBlur(): void {
+/** The field is left: its list goes, and it says what it holds. */
+function leave(): void {
   open.value = false;
   if (holds.value || writesWords.value) nameTheChoice();
   if (!props.multiple) return;
   text.value = '';
   searching.value = false;
+}
+
+/** Whether a press is under way, while a list that writes its words is open. */
+let pressing = false;
+function pressStarted(): void {
+  pressing = true;
+}
+function pressEnded(): void {
+  pressing = false;
+  // After the click this press makes, which lands before a timer does.
+  setTimeout(() => {
+    if (open.value && document.activeElement !== field.value) leave();
+  });
+}
+function listenForPresses(listening: boolean): void {
+  const listen = listening ? window.addEventListener : window.removeEventListener;
+  listen('mousedown', pressStarted, true);
+  listen('mouseup', pressEnded, true);
+}
+watch(open, (isOpen) => {
+  if (writesWords.value) listenForPresses(isOpen);
+  if (!isOpen) pressing = false;
+});
+onBeforeUnmount(() => listenForPresses(false));
+
+function onBlur(): void {
+  if (!pressing) leave();
 }
 </script>
 

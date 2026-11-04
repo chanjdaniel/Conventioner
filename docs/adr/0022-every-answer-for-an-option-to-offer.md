@@ -22,7 +22,7 @@ status: accepted
 ## Context
 
 [ADR 0018](0018-what-of-an-applicants-answers-the-market-may-keep.md) let the market keep, outside an application, only the answers at least 3 applicants gave that name nobody.
-So an answer one or two applicants gave is gone after [the start](../business/flows/starting-from-a-google-form.md), and an organizer adding an option to a question made from the file has to retype it from memory or from the sheet (T191's finding F08).
+So an answer one or two applicants gave is gone after [the start](../business/flows/starting-from-a-google-form.md), and an organizer adding an option to [a question made from the file](../business/flows/form-tab.md#f2-custom-questions) has to retype it from memory or from the sheet (T191's finding F08).
 Daniel decided the option field offers every answer the file gave, one-offs included, less what `_names_someone` catches, for the filter-and-select list alone, while the defaults a type change fills stay the common answers (T191's Q05 1).
 ADR 0018 says keeping these under a weaker filter is a new ADR that narrows it; this is that ADR.
 

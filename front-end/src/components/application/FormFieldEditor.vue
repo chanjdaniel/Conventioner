@@ -3,8 +3,15 @@ import { computed } from 'vue';
 import { type ExampleColumn, type FormField } from '@/assets/types/datatypes';
 import IconAddRound from '@/components/icons/IconAddRound.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
+import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
 import { FIELD_TYPES } from '@/utils/applicationForm';
-import { fileOptions, optionsForType, sameOptions } from '@/utils/exampleColumns';
+import {
+  answersToOffer,
+  fileAnswers,
+  fileOptions,
+  optionsForType,
+  sameOptions,
+} from '@/utils/exampleColumns';
 
 const props = withDefaults(
   defineProps<{
@@ -80,6 +87,25 @@ const filledFromFile = computed(
 
 function useFileOptions() {
   emitUpdate({ options: [...optionsFromFile.value] });
+}
+
+/**
+ * Whether an option is a field with the file's answers under it. Asked of the file and not of what
+ * remains to offer, so a field never changes control under the caret when the last answer is taken.
+ */
+const optionsOfferAnswers = computed(
+  () => !props.readonly && !!props.column && fileAnswers(props.column, local.value.type).length > 0,
+);
+
+/** The one unnamed group an option's list holds: the answers no other option has. */
+function answersGroups(at: number): PickerGroup[] {
+  if (!props.column) return [];
+  const answers = answersToOffer(props.column, local.value.type, local.value.options, at);
+  return [{ options: answers.map((answer) => ({ value: answer, label: answer })) }];
+}
+
+function answerMatches(option: PickerOption, words: string): boolean {
+  return option.label.toLowerCase().includes(words.toLowerCase());
 }
 
 function addOption() {
@@ -162,7 +188,22 @@ function updateOption(idx: number, value: string) {
       <span :id="`question-${index}-options`" class="field-label">Options</span>
       <div class="options-list" role="group" :aria-labelledby="`question-${index}-options`">
         <div v-for="(opt, optIdx) in local.options" :key="optIdx" class="option-row">
+          <SearchPicker
+            v-if="optionsOfferAnswers"
+            class="option-picker"
+            :model-value="opt"
+            :groups="answersGroups(optIdx)"
+            :finds="answerMatches"
+            :label="`Option ${optIdx + 1}`"
+            :placeholder="`Option ${optIdx + 1}`"
+            testid="form-field-option"
+            none-word="Nothing"
+            accepts-typed
+            words-are-value
+            @update:model-value="updateOption(optIdx, $event as string)"
+          />
           <input
+            v-else
             class="field field-input"
             :value="opt"
             @input="updateOption(optIdx, ($event.target as HTMLInputElement).value)"
@@ -304,16 +345,43 @@ function updateOption(idx: number, value: string) {
 
 .options-list {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
 
+/* A row's list opens in the page's flow under its field, so the row aligns to its top. */
 .option-row {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-1);
+}
+
+/* The row's field in the compact height and text of `.field-input`, which cannot reach a child.
+   Its name is for a screen reader, as the plain input's is: `.visually-hidden` copied whole, since
+   the picker draws its own label. */
+.option-picker {
+  flex: 1;
+  min-width: 0;
+}
+
+.option-picker :deep(.field-label) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.option-picker :deep(.field) {
+  height: 28px;
+  font-size: var(--text-xs);
 }
 
 .icon-button {
@@ -326,7 +394,9 @@ function updateOption(idx: number, value: string) {
   justify-content: center;
 }
 
+/* As tall as the field, so its mark sits on the field's line with the row aligned to its top. */
 .icon-remove {
+  height: 28px;
   color: var(--mm-red);
 }
 
