@@ -995,7 +995,7 @@ function startOver() {
                       <select
                         v-model="groupTarget[row.group.stem]"
                         :aria-label="`What ${oneLine(row.group.stem)} maps to`"
-                        class="ledger-select"
+                        class="field field--select ledger-select"
                         :data-testid="`import-group-select-${row.group.columns[0]}`"
                       >
                         <option value="">Ignore these columns</option>
@@ -1087,7 +1087,7 @@ function startOver() {
                     <select
                       v-model="columnTarget[row.index]"
                       :aria-label="`What ${oneLine(headers[row.index] ?? '') || `column ${row.index + 1}`} maps to`"
-                      class="ledger-select"
+                      class="field field--select ledger-select"
                       :data-testid="`import-target-select-${row.index}`"
                     >
                       <option value="">Ignore this column</option>
@@ -1730,14 +1730,7 @@ function startOver() {
 }
 
 .ledger-select {
-  width: 100%;
   max-width: 260px;
-  height: 34px;
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-sm);
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  background: white;
 }
 
 .import-rail {

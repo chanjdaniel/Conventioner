@@ -1,0 +1,176 @@
+import { describe, it, expect } from 'vitest';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative, resolve as resolvePath } from 'node:path';
+
+/**
+ * Every select in the app draws one look (F06 of the 2026-11-02 walk): `.field field--select`, whose
+ * chevron is the app's own and which nothing else draws.
+ *
+ * Eight selects kept a class of their own and the browser's arrow, each written by someone who had
+ * not read the primitive. No E2E can reach 49 selects cheaply, so the rule is held from the source,
+ * as `modalsHoldThePageInert.test.ts` holds its own: a `<select>` in a template wears both classes,
+ * and a select's other classes may size or place it but never draw it, since a scoped rule out-ranks
+ * `.field--select`.
+ *
+ * What it does NOT see, so that the next reader does not assume otherwise:
+ *
+ * - Only `.vue` files, and only a rule in the select's own file. A select drawn from a shared
+ *   stylesheet, or from a parent's `:deep()`, is invisible here.
+ * - `\{[^{}]*\}` matches innermost blocks only, so a rule containing a nested block (CSS nesting,
+ *   which this repo does not use yet) would hide the declarations around it.
+ * - A `:class` is read for its words, so a variable naming a class is not followed.
+ */
+
+// Resolved from the project root rather than `import.meta.url`, for the reason `contrast.test.ts`
+// gives: vitest transforms this module, so its `import.meta.url` is not a file: URL.
+const SRC = resolvePath(process.cwd(), 'src');
+
+const DRAWS = /^(?:-webkit-|-moz-)?(?:padding|background|appearance)(?:-[a-z-]+)?$/;
+
+function vueFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((entry) => {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) return vueFiles(full);
+    return full.endsWith('.vue') ? [full] : [];
+  });
+}
+
+/** The template's own tags: a script's or a comment's `<select>` is not a control. */
+function templateOf(source: string): string {
+  return source
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/g, '')
+    .replace(/<!--[\s\S]*?-->/g, '');
+}
+
+/** What is wrong with each `<select>` of a single-file component's source, in words. */
+function faultsOf(source: string): string[] {
+  const rules = [...source.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/g)]
+    .map((style) => style[1].replace(/\/\*[\s\S]*?\*\//g, ''))
+    .flatMap((css) => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)])
+    .map(([, selector, block]) => ({
+      selector: selector.trim(),
+      properties: block.split(';').map((declaration) => declaration.split(':')[0].trim()),
+    }));
+
+  // A quoted value may hold a `>`, as an arrow function in a listener does.
+  const tags = templateOf(source).matchAll(/<select\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g);
+  return [...tags].flatMap(([, attributes]) => {
+    const name = /data-testid="([^"]+)"/.exec(attributes)?.[1] ?? attributes.trim().split('\n')[0];
+    const worn = /(?<![:\w-])class="([^"]*)"/.exec(attributes)?.[1].split(/\s+/) ?? [];
+    const bound = /:class="([^"]*)"/.exec(attributes)?.[1].match(/[A-Za-z_][\w-]*/g) ?? [];
+
+    const faults = ['field', 'field--select']
+      .filter((primitive) => !worn.includes(primitive))
+      .map((primitive) => `${name}: does not wear .${primitive}`);
+
+    for (const own of [...worn, ...bound]) {
+      if (own === 'field' || own === 'field--select') continue;
+      const names = new RegExp(`\\.${own}(?![\\w-])`);
+      for (const { selector, properties } of rules) {
+        if (!names.test(selector)) continue;
+        for (const property of properties.filter((p) => DRAWS.test(p))) {
+          faults.push(`${name}: its class .${own} sets ${property} in "${selector}"`);
+        }
+      }
+    }
+    return faults;
+  });
+}
+
+describe('faultsOf, on a component written for it', () => {
+  const sfc = (template: string, style = '') =>
+    `<script setup lang="ts">\n// a <select> in a comment\n</script>\n<template>${template}</template>\n<style scoped>${style}</style>`;
+
+  it('passes a select wearing the primitive, and a class that only sizes it', () => {
+    const source = sfc(
+      '<select class="field field--select narrow"></select>',
+      '.narrow { max-width: 260px; height: 28px; }',
+    );
+    expect(faultsOf(source)).toEqual([]);
+  });
+
+  it('fails a select with neither class, and one with only one of them', () => {
+    expect(faultsOf(sfc('<select class="dropdown"></select>'))).toHaveLength(2);
+    expect(faultsOf(sfc('<select></select>'))).toHaveLength(2);
+    expect(faultsOf(sfc('<select class="field"></select>'))).toEqual([
+      expect.stringContaining('does not wear .field--select'),
+    ]);
+  });
+
+  it('ignores a <select> in a template comment or in the script', () => {
+    expect(faultsOf(sfc('<!-- the <select> below --><div></div>'))).toEqual([]);
+  });
+
+  it('reads a tag whose attribute holds a ">"', () => {
+    const source = sfc(
+      '<select @change="(e) => pick(e)" class="dropdown" data-testid="the-one"></select>',
+    );
+    expect(faultsOf(source)[0]).toContain('the-one');
+  });
+
+  for (const property of [
+    'padding',
+    'padding-right',
+    'background',
+    'background-color',
+    'appearance',
+    '-webkit-appearance',
+  ]) {
+    it(`fails an extra class whose rule sets ${property}`, () => {
+      const source = sfc(
+        '<select class="field field--select own"></select>',
+        `.own { width: 100%; ${property}: x; }`,
+      );
+      expect(faultsOf(source)).toEqual([expect.stringContaining(`sets ${property}`)]);
+    });
+  }
+
+  it('reads a bound class, a state and a compound selector', () => {
+    const source = sfc(
+      `<select class="field field--select" :class="{ error: bad }"></select>`,
+      '.form .error:hover { background: red; }',
+    );
+    expect(faultsOf(source)).toEqual([expect.stringContaining('.error sets background')]);
+  });
+
+  it('leaves alone a rule of a class the select does not wear, and one that only names it longer', () => {
+    const source = sfc(
+      '<select class="field field--select own"></select>',
+      '.other { padding: 0; } .own-label { padding: 0; }',
+    );
+    expect(faultsOf(source)).toEqual([]);
+  });
+
+  it('takes a rule out of a media query, and no comment for a rule', () => {
+    const inMedia = sfc(
+      '<select class="field field--select own"></select>',
+      '@media (max-width: 1px) { .own { padding: 0; } }',
+    );
+    expect(faultsOf(inMedia)).toHaveLength(1);
+    const inComment = sfc(
+      '<select class="field field--select own"></select>',
+      '/* .own { padding: 0; } */',
+    );
+    expect(faultsOf(inComment)).toEqual([]);
+  });
+});
+
+describe('every select in the app', () => {
+  it('wears the primitive, and its own classes never draw it', () => {
+    const faults = vueFiles(SRC).flatMap((file) =>
+      faultsOf(readFileSync(file, 'utf-8')).map((fault) => `${relative(SRC, file)}: ${fault}`),
+    );
+    expect(faults).toEqual([]);
+  });
+
+  it('finds the selects at all', () => {
+    const count = vueFiles(SRC).reduce(
+      (sum, file) =>
+        sum + (templateOf(readFileSync(file, 'utf-8')).match(/<select\b/g)?.length ?? 0),
+      0,
+    );
+    // A floor, so a broken reader cannot pass by seeing nothing; 49 when this was written.
+    expect(count).toBeGreaterThan(40);
+  });
+});
