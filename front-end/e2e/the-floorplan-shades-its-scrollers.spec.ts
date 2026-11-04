@@ -117,6 +117,26 @@ test('the floorplan shades what scrolls, and its steps leave scrolling to the pa
       page.getByTestId('scale-calibration-length-input'),
       'and again on a redraw',
     ).toBeFocused();
+
+    // Enter does what the focused control says: Redraw redraws, with nothing sent.
+    const posted: string[] = [];
+    page.on('request', (sent) => {
+      if (sent.method() === 'POST' && sent.url().includes('/floorplans/calibrate')) {
+        posted.push(sent.url());
+      }
+    });
+    await page.keyboard.press('Enter');
+    await expect(page.getByText('Please enter a length.'), 'Enter in the field').toBeVisible();
+    expect(posted, 'an empty length sends no calibration').toEqual([]);
+    await wizard.calibrateLengthInput.fill('30');
+    await page.getByTestId('scale-calibration-btn-redraw').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByText('Click & drag to draw a reference line')).toBeVisible();
+    await expect(page.getByTestId('scale-calibration-result')).toBeHidden();
+    expect(posted, 'Redraw sends no calibration').toEqual([]);
+    await wizard.drawCalibrationLine();
+    await expect(wizard.calibrateLengthInput).toBeFocused();
+
     await wizard.calibrateLengthInput.fill('30');
     await page.keyboard.press('Enter');
     await expect(

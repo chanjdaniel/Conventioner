@@ -40,7 +40,7 @@ const phase = ref<Phase>('loading');
 /**
  * Focus goes into each panel as it opens, since a press on the canvas or the form it replaces leaves
  * it on `<body>`. `autofocus` does this only once a page, so a redraw's panel opened without it. The
- * result opens on its panel and not on Done, where the Enter that confirmed the length would land.
+ * result opens on what it reports and not on Done, which a held Enter's repeat would press.
  */
 const lengthInput = ref<HTMLInputElement | null>(null);
 const resultPanel = ref<HTMLElement | null>(null);
@@ -97,9 +97,6 @@ function handleKeyDown(e: KeyboardEvent) {
     } else {
       emit('cancel');
     }
-  }
-  if (e.key === 'Enter' && phase.value === 'input') {
-    confirmCalibration();
   }
 }
 
