@@ -197,8 +197,8 @@ function onSaved(payload: { market_id: string }) {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 16px 24px;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-6);
   background: var(--mm-beige);
   border-bottom: 1.5px solid var(--mm-border);
   flex-shrink: 0;
@@ -218,7 +218,7 @@ function onSaved(payload: { market_id: string }) {
 }
 
 .workflow-progress span.active {
-  color: #ffffff;
+  color: white;
   background: var(--mm-green);
   font-weight: 400;
 }
@@ -246,8 +246,8 @@ function onSaved(payload: { market_id: string }) {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px;
+  gap: var(--space-4);
+  padding: var(--space-4);
   overflow: auto;
 }
 
@@ -262,8 +262,8 @@ function onSaved(payload: { market_id: string }) {
 .step-edit-toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
   background: var(--mm-beige);
   border-bottom: 1px solid var(--mm-border);
   flex-shrink: 0;
@@ -292,8 +292,8 @@ function onSaved(payload: { market_id: string }) {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px;
+  gap: var(--space-4);
+  padding: var(--space-4);
   overflow: auto;
 }
 
@@ -303,7 +303,7 @@ function onSaved(payload: { market_id: string }) {
   align-items: center;
   justify-content: space-between;
   padding: 14px 24px;
-  background: #ffffff;
+  background: white;
   border-top: 1.5px solid var(--mm-border);
   flex-shrink: 0;
 }
@@ -346,7 +346,7 @@ function onSaved(payload: { market_id: string }) {
 
 .nav-btn--next {
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
   margin-left: auto;
 }
 </style>

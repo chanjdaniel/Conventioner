@@ -779,7 +779,7 @@ watch(
   min-height: 360px;
   overflow: hidden;
   background: var(--mm-beige);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   border: 2px solid var(--mm-border);
   transition: opacity 0.2s ease-in-out;
 }
@@ -814,7 +814,7 @@ watch(
 .toolbar-separator {
   width: 1px;
   height: 22px;
-  margin: 0 4px;
+  margin: 0 var(--space-1);
   background: var(--mm-border);
   border-radius: 1px;
 }
@@ -825,7 +825,7 @@ watch(
   justify-content: center;
   min-width: 30px;
   height: 30px;
-  padding: 0 8px;
+  padding: 0 var(--space-2);
 
   background: transparent;
   color: var(--mm-black);
@@ -857,7 +857,7 @@ watch(
 
 .toolbar-btn.is-active {
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
 }
 
 .toolbar-btn.is-active:hover {
@@ -884,7 +884,7 @@ watch(
   padding: 3px 10px;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(6px);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   font-size: var(--text-xs);
   color: var(--mm-black);
   box-shadow: 0 1px 6px rgba(39, 35, 35, 0.08);
@@ -901,7 +901,7 @@ watch(
 
 .status-hint {
   margin-left: 6px;
-  padding-left: 8px;
+  padding-left: var(--space-2);
   border-left: 1px solid var(--mm-border);
   color: var(--mm-text-yellow);
   font-style: italic;

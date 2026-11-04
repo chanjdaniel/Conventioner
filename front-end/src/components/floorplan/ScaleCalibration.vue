@@ -624,7 +624,7 @@ onUnmounted(() => {
      Most of the window instead, never less than that floor. */
   min-height: max(400px, 65vh);
   background: var(--mm-beige);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   border: 2px solid var(--mm-border);
   overflow: hidden;
 }
@@ -635,7 +635,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: var(--space-4);
   flex: 1;
   padding: 40px 24px;
 }
@@ -690,7 +690,7 @@ onUnmounted(() => {
   border-radius: 8px;
 
   font-size: var(--text-xs);
-  color: #ffffff;
+  color: white;
   white-space: nowrap;
   pointer-events: none;
   z-index: 5;
@@ -706,17 +706,17 @@ onUnmounted(() => {
   background: rgba(39, 35, 35, 0.38);
   backdrop-filter: blur(3px);
   z-index: 20;
-  padding: 24px;
+  padding: var(--space-6);
 }
 
 .cal-dialog {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
   width: 100%;
   max-width: 380px;
   padding: 28px 28px 22px;
-  background: #ffffff;
+  background: white;
   border-radius: 12px;
   box-shadow:
     0 4px 24px rgba(39, 35, 35, 0.16),
@@ -759,10 +759,10 @@ onUnmounted(() => {
 .cal-input {
   width: 100%;
   height: 40px;
-  padding: 0 12px;
+  padding: 0 var(--space-3);
   background: var(--mm-beige);
   border: 1.5px solid var(--mm-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   font-size: var(--text-sm);
   color: var(--mm-black);
   outline: none;
@@ -795,7 +795,7 @@ onUnmounted(() => {
 .cal-unit-option {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   cursor: pointer;
 }
 
@@ -814,10 +814,10 @@ onUnmounted(() => {
 /* ── Input error ───────────────────────────────────────────────── */
 .cal-input-error {
   margin: 0;
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   background: color-mix(in srgb, var(--mm-yellow) 18%, transparent);
   border: 1px solid var(--mm-yellow);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   font-size: var(--text-xs);
   color: var(--mm-black);
 }
@@ -827,7 +827,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  padding-top: 4px;
+  padding-top: var(--space-1);
 }
 
 /* ── Buttons ───────────────────────────────────────────────────── */
@@ -838,7 +838,7 @@ onUnmounted(() => {
   gap: 6px;
   min-width: 90px;
   height: 36px;
-  padding: 0 16px;
+  padding: 0 var(--space-4);
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
   border-radius: 5px;
@@ -861,7 +861,7 @@ onUnmounted(() => {
 
 .cal-btn--primary {
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
 }
 
 .cal-btn--primary:hover:not(:disabled) {
@@ -884,7 +884,7 @@ onUnmounted(() => {
   width: 14px;
   height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.35);
-  border-top-color: #ffffff;
+  border-top-color: white;
   border-radius: 50%;
   animation: cal-spin 0.7s linear infinite;
 }
@@ -901,7 +901,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 12px;
+  gap: var(--space-3);
   padding: 10px 14px;
   background: var(--mm-beige);
   border-radius: 8px;

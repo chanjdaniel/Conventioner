@@ -634,7 +634,7 @@ watch(
   min-height: 400px;
   overflow: hidden;
   background: var(--mm-beige);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   border: 2px solid var(--mm-border);
 }
 
@@ -662,7 +662,7 @@ watch(
   padding: 0 10px;
 
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
   border: none;
   border-radius: 5px;
 
@@ -701,7 +701,7 @@ watch(
   padding: 8px 20px;
   background: color-mix(in srgb, var(--mm-yellow) 22%, transparent);
   border: 1px solid var(--mm-yellow);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   font-size: var(--text-sm);
   color: var(--mm-black);
   text-align: center;

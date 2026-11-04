@@ -248,7 +248,7 @@ async function triggerAutoPlace() {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .auto-place-counts {
@@ -283,13 +283,13 @@ async function triggerAutoPlace() {
 .auto-place-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   min-width: 180px;
   height: 36px;
-  padding: 0 16px;
+  padding: 0 var(--space-4);
 
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
   border-radius: 5px;
@@ -328,7 +328,7 @@ async function triggerAutoPlace() {
 .btn-loading {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .spinner {
@@ -336,7 +336,7 @@ async function triggerAutoPlace() {
   width: 14px;
   height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.35);
-  border-top-color: #ffffff;
+  border-top-color: white;
   border-radius: 50%;
   animation: auto-place-spin 0.8s linear infinite;
   flex-shrink: 0;

@@ -482,7 +482,7 @@ function deleteType(tt: TableTypeObject) {
 .tt-type-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
   min-height: 0;
 }
 
@@ -493,7 +493,7 @@ function deleteType(tt: TableTypeObject) {
   padding: 10px 12px;
   background: var(--mm-beige);
   border: 1.5px solid transparent;
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   transition:
     border-color 0.15s ease-in-out,
     background-color 0.15s ease-in-out,
@@ -502,7 +502,7 @@ function deleteType(tt: TableTypeObject) {
 
 .tt-type-card:hover {
   border-color: var(--mm-green);
-  background: #ffffff;
+  background: white;
   box-shadow: 0 2px 12px rgba(54, 130, 111, 0.12);
 }
 
@@ -510,7 +510,7 @@ function deleteType(tt: TableTypeObject) {
   flex-shrink: 0;
   width: 28px;
   height: 28px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   border: 2px solid rgba(255, 255, 255, 0.6);
   box-shadow: var(--shadow-card);
 }
@@ -520,7 +520,7 @@ function deleteType(tt: TableTypeObject) {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-hairline);
 }
 
 .tt-type-name {
@@ -538,7 +538,7 @@ function deleteType(tt: TableTypeObject) {
 }
 
 .tt-type-sep {
-  margin: 0 4px;
+  margin: 0 var(--space-1);
   color: rgba(39, 35, 35, 0.3);
 }
 
@@ -553,7 +553,7 @@ function deleteType(tt: TableTypeObject) {
   padding: 0;
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   color: rgba(39, 35, 35, 0.45);
   font-size: var(--text-sm);
   cursor: pointer;
@@ -588,7 +588,7 @@ function deleteType(tt: TableTypeObject) {
   justify-content: center;
   width: 100%;
   height: 36px;
-  padding: 0 16px;
+  padding: 0 var(--space-4);
   background: transparent;
   color: var(--mm-green);
   border: 1.5px dashed var(--mm-green);
@@ -611,11 +611,11 @@ function deleteType(tt: TableTypeObject) {
 .tt-inline-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
   padding: 14px;
-  background: #ffffff;
+  background: white;
   border: 1.5px solid var(--mm-green);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   box-shadow: 0 2px 12px rgba(54, 130, 111, 0.1);
 }
 
@@ -650,7 +650,7 @@ function deleteType(tt: TableTypeObject) {
 .tt-capacity {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--space-4);
   margin: 0;
   padding: 0;
   border: none;
@@ -658,7 +658,7 @@ function deleteType(tt: TableTypeObject) {
 
 .tt-capacity legend {
   float: left;
-  margin: 0 8px 0 0;
+  margin: 0 var(--space-2) 0 0;
   padding: 0;
 }
 
@@ -674,10 +674,10 @@ function deleteType(tt: TableTypeObject) {
 /* ── Error message ───────────────────────────────────────────── */
 .tt-error {
   margin: 0;
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   background: color-mix(in srgb, var(--mm-red) 10%, transparent);
   border: 1px solid var(--mm-red);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   font-size: var(--text-xs);
   color: var(--mm-red);
 }
@@ -686,7 +686,7 @@ function deleteType(tt: TableTypeObject) {
 .tt-form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 /* ── Buttons ─────────────────────────────────────────────────── */
@@ -696,11 +696,11 @@ function deleteType(tt: TableTypeObject) {
   justify-content: center;
   gap: 6px;
   height: 34px;
-  padding: 0 16px;
+  padding: 0 var(--space-4);
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
   line-height: 1;
-  color: #ffffff;
+  color: white;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
   border-radius: 5px;

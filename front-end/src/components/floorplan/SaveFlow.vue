@@ -370,10 +370,10 @@ async function handleSave() {
   justify-content: center;
   min-width: 160px;
   height: 40px;
-  padding: 0 24px;
+  padding: 0 var(--space-6);
 
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
   border-radius: 5px;
@@ -430,7 +430,7 @@ async function handleSave() {
 
   padding: 12px 28px;
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
   border-radius: 8px;
 
   font-size: var(--text-sm);
@@ -486,7 +486,7 @@ async function handleSave() {
   max-height: min(88vh, 700px);
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: white;
   border-radius: 14px;
   box-shadow: var(--shadow-card);
   overflow: hidden;
@@ -499,11 +499,11 @@ async function handleSave() {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   min-height: 56px;
   padding: 10px 16px 12px;
   background-color: var(--mm-black);
-  color: #fff;
+  color: white;
 }
 
 .save-dialog-header-side {
@@ -532,7 +532,7 @@ async function handleSave() {
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
-  color: #fff;
+  color: white;
   cursor: pointer;
 }
 
@@ -564,7 +564,7 @@ async function handleSave() {
   font-size: var(--text-lg);
   font-weight: 400;
   letter-spacing: 0.02em;
-  color: #fff;
+  color: white;
   text-align: center;
 }
 
@@ -573,7 +573,7 @@ async function handleSave() {
   flex: 1;
   min-height: 0;
   padding: 24px 22px 20px;
-  background: #fff;
+  background: white;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -607,17 +607,17 @@ async function handleSave() {
 .save-summary-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .save-stat {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   padding: 14px 12px;
   background: var(--mm-beige);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
 }
 
 .save-stat--warn {
@@ -670,7 +670,7 @@ async function handleSave() {
 .save-tag-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -679,7 +679,7 @@ async function handleSave() {
 .save-tag {
   padding: 5px 14px;
   background: var(--mm-beige);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: var(--text-xs);
   color: var(--mm-black);
   border: 1px solid transparent;
@@ -699,7 +699,7 @@ async function handleSave() {
   gap: 10px;
   padding: 14px 16px;
   background: var(--mm-beige);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   border: 1px solid transparent;
   transition: border-color 0.15s ease;
 }
@@ -711,7 +711,7 @@ async function handleSave() {
 .save-section-card-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   flex: 1;
   min-width: 140px;
 }
@@ -722,16 +722,16 @@ async function handleSave() {
   color: var(--mm-text-muted-on-beige);
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  padding-left: 2px;
+  padding-left: var(--space-hairline);
 }
 
 .save-section-card-input {
   width: 100%;
   height: 34px;
   padding: 0 10px;
-  background: #ffffff;
+  background: white;
   border: 1px solid var(--mm-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 
   font-size: var(--text-sm);
   color: var(--mm-black);
@@ -749,7 +749,7 @@ async function handleSave() {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  padding-bottom: 2px;
+  padding-bottom: var(--space-hairline);
 }
 
 .save-section-card-tables {
@@ -764,7 +764,7 @@ async function handleSave() {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px 16px;
+  padding: var(--space-8) var(--space-4);
 }
 
 .save-empty p {
@@ -781,7 +781,7 @@ async function handleSave() {
   justify-content: flex-end;
   gap: 10px;
   padding: 14px 22px 18px;
-  background: #fff;
+  background: white;
   border-top: 1px solid var(--mm-border);
 }
 
@@ -789,7 +789,7 @@ async function handleSave() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--space-2);
   min-width: 100px;
   height: 36px;
   padding: 0 20px;
@@ -826,7 +826,7 @@ async function handleSave() {
 
 .save-dialog-btn--primary {
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
   min-width: 150px;
 }
 
@@ -841,7 +841,7 @@ async function handleSave() {
   width: 14px;
   height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.35);
-  border-top-color: #ffffff;
+  border-top-color: white;
   border-radius: 50%;
   animation: save-spin 0.7s linear infinite;
 }

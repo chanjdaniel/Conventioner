@@ -113,10 +113,10 @@ function toggleDropdown() {
   align-items: center;
   gap: 6px;
   height: 32px;
-  padding: 0 12px;
+  padding: 0 var(--space-3);
 
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
   border-radius: 5px;
@@ -158,7 +158,7 @@ function toggleDropdown() {
   width: 14px;
   height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #ffffff;
+  border-top-color: white;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
@@ -184,7 +184,7 @@ function toggleDropdown() {
 
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
   min-width: 180px;
   padding: 10px 12px;
 
@@ -208,7 +208,7 @@ function toggleDropdown() {
 .export-option {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-xs);
@@ -230,11 +230,11 @@ function toggleDropdown() {
   gap: 6px;
   width: 100%;
   height: 30px;
-  margin-top: 2px;
-  padding: 0 12px;
+  margin-top: var(--space-hairline);
+  padding: 0 var(--space-3);
 
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
   border-radius: 5px;

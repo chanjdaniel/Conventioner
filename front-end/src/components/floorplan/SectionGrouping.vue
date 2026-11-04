@@ -619,10 +619,10 @@ onUnmounted(() => {
   justify-content: center;
   min-width: 32px;
   height: 32px;
-  padding: 0 12px;
+  padding: 0 var(--space-3);
 
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
   border: none;
   border-radius: 5px;
 
@@ -683,10 +683,10 @@ onUnmounted(() => {
   padding: 6px 18px;
   background: rgba(39, 35, 35, 0.82);
   backdrop-filter: blur(6px);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 
   font-size: var(--text-xs);
-  color: #ffffff;
+  color: white;
 }
 
 .sg-hint kbd {
@@ -715,7 +715,7 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(39, 35, 35, 0.1);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   box-shadow: 0 8px 32px rgba(39, 35, 35, 0.12);
   padding: 14px 0 8px;
 }
@@ -802,7 +802,7 @@ onUnmounted(() => {
 
 .sg-empty {
   margin: 0;
-  padding: 12px 16px;
+  padding: var(--space-3) var(--space-4);
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
   text-align: center;
@@ -842,7 +842,7 @@ onUnmounted(() => {
   max-height: 90vh;
   overflow-y: auto;
 
-  background: #ffffff;
+  background: white;
   border-radius: 14px;
   box-shadow: 0 16px 48px rgba(39, 35, 35, 0.18);
   padding: 28px 28px 22px;
@@ -886,7 +886,7 @@ onUnmounted(() => {
 .sg-field-input {
   width: 100%;
   height: 38px;
-  padding: 0 12px;
+  padding: 0 var(--space-3);
 
   border: 2px solid rgba(39, 35, 35, 0.15);
   border-radius: 8px;
@@ -894,7 +894,7 @@ onUnmounted(() => {
 
   font-size: var(--text-sm);
   color: var(--mm-black);
-  background: #ffffff;
+  background: white;
 }
 
 .sg-field-input::placeholder {
@@ -934,7 +934,7 @@ onUnmounted(() => {
 
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
@@ -957,7 +957,7 @@ onUnmounted(() => {
 
 .sg-btn--confirm {
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
 }
 
 .sg-btn--confirm:hover:not(:disabled) {
