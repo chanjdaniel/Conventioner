@@ -73,6 +73,18 @@ test.describe('The layout detectors', () => {
     expect(of(found, 'clipped-y')[0].detail).toMatch(/^text cut off \d+px past the bottom edge$/);
   });
 
+  test('a control half scrolled out of its box overlaps nothing past the box', async ({ page }) => {
+    const found = await findingsOn(
+      page,
+      `<div style="height: 60px; overflow: hidden">
+         <div style="height: 40px"></div>
+         <button style="display: block; height: 40px">Half out</button>
+       </div>
+       <p style="margin: 0">Next, where the rest of it would be</p>`,
+    );
+    expect(of(found, 'overlap')).toEqual([]);
+  });
+
   test('two texts drawn over each other overlap', async ({ page }) => {
     const found = await findingsOn(
       page,

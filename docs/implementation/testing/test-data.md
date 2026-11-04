@@ -16,7 +16,7 @@ describes:
   - front-end/e2e/helpers/seedApplication.ts#nameFromEmail
   - scripts/real_data_check.py
   - scripts/real_data_terms.txt
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - T109
   - T131
@@ -35,7 +35,7 @@ This node says where each kind of test data lives, how it is made, the fictional
 | Kind | Where | How it is made |
 | --- | --- | --- |
 | The Google Form corpus | [`back-end/tests/test_data/google_forms/`](../../../back-end/tests/test_data/google_forms/) | Five synthetic Google Form exports, written byte for byte by the generator [`synthetic_form_exports.py`](../../../back-end/tests/fixtures/synthetic_form_exports.py); [the corpus README](../../../back-end/tests/test_data/README.md) says the shape each keeps and how to regenerate them |
-| The component library's market | [`front-end/src/dev/library/fixture.json`](../../../front-end/src/dev/library/fixture.json) | Derived byte for byte from the corpus by [`component_library_fixture.py`](../../../back-end/tests/fixtures/component_library_fixture.py), through the import's, the proposal's and the export's own readers; statuses, roles, reviewers and seats dealt from a seeded draw ([the component library](../modules/component-library.md#its-data)) |
+| The component library's market | [`front-end/src/dev/library/fixture.json`](../../../front-end/src/dev/library/fixture.json) | Derived byte for byte from the corpus by [`component_library_fixture.py`](../../../back-end/tests/fixtures/component_library_fixture.py), through the import's, the proposal's and the export's own readers; statuses, roles, reviewers, seats, Discord states and payments dealt from a seeded draw ([the component library](../modules/component-library.md#its-data)) |
 | A started market's columns | [`back-end/tests/test_data/example_columns.csv`](../../../back-end/tests/test_data/example_columns.csv) | Forty invented applications, with no export behind them |
 | The back-end tests' own data | `back-end/tests/`, inline, and the fixtures of `conftest.py` | Written in each test |
 | The stack's accounts | [`scripts/seed_fixture.sh`](../../../scripts/seed_fixture.sh), through [`back-end/create_test_user.py`](../../../back-end/create_test_user.py) | The E2E users at `example.com` ([E2E seeds](e2e-seeds.md)) |

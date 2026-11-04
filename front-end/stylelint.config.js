@@ -78,6 +78,7 @@ const MIGRATED = [
   'src/components/FilterToggles.vue',
   'src/components/ListFrame.vue',
   'src/components/NameList.vue',
+  'src/components/OrderedList.vue',
   'src/components/RowGroup.vue',
   'src/components/SidePanel.vue',
   'src/components/MarketHistory.vue',

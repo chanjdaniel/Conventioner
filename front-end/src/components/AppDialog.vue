@@ -438,8 +438,11 @@ onUnmounted(() => observer?.disconnect());
   min-height: 0;
 }
 
-/* Its block padding is room for a control's focus halo at the body's top and bottom edge. */
+/* Its block padding is room for a control's focus halo at the body's top and bottom edge. Relative,
+   or something absolute inside it, a chip's `.visually-hidden` words, answers to the window, which
+   it runs past when scrolled, rather than scrolling and clipping with the body. */
 .dialog-scroller {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -489,8 +492,9 @@ onUnmounted(() => observer?.disconnect());
 }
 
 /* Pinned, it keeps its height up to its cap, the body giving way, and scrolls inside itself past
-   the cap. */
+   the cap; relative for the same reason as the body's scroller. */
 .dialog-body--pinned > .dialog-tray {
+  position: relative;
   flex: none;
   max-height: 40dvh;
   overflow-y: auto;

@@ -30,6 +30,7 @@ describes:
   - front-end/src/components/FilterToggles.vue
   - front-end/src/components/ListFrame.vue
   - front-end/src/components/NameList.vue
+  - front-end/src/components/OrderedList.vue
   - front-end/src/components/RowGroup.vue
   - front-end/src/components/SidePanel.vue
   - front-end/src/components/BarLedger.vue
@@ -445,6 +446,11 @@ A long list a screen keeps grouped folds by group, in [`RowGroup.vue`](../front-
 [`BarLedger.vue`](../front-end/src/components/BarLedger.vue) folds the same way with `fold`: the rows by count, the first `fold`, then "N more answers"; without it the rows are drawn in the order they came, all of them.
 Both take the fold from [`useFold`](../front-end/src/utils/useFold.ts): unfolding hands the focus to the first new row, and folding keeps it on the button and brings the button back into view.
 No screen folds yet: the library's `folds` entry shows both, on the Stats tab's bars and the Assignments page's tables.
+
+A list someone puts in order is [`OrderedList.vue`](../front-end/src/components/OrderedList.vue) (T200), generic over the item: each row has the `.drag-handle` and its own move up and move down buttons, named by `itemLabel`, so the keyboard can do what the mouse can, the first's up and the last's down disabled.
+A move keeps the focus on the moved row's button, or on its other button once that one is disabled.
+A row takes its container's width, its words wrapping and its buttons never shrinking, so nothing is clipped on the right inside a dialog's scrolling body or tray; its words are the `row` slot's when given.
+No screen mounts it yet: the library's `export-vendors` entry shows it alone and in the export dialog's tray.
 
 A panel that slides in from a side is [`SidePanel.vue`](../front-end/src/components/SidePanel.vue) (T200), a proposal for the vendor drawer and the navigation drawer: `side` (right or left), `width` (narrow, 20rem, or wide, 30rem, each leaving a gutter of scrim), its title and close pinned and only its body scrolling.
 It is modal as a dialog is, through the same composables: Escape and the scrim emit `close`, focus moves in to its body, so the keys scroll the panel and never the page behind, and goes back, and the page is inert.

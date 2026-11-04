@@ -214,6 +214,18 @@ export function detectLayout(opts: DetectOptions): Finding[] {
         r.right <= c.left + 1 ||
         r.left >= c.right - 1,
     );
+  // What shows of a box its clipping ancestors cut: a control half scrolled out of a dialog's body
+  // is drawn over nothing past the body's edge.
+  const shownPart = (r: DOMRect, el: Element): DOMRect => {
+    let [left, top, right, bottom] = [r.left, r.top, r.right, r.bottom];
+    for (const c of clipsAbove(el.parentElement)) {
+      left = Math.max(left, c.left);
+      top = Math.max(top, c.top);
+      right = Math.min(right, c.right);
+      bottom = Math.min(bottom, c.bottom);
+    }
+    return new DOMRect(left, top, right - left, bottom - top);
+  };
 
   if (de.scrollWidth > de.clientWidth + 1) {
     findings.push({
@@ -440,6 +452,7 @@ export function detectLayout(opts: DetectOptions): Finding[] {
         !/fixed|sticky/.test(styleOf(x.el).position) &&
         !clippedAway(x.r, x.el),
     )
+    .map((x) => ({ ...x, r: shownPart(x.r, x.el) }))
     .slice(0, 4000);
   L.sort((a, b) => a.r.left - b.r.left);
   let overlaps = 0;
