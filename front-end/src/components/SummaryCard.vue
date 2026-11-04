@@ -157,8 +157,7 @@ defineEmits<{ select: [] }>();
   text-overflow: ellipsis;
 }
 
-/* The name's own button looks like the name: the card's lift and halo are its focus, as they
-   were the row's. */
+/* The name's own button looks like the name: the card's green border is its focus. */
 .summary-card-name :slotted(.summary-card-open) {
   display: block;
   max-width: 100%;

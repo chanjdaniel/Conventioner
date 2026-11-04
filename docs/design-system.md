@@ -19,6 +19,8 @@ describes:
   - front-end/e2e/focus-sweep-detectors.spec.ts
   - front-end/e2e/helpers/focusSweep.ts
   - front-end/e2e/a-links-halo-appears-at-once.spec.ts
+  - front-end/src/components/CodeInput.vue
+  - front-end/e2e/the-code-field.spec.ts
   - front-end/src/assets/brand/
   - front-end/src/__tests__/theBrandHasOneFolder.test.ts
   - front-end/scripts/brand-icons.ts
@@ -30,8 +32,6 @@ describes:
   - front-end/src/components/FilterToggles.vue
   - front-end/src/components/ListFrame.vue
   - front-end/e2e/a-focused-button-moves-nothing.spec.ts
-  - front-end/src/components/CodeInput.vue
-  - front-end/e2e/the-code-field.spec.ts
 verified: 2026-11-04
 sources:
   - wayfinding/claims-and-room/map
@@ -75,11 +75,12 @@ sources:
   - E38/F15/S01
   - T181
   - T180
+  - T202
   - T212
   - T205
   - T200
   - T211
-  - T202
+  - T214
 ---
 
 # Conventioner's design language
