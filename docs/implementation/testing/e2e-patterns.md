@@ -16,7 +16,7 @@ describes:
   - front-end/e2e/helpers/settle.ts
   - front-end/src/utils/utils.ts#getFormattedDate
   - front-end/e2e/helpers/phoneWindow.ts#inTheWindow
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - E21/F02/S02
   - E22/F04/S02
@@ -36,6 +36,7 @@ sources:
   - E42/F01/S05
   - T177
   - T181
+  - T211
   - T205
 ---
 

@@ -237,3 +237,38 @@ test("a rule's question stays in its column, however long the form's other quest
   });
   expect(overflow, 'the question select reaches past its column').toBeLessThanOrEqual(0);
 });
+
+test('the question column shows its longest built-in question whole beside the chevron', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  // The chevron's room took the words' last letters at 1280, with the two columns equal.
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+  );
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(marketSetupPath(marketId, 'settings'));
+  await page.getByRole('button', { name: 'Add a rule' }).click();
+  const target = page.getByTestId('priority-target-select').last();
+  await target.selectOption({ label: 'When the application arrived' });
+
+  const room = await target.evaluate((select: HTMLSelectElement) => {
+    const style = getComputedStyle(select);
+    const pen = document.createElement('canvas').getContext('2d')!;
+    pen.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    // The box's own width, since `clientWidth` rounds and the words were cut by a fraction of a pixel.
+    return (
+      select.getBoundingClientRect().width -
+      parseFloat(style.borderLeftWidth) -
+      parseFloat(style.borderRightWidth) -
+      parseFloat(style.paddingLeft) -
+      parseFloat(style.paddingRight) -
+      pen.measureText(select.selectedOptions[0].text).width
+    );
+  });
+  expect(room, 'the words end before the chevron, with no ellipsis').toBeGreaterThanOrEqual(0);
+});

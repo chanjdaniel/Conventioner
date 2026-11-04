@@ -104,7 +104,7 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
         <select
           v-else-if="field.type === 'select'"
           :id="`preview-${field.key}`"
-          class="preview-input"
+          class="field field--select preview-select"
           disabled
         >
           <option value="">-- Select --</option>
@@ -221,6 +221,12 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: var(--mm-beige);
+}
+
+/* The primitive, at the height and type of the preview's other fields. */
+.preview-select {
+  height: 32px;
+  font-size: var(--text-xs);
 }
 
 .preview-checkbox {
