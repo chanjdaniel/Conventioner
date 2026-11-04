@@ -153,12 +153,6 @@ describe('a dialog that asks for none of the new props scrolls whole, in a Scrol
       expect(submit.defaultPrevented).toBe(false);
     },
   );
-
-  it('wide', async () => {
-    await openFromTheButton({ wide: true });
-
-    expect(byTestId('people-window')!.className).toBe('dialog-window dialog-window--wide');
-  });
 });
 
 describe('its sizes', () => {
@@ -170,12 +164,6 @@ describe('its sizes', () => {
     await openFromTheButton({ size });
 
     expect(byTestId('people-window')!.className).toBe(className);
-  });
-
-  it('a size wins over the `wide` it replaces', async () => {
-    await openFromTheButton({ wide: true, size: 'broad' });
-
-    expect(byTestId('people-window')!.className).toBe('dialog-window dialog-window--broad');
   });
 });
 

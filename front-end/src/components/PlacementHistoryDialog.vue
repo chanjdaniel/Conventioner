@@ -18,7 +18,8 @@ const emit = defineEmits<{ close: [] }>();
     :open="open"
     title="Assignment history"
     testid="placement-history-dialog"
-    wide
+    size="wide"
+    scroll="body"
     @close="emit('close')"
   >
     <PlacementHistory v-if="open" :marketId="marketId" />

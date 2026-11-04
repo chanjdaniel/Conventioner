@@ -13,7 +13,7 @@ describes:
   - front-end/e2e/removing-someone-asks-first.spec.ts
   - front-end/e2e/changing-a-role-asks-first.spec.ts
   - front-end/src/utils/openInsteadOfStepping.ts
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - E20/F01/S03
   - E21/F03/S04
@@ -48,6 +48,7 @@ sources:
 A market ends by being archived, after its market days or before it ever runs, or it is deleted outright.
 Managing it is the "Manage market" dialog ([`ManageMarketOverlay.vue`](../../../front-end/src/views/ManageMarketOverlay.vue)), which names the market and holds, in order, its people ("Users with access"), who may do what, its history ("History", [reading the market's history](reading-the-markets-history.md)), its organization, its name and its deletion.
 It opens from `/markets`, which fits a phone (T142), so on a phone it opens inside the window like every [dialog](../../implementation/conventions/dialogs.md), and its history's before-and-after table wraps its cells within the dialog's width rather than widening it.
+Only its body scrolls, so its title and close stay in view however long the people and the history run.
 On a phone each person under "Users with access" puts their address on a line of its own, with their role and Remove beneath it, so a long address is not squeezed into a narrow column; a market role the organization's makes add nothing is said on a line of its own beneath those, with its Remove beneath that line at the start, where every other row's Remove sits.
 The "Add user" row does the same: its email field takes the row, with the role at the start of a row beneath it and "Add" and "Cancel" at that row's end; beside them the field and the role were 66px each, reading "User e" and "Edi" (T142).
 

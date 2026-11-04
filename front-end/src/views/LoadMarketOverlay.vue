@@ -36,7 +36,8 @@ const handleLoadMarket = (market: Market) => openMarket(router, market);
     :open="props.loadOpen"
     title="Load market"
     testid="load-market"
-    wide
+    size="wide"
+    scroll="body"
     @close="emit('loadClose')"
   >
     <p v-if="markets.length === 0" class="empty-state" data-testid="load-market-empty">

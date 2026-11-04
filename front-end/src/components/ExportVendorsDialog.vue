@@ -166,7 +166,7 @@ async function download(): Promise<void> {
     :open="open"
     title="Export vendors"
     testid="vendor-export"
-    wide
+    size="wide"
     :confirm-label="busy ? 'Downloading…' : 'Download CSV'"
     :confirm-disabled="busy || !offered || !columns.length"
     :error="error"

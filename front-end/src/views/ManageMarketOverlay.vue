@@ -401,7 +401,8 @@ async function closeAddUser() {
     :open="manageOpen"
     title="Manage market"
     testid="manage-market"
-    wide
+    size="wide"
+    scroll="body"
     :error="errorMessage"
     @close="emit('manageClose')"
   >

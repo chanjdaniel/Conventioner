@@ -9,7 +9,7 @@ describes:
   - front-end/src/components/market/ReviewersPanel.vue
   - front-end/src/components/application/VerdictUndoLine.vue
   - front-end/src/utils/verdictUndo.ts
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/08

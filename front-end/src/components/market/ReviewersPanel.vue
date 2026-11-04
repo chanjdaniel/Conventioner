@@ -96,6 +96,7 @@ async function save() {
       :open="open"
       :title="action"
       testid="reviewers-dialog"
+      scroll="body"
       :confirm-label="saving ? 'Saving…' : 'Save reviewers'"
       :confirm-disabled="saving"
       :error="error"

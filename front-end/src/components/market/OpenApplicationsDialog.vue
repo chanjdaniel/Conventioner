@@ -102,6 +102,7 @@ async function confirm() {
     :open="open"
     title="Open applications"
     testid="open-applications"
+    scroll="body"
     :confirm-label="saving ? 'Saving…' : 'Open applications'"
     :confirm-disabled="saving || moving"
     :error="error"

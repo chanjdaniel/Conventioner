@@ -182,7 +182,8 @@ async function save() {
     :open="open"
     title="Fix the form"
     testid="amend-form"
-    wide
+    size="wide"
+    scroll="body"
     anchored
     confirm-label="Save and carry on"
     :confirm-disabled="cannotSave"

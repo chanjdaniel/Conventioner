@@ -60,8 +60,6 @@ const props = withDefaults(
      * a list beside what it gathers, the export dialog's columns and preview.
      */
     size?: 'narrow' | 'wide' | 'broad';
-    /** `size="wide"`, until the conversions remove it; a `size` wins over it. */
-    wide?: boolean;
     /**
      * What scrolls when the content is taller than the window: the whole `window` (today's), or
      * only the `body`, with the title, close, error, tray and actions pinned.
@@ -75,7 +73,7 @@ const props = withDefaults(
     /** An error about the submission as a whole. Field errors belong beneath their field. */
     error?: string;
   }>(),
-  { cancelLabel: 'Cancel', scroll: 'window' },
+  { size: 'narrow', cancelLabel: 'Cancel', scroll: 'window' },
 );
 
 const emit = defineEmits<{ close: []; submit: [] }>();
@@ -89,7 +87,6 @@ function onSubmit(event: Event) {
   emit('submit');
 }
 
-const width = computed(() => props.size ?? (props.wide ? 'wide' : 'narrow'));
 const pinned = computed(() => props.scroll === 'body');
 
 /** The title and the body with nothing around them, as a pinned dialog has them. */
@@ -204,8 +201,8 @@ watch(
       ref="windowEl"
       class="dialog-window"
       :class="{
-        'dialog-window--wide': width === 'wide',
-        'dialog-window--broad': width === 'broad',
+        'dialog-window--wide': size === 'wide',
+        'dialog-window--broad': size === 'broad',
         'dialog-window--body': pinned,
       }"
       role="dialog"
@@ -427,11 +424,20 @@ watch(
   flex: 1 1 auto;
   min-height: 0;
   gap: 0;
-  padding-bottom: var(--space-4);
+}
+
+.dialog-body--pinned > :last-child:not(.dialog-body-box) {
+  margin-bottom: var(--space-4);
 }
 
 .dialog-body-box {
   flex: 1 1 auto;
+}
+
+/* With nothing pinned beneath it, the body runs to the window's foot, so its shade ends at the
+   frame rather than above a blank band, and its own end holds the window's 24px inset. */
+.dialog-body-box:last-child .dialog-scrolled {
+  padding-bottom: var(--space-6);
 }
 
 /* Its block padding is room for a control's focus halo at the body's top and bottom edge. */

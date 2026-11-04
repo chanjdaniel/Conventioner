@@ -306,7 +306,8 @@ function handleDeleted() {
     :open="manageOpen"
     title="Manage organization"
     testid="manage-org"
-    wide
+    size="wide"
+    scroll="body"
     :error="errorMessage"
     @close="emit('manageClose')"
   >

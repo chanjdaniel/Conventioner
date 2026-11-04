@@ -270,7 +270,8 @@ async function save(): Promise<void> {
     :open="open && !!application"
     title="Update info"
     testid="update-info"
-    wide
+    size="wide"
+    scroll="body"
     :confirm-label="busy ? 'Saving…' : 'Save'"
     :confirm-disabled="busy || !Object.keys(sent).length"
     :error="error"

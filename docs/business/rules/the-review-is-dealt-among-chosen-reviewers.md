@@ -10,7 +10,7 @@ describes:
   - front-end/src/components/market/ReviewerPicker.vue
   - front-end/src/utils/reviewTeam.ts
   - front-end/src/utils/reviewers.ts
-verified: 2026-11-01
+verified: 2026-11-05
 sources:
   - E38/F07
   - E38/F07/S01
