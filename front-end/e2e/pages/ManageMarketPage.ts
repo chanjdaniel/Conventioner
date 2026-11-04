@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { PersonChooser } from './PersonChooser';
 
 /**
  * Page object for the ManageMarketOverlay reached from MarketsView.
@@ -15,6 +16,10 @@ export class ManageMarketPage {
   readonly roleSelects: Locator;
   readonly removeUserButtons: Locator;
   readonly people: Locator;
+  readonly peopleFind: Locator;
+  readonly peopleCount: Locator;
+  readonly peopleRows: Locator;
+  readonly peopleMore: Locator;
   readonly removeConfirm: Locator;
   readonly removeConsequence: Locator;
   readonly removeKeeps: Locator;
@@ -56,7 +61,7 @@ export class ManageMarketPage {
   readonly historyEntries: Locator;
   readonly historySentences: Locator;
   readonly historyVendorLinks: Locator;
-  readonly historyWho: Locator;
+  readonly historyWho: PersonChooser;
   readonly historyKind: Locator;
   readonly historyVendor: Locator;
   readonly historyLoadMore: Locator;
@@ -70,6 +75,10 @@ export class ManageMarketPage {
     this.roleSelects = page.getByTestId('manage-market-role-select');
     this.removeUserButtons = page.getByTestId('manage-market-remove-user-button');
     this.people = page.getByTestId('manage-market-people');
+    this.peopleFind = page.getByTestId('manage-market-access-find');
+    this.peopleCount = page.getByTestId('manage-market-access-count');
+    this.peopleRows = page.getByTestId('manage-market-person');
+    this.peopleMore = page.getByTestId('manage-market-access-more');
     // Remove asks first (E38/F15/S01): its own destructive dialog, a sibling of Manage market.
     this.removeConfirm = page.getByTestId('manage-market-remove-window');
     this.removeConsequence = page.getByTestId('manage-market-remove-consequence');
@@ -115,7 +124,7 @@ export class ManageMarketPage {
     this.historyEntries = page.getByTestId('market-history-entry');
     this.historySentences = page.getByTestId('market-history-sentence');
     this.historyVendorLinks = page.getByTestId('market-history-vendor-link');
-    this.historyWho = page.getByTestId('market-history-who');
+    this.historyWho = new PersonChooser(page, 'market-history-who');
     this.historyKind = page.getByTestId('market-history-kind');
     this.historyVendor = page.getByTestId('market-history-vendor');
     this.historyLoadMore = page.getByTestId('market-history-load-more');
@@ -127,6 +136,15 @@ export class ManageMarketPage {
     await this.page.getByTestId('market-history').waitFor();
   }
 
+  /** Narrows the History section by typing "Who"'s words ("Anyone", or part of an address). */
+  async narrowHistoryTo(words: string): Promise<void> {
+    const { field, options, list } = this.historyWho;
+    await field.fill(words);
+    await options.filter({ hasText: words }).first().waitFor();
+    await field.press('Enter');
+    await list.waitFor({ state: 'detached' });
+  }
+
   /** Opens one change of the History section to its before and after, and answers that table. */
   async openHistoryEntry(index: number): Promise<Locator> {
     const entry = this.historyEntries.nth(index);
@@ -136,6 +154,16 @@ export class ManageMarketPage {
 
   async waitForOverlay(): Promise<void> {
     await this.window.waitFor({ state: 'visible', timeout: 5000 });
+  }
+
+  /** The row of the person whose address holds `email`. */
+  person(email: string): Locator {
+    return this.peopleRows.filter({ hasText: email });
+  }
+
+  /** The address in that person's row. */
+  personEmail(email: string): Locator {
+    return this.person(email).locator('.user-email');
   }
 
   // ── Add user with role ──

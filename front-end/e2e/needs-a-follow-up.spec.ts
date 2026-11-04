@@ -1,5 +1,6 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
+import { FollowUpDialog } from './pages/FollowUpDialog';
 import {
   seedApplicationWithStatus,
   seedPhaseMarket,
@@ -61,8 +62,17 @@ test('a follow-up is marked, waits out of the queue, holds the market, and is ha
   await page.keyboard.press('s');
   const dialog = page.getByTestId('follow-up-window');
   await expect(dialog).toBeVisible();
-  await expect(page.getByTestId('follow-up-owner')).toHaveValue(TEST_USER.email);
+  const followUp = new FollowUpDialog(page);
+  await expect(followUp.owner).toHaveValue(TEST_USER.email);
   expect(await namelessControls(page), 'the follow-up dialog').toEqual([]);
+  // The field is where the dialog opens, its address selected: what is typed searches.
+  await expect(followUp.owner).toBeFocused();
+  await page.keyboard.type('zzz');
+  await expect(followUp.owner).toHaveValue('zzz');
+  await expect(followUp.chooser.list).toContainText('Nobody matches "zzz"');
+  await expect(followUp.submit).toBeDisabled();
+  await followUp.chooser.choose(TEST_USER.email);
+  await expect(followUp.submit).toBeEnabled();
   // The box opens on the note already there, so adding to it never writes over it unseen.
   const box = page.getByTestId('follow-up-note');
   await expect(box).toHaveValue('Met at the spring fair');
@@ -98,8 +108,9 @@ test('a follow-up is marked, waits out of the queue, holds the market, and is ha
     'Met at the spring fair. Ask for a portfolio link',
   );
   const handed = page.waitForResponse((r) => r.url().endsWith('/follow-up-owner'));
-  await page.getByTestId('app-monitor-follow-up-owner').selectOption(EDITOR.email);
+  await monitor.followUpOwner.choose(EDITOR.email);
   expect((await handed).ok()).toBeTruthy();
+  await expect(monitor.followUpOwner.field).toHaveValue(EDITOR.email);
   expect(
     mongoEval(`db.applications.findOne({ id: ${JSON.stringify(nadia)} }).follow_up_owner.email`),
   ).toBe(EDITOR.email);
@@ -136,16 +147,17 @@ test('an organization admin with no role on the market marks a follow-up and own
     await page.keyboard.press('s');
     const dialog = page.getByTestId('follow-up-window');
     await expect(dialog).toBeVisible();
-    const owner = page.getByTestId('follow-up-owner');
-    await expect(owner).toHaveValue(ORG_ADMIN.email);
-    await expect(owner.locator(`option[value="${TEST_USER.email}"]`)).toHaveCount(1);
-    await page.getByTestId('follow-up-submit-button').click();
+    const followUp = new FollowUpDialog(page);
+    await expect(followUp.owner).toHaveValue(ORG_ADMIN.email);
+    await followUp.owner.click();
+    await expect(followUp.chooser.option(TEST_USER.email)).toHaveCount(1);
+    await followUp.submit.click();
     await expect(dialog).toBeHidden();
 
     // Asked for, the follow-up names them its owner.
     await page.getByTestId('app-monitor-include-follow-ups').check();
     await expect(monitor.email).toHaveText('nadia@ember.test');
-    await expect(page.getByTestId('app-monitor-follow-up-owner')).toHaveValue(ORG_ADMIN.email);
+    await expect(monitor.followUpOwner.field).toHaveValue(ORG_ADMIN.email);
   });
   expect(
     mongoEval(`db.applications.findOne({ id: ${JSON.stringify(nadia)} }).follow_up_owner.email`),
@@ -189,8 +201,10 @@ test('taking the follow-ups in while the next card is on its way puts the follow
     await route.continue();
   });
 
+  // Enter in the field, its list closed, submits the dialog.
   await page.keyboard.press('s');
-  await page.getByTestId('follow-up-submit-button').click();
+  await expect(new FollowUpDialog(page).owner).toBeFocused();
+  await page.keyboard.press('Enter');
   await expect(page.getByTestId('follow-up-window')).toBeHidden();
   await expect.poll(() => heldBack).toBe(true);
   // Taken in, the walk is asked again with the follow-ups in; the held answer is then old news.
@@ -207,7 +221,7 @@ test('taking the follow-ups in while the next card is on its way puts the follow
   expect((await (await askedAgain).json()).application?.applicantEmail).toBe('nadia@ember.test');
 
   await expect(monitor.email).toHaveText('nadia@ember.test');
-  await expect(page.getByTestId('app-monitor-follow-up-owner')).toHaveValue(TEST_USER.email);
+  await expect(monitor.followUpOwner.field).toHaveValue(TEST_USER.email);
   await expect(page.getByTestId('app-monitor-panel')).not.toContainText('open with another');
 });
 
@@ -253,28 +267,28 @@ test('an editor from outside the organization is offered only the people on the 
 
     await page.keyboard.press('s');
     await expect(page.getByTestId('follow-up-window')).toBeVisible();
-    const owner = page.getByTestId('follow-up-owner');
-    await expect(owner).toHaveValue(EDITOR.email);
-    const offered = await owner
-      .locator('option')
-      .evaluateAll((options) =>
-        options.map((option) => (option as HTMLOptionElement).value).sort(),
-      );
-    expect(offered).toEqual([EDITOR.email, TEST_USER.email].sort());
+    const followUp = new FollowUpDialog(page);
+    await expect(followUp.owner).toHaveValue(EDITOR.email);
+    await followUp.owner.click();
+    expect(await followUp.chooser.offered()).toEqual([EDITOR.email, TEST_USER.email].sort());
+    // Its list first, then the dialog.
+    await page.keyboard.press('Escape');
+    await expect(followUp.chooser.list).toBeHidden();
+    await expect(page.getByTestId('follow-up-window')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('follow-up-window')).toBeHidden();
 
     // The organization admin's follow-up names them, and goes on only to the market's people.
     await page.getByTestId('app-monitor-include-follow-ups').check();
     await monitor.advanceTo('theo@thistle.test');
-    const followedUpBy = page.getByTestId('app-monitor-follow-up-owner');
-    await expect(followedUpBy).toHaveValue(ORG_ADMIN.email);
-    await expect(followedUpBy.locator('option:checked')).toHaveText(ORG_ADMIN.email);
-    const handedTo = await followedUpBy
-      .locator('option:not(:checked)')
-      .evaluateAll((options) =>
-        options.map((option) => (option as HTMLOptionElement).value).sort(),
-      );
-    expect(handedTo).toEqual([EDITOR.email, TEST_USER.email].sort());
+    const followedUpBy = monitor.followUpOwner;
+    await expect(followedUpBy.field).toHaveValue(ORG_ADMIN.email);
+    await followedUpBy.field.click();
+    await expect(followedUpBy.options.and(page.locator('[aria-selected="true"]'))).toHaveText(
+      ORG_ADMIN.email,
+    );
+    expect(await followedUpBy.offered()).toEqual(
+      [ORG_ADMIN.email, EDITOR.email, TEST_USER.email].sort(),
+    );
   });
 });

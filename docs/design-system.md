@@ -19,8 +19,6 @@ describes:
   - front-end/e2e/focus-sweep-detectors.spec.ts
   - front-end/e2e/helpers/focusSweep.ts
   - front-end/e2e/a-links-halo-appears-at-once.spec.ts
-  - front-end/src/components/CodeInput.vue
-  - front-end/e2e/the-code-field.spec.ts
   - front-end/src/assets/brand/
   - front-end/src/__tests__/theBrandHasOneFolder.test.ts
   - front-end/scripts/brand-icons.ts
@@ -31,6 +29,8 @@ describes:
   - front-end/src/components/FileDropZone.vue
   - front-end/src/components/FilterToggles.vue
   - front-end/src/components/ListFrame.vue
+  - front-end/src/components/CodeInput.vue
+  - front-end/e2e/the-code-field.spec.ts
   - front-end/src/components/NameList.vue
   - front-end/src/components/OrderedList.vue
   - front-end/src/components/RowGroup.vue
@@ -82,13 +82,14 @@ sources:
   - E38/F15/S01
   - T181
   - T180
-  - T202
   - T212
   - T205
   - T200
   - T211
-  - T217
+  - T202
   - T213
+  - T217
+  - T204
 ---
 
 # Conventioner's design language
@@ -424,19 +425,27 @@ The searchable picker is the app's own, and the ADR records why that combobox di
 Two smaller controls had no owner either, each re-decided per file, and are primitives of their own: `.add-row`, the button that adds a row to a plan card (it was an icon with a click handler, unreachable from a keyboard), and `.drag-handle`, the control that reorders a row (E17/F01).
 A link on a line of its own is `.link-alone`, a target `--target-min` tall in the link ink, underlined under the pointer: "Forgot password?" under sign-in and "Back to sign in" under the password and verification pages, which each carried a copy of the rule as their own `.link` (T181).
 A link inside a sentence is not one, since it sits on the sentence's line.
-A choice among many, found by typing, is [`SearchPicker.vue`](../front-end/src/components/SearchPicker.vue) (E38/F08/S03): a field over a grouped list that it narrows as it is typed in, worked by the arrow keys, Enter and Escape, its list opening in the flow under the field so a dialog's scroller cannot clip it; it narrows a group and never hides one, and the caller says what the words find.
+A choice among many, found by typing, is [`SearchPicker.vue`](../front-end/src/components/SearchPicker.vue) (E38/F08/S03): a field over a grouped list that it narrows as it is typed in, worked by the arrow keys, Enter and Escape, its list opening in the flow under the field so a dialog's scroller cannot clip it; it narrows a group and never hides one, a named group with nothing matching saying so and one with no name drawing nothing, and the caller says what the words find.
 Reopened on a choice, it selects that choice's label, so typing replaces it and searches afresh rather than running on from the label; left untouched, the choice stays.
 A picker with no choices at all never opens its list, and "Nobody matches" (the caller's `noneWord` in place of "Nobody", where the choices are not people) shows only once words are typed, so the note the caller puts beside it says why there is nothing to choose.
 Given a `cap`, it draws at most that many matches, counted across the groups in order, under a line "N more, type to narrow" that stays in view as the list scrolls and that the keys skip; a group the cap alone leaves out is not drawn, and a choice past the cap is named by the field, with no row active, so Enter keeps it.
 Without a `cap` it draws every match.
 Every row is a `--target-min` target at least, its one line centred in it and its tick on that line, on a phone's 44px too for every picker (`--row-inset`); a row that wraps grows down from there.
-Given `multiple` it holds several choices as `.chip--neutral` chips above the field, each as tall as its remove button's target, Backspace in the empty field taking the last; a chosen row the list draws is ticked, the list and the words stay after a choice, choosing a row again removes it, and a choice past the `cap` is named by its chip and found again by typing.
-Given `acceptsTyped`, trimmed words that are exactly no option's label are offered as `Use "<words>"`, which leads the list outside the `cap`, so the keys reach it first; choosing it makes the words the value, shown by the field or a chip, and the list opens for words even with no options.
-Reopened on such a value no row is active, so Enter keeps it, and words that are exactly an option make that option, when the `cap` draws it, the active row.
+Given `multiple` it holds several choices as `.chip--neutral` chips above the field, each as tall as its remove button's target, its words the option's `chip` where they differ from its label, Backspace in the empty field taking the last; a chosen row the list draws is ticked, the list and the words stay after a choice, and choosing a row again removes it.
+An option's `address` says its label and chip hold an address, drawn by `EmailAddress.vue`, so a row or chip narrower than it breaks it only before its "@" or a dot; `personOption` sets it, and "Assigned to" sets it on its reviewers, so every chooser of a market's team has it; the placement dialog's vendor pickers do not set it.
+With a `cap` the matches pass, every chosen match is drawn first, so every choice opens ticked at the top and the rest fill what is left of the `cap`; who leads is settled as the list opens and as the words change, so no row moves under the pointer.
+Given `acceptsTyped`, trimmed words that are no option's label, capitals aside, are offered as `Use "<words>"`, which leads the list outside the `cap`, so the keys reach it first; choosing it makes the words the value, shown by the field or a chip, and the list opens for words even with no options.
+Reopened on such a value no row is active, so Enter keeps it, and words that differ from an option only in capitals take that option, so "stickers" never stands beside "Stickers": it is the active row, drawn first if the `cap` would leave it out; among several, words a typed chip holds in other capitals are that chip, so they make no second one.
+Words left when the field is left, or when Enter goes on to the form, are kept with `acceptsTyped`, as the option they name or as typed (`wordsAreValue` has written them already as typed, so only an option they name in other capitals is written then), and otherwise cleared.
+A press of the main button past its open list leaves the field only as the press ends, since changing the list as the focus goes would move what lies below it from under the pointer and lose the click; a free-text field's words are written before that click, which may read them.
+Reached with a choice in it, by any path, the field has that choice selected, so what is typed next searches by itself rather than running on from the label.
 Given `holdsChoice`, one choice holds until another is taken, as a filter or a card that writes on a choice needs: typing emits nothing, and on leaving the field or on Escape the field names the choice again; without it the first word lets the choice go, as a dialog that acts on Save needs.
 Given `wordsAreValue` with `acceptsTyped` on one choice, as a screen that writes as it is typed needs, every keystroke emits the trimmed words as the value, so no empty value comes between a filled one and the words replacing it; the field keeps the words as typed until it is left, then names the value, an option's label or the trimmed words, and Escape closes the list and keeps the words.
-A press of the main button past its open list leaves the field only as the press ends, since changing the list as the focus goes would move what lies below it from under the pointer and lose the click.
-The placement dialog's pickers are its first use, with no `cap`.
+Given `disabled`, its field and chips take nothing and its list closes, as while the choice is being saved; `describedBy` names words beside it that describe its field, such as a hint.
+The placement dialog's pickers are its first use, with no `cap`; Choose reviewers is the first of several, in [`ReviewerPicker.vue`](../front-end/src/components/market/ReviewerPicker.vue); "Who will follow up" and the review card's "Followed up by" choose one person, the card with `holdsChoice`.
+The All view's "Assigned to" and the market history's "Who" hold their choice too, as filters.
+Given `listOver`, its list lies over what follows and moves nothing, as those two need: in the flow, "Assigned to" would push the rows down beside a wide empty band, and "Who" would push the filters below it down beside an empty half of its row.
+"Who" gives its list the width of both its columns, so a phone reads an address on one line; in a dialog, what passes the scroller's edge takes a scroll.
 The emailed six-digit sign-in code has one field, [`CodeInput.vue`](../front-end/src/components/CodeInput.vue), which both sign-ins use: the vendor page's code step and the organizer's "Sign-in code" step (T191 F21).
 It is a `.field` 48px tall at `--text-xl`, the one field read at a glance, with tabular figures, and the one field whose text is centred: its `letter-spacing` and `text-indent` take one custom property, `--code-spacing`, since a browser adds the spacing after the last digit too and a centred run without the matching indent sat half a space left of centre.
 Its placeholder, `000000`, clears on focus, so the empty field's caret, drawn at the box's centre, is never drawn inside the digit group; the label over it names it, as every label does.
@@ -446,12 +455,13 @@ The row wraps and a long label wraps inside its toggle, so it never scrolls side
 Pressing the chosen toggle again keeps it; several emit in the options' order.
 No screen mounts it yet: the library's `filter-toggles` entry lists the eight rows it would replace.
 
-A list that can grow with a market is [`ListFrame.vue`](../front-end/src/components/ListFrame.vue) (T200), generic over the row: a find field past `findFrom` rows (12), the screen's own filters beside it, a count line, the first `pageSize` rows (50) and "Show N more".
+A list that can grow with a market is [`ListFrame.vue`](../front-end/src/components/ListFrame.vue) (T200), generic over the row: a find field once the whole list passes `findFrom` rows (12), the screen's own filters beside it, a count line, the first `pageSize` rows (50) and "Show N more".
 The screen narrows `items` by its filters and brings `finds`, `itemKey` and the `row` slot; the frame does the finding and the paging on what is already read.
-With `findKey` the words live in the route's query, written with `router.replace`.
-The shown count goes back to one page when the words or the rows change, and a read again that brings the same rows by `itemKey` changes neither.
+A screen with filters gives `wholeCount`, so a narrow filter never takes the field away, and `filterKey`, its filters as one string.
+On a page, `findKey` puts the words in the route's query, written with `router.replace`; a dialog gives none, since they would outlive it, and a screen that sets the words itself holds them with `v-model:words`.
+The shown count goes back to one page only when the words or `filterKey` change, so a read again or a verdict that changes the rows holds the place.
 `state` draws loading and failed (`ReadFailed`, unless the `failed` slot replaces it), the `empty` slot says why there are no `items`, and the count line says when the words find nothing.
-No screen mounts it yet: the library's `list-frame` entry shows it on Applications All and the people with access.
+Manage market's "Users with access" and Manage organization's Admins and Members are its screens, and the library's `list-frame` entry shows it on Applications All and the people with access.
 Inside a `scroll="body"` dialog it needs nothing of its own, since the dialog's body scrolls it; the library's `summaries` entry shows it there, with no `findKey`, so the words go with the dialog.
 Enter in its field does nothing, so in a dialog's form it never saves what the person was only looking through.
 

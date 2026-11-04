@@ -6,13 +6,13 @@ import { eachWindow, expectLaidOut, openEntry } from './helpers/componentLibrary
 /**
  * The component library's `combobox` entry (T200): `SearchPicker` grown with a cap, on the
  * fixture's 150 people and 228 options, at a desk and on a phone. C7 finds a person past the cap
- * by their family name or their address, by the keys and by a click, beside today's native select
- * of the same 150; the line under a capped list counts what is left, stays in view as the list
- * scrolls, and is never a choice. C5 chooses reviewers as chips beside today's checkbox per person,
- * removed by a chip's button and by Backspace, and C10 chooses among the 228 answers. C1 fixes the
+ * by their family name or their address, by the keys and by a click; the line under a capped list counts what is left, stays in view as the list
+ * scrolls, and is never a choice. C5 chooses reviewers as chips, every choice opening ticked at the
+ * top, removed by a chip's button and by Backspace, and C10 chooses among the 228 answers. C1 fixes the
  * import's values beside today's native select, each by typing and choosing or kept as typed, with
- * the rows behind "Show all", C3 keeps a new answer as typed, and a field whose words are its value
- * writes them as they are typed and keeps them when it is left.
+ * every value still waiting shown and those already decided behind "Show all", C3 keeps a new answer
+ * as typed, and a field whose words are its value writes them as they are typed and keeps them when
+ * it is left.
  */
 
 /** Three people share this family name, all past the first 50. */
@@ -34,21 +34,12 @@ eachWindow('the combobox entry', (size) => {
     await openEntry(page, 'combobox');
   });
 
-  test('names what it serves and ends with the choices left', async ({ page }) => {
+  test('names what it serves, with no choice left to ask', async ({ page }) => {
     const entry = page.getByTestId('library-entry-combobox');
     await expect(entry).toContainText('C2, C6, C7, C8, C9, C13 and C14');
 
-    const choices = page.getByTestId('choices-for-you');
-    await expect(choices).toContainText('threshold');
-    await expect(choices).toContainText('cap');
-    await expect(choices).toContainText('match order');
+    await expect(page.getByTestId('choices-for-you')).toHaveCount(0);
     await expectLaidOut(page, size, 'the combobox entry');
-  });
-
-  test('C7 shows today beside it: a native select of all 150', async ({ page }) => {
-    const today = page.getByTestId('library-c7-today');
-    await expect(today.getByRole('combobox', { name: 'Who will follow up' })).toBeVisible();
-    await expect(today.locator('option')).toHaveCount(150);
   });
 
   test('an empty field shows the cap and how many are left', async ({ page, expectAccessible }) => {
@@ -169,6 +160,24 @@ eachWindow('the combobox entry', (size) => {
     await expect(readOutOf(page, 'library-past-cap')).toHaveText('Chosen: Lily Chang');
   });
 
+  test('a list over what follows moves nothing', async ({ page }) => {
+    const over = picker(page, 'library-list-over');
+    const readOut = readOutOf(page, 'library-list-over');
+    /** Where it stands on the page, since a click on the field may scroll to it. */
+    const where = () =>
+      readOut.evaluate((element) => {
+        const { x, y } = element.getBoundingClientRect();
+        return { x, y: y + window.scrollY };
+      });
+    const before = await where();
+
+    await over.field.click();
+
+    await expect(over.options).toHaveCount(50);
+    expect(await where()).toEqual(before);
+    await expectLaidOut(page, size, 'a list over what follows');
+  });
+
   test('a choice that holds stays under words, and the field names it again', async ({ page }) => {
     const holds = picker(page, 'library-holds');
     const readOut = readOutOf(page, 'library-holds');
@@ -195,21 +204,39 @@ eachWindow('the combobox entry', (size) => {
     await expect(none.list).toHaveCount(0);
   });
 
-  test('several choices name what they serve, and the choices left', async ({ page }) => {
+  test('several choices name what they serve', async ({ page }) => {
     await expect(page.getByTestId('library-entry-combobox')).toContainText('C5, C10, C11 and C12');
-    await expect(page.getByTestId('choices-for-you')).toContainText('The chips');
   });
 
-  test('C5 shows today beside it: a checkbox for all 150, 12 ticked', async ({ page }) => {
-    const today = page.getByTestId('library-c5-today');
-    await expect(today.getByRole('checkbox')).toHaveCount(150);
-    await expect(today.getByRole('checkbox', { checked: true })).toHaveCount(12);
-    await expect(today.getByTestId('read-out')).toHaveText('Ticked: 12 of 150');
-
-    const { chips } = picker(page, 'library-c5');
-    await expect(chips).toHaveCount(12);
+  test('C5 opens with its 12 chips, and every choice ticked at the top of the list', async ({
+    page,
+  }) => {
+    const c5 = picker(page, 'library-c5');
+    await expect(c5.chips).toHaveCount(12);
     // By address, as an account holds no name.
-    await expect(chips.first()).toContainText('@example.com');
+    await expect(c5.chips.first()).toContainText('@example.com');
+
+    await c5.field.click();
+    await expect(c5.options).toHaveCount(50);
+    const ticked = c5.list.getByRole('option', { selected: true });
+    await expect(ticked).toHaveCount(12);
+    for (let at = 0; at < 12; at++) {
+      await expect(c5.options.nth(at)).toHaveAttribute('aria-selected', 'true');
+    }
+    await expect(c5.options.nth(12)).toHaveAttribute('aria-selected', 'false');
+  });
+
+  test('a press past an open list lands on what lies below it', async ({ page }) => {
+    const c7 = picker(page, 'library-c7');
+    const below = picker(page, 'library-options');
+    await c7.field.click();
+    await expect(c7.list).toBeVisible();
+
+    await below.field.click();
+
+    await expect(c7.list).toBeHidden();
+    await expect(below.field).toBeFocused();
+    await expect(below.list).toBeVisible();
   });
 
   test('C5 chooses three, removes one by its button and one by Backspace', async ({
@@ -337,12 +364,14 @@ eachWindow('the combobox entry', (size) => {
     await expect(c10.chips).toHaveCount(2);
   });
 
-  test('choices past the cap stay as chips, and the words find them', async ({ page }) => {
+  test('choices past the cap lead the list, ticked, and the words find them', async ({ page }) => {
     const past = picker(page, 'library-several-past-cap');
     await expect(past.chips).toHaveCount(2);
     await past.field.click();
     await expect(past.options).toHaveCount(50);
-    await expect(past.list.getByRole('option', { selected: true })).toHaveCount(0);
+    await expect(past.list.getByRole('option', { selected: true })).toHaveCount(2);
+    await expect(past.options.nth(1)).toHaveAttribute('aria-selected', 'true');
+    await expect(past.options.nth(2)).toHaveAttribute('aria-selected', 'false');
 
     await past.field.fill('lily.chang121@');
     await expect(past.options).toHaveCount(1);
@@ -350,6 +379,36 @@ eachWindow('the combobox entry', (size) => {
     await past.field.press('Enter');
     await expect(past.chips).toHaveCount(1);
     await expect(readOutOf(page, 'library-several-past-cap')).not.toContainText('lily.chang121@');
+  });
+
+  test("a chip's own words read (you), the list beside them saying You", async ({ page }) => {
+    const mine = picker(page, 'library-chip-words');
+    await expect(mine.chips.first()).toContainText('(you)');
+    await expect(mine.chips.first().getByRole('button')).not.toContainText('(you)');
+    await mine.field.click();
+    await expect(mine.options.first()).toContainText('You');
+  });
+
+  test("a person's row and chip draw their address as the product's do", async ({ page }) => {
+    const mine = picker(page, 'library-chip-words');
+    await mine.field.click();
+    for (const words of [
+      mine.chips.first().locator('.search-picker-chip-label'),
+      mine.chips.nth(1).locator('.search-picker-chip-label'),
+      mine.options.first().locator('.search-picker-option-label'),
+      mine.options.nth(1).locator('.search-picker-option-label'),
+    ]) {
+      await expect(words.locator('.email-address')).toHaveCount(2);
+    }
+  });
+
+  test('disabled, it takes nothing', async ({ page }) => {
+    const off = picker(page, 'library-disabled');
+    await expect(off.field).toBeDisabled();
+    for (const button of await off.chips.getByRole('button').all()) {
+      await expect(button).toBeDisabled();
+    }
+    await expect(off.list).toHaveCount(0);
   });
 
   test('a choice no longer offered is its own words, and can be removed', async ({ page }) => {
@@ -374,9 +433,34 @@ eachWindow('the combobox entry', (size) => {
     await expectLaidOut(page, size, 'the longest answers as chips');
   });
 
-  test('typed text names what it serves, and the choices left', async ({ page }) => {
+  test('typed text names what it serves', async ({ page }) => {
     await expect(page.getByTestId('library-entry-combobox')).toContainText('C1, C3 and F08');
-    await expect(page.getByTestId('choices-for-you')).toContainText('Use "');
+  });
+
+  test('words differing from an option only in capitals take it, and leaving keeps them', async ({
+    page,
+  }) => {
+    const c3 = picker(page, 'library-c3');
+    const readOut = readOutOf(page, 'library-c3');
+
+    await c3.field.fill('stickers');
+    await expect(c3.options.first()).toHaveText('Stickers');
+    await expect(c3.list).not.toContainText('Use "');
+    await c3.field.press('Tab');
+    await expect(readOut).toHaveText('Answer: Stickers');
+    await expect(c3.field).toHaveValue('Stickers');
+
+    await c3.field.fill('Hand-poured candles from Example');
+    await c3.field.press('Tab');
+    await expect(readOut).toHaveText('Answer: Hand-poured candles from Example');
+    await expect(c3.field).toHaveValue('Hand-poured candles from Example');
+  });
+
+  test('a pick-from-list field clears words not chosen', async ({ page }) => {
+    const c7 = picker(page, 'library-c7');
+    await c7.field.fill('not a person');
+    await c7.field.press('Tab');
+    await expect(c7.field).toHaveValue('');
   });
 
   test('C1 shows today beside it: a native select of all 228 on a row', async ({ page }) => {
@@ -405,7 +489,7 @@ eachWindow('the combobox entry', (size) => {
     const readOut = (at: number) => readOutOf(page, `library-c1-fix-${at}`);
     const fixed = page.getByTestId('library-c1-fixed');
     await expect(readOut(0)).toHaveText('Fix: nothing');
-    await expect(fixed).toHaveText('Fixed: 0 of 43');
+    await expect(fixed).toHaveText('Fixed: 0 of 7');
 
     // By the keys: the words' own row leads, and the first match is one press on.
     await fix(0).field.fill('sticker');
@@ -437,7 +521,7 @@ eachWindow('the combobox entry', (size) => {
     await expect(fix(2).list).toHaveCount(0);
     await expect(readOut(2)).toHaveText('Fix: Hand-poured soap, as typed');
 
-    await expect(fixed).toHaveText('Fixed: 3 of 43');
+    await expect(fixed).toHaveText('Fixed: 3 of 7');
     await expectLaidOut(page, size, 'three values fixed');
   });
 
@@ -450,11 +534,18 @@ eachWindow('the combobox entry', (size) => {
     await expect(readOutOf(page, 'library-c1-fix-3')).toHaveText('Fix: Ignore this value');
   });
 
-  test('C1 shows the first 6 rows, and "Show all 43" the rest, fixes kept', async ({ page }) => {
+  test('C1 shows every waiting value, and 6 decided then "Show all 36", fixes kept', async ({
+    page,
+  }) => {
     const rows = page.getByTestId('library-c1-value');
     const button = page.getByTestId('library-c1-show-all');
-    await expect(rows).toHaveCount(6);
-    await expect(button).toHaveText('Show all 43');
+    const fixed = page.getByTestId('library-c1-fixed');
+    await expect(page.getByTestId('library-c1-waiting')).toHaveText('7 values still waiting');
+    await expect(page.getByTestId('library-c1-decided')).toHaveText('36 values already decided');
+    await expect(rows).toHaveCount(7 + 6);
+    await expect(button).toHaveText('Show all 36');
+    await expect(readOutOf(page, 'library-c1-fix-6')).toHaveText('Fix: nothing');
+    await expect(readOutOf(page, 'library-c1-fix-7')).toHaveText('Fix: Ignore this value');
 
     await picker(page, 'library-c1-fix-5').field.fill('A word of my own');
     await picker(page, 'library-c1-fix-5').field.press('Enter');
@@ -468,12 +559,12 @@ eachWindow('the combobox entry', (size) => {
     await lastRow.field.fill('Keychains');
     await lastRow.field.press('Enter');
     await expect(readOutOf(page, 'library-c1-fix-42')).toHaveText('Fix: Keychains');
-    await expect(page.getByTestId('library-c1-fixed')).toHaveText('Fixed: 2 of 43');
+    await expect(fixed).toHaveText('Fixed: 1 of 7');
 
     await button.click();
-    await expect(rows).toHaveCount(6);
-    await expect(button).toHaveText('Show all 43');
-    await expect(page.getByTestId('library-c1-fixed')).toHaveText('Fixed: 2 of 43');
+    await expect(rows).toHaveCount(7 + 6);
+    await expect(button).toHaveText('Show all 36');
+    await expect(fixed).toHaveText('Fixed: 1 of 7');
     await expect(picker(page, 'library-c1-fix-5').field).toHaveValue('A word of my own');
   });
 

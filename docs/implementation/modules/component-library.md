@@ -56,7 +56,7 @@ An entry is drawn from the parts in `parts/`:
 - `LibraryPanel`: one variant or state in a labelled box, a region named by its label;
 - `TodayAndProposed`: how a place looks today beside how it would look, two columns at a desk, stacked on a phone;
 - `ReadOut`: the line under a live demo that reads out its value ("Chosen: North Wing"), so a choice is seen to land;
-- `ChoicesForYou`: the note that ends an entry, one item per choice left for Daniel; an entry with none left, as the `dialog` entry since T217, draws none.
+- `ChoicesForYou`: the note that ends an entry with choices left for Daniel, one item per choice; it goes once they are all answered.
 
 An entry's own parts sit beside these in `parts/`, such as `ColumnChecklist`, `ExportDialogPrototype` and `SeatRow`.
 
@@ -80,7 +80,7 @@ Prettier leaves the file alone (`.prettierignore`), so the bytes stay the derive
 
 ## Adding an entry
 
-1. Add its line to `ENTRIES` and write `entries/<Id>Entry.vue` from the parts above, ending with `ChoicesForYou`; the index links it with no other change.
+1. Add its line to `ENTRIES` and write `entries/<Id>Entry.vue` from the parts above, ending with `ChoicesForYou` for what it leaves to choose; the index links it with no other change.
 2. Write its spec, `front-end/e2e/the-component-library-<id>.spec.ts`, with [`helpers/componentLibrary.ts`](../../../front-end/e2e/helpers/componentLibrary.ts): `eachWindow` declares its tests at a desk and on a phone, `openEntry` opens it, and `expectLaidOut` holds it to the window's width and to the layout detectors' gating findings.
    It needs no seed and no sign-in.
    An entry that mounts an existing component as it is shows that component's faults too: its spec may leave out a finding the component brings, by name and with why, and fail on every other (`the-component-library-components.spec.ts` leaves out `StepHeader`'s 32px steps, whose one screen is built for a desk).

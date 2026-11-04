@@ -18,6 +18,7 @@ sources:
   - E38/F12/S01
   - E38/F15/S01
   - T181
+  - T204
 ---
 
 # Organizations
@@ -58,14 +59,21 @@ Covered by:
 1. On an organization card, "Manage"; or Manage market's "Manage organization", under its "Users with access" ([L3](ending-and-managing-a-market.md#l3-manage-who-has-access)), which opens `/organizations?manage=<id>`: the page ([`OrganizationsView.vue`](../../../front-end/src/views/OrganizationsView.vue)) opens that organization's Manage organization once its list holds it, and drops the key when the dialog closes, or at once when it names none of the reader's organizations, so a refresh or Back does not open it again.
 2. Under Admins, "Add admin", enter an existing account's email, "Add"; under Members, "Add member" likewise.
 3. Expect the person listed and the dialog still open (closing is not saving).
+   Admins and Members are each a [list frame](../../design-system.md), so 150 members never push the sections below thousands of pixels down: Members says "Showing 50 of 150", draws 50 rows and "Show 50 more", and past 12 people has a field, "Find in admins" or "Find in members", that finds by any part of an address, capitals aside, since an account holds no name.
+   The words last as long as the dialog and never reach the address.
+   On a list with a find field, or words in it, the field takes the address just added, so their row is the one shown; clearing the field shows the whole list.
+   An address breaks before its "@" or a dot, never just after a hyphen, drawn by [`EmailAddress.vue`](../../../front-end/src/components/EmailAddress.vue).
 4. Sign in as that person: an admin runs every market of the organization as its Admin (Manage on each market's card, the rail's phase moves, the seats on Assignments), and a member sees every one as a Viewer; each market's Manage market lists them as "Admin, through <organization>" or "Viewer, through <organization>".
 
 Branches: an email with no account, someone already in the organization, an Admin trying Owner-only actions.
 Covered by:
 - `access-control.spec.ts`
+- [`an-address-breaks-only-before-its-at.spec.ts`](../../../front-end/e2e/an-address-breaks-only-before-its-at.spec.ts) (its rows)
 - `dialog-idiom.spec.ts`
 - [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (Manage organization from its address)
+- [`manageOrganizationPeople.test.ts`](../../../front-end/src/__tests__/manageOrganizationPeople.test.ts)
 - `OrganizationsView.test.ts` for the key it opens on and drops
+- [`people-at-scale.spec.ts`](../../../front-end/e2e/people-at-scale.spec.ts) (Admins and Members at 150 people: a page at a time, finding one member, the place kept, someone just added; on a phone at 390 and 320)
 - `screens-match-roles.spec.ts` ("an organization admin with no role on the market")
 - `tier2.spec.ts`
 
@@ -79,7 +87,7 @@ It asks first, in a destructive confirmation that opens on Cancel: "Remove walk3
 - "They lose access to 9 of its 11 markets, and keep the 2 they hold a role on of their own." when a market gives them a role of its own, as one they created makes them its Owner;
 - "They keep its 3 markets, each through a role of their own." when every one does, and "It has no markets yet." when it has none.
 
-Cancel and Escape change nothing and give focus back to that Remove; "Remove" removes them, the list re-reads in place with the dialog open, and focus goes to the Admins or Members list they were in; a refusal is said in the confirmation, whose Remove may be pressed again.
+Cancel and Escape change nothing and give focus back to that Remove; "Remove" removes them, the list re-reads in place with the dialog open, keeping the words in its find field and the rows shown, and focus goes to the Admins or Members list they were in; a refusal is said in the confirmation, whose Remove may be pressed again.
 Someone another organizer removed meanwhile is removed all the same: the server answers "They are no longer in this organization.", a 404, and the dialog reads it as done, closing the confirmation and re-reading the list without them (T181).
 Each row's Remove is the destructive intent at secondary weight, red ink on white, not a filled red button on every row ([the design language](../../design-system.md#the-primitive-layer)).
 Covered by:

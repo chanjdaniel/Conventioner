@@ -10,6 +10,7 @@ describes:
   - front-end/src/components/market/ReviewerPicker.vue
   - front-end/src/utils/reviewTeam.ts
   - front-end/src/utils/reviewers.ts
+  - front-end/src/utils/personChoice.ts
 verified: 2026-11-05
 sources:
   - E38/F07
@@ -18,6 +19,7 @@ sources:
   - E38/F07/S03
   - T180
   - T181
+  - T204
 ---
 
 # The review is dealt among chosen reviewers
@@ -74,7 +76,7 @@ A follow-up the reader owns is in their share ([a follow-up is in its owner's sh
 **Each reviewer lands on their own share** (E38/F07/S04): with reviewers chosen, the All view opens a chosen reviewer on their share, and anyone else, an Admin overseeing the review among them, on every application; anyone's share is a choice of its "Assigned to" filter away ([reviewing applications](../flows/review.md#the-all-view)).
 One by one hands a chosen reviewer their own share first, and once it is done says how many applications are left outside it, every one "Help with the others" then walks, and offers to help with them; anyone else walks the whole queue, first come, first served ([reviewing applications](../flows/review.md#i1-work-through-the-queue)).
 
-**The review is dealt and worked from a phone too** (T180): the Applications page fits a phone, so an organizer chooses the reviewers there, each person's label a 44px target in the picker, and a chosen reviewer reads their share and decides it at the phone's own width ([reviewing applications](../flows/review.md)).
+**The review is dealt and worked from a phone too** (T180): the Applications page fits a phone, so an organizer chooses the reviewers there, the picker's field and each person's row a 44px target, and a chosen reviewer reads their share and decides it at the phone's own width ([reviewing applications](../flows/review.md)).
 
 ## Where it is kept
 
@@ -82,7 +84,7 @@ One by one hands a chosen reviewer their own share first, and once it is done sa
 - `PUT /markets/:id/reviewers` (`choose_reviewers` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)) is the one write of the team, asking [the market's actions](../../implementation/modules/market-actions.md) row `choose-reviewers`; [`back-end/review_team.py`](../../../back-end/review_team.py) deals, and nothing else writes either field.
 - The market read serves every reader the reviewers, each with whether they may still review here, and serves whom the reader may choose only to someone who may choose, while the review is open ([one market, from the server](../../implementation/conventions/one-market-from-the-server.md)).
 - A choice and the deal it made are entries of [the market's history](../../implementation/data/history.md), worded on Manage market's History and, for one vendor, in their drawer ([reading the market's history](../flows/reading-the-markets-history.md)).
-- The Reviewers panel on the Applications tab ([`ReviewersPanel.vue`](../../../front-end/src/components/market/ReviewersPanel.vue)) shows the reviewers and changes them, through one picker ([`ReviewerPicker.vue`](../../../front-end/src/components/market/ReviewerPicker.vue)) and the words [`front-end/src/utils/reviewTeam.ts`](../../../front-end/src/utils/reviewTeam.ts) holds ([reviewing applications](../flows/review.md#dividing-the-review)).
+- The Reviewers panel on the Applications tab ([`ReviewersPanel.vue`](../../../front-end/src/components/market/ReviewersPanel.vue)) shows the reviewers and changes them, through one picker, a `SearchPicker` of several choices, its people from [`front-end/src/utils/personChoice.ts`](../../../front-end/src/utils/personChoice.ts) ([`ReviewerPicker.vue`](../../../front-end/src/components/market/ReviewerPicker.vue)), and the words [`front-end/src/utils/reviewTeam.ts`](../../../front-end/src/utils/reviewTeam.ts) holds ([reviewing applications](../flows/review.md#dividing-the-review)).
   Whose share each application is, and the warning on deciding another's, are worded by [`front-end/src/utils/reviewers.ts`](../../../front-end/src/utils/reviewers.ts) for the All view's rows, its drawer and One by one's card, and the same file decides what the All view's "Assigned to" filter offers and opens on, and which of One by one's queue is the reader's share, by one test of whose share an application is (`inShareOf`) ([reviewing applications](../flows/review.md#dividing-the-review)).
   `POST /markets/:id/review/next` hands a chosen reviewer their share first, and with `mineOnly` nothing else (`claim_next_for_review` and `_in_share_of` in [`back-end/api/applications.py`](../../../back-end/api/applications.py)).
   The same picker is offered as an own-form market opens applications, in the phase rail's dialog ([the phase rail](../../implementation/modules/phase-rail.md), [taking applications](../flows/taking-applications.md#h1-open-applications)), and on a Google Form market's first import, in its preview step ([`CsvImportView.vue`](../../../front-end/src/views/CsvImportView.vue), [the import](../flows/import.md#h2a-first-import-everything-maps)).

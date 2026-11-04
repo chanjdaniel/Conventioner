@@ -274,6 +274,38 @@ test('an option lists every answer the file gave that is no other option, and ke
   await expect.poll(() => form.optionsOffered(at)).toEqual(less(every, kept));
 });
 
+test("an answer typed in other capitals takes the file's spelling, however the field is left", async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId, sells, form } = await startFromGrid(page, request);
+  const every = sells.answers!.multiSelect;
+  const at = await openQuestions(page, form, marketId);
+  await expect.poll(() => form.optionValues(at)).toEqual(sells.options.multiSelect);
+  const spelt = less(every, sells.options.multiSelect).filter(
+    (answer) => answer !== answer.toLowerCase() && !every.includes(answer.toLowerCase()),
+  );
+  expect(spelt.length).toBeGreaterThan(1);
+  const add = form.fieldCard(at).getByTestId('form-field-add-option-button');
+
+  // Leaving by a press on the next control, as an organizer does between two options.
+  await add.click();
+  const left = form.optionInputs(at).last();
+  await left.fill(spelt[0]!.toLowerCase());
+  await form.labelInput(at).click();
+  await expect(left).toHaveValue(spelt[0]!);
+
+  // A press on what lies below its open list, which lands and adds the next option.
+  await add.click();
+  const before = await form.optionInputs(at).count();
+  const pressed = form.optionInputs(at).nth(before - 1);
+  await pressed.fill(spelt[1]!.toLowerCase());
+  await expect(form.optionList(at)).toBeVisible();
+  await add.click();
+  await expect(form.optionInputs(at)).toHaveCount(before + 1);
+  await expect(pressed).toHaveValue(spelt[1]!);
+});
+
 test('a type change and "Use the answers in your file" fill the common answers, never every one', async ({
   authenticatedPage: page,
   request,

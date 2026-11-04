@@ -4,9 +4,9 @@
  * fixture application, with its status toggles and an "Assigned to" combobox (C6), and a switch to
  * today's every-row list on the same filters; L1, the 150 people with access, a role select per row;
  * then a panel per state. Only the chosen view of L2 is mounted, so the first paint draws the frame's
- * first page and never today's every row. L2's reviewers read as they do today, by address, through
- * the real filter's options and row words (`utils/reviewers.ts`). Nothing here is a read: the failed
- * and loading panels are the frame told so.
+ * first page and never today's every row. L2's reviewers read as they do on the screen, by address,
+ * through the real filter's choices and row words (`utils/reviewers.ts`). Nothing here is a read: the
+ * failed and loading panels are the frame told so.
  */
 import { computed, onMounted, reactive, ref } from 'vue';
 import { MarketRole } from '@/assets/types/datatypes';
@@ -16,9 +16,15 @@ import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/
 import { OFFLINE_MESSAGE } from '@/utils/api';
 import { getRoleDisplayName } from '@/utils/permissions';
 import { ALL_VIEW_FILTERS, allViewLists, type AllViewFilter } from '@/utils/reviewQueue';
-import { assignedAddress, assignedToOptions, reviewerLine } from '@/utils/reviewers';
+import { PEOPLE_CAP } from '@/utils/personChoice';
+import {
+  assignedAddress,
+  assignedToGroups,
+  assignedToOptions,
+  findsAssignedTo,
+  reviewerLine,
+} from '@/utils/reviewers';
 import ApplicationRow from '../parts/ApplicationRow.vue';
-import ChoicesForYou from '../parts/ChoicesForYou.vue';
 import LibraryPanel from '../parts/LibraryPanel.vue';
 import LibrarySection from '../parts/LibrarySection.vue';
 import ReadOut from '../parts/ReadOut.vue';
@@ -49,10 +55,8 @@ const TEAM = {
 };
 const ANYONE = 'anyone';
 const assignedOptions: PickerOption[] = assignedToOptions(READER, TEAM);
-const assignedGroups: PickerGroup[] = [{ options: assignedOptions }];
-/** By the address; "Me" is the reader's own, so their address finds it too. */
-const findsReviewer = (option: PickerOption, words: string) =>
-  holds(option.label, words) || (option.value === 'me' && holds(READER, words));
+const assignedGroups: PickerGroup[] = assignedToGroups(READER, TEAM);
+const findsReviewer = findsAssignedTo(READER);
 
 const view = ref('proposed');
 const viewOptions: FilterToggle[] = [
@@ -83,6 +87,8 @@ const statusOptions = computed<FilterToggle[]>(() =>
 const statusLabelNow = computed(
   () => ALL_VIEW_FILTERS.find(({ id }) => id === status.value)!.label,
 );
+/** A change here is the reader's own choice of rows, so the list goes back to its first page. */
+const filterKey = computed(() => `${status.value} ${assigned.value}`);
 const filtered = computed(() =>
   inShare.value.filter((application) =>
     allViewLists(status.value as AllViewFilter, application.status),
@@ -153,6 +159,8 @@ onMounted(() => {
         <ListFrame
           v-if="view === 'proposed'"
           :items="filtered"
+          :wholeCount="applications.length"
+          :filterKey="filterKey"
           :finds="findsByNameOrAddress"
           :itemKey="keyOf"
           :noun="APPLICATION"
@@ -167,6 +175,7 @@ onMounted(() => {
                 holds-choice
                 :groups="assignedGroups"
                 :finds="findsReviewer"
+                :cap="PEOPLE_CAP"
                 label="Assigned to"
                 placeholder="Type an address…"
                 testid="library-l2-assigned"
@@ -210,19 +219,18 @@ onMounted(() => {
                 {{ option.label }}
               </button>
             </div>
-            <label class="library-today-assigned">
-              <span class="library-today-assigned__label">Assigned to</span>
-              <select
-                class="field field--select library-today-select"
-                name="library-l2-today-assigned"
-                :value="assigned"
-                @change="assigned = ($event.target as HTMLSelectElement).value"
-              >
-                <option v-for="option in assignedOptions" :key="option.value" :value="option.value">
-                  {{ option.label }}
-                </option>
-              </select>
-            </label>
+            <SearchPicker
+              v-model="assigned"
+              class="library-today-assigned"
+              holds-choice
+              list-over
+              :groups="assignedGroups"
+              :finds="findsReviewer"
+              :cap="PEOPLE_CAP"
+              label="Assigned to"
+              placeholder="Type an address…"
+              testid="library-l2-today-assigned"
+            />
             <span class="library-today-count" data-testid="library-l2-today-count">
               {{ filtered.length }} of {{ applications.length }}
             </span>
@@ -249,7 +257,7 @@ onMounted(() => {
 
   <LibrarySection
     title="L1: People with access"
-    :about="`All ${people.length} people, as Manage market and Manage organization list them: an account holds an address and no name, so a row is its address. A role is a fixed short set, so a row keeps a native select.`"
+    :about="`All ${people.length} people, as Manage market and Manage organization list them: an account holds an address and no name, so a row is its address. A role is a fixed short set, so a row keeps a native select. These lists stand in dialogs, so their words stay out of the address.`"
   >
     <LibraryPanel label="People with access" class="library-wide">
       <div class="library-demo">
@@ -258,7 +266,6 @@ onMounted(() => {
           :finds="findsByAddress"
           :itemKey="keyOf"
           :noun="PERSON"
-          findKey="person"
           findLabel="Find by address"
           testid="library-l1"
         >
@@ -364,38 +371,6 @@ onMounted(() => {
       </ListFrame>
     </LibraryPanel>
   </LibrarySection>
-
-  <ChoicesForYou>
-    <li>
-      <strong>A person's row:</strong> L1's rows and L2's "Assigned to" draw the address alone,
-      since an account holds no name; the state panels' short names only stand for a row.
-    </li>
-    <li><strong>Page size:</strong> 50 rows, or another number.</li>
-    <li>
-      <strong>Find threshold:</strong> the field shows past 12 rows. It counts what the filters
-      leave, so a narrow filter takes the field away and the filters move left: count the whole list
-      instead?
-    </li>
-    <li>
-      <strong>The count line's wording:</strong> "Showing 50 of 359", "9 of 359 match "Singh"",
-      "Nothing matches "Singh"". With words and more matches than a page, it says how many match and
-      not how many are drawn.
-    </li>
-    <li><strong>"Show N more" or "Show all":</strong> a page at a time, or everything at once.</li>
-    <li>
-      <strong>The words in the address:</strong> always, as here, or only on some screens. Inside a
-      dialog they would outlive the dialog.
-    </li>
-    <li>
-      <strong>When the list folds back:</strong> changing the rows folds to 50, as a filter must. A
-      read again that brings a new application, or a verdict that takes a row out of a filtered
-      list, changes the rows too. Fold there as well, or hold the count?
-    </li>
-    <li>
-      <strong>Select all under a cap:</strong> today it ticks the rows shown. With 50 of 359 drawn,
-      does it tick the 50, or all 359?
-    </li>
-  </ChoicesForYou>
 </template>
 
 <style scoped>
@@ -447,23 +422,27 @@ onMounted(() => {
   min-width: var(--target-min);
 }
 
-.library-today-assigned {
-  display: inline-flex;
+.library-today-tools .library-today-assigned {
+  flex: 1 1 22rem;
+  flex-flow: row wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
   min-width: 0;
-  font-size: var(--text-sm);
-  color: var(--mm-black);
+  max-width: 28rem;
 }
 
-.library-today-assigned__label {
+.library-today-assigned :deep(.field-label) {
+  margin-bottom: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
   white-space: nowrap;
 }
 
-.library-today-select {
+.library-today-assigned :deep(.field) {
+  flex: 1 1 14rem;
+  width: auto;
+  min-width: 0;
   height: var(--control-height-compact);
-  min-width: var(--target-min);
-  field-sizing: content;
 }
 
 .library-today-count {

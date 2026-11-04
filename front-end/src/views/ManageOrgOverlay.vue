@@ -23,9 +23,10 @@
  * permissions its new markets copy (E39/F02/S01); the people and the controls an owner or an admin
  * manages are theirs alone.
  */
-import { nextTick, ref, watch } from 'vue';
+import { nextTick, ref, watch, type Ref } from 'vue';
 import {
   type Organization,
+  type OrganizationPerson,
   type OrganizationRoleType,
   type PermissionTableRow,
 } from '@/assets/types/datatypes';
@@ -33,7 +34,9 @@ import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { fetchOrganizations, organizationRemoval } from '@/utils/organizations';
 import AppDialog from '@/components/AppDialog.vue';
 import DeleteOrgDialog from '@/components/DeleteOrgDialog.vue';
+import EmailAddress from '@/components/EmailAddress.vue';
 import HistorySection from '@/components/HistorySection.vue';
+import ListFrame, { LIST_FIND_FROM } from '@/components/ListFrame.vue';
 import OrganizationHistory from '@/components/OrganizationHistory.vue';
 import OrganizationPermissions from '@/components/OrganizationPermissions.vue';
 
@@ -76,6 +79,15 @@ const removeError = ref('');
 const removeBusy = ref(false);
 const adminsList = ref<HTMLElement | null>(null);
 const membersList = ref<HTMLElement | null>(null);
+/** What finds in Admins and in Members, for as long as the dialog is open: never in the address. */
+const adminWords = ref('');
+const memberWords = ref('');
+
+const ADMIN = { one: 'admin', many: 'admins' };
+const MEMBER = { one: 'member', many: 'members' };
+const findsPerson = (person: OrganizationPerson, words: string) =>
+  person.email.toLowerCase().includes(words.toLowerCase());
+const keyOfPerson = (person: OrganizationPerson) => person.userId;
 
 watch(
   () => [props.manageOpen, props.org] as const,
@@ -88,6 +100,8 @@ watch(
       deleteConfirming.value = false;
       removing.value = null;
       removeError.value = '';
+      adminWords.value = '';
+      memberWords.value = '';
       errorMessage.value = '';
       renameError.value = '';
       addAdminError.value = '';
@@ -203,31 +217,44 @@ async function handleRename() {
   }
 }
 
+/**
+ * Someone just added takes their place in the stored order, past the fold on a long list, so the
+ * section narrows to them. A list too short for a find field already draws every row, unless words
+ * are narrowing it.
+ */
+function findAdded(words: Ref<string>, people: OrganizationPerson[], email: string) {
+  if (people.length > LIST_FIND_FROM || words.value) words.value = email;
+}
+
 async function handleAddAdmin() {
-  if (!orgData.value || !newAdminEmail.value.trim()) return;
+  const email = newAdminEmail.value.trim();
+  if (!orgData.value || !email) return;
   addAdminError.value = '';
   try {
     await api.post(`/organizations/${encodeURIComponent(orgData.value.id)}/admins`, {
-      user_email: newAdminEmail.value.trim(),
+      user_email: email,
     });
     // The form stays open with an empty field: adding two people in a row is the case this story
     // is named after. A failure leaves the typed address exactly where it was.
     newAdminEmail.value = '';
     await saved();
+    findAdded(adminWords, orgData.value?.adminPeople ?? [], email);
   } catch (err) {
     addAdminError.value = getApiErrorMessage(err, 'The admin was not added.');
   }
 }
 
 async function handleAddMember() {
-  if (!orgData.value || !newMemberEmail.value.trim()) return;
+  const email = newMemberEmail.value.trim();
+  if (!orgData.value || !email) return;
   addMemberError.value = '';
   try {
     await api.post(`/organizations/${encodeURIComponent(orgData.value.id)}/members`, {
-      user_email: newMemberEmail.value.trim(),
+      user_email: email,
     });
     newMemberEmail.value = '';
     await saved();
+    findAdded(memberWords, orgData.value?.memberPeople ?? [], email);
   } catch (err) {
     addMemberError.value = getApiErrorMessage(err, 'The member was not added.');
   }
@@ -318,7 +345,9 @@ function handleDeleted() {
         <section class="section">
           <h3>Owner</h3>
           <div class="user-card">
-            <span class="user-email">{{ orgData.ownerEmail || 'Unknown' }}</span>
+            <span class="user-email"
+              ><EmailAddress :words="orgData.ownerEmail || 'Unknown'"
+            /></span>
             <span class="role-badge role-owner">Owner</span>
           </div>
         </section>
@@ -333,22 +362,36 @@ function handleDeleted() {
             tabindex="-1"
             data-testid="manage-org-admins"
           >
-            <div v-for="admin in orgData.adminPeople" :key="admin.userId" class="user-card">
-              <span class="user-email" data-testid="manage-org-admin-email">{{ admin.email }}</span>
-              <span class="role-badge role-admin">Admin</span>
-              <button
-                v-if="isOwner() && canRemoveUser(admin.userId, 'admin')"
-                type="button"
-                class="btn btn--secondary btn--destructive"
-                data-testid="manage-org-remove-user-button"
-                @click="askToRemove(admin.userId, admin.email, 'admins')"
-              >
-                Remove<span class="visually-hidden"> {{ admin.email }}</span>
-              </button>
-            </div>
-            <p v-if="!orgData.adminPeople.length && !showAddAdminForm" class="empty-state">
-              No admins
-            </p>
+            <ListFrame
+              v-model:words="adminWords"
+              :items="orgData.adminPeople"
+              :finds="findsPerson"
+              :itemKey="keyOfPerson"
+              :noun="ADMIN"
+              findLabel="Find in admins"
+              testid="manage-org-admin-list"
+            >
+              <template #row="{ item: admin }">
+                <div class="user-card">
+                  <span class="user-email" data-testid="manage-org-admin-email"
+                    ><EmailAddress :words="admin.email"
+                  /></span>
+                  <span class="role-badge role-admin">Admin</span>
+                  <button
+                    v-if="isOwner() && canRemoveUser(admin.userId, 'admin')"
+                    type="button"
+                    class="btn btn--secondary btn--destructive"
+                    data-testid="manage-org-remove-user-button"
+                    @click="askToRemove(admin.userId, admin.email, 'admins')"
+                  >
+                    Remove<span class="visually-hidden"> {{ admin.email }}</span>
+                  </button>
+                </div>
+              </template>
+              <template #empty>
+                <p v-show="!showAddAdminForm">No admins</p>
+              </template>
+            </ListFrame>
           </div>
           <!-- Opens the row it adds, which carries its own Cancel, as Manage market's "Add user". -->
           <button
@@ -408,24 +451,36 @@ function handleDeleted() {
             tabindex="-1"
             data-testid="manage-org-members"
           >
-            <div v-for="member in orgData.memberPeople" :key="member.userId" class="user-card">
-              <span class="user-email" data-testid="manage-org-member-email">{{
-                member.email
-              }}</span>
-              <span class="role-badge role-member">Member</span>
-              <button
-                v-if="canRemoveUser(member.userId, 'member')"
-                type="button"
-                class="btn btn--secondary btn--destructive"
-                data-testid="manage-org-remove-member-button"
-                @click="askToRemove(member.userId, member.email, 'members')"
-              >
-                Remove<span class="visually-hidden"> {{ member.email }}</span>
-              </button>
-            </div>
-            <p v-if="!orgData.memberPeople.length && !showAddMemberForm" class="empty-state">
-              No members
-            </p>
+            <ListFrame
+              v-model:words="memberWords"
+              :items="orgData.memberPeople"
+              :finds="findsPerson"
+              :itemKey="keyOfPerson"
+              :noun="MEMBER"
+              findLabel="Find in members"
+              testid="manage-org-member-list"
+            >
+              <template #row="{ item: member }">
+                <div class="user-card">
+                  <span class="user-email" data-testid="manage-org-member-email"
+                    ><EmailAddress :words="member.email"
+                  /></span>
+                  <span class="role-badge role-member">Member</span>
+                  <button
+                    v-if="canRemoveUser(member.userId, 'member')"
+                    type="button"
+                    class="btn btn--secondary btn--destructive"
+                    data-testid="manage-org-remove-member-button"
+                    @click="askToRemove(member.userId, member.email, 'members')"
+                  >
+                    Remove<span class="visually-hidden"> {{ member.email }}</span>
+                  </button>
+                </div>
+              </template>
+              <template #empty>
+                <p v-show="!showAddMemberForm">No members</p>
+              </template>
+            </ListFrame>
           </div>
           <button
             v-if="!showAddMemberForm"
@@ -570,10 +625,12 @@ function handleDeleted() {
 }
 
 .users-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
   margin-bottom: var(--space-3);
+}
+
+/* The frame's rows here are cards, each with its border, so they keep the room between them. */
+.users-list :deep(.list-frame__rows) {
+  gap: var(--space-2);
 }
 
 .user-card {
@@ -628,12 +685,6 @@ function handleDeleted() {
 .role-member {
   background: var(--mm-chip-positive);
   color: var(--mm-text-green);
-}
-
-.empty-state {
-  color: var(--mm-text-muted);
-  font-size: var(--text-sm);
-  margin: 0;
 }
 
 .add-user-form {
