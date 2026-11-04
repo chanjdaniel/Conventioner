@@ -15,6 +15,7 @@
  */
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { whoMayTake } from '@/utils/permissionTable';
+import { PEOPLE_CAP } from '@/utils/personChoice';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter, type LocationQuery } from 'vue-router';
 import { ApplicationStatus, type Application, type Market } from '@/assets/types/datatypes';
@@ -37,9 +38,10 @@ import {
 import {
   assignedAddress,
   assignedTo as assignedToIn,
-  assignedToOptions,
+  assignedToGroups,
   dealtElsewhere,
   dealtWarning,
+  findsAssignedTo,
   reviewerLine,
   selectionDealtLine,
 } from '@/utils/reviewers';
@@ -58,6 +60,7 @@ import VendorDrawer from '@/components/VendorDrawer.vue';
 import ListFreshness from '@/components/application/ListFreshness.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
 import EmailAddress from '@/components/EmailAddress.vue';
+import SearchPicker from '@/components/SearchPicker.vue';
 import type { AddressPart } from '@/utils/addressParts';
 
 const props = defineProps<{
@@ -187,8 +190,13 @@ function setQuery(change: Record<string, string | null>) {
  * Whose share the rows show, in the address too, offered only with reviewers chosen: with none
  * named, a chosen reviewer's own and everyone's for anyone else (E38/F07/S04).
  */
-const assignedOptions = computed(() => assignedToOptions(me.value, props.market));
+const assignedGroups = computed(() => assignedToGroups(me.value, props.market));
+const findsAssigned = computed(() => findsAssignedTo(me.value));
 const assignedTo = computed(() => assignedToIn(route.query.reviewer, me.value, props.market));
+/** Taking what it holds writes nothing, so a default stays out of the address. */
+function assignTo(choice: string) {
+  if (choice !== assignedTo.value) setQuery({ reviewer: choice });
+}
 
 const shown = computed(() =>
   allViewApplications(
@@ -533,20 +541,20 @@ async function decideSelection() {
           />
           Mine: the follow-ups I own
         </label>
-        <label v-if="assignedTo" class="all-assigned">
-          <span class="all-assigned-label">Assigned to</span>
-          <select
-            class="field field--select all-assigned-select"
-            :value="assignedTo"
-            name="applications-all-assigned-to"
-            data-testid="applications-all-assigned-to"
-            @change="setQuery({ reviewer: ($event.target as HTMLSelectElement).value })"
-          >
-            <option v-for="option in assignedOptions" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </select>
-        </label>
+        <SearchPicker
+          v-if="assignedTo"
+          class="all-assigned"
+          :model-value="assignedTo"
+          :groups="assignedGroups"
+          :finds="findsAssigned"
+          :cap="PEOPLE_CAP"
+          holds-choice
+          list-over
+          label="Assigned to"
+          placeholder="Type an address…"
+          testid="applications-all-assigned-to"
+          @update:model-value="assignTo($event as string)"
+        />
         <!-- Nothing read is not none: under a failed read there is nothing to count. The box stays,
              so Export keeps its place at the row's end. -->
         <span class="all-count" data-testid="applications-all-count">
@@ -928,27 +936,33 @@ async function decideSelection() {
   color: var(--mm-black);
 }
 
-.all-assigned {
-  display: inline-flex;
+/*
+ * A width that holds an address and stays put as the choice changes, since the list it opens is as
+ * wide. The label stands beside the field until the field would be too short to read an address, and
+ * then over it.
+ */
+.all-filters .all-assigned {
+  flex: 1 1 22rem;
+  flex-flow: row wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
   min-width: 0;
-  font-size: var(--text-sm);
-  color: var(--mm-black);
+  max-width: 28rem;
 }
 
-.all-assigned-label {
+.all-assigned :deep(.field-label) {
+  margin-bottom: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
   white-space: nowrap;
 }
 
-/*
- * As tall as the compact status buttons beside it, so the filter row is one height; as wide as the
- * choice it shows, not its longest address, so "Me" is not a wide empty box.
- */
-.all-assigned-select {
+/* As tall as the compact status buttons beside it, so the filter row is one height. */
+.all-assigned :deep(.field) {
+  flex: 1 1 14rem;
+  width: auto;
+  min-width: 0;
   height: var(--control-height-compact);
-  min-width: var(--target-min);
-  field-sizing: content;
 }
 
 .all-count {

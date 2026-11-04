@@ -66,8 +66,9 @@ test('a chosen reviewer lands on their share, and anyone’s is a filter away', 
     const all = new ApplicationsAllPage(page);
     // The tab itself, as she reaches it: All, on her own share.
     await page.goto(marketScreenPath(marketId, 'applications'));
-    await expect(all.assignedTo).toHaveValue('me');
-    await expect(all.assignedToOptions).toHaveText(['Me', 'Anyone', BEN]);
+    await expect(all.assignedTo.field).toHaveValue('Me');
+    await expect(await all.openAssignedTo()).toHaveText(['Me', 'Anyone', BEN]);
+    await all.assignedTo.field.press('Escape');
     await expect(all.count).toHaveText('3 of 5');
     await expect(all.rowReviewers).toHaveText(['Reviewer: you', 'Reviewer: you', 'Reviewer: you']);
 
@@ -90,7 +91,7 @@ test('a chosen reviewer lands on their share, and anyone’s is a filter away', 
     // The status filter narrows within the share; a reload keeps both.
     await all.filter('undecided');
     await page.reload();
-    await expect(all.assignedTo).toHaveValue(BEN);
+    await expect(all.assignedTo.field).toHaveValue(BEN);
     await expect(all.count).toHaveText('2 of 5');
 
     await all.assignTo('Me');
@@ -147,8 +148,9 @@ test('an Admin who is not a reviewer opens on every application', async ({ brows
   await withUser(browser, CAL, PASSWORD, async (page) => {
     const all = new ApplicationsAllPage(page);
     await page.goto(marketScreenPath(marketId, 'applications'));
-    await expect(all.assignedTo).toHaveValue('anyone');
-    await expect(all.assignedToOptions).toHaveText(['Anyone', ANA, BEN]);
+    await expect(all.assignedTo.field).toHaveValue('Anyone');
+    await expect(await all.openAssignedTo()).toHaveText(['Anyone', ANA, BEN]);
+    await all.assignedTo.field.press('Escape');
     await expect(all.count).toHaveText('5 of 5');
 
     await all.assignTo(ANA);
@@ -166,5 +168,5 @@ test('a market with no reviewers chosen shows no filter, and every application',
 
   await expect(all.rows).toHaveCount(5);
   await expect(all.count).toHaveText('5 of 5');
-  await expect(all.assignedTo).toHaveCount(0);
+  await expect(all.assignedTo.root).toHaveCount(0);
 });

@@ -13,8 +13,10 @@ import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import type { FormField, IntakeMode, RejectionQuestion } from '@/assets/types/datatypes';
 import HistoryEntries from '@/components/HistoryEntries.vue';
+import SearchPicker, { type PickerGroup } from '@/components/SearchPicker.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { marketPath } from '@/utils/market';
+import { findsPerson, PEOPLE_CAP, personOption } from '@/utils/personChoice';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
 import { vendorMatches, type VendorNames } from '@/utils/vendorIdentity';
 import {
@@ -66,6 +68,10 @@ const loadError = ref('');
 const firstPages = ref(0);
 
 const actor = ref('');
+/** "Who": Anyone, the empty value, then everyone who changed something, found by address. */
+const whoGroups = computed<PickerGroup[]>(() => [
+  { options: [{ value: '', label: 'Anyone' }, ...actors.value.map((a) => personOption(a))] },
+]);
 const group = ref('');
 const vendorText = ref('');
 const from = ref('');
@@ -257,13 +263,18 @@ const emptyText = computed(() => {
 <template>
   <div class="market-history" data-testid="market-history">
     <div v-if="!ownVendor" class="history-filters">
-      <label class="history-filter">
-        <span class="field-label">Who</span>
-        <select v-model="actor" class="field field--select" data-testid="market-history-who">
-          <option value="">Anyone</option>
-          <option v-for="person in actors" :key="person" :value="person">{{ person }}</option>
-        </select>
-      </label>
+      <SearchPicker
+        v-model="actor"
+        class="history-filter history-who"
+        :groups="whoGroups"
+        :finds="findsPerson"
+        :cap="PEOPLE_CAP"
+        holds-choice
+        list-over
+        label="Who"
+        placeholder="Type an address…"
+        testid="market-history-who"
+      />
       <label class="history-filter">
         <span class="field-label">Kind of change</span>
         <select v-model="group" class="field field--select" data-testid="market-history-kind">
@@ -383,6 +394,11 @@ const emptyText = computed(() => {
 
 .history-filter--vendor {
   grid-column: 1 / -1;
+}
+
+/* As wide as both columns, the gap between them included, so a phone reads an address on one line. */
+.history-who :deep(.search-picker-list) {
+  width: calc(200% + var(--space-3));
 }
 
 .history-filter-notes {

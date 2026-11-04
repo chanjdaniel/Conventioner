@@ -4,7 +4,9 @@ import { ApplicationStatus, type Application, type Market } from '@/assets/types
 import {
   assignedAddress,
   assignedTo,
+  assignedToGroups,
   assignedToOptions,
+  findsAssignedTo,
   dealtElsewhere,
   dealtWarning,
   myShare,
@@ -175,16 +177,43 @@ describe('the "Assigned to" filter (E38/F07/S04)', () => {
     expect(assignedToOptions(ANA, chosen)).toEqual([
       { value: 'me', label: 'Me' },
       { value: 'anyone', label: 'Anyone' },
-      { value: SAM, label: SAM },
+      { value: SAM, label: SAM, address: true },
     ]);
   });
 
   it('offers Anyone and every reviewer to someone not chosen', () => {
     expect(assignedToOptions(BEN, chosen)).toEqual([
       { value: 'anyone', label: 'Anyone' },
-      { value: ANA, label: ANA },
-      { value: SAM, label: SAM },
+      { value: ANA, label: ANA, address: true },
+      { value: SAM, label: SAM, address: true },
     ]);
+  });
+
+  it('groups them for its picker: Me and Anyone with no name, the others as Reviewers', () => {
+    expect(assignedToGroups(ANA, chosen)).toEqual([
+      {
+        options: [
+          { value: 'me', label: 'Me' },
+          { value: 'anyone', label: 'Anyone' },
+        ],
+      },
+      { label: 'Reviewers', options: [{ value: SAM, label: SAM, address: true }] },
+    ]);
+    expect(assignedToGroups(ANA, noneChosen).flatMap((group) => group.options)).toEqual([]);
+  });
+
+  it('finds a reviewer by any part of the address, and Me by the reader’s own too', () => {
+    const finds = findsAssignedTo(ANA);
+    const me = { value: 'me', label: 'Me' };
+    const anyone = { value: 'anyone', label: 'Anyone' };
+    const sam = { value: SAM, label: SAM };
+
+    expect(finds(sam, 'SAM@')).toBe(true);
+    expect(finds(sam, 'ana')).toBe(false);
+    expect(finds(anyone, 'any')).toBe(true);
+    expect(finds(anyone, 'ana')).toBe(false);
+    expect(finds(me, 'me')).toBe(true);
+    expect(finds(me, 'ana@')).toBe(true);
   });
 
   it('is absent with no reviewers chosen', () => {

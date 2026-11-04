@@ -12,12 +12,16 @@
  * - Named by its own label, and worked from the keyboard alone: the arrow keys move through the
  *   list, Enter takes the active choice, Escape closes the list. While the list is closed, Enter
  *   and Escape belong to the dialog around it, so Enter still submits and Escape still closes.
- * - A group is never hidden by a search, only narrowed: one with nothing matching says so. A group
- *   with no choices at all is not drawn, as an empty `optgroup` was not. A picker with no choices
- *   at all never opens its list; the note beside it says why there is nothing to choose.
+ * - A group is never hidden by a search, only narrowed: one with a name and nothing matching says
+ *   so, and one with no name has no heading to say it under. A group with no choices at all is not
+ *   drawn, as an empty `optgroup` was not. A picker with no choices at all never opens its list; the
+ *   note beside it says why there is nothing to choose.
  * - What the words find is the caller's (`finds`), so every use searches by its own terms.
  * - The list opens in the page's flow, under the field, rather than over what follows: inside a
- *   dialog a floating list is clipped by the dialog's own scroller.
+ *   dialog a floating list is clipped by the dialog's own scroller. Given `listOver`, it lies over
+ *   what follows and moves nothing, as a filter beside others needs ("Assigned to", the history's
+ *   "Who"), as wide as the picker unless the caller gives it a width; in a dialog, what passes the
+ *   scroller's edge then takes a scroll.
  * - The field shows no focus ring, as no field does (E38/F01, `primitives.css`): its caret is its
  *   focus. The active choice is drawn as a tint, since it is never focused itself
  *   (`aria-activedescendant`).
@@ -32,18 +36,37 @@
  *   and Backspace in the empty field removes the last; a held Backspace takes none, so clearing the
  *   words stops at the field. A chosen option stays in the list, ticked, and choosing it again
  *   removes it, so the rows never move under the pointer. For the same reason the list stays open
- *   and the words stay after a choice, selected so that the next word replaces them, and they go
- *   when the field is left, since nothing was chosen by them. A pointer on a chip's button leaves
- *   the field its focus; the keyboard's focus goes on to the next chip. With a `cap`, a choice past
- *   it is not drawn, as in one choice, and the chip still shows it.
- *   A chip's button is never where a dialog opens (`data-dialog-not-first`): one stray Enter would
- *   take that choice away.
- * - Given `acceptsTyped`, words that are exactly no option's label are offered as a choice of their
- *   own: `Use "<words>"` leads the list, ahead of what they find and outside the cap, so the keys
- *   reach it first, and choosing it makes the trimmed words the value. The field then shows them, or
- *   a chip does; reopened on them, as on a choice past the cap, no row is active and Enter keeps
- *   them. Words that are exactly an option make that option, when the cap draws it, the active row
- *   ahead of others they find, and the list opens for words even with no options at all.
+ *   and the words stay after a choice, selected so that the next word replaces them. A pointer on a
+ *   chip's button leaves the field its focus; the keyboard's focus goes on to the next chip. An
+ *   option's `chip` is its chip's words when they differ from its label. A chip's button is never
+ *   where a dialog opens (`data-dialog-not-first`): one stray Enter would take that choice away.
+ * - An option's `address` says its label and chip hold an address, drawn by `EmailAddress`, so a row
+ *   or chip narrower than the address breaks it only before its "@" or a dot.
+ * - Given `multiple` and a `cap` that the matches pass, every chosen match is drawn first, in the
+ *   option order, so every choice opens ticked at the top, and the rest fill what the cap has left.
+ *   Who leads is settled as the list opens and as the words change, never by a choice made in the
+ *   open list, so no row moves under the pointer. They are drawn even when they pass the cap
+ *   themselves, since each has its chip already.
+ * - Given `acceptsTyped`, words that are no option's label, capitals aside, are offered as a choice
+ *   of their own: `Use "<words>"` leads the list, ahead of what they find and outside the cap, so the
+ *   keys reach it first, and choosing it makes the trimmed words the value. The field then shows
+ *   them, or a chip does; reopened on them, as on a choice past the cap, no row is active and Enter
+ *   keeps them. Words that differ from an option only in capitals take that option, the one spelt
+ *   exactly so if two differ only in capitals, so "stickers" never stands beside "Stickers": it is
+ *   the active row ahead of others they find, drawn first if the cap would leave it out. Among
+ *   several, words a typed chip holds in other capitals are that chip, so they make no second one.
+ *   The list opens for words even with no options at all.
+ * - Words left in the field when it is left, or when Enter goes on to the form: with `acceptsTyped`
+ *   they are kept, as the option they name or as typed (a chip, among several). `wordsAreValue` has
+ *   written them already as typed, so only an option they name in other capitals is written then.
+ *   Without `acceptsTyped` they go, since nothing was chosen by them.
+ * - A main button's press past an open list leaves the field only as the press ends: the list sits
+ *   in the page's flow, so closing it as the focus goes would move what lies below it from under the
+ *   pointer, and the click would be lost, a dialog's Save among them. Words a free-text field keeps
+ *   are written before that click, which may read them.
+ * - Reached with a choice in it, by any path, the field has that choice selected, so what is typed
+ *   next searches by itself rather than running on from the label: a dialog opens on such a field
+ *   with no click, and a script's focus leaves the caret at its end.
  * - Given `holdsChoice`, one choice holds until another is taken, as a filter or a card that writes
  *   on a choice needs: typing emits nothing, and on leaving the field or on Escape the field names
  *   the choice again. Without it, the first word lets the choice go, as a dialog that acts on Save
@@ -54,14 +77,12 @@
  *   typed, a space in the middle of typing with them, until it is left, when it names the value: an
  *   option's label, or the trimmed words. Escape closes the list and keeps the words, since a plain
  *   input has no undo, and reopened on words still being typed it does not select them, so a click
- *   can place the caret. A row or `Use "<words>"` is taken as with `acceptsTyped` alone. A main
- *   button's press past the list leaves the field only as the press ends: on a screen whose rows lie below the
- *   list, changing it as the focus goes would move them from under the pointer, and the click
- *   would be lost.
+ *   can place the caret. A row or `Use "<words>"` is taken as with `acceptsTyped` alone.
  */
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue';
 import IconCheck from '@/components/icons/IconCheck.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
+import EmailAddress from '@/components/EmailAddress.vue';
 
 export interface PickerOption {
   value: string;
@@ -69,6 +90,10 @@ export interface PickerOption {
   label: string;
   /** A second line of words beside the label, such as where a vendor sits. */
   detail?: string;
+  /** The words on its chip, among several, where they differ from the label. */
+  chip?: string;
+  /** Its label and chip hold an address, so a line breaks it only before its "@" or a dot. */
+  address?: boolean;
 }
 
 export interface PickerGroup {
@@ -94,6 +119,12 @@ const props = defineProps<
     noneWord?: string;
     /** With one choice: words only search, and the choice holds until another is taken. */
     holdsChoice?: boolean;
+    /** The field, its chips and its list take nothing, as while what they chose is being saved. */
+    disabled?: boolean;
+    /** The id of words beside the picker that describe its field, such as a hint. */
+    describedBy?: string;
+    /** The list lies over what follows the picker, rather than pushing it down. */
+    listOver?: boolean;
     /** With `acceptsTyped` on one choice: every keystroke writes the words as the value. */
     wordsAreValue?: boolean;
   } & (
@@ -128,8 +159,12 @@ const isChosen = (option: PickerOption) =>
   props.multiple ? props.modelValue.includes(option.value) : option.value === props.modelValue;
 /** A chosen value no option offers shows as its own words. */
 const chips = computed(() => {
-  const labels = new Map(allOptions.value.map((option) => [option.value, option.label]));
-  return chosenValues.value.map((value) => ({ value, label: labels.get(value) ?? value }));
+  const options = new Map(allOptions.value.map((option) => [option.value, option]));
+  return chosenValues.value.map((value) => {
+    const option = options.get(value);
+    const label = option?.label ?? value;
+    return { value, label, words: option?.chip ?? label, address: option?.address };
+  });
 });
 
 /** What the field holds: the words typed, or the chosen choice's label. */
@@ -160,6 +195,13 @@ watch(
 const words = computed(() => (searching.value ? text.value.trim() : ''));
 
 const holds = computed(() => props.holdsChoice && !props.multiple);
+/** A list cannot stay open on a field that takes nothing. */
+watch(
+  () => props.disabled,
+  (disabled) => {
+    if (disabled) open.value = false;
+  },
+);
 /** The field gives up its words and names the choice that held under them. */
 function nameTheChoice(): void {
   text.value = chosenOption.value?.label ?? keptWords.value;
@@ -177,50 +219,76 @@ const matchedGroups = computed(() =>
         : group.options,
     })),
 );
+const matchCount = computed(() =>
+  matchedGroups.value.reduce((count, group) => count + group.matched.length, 0),
+);
+/** The option the words name: spelt exactly so, or else capitals aside. */
+const namedOption = computed(() => {
+  if (!props.acceptsTyped || !words.value) return undefined;
+  const folded = words.value.toLowerCase();
+  return (
+    allOptions.value.find((option) => option.label === words.value) ??
+    allOptions.value.find((option) => option.label.toLowerCase() === folded)
+  );
+});
+/** The choices that lead a capped list, as they stood when it opened or the words last changed. */
+const pinned = ref<ReadonlySet<string>>(new Set());
+function pinTheChosen(): void {
+  pinned.value = new Set(chosenValues.value);
+}
+/** What a list past its cap draws first: the choices made, and the option the words name. */
+const leadRows = computed(() => {
+  if (props.cap === undefined || matchCount.value <= props.cap) return [];
+  return matchedGroups.value
+    .flatMap((group) => group.matched)
+    .filter((option) => pinned.value.has(option.value) || option === namedOption.value);
+});
 /** The matched groups the cap keeps: it fills them in order, and one it leaves out is not drawn. */
 const cappedGroups = computed(() => {
-  let room = props.cap ?? Infinity;
+  const led = new Set(leadRows.value);
+  let room = Math.max((props.cap ?? Infinity) - led.size, 0);
   return matchedGroups.value.flatMap((group) => {
-    const shown = group.matched.slice(0, room);
+    const shown = group.matched.filter((option) => !led.has(option)).slice(0, room);
     room -= shown.length;
     return group.matched.length > 0 && shown.length === 0 ? [] : [{ ...group, shown }];
   });
 });
-/** The words as a choice of their own, while they are exactly no option's label. */
-const typedOption = computed<PickerOption | undefined>(() =>
-  props.acceptsTyped &&
-  words.value &&
-  !allOptions.value.some((option) => option.label === words.value)
-    ? { value: words.value, label: `Use "${words.value}"` }
-    : undefined,
-);
-/** Everything drawn, in order: the words as a choice lead, outside the cap. */
+/** The words as a choice of their own, while they name no option. */
+const typedOption = computed<PickerOption | undefined>(() => {
+  if (!props.acceptsTyped || !words.value || namedOption.value) return undefined;
+  // Among several, words a typed chip already holds in other capitals are that chip.
+  const folded = words.value.toLowerCase();
+  const value = chosenValues.value.find((chosen) => chosen.toLowerCase() === folded) ?? words.value;
+  return { value, label: `Use "${value}"` };
+});
+type ShownGroup = (typeof cappedGroups.value)[number];
+const leadGroup = (options: PickerOption[], testid?: string): ShownGroup => ({
+  testid,
+  options,
+  matched: options,
+  shown: options,
+});
+/** Everything drawn, in order: the words as a choice, outside the cap, then the rows that lead. */
 const shownGroups = computed(() => {
   const option = typedOption.value;
-  if (!option) return cappedGroups.value;
-  const lead: (typeof cappedGroups.value)[number] = {
-    testid: `${props.testid}-typed`,
-    options: [option],
-    matched: [option],
-    shown: [option],
-  };
-  return [lead, ...cappedGroups.value];
+  return [
+    ...(option ? [leadGroup([option], `${props.testid}-typed`)] : []),
+    ...(leadRows.value.length ? [leadGroup(leadRows.value)] : []),
+    ...cappedGroups.value,
+  ];
 });
 const shownOptions = computed(() => shownGroups.value.flatMap((group) => group.shown));
 /** How many matches the cap leaves undrawn. */
 const moreCount = computed(
   () =>
-    matchedGroups.value.reduce((count, group) => count + group.matched.length, 0) -
+    matchCount.value -
+    leadRows.value.length -
     cappedGroups.value.reduce((count, group) => count + group.shown.length, 0),
 );
-/** With nothing chosen, the row the keys start on; words that are exactly an option lead to it. */
+/** With nothing chosen, the row the keys start on; words that name an option lead to it. */
 const firstRow = computed(() => {
   if (!shownOptions.value.length) return -1;
-  if (!props.acceptsTyped) return 0;
-  return Math.max(
-    shownOptions.value.findIndex((option) => option.label === words.value),
-    0,
-  );
+  return Math.max(shownOptions.value.indexOf(namedOption.value as PickerOption), 0);
 });
 /** Whether there is anything to list: an option, or words to use. */
 const hasRows = computed(() => hasChoices.value || Boolean(typedOption.value));
@@ -238,6 +306,14 @@ const activeId = computed(() =>
   open.value && active.value >= 0 ? optionId(active.value) : undefined,
 );
 
+/** The caller's words, and the line a capped list adds while it shows. */
+const fieldDescribedBy = computed(
+  () =>
+    [props.describedBy, open.value && moreCount.value > 0 ? moreId : undefined]
+      .filter(Boolean)
+      .join(' ') || undefined,
+);
+
 const list = ref<HTMLElement | null>(null);
 watch(active, async (index) => {
   await nextTick();
@@ -249,7 +325,8 @@ const field = ref<HTMLInputElement | null>(null);
 const chipList = ref<HTMLElement | null>(null);
 
 function show(): void {
-  if (open.value || !hasRows.value) return;
+  if (open.value || !hasRows.value || props.disabled) return;
+  pinTheChosen();
   open.value = true;
   const chosenAt = shownOptions.value.findIndex((option) => option.value === props.modelValue);
   const heldUndrawn = chosenOption.value || keptWords.value;
@@ -282,6 +359,7 @@ function choose(option: PickerOption): void {
 }
 
 function typed(): void {
+  pinTheChosen();
   searching.value = true;
   open.value = hasRows.value;
   active.value = firstRow.value;
@@ -292,6 +370,18 @@ function typed(): void {
   // Words that no longer name the choice let it go, so a dialog never acts on a choice its field
   // does not show.
   if (!props.multiple && !holds.value && props.modelValue) emit('update:modelValue', '');
+}
+
+/**
+ * A free-text field keeps the words not chosen: as the option they name, or as typed. Words that
+ * are the value were written as typed already, so only an option they name has more to write.
+ */
+function keepTheWords(): void {
+  if (!props.acceptsTyped || holds.value) return;
+  const option = namedOption.value ?? (writesWords.value ? undefined : typedOption.value);
+  if (!option || (writesWords.value && option.value === props.modelValue)) return;
+  if (!props.multiple) choose(option);
+  else if (!isChosen(option)) emit('update:modelValue', [...props.modelValue, option.value]);
 }
 
 /** Takes a chip away. The keyboard's focus was on its button, which is gone, so it goes on. */
@@ -323,7 +413,8 @@ function onKeydown(event: KeyboardEvent): void {
       else active.value = Math.max(active.value - 1, Math.min(0, last));
       return;
     case 'Enter': {
-      if (!open.value) return;
+      // With the list closed the key goes on to the form, which reads the words as kept.
+      if (!open.value) return keepTheWords();
       // The list is open, so Enter is the list's: it chooses, and never submits the dialog.
       event.preventDefault();
       const option = shownOptions.value[active.value];
@@ -352,13 +443,16 @@ function onKeydown(event: KeyboardEvent): void {
 /** The field is left: its list goes, and it says what it holds. */
 function leave(): void {
   open.value = false;
-  if (holds.value || writesWords.value) nameTheChoice();
-  if (!props.multiple) return;
-  text.value = '';
-  searching.value = false;
+  keepTheWords();
+  if (props.multiple) {
+    text.value = '';
+    searching.value = false;
+  } else if (searching.value) {
+    nameTheChoice();
+  }
 }
 
-/** Whether a press is under way, while a list that writes its words is open. */
+/** Whether a press is under way, while the list is open. */
 let pressing = false;
 function pressStarted(event: MouseEvent): void {
   // Only the main button: a context menu can take the end of any other's press.
@@ -366,9 +460,12 @@ function pressStarted(event: MouseEvent): void {
 }
 function pressEnded(): void {
   pressing = false;
-  // After the click this press makes, which lands before a timer does.
+  const leftTheField = () => open.value && document.activeElement !== field.value;
+  // Ahead of the click this press makes, whose target is settled by now and which may read them.
+  if (leftTheField()) keepTheWords();
+  // After that click, which lands before a timer does.
   setTimeout(() => {
-    if (open.value && document.activeElement !== field.value) leave();
+    if (leftTheField()) leave();
   });
 }
 function listenForPresses(listening: boolean): void {
@@ -377,7 +474,7 @@ function listenForPresses(listening: boolean): void {
   listen('mouseup', pressEnded, true);
 }
 watch(open, (isOpen) => {
-  if (writesWords.value) listenForPresses(isOpen);
+  listenForPresses(isOpen);
   if (!isOpen) pressing = false;
 });
 onBeforeUnmount(() => listenForPresses(false));
@@ -385,10 +482,18 @@ onBeforeUnmount(() => listenForPresses(false));
 function onBlur(): void {
   if (!pressing) leave();
 }
+
+function onFocus(): void {
+  if (!searching.value && text.value) field.value?.select();
+}
 </script>
 
 <template>
-  <div class="search-picker" :data-testid="testid">
+  <div
+    class="search-picker"
+    :class="{ 'search-picker--list-over': listOver }"
+    :data-testid="testid"
+  >
     <label class="field-label" :for="inputId">{{ label }}</label>
     <!-- `mousedown.prevent` keeps the field's focus, its words and its open list while a pointer
          removes a chip. -->
@@ -406,11 +511,16 @@ function onBlur(): void {
         class="chip chip--neutral search-picker-chip"
         :data-testid="`${testid}-chip`"
       >
-        <span class="search-picker-chip-label">{{ chip.label }}</span>
+        <span class="search-picker-chip-label"
+          ><EmailAddress v-if="chip.address" :words="chip.words" /><template v-else>{{
+            chip.words
+          }}</template></span
+        >
         <button
           type="button"
           class="search-picker-chip-remove"
           data-dialog-not-first
+          :disabled="disabled"
           :data-testid="`${testid}-chip-remove`"
           @click="removeChip(at)"
         >
@@ -432,12 +542,14 @@ function onBlur(): void {
       :aria-expanded="open ? 'true' : 'false'"
       :aria-controls="listId"
       :aria-activedescendant="activeId"
-      :aria-describedby="open && moreCount > 0 ? moreId : undefined"
+      :aria-describedby="fieldDescribedBy"
+      :disabled="disabled"
       :placeholder="placeholder"
       :data-testid="`${testid}-input`"
       @input="typed"
       @click="show"
       @keydown="onKeydown"
+      @focus="onFocus"
       @blur="onBlur"
     />
     <!-- `mousedown.prevent` keeps the field focused while a choice is clicked, so the list is
@@ -486,10 +598,17 @@ function onBlur(): void {
             class="search-picker-option-tick"
             :data-testid="`${testid}-option-tick`"
           />
-          <span class="search-picker-option-label">{{ option.label }}</span>
+          <span class="search-picker-option-label"
+            ><EmailAddress v-if="option.address" :words="option.label" /><template v-else>{{
+              option.label
+            }}</template></span
+          >
           <span v-if="option.detail" class="search-picker-option-detail">{{ option.detail }}</span>
         </div>
-        <p v-if="!group.shown.length && cappedGroups.length > 1" class="search-picker-none">
+        <p
+          v-if="group.label && !group.shown.length && cappedGroups.length > 1"
+          class="search-picker-none"
+        >
           None match "{{ words }}".
         </p>
       </div>
@@ -558,8 +677,12 @@ function onBlur(): void {
   cursor: pointer;
 }
 
-.search-picker-chip-remove:hover {
+.search-picker-chip-remove:hover:not(:disabled) {
   background: var(--mm-border);
+}
+
+.search-picker-chip-remove:disabled {
+  cursor: not-allowed;
 }
 
 .search-picker-chip-remove svg {
@@ -577,6 +700,19 @@ function onBlur(): void {
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: white;
+}
+
+.search-picker--list-over {
+  position: relative;
+}
+
+.search-picker--list-over .search-picker-list {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  z-index: 1;
+  box-shadow: var(--shadow-card);
 }
 
 /* The keys bring the active choice into view clear of the line pinned over the list's foot. */
@@ -601,6 +737,7 @@ function onBlur(): void {
   align-items: baseline;
   justify-content: space-between;
   gap: 0 var(--space-3);
+  min-height: var(--target-min);
   /* stylelint-disable-next-line declaration-property-value-allowed-list -- the row's inset, which centres one line in a --target-min target: a length from that token, not a spacing step */
   padding: var(--row-inset) var(--space-3);
   font-size: var(--text-sm);

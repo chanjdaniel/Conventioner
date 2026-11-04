@@ -612,16 +612,23 @@ for (const size of PHONE_AND_DESK) {
       }
       await expectFits(page, 'One by one, a verdict given');
 
-      // The organizer deals the review to the Editor from the reviewers dialog, every choice a
-      // thumb's target.
+      // The organizer deals the review to the Editor from the reviewers dialog, the field and every
+      // choice a thumb's target.
       await press(page.getByTestId('reviewers-change'));
       const dealing = page.getByTestId('reviewers-dialog-window');
       await expect(dealing).toBeVisible();
       await expectInside(dealing, 'the reviewers dialog');
-      for (const choice of await dealing.getByTestId(/^reviewer-picker-/).all()) {
-        await expectLabelTarget(choice, 'a reviewer');
+      const field = dealing.getByTestId('reviewer-picker-input');
+      await expectTargets(field, "the reviewers' field");
+      await press(field);
+      for (const choice of await dealing.getByTestId('reviewer-picker-option').all()) {
+        await expectAcross(choice, 'a reviewer');
+        await expectTargets(choice, 'a reviewer');
       }
-      await press(dealing.getByTestId(`reviewer-picker-${EDITOR.email}`));
+      await press(dealing.locator(`[data-value="${EDITOR.email}"]`));
+      await expect(dealing.getByTestId('reviewer-picker-chip')).toHaveText(
+        new RegExp(EDITOR.email),
+      );
       const save = page.getByTestId('reviewers-dialog-submit-button');
       await expectInside(save, 'Save reviewers');
       await press(save);
