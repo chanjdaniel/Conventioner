@@ -27,7 +27,7 @@ const router = createRouter({
     {
       path: '/',
       name: 'root',
-      redirect: '/dashboard',
+      redirect: '/markets',
     },
     {
       path: '/login',
@@ -63,25 +63,24 @@ const router = createRouter({
       name: 'init',
       component: InitView,
     },
+    // Signing in landed here until Markets took over from the dashboard, so it is bookmarked.
     {
       path: '/dashboard',
-      name: 'dashboard',
-      component: () => import('@/views/DashboardView.vue'),
-      // Signing in lands here, so it is the way to the door from a phone (T148), and fits one.
-      meta: { fitsAPhone: true },
+      redirect: '/markets',
     },
     {
       path: '/markets',
       name: 'markets',
       component: () => import('@/views/MarketsView.vue'),
-      // The way to the market an organizer runs from the door on a phone (T142), so it fits one.
+      // Signing in lands here, and it is the way to the market an organizer runs from the door on a
+      // phone (T142), so it fits one.
       meta: { fitsAPhone: true },
     },
     {
       path: '/organizations',
       name: 'organizations',
       component: () => import('@/views/OrganizationsView.vue'),
-      // The dashboard's other place, on the way to the door from a phone (T148), so it fits one.
+      // The bar's other place, on the way to the door from a phone (T148), so it fits one.
       meta: { fitsAPhone: true },
     },
     // A market's own address lands on the page it is worked on in its phase (E22/F04/S02).
@@ -307,7 +306,7 @@ export const requireSignIn: NavigationGuard = (to) => {
   // hop, since the shell's session probe clears it and comes back here. The page it carries is
   // where signing in would have gone (E38/F11/S01). By the route, not the path: the router
   // matches `/Login` and `/login/` to it too.
-  if (user && to.name === 'login') return safeNext(to.query.next) ?? '/dashboard';
+  if (user && to.name === 'login') return safeNext(to.query.next) ?? '/markets';
 
   if (to.matched.some((record) => record.meta.public === true)) return true;
 

@@ -23,7 +23,7 @@ sources:
 
 **Who:** an organizer, or someone about to become one; vendors have no account (they sign in per market with a code, [H3](applying-online.md#h3-vendors-apply-online)).
 **Where they start:** `/login`, which has three tabs: Sign in, Register and Sign-in code.
-The pages that get an organizer in fit a phone, since the door on market day sits behind sign-in, and so does the dashboard sign-in lands on ([C1](finding-a-market.md#c1-the-dashboard), T148; [the design language](../../design-system.md#layout); `sign-in-fits-a-phone.spec.ts`).
+The pages that get an organizer in fit a phone, since the door on market day sits behind sign-in, and so does the Markets list sign-in lands on ([C1](finding-a-market.md#c1-signing-in-lands-on-markets), T148; [the design language](../../design-system.md#layout); `sign-in-fits-a-phone.spec.ts`).
 **Serves:** [A request can only do what its session may](../intents/a-request-can-only-do-what-its-session-may.md).
 
 An account is one email address: an address differing only in case or spacing is the same account ([users, and the one spelling of an address](../../implementation/data/users-and-email.md#one-address-is-one-account)).
@@ -75,11 +75,11 @@ Covered by:
 1. At `/login`, Sign in tab, enter email and password, choose "Sign in".
    "Remember me" under the password is unticked: the sign-in then ends when the browser closes, and at the latest 12 hours after it; ticked, it lasts 30 days from signing in, however the browser is used.
    Either way it lasts only as long as the browser's address and the browser stay the same: a phone that moves from the venue's wifi to cellular is signed out, an E47 follow-up ([the cookies](../../implementation/conventions/security-invariants.md#the-cookies)).
-2. Expect the dashboard (`/dashboard`), or the page the address carried in `next` (E38/F11/S01).
-3. Choose "Sign out" on the dashboard or in the navigation menu ([C4](finding-a-market.md#c4-the-navigation-menu)); expect `/login`.
+2. Expect the Markets list (`/markets`), or the page the address carried in `next` (E38/F11/S01).
+3. Choose "Sign out" in the app bar ([C4](finding-a-market.md#c4-the-navigation-menu)); expect `/login`.
 
-Branches: wrong password, unverified account, "Show" password toggle, visiting an organizer URL while signed out (redirects to `/login`, which returns there after signing in), visiting `/login` while signed in (redirects to that `next`, else the dashboard).
-A market link opened while signed out returns there after sign-in, by password or by code, rather than to the dashboard.
+Branches: wrong password, unverified account, "Show" password toggle, visiting an organizer URL while signed out (redirects to `/login`, which returns there after signing in), visiting `/login` while signed in (redirects to that `next`, else the Markets list).
+A market link opened while signed out returns there after sign-in, by password or by code, rather than to the Markets list.
 A session that ends mid-work lands on sign-in saying "Your session has ended. Sign in again.", and signing in returns to the page it was on.
 A browser closed and reopened is signed out unless "Remember me" was ticked.
 

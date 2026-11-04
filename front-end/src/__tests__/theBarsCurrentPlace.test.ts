@@ -35,7 +35,7 @@ describe('which place is current', () => {
     expect(place('/organizations')).toBe('organizations');
   });
 
-  it.each(['/login', '/dashboard', '/reset-password-request', '/some-market', '/no/such/page'])(
+  it.each(['/login', '/reset-password-request', '/some-market', '/no/such/page'])(
     'is neither on %s',
     (path) => {
       expect(place(path)).toBeNull();

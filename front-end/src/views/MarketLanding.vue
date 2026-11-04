@@ -4,7 +4,7 @@
  *
  * It lands on the page the market is worked on in its phase - the one carrying the dot - which it
  * can only know once the market has arrived, so it opens the market, shows the arrival, and then
- * replaces itself with that page. Opening a market from a list, the dashboard or a new market all
+ * replaces itself with that page. Opening a market from the list, its "Previously opened" line or a new market all
  * come through here, so none of them has to know which page a phase belongs to.
  */
 import { computed, watch } from 'vue';

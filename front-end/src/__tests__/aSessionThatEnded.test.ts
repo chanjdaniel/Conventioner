@@ -34,7 +34,7 @@ beforeEach(async () => {
     history: createMemoryHistory(),
     routes: [
       { path: '/login', component: Page, meta: { public: true } },
-      { path: '/dashboard', component: Page },
+      { path: '/markets', component: Page },
       { path: '/markets/:id/applications', component: Page },
       { path: '/:marketSlug/apply', component: Page, meta: { public: true } },
     ],

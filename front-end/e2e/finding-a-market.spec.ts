@@ -95,7 +95,7 @@ test.describe('Finding a market', () => {
   test.beforeEach(async ({ page }) => {
     const login = new LoginPage(page);
     await login.login(USER.email, USER.password);
-    await login.waitForDashboardRedirect();
+    await login.waitForMarkets();
   });
 
   test('search narrows as it is typed, and composes with filters and sort', async ({ page }) => {

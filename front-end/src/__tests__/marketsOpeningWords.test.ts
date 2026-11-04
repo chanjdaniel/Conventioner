@@ -102,7 +102,7 @@ describe('Markets, the first thing it says', () => {
   });
 
   /**
-   * The story the dashboard's words were written for: the question is put to the server, which
+   * The story these words were written for: the question is put to the server, which
    * knows what the account can reach, never to `localStorage`, which knows what this browser
    * opened (E14/F01/S02).
    */

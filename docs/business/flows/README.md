@@ -16,7 +16,7 @@ One line per node, sorted by file name.
 - [The assignment and its result](assignment-and-result.md) - I7, J1 to J5, J14: the rules, the run, the result, publishing results
 - [Creating a market](creating-a-market.md) - D: the create-market dialog, how vendors will apply, the organization and the name
 - [Ending and managing a market](ending-and-managing-a-market.md) - P6, L1 to L5: archiving, access, renaming and deleting a market
-- [Finding and opening markets](finding-a-market.md) - C: the dashboard, the Markets list and its finder, a market's addresses, the menu
+- [Finding and opening markets](finding-a-market.md) - C: where sign-in lands, the Markets list and its finder, a market's addresses, the menu
 - [Building the application form](form-tab.md) - F: the form tab's steps, the essential and custom questions, the review setup, the lock
 - [Importing a Google Form's responses](import.md) - H2: the import's four steps and every branch of them
 - [The market lifecycle at a glance](lifecycle.md) - the phases on both paths, the page each opens on, the moves and what refuses them

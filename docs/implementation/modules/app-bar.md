@@ -96,7 +96,7 @@ A failed reset forgets nothing.
 
 ## Sign out
 
-**[`signOut`](../../../front-end/src/utils/sessionEnded.ts) is the one sign-out**, the account menu's, the sheet's and the dashboard's, beside `endSession`.
+**[`signOut`](../../../front-end/src/utils/sessionEnded.ts) is the one sign-out**, the account menu's and the sheet's, beside `endSession`.
 It posts `/logout`, then forgets `localStorage` and the market store (`forgetTheSession`) and goes to `/login`, whether or not the post succeeded, so a sign-out that failed on the wire still leaves this browser signed out.
 It uses `fetch`, not the app's `axios`, so a 401 from `/logout` is not told as a session that ended under the organizer.
 

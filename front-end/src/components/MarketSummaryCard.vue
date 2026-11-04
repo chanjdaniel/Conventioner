@@ -28,7 +28,7 @@ const props = defineProps<{
   showManage?: boolean;
   /**
    * The name's heading level: one under the heading the list stands under, so the page's outline
-   * skips none. 2 under a page's `h1` (Markets, the dashboard), 3 under a dialog's `h2` title, the default.
+   * skips none. 2 under a page's `h1` (Markets), 3 under a dialog's `h2` title, the default.
    */
   headingLevel?: 2 | 3;
 }>();

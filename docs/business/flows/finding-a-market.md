@@ -25,14 +25,14 @@ sources:
 # Finding and opening markets
 
 **Who:** a signed-in organizer.
-**Where they start:** the dashboard, where sign-in lands.
+**Where they start:** the Markets list, where sign-in lands.
 **Serves:** [The market's phase says what to do next](../intents/the-markets-phase-says-what-to-do-next.md).
 
 Every market page has its own address, built from the market's id, so a link to any page of a market opens that page ([every market page has an address](../../implementation/conventions/every-market-page-has-an-address.md)).
 
 ## What a market's row says
 
-A market is one row wherever a list shows it (the dashboard, the Markets list, the old start screen's picker), drawn by `MarketSummaryCard.vue`: its name, its phase badge, its dates, and its organization.
+A market is one row wherever a list shows it (the Markets list, the old start screen's picker), drawn by `MarketSummaryCard.vue`: its name, its phase badge, its dates, and its organization.
 A market whose organization is gone says "No longer available" there rather than dropping the line, which kept the rows from lining up.
 
 - **Dates, not when it was created**: an organizer knows a market by when it runs.
@@ -43,25 +43,17 @@ A market whose organization is gone says "No longer available" there rather than
 **The row itself opens the market**, on its own pages, in every phase, and on the keyboard its name is the button that does; Manage is the one control beside it, visible rather than behind a menu, since renaming, sharing and deleting a market are what an owner looks for there.
 Opening never leads to the market's public page: a Google Form market has none, so opening a published one by its public page once answered "Page not found" for every market of the first release, and what an organizer wants of a published market, its check-in address, is on its rail ([the market lifecycle](lifecycle.md#where-the-check-in-address-lives)).
 
-## C1. The dashboard
+## C1. Signing in lands on Markets
 
-**Status:** Works (walked live).
+**Status:** Works (`the-app-bar.spec.ts`).
 **Task:** "Get back to the market you were working on."
 
-After sign-in the dashboard shows one of:
-
-- "Previously opened": a card for the last market this browser opened.
-- "N markets are open to you." with "Open a market".
-- "You have not set up a market yet. Every market belongs to an organization - if you are not in one yet, create it under Organizations first." with "Set up your first market", which opens the Markets list ([D4](creating-a-market.md#d4-create-a-market-with-no-organization-yet), bug 42).
-- "The market you last opened is no longer available. Your other markets are still here." when it was deleted or access was lost, or "…and there are no others." with "Set up a market".
-
-The dashboard says a market is gone once, then forgets it, so the next visit is silent; saying nothing would greet an organizer whose only market is gone with "set up your first market".
-
-"Markets" and "Organizations" lead to those lists.
-The dashboard fits a phone, since sign-in lands there on the way to the door (T148): at 390px nothing scrolls sideways or zooms out, the card or the sentence fills the window less a 16px gutter at each side, Markets and Organizations stand side by side under it, every action is a 44px target, and for a returning organizer the tiles hold still while the markets answer is on its way.
+Signing in lands on the Markets list, or on the page the address carried in `next` ([A2](accounts.md#a2-sign-in-and-sign-out)); "Previously opened" on the list is the way back to the market last opened ([C2](#c2-the-markets-list)).
+`/` and `/dashboard`, which an older bookmark may hold, forward to it, by way of sign-in for someone signed out, and for someone signed in the logo in [the app bar](../../implementation/modules/app-bar.md) leads there from every page.
+It fits a phone, since sign-in lands there on the way to the door (T148): at 390px nothing scrolls sideways or zooms out, whether or not the markets answer has arrived.
 Covered by:
-- `dashboard-market-count.spec.ts`
 - `sign-in-fits-a-phone.spec.ts`
+- `the-app-bar.spec.ts`
 
 ## C2. The markets list
 
@@ -86,7 +78,6 @@ The list fits a phone, since an organizer at the door finds the market there fir
 
 Covered by:
 - `access-control.spec.ts`
-- `dashboard-market-count.spec.ts`
 - `finding-a-market.spec.ts`
 - `markets-opening-words.spec.ts`
 

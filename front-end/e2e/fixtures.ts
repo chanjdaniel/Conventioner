@@ -36,7 +36,7 @@ async function login(page: Page, email: string, password: string) {
   await loginPage.fillEmail(email);
   await loginPage.fillPassword(password);
   await loginPage.clickSubmit();
-  await page.waitForURL('**/dashboard', { timeout: 10000 });
+  await loginPage.waitForMarkets();
 }
 
 /**

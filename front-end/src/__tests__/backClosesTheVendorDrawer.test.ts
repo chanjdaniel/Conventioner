@@ -2,7 +2,7 @@
  * Back closes the vendor drawer (E38/F13/S01).
  *
  * The drawer opened and closed by replacing the address, so Back with it open left the page: from
- * Vendors, it went to the dashboard. Opening it from a closed drawer is now a step of its own in the
+ * Vendors, it went to Markets. Opening it from a closed drawer is now a step of its own in the
  * browser's history, and closing it takes that step back, so Back and the drawer's own close leave
  * history alike. A drawer reached by a link has no step of its own to take back, and closing it
  * replaces the address as before, so it never leaves the site.
@@ -47,17 +47,17 @@ async function back() {
   await done;
 }
 
-/** Starts at `/dashboard`, then goes to `start` as a click on a link does. */
+/** Starts at `/markets`, then goes to `start` as a click on a link does. */
 async function begin(start: string) {
-  window.history.replaceState(null, '', '/dashboard');
+  window.history.replaceState(null, '', '/markets');
   router = createRouter({
     history: createWebHistory(),
     routes: [
-      { path: '/dashboard', component: { render: () => h('p', 'dashboard') } },
+      { path: '/markets', component: { render: () => h('p', 'markets') } },
       { path: '/vendors', component: Page },
     ],
   });
-  await router.push('/dashboard');
+  await router.push('/markets');
   await router.isReady();
   await router.push(start);
   wrapper = mount(Page, { global: { plugins: [router] } });
@@ -90,7 +90,7 @@ describe('opening the drawer is a step; Back takes it back', () => {
 
     // A second Back goes to the page before.
     await back();
-    expect(path()).toBe('/dashboard');
+    expect(path()).toBe('/markets');
   });
 
   it('changing the tab and opening another vendor are no steps: one Back closes the drawer', async () => {
@@ -125,7 +125,7 @@ describe('opening the drawer is a step; Back takes it back', () => {
     expect(drawer.email.value).toBeNull();
 
     await back();
-    expect(path()).toBe('/dashboard');
+    expect(path()).toBe('/markets');
   });
 
   it('a second close before the first has landed takes no second step', async () => {
@@ -156,7 +156,7 @@ describe('opening the drawer is a step; Back takes it back', () => {
     await again;
     expect(path()).toBe('/vendors');
     await back();
-    expect(path()).toBe('/dashboard');
+    expect(path()).toBe('/markets');
   });
 
   it('the entry before is the same page however its address was spelled', async () => {
@@ -175,7 +175,7 @@ describe('opening the drawer is a step; Back takes it back', () => {
 
     // The step was taken back, so Back leaves the page rather than opening the drawer again.
     await back();
-    expect(path()).toBe('/dashboard');
+    expect(path()).toBe('/markets');
   });
 });
 
@@ -192,7 +192,7 @@ describe('a drawer reached by a link', () => {
 
     // The address was replaced, not taken back: Back goes where the link came from.
     await back();
-    expect(path()).toBe('/dashboard');
+    expect(path()).toBe('/markets');
   });
 
   it('a drawer opened again after one closed in place is a step of its own', async () => {
@@ -206,7 +206,7 @@ describe('a drawer reached by a link', () => {
     expect(path()).toBe('/vendors');
 
     await back();
-    expect(path()).toBe('/dashboard');
+    expect(path()).toBe('/markets');
   });
 
   it('a page whose address changed under the open drawer is replaced, not left', async () => {

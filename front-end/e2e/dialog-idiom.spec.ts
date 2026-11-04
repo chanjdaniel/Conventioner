@@ -198,7 +198,7 @@ test.describe('The create-market dialog with exactly one organization', () => {
   }) => {
     const login = new LoginPage(page);
     await login.login(ONE_ORG_USER.email, ONE_ORG_USER.password);
-    await login.waitForDashboardRedirect();
+    await login.waitForMarkets();
 
     await page.goto('/markets');
     await expect(page.getByTestId('markets-create-button')).toBeVisible({ timeout: 10000 });

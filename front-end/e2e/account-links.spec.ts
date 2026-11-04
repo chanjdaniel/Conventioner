@@ -56,7 +56,7 @@ test.describe('Account links, opened signed out', () => {
       );
       await page.goto('/login');
       await new LoginPage(page).login(email, NEW_PASSWORD);
-      await expect(page).toHaveURL(/\/dashboard/);
+      await expect(page).toHaveURL(/\/markets$/);
     } finally {
       deleteUser(email);
     }

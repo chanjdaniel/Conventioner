@@ -59,10 +59,10 @@ test('Organizations heads each card one level under its title', async ({
 });
 
 /**
- * The dashboard has one title for a screen reader to land on, and the remembered market's name sits
- * one level under it; its buttons are named by their words, not by headings inside them.
+ * Markets has one title for a screen reader to land on, and "Previously opened" adds no heading:
+ * the remembered market's name is words on a control, and each card's name one level under the title.
  */
-test('the dashboard opens with its title, the remembered market one level under it', async ({
+test('Markets opens with its title, the remembered market adding no heading', async ({
   authenticatedPage: page,
 }) => {
   await new MarketsPage(page).goto();
@@ -71,13 +71,14 @@ test('the dashboard opens with its title, the remembered market one level under 
   await card.getByTestId('market-card-name').getByRole('button').click();
   await expect(page.getByTestId('market-bar-title')).toHaveText(name, { timeout: 15000 });
 
-  await page.goto('/dashboard');
-  await expect(page.getByTestId('dashboard-last-market-card')).toContainText(name);
+  await page.goto('/markets');
+  await expect(page.getByTestId('markets-previously-opened')).toContainText(name);
 
   expect(await outlineViolations(page)).toEqual([]);
   expect(await headingsInsideControls(page)).toEqual([]);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Dashboard');
-  await expect(page.getByRole('heading', { level: 2 })).toHaveText(name);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Markets');
+  await expect(page.getByTestId('markets-previously-opened').getByRole('heading')).toHaveCount(0);
+  await expect(page.getByRole('heading', { level: 2 }).filter({ hasText: name })).toHaveCount(1);
 });
 
 /** The market chooser behind the Load market dialog, reached by its address. */

@@ -350,11 +350,11 @@ test.describe('signing in keeps the place', () => {
     await expect(new ApplicationsAllPage(page).rows).toHaveCount(3);
   });
 
-  test('a next that is not a path of this app lands on the dashboard', async ({ page }) => {
+  test('a next that is not a path of this app lands on Markets', async ({ page }) => {
     await page.goto('/login?next=%2F%2Fevil.example%2Fmarkets');
     await new LoginPage(page).signIn(TEST_USER.email, TEST_USER.password);
 
-    await page.waitForURL(/\/dashboard$/);
+    await new LoginPage(page).waitForMarkets();
     expect(new URL(page.url()).host).not.toBe('evil.example');
   });
 });

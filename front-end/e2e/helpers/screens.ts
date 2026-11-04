@@ -36,10 +36,9 @@ import { settle } from './settle';
  * nothing else, so a state added here is walked by all four.
  *
  * **A sweep is only worth the states it walks.** A twenty-screen pass missed the invisible
- * archive-confirmation button, because nobody opened that dialog; a layout trial missed the
- * dashboard's squeezed dates until it opened a market before the dashboard (T67). So the list
- * names the router's routes, the dialogs, menus and drawers, hover states, the dashboard with a
- * market remembered, every phase, settled rules and the signed-out pages, over the stress seed's
+ * archive-confirmation button, because nobody opened that dialog; a layout trial missed a row's
+ * squeezed dates until it opened a market first (T67). So the list names the router's routes, the
+ * dialogs, menus and drawers, hover states, Markets with a market remembered, every phase, settled rules and the signed-out pages, over the stress seed's
  * markets (`seedTheScreens.ts`), and the list is part of the deliverable (`docs/design-system.md`,
  * "What keeps this true").
  */
@@ -62,10 +61,9 @@ const PUBLIC = [DESKTOP, PHONE];
  *
  * - the door (E29/F01);
  * - Tools, and the Discord return page;
- * - `/markets` (T142);
+ * - `/markets`, where signing in lands (T142);
  * - the Assignments page (T142), so "Change assignment" at the door lands on a page that fits the
  *   phone it was tapped on;
- * - the dashboard, where signing in lands (T148);
  * - Organizations (T148);
  * - Vendors (T180), with its drawer and dialogs, so a vendor is looked up and corrected at the door;
  * - Payments (T180), so who still owes is read at the door;
@@ -104,23 +102,12 @@ function at(path: (seed: TheScreensSeed) => string, ready: string, ...then: [str
   };
 }
 
-/** `path`, in a browser that remembers `id` as the market it opened last (E21/F02/S05). */
-async function openRemembering(page: Page, path: string, id: string, ready: string) {
-  await page.goto(path);
+/** Markets, in a browser that remembers `id` as the market it opened last (E21/F02/S05). */
+async function openRemembering(page: Page, id: string, ready: string) {
+  await page.goto('/markets');
   await page.evaluate((remembered) => localStorage.setItem('lastMarketId', remembered), id);
   await page.reload();
   await visible(page, ready);
-}
-
-/** The dashboard, remembering the market this browser opened last (E21/F02/S05). */
-function dashboardRemembering(market: keyof TheScreensSeed) {
-  return (page: Page, seed: TheScreensSeed) =>
-    openRemembering(
-      page,
-      '/dashboard',
-      (seed[market] as { marketId: string }).marketId,
-      'dashboard-last-market-card',
-    );
 }
 
 /** Markets, with the market this browser opened last on its one line. */
@@ -128,7 +115,6 @@ function marketsRemembering(market: keyof TheScreensSeed) {
   return (page: Page, seed: TheScreensSeed) =>
     openRemembering(
       page,
-      '/markets',
       (seed[market] as { marketId: string }).marketId,
       'markets-previously-opened',
     );
@@ -136,7 +122,7 @@ function marketsRemembering(market: keyof TheScreensSeed) {
 
 /** Markets, saying once that the market this browser opened last has gone. */
 const marketsRememberingOneGone = (page: Page) =>
-  openRemembering(page, '/markets', 'a-market-that-has-gone', 'markets-last-market-gone');
+  openRemembering(page, 'a-market-that-has-gone', 'markets-last-market-gone');
 
 const setup = (market: keyof TheScreensSeed, page: string) => (seed: TheScreensSeed) =>
   marketSetupPath((seed[market] as { marketId: string }).marketId, page);
@@ -281,24 +267,6 @@ function floorplanAt(stage: 'calibrating' | 'table types' | 'sections' | 'ready'
 
 export const SCREENS: Screen[] = [
   // The organizer's own pages.
-  {
-    name: 'the dashboard',
-    who: 'organizer',
-    sizes: FITS_A_PHONE,
-    open: at(fixed('/dashboard'), 'dashboard-has-markets'),
-  },
-  {
-    name: 'the dashboard, remembering a long-named draft',
-    who: 'organizer',
-    sizes: FITS_A_PHONE,
-    open: dashboardRemembering('draft'),
-  },
-  {
-    name: 'the dashboard, remembering a market in market days',
-    who: 'organizer',
-    sizes: FITS_A_PHONE,
-    open: dashboardRemembering('big'),
-  },
   {
     // The count, not "New market": the button is drawn before the list arrives, and on a stack
     // holding thousands of markets the sweep measured "Loading markets..." and nothing else.
@@ -1168,12 +1136,6 @@ export const SCREENS: Screen[] = [
   },
 
   // The first thing a new organizer sees, and nothing on it is seeded.
-  {
-    name: 'the dashboard, with no market',
-    who: 'no organization',
-    sizes: FITS_A_PHONE,
-    open: at(fixed('/dashboard'), 'dashboard-no-market-yet'),
-  },
   {
     name: 'the markets list, with no market',
     who: 'no organization',

@@ -177,7 +177,7 @@ test('a proposal does not call the dates unasked beside the tier grid that answe
 test('Markets says where an organization comes from', async ({ page }) => {
   const login = new LoginPage(page);
   await login.login(NO_ORG_USER.email, NO_ORG_USER.password);
-  await login.waitForDashboardRedirect();
+  await login.waitForMarkets();
   await page.goto('/markets');
   await expect(page.getByTestId('markets-no-market-yet')).toContainText(
     'create it under Organizations first',

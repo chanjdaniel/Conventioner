@@ -20,8 +20,8 @@ import { ensureVerifiedUser } from './verifiedUser';
  * seed: names of about 70 characters, 40 applications in every review state, a review divided
  * between two reviewers, 36 vendors over four dates and three sections, a long question label, long
  * links and settled priority rules. The trial that chose it (T67) found a squeezed date column only
- * once the walk reached a dashboard that remembered a market, so every market here is one a screen
- * can be opened on.
+ * once the walk reached a page that remembered a market, so every market here is one a screen can
+ * be opened on.
  *
  * Applications are written in one `insertMany` per market: a container round trip each would cost
  * the sweep more than walking the screens it seeds.

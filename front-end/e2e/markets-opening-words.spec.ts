@@ -70,7 +70,7 @@ async function organizerWith(page: Page, request: APIRequestContext, names: stri
   }
   const login = new LoginPage(page);
   await login.login(email, PASSWORD);
-  await login.waitForDashboardRedirect();
+  await login.waitForMarkets();
   return { email, markets };
 }
 

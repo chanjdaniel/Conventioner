@@ -197,7 +197,7 @@ const answerCount = question.options.length;
 
   <LibrarySection
     title="PhaseBadge"
-    about="Used on: Markets, the dashboard and the market chooser, on each market's row"
+    about="Used on: Markets and the market chooser, on each market's row"
   >
     <LibraryPanel v-for="path in PATHS" :key="path.mode" :label="`Each phase: ${path.label}`">
       <PhaseBadge v-for="phase in PHASES" :key="phase" :phase="phase" :intake-mode="path.mode" />
@@ -210,7 +210,7 @@ const answerCount = question.options.length;
 
   <LibrarySection
     title="SummaryCard"
-    about="Used on: Markets, the dashboard and the market chooser (each market's row), Organizations"
+    about="Used on: Markets and the market chooser (each market's row), Organizations"
   >
     <LibraryPanel label="A market's row: opens, with a badge and Manage" class="library-wide">
       <SummaryCard :facts="marketFacts" selectable @select="cardOpened = first.business">

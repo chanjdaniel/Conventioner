@@ -126,7 +126,6 @@ const MIGRATED = [
   'src/views/DiscordConnectedView.vue',
   'src/components/csvProposal/ProposalLedger.vue',
   'src/components/ValueFixes.vue',
-  'src/views/DashboardView.vue',
   'src/views/EmailVerificationView.vue',
   'src/views/InitView.vue',
   'src/views/LoadMarketOverlay.vue',

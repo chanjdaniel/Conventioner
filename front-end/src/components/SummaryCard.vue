@@ -2,8 +2,8 @@
 /**
  * One row in a list of things: a name, a fixed column of facts about it, and its actions.
  *
- * The same markup was copied into the markets list, the organizations list, the dashboard card
- * and the market chooser, with the facts laid out *after* the name rather than in a column of
+ * The same markup was copied into the markets list, the organizations list and the market chooser,
+ * with the facts laid out *after* the name rather than in a column of
  * their own - so the left edge of "Created:" followed the length of the market's name. Measured
  * down one list it landed at x = 289, 339, 345, 393, 336, 327, 327 and 323.
  *
@@ -74,8 +74,8 @@ defineEmits<{ select: [] }>();
 
    "Can spare" is the facts' own measure: a 7.5rem label, its gap, and room for the longest date a
    row says ("Dec 30, 2026 - Jan 2, 2027 (4 days)") - 22rem. The name took its whole 28rem
-   whatever the card's width, and on the dashboard, where the card is the width of the two buttons
-   below it, that left the facts a sliver: every date broke after two or three characters. */
+   whatever the card's width, and on a card narrower than the page's that left the facts a sliver:
+   every date broke after two or three characters. */
 .summary-card-body {
   display: grid;
   grid-template-columns: minmax(200px, 28rem) minmax(22rem, 1fr) auto;
@@ -101,7 +101,7 @@ defineEmits<{ select: [] }>();
 
 /* With an action beside them the three columns need its width too, and between the two widths
    Manage ran past the card's edge (T148, at 768px). 45rem is 37.5rem, a gap and Manage. A card
-   with no action (the dashboard's) keeps its columns down to 37.5rem. */
+   with no action (the market chooser's) keeps its columns down to 37.5rem. */
 @container (width < 45rem) {
   .summary-card-body:has(> .summary-card-actions:not(:empty)) {
     display: flex;

@@ -4,6 +4,7 @@ import { LoginPage } from './pages/LoginPage';
 import { MarketsPage } from './pages/MarketsPage';
 import { grantMarketRole } from './helpers/grantMarketRole';
 import { marketScreenPath } from './helpers/marketScreens';
+import { mongoEval } from './helpers/mongo';
 import { seedApplicantMarket } from './helpers/seedApplicantMarket';
 import { ensureTestOrg, seedMarketWithVendors } from './helpers/seeds';
 import { settle } from './helpers/settle';
@@ -77,7 +78,7 @@ test.describe('the bar on a desk', () => {
     await expect(organizations).toHaveAttribute('aria-current', 'page');
     await expect(markets).not.toHaveAttribute('aria-current');
 
-    await page.goto('/dashboard');
+    await page.goto('/reset-password-request');
     await expect(markets).toBeVisible();
     await expect(markets).not.toHaveAttribute('aria-current');
     await expect(organizations).not.toHaveAttribute('aria-current');
@@ -907,7 +908,7 @@ for (const size of SIZES) {
       await markTheDocument(page);
 
       await login.signIn(TEST_USER.email, TEST_USER.password);
-      await login.waitForDashboardRedirect();
+      await login.waitForMarkets();
 
       await expectFullBar(page);
       await expectSameDocument(page);
@@ -947,7 +948,7 @@ for (const size of SIZES) {
 
       const login = new LoginPage(page);
       await login.signIn(VIEWER.email, VIEWER.password);
-      await login.waitForDashboardRedirect();
+      await login.waitForMarkets();
 
       expect(await readTheBar(VIEWER.email)).toBe(owners);
     });
@@ -955,7 +956,7 @@ for (const size of SIZES) {
     test('an organizer with no organization has the same bar', async ({ page }) => {
       const login = new LoginPage(page);
       await login.login(NO_ORG_USER.email, NO_ORG_USER.password);
-      await login.waitForDashboardRedirect();
+      await login.waitForMarkets();
 
       await expectFullBar(page, NO_ORG_USER.email);
     });
@@ -1001,13 +1002,114 @@ for (const size of SIZES) {
 
       const login = new LoginPage(page);
       await login.login(TEST_USER.email, TEST_USER.password);
-      await login.waitForDashboardRedirect();
+      await login.waitForMarkets();
       probes = 0;
       await visit(['/reset-password-request', `/${marketSlug}`, '/no/such/page']);
 
       // That the count can move at all: an organizer's page does probe.
       await page.goto('/markets');
       await expect.poll(() => probes).toBe(1);
+    });
+  });
+}
+
+for (const size of SIZES) {
+  test.describe(`where signing in lands, ${size.name}`, () => {
+    test.use(size.use);
+
+    const expectAtMarkets = async (page: Page) => {
+      await expect(page).toHaveURL((url) => url.pathname === '/markets' && url.search === '');
+      await expect(page.getByTestId('markets-result-count')).toBeVisible();
+    };
+
+    test('by password, on Markets', async ({ page }) => {
+      const login = new LoginPage(page);
+      await login.goto();
+      await login.signIn(TEST_USER.email, TEST_USER.password);
+
+      await expectAtMarkets(page);
+    });
+
+    test('by a code, on Markets', async ({ page }) => {
+      const login = new LoginPage(page);
+      await login.goto();
+      // No email leaves the stack: the code is asked for as usual, and set where the server keeps it.
+      await page.route('**/request-otp', (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ msg: 'A sign-in code has been sent to your email.' }),
+        }),
+      );
+      await login.switchToOtp();
+      await login.otpEmailInput.fill(TEST_USER.email);
+      await login.otpSubmitButton.click();
+      await expect(login.otpCodeInput).toBeVisible();
+      const expires = new Date(Date.now() + 5 * 60_000).toISOString();
+      mongoEval(
+        `db.users.updateOne({ email: '${TEST_USER.email}' }, ` +
+          `{ $set: { otp: '246810', otp_expires: '${expires}', otp_attempts: 0 } })`,
+      );
+      await login.otpCodeInput.fill('246810');
+      await login.otpSubmitButton.click();
+
+      await expectAtMarkets(page);
+    });
+
+    test('with a next, back on that page', async ({ page }) => {
+      await page.goto('/organizations');
+      await page.waitForURL(/\/login\?next=/);
+
+      await new LoginPage(page).signIn(TEST_USER.email, TEST_USER.password);
+
+      await page.waitForURL((url) => url.pathname === '/organizations');
+    });
+
+    test('with a next of another site, on Markets', async ({ page }) => {
+      await page.goto('/login?next=%2F%2Fevil.example%2Fmarkets');
+
+      await new LoginPage(page).signIn(TEST_USER.email, TEST_USER.password);
+
+      await expectAtMarkets(page);
+      expect(new URL(page.url()).host).not.toBe('evil.example');
+    });
+
+    for (const address of ['/', '/dashboard']) {
+      test(`${address} forwards a signed-in organizer to Markets`, async ({
+        authenticatedPage: page,
+      }) => {
+        await page.goto(address);
+
+        await expectAtMarkets(page);
+      });
+
+      test(`${address} signed out leads through sign-in to Markets`, async ({ page }) => {
+        await page.goto(address);
+        await page.waitForURL(/\/login\?next=/);
+        expect(new URL(page.url()).searchParams.get('next')).toBe('/markets');
+
+        await new LoginPage(page).signIn(TEST_USER.email, TEST_USER.password);
+
+        await expectAtMarkets(page);
+      });
+    }
+
+    test('a signed-in visit to sign-in forwards to Markets', async ({
+      authenticatedPage: page,
+    }) => {
+      await page.goto('/login');
+
+      await expectAtMarkets(page);
+    });
+
+    test('a bookmark of the old page, carried through sign-in, lands on Markets', async ({
+      page,
+    }) => {
+      await page.goto('/login?next=%2Fdashboard');
+
+      await new LoginPage(page).signIn(TEST_USER.email, TEST_USER.password);
+
+      await expectAtMarkets(page);
     });
   });
 }

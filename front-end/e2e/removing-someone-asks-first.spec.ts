@@ -280,8 +280,9 @@ test.describe('Removing someone asks first, on a phone', () => {
 async function anotherOrganizer(browser: Browser, viewport: { width: number; height: number }) {
   const context = await browser.newContext({ viewport });
   const page = await context.newPage();
-  await new LoginPage(page).login(ADMIN, PASSWORD);
-  await page.waitForURL('**/dashboard');
+  const login = new LoginPage(page);
+  await login.login(ADMIN, PASSWORD);
+  await login.waitForMarkets();
   return { page, close: () => context.close() };
 }
 

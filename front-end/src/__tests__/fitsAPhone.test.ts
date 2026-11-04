@@ -14,7 +14,6 @@ const MARKET = '/markets/m1';
 
 describe('the places that fit a phone', () => {
   it.each([
-    ['the dashboard', '/dashboard'],
     ['the markets list', '/markets'],
     ['Organizations', '/organizations'],
     ['the door', `${MARKET}/attendance`],

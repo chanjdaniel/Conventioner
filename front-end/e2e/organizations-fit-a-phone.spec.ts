@@ -7,8 +7,7 @@ import { OrganizationsPage } from './pages/OrganizationsPage';
 /**
  * Organizations and its dialogs fit a phone (T148).
  *
- * An organizer on a phone lands on the dashboard, whose other place is Organizations. The 1000px
- * floor had it scrolling sideways here, its dialogs off screen under a phone's own emulation.
+ * An organizer on a phone lands on Markets, whose other place is Organizations. The 1000px floor had it scrolling sideways here, its dialogs off screen under a phone's own emulation.
  *
  * Its own owner, so the list holds one organization, and its member's address is long: on a phone
  * it takes a line of its own. Fixture data.
@@ -78,8 +77,12 @@ test.describe('on a phone', () => {
   test("the list keeps the phone's width, and its dialogs open inside it", async ({ page }) => {
     const login = new LoginPage(page);
     await login.login(OWNER.email, OWNER.password);
-    await login.waitForDashboardRedirect();
-    await page.getByTestId('dashboard-organizations-button').tap();
+    await login.waitForMarkets();
+    await page.getByTestId('app-bar-menu-button').tap();
+    await page
+      .getByTestId('app-bar-sheet')
+      .getByRole('link', { name: 'Organizations', exact: true })
+      .tap();
     await page.waitForURL('**/organizations');
 
     const orgs = new OrganizationsPage(page);
@@ -137,7 +140,7 @@ test('Organizations fits a window between a phone and a desk', async ({ page }) 
   await page.setViewportSize({ width: 768, height: 1024 });
   const login = new LoginPage(page);
   await login.login(OWNER.email, OWNER.password);
-  await login.waitForDashboardRedirect();
+  await login.waitForMarkets();
   await page.goto('/organizations');
   const card = page.getByTestId('organization-card').filter({ hasText: NAME });
   await expect(card).toBeVisible();

@@ -178,9 +178,8 @@ The public check-in page is the carve-out: it is not an organizer screen, it is 
 The [account pages](business/flows/accounts.md) are the way to it, so they work on a phone too: sign in with its tabs, both password-reset pages and email verification stand in one `AuthCard`, 600px wide at most, with a 16px page gutter at each side, and `sign-in-fits-a-phone.spec.ts` fails on any of them that scrolls sideways at 390px (T73).
 Some organizer places lift the desktop floor too, by `meta.fitsAPhone`, each with the dialogs, menus and drawers that open over it; listed in the router's order, one place a line:
 
-- the dashboard, where sign-in lands on the way to the door (T148);
-- `/markets`, the way to the market an organizer runs from the door (T142);
-- Organizations, the dashboard's other place (T148);
+- `/markets`, where sign-in lands on the way to the door, and the way to the market an organizer runs from it (T142, T148);
+- Organizations, the app bar's other place (T148);
 - the Applications page, the one page of Market Setup's view that fits, with the vendor drawer and Update info over it, where a late application is decided from a phone ([the review](business/flows/review.md)) (T180);
 - the Assignments page, where the vendor drawer's "Change assignment" at the door leads ([placements](implementation/modules/placements.md)) (T142);
 - Vendors, with the [vendor drawer](business/flows/vendor-drawer.md), Update info and the payment dialogs, where a vendor is looked up, paid and corrected from the door ([vendors](business/flows/vendors.md)) (T180);
@@ -209,7 +208,6 @@ The Applications page on a phone narrows its gutter to 16px too: the All view's 
 One by one's card is the page's width, its verdict buttons wrapping inside it; "Include the N follow-ups", the reviewed list's toggle and "Choose what leads the card" are 44px targets, and a reviewer's label in the reviewers picker is a 44px row.
 Payments on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters wrapping beneath it, the market's four figures stand two to a row, and each table lays its rows out as blocks, its row heading (the tier, the date or the vendor) on a line of its own and each value on a line beside its column's heading, since neither table's columns share 343px; the vendors' headings stay above as a row of sort buttons, each a 44px target.
 Stats on a phone narrows its gutter to 16px too: its headlines stand one to a line, each a 44px row and each link a 44px target, the money set apart from the placements by a rule above it rather than beside it; the answer groups' switch's buttons are never narrower than the target's minimum, at every width, so 44px wide at least on a phone, and the cards stand one to a row, narrower than their 18rem where the window is, as on a 320px phone.
-The dashboard is one column, 716px wide at most and the window's width less a 16px gutter at each side where that is narrower: the remembered market's card, or the sentence and its step, fills it, Markets and Organizations share the row beneath in two equal tiles, and Sign out is under them.
 [Organizations](business/flows/organizations.md) on a phone narrows its gutter to 16px, as `/markets` does, and "New organization" keeps one line, wrapping under the title only when the two cannot share the row; in Manage organization each person's address takes a line of its own with the role and Remove beneath it, and an add row's email field takes the row with Add and Cancel beneath it.
 
 | Token | Value | Screens |
@@ -462,16 +460,15 @@ A convention nothing enforces is how the product got here. Six checks, the first
    It walks each state at a phone's width too, as well as at its first size: an organizer's screens ship at a desk, but a desk zoomed to 400% is that narrow, and there a table too wide for its box scrolls and becomes a keyboard stop of its own; the floorplan beta's wizard steps, which cannot be walked that narrow, are marked `deskOnly`.
    Each dialog window a state shows is focused as a keyboard user's would be and must draw no outline, a window behind another dialog on top aside, since it is inert (T148), and a test opens Manage market from the keyboard, where the window takes focus while the market loads (T140).
    Its phone walk found a dialog's buttons running out past the window's left edge where they were wider than it, and the actions row now wraps.
-   It landed with what it found fixed: the seat buttons' and the drawer tabs' own rings, and the buttons whose own `box-shadow`, `none` included, outranked the halo: the dashboard's and the start page's, New market, New organization, the vendor rows, and the floorplan's Save & Continue and Sections buttons.
+   It landed with what it found fixed: the seat buttons' and the drawer tabs' own rings, and the buttons whose own `box-shadow`, `none` included, outranked the halo: the start page's, New market, New organization, the vendor rows, and the floorplan's Save & Continue and Sections buttons.
    It needed the floorplan wizard walked at each step with a plan uploaded, which the other sweeps then walked too, and they found the beta's step labels below AA on their beige, its progress bar with no name and an invalid value, its empty table types in a 40% grey, and its Export PNG button named something other than its words; all are fixed.
 
-The sweeps are only worth the states they walk. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog, and T67's layout trial missed the dashboard's squeezed dates until it opened a market before the dashboard; **dialogs, menus, drawers, hover states, disabled controls, empty states and remembered state have to be walked deliberately.**
+The sweeps are only worth the states they walk. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog, and T67's layout trial missed a market row's squeezed dates until it opened a market first; **dialogs, menus, drawers, hover states, disabled controls, empty states and remembered state have to be walked deliberately.**
 All four sweeps walk one list, `SCREENS` in [`e2e/helpers/screens.ts`](../front-end/e2e/helpers/screens.ts), through `walkTheScreens()`, and each passes only its own check, so a state added for one is walked by all.
 The list holds these states, one a line, each beside the state it is most like, so a new state is one line there, not at the list's end ([two features never share a line](implementation/conventions/two-features-never-share-a-line.md#the-design-language)):
 
 - the router's routes
 - the dialogs, menus and drawers
-- the dashboard with a market remembered
 - `/markets` with a market remembered, one gone with others left and with none, and with no market yet
 - every phase
 - the phase rail at 390 in every phase the seed holds, both intake paths among them

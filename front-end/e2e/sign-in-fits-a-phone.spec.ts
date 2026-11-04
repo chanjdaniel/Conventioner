@@ -97,8 +97,8 @@ test('the page Discord returns to fits a phone', async ({ authenticatedPage: pag
   await expectItFits(page, page.getByTestId('discord-connected-error'));
 });
 
-// Signing in lands on the dashboard, so an organizer on a phone meets it before `/markets` or the
-// market they remembered (T148). The 1000px floor had it scrolling sideways here.
+// Signing in lands on Markets, so an organizer on a phone meets it before the market they remembered
+// (T148). The 1000px floor had the page they landed on scrolling sideways here.
 test.describe('signing in on a phone', () => {
   test.use({
     viewport: PHONE,
@@ -124,8 +124,8 @@ test.describe('signing in on a phone', () => {
   }
 
   /**
-   * Holds the dashboard's markets answer back until `release` is called, so a test can read the
-   * page as it stands before the answer lands. The page's own `/markets` is a document, not this.
+   * Holds the markets answer back until `release` is called, so a test can read the page as it
+   * stands before the answer lands. The page's own `/markets` is a document, not this.
    */
   async function holdTheMarkets(page: Page): Promise<() => void> {
     let release!: () => void;
@@ -146,47 +146,30 @@ test.describe('signing in on a phone', () => {
     const release = await holdTheMarkets(page);
     const login = new LoginPage(page);
     await login.login(TEST_USER.email, TEST_USER.password);
-    await login.waitForDashboardRedirect();
+    await login.waitForMarkets();
     return release;
   }
 
-  /** The Markets tile's box once the dashboard has drawn it. */
-  async function marketsTile(page: Page) {
-    const tile = page.getByTestId('dashboard-markets-button');
-    await expect(tile).toBeVisible();
-    return tile.boundingBox();
-  }
-
-  /** The dashboard fits the window: no zoom, no sideways scroll, and its column inside it. */
-  async function expectTheDashboardFits(page: Page, card: Locator, what: string): Promise<void> {
+  /** Markets fits the window: no zoom, no sideways scroll, and its controls inside it. */
+  async function expectMarketsFits(page: Page): Promise<void> {
     expect(await widths(page)).toEqual({ layout: 390, page: 390, zoom: 1 });
-    await expectInside(card, what);
-    await expectInside(page.getByTestId('dashboard-markets-button'), 'the Markets tile');
-    await expectInside(
-      page.getByTestId('dashboard-organizations-button'),
-      'the Organizations tile',
-    );
-    await expectInside(page.getByTestId('dashboard-sign-out-button'), 'Sign out');
+    await expectInside(page.getByTestId('markets-create-button'), 'New market');
+    await expectInside(page.getByTestId('markets-finder'), 'the finder');
   }
 
-  test("lands on a dashboard that keeps the phone's width, and Markets keeps it too", async ({
+  test("lands on Markets, which keeps the phone's width before the answer and after it", async ({
     page,
   }) => {
     const release = await signInHolding(page);
-    const before = await marketsTile(page);
-    const count = page.getByTestId('dashboard-has-markets');
-    // The answer is held: were it not, the boxes would match without testing anything.
+    const count = page.getByTestId('markets-result-count');
+    await expect(page.getByTestId('markets-create-button')).toBeVisible();
+    // The answer is held: were it not, this would measure the same page twice.
     await expect(count, 'the count waits for the held answer').toBeHidden();
+    expect(await widths(page)).toEqual({ layout: 390, page: 390, zoom: 1 });
     release();
 
     await expect(count).toBeVisible();
-    expect(await marketsTile(page), 'the tiles hold still as the count arrives').toEqual(before);
-    await expectTheDashboardFits(page, count, 'the count');
-
-    await page.getByTestId('dashboard-markets-button').tap();
-    await page.waitForURL('**/markets');
-    await expect(page.getByTestId('markets-result-count')).toBeVisible();
-    expect(await widths(page)).toEqual({ layout: 390, page: 390, zoom: 1 });
+    await expectMarketsFits(page);
   });
 
   test('a remembered market is drawn inside the window', async ({ page, request }) => {
@@ -195,46 +178,42 @@ test.describe('signing in on a phone', () => {
     const res = await request.get(`${BACKEND_URL}/markets`);
     expect(res.ok()).toBe(true);
     const { markets } = (await res.json()) as { markets: { id: string }[] };
-    expect(markets.length).toBeGreaterThan(0);
+    expect(markets.length, 'one market gets no line').toBeGreaterThan(1);
     await page.addInitScript((id) => localStorage.setItem('lastMarketId', id), markets[0].id);
 
     const release = await signInHolding(page);
-    const before = await marketsTile(page);
-    const card = page.getByTestId('dashboard-last-market-card');
-    await expect(card, 'the card waits for the held answer').toBeHidden();
+    const line = page.getByTestId('markets-previously-opened');
+    await expect(page.getByTestId('markets-create-button')).toBeVisible();
+    await expect(line, 'the line waits for the held answer').toBeHidden();
     release();
 
-    await expect(card).toBeVisible();
-    expect(await marketsTile(page), 'the tiles hold still as the card arrives').toEqual(before);
-    await expectTheDashboardFits(page, card, "the remembered market's card");
+    await expect(line).toBeVisible();
+    await expectInside(line, 'the remembered market');
+    await expectMarketsFits(page);
   });
 });
 
-// Between a phone and a desk, the dashboard's column narrows with the window rather than holding
-// a desk's width, and keeps a gutter at each side: at 680px its card and tiles touched the window's
-// edges (T148).
-test('the dashboard fits a window between a phone and a desk', async ({
-  authenticatedPage: page,
-}) => {
-  await page.goto('/dashboard');
-  const count = page.getByTestId('dashboard-has-markets');
+// Between a phone and a desk, Markets narrows with the window rather than holding a desk's width,
+// and keeps a gutter at each side.
+test('Markets fits a window between a phone and a desk', async ({ authenticatedPage: page }) => {
+  await page.goto('/markets');
   for (const { width, height } of [
     { width: 768, height: 1024 },
     { width: 700, height: 900 },
   ]) {
     await page.setViewportSize({ width, height });
-    await expect(count).toBeVisible();
+    await expect(page.getByTestId('markets-result-count')).toBeVisible();
     const window = await page.evaluate(() => document.documentElement.clientWidth);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
-      `the dashboard scrolls sideways at ${width}px`,
+      `Markets scrolls sideways at ${width}px`,
     ).toBeLessThanOrEqual(window);
     for (const [testid, what] of [
-      ['dashboard-has-markets', 'the count'],
-      ['dashboard-markets-button', 'the Markets tile'],
-      ['dashboard-organizations-button', 'the Organizations tile'],
+      ['markets-finder', 'the finder'],
+      ['markets-create-button', 'New market'],
+      ['market-card', 'a market'],
     ]) {
-      const box = (await page.getByTestId(testid).boundingBox())!;
+      const box = (await page.getByTestId(testid).first().boundingBox())!;
       expect(box.x, `at ${width}px ${what} keeps a gutter at its left`).toBeGreaterThanOrEqual(16);
       expect(
         box.x + box.width,

@@ -1,6 +1,5 @@
 /**
- * Which market this browser last opened, for Markets' "Previously opened" line and the dashboard's
- * card (E21/F02/S05).
+ * Which market this browser last opened, for Markets' "Previously opened" line (E21/F02/S05).
  *
  * A POINTER, never a copy. Nothing about a market is kept in the browser: the whole market used to
  * live in `localStorage` under `market`, written by eleven call sites and read by five screens,

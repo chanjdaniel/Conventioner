@@ -16,9 +16,9 @@ const route = useRoute();
 
 /**
  * Where a sign-in continues to (E38/F11/S01): the page a signed-out link or an ended session was
- * on, when it is one of this app's, else the dashboard.
+ * on, when it is one of this app's, else Markets.
  */
-const afterSignIn = computed(() => safeNext(route.query.next) ?? '/dashboard');
+const afterSignIn = computed(() => safeNext(route.query.next) ?? '/markets');
 /** Brought here by a session that ended mid-work, which is said rather than left to guess. */
 const sessionEnded = computed(() => route.query.ended === '1');
 

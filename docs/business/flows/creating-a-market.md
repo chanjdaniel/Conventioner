@@ -64,7 +64,7 @@ Covered by:
 **Status:** Works (walked live).
 With none, the dialog says "No organizations available. Create an organization" and keeps "Create market" disabled.
 The link goes to `/organizations` (the dialog and anything typed in it are lost); after creating an organization there, start again from "New market".
-The dashboard says the same: create the organization under Organizations first (bug 42).
+The Markets list says the same: create the organization under Organizations first (bug 42).
 Covered by:
 - `new-market-org.spec.ts` (the zero-organization user)
 
