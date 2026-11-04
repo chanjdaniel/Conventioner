@@ -13,7 +13,7 @@ describes:
   - front-end/e2e/removing-someone-asks-first.spec.ts
   - front-end/e2e/changing-a-role-asks-first.spec.ts
   - front-end/src/utils/openInsteadOfStepping.ts
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - E20/F01/S03
   - E21/F03/S04
