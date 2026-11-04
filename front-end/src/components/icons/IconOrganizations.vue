@@ -1,5 +1,5 @@
-<!-- A group of people. The drawer used IconCommunity here, which is two speech bubbles: an
-     organization is who you belong to, not a conversation. -->
+<!-- A group of people, and not the two speech bubbles the drawer once drew here: an organization
+     is who you belong to, not a conversation. -->
 <template>
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="9" cy="8" r="3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
