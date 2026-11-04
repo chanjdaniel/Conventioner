@@ -200,6 +200,21 @@ test('a chooser of people, its rows and chips, breaks an address only before its
   }
 });
 
+test('"Assigned to", which offers reviewers of its own, breaks an address only before its "@" or a dot', async ({
+  authenticatedPage: page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  const all = new ApplicationsAllPage(page);
+  await all.goto(dealtMarketId, 'anyone');
+  await all.assignedTo.field.click();
+
+  const row = all.assignedTo.options
+    .filter({ hasText: reviewer })
+    .locator('.search-picker-option-label');
+  await expectWholeAddress(row, reviewer);
+  await expectWholeAddress(row, reviewer, true);
+});
+
 test('in a line narrower than the address, each sentence breaks it only before its "@" or a dot', async ({
   authenticatedPage: page,
 }) => {

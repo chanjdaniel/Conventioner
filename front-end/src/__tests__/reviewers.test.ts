@@ -177,15 +177,15 @@ describe('the "Assigned to" filter (E38/F07/S04)', () => {
     expect(assignedToOptions(ANA, chosen)).toEqual([
       { value: 'me', label: 'Me' },
       { value: 'anyone', label: 'Anyone' },
-      { value: SAM, label: SAM },
+      { value: SAM, label: SAM, address: true },
     ]);
   });
 
   it('offers Anyone and every reviewer to someone not chosen', () => {
     expect(assignedToOptions(BEN, chosen)).toEqual([
       { value: 'anyone', label: 'Anyone' },
-      { value: ANA, label: ANA },
-      { value: SAM, label: SAM },
+      { value: ANA, label: ANA, address: true },
+      { value: SAM, label: SAM, address: true },
     ]);
   });
 
@@ -197,7 +197,7 @@ describe('the "Assigned to" filter (E38/F07/S04)', () => {
           { value: 'anyone', label: 'Anyone' },
         ],
       },
-      { label: 'Reviewers', options: [{ value: SAM, label: SAM }] },
+      { label: 'Reviewers', options: [{ value: SAM, label: SAM, address: true }] },
     ]);
     expect(assignedToGroups(ANA, noneChosen).flatMap((group) => group.options)).toEqual([]);
   });

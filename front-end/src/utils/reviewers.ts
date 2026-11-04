@@ -111,7 +111,7 @@ export type AssignedTo = 'me' | 'anyone' | (string & {});
 export function assignedToOptions(
   reader: string,
   market: Team,
-): Array<{ value: AssignedTo; label: string }> {
+): Array<{ value: AssignedTo; label: string; address?: boolean }> {
   const reviewers = reviewerAddresses(market);
   if (!reviewers.length) return [];
   return [
@@ -119,7 +119,7 @@ export function assignedToOptions(
     { value: 'anyone', label: 'Anyone' },
     ...reviewers
       .filter((address) => !same(address, reader))
-      .map((address) => ({ value: address, label: address })),
+      .map((address) => ({ value: address, label: address, address: true })),
   ];
 }
 
