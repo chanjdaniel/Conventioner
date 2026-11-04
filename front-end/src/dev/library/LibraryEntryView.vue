@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
  * One entry of the component library, at `/dev/components/<id>`: its title, what it serves, and
- * its own file under `entries/`, beside the way to the others. An address the library has no built
- * entry for is "page not found", as any unknown address is.
+ * its own file under `entries/`, beside the way to the others. An address the library has no entry
+ * for is "page not found", as any unknown address is.
  */
 import { computed, defineAsyncComponent } from 'vue';
 import { useRoute } from 'vue-router';
