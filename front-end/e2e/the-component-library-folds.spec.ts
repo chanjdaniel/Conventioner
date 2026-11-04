@@ -187,13 +187,13 @@ eachWindow('the folds entry', (size) => {
   test("a seat row is the result's, and a press reads out under it, in view", async ({ page }) => {
     // A section far down the page, where a line at the section's top would be out of the window.
     const row = seats(page, sectionId(DATES[3]!, 'south')).nth(19);
-    await expect(row).toContainText('S20');
+    await expect(row).toContainText('South Wing 20');
     await expect(row.getByTestId('tables-table-choice')).toHaveText('Full Table');
     await expect(row.getByTestId('tables-seat-occupied')).toHaveCount(1);
     await expect(row.getByTestId('read-out')).toHaveCount(0);
 
     await press(row.getByTestId('tables-seat-change'));
-    await expect(row.getByTestId('read-out')).toContainText('Pressed: Change S20');
+    await expect(row.getByTestId('read-out')).toContainText('Pressed: Change South Wing 20');
     await expectInTheWindow(page, row.getByTestId('read-out'), 'the read-out');
     await press(row.getByTestId('tables-seat-vendor'));
     await expect(row.getByTestId('read-out')).toContainText('Pressed: The drawer of');

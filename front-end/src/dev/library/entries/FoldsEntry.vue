@@ -55,7 +55,7 @@ const names: VendorNames = Object.fromEntries(
   applications.map(({ email, name }) => [email.toLowerCase(), name]),
 );
 const seatEmail = (seat: Seat) => emailOf.get(seat.application)!;
-const seatCode = (seat: Seat) => `${seat.section.charAt(0)}${seat.table}`;
+const seatCode = (seat: Seat) => `${seat.section} ${seat.table}`;
 const seatKey = (seat: Seat) => `${seat.date}-${seat.section}-${seat.table}`;
 /** "North Wing" on a date, as a test id: `library-l7-2024-04-22-north`. */
 const sectionTestid = (date: string, section: string) =>

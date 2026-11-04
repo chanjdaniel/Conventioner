@@ -100,6 +100,8 @@ eachWindow('the summaries entry', (size) => {
 
     const today = page.getByRole('region', { name: 'Today: every reviewer listed', exact: true });
     await expect(today.getByTestId('reviewers-person')).toHaveText(addresses);
+    // Beside the proposed side's button, today's must not read as having no way to change them.
+    await expect(page.getByText('someone who may has "Change reviewers" as well')).toBeVisible();
     await expect(line(page)).toHaveText(lineWords(addresses));
 
     const choices = page.getByTestId('choices-for-you');

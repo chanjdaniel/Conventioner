@@ -41,6 +41,8 @@ const accountGroups: PickerGroup[] = [
   { options: people.map(({ email }) => ({ value: email, label: email })) },
 ];
 
+const l4About = `Every reviewer is listed above the work today, and that can be everyone with access. Today's panel is drawn here for someone who may not change them; someone who may has "Change reviewers" as well. The line names ${NAMED} and opens the rest.`;
+
 /** Today's real panel, read by someone who may not change them, so it only lists. */
 const todayMarket = {
   phase: MarketPhase.Applications,
@@ -83,10 +85,7 @@ const presses = ref(0);
 </script>
 
 <template>
-  <LibrarySection
-    title="L4: The reviewers, on the Applications tab"
-    :about="`Every reviewer is listed above the work today, and that can be everyone with access. The line names ${NAMED} and opens the rest.`"
-  >
+  <LibrarySection title="L4: The reviewers, on the Applications tab" :about="l4About">
     <TodayAndProposed
       today="Today: every reviewer listed"
       proposed="Proposed: one line, the rest in the dialog"

@@ -435,6 +435,19 @@ eachWindow('the export-vendors entry', (size) => {
     await expect(previewRows(page).first().getByRole('cell').last()).toHaveText(/^-\$\d/);
   });
 
+  test('Enter in the name or email field only looks', async ({ page }) => {
+    await open(page);
+    const field = page.getByTestId('library-export-search');
+    await field.fill('angela');
+    await field.press('Enter');
+
+    await expect(dialog(page)).toBeVisible();
+    await expect(field).toHaveValue('angela');
+    await expect(
+      page.getByRole('region', { name: 'Open it on either column choice' }).getByTestId('read-out'),
+    ).toHaveText('Download CSV would export: nothing');
+  });
+
   test('Download only reads out what it would export, and asks no server', async ({ page }) => {
     const asked: string[] = [];
     page.on('request', (request) => {

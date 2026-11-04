@@ -159,6 +159,7 @@ function download(): void {
             class="field"
             name="library-export-search"
             data-testid="library-export-search"
+            @keydown.enter.prevent
           />
         </div>
 

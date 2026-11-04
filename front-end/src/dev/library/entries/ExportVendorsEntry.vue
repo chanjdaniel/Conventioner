@@ -70,6 +70,10 @@ const labels = (list: ExportColumn[]) => list.map(columnLabel);
           Export vendors
         </button>
         <ReadOut label="Download CSV would export" :value="downloaded" />
+        <p class="library-quiet">
+          The fixture holds no follow-up's owner, so Mine here means the follow-ups dealt to the
+          first reviewer.
+        </p>
       </div>
     </LibraryPanel>
     <ExportDialogPrototype
@@ -144,7 +148,10 @@ const labels = (list: ExportColumn[]) => list.map(columnLabel);
       <strong>What the tray holds:</strong> the order and the preview, as here, or the order only
       with the preview a step of its own.
     </li>
-    <li><strong>The preview's rows:</strong> 3, as the product's preview has.</li>
+    <li>
+      <strong>The preview's rows:</strong> 3, as the product's preview has, or more, which takes the
+      body's height or scrolls inside the tray's cap?
+    </li>
     <li>
       <strong>The tray folded on a phone:</strong> folded to its summary line, as here, or open
       until closed.
@@ -159,8 +166,8 @@ const labels = (list: ExportColumn[]) => list.map(columnLabel);
       stack them?
     </li>
     <li>
-      <strong>Mine:</strong> kept as a tick beside the status toggles. The fixture holds no
-      follow-up's owner, so here it means the follow-ups dealt to the first reviewer.
+      <strong>Mine:</strong> kept as a tick beside the status toggles. Keep it a tick, make it one
+      of the toggles, or leave it out of this dialog?
     </li>
   </ChoicesForYou>
 </template>
@@ -181,6 +188,12 @@ const labels = (list: ExportColumn[]) => list.map(columnLabel);
 
 .library-demo > * {
   max-width: 100%;
+}
+
+.library-quiet {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-text-muted);
 }
 
 .library-variant {
