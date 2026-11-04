@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { MarketPhase, type Market, type Organization } from '@/assets/types/datatypes';
 import { getApiErrorMessage } from '@/utils/api';
 import { fetchMarkets, openMarket } from '@/utils/market';
+import { forgetLastMarket, lastMarketId } from '@/utils/lastMarket';
 import { fetchOrganizations } from '@/utils/organizations';
 import { phaseLabel } from '@/utils/phase';
 import {
@@ -17,7 +18,9 @@ import {
   viewMarkets,
 } from '@/utils/marketList';
 import MarketSummaryCard from '@/components/MarketSummaryCard.vue';
+import PhaseBadge from '@/components/PhaseBadge.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
+import IconExpandDown from '@/components/icons/IconExpandDown.vue';
 import NewMarketOverlay from './NewMarketOverlay.vue';
 import ManageMarketOverlay from './ManageMarketOverlay.vue';
 
@@ -37,6 +40,54 @@ const newOpen = ref(false);
 const manageOpen = ref(false);
 const manageMarket = ref<Market | null>(null);
 
+/**
+ * Which market this browser last opened: an id, never a copy (E21/F02/S05). What that market is
+ * called now, and whether it still exists for this account, is the server's to say.
+ */
+const rememberedId = ref(lastMarketId());
+/**
+ * Whether this account is known to have had a market, so "You have not set up a market yet" is
+ * never said to someone who has. Asked of the server's answers and the pointer, since a browser
+ * that opened none says nothing of the account (E14/F01/S02).
+ */
+const hadAMarket = ref(rememberedId.value !== null);
+/** Whether the page's first answer found the remembered market gone. */
+const rememberedIsGone = ref(false);
+let answered = false;
+
+/**
+ * Takes the first successful answer as the news that a remembered market has gone, said once and
+ * then forgotten, so the next visit is silent. A later answer drops the line with no note, since
+ * the organizer may just have deleted that market in Manage on this page.
+ */
+function readTheAnswer(loaded: Market[]) {
+  const firstAnswer = !answered;
+  answered = true;
+  if (loaded.length > 0) hadAMarket.value = true;
+  if (rememberedId.value === null || loaded.some((m) => m.id === rememberedId.value)) return;
+  forgetLastMarket();
+  rememberedId.value = null;
+  rememberedIsGone.value = firstAnswer;
+}
+
+/** The line above the finder, which the list's own filters do not touch. */
+const previouslyOpened = computed(() =>
+  markets.value.length > 1
+    ? (markets.value.find((m) => m.id === rememberedId.value) ?? null)
+    : null,
+);
+/**
+ * The note's words, which follow the list as it is re-read. There are none while the page shows no
+ * answer: a re-read that keeps the list keeps the note too, so nothing moves under the organizer.
+ */
+const goneNote = computed(() => {
+  const noAnswer = errorMessage.value || (loading.value && markets.value.length === 0);
+  if (!rememberedIsGone.value || noAnswer) return null;
+  return markets.value.length > 0
+    ? 'The market you last opened is no longer available. Your other markets are still here.'
+    : 'The market you last opened is no longer available, and there are no others.';
+});
+
 async function loadMarkets() {
   loading.value = true;
   errorMessage.value = '';
@@ -52,6 +103,7 @@ async function loadMarkets() {
         () => ({ ok: false, orgs: [] as Organization[] }),
       ),
     ]);
+    readTheAnswer(loadedMarkets);
     markets.value = loadedMarkets;
     organizations.value = [...loadedOrganizations.orgs].sort((a, b) =>
       a.name.localeCompare(b.name),
@@ -151,6 +203,29 @@ function handleNewClose() {
     </div>
 
     <div class="markets-block">
+      <!-- With the list, so nothing moves when the answer lands; the finder arrives under it. -->
+      <p v-if="goneNote" class="note opening-line" data-testid="markets-last-market-gone">
+        {{ goneNote }}
+      </p>
+      <button
+        v-else-if="previouslyOpened"
+        type="button"
+        class="previously-opened opening-line"
+        data-testid="markets-previously-opened"
+        @click="handleOpen(previouslyOpened)"
+      >
+        <span class="previously-opened-label">Previously opened</span>
+        <span class="previously-opened-name" :title="previouslyOpened.name">
+          {{ previouslyOpened.name }}
+        </span>
+        <PhaseBadge
+          class="previously-opened-phase"
+          :phase="previouslyOpened.phase"
+          :intake-mode="previouslyOpened.intakeMode"
+        />
+        <IconExpandDown class="previously-opened-go" aria-hidden="true" />
+      </button>
+
       <!-- Only before the first answer: a re-read after a dialog closes keeps the list and the finder
            on screen, rather than unmounting the control the organizer was using. -->
       <p v-if="loading && markets.length === 0" class="empty-state">Loading markets...</p>
@@ -160,14 +235,24 @@ function handleNewClose() {
         :message="errorMessage"
         @retry="loadMarkets"
       />
+      <!-- "New market" in the header is the step this names, so it carries no button of its own. -->
       <p
-        v-else-if="!loading && markets.length === 0"
+        v-else-if="markets.length === 0 && !hadAMarket"
+        class="note"
+        data-testid="markets-no-market-yet"
+      >
+        You have not set up a market yet. Every market belongs to an organization - if you are not
+        in one yet, create it under <RouterLink to="/organizations">Organizations</RouterLink>
+        first.
+      </p>
+      <p
+        v-else-if="markets.length === 0 && !rememberedIsGone"
         class="empty-state"
         data-testid="markets-empty"
       >
         No markets found
       </p>
-      <template v-else>
+      <template v-else-if="markets.length > 0">
         <div class="finder" role="search" aria-label="Find a market" data-testid="markets-finder">
           <div class="finder-row">
             <label class="finder-search">
@@ -347,6 +432,66 @@ function handleNewClose() {
 
 .markets-block {
   padding-top: var(--space-6);
+}
+
+.opening-line {
+  margin-bottom: var(--space-4);
+}
+
+/* One control, its whole width opening the market, a phone's or a desk's 44px. It is not a result
+   of the finder under it, so it wears a control's edge rather than a card's. */
+.previously-opened {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  background: white;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-control);
+  color: var(--mm-black);
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease-in-out;
+}
+
+.previously-opened:hover {
+  border-color: var(--mm-green);
+}
+
+.previously-opened-label {
+  flex: none;
+  color: var(--mm-text-muted);
+}
+
+.previously-opened-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.previously-opened-phase {
+  flex: none;
+}
+
+.previously-opened-go {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  color: var(--mm-text-muted);
+  transform: rotate(-90deg);
+}
+
+/* The name keeps the room on a phone, the phase being on its card in the list below. */
+@media (width <= 640px) {
+  .previously-opened-phase {
+    display: none;
+  }
 }
 
 .empty-state {

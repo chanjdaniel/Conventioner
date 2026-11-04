@@ -71,10 +71,24 @@ Above the list a finder narrows it: "Search" by market name as it is typed (case
 The finder's choices are held in the page's address; a value there that no longer means anything (an organization the organizer has left, a phase the finder does not offer, `offers` included) is dropped, so an old bookmark opens onto markets.
 Clicking a card opens the market; "Manage", shown to anyone who may read the market, opens the Manage market dialog ([L3 to L5](ending-and-managing-a-market.md#l3-manage-who-has-access)), where each control asks its own row and everyone reads [who may do what](ending-and-managing-a-market.md#l3a-set-who-may-do-what) (E39/F01/S04).
 The list fits a phone, since an organizer at the door finds the market there first (T142): at 390px nothing scrolls sideways, every control is a 44px target, and Manage market and the create-market dialog open inside the window.
+
+**What it says first** is about the account, asked of the server, and arrives with the list, so nothing moves when the answer lands.
+
+- **Previously opened:** one line above the finder names the market this browser last opened ([its pointer](../../implementation/modules/market-store.md)), with its phase badge at a desk, and at 640px and below the name keeps the room.
+  The whole line is one 44px control that opens the market, on the keyboard too, and a long name is cut with an ellipsis.
+  It shows when that market is among the account's markets and the account has more than one, and it is not a result of the finder, so filters do not hide it.
+- **The market gone:** in its place, "The market you last opened is no longer available. Your other markets are still here.", or "The market you last opened is no longer available, and there are no others." when the account has none.
+  It is said once, on the page's first successful read, and then forgotten, so the next visit is silent.
+  A failed read says nothing and forgets nothing.
+  Deleting that market in Manage on this page drops the line and forgets the market, with no note then or on the next visit.
+- **No market yet:** with no market and nothing remembered, "You have not set up a market yet. Every market belongs to an organization - if you are not in one yet, create it under Organizations first.", "Organizations" being a link and "New market" in the page's header the step ([D4](creating-a-market.md#d4-create-a-market-with-no-organization-yet)).
+  An account whose last market was deleted on this page reads "No markets found".
+
 Covered by:
 - `access-control.spec.ts`
 - `dashboard-market-count.spec.ts`
 - `finding-a-market.spec.ts`
+- `markets-opening-words.spec.ts`
 
 ## C3. Open a market by its address
 

@@ -201,6 +201,7 @@ The setup screens keep the floor, since they are built at a desk before the mark
 - the market chooser at `/init`.
 
 `/markets` on a phone narrows its gutter to 16px, as the door does, and its finder's fields and phase toggles wrap; a market's card stacks its facts and Manage under its name, which keeps one line and its ellipsis.
+Its "Previously opened" line stays one 44px row at every width, the words, the name cut with an ellipsis and a chevron, and drops its phase badge at 640px and below so the name keeps the room; the note that a remembered market has gone and the first-time message are a `.note`, wrapping to the column.
 A summary card stacks so whenever it is narrower than its name, its facts and its Manage need side by side (45rem with Manage, 37.5rem without), so a card at 768px stacks too rather than pushing Manage past its edge (T148).
 The Assignments page on a phone narrows its gutter to 16px too: its summary's figures stack, one to a 44px row, and its actions wrap under them; the filters stand in the page's flow rather than pinned, each filling its row and two sharing one where both fit; a half table's two seats stand one under the other, each seat's Change a 44px target; and a dialog's buttons wrap rather than run past its window.
 Vendors on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters, Export and Add a vendor wrapping beneath it, and a vendor's row stacks the name over its chips, which wrap where the Discord state, the badge, "Added" and the date count are wider together than the row.
@@ -471,6 +472,7 @@ The list holds these states, one a line, each beside the state it is most like, 
 - the router's routes
 - the dialogs, menus and drawers
 - the dashboard with a market remembered
+- `/markets` with a market remembered, one gone with others left and with none, and with no market yet
 - every phase
 - the phase rail at 390 in every phase the seed holds, both intake paths among them
 - `/markets` and the Assignments page with their dialogs at 390

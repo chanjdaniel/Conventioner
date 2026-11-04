@@ -133,9 +133,9 @@ Only an arrival with nothing held shows `loading`.
 A 404 and a 403 both drop what is held and set `missing`; telling them apart would confirm to anyone guessing ids that a market is real.
 Any other failure is `failed` when nothing is held, and a failed re-read keeps the held market and marks it `stale`, so a dropped connection never unmounts a screen's unsaved work.
 
-**The dashboard's pointer is set here and nowhere else.**
-[`front-end/src/utils/lastMarket.ts`](../../../front-end/src/utils/lastMarket.ts) keeps `lastMarketId` in `localStorage`: a pointer for "continue where you left off", never a copy.
-The store sets it when a market arrives, by whatever route, and forgets it when that market comes back missing.
+**The pointer to the market last opened is set here and nowhere else.**
+[`front-end/src/utils/lastMarket.ts`](../../../front-end/src/utils/lastMarket.ts) keeps `lastMarketId` in `localStorage`: a pointer for Markets' "Previously opened" line and the dashboard's card, never a copy.
+The store sets it when a market arrives, by whatever route, and forgets it when that market comes back missing; those two pages forget it when the account's list no longer holds it ([finding a market](../../business/flows/finding-a-market.md#c2-the-markets-list)).
 Every access to storage may fail quietly, since losing the pointer costs only a convenience.
 
 **The rail never fails a screen that cannot load one.**

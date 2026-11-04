@@ -1,11 +1,11 @@
 /**
- * Which market this browser last opened, for the dashboard's "continue where you left off"
- * (E21/F02/S05).
+ * Which market this browser last opened, for Markets' "Previously opened" line and the dashboard's
+ * card (E21/F02/S05).
  *
  * A POINTER, never a copy. Nothing about a market is kept in the browser: the whole market used to
  * live in `localStorage` under `market`, written by eleven call sites and read by five screens,
  * which is how screens came to show a market the server had moved on from. This keeps only the id,
- * and the dashboard asks the server what that market is now.
+ * and those pages ask the server what that market is now.
  *
  * Storage can be unavailable (private mode, a full quota), and losing the pointer costs only a
  * convenience, so every access is allowed to fail quietly.

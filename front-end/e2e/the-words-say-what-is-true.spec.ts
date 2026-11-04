@@ -174,14 +174,15 @@ test('a proposal does not call the dates unasked beside the tier grid that answe
   await expect(unasked.filter({ hasText: 'Available dates' })).toHaveCount(0);
 });
 
-test('the dashboard says where an organization comes from', async ({ page }) => {
+test('Markets says where an organization comes from', async ({ page }) => {
   const login = new LoginPage(page);
   await login.login(NO_ORG_USER.email, NO_ORG_USER.password);
   await login.waitForDashboardRedirect();
-  await expect(page.getByTestId('dashboard-no-market-yet')).toContainText(
+  await page.goto('/markets');
+  await expect(page.getByTestId('markets-no-market-yet')).toContainText(
     'create it under Organizations first',
   );
-  await expect(page.getByTestId('dashboard-no-market-yet')).not.toContainText('the next screen');
+  await expect(page.getByTestId('markets-no-market-yet')).not.toContainText('the next screen');
 });
 
 test('a sign-in code is called a code', async ({ page }) => {

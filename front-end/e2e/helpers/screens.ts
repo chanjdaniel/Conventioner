@@ -104,18 +104,39 @@ function at(path: (seed: TheScreensSeed) => string, ready: string, ...then: [str
   };
 }
 
+/** `path`, in a browser that remembers `id` as the market it opened last (E21/F02/S05). */
+async function openRemembering(page: Page, path: string, id: string, ready: string) {
+  await page.goto(path);
+  await page.evaluate((remembered) => localStorage.setItem('lastMarketId', remembered), id);
+  await page.reload();
+  await visible(page, ready);
+}
+
 /** The dashboard, remembering the market this browser opened last (E21/F02/S05). */
 function dashboardRemembering(market: keyof TheScreensSeed) {
-  return async (page: Page, seed: TheScreensSeed) => {
-    await page.goto('/dashboard');
-    await page.evaluate(
-      (id) => localStorage.setItem('lastMarketId', id),
+  return (page: Page, seed: TheScreensSeed) =>
+    openRemembering(
+      page,
+      '/dashboard',
       (seed[market] as { marketId: string }).marketId,
+      'dashboard-last-market-card',
     );
-    await page.reload();
-    await visible(page, 'dashboard-last-market-card');
-  };
 }
+
+/** Markets, with the market this browser opened last on its one line. */
+function marketsRemembering(market: keyof TheScreensSeed) {
+  return (page: Page, seed: TheScreensSeed) =>
+    openRemembering(
+      page,
+      '/markets',
+      (seed[market] as { marketId: string }).marketId,
+      'markets-previously-opened',
+    );
+}
+
+/** Markets, saying once that the market this browser opened last has gone. */
+const marketsRememberingOneGone = (page: Page) =>
+  openRemembering(page, '/markets', 'a-market-that-has-gone', 'markets-last-market-gone');
 
 const setup = (market: keyof TheScreensSeed, page: string) => (seed: TheScreensSeed) =>
   marketSetupPath((seed[market] as { marketId: string }).marketId, page);
@@ -285,6 +306,24 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: FITS_A_PHONE,
     open: at(fixed('/markets'), 'markets-result-count'),
+  },
+  {
+    name: 'the markets list, remembering a long-named draft',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: marketsRemembering('draft'),
+  },
+  {
+    name: 'the markets list, remembering a market in market days',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: marketsRemembering('big'),
+  },
+  {
+    name: 'the markets list, a remembered market gone',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: marketsRememberingOneGone,
   },
   {
     name: 'the new-market dialog, where a disabled primary lives',
@@ -1139,7 +1178,13 @@ export const SCREENS: Screen[] = [
     name: 'the markets list, with no market',
     who: 'no organization',
     sizes: FITS_A_PHONE,
-    open: at(fixed('/markets'), 'markets-empty'),
+    open: at(fixed('/markets'), 'markets-no-market-yet'),
+  },
+  {
+    name: 'the markets list, its only remembered market gone',
+    who: 'no organization',
+    sizes: FITS_A_PHONE,
+    open: marketsRememberingOneGone,
   },
 
   // Signed out: the way in, and what vendors and the door see.
