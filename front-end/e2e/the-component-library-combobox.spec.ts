@@ -543,7 +543,6 @@ eachWindow('the combobox entry', (size) => {
     await expectLaidOut(page, size, 'every value to fix');
 
     const lastRow = picker(page, 'library-c1-fix-42');
-    await lastRow.field.click();
     await lastRow.field.fill('Keychains');
     await lastRow.field.press('Enter');
     await expect(readOutOf(page, 'library-c1-fix-42')).toHaveText('Fix: Keychains');

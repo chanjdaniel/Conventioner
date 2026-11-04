@@ -1461,6 +1461,23 @@ describe("Daniel's choices (T204)", () => {
       wrapper.unmount();
     });
 
+    it('among several, Enter on a typed chip in other capitals takes it away, as on any chosen row', async () => {
+      const wrapper = chooser({
+        acceptsTyped: true,
+        multiple: true,
+        modelValue: ['soap'],
+        groups: ANSWERS,
+      });
+      await input(wrapper).setValue('SOAP');
+      expect(activeRow(wrapper)).toBe('soap');
+
+      await input(wrapper).trigger('keydown', { key: 'Enter' });
+
+      expect(last(wrapper)).toEqual([]);
+      expect(wrapper.findAll('[data-testid="who-chip"]')).toHaveLength(0);
+      wrapper.unmount();
+    });
+
     it('still offer words that merely hold an option', async () => {
       const wrapper = chooser({ acceptsTyped: true, groups: ANSWERS });
       await input(wrapper).setValue('art p');
