@@ -14,16 +14,25 @@ const SIZES = [
   { name: 'a phone', width: 390, height: 844 },
 ];
 
-/** Presses Tab through the buttons and says where focus moved a box, and how many it read. */
-async function walkTheButtons(page: Page): Promise<{ moved: string[]; read: number }> {
+/**
+ * Presses Tab through the buttons and says where focus moved a box, and how many it read. It also
+ * keeps what held focus at the last five presses, button or not, so a short read names its cause.
+ */
+async function walkTheButtons(
+  page: Page,
+): Promise<{ moved: string[]; read: number; lastStops: string[] }> {
   const moved: string[] = [];
+  const lastStops: string[] = [];
   let read = 0;
   const seen = new Set<string>();
   for (let press = 0; press < 150; press++) {
     await page.keyboard.press('Tab');
     const stop = await page.evaluate(() => {
       const el = document.activeElement as HTMLElement | null;
-      if (!el || !el.matches("button, .btn, [role='button'], .add-row")) return null;
+      const label = el
+        ? `${el.tagName.toLowerCase()} ${el.getAttribute('data-testid') ?? 'none'} "${(el.textContent ?? '').trim().slice(0, 40)}"`
+        : 'none';
+      if (!el || !el.matches("button, .btn, [role='button'], .add-row")) return { label, button: null };
       el.dataset.walked ??= String(Math.random());
       const boxes = () => {
         for (const animation of document.getAnimations()) animation.finish();
@@ -40,26 +49,36 @@ async function walkTheButtons(page: Page): Promise<{ moved: string[]; read: numb
       };
       const focused = boxes();
       el.blur();
-      return { id: el.dataset.walked, name: el.innerText.trim(), focused, atRest: boxes() };
+      return {
+        label,
+        button: { id: el.dataset.walked, name: el.innerText.trim(), focused, atRest: boxes() },
+      };
     });
-    if (!stop) continue;
-    if (seen.has(stop.id)) break;
-    seen.add(stop.id);
+    lastStops.push(stop.label);
+    lastStops.splice(0, lastStops.length - 5);
+    if (!stop.button) continue;
+    if (seen.has(stop.button.id)) break;
+    seen.add(stop.button.id);
     read++;
-    if (stop.focused.join() !== stop.atRest.join()) {
-      moved.push(`${stop.name}: at rest ${stop.atRest} -> focused ${stop.focused}`);
+    if (stop.button.focused.join() !== stop.button.atRest.join()) {
+      moved.push(
+        `${stop.button.name}: at rest ${stop.button.atRest} -> focused ${stop.button.focused}`,
+      );
     }
   }
-  return { moved, read };
+  return { moved, read, lastStops };
 }
 
 for (const size of SIZES) {
   test(`on ${size.name}, focus moves no button in the library's primitives`, async ({ page }) => {
     await page.setViewportSize({ width: size.width, height: size.height });
     await openEntry(page, 'primitives');
-    const { moved, read } = await walkTheButtons(page);
+    await expect(
+      page.getByTestId('library-entry-primitives').getByRole('button').first(),
+    ).toBeVisible();
+    const { moved, read, lastStops } = await walkTheButtons(page);
     expect(moved).toEqual([]);
-    expect(read).toBeGreaterThan(5);
+    expect(read, `last stops: ${lastStops.join(' | ')}`).toBeGreaterThan(5);
   });
 
   test(`on ${size.name}, focus moves no button or card on Markets`, async ({
@@ -67,9 +86,9 @@ for (const size of SIZES) {
   }) => {
     await page.setViewportSize({ width: size.width, height: size.height });
     await page.goto('/markets');
-    await page.getByTestId('market-card').first().waitFor();
-    const { moved, read } = await walkTheButtons(page);
+    await expect(page.getByTestId('market-card').first().getByRole('button').first()).toBeVisible();
+    const { moved, read, lastStops } = await walkTheButtons(page);
     expect(moved).toEqual([]);
-    expect(read).toBeGreaterThan(3);
+    expect(read, `last stops: ${lastStops.join(' | ')}`).toBeGreaterThan(3);
   });
 }
