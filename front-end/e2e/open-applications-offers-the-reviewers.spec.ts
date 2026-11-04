@@ -144,7 +144,7 @@ test('an Admin opens applications choosing two reviewers, and each new applicati
   await expect(currentPhase).toHaveText('Applications', { timeout: 10000 });
   // It lands where the move always has.
   await expect(page).toHaveURL(/\/applications$/);
-  await expect(new ReviewersPanel(page).people).toHaveText([ANA, BEN]);
+  await expect(new ReviewersPanel(page).line).toHaveText(`2 reviewers: ${ANA} and ${BEN}`);
 
   const first = await apply(browser, market, 'Iris');
   const second = await apply(browser, market, 'Jude');
