@@ -303,7 +303,7 @@ describe('the primitives exist and own what tokens cannot', () => {
       'a:not(.btn):focus-visible',
       'summary:focus-visible',
       // The phase rail's spine, a keyboard stop while it scrolls, has no rule of its own.
-      "[tabindex='0']:not(.btn, .add-row, .drag-handle, .step-button, button, [role='button']):focus-visible",
+      "[tabindex='0']:not(.btn, button, [role='button']):focus-visible",
     ];
     for (const control of controls) {
       expect(declaration(PRIMITIVES, control, 'box-shadow'), control).toBe('var(--focus-halo)');
