@@ -1,4 +1,4 @@
-import type { Router } from 'vue-router';
+import type { LocationQuery, Router } from 'vue-router';
 import type { MarketFlow, MarketPage } from '@/utils/marketPage';
 import { api } from '@/utils/api';
 import {
@@ -30,6 +30,26 @@ export function resolutionPath(marketId: string, relative: string): string {
   const [page, query] = relative.replace(/^\/+/, '').split('?');
   const path = marketPath(marketId, page as MarketPage | MarketFlow);
   return query ? `${path}?${query}` : path;
+}
+
+/**
+ * Whether an address is the page the reader is on: the same path, and every query value the address
+ * names held by the current one (T206). A link that names a step of a page (`form?step=review`) is
+ * here only on that step, so the rail offers Review setup from Your questions; a link that names no
+ * query (`applications`) is here whatever view the page keeps in its own (`?view=one`), as it was
+ * when the rail compared paths alone.
+ */
+export function isHere(
+  address: string,
+  here: { path: string; query?: LocationQuery } | null | undefined,
+): boolean {
+  if (!here) return false;
+  const [path, query] = address.split('?');
+  if (path !== here.path) return false;
+  return [...new URLSearchParams(query ?? '')].every(([key, value]) => {
+    const held = here.query?.[key];
+    return (Array.isArray(held) ? held[0] : held) === value;
+  });
 }
 
 /**
@@ -133,6 +153,10 @@ export function parseMarketFromApi(market: any): Market {
     // Which answers a reviewer reads first (E19/F03/S01). Absent means nothing is marked, which
     // renders the card exactly as it did before this existed.
     reviewHighlights: (market.reviewHighlights ?? market.review_highlights ?? []) as string[],
+    // Whether the review setup's two "none"s were chosen (T206): a read that carries neither, a
+    // list's, reads as undecided, as the server reads an absent flag.
+    nothingLeadsTheCard: market.nothingLeadsTheCard === true,
+    noAutomaticRejections: market.noAutomaticRejections === true,
     // How vendors reach the market, and whether verdicts are visible to applicants. Both were
     // dropped here, harmlessly only while the screens read the unparsed `localStorage` copy.
     intakeMode: market.intakeMode ?? market.intake_mode ?? undefined,

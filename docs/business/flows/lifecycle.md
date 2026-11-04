@@ -121,6 +121,8 @@ Each refusal is a blocker line under the rail and beside the move, before the cl
 | Leaving Draft | The plan has no location | "This market has no location. Add one on Market Setup." |
 | Leaving Draft | The plan has no tables, or a tier has none | "This market has no tables yet. Add a section with tables on Market Setup." / "Tier X has no tables. …" |
 | Leaving Draft | The form asks nothing: no custom field, and the plan offers no dates, no tiers and fewer than 2 sections | "The application form asks nothing. …" |
+| Leaving Draft | Nothing says what a reviewer reads first: no answer the market asks is marked to lead the card, and "Nothing leads the card" is not chosen | "Nothing says what a reviewer reads first. On Review setup, tick the answers that lead the card, or choose Nothing leads the card." |
+| Leaving Draft | The automatic rejections are not decided: no rule rejects an answer, and "No automatic rejections" is not chosen | "The automatic rejections are not decided. On Review setup, add a rule that rejects an answer, or choose No automatic rejections." |
 | Leaving Draft, on the Google Form path | Nothing has been imported: the first import, written, is the way in | "Nothing has been imported yet. Import your Google Form's responses first." |
 | The stage → Draft | Any application exists, imported or applied | "N applications are already in, so this market cannot return to draft. …" |
 | Assignment → the stage (Back to review) | Results are published | "Results are published: applicants have read whether they have a table, so the review cannot reopen. To change who has a table, place or free a seat on Assignments." |
@@ -170,6 +172,7 @@ The assignment rules (priority and options) and Assign belong to the Assignment 
 ## The rules it obeys
 
 - [The setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md): the three blockers on leaving Draft.
+- [Review waits on the review setup](../rules/review-waits-on-the-review-setup.md): the two Review setup decisions leaving Draft asks for, each "none" one click.
 - [The form locks at the first application](../rules/the-form-locks-at-the-first-application.md): the way back to Draft closes at the first application.
 - [Intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md): which path, and so which names and moves.
 - [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md).

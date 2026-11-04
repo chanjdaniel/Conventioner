@@ -36,7 +36,7 @@ export const ENTRIES: readonly LibraryEntry[] = [
     id: 'components',
     title: 'Existing components',
     summary:
-      'ReadFailed, PhaseBadge, SummaryCard, EmailAddress, VendorNameButton, RowMenu, StepHeader, AnswerValue, SignInMessage, BarLedger',
+      'ReadFailed, PhaseBadge, SummaryCard, EmailAddress, VendorNameButton, RowMenu, StepHeader, AnswerValue, SignInMessage, BarLedger, FileDropZone',
     serves: 'The screens that use them',
   },
   {
@@ -55,7 +55,8 @@ export const ENTRIES: readonly LibraryEntry[] = [
     id: 'filter-toggles',
     title: 'Filter toggles',
     summary: 'One row of pressed buttons, one choice or several, with counts',
-    serves: 'L2, L5, L6, L8, L12 and the 10 toggle rows',
+    serves:
+      'L2, L5, L6, L8, L12; Applications, Vendors, Payments, Attendance, Assignments, Stats and Markets',
   },
   {
     id: 'list-frame',

@@ -19,9 +19,11 @@ import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 import { useOpenMarket } from '@/utils/openMarket';
 import MarketFrame from '@/components/MarketFrame.vue';
+import FileDropZone from '@/components/FileDropZone.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { getFormattedDate, oneLine } from '@/utils/utils';
-import { importRefusal } from '@/utils/importPhase';
+import { firstImportBlockers, importRefusal, takesNoImport } from '@/utils/importPhase';
+import BlockerPanel from '@/components/BlockerPanel.vue';
 import { readCsvFile } from '@/utils/csvFile';
 import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
 import ValueFixes from '@/components/ValueFixes.vue';
@@ -141,6 +143,14 @@ const overturnedBy = computed(() =>
   whoMayTake(market.value?.permissionTable, MarketAction.ChangeVerdicts),
 );
 const phaseRefusal = computed(() => roleRefusal.value || importRefusal(market.value));
+/**
+ * What a draft's first import waits on, for someone who may import: every blocker of the move into
+ * Review at once, each linked to where it is done, so one trip to Market Setup is enough
+ * (T205/F09). The role refusal is said before the plan, so its reader is shown none of them.
+ */
+const firstImportWaitsOn = computed(() =>
+  roleRefusal.value ? [] : firstImportBlockers(market.value),
+);
 const takingApplications = computed(() => Boolean(market.value) && !phaseRefusal.value);
 /**
  * A draft's first import takes it into Review once it is written; in Review the import reads the
@@ -527,22 +537,6 @@ function takenBy(key: string, columnIndex: number | null, stem: string | null): 
   return byColumn || byGroup;
 }
 
-async function onFileChosen(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  // Cleared, so the same file chosen again after a refusal is read again.
-  input.value = '';
-  await acceptFile(file);
-}
-
-/** True while a file is over the drop zone, so the zone can say it will take it. */
-const dragging = ref(false);
-
-async function onFileDropped(event: DragEvent) {
-  dragging.value = false;
-  await acceptFile(event.dataTransfer?.files?.[0]);
-}
-
 /**
  * Take one file, whichever way it arrived.
  *
@@ -550,8 +544,7 @@ async function onFileDropped(event: DragEvent) {
  * what it holds, is refused here rather than parsed into a wall of nonsense columns, and the
  * upload step stays for another file (`readCsvFile`).
  */
-async function acceptFile(file: File | undefined) {
-  if (!file) return;
+async function acceptFile(file: File) {
   const read = await readCsvFile(file);
   if ('error' in read) {
     error.value = read.error;
@@ -868,13 +861,21 @@ function startOver() {
           {{
             roleRefusal
               ? 'Importing into this market is not yours to do'
-              : firstImport
-                ? 'This market is not ready for its first import'
-                : 'This market is not taking applications right now'
+              : takesNoImport(market)
+                ? "Vendors apply on this market's page"
+                : firstImport
+                  ? 'This market is not ready for its first import'
+                  : 'This market is not taking applications right now'
           }}
         </h2>
-        <p class="import-help">{{ phaseRefusal }}</p>
-        <button type="button" class="button-secondary" @click="leaveImport">
+        <BlockerPanel
+          v-if="market && firstImportWaitsOn.length"
+          :blockers="firstImportWaitsOn"
+          :market="market"
+          heading="Before its first import, this market needs:"
+        />
+        <p v-else class="import-help">{{ phaseRefusal }}</p>
+        <button type="button" class="button-secondary import-refusal-back" @click="leaveImport">
           Back to the market
         </button>
       </section>
@@ -901,28 +902,15 @@ function startOver() {
               : 'Bring your whole responses file again, the earlier responses with the new: new rows are added, changed rows are updated and the rest stay as they are. The market stays in Review.'
           }}
         </p>
-        <label
-          class="drop-zone"
-          :class="{ dragging, busy }"
-          data-testid="import-drop-zone"
-          @dragover.prevent="dragging = true"
-          @dragenter.prevent="dragging = true"
-          @dragleave="dragging = false"
-          @drop.prevent="onFileDropped"
-        >
-          <input
-            type="file"
-            accept=".csv,text/csv"
-            :disabled="busy"
-            data-testid="import-file-input"
-            @change="onFileChosen"
-          />
-          <span class="drop-zone-main">Drop your CSV here, or choose a file</span>
-          <span class="drop-zone-hint">
-            Any form tool or spreadsheet that exports CSV will do. Every column comes across; you
-            decide which ones mean something on the next step.
-          </span>
-        </label>
+        <FileDropZone
+          accept=".csv,text/csv"
+          label="Drop your CSV here, or choose a file"
+          hint="Any form tool or spreadsheet that exports CSV will do. Every column comes across; you decide which ones mean something on the next step."
+          :busy="busy"
+          testid="import-drop-zone"
+          input-testid="import-file-input"
+          @file="acceptFile"
+        />
       </section>
 
       <!-- 2. Map columns -->
@@ -995,7 +983,7 @@ function startOver() {
                       <select
                         v-model="groupTarget[row.group.stem]"
                         :aria-label="`What ${oneLine(row.group.stem)} maps to`"
-                        class="ledger-select"
+                        class="field field--select ledger-select"
                         :data-testid="`import-group-select-${row.group.columns[0]}`"
                       >
                         <option value="">Ignore these columns</option>
@@ -1087,7 +1075,7 @@ function startOver() {
                     <select
                       v-model="columnTarget[row.index]"
                       :aria-label="`What ${oneLine(headers[row.index] ?? '') || `column ${row.index + 1}`} maps to`"
-                      class="ledger-select"
+                      class="field field--select ledger-select"
                       :data-testid="`import-target-select-${row.index}`"
                     >
                       <option value="">Ignore this column</option>
@@ -1578,6 +1566,11 @@ function startOver() {
   font-size: var(--text-lg);
 }
 
+/* The way back keeps its own width, as the start's refusal's does, rather than a 720px bar. */
+.import-refusal-back {
+  align-self: flex-start;
+}
+
 .import-help {
   margin: 0;
   font-size: var(--text-xs);
@@ -1730,14 +1723,7 @@ function startOver() {
 }
 
 .ledger-select {
-  width: 100%;
   max-width: 260px;
-  height: 34px;
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-sm);
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  background: white;
 }
 
 .import-rail {
@@ -1806,67 +1792,6 @@ function startOver() {
   margin: 0;
   font-size: var(--text-xs);
   color: var(--mm-red);
-}
-
-.drop-zone {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  text-align: center;
-  padding: var(--space-8) var(--space-6);
-  margin-top: var(--space-2);
-  border: 2px dashed var(--mm-border);
-  border-radius: var(--radius-card);
-  background: var(--mm-beige);
-  cursor: pointer;
-  transition:
-    border-color 0.12s ease,
-    background 0.12s ease;
-}
-
-.drop-zone:hover,
-.drop-zone.dragging {
-  border-color: var(--mm-green);
-  background: rgba(54, 130, 111, 0.16);
-}
-
-/* Reading a file: the zone takes no file and its words go muted, as a disabled field's do, rather
-   than dimming with opacity, which took its heading under AA (T162). */
-.drop-zone.busy {
-  cursor: progress;
-}
-
-.drop-zone.busy .drop-zone-main {
-  color: var(--mm-text-muted-on-beige);
-}
-
-/* The input still does the work; it is the zone the organizer sees and drops onto. */
-.drop-zone input[type='file'] {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* The zone is one drop target. Without this the label's own children are targets too, so
-   crossing onto the text fires `dragleave` and the zone flickers out from under the file. */
-.drop-zone > * {
-  pointer-events: none;
-}
-
-.drop-zone-main {
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-md);
-  color: var(--mm-black);
-}
-
-.drop-zone-hint {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted-on-beige);
-  max-width: 42ch;
-  line-height: 1.5;
 }
 
 .preview-rows {

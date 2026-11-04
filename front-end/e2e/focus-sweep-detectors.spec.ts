@@ -28,8 +28,8 @@ async function show(page: Page, html: string): Promise<void> {
   await installTheSweep(page);
 }
 
-/** What the sweep says is wrong with the halo of the button it reaches by Tab. */
-async function problemsOfTheButton(page: Page): Promise<string[] | null> {
+/** What the sweep says is wrong with the halo of the control it reaches first by Tab. */
+async function problemsOfTheFirstStop(page: Page): Promise<string[] | null> {
   await page.keyboard.press('Tab');
   const verdict = await page.evaluate(
     (looks) => (window as unknown as SweepInPage).focusSweepJudge(looks),
@@ -61,7 +61,7 @@ test.describe('The focus sweep', () => {
         page,
       }) => {
         await show(page, placedIn(holds, placed));
-        expect(await problemsOfTheButton(page)).toEqual([
+        expect(await problemsOfTheFirstStop(page)).toEqual([
           'a halo cut off by div.box (overflow hidden hidden), at its left top',
         ]);
       });
@@ -76,7 +76,7 @@ test.describe('The focus sweep', () => {
       `<div class="box"><div class="moved" style="transform: translateX(0)">
          <button style="position: absolute; left: 0; top: 0">Approve</button></div></div>`,
     );
-    expect(await problemsOfTheButton(page)).toEqual([
+    expect(await problemsOfTheFirstStop(page)).toEqual([
       'a halo cut off by div.box (overflow hidden hidden), at its left top',
     ]);
   });
@@ -85,8 +85,33 @@ test.describe('The focus sweep', () => {
     // A static box with `overflow: hidden` clips what flows in it, not what is placed on the page.
     for (const placed of ['absolute', 'fixed'] as const) {
       await show(page, placedIn('', placed).replace('left: 0; top: 0', 'left: 8px; top: 8px'));
-      expect(await problemsOfTheButton(page), `a ${placed} button`).toEqual([]);
+      expect(await problemsOfTheFirstStop(page), `a ${placed} button`).toEqual([]);
     }
+  });
+
+  /**
+   * A file input drawn invisible inside the label that stands for it, as `FileDropZone.vue` draws
+   * one, with no outline as `primitives.css` gives every input, the label wearing the halo while
+   * the input has focus when `wears`.
+   */
+  const dropZone = (wears: boolean) => `
+    <style>
+      .zone { display: block; position: relative; width: 320px; margin: 40px; padding: 24px;
+        border: 2px dashed #999; border-radius: 8px; background: #f6f1e7; }
+      .zone input { position: absolute; inset: 0; width: 1px; height: 1px; opacity: 0; }
+      .zone input:focus { outline: none; }
+      ${wears ? `.zone:has(input:focus) { box-shadow: 0 0 0 3px ${LOOKS.halo}; }` : ''}
+    </style>
+    <label class="zone"><input type="file" data-testid="zone-input" /><span>Drop a file</span></label>`;
+
+  test('a drop zone that shows no focus for its file input is caught', async ({ page }) => {
+    await show(page, dropZone(false));
+    expect(await problemsOfTheFirstStop(page)).toEqual(['a control drew no halo: box-shadow none']);
+  });
+
+  test("a drop zone that wears its file input's halo passes", async ({ page }) => {
+    await show(page, dropZone(true));
+    expect(await problemsOfTheFirstStop(page)).toEqual([]);
   });
 
   /**

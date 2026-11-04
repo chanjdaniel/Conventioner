@@ -5,6 +5,7 @@ import {
   seedPublishedMarketWithAssignments,
 } from './helpers/seeds';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
+import { seedDraftMarket } from './helpers/seedDraftMarket';
 import type { Page } from '@playwright/test';
 
 /**
@@ -61,6 +62,39 @@ test.describe('Every market page has its own address', () => {
       await activeTab(page, tab);
     }
   });
+
+  // A blocker's fix, a bookmark or a shared link opens Review setup as `form?step=review` (T206):
+  // the Application Form tab keeps its step in the query, replaced as a page's own view is.
+  for (const intakeMode of ['form', 'csv'] as const) {
+    test(`the form tab's steps have addresses (${intakeMode})`, async ({
+      authenticatedPage: page,
+      request,
+    }) => {
+      const draft = (
+        await seedDraftMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+          intakeMode,
+        })
+      ).marketId;
+      await page.goto(at(draft, 'setup'));
+      await activeTab(page, 'setup');
+
+      await page.goto(`${at(draft, 'form')}?step=review`);
+      await activeTab(page, 'form');
+      await expect(page.getByTestId('form-step-title')).toHaveText('Review setup');
+      await page.reload();
+      await expect(page.getByTestId('form-step-title')).toHaveText('Review setup');
+
+      await page.getByTestId('form-step-questions').click();
+      await expect(page).toHaveURL(new RegExp(`/markets/${draft}/form\\?step=questions$`));
+      await expect(page.getByTestId('form-step-title')).toHaveText('Your questions');
+      await page.reload();
+      await expect(page.getByTestId('form-step-title')).toHaveText('Your questions');
+
+      // Choosing a step replaced the address: Back leaves the tab rather than stepping back.
+      await page.goBack();
+      await expect(page).toHaveURL(new RegExp(`/markets/${draft}/setup$`));
+    });
+  }
 
   test('the old addresses land on their pages', async ({ authenticatedPage: page }) => {
     await page.goto(`${at(published, 'setup')}?tab=form`);

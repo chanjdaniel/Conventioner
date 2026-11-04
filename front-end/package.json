@@ -12,6 +12,7 @@
     "build": "run-p type-check \"build-only -- {@}\" --",
     "preview": "vite preview",
     "build-only": "vite build",
+    "brand-icons": "node scripts/brand-icons.ts",
     "bundle-budget": "node scripts/bundle-budget.ts",
     "no-eval": "node scripts/no-eval.ts",
     "type-check": "vue-tsc --build",

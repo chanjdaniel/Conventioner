@@ -117,6 +117,23 @@ function dashboardRemembering(market: keyof TheScreensSeed) {
   };
 }
 
+/**
+ * `market`'s Questions tab as the start from a Google Form's confirm lands on it (T205/F20): the
+ * file's name in the entry's history state, under the key `utils/draftedFrom.ts` reads. Planted and
+ * reloaded rather than confirmed, since a confirm writes the seeded draft every other state reads.
+ */
+function landedFromAFile(market: keyof TheScreensSeed) {
+  return async (page: Page, seed: TheScreensSeed) => {
+    await page.goto(setup(market, 'form')(seed));
+    await visible(page, 'form-steps');
+    await page.evaluate(() =>
+      history.replaceState({ ...history.state, draftedFrom: 'five-day-grid.csv' }, ''),
+    );
+    await page.reload();
+    await visible(page, 'drafted-from');
+  };
+}
+
 const setup = (market: keyof TheScreensSeed, page: string) => (seed: TheScreensSeed) =>
   marketSetupPath((seed[market] as { marketId: string }).marketId, page);
 /** The review's One by one view: the Applications tab opens on All (E38/F05/S01). */
@@ -200,6 +217,16 @@ const removingAMarketRole = async (page: Page, seed: TheScreensSeed) => {
     .getByTestId('manage-market-remove-user-button')
     .click();
   await visible(page, 'manage-market-remove-keeps');
+};
+
+/**
+ * Manage market on the divided market, its Viewer's select choosing Admin (T211): the longest list
+ * the confirmation has, every row above Viewer up to Admin, in a body that scrolls.
+ */
+const changingAMarketRole = async (page: Page, seed: TheScreensSeed) => {
+  await managing('dealt')(page, seed);
+  await page.getByTestId('manage-market-role-select').selectOption('admin');
+  await visible(page, 'manage-market-role-change-gains');
 };
 
 const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
@@ -345,6 +372,13 @@ export const SCREENS: Screen[] = [
     open: removingAMarketRole,
   },
   {
+    // Its role select asking first (T211), Viewer to Admin, the confirmation's longest list.
+    name: 'the manage-market dialog, changing a market role',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: changingAMarketRole,
+  },
+  {
     // Its History section, loaded, with an entry opened to its before and after (E40/F01/S03).
     name: "the manage-market dialog's history, an entry open",
     who: 'organizer',
@@ -486,6 +520,20 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: ORGANIZER,
     open: at(marketAddress('csvDraft', '/start-from-csv'), 'start-from-csv'),
+  },
+  {
+    // A bare draft's first import lists everything it waits on, each with its link (T205/F09).
+    name: "a CSV draft's first import, refused for what its plan lacks",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(screen('csvDraft', 'import'), 'blocker-item'),
+  },
+  {
+    // What the start drafted and what the first import still waits on, said once (T205/F20, F09).
+    name: 'a CSV draft, its Questions tab after drafting from a Google Form',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: landedFromAFile('csvDraft'),
   },
 
   // Applications open, closed and in review, each with 40 applications in every review state.
@@ -1037,6 +1085,16 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: ORGANIZER,
     open: at(screen('big', 'floorplan'), 'market-bar-title'),
+  },
+  // Its upload step is the app's one drop zone (T205), so it is walked at a phone's width too.
+  {
+    name: 'the floorplan, its upload step',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: async (page, seed) => {
+      await new FloorplanWorkflowPage(page).goto(seed.draft.marketId);
+      await visible(page, 'floorplan-upload-dropzone');
+    },
   },
   // The floorplan beta's wizard is laid out for a desk: at a phone's width its calibration field
   // is off the screen, so its steps cannot be walked there.

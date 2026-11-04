@@ -51,7 +51,8 @@ function goToDashboard() {
       <img
         alt="Conventioner logo"
         class="conventioner-logo"
-        src="@/assets/icons/conventioner-logo.svg"
+        data-testid="banner-logo"
+        src="@/assets/brand/conventioner-logo.svg"
       />
     </component>
   </div>

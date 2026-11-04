@@ -9,7 +9,7 @@ values already naming what the market offers.
 """
 import pytest
 
-from conftest import FakeMarketsCollection, stored_market
+from conftest import REVIEW_SETUP_DECIDED, FakeMarketsCollection, stored_market
 
 import api.markets as MarketsApi
 import csv_import as CsvImport
@@ -1628,7 +1628,7 @@ class TestWhenImportingIsAllowed:
     assignment on the applicants are settled."""
 
     def test_a_draft_and_review_take_an_import(self, before_the_market):
-        doc = _market_doc(setup=COMPLETE_SETUP, phase=MarketPhase.DRAFT)
+        doc = _market_doc(setup=COMPLETE_SETUP, phase=MarketPhase.DRAFT, **REVIEW_SETUP_DECIDED)
 
         assert CsvImport.import_refusal(doc) is None
         assert CsvImport.import_refusal(_market_doc()) is None
@@ -1653,6 +1653,39 @@ class TestWhenImportingIsAllowed:
         refusal = CsvImport.import_refusal(doc)
 
         assert refusal is not None and "location" in refusal
+
+    def test_a_bare_draft_is_told_everything_it_lacks_at_once_in_the_guards_order(
+        self, before_the_market,
+    ):
+        """T205/F09: refused for its dates, then its location, then its tables, three trips for one
+        list. The refusal names every one, Review setup's two decisions with them, so a stale page
+        or a direct call reads the whole list."""
+        bare = {**SETUP_CAMEL, "marketDates": [], "locations": [], "sections": []}
+        doc = _market_doc(setup=bare, phase=MarketPhase.DRAFT)
+
+        refusal = CsvImport.import_refusal(doc)
+
+        assert refusal == (
+            "This market has no market dates. Pick them on Market Setup's calendar. "
+            "This market has no location. Add one on Market Setup. "
+            "This market has no tables yet. Add a section with tables on Market Setup. "
+            "Nothing says what a reviewer reads first. On Review setup, tick the answers that lead "
+            "the card, or choose Nothing leads the card. "
+            "The automatic rejections are not decided. On Review setup, add a rule that rejects an "
+            "answer, or choose No automatic rejections."
+        )
+        assert refusal == " ".join(b.message for b in CsvImport.first_import_blockers(doc))
+
+    def test_a_draft_missing_only_its_location_is_told_only_that(self, before_the_market):
+        doc = _market_doc(
+            setup={**COMPLETE_SETUP, "locations": []},
+            phase=MarketPhase.DRAFT,
+            **REVIEW_SETUP_DECIDED,
+        )
+
+        assert CsvImport.import_refusal(doc) == (
+            "This market has no location. Add one on Market Setup."
+        )
 
     def test_a_market_vendors_apply_to_on_its_own_page_imports_nothing(self):
         """Intake is exactly one mode, so import is the CSV path's (E31/F03/S04): a form market
@@ -1689,7 +1722,8 @@ class TestTheFirstImportEntersReview:
     before the write, so leaving the import keeps it a draft (E38/F04/S01)."""
 
     def _draft(self, monkeypatch):
-        markets = FakeMarketsCollection(_market_doc(setup=COMPLETE_SETUP, phase=MarketPhase.DRAFT))
+        markets = FakeMarketsCollection(_market_doc(
+            setup=COMPLETE_SETUP, phase=MarketPhase.DRAFT, **REVIEW_SETUP_DECIDED))
         monkeypatch.setattr(MarketsApi, "markets_collection", markets)
         return markets
 
@@ -1723,6 +1757,76 @@ class TestTheFirstImportEntersReview:
         assert body["created"] == 0
         assert body["phase"] == MarketPhase.DRAFT.value
         assert "phase" not in (markets.last_update or {}).get("$set", {})
+
+    def test_a_draft_that_has_not_decided_what_a_reviewer_reads_first_is_refused_it(
+        self, monkeypatch, applications, before_the_market,
+    ):
+        """Its first import would carry it into Review undecided, so it is refused, naming the
+        decision, before a row is read (T206)."""
+        markets = self._draft(monkeypatch)
+        markets.doc["nothingLeadsTheCard"] = False
+
+        refusal = CsvImport.import_refusal(markets.doc)
+
+        assert refusal is not None
+        assert refusal.startswith("Nothing says what a reviewer reads first.")
+        assert "Nothing leads the card" in refusal
+
+    def test_marking_an_answer_that_leads_the_card_lets_it_import(
+        self, monkeypatch, applications, before_the_market,
+    ):
+        markets = self._draft(monkeypatch)
+        markets.doc["nothingLeadsTheCard"] = False
+        markets.doc["reviewHighlights"] = ["business_name"]
+        assert CsvImport.import_refusal(markets.doc) is None
+
+        body, status = CsvImport.import_applications(
+            markets, markets.doc, _csv(GOOD_ROW), MAPPING, by="organizer@example.com",
+        )
+
+        assert status == 200, body
+        assert body["phase"] == MarketPhase.APPLICATIONS.value
+
+    def test_a_draft_that_has_not_decided_the_automatic_rejections_is_refused_it(
+        self, monkeypatch, applications, before_the_market,
+    ):
+        """Its first import would carry it into Review with no rule decided, so it is refused,
+        naming the decision, before a row is read (T206)."""
+        markets = self._draft(monkeypatch)
+        markets.doc["noAutomaticRejections"] = False
+
+        refusal = CsvImport.import_refusal(markets.doc)
+
+        assert refusal is not None
+        assert refusal.startswith("The automatic rejections are not decided.")
+        assert "No automatic rejections" in refusal
+
+    def test_a_rule_with_no_answer_ticked_does_not_let_it_import(
+        self, monkeypatch, applications, before_the_market,
+    ):
+        markets = self._draft(monkeypatch)
+        markets.doc["noAutomaticRejections"] = False
+        markets.doc["rejectionRules"] = [{"key": EssentialFields.TABLE_CHOICE_KEY, "answers": []}]
+
+        assert CsvImport.import_refusal(markets.doc).startswith(
+            "The automatic rejections are not decided.")
+
+    def test_a_rule_that_rejects_an_answer_lets_it_import(
+        self, monkeypatch, applications, before_the_market,
+    ):
+        markets = self._draft(monkeypatch)
+        markets.doc["noAutomaticRejections"] = False
+        markets.doc["rejectionRules"] = [
+            {"key": EssentialFields.TABLE_CHOICE_KEY, "answers": [EssentialFields.TABLE_CHOICE_FULL]},
+        ]
+        assert CsvImport.import_refusal(markets.doc) is None
+
+        body, status = CsvImport.import_applications(
+            markets, markets.doc, _csv(GOOD_ROW), MAPPING, by="organizer@example.com",
+        )
+
+        assert status == 200, body
+        assert body["phase"] == MarketPhase.APPLICATIONS.value
 
     def test_an_import_in_review_moves_nothing(self, monkeypatch, markets, applications):
         monkeypatch.setattr(MarketsApi, "markets_collection", markets)

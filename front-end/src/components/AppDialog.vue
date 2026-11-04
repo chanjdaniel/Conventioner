@@ -118,11 +118,19 @@ const FOCUSABLE =
 /**
  * The control a dialog opens on: its first, never a destructive one. For the same reason a
  * destructive dialog opens on Cancel, a dialog listing people never opens on the first person's
- * Remove, which one stray Enter would take: Manage organization opened on its first admin's.
+ * Remove, which one stray Enter would take: Manage organization opened on its first admin's. A
+ * control that takes something away without looking destructive, a chip's Remove, says so with
+ * `data-dialog-not-first`.
  */
 function firstSafeControl(): HTMLElement | null {
   const controls = windowEl.value?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [];
-  return [...controls].find((control) => !control.classList.contains('btn--destructive')) ?? null;
+  return (
+    [...controls].find(
+      (control) =>
+        !control.classList.contains('btn--destructive') &&
+        !control.hasAttribute('data-dialog-not-first'),
+    ) ?? null
+  );
 }
 
 /** Focus goes back to what opened the dialog when it closes, by any path. */
@@ -442,6 +450,7 @@ onUnmounted(() => observer?.disconnect());
 /* A body with nothing to focus is a keyboard stop of the browser's own; the window clips any halo
    drawn outside it. */
 .dialog-scroller:focus-visible {
+  border-radius: var(--radius-control);
   box-shadow: var(--focus-halo-inset);
 }
 

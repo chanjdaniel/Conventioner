@@ -133,7 +133,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
     <select
       v-else-if="field.type === 'select'"
       :id="`${prefix}-${field.key}`"
-      class="form-input"
+      class="field field--select"
       :class="{ error: errorFor(field) }"
       :value="(modelValue[field.key] as string) ?? ''"
       @change="onFieldChange(field, ($event.target as HTMLSelectElement).value)"
@@ -212,7 +212,8 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
   background: white;
 }
 
-.form-input.error {
+.form-input.error,
+.field--select.error {
   border-color: var(--mm-red);
 }
 

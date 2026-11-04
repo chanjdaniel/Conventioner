@@ -204,6 +204,17 @@ function toggle(label: string) {
         </select>
       </label>
     </LibraryPanel>
+    <LibraryPanel label="Select: a long option, cut before the chevron">
+      <label class="library-field">
+        <span class="field-label">Which question decides who sits beside whom?</span>
+        <select name="question-long" class="field field--select">
+          <option>
+            What kinds of handmade work will you bring to sell at the market on the day, in order?
+          </option>
+          <option>North Wing</option>
+        </select>
+      </label>
+    </LibraryPanel>
     <LibraryPanel label="Textarea: filled">
       <label class="library-field">
         <span class="field-label">What kinds of work will you sell?</span>

@@ -12,6 +12,9 @@ export class LoginPage {
   readonly tabRegister: Locator;
   readonly tabOtp: Locator;
 
+  /** The bordered box of every field on the open tab, which holds its input and any Show button. */
+  readonly fieldBoxes: Locator;
+
   // Login form
   readonly loginForm: Locator;
   readonly emailInput: Locator;
@@ -52,6 +55,8 @@ export class LoginPage {
     this.tabLogin = page.getByTestId('login-tab-login');
     this.tabRegister = page.getByTestId('login-tab-register');
     this.tabOtp = page.getByTestId('login-tab-otp');
+
+    this.fieldBoxes = page.getByTestId('login-field-box');
 
     this.loginForm = page.getByTestId('login-form');
     this.emailInput = page.getByTestId('login-email-input');

@@ -17,6 +17,7 @@
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { whoMayTake } from '@/utils/permissionTable';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useMarketStore } from '@/stores/market';
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
 import FormBuilder from '@/components/application/FormBuilder.vue';
@@ -24,13 +25,24 @@ import FormPreview from '@/components/application/FormPreview.vue';
 import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
 import AutomaticRejections from '@/components/application/AutomaticRejections.vue';
+import ReviewSetupDecision from '@/components/application/ReviewSetupDecision.vue';
 import StepHeader from '@/components/StepHeader.vue';
-import { useReviewHighlights } from '@/utils/reviewHighlights';
-import { useRejectionRules } from '@/utils/rejectionRules';
-import { formSteps, intakeModeOf, type FormStepId } from '@/utils/marketGuide';
+import { liveHighlights, useReviewHighlights } from '@/utils/reviewHighlights';
+import { rulesDecide, useRejectionRules } from '@/utils/rejectionRules';
+import {
+  blockersFor,
+  formStepNamed,
+  formSteps,
+  intakeModeOf,
+  type FormStepId,
+} from '@/utils/marketGuide';
 import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
-import { EMPTY_ESSENTIAL_OPTIONS, essentialOptionsFromSetup } from '@/utils/essentialFields';
+import {
+  EMPTY_ESSENTIAL_OPTIONS,
+  essentialOptionsFromSetup,
+  marketEssentialOptions,
+} from '@/utils/essentialFields';
 import { IntakeMode } from '@/assets/types/datatypes';
 import type {
   ApplicationForm,
@@ -256,14 +268,63 @@ async function saveApplicationForm() {
  *
  * The queue changes the same list through the same composable, so the two screens cannot diverge.
  */
-const { highlights, error: highlightsError, save: saveHighlights } = useReviewHighlights(market);
+const {
+  highlights,
+  nothingLeadsTheCard,
+  error: highlightsError,
+  save: saveHighlights,
+  chooseNone: chooseNothingLeads,
+} = useReviewHighlights(market);
+
+/**
+ * Review waits on the review setup (T206): while the market read serves the move into Review
+ * refused by a decision's guard, its section says so and offers its "none". Never past draft, which
+ * the guards never judge. A tick or a "none" on screen ends the notice at once, before the re-read.
+ */
+function waitsFor(guard: string): boolean {
+  return (
+    market.value != null &&
+    blockersFor(market.value, 'applications').some((blocker) => blocker.id === guard)
+  );
+}
+/** What the decisions hold up, on each path: opening applications, or the first import. */
+const waitsOnThis = computed(() =>
+  forApplicants.value ? 'Opening applications waits on this.' : 'Your first import waits on this.',
+);
+/**
+ * Judged against the form and plan as the market read serves them, as the guard judges them, never
+ * the tab's working copy: a mark on a question not yet saved decides nothing until Save Form.
+ */
+const highlightsUndecided = computed(
+  () =>
+    waitsFor('review_highlights_decided') &&
+    !nothingLeadsTheCard.value &&
+    liveHighlights(
+      highlights.value,
+      market.value?.applicationForm?.fields ?? [],
+      marketEssentialOptions(market.value),
+    ).length === 0,
+);
 
 /** Which answers reject automatically (E33/F03/S01), on the same step and written the same way. */
 const {
   rules: rejectionRules,
+  noAutomaticRejections,
   error: rejectionRulesError,
   save: saveRejectionRules,
+  chooseNone: chooseNoRejections,
 } = useRejectionRules(market);
+/** As the highlights' notice, for the rejections: a rule with no answer ticked decides nothing. */
+const rejectionsUndecided = computed(
+  () =>
+    waitsFor('rejection_rules_decided') &&
+    !noAutomaticRejections.value &&
+    !rulesDecide(rejectionRules.value, market.value?.rejectionQuestions ?? []),
+);
+/** "No automatic rejections" reads back while the rules may change, and not while they are closed. */
+const noRejectionsChosen = computed(
+  () => noAutomaticRejections.value && !market.value?.rejectionRulesLockReason,
+);
 
 /**
  * The tab is a sequence of steps, each with the whole width (E33/F01/S01). The builder and the
@@ -276,18 +337,40 @@ const {
  */
 const forApplicants = computed(() => intakeModeOf(market.value) === IntakeMode.Form);
 const steps = computed(() => formSteps(intakeModeOf(market.value)));
+const route = useRoute();
+const router = useRouter();
+/** The step the address names in its `step` query, while this path has it (T206). */
+const namedStep = computed(() => formStepNamed(route.query.step, intakeModeOf(market.value)));
 /**
- * A locked form - an applicant has submitted, or the market has left draft - opens on what is still
- * the organizer's to change: what a reviewer reads first (E33/F01/S03). The earlier steps stay one
- * click away, read-only and saying why. Decided once, as the tab opens: a lock that lands while the
- * organizer is on a step does not move them off it.
+ * The step the address names: a blocker's fix, a bookmark or a shared link opens Review setup as
+ * `form?step=review` (T206). With none, a locked form - an applicant has submitted, or the market
+ * has left draft - opens on what is still the organizer's to change: what a reviewer reads first
+ * (E33/F01/S03). The earlier steps stay one click away, read-only and saying why. Decided once, as
+ * the tab opens: a lock that lands while the organizer is on a step does not move them off it.
  */
-const chosenStep = ref<FormStepId>(formLocked.value ? 'review' : 'essentials');
-/** The chosen step, while this path has it. */
+const chosenStep = ref<FormStepId>(namedStep.value ?? (formLocked.value ? 'review' : 'essentials'));
+/**
+ * The chosen step, while this path has it. Choosing one (the header, Back, Next) replaces the
+ * address, as a page's own view does, so a refresh keeps the step and Back leaves the page rather
+ * than stepping back through the steps.
+ */
 const step = computed<FormStepId>({
   get: () =>
     steps.value.some((s) => s.id === chosenStep.value) ? chosenStep.value : steps.value[0].id,
-  set: (id) => (chosenStep.value = id),
+  set: (id) => {
+    chosenStep.value = id;
+    void router.replace({ query: { ...route.query, step: id } });
+  },
+});
+/**
+ * A link that names another step while the tab is open - the rail's "Decide what reviewers read
+ * first" from Your questions - moves there, at the top of the page as Back and Next do. An address
+ * naming no step, or one the path lacks, leaves the step as it is.
+ */
+watch(namedStep, (named) => {
+  if (!named || named === chosenStep.value) return;
+  chosenStep.value = named;
+  window.scrollTo({ top: 0 });
 });
 const stepIndex = computed(() => steps.value.findIndex((s) => s.id === step.value));
 const previousStep = computed(() => steps.value[stepIndex.value - 1] ?? null);
@@ -424,7 +507,20 @@ watch(formLocked, (locked, wasLocked) => {
                 :highlights="highlights"
                 :disabled="!changesForm"
                 @update:highlights="saveHighlights"
-              />
+              >
+                <template #decision>
+                  <ReviewSetupDecision
+                    testid="review-highlights"
+                    :undecided="highlightsUndecided"
+                    :waitsOn="waitsOnThis"
+                    :noneOffered="changesForm"
+                    noneLabel="Nothing leads the card"
+                    :noneChosen="nothingLeadsTheCard"
+                    readBack="Nothing leads the card: a reviewer reads every answer, in the form's order."
+                    @choose-none="chooseNothingLeads"
+                  />
+                </template>
+              </ReviewHighlights>
               <p
                 v-if="highlightsError"
                 class="review-setup-error"
@@ -445,8 +541,22 @@ watch(formLocked, (locked, wasLocked) => {
                 :lockReason="market?.rejectionRulesLockReason ?? null"
                 :disabled="!changesForm"
                 :overturnedBy="whoMayTake(market?.permissionTable, MarketAction.ChangeVerdicts)"
+                :noneReadBack="noRejectionsChosen"
                 @update:rules="saveRejectionRules"
-              />
+              >
+                <template #decision>
+                  <ReviewSetupDecision
+                    testid="rejection-rules"
+                    :undecided="rejectionsUndecided"
+                    :waitsOn="waitsOnThis"
+                    :noneOffered="changesForm"
+                    noneLabel="No automatic rejections"
+                    :noneChosen="noRejectionsChosen"
+                    readBack="No automatic rejections: every application arrives undecided."
+                    @choose-none="chooseNoRejections"
+                  />
+                </template>
+              </AutomaticRejections>
               <p
                 v-if="rejectionRulesError"
                 class="review-setup-error"

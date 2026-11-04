@@ -5,6 +5,7 @@ import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 
 import ChoosePathOverlay from '@/components/floorplan/ChoosePathOverlay.vue';
+import DraftedFrom from '@/components/market/DraftedFrom.vue';
 import MarketPlanTab from '@/components/market/MarketPlanTab.vue';
 import {
   type SetupObject,
@@ -26,6 +27,7 @@ import MarketAssignmentTab from '@/components/market/MarketAssignmentTab.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
 import { fitsAPhone } from '@/utils/fitsAPhone';
+import { takeDraftedFrom } from '@/utils/draftedFrom';
 
 const router = useRouter();
 
@@ -54,6 +56,20 @@ const activeTab = computed((): SetupViewPage => {
  * the Applications page does (T180); the plan, the form and Settings keep this view's desktop floor.
  */
 const onAPhoneLayout = computed(() => fitsAPhone(route));
+
+/**
+ * The responses file the market was just drafted from, on the arrival that follows the start's
+ * confirm, and only then (T205/F20): its entry's mark is read once and cleared, so a reload, Back to
+ * it, another page or a later visit to the Questions tab shows no notice.
+ */
+const draftedFrom = ref<string | null>(null);
+watch(
+  () => route.fullPath,
+  (path) => {
+    draftedFrom.value = takeDraftedFrom(router, path);
+  },
+  { immediate: true },
+);
 
 function showTab(page: MarketPage) {
   router.push(marketPath(marketId.value, page));
@@ -427,6 +443,15 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
          server answers the frame paints the state of asking (E21/F02/S02). -->
     <MarketFrame :market="market" :beforeTransition="flushPlanSave">
       <template v-if="market">
+        <!-- What the start from a Google Form just did, said once above the Questions tab it lands
+             on; here rather than in the tab's body, which owns the form. -->
+        <DraftedFrom
+          v-if="activeTab === 'form' && draftedFrom"
+          class="market-setup-drafted-from"
+          :market="market"
+          :fileName="draftedFrom"
+        />
+
         <!-- Application Form Tab -->
         <MarketFormTab v-if="activeTab === 'form'" :market="market" :setupObject="setupObject" />
 
@@ -522,6 +547,11 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
   /* In the plan's own gutter, under its cards' right edge: with none, "Plan saved" sat in the
      card's bottom-right corner, touching both edges (E26 re-walk). */
   padding: 0 var(--space-6) var(--space-6);
+}
+
+/* In the tab's own gutter, as the read-only note is, so it lines up with the steps under it. */
+.market-setup-drafted-from {
+  margin: var(--space-6) var(--space-6) 0;
 }
 
 .plan-save-status {

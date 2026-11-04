@@ -11,7 +11,9 @@ describes:
   - front-end/src/utils/permissionTable.ts
   - front-end/e2e/the-permissions-section.spec.ts
   - front-end/e2e/removing-someone-asks-first.spec.ts
-verified: 2026-11-01
+  - front-end/e2e/changing-a-role-asks-first.spec.ts
+  - front-end/src/utils/openInsteadOfStepping.ts
+verified: 2026-11-04
 sources:
   - E20/F01/S03
   - E21/F03/S04
@@ -34,6 +36,7 @@ sources:
   - E38/F12/S01
   - E38/F15/S01
   - T181
+  - T211
 ---
 
 # Ending and managing a market
@@ -88,7 +91,7 @@ Covered by:
 
 ## L3. Manage who has access
 
-**Status:** Works (the owner's row and the refusals read from the code as of E20/F01/S03 and bug 43's fix; the organization's people as of E38/F12/S01, driven by `everyone-with-access.spec.ts`).
+**Status:** Works (the owner's row and the refusals read from the code as of E20/F01/S03 and bug 43's fix; the organization's people as of E38/F12/S01, driven by `everyone-with-access.spec.ts`; a role change's confirmation as of T211, driven by `changing-a-role-asks-first.spec.ts`).
 
 1. "Manage" opens "Manage market"; "Users with access" lists everyone with a role on the market, by its own roles or through its organization, each once at the role that counts: the owner first, then Admin, Editor and Viewer, then by address, so someone just added takes their place in that order, never the top.
    The market read serves the list in that order as `peopleWithAccess` ([one market, from the server](../../implementation/conventions/one-market-from-the-server.md)), and the dialog words each row with [`peopleWithAccess.ts`](../../../front-end/src/utils/peopleWithAccess.ts).
@@ -96,6 +99,11 @@ Covered by:
 2. A role that comes from the organization says where: "Admin, through <organization>" for its owner and admins, "Viewer, through <organization>" for a member, with no select and no Remove, since only Manage organization changes it.
    A person whose market role adds nothing beside the organization's (the organization's reaches it, a tie included) reads, under that, "Also Editor on this market: this adds nothing while they are an admin of <organization>." ("a member of" for a member), with a Remove that takes only the market role, to tidy it away.
 3. A market role that counts, the organization's being lower or none, is a dropdown of the roles the reader may give (Admin, Editor, Viewer); any other role, the owner's always, is stated as a word, not offered.
+   Its arrow keys open its list rather than step it ([`openInsteadOfStepping.ts`](../../../front-end/src/utils/openInsteadOfStepping.ts)), since each step would be a change to confirm.
+   Choosing a role asks first, since one slip of the dropdown changed someone's access at once (T211): "Make e2e@example.com an Editor?", then "They are a Viewer on Spring Market now." and what the move changes, read from this market's own table.
+   Moving up lists under "As an Editor they could also:" the rows above the role held, up to the role chosen; moving down lists under "As a Viewer they could no longer:" the rows above the role chosen, up to the role held; with no row between them it says "This market's permissions treat the two roles alike, so nothing they may do changes."
+   It is not a destructive dialog, since another change undoes it, and only its body scrolls, so the question and "Change role" stay in sight above and below Viewer to Admin's list.
+   Cancel, Escape and the backdrop put the dropdown back on the role held and give it focus, with nothing sent; "Change role" writes the role, the list re-reads in place with the dialog open, and focus is on the dropdown, or on the list when the re-read leaves that row without one, as it does for someone who changed their own role.
 4. "Remove" beside each such person the reader may remove; never the owner.
    It asks first, in a destructive confirmation that opens on Cancel (E38/F15/S01): "Remove walk390@example.com from Spring Market?", then "They lose their Editor role on it." and, for someone in the organization, "They can still view it as a member of <organization>." ("run it as an admin of" for an admin).
    Cancel and Escape change nothing and give focus back to that Remove; "Remove" takes the market role, the list re-reads in place with the dialog open, and focus goes to the list; a refusal is said in the confirmation, whose Remove may be pressed again.
@@ -104,12 +112,14 @@ Covered by:
 5. Under the list, when a row comes through the organization: "Organization admins and members are managed in Manage organization.", "Manage organization" a link to `/organizations?manage=<id>`, which opens that organization's dialog, for a reader who belongs to it, and plain words for anyone else.
 6. "Add user", for an Admin or the owner only (bug 37): the email, the role, "Add", and "Cancel" on the same row, or on a phone the email above the rest.
    An address that already has a role on the market is refused beneath the row, pointing to that person's own row: adding once overwrote any role, the owner's too, around the guards a role change keeps (T15).
-7. A refused change of role is said beneath that person's row, which keeps the role they hold.
+7. A refused change of role closes the confirmation, re-reads the list and is said beneath that person's row, which states the role the server holds, since someone else may have moved it first.
+   When someone else removed them first, the row is gone and the words stand at the foot of the list, after their address; adding them back brings the row back without the words.
 
 The organization line says "Belongs to <organization>. Its admins run it; its members can view it."
 Covered by:
-- `*-sweep.spec.ts`, the sweeps' states "the manage-market dialog, an organization's people" and "the manage-market dialog, removing a market role"
+- `*-sweep.spec.ts`, the sweeps' states "the manage-market dialog, an organization's people", "the manage-market dialog, removing a market role" and "the manage-market dialog, changing a market role"
 - `access-control.spec.ts`
+- [`changing-a-role-asks-first.spec.ts`](../../../front-end/e2e/changing-a-role-asks-first.spec.ts) (the confirmation's words, its closes, one write on confirm and where focus goes, a table whose owner moved a row, a refusal, one after someone else moved or removed them first, the arrow keys, and Viewer to Admin in sight at 1280 and 390)
 - [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (the walk's case, and at 390 nothing overflowing and each Remove a 44px target, on one edge)
 - [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) (the confirmation's words, Cancel, Escape, confirming and where focus goes, someone removed in another window included, at 1440 and 390)
 - `the-manage-market-dialog-holds-together.spec.ts`
@@ -121,6 +131,7 @@ Covered by:
 
 1. "Permissions", after "Users with access", is closed until "Show" opens it, and says beneath its heading "Who may do what on this market." with "Every row is at its built-in default." or how many rows differ from the built-in defaults.
 2. Open, it lists every row of [the market's table](../../implementation/modules/market-actions.md#a-markets-own-rows) under its group, in the table's order: its label, where its role came from ("Built-in default", "Copied from the organization" for a row its organization's default set ([B8](organizations.md#b8-set-the-default-permissions-for-new-markets)), or "Changed on this market by <address>, <when>", from the row's newest change), and its role as "Viewer and above", "Editor and above", "Admin and above" or "Owner only".
+   A group's title sits nearer its own rows than the group above, at a desk and on a phone (T211), and Manage organization's default permissions read the same.
 3. For the owner each row that is not fixed is a dropdown of those four, named by the row's label, whose arrow keys open its list rather than step it, since each step would be a change to confirm; a fixed row ("Read the market...", "Give and take Admin roles", "Delete the market", "Change this table") states its role with "Always" and no control.
    "Give and take Editor and Viewer roles" says beside it that at "Viewer and above" any Viewer can make themself an Editor, since one row asks for both the role given and the role taken.
 4. Choosing a role asks first, in words naming who may after it and who loses or gains it ("Let only Admins and the owner check vendors in at this market?", "Editors lose this."), and for that row lowered to Viewer adds "A Viewer could then make themself an Editor."; "Change" saves that row alone, Cancel puts the dropdown back, and a refusal is said in the confirmation.
@@ -141,7 +152,7 @@ Covered by:
 - `marketPermissions.test.ts`
 - `permissionTable.test.ts`
 - `the-organizations-default.spec.ts` for the copy again
-- [`the-permissions-section.spec.ts`](../../../front-end/e2e/the-permissions-section.spec.ts)
+- [`the-permissions-section.spec.ts`](../../../front-end/e2e/the-permissions-section.spec.ts) (a group's title nearer its rows than the group above, at 1280 and 390)
 
 ## L4. Rename a market
 

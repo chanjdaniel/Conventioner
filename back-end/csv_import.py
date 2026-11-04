@@ -62,7 +62,9 @@ def import_refusal(market_doc: Dict[str, Any]) -> Optional[str]:
 
     Intake is exactly one mode, so importing is the CSV path's in every phase (E31/F03/S04): a form
     market takes its applications on its own page. A draft's first import also waits on what would
-    keep it from entering Review (``first_import_blockers``), said by the first of them.
+    keep it from entering Review (``first_import_blockers``), said all at once in the guards' order
+    (T205/F09), so the organizer fixes them in one trip; ``importRefusal`` in
+    ``front-end/src/utils/importPhase.ts`` mirrors it.
     """
     if intake_mode_from_market_document(market_doc) is IntakeMode.FORM:
         return (
@@ -76,7 +78,7 @@ def import_refusal(market_doc: Dict[str, Any]) -> Optional[str]:
         )
     blockers = first_import_blockers(market_doc)
     if blockers:
-        return blockers[0].message
+        return " ".join(blocker.message for blocker in blockers)
     return None
 
 

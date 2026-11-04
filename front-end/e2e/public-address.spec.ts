@@ -1,5 +1,6 @@
 import { test, expect, NewMarketPage, BACKEND_URL, APP_API, TEST_USER } from './fixtures';
 import { completePlan, ensureTestOrg } from './helpers/seeds';
+import { decideReviewSetup } from './helpers/decideReviewSetup';
 
 /**
  * A public address belongs to one market (E21/F03/S03).
@@ -67,6 +68,7 @@ test.describe('A public address belongs to one market', () => {
     });
     expect(created.ok(), await created.text()).toBe(true);
     const { market_id: marketId } = (await created.json()) as { market_id: string };
+    await decideReviewSetup(page.request, APP_API, marketId);
     const opened = await page.request.post(`${APP_API}/markets/${marketId}/transition`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: { toPhase: 'applications' },

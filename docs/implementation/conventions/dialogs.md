@@ -19,7 +19,9 @@ describes:
   - front-end/e2e/removing-someone-asks-first.spec.ts
   - front-end/src/__tests__/appDialog.test.ts
   - front-end/e2e/the-component-library-dialog.spec.ts
-verified: 2026-11-03
+  - front-end/src/__tests__/changingARoleAsksFirst.test.ts
+  - front-end/e2e/changing-a-role-asks-first.spec.ts
+verified: 2026-11-04
 sources:
   - wayfinding/the-order-of-the-work/08
   - wayfinding/the-order-of-the-work/map
@@ -39,6 +41,7 @@ sources:
   - E38/F15/S01
   - T181
   - T200
+  - T211
 ---
 
 # Dialogs
@@ -52,7 +55,7 @@ A new dialog is built on it, never hand-rolled.
 **The form is the Enter contract.**
 Enter in a field runs the same handler as the confirm button, so it inherits that handler's guard, and a disabled submit makes Enter inert with no key handler anywhere.
 Do not add `@keydown.enter`: five views each invented their own answer, and one of them (`ApplicantLogin`) bypassed its own resend cooldown by doing so.
-The one exception is a picker's open list ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): while its list is open, Enter takes the highlighted choice and is kept from the form, and Escape closes the list and is kept from the dialog; once the list is closed both keys are the dialog's again, so Enter submits through the form's guard and Escape closes.
+The one exception is a picker's open list ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): while its list is open, Enter takes the highlighted choice, or closes the list when none is highlighted, and is kept from the form (with `multiple` the list stays open after a choice, so the next Enter is the list's too), and Escape closes the list and is kept from the dialog; once the list is closed both keys are the dialog's again, so Enter submits through the form's guard and Escape closes.
 
 **A dialog of several independent actions passes no `confirmLabel`** and hosts its own `<form>`s in its body; Manage organization has three.
 Their submits are their own: the shell listens for `submit` only when its body is the form, so an inner form's submit neither is prevented by it nor makes it emit `submit`.
@@ -87,13 +90,14 @@ Three closes are correct and are pinned: deleting the thing, the explicit close 
 The parent learns about a save through its own event, never through `close`: `OrganizationsView` treating close as its refresh signal is why every membership change used to close the dialog.
 
 **A destructive dialog opens focused on Cancel**, deliberately: one stray Enter would otherwise be the whole irreversible action, and Cancel is a `type="button"`, so Enter there cancels.
-Any other dialog focuses its first enabled control that is not destructive, else its window: a dialog listing people never opens on the first person's Remove, which one stray Enter would take (Manage organization did, on its first admin's).
+Any other dialog focuses its first enabled control that is not destructive, else its window: a dialog listing people never opens on the first person's Remove, which one stray Enter would take (Manage organization did, on its first admin's), and a control that takes something away without being drawn destructive, as a [`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue) chip's Remove does, carries `data-dialog-not-first` for the same reason.
 The window draws no ring when it takes focus, as Manage market's does while its market loads: `primitives.css` draws nothing around what only a script focuses ([the design language](../../design-system.md#the-primitive-layer)).
 Focus skips `:disabled` controls, because `focus()` on a disabled element is a silent no-op; that left the create-market dialog opening with focus on `<body>` while its organization select loaded.
 **Closing gives focus back to what opened the dialog**, whichever way it closes, and when it is unmounted while open: closing unmounts the window, which dropped focus to `<body>`, so the next Tab started at the top of the page (T45).
 The opener is taken as the dialog opens, before focus moves in, and focused once the page behind is no longer inert.
 It is left alone when it has left the page, a deleted row or a navigation, and when the parent has already put focus somewhere itself in the same tick.
 So a confirmation whose confirm takes its opener away puts focus somewhere itself: Manage organization's and Manage market's Remove asks first (E38/F15/S01), and confirming takes that Remove away with what it removed (the row, or the line of a market role that added nothing), so focus goes to the list it was in, a `tabindex="-1"` group named by its heading, once the confirmation has closed and the page behind is no longer inert; Cancel and Escape leave the row, and focus goes back to its Remove.
+Manage market's role select asks first too (T211), and the shell gives focus back to the select, by Cancel, Escape, the backdrop, a refusal or a confirm, and the view focuses the select on opening, since Safari does not on a click; only when the re-read leaves no select, as it does for someone who changed their own role, does focus go to that same list.
 So an opener that goes away with the click hands focus on first: the phase rail's "More…" menu focuses its button as a choice closes it, as its Escape does, and a Publish or Archive confirm then gives focus back there ([`PhaseRail.vue`](../../../front-end/src/components/PhaseRail.vue)).
 `AppDialog` holds no focus trap, so a dialog that swaps one view for another moves focus itself: swapping unmounts the focused button.
 So does a row that takes the place of the button that opened it: Manage market's "Add user" and Manage organization's "Add admin" and "Add member" focus the row's field as it opens, and their button again as its Cancel closes it.
@@ -145,6 +149,7 @@ With exactly one organization it names it rather than offering a select with one
   It cannot see a cover painted from outside the component, by a shared stylesheet or a component library, and need not: the app installs no component library ([ADR 0015](../../adr/0015-the-app-owns-its-components.md)), since the floorplan's Edit Table Type, Save Template and Load Template dialogs, which were a library's and drew with no window and no scrim, moved onto `AppDialog` (T45).
 - [`useInertBehind.test.ts`](../../../front-end/src/__tests__/useInertBehind.test.ts) holds the walk: the page's other branches marked and the modal not, the marks given back on close and on unmount, an element already `inert` left as it was found, the counted marks of two modals open at once, a dialog on top kept live while the one beneath walks again, and a modal mounted already open with its root bound by template ref, the choose-a-path overlay among them; [`a-dialog-mounted-open-holds-the-page.spec.ts`](../../../front-end/e2e/a-dialog-mounted-open-holds-the-page.spec.ts) opens the change-placement dialog on the screens seed's big market at 390 and 1440, finds the market frame and the rail inert, Tab walking only the dialog's controls, and Escape giving the page and focus on the seat's Change back.
 - [`removingSomeoneAsksFirst.test.ts`](../../../front-end/src/__tests__/removingSomeoneAsksFirst.test.ts) and [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) open each Remove's confirmation, find it named by its question and opened on Cancel, close it by Cancel and by Escape (only it, not the dialog beneath) with focus back on the Remove and nothing removed, and confirm it, with focus on the list.
+- [`changingARoleAsksFirst.test.ts`](../../../front-end/src/__tests__/changingARoleAsksFirst.test.ts) and [`changing-a-role-asks-first.spec.ts`](../../../front-end/e2e/changing-a-role-asks-first.spec.ts) choose a role, find the confirmation named by its question with nothing sent, close it by Cancel, Escape and the backdrop (only it, not the dialog beneath) with the select back on the role held and focused, confirm it with one write and focus on the select, or on the list when the select has gone, and find a refusal said beneath the row, with the list re-read.
 - [`dialog-idiom.spec.ts`](../../../front-end/e2e/dialog-idiom.spec.ts) drives, in a browser, Enter in every dialog, focus on open and focus given back on close (the create-market dialog, a dialog opened from a dialog, and Edit Table Type), Manage organization staying open through saves and closing by its close control, the backdrop and Escape, its controls at the product's height with each add row's own Cancel and opening on no Remove, a dialog opened from a dialog, Escape there closing only the one on top, the floorplan's Edit Table Type dialog (its window and scrim, Enter from any field, and a unit change that saves the same millimetres), and its template dialogs (Save Template's Enter through its guard, its three closes, and staying open through a save in flight; Load Template's list, its confirm view, Cancel back to the list, and Replace, with focus following each view).
 
 ## What breaks it
