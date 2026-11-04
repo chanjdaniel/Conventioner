@@ -4,6 +4,7 @@ import { mount } from '@vue/test-utils';
 
 import FormBuilder from '@/components/application/FormBuilder.vue';
 import type { ApplicationForm, ExampleColumn, FormField } from '@/assets/types/datatypes';
+import { applicationFormError } from '@/utils/applicationForm';
 
 /**
  * Mirrors how MarketSetupView owns the form and the hand-edited-key flags: child emits, parent
@@ -377,6 +378,148 @@ describe('FormBuilder, on a market started from a file (E38/F02/S02)', () => {
     expect(plain.wrapper.find('[data-testid="form-builder-add-from-file"]').exists()).toBe(false);
     const locked = mountWithParent({ fields: [] }, true, [STATUS]);
     expect(locked.wrapper.find('[data-testid="form-builder-add-from-file"]').exists()).toBe(false);
+  });
+});
+
+describe('an option on a question from the file (T213)', () => {
+  const COUNTED: ExampleColumn = {
+    ...SELLS,
+    answers: {
+      select: ['Prints', 'Prints, Stickers', 'Stickers', 'Candles, Pins'],
+      multiSelect: ['Prints', 'Stickers', 'Candles', 'Pins'],
+    },
+  };
+  const sells = (patch: Partial<FormField> = {}) =>
+    question({
+      key: 'what_do_you_sell',
+      label: 'What do you sell?',
+      type: 'multi_select',
+      options: [''],
+      ...patch,
+    });
+  const COMBOBOX = '[data-testid="form-field-option"]';
+
+  /** The rows the option at `at` lists when it is clicked with nothing typed. */
+  async function listed(wrapper: ReturnType<typeof mount>, at = 0): Promise<string[]> {
+    const input = wrapper.findAll('[data-testid="form-field-option-input"]')[at];
+    await input.trigger('click');
+    const rows = wrapper
+      .findAll('[data-testid="form-field-option-option"]')
+      .map((row) => row.attributes('data-value') as string);
+    await input.trigger('blur');
+    return rows;
+  }
+
+  it('draws a combobox, named as the plain input was, for a choice made from a column', () => {
+    const { wrapper } = mountWithParent({ fields: [sells()] }, false, [COUNTED]);
+    const input = wrapper.get('[data-testid="form-field-option-input"]');
+    expect(input.attributes('role')).toBe('combobox');
+    expect(input.attributes('placeholder')).toBe('Option 1');
+    expect(wrapper.get(`${COMBOBOX} label`).text()).toBe('Option 1');
+  });
+
+  it('draws the plain input for a column with no answers for the type', () => {
+    const bare = { ...SELLS, options: { select: [], multiSelect: [] } };
+    const { wrapper } = mountWithParent({ fields: [sells()] }, false, [bare]);
+    expect(wrapper.find(COMBOBOX).exists()).toBe(false);
+    const input = wrapper.get('[data-testid="form-field-option-input"]');
+    expect(input.attributes('role')).toBeUndefined();
+    expect(input.attributes('aria-label')).toBe('Option 1');
+  });
+
+  it('draws the plain input for a question of no column', () => {
+    const { wrapper } = mountWithParent({ fields: [sells({ key: 'shop' })] }, false, [COUNTED]);
+    expect(wrapper.find(COMBOBOX).exists()).toBe(false);
+    expect(wrapper.find('[data-testid="form-field-option-input"]').exists()).toBe(true);
+  });
+
+  it('draws the plain input, disabled, on a read-only form', () => {
+    const { wrapper } = mountWithParent({ fields: [sells({ options: ['Prints'] })] }, true, [
+      COUNTED,
+    ]);
+    expect(wrapper.find(COMBOBOX).exists()).toBe(false);
+    const input = wrapper.get('[data-testid="form-field-option-input"]');
+    expect(input.attributes('disabled')).toBeDefined();
+    expect((input.element as HTMLInputElement).value).toBe('Prints');
+  });
+
+  it('keeps the combobox once no answer is left to offer, so no field changes under the caret', async () => {
+    const { wrapper } = mountWithParent(
+      { fields: [sells({ options: ['Prints', 'Stickers', 'Candles', ''] })] },
+      false,
+      [COUNTED],
+    );
+    const last = wrapper.findAll('[data-testid="form-field-option-input"]')[3];
+    await last.setValue('Pins');
+    await last.trigger('blur');
+    expect(wrapper.findAll(COMBOBOX)).toHaveLength(4);
+    expect(await listed(wrapper, 0)).toEqual(['Prints']);
+  });
+
+  it('lists every answer for the type but the other options, and follows the type', async () => {
+    const { wrapper } = mountWithParent({ fields: [sells({ options: ['Stickers', ''] })] }, false, [
+      COUNTED,
+    ]);
+    expect(await listed(wrapper, 1)).toEqual(['Prints', 'Candles', 'Pins']);
+    expect(await listed(wrapper, 0)).toEqual(['Prints', 'Stickers', 'Candles', 'Pins']);
+
+    await wrapper.get('[data-testid="form-field-type-select"]').setValue('select');
+    expect(await listed(wrapper, 1)).toEqual(['Prints', 'Prints, Stickers', 'Candles, Pins']);
+  });
+
+  it('gives an answer back to the list when the option holding it is removed', async () => {
+    const { wrapper } = mountWithParent({ fields: [sells({ options: ['Stickers', ''] })] }, false, [
+      COUNTED,
+    ]);
+    await wrapper.findAll('[data-testid="form-field-remove-option-button"]')[0].trigger('click');
+    expect(await listed(wrapper, 0)).toEqual(['Prints', 'Stickers', 'Candles', 'Pins']);
+  });
+
+  it('writes the words typed as the option, and a row chosen in their place', async () => {
+    const { wrapper, form } = mountWithParent({ fields: [sells()] }, false, [COUNTED]);
+    const input = wrapper.get('[data-testid="form-field-option-input"]');
+
+    await input.setValue('Hand-made  soap ');
+    expect(form.value!.fields[0].options).toEqual(['Hand-made  soap']);
+    expect(applicationFormError(form.value)).toBeNull();
+
+    await input.setValue('pin');
+    const rows = wrapper.findAll('[data-testid="form-field-option-option"]');
+    expect(rows.map((row) => row.attributes('data-value'))).toEqual(['pin', 'Pins']);
+    await rows[1].trigger('click');
+    expect(form.value!.fields[0].options).toEqual(['Pins']);
+  });
+
+  it('offers a question added from a column and retyped as a choice its answers', async () => {
+    const left: ExampleColumn = {
+      ...COUNTED,
+      key: 'notes',
+      label: 'Notes',
+      type: 'text',
+      question: false,
+      options: { select: [], multiSelect: [] },
+    };
+    const { wrapper, form } = mountWithParent({ fields: [] }, false, [left]);
+    await wrapper.get('[data-testid="form-builder-add-from-file"]').setValue('notes');
+    await wrapper.get('[data-testid="form-field-type-select"]').setValue('multi_select');
+    expect(form.value!.fields[0].options).toEqual([]);
+
+    await wrapper.get('[data-testid="form-field-add-option-button"]').trigger('click');
+    expect(await listed(wrapper)).toEqual(['Prints', 'Stickers', 'Candles', 'Pins']);
+  });
+
+  it('fills a type change and "Use the answers in your file" with the common answers only', async () => {
+    const { wrapper, form } = mountWithParent(
+      { fields: [question({ key: 'what_do_you_sell', type: 'checkbox' })] },
+      false,
+      [COUNTED],
+    );
+    await wrapper.get('[data-testid="form-field-type-select"]').setValue('multi_select');
+    expect(form.value!.fields[0].options).toEqual(SELLS.options.multiSelect);
+
+    await wrapper.findAll('[data-testid="form-field-option-input"]')[0].setValue('Soap');
+    await wrapper.get('[data-testid="form-field-use-file-options-button"]').trigger('click');
+    expect(form.value!.fields[0].options).toEqual(SELLS.options.multiSelect);
   });
 });
 

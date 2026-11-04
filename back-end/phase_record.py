@@ -77,7 +77,7 @@ class PhasesReached:
 
     @property
     def ran(self) -> bool:
-        """Did it reach its market days - the phase that serves a check-in page?"""
+        """Did it reach its market days - the phase vendors check in in, on their vendor page?"""
         return MarketPhase.MARKET_DAYS.value in self.phases
 
 

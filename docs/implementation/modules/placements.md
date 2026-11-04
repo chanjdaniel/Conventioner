@@ -43,6 +43,7 @@ sources:
   - T139
   - T142
   - T208
+  - T213
 ---
 
 # Placements
@@ -120,6 +121,7 @@ A market with nothing stored is shown nobody placed, never the run it would get 
 `GET /markets/:id/assignment` is the one preview: VIEWER, it computes a run over the approved applications and stores nothing, with the stored rows (and so the pins) left out.
 That it recomputes while every other read serves the stored assignment is deliberate: a preview answers "what would Assign give me", and the point of `assignment_to_show` is that nothing else recomputes.
 No screen calls it; `section-preference.spec.ts` does.
+It and the run's own response dump the whole market, less every answer `exampleColumns` keeps for an option to offer (`leave_out_every_answer`, [ADR 0023](../../adr/0023-every-answer-for-an-option-to-offer.md)).
 
 **`MarketTableRow.assignment` is the occupants and nothing else.**
 Its length is what `derive_unassigned_tables_from_rows` reads to count spare capacity.

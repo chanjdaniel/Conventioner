@@ -3,6 +3,7 @@ import { marketSetupPath } from './helpers/marketScreens';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { savePlan } from './helpers/savePlan';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
+import { publishResults } from './helpers/seeds';
 
 /**
  * The priority rules table is drawn from the primitives (E28/F03/S01).
@@ -130,6 +131,12 @@ test('a settled market reads its rules as a record, one answer to a line', async
       },
     ],
   });
+  // Run on these rules, so the run is current, and tell the vendors before going live (ADR 0022).
+  const ran = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/assignment`, {
+    headers: { 'X-Owner-Email': TEST_USER.email },
+  });
+  expect(ran.ok(), await ran.text()).toBeTruthy();
+  await publishResults(request, BACKEND_URL, TEST_USER.email, seed.marketId);
   const published = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
     headers: { 'X-Owner-Email': TEST_USER.email },
     data: { toPhase: 'market_days' },

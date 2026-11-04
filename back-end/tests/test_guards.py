@@ -789,11 +789,19 @@ class TestBackToReview:
 
         assert result.passed
 
-    def test_a_google_form_market_may_go_back_for_the_whole_of_assignment(self):
-        """It never publishes results, so its flag never stands."""
-        result = ResultsNotPublishedGuard().evaluate(_make_market(intake_mode=IntakeMode.CSV), None)
+    def test_a_google_form_market_not_yet_published_may_go_back(self):
+        result = ResultsNotPublishedGuard().evaluate(
+            _make_market(intake_mode=IntakeMode.CSV, results_published=False), None)
 
         assert result.passed
+
+    def test_a_google_form_market_published_is_refused_too(self):
+        """Its vendors have read their results on its vendor page (ADR 0022)."""
+        result = ResultsNotPublishedGuard().evaluate(
+            _make_market(intake_mode=IntakeMode.CSV, results_published=True), None)
+
+        assert not result.passed
+        assert result.id == "results_not_published"
 
     def test_it_has_id_and_description(self):
         guard = ResultsNotPublishedGuard()

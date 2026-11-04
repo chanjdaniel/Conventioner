@@ -1,5 +1,6 @@
 import type { Browser, BrowserContextOptions, Page } from '@playwright/test';
 import { LoginPage } from '../pages/LoginPage';
+import { hideDevToolsPanel } from './hideDevToolsPanel';
 
 /**
  * Log a user in inside their own browser context, so no two users in a test ever share a
@@ -14,6 +15,7 @@ export async function withUser<T>(
   options: BrowserContextOptions = {},
 ): Promise<T> {
   const context = await browser.newContext(options);
+  await hideDevToolsPanel(context);
   try {
     const page = await context.newPage();
     const loginPage = new LoginPage(page);

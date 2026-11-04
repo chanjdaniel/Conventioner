@@ -3,7 +3,13 @@ from types import SimpleNamespace
 import pytest
 
 import api.attendance as AttendanceApi
-from market_documents import market_name_slug
+from datatypes import MarketPhase
+from market_documents import market_by_slug, market_name_slug
+
+
+def running_market_at(slug):
+    """The public slug lookup, asked for a market in its days."""
+    return market_by_slug(AttendanceApi.markets_collection, slug, (MarketPhase.MARKET_DAYS,))
 
 
 class FakeAttendanceCollection:
@@ -112,74 +118,6 @@ def test_record_attendance_upserts_with_timestamp(monkeypatch):
     assert len(fake_coll.docs) == 1
 
 
-def test_get_vendor_assignment_summary_404_when_market_missing(monkeypatch):
-    monkeypatch.setattr(AttendanceApi, "get_check_in_market", lambda slug: None)
-    result, status = AttendanceApi.get_vendor_assignment_summary("nope", "v@example.com")
-    assert status == 404
-    assert result["error"] == "Market not found"
-
-
-def test_get_vendor_assignment_summary_404_when_no_assignment(monkeypatch):
-    market = _market_with_assignment()
-    market["assignmentObject"]["vendorAssignments"][0]["email"] = "someone@else.test"
-    monkeypatch.setattr(AttendanceApi, "get_check_in_market", lambda slug: market)
-
-    result, status = AttendanceApi.get_vendor_assignment_summary("test-market", "vendor@example.com")
-    assert status == 404
-    assert "No assignment" in result["error"]
-
-
-def test_the_lookup_reads_the_stored_assignment_and_never_runs_the_solver(monkeypatch):
-    """Bug 1: it ran the solver afresh on every lookup, so a vendor moved by hand was sent to their
-    old seat - another vendor's by then - and could check in there."""
-    market = _market_with_assignment()
-    row = market["assignmentObject"]["vendorAssignments"][0]
-    row.update({"tableCode": "B7", "handPlaced": True})  # where the organizer moved them
-    monkeypatch.setattr(AttendanceApi, "get_check_in_market", lambda slug: market)
-    monkeypatch.setattr(AttendanceApi, "attendance_collection", FakeAttendanceCollection())
-
-    def no_solver(*_args, **_kwargs):
-        raise AssertionError("a check-in lookup ran the solver")
-
-    monkeypatch.setattr(AttendanceApi, "assign_market", no_solver, raising=False)
-
-    result, status = AttendanceApi.get_vendor_assignment_summary("test-market", "vendor@example.com")
-    assert status == 200
-    assert [a["tableCode"] for a in result["assignments"]] == ["B7"]
-
-
-def test_get_vendor_assignment_summary_returns_camel_case_with_attendance_flag(monkeypatch):
-    market = _market_with_assignment()
-    market["assignmentObject"]["vendorAssignments"].append({
-        "email": "vendor@example.com", "date": "2026-05-02", "tableCode": "A2",
-        "tableChoice": "Full Table", "section": "A", "tier": "Gold", "location": "Main Hall",
-    })
-    monkeypatch.setattr(AttendanceApi, "get_check_in_market", lambda slug: market)
-
-    fake_coll = FakeAttendanceCollection()
-    fake_coll.docs.append({
-        "market_id": "market-123",
-        "vendor_email": "vendor@example.com",
-        "date": "2026-05-01",
-        "checked_in_at": "2026-05-01T10:00:00",
-    })
-    monkeypatch.setattr(AttendanceApi, "attendance_collection", fake_coll)
-
-    result, status = AttendanceApi.get_vendor_assignment_summary("test-market", "Vendor@Example.com")
-    assert status == 200
-    assert result["marketName"] == "Test Market"
-    assert result["vendorEmail"] == "vendor@example.com"
-    assert len(result["assignments"]) == 2
-    first = result["assignments"][0]
-    assert first["date"] == "2026-05-01"
-    assert first["tableCode"] == "A1"
-    assert first["tableChoice"] == "Full Table"
-    assert first["checkedInAt"] == "2026-05-01T10:00:00"
-    second = result["assignments"][1]
-    assert second["date"] == "2026-05-02"
-    assert second["checkedInAt"] is None
-
-
 def test_get_attendance_for_market_returns_camel_case_records(monkeypatch):
     fake_coll = FakeAttendanceCollection()
     fake_coll.docs.extend([
@@ -257,7 +195,7 @@ def _slug_market(name, **overrides):
     return doc
 
 
-def test_get_published_market_by_slug_skips_legacy_draft_without_phase(monkeypatch):
+def test_the_slug_lookup_skips_legacy_draft_without_phase(monkeypatch):
     """A draft written before the phase field existed must not be publicly reachable.
 
     Regression: the lookup filtered on `phase != draft` in Mongo, and `$ne` also matches a
@@ -266,7 +204,7 @@ def test_get_published_market_by_slug_skips_legacy_draft_without_phase(monkeypat
     fake = FakeSlugMarketsCollection([_slug_market("Legacy Draft", isDraft=True)])
     monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
 
-    assert AttendanceApi.get_published_market_by_slug("legacy-draft") is None
+    assert running_market_at("legacy-draft") is None
 
 
 def test_a_legacy_published_market_is_not_served_until_it_is_migrated(monkeypatch):
@@ -280,25 +218,25 @@ def test_a_legacy_published_market_is_not_served_until_it_is_migrated(monkeypatc
     fake = FakeSlugMarketsCollection([_slug_market("Legacy Published", isDraft=False)])
     monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
 
-    assert AttendanceApi.get_published_market_by_slug("legacy-published") is None
+    assert running_market_at("legacy-published") is None
     assert fake.scanned == ["Legacy Published"], "the prefilter must still let Python judge it"
 
 
-def test_get_published_market_by_slug_skips_draft_phase(monkeypatch):
+def test_the_slug_lookup_skips_draft_phase(monkeypatch):
     fake = FakeSlugMarketsCollection([_slug_market("Draft Market", phase="draft", isDraft=True)])
     monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
 
-    assert AttendanceApi.get_published_market_by_slug("draft-market") is None
+    assert running_market_at("draft-market") is None
 
 
-def test_get_published_market_by_slug_finds_a_running_market(monkeypatch):
+def test_the_slug_lookup_finds_a_running_market(monkeypatch):
     fake = FakeSlugMarketsCollection([
         _slug_market("Draft Market", phase="draft", isDraft=True),
         _slug_market("Live Market", phase="market_days", isDraft=False),
     ])
     monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
 
-    found = AttendanceApi.get_published_market_by_slug("live-market")
+    found = running_market_at("live-market")
     assert found is not None and found["name"] == "Live Market"
 
 
@@ -318,7 +256,7 @@ class TestSlugLookupPrunesInMongo:
         ])
         monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
 
-        AttendanceApi.get_published_market_by_slug("live-market")
+        running_market_at("live-market")
 
         assert fake.scanned == ["Live Market"]
 
@@ -327,7 +265,7 @@ class TestSlugLookupPrunesInMongo:
         fake = FakeSlugMarketsCollection([_slug_market("Bare Market")])
         monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
 
-        assert AttendanceApi.get_published_market_by_slug("bare-market") is None
+        assert running_market_at("bare-market") is None
         assert fake.scanned == ["Bare Market"]
 
     @pytest.mark.parametrize(
@@ -351,7 +289,7 @@ class TestSlugLookupPrunesInMongo:
         fake = FakeSlugMarketsCollection([_slug_market("Live Market", **overrides)])
         monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
 
-        AttendanceApi.get_published_market_by_slug("live-market")
+        running_market_at("live-market")
 
         assert fake.scanned == ["Live Market"], "the prefilter hid a document Python had to judge"
 
@@ -379,7 +317,7 @@ class TestSlugLookupQueriesTheStoredSlug:
             _slug_market("Live Market", phase="market_days", isDraft=False, setupObject={"big": 1}),
         )
 
-        AttendanceApi.get_published_market_by_slug("live-market")
+        running_market_at("live-market")
 
         assert [q.get("slug") for q in fake.queries] == ["live-market"]
         assert fake.scanned == ["Live Market"], "no other market was fetched to answer"
@@ -390,7 +328,7 @@ class TestSlugLookupQueriesTheStoredSlug:
             _slug_market("Live Market", phase="market_days", isDraft=False),
         )
 
-        assert AttendanceApi.get_published_market_by_slug("no-such-market") is None
+        assert running_market_at("no-such-market") is None
         assert fake.scanned == [], "a miss must not cost a pass over the collection"
 
     def test_the_match_is_returned_whole(self, monkeypatch):
@@ -406,7 +344,7 @@ class TestSlugLookupQueriesTheStoredSlug:
             ),
         )
 
-        found = AttendanceApi.get_published_market_by_slug("live-market")
+        found = running_market_at("live-market")
 
         assert found["setupObject"] == {"marketDates": [{"date": "2026-05-01"}]}
         assert found["assignmentObject"] == {"vendorAssignments": []}
@@ -423,7 +361,7 @@ class TestSlugLookupQueriesTheStoredSlug:
         del doc["slug"]
         self._fake(monkeypatch, doc)
 
-        assert AttendanceApi.get_published_market_by_slug("live-market") is None
+        assert running_market_at("live-market") is None
 
     def test_a_stored_slug_that_contradicts_the_name_serves_nothing(self, monkeypatch):
         """The stored slug narrows the query; the name is what decides.
@@ -437,7 +375,7 @@ class TestSlugLookupQueriesTheStoredSlug:
             _slug_market("Live Market", phase="market_days", isDraft=False, slug="other-market"),
         )
 
-        assert AttendanceApi.get_published_market_by_slug("other-market") is None
+        assert running_market_at("other-market") is None
 
     def test_the_document_returned_is_the_one_the_draft_test_ran_on(self, monkeypatch):
         """One read, so there is no second version of the market to disagree with the first.
@@ -451,57 +389,9 @@ class TestSlugLookupQueriesTheStoredSlug:
         )
         fake.find_one = lambda query: pytest.fail("the lookup must not re-fetch the market")
 
-        found = AttendanceApi.get_published_market_by_slug("live-market")
+        found = running_market_at("live-market")
 
         assert found["name"] == "Live Market"
-
-
-class TestNamingTheMarketBeforeAnythingIsTyped:
-    """The page read "Vendor Check-in" until after a lookup.
-
-    A vendor handed a URL or a QR code at a door had to enter their address to find out whether
-    they were at the right market's page - the confirmation arriving after the work.
-    """
-
-    def test_names_a_published_market_from_its_slug_alone(self, monkeypatch):
-        monkeypatch.setattr(
-            AttendanceApi, "get_check_in_market",
-            lambda _slug: {
-                "id": "market-123",
-                "name": "Winter Market 2026",
-                "setupObject": {"marketDates": [{"date": "2026-11-22"}, {"date": "2026-11-21"}]},
-            },
-        )
-
-        result, status = AttendanceApi.get_checkin_page("winter-market-2026")
-
-        assert status == 200
-        assert result["marketName"] == "Winter Market 2026"
-        assert result["marketDates"] == ["2026-11-21", "2026-11-22"]
-
-    def test_answers_nothing_for_a_market_that_is_not_published(self, monkeypatch):
-        monkeypatch.setattr(AttendanceApi, "get_check_in_market", lambda _slug: None)
-
-        result, status = AttendanceApi.get_checkin_page("no-such-market")
-
-        assert status == 404
-        assert result["error"] == "Market not found"
-
-    def test_a_market_with_no_plan_still_names_itself(self, monkeypatch):
-        monkeypatch.setattr(
-            AttendanceApi, "get_check_in_market",
-            lambda _slug: {"id": "m", "name": "Bare Market"},
-        )
-
-        result, status = AttendanceApi.get_checkin_page("bare-market")
-
-        assert status == 200
-        assert result["marketDates"] == []
-
-    def test_a_blank_slug_is_refused_rather_than_looked_up(self):
-        _result, status = AttendanceApi.get_checkin_page("   ")
-
-        assert status == 400
 
 
 class TestUndoingACheckInOnTheWrongDay:

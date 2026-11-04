@@ -1,12 +1,12 @@
-import { test, expect, TEST_USER, BACKEND_URL, ApplicantLoginPage } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
 import type { Browser, Page } from '@playwright/test';
-import { ApplyPage } from './pages/ApplyPage';
 import { marketSetupPath, oneByOnePath } from './helpers/marketScreens';
 import {
   createApplicantLoginChallenge,
   planSetupObject,
   seedApplicantMarket,
 } from './helpers/seedApplicantMarket';
+import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
 
 /**
  * An organizer stops taking applications, and takes them again, inside the Applications phase
@@ -20,18 +20,19 @@ const DATE = '2099-08-01';
 const VENDOR = 'late-vendor@example.com';
 const CODE = '135790';
 
-/** The vendor, in a browser of their own, signed in and on the apply page. */
-async function vendorOnTheApplyPage(browser: Browser, marketId: string, slug: string) {
+/** The vendor, in a browser of their own, signed in on the market's vendor page. */
+async function vendorSignedIn(browser: Browser, marketId: string, slug: string) {
   const context = await browser.newContext();
+  await hideDevToolsPanel(context);
   const page = await context.newPage();
-  const login = new ApplicantLoginPage(page);
-  await page.goto(`/${slug}/applicant-login?redirect=apply`);
-  await login.requestCode(VENDOR);
-  await expect(login.codeInput).toBeVisible();
+  const vendorPage = new VendorPage(page);
+  await page.goto(`/${slug}`);
+  await vendorPage.requestCode(VENDOR);
+  await expect(vendorPage.codeInput).toBeVisible();
   createApplicantLoginChallenge(marketId, VENDOR, CODE);
-  await login.enterCode(CODE);
-  await page.waitForURL(new RegExp(`/${slug}/apply`));
-  return { context, page };
+  await vendorPage.enterCode(CODE);
+  await expect(vendorPage.signedInAs).toBeVisible();
+  return { context, page, vendorPage };
 }
 
 async function chooseFromTheMenu(page: Page, action: string): Promise<void> {
@@ -59,31 +60,33 @@ test('an organizer stops taking applications, a vendor is refused, and taking th
   // Stopped from the rail's menu: the market stays in Applications, and says what is so.
   await chooseFromTheMenu(page, 'stop-applications');
   await expect(page.getByTestId('phase-rail-next')).toContainText(
-    'Your application page is not taking applications.',
+    'Your vendor page is not taking applications.',
   );
   await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications');
   await expect(page.getByTestId('market-setup-applications-condition')).toContainText(
     'This market is not taking applications.',
   );
 
-  // The vendor meets a closed page, in the words a closed market used, and no form.
-  const vendor = await vendorOnTheApplyPage(browser, market.marketId, market.marketSlug);
-  const apply = new ApplyPage(vendor.page);
-  await expect(vendor.page.getByTestId('apply-closed')).toContainText('Applications Closed', {
-    timeout: 30000,
-  });
+  // The vendor's page offers no Apply and no form, and says why.
+  const vendor = await vendorSignedIn(browser, market.marketId, market.marketSlug);
+  const apply = vendor.vendorPage;
+  await expect(apply.info).toHaveText(
+    'You have no application at this market, and it is not taking applications.',
+  );
+  await expect(apply.applyButton).toHaveCount(0);
   await expect(apply.form).toHaveCount(0);
 
   // Taken again, and the page takes them.
   await chooseFromTheMenu(page, 'take-applications');
   await expect(page.getByTestId('phase-rail-next')).toContainText(
-    'Applications are open on your application page',
+    'Applications are open on your vendor page',
   );
   await page.getByTestId('phase-rail-menu-button').click();
   await expect(page.getByTestId('phase-rail-action-stop-applications')).toBeVisible();
   await page.getByTestId('phase-rail-menu-button').click();
 
-  await vendor.page.reload();
+  await vendor.page.goto(`/${market.marketSlug}`);
+  await apply.applyButton.click();
   await expect(apply.form).toBeVisible({ timeout: 30000 });
   await apply.fullNameInput.fill('Lena Late');
   await apply.tierCheckbox(DATE, 'Gold').check();
@@ -92,8 +95,8 @@ test('an organizer stops taking applications, a vendor is refused, and taking th
   await apply.fillField('business_name', 'Late Bloom Prints');
   await apply.fillField('product_type', 'Cards');
   await apply.submit();
-  await vendor.page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`));
-  await expect(vendor.page.getByTestId('applicant-dashboard-status')).toContainText('Submitted');
+  await expect(apply.form).toHaveCount(0, { timeout: 10000 });
+  await expect(vendor.page.getByTestId('vendor-page-status')).toContainText('Submitted');
   await vendor.context.close();
 
   // And it is reviewed where the market stands, which never moved: One by one, its card up.

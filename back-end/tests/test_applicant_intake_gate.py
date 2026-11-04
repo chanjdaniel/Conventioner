@@ -1,9 +1,10 @@
 """A CSV market's applicant surface answers exactly as a market that does not exist.
 
-Intake mode (E03/F02/S01) says how vendors reach a market. This is the gate it feeds: the five
-applicant-intake endpoints serve form-intake markets only, while the two check-in endpoints serve
-every published market regardless, because how a vendor entered a market has no bearing on
-whether they can scan in on the day.
+Intake mode (E03/F02/S01) says how vendors reach a market. This is the gate it feeds: applying, the
+public form and the save, serves form-intake markets only, and before its results a CSV market's
+sign-in and vendor read answer as absent too; the check-in endpoints serve every published market
+regardless, because how a vendor entered a market has no bearing on whether they can scan in on the
+day. A CSV market's vendor page once its results are published is `test_a_google_form_markets_page`.
 """
 from types import SimpleNamespace
 
@@ -12,11 +13,10 @@ from flask import Flask
 
 import api.applicants as ApplicantsApi
 import api.applicant_auth as ApplicantAuthApi
-import api.attendance as AttendanceApi
 import db_config as test_db_config
 from conftest import FakeSlugMarketsCollection, stored_market
 from datatypes import MarketPhase, market_name_slug
-from market_documents import applicant_intake_market_by_slug, published_market_by_slug
+from market_documents import applicant_intake_market_by_slug, vendor_page_market_by_slug
 
 SLUG = market_name_slug("Test Market")
 TOKEN = {"application_id": "app-1", "market_id": "market-123", "email": "vendor@example.com"}
@@ -81,12 +81,12 @@ class TestTheLookupItself:
         found = applicant_intake_market_by_slug(collection, SLUG, fields=("id",))
         assert found is not None
 
-    def test_published_market_by_slug_still_serves_a_csv_market(self):
-        """Check-in has its own lookup, which is why the requirement could not live inside it."""
+    def test_the_vendor_page_still_serves_a_csv_market_on_its_days(self):
+        """The vendor page has its own gate, which is why the requirement could not live inside it."""
         collection = FakeSlugMarketsCollection(
             _market("csv", phase=MarketPhase.MARKET_DAYS),
         )
-        assert published_market_by_slug(collection, SLUG) is not None
+        assert vendor_page_market_by_slug(collection, SLUG) is not None
 
 
 @pytest.fixture
@@ -235,19 +235,18 @@ class TestTheTwoLoginEndpoints:
 
 
 class TestCheckInIsNotGated:
-    """A CSV market's vendors still scan in on the day. Gating this would break them for nothing."""
+    """A CSV market's vendors still check in on the day, on its vendor page (ADR 0022). Gating
+    this would break them for nothing."""
 
     @pytest.mark.parametrize("intake_mode", ["csv", "form", None])
-    def test_the_check_in_lookup_serves_a_market_in_any_intake_mode(self, monkeypatch, intake_mode):
+    def test_the_vendor_page_serves_a_market_on_its_days_in_any_intake_mode(self, intake_mode):
         collection = FakeSlugMarketsCollection(
             _market(intake_mode=intake_mode, phase=MarketPhase.MARKET_DAYS),
         )
-        monkeypatch.setattr(AttendanceApi, "markets_collection", collection)
-        assert AttendanceApi.get_published_market_by_slug(SLUG) is not None
+        assert vendor_page_market_by_slug(collection, SLUG) is not None
 
-    def test_check_in_still_refuses_a_draft_market(self, monkeypatch):
+    def test_it_still_refuses_a_draft_market(self):
         draft = _market("csv")
         draft["phase"] = "draft"
         draft["isDraft"] = True
-        monkeypatch.setattr(AttendanceApi, "markets_collection", FakeSlugMarketsCollection(draft))
-        assert AttendanceApi.get_published_market_by_slug(SLUG) is None
+        assert vendor_page_market_by_slug(FakeSlugMarketsCollection(draft), SLUG) is None

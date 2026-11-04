@@ -1,6 +1,10 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { marketScreenPath } from './helpers/marketScreens';
-import { seedPublishedMarketWithAssignments, SEED_MARKET_DATE } from './helpers/seeds';
+import {
+  publishResults,
+  seedPublishedMarketWithAssignments,
+  SEED_MARKET_DATE,
+} from './helpers/seeds';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { VendorsPage } from './pages/VendorsPage';
 
@@ -226,6 +230,8 @@ test.describe('Vendor browsing and search', () => {
       TEST_USER.email,
       TEST_USER.password,
     );
+    // Published, so the rail's forward step is enabled and can take focus (ADR 0022).
+    await publishResults(request, BACKEND_URL, TEST_USER.email, seed.marketId);
     await page.evaluate(() => {
       localStorage.setItem('user', JSON.stringify('e2e@example.com'));
     });

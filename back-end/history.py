@@ -112,6 +112,8 @@ PAYMENT_REMOVED = "payment_removed"
 # The door
 CHECKED_IN = "checked_in"
 CHECK_IN_UNDONE = "check_in_undone"
+#: A new door code, which ends the one before it; the code itself is never recorded.
+DOOR_CODE_MADE = "door_code_made"
 
 # Discord
 DISCORD_CONNECTED = "discord_connected"

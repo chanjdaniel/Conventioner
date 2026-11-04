@@ -68,7 +68,7 @@ test('a form market goes back to review, and a verdict changes there', async ({
   await expect(page.getByTestId('phase-rail-action-take-applications')).toBeVisible();
 });
 
-test('a Google Form market reads its own words, with no applications line', async ({
+test('a Google Form market reads the same words, with no applications line', async ({
   authenticatedPage: page,
   request,
 }) => {
@@ -79,7 +79,7 @@ test('a Google Form market reads its own words, with no applications line', asyn
 
   await expect(page.getByTestId('back-to-review-confirm-window').locator('p')).toHaveText([
     'The review opens again: verdicts can be given and changed, and the automatic rejections can change.',
-    'The tables you allocated are kept, but they no longer count. Once every application is decided, begin assignment and allocate tables again before you publish the market.',
+    'The tables you allocated are kept, but they no longer count. Once every application is decided, begin assignment and allocate tables again before you publish results.',
     'A seat you placed by hand stays, even for a vendor you then reject. Free it on Assignments.',
   ]);
   await page.getByTestId('back-to-review-confirm-submit-button').click();

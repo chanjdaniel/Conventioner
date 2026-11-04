@@ -12,7 +12,7 @@ rewrites them, so no stored document carries both spellings and no read has to g
 lookup behind that URL is unauthenticated. Deriving the slug per document at read time makes that
 lookup a decode of every published market in the database, driven by anyone who can type a URL, so
 the slug is persisted (``Market.slug``, a computed field, so no write can leave it disagreeing
-with the name) and indexed, and ``published_market_by_slug`` is one indexed query. The same
+with the name) and indexed, and ``market_by_slug`` is one indexed query. The same
 migration backfills it onto documents written before the field existed - which is why it is part
 of what ``normalize_market_document`` means by canonical, and why the boot check below waits on it
 too: a market with no stored slug is a market whose public URL 404s.
@@ -29,7 +29,7 @@ Reading one key only means the data has to be normalized first, and nothing auto
 migration: rewriting stored documents is a deliberate operator action. The migration records its
 marker documents in ``schema_migrations`` when it completes, and the app refuses to boot unless
 they are there (``assert_market_key_migration_recorded``, called from ``app.py``).
-Serving unmigrated data would hide markets from the check-in lookup, from the applicant's public
+Serving unmigrated data would hide markets from the vendor page, from the applicant's public
 URL, and from org-scoped lists with no error anywhere; a loud refusal at startup is the only
 failure mode that cannot be deployed by accident. Each marker is a single document read by
 ``_id``, so the check is a couple of indexed lookups rather than a scan over every market - cheap
@@ -101,7 +101,7 @@ class MarketKeyMigrationMissingError(MarketKeyMigrationError):
             f"{', '.join(repr(marker) for marker in missing)} marker in the "
             f"'{SCHEMA_COLLECTION}' collection. Readers name the canonical camelCase key only, so "
             f"any market still stored under legacy snake_case keys is invisible to the public "
-            f"check-in lookup and to organization-scoped market lists; the public slug lookup "
+            f"vendor page and to organization-scoped market lists; the public slug lookup "
             f"names the stored slug, so any market that has not been given one is invisible to "
             f"every public URL it appears on.\n{MARKET_KEY_MIGRATION_RECOVERY}"
         )
@@ -286,24 +286,24 @@ def market_doc_projection(fields: Sequence[str]) -> Dict[str, Any]:
     return {market_doc_key(field): 1 for field in fields}
 
 
-# What ``published_market_by_slug`` reads of a candidate itself: the name it re-checks the slug
+#: What a market document holds that no market read serves, to any role: the door code is served
+#: only by its own endpoints, to whoever may check vendors in (``api/door.py``, ADR 0022).
+NEVER_SERVED_FIELDS: Tuple[str, ...] = ("door_code",)
+
+
+def leave_out_what_no_read_serves(document: Dict[str, Any]) -> None:
+    """Take ``NEVER_SERVED_FIELDS`` off a raw market document about to be served."""
+    for field in NEVER_SERVED_FIELDS:
+        document.pop(market_doc_key(field), None)
+
+
+# What ``market_by_slug`` reads of a candidate itself: the name it re-checks the slug
 # against, and the two fields the draft test is decided from. A caller's projection is unioned with
 # these rather than trusted to contain them, because a projection that dropped one would not make
 # the lookup cheaper - it would make it answer a different question, and answer it wrongly (a market
 # with no ``phase`` in hand is a market that reads as a draft).
 _SLUG_LOOKUP_FIELDS: Tuple[str, ...] = ("name", "phase", "is_draft")
 
-
-# Which phases each public surface serves. They answer different questions, so each names its own
-# (E03/F03). "Non-draft" stopped being a useful rule for either once `market_days` became the
-# published phase: an ABANDONED market (archived from draft, never run) is non-draft too, and has
-# no assignment to check anyone in against.
-CHECK_IN_PHASES = (MarketPhase.MARKET_DAYS,)
-
-# Where a vendor can still look up where they sat (E26/F06/S02): a running market, and an archived
-# one - but only one that RAN, which a phase cannot say. The phase record can, so the check-in
-# surface narrows ARCHIVED itself (`AttendanceApi.get_check_in_market`); this only prunes.
-CHECK_IN_RECORD_PHASES = (MarketPhase.MARKET_DAYS, MarketPhase.ARCHIVED)
 
 # Where a form market's applicant surface answers: every phase but draft (E26/F07/S02). An applicant
 # may sign in during any phase and always see their own application (the ruling recorded in
@@ -335,48 +335,6 @@ def non_draft_market_prefilter() -> Dict[str, Any]:
     }
 
 
-def published_market_by_slug(
-    collection: Any, market_slug: str, fields: Optional[Sequence[str]] = None,
-) -> Optional[Dict[str, Any]]:
-    """The running market - in ``market_days`` - whose slugified name equals ``market_slug``.
-
-    The market a vendor can check in at. An archived market that ran still shows its record on the
-    check-in page, but is looked up by ``market_by_slug`` with ``CHECK_IN_RECORD_PHASES``.
-
-    The candidates come from the stored slug, which is indexed (``ensure_market_slug_index``), so
-    this is one indexed query rather than a pass over every published market. That matters because
-    every public lookup is unauthenticated - the check-in page and the applicant endpoints alike -
-    and a lookup that decoded the collection per call would be an O(markets) scan any stranger
-    could drive at will, with a slug that matches nothing costing exactly as much as one that does.
-
-    The stored slug narrows; it does not decide. The name is what the rule is defined over
-    (``market_name_slug``, the same rule the front end builds its links from), so the name of each
-    candidate is re-checked against it here. A stored slug is a derivation of the name that a
-    computed field keeps in step with it, and this is what makes that a performance detail rather
-    than a second source of truth: a document the migration has not reached is unreachable, which
-    the boot check refuses to serve on, but it can never be reachable under the *wrong* slug.
-
-    Nor can a Mongo condition decide the draft question: ``{"phase": {"$ne": "draft"}}`` also
-    matches a document that carries no ``phase`` at all, which is exactly what a draft written
-    before the field existed looks like - it would put an unpublished market on a public URL.
-    ``phase_from_market_document`` is the one authority on a document's effective phase, so that
-    test goes through it in Python too. ``non_draft_market_prefilter`` only prunes the documents
-    that are unambiguously drafts; it prunes, it does not judge.
-
-    The collection is a parameter because the public surfaces that need this each hold their own
-    handle; the rule they share is the slug and the draft test, and those live here.
-
-    ``fields`` are the market fields the caller will actually read, and naming them is what keeps
-    the *document* bounded now that the query is. A market document carries its ``setupObject``, its
-    ``assignmentObject`` and its ``modificationList``, which for a market with a full assignment is
-    megabytes - and the applicant's form page reads four fields of it, unauthenticated, on every
-    mount of every applicant screen. Decoding the rest is work an attacker gets for free at the one
-    public surface with no captcha in front of it. A caller that genuinely needs the whole document
-    (check-in does) names no fields and is served it.
-    """
-    return market_by_slug(collection, market_slug, CHECK_IN_PHASES, fields)
-
-
 def market_by_slug(
     collection: Any,
     market_slug: str,
@@ -385,14 +343,35 @@ def market_by_slug(
 ) -> Optional[Dict[str, Any]]:
     """The market a public URL names, if it is in a phase that surface serves.
 
-    One lookup, parameterised by the phases, because the two public surfaces answer different
-    questions and now name different phases (E03/F03). Applicant intake used to be layered on top
-    of the check-in lookup; it cannot be any more, since check-in serves a RUNNING market and intake
-    serves one still TAKING APPLICATIONS - and neither set contains the other.
+    One lookup, parameterised by the phases, because each public surface names its own (E03/F03):
+    applying and the vendor page (``applicant_intake_market_by_slug``,
+    ``vendor_page_market_by_slug``) both start from it.
 
-    The Mongo filter only prunes. A filter cannot decide a phase, because a legacy document carries
-    none at all; ``phase_from_market_document`` is the one authority, so the decision is made here
-    in Python.
+    The candidates come from the stored slug, which is indexed (``ensure_market_slug_index``), so
+    this is one indexed query rather than a pass over every published market. That matters because
+    every public lookup is unauthenticated, and a lookup that decoded the collection per call would
+    be an O(markets) scan any stranger could drive at will, with a slug that matches nothing costing
+    exactly as much as one that does.
+
+    The stored slug narrows; it does not decide. The name is what the rule is defined over
+    (``market_name_slug``, the same rule the front end builds its links from), so the name of each
+    candidate is re-checked against it here. A stored slug is a derivation of the name that a
+    computed field keeps in step with it, and this is what makes that a performance detail rather
+    than a second source of truth: a document the migration has not reached is unreachable, which
+    the boot check refuses to serve on, but it can never be reachable under the *wrong* slug.
+
+    Nor can a Mongo condition decide a phase: ``{"phase": {"$ne": "draft"}}`` also matches a
+    document that carries no ``phase`` at all, which is exactly what a draft written before the
+    field existed looks like - it would put an unpublished market on a public URL.
+    ``phase_from_market_document`` is the one authority on a document's effective phase, so that
+    test goes through it in Python. ``non_draft_market_prefilter`` only prunes the documents that
+    are unambiguously drafts; it prunes, it does not judge.
+
+    ``fields`` are the market fields the caller will actually read, and naming them is what keeps
+    the *document* bounded now that the query is. A market document carries its ``setupObject``, its
+    ``assignmentObject`` and its ``modificationList``, which for a market with a full assignment is
+    megabytes, and decoding the rest is work an attacker gets for free at a public surface. A caller
+    that genuinely needs the whole document names no fields and is served it.
     """
     if not market_slug:
         return None
@@ -418,15 +397,14 @@ _DOCUMENT_READ_FIELDS = ("phase", "intake_mode")
 def market_serves_applicants(market_doc: Dict[str, Any]) -> bool:
     """Does this market have an applicant-facing surface at all?
 
-    Its intake mode is ``form``. A CSV market's vendors never see this product: they are imported
-    from a file the organizer already collected, and every applicant endpoint answers for their
-    market exactly as it answers for a market that does not exist.
+    Its intake mode is ``form``. A CSV market's vendors never apply in this product: they are
+    imported from a file the organizer already collected, so its application form answers for it
+    exactly as for a market that does not exist. Its vendors still get a vendor page, without an
+    application, once its results are published (``vendor_page_market_by_slug``).
 
-    The question is asked in two places and stated once here, which is the same reason
-    ``applicant_intake_market_by_slug`` below is one lookup rather than a check in each of five
-    endpoints. The other caller is ``publish_results``: that flag is read only by endpoints behind
-    this gate, so flipping it on a CSV market changes nothing anyone can see - a control with a
-    confident label and no effect.
+    The question is stated once here, which is the same reason ``applicant_intake_market_by_slug``
+    below is one lookup rather than a check in each endpoint: both gates ask it, and the vendor's
+    own read asks it to leave out a Google Form market's answers.
     """
     return intake_mode_from_market_document(market_doc) is IntakeMode.FORM
 
@@ -446,9 +424,9 @@ def applicant_intake_market_by_slug(
     responses are reviewed - so its public application form would be live and accepting strangers
     the organizer has no way to answer.
 
-    It is a function of its own rather than a flag on the check-in lookup because check-in must
-    stay open to every market that runs: how a vendor entered a market has no bearing on whether
-    they can scan in on the day. And it is one function rather than a check inside each of the
+    It is a function of its own rather than a flag on the vendor page gate because the page is
+    every vendor's, however they entered the market: an imported vendor reads their table and
+    checks in there too (``vendor_page_market_by_slug``). And it is one function rather than a check inside each of the
     five applicant endpoints, because five checks are five chances to forget the sixth.
 
     ``None`` is the same answer this returns for a slug that belongs to no market at all, and
@@ -470,6 +448,92 @@ def applicant_intake_market_by_slug(
     if not market_serves_applicants(market_doc):
         return None
     return market_doc
+
+
+def vendor_page_market_by_slug(
+    collection: Any, market_slug: str, fields: Optional[Sequence[str]] = None,
+) -> Optional[Dict[str, Any]]:
+    """The market whose vendor page is at this slug, or ``None`` (ADR 0022).
+
+    The vendor page, ``/<slug>``, is where a vendor signs in and reads their own application, their
+    result and their seats. This decides whether a market has one: every vendor read and the
+    sign-in go through it, while applying itself stays behind ``applicant_intake_market_by_slug``.
+
+    A market whose vendors apply on its page has one in every phase but draft. A market that imports
+    its vendors from the organizer's Google Form has one once its results are published, when its
+    vendors have something to read there, or once it has reached its market days, which covers one
+    that went live before it could publish results (an archived one that did counts). ``None`` is
+    the answer for everything else, the same answer a slug that names nothing gets, so a stranger
+    who guesses the slug of a draft, or of a Google Form market before its results, learns nothing.
+
+    What the gate reads is added to the caller's projection for the reason
+    ``applicant_intake_market_by_slug`` adds ``intake_mode``: the intake mode, the results flag, and
+    the id and phase record that say whether the market ran.
+    """
+    projected = None if fields is None else (*fields, *_VENDOR_PAGE_GATE_FIELDS)
+    market_doc = market_by_slug(
+        collection, market_slug, APPLICANT_SURFACE_PHASES, fields=projected,
+    )
+    if market_doc is None:
+        return None
+    if market_serves_applicants(market_doc) or market_doc_field(market_doc, "results_published"):
+        return market_doc
+    if _reached_market_days(market_doc):
+        return market_doc
+    return None
+
+
+def results_are_out(market_doc: Dict[str, Any]) -> bool:
+    """May this market's vendors read their results: published, or it reached its market days?
+
+    A Google Form market that went live before it could publish results never set the flag, yet
+    its vendors are seated and at the door (ADR 0022), so reaching the market days counts too. A
+    form market cannot reach them unpublished. Reads what ``vendor_page_market_by_slug`` adds to
+    its caller's projection, so a document it served answers this.
+    """
+    return bool(market_doc_field(market_doc, "results_published")) or _reached_market_days(market_doc)
+
+
+# What ``vendor_page_market_by_slug`` reads of a market to decide whether it has a page.
+_VENDOR_PAGE_GATE_FIELDS: Tuple[str, ...] = ("intake_mode", "results_published", "id", "phase_history")
+
+
+def _reached_market_days(market_doc: Dict[str, Any]) -> bool:
+    """Has this market reached its market days, by its phase record and, where that is partial, by
+    whether anyone checked in (``attendance.market_ran``)?
+
+    Imported here rather than at the top: ``phase_record`` and the attendance module both import
+    this one.
+    """
+    if phase_from_market_document(market_doc) is MarketPhase.MARKET_DAYS:
+        return True
+    import api.attendance as AttendanceApi
+    return AttendanceApi.market_ran(market_doc)
+
+
+def market_id_at_slug(collection: Any, market_slug: str) -> Optional[str]:
+    """The id of the market stored at this slug, in any phase, draft included; ``None`` for none.
+
+    Never a public answer: a stranger must learn nothing of a draft or a gated market. Only for
+    naming a cookie the browser already holds for it, so that a remembered sign-in on a vendor page
+    the gate no longer serves can still be cleared and signed out (``remembered_sign_ins``).
+    """
+    if not market_slug:
+        return None
+    found = collection.find_one(
+        market_doc_filter("slug", market_slug.strip().lower()), market_doc_projection(("id",)),
+    )
+    return (found or {}).get("id") or None
+
+
+def market_dates_of(market_doc: Dict[str, Any]) -> List[str]:
+    """The market's dates as its plan holds them, ``YYYY-MM-DD``, in order."""
+    setup = market_doc_field(market_doc, "setup_object") or {}
+    return sorted(
+        str(entry.get("date"))
+        for entry in (setup.get("marketDates") or [])
+        if isinstance(entry, dict) and entry.get("date")
+    )
 
 
 def market_from_document(

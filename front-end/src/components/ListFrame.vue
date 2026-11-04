@@ -25,6 +25,8 @@ export const LIST_FIND_FROM = 12;
  * - The shown count goes back to one page only when the words or `filterKey` change, the choice of
  *   rows being someone's. A read again or a verdict that changes the rows holds the place.
  * - "Show N more" hands the focus to the first new row, since the button goes with the last page.
+ * - Enter in the field does nothing, since the rows narrow as it is typed in: in a dialog's form it
+ *   would otherwise submit the form, and save what the person was only looking through.
  * - `state` says what the screen's read is doing: only `'ready'` draws rows. `'failed'` is
  *   `ReadFailed` unless the screen brings its own, and its Try again is the `retry` event. With no
  *   `items` the `empty` slot says why, or "No <many>." without one; the words alone finding nothing
@@ -179,6 +181,7 @@ async function showMore(): Promise<void> {
           :data-testid="`${testid}-find`"
           @input="setTyped(($event.target as HTMLInputElement).value)"
           @focus="fieldKept = true"
+          @keydown.enter.prevent
         />
       </div>
       <div v-if="$slots.filters" class="list-frame__filters"><slot name="filters" /></div>

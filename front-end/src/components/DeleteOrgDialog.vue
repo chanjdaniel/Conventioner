@@ -143,14 +143,14 @@ async function confirm() {
             <li v-for="market in doomed" :key="market.id" data-testid="delete-org-doomed-market">
               <strong>{{ market.name }}</strong>
               <span class="delete-org-detail">{{ consequence(market) }}</span>
-              <!-- The URL that stops resolving, named rather than left to be discovered by
-                   whoever tries to check in with it. -->
+              <!-- The URL that stops resolving, its vendor page, named rather than left to be
+                   discovered by whoever tries to read their record at it. -->
               <span
                 v-if="market.publicSlug"
                 class="delete-org-url"
                 data-testid="delete-org-public-url"
               >
-                /{{ market.publicSlug }}/check-in will stop working
+                /{{ market.publicSlug }} will stop working
               </span>
             </li>
           </ul>

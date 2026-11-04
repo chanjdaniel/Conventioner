@@ -12,7 +12,7 @@ sources:
 
 An organizer may instead take applications on the market's own page: they choose it when creating the market, and share the page's link from the phase rail.
 A vendor with no account signs in to that one market with a code sent to their address, applies, changes their answers while applications are open, and reads their application afterwards.
-A market that does not take applications online has no applicant surface at all: its addresses answer exactly as a market that does not exist.
+A market that does not take applications online has no application on its page: until its results are published its address answers exactly as a market that does not exist.
 
 ## Why
 

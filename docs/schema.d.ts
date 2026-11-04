@@ -68,6 +68,10 @@ export interface MarketSchema {
     state: string;
   }[];
   exampleColumns?: {
+    answers?: {
+      multiSelect?: string[];
+      select?: string[];
+    };
     headers?: string[];
     helpText?: string;
     key: string;

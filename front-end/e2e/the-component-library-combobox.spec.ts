@@ -10,7 +10,8 @@ import { eachWindow, expectLaidOut, openEntry } from './helpers/componentLibrary
  * scrolls, and is never a choice. C5 chooses reviewers as chips, every choice opening ticked at the
  * top, removed by a chip's button and by Backspace, and C10 chooses among the 228 answers. C1 fixes the
  * import's values beside today's native select, each by typing and choosing or kept as typed, with
- * the rows behind "Show all", and C3 keeps a new answer as typed.
+ * the rows behind "Show all", C3 keeps a new answer as typed, and a field whose words are its value
+ * writes them as they are typed and keeps them when it is left.
  */
 
 /** Three people share this family name, all past the first 50. */
@@ -582,6 +583,79 @@ eachWindow('the combobox entry', (size) => {
     await expect(none.options).toHaveText(['Use "A first answer"']);
     await none.field.press('Enter');
     await expect(readOutOf(page, 'library-typed-first')).toHaveText('Answer: A first answer');
+  });
+
+  test('words left in a field whose words are its value reach the read-out', async ({
+    page,
+    expectAccessible,
+  }) => {
+    const written = picker(page, 'library-words-value');
+    const readOut = readOutOf(page, 'library-words-value');
+
+    await written.field.click();
+    await expect(written.options).toHaveCount(228);
+    await expectLaidOut(page, size, 'a field whose words are its value, open');
+    await expectAccessible('a field whose words are its value, open');
+
+    await written.field.pressSequentially('Hand-poured ');
+    await expect(written.field).toHaveValue('Hand-poured ');
+    await expect(readOut).toHaveText('Answer: Hand-poured');
+    await expect(written.options.first()).toHaveText('Use "Hand-poured"');
+
+    await written.field.pressSequentially('soap ');
+    await expect(readOut).toHaveText('Answer: Hand-poured soap');
+
+    await written.field.press('Escape');
+    await expect(written.list).toHaveCount(0);
+    await expect(written.field).toHaveValue('Hand-poured soap ');
+
+    await written.field.blur();
+    await expect(written.field).toHaveValue('Hand-poured soap');
+    await expect(readOut).toHaveText('Answer: Hand-poured soap');
+
+    await written.field.fill('');
+    await expect(readOut).toHaveText('Answer: nothing');
+  });
+
+  test("a row's words stand in the middle of its height", async ({ page }) => {
+    const written = picker(page, 'library-words-value');
+    await written.field.click();
+    const off = await written.options.first().evaluate((row) => {
+      const words = row.querySelector('.search-picker-option-label')!.getBoundingClientRect();
+      const box = row.getBoundingClientRect();
+      return Math.abs(words.top + words.height / 2 - (box.top + box.height / 2));
+    });
+    expect(off).toBeLessThanOrEqual(1);
+  });
+
+  test("a chosen row's tick stands on the first line of its words, however they wrap", async ({
+    page,
+  }) => {
+    const long = picker(page, 'library-long-chips');
+    // Past the cap until typed for: the longest answers, chosen, so their rows carry a tick.
+    await expect(long.chips).toHaveCount(3);
+    const [longest] = (await long.chips.allInnerTexts()).sort((a, b) => b.length - a.length);
+    await long.field.fill(longest!.trim().slice(0, 20));
+    const rows = long.options.filter({ has: page.locator('.search-picker-option-tick') });
+    await expect(rows.first()).toBeVisible();
+    // No answer in the fixture is long enough to wrap by itself, so the list is narrowed to make it.
+    await long.list.evaluate((list) => {
+      list.style.width = '140px';
+    });
+    const measured = await rows.evaluateAll((elements) =>
+      elements.map((element) => {
+        const range = document.createRange();
+        range.selectNodeContents(element.querySelector('.search-picker-option-label')!);
+        const rects = [...range.getClientRects()];
+        const tick = element.querySelector('.search-picker-option-tick')!.getBoundingClientRect();
+        return {
+          off: Math.abs(rects[0]!.top + rects[0]!.height / 2 - (tick.top + tick.height / 2)),
+          lines: new Set(rects.map((rect) => Math.round(rect.top))).size,
+        };
+      }),
+    );
+    expect(Math.max(...measured.map(({ off }) => off))).toBeLessThanOrEqual(1);
+    expect(Math.max(...measured.map(({ lines }) => lines))).toBeGreaterThan(1);
   });
 
   test('several, a typed answer is a chip of its own', async ({ page, expectAccessible }) => {

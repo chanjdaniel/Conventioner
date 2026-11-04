@@ -9,6 +9,7 @@ import {
   BACKEND_URL,
   APP_API,
   TEST_USER,
+  VendorPage,
 } from './fixtures';
 import { ensureTestOrg, loginViaApi, marketNameToSlug } from './helpers/seeds';
 import { seedApprovedVendor } from './helpers/seedApplication';
@@ -17,7 +18,7 @@ import { upcomingSaturday } from './helpers/upcoming';
 /** The single market day this pipeline sets up, seeds vendors for, and assigns. */
 // Still to come whenever this runs: a market leaves draft only with such dates (E31/F01/S01).
 const MARKET_DATE = upcomingSaturday();
-import { CheckinPage } from './pages/CheckinPage';
+import { forgetSignInAttempts, signInOnThePage } from './helpers/vendorSignIn';
 
 test.describe('Market pipeline E2E', () => {
   test.beforeAll(async ({ request }) => {
@@ -31,7 +32,6 @@ test.describe('Market pipeline E2E', () => {
    */
   test('create market, configure, assign, view results, and publish', async ({
     authenticatedPage: page,
-    playwright,
   }, testInfo) => {
     const marketName = `Pipeline E2E ${Date.now()}`;
 
@@ -199,14 +199,16 @@ test.describe('Market pipeline E2E', () => {
     // Publishing is a step on the phase strip, not a Done button on the results screen
     // (E10/F03/S01): that button posted a transition invalid from the phase the organizer was
     // standing in, and failed with a raw enum error.
+    // Its vendors are told first, on its vendor page, on this path too (ADR 0022).
+    await setupPage.publishResults(marketId);
     await page.goto(marketSetupPath(marketId));
     await setupPage.advancePhaseTo('market_days', 'Market Days');
 
-    // Its vendors reach check-in on the URL publishing put on the air. This market takes its
-    // vendors by CSV import, so its market home answers as a market that does not exist.
+    // Its vendors reach their vendor page, where they check in on the day (ADR 0022).
     const slug = marketNameToSlug(marketName);
-    await page.goto(`/${slug}/check-in`);
-    await expect(page.locator('.attendance-view')).toBeVisible({ timeout: 10000 });
+    const vendorPage = new VendorPage(page);
+    await vendorPage.goto(slug);
+    await expect(vendorPage.marketName).toHaveText(marketName);
     await page.screenshot({
       path: testInfo.outputPath('02-published-market-checkin.png'),
       fullPage: true,
@@ -237,20 +239,11 @@ test.describe('Market pipeline E2E', () => {
     await expect(page.getByTestId('page-not-found')).toHaveCount(0);
     await expect(page.getByTestId('market-bar-title')).toHaveText(marketName, { timeout: 10000 });
 
-    // Phase 5: A vendor can now check in
-    const anonymous = await playwright.request.newContext({ ignoreHTTPSErrors: true });
-    const publicRes = await anonymous.get(
-      `${BACKEND_URL}/public/markets/${slug}/vendors/${encodeURIComponent('alice@example.com')}/assignments`,
-    );
-    expect(publicRes.status()).toBe(200);
-    await anonymous.dispose();
-
-    // And the vendor-facing check-in page finds the assignment.
-    const checkinPage = new CheckinPage(page);
-    await checkinPage.goto(slug);
-    await checkinPage.fillEmail('alice@example.com');
-    await checkinPage.clickLookup();
-    await expect(checkinPage.checkinButtons.first()).toBeVisible({ timeout: 10000 });
+    // Phase 5: A vendor signs in on their page and reads where they sit.
+    forgetSignInAttempts();
+    await vendorPage.goto(slug);
+    await signInOnThePage(vendorPage, marketId, 'alice@example.com');
+    await expect(vendorPage.status).toContainText('You have a table');
     await page.screenshot({
       path: testInfo.outputPath('03-checkin-after-publish.png'),
       fullPage: true,

@@ -54,12 +54,12 @@
  *   the active row ahead of others they find, drawn first if the cap would leave it out. The list
  *   opens for words even with no options at all.
  * - Words left in the field when it is left, or when Enter goes on to the form: with `acceptsTyped`
- *   they are kept, as the option they name or as typed (a chip, among several). Without it they go,
- *   since nothing was chosen by them.
- * - A press past an open list leaves the field only as the press ends: the list sits in the page's
- *   flow, so closing it as the focus goes would move what lies below it from under the pointer, and
- *   the click would be lost, a dialog's Save among them. Words a free-text field keeps are written
- *   before that click, which may read them.
+ *   they are kept, as the option they name or as typed (a chip, among several); `wordsAreValue` has
+ *   written them already, as typed. Without it they go, since nothing was chosen by them.
+ * - A main button's press past an open list leaves the field only as the press ends: the list sits
+ *   in the page's flow, so closing it as the focus goes would move what lies below it from under the
+ *   pointer, and the click would be lost, a dialog's Save among them. Words a free-text field keeps
+ *   are written before that click, which may read them.
  * - Reached with a choice in it, by any path, the field has that choice selected, so what is typed
  *   next searches by itself rather than running on from the label: a dialog opens on such a field
  *   with no click, and a script's focus leaves the caret at its end.
@@ -67,6 +67,13 @@
  *   on a choice needs: typing emits nothing, and on leaving the field or on Escape the field names
  *   the choice again. Without it, the first word lets the choice go, as a dialog that acts on Save
  *   needs, so it never acts on a choice its field does not show.
+ * - Given `wordsAreValue` with `acceptsTyped` on one choice, as a screen that writes as it is typed
+ *   needs: every keystroke emits the trimmed words as the value, so no choice is let go first and no
+ *   empty value comes between a filled one and the words replacing it. The field keeps the words as
+ *   typed, a space in the middle of typing with them, until it is left, when it names the value: an
+ *   option's label, or the trimmed words. Escape closes the list and keeps the words, since a plain
+ *   input has no undo, and reopened on words still being typed it does not select them, so a click
+ *   can place the caret. A row or `Use "<words>"` is taken as with `acceptsTyped` alone.
  */
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue';
 import IconCheck from '@/components/icons/IconCheck.vue';
@@ -111,6 +118,8 @@ const props = defineProps<
     describedBy?: string;
     /** The list lies over what follows the picker, rather than pushing it down. */
     listOver?: boolean;
+    /** With `acceptsTyped` on one choice: every keystroke writes the words as the value. */
+    wordsAreValue?: boolean;
   } & (
     | { multiple?: false; modelValue: string }
     /** Several choices, shown as chips above the field. */
@@ -158,11 +167,18 @@ const searching = ref(false);
 const open = ref(false);
 const active = ref(-1);
 
+/** Whether what is typed is the value, rather than words to choose by. */
+const writesWords = computed(() => props.wordsAreValue && props.acceptsTyped && !props.multiple);
+
 watch(
   () => props.modelValue,
   () => {
     if (props.multiple) return;
-    if (searching.value && !props.modelValue) return;
+    // The value the words being typed emitted, or the choice they let go, leaves them as typed.
+    const fromTheWords = writesWords.value
+      ? props.modelValue === text.value.trim()
+      : !props.modelValue;
+    if (searching.value && fromTheWords) return;
     text.value = chosenOption.value?.label ?? keptWords.value;
     searching.value = false;
   },
@@ -310,7 +326,8 @@ function show(): void {
   active.value = chosenAt >= 0 ? chosenAt : heldUndrawn ? -1 : firstRow.value;
   // Reopened on a choice, its label is selected, so what is typed next replaces it and searches
   // by itself, rather than running on from the label; left untouched, the choice stays.
-  if (heldUndrawn) field.value?.select();
+  // Words still being typed are not a choice to replace: a click places the caret in them.
+  if (heldUndrawn && !(writesWords.value && searching.value)) field.value?.select();
 }
 
 function choose(option: PickerOption): void {
@@ -337,6 +354,10 @@ function typed(): void {
   searching.value = true;
   open.value = hasRows.value;
   active.value = firstRow.value;
+  if (writesWords.value) {
+    emit('update:modelValue', text.value.trim());
+    return;
+  }
   // Words that no longer name the choice let it go, so a dialog never acts on a choice its field
   // does not show.
   if (!props.multiple && !holds.value && props.modelValue) emit('update:modelValue', '');
@@ -344,7 +365,7 @@ function typed(): void {
 
 /** A free-text field keeps the words not chosen: as the option they name, or as typed. */
 function keepTheWords(): void {
-  if (!props.acceptsTyped || holds.value) return;
+  if (!props.acceptsTyped || holds.value || writesWords.value) return;
   const option = namedOption.value ?? typedOption.value;
   if (!option) return;
   if (!props.multiple) choose(option);
@@ -365,6 +386,8 @@ async function removeChip(at: number): Promise<void> {
 }
 
 function onKeydown(event: KeyboardEvent): void {
+  // A press still under way when a key comes never got its end, as a scrollbar's may not.
+  pressing = false;
   const last = shownOptions.value.length - 1;
   switch (event.key) {
     case 'ArrowDown':
@@ -419,8 +442,9 @@ function leave(): void {
 
 /** Whether a press is under way, while the list is open. */
 let pressing = false;
-function pressStarted(): void {
-  pressing = true;
+function pressStarted(event: MouseEvent): void {
+  // Only the main button: a context menu can take the end of any other's press.
+  if (event.button === 0) pressing = true;
 }
 function pressEnded(): void {
   pressing = false;
@@ -684,15 +708,17 @@ function onFocus(): void {
   color: var(--mm-text-muted);
 }
 
+/* The space over and under a row: one line stands in the middle of the target, on a phone's too,
+   and more lines grow the row down from there, so the tick can stand on the first line. */
 .search-picker-option {
+  --row-inset: max(var(--space-1), calc((var(--target-min) - 1lh) / 2));
   display: flex;
   flex-wrap: wrap;
-  align-content: center;
   align-items: baseline;
   justify-content: space-between;
   gap: 0 var(--space-3);
-  min-height: var(--target-min);
-  padding: var(--space-1) var(--space-3);
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- the row's inset, which centres one line in a --target-min target: a length from that token, not a spacing step */
+  padding: var(--row-inset) var(--space-3);
   font-size: var(--text-sm);
   color: var(--mm-black);
   cursor: pointer;
@@ -710,7 +736,7 @@ function onFocus(): void {
 
 .search-picker-option-tick {
   position: absolute;
-  top: calc(50% - var(--space-2));
+  top: calc(var(--row-inset) + (1lh - var(--space-4)) / 2);
   left: var(--space-3);
   width: var(--space-4);
   height: var(--space-4);

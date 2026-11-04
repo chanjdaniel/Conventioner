@@ -1729,3 +1729,320 @@ describe("Daniel's choices (T204)", () => {
     });
   });
 });
+
+describe('words that are the value', () => {
+  const ANSWERS: PickerGroup[] = [
+    {
+      options: [
+        { value: 'Art prints', label: 'Art prints' },
+        { value: 'Stickers', label: 'Stickers' },
+      ],
+    },
+  ];
+
+  function writing(modelValue = '', props: Record<string, unknown> = {}) {
+    const wrapper = mount(SearchPicker, {
+      props: {
+        modelValue,
+        acceptsTyped: true,
+        wordsAreValue: true,
+        groups: ANSWERS,
+        finds,
+        label: 'Option 1',
+        testid: 'who',
+        'onUpdate:modelValue': (value: string) => wrapper.setProps({ modelValue: value }),
+        ...props,
+      } as never,
+      attachTo: document.body,
+    });
+    return wrapper;
+  }
+  type Writing = ReturnType<typeof writing>;
+
+  const input = (wrapper: Writing) => wrapper.get('[data-testid="who-input"]');
+  const inField = (wrapper: Writing) => (input(wrapper).element as HTMLInputElement).value;
+  const rows = (wrapper: Writing) =>
+    wrapper.findAll('[role="option"]').map((row) => row.get('span').text());
+  const values = (wrapper: Writing) =>
+    wrapper.emitted('update:modelValue')?.map(([value]) => value);
+  const held = (wrapper: Writing) => wrapper.props('modelValue');
+
+  describe('a press elsewhere, while the list that moves its target is open', () => {
+    const listOf = (wrapper: Writing) => wrapper.find('[data-testid="who-list"]');
+
+    /** A press on something past the list, on its way down: the focus goes with it. */
+    async function pressElsewhere(wrapper: Writing) {
+      window.dispatchEvent(new MouseEvent('mousedown'));
+      (input(wrapper).element as HTMLInputElement).blur();
+      await wrapper.vm.$nextTick();
+    }
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('holds the list until the press ends, so the click lands where it was aimed', async () => {
+      vi.useFakeTimers();
+      const wrapper = writing();
+      (input(wrapper).element as HTMLInputElement).focus();
+      await input(wrapper).setValue('Soap ');
+
+      await pressElsewhere(wrapper);
+      // The list stays as it stood: naming the value now would widen it to every row.
+      expect(listOf(wrapper).findAll('[role="option"]')).toHaveLength(1);
+      expect(inField(wrapper)).toBe('Soap ');
+
+      window.dispatchEvent(new MouseEvent('mouseup'));
+      vi.runAllTimers();
+      await wrapper.vm.$nextTick();
+      expect(listOf(wrapper).exists()).toBe(false);
+      expect(inField(wrapper)).toBe('Soap');
+      wrapper.unmount();
+    });
+
+    it('never waits for the end of a press with another button', async () => {
+      const wrapper = writing();
+      await input(wrapper).setValue('Soap ');
+
+      // A context menu can swallow the press's end, so a press that is not the main one counts for nothing.
+      window.dispatchEvent(new MouseEvent('mousedown', { button: 2 }));
+      await input(wrapper).trigger('blur');
+
+      expect(listOf(wrapper).exists()).toBe(false);
+      expect(inField(wrapper)).toBe('Soap');
+      wrapper.unmount();
+    });
+
+    it('never waits past a key for a press whose end did not come', async () => {
+      const wrapper = writing();
+      await input(wrapper).setValue('Soap ');
+
+      // A scrollbar's press can end with no mouseup, and the field keeps the focus through it.
+      window.dispatchEvent(new MouseEvent('mousedown'));
+      await input(wrapper).trigger('keydown', { key: 'Tab' });
+      await input(wrapper).trigger('blur');
+
+      expect(listOf(wrapper).exists()).toBe(false);
+      expect(inField(wrapper)).toBe('Soap');
+      wrapper.unmount();
+    });
+
+    it('closes at once when the keyboard leaves the field', async () => {
+      const wrapper = writing();
+      await input(wrapper).setValue('Soap');
+      await input(wrapper).trigger('blur');
+      expect(listOf(wrapper).exists()).toBe(false);
+      wrapper.unmount();
+    });
+
+    it('leaves the list open when the press ends with the focus back in the field', async () => {
+      vi.useFakeTimers();
+      const wrapper = writing();
+      (input(wrapper).element as HTMLInputElement).focus();
+      await input(wrapper).setValue('Soap');
+
+      window.dispatchEvent(new MouseEvent('mousedown'));
+      window.dispatchEvent(new MouseEvent('mouseup'));
+      vi.runAllTimers();
+      await wrapper.vm.$nextTick();
+      expect(listOf(wrapper).exists()).toBe(true);
+      wrapper.unmount();
+    });
+  });
+
+  it('emits the words trimmed on every keystroke', async () => {
+    const wrapper = writing();
+    await input(wrapper).setValue('H');
+    await input(wrapper).setValue('Ha');
+    await input(wrapper).setValue(' Han ');
+
+    expect(values(wrapper)).toEqual(['H', 'Ha', 'Han']);
+    wrapper.unmount();
+  });
+
+  it('emits no empty value between a filled value and the words replacing it', async () => {
+    const wrapper = writing('Stickers');
+    await input(wrapper).setValue('Soap');
+
+    expect(values(wrapper)).toEqual(['Soap']);
+    wrapper.unmount();
+  });
+
+  it('keeps the words as typed while they are typed, a space mid-phrase with them', async () => {
+    const wrapper = writing();
+    await input(wrapper).setValue('Hand ');
+
+    expect(inField(wrapper)).toBe('Hand ');
+    expect(held(wrapper)).toBe('Hand');
+
+    await input(wrapper).setValue('Hand poured');
+    expect(inField(wrapper)).toBe('Hand poured');
+    expect(held(wrapper)).toBe('Hand poured');
+    wrapper.unmount();
+  });
+
+  it('shows the trimmed value when the field is left', async () => {
+    const wrapper = writing();
+    await input(wrapper).setValue('  Hand poured ');
+    await input(wrapper).trigger('blur');
+
+    expect(inField(wrapper)).toBe('Hand poured');
+    expect(held(wrapper)).toBe('Hand poured');
+    expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("shows the matching option's label when the field is left", async () => {
+    const wrapper = writing('', {
+      groups: [{ options: [{ value: 'Stickers', label: 'Stickers, die cut' }] }],
+    });
+    await input(wrapper).setValue('Stickers ');
+    await input(wrapper).trigger('blur');
+
+    expect(held(wrapper)).toBe('Stickers');
+    expect(inField(wrapper)).toBe('Stickers, die cut');
+    wrapper.unmount();
+  });
+
+  it('emits an empty value when the field is cleared, and stays empty when it is left', async () => {
+    const wrapper = writing('Stickers');
+    await input(wrapper).setValue('');
+
+    expect(values(wrapper)).toEqual(['']);
+    expect(rows(wrapper)).toEqual(['Art prints', 'Stickers']);
+
+    await input(wrapper).trigger('blur');
+    expect(inField(wrapper)).toBe('');
+    wrapper.unmount();
+  });
+
+  it('counts words of spaces alone as no value, and shows none once left', async () => {
+    const wrapper = writing('Stickers');
+    await input(wrapper).setValue('   ');
+
+    expect(values(wrapper)).toEqual(['']);
+    expect(inField(wrapper)).toBe('   ');
+
+    await input(wrapper).trigger('blur');
+    expect(inField(wrapper)).toBe('');
+    wrapper.unmount();
+  });
+
+  it('closes the list on Escape and keeps the words, then leaves Escape to the dialog', async () => {
+    const wrapper = writing();
+    await input(wrapper).setValue('Hand ');
+
+    const first = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
+    input(wrapper).element.dispatchEvent(first);
+    await wrapper.vm.$nextTick();
+    expect(first.defaultPrevented).toBe(true);
+    expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+    expect(inField(wrapper)).toBe('Hand ');
+    expect(held(wrapper)).toBe('Hand');
+
+    const second = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
+    input(wrapper).element.dispatchEvent(second);
+    expect(second.defaultPrevented).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('after Escape, a click reopens on the words without selecting them, as they are being typed', async () => {
+    const wrapper = writing();
+    await input(wrapper).setValue('Art');
+    await input(wrapper).trigger('keydown', { key: 'Escape' });
+    const element = input(wrapper).element as HTMLInputElement;
+    element.setSelectionRange(1, 1);
+    await input(wrapper).trigger('click');
+
+    expect(rows(wrapper)).toEqual(['Use "Art"', 'Art prints']);
+    expect([element.selectionStart, element.selectionEnd]).toEqual([1, 1]);
+    wrapper.unmount();
+  });
+
+  it('narrows as it is typed in and takes the keys, as with acceptsTyped alone', async () => {
+    const wrapper = writing();
+    await input(wrapper).setValue('art');
+    expect(rows(wrapper)).toEqual(['Use "art"', 'Art prints']);
+
+    await input(wrapper).trigger('keydown', { key: 'ArrowDown' });
+    await input(wrapper).trigger('keydown', { key: 'Enter' });
+
+    expect(held(wrapper)).toBe('Art prints');
+    expect(inField(wrapper)).toBe('Art prints');
+    expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('opens on a click with the whole list, and on an arrow key', async () => {
+    const wrapper = writing();
+    await input(wrapper).trigger('click');
+    expect(rows(wrapper)).toEqual(['Art prints', 'Stickers']);
+
+    await input(wrapper).trigger('keydown', { key: 'Escape' });
+    await input(wrapper).trigger('keydown', { key: 'ArrowDown' });
+    expect(rows(wrapper)).toEqual(['Art prints', 'Stickers']);
+    wrapper.unmount();
+  });
+
+  it('a row clicked ends with the same value and field as with acceptsTyped alone', async () => {
+    const wrapper = writing('', {
+      groups: [{ options: [{ value: 'stickers', label: 'Stickers' }] }],
+    });
+    await input(wrapper).setValue('stick');
+    await wrapper.findAll('[role="option"]')[1]!.trigger('click');
+
+    expect(held(wrapper)).toBe('stickers');
+    expect(inField(wrapper)).toBe('Stickers');
+    expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('`Use "<words>"` ends with the same value and field as with acceptsTyped alone', async () => {
+    const wrapper = writing();
+    await input(wrapper).setValue('  Hand poured ');
+    await input(wrapper).trigger('keydown', { key: 'Enter' });
+
+    expect(held(wrapper)).toBe('Hand poured');
+    expect(inField(wrapper)).toBe('Hand poured');
+    expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('shows a value changed from outside, even while words are being typed', async () => {
+    const wrapper = writing();
+    await input(wrapper).setValue('Hand ');
+    await wrapper.setProps({ modelValue: 'Stickers' });
+    expect(inField(wrapper)).toBe('Stickers');
+
+    await input(wrapper).setValue('Hand ');
+    await wrapper.setProps({ modelValue: '' });
+    expect(inField(wrapper)).toBe('');
+    wrapper.unmount();
+  });
+
+  it('reopened on a filled value, it selects the words and shows the whole list', async () => {
+    const wrapper = writing('Hand poured');
+    await input(wrapper).trigger('click');
+    const element = input(wrapper).element as HTMLInputElement;
+
+    expect(rows(wrapper)).toEqual(['Art prints', 'Stickers']);
+    expect([element.selectionStart, element.selectionEnd]).toEqual([0, 'Hand poured'.length]);
+    wrapper.unmount();
+  });
+
+  it('does nothing without acceptsTyped, since no value could be kept as words', async () => {
+    const wrapper = writing('Stickers', { acceptsTyped: false });
+    await input(wrapper).setValue('Soap');
+
+    expect(values(wrapper)).toEqual(['']);
+    wrapper.unmount();
+  });
+
+  it('does nothing with several choices, whose field holds only words to search by', async () => {
+    const wrapper = writing('', { multiple: true, modelValue: ['Stickers'] });
+    await input(wrapper).setValue('Soap');
+
+    expect(values(wrapper)).toBeUndefined();
+    wrapper.unmount();
+  });
+});

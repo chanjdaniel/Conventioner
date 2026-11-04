@@ -149,6 +149,15 @@ describe('the find field', () => {
   });
 });
 
+describe('Enter in the find field', () => {
+  it('is kept from a form around the frame: it finds, it never saves a dialog', async () => {
+    const { wrapper } = await mountFrame();
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    wrapper.get('[data-testid="frame-find"]').element.dispatchEvent(enter);
+    expect(enter.defaultPrevented).toBe(true);
+  });
+});
+
 describe('the count line', () => {
   it('names the rows when all are shown', async () => {
     const { wrapper } = await mountFrame({ items: rows(40) });

@@ -6,14 +6,13 @@ import type { Page } from '@playwright/test';
 /**
  * Screens say what they mean, rather than what they store (E15/F02).
  *
- * Three things a walk found, each small and each on a screen an organizer uses in earnest:
+ * Things a walk found, each small and each on a screen an organizer uses in earnest:
  *
  *   - the form-lock banner read `Current phase: market_days.` - the stored enum, on a screen whose
  *     phase rail names the same state `Market Days` two inches above it;
  *   - Tables and Attendance never named the market they were showing, so an organizer running two
  *     markets in a week could open the screen where a hand placement moves a real vendor to a real
- *     seat and have nothing on it say whose tables these were;
- *   - `Look up` stayed the only green button after it had been used.
+ *     seat and have nothing on it say whose tables these were.
  *
  * The raw-value sweep is the one worth keeping longest: it is generic, so the next enum to reach a
  * surface fails here rather than being noticed on a screenshot months later.
@@ -24,7 +23,6 @@ const STORED_SPELLING = /\b[a-z]+_[a-z_]+\b/;
 
 test.describe('Screens say what they mean', () => {
   let marketId: string;
-  let marketSlug: string;
   let marketName: string;
 
   test.beforeAll(async ({ request }) => {
@@ -36,7 +34,6 @@ test.describe('Screens say what they mean', () => {
       TEST_USER.password,
     );
     marketId = seeded.marketId;
-    marketSlug = seeded.marketSlug;
     marketName = seeded.marketName;
   });
 
@@ -96,7 +93,7 @@ test.describe('Screens say what they mean', () => {
         const probe = new RegExp(pattern);
         for (let n = walker.nextNode(); n; n = walker.nextNode()) {
           const text = (n.textContent ?? '').trim();
-          // A URL carries its own spellings and is not prose - the check-in link is one.
+          // A URL carries its own spellings and is not prose - the vendor page's link is one.
           if (!text || /https?:\/\//.test(text)) continue;
           if (probe.test(text)) found.push(text.slice(0, 80));
         }
@@ -120,19 +117,5 @@ test.describe('Screens say what they mean', () => {
         timeout: 15000,
       });
     }
-  });
-
-  test('Look up stops being the primary action once it has been used', async ({ page }) => {
-    await page.goto(`/${marketSlug}/check-in`);
-    const lookup = page.getByTestId('attendance-checkin-lookup-button');
-    await expect(lookup).toHaveClass(/primary-button/, { timeout: 10000 });
-
-    await page.getByTestId('attendance-checkin-email-input').fill('alice@example.com');
-    await lookup.click();
-    await expect(page.getByTestId('attendance-checkin-vendor')).toBeVisible({ timeout: 10000 });
-
-    // Spent, so it stops wearing the only green on a page held at a door.
-    await expect(lookup).toHaveClass(/secondary-button/);
-    await expect(lookup).not.toHaveClass(/primary-button/);
   });
 });
