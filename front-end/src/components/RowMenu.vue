@@ -73,13 +73,19 @@ function onPointerDown(event: PointerEvent) {
   close(false);
   // The press moves focus after this event: to what it landed on, if that takes focus, and nowhere
   // if not. Nowhere is where the focused item leaves it as it goes, so the button takes it back.
+  // A thumb's drag ends in `pointercancel` instead and moves no focus, so nothing waits on after it.
+  const pressEnded = new AbortController();
   document.addEventListener(
     'pointerup',
     () => {
+      pressEnded.abort();
       if (document.activeElement === document.body) button.value?.focus({ preventScroll: true });
     },
-    { once: true },
+    { signal: pressEnded.signal },
   );
+  document.addEventListener('pointercancel', () => pressEnded.abort(), {
+    signal: pressEnded.signal,
+  });
 }
 watch(open, (opened) => {
   if (opened) document.addEventListener('pointerdown', onPointerDown);

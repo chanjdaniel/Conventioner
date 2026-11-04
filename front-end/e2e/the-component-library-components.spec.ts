@@ -142,3 +142,78 @@ eachWindow('the existing components entry', (size) => {
     );
   });
 });
+
+/**
+ * A press that only dismisses a row's "..." (T209). Focus comes back to the button so the keys carry
+ * on from the row, and a mouse's press draws no halo there; a thumb's drag is no press at all, and
+ * leaves nothing behind to act on the next tap.
+ */
+test.describe("a row's menu dismissed by a press elsewhere", () => {
+  const focusIsVisible = (page: Page) =>
+    page.getByTestId('library-line-menu-button').evaluate((el) => el.matches(':focus-visible'));
+
+  test('with the mouse, focus comes back to the button with no halo on it', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await openEntry(page, 'components');
+    const button = page.getByTestId('library-line-menu-button');
+
+    await button.click();
+    await expect(page.getByTestId('library-line-menu')).toBeVisible();
+    await page.mouse.click(4, 400);
+
+    await expect(page.getByTestId('library-line-menu')).toBeHidden();
+    await expect(button).toBeFocused();
+    expect(await focusIsVisible(page)).toBe(false);
+  });
+
+  test.describe('with a thumb', () => {
+    test.use({
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+      deviceScaleFactor: 3,
+    });
+
+    test('a drag that closes it leaves the next tap moving no focus to the button', async ({
+      page,
+    }) => {
+      await openEntry(page, 'components');
+      const button = page.getByTestId('library-line-menu-button');
+
+      await button.scrollIntoViewIfNeeded();
+      await button.tap();
+      await expect(page.getByTestId('library-line-menu')).toBeVisible();
+      await page.evaluate(() => {
+        const seen: string[] = [];
+        (window as unknown as { seen: string[] }).seen = seen;
+        for (const type of ['pointerdown', 'pointerup', 'pointercancel']) {
+          document.addEventListener(type, () => seen.push(type), true);
+        }
+      });
+
+      const cdp = await page.context().newCDPSession(page);
+      // A thumb's own touches: the browser takes the drag for a scroll, and cancels the pointer.
+      const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', y?: number) =>
+        cdp.send('Input.dispatchTouchEvent', {
+          type,
+          touchPoints: y === undefined ? [] : [{ x: 20, y }],
+        });
+      await touch('touchStart', 700);
+      for (const y of [680, 640, 600, 560, 500]) await touch('touchMove', y);
+      await touch('touchEnd');
+      await cdp.detach();
+      await expect(page.getByTestId('library-line-menu')).toBeHidden();
+      const seen = await page.evaluate(() => (window as unknown as { seen: string[] }).seen);
+      expect(seen).toContain('pointercancel');
+      expect(seen).not.toContain('pointerup');
+
+      // Focus goes somewhere else, then a tap on nothing: the closed menu has no say in it.
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+      await page.touchscreen.tap(4, 700);
+      await expect
+        .poll(() => page.evaluate(() => (window as unknown as { seen: string[] }).seen.at(-1)))
+        .toBe('pointerup');
+      await expect(button).not.toBeFocused();
+    });
+  });
+});
