@@ -634,7 +634,7 @@ for (const size of PHONE_AND_DESK) {
       await expectInside(save, 'Save reviewers');
       await press(save);
       await expect(dealing).toHaveCount(0);
-      await expect(page.getByTestId('reviewers-person')).toHaveText([EDITOR.email]);
+      await expect(page.getByTestId('reviewers-line')).toHaveText(`1 reviewer: ${EDITOR.email}`);
       await expectFits(page, 'One by one, the review dealt');
 
       // The chosen reviewer reads their share, then decides it One by one, at the window.

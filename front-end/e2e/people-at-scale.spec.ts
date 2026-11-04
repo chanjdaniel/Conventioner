@@ -29,6 +29,7 @@ import {
 } from './helpers/seedPeopleAtScale';
 import { loginViaApi } from './helpers/seeds';
 import { uniqueMarketName } from './helpers/uniqueName';
+import { withUser } from './helpers/withUser';
 
 /**
  * People lists and people choosers at 100+ (T204).
@@ -47,6 +48,10 @@ import { uniqueMarketName } from './helpers/uniqueName';
  * Every chooser of a person finds them by typing, among however many there are: Choose reviewers,
  * "Who will follow up", the card's "Followed up by", the All view's "Assigned to" and the history's
  * "Who".
+ *
+ * The Reviewers panel names three of the 12 reviewers and "and 9 more", rather than listing them
+ * above the work, and that button opens the Change dialog for the owner and a read-only list for
+ * anyone else.
  */
 
 /** A market like the seed's, in an organization whose only person is the seed owner. */
@@ -617,10 +622,11 @@ for (const size of PHONE_AND_DESK) {
       await press(reviewers.save);
       await expect(reviewers.dialog).toBeHidden();
 
-      const after = reviewers.people;
-      await expect(after).toHaveCount(seed.counts.reviewers);
-      await expect(after.filter({ hasText: added })).toHaveCount(1);
-      await expect(after.filter({ hasText: removed })).toHaveCount(0);
+      await expect(reviewers.line).toContainText(`${seed.counts.reviewers} reviewers: `);
+      await press(reviewers.more);
+      await expect(chooser.chips).toHaveCount(seed.counts.reviewers);
+      await expect(chooser.chip(added)).toBeVisible();
+      await expect(chooser.chip(removed)).toHaveCount(0);
     });
 
     if (size.phone) {
@@ -637,6 +643,145 @@ for (const size of PHONE_AND_DESK) {
         await expectLaidOut(page, 'the list open at 320');
       });
     }
+  });
+}
+
+for (const size of PHONE_AND_DESK) {
+  test.describe(`The Reviewers panel's line on 12 reviewers, ${size.name}`, () => {
+    test.use(size.use);
+    test.setTimeout(120_000);
+
+    let seed: PeopleAtScaleSeed;
+    const press = (locator: Locator) => (size.phone ? locator.tap() : locator.click());
+    /** The widths the line and its dialogs must fit: the window's, and on a phone 320 too. */
+    const fitWidths = size.phone ? [390, 320] : [size.use.viewport.width];
+    /** Each width in turn; sizing the window closes nothing here, since each state opens after. */
+    async function atEachWidth(page: Page, check: (width: number) => Promise<void>) {
+      for (const width of fitWidths) {
+        await page.setViewportSize({ width, height: size.use.viewport.height });
+        await check(width);
+      }
+    }
+
+    test.beforeEach(async ({ request }) => {
+      seed = await seedPeopleAtScale(request);
+    });
+
+    test('names three and "and 9 more", which opens Change reviewers for the owner', async ({
+      authenticatedPage: page,
+    }) => {
+      await new ApplicationsAllPage(page).goto(seed.marketId);
+      const reviewers = new ReviewersPanel(page);
+      const [first, second, third] = seed.reviewers;
+      await expect(reviewers.line).toHaveText(
+        `12 reviewers: ${first!.email}, ${second!.email}, ${third!.email} and 9 more reviewers`,
+      );
+      await expect(reviewers.more).toHaveAccessibleName('and 9 more reviewers');
+
+      await atEachWidth(page, async (width) => {
+        await expectLaidOut(page, `the line at ${width}`);
+        await press(reviewers.more);
+        await expect(reviewers.dialog).toBeVisible();
+        await expect(reviewers.all).toHaveCount(0);
+        await expect(reviewers.chooser.chips).toHaveCount(seed.counts.reviewers);
+        await expect(reviewers.chooser.field).toBeFocused();
+        await expectLaidOut(page, `Change reviewers at ${width}`);
+        await page.keyboard.press('Escape');
+        await expect(reviewers.dialog).toBeHidden();
+        await expect(reviewers.more).toBeFocused();
+      });
+    });
+
+    test('a save down to three takes the button, and focus goes to Change reviewers', async ({
+      authenticatedPage: page,
+    }) => {
+      await new ApplicationsAllPage(page).goto(seed.marketId);
+      const reviewers = new ReviewersPanel(page);
+      await press(reviewers.more);
+      await expect(reviewers.dialog).toBeVisible();
+      for (const reviewer of seed.reviewers.slice(3)) {
+        await press(reviewers.chooser.removeButton(reviewer.email));
+      }
+      await press(reviewers.save);
+      await expect(reviewers.dialog).toBeHidden();
+
+      const [first, second, third] = seed.reviewers;
+      await expect(reviewers.line).toHaveText(
+        `3 reviewers: ${first!.email}, ${second!.email} and ${third!.email}`,
+      );
+      await expect(reviewers.more).toHaveCount(0);
+      await expect(reviewers.change).toBeFocused();
+    });
+
+    test('opens a read-only list of 12 for a member who may not choose', async ({ browser }) => {
+      const reader = seed.reviewers[1]!;
+      await withUser(
+        browser,
+        reader.email,
+        PEOPLE_AT_SCALE_PASSWORD,
+        async (page) => {
+          await new ApplicationsAllPage(page).goto(seed.marketId);
+          const reviewers = new ReviewersPanel(page);
+          await expect(reviewers.change).toHaveCount(0);
+          await expect(reviewers.line).toContainText(`${reader.email} (you)`);
+
+          await atEachWidth(page, async (width) => {
+            await expectLaidOut(page, `the line at ${width}`);
+            await press(reviewers.more);
+            await expect(reviewers.all).toBeVisible();
+            await expect(reviewers.dialog).toHaveCount(0);
+            await expect(reviewers.allPeople).toHaveCount(seed.counts.reviewers);
+            await expect(reviewers.allPeople.nth(1)).toHaveText(`${reader.email} (you)`);
+            await expect(reviewers.all.getByRole('button')).toHaveCount(1);
+            await expect(reviewers.allClose).toHaveAccessibleName('Close');
+            await expectLaidOut(page, `the read-only list at ${width}`);
+            expect((await sweep(page)).failures, 'the list has text below AA').toEqual([]);
+
+            await press(reviewers.allClose);
+            await expect(reviewers.all).toHaveCount(0);
+            await expect(reviewers.more).toBeFocused();
+
+            await press(reviewers.more);
+            await expect(reviewers.all).toBeVisible();
+            await page.keyboard.press('Escape');
+            await expect(reviewers.all).toHaveCount(0);
+            await expect(reviewers.more).toBeFocused();
+          });
+        },
+        size.use,
+      );
+    });
+
+    test('names who can no longer review first, and says how many more are folded', async ({
+      authenticatedPage: page,
+      request,
+    }) => {
+      const taken = seed.reviewers.slice(-5);
+      // No role of their own on the market, and none through its organization.
+      for (const reviewer of taken) {
+        for (const path of [
+          `markets/${seed.marketId}/roles/${reviewer.id}`,
+          `organizations/${seed.orgId}/users/${reviewer.id}`,
+        ]) {
+          const removed = await request.delete(`${BACKEND_URL}/${path}`);
+          expect(removed.ok(), await removed.text()).toBeTruthy();
+        }
+      }
+      await new ApplicationsAllPage(page).goto(seed.marketId);
+      const reviewers = new ReviewersPanel(page);
+      const [first, second, third] = taken;
+      const chip = 'Can no longer review here';
+      await expect(reviewers.line).toHaveText(
+        `12 reviewers: ${first!.email} ${chip}, ${second!.email} ${chip}, ${third!.email} ${chip} and 9 more reviewers, 2 more can no longer review here`,
+      );
+      await expect(reviewers.unable).toHaveCount(3);
+      await expect(reviewers.unableFolded).toHaveText('2 more can no longer review here');
+
+      await atEachWidth(page, async (width) => {
+        await expectLaidOut(page, `the line with its marks at ${width}`);
+        expect((await sweep(page)).failures, 'the line has text below AA').toEqual([]);
+      });
+    });
   });
 }
 

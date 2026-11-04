@@ -313,7 +313,7 @@ The page objects in `front-end/e2e/pages/` are these, one a line, sorted by clas
 - `PersonChooser` (a chooser of one person: "Who will follow up", "Followed up by", "Assigned to", the history's "Who")
 - `ResultPage`
 - `ReviewerChooser` (the several-choice chooser of reviewers, in the panel's dialog, Open applications and the first import)
-- `ReviewersPanel` (the Applications tab's Reviewers panel and its dialog)
+- `ReviewersPanel` (the Applications tab's Reviewers panel: its line, its Change dialog and its read-only list)
 - `StartFromCsvPage`
 - `StatsPage`
 - `TablesPage`
