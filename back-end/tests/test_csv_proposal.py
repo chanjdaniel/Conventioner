@@ -584,17 +584,31 @@ def _answered_with_distinct(answered, distinct):
     # Under the floor every answer can differ by chance, so a small file's choice column keeps them.
     (19, 19, True),
     (20, 20, False),
-    (20, 19, True),
-    # Either side of 97%.
-    (100, 97, False),
-    (100, 96, True),
-    (200, 194, False),
-    (200, 193, True),
+    (20, 13, True),
+    (20, 14, False),
+    # Either side of 70%: what they sell stands near 66%, free text and handles from 75%.
+    (100, 70, False),
+    (100, 69, True),
+    (200, 140, False),
+    (200, 139, True),
 ])
-def test_a_column_of_nearly_all_different_answers_keeps_nothing_new(answered, distinct, keeps):
+def test_a_column_of_mostly_different_answers_keeps_nothing_new(answered, distinct, keeps):
     field = _field_answering(_answered_with_distinct(answered, distinct))
     reading = CsvProposal.every_reading(field)
     if keeps:
         assert len(reading["select"]) == distinct
     else:
         assert reading is None
+
+
+def _usernames_and_na(usernames, na):
+    return [f"maker{i:03d}" for i in range(usernames)] + ["NA"] * na
+
+
+def test_a_few_repeated_words_do_not_let_a_column_of_who_they_are_through():
+    assert CsvProposal.every_reading(_field_answering(_usernames_and_na(96, 4))) is None
+
+
+def test_a_column_of_who_they_are_passes_only_when_a_third_of_it_is_the_same_words():
+    """The case ADR 0023 accepts by name: the rule counts how different the answers are, not whose."""
+    assert CsvProposal.every_reading(_field_answering(_usernames_and_na(68, 32))) is not None

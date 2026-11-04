@@ -37,8 +37,8 @@ export function fileOptions(column: ExampleColumn, type: string): string[] {
 
 /**
  * Every answer the file gave for a type. A column with no `answers` has only its common options,
- * whatever the reason: a market started before they were kept, a column whose answers are nearly
- * all different.
+ * whatever the reason: a market started before they were kept, a column whose answers are mostly
+ * different.
  */
 export function fileAnswers(column: ExampleColumn, type: string): string[] {
   return readingFor(column.answers ?? column.options, type);

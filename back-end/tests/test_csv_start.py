@@ -438,6 +438,25 @@ def test_a_column_of_who_they_are_keeps_no_answers(name, key):
     assert "answers" not in _kept_of(name)[key]
 
 
+# Each export's free-text columns, by how their labels start: from 75% different up, on all five.
+FREE_TEXT = {
+    "days-as-one-question": ["What experience do you have", "Anything else"],
+    "four-day-grid": ["Tell us about any markets", "Any other comments"],
+    "no-timestamp": ["Have you had a table", "Anything else"],
+    "five-day-grid": ["Have you tabled", "Anything else"],
+    "team-status-column": ["Have you sold your work", "Anything else"],
+}
+
+
+@pytest.mark.parametrize("name, label", [
+    (name, label) for name, labels in FREE_TEXT.items() for label in labels])
+def test_a_column_of_free_text_keeps_no_answers(name, label):
+    """A column of applicants' own sentences stays off the market (ADR 0023)."""
+    found = [column for column in _kept_of(name).values() if column["label"].startswith(label)]
+    assert len(found) == 1
+    assert "answers" not in found[0]
+
+
 NEVER_STORED = re.compile(r"@|://|\d{7}")
 
 

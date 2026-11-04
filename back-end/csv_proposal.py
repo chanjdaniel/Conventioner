@@ -44,9 +44,13 @@ SHARED_BY = 3
 # which questions the form required, and a guess read from how many answered skipped every row that
 # left one blank at import (E33/F02/S01). Only the organizer marks a question required.
 NEARLY_ALL = 0.97
-# How many must have answered before a column of different answers reads as one of who they are: in
-# a small file's choice column, every answer can differ by chance (``every_reading``).
-NEARLY_ALL_DIFFERENT_FROM = 20
+# How different a column's answers are once it reads as applicants' own words rather than a choice
+# (``every_reading``), as distinct answers over those who answered. A line in a measured gap: what
+# they sell stands at 66.7% at most, free text and handles at 75.1% at least (ADR 0023).
+MOSTLY_DIFFERENT = 0.7
+# How many must have answered before that holds: in a small file's choice column, every answer can
+# differ by chance.
+MOSTLY_DIFFERENT_FROM = 20
 
 # Why a row of the proposal is worth a second look, shown beside it as "check this".
 CHECK_SEVERAL_ANSWERS = "Could allow several answers"
@@ -163,7 +167,7 @@ def _names_someone(value: str) -> bool:
     times, years and dates ("9.30 - 4.30", "2023 - 2024") or a range of numbers around a dash, each
     end within one of round ("500-1000"), which a question offers. What no pattern sees, such as a bare name, a shop's name, a handle with no @
     or a postal code, only SHARED_BY guards in ``kept_readings``, and in ``every_reading`` only its
-    rule on a column of nearly all different answers (ADR 0023).
+    rule on a column of mostly different answers (ADR 0023).
     """
     if any(pattern.search(value) for pattern in (EMAIL, SPELLED_EMAIL, URL, DOMAIN, ANY_HANDLE,
                                                   STREET)):
@@ -463,14 +467,15 @@ def kept_readings(field: Dict[str, Any]) -> Dict[str, List[str]]:
 def every_reading(field: Dict[str, Any]) -> Optional[Dict[str, List[str]]]:
     """Both readings of every answer the column holds, for an option to offer (ADR 0023): each less
     what ``_names_someone`` catches, values only, most chosen first, so always a superset of
-    ``kept_readings``. Nothing for a column whose answers are nearly all different, a whole column
-    of who they are (a Discord username, a shop's name): at least ``NEARLY_ALL`` as many answers as
-    applicants who answered, at least ``NEARLY_ALL_DIFFERENT_FROM`` of them.
+    ``kept_readings``. Nothing for a column whose answers are mostly different, a whole column of
+    who they are or of their own sentences (a Discord username, a shop's name, a market history): at
+    least ``MOSTLY_DIFFERENT`` as many answers as applicants who answered, at least
+    ``MOSTLY_DIFFERENT_FROM`` of them.
     """
     by_type = field.get("optionsByType") or {}
     whole = by_type.get("select") or {"options": [], "answers": []}
     answered = len(whole["answers"])
-    if answered >= NEARLY_ALL_DIFFERENT_FROM and len(whole["options"]) / answered >= NEARLY_ALL:
+    if answered >= MOSTLY_DIFFERENT_FROM and len(whole["options"]) / answered >= MOSTLY_DIFFERENT:
         return None
 
     def every(reading: Optional[Dict[str, Any]]) -> List[str]:

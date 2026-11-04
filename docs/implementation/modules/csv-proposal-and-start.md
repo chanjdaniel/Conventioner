@@ -79,14 +79,14 @@ A later import does not refresh it: the form locks at the first application, so 
 
 **The start also keeps every answer of a column, for an option on the Questions tab to offer** (`answers`, [ADR 0023](../../adr/0023-every-answer-for-an-option-to-offer.md), T213).
 `every_reading` holds both readings, each less what `_names_someone` catches, values only, most chosen first, so it is a superset of `kept_readings`, which it leaves as it was.
-A column whose answers are nearly all different returns nothing and is written with no `answers` key: its Select reading holds at least `NEARLY_ALL` (97%) as many answers as applicants who answered, and at least `NEARLY_ALL_DIFFERENT_FROM` (20) answered, which keeps whole columns of Discord usernames and shop names off the market.
+A column whose answers are mostly different returns nothing and is written with no `answers` key: its Select reading holds at least `MOSTLY_DIFFERENT` (70%) as many answers as applicants who answered, and at least `MOSTLY_DIFFERENT_FROM` (20) answered, which keeps whole columns of Discord usernames, shop names and free text off the market; [ADR 0023](../../adr/0023-every-answer-for-an-option-to-offer.md) says what the line was measured on, and the two cases that pass it, a small file and repeated words.
 Elsewhere no share of applicants guards it, so what no pattern sees, such as a bare name or a shop's name typed into a choice column, is kept.
 No `answers` on a column always means its common options are all there is: a market started before this has none, and no migration adds them.
 [`exampleColumns.ts`](../../../front-end/src/utils/exampleColumns.ts) reads them: `fileAnswers` is the type's `answers` reading, or `fileOptions` with no `answers`, and `answersToOffer` is that less every other option on the question, for `FormFieldEditor` to list; `fileOptions`, the common ones, stays what a type change, "Use the answers in your file" and "Add from your file" fill.
 The market read serves `answers` only to a role that passes `CHANGE_FORM` on the market's table, while `application_form_lock_reason` is `None`.
 Everything else that answers with a market removes it through `leave_out_every_answer` in [`back-end/api/markets.py`](../../../back-end/api/markets.py): the read for anyone else, the Markets list, and the two assignment responses that dump the whole market (`get_assigned_market`, `run_assignment`).
 They stay stored after the form locks, unread, and go when the market is deleted; a later change to an application does not change them, and there is no way to remove one answer from them.
-On the five synthetic exports they add 13 KB to 61 KB to a market, beside about 2 KB of common readings.
+On the five synthetic exports they add 11 KB to 19 KB to a market, beside about 2 KB of common readings.
 
 **A left-out column is saved in the mapping under the key a question made from it would have.**
 A key the mapping already holds is never replaced by one.

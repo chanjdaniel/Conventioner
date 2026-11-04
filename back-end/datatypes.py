@@ -597,7 +597,7 @@ class ExampleColumn(BaseModel):
     question: bool = False
     options: ExampleOptions = Field(default_factory=ExampleOptions)
     # Every answer, served only to someone who may change the form while it can still change
-    # (``leave_out_every_answer``). None on a column of nearly all different answers, on a market
+    # (``leave_out_every_answer``). None on a column of mostly different answers, on a market
     # started before they were kept, and to every other reader: the options are all there is.
     answers: Optional[ExampleOptions] = None
 

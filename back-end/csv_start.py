@@ -139,7 +139,7 @@ def _example_columns(proposal: Dict[str, Any], choices: Dict[int, Dict[str, Any]
 
     Never who applied, when, or an essential question: none is a question to add or retype. A
     question's type is the one written, a left-out column's the one the organizer last chose. A
-    column of nearly all different answers has no ``answers`` at all, as a market started before
+    column of mostly different answers has no ``answers`` at all, as a market started before
     they were kept has none, so no ``answers`` always means the common options are all there is.
     """
     by_row = {c["index"]: c for c in proposal["columns"]}
