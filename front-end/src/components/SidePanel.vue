@@ -6,9 +6,12 @@
  *
  * Modal the way `AppDialog` is, through the same composables: Escape and the scrim close it, focus
  * moves in and goes back, and the page behind is inert. It never closes itself: it emits `close`, and
- * the screen that holds `open` closes it. Focus moves in to the close button, as the vendor drawer's
- * does, so one stray Enter takes nothing and a panel of details does not open scrolled down to its
- * first control.
+ * the screen that holds `open` closes it. A dialog it opens is mounted beside it, never inside it
+ * (`dialogs.md`).
+ *
+ * Focus moves in to the body, the one thing here the keys can scroll: from the head they would scroll
+ * the page behind. So one stray Enter takes nothing, and a panel does not open scrolled down to its
+ * first control. The close button lies one Shift+Tab behind.
  *
  * Its content goes as it closes, as a dialog's window does, which drops focus to `<body>` so
  * `useFocusGoesBack` can return it. So the emptied panel is what slides out, as the vendor drawer's
@@ -23,7 +26,7 @@ const props = withDefaults(
   defineProps<{
     open: boolean;
     title: string;
-    /** Test id prefix: `<testid>-window`, `-close-button`, `-background`, `-body`. */
+    /** Test id prefix: `<testid>-window`, `-title`, `-close-button`, `-background`, `-body`. */
     testid: string;
     side?: 'right' | 'left';
     /** A step and never a free width, as a dialog's: `narrow` (20rem) or `wide` (30rem). */
@@ -44,14 +47,14 @@ const modalRoot = useModalRoot(() => props.open);
 /** Takes the opener as the panel opens, so focus moves in after a `nextTick`, below. */
 useFocusGoesBack(() => props.open);
 
-const closeButton = ref<HTMLButtonElement | null>(null);
+const body = ref<HTMLElement | null>(null);
 
 watch(
   () => props.open,
   async (open) => {
     if (!open) return;
     await nextTick();
-    closeButton.value?.focus();
+    body.value?.focus();
   },
   { immediate: true },
 );
@@ -71,13 +74,14 @@ watch(
       role="dialog"
       aria-modal="true"
       :aria-label="title"
+      :aria-hidden="open ? undefined : 'true'"
       :data-testid="`${testid}-window`"
+      tabindex="-1"
     >
       <template v-if="open">
         <header class="side-panel__head">
-          <h2 class="side-panel__title">{{ title }}</h2>
+          <h2 class="side-panel__title" :data-testid="`${testid}-title`">{{ title }}</h2>
           <button
-            ref="closeButton"
             type="button"
             class="side-panel__close"
             aria-label="Close"
@@ -87,7 +91,7 @@ watch(
             &times;
           </button>
         </header>
-        <div class="side-panel__body" :data-testid="`${testid}-body`">
+        <div ref="body" class="side-panel__body" :data-testid="`${testid}-body`" tabindex="0">
           <slot />
         </div>
       </template>
@@ -162,8 +166,6 @@ watch(
   transform: translateX(-100%);
 }
 
-/* `none`, not `translateX(0)`: a transform would make the panel the box a dialog opened from it
-   fixes itself to, and that dialog would sit inside the panel rather than over the window. */
 .side-panel--open .side-panel__window {
   transform: none;
 }
@@ -212,8 +214,7 @@ watch(
   padding: var(--space-4) var(--space-6) var(--space-6);
 }
 
-/* A body with nothing to focus is a keyboard stop of the browser's own; the window clips any halo
-   drawn outside it. */
+/* The window clips any halo drawn outside it. */
 .side-panel__body:focus-visible {
   box-shadow: var(--focus-halo-inset);
 }

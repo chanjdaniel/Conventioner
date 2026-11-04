@@ -112,7 +112,7 @@ describe('the primitives exist and own what tokens cannot', () => {
       ['.chip', 'border-radius'],
       ['.chip', 'font-size'],
       ['.chip--small', 'padding'],
-      ['.chip--small', 'font-size'],
+      ['.chip--small', 'border-radius'],
       ['.data-table', 'font-size'],
       ['.data-table :is(th, td)', 'padding'],
       ['.data-table thead th', 'font-size'],

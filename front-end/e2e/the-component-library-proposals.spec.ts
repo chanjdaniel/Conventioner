@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
+import { namelessControls } from './helpers/accessibleNames';
 import { eachWindow, expectLaidOut, openEntry } from './helpers/componentLibrary';
 import { inTheWindow } from './helpers/phoneWindow';
 import { settle } from './helpers/settle';
@@ -33,7 +34,7 @@ eachWindow('the proposals entry', (size) => {
 
   async function openPanel(page: Page) {
     await press(opener(page));
-    await expect(closeButton(page)).toBeFocused();
+    await expect(closeButton(page)).toBeVisible();
     await settle(page);
   }
 
@@ -67,7 +68,7 @@ eachWindow('the proposals entry', (size) => {
     await expectAccessible('the proposals entry');
   });
 
-  test('draws each tone at both sizes, with what it would replace beside it', async ({ page }) => {
+  test('draws each tone at both sizes, with what would take it under it', async ({ page }) => {
     for (const tone of TONES) {
       const box = page.getByTestId(`library-tone-${tone}`);
       const chip = box.getByTestId('library-chip');
@@ -146,6 +147,7 @@ eachWindow('the proposals entry', (size) => {
       'the page behind is inert',
     ).toBe(true);
     await expectAccessible('the side panel open');
+    expect(await namelessControls(page), 'the side panel').toEqual([]);
 
     await page.keyboard.press('Escape');
     await expectClosed(page);
@@ -173,13 +175,39 @@ eachWindow('the proposals entry', (size) => {
 
     await body.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
     await expectInside(closeButton(page), 'the close button');
-    await expectInside(panel(page).getByRole('heading', { level: 2 }), 'the title');
-    await expect(
-      page.getByTestId('library-panel-others').getByRole('listitem').last(),
-    ).toBeInViewport();
+    await expectInside(page.getByTestId('library-side-panel-title'), 'the title');
+    await expect(page.getByTestId('library-panel-other').last()).toBeInViewport();
     await expect
       .poll(() => panel(page).evaluate((element) => element.scrollTop), 'the panel itself stays')
       .toBe(0);
+  });
+
+  test('the keys scroll the panel from where it opens, and the page stays', async ({ page }) => {
+    await opener(page).focus();
+    await page.keyboard.press('Enter');
+    const body = page.getByTestId('library-side-panel-body');
+    await expect(body).toBeFocused();
+    await settle(page);
+    const pageScrolled = await page.evaluate(() => window.scrollY);
+
+    await page.keyboard.press('PageDown');
+    await expect.poll(() => body.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    expect(await page.evaluate(() => window.scrollY), 'the page behind stays').toBe(pageScrolled);
+
+    await page.keyboard.press('Shift+Tab');
+    await expect(closeButton(page)).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(body).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('library-panel-ask')).toBeFocused();
+  });
+
+  test("a press on the panel's words keeps focus inside it", async ({ page }) => {
+    await openPanel(page);
+    await press(page.getByTestId('library-side-panel-title'));
+    expect(await panel(page).evaluate((element) => element.contains(document.activeElement))).toBe(
+      true,
+    );
   });
 
   test('takes a side and a width, leaving a gutter of scrim', async ({ page }) => {
@@ -195,7 +223,9 @@ eachWindow('the proposals entry', (size) => {
 
     await press(page.getByTestId('library-panel-width-narrow'));
     await press(page.getByTestId('library-panel-side-left'));
-    await expect(page.getByTestId('read-out').last()).toContainText('closed, left, narrow');
+    await expect(page.getByTestId('library-panel-demo').getByTestId('read-out')).toContainText(
+      'closed, left, narrow',
+    );
     await openPanel(page);
     const narrow = (await panel(page).boundingBox())!;
     expect(narrow.x, 'on the left').toBe(0);
@@ -218,6 +248,12 @@ eachWindow('the proposals entry', (size) => {
       Math.abs(box.x + box.width / 2 - width / 2),
       'the dialog is centred in the window, not in the panel',
     ).toBeLessThanOrEqual(1);
+    const onTop = await page.evaluate(
+      ({ x, y }) =>
+        document.elementFromPoint(x, y)?.closest('[role="dialog"]')?.getAttribute('aria-label'),
+      { x: box.x + box.width - 8, y: box.y + box.height / 2 },
+    );
+    expect(onTop, 'the dialog lies over the panel').toBe('Update info');
 
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);

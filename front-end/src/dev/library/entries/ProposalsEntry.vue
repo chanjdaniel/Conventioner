@@ -234,7 +234,7 @@ const panelReadOut = computed(
 <template>
   <LibrarySection
     title="Badges"
-    about="The chip's five tones at both sizes, beside the one-off badges each would replace. The one-offs stay in their screens' markup."
+    about="The chip's five tones at both sizes, under each the review's 15 one-off badge classes that would take it: a class with several looks is under each of its tones, and two already wear the chip. The one-offs stay in their screens' markup."
   >
     <LibraryPanel v-for="{ tone, label, oneOffs } in TONES" :key="tone" :label="label">
       <div class="library-demo" :data-testid="`library-tone-${tone}`">
@@ -272,7 +272,7 @@ const panelReadOut = computed(
         tabindex="0"
         data-testid="library-table-scroll"
       >
-        <table class="data-table data-table--one-line" data-testid="library-table">
+        <table class="data-table data-table--one-line">
           <thead>
             <tr>
               <th scope="col">Name</th>
@@ -327,7 +327,7 @@ const panelReadOut = computed(
       </div>
     </LibraryPanel>
     <LibraryPanel class="library-wide" label="The six tables today">
-      <ul class="library-places library-places--columns" data-testid="library-tables-today">
+      <ul class="library-places">
         <li v-for="{ file, differs } in TABLES" :key="file">
           <code class="library-name">{{ file }}</code>
           <span class="library-quiet">{{ differs }}</span>
@@ -341,7 +341,7 @@ const panelReadOut = computed(
     about="A shell for the vendor drawer and the navigation drawer, each of which draws its own scrim and holds the page itself. Modal as a dialog is: Escape, the scrim, focus in and back, the page inert."
   >
     <LibraryPanel class="library-wide" label="One application's details">
-      <div class="library-demo">
+      <div class="library-demo" data-testid="library-panel-demo">
         <div class="library-chips">
           <FilterToggles v-model="side" :options="SIDES" label="Side" testid="library-panel-side" />
           <FilterToggles
@@ -401,23 +401,27 @@ const panelReadOut = computed(
       </p>
       <h3 class="library-subtitle">Their reviewer's other applications</h3>
       <ul class="library-others" data-testid="library-panel-others">
-        <li v-for="other in sameReviewer" :key="other.id">{{ other.name }}</li>
+        <li v-for="other in sameReviewer" :key="other.id" data-testid="library-panel-other">
+          {{ other.name }}
+        </li>
       </ul>
     </div>
-    <AppDialog
-      :open="asking"
-      title="Update info"
-      testid="library-panel-dialog"
-      confirmLabel="Done"
-      @close="asking = false"
-      @submit="asking = false"
-    >
-      <p class="library-quiet">
-        A dialog opened from the panel lies over the whole window, as Update info does over the
-        vendor drawer, and takes Escape first.
-      </p>
-    </AppDialog>
   </SidePanel>
+
+  <!-- Beside the panel, never inside it, as the vendor drawer mounts its Update info. -->
+  <AppDialog
+    :open="asking"
+    title="Update info"
+    testid="library-panel-dialog"
+    confirmLabel="Done"
+    @close="asking = false"
+    @submit="asking = false"
+  >
+    <p class="library-quiet">
+      A dialog opened from the panel lies over it and the whole window, as Update info does over the
+      vendor drawer, and takes Escape first.
+    </p>
+  </AppDialog>
 
   <ChoicesForYou>
     <li>
@@ -427,9 +431,10 @@ const panelReadOut = computed(
       the pill's.
     </li>
     <li>
-      <strong>The small step:</strong> no one-off is smaller than the chip today: each is 12px, the
-      type scale's floor, so the step only takes the padding in. The table's Status column wears it.
-      Is it worth having, or is one size enough, as the chip's rule says?
+      <strong>The small step:</strong> no one-off is smaller than the chip today: at a desk each is
+      12px, the type scale's floor, so the step only takes the padding in, and takes the 6px corners
+      the radius scale gives a small chip, where the chip is a pill. The table's Status column wears
+      it. Is it worth having, or is one size and one shape enough, as the chip's rule says?
     </li>
     <li>
       <strong>The table's look:</strong> a muted header on white with a rule between rows, as
@@ -441,8 +446,9 @@ const panelReadOut = computed(
       across, as the export's preview is; wrapping otherwise. Which is the default?
     </li>
     <li>
-      <strong>The side panel's width:</strong> narrow is 20rem, near the navigation drawer's 300px;
-      wide is 30rem, the vendor drawer's 480px. Both leave a 32px gutter of scrim on a phone.
+      <strong>The side panel's width:</strong> narrow is 20rem, near the navigation drawer's 250 to
+      300px; wide is 30rem, the vendor drawer's 480px. Each leaves at least 32px of scrim beside it,
+      on a phone too.
     </li>
     <li>
       <strong>The side panel's head:</strong> white, with the dialog's title and close, here. The

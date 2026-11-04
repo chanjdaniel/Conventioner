@@ -289,11 +289,12 @@
   color: var(--mm-text-red-on-tint);
 }
 
-/* A size step, not a tone: for a chip beside small type, in a table's row or a list's. The type stays
-   at the scale's floor, so the step comes off the chip's padding. */
+/* A size step, not a tone: for a chip beside small type, in a table's row or a list's. The type is
+   already the scale's floor, so the step comes off the padding, and a small chip takes the control's
+   corners, as the radius scale says. */
 .chip--small {
   padding: 0 var(--space-1);
-  font-size: var(--text-xs);
+  border-radius: var(--radius-control);
 }
 
 /* ============================================================================================

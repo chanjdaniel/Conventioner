@@ -43,16 +43,16 @@ const Host = defineComponent({
               () => [
                 h('p', { 'data-testid': 'details-text' }, 'What they sell'),
                 h('button', { 'data-testid': 'ask', onClick: () => (asking.value = true) }, 'Ask'),
-                h(AppDialog, {
-                  open: asking.value,
-                  title: 'Sure?',
-                  testid: 'asking',
-                  confirmLabel: 'Yes',
-                  onClose: () => (asking.value = false),
-                }),
               ],
             )
           : null,
+        h(AppDialog, {
+          open: asking.value,
+          title: 'Sure?',
+          testid: 'asking',
+          confirmLabel: 'Yes',
+          onClose: () => (asking.value = false),
+        }),
       ]);
   },
 });
@@ -94,7 +94,7 @@ describe('SidePanel, what it draws', () => {
     await settle();
     expect(byTestId('details-text')).toBeNull();
     expect(byTestId('details-close-button')).toBeNull();
-    expect(byTestId('details')).toBeNull();
+    expect(panel().getAttribute('aria-hidden')).toBe('true');
   });
 
   it('is a named modal dialog, its title a heading, its content the slot', async () => {
@@ -103,6 +103,7 @@ describe('SidePanel, what it draws', () => {
     expect(panel().getAttribute('role')).toBe('dialog');
     expect(panel().getAttribute('aria-modal')).toBe('true');
     expect(panel().getAttribute('aria-label')).toBe('Ana Ceramics');
+    expect(panel().hasAttribute('aria-hidden')).toBe(false);
     expect(panel().querySelector('h2')?.textContent).toBe('Ana Ceramics');
     expect(byTestId('details-body')!.contains(byTestId('details-text'))).toBe(true);
   });
@@ -164,12 +165,17 @@ describe('SidePanel, how it closes', () => {
   });
 
   it('closes by Escape, and only while it is open', async () => {
-    const host = mountHost();
+    const shell = mount(SidePanel, {
+      attachTo: document.body,
+      props: { open: false, title: 'Ana Ceramics', testid: 'details' },
+    });
     await pressEscape();
-    expect((host.vm as unknown as { open: boolean }).open).toBe(false);
-    await openIt();
+    expect(shell.emitted('close')).toBeUndefined();
+
+    await shell.setProps({ open: true });
     await pressEscape();
-    expect(byTestId('details-text')).toBeNull();
+    expect(shell.emitted('close')).toHaveLength(1);
+    shell.unmount();
   });
 
   it('gives Escape to a dialog opened from it first', async () => {
@@ -189,10 +195,11 @@ describe('SidePanel, how it closes', () => {
 });
 
 describe('SidePanel, focus', () => {
-  it('moves focus in, to the close button, when it opens', async () => {
+  it('moves focus in, to the body the keys scroll, when it opens', async () => {
     mountHost();
     await openIt();
-    expect(document.activeElement).toBe(byTestId('details-close-button'));
+    expect(document.activeElement).toBe(byTestId('details-body'));
+    expect(byTestId('details-body')!.getAttribute('tabindex')).toBe('0');
   });
 
   it('moves focus in when it is mounted open', async () => {
@@ -201,7 +208,7 @@ describe('SidePanel, focus', () => {
       props: { open: true, title: 'Ana Ceramics', testid: 'details' },
     });
     await settle();
-    expect(document.activeElement).toBe(byTestId('details-close-button'));
+    expect(document.activeElement).toBe(byTestId('details-body'));
     opened.unmount();
   });
 
@@ -244,6 +251,19 @@ describe('SidePanel, the page behind', () => {
     expect(byTestId('opener')!.hasAttribute('inert')).toBe(false);
   });
 
+  it('holds the page when it is mounted open', async () => {
+    const page = document.body.appendChild(document.createElement('button'));
+    const opened = mount(SidePanel, {
+      attachTo: document.body,
+      props: { open: true, title: 'Ana Ceramics', testid: 'details' },
+    });
+    await settle();
+    expect(page.hasAttribute('inert')).toBe(true);
+    opened.unmount();
+    expect(page.hasAttribute('inert')).toBe(false);
+    page.remove();
+  });
+
   it('lets the page go when it is unmounted open', async () => {
     const host = mountHost();
     await openIt();
@@ -258,6 +278,7 @@ describe('SidePanel, the page behind', () => {
     byTestId('ask')!.click();
     await settle();
     expect(byTestId('asking-window')!.closest('[inert]')).toBeNull();
+    expect(panel().closest('[inert]')).not.toBeNull();
 
     await pressEscape();
     expect(panel().closest('[inert]')).toBeNull();
