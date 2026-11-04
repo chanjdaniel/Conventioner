@@ -572,10 +572,14 @@ test.describe('the bar on a phone', () => {
     await menuButton(page).tap();
     const box = await sheet(page).boundingBox();
     expect(box!.y + box!.height).toBeLessThanOrEqual(180);
-    expect(await sheet(page).evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+    const shade = (edge: string) => page.getByTestId(`app-bar-sheet-scroll-shade-${edge}`);
+    await expect(shade('bottom'), 'it says there is more').toBeVisible();
+    await expect(shade('top')).toHaveCount(0);
     await sheetSignOut(page).scrollIntoViewIfNeeded();
     const last = await sheetSignOut(page).boundingBox();
     expect(last!.y + last!.height).toBeLessThanOrEqual(180);
+    await expect(shade('top')).toBeVisible();
+    await expect(shade('bottom')).toHaveCount(0);
   });
 
   test('widening past 640px with the sheet open closes it and gives the page back', async ({

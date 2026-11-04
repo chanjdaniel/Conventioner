@@ -16,6 +16,7 @@
 import { computed, inject, nextTick, onUnmounted, ref, useId, watch, type Ref } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import RowMenu from '@/components/RowMenu.vue';
+import ScrollBox from '@/components/ScrollBox.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 import IconExpandDown from '@/components/icons/IconExpandDown.vue';
 import IconMenu from '@/components/icons/IconMenu.vue';
@@ -160,35 +161,41 @@ onUnmounted(stopWatchingTheWindow);
     <template v-if="sheetOpen">
       <div ref="scrim" class="app-bar-scrim" data-testid="app-bar-scrim" @click="closeSheet"></div>
       <div :id="sheetId" ref="sheet" class="app-bar-sheet" data-testid="app-bar-sheet">
-        <nav aria-label="Main">
-          <RouterLink
-            v-for="{ place, to, label } in PLACES"
-            :key="place"
-            :to="to"
-            class="app-bar-sheet-row"
-            :aria-current="here === place ? 'page' : undefined"
-            @click="closeSheet"
-          >
-            {{ label }}
-          </RouterLink>
-        </nav>
-        <p class="app-bar-sheet-row app-bar-sheet-address" :title="user ?? undefined">{{ user }}</p>
-        <RouterLink
-          :to="CHANGE_PASSWORD"
-          class="app-bar-sheet-row"
-          aria-current-value="false"
-          @click="closeSheet"
-        >
-          Change password
-        </RouterLink>
-        <button
-          type="button"
-          class="app-bar-sheet-row"
-          data-testid="app-bar-sheet-sign-out"
-          @click="leave"
-        >
-          Sign out
-        </button>
+        <ScrollBox testid="app-bar-sheet-scroll">
+          <div class="app-bar-sheet-rows">
+            <nav aria-label="Main">
+              <RouterLink
+                v-for="{ place, to, label } in PLACES"
+                :key="place"
+                :to="to"
+                class="app-bar-sheet-row"
+                :aria-current="here === place ? 'page' : undefined"
+                @click="closeSheet"
+              >
+                {{ label }}
+              </RouterLink>
+            </nav>
+            <p class="app-bar-sheet-row app-bar-sheet-address" :title="user ?? undefined">
+              {{ user }}
+            </p>
+            <RouterLink
+              :to="CHANGE_PASSWORD"
+              class="app-bar-sheet-row"
+              aria-current-value="false"
+              @click="closeSheet"
+            >
+              Change password
+            </RouterLink>
+            <button
+              type="button"
+              class="app-bar-sheet-row"
+              data-testid="app-bar-sheet-sign-out"
+              @click="leave"
+            >
+              Sign out
+            </button>
+          </div>
+        </ScrollBox>
       </div>
     </template>
   </div>
@@ -334,12 +341,16 @@ onUnmounted(stopWatchingTheWindow);
   top: var(--banner-h);
   right: 0;
   left: 0;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   /* `dvh`, since a phone's browser bar would otherwise cover its last row. */
   max-height: calc(100dvh - var(--banner-h));
-  padding: var(--space-1) 0 var(--space-2);
   background: white;
   box-shadow: var(--shadow-card);
+}
+
+.app-bar-sheet-rows {
+  padding: var(--space-1) 0 var(--space-2);
 }
 
 /* A row's words stand on the logo's left edge, at the phone's gutter. */
