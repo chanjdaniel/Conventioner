@@ -441,7 +441,7 @@ Its placeholder, `000000`, clears on focus, so the empty field's caret, drawn at
 A row of pressed buttons that filters a list or switches a view is [`FilterToggles.vue`](../front-end/src/components/FilterToggles.vue) (T200): compact secondary `.btn`s in a named `role="group"`, one choice by default or several with `multiple`, each named by the words it shows, its label then an optional count.
 The row wraps and a long label wraps inside its toggle, so it never scrolls sideways, and on a phone a toggle is at least 44px each way.
 One rule holds in every row, Daniel's choice on 2026-11-04: pressing the chosen toggle again lets it go, and nothing pressed means all, so a row needs no All toggle, and Markets' phase filter has none.
-With one choice, letting go empties the value, unless the row names in `rest` an option to return to: the All toggle a row still draws, which stays pressed when it is pressed again.
+With one choice, letting go empties the value, unless the row names in `rest` an option to return to: its default, or the All toggle a row still draws, which stays pressed when it is pressed again.
 Several emit in the options' order.
 No screen mounts it yet: the library's `filter-toggles` entry lists the eight rows it would replace.
 
@@ -518,7 +518,7 @@ It is an outline on the inside of the edge rather than a `border`, so it takes n
 A button the green would not show on, on a fill it is under 3:1 with or over a green border of its own, sets `--focus-border` to `--focus-border-on-fill` in the rule that draws it, a deep green: 3.62:1 on `--mm-green`, 3.05 on `--mm-red`; so the primary and destructive buttons, each screen's own green button, a pressed toggle and the Vendors page's open row.
 On a dark ground, the vendor drawer's and the save dialog's close, it is the plain green, 3.39:1 on `--mm-black`.
 A text button, with no fill, no border and no padding, would have it lie over its words, so it sets `--focus-border-offset` to the border's width in its own rule, and the border runs 2px clear around its words: a vendor's name, a seat's Change, a history entry's toggle, Payments' sorts, the first of a form's steps, which starts at its header's edge.
-A text button whose border would cross what lies around it takes room inside its edge instead, given back so the words stay put: the banner's logo, against the window's top, by a negative margin of the same size, and Show on sign-in and the password reset, inside its field, by that much of the field's own padding, so its box stays inside the field's padding and the input keeps its width.
+A text button whose border would cross what lies around it takes room inside its edge instead, given back so the words stay put: the banner's logo, against the window's top, by that much less margin, and Show on sign-in and the password reset, inside its field, by that much of the field's own padding, so its box stays inside the field's padding and the input keeps its width.
 A market card draws it for its name, whose own box is only the name, and lifts under the pointer alone, since focus moves nothing.
 
 **A soft halo on every other control**, Daniel's choice on the same walk (E38/F01/S01): `--focus-halo`, a white 2px gap then a translucent green glow, in `base.css`.

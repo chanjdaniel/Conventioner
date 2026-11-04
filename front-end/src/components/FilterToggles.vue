@@ -5,9 +5,9 @@
  *
  * One rule, Daniel's (2026-11-04): pressing the chosen toggle again lets it go, and nothing pressed
  * means all. With one choice `modelValue` is the chosen option's id, or `''` with nothing chosen; a
- * row with an All toggle of its own names it in `rest`, and letting go chooses it. With `multiple`
- * it is the chosen ids, in the options' order: pressing a toggle takes it in or out, and an id no
- * option offers goes with the next press, since no toggle could let it go.
+ * row with a default or an All toggle of its own names it in `rest`, and letting go chooses it.
+ * With `multiple` it is the chosen ids, in the options' order: pressing a toggle takes it in or
+ * out, and an id no option offers goes with the next press, since no toggle could let it go.
  *
  * A toggle is named by the words it shows, its label then its count. The row wraps and so does a
  * long label, so it never scrolls sideways; a phone's tokens make each toggle at least a 44px target.

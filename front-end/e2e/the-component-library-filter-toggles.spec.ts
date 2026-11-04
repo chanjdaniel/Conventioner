@@ -7,8 +7,8 @@ import { inTheWindow } from './helpers/phoneWindow';
  * The component library's `filter-toggles` entry (T200): `FilterToggles` on the fixture's counts, at
  * a desk and on a phone. Application statuses read their counts and choose one at a time, a view
  * switch has no counts, and several phases press in and out; pressing the chosen toggle again lets
- * it go, in every row, by pointer and by keyboard; the row wraps and a label longer than the row wraps inside its toggle, so
- * nothing scrolls sideways, and a phone's toggle is a 44px target.
+ * it go, in every row, by pointer and by keyboard; the row wraps and a label longer than the row
+ * wraps inside its toggle, so nothing scrolls sideways, and a phone's toggle is a 44px target.
  */
 
 const readOutOf = (toggles: Locator): Locator =>

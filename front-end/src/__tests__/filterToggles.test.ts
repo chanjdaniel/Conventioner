@@ -102,7 +102,7 @@ describe('one choice', () => {
     expect(pressed()).toEqual(['statuses-open']);
   });
 
-  it('lets go to the option it rests on, its All toggle, when it names one', async () => {
+  it('lets go to the option it rests on, its default or All toggle, when it names one', async () => {
     const { toggle, pressed, emitted } = mountRow({ modelValue: 'approved', rest: 'open' });
     await toggle('approved').trigger('click');
     expect(emitted()).toEqual([['open']]);
