@@ -264,7 +264,7 @@ export interface Market {
   id: string;
   name: string;
   /** The market's public identifier, computed and persisted server-side from the name. Every
-   *  public URL names it - `/<slug>/check-in` is the page publishing puts on the air. */
+   *  public URL names it - `/<slug>` is its vendor page (ADR 0022). */
   slug?: string;
   creationDate: string;
   /** Derived server-side from phase: true when phase is ``draft``, false otherwise. The
@@ -386,7 +386,7 @@ export interface Market {
   publishWaitsReason?: string | null;
   /** Why the assignment cannot be run now, or null while it can (E36/F04/S02). */
   assignRefusalReason?: string | null;
-  /** How many applicants will read each outcome, while results may be published; else null. */
+  /** How many vendors will read each outcome, while results may be published; else null. */
   publishOutcomes?: { haveATable: number; notAssigned: number } | null;
   /**
    * What would refuse each move open from this phase, judged by the guards the move runs; empty
@@ -626,7 +626,8 @@ export interface Application {
   id: string;
   marketId: string;
   applicantEmail: string;
-  formData: Record<string, unknown>;
+  /** Absent from a vendor's own read on a Google Form market, whose page shows no application. */
+  formData?: Record<string, unknown>;
   status: ApplicationStatus;
   applicationType: ApplicationType;
   mainApplicationId?: string;
@@ -651,6 +652,8 @@ export interface Application {
    */
   outcome?: 'has_a_table' | 'not_assigned' | null;
   seats?: ApplicantSeat[];
+  /** Applicant's only: the name they go by, as the organizer reads it; empty when they gave none. */
+  vendorName?: string;
   /** Who recorded a vendor who never applied, and when (E36/F03/S01). Absent on any who applied. */
   addedBy?: { userId?: string | null; email: string } | null;
   addedAt?: string | null;
@@ -668,6 +671,8 @@ export interface ApplicantSeat {
   tableChoice: string;
   section: string;
   location: string;
+  /** When they checked in to this seat, or null when they have not. */
+  checkedInAt?: string | null;
 }
 
 /** A person, or an automatic rejection rule (E33/F03), named as a verdict's giver. */

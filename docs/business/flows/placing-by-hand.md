@@ -54,7 +54,7 @@ Every change goes through [the one writer of placements](../../implementation/mo
 
 ## J6. Place a vendor in an empty seat
 
-**Status:** Works (walked live; who is offered read from the code as of E36/F02/S02, `placing-someone-not-approved.spec.ts`); check-in sends the vendor to the seat placed (bug 1, [K2](market-day-door.md#k2-a-vendor-looks-up-their-table-and-checks-in)).
+**Status:** Works (walked live; who is offered read from the code as of E36/F02/S02, `placing-someone-not-approved.spec.ts`); check-in sends the vendor to the seat placed (bug 1, [K2](market-day-door.md#k2-a-vendor-scans-the-door-code-and-is-checked-in)).
 
 1. Click a free seat ("Assign someone" shows on the pointer); the dialog is titled with the table, and names the date, section and tier.
 2. "Who sits here" ("Search by name, business or email…"), grouped as "Fits this seat", "Would override their answers", "Not approved" and "Added by hand"; every applicant without a table on that date is offered; typing narrows each group, and one with nobody matching says "None match", and "Every vendor who applied already has a table on this date." when none is left.

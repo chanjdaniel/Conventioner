@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { APIRequestContext, Locator, Page } from '@playwright/test';
-import { test, expect, TEST_USER, BACKEND_URL, ApplicantLoginPage } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
 import { eachWindow, openEntry } from './helpers/componentLibrary';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { PHONE_AND_DESK } from './helpers/phoneWindow';
@@ -18,7 +18,6 @@ import { seedDraftMarket } from './helpers/seedDraftMarket';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 import { ApplicationFormPage } from './pages/ApplicationFormPage';
-import { ApplyPage } from './pages/ApplyPage';
 import { FloorplanWorkflowPage } from './pages/FloorplanWorkflowPage';
 import { UpdateInfoDialog } from './pages/UpdateInfoDialog';
 
@@ -165,15 +164,14 @@ const EDITOR = { email: 'e2e-select-editor@example.com', password: 'e2epassword1
 
 /** Sign a new vendor in on the market's page, as the vendor would, and land on the form. */
 async function applyAsAVendor(page: Page, marketId: string, marketSlug: string) {
-  const login = new ApplicantLoginPage(page);
-  await page.goto(`/${marketSlug}/applicant-login?redirect=apply`);
-  await login.requestCode(VENDOR);
-  await expect(login.codeInput).toBeVisible();
+  const vendorPage = new VendorPage(page);
+  await vendorPage.goto(marketSlug);
+  await vendorPage.requestCode(VENDOR);
   createApplicantLoginChallenge(marketId, VENDOR, CODE);
-  await login.enterCode(CODE);
-  const apply = new ApplyPage(page);
-  await expect(apply.form).toBeVisible({ timeout: 30000 });
-  return apply;
+  await vendorPage.enterCode(CODE);
+  await vendorPage.applyButton.click();
+  await expect(vendorPage.form).toBeVisible({ timeout: 30000 });
+  return vendorPage;
 }
 
 const seedTheFormsMarket = (request: APIRequestContext) =>
@@ -292,7 +290,7 @@ for (const size of WINDOWS) {
       }
     });
 
-    test("the apply page's select, and its error", async ({ page, request }) => {
+    test("the vendor page form's select, and its error", async ({ page, request }) => {
       const market = await seedTheFormsMarket(request);
       const apply = await applyAsAVendor(page, market.marketId, market.marketSlug);
 

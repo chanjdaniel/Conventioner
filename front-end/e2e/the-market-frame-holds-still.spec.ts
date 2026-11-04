@@ -30,11 +30,11 @@ async function frameOn(page: Page, path: string) {
   return box(page.getByTestId('market-bar'));
 }
 
-test('the rail holds the application page and the next step on one row at 1440', async ({
+test('the rail holds the vendor page and the next step on one row at 1440', async ({
   authenticatedPage: page,
   request,
 }) => {
-  const { marketId } = await seedApplicantMarket(
+  const { marketId, marketSlug } = await seedApplicantMarket(
     request,
     BACKEND_URL,
     TEST_USER.email,
@@ -43,16 +43,16 @@ test('the rail holds the application page and the next step on one row at 1440',
   await page.goto(marketSetupPath(marketId, 'applications'));
 
   const spine = await box(page.getByTestId('phase-rail-spine'));
-  const chip = page.getByTestId('phase-rail-apply');
+  const chip = page.getByTestId('phase-rail-vendor-page');
   const next = page.getByTestId('phase-transition-assignment');
   expect(Math.abs(middle(await box(chip)) - middle(spine))).toBeLessThan(4);
   expect(Math.abs(middle(await box(next)) - middle(spine))).toBeLessThan(4);
 
   // Shortened to fit, never lost: the whole address is the link, its hover text, and what Copy copies.
   const link = chip.getByRole('link');
-  await expect(link).toHaveAttribute('href', /\/apply$/);
-  await expect(link).toHaveAttribute('title', /\/apply$/);
-  await expect(page.getByTestId('phase-rail-apply-copy')).toBeVisible();
+  await expect(link).toHaveAttribute('href', new RegExp(`/${marketSlug}$`));
+  await expect(link).toHaveAttribute('title', new RegExp(`/${marketSlug}$`));
+  await expect(page.getByTestId('phase-rail-vendor-page-copy')).toBeVisible();
 });
 
 test('where the rail cannot hold one row, the address and the next step share the second', async ({
@@ -71,7 +71,7 @@ test('where the rail cannot hold one row, the address and the next step share th
   await page.goto(marketSetupPath(marketId, 'applications'));
 
   const spine = await box(page.getByTestId('phase-rail-spine'));
-  const chip = await box(page.getByTestId('phase-rail-apply'));
+  const chip = await box(page.getByTestId('phase-rail-vendor-page'));
   const next = await box(page.getByTestId('phase-transition-assignment'));
   // Never a lone button on a row of its own beside an empty band: the second row is designed.
   expect(chip.y).toBeGreaterThan(spine.y + spine.height);

@@ -1,6 +1,7 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
+import { mongoEval } from './helpers/mongo';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import type { Page } from '@playwright/test';
 
@@ -8,7 +9,8 @@ import type { Page } from '@playwright/test';
  * Wherever the review is closed, the Applications tab says why and what to do instead (T207), in
  * the server's words (`verdictsSettledReason`), over both views where the review's controls were:
  * Back to review while tables are allocated, a seat on Assignments once results are published or
- * a Google Form market went live. The automatic rejections say the same in their own subject.
+ * a Google Form market that went live before it could publish them. The automatic rejections say
+ * the same in their own subject.
  */
 
 const ALLOCATING =
@@ -61,7 +63,7 @@ test('once results are published, the tab says to place or free a seat instead',
   await expect(await conditionLine(page, seed.marketId)).toHaveText(PUBLISHED);
 });
 
-test('a Google Form market that went live says the review closed then', async ({
+test('a Google Form market that went live before it could publish says the review closed then', async ({
   authenticatedPage: page,
   request,
 }) => {
@@ -70,6 +72,10 @@ test('a Google Form market that went live says the review closed then', async ({
     BACKEND_URL,
     TEST_USER.email,
     TEST_USER.password,
+  );
+  // Going live waits for results now (ADR 0022), so this market went before that rule reached it.
+  mongoEval(
+    `db.markets.updateOne({id: ${JSON.stringify(seed.marketId)}}, {$unset: {resultsPublished: ''}})`,
   );
 
   await expect(await conditionLine(page, seed.marketId)).toHaveText(WENT_LIVE);

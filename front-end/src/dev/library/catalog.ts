@@ -36,7 +36,7 @@ export const ENTRIES: readonly LibraryEntry[] = [
     id: 'components',
     title: 'Existing components',
     summary:
-      'ReadFailed, PhaseBadge, SummaryCard, EmailAddress, VendorNameButton, RowMenu, StepHeader, AnswerValue, SignInMessage, BarLedger, FileDropZone',
+      'ReadFailed, PhaseBadge, SummaryCard, EmailAddress, VendorNameButton, RowMenu, StepHeader, AnswerValue, SignInMessage, CodeInput, BarLedger, FileDropZone',
     serves: 'The screens that use them',
   },
   {

@@ -53,7 +53,8 @@ Adding a `data-testid` changes no behaviour; a view gains them as specs need the
 **A page object wraps one screen** ([`front-end/e2e/pages/`](../../../front-end/e2e/pages/)): it holds `getByTestId()` locators and exposes action methods, and a spec calls those methods rather than reaching for locators of its own.
 `LoginPage.login` opens a bare `/login` first; `signIn` signs in on the page as it stands, so a spec about where signing in returns to keeps the address's `next`.
 A new page follows the existing ones (`LoginPage`, `MarketsPage`, `NewMarketPage`, `MarketSetupPage`, `ResultPage`, `OrganizationsPage`, `ManageMarketPage`); TESTING.md lists them all.
-`MarketSetupPage` holds more than the plan: the market's tabs and the phase rail are there too, because every market page stands in the same frame.
+`MarketSetupPage` holds more than the plan: the market's tabs and the phase rail are there too, because every market page stands in the same frame, and `publishResults`, which a walk into market days takes on either path.
+`VendorPage` is the one object for a market's vendor page, signed out and in, the application form on it included.
 Its `decideOnReviewSetup` follows the rail's "Decide what reviewers read first" to Review setup and chooses "Nothing leads the card" and "No automatic rejections", so a walk that opens Review through the screens decides as an organizer does ([review waits on the review setup](../../business/rules/review-waits-on-the-review-setup.md)).
 A dialog that more than one screen opens has an object of its own (`FollowUpDialog`, opened from One by one's card and from the All view's drawer), so a test id renamed in it is one line to change for every spec that drives the dialog through the object.
 
@@ -69,7 +70,8 @@ Every `page` is wrapped so that a failing test carries what the browser said (co
 `expectAccessible(state)` runs axe over the page as it stands and fails on any WCAG A or AA violation, one line per element as `rule (impact) target`; its configuration and why `color-contrast` is off are [the design language's](../../design-system.md#what-keeps-this-true).
 `settle(page)` ([`helpers/settle.ts`](../../../front-end/e2e/helpers/settle.ts)) waits, bounded, for CSS transitions to end, since a control mid-transition reports its passing paint rather than its own; every sweep calls it before it looks.
 So does `expectInside`, the window check of the phone journeys ([`helpers/phoneWindow.ts`](../../../front-end/e2e/helpers/phoneWindow.ts)), since a box read in a slide's last frames stands a fraction of a thousandth of a pixel past where it rests, enough to fail an exact comparison with the window's edge.
-The same fixture hides the Vue DevTools floating panel (`#__vue-devtools-container__`) that the dev server injects: it overlays the app and intercepts clicks aimed at it, so a test failed on a click that hit that button instead of its own target.
+The same fixture hides the Vue DevTools floating panel (`#__vue-devtools-container__`) that the dev server injects, in every tab of its context: it overlays the app and intercepts clicks aimed at it, so a test failed on a click that hit that button instead of its own target.
+A context a test opens itself with `browser.newContext()` is outside the fixture, so it calls [`hideDevToolsPanel`](../../../front-end/e2e/helpers/hideDevToolsPanel.ts), as `withUser()` does: a click there may otherwise wait on the panel until the test times out, as the vendor's Send code did on the Google Form market's page.
 
 ## Opening a market, and shelling into Mongo
 
@@ -104,8 +106,9 @@ A `csv` market enters `applications` only holding an application, so a spec that
 **Several specs and seeds still send an `X-Owner-Email` header, and it is inert**: identity comes from the session cookie alone, and the helpers authenticate by logging in.
 That, the self-signed certificate and the other suite-wide traps are TESTING.md's [testing gotchas](../../TESTING.md#testing-gotchas).
 
-**Applicant sign-in is rate limited** ([sign-in is bounded](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)): an address is sent at most five codes per 15 minutes, and a caller thirty, which the whole serial run shares.
-[`global-setup.ts`](../../../front-end/e2e/global-setup.ts) clears the counters at the start of every run; a spec that signs the same address in more than that within one run trips the limit.
+**Applicant sign-in is rate limited** ([sign-in is bounded](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)): an address is sent at most five codes per 15 minutes and may try ten, and a caller 300 of each, which the whole serial run shares.
+[`global-setup.ts`](../../../front-end/e2e/global-setup.ts) clears the counters at the start of every run; a spec that signs the same address in more than that within one run trips the limit, so a spec that spends a code's five tries uses an address of its own.
+Every signed-out vendor page, and every vendor request that finds its tab's sign-in ended, also asks to resume a remembered sign-in, 300 per caller per 15 minutes; a refused resume draws the sign-in as no cookie does, so only a spec that needs a resume to pass clears the counters first, as `remember-me-on-the-vendor-page.spec.ts` does.
 
 **A run starts once the host's container network has settled.**
 A stack's interfaces keep changing for a while after `up` returns: each takes an IPv6 address within a second, and changes link state again about 15 seconds later, and Chromium fails whatever it has in flight with `net::ERR_NETWORK_CHANGED` at each change, so the first spec after a stack started lost a module and failed.
@@ -127,7 +130,7 @@ Likewise `selectOption` leaves the focus where it was, so focus a select first w
 
 **`waitForURL` returns when the route changes, not when the new page has loaded.**
 An element assertion made straight after it spends its budget on the page's own fetch, which under a full suite's contention sometimes takes longer: the applicant form's spec failed one full run in two this way, on "Loading application form...", while passing alone every time.
-Wait for the page to have finished loading, its loading state hidden and no load-failed state shown, then assert what it shows ([`essential-fields.spec.ts`](../../../front-end/e2e/essential-fields.spec.ts) waits on `apply-loading` and `apply-load-failed`).
+Wait for the page to have finished loading, either way, then assert what it shows ([`essential-fields.spec.ts`](../../../front-end/e2e/essential-fields.spec.ts) waits for the signed-in vendor page or its load-failed state, `vendor-page-signed-in-as` or `vendor-page-load-failed`, and takes the retry the page offers).
 
 **A spec that waits on a file chooser listens for it from before the page loads.**
 `page.waitForEvent('filechooser')` turns on Playwright's catching of choosers as it is called, without waiting for the browser to agree, so a chooser opened by the very next key press can slip past it and the wait times out with focus still on the input: [`the-upload-steps-are-one.spec.ts`](../../../front-end/e2e/the-upload-steps-are-one.spec.ts) missed its first Enter in 4 runs of 20 this way.

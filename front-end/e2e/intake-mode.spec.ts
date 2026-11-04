@@ -1,4 +1,4 @@
-import { test, expect, TEST_USER, BACKEND_URL, ApplicantLoginPage } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
 import {
   createApplicantLoginChallenge,
   seedApplicantMarket,
@@ -64,43 +64,42 @@ test.describe('Intake mode - a CSV market has no public applicant surface', () =
     });
   }
 
-  test('its sign-in page says the page does not exist, rather than taking an address', async ({
+  test('its vendor page says the page does not exist, rather than naming it or taking an address', async ({
     page,
   }) => {
-    // It drew a sign-in form and answered "sent" for a code it never sends (E32/F03/S01).
+    // A sign-in page once drew its form and answered "sent" for a code it never sends (E32/F03/S01).
     for (const slug of [csvMarket.marketSlug, UNKNOWN_SLUG]) {
-      await page.goto(`/${slug}/applicant-login`);
-      await expect(page.getByTestId('applicant-login-not-found')).toBeVisible({ timeout: 10000 });
-      await expect(page.getByTestId('applicant-login-email-input')).toHaveCount(0);
+      await page.goto(`/${slug}`);
+      await expect(page.getByTestId('vendor-page-not-found')).toBeVisible({ timeout: 10000 });
+      await expect(page.getByTestId('vendor-page-market-name')).toHaveCount(0);
+      await expect(page.getByTestId('vendor-sign-in-email-input')).toHaveCount(0);
     }
-  });
 
-  test('the market home never confirms that the market exists', async ({ page }) => {
     await page.goto(`/${csvMarket.marketSlug}`);
-    await expect(page.getByTestId('market-home-not-found')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByTestId('market-home-name')).toHaveCount(0);
-
+    await expect(page.getByTestId('vendor-page-not-found')).toBeVisible({ timeout: 10000 });
     await page.screenshot({ path: `${SCREENSHOT_DIR}/01-csv-market-home.png`, fullPage: true });
   });
 
-  test('its vendors still reach check-in once it runs', async ({ page, request }) => {
-    // Intake mode gates applying, never checking in. This used to open the check-in page of the
-    // market above, which takes applications and runs no check-in - and passed only because the
-    // page drew its form for any address at all (bug 9). A market seeded with no intake mode is
-    // CSV, and this one runs.
+  test('its vendors still reach their page, where they check in, once it runs', async ({
+    page,
+    request,
+  }) => {
+    // Intake mode gates applying, never checking in, which is on the vendor page now (ADR 0022).
+    // This used to open the public check-in page of the market above, which takes applications
+    // and runs no check-in - and passed only because the page drew its form for any address at
+    // all (bug 9). A market seeded with no intake mode is CSV, and this one runs.
     const running = await seedPublishedMarketWithAssignments(
       request,
       BACKEND_URL,
       TEST_USER.email,
       TEST_USER.password,
     );
-    await page.goto(`/${running.marketSlug}/check-in`);
+    await page.goto(`/${running.marketSlug}`);
 
-    await expect(page.getByTestId('attendance-checkin-market-name')).toHaveText(
-      running.marketName,
-      { timeout: 10000 },
-    );
-    await expect(page.getByTestId('attendance-checkin-email-input')).toBeVisible();
+    await expect(page.getByTestId('vendor-page-market-name')).toHaveText(running.marketName, {
+      timeout: 10000,
+    });
+    await expect(page.getByTestId('vendor-sign-in-email-input')).toBeVisible();
 
     await page.screenshot({ path: `${SCREENSHOT_DIR}/02-csv-market-checkin.png`, fullPage: true });
   });
@@ -118,21 +117,30 @@ test.describe('Intake mode - a form market keeps its applicant surface', () => {
     );
   });
 
-  test('the market home names the market', async ({ page }) => {
+  test('its vendor page names the market and asks for an email address', async ({ page }) => {
     await page.goto(`/${formMarket.marketSlug}`);
 
-    await expect(page.getByTestId('market-home-name')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByTestId('market-home-not-found')).toHaveCount(0);
+    await expect(page.getByTestId('vendor-page-market-name')).toHaveText(formMarket.marketName, {
+      timeout: 10000,
+    });
+    await expect(page.getByTestId('vendor-sign-in-email-input')).toBeVisible();
+    await expect(page.getByTestId('vendor-page-not-found')).toHaveCount(0);
 
     await page.screenshot({ path: `${SCREENSHOT_DIR}/03-form-market-home.png`, fullPage: true });
   });
 
-  test('the login page is served', async ({ page }) => {
-    await page.goto(`/${formMarket.marketSlug}/applicant-login`);
+  // The separate sign-in page and "Your application" are gone, not redirected (ADR 0022).
+  for (const suffix of ['/applicant-login', '/applicant/dashboard']) {
+    test(`its old address /<slug>${suffix} reads as any page that is not there`, async ({
+      page,
+    }) => {
+      await page.goto(`/${formMarket.marketSlug}${suffix}`);
 
-    await expect(page.getByTestId('applicant-login-email-input')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByTestId('applicant-login-market')).toHaveText(formMarket.marketName);
-  });
+      await expect(page.getByTestId('page-not-found')).toBeVisible({ timeout: 10000 });
+      await expect(page.getByTestId('vendor-sign-in-email-input')).toHaveCount(0);
+      await expect(page).toHaveURL(new RegExp(`/${formMarket.marketSlug}${suffix}$`));
+    });
+  }
 });
 
 test.describe('Intake mode - a market that stops serving applicants', () => {
@@ -146,26 +154,24 @@ test.describe('Intake mode - a market that stops serving applicants', () => {
       TEST_USER.email,
       TEST_USER.password,
     );
-    const login = new ApplicantLoginPage(page);
-    await page.goto(`/${market.marketSlug}/applicant-login`);
+    const login = new VendorPage(page);
+    await page.goto(`/${market.marketSlug}`);
     await login.requestCode(SIGNED_IN_VENDOR);
     createApplicantLoginChallenge(market.marketId, SIGNED_IN_VENDOR, '531642');
     await login.enterCode('531642');
-    await page.waitForURL(new RegExp(`/${market.marketSlug}/(apply|applicant/dashboard)`));
+    await expect(login.signedInAs).toBeVisible();
 
     // Nobody has applied, so the organizer may take the market back to draft, where it serves no
-    // applicant. The vendor's sign-in still holds; the pages it opened must not blame their
-    // connection for a market that is no longer there.
+    // applicant. The vendor's sign-in still holds; their page must not blame their connection
+    // for a market that is no longer there.
     const back = await request.post(`${BACKEND_URL}/markets/${market.marketId}/transition`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: { toPhase: 'draft' },
     });
     expect(back.ok(), await back.text()).toBeTruthy();
 
-    for (const suffix of ['/apply', '/applicant/dashboard']) {
-      await page.goto(`/${market.marketSlug}${suffix}`);
-      await expect(page.getByTestId('page-not-found')).toBeVisible();
-      await expect(page.getByText('Check your connection')).toHaveCount(0);
-    }
+    await page.goto(`/${market.marketSlug}`);
+    await expect(page.getByTestId('page-not-found')).toBeVisible();
+    await expect(page.getByText('Check your connection')).toHaveCount(0);
   });
 });

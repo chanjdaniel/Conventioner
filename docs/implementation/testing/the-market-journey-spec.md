@@ -5,7 +5,6 @@ describes:
   - front-end/e2e/market-journey.spec.ts
 verified: 2026-11-03
 sources:
-  - T206
   - wayfinding/v0-1-0/map
   - E03/F02/S04
   - E04/F01/S02
@@ -13,6 +12,7 @@ sources:
   - E36/F04/S02
   - E38/F04/S01
   - E38/F05/S01
+  - T206
 ---
 
 # The market journey spec
@@ -46,7 +46,7 @@ Its vendor applies from an address of the run's own, since one address is sent a
 
 Each other spec seeds past some part of the journey, and the slices overlap rather than meet:
 
-- `market-pipeline.spec.ts` creates the market over the API and seeds applications already approved, then decides Review setup and walks the phases on the rail to `assignment`, assigns, reads the result and publishes to `market_days`, checking the public check-in page finds a vendor; it imports and reviews nothing.
+- `market-pipeline.spec.ts` creates the market over the API and seeds applications already approved, then decides Review setup and walks the phases on the rail to `assignment`, assigns, reads the result and publishes to `market_days`, checking a vendor signs in on the vendor page and reads their table; it imports and reviews nothing.
 - `csv-import.spec.ts` covers the import in depth on a market seeded over the API, and ends at "rows are applications awaiting review", asserted over the API.
 - Review behaviour has specs of its own that click Approve on seeded applications (`needs-a-follow-up`, `a-late-export`, `what-to-show-and-when`, `automatic-rejections`), but none of them reaches the run from a verdict it made.
 - Any spec built on [`seedMarketWithVendors()`](e2e-seeds.md#the-seed-helpers) starts from approved vendors, and exercises no review at all.

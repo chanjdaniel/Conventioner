@@ -50,10 +50,6 @@ describes:
   - back-end/app.py#get_history
   - back-end/app.py#swap_placements
   - back-end/app.py#remove_placement
-  - back-end/app.py#public_get_vendor_assignments
-  - back-end/app.py#public_checkin_page
-  - back-end/app.py#public_attendance_undo
-  - back-end/app.py#public_attendance_checkin
   - back-end/app.py#applicant_login_request_code
   - back-end/app.py#applicant_login_verify_code
   - back-end/app.py#public_get_application_form
@@ -96,6 +92,8 @@ describes:
   - front-end/src/utils/sessionEnded.ts
   - front-end/src/utils/pageFailed.ts
   - front-end/e2e/a-failure-says-what-to-do.spec.ts
+  - back-end/app.py#vendor_check_in
+  - back-end/app.py#vendor_undo_check_in
 verified: 2026-11-03
 sources:
   - T74
@@ -216,7 +214,7 @@ A body that is not JSON is no body, rather than Werkzeug's HTML 415.
 JSON that is not an object (a list, a string, a number, a boolean) raises a `BadRequestError`, `A JSON object is required`, 400, rather than the generic 500 of an `AttributeError` or a model's own words.
 A required body that is missing or an empty object raises `No data provided`, 400; an optional one reads none as `{}`, and the route answers what is then missing in its own words (`csvContent is required`, a swap that names no vendors).
 The body is required for the organization and market role writes, creating a market, the plan, the application form, a phase move, adding a vendor, writing a placement, an applicant's save, a verdict on one application and the CSV start's confirm; every other body route reads it as optional.
-Two groups of routes have a body another module reads: the account routes, whose views hand `request` to [`back-end/api/users.py`](../../../back-end/api/users.py), not yet on this reader, and the applicant sign-in's code request and verify, read in [`back-end/api/applicant_auth.py`](../../../back-end/api/applicant_auth.py) for their uniform answers.
+Two groups of routes have a body another module reads: the account routes, whose views hand `request` to [`back-end/api/users.py`](../../../back-end/api/users.py), not yet on this reader, and the applicant sign-in's code request and verify, read in [`back-end/api/applicant_auth.py`](../../../back-end/api/applicant_auth.py) for answers that say nothing of who applied: one for every code request, and for a code that cannot pass, one "spent" body beside a wrong try's "retry".
 A value of the wrong type inside is read as a missing one ([a request value is a string](a-request-value-is-a-string.md)): a market name that is not a string is no name, review highlights that are not a list of strings are no keys, and a ticked review entry that is not an object names no application and is skipped as not one here.
 
 The operator's seeder (`main` in [`back-end/seed_test_markets.py`](../../../back-end/seed_test_markets.py)) catches only its own refusals and client errors, saying each as `Not done: <its copy>`, and lets anything else raise with its traceback, which is what the operator needs for a bug.
@@ -270,7 +268,7 @@ Its button is a `.btn`, so it is 44px on a phone.
 
 **A session that ends mid-work** answers 401 to the next request, and one response interceptor on `api`, installed from `main.ts` by `installSessionEnded` in [`front-end/src/utils/sessionEnded.ts`](../../../front-end/src/utils/sessionEnded.ts), takes the organizer to sign in again.
 It clears `localStorage` and the market store, as signing out does, and goes to `/login?next=<the page's full path>&ended=1`, where the sign-in page says "Your session has ended. Sign in again.".
-It leaves alone a 401 from signing in, from the shell's session probe (`/check-session`, which `App.vue` answers itself, through `keepsTheSession`) and from any `/public/...` request, which carries no organizer session (the applicant signs in on their own pages, and the door's check-in needs no sign-in), and any 401 while the page is public.
+It leaves alone a 401 from signing in, from the shell's session probe (`/check-session`, which `App.vue` answers itself, through `keepsTheSession`) and from any `/public/...` request, which carries no organizer session (a vendor signs in on their own vendor page, where they also check in), and any 401 while the page is public.
 The request still fails as it would have, so the screen's own catch runs too.
 `aSessionThatEnded.test.ts` holds each of those exemptions, the sign-in endpoints' included, though no screen sends them through `api` today.
 

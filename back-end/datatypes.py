@@ -705,7 +705,7 @@ class Market(BaseModel):
         from ever contradicting the name it belongs to: a rename dumps the model, and the model
         has only one answer. See ``market_name_slug`` for the rule, ``normalize_market_document``
         for the documents written before this field existed, and note that a stored slug is a
-        cached derivation, never an authority - ``published_market_by_slug`` re-checks the name.
+        cached derivation, never an authority - ``market_by_slug`` re-checks the name.
         """
         return market_name_slug(self.name)
 

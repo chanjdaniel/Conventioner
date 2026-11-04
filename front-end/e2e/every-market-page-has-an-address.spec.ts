@@ -3,6 +3,7 @@ import {
   ensureTestOrg,
   seedMarketWithVendors,
   seedPublishedMarketWithAssignments,
+  publishResults,
 } from './helpers/seeds';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
@@ -173,6 +174,7 @@ test.describe('Every market page has its own address', () => {
     const market = (
       await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password)
     ).marketId;
+    await publishResults(request, BACKEND_URL, TEST_USER.email, market);
     await page.goto(at(market, 'settings'));
     await activeTab(page, 'assignment');
     // The tab is there from draft (E31/F03/S02); before publishing it says when it opens.
