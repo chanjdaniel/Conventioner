@@ -30,7 +30,7 @@ The components it shows live in `front-end/src/components/` with the rest, since
 
 **The router registers its two routes only inside `if (import.meta.env.DEV)`** ([`front-end/src/router/index.ts`](../../../front-end/src/router/index.ts)): `/dev/components`, the index, and `/dev/components/:entry`, one entry, each a lazy `import()` of its view, with `meta: { public: true, fitsAPhone: true }`.
 They read no API and no store, so they open signed out and on an empty database, and the shell lays them out on a phone.
-An `:entry` the library has no built entry for shows the app's "page not found".
+An `:entry` the library has no entry for shows the app's "page not found".
 
 ## How it is kept out of production
 
@@ -46,10 +46,9 @@ And the build itself: `noDevModules`, a plugin in [`front-end/vite.config.ts`](.
 ## The page
 
 **The index lists every entry, written once and whole** in [`catalog.ts`](../../../front-end/src/dev/library/catalog.ts): its id (its address), its title, what it is, and the places it serves, by T191's survey numbers (C1-C15 for a choice among many, L1-L13 for a long list), a finding, or the screens.
-An entry is built when its file exists under `entries/`, named for its id in PascalCase with `Entry` after it (`filter-toggles` is `FilterTogglesEntry.vue`); `import.meta.glob` finds it, and the index and the side index link it.
-An entry with no file yet is listed as coming, without a link.
+An entry's file is under `entries/`, named for its id in PascalCase with `Entry` after it (`filter-toggles` is `FilterTogglesEntry.vue`), where `import.meta.glob` finds it; the index and the side index link every entry.
 
-**An entry page** ([`LibraryEntryView.vue`](../../../front-end/src/dev/library/LibraryEntryView.vue)) draws the title and the "Serves" line from the catalog, then the entry's file; beside it a side index of every entry at a desk, and a native select of the built ones on a phone.
+**An entry page** ([`LibraryEntryView.vue`](../../../front-end/src/dev/library/LibraryEntryView.vue)) draws the title and the "Serves" line from the catalog, then the entry's file; beside it a side index of every entry at a desk, and a native select of them on a phone.
 An entry is drawn from the parts in `parts/`:
 
 - `LibrarySection`: one part of the entry, an `h2` and a line saying what it is, its panels in a grid that is one column on a phone;
@@ -78,8 +77,7 @@ Prettier leaves the file alone (`.prettierignore`), so the bytes stay the derive
 
 ## Adding an entry
 
-1. Write `entries/<Id>Entry.vue` for an id the catalog already lists, from the parts above, ending with `ChoicesForYou`; the index links it with no other change.
-   A new entry the catalog does not list is a line added to `ENTRIES` too.
+1. Add its line to `ENTRIES` and write `entries/<Id>Entry.vue` from the parts above, ending with `ChoicesForYou`; the index links it with no other change.
 2. Write its spec, `front-end/e2e/the-component-library-<id>.spec.ts`, with [`helpers/componentLibrary.ts`](../../../front-end/e2e/helpers/componentLibrary.ts): `eachWindow` declares its tests at a desk and on a phone, `openEntry` opens it, and `expectLaidOut` holds it to the window's width and to the layout detectors' gating findings.
    It needs no seed and no sign-in.
    An entry that mounts an existing component as it is shows that component's faults too: its spec may leave out a finding the component brings, by name and with why, and fail on every other (`the-component-library-components.spec.ts` leaves out `StepHeader`'s 32px steps, whose one screen is built for a desk).

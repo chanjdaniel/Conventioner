@@ -4,8 +4,8 @@ import { inTheWindow } from './helpers/phoneWindow';
 
 /**
  * The component library's index (T200): a development build's page that opens with no sign-in and
- * no seed, lists every entry the library will hold in its groups with what each serves, links the
- * built ones and shows the rest as coming, and fits a phone and a desk.
+ * no seed, lists every entry the library holds in its groups with what each serves, links each,
+ * and fits a phone and a desk.
  */
 
 const ENTRIES = [
@@ -28,12 +28,14 @@ eachWindow('the component library', (size) => {
 
     await expect(page).toHaveURL(new RegExp(`${LIBRARY_PATH}$`));
     for (const entry of ENTRIES) {
-      await expect(page.getByTestId(`library-index-${entry}`)).toContainText('Serves:');
+      const line = page.getByTestId(`library-index-${entry}`);
+      await expect(line).toContainText('Serves:');
+      await expect(line.getByRole('link')).toBeVisible();
     }
     await expectLaidOut(page, size, 'the index');
   });
 
-  test('a built entry is a link; its page has the way to the others', async ({ page }) => {
+  test('an entry is a link; its page has the way to the others', async ({ page }) => {
     await openEntry(page);
     await inTheWindow(size).press(
       page.getByTestId('library-index-primitives').getByRole('link', { name: 'Primitives' }),

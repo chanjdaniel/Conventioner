@@ -4,7 +4,7 @@
  * reusable component, existing and proposed, in the review's groups, each with what it serves.
  * `docs/implementation/modules/component-library.md` says how it works and how to add an entry.
  */
-import { ENTRIES, isBuilt, LIBRARY_PATH } from './catalog';
+import { ENTRIES, LIBRARY_PATH } from './catalog';
 </script>
 
 <template>
@@ -24,15 +24,9 @@ import { ENTRIES, isBuilt, LIBRARY_PATH } from './catalog';
         :data-testid="`library-index-${entry.id}`"
       >
         <h2 class="library-index__name">
-          <RouterLink
-            v-if="isBuilt(entry.id)"
-            class="library-index__link"
-            :to="`${LIBRARY_PATH}/${entry.id}`"
-            >{{ entry.title }}</RouterLink
-          >
-          <template v-else>
-            {{ entry.title }} <span class="chip chip--neutral">Coming</span>
-          </template>
+          <RouterLink class="library-index__link" :to="`${LIBRARY_PATH}/${entry.id}`">{{
+            entry.title
+          }}</RouterLink>
         </h2>
         <p class="library-index__summary">{{ entry.summary }}</p>
         <p class="library-index__serves">
@@ -97,7 +91,7 @@ import { ENTRIES, isBuilt, LIBRARY_PATH } from './catalog';
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  /* Every title the height of a link's target, built or coming, so the cards' lines agree. */
+  /* Every title the height of a link's target, so the cards' lines agree. */
   min-height: var(--target-min);
   margin: 0;
   font-size: var(--text-md);

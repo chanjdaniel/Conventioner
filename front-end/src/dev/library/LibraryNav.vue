@@ -1,17 +1,13 @@
 <script setup lang="ts">
 /**
- * The way between entries: a side index of every entry at a desk, a native select of the built
- * ones on a phone (a fixed short set, so a select is right there). An entry not yet built is
- * listed as coming, without a link.
+ * The way between entries: a side index of every entry at a desk, a native select of them on a
+ * phone (a fixed short set, so a select is right there).
  */
-import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { ENTRIES, isBuilt, LIBRARY_PATH } from './catalog';
+import { ENTRIES, LIBRARY_PATH } from './catalog';
 
 const props = defineProps<{ current: string }>();
 const router = useRouter();
-
-const built = computed(() => ENTRIES.filter((entry) => isBuilt(entry.id)));
 
 function go(event: Event) {
   const id = (event.target as HTMLSelectElement).value;
@@ -27,13 +23,11 @@ function go(event: Event) {
       </li>
       <li v-for="entry in ENTRIES" :key="entry.id">
         <RouterLink
-          v-if="isBuilt(entry.id)"
           class="library-nav__link"
           :to="`${LIBRARY_PATH}/${entry.id}`"
           :aria-current="entry.id === props.current ? 'page' : undefined"
           >{{ entry.title }}</RouterLink
         >
-        <span v-else class="library-nav__coming">{{ entry.title }} (coming)</span>
       </li>
     </ul>
     <label class="library-nav__pick">
@@ -46,7 +40,7 @@ function go(event: Event) {
         @change="go"
       >
         <option value="">All components</option>
-        <option v-for="entry in built" :key="entry.id" :value="entry.id">
+        <option v-for="entry in ENTRIES" :key="entry.id" :value="entry.id">
           {{ entry.title }}
         </option>
       </select>
@@ -64,8 +58,7 @@ function go(event: Event) {
   list-style: none;
 }
 
-.library-nav__link,
-.library-nav__coming {
+.library-nav__link {
   display: flex;
   align-items: center;
   min-height: var(--control-height-compact);
@@ -87,10 +80,6 @@ function go(event: Event) {
   border-radius: var(--radius-control);
   color: var(--mm-black);
   font-weight: 600;
-}
-
-.library-nav__coming {
-  color: var(--mm-text-muted);
 }
 
 .library-nav__pick {
