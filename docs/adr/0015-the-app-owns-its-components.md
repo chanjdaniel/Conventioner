@@ -9,10 +9,11 @@ describes:
   - front-end/src/__tests__/theAppOwnsItsComponents.test.ts
   - front-end/src/__tests__/theLucideNoticeReachesTheBundle.test.ts
   - front-end/src/components/SearchPicker.vue
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - T45
   - E38/F08/S03
+  - T211
 status: accepted
 ---
 
