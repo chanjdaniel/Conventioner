@@ -86,7 +86,7 @@ test('the owner chooses reviewers, and the open applications are dealt among the
   );
   await expect(reviewers.change).toHaveText('Choose reviewers');
 
-  await reviewers.tick(CAT, ANA, BEN);
+  await reviewers.choose(CAT, ANA, BEN);
   const first = await dealtAfter(page, () => reviewers.submit());
 
   expect(OPEN.map((vendor) => first[vendor])).toEqual([ANA, BEN, CAT, ANA, BEN]);
@@ -94,11 +94,12 @@ test('the owner chooses reviewers, and the open applications are dealt among the
   await expect(reviewers.people).toHaveText([ANA, BEN, CAT]);
   await expect(reviewers.change).toHaveText('Change reviewers');
 
-  // The current reviewers are ticked when the dialog opens; a fourth deals every open one again.
-  await reviewers.tick();
-  await expect(reviewers.choice(ANA)).toBeChecked();
-  await expect(reviewers.choice(DEE)).not.toBeChecked();
-  await reviewers.choice(DEE).check();
+  // The current reviewers are chips when the dialog opens; a fourth deals every open one again.
+  await reviewers.choose();
+  await expect(reviewers.chooser.chips).toHaveCount(3);
+  await expect(reviewers.chooser.chip(ANA)).toBeVisible();
+  await expect(reviewers.chooser.chip(DEE)).toHaveCount(0);
+  await reviewers.chooser.choose(DEE);
   const again = await dealtAfter(page, () => reviewers.submit());
 
   expect(OPEN.map((vendor) => again[vendor])).toEqual([ANA, BEN, CAT, DEE, ANA]);

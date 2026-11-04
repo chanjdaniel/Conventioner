@@ -3,7 +3,7 @@
  * The combobox (T200): `SearchPicker` grown, on the fixture's data at a real market's size. It
  * opens on C7, "Who will follow up", beside today's native select of the same 150 people, then the
  * cap on a long plain list and across groups, and the states the cap brings. Several choices follow:
- * C5, the reviewers, beside today's real chooser with its checkbox per person, and C10's answers.
+ * C5, the reviewers as Choose reviewers draws them, and C10's answers.
  * Typed text ends it: C1, the import's value fixes, beside today's real row with its native select,
  * and C3's option input, which keeps a new answer as typed.
  *
@@ -12,7 +12,6 @@
  */
 import { computed, ref } from 'vue';
 import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
-import ReviewerPicker from '@/components/market/ReviewerPicker.vue';
 import ValueFixes from '@/components/ValueFixes.vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
 import LibrarySection from '../parts/LibrarySection.vue';
@@ -96,7 +95,6 @@ const nobody = ref('');
 /** C5 on both sides: the fixture's 12 reviewers already chosen, by address as the market keeps them. */
 const reviewerAddresses = reviewers.map((id) => people.find((person) => person.id === id)!.email);
 const allAddresses = people.map((person) => person.email);
-const todayReviewers = ref([...reviewerAddresses]);
 const proposedReviewers = ref([...reviewerAddresses]);
 /** An account holds an address and no name, so a reviewer's row and chip are the address. */
 const accountGroups: PickerGroup[] = [
@@ -106,8 +104,22 @@ const accountGroups: PickerGroup[] = [
 /** C10's answers, none chosen yet. */
 const rejected = ref<string[]>([]);
 
-/** The first page's rows hold neither: both are found again only by the words. */
+/** The first page's rows would hold neither: past the cap, both are drawn first. */
 const pastTheCapSeveral = ref([people[120]!.email, people[140]!.email]);
+
+/** The reader's own address: "You" beside it in the list, "(you)" on its chip. */
+const withMeGroups: PickerGroup[] = [
+  {
+    options: allAddresses
+      .slice(0, 10)
+      .map((email) =>
+        email === allAddresses[0]
+          ? { value: email, label: email, detail: 'You', chip: `${email} (you)` }
+          : { value: email, label: email },
+      ),
+  },
+];
+const withMe = ref([allAddresses[0]!, allAddresses[1]!]);
 
 /** A reviewer the reader is no longer offered is still chosen: their chip is their address. */
 const notOfferedGroups: PickerGroup[] = [{ options: personGroups[0]!.options.slice(0, 10) }];
@@ -288,36 +300,23 @@ const typedAnswers = ref<string[]>([]);
     title="Several choices, as chips"
     about="Several choices serve C5, C10, C11 and C12: a checkbox per person or per answer today, up to 150 people and 230 answers, and the rule that ranks a field's options."
   >
-    <TodayAndProposed
-      :today="`Today: a checkbox per person, all ${people.length} drawn (C5)`"
-      proposed="Proposed: the chosen as chips, the rest found by typing"
+    <LibraryPanel
+      :label="`C5: the reviewers among ${people.length}, as Choose reviewers draws them`"
     >
-      <template #today>
-        <div class="library-demo" data-testid="library-c5-today">
-          <ReviewerPicker
-            v-model="todayReviewers"
-            :candidates="allAddresses"
-            :current="reviewerAddresses"
-          />
-          <ReadOut label="Ticked" :value="`${todayReviewers.length} of ${people.length}`" />
-        </div>
-      </template>
-      <template #proposed>
-        <div class="library-demo">
-          <SearchPicker
-            v-model="proposedReviewers"
-            multiple
-            :groups="accountGroups"
-            :finds="findsByLabel"
-            :cap="CAP"
-            label="Reviewers"
-            placeholder="Type an address…"
-            testid="library-c5"
-          />
-          <ReadOut label="Chosen" :value="proposedReviewers" />
-        </div>
-      </template>
-    </TodayAndProposed>
+      <div class="library-demo">
+        <SearchPicker
+          v-model="proposedReviewers"
+          multiple
+          :groups="accountGroups"
+          :finds="findsByLabel"
+          :cap="CAP"
+          label="Reviewers"
+          placeholder="Type an address…"
+          testid="library-c5"
+        />
+        <ReadOut label="Chosen" :value="proposedReviewers" />
+      </div>
+    </LibraryPanel>
 
     <LibraryPanel
       :label="`${question.options.length} answers, capped at ${CAP}, none chosen yet (C10's shape)`"
@@ -338,7 +337,9 @@ const typedAnswers = ref<string[]>([]);
       </div>
     </LibraryPanel>
 
-    <LibraryPanel label="Choices past the cap: not in the list, still chips">
+    <LibraryPanel
+      label="Choices past the cap: drawn first, so every choice opens ticked at the top"
+    >
       <div class="library-demo">
         <SearchPicker
           v-model="pastTheCapSeveral"
@@ -351,6 +352,36 @@ const typedAnswers = ref<string[]>([]);
           testid="library-several-past-cap"
         />
         <ReadOut label="Chosen" :value="pastTheCapSeveral" />
+      </div>
+    </LibraryPanel>
+
+    <LibraryPanel label="A chip's own words: the reader's address reads (you)">
+      <div class="library-demo">
+        <SearchPicker
+          v-model="withMe"
+          multiple
+          :groups="withMeGroups"
+          :finds="findsByLabel"
+          label="Reviewers"
+          placeholder="Type an address…"
+          testid="library-chip-words"
+        />
+        <ReadOut label="Chosen" :value="withMe" />
+      </div>
+    </LibraryPanel>
+
+    <LibraryPanel label="Disabled: nothing is taken while the choice is being saved">
+      <div class="library-demo">
+        <SearchPicker
+          :model-value="withMe"
+          multiple
+          disabled
+          :groups="withMeGroups"
+          :finds="findsByLabel"
+          label="Reviewers"
+          placeholder="Type an address…"
+          testid="library-disabled"
+        />
       </div>
     </LibraryPanel>
 
@@ -517,47 +548,6 @@ const typedAnswers = ref<string[]>([]);
   </LibrarySection>
 
   <ChoicesForYou>
-    <li>
-      The threshold: past how many choices a native select becomes a combobox. About 12 to start.
-    </li>
-    <li>The cap: how many matches are drawn before "N more, type to narrow". 50, or fewer.</li>
-    <li>
-      The match order: matches in the option order, as here, or those starting with the words first.
-    </li>
-    <li>
-      The chips: above the field, as here, or inside it. C5's are addresses, as an account holds no
-      name, so judge this on them: a name, as the other panels draw, is about half as wide.
-    </li>
-    <li>
-      Chosen rows past the cap: left where they fall, as here, so 8 of C5's 12 are not drawn until
-      typed for and each still has its chip; or drawn first, so every choice opens ticked at the top
-      of the list.
-    </li>
-    <li>
-      After a choice among several: the words stay, selected so the next word replaces them, as
-      here, so more of what they found can be chosen in a row; or the field clears and the list
-      starts again.
-    </li>
-    <li>
-      The keyboard's way past the chips: each chip's button is a stop before the field, as here, or
-      the chips are one stop, walked by the arrow keys.
-    </li>
-    <li>
-      The wording of the row that keeps the words: <code>Use "&lt;words&gt;"</code>, or another.
-    </li>
-    <li>
-      Enter on words that find something: the words as typed, as here, since their row leads and the
-      keys reach it first; or the first match, with the words' row one press away. The first keeps a
-      new answer safe, and the second saves a press on the usual fix.
-    </li>
-    <li>
-      Words that differ from an option only in capitals: their own row, as here, since they are not
-      exactly the option, so "stickers" can stand beside "Stickers"; or that option alone.
-    </li>
-    <li>
-      Leaving the field with words not chosen: they are no value, as here, though the field still
-      shows them; or leaving keeps them as typed.
-    </li>
     <li>
       The value fixes' rows: 6 and "Show all", as here, on values still waiting too; or every
       waiting value shown, as today, with the cap only on those already decided.

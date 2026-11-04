@@ -76,6 +76,7 @@ sources:
   - T205
   - T200
   - T211
+  - T204
 ---
 
 # Conventioner's design language
@@ -413,11 +414,15 @@ Reopened on a choice, it selects that choice's label, so typing replaces it and 
 A picker with no choices at all never opens its list, and "Nobody matches" (the caller's `noneWord` in place of "Nobody", where the choices are not people) shows only once words are typed, so the note the caller puts beside it says why there is nothing to choose.
 Given a `cap`, it draws at most that many matches, counted across the groups in order, under a line "N more, type to narrow" that stays in view as the list scrolls and that the keys skip; a group the cap alone leaves out is not drawn, and a choice past the cap is named by the field, with no row active, so Enter keeps it.
 Without a `cap` it draws every match.
-Given `multiple` it holds several choices as `.chip--neutral` chips above the field, each as tall as its remove button's target, Backspace in the empty field taking the last; a chosen row the list draws is ticked, the list and the words stay after a choice, choosing a row again removes it, and a choice past the `cap` is named by its chip and found again by typing.
-Given `acceptsTyped`, trimmed words that are exactly no option's label are offered as `Use "<words>"`, which leads the list outside the `cap`, so the keys reach it first; choosing it makes the words the value, shown by the field or a chip, and the list opens for words even with no options.
-Reopened on such a value no row is active, so Enter keeps it, and words that are exactly an option make that option, when the `cap` draws it, the active row.
+Given `multiple` it holds several choices as `.chip--neutral` chips above the field, each as tall as its remove button's target, its words the option's `chip` where they differ from its label, Backspace in the empty field taking the last; a chosen row the list draws is ticked, the list and the words stay after a choice, and choosing a row again removes it.
+With a `cap` the matches pass, every chosen match is drawn first, so every choice opens ticked at the top and the rest fill what is left of the `cap`; who leads is settled as the list opens and as the words change, so no row moves under the pointer.
+Given `acceptsTyped`, trimmed words that are no option's label, capitals aside, are offered as `Use "<words>"`, which leads the list outside the `cap`, so the keys reach it first; choosing it makes the words the value, shown by the field or a chip, and the list opens for words even with no options.
+Reopened on such a value no row is active, so Enter keeps it, and words that differ from an option only in capitals take that option, so "stickers" never stands beside "Stickers": it is the active row, drawn first if the `cap` would leave it out.
+Words left when the field is left, or when Enter goes on to the form, are kept with `acceptsTyped`, as the option they name or as typed, and otherwise cleared.
+A press past its open list leaves the field only as the press ends, since changing the list as the focus goes would move what lies below it from under the pointer and lose the click; a free-text field's words are written before that click, which may read them.
 Given `holdsChoice`, one choice holds until another is taken, as a filter or a card that writes on a choice needs: typing emits nothing, and on leaving the field or on Escape the field names the choice again; without it the first word lets the choice go, as a dialog that acts on Save needs.
-The placement dialog's pickers are its first use, with no `cap`.
+Given `disabled`, its field and chips take nothing and its list closes, as while the choice is being saved; `describedBy` names words beside it that describe its field, such as a hint.
+The placement dialog's pickers are its first use, with no `cap`; Choose reviewers is the first of several, in [`ReviewerPicker.vue`](../front-end/src/components/market/ReviewerPicker.vue).
 A row of pressed buttons that filters a list or switches a view is [`FilterToggles.vue`](../front-end/src/components/FilterToggles.vue) (T200): compact secondary `.btn`s in a named `role="group"`, one choice by default or several with `multiple`, each named by the words it shows, its label then an optional count.
 The row wraps and a long label wraps inside its toggle, so it never scrolls sideways, and on a phone a toggle is at least 44px each way.
 Pressing the chosen toggle again keeps it; several emit in the options' order.

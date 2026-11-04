@@ -15,6 +15,7 @@ sources:
   - E38/F08/S03
   - T200
   - T211
+  - T204
 status: accepted
 ---
 
@@ -50,10 +51,12 @@ The app owns its components and its icons, and depends on no component library o
   A date picker or a popover menu, which must place itself over the page, is still a headless library's first.
   The picker grows by opt-in props, and a use that passes none draws as it did before them:
   - `cap`, a match list cut short with a line saying how many more;
-  - `multiple`, several choices as chips above the field;
+  - `multiple`, several choices as chips above the field, an option's `chip` being its chip's own words;
   - `acceptsTyped`, words that are exactly no option kept as the value;
   - `noneWord`, what the list says finds no match, where the choices are not people;
-  - `holdsChoice`, one choice that holds under typed words until another is taken.
+  - `holdsChoice`, one choice that holds under typed words until another is taken;
+  - `disabled`, a field and chips that take nothing;
+  - `describedBy`, words beside it that describe its field.
 
 ## Consequences
 

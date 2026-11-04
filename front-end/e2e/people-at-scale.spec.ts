@@ -1,7 +1,9 @@
 import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import { test, expect, BACKEND_URL, TEST_USER } from './fixtures';
+import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
 import { ManageMarketPage } from './pages/ManageMarketPage';
 import { OrganizationsPage } from './pages/OrganizationsPage';
+import { ReviewersPanel } from './pages/ReviewersPanel';
 import {
   detectLayout,
   gates,
@@ -532,6 +534,97 @@ for (const size of PHONE_AND_DESK) {
       await orgs.membersFind.fill('');
       await expect(orgs.membersCount).toHaveText(`Showing ${PAGE} of ${whole}`);
     });
+  });
+}
+
+for (const size of PHONE_AND_DESK) {
+  test.describe(`Choose reviewers among 150 people, ${size.name}`, () => {
+    test.use(size.use);
+    test.setTimeout(120_000);
+
+    let seed: PeopleAtScaleSeed;
+    let reviewers: ReviewersPanel;
+    const press = (locator: Locator) => (size.phone ? locator.tap() : locator.click());
+
+    test.beforeEach(async ({ authenticatedPage: page, request }) => {
+      seed = await seedPeopleAtScale(request);
+      await new ApplicationsAllPage(page).goto(seed.marketId);
+      reviewers = new ReviewersPanel(page);
+      await press(reviewers.change);
+      await expect(reviewers.dialog).toBeVisible();
+    });
+
+    test('opens with the team as chips, finds one by part of an address, and fits', async ({
+      authenticatedPage: page,
+    }) => {
+      const { chooser } = reviewers;
+      await expect(chooser.field).toBeFocused();
+      await expect(chooser.field).toHaveAccessibleName('Reviewers');
+      await expect(chooser.chips).toHaveCount(seed.counts.reviewers);
+      await expectLaidOut(page, 'the dialog with its chips');
+
+      await press(chooser.field);
+      await expect(chooser.options).toHaveCount(PAGE);
+      await expect(chooser.list.getByRole('option', { selected: true })).toHaveCount(
+        seed.counts.reviewers,
+      );
+      await expect(chooser.options.first()).toHaveAttribute('aria-selected', 'true');
+      await expectLaidOut(page, 'the list open');
+
+      const newcome = seed.members.at(-1)!.email;
+      await chooser.field.fill(newcome.split('@')[0]!);
+      await expect(chooser.options).toHaveCount(1);
+      await expect(chooser.options.first()).toHaveAttribute('data-value', newcome);
+      await expectLaidOut(page, 'one person found');
+
+      await page.keyboard.press('Escape');
+      await expect(chooser.list).toBeHidden();
+      await expect(reviewers.dialog).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(reviewers.dialog).toBeHidden();
+    });
+
+    test('adds one found by part of the address, removes another by its chip, and saves', async ({
+      authenticatedPage: page,
+    }) => {
+      const { chooser } = reviewers;
+      const added = seed.members.at(-1)!.email;
+      const removed = seed.reviewers[0]!.email;
+
+      await chooser.field.fill(added.split('@')[0]!);
+      await press(chooser.option(added));
+      await expect(chooser.chip(added)).toBeVisible();
+
+      await press(chooser.removeButton(removed));
+      await expect(chooser.chip(removed)).toHaveCount(0);
+      await expect(chooser.chips).toHaveCount(seed.counts.reviewers);
+      await expectLaidOut(page, 'the chips changed, the list open');
+
+      // The list is still open: the press on Save lands all the same.
+      await expect(chooser.list).toBeVisible();
+      await press(reviewers.save);
+      await expect(reviewers.dialog).toBeHidden();
+
+      const after = reviewers.people;
+      await expect(after).toHaveCount(seed.counts.reviewers);
+      await expect(after.filter({ hasText: added })).toHaveCount(1);
+      await expect(after.filter({ hasText: removed })).toHaveCount(0);
+    });
+
+    if (size.phone) {
+      test('fits 320 wide, with nothing scrolling sideways or clipped', async ({
+        authenticatedPage: page,
+      }) => {
+        await page.setViewportSize({ width: 320, height: 568 });
+        const { chooser } = reviewers;
+        await expect(chooser.chips).toHaveCount(seed.counts.reviewers);
+        await expectLaidOut(page, 'the dialog at 320');
+
+        await press(chooser.field);
+        await expect(chooser.options).toHaveCount(PAGE);
+        await expectLaidOut(page, 'the list open at 320');
+      });
+    }
   });
 }
 

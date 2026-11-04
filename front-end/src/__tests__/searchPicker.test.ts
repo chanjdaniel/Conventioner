@@ -3,8 +3,8 @@
  * grouped where the list is, and worked from the keyboard alone. The placement dialog's two vendor
  * pickers are its first use; it is a primitive, so it knows nothing of vendors.
  */
-import { describe, expect, it, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { flushPromises, mount } from '@vue/test-utils';
 import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
 
 const GROUPS: PickerGroup[] = [
@@ -746,16 +746,17 @@ describe('several choices', () => {
       const wrapper = several(['ben'], { cap: 2 });
       await input(wrapper).trigger('click');
 
-      expect(rows(wrapper)).toEqual(['ana', 'ben']);
+      expect(rows(wrapper)).toEqual(['ben', 'ana']);
       expect(wrapper.get('[data-testid="who-more"]').text()).toBe('2 more, type to narrow');
       expect(row(wrapper, 'ben').attributes('aria-selected')).toBe('true');
       wrapper.unmount();
     });
 
-    it('keeps a choice past the cap as a chip, reached again by the words', async () => {
+    it('draws a choice past the cap first, ticked, and the words reach it too', async () => {
       const wrapper = several(['dee'], { cap: 2 });
       await input(wrapper).trigger('click');
-      expect(rows(wrapper)).toEqual(['ana', 'ben']);
+      expect(rows(wrapper)).toEqual(['dee', 'ana']);
+      expect(row(wrapper, 'dee').attributes('aria-selected')).toBe('true');
       expect(chipWords(wrapper)).toEqual(['Dee Candles']);
 
       await input(wrapper).setValue('candles');
@@ -767,9 +768,11 @@ describe('several choices', () => {
       wrapper.unmount();
     });
 
-    it('walks only what it draws, and a choice past the cap never takes the keys', async () => {
+    it('walks only what it draws, the chosen rows first', async () => {
       const wrapper = several(['dee'], { cap: 2 });
       await input(wrapper).trigger('click');
+      await input(wrapper).trigger('keydown', { key: 'ArrowDown' });
+      await input(wrapper).trigger('keydown', { key: 'ArrowDown' });
       await input(wrapper).trigger('keydown', { key: 'Enter' });
 
       expect(arrays(wrapper)).toEqual([['dee', 'ana']]);
@@ -863,9 +866,9 @@ describe('typed text', () => {
   describe('the row', () => {
     it('leads the list when no option is exactly the words', async () => {
       const wrapper = typedPicker();
-      await input(wrapper).setValue('art');
+      await input(wrapper).setValue('ar');
 
-      expect(rows(wrapper)).toEqual(['Use "art"', 'Art prints', 'Art']);
+      expect(rows(wrapper)).toEqual(['Use "ar"', 'Art prints', 'Art']);
       wrapper.unmount();
     });
 
@@ -919,9 +922,9 @@ describe('typed text', () => {
 
     it('is not counted against the cap, nor in what the cap leaves', async () => {
       const wrapper = typedPicker('', { cap: 1 });
-      await input(wrapper).setValue('art');
+      await input(wrapper).setValue('ar');
 
-      expect(rows(wrapper)).toEqual(['Use "art"', 'Art prints']);
+      expect(rows(wrapper)).toEqual(['Use "ar"', 'Art prints']);
       expect(wrapper.get('[data-testid="who-more"]').text()).toBe('1 more, type to narrow');
       wrapper.unmount();
     });
@@ -930,22 +933,22 @@ describe('typed text', () => {
   describe('the keys', () => {
     it('reach it first, then the matches', async () => {
       const wrapper = typedPicker();
-      await input(wrapper).setValue('art');
+      await input(wrapper).setValue('ar');
 
-      expect(activeRow(wrapper)).toBe('Use "art"');
+      expect(activeRow(wrapper)).toBe('Use "ar"');
       await input(wrapper).trigger('keydown', { key: 'ArrowDown' });
       expect(activeRow(wrapper)).toBe('Art prints');
       await input(wrapper).trigger('keydown', { key: 'ArrowUp' });
-      expect(activeRow(wrapper)).toBe('Use "art"');
+      expect(activeRow(wrapper)).toBe('Use "ar"');
       wrapper.unmount();
     });
 
     it('take the words by Enter', async () => {
       const wrapper = typedPicker();
-      await input(wrapper).setValue('art');
+      await input(wrapper).setValue('ar');
       await input(wrapper).trigger('keydown', { key: 'Enter' });
 
-      expect(last(wrapper)).toBe('art');
+      expect(last(wrapper)).toBe('ar');
       wrapper.unmount();
     });
 
@@ -1173,5 +1176,487 @@ describe('a choice that holds until another is taken', () => {
 
     expect(wrapper.emitted('update:modelValue')).toEqual([['']]);
     wrapper.unmount();
+  });
+});
+
+describe("Daniel's choices (T204)", () => {
+  const PEOPLE: PickerGroup[] = [
+    {
+      options: ['ana', 'ben', 'cai', 'dee', 'eve', 'fay'].map((value) => ({
+        value,
+        label: `${value}@example.com`,
+      })),
+    },
+  ];
+
+  function chooser(
+    props: Partial<{
+      modelValue: string | string[];
+      multiple: boolean;
+      cap: number;
+      acceptsTyped: boolean;
+      holdsChoice: boolean;
+      groups: PickerGroup[];
+      disabled: boolean;
+      describedBy: string;
+    }> = {},
+  ) {
+    const wrapper = mount(SearchPicker, {
+      props: {
+        modelValue: '',
+        groups: PEOPLE,
+        finds,
+        label: 'Reviewers',
+        testid: 'who',
+        'onUpdate:modelValue': (value: string | string[]) =>
+          wrapper.setProps({ modelValue: value } as never),
+        ...props,
+      } as never,
+      attachTo: document.body,
+    });
+    return wrapper;
+  }
+  type Chooser = ReturnType<typeof chooser>;
+
+  const input = (wrapper: Chooser) => wrapper.get('[data-testid="who-input"]');
+  const element = (wrapper: Chooser) => input(wrapper).element as HTMLInputElement;
+  const rows = (wrapper: Chooser) =>
+    wrapper.findAll('[role="option"]').map((row) => row.attributes('data-value'));
+  const ticked = (wrapper: Chooser) =>
+    wrapper
+      .findAll('[role="option"][aria-selected="true"]')
+      .map((row) => row.attributes('data-value'));
+  const more = (wrapper: Chooser) => wrapper.get('[data-testid="who-more"]').text();
+  const last = (wrapper: Chooser) => wrapper.emitted('update:modelValue')?.at(-1)?.[0];
+  const activeRow = (wrapper: Chooser) => {
+    const id = input(wrapper).attributes('aria-activedescendant');
+    return id ? wrapper.get(`[id="${id}"]`).attributes('data-value') : undefined;
+  };
+
+  describe('4: every choice opens ticked at the top of a capped list', () => {
+    it('draws the chosen first, in the option order, and fills the cap with the rest', async () => {
+      const wrapper = chooser({ multiple: true, modelValue: ['fay', 'dee'], cap: 3 });
+      await input(wrapper).trigger('click');
+
+      expect(rows(wrapper)).toEqual(['dee', 'fay', 'ana']);
+      expect(ticked(wrapper)).toEqual(['dee', 'fay']);
+      expect(more(wrapper)).toBe('3 more, type to narrow');
+      wrapper.unmount();
+    });
+
+    it('draws every choice, even past the cap, since each has its chip already', async () => {
+      const wrapper = chooser({ multiple: true, modelValue: ['eve', 'dee', 'cai'], cap: 2 });
+      await input(wrapper).trigger('click');
+
+      expect(rows(wrapper)).toEqual(['cai', 'dee', 'eve']);
+      expect(more(wrapper)).toBe('3 more, type to narrow');
+      wrapper.unmount();
+    });
+
+    it('keeps the option order while every match fits under the cap', async () => {
+      const wrapper = chooser({ multiple: true, modelValue: ['fay'], cap: 6 });
+      await input(wrapper).trigger('click');
+
+      expect(rows(wrapper)).toEqual(['ana', 'ben', 'cai', 'dee', 'eve', 'fay']);
+      wrapper.unmount();
+    });
+
+    it('never moves a row under the pointer: it comes to the top only on the next opening', async () => {
+      const wrapper = chooser({ multiple: true, modelValue: ['fay'], cap: 3 });
+      await input(wrapper).trigger('click');
+      expect(rows(wrapper)).toEqual(['fay', 'ana', 'ben']);
+
+      await wrapper.get('[role="option"][data-value="ben"]').trigger('click');
+      await wrapper.get('[role="option"][data-value="fay"]').trigger('click');
+      expect(rows(wrapper)).toEqual(['fay', 'ana', 'ben']);
+      expect(ticked(wrapper)).toEqual(['ben']);
+
+      await input(wrapper).trigger('blur');
+      await input(wrapper).trigger('click');
+      expect(rows(wrapper)).toEqual(['ben', 'ana', 'cai']);
+      wrapper.unmount();
+    });
+
+    it('draws a chosen match first among what the words find past the cap too', async () => {
+      const wrapper = chooser({ multiple: true, modelValue: ['fay'], cap: 2 });
+      await input(wrapper).setValue('example');
+
+      expect(rows(wrapper)).toEqual(['fay', 'ana']);
+      await input(wrapper).setValue('fay');
+      expect(rows(wrapper)).toEqual(['fay']);
+      wrapper.unmount();
+    });
+
+    it('leaves one choice past the cap undrawn: the field names it', async () => {
+      const wrapper = chooser({ modelValue: 'fay', cap: 2 });
+      await input(wrapper).trigger('click');
+
+      expect(rows(wrapper)).toEqual(['ana', 'ben']);
+      wrapper.unmount();
+    });
+
+    it('does not draw a group whose every match led', async () => {
+      const groups: PickerGroup[] = [
+        { label: 'First', options: PEOPLE[0]!.options.slice(0, 1) },
+        { label: 'Rest', options: PEOPLE[0]!.options.slice(1) },
+      ];
+      const wrapper = chooser({ multiple: true, modelValue: ['ana'], cap: 2, groups });
+      await input(wrapper).trigger('click');
+
+      expect(rows(wrapper)).toEqual(['ana', 'ben']);
+      expect(wrapper.text()).not.toContain('First');
+      expect(wrapper.text()).not.toContain('None match');
+      wrapper.unmount();
+    });
+  });
+
+  describe('9: words differing from an option only in capitals take that option', () => {
+    const ANSWERS: PickerGroup[] = [
+      {
+        options: [
+          { value: 'art-prints', label: 'Art prints' },
+          { value: 'art', label: 'Art' },
+          { value: 'stickers', label: 'Stickers' },
+        ],
+      },
+    ];
+
+    it('offers no row of their own, and makes the option the active row', async () => {
+      const wrapper = chooser({ acceptsTyped: true, groups: ANSWERS });
+      await input(wrapper).setValue('ART');
+
+      expect(rows(wrapper)).toEqual(['art-prints', 'art']);
+      expect(activeRow(wrapper)).toBe('art');
+      await input(wrapper).trigger('keydown', { key: 'Enter' });
+      expect(last(wrapper)).toBe('art');
+      expect(element(wrapper).value).toBe('Art');
+      wrapper.unmount();
+    });
+
+    it('take the option among several choices too', async () => {
+      const wrapper = chooser({
+        acceptsTyped: true,
+        multiple: true,
+        modelValue: [],
+        groups: ANSWERS,
+      });
+      await input(wrapper).setValue('stickers');
+
+      expect(rows(wrapper)).toEqual(['stickers']);
+      await input(wrapper).trigger('keydown', { key: 'Enter' });
+      expect(last(wrapper)).toEqual(['stickers']);
+      wrapper.unmount();
+    });
+
+    it('draw the option even when the cap would leave it out', async () => {
+      const wrapper = chooser({ acceptsTyped: true, groups: ANSWERS, cap: 1 });
+      await input(wrapper).setValue('art');
+
+      expect(rows(wrapper)).toEqual(['art']);
+      expect(activeRow(wrapper)).toBe('art');
+      expect(more(wrapper)).toBe('1 more, type to narrow');
+      wrapper.unmount();
+    });
+
+    it('take the option spelt exactly so, when two differ only in capitals', async () => {
+      const twins: PickerGroup[] = [
+        {
+          options: [
+            { value: 'upper', label: 'Stickers' },
+            { value: 'lower', label: 'stickers' },
+          ],
+        },
+      ];
+      const wrapper = chooser({ acceptsTyped: true, groups: twins });
+      await input(wrapper).setValue('stickers');
+      expect(activeRow(wrapper)).toBe('lower');
+
+      await input(wrapper).setValue('STICKERS');
+      expect(activeRow(wrapper)).toBe('upper');
+      wrapper.unmount();
+    });
+
+    it('still offer words that merely hold an option', async () => {
+      const wrapper = chooser({ acceptsTyped: true, groups: ANSWERS });
+      await input(wrapper).setValue('art p');
+
+      expect(wrapper.findAll('[role="option"]').map((row) => row.get('span').text())).toEqual([
+        'Use "art p"',
+        'Art prints',
+      ]);
+      wrapper.unmount();
+    });
+  });
+
+  describe('10: leaving with words not chosen', () => {
+    const ANSWERS: PickerGroup[] = [
+      {
+        options: [
+          { value: 'art', label: 'Art' },
+          { value: 'stickers', label: 'Stickers' },
+        ],
+      },
+    ];
+
+    it('a free-text field keeps them as typed, trimmed', async () => {
+      const wrapper = chooser({ acceptsTyped: true, groups: ANSWERS });
+      await input(wrapper).setValue('  soap ');
+      await input(wrapper).trigger('blur');
+
+      expect(last(wrapper)).toBe('soap');
+      expect(element(wrapper).value).toBe('soap');
+      wrapper.unmount();
+    });
+
+    it('a free-text field takes the option they differ from only in capitals', async () => {
+      const wrapper = chooser({ acceptsTyped: true, groups: ANSWERS });
+      await input(wrapper).setValue('stickers');
+      await input(wrapper).trigger('blur');
+
+      expect(last(wrapper)).toBe('stickers');
+      expect(element(wrapper).value).toBe('Stickers');
+      wrapper.unmount();
+    });
+
+    it('a free-text field keeps them when Enter goes on to the form', async () => {
+      const wrapper = chooser({ acceptsTyped: true, groups: ANSWERS });
+      await input(wrapper).setValue('soap');
+      await input(wrapper).trigger('keydown', { key: 'Escape' });
+      expect(last(wrapper)).toBeUndefined();
+
+      await input(wrapper).trigger('keydown', { key: 'Enter' });
+      expect(last(wrapper)).toBe('soap');
+      wrapper.unmount();
+    });
+
+    it('a free-text field among several makes them a chip, once', async () => {
+      const wrapper = chooser({
+        acceptsTyped: true,
+        multiple: true,
+        modelValue: [],
+        groups: ANSWERS,
+      });
+      await input(wrapper).setValue('soap');
+      await input(wrapper).trigger('blur');
+
+      expect(last(wrapper)).toEqual(['soap']);
+      expect(element(wrapper).value).toBe('');
+
+      await input(wrapper).setValue('soap');
+      await input(wrapper).trigger('blur');
+      expect(last(wrapper)).toEqual(['soap']);
+      wrapper.unmount();
+    });
+
+    it('a free-text field that was only reopened keeps its value and emits nothing', async () => {
+      const wrapper = chooser({ acceptsTyped: true, groups: ANSWERS, modelValue: 'art' });
+      await input(wrapper).trigger('click');
+      await input(wrapper).trigger('blur');
+
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+      expect(element(wrapper).value).toBe('Art');
+      wrapper.unmount();
+    });
+
+    it('a pick-from-list field clears them', async () => {
+      const wrapper = chooser({ groups: PEOPLE });
+      await input(wrapper).setValue('an');
+      await input(wrapper).trigger('blur');
+
+      expect(element(wrapper).value).toBe('');
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+      wrapper.unmount();
+    });
+
+    it('a pick-from-list field that let its choice go clears them', async () => {
+      const wrapper = chooser({ groups: PEOPLE, modelValue: 'ana' });
+      await input(wrapper).setValue('be');
+      await flushPromises();
+      expect(last(wrapper)).toBe('');
+
+      await input(wrapper).trigger('blur');
+      expect(element(wrapper).value).toBe('');
+      wrapper.unmount();
+    });
+
+    it('a pick-from-list field reopened on its choice keeps naming it', async () => {
+      const wrapper = chooser({ groups: PEOPLE, modelValue: 'ana' });
+      await input(wrapper).trigger('click');
+      await input(wrapper).trigger('blur');
+
+      expect(element(wrapper).value).toBe('ana@example.com');
+      wrapper.unmount();
+    });
+
+    it('a choice that holds names itself again, free text or not', async () => {
+      const wrapper = chooser({
+        acceptsTyped: true,
+        holdsChoice: true,
+        groups: ANSWERS,
+        modelValue: 'art',
+      });
+      await input(wrapper).setValue('soap');
+      await input(wrapper).trigger('blur');
+
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+      expect(element(wrapper).value).toBe('Art');
+      wrapper.unmount();
+    });
+  });
+
+  describe('disabled', () => {
+    it('disables the field and every chip, and never opens', async () => {
+      const wrapper = chooser({ multiple: true, modelValue: ['ana'], disabled: true });
+
+      expect(element(wrapper).disabled).toBe(true);
+      const remove = wrapper.get('[data-testid="who-chip-remove"]');
+      expect((remove.element as HTMLButtonElement).disabled).toBe(true);
+
+      await input(wrapper).trigger('click');
+      await input(wrapper).trigger('keydown', { key: 'ArrowDown' });
+      expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+      await remove.trigger('click');
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+      wrapper.unmount();
+    });
+
+    it('closes a list that was open when it turns disabled', async () => {
+      const wrapper = chooser({ multiple: true, modelValue: [] });
+      await input(wrapper).trigger('click');
+      expect(wrapper.find('[role="listbox"]').exists()).toBe(true);
+
+      await wrapper.setProps({ disabled: true });
+      expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+      wrapper.unmount();
+    });
+  });
+
+  describe("a chip's own words", () => {
+    const WITH_ME: PickerGroup[] = [
+      {
+        options: [
+          { value: 'ana', label: 'ana@example.com' },
+          { value: 'me', label: 'me@example.com', detail: 'You', chip: 'me@example.com (you)' },
+        ],
+      },
+    ];
+
+    it('reads on the chip, the list keeps the label and detail, and Remove names the label', async () => {
+      const wrapper = chooser({ multiple: true, modelValue: ['me'], groups: WITH_ME });
+
+      const chip = wrapper.get('[data-testid="who-chip"] > span:first-child');
+      expect(chip.text()).toBe('me@example.com (you)');
+      expect(wrapper.get('[data-testid="who-chip-remove"]').text()).toBe('Remove me@example.com');
+
+      await input(wrapper).trigger('click');
+      const row = wrapper.get('[role="option"][data-value="me"]');
+      expect(row.get('.search-picker-option-label').text()).toBe('me@example.com');
+      expect(row.get('.search-picker-option-detail').text()).toBe('You');
+      wrapper.unmount();
+    });
+  });
+
+  describe('a press past the open list', () => {
+    const listOf = (wrapper: Chooser) => wrapper.find('[data-testid="who-list"]');
+
+    /** A press on something past the list, on its way down: the focus goes with it. */
+    async function pressElsewhere(wrapper: Chooser) {
+      window.dispatchEvent(new MouseEvent('mousedown'));
+      element(wrapper).blur();
+      await wrapper.vm.$nextTick();
+    }
+    async function pressEnds(wrapper: Chooser) {
+      window.dispatchEvent(new MouseEvent('mouseup'));
+      vi.runAllTimers();
+      await wrapper.vm.$nextTick();
+    }
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('holds the list until the press ends, so the click lands where it was aimed', async () => {
+      vi.useFakeTimers();
+      for (const props of [{}, { multiple: true, modelValue: [] }, { holdsChoice: true }]) {
+        const wrapper = chooser(props);
+        element(wrapper).focus();
+        await input(wrapper).trigger('click');
+        await input(wrapper).setValue('an');
+
+        await pressElsewhere(wrapper);
+        // The list stays as it stood: clearing the words now would widen it to every row.
+        expect(rows(wrapper)).toEqual(['ana']);
+        expect(element(wrapper).value).toBe('an');
+
+        await pressEnds(wrapper);
+        expect(listOf(wrapper).exists()).toBe(false);
+        expect(element(wrapper).value).toBe('');
+        wrapper.unmount();
+      }
+    });
+
+    it('closes at once when the keyboard leaves the field', async () => {
+      const wrapper = chooser();
+      await input(wrapper).setValue('an');
+      await input(wrapper).trigger('blur');
+      expect(listOf(wrapper).exists()).toBe(false);
+      wrapper.unmount();
+    });
+
+    it('leaves the list open when the press ends with the focus still in the field', async () => {
+      vi.useFakeTimers();
+      const wrapper = chooser({ multiple: true, modelValue: [] });
+      element(wrapper).focus();
+      await input(wrapper).setValue('an');
+
+      window.dispatchEvent(new MouseEvent('mousedown'));
+      await pressEnds(wrapper);
+      expect(listOf(wrapper).exists()).toBe(true);
+      expect(element(wrapper).value).toBe('an');
+      wrapper.unmount();
+    });
+
+    it("writes a free-text field's words as the press ends, ahead of its click", async () => {
+      vi.useFakeTimers();
+      const wrapper = chooser({ acceptsTyped: true, groups: [] });
+      element(wrapper).focus();
+      await input(wrapper).setValue('soap');
+
+      await pressElsewhere(wrapper);
+      expect(last(wrapper)).toBeUndefined();
+
+      window.dispatchEvent(new MouseEvent('mouseup'));
+      expect(last(wrapper)).toBe('soap');
+
+      vi.runAllTimers();
+      await wrapper.vm.$nextTick();
+      expect(listOf(wrapper).exists()).toBe(false);
+      expect(wrapper.emitted('update:modelValue')).toHaveLength(1);
+      wrapper.unmount();
+    });
+
+    it('stops listening once the list has gone', async () => {
+      vi.useFakeTimers();
+      const wrapper = chooser();
+      element(wrapper).focus();
+      await input(wrapper).setValue('an');
+      await input(wrapper).trigger('keydown', { key: 'Escape' });
+
+      await pressElsewhere(wrapper);
+      expect(element(wrapper).value).toBe('');
+      wrapper.unmount();
+    });
+  });
+
+  describe('words that describe the field', () => {
+    it('point the field at them, beside the line a capped list adds', async () => {
+      const wrapper = chooser({ multiple: true, modelValue: [], describedBy: 'the-hint', cap: 2 });
+      expect(input(wrapper).attributes('aria-describedby')).toBe('the-hint');
+
+      await input(wrapper).trigger('click');
+      const moreId = wrapper.get('[data-testid="who-more"]').attributes('id');
+      expect(input(wrapper).attributes('aria-describedby')).toBe(`the-hint ${moreId}`);
+      wrapper.unmount();
+    });
   });
 });

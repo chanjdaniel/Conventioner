@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { ReviewerChooser } from './ReviewerChooser';
 
 /**
  * Page object for the dialog the rail's "Open applications" opens on a market whose vendors apply
@@ -15,8 +16,8 @@ export class OpenApplicationsDialog {
   readonly confirm: Locator;
   readonly cancel: Locator;
   readonly error: Locator;
-  /** Every person the picker offers, in its order. */
-  readonly choices: Locator;
+  /** The dialog's chooser of reviewers. */
+  readonly chooser: ReviewerChooser;
   /** The review setup's two lines: what a reviewer reads first, and the automatic rejections. */
   readonly leads: Locator;
   readonly rejections: Locator;
@@ -30,15 +31,10 @@ export class OpenApplicationsDialog {
     this.confirm = page.getByTestId('open-applications-submit-button');
     this.cancel = page.getByTestId('open-applications-cancel-button');
     this.error = page.getByTestId('open-applications-error');
-    this.choices = this.dialog.getByRole('checkbox');
+    this.chooser = new ReviewerChooser(this.dialog);
     this.leads = this.dialog.getByTestId('open-applications-leads');
     this.rejections = this.dialog.getByTestId('open-applications-rejections');
     this.changeReviewSetup = this.dialog.getByTestId('open-applications-change-review-setup');
-  }
-
-  /** The picker's checkbox for one address. */
-  choice(email: string): Locator {
-    return this.dialog.getByTestId(`reviewer-picker-${email}`);
   }
 
   /** Press "Open applications" on the rail, and wait for the dialog. */
@@ -47,10 +43,10 @@ export class OpenApplicationsDialog {
     await this.dialog.waitFor();
   }
 
-  /** Open applications with these reviewers ticked (none: first come, first served). */
+  /** Open applications with these reviewers chosen (none: first come, first served). */
   async openWith(...emails: string[]): Promise<void> {
     await this.start();
-    for (const email of emails) await this.choice(email).check();
+    await this.chooser.choose(...emails);
     await this.confirm.click();
     await this.dialog.waitFor({ state: 'hidden' });
   }

@@ -42,6 +42,7 @@ sources:
   - T181
   - T200
   - T211
+  - T204
 ---
 
 # Dialogs
@@ -56,6 +57,7 @@ A new dialog is built on it, never hand-rolled.
 Enter in a field runs the same handler as the confirm button, so it inherits that handler's guard, and a disabled submit makes Enter inert with no key handler anywhere.
 Do not add `@keydown.enter`: five views each invented their own answer, and one of them (`ApplicantLogin`) bypassed its own resend cooldown by doing so.
 The one exception is a picker's open list ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): while its list is open, Enter takes the highlighted choice, or closes the list when none is highlighted, and is kept from the form (with `multiple` the list stays open after a choice, so the next Enter is the list's too), and Escape closes the list and is kept from the dialog; once the list is closed both keys are the dialog's again, so Enter submits through the form's guard and Escape closes.
+The list stays through a press past it, until the press ends, so the click lands on the Save below it, which closing it as the focus goes would move away.
 
 **A dialog of several independent actions passes no `confirmLabel`** and hosts its own `<form>`s in its body; Manage organization has three.
 Their submits are their own: the shell listens for `submit` only when its body is the form, so an inner form's submit neither is prevented by it nor makes it emit `submit`.

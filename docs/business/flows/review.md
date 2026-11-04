@@ -9,7 +9,7 @@ describes:
   - front-end/src/components/market/ReviewersPanel.vue
   - front-end/src/components/application/VerdictUndoLine.vue
   - front-end/src/utils/verdictUndo.ts
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/08
@@ -53,6 +53,7 @@ sources:
   - E38/F10/S01
   - T180
   - T181
+  - T204
 ---
 
 # Reviewing applications
@@ -189,8 +190,9 @@ The rule is [the review is dealt among chosen reviewers](../rules/the-review-is-
 1. A "Reviewers" panel sits between the line on where the market stands and Publish results while the review is open, and is gone from Assignment on ([`ReviewersPanel.vue`](../../../front-end/src/components/market/ReviewersPanel.vue)).
    It lists the chosen reviewers' addresses, "(you)" beside the reader's own and "Can no longer review here" beside one who no longer holds a role on the market, or whose role the market's table no longer lets be chosen, or says "No reviewers chosen. Everyone reviews first come, first served."
 2. Someone who may choose reviewers (an Admin or the owner, by default) is offered "Choose reviewers", or "Change reviewers" once some are chosen; anyone else reads the panel without it.
-3. It opens a dialog: "Saving deals every open application again among the reviewers you choose. Decided applications stay where they are, and so do follow-ups, unless their owner is no longer a reviewer.", then a checkbox for each person the reader may choose, their own marked "(you)", the current reviewers ticked and no one else, and the hint "Choose no one and everyone reviews first come, first served. You can choose reviewers later from the Applications tab." ([`ReviewerPicker.vue`](../../../front-end/src/components/market/ReviewerPicker.vue)).
-4. "Save reviewers" deals every open application among the ticked people, re-reads the market and the open view's list, and closes; a refused save keeps the dialog open with its error.
+3. It opens a dialog: "Saving deals every open application again among the reviewers you choose. Decided applications stay where they are, and so do follow-ups, unless their owner is no longer a reviewer.", then the current reviewers as chips above a field that finds anyone else the reader may choose by typing part of their address (the reader's own reads "(you)" on its chip and "You" in the list), and the hint "Choose no one and everyone reviews first come, first served. You can choose reviewers later from the Applications tab." ([`ReviewerPicker.vue`](../../../front-end/src/components/market/ReviewerPicker.vue)).
+   A chip's remove button or Backspace in the empty field takes someone off; opened past 50 matches, the list draws the chosen first, then the rest up to 50, and says how many more there are.
+4. "Save reviewers" deals every open application among the chosen people, re-reads the market and the open view's list, and closes; a refused save keeps the dialog open with its error.
 5. The people offered are those whose role the row "Be chosen as a reviewer, and then give verdicts and follow-ups" lets be chosen (any role, by default); once chosen, they give verdicts and follow-ups on any application, a Viewer included, and the frame no longer says the market is read-only to them.
 6. The same picker is offered as an own-form market opens applications, and in a Google Form market's first import, on its preview step, so the reviewers can be chosen before the first application arrives ([taking applications](taking-applications.md#h1-open-applications), [the import](import.md#h2a-first-import-everything-maps)).
 7. Deciding someone else's share is not refused, to anyone who may give verdicts: every row and card names its reviewer, and an open application or follow-up dealt to someone else and not in the reader's share carries the warning on its card, in its drawer and in a selection's confirmation, every time and never as a dialog to click through (I1, [the All view](#the-all-view)); the words are [`front-end/src/utils/reviewers.ts`](../../../front-end/src/utils/reviewers.ts)'s.

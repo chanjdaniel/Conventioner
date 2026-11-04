@@ -57,7 +57,7 @@ test('a removed reviewer’s follow-up is handed to the reviewer it is dealt to'
   await all.goto(marketId);
   await expect(all.ownerOf(FOLLOW_UP)).toHaveText(`Followed up by ${ANA}`);
 
-  await reviewers.untick(ANA);
+  await reviewers.takeOff(ANA);
   await reviewers.submit();
 
   // The pool is v1, v2 and the follow-up, in arrival order, dealt to Ben and Cat in turn.

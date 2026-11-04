@@ -73,9 +73,12 @@ async function pressOpen(market: Market): Promise<VueWrapper> {
   return wrapper;
 }
 
+/** Finds each person by typing their address, and takes the match. */
 async function tick(wrapper: VueWrapper, ...emails: string[]) {
+  const field = wrapper.get(`${DIALOG} [data-testid="reviewer-picker-input"]`);
   for (const email of emails) {
-    await wrapper.get(`${DIALOG} [data-testid="reviewer-picker-${email}"]`).setValue(true);
+    await field.setValue(email);
+    await field.trigger('keydown', { key: 'Enter' });
   }
 }
 
@@ -87,9 +90,8 @@ async function confirm(wrapper: VueWrapper) {
 
 function ticked(wrapper: VueWrapper): string[] {
   return wrapper
-    .findAll(`${DIALOG} input[type="checkbox"]`)
-    .filter((box) => (box.element as HTMLInputElement).checked)
-    .map((box) => String(box.attributes('data-testid')).replace('reviewer-picker-', ''));
+    .findAll(`${DIALOG} [data-testid="reviewer-picker-chip"] > span:first-child`)
+    .map((chip) => chip.text());
 }
 
 describe('who meets the dialog', () => {
@@ -185,7 +187,7 @@ describe('confirming', () => {
     const wrapper = await pressOpen(
       draft({ reviewTeam: { reviewers: [{ email: ANA, able: true }] } }),
     );
-    await wrapper.get(`${DIALOG} [data-testid="reviewer-picker-${ANA}"]`).setValue(false);
+    await wrapper.get(`${DIALOG} [data-testid="reviewer-picker-chip-remove"]`).trigger('click');
     await confirm(wrapper);
 
     expect(api.put).toHaveBeenCalledWith('/markets/market-1/reviewers', { reviewers: [] });

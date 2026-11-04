@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { ReviewerChooser } from './ReviewerChooser';
 
 /**
  * Page object for the Reviewers panel on the Applications tab (E38/F07/S02): who reviews the
@@ -15,6 +16,8 @@ export class ReviewersPanel {
   /** "Choose reviewers", or "Change reviewers" once some are chosen. */
   readonly change: Locator;
   readonly dialog: Locator;
+  /** The dialog's chooser of reviewers. */
+  readonly chooser: ReviewerChooser;
   readonly save: Locator;
   readonly error: Locator;
 
@@ -26,27 +29,23 @@ export class ReviewersPanel {
     this.unable = page.getByTestId('reviewers-unable');
     this.change = page.getByTestId('reviewers-change');
     this.dialog = page.getByTestId('reviewers-dialog-window');
+    this.chooser = new ReviewerChooser(this.dialog);
     this.save = page.getByTestId('reviewers-dialog-submit-button');
     this.error = page.getByTestId('reviewers-dialog-error');
   }
 
-  /** The picker's checkbox for one address. */
-  choice(email: string): Locator {
-    return this.dialog.getByTestId(`reviewer-picker-${email}`);
-  }
-
-  /** Open the dialog and tick these addresses, beside whoever is ticked already. */
-  async tick(...emails: string[]): Promise<void> {
+  /** Open the dialog and choose these addresses, beside whoever is chosen already. */
+  async choose(...emails: string[]): Promise<void> {
     await this.change.click();
     await this.dialog.waitFor();
-    for (const email of emails) await this.choice(email).check();
+    await this.chooser.choose(...emails);
   }
 
-  /** Open the dialog and untick these addresses, leaving whoever else is ticked. */
-  async untick(...emails: string[]): Promise<void> {
+  /** Open the dialog and take these addresses off, leaving whoever else is chosen. */
+  async takeOff(...emails: string[]): Promise<void> {
     await this.change.click();
     await this.dialog.waitFor();
-    for (const email of emails) await this.choice(email).uncheck();
+    await this.chooser.remove(...emails);
   }
 
   /** Save the dialog's choice, and wait for it to close on the save landing. */
