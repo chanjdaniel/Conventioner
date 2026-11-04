@@ -218,6 +218,57 @@ describe('past 12, the field', () => {
   });
 });
 
+describe('fieldId', () => {
+  it.each([
+    ['select', 12],
+    ['field', 13],
+  ])('at the %s: the control carries it, and its label names it', (_, count) => {
+    const wrapper = field({ groups: choices(count), fieldId: 'the-choice' });
+    expect(wrapper.get('#the-choice').attributes('data-testid')).toBe(
+      count > COMBOBOX_PAST ? 'fix-input' : 'fix',
+    );
+    expect(wrapper.get('label[for="the-choice"]').text()).toBe('What it means');
+  });
+});
+
+describe('showHeld()', () => {
+  const backToHeld = (wrapper: Field) => (wrapper.vm as unknown as { showHeld(): void }).showHeld();
+
+  it('at the select: shows what it holds, after a choice that did not stand', async () => {
+    const wrapper = field({ modelValue: 'v1', 'onUpdate:modelValue': undefined });
+    await select(wrapper).setValue('v2');
+    expect((select(wrapper).element as HTMLSelectElement).value).toBe('v2');
+
+    backToHeld(wrapper);
+    expect((select(wrapper).element as HTMLSelectElement).value).toBe('v1');
+  });
+
+  it('at the field: names what it holds, after a choice that did not stand', async () => {
+    const wrapper = field({
+      groups: choices(13),
+      modelValue: 'v1',
+      writes: true,
+      'onUpdate:modelValue': undefined,
+    });
+    await input(wrapper).trigger('click');
+    await wrapper.get('[data-testid="fix-option"][data-value="v2"]').trigger('click');
+    expect((input(wrapper).element as HTMLInputElement).value).toBe('Answer 2');
+
+    backToHeld(wrapper);
+    await flushPromises();
+    expect((input(wrapper).element as HTMLInputElement).value).toBe('Answer 1');
+  });
+
+  it('at the field: leaves words being typed, which name it on leaving', async () => {
+    const wrapper = field({ groups: choices(13), modelValue: 'v1', writes: true });
+    await input(wrapper).setValue('Answer 9');
+
+    backToHeld(wrapper);
+    await flushPromises();
+    expect((input(wrapper).element as HTMLInputElement).value).toBe('Answer 9');
+  });
+});
+
 describe('open()', () => {
   const opener = (wrapper: Field) => (wrapper.vm as unknown as { open(): boolean }).open;
 

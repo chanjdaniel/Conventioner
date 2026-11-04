@@ -40,9 +40,13 @@ export const labelHolds = (option: PickerOption, words: string) =>
  * - `adds` says each choice is added elsewhere, as a ranked list's next answer: the value stays `''`,
  *   the select goes back to its empty row, and the field empties with the focus still in it, ready
  *   for the next. Such a set shrinks as it is used, so the screen gives `wholeCount`.
+ * - `fieldId` is the control's id, the select's or the field's, so a link elsewhere on the screen
+ *   names it whichever it is.
  * - `open()` opens the list from a link elsewhere on the screen, and answers false where nothing
  *   opened: a select on a browser with no `showPicker` (Safari), or one that refused it, has only
  *   its focus, so the screen can respond.
+ * - `showHeld()` shows what `modelValue` holds again, for a screen whose server refused the choice
+ *   just taken, which `modelValue` never became.
  */
 import { computed, ref, useId } from 'vue';
 import SearchPicker, { type PickerGroup } from '@/components/SearchPicker.vue';
@@ -70,6 +74,8 @@ const props = defineProps<{
   adds?: boolean;
   disabled?: boolean;
   describedBy?: string;
+  /** The control's id, the select's or the field's, for a link elsewhere on the screen to name. */
+  fieldId?: string;
 }>();
 
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
@@ -84,7 +90,8 @@ const isField = computed(
 const rowWords = (option: PickerOption) =>
   option.detail ? `${option.label} - ${option.detail}` : option.label;
 
-const selectId = useId();
+const generatedId = useId();
+const selectId = computed(() => props.fieldId ?? generatedId);
 const select = ref<HTMLSelectElement | null>(null);
 
 function selected(event: Event): void {
@@ -108,7 +115,12 @@ function open(): boolean {
   }
 }
 
-defineExpose({ open });
+function showHeld(): void {
+  picker.value?.showChoice();
+  if (select.value) select.value.value = props.modelValue;
+}
+
+defineExpose({ open, showHeld });
 </script>
 
 <template>
@@ -128,6 +140,7 @@ defineExpose({ open });
     :clears-on-choice="adds"
     :disabled="disabled"
     :described-by="describedBy"
+    :field-id="fieldId"
     list-over
     none-word="Nothing"
     @update:model-value="emit('update:modelValue', $event as string)"

@@ -92,9 +92,12 @@
  * - Given `clearsOnChoice`, on one choice, each choice is added elsewhere, as a ranked list's next
  *   answer: after emitting, the field empties, the list closes and the focus stays, ready for the next
  *   word, and the value stays `''`.
+ * - Given `fieldId`, its field has that id, for a link elsewhere on the screen to name.
  * - `show()`, exposed, takes the focus and opens the list, for a link elsewhere on the screen, and
  *   answers whether the list is open. A disabled field takes neither; with no rows to list, the
  *   field has the focus and no list.
+ * - `showChoice()`, exposed, has the field name the choice that holds again, for a screen whose
+ *   server refused the one just taken, which `modelValue` never became. Words being typed stay.
  */
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue';
 import IconCheck from '@/components/icons/IconCheck.vue';
@@ -152,6 +155,8 @@ const props = defineProps<
     invalid?: boolean;
     /** On one choice: each is added elsewhere, so the field empties, ready for the next word. */
     clearsOnChoice?: boolean;
+    /** Its field's id, for a link elsewhere on the screen to name. */
+    fieldId?: string;
   } & (
     | { multiple?: false; modelValue: string }
     /** Several choices, shown as chips above the field. */
@@ -162,7 +167,7 @@ const props = defineProps<
 const emit = defineEmits<{ 'update:modelValue': [value: string | string[]] }>();
 
 const id = useId();
-const inputId = `${id}-input`;
+const inputId = computed(() => props.fieldId ?? `${id}-input`);
 const listId = `${id}-list`;
 const optionId = (index: number) => `${id}-option-${index}`;
 const moreId = `${id}-more`;
@@ -383,7 +388,12 @@ function show(): boolean {
   return open.value;
 }
 
-defineExpose({ show });
+/** Back to naming the choice that holds, as after one that did not stand; words being typed stay. */
+function showChoice(): void {
+  if (!searching.value) nameTheChoice();
+}
+
+defineExpose({ show, showChoice });
 
 function choose(option: PickerOption): void {
   if (option.disabled) return;

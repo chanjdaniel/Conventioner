@@ -18,6 +18,10 @@
  * the card. Each choice saves as it is made, and the page re-reads the market after (`changed`),
  * never patching it.
  *
+ * The role and the question are each a `ChoiceField` that writes as it is taken, so a server of 250
+ * roles finds one by typing, and typing alone writes nothing. A link in "Giving roles" opens either
+ * by the id of its control, a select or a field.
+ *
  * The invite link is typed, so the field holds its own draft: a link the server refuses stays there
  * to be finished, under its refusal's words, however often the market is read meanwhile. A stored
  * link read later shows only if nothing unsaved stands in the field; another server or market
@@ -29,6 +33,7 @@
  */
 import { computed, onUnmounted, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
+import ChoiceField from '@/components/ChoiceField.vue';
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { whenDiscordEnds } from '@/utils/discordConnected';
@@ -37,6 +42,7 @@ import { rolesStillNeed } from '@/utils/discordRoles';
 import { marketPath } from '@/utils/market';
 import { MarketAction, actionRefusal } from '@/utils/marketActions';
 import type { Ref } from 'vue';
+import type { PickerGroup } from '@/components/SearchPicker.vue';
 import type { DiscordRole, Market } from '@/assets/types/datatypes';
 
 const props = defineProps<{ market: Market }>();
@@ -56,6 +62,12 @@ const questionLabel = computed(
     textQuestions.value.find((field) => field.key === connection.value?.usernameQuestion)?.label ??
     null,
 );
+const questionGroups = computed<PickerGroup[]>(() => [
+  { options: textQuestions.value.map((field) => ({ value: field.key, label: field.label })) },
+]);
+const heldQuestion = computed(() =>
+  questionLabel.value ? (connection.value?.usernameQuestion ?? '') : '',
+);
 
 const roles = ref<DiscordRole[]>([]);
 const rolesError = ref<string | null>(null);
@@ -71,6 +83,15 @@ const roleOptions = computed<DiscordRole[]>(() => {
 const chosenRole = computed(
   () => roleOptions.value.find((role) => role.id === connection.value?.roleId) ?? null,
 );
+const roleGroups = computed<PickerGroup[]>(() => [
+  {
+    options: roleOptions.value.map((role) => ({
+      value: role.id,
+      label: role.belowBot ? role.name : `${role.name} (above Conventioner's role)`,
+    })),
+  },
+]);
+const heldRole = computed(() => connection.value?.roleId ?? '');
 
 async function loadRoles(): Promise<void> {
   rolesError.value = null;
@@ -190,13 +211,25 @@ async function save(
   }
 }
 
-function onRole(event: Event): void {
-  stillAbove.value = false;
-  void save({ roleId: (event.target as HTMLSelectElement).value || null }, saveError);
+/** A refused choice was never the market's, so its control goes back to what is stored. */
+async function write(
+  choice: Record<string, string | null>,
+  control: Ref<InstanceType<typeof ChoiceField> | null>,
+): Promise<void> {
+  await save(choice, saveError);
+  if (saveError.value) control.value?.showHeld();
 }
 
-function onQuestion(event: Event): void {
-  void save({ usernameQuestion: (event.target as HTMLSelectElement).value || null }, saveError);
+// A field's list offers the choice it holds too, which a select never fires for: nothing to write.
+function onRole(roleId: string): void {
+  if (roleId === heldRole.value) return;
+  stillAbove.value = false;
+  void write({ roleId: roleId || null }, roleField);
+}
+
+function onQuestion(usernameQuestion: string): void {
+  if (usernameQuestion === heldQuestion.value) return;
+  void write({ usernameQuestion: usernameQuestion || null }, questionField);
 }
 
 function onInvite(): void {
@@ -204,17 +237,17 @@ function onInvite(): void {
 }
 
 const stillNeed = computed(() => rolesStillNeed(props.market));
-const roleSelect = ref<HTMLSelectElement | null>(null);
-const questionSelect = ref<HTMLSelectElement | null>(null);
+const roleField = ref<InstanceType<typeof ChoiceField> | null>(null);
+const questionField = ref<InstanceType<typeof ChoiceField> | null>(null);
 
-/** A choice's select, by what the checklist calls it. */
-type CardSelect = 'role' | 'question';
-/** The select whose label is responding to its link, in the link's ink, for a moment. */
-const responding = ref<CardSelect | null>(null);
+/** A choice's control, by what the checklist calls it. */
+type CardChoice = 'role' | 'question';
+/** The choice whose label is responding to its link, in the link's ink, for a moment. */
+const responding = ref<CardChoice | null>(null);
 let respondingEnds: ReturnType<typeof setTimeout> | undefined;
 const RESPONSE_MS = 1500;
 
-function respond(which: CardSelect): void {
+function respond(which: CardChoice): void {
   clearTimeout(respondingEnds);
   responding.value = which;
   respondingEnds = setTimeout(() => {
@@ -224,22 +257,13 @@ function respond(which: CardSelect): void {
 onUnmounted(() => clearTimeout(respondingEnds));
 
 /**
- * The click opens the select's list. Where it cannot, as in Safari, with no `showPicker` as of
- * 2026-11, the select still takes the focus, but a field shows no focus at all (the design
- * language), so the select's label responds instead, or the link would look dead.
+ * The click opens the choice's list. Where it cannot, as a select in Safari, with no `showPicker` as
+ * of 2026-11, the control still takes the focus, but a field shows no focus at all (the design
+ * language), so its label responds instead, or the link would look dead.
  */
-function openSelect(which: CardSelect): void {
-  const select = which === 'role' ? roleSelect.value : questionSelect.value;
-  select?.focus();
-  try {
-    if (select?.showPicker) {
-      select.showPicker();
-      return;
-    }
-  } catch {
-    // Refused somewhere: the list stays shut, as where the method is missing.
-  }
-  respond(which);
+function openChoice(which: CardChoice): void {
+  const opened = (which === 'role' ? roleField.value : questionField.value)?.open();
+  if (!opened) respond(which);
 }
 
 const confirmingDisconnect = ref(false);
@@ -295,51 +319,35 @@ async function disconnect(): Promise<void> {
           </div>
 
           <div v-if="editable" class="discord-choices">
-            <div class="discord-choice">
-              <label
-                class="field-label"
-                for="discord-role"
-                :data-responding="responding === 'role' || undefined"
-                >Role to give</label
-              >
-              <select
-                id="discord-role"
-                ref="roleSelect"
-                class="field field--select"
-                :value="connection?.roleId ?? ''"
-                data-testid="discord-role-select"
-                @change="onRole"
-              >
-                <option value="">Choose a role</option>
-                <option v-for="role in roleOptions" :key="role.id" :value="role.id">
-                  {{ role.belowBot ? role.name : `${role.name} (above Conventioner's role)` }}
-                </option>
-              </select>
+            <div class="discord-choice" :data-responding="responding === 'role' || undefined">
+              <ChoiceField
+                ref="roleField"
+                :model-value="heldRole"
+                :groups="roleGroups"
+                label="Role to give"
+                placeholder="Choose a role"
+                testid="discord-role-select"
+                field-id="discord-role"
+                writes
+                @update:model-value="onRole"
+              />
               <p v-if="rolesError" class="discord-error" data-testid="discord-roles-error">
                 {{ rolesError }}
               </p>
             </div>
 
-            <div class="discord-choice">
-              <label
-                class="field-label"
-                for="discord-question"
-                :data-responding="responding === 'question' || undefined"
-                >Username question</label
-              >
-              <select
-                id="discord-question"
-                ref="questionSelect"
-                class="field field--select"
-                :value="questionLabel ? connection?.usernameQuestion : ''"
-                data-testid="discord-question-select"
-                @change="onQuestion"
-              >
-                <option value="">Choose a question</option>
-                <option v-for="field in textQuestions" :key="field.key" :value="field.key">
-                  {{ field.label }}
-                </option>
-              </select>
+            <div class="discord-choice" :data-responding="responding === 'question' || undefined">
+              <ChoiceField
+                ref="questionField"
+                :model-value="heldQuestion"
+                :groups="questionGroups"
+                label="Username question"
+                placeholder="Choose a question"
+                testid="discord-question-select"
+                field-id="discord-question"
+                writes
+                @update:model-value="onQuestion"
+              />
               <p v-if="!textQuestions.length" class="discord-hint">
                 The form asks no text question yet. Add one that asks for a Discord username.
               </p>
@@ -444,7 +452,7 @@ async function disconnect(): Promise<void> {
                     href="#discord-role"
                     class="link-alone"
                     data-testid="discord-giving-needs-role"
-                    @click.prevent="openSelect('role')"
+                    @click.prevent="openChoice('role')"
                     >Choose the role to give</a
                   >
                 </li>
@@ -454,7 +462,7 @@ async function disconnect(): Promise<void> {
                     href="#discord-question"
                     class="link-alone"
                     data-testid="discord-giving-needs-question"
-                    @click.prevent="openSelect('question')"
+                    @click.prevent="openChoice('question')"
                     >Choose the question that asks their Discord username</a
                   >
                   <RouterLink
@@ -621,8 +629,16 @@ async function disconnect(): Promise<void> {
   grid-column: 1 / -1;
 }
 
-.field-label[data-responding] {
+.discord-choice[data-responding] :deep(.field-label) {
   color: var(--mm-text-link);
+}
+
+/* The first column's field stands near the window's left edge, and between phone and desk its list
+   is wider than the column: it runs right from the field, not left off the window. */
+.discord-choice:first-child
+  :deep(.choice-field-picker.search-picker--list-over .search-picker-list) {
+  right: auto;
+  left: 0;
 }
 
 .discord-giving {
@@ -642,10 +658,15 @@ async function disconnect(): Promise<void> {
   color: var(--mm-black);
 }
 
-/* On a phone (the Tools tab fits one) the three choices stand one under another. */
+/* On a phone (the Tools tab fits one) the three choices stand one under another, and a list is as
+   wide as its field, which is as wide as the card lets anything be. */
 @media (width <= 640px) {
   .discord-choices {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .discord-choice :deep(.choice-field-picker.search-picker--list-over .search-picker-list) {
+    width: 100%;
   }
 }
 

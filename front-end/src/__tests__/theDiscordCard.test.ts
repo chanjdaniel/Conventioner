@@ -384,6 +384,211 @@ describe('a market connected, for an Admin', () => {
   });
 });
 
+describe('a server of many roles', () => {
+  const manyRoles = (count: number) =>
+    Array.from({ length: count }, (_, at) => ({
+      id: `r-${at}`,
+      name: `Role ${at}`,
+      belowBot: at !== 7,
+    }));
+  const CONNECTED_AT = market({ discord: CONNECTED });
+  const input = (wrapper: ReturnType<typeof card>, id: string) => find(wrapper, `${id}-input`);
+  const list = (wrapper: ReturnType<typeof card>, id: string) => find(wrapper, `${id}-list`);
+  const row = (wrapper: ReturnType<typeof card>, id: string, value: string) =>
+    wrapper.find(`[data-testid="${id}-option"][data-value="${value}"]`);
+  const ROLE = 'discord-role-select';
+
+  async function withRoles(count: number, on: Market = CONNECTED_AT) {
+    api.get.mockResolvedValue({ data: { roles: manyRoles(count) } });
+    const wrapper = card(on);
+    await flushPromises();
+    return wrapper;
+  }
+
+  it('keeps its select at 12 roles, with its empty row', async () => {
+    const wrapper = await withRoles(12);
+    expect(find(wrapper, ROLE).element.tagName).toBe('SELECT');
+    expect(find(wrapper, ROLE).findAll('option')).toHaveLength(13);
+    expect(find(wrapper, ROLE).attributes('id')).toBe('discord-role');
+    wrapper.unmount();
+  });
+
+  describe.each([13, 250])('at %i roles', (count) => {
+    it('is a field its label still names, offering "Choose a role"', async () => {
+      const wrapper = await withRoles(count);
+      expect(wrapper.find(`select[data-testid="${ROLE}"]`).exists()).toBe(false);
+      expect(input(wrapper, ROLE).attributes('id')).toBe('discord-role');
+      expect(wrapper.get('label[for="discord-role"]').text()).toBe('Role to give');
+      expect(input(wrapper, ROLE).attributes('placeholder')).toBe('Choose a role');
+      wrapper.unmount();
+    });
+
+    it('finds a role by typing, writing nothing until it is taken, then re-reads', async () => {
+      const wrapper = await withRoles(count);
+      await input(wrapper, ROLE).setValue('role 12');
+      await flushPromises();
+      expect(api.put).not.toHaveBeenCalled();
+      expect(row(wrapper, ROLE, 'r-12').exists()).toBe(true);
+      expect(row(wrapper, ROLE, 'r-3').exists()).toBe(false);
+
+      await row(wrapper, ROLE, 'r-12').trigger('click');
+      await flushPromises();
+      expect(api.put).toHaveBeenCalledOnce();
+      expect(api.put).toHaveBeenCalledWith('/markets/market-123/discord', { roleId: 'r-12' });
+      expect(wrapper.emitted('changed')).toHaveLength(1);
+      wrapper.unmount();
+    });
+
+    it('marks a role above the bot`s, and warns once it is the chosen one', async () => {
+      const wrapper = await withRoles(
+        count,
+        market({ discord: { ...CONNECTED, roleId: 'r-7', roleName: 'Role 7' } }),
+      );
+      expect((input(wrapper, ROLE).element as HTMLInputElement).value).toBe(
+        "Role 7 (above Conventioner's role)",
+      );
+      expect(find(wrapper, 'discord-role-warning').text()).toContain(
+        'Conventioner cannot give Role 7 yet',
+      );
+      expect(find(wrapper, 'discord-role-check-again').text()).toBe('Check again');
+      wrapper.unmount();
+    });
+
+    it('still offers and shows a stored role the server no longer lists', async () => {
+      const wrapper = await withRoles(
+        count,
+        market({ discord: { ...CONNECTED, roleId: 'r-gone', roleName: 'Old vendors' } }),
+      );
+      const field = input(wrapper, ROLE);
+      expect((field.element as HTMLInputElement).value).toBe('Old vendors');
+      await field.setValue('old ven');
+      await flushPromises();
+      expect(row(wrapper, ROLE, 'r-gone').text()).toBe('Old vendors');
+      expect(find(wrapper, 'discord-role-warning').exists()).toBe(false);
+      wrapper.unmount();
+    });
+
+    it('says a choice that fails was not saved', async () => {
+      api.put.mockRejectedValue(refusedWith('The bot could not read that role.'));
+      const wrapper = await withRoles(count);
+      await input(wrapper, ROLE).setValue('role 4');
+      await flushPromises();
+      await row(wrapper, ROLE, 'r-4').trigger('click');
+      await flushPromises();
+      expect(find(wrapper, 'discord-save-error').text()).toBe('The bot could not read that role.');
+      expect(wrapper.emitted('changed')).toBeUndefined();
+      wrapper.unmount();
+    });
+
+    it('writes nothing when the role it holds is taken again, as a select never fires for it', async () => {
+      const wrapper = await withRoles(
+        count,
+        market({ discord: { ...CONNECTED, roleId: 'r-4', roleName: 'Role 4' } }),
+      );
+      await input(wrapper, ROLE).trigger('click');
+      await input(wrapper, ROLE).trigger('keydown', { key: 'Enter' });
+      await flushPromises();
+      expect(api.put).not.toHaveBeenCalled();
+      wrapper.unmount();
+    });
+
+    it('goes back to the role it holds when the choice is refused', async () => {
+      api.put.mockRejectedValue(refusedWith('The bot could not read that role.'));
+      const wrapper = await withRoles(
+        count,
+        market({ discord: { ...CONNECTED, roleId: 'r-4', roleName: 'Role 4' } }),
+      );
+      await input(wrapper, ROLE).setValue('role 5');
+      await flushPromises();
+      await row(wrapper, ROLE, 'r-5').trigger('click');
+      await flushPromises();
+      expect(find(wrapper, 'discord-save-error').exists()).toBe(true);
+      expect((input(wrapper, ROLE).element as HTMLInputElement).value).toBe('Role 4');
+      wrapper.unmount();
+    });
+
+    it('opens on the card`s link, with the focus in the field and the label as it is', async () => {
+      const wrapper = await withRoles(count);
+      await find(wrapper, 'discord-giving-needs-role').trigger('click');
+      await flushPromises();
+      expect(document.activeElement).toBe(input(wrapper, ROLE).element);
+      expect(list(wrapper, ROLE).exists()).toBe(true);
+      expect(wrapper.find('[data-responding]').exists()).toBe(false);
+      wrapper.unmount();
+    });
+  });
+
+  it('at the select too, goes back to the role it holds when the choice is refused', async () => {
+    api.put.mockRejectedValue(refusedWith('The bot could not read that role.'));
+    const wrapper = await withRoles(
+      12,
+      market({ discord: { ...CONNECTED, roleId: 'r-4', roleName: 'Role 4' } }),
+    );
+    await find(wrapper, ROLE).setValue('r-5');
+    await flushPromises();
+    expect(find(wrapper, 'discord-save-error').exists()).toBe(true);
+    expect((find(wrapper, ROLE).element as HTMLSelectElement).value).toBe('r-4');
+    wrapper.unmount();
+  });
+
+  it('draws 50 of 250, and says how many more', async () => {
+    const wrapper = await withRoles(250);
+    await input(wrapper, ROLE).trigger('click');
+    expect(wrapper.findAll(`[data-testid="${ROLE}-option"]`)).toHaveLength(50);
+    expect(find(wrapper, `${ROLE}-more`).text()).toBe('200 more, type to narrow');
+    wrapper.unmount();
+  });
+
+  describe('a form of many text questions', () => {
+    const QUESTION = 'discord-question-select';
+    const manyQuestions = market({
+      discord: CONNECTED,
+      applicationForm: {
+        fields: Array.from({ length: 30 }, (_, at) => ({
+          key: `q-${at}`,
+          label: `Question ${at}`,
+          type: 'text',
+          required: false,
+          options: [],
+          order: at,
+        })),
+      },
+    } as Partial<Market>);
+
+    it('finds the username question by typing, writes it as taken, and opens on its link', async () => {
+      const wrapper = card(manyQuestions);
+      await flushPromises();
+      expect(input(wrapper, QUESTION).attributes('id')).toBe('discord-question');
+      expect(input(wrapper, QUESTION).attributes('placeholder')).toBe('Choose a question');
+
+      await find(wrapper, 'discord-giving-needs-question').trigger('click');
+      await flushPromises();
+      expect(document.activeElement).toBe(input(wrapper, QUESTION).element);
+      expect(list(wrapper, QUESTION).exists()).toBe(true);
+
+      await input(wrapper, QUESTION).setValue('question 22');
+      await flushPromises();
+      expect(api.put).not.toHaveBeenCalled();
+      await row(wrapper, QUESTION, 'q-22').trigger('click');
+      await flushPromises();
+      expect(api.put).toHaveBeenCalledWith('/markets/market-123/discord', {
+        usernameQuestion: 'q-22',
+      });
+      wrapper.unmount();
+    });
+
+    it('offers no choice for a stored question the form no longer asks, and names none', async () => {
+      const wrapper = card({
+        ...manyQuestions,
+        discord: { ...CONNECTED, usernameQuestion: 'gone' },
+      } as Market);
+      await flushPromises();
+      expect((input(wrapper, QUESTION).element as HTMLInputElement).value).toBe('');
+      wrapper.unmount();
+    });
+  });
+});
+
 describe('a refused invite link', () => {
   const REFUSAL =
     'An invite link is a web address starting https://, like https://discord.gg/abc123.';
@@ -662,7 +867,7 @@ describe('the "Giving roles" block', () => {
         withPicker(wrapper, id, undefined as unknown as () => void);
       /** Its label reads in the link ink; the field itself draws nothing (the design language). */
       const respondsOn = (wrapper: ReturnType<typeof card>, id: string) =>
-        wrapper.get(`label[for="${id}"]`).attributes('data-responding') !== undefined;
+        wrapper.get(`label[for="${id}"]`).element.closest('[data-responding]') !== null;
 
       beforeEach(() => {
         vi.useFakeTimers();
@@ -761,9 +966,7 @@ describe('the "Giving roles" block', () => {
       clickLink(wrapper, NEEDS.role);
       await nextTick();
 
-      expect(
-        wrapper.get('label[for="discord-role"]').attributes('data-responding'),
-      ).toBeUndefined();
+      expect(wrapper.find('[data-responding]').exists()).toBe(false);
       wrapper.unmount();
     });
   });

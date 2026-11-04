@@ -5,6 +5,7 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { ApplicationFormPage } from './pages/ApplicationFormPage';
 import { ChoiceField } from './pages/ChoiceField';
+import { ToolsPage } from './pages/ToolsPage';
 import { StartFromCsvPage } from './pages/StartFromCsvPage';
 import { CsvImportPage } from './pages/CsvImportPage';
 import { finishStartedPlan, UPCOMING_YEAR } from './helpers/finishStartedPlan';
@@ -16,6 +17,9 @@ import { grantMarketRole } from './helpers/grantMarketRole';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 import { sweep } from './helpers/contrastSweep';
+import { fakeDiscordId, seedFakeDiscordServer } from './helpers/fakeDiscord';
+import { mongoEval } from './helpers/mongo';
+import { PHONE } from './helpers/screens';
 
 /**
  * The app's choices at a real market's size (T223), on the committed synthetic exports: a choice
@@ -684,5 +688,134 @@ test.describe('a choice that adds, on the question of 129 answers', () => {
     await page.keyboard.press('Enter');
     await expect(form.builder.locator('.field-item')).toHaveCount(before + 2);
     await expect(form.labelInput(before + 1)).toHaveValue(second!.label);
+  });
+});
+
+test.describe('the Discord card, on a server of 250 roles', () => {
+  const WANTED_ROLE = 'Market vendor 137';
+  const WANTED_QUESTION = 'Question 22, your Discord username';
+
+  /** A draft connected to a fake server of 250 roles, on a form of 30 text questions. */
+  async function connectedAtScale(request: APIRequestContext): Promise<string> {
+    const { marketId } = await seedDraftMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { intakeMode: 'form' },
+    );
+    const guildId = fakeDiscordId();
+    const botRoleId = fakeDiscordId();
+    seedFakeDiscordServer({
+      guildId,
+      name: 'Riverside Makers',
+      roles: [
+        ...Array.from({ length: 249 }, (_, at) => ({
+          id: `${guildId}${at}`,
+          name: `Market vendor ${at}`,
+          position: at + 1,
+        })),
+        { id: botRoleId, name: 'Conventioner', position: 250 },
+      ],
+      botRoles: [botRoleId],
+      members: [],
+    });
+    const questions = Array.from({ length: 30 }, (_, at) => ({
+      key: `question_${at}`,
+      label: at === 22 ? WANTED_QUESTION : `Question ${at}`,
+      type: 'text',
+      required: false,
+    }));
+    mongoEval(
+      `db.markets.updateOne({ id: ${JSON.stringify(marketId)} }, { $set: ${JSON.stringify({
+        applicationForm: { fields: questions },
+        discord: { guildId, guildName: 'Riverside Makers' },
+      })} })`,
+    );
+    return marketId;
+  }
+
+  /** The open list stands inside the window, whole across it, whichever way it runs. */
+  async function expectListInTheWindow(choice: ChoiceField): Promise<void> {
+    const { left, right, width } = await choice.list.evaluate((list) => {
+      const box = list.getBoundingClientRect();
+      return { left: box.left, right: box.right, width: window.innerWidth };
+    });
+    expect(left).toBeGreaterThanOrEqual(0);
+    expect(right).toBeLessThanOrEqual(width);
+  }
+
+  for (const size of [{ width: 1280, height: 800 }, PHONE]) {
+    test(`at ${size.width}, finds a role and a question by typing, written as taken, read back after a reload`, async ({
+      authenticatedPage: page,
+      request,
+    }) => {
+      const marketId = await connectedAtScale(request);
+      await page.setViewportSize(size);
+      const tools = new ToolsPage(page);
+      await tools.goto(marketId);
+      const role = tools.roleChoice;
+      await expect(role.field, 'DISCORD_FAKE=true answers for the server').toBeVisible({
+        timeout: 15000,
+      });
+
+      // The card's link opens the list: 50 of the 250, saying what it left out.
+      await tools.givingNeedsRole.click();
+      await expect(role.field).toBeFocused();
+      await expect(role.options).toHaveCount(50);
+      await expect(role.more).toHaveText('200 more, type to narrow');
+      await expectListInTheWindow(role);
+      await sweep(page);
+
+      // Typing alone writes nothing.
+      let writes = 0;
+      page.on('request', (sent) => {
+        if (sent.method() === 'PUT' && sent.url().endsWith('/discord')) writes += 1;
+      });
+      await page.keyboard.type(WANTED_ROLE);
+      await expect(role.options).toHaveText([WANTED_ROLE]);
+      expect(writes).toBe(0);
+
+      // A word finds it, and Enter takes it: the save takes it off what is still needed.
+      await page.keyboard.press('Enter');
+      await expect(tools.givingNeedsRole).toHaveCount(0);
+      await expect(role.field).toHaveValue(WANTED_ROLE);
+      expect(writes).toBe(1);
+
+      const question = tools.questionChoice;
+      await tools.givingNeedsQuestion.click();
+      await expect(question.field).toBeFocused();
+      await expect(question.options).not.toHaveCount(0);
+      await expectListInTheWindow(question);
+      await page.keyboard.type('your discord');
+      await expect(question.options).toHaveText([WANTED_QUESTION]);
+      await page.keyboard.press('Enter');
+      await expect(tools.givingNeedsQuestion).toHaveCount(0);
+      expect(writes).toBe(2);
+
+      await page.reload();
+      await expect(role.field).toHaveValue(WANTED_ROLE, { timeout: 15000 });
+      await expect(question.field).toHaveValue(WANTED_QUESTION);
+    });
+  }
+
+  test('between phone and desk, the first column`s list stays in the window', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const marketId = await connectedAtScale(request);
+    await page.setViewportSize({ width: 700, height: 800 });
+    const tools = new ToolsPage(page);
+    await tools.goto(marketId);
+    await expect(tools.roleChoice.field).toBeVisible({ timeout: 15000 });
+
+    await tools.givingNeedsRole.click();
+    await expect(tools.roleChoice.list).toBeVisible();
+    await expectListInTheWindow(tools.roleChoice);
+    await page.keyboard.press('Escape');
+
+    await tools.givingNeedsQuestion.click();
+    await expect(tools.questionChoice.list).toBeVisible();
+    await expectListInTheWindow(tools.questionChoice);
   });
 });
