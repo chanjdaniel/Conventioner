@@ -866,7 +866,6 @@ function cancelPending() {
     flex: 1 1 100%;
     min-width: 0;
     overflow-x: auto;
-    scrollbar-width: none;
   }
 
   .phase-step {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * The one in-app scroller (T217): a box that hides its bar and shades each edge with more beyond it,
- * so it still says it scrolls, and looks the same whatever bar the browser would have drawn.
+ * The one in-app scroller (T217): a box with no bar, by `base.css`'s rule, that shades each edge with
+ * more beyond it, so it still says it scrolls, and looks the same whatever bar the browser would draw.
  *
  * A class passed to it lands on the root, which is what a screen sizes and borders; padding belongs
  * in the slot's content, or the shades lie over it rather than at the box's edge, and a child's focus
@@ -147,12 +147,6 @@ defineExpose({ scroller });
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
-  scrollbar-width: none;
-}
-
-/* Safari before 18.2 has no `scrollbar-width`. */
-.scroll-box__scroller::-webkit-scrollbar {
-  display: none;
 }
 
 .scroll-box__scroller--y {

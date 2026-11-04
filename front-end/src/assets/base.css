@@ -237,6 +237,21 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
+/*
+ * No in-app scroller draws a bar (T217): on a browser with classic bars one squared a dialog's
+ * corners and lay over its list, and each screen drew its own. A box that scrolls is a `ScrollBox`,
+ * whose shades say there is more. Two things keep theirs: the page, since `html` is outside this
+ * rule and its bar says how long the page is, and a `textarea`, a field with no room for a shade.
+ */
+body *:not(textarea) {
+  scrollbar-width: none;
+}
+
+/* Safari before 18.2 has no `scrollbar-width`. */
+body *:not(textarea)::-webkit-scrollbar {
+  display: none;
+}
+
 body {
   min-height: 100vh;
   color: var(--color-text);

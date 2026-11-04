@@ -205,7 +205,6 @@ h4 {
   max-height: 200px;
   max-width: 400px;
   overflow-y: scroll;
-  scrollbar-width: none;
 }
 
 h3 {
@@ -341,7 +340,6 @@ h3 {
   gap: var(--space-2);
 
   overflow: auto;
-  scrollbar-width: none;
 }
 
 .click-item {

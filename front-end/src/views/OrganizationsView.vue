@@ -323,18 +323,4 @@ function handleManageChanged() {
   background: var(--mm-chip-positive);
   color: var(--mm-text-green);
 }
-
-.content-block::-webkit-scrollbar {
-  width: 8px;
-}
-
-.content-block::-webkit-scrollbar-track {
-  background: var(--mm-beige);
-  border-radius: var(--radius-control);
-}
-
-.content-block::-webkit-scrollbar-thumb {
-  background: var(--mm-border);
-  border-radius: var(--radius-control);
-}
 </style>

@@ -104,7 +104,6 @@ function linkTo(marketId: string, page: MarketPage) {
     gap: 0;
     padding: var(--space-2);
     overflow-x: auto;
-    scrollbar-width: none;
   }
 
   .market-fits-a-phone .market-page {

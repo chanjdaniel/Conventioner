@@ -12,6 +12,8 @@ describes:
   - front-end/e2e/layout-sweep.spec.ts
   - front-end/e2e/focus-sweep.spec.ts
   - front-end/e2e/layout-detectors.spec.ts
+  - front-end/e2e/no-in-app-scroll-bar.spec.ts
+  - front-end/src/__tests__/everyScrollerIsAScrollBox.test.ts
   - front-end/e2e/helpers/screens.ts
   - front-end/e2e/helpers/layoutDetectors.ts
   - front-end/e2e/contrast-measure.spec.ts
@@ -461,8 +463,14 @@ A move keeps the focus on the moved row's button, or on its other button once th
 A row takes its container's width, its words wrapping and its buttons never shrinking, so nothing is clipped on the right inside a dialog's scrolling body or tray; its words are the `row` slot's when given.
 No screen mounts it yet: the library's `export-vendors` entry shows it alone and in the export dialog's tray.
 
+**No in-app scroller draws a bar, on any browser** (T217): one rule in `base.css` hides it on everything under `body`, and a box that scrolls is a [`ScrollBox`](../front-end/src/components/ScrollBox.vue), whose shades say there is more.
+Two things keep their bars: the page, since `html` is outside the rule and its bar says how long the page is, along with its `scrollbar-gutter`; and a `textarea`, a field with no room for a shade.
+A component writes no `scrollbar-width` or `::-webkit-scrollbar` of its own.
+A rule with `overflow: auto` or `scroll` that never scrolls is deleted rather than wrapped, since it only makes a scroll container that stops a sticky child sticking.
+[`everyScrollerIsAScrollBox.test.ts`](../front-end/src/__tests__/everyScrollerIsAScrollBox.test.ts) fails on `overflow: auto` or `scroll`, or any rule on a bar, in a `.vue` or `.css` file outside `ScrollBox` and `base.css`, but for its named list of what is not yet converted, which only falls; [`no-in-app-scroll-bar.spec.ts`](../front-end/e2e/no-in-app-scroll-bar.spec.ts) launches a browser that draws classic bars, which headless Chromium otherwise hides, opens two dialogs and the vendor drawer, and finds no room given to a bar under `body`, with the page's own still drawn.
+
 A box that scrolls is [`ScrollBox.vue`](../front-end/src/components/ScrollBox.vue) (T217): `axis` (`y`, `x` or `both`), `tone` (`light`, or `dark` on a dark ground), `testid` (`shadeTestid` for the shades' prefix of its own, as a dialog keeps), and `label`, which names the scroller as a region for a table a keyboard scrolls sideways.
-It draws no bar, and a shade at each edge that has more beyond it, only then, and none in print, where nothing clips; a class passed to it lands on its root, which is what a screen sizes and borders, and padding goes in the slot's content, so a shade lies at the box's edge and a control's focus halo has room inside.
+It draws a shade at each edge that has more beyond it, only then, and none in print, where nothing clips; a class passed to it lands on its root, which is what a screen sizes and borders, and padding goes in the slot's content, so a shade lies at the box's edge and a control's focus halo has room inside.
 While it overflows with nothing inside it to take focus it carries `tabindex="0"`, since Safari gives a scroller no Tab stop of its own and the bar is gone; otherwise it carries none, since a focusable child already takes the keys.
 It exposes its `scroller` element for the few screens that move it themselves.
 Every dialog scrolls in one ([dialogs](implementation/conventions/dialogs.md)), a long dialog only its body at most 80% of the window's height at a desk, and a short one whole; the library's `components` entry shows each axis and tone.
@@ -561,10 +569,12 @@ A convention nothing enforces is how the product got here. Six checks, the first
    On a phone it fails when a market screen pins more than its window's top 150px, naming the screen and the measurement: `pinnedBottom` scrolls the page by a window's height, or to its end, and takes the lowest bottom of the banner and whatever is `sticky` or `fixed` at its `top`, a dialog, a drawer or a scrim aside, and the door pinned 409px of 844 until only [the market frame](implementation/modules/market-frame.md#sharp-edges)'s bar pinned there (T142).
    The sweep landed gating a phone target at WCAG 2.5.8's 24px, with about 75 phone controls under 44px (36px buttons and fields, 28px day buttons on phone attendance), and T82 raised them to 44px through the tokens above and the gate with them.
    The noisy kinds (spacing off the scale, uneven gaps, edges 1 to 4px apart, empty bands, truncated names, nested scrollers, small targets on a desktop) are real drift mixed with what is by design, so each test attaches them as a `layout report` and never fails on them; the spacing scale is Stylelint's to hold.
+   `scroller-without-a-shade` is attached the same way until the last scroller is converted: it names what really scrolls, other than the page and a text control, that draws a bar or is not a `ScrollBox`'s own scroller, which sees what the source guard cannot, a scroller made by a binding or a script.
    [`e2e/layout-detectors.spec.ts`](../front-end/e2e/layout-detectors.spec.ts) proves each gating detector fires on a fixture of its defect, and that none fires on a page that only looks broken: a stuck bar over scrolled content, screen-reader-only text, an ellipsis with its title, a closed `<details>`, a menu over the page.
    It proves a link in a sentence is exempt as a target and one drawn on a line of its own is not.
    It proves an overlap is measured on the part of each box that shows past its clipping ancestors, so a control scrolled half out of a dialog's body overlaps nothing past that body's edge.
    It proves a text scrolled past its box keeps its own edge for the edge check, so it slips against nothing once it is scrolled.
+   It proves `scroller-without-a-shade` fires on each defect, a bar and a scroller outside a `ScrollBox`, and on a bare scroller nested inside one, that it is quiet on a `ScrollBox`, the page and a text field, and that it does not gate.
    It proves `pinnedBottom` counts a pinned header and a block pinned under it, and not a block that scrolls away, one that sticks only sideways, or an open drawer or dialog.
    It holds the sweep's phone break to `base.css`'s by rendering sign-in on each side of it: at the widest width the sweep calls a phone, the sign-in button is 44px tall and `--target-min` 44px, and a pixel wider they are 36px and 24px.
    It landed with what it and the newly walked states found fixed: the form's step list hung 8px outside its header, a long web address in an answer ran 108px past a phone, the sign-in and reset fields and their Show buttons were 20px and 15px tall inside their 36px boxes, the standalone back links and the rail's addresses were 18px and 19px tall, and on states the other sweeps had never opened, role badges and "Results Published" on translucent tints, the import's hint on beige, the verification error in raw `red`, an unmarked link in a note, and the start page's coloured words on black.

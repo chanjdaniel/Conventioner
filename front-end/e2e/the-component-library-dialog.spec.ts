@@ -1,5 +1,6 @@
 import type { Locator, Page, PlaywrightWorkerArgs } from '@playwright/test';
 import { test, expect } from './fixtures';
+import { barWidth, withClassicBars } from './helpers/classicBars';
 import { eachWindow, expectLaidOut, openEntry } from './helpers/componentLibrary';
 import { inTheWindow, type PhoneOrDesk } from './helpers/phoneWindow';
 
@@ -367,47 +368,16 @@ for (const { width, height, expected, what } of HEIGHTS) {
 }
 
 test.describe('on a browser that draws classic scroll bars', () => {
-  /*
-   * Headless Chromium hides scroll bars by a launch flag. `launchOptions` cannot change within a
-   * spec's describe, since it forces a new worker, so these launch a browser of their own without it.
-   */
+  /** The library's `dialog` entry, on a browser of its own that draws them. */
   async function onClassicBars(
     { playwright, baseURL }: Pick<PlaywrightWorkerArgs, 'playwright'> & { baseURL?: string },
     drive: (page: Page) => Promise<void>,
   ) {
-    const browser = await playwright.chromium.launch({
-      ignoreDefaultArgs: ['--hide-scrollbars'],
-    });
-    try {
-      const context = await browser.newContext({
-        baseURL: baseURL!,
-        viewport: { width: 1280, height: 720 },
-      });
-      const page = await context.newPage();
+    await withClassicBars({ playwright, baseURL }, { width: 1280, height: 720 }, async (page) => {
       await openEntry(page, 'dialog');
-      // A scroller here would draw a bar, so finding none on the dialog's means it hid its own.
-      const pageBar = await page.evaluate(() => {
-        const box = document.createElement('div');
-        box.style.cssText = 'position:fixed;width:100px;height:100px;overflow:scroll';
-        document.documentElement.append(box);
-        const bar = box.offsetWidth - box.clientWidth;
-        box.remove();
-        return bar;
-      });
-      expect(pageBar, 'this browser draws classic bars').toBeGreaterThan(0);
       await drive(page);
-    } finally {
-      await browser.close();
-    }
-  }
-
-  /** The width a scroller gives to a bar, less its borders. */
-  const barWidth = (locator: Locator) =>
-    locator.evaluate((el) => {
-      const style = getComputedStyle(el);
-      const borders = parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
-      return (el as HTMLElement).offsetWidth - el.clientWidth - borders;
     });
+  }
 
   test('a scrolled long dialog keeps its title, actions and corners, and nothing passes its edge', async ({
     playwright,

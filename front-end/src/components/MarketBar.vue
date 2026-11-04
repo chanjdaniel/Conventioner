@@ -182,7 +182,6 @@ function linkFor(tab: MarketTab): string {
     min-width: 0;
     max-width: 100%;
     overflow-x: auto;
-    scrollbar-width: none;
   }
 
   .market-bar-tab {
