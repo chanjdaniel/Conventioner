@@ -197,6 +197,7 @@ function updateOption(idx: number, value: string) {
             :label="`Option ${optIdx + 1}`"
             :placeholder="`Option ${optIdx + 1}`"
             testid="form-field-option"
+            hide-label
             none-word="Nothing"
             accepts-typed
             words-are-value
@@ -359,25 +360,10 @@ function updateOption(idx: number, value: string) {
   gap: var(--space-1);
 }
 
-/* The row's field in the compact height and text of `.field-input`, which cannot reach a child.
-   Its name is for a screen reader, as the plain input's is: `.visually-hidden` copied whole, since
-   the picker draws its own label. */
+/* The row's field in the compact height and text of `.field-input`, which cannot reach a child. */
 .option-picker {
   flex: 1;
   min-width: 0;
-}
-
-.option-picker :deep(.field-label) {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  /* stylelint-disable-next-line declaration-property-value-allowed-list -- the utility's own value, not spacing: it pulls the 1px box off the layout */
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
 }
 
 .option-picker :deep(.field) {

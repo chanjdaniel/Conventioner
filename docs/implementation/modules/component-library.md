@@ -9,8 +9,9 @@ describes:
   - back-end/tests/fixtures/component_library_fixture.py
   - back-end/tests/test_component_library_fixture.py
   - front-end/e2e/helpers/componentLibrary.ts
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
+  - T223
   - T200
   - T191
   - T211
@@ -58,6 +59,7 @@ An entry is drawn from the parts in `parts/`:
 - `ChoicesForYou`: the note that ends an entry with choices left for Daniel, one item per choice; it goes once they are all answered.
 
 An entry's own parts sit beside these in `parts/`, such as `ColumnChecklist`, `ExportDialogPrototype` and `SeatRow`.
+The `combobox` entry draws [`ChoiceField`](../../../front-end/src/components/ChoiceField.vue) too: the real `ValueFixes` at 12 answers, a select, and at 13, a field, and C1's long list of values through `ChoiceField`, which keeps no typed words.
 
 The page uses only the design tokens, the primitives and the app's components; its files are in Stylelint's migrated set, so a raw colour, size or spacing is an error there.
 A state the pointer or the keyboard makes (hover, held down, focus) is drawn held beside the live control by a class of the entry's own that copies what `primitives.css`, or the component it mounts, draws for it (`FileDropZone`'s focus halo); the live control is the one to trust.

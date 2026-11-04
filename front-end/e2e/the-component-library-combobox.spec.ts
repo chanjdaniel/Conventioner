@@ -9,10 +9,10 @@ import { eachWindow, expectLaidOut, openEntry } from './helpers/componentLibrary
  * by their family name or their address, by the keys and by a click; the line under a capped list counts what is left, stays in view as the list
  * scrolls, and is never a choice. C5 chooses reviewers as chips, every choice opening ticked at the
  * top, removed by a chip's button and by Backspace, and C10 chooses among the 228 answers. C1 fixes the
- * import's values beside today's native select, each by typing and choosing or kept as typed, with
- * every value still waiting shown and those already decided behind "Show all", C3 keeps a new answer
- * as typed, and a field whose words are its value writes them as they are typed and keeps them when
- * it is left.
+ * import's values through `ChoiceField`, a select at 12 answers and a field at 13, by typing and
+ * choosing, its words clearing when they choose nothing, with every value still waiting shown and
+ * those already decided behind "Show all". C3 keeps a new answer as typed, and a field whose words
+ * are its value writes them as they are typed and keeps them when it is left.
  */
 
 /** Three people share this family name, all past the first 50. */
@@ -434,7 +434,7 @@ eachWindow('the combobox entry', (size) => {
   });
 
   test('typed text names what it serves', async ({ page }) => {
-    await expect(page.getByTestId('library-entry-combobox')).toContainText('C1, C3 and F08');
+    await expect(page.getByTestId('library-entry-combobox')).toContainText('C3 and F08');
   });
 
   test('words differing from an option only in capitals take it, and leaving keeps them', async ({
@@ -463,25 +463,38 @@ eachWindow('the combobox entry', (size) => {
     await expect(c7.field).toHaveValue('');
   });
 
-  test('C1 shows today beside it: a native select of all 228 on a row', async ({ page }) => {
-    const today = page.getByTestId('library-c1-today');
-    // The question's 228, "Choose…" and "Ignore this value".
-    await expect(today.locator('option')).toHaveCount(230);
+  test('C1 is a select at 12 answers and a field at 13', async ({ page }) => {
+    const select = page.getByTestId('library-c1-select');
+    // The question's first 12, "Choose…" and "Ignore this value".
+    await expect(select.locator('select').locator('option')).toHaveCount(14);
+    await expect(select.locator('option').nth(1)).toHaveText('Ignore this value');
+    const answer = (await select.locator('option').nth(2).getAttribute('value'))!;
+    await select.locator('select').selectOption(answer);
+    await expect(select.getByTestId('read-out')).toHaveText(`Fix: ${answer}`);
 
-    await today.locator('select').selectOption('Stickers');
-    await expect(today.getByTestId('read-out')).toHaveText('Fix: Stickers');
+    const field = page.getByTestId('library-c1-field');
+    await expect(field.locator('select')).toHaveCount(0);
+    await expect(field.locator('option')).toHaveCount(0);
+    await field.getByRole('combobox').click();
+    // The question's first 13, and "Ignore this value", all under the cap.
+    await expect(field.getByRole('option')).toHaveCount(14);
+    await expect(field.getByRole('option').first()).toHaveText('Ignore this value');
+    await field.getByRole('option').nth(1).click();
+    await expect(field.getByTestId('read-out')).toHaveText(`Fix: ${answer}`);
   });
 
-  test("every word on the entry reaches AA, today's value fixes on their tint too", async ({
+  test('every word on the entry reaches AA, a value fix on its tint and its open list too', async ({
     page,
   }) => {
-    await expect(page.getByTestId('library-c1-today')).toContainText('did not match');
+    await expect(page.getByTestId('library-c1-field')).toContainText('did not match');
+    await picker(page, 'library-c1-fix-0').field.click();
+    await expect(picker(page, 'library-c1-fix-0').options).toHaveCount(50);
     const { failures, checked } = await sweep(page);
     expect(checked).toBeGreaterThan(0);
     expect(failures).toEqual([]);
   });
 
-  test('C1 fixes two values by typing and choosing, and keeps one as typed', async ({
+  test('C1 fixes two values by typing and choosing, and words not chosen clear', async ({
     page,
     expectAccessible,
   }) => {
@@ -491,11 +504,9 @@ eachWindow('the combobox entry', (size) => {
     await expect(readOut(0)).toHaveText('Fix: nothing');
     await expect(fixed).toHaveText('Fixed: 0 of 7');
 
-    // By the keys: the words' own row leads, and the first match is one press on.
+    // By the keys: the first match is the row the keys start on.
     await fix(0).field.fill('sticker');
-    await expect(fix(0).options.first()).toHaveText('Use "sticker"');
-    const match = (await fix(0).options.nth(1).textContent())!.trim();
-    await fix(0).field.press('ArrowDown');
+    const match = (await fix(0).options.first().textContent())!.trim();
     await fix(0).field.press('Enter');
     await expect(fix(0).field).toHaveValue(match);
     await expect(readOut(0)).toHaveText(`Fix: ${match}`);
@@ -512,17 +523,33 @@ eachWindow('the combobox entry', (size) => {
     await expect(fix(1).field).toHaveValue('Keychains');
     await expect(readOut(1)).toHaveText('Fix: Keychains');
 
-    // Words that are no option stay as typed.
-    await fix(2).field.fill('  Hand-poured soap ');
-    await expect(fix(2).options).toHaveText(['Use "Hand-poured soap"']);
-    await expectAccessible('a value fix offering its words');
-    await fix(2).field.press('Enter');
-    await expect(fix(2).field).toHaveValue('Hand-poured soap');
+    // Words that are no answer offer no row of their own, and go on leaving the field.
+    await fix(2).field.fill('Hand-poured soap');
+    await expect(fix(2).options).toHaveCount(0);
+    await expect(fix(2).none).toHaveText('Nothing matches "Hand-poured soap".');
+    await fix(2).field.press('Tab');
+    await expect(fix(2).field).toHaveValue('');
     await expect(fix(2).list).toHaveCount(0);
-    await expect(readOut(2)).toHaveText('Fix: Hand-poured soap, as typed');
+    await expect(readOut(2)).toHaveText('Fix: nothing');
 
-    await expect(fixed).toHaveText('Fixed: 3 of 7');
-    await expectLaidOut(page, size, 'three values fixed');
+    await expect(fixed).toHaveText('Fixed: 2 of 7');
+    await expectLaidOut(page, size, 'two values fixed');
+  });
+
+  test('C1 opens its list over the rows below, and no row moves', async ({ page }) => {
+    const fix = picker(page, 'library-c1-fix-1');
+    const below = picker(page, 'library-c1-fix-2').field;
+    await fix.field.scrollIntoViewIfNeeded();
+    const before = await below.boundingBox();
+
+    await fix.field.click();
+    await expect(fix.options.first()).toBeVisible();
+    expect(await below.boundingBox()).toEqual(before);
+
+    const field = (await fix.field.boundingBox())!;
+    const list = (await fix.list.boundingBox())!;
+    expect(list.x + list.width).toBeCloseTo(field.x + field.width, 0);
+    expect(list.x).toBeGreaterThanOrEqual(0);
   });
 
   test('C1 can ignore a value, as today', async ({ page }) => {
@@ -547,7 +574,7 @@ eachWindow('the combobox entry', (size) => {
     await expect(readOutOf(page, 'library-c1-fix-6')).toHaveText('Fix: nothing');
     await expect(readOutOf(page, 'library-c1-fix-7')).toHaveText('Fix: Ignore this value');
 
-    await picker(page, 'library-c1-fix-5').field.fill('A word of my own');
+    await picker(page, 'library-c1-fix-5').field.fill('Stickers');
     await picker(page, 'library-c1-fix-5').field.press('Enter');
 
     await button.click();
@@ -565,7 +592,7 @@ eachWindow('the combobox entry', (size) => {
     await expect(rows).toHaveCount(7 + 6);
     await expect(button).toHaveText('Show all 36');
     await expect(fixed).toHaveText('Fixed: 1 of 7');
-    await expect(picker(page, 'library-c1-fix-5').field).toHaveValue('A word of my own');
+    await expect(picker(page, 'library-c1-fix-5').field).toHaveValue(/Stickers/);
   });
 
   test('C3 keeps a new answer as typed, and offers no row for one it has', async ({ page }) => {

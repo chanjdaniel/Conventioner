@@ -27,6 +27,7 @@ describes:
   - front-end/src/components/icons/
   - front-end/src/__tests__/everyIconIsUsed.test.ts
   - front-end/src/components/FileDropZone.vue
+  - front-end/src/components/ChoiceField.vue
   - front-end/src/components/FilterToggles.vue
   - front-end/src/components/ListFrame.vue
   - front-end/src/components/CodeInput.vue
@@ -37,7 +38,7 @@ describes:
   - front-end/src/components/SidePanel.vue
   - front-end/src/components/BarLedger.vue
   - front-end/src/utils/useFold.ts
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01
@@ -441,6 +442,16 @@ The placement dialog's pickers are its first use, with no `cap`; Choose reviewer
 The All view's "Assigned to" and the market history's "Who" hold their choice too, as filters.
 Given `listOver`, its list lies over what follows and moves nothing, as those two need: in the flow, "Assigned to" would push the rows down beside a wide empty band, and "Who" would push the filters below it down beside an empty half of its row.
 "Who" gives its list the width of both its columns, so a phone reads an address on one line; in a dialog, what passes the scroller's edge takes a scroll.
+Given `hideLabel`, its label is `.visually-hidden`, for a row that says what the field is; given `invalid`, its field is `aria-invalid="true"` and ringed in `--mm-red`, as Pricing rings a field, and the words saying why are the caller's, through `describedBy`.
+An option whose value is `''` is a real row under `holdsChoice`, chosen while the value is `''`, as "Ignore this column" needs.
+Its exposed `show()` takes the focus and opens the list, for a link elsewhere on the screen, and answers whether the list is open.
+A choice from a set that can grow is [`ChoiceField.vue`](../front-end/src/components/ChoiceField.vue) (T223): a native select at 12 choices or fewer, the same to its screen as the `SearchPicker` it mounts past that, so no screen writes the threshold, the cap or the two markups.
+**The threshold is one number**: its `COMBOBOX_PAST` is `ListFrame`'s `LIST_FIND_FROM`, 12, the length past which a list has its find field too, and a screen drawing its own small form compares against that export.
+It counts the whole set, `wholeCount` where the screen gives it, else the options drawn, so a set that shrinks as it is used never turns into the other control under the caret; the import's value fixes give it the question's answers, leaving "Ignore this value" out of the count.
+At 12 or fewer the select carries the `testid` and the `name`, a group with a label is an `optgroup`, and `placeholder` is its empty row.
+Past 12 the picker's root carries the `testid`, it draws 50 of what the words find, its words find by the label unless the screen gives `finds`, and its list lies over what follows, at least 22rem wide, or the window's width less twice `--space-8` where that is narrower, with its right edge on the field's, so a long answer reads on a line or two in a narrow column.
+It never keeps typed words, so a fix can only name what the question offers; a free-text field is `SearchPicker` itself.
+`writes` is the picker's `holdsChoice`, for a choice acted on as it is taken; its `open()` opens the list from elsewhere on the screen, and answers false where nothing opened, on a browser with no `HTMLSelectElement.showPicker` or one that refused it.
 The emailed six-digit sign-in code has one field, [`CodeInput.vue`](../front-end/src/components/CodeInput.vue), which both sign-ins use: the vendor page's code step and the organizer's "Sign-in code" step (T191 F21).
 It is a `.field` 48px tall at `--text-xl`, the one field read at a glance, with tabular figures, and the one field whose text is centred: its `letter-spacing` and `text-indent` take one custom property, `--code-spacing`, since a browser adds the spacing after the last digit too and a centred run without the matching indent sat half a space left of centre.
 Its placeholder, `000000`, clears on focus, so the empty field's caret, drawn at the box's centre, is never drawn inside the digit group; the label over it names it, as every label does.

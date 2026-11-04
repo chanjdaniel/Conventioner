@@ -76,6 +76,7 @@ const MIGRATED = [
   'src/components/PhaseRail.vue',
   'src/components/PlacementDialog.vue',
   'src/components/SearchPicker.vue',
+  'src/components/ChoiceField.vue',
   'src/components/FilterToggles.vue',
   'src/components/ListFrame.vue',
   'src/components/NameList.vue',

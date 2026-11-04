@@ -38,7 +38,7 @@ const findsByLabel = (option: PickerOption, words: string) => holds(option.label
 /** An account holds an address and no name, so a reviewer is their address, as today's panel has. */
 const firstReviewers = reviewers.map((id) => people.find((person) => person.id === id)!.email);
 const accountGroups: PickerGroup[] = [
-  { options: people.map(({ email }) => ({ value: email, label: email })) },
+  { options: people.map(({ email }) => ({ value: email, label: email, address: true })) },
 ];
 
 const l4About = `Every reviewer is listed above the work today, and that can be everyone with access. Today's panel is drawn here for someone who may not change them; someone who may has "Change reviewers" as well. The line names ${NAMED} and opens the rest.`;

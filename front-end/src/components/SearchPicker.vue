@@ -78,6 +78,15 @@
  *   option's label, or the trimmed words. Escape closes the list and keeps the words, since a plain
  *   input has no undo, and reopened on words still being typed it does not select them, so a click
  *   can place the caret. A row or `Use "<words>"` is taken as with `acceptsTyped` alone.
+ * - An option whose value is `''` is a real row under `holdsChoice`: chosen while `modelValue` is
+ *   `''`, named by the field and ticked as any other, as "Ignore this column" needs.
+ * - Given `hideLabel`, its label is `.visually-hidden`: the screen's row says it, and the label stays
+ *   for a reader.
+ * - Given `invalid`, its field is `aria-invalid="true"` and ringed in red, as a field is on Pricing;
+ *   the words saying why are the caller's, through `describedBy`.
+ * - `show()`, exposed, takes the focus and opens the list, for a link elsewhere on the screen, and
+ *   answers whether the list is open. A disabled field takes neither; with no rows to list, the
+ *   field has the focus and no list.
  */
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue';
 import IconCheck from '@/components/icons/IconCheck.vue';
@@ -127,6 +136,10 @@ const props = defineProps<
     listOver?: boolean;
     /** With `acceptsTyped` on one choice: every keystroke writes the words as the value. */
     wordsAreValue?: boolean;
+    /** The screen's row says what this is: the label stays for a reader, out of view. */
+    hideLabel?: boolean;
+    /** Its field reads as wrong, and says so to a reader. */
+    invalid?: boolean;
   } & (
     | { multiple?: false; modelValue: string }
     /** Several choices, shown as chips above the field. */
@@ -324,7 +337,7 @@ watch(active, async (index) => {
 const field = ref<HTMLInputElement | null>(null);
 const chipList = ref<HTMLElement | null>(null);
 
-function show(): void {
+function openList(): void {
   if (open.value || !hasRows.value || props.disabled) return;
   pinTheChosen();
   open.value = true;
@@ -338,6 +351,16 @@ function show(): void {
   // Words still being typed are not a choice to replace: a click places the caret in them.
   if (heldUndrawn && !(writesWords.value && searching.value)) field.value?.select();
 }
+
+/** Opens the list from elsewhere on the screen, so the focus comes here first. */
+function show(): boolean {
+  if (props.disabled) return false;
+  field.value?.focus();
+  openList();
+  return open.value;
+}
+
+defineExpose({ show });
 
 function choose(option: PickerOption): void {
   if (props.multiple) {
@@ -404,12 +427,12 @@ function onKeydown(event: KeyboardEvent): void {
   switch (event.key) {
     case 'ArrowDown':
       event.preventDefault();
-      if (!open.value) show();
+      if (!open.value) openList();
       else active.value = Math.min(active.value + 1, last);
       return;
     case 'ArrowUp':
       event.preventDefault();
-      if (!open.value) show();
+      if (!open.value) openList();
       else active.value = Math.max(active.value - 1, Math.min(0, last));
       return;
     case 'Enter': {
@@ -494,7 +517,7 @@ function onFocus(): void {
     :class="{ 'search-picker--list-over': listOver }"
     :data-testid="testid"
   >
-    <label class="field-label" :for="inputId">{{ label }}</label>
+    <label :class="hideLabel ? 'visually-hidden' : 'field-label'" :for="inputId">{{ label }}</label>
     <!-- `mousedown.prevent` keeps the field's focus, its words and its open list while a pointer
          removes a chip. -->
     <ul
@@ -543,11 +566,12 @@ function onFocus(): void {
       :aria-controls="listId"
       :aria-activedescendant="activeId"
       :aria-describedby="fieldDescribedBy"
+      :aria-invalid="invalid ? 'true' : undefined"
       :disabled="disabled"
       :placeholder="placeholder"
       :data-testid="`${testid}-input`"
       @input="typed"
-      @click="show"
+      @click="openList"
       @keydown="onKeydown"
       @focus="onFocus"
       @blur="onBlur"
@@ -636,6 +660,10 @@ function onFocus(): void {
 .search-picker {
   display: flex;
   flex-direction: column;
+}
+
+.search-picker .field[aria-invalid='true'] {
+  border-color: var(--mm-red);
 }
 
 .search-picker-chips {

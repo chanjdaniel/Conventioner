@@ -1,0 +1,256 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { APIRequestContext, Page } from '@playwright/test';
+import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { StartFromCsvPage } from './pages/StartFromCsvPage';
+import { ChoiceField } from './pages/ChoiceField';
+import { CsvImportPage } from './pages/CsvImportPage';
+import { finishStartedPlan, UPCOMING_YEAR } from './helpers/finishStartedPlan';
+import { seedDraftMarket } from './helpers/seedDraftMarket';
+import { decideReviewSetup } from './helpers/decideReviewSetup';
+import { marketSetupPath } from './helpers/marketScreens';
+
+/**
+ * The app's choices at a real market's size (T223), on the committed synthetic exports: a choice
+ * from a set that can grow is a field past 12, found by typing, and a select at 12 or fewer.
+ */
+const HERE = dirname(fileURLToPath(import.meta.url));
+const CORPUS = join(HERE, '..', '..', 'back-end', 'tests', 'test_data', 'google_forms');
+const exportOf = (file: string) => readFileSync(join(CORPUS, `${file}.csv`), 'utf8');
+
+const SELLING_ON_FIVE_DAY = 'What do you plan to sell at the fair?';
+const SELLING_ON_FOUR_DAY = 'What kinds of work will you sell?';
+
+/** Start a draft from the five-day export, with `keepAll` keeping every answer to its selling. */
+async function startFromFiveDay(
+  page: Page,
+  request: APIRequestContext,
+  { keepAll }: { keepAll: boolean },
+): Promise<string> {
+  const { marketId } = await seedDraftMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+  );
+  const flow = new StartFromCsvPage(page);
+  await flow.open(marketId);
+  await flow.chooseFile(join(CORPUS, 'five-day-grid.csv'));
+  await flow.answerYear(UPCOMING_YEAR['five-day-grid']);
+  if (keepAll) await flow.row(SELLING_ON_FIVE_DAY).getByTestId('proposal-row-keep-all').click();
+  await flow.confirm.click();
+  await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
+  await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
+  await decideReviewSetup(request, BACKEND_URL, marketId);
+  return marketId;
+}
+
+/** The key the started form gave its selling question. */
+async function sellingKey(request: APIRequestContext, marketId: string): Promise<string> {
+  const res = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
+    headers: { 'X-Owner-Email': TEST_USER.email },
+  });
+  const { market } = (await res.json()) as {
+    market: { applicationForm: { fields: Array<{ key: string; label: string }> } };
+  };
+  const field = market.applicationForm.fields.find((candidate) =>
+    candidate.label.startsWith(SELLING_ON_FIVE_DAY),
+  );
+  return field!.key;
+}
+
+/** The four-day export's header row, by its column order, as the view addresses its columns. */
+function headersOf(csv: string): string[] {
+  const headers: string[] = [];
+  let cell = '';
+  let quoted = false;
+  for (let at = 0; at < csv.length; at++) {
+    const c = csv[at];
+    if (quoted) {
+      if (c === '"' && csv[at + 1] === '"') {
+        cell += '"';
+        at++;
+      } else if (c === '"') quoted = false;
+      else cell += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ',') {
+      headers.push(cell);
+      cell = '';
+    } else if (c === '\n' || c === '\r') {
+      headers.push(cell);
+      break;
+    } else cell += c;
+  }
+  return headers;
+}
+
+test.describe('the import, on a later file', () => {
+  test('finds a fix by typing among 129, with every waiting value a field', async ({
+    authenticatedPage: page,
+    request,
+    expectAccessible,
+  }) => {
+    const marketId = await startFromFiveDay(page, request, { keepAll: true });
+    const key = await sellingKey(request, marketId);
+
+    const importer = new CsvImportPage(page);
+    await importer.open({ id: marketId });
+    const csv = exportOf('four-day-grid');
+    await importer.chooseFile(csv);
+    const headers = headersOf(csv);
+    await importer.mapColumns(headers, {
+      [SELLING_ON_FOUR_DAY]: key,
+      'Full Name': 'essential_full_name',
+      [headers.find((header) => header.startsWith('Would you like a half table'))!]:
+        'essential_table_choice',
+    });
+    await importer.mapGroup(
+      headers,
+      headers.find((header) => header.startsWith('For each day of the fair'))!,
+      'essential_tier_preference',
+    );
+    await importer.clickPreview();
+
+    // All the work left is in view, and not one native list is drawn for it.
+    const fixes = importer.columnRows
+      .filter({ hasText: SELLING_ON_FOUR_DAY })
+      .getByTestId('import-value-fixes');
+    const waiting = fixes.getByTestId('import-unmatched-value');
+    await expect(waiting).toHaveCount(142);
+    await expect(fixes.getByRole('combobox')).toHaveCount(142);
+    await expect(fixes.locator('option')).toHaveCount(0);
+    await expect(fixes.locator('select')).toHaveCount(0);
+
+    // The grid's four day headings stay selects: the plan has five days to offer.
+    const days = importer.groupRows.getByTestId('import-value-fixes');
+    await expect(days.locator('select')).toHaveCount(4);
+    await expect(importer.unresolvedWarning).toContainText('146 values still need');
+
+    const values = await waiting.allInnerTexts();
+    const [found, ignored, below] = values as [string, string, string];
+    const fix = importer.valueFix(found);
+
+    // The column of fields is one column.
+    const lefts = await fixes
+      .getByRole('combobox')
+      .evaluateAll((fields) => fields.map((field) => field.getBoundingClientRect().left));
+    expect(new Set(lefts).size).toBe(1);
+
+    // The list lies over what follows: no row moves, and it reads wider than the column.
+    const nextField = importer.valueFix(below).field;
+    await fix.field.scrollIntoViewIfNeeded();
+    const nextBefore = await nextField.boundingBox();
+    await fix.field.click();
+    await expect(fix.options).toHaveCount(50);
+    await expect(fix.more).toHaveText('80 more, type to narrow');
+    await expect(fix.options.first()).toHaveText('Ignore this value');
+    expect(await nextField.boundingBox()).toEqual(nextBefore);
+
+    const field = (await fix.field.boundingBox())!;
+    const list = (await fix.list.boundingBox())!;
+    expect(list.width).toBeGreaterThanOrEqual(352);
+    expect(list.x + list.width).toBeCloseTo(field.x + field.width, 0);
+    const covering = await nextField.evaluate((element) => {
+      const { left, top, width, height } = element.getBoundingClientRect();
+      return document
+        .elementFromPoint(left + width / 2, top + height / 2)
+        ?.closest('[role="listbox"]')
+        ?.getAttribute('data-testid');
+    });
+    expect(covering).toBe(`import-fix-${found}-list`);
+
+    await expectAccessible('a value fix open among 129');
+
+    // Words that name no answer offer no row, and clear on leaving: a fix must be offered.
+    await fix.field.fill('Nothing anyone sells');
+    await expect(fix.options).toHaveCount(0);
+    await expect(fix.root.getByTestId(`import-fix-${found}-none`)).toHaveText(
+      'Nothing matches "Nothing anyone sells".',
+    );
+    await fix.field.press('Tab');
+    await expect(fix.field).toHaveValue('');
+    await expect(importer.unresolvedWarning).toContainText('146 values still need');
+
+    // One answer, found by typing a word of it; the first rows only hold the first answers.
+    await fix.field.click();
+    const answer = (await fix.options.last().getAttribute('data-value'))!;
+    await fix.choose(answer);
+    await expect(fix.field).toHaveValue(answer);
+    await expect(importer.unresolvedWarning).toContainText('145 values still need');
+
+    // "Ignore this value", which the cap never hides.
+    await importer.valueFix(ignored).choose('__ignore__', 'Ignore');
+    await expect(importer.valueFix(ignored).field).toHaveValue('Ignore this value');
+    await expect(importer.unresolvedWarning).toContainText('144 values still need');
+
+    // The rest by the keys alone: the first row is "Ignore this value", one Enter away.
+    for (const value of values.slice(2)) {
+      const other = importer.valueFix(value);
+      await other.field.focus();
+      await other.field.press('ArrowDown');
+      await other.field.press('Enter');
+    }
+    const dayFixes = days.locator('select');
+    for (let at = 0; at < 4; at++) {
+      await dayFixes.nth(at).selectOption({ index: at + 2 });
+    }
+    await expect(importer.unresolvedWarning).toHaveCount(0);
+
+    // Both reach the preview, as what the organizer chose.
+    const asked = page.waitForRequest(
+      (request) =>
+        request.method() === 'POST' && request.url().endsWith('/applications/import/preview'),
+    );
+    await importer.clickPreview();
+    const { resolutions } = (await asked).postDataJSON() as {
+      resolutions: Record<string, Record<string, string | null>>;
+    };
+    expect(resolutions[key]![found]).toBe(answer);
+    expect(resolutions[key]![ignored]).toBeNull();
+    await expect(importer.previewCounts).toContainText('rows will be imported');
+    const refusals = await importer.previewFailureRows.allInnerTexts();
+    expect(refusals.filter((refusal) => refusal.includes('must be one of'))).toEqual([]);
+
+    // Back on the columns they are decisions, each still a field naming what was chosen.
+    await importer.backButton.click();
+    await expect(importer.unmatchedValues).toHaveCount(0);
+    await expect(
+      importer.columnRows
+        .filter({ hasText: SELLING_ON_FOUR_DAY })
+        .getByTestId('import-decided-title'),
+    ).toHaveText(/^142 values already decided/);
+    await expect(new ChoiceField(page, `import-decided-fix-${found}`).field).toHaveValue(answer);
+    await expect(new ChoiceField(page, `import-decided-fix-${ignored}`).field).toHaveValue(
+      'Ignore this value',
+    );
+  });
+
+  test('a market started as proposed keeps its selects, six decided then "Show all"', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const marketId = await startFromFiveDay(page, request, { keepAll: false });
+    const importer = new CsvImportPage(page);
+    await importer.open({ id: marketId });
+    await importer.chooseFile(exportOf('five-day-grid'));
+
+    const box = page.getByTestId('import-decided-value-fixes').first();
+    await expect(box.getByTestId('import-decided-title')).toContainText('122 values set aside');
+    await expect(box.getByTestId('import-decided-unmatched-value')).toHaveCount(6);
+    await expect(box.locator('select')).toHaveCount(6);
+    await expect(box.locator('input')).toHaveCount(0);
+
+    const showAll = box.getByTestId('import-decided-show-all');
+    await expect(showAll).toHaveText('Show all 122');
+    await showAll.click();
+    await expect(box.getByTestId('import-decided-unmatched-value')).toHaveCount(122);
+    await expect(showAll).toHaveText('Show fewer');
+
+    // The start's 123 decisions stand by the column they belong to: one more, on the clubs.
+    const clubs = page.getByTestId('import-decided-value-fixes').nth(1);
+    await expect(clubs.getByTestId('import-decided-unmatched-value')).toHaveCount(1);
+    await expect(clubs.locator('select')).toHaveCount(1);
+    await expect(clubs.getByTestId('import-decided-show-all')).toHaveCount(0);
+  });
+});

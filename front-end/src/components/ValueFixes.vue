@@ -4,9 +4,14 @@
  * the market's own values, or ignored (E01, extracted for E24/F03/S02).
  *
  * The import's control, and the proposal ledger's for a tier or a date the plan does not have:
- * one control, so an organizer settles a stray value the same way wherever they meet one.
+ * one control, so an organizer settles a stray value the same way wherever they meet one. Each
+ * value is a `ChoiceField`, so a question of many answers finds one by typing (T223), and a fix can
+ * only name an answer the question offers: the import stores what a fix names, and the row would be
+ * refused at the preview otherwise.
  */
 import { computed, ref } from 'vue';
+import ChoiceField from '@/components/ChoiceField.vue';
+import type { PickerGroup } from '@/components/SearchPicker.vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
 
 export interface ValueFix {
@@ -23,12 +28,13 @@ const props = withDefaults(
   defineProps<{
     entries: ValueFix[];
     resolutionFor: (target: string, value: string) => string;
+    /** What a choice is called; the same words for the same two arguments, since it is kept. */
     labelFor?: (target: string, choice: string) => string;
     /** What the values did not match, as the organizer calls it. */
     against?: string;
     /**
      * The view's own prefix: test ids `<testid>-value-fixes`, `-unmatched-value`, `-fix-<value>`, and
-     * each select's field name, `<testid>-fix-<target>-<value>`.
+     * a select's field name, `<testid>-fix-<target>-<value>`.
      */
     testid?: string;
     /**
@@ -73,8 +79,28 @@ const decidedTitle = computed(() => {
   return `${values} already decided, ${theirs} when your form was started`;
 });
 
-function choose(entry: ValueFix, event: Event) {
-  emit('resolve', entry.target, entry.value, (event.target as HTMLSelectElement).value);
+/**
+ * The rows offered one set of answers share one list of choices, kept across renders since the view
+ * hands over new entries each time: 142 values among 129 answers build it once. Keyed by the answers
+ * as well as the target, as one target can offer two sets: a tier grid's day headings are offered
+ * the dates, and its cells the tiers (bug 26).
+ */
+const choiceLists = new Map<string, PickerGroup[]>();
+function choicesFor({ target, offered }: ValueFix): PickerGroup[] {
+  const key = JSON.stringify([target, offered]);
+  let choices = choiceLists.get(key);
+  if (!choices) {
+    choices = [
+      {
+        options: [
+          { value: IGNORE_VALUE, label: 'Ignore this value' },
+          ...offered.map((value) => ({ value, label: props.labelFor(target, value) })),
+        ],
+      },
+    ];
+    choiceLists.set(key, choices);
+  }
+  return choices;
 }
 </script>
 
@@ -93,26 +119,25 @@ function choose(entry: ValueFix, event: Event) {
     </p>
     <div v-for="entry in shown" :key="`${entry.target}-${entry.value}`" class="ledger-fix">
       <code :data-testid="`${testid}-unmatched-value`">{{ entry.value }}</code>
-      <!-- Always a cell, even empty, so every select sits in the same column. -->
+      <!-- Always a cell, even empty, so every control sits in the same column. -->
       <span class="ledger-fix-rows"
         ><template v-if="entry.rows !== undefined"
           >{{ entry.rows }} row{{ entry.rows === 1 ? '' : 's' }}</template
         ></span
       >
-      <select
-        class="field field--select ledger-fix-select"
-        :value="props.resolutionFor(entry.target, entry.value)"
+      <!-- A question's answers decide the control, "Ignore this value" apart: 12 stay a select. -->
+      <ChoiceField
+        :model-value="props.resolutionFor(entry.target, entry.value)"
+        :groups="choicesFor(entry)"
+        :whole-count="entry.offered.length"
+        :label="`What ${entry.value} means`"
         :name="`${testid}-fix-${entry.target}-${entry.value}`"
-        :aria-label="`What ${entry.value} means`"
-        :data-testid="`${testid}-fix-${entry.value}`"
-        @change="choose(entry, $event)"
-      >
-        <option value="">Choose…</option>
-        <option v-for="choice in entry.offered" :key="choice" :value="choice">
-          {{ props.labelFor(entry.target, choice) }}
-        </option>
-        <option :value="IGNORE_VALUE">Ignore this value</option>
-      </select>
+        :testid="`${testid}-fix-${entry.value}`"
+        placeholder="Choose…"
+        hide-label
+        writes
+        @update:model-value="emit('resolve', entry.target, entry.value, $event)"
+      />
     </div>
     <button
       v-if="decided && entries.length > FIRST_DECIDED"
@@ -128,7 +153,7 @@ function choose(entry: ValueFix, event: Event) {
 
 <style scoped>
 /*
- * One grid for every value, so the selects line up in a column of their own (bug 43). Each row was
+ * One grid for every value, so the controls line up in a column of their own (bug 43). Each row was
  * its own flex line, so each "Choose…" started wherever its value ended, and a long value pushed it
  * onto a line of its own.
  */

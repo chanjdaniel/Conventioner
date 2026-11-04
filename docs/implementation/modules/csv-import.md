@@ -9,8 +9,10 @@ describes:
   - back-end/app.py#preview_application_import
   - back-end/app.py#import_applications
   - front-end/src/utils/csvFile.ts
-verified: 2026-10-30
+  - front-end/src/components/ValueFixes.vue
+verified: 2026-11-05
 sources:
+  - T223
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/04
@@ -88,6 +90,10 @@ A row without one gets the import's moment, so the screen warns when the market 
 Surrounding space and capitals match silently; anything else is shown once per distinct value and settled by hand, and those settlements (`resolutions`) are saved with the mapping.
 One question may be one column or, for a Google Forms checkbox grid, one column per option; both import to the same stored answer.
 Values are offered and compared in the organizer's words, never the stored ones: a date reads as a date, and a table choice as its label rather than its code.
+Each value is settled in [`ValueFixes.vue`](../../../front-end/src/components/ValueFixes.vue), one [`ChoiceField`](../../design-system.md#the-primitive-layer) per value: a select for a question of 12 answers or fewer, past that a field that finds an answer by typing, with "Ignore this value" first on either, so the cap never hides it.
+**A fix can only name an answer the question offers**: the import stores what a fix names, and `application_write.py` refuses a select's answer that is no option ("must be one of"), so words typed and not chosen clear on leaving the field, and no typed fix is offered.
+The rows offered one set of answers share one list of choices, keyed by the target and the answers, since a tier grid's target offers two sets: the dates to its day headings and the tiers to its cells.
+Every value still waiting is drawn; those already decided stop at 6 and "Show all".
 
 **A grid is never split; one column is split where the comma is not inside an option.**
 A grid carries its option in each column's heading, so a cell is never cut up; a checkbox question in one column holds its chosen options joined by commas, and an option may hold a comma of its own.

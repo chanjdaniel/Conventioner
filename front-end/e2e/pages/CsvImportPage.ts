@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { marketScreenPath } from '../helpers/marketScreens';
+import { ChoiceField } from './ChoiceField';
 import { ReviewerChooser } from './ReviewerChooser';
 
 /**
@@ -200,14 +201,14 @@ export class CsvImportPage {
     await this.splitGroupAt(this.columnIndex(headers, firstMemberHeader));
   }
 
-  /** The select on which a cell value the market does not recognise is resolved. */
-  private valueFix(value: string): Locator {
-    return this.page.getByTestId(`import-fix-${value}`);
+  /** The control on which a cell value the market does not recognise is resolved. */
+  valueFix(value: string): ChoiceField {
+    return new ChoiceField(this.page, `import-fix-${value}`);
   }
 
   /** Resolve an unrecognised cell value onto one the market knows. */
   async resolveValue(value: string, to: string): Promise<void> {
-    await this.valueFix(value).selectOption(to);
+    await this.valueFix(value).choose(to);
   }
 
   /** The select holding a decision already made about a value - restored, or made earlier. */

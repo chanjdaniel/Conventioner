@@ -4,20 +4,21 @@
  * opens on C7, "Who will follow up", capped among 150 people as its dialog and card are, then the
  * cap on a long plain list and across groups, and the states the cap brings. Several choices follow:
  * C5, the reviewers as Choose reviewers draws them, and C10's answers.
- * Typed text ends it: C1, the import's value fixes, beside today's real row with its native select,
- * C3's option input, which keeps a new answer as typed, and the field whose words are its value,
- * for a screen that writes as it is typed.
+ * Next, `ChoiceField`, a select or a field by how many choices it has: C1, the import's value fixes,
+ * on each side of the threshold, then every value of a long list of them.
+ * Typed text ends it: C3's option input, which keeps a new answer as typed, and the field whose words
+ * are its value, for a screen that writes as it is typed.
  *
- * Every picker here is the real `SearchPicker`; the line under each reads out what it holds, so a
- * choice is seen to land.
+ * Every control here is the real one; the line under each reads out what it holds, so a choice is
+ * seen to land.
  */
 import { computed, ref } from 'vue';
+import ChoiceField, { COMBOBOX_PAST } from '@/components/ChoiceField.vue';
 import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
 import ValueFixes from '@/components/ValueFixes.vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
 import LibrarySection from '../parts/LibrarySection.vue';
 import LibraryPanel from '../parts/LibraryPanel.vue';
-import TodayAndProposed from '../parts/TodayAndProposed.vue';
 import ReadOut from '../parts/ReadOut.vue';
 import { fixture } from '../fixture';
 
@@ -99,7 +100,7 @@ const allAddresses = people.map((person) => person.email);
 const proposedReviewers = ref([...reviewerAddresses]);
 /** An account holds an address and no name, so a reviewer's row and chip are the address. */
 const accountGroups: PickerGroup[] = [
-  { options: allAddresses.map((email) => ({ value: email, label: email })) },
+  { options: allAddresses.map((email) => ({ value: email, label: email, address: true })) },
 ];
 
 /** C10's answers, none chosen yet. */
@@ -141,9 +142,14 @@ const fixGroups: PickerGroup[] = [
 ];
 const offeredAnswers = question.options.map(({ label }) => label);
 
-/** C1 today: the real control, on one row, since each row draws every option. */
-const todayFixes = [{ target: question.label, value: valuesToFix[0]!, offered: offeredAnswers }];
-const todayFix = ref('');
+/** The real row, at each side of the threshold: the question's first answers, as many as that. */
+const fixesOf = (count: number) => [
+  { target: question.label, value: valuesToFix[0]!, offered: offeredAnswers.slice(0, count) },
+];
+const selectFixes = fixesOf(COMBOBOX_PAST);
+const fieldFixes = fixesOf(COMBOBOX_PAST + 1);
+const selectFix = ref('');
+const fieldFix = ref('');
 
 /**
  * The values still waiting are all shown, since they are the work; only those already decided,
@@ -164,8 +170,7 @@ const fixes = ref<Record<string, string>>(
 const fixedCount = computed(() => waitingFixes.filter((value) => fixes.value[value]).length);
 function fixReadOut(fix: string | undefined): string {
   if (!fix) return '';
-  if (fix === IGNORE_VALUE) return IGNORE_LABEL;
-  return offeredAnswers.includes(fix) ? fix : `${fix}, as typed`;
+  return fix === IGNORE_VALUE ? IGNORE_LABEL : fix;
 }
 
 /** C3: an option's input, which takes one of the answers already offered or a new one. */
@@ -428,76 +433,88 @@ const writtenAnswer = ref('');
   </LibrarySection>
 
   <LibrarySection
-    title="Typed text kept"
-    about="Typed text serves C1, C3 and F08: a native select of every answer on each row of the import's value fixes, and a question's options, where a new answer is never lost."
+    title="A select or a field, by how many choices"
+    about="ChoiceField is one choice from a set that can grow: a native select at 12 choices or fewer, a capped field past that, its list over the rows below. C1, the import's value fixes, takes it: a fix must name an answer the question offers, so words not chosen clear."
   >
-    <TodayAndProposed
-      :today="`Today: a native select of ${question.options.length} answers on every row (C1)`"
-      proposed="Proposed: found by typing, or kept as typed, every waiting value shown"
-    >
-      <template #today>
-        <div class="library-demo" data-testid="library-c1-today">
-          <ValueFixes
-            :entries="todayFixes"
-            :resolution-for="() => todayFix"
-            testid="library-c1-today"
-            @resolve="(_target, _value, choice) => (todayFix = choice)"
-          />
-          <ReadOut label="Fix" :value="fixReadOut(todayFix)" />
-        </div>
-      </template>
-      <template #proposed>
-        <div class="library-fixes">
-          <template v-for="(value, at) in shownFixes" :key="value">
-            <p v-if="at === 0" class="library-fixes-heading" data-testid="library-c1-waiting">
-              {{ waitingFixes.length }} values still waiting
-            </p>
-            <p
-              v-if="at === waitingFixes.length"
-              class="library-fixes-heading"
-              data-testid="library-c1-decided"
-            >
-              {{ decidedFixes.length }} values already decided
-            </p>
-            <div
-              class="library-demo"
-              role="group"
-              :aria-labelledby="`library-c1-value-${at}`"
-              data-testid="library-c1-value"
-            >
-              <code :id="`library-c1-value-${at}`" class="library-fix-value">{{ value }}</code>
-              <SearchPicker
-                :model-value="fixes[value] ?? ''"
-                :groups="fixGroups"
-                :finds="findsByLabel"
-                :cap="CAP"
-                accepts-typed
-                label="What it means"
-                placeholder="Type to find an answer…"
-                none-word="Nothing"
-                :testid="`library-c1-fix-${at}`"
-                @update:model-value="fixes[value] = $event as string"
-              />
-              <ReadOut label="Fix" :value="fixReadOut(fixes[value])" />
-            </div>
-          </template>
-          <div class="library-fixes-foot">
-            <button
-              type="button"
-              class="btn btn--compact btn--secondary"
-              data-testid="library-c1-show-all"
-              @click="allFixes = !allFixes"
-            >
-              {{ allFixes ? 'Show fewer' : `Show all ${decidedFixes.length}` }}
-            </button>
-            <div data-testid="library-c1-fixed">
-              <ReadOut label="Fixed" :value="`${fixedCount} of ${waitingFixes.length}`" />
-            </div>
+    <LibraryPanel :label="`${COMBOBOX_PAST} answers: a select (C1)`">
+      <div class="library-demo" data-testid="library-c1-select">
+        <ValueFixes
+          :entries="selectFixes"
+          :resolution-for="() => selectFix"
+          testid="library-c1-select"
+          @resolve="(_target, _value, choice) => (selectFix = choice)"
+        />
+        <ReadOut label="Fix" :value="fixReadOut(selectFix)" />
+      </div>
+    </LibraryPanel>
+
+    <LibraryPanel :label="`${COMBOBOX_PAST + 1} answers: a field (C1)`">
+      <div class="library-demo" data-testid="library-c1-field">
+        <ValueFixes
+          :entries="fieldFixes"
+          :resolution-for="() => fieldFix"
+          testid="library-c1-field"
+          @resolve="(_target, _value, choice) => (fieldFix = choice)"
+        />
+        <ReadOut label="Fix" :value="fixReadOut(fieldFix)" />
+      </div>
+    </LibraryPanel>
+
+    <LibraryPanel :label="`C1 among ${question.options.length} answers, every waiting value shown`">
+      <div class="library-fixes">
+        <template v-for="(value, at) in shownFixes" :key="value">
+          <p v-if="at === 0" class="library-fixes-heading" data-testid="library-c1-waiting">
+            {{ waitingFixes.length }} values still waiting
+          </p>
+          <p
+            v-if="at === waitingFixes.length"
+            class="library-fixes-heading"
+            data-testid="library-c1-decided"
+          >
+            {{ decidedFixes.length }} values already decided
+          </p>
+          <div
+            class="library-demo"
+            role="group"
+            :aria-labelledby="`library-c1-value-${at}`"
+            data-testid="library-c1-value"
+          >
+            <code :id="`library-c1-value-${at}`" class="library-fix-value">{{ value }}</code>
+            <ChoiceField
+              :model-value="fixes[value] ?? ''"
+              :groups="fixGroups"
+              :label="`What ${value} means`"
+              :name="`library-c1-fix-${at}`"
+              :testid="`library-c1-fix-${at}`"
+              placeholder="Choose…"
+              hide-label
+              writes
+              @update:model-value="fixes[value] = $event"
+            />
+            <ReadOut label="Fix" :value="fixReadOut(fixes[value])" />
+          </div>
+        </template>
+        <div class="library-fixes-foot">
+          <button
+            type="button"
+            class="btn btn--compact btn--secondary"
+            data-testid="library-c1-show-all"
+            @click="allFixes = !allFixes"
+          >
+            {{ allFixes ? 'Show fewer' : `Show all ${decidedFixes.length}` }}
+          </button>
+          <div data-testid="library-c1-fixed">
+            <ReadOut label="Fixed" :value="`${fixedCount} of ${waitingFixes.length}`" />
           </div>
         </div>
-      </template>
-    </TodayAndProposed>
+      </div>
+    </LibraryPanel>
+  </LibrarySection>
 
+  <LibrarySection
+    title="Typed text kept"
+    about="Typed text serves C3 and F08: a question's options, where a new answer is never lost."
+  >
     <LibraryPanel label="A new answer, kept as typed (C3's shape)">
       <div class="library-demo">
         <SearchPicker
