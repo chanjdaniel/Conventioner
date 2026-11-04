@@ -6,7 +6,7 @@ describes:
   - front-end/src/components/ResultSummary.vue
   - front-end/src/components/application/PublishResults.vue
   - front-end/src/utils/download.ts
-verified: 2026-11-01
+verified: 2026-11-04
 sources:
   - brain-dump/2026-10-19#16
   - brain-dump/2026-10-19#18
