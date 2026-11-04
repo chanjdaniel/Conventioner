@@ -77,6 +77,7 @@ const MIGRATED = [
   'src/components/SearchPicker.vue',
   'src/components/FilterToggles.vue',
   'src/components/ListFrame.vue',
+  'src/components/NameList.vue',
   'src/components/MarketHistory.vue',
   'src/components/PlacementHistory.vue',
   'src/components/PlacementHistoryDialog.vue',

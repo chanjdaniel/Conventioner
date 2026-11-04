@@ -19,6 +19,7 @@ describes:
   - front-end/e2e/removing-someone-asks-first.spec.ts
   - front-end/src/__tests__/appDialog.test.ts
   - front-end/e2e/the-component-library-dialog.spec.ts
+  - front-end/e2e/the-component-library-summaries.spec.ts
   - front-end/src/__tests__/changingARoleAsksFirst.test.ts
   - front-end/e2e/changing-a-role-asks-first.spec.ts
 verified: 2026-11-04
@@ -79,6 +80,7 @@ The body, the error and the actions are still the one `<form>`, so the Enter con
 `dvh` sizes it, since a phone's browser bar would otherwise cover its pinned actions.
 **`scroll="body"` is expand-contract**: it is opt-in, so no dialog changed when it came; each dialog moves to it as it is converted, the export dialog first, then those whose body can outgrow a laptop window (Manage market, Manage organization, Change reviewers, Fix the form, Open applications, the assignment history); `scroll="window"` and the `wide` boolean are deleted when no dialog uses them.
 The library's `dialog` entry shows each width, today's scroll beside the body's on 150 people, the tray, and every behaviour below in either scroll ([the component library](../modules/component-library.md)).
+A long list goes in that body as a [`ListFrame.vue`](../../../front-end/src/components/ListFrame.vue), which needs nothing of its own there: the library's `summaries` entry holds Change reviewers and the reviewed list so ([`the-component-library-summaries.spec.ts`](../../../front-end/e2e/the-component-library-summaries.spec.ts)).
 
 **A dialog sits centred, unless its body grows as it is used**: `anchored` holds its top where it opened, so a field's error appearing as a key is typed does not move the dialog half a line under the pointer (the amendment's dialog, E38/F02).
 

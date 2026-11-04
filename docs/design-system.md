@@ -29,6 +29,7 @@ describes:
   - front-end/src/components/FileDropZone.vue
   - front-end/src/components/FilterToggles.vue
   - front-end/src/components/ListFrame.vue
+  - front-end/src/components/NameList.vue
 verified: 2026-11-04
 sources:
   - wayfinding/claims-and-room/map
@@ -429,6 +430,11 @@ With `findKey` the words live in the route's query, written with `router.replace
 The shown count goes back to one page when the words or the rows change, and a read again that brings the same rows by `itemKey` changes neither.
 `state` draws loading and failed (`ReadFailed`, unless the `failed` slot replaces it), the `empty` slot says why there are no `items`, and the count line says when the words find nothing.
 No screen mounts it yet: the library's `list-frame` entry shows it on Applications All and the people with access.
+Inside a `scroll="body"` dialog it needs nothing of its own, since the dialog's body scrolls it; the library's `summaries` entry shows it there, with no `findKey`, so the words go with the dialog.
+
+People named above the work rather than listed are [`NameList.vue`](../front-end/src/components/NameList.vue) (T200): one paragraph, so it reads as a sentence, "12 reviewers: Ana, Ben, Cai and 9 more", naming `named` (3), and its text button, "and 9 more", emits `more` for the screen to open the whole list.
+With `named` or fewer names it says them all and draws no button, so a screen keeps its own way to that list.
+No screen mounts it yet: the library's `summaries` entry shows it on the reviewers.
 
 A screen takes a file on [`FileDropZone.vue`](../front-end/src/components/FileDropZone.vue), its one way to (T205): a dashed zone on the beige ground that a click anywhere opens the file chooser from, its main line naming the hidden input and a hint under it saying what files it takes.
 It tints green under the pointer and while a file is over it, and its words take no pointer events, so crossing them does not fire `dragleave` and flicker the tint off.
