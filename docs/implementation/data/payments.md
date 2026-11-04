@@ -20,7 +20,7 @@ describes:
   - back-end/app.py#edit_payment
   - back-end/app.py#remove_payment
   - back-end/app.py#get_market_payments
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - T92
   - E44/F01/S01

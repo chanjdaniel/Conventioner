@@ -96,7 +96,7 @@ describes:
   - front-end/src/utils/sessionEnded.ts
   - front-end/src/utils/pageFailed.ts
   - front-end/e2e/a-failure-says-what-to-do.spec.ts
-verified: 2026-11-02
+verified: 2026-11-04
 sources:
   - T74
   - E41/F01/S01
