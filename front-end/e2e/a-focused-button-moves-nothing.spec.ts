@@ -32,7 +32,8 @@ async function walkTheButtons(
       const label = el
         ? `${el.tagName.toLowerCase()} ${el.getAttribute('data-testid') ?? 'none'} "${(el.textContent ?? '').trim().slice(0, 40)}"`
         : 'none';
-      if (!el || !el.matches("button, .btn, [role='button'], .add-row")) return { label, button: null };
+      if (!el || !el.matches("button, .btn, [role='button'], .add-row"))
+        return { label, button: null };
       el.dataset.walked ??= String(Math.random());
       const boxes = () => {
         for (const animation of document.getAnimations()) animation.finish();
