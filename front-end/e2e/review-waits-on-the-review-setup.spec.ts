@@ -120,13 +120,14 @@ test.describe('Review waits on the review setup', () => {
     const importPage = new CsvImportPage(page);
     const fix = page.getByTestId('phase-rail-fix');
 
-    // Refused, naming the first open decision; the rail's fix is its way to Review setup.
+    // Refused, naming both open decisions; the rail's fix is its way to Review setup.
     await page.goto(marketScreenPath(market.marketId, 'import'));
     await expect(importPage.wrongPhase).toContainText(
       'This market is not ready for its first import',
       { timeout: 15000 },
     );
     await expect(importPage.wrongPhase).toContainText(HIGHLIGHTS_OPEN);
+    await expect(importPage.wrongPhase).toContainText(REJECTIONS_OPEN);
     await expect(importPage.upload).toHaveCount(0);
     await expect(fix).toHaveText('Decide what reviewers read first');
 

@@ -12,6 +12,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppDialog from '@/components/AppDialog.vue';
+import FileDropZone from '@/components/FileDropZone.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import ProposalLedger from '@/components/csvProposal/ProposalLedger.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
@@ -30,7 +31,9 @@ import {
   type ProposalDraft,
   type RowChoice,
 } from '@/utils/csvProposal';
+import { IntakeMode } from '@/assets/types/datatypes';
 import { readCsvFile } from '@/utils/csvFile';
+import { draftedFromState } from '@/utils/draftedFrom';
 import { marketPath } from '@/utils/market';
 import { useOpenMarket } from '@/utils/openMarket';
 
@@ -56,7 +59,8 @@ const draft = reactive<ProposalDraft>({
 const year = ref(new Date().getFullYear());
 const yearOpen = ref(false);
 const yearDraft = ref('');
-const dragging = ref(false);
+/** True while a chosen file is read, so the zone takes no other. */
+const readingFile = ref(false);
 /** Whether a proposal may consult hosted TypeSafe, so Upload can say so before anything is sent. */
 const typesafe = ref(false);
 
@@ -72,6 +76,16 @@ onMounted(async () => {
 /** Why this market cannot be started from a file: the proposal's own refusal, served on the market. */
 const refusal = computed(() => market.value?.csvStartRefusal ?? '');
 
+/** The file drafts the market and imports no one, so the Upload step says how vendors come in
+ * after, by the stored intake (Market Setup saves the choice before it opens this page); absent is
+ * `csv`, as the server reads it (T205/F20). */
+const wayOn = computed(() =>
+  (market.value?.intakeMode ?? IntakeMode.Csv) === IntakeMode.Form
+    ? ": vendors apply on the market's page once applications open."
+    : ': once the market is ready, you import the responses with Import responses, the next step ' +
+      "at the top of the market's pages.",
+);
+
 const planDates = computed(() =>
   (market.value?.setupObject?.marketDates ?? []).map((d) => d.date).filter(Boolean),
 );
@@ -85,23 +99,10 @@ const planCeiling = computed(
 
 const columnCount = computed(() => proposal.value?.columns.length ?? 0);
 
-async function onFileChosen(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  // Cleared, so the same file chosen again after a refusal is read again.
-  input.value = '';
-  await acceptFile(file);
-}
-
-async function onFileDropped(event: DragEvent) {
-  dragging.value = false;
-  await acceptFile(event.dataTransfer?.files?.[0]);
-}
-
-async function acceptFile(file: File | undefined) {
-  if (!file) return;
+async function acceptFile(file: File) {
   // The import's own reader: a file that is not a CSV export stops here, on the upload step.
-  const read = await readCsvFile(file);
+  readingFile.value = true;
+  const read = await readCsvFile(file).finally(() => (readingFile.value = false));
   if ('error' in read) {
     error.value = read.error;
     return;
@@ -162,7 +163,8 @@ function onSettle(kind: DisagreementKind, value: string, choice: string) {
 /**
  * Write it all: the server reads the file once more with the organizer's choices, writes the plan
  * facts, the form, the ceiling and the mapping in one update, or nothing. Then the market is
- * re-read, as after every write, and the organizer lands on the form they now have.
+ * re-read, as after every write, and the organizer lands on the form they now have, told once what
+ * it was drafted from.
  */
 async function confirm() {
   step.value = 'confirming';
@@ -175,7 +177,12 @@ async function confirm() {
     });
     csvContent.value = '';
     await refresh();
-    void router.push(marketPath(marketId.value, 'form'));
+    // The Questions tab says once which file it was drafted from and that no one was imported:
+    // the name rides in this entry's history state, never the address (T205/F20).
+    void router.push({
+      path: marketPath(marketId.value, 'form'),
+      state: draftedFromState(fileName.value),
+    });
   } catch (e) {
     error.value = getApiErrorMessage(e, 'The form and plan could not be created.');
     step.value = 'review';
@@ -194,7 +201,7 @@ function leave() {
     <div v-if="market" class="start-view" data-testid="start-from-csv">
       <header class="start-header">
         <div>
-          <h1>Start from your Google Form</h1>
+          <h1 data-testid="start-from-csv-title">Draft this market from a Google Form</h1>
           <p v-if="proposal" class="subtitle" data-testid="start-from-csv-summary">
             {{ fileName }} · {{ proposal.responses }} response{{
               proposal.responses === 1 ? '' : 's'
@@ -224,7 +231,7 @@ function leave() {
       <p v-if="error" class="error" role="alert" data-testid="start-from-csv-error">{{ error }}</p>
 
       <section v-if="refusal" class="panel" data-testid="start-from-csv-refused">
-        <h2>This market can't start from your Google Form</h2>
+        <h2>This market can't be drafted from a Google Form</h2>
         <p class="help">{{ refusal }}</p>
         <button type="button" class="btn btn--secondary" @click="leave">
           Back to Market Setup
@@ -232,33 +239,27 @@ function leave() {
       </section>
 
       <section v-else-if="step === 'upload'" class="panel" data-testid="start-from-csv-upload">
-        <h2>Upload your Google Form's responses</h2>
-        <p class="help">
+        <h2>Choose a responses file to draft from</h2>
+        <p class="help" data-testid="start-from-csv-upload-help">
           In Google Sheets, open the form's responses and choose File, Download, Comma-separated
-          values. Each column becomes part of <strong>{{ market.name }}</strong
-          >'s plan or form. Nothing is written until you confirm, and the file is not kept.
+          values. Conventioner reads the columns and answers to propose
+          <strong>{{ market.name }}</strong
+          >'s dates, tiers and questions. No one is imported{{ wayOn }} Nothing is written until you
+          confirm, and the file is not kept.
         </p>
         <p v-if="typesafe" class="help" data-testid="start-from-csv-typesafe">
           Column headings, and a description of the shape of their answers, are sent to TypeSafe to
           help sort the columns; individual vendors' answers never leave Conventioner.
         </p>
-        <label
-          class="drop-zone"
-          :class="{ dragging }"
-          data-testid="start-from-csv-drop-zone"
-          @dragover.prevent="dragging = true"
-          @dragenter.prevent="dragging = true"
-          @dragleave="dragging = false"
-          @drop.prevent="onFileDropped"
-        >
-          <input
-            type="file"
-            accept=".csv,text/csv"
-            data-testid="start-from-csv-file-input"
-            @change="onFileChosen"
-          />
-          <span class="drop-zone-main">Drop your CSV here, or choose a file</span>
-        </label>
+        <FileDropZone
+          accept=".csv,text/csv"
+          label="Drop your CSV here, or choose a file"
+          hint="Any form tool or spreadsheet that exports CSV will do."
+          :busy="readingFile"
+          testid="start-from-csv-drop-zone"
+          input-testid="start-from-csv-file-input"
+          @file="acceptFile"
+        />
         <button type="button" class="btn btn--secondary back" @click="leave">Cancel</button>
       </section>
 
@@ -329,11 +330,12 @@ function leave() {
 </template>
 
 <style scoped>
+/* On the frame's inset, in line with the rail, as the import stands. */
 .start-view {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-6) var(--space-8) var(--space-12);
+  padding: var(--space-6) var(--space-6) var(--space-12);
   color: var(--mm-black);
 }
 
@@ -358,9 +360,10 @@ h2 {
 }
 
 .subtitle,
+/* The import's help size, so the two upload steps read as one (T205/F11). */
 .help {
   margin: 0;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
@@ -389,42 +392,17 @@ h2 {
   font-weight: 600;
 }
 
+/* The narrow steps (the refusal, Upload, Reading) stand centred in the page, as the import's do,
+   so the two upload steps line up and the page does not jump sideways between steps (F11). The
+   ledger keeps the full width, as the import's mapping does. */
 .panel {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-3);
+  width: 100%;
   max-width: 720px;
-}
-
-.drop-zone {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  align-self: stretch;
-  gap: var(--space-2);
-  padding: var(--space-8) var(--space-6);
-  border: var(--space-hairline) dashed var(--mm-border);
-  border-radius: var(--radius-card);
-  background: var(--mm-beige);
-  cursor: pointer;
-}
-
-.drop-zone:hover,
-.drop-zone.dragging {
-  border-color: var(--mm-green);
-}
-
-.drop-zone input[type='file'] {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.drop-zone-main {
-  font-size: var(--text-md);
+  margin-inline: auto;
 }
 
 .error {

@@ -13,13 +13,13 @@ import { createPinia, setActivePinia } from 'pinia';
 
 import MarketSetupView from '@/views/MarketSetupView.vue';
 import { MarketAction } from '@/utils/marketActions';
-import { marketRoute, serveMarket } from './support/marketScreen';
+import { marketRoute, marketRouter, serveMarket } from './support/marketScreen';
 import { answersRefusing } from './support/servedAnswers';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn(), post: vi.fn() }));
 
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => marketRouter(),
   useRoute: () => marketRoute('settings'),
 }));
 vi.mock('@/utils/api', async (importOriginal) => {
