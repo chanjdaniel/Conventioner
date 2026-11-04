@@ -35,6 +35,7 @@
  */
 import { computed, nextTick, ref, watch, type FunctionalComponent } from 'vue';
 import ScrollBox from '@/components/ScrollBox.vue';
+import { FOCUSABLE } from '@/utils/focusable';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import { useFocusGoesBack } from '@/utils/useFocusGoesBack';
 import { useModalRoot } from '@/utils/useModalRoot';
@@ -61,8 +62,9 @@ const props = withDefaults(
      */
     size?: 'narrow' | 'wide' | 'broad';
     /**
-     * What scrolls when the content is taller than the window: the whole `window` (today's), or
-     * only the `body`, with the title, close, error, tray and actions pinned.
+     * What scrolls when the content is taller than the window: the title and the body together
+     * (`window`, the default, for a short dialog), or only the `body`, with the title, close, error,
+     * tray and actions pinned.
      */
     scroll?: 'window' | 'body';
     /**
@@ -114,22 +116,17 @@ const windowEl = ref<HTMLElement | null>(null);
  *
  * Not a nicety: `useInertBehind` marks the page behind, and the button that opened the dialog is
  * on that page - so focus would otherwise sit on an inert element, with nowhere sensible for the
- * first Tab to come from.
- *
- * `:not(:disabled)` is load-bearing. The create-market dialog's first control is the organization
- * select, which is disabled while it fetches, and `focus()` on a disabled element is a silent
- * no-op - so focus stayed on `<body>` and the dialog opened with nothing focused at all. The
- * window itself is the fallback, so focus is inside the dialog even when every control is busy.
+ * first Tab to come from. The window itself is the fallback, so focus is inside the dialog even when
+ * every control is busy.
  */
-const FOCUSABLE =
-  'input:not([type=hidden]):not(:disabled), select:not(:disabled), textarea:not(:disabled), [href], button:not(:disabled):not([data-dialog-close])';
 
 /**
  * The control a dialog opens on: its first, never a destructive one. For the same reason a
  * destructive dialog opens on Cancel, a dialog listing people never opens on the first person's
  * Remove, which one stray Enter would take: Manage organization opened on its first admin's. A
  * control that takes something away without looking destructive, a chip's Remove, says so with
- * `data-dialog-not-first`.
+ * `data-dialog-not-first`. A scroller's own stop is no control: a dialog opens on one only when it
+ * has nothing else (below).
  */
 function firstSafeControl(): HTMLElement | null {
   const controls = windowEl.value?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [];
@@ -137,7 +134,9 @@ function firstSafeControl(): HTMLElement | null {
     [...controls].find(
       (control) =>
         !control.classList.contains('btn--destructive') &&
-        !control.hasAttribute('data-dialog-not-first'),
+        !control.hasAttribute('data-dialog-not-first') &&
+        !control.hasAttribute('data-dialog-close') &&
+        !control.hasAttribute('data-scroll-stop'),
     ) ?? null
   );
 }
@@ -171,12 +170,12 @@ watch(
     windowEl.value?.focus();
     /*
      * Nothing to focus: a read-only list. From the window the arrow keys would scroll nothing, so a
-     * box with more to show takes focus, the one that says so by its Tab stop (`ScrollBox`). That
-     * stop lands a tick after the box measures; a dialog mounted open has not had that tick yet.
+     * box with more to show takes focus, the one that says so by `ScrollBox`'s `data-scroll-stop`.
+     * That stop lands a tick after the box measures; a dialog mounted open has not had that tick yet.
      */
     await nextTick();
     if (document.activeElement !== windowEl.value) return;
-    windowEl.value?.querySelector<HTMLElement>('[data-scroll-box] > [tabindex="0"]')?.focus();
+    windowEl.value?.querySelector<HTMLElement>('[data-scroll-stop]')?.focus();
   },
   { immediate: true },
 );
@@ -244,7 +243,7 @@ watch(
               :testid="`${testid}-body`"
               :shade-testid="testid"
             >
-              <div class="dialog-scrolled">
+              <div class="dialog-scrolled" :data-testid="`${testid}-scrolled`">
                 <slot />
               </div>
             </ScrollBox>
@@ -400,9 +399,9 @@ watch(
   max-height: 80dvh;
 }
 
-/* Its cap measures from where it opened, in a window too short to give it 80% below that. */
+/* The same cap with its top held, over the anchored window's own. */
 .dialog-container--anchored .dialog-window--body {
-  max-height: min(80dvh, calc(100dvh - var(--space-12) - var(--space-6)));
+  max-height: 80dvh;
 }
 
 .dialog-window--body > .dialog-parts {
@@ -417,9 +416,9 @@ watch(
   padding: var(--space-6) calc(var(--space-6) + var(--space-6)) var(--space-2) var(--space-6);
 }
 
-/* The parts between the title and the window's foot: 16px apart, as the window's gap sets them
-   when it scrolls whole, made of each part's 8px above and below; the foot's 16px more makes the
-   window's 24px inset. */
+/* The parts between the title and the window's foot: 16px apart, as `.dialog-parts`' gap sets them
+   when the dialog scrolls whole, made of each part's 8px above and below; the foot's 16px more makes
+   the window's 24px inset. */
 .dialog-body--pinned {
   flex: 1 1 auto;
   min-height: 0;

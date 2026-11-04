@@ -259,6 +259,31 @@ test.describe('The scroller without a shade', () => {
     ]);
   });
 
+  test('fires on a ScrollBox down that also scrolls sideways, which no shade of its says', async ({
+    page,
+  }) => {
+    const found = await scrollersOn(
+      page,
+      `<div data-scroll-box>
+         <div class="scroll-box__scroller--y" data-testid="sideways"
+              style="width: 80px; overflow-y: auto; ${NO_BAR}">
+           <div style="width: 400px">Wider than its box</div></div></div>`,
+    );
+    expect(found.map((f) => `${f.el}: ${f.detail}`)).toEqual([
+      'div > div[sideways].scroll-box__scroller--y: scrolls sideways with no shade',
+    ]);
+  });
+
+  test('stays quiet on a ScrollBox told to scroll that way', async ({ page }) => {
+    const found = await scrollersOn(
+      page,
+      `<div data-scroll-box>
+         <div class="scroll-box__scroller--both" style="width: 80px; overflow: auto; ${NO_BAR}">
+           <div style="width: 400px">Wider than its box</div></div></div>`,
+    );
+    expect(found).toEqual([]);
+  });
+
   test('fires on a bare scroller nested inside a ScrollBox', async ({ page }) => {
     const found = await scrollersOn(
       page,

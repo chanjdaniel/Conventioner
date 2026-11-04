@@ -433,6 +433,18 @@ describe('a dialog with nothing to focus', () => {
     }
   });
 
+  it('but a fold in the body is a control: it opens on the summary, where the keys reach', async () => {
+    overflowing();
+    wrapper = mount(AppDialog, {
+      attachTo: document.body,
+      props: { open: true, title: 'Who may do what', testid: 'people', scroll: 'body' } as never,
+      slots: { default: () => h('details', [h('summary', 'More'), h('p', 'A row to read')]) },
+    });
+    await flushPromises();
+
+    expect(document.activeElement?.tagName).toBe('SUMMARY');
+  });
+
   it('and a body with more to show opens on that body, where the keys scroll it', async () => {
     overflowing();
     wrapper = readOnly({ scroll: 'body' });

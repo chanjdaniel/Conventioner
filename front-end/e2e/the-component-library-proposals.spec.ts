@@ -95,13 +95,29 @@ eachWindow('the proposals entry', (size) => {
     await expect(page.getByTestId('phase-badge')).toHaveCount(3);
   });
 
+  test('prints the table of 30 whole on a Letter page, with nothing clipped', async ({ page }) => {
+    await page.setViewportSize({ width: 816, height: 1056 });
+    await expect(page.getByTestId('library-table-row')).toHaveCount(30);
+
+    await page.emulateMedia({ media: 'print' });
+
+    const scroller = page.getByTestId('library-table-scroll');
+    await expect(scroller.locator('..'), 'its root, which clips on a screen').toHaveCSS(
+      'overflow-x',
+      'visible',
+    );
+    await expect(scroller).toHaveCSS('overflow-x', 'visible');
+    const last = (await page.getByRole('columnheader', { name: 'Reviewer' }).boundingBox())!;
+    expect(last.x + last.width, 'the last column ends on the page').toBeLessThanOrEqual(816);
+  });
+
   test('scrolls the table of 30 inside its scroller, its corners kept, the page still', async ({
     page,
   }) => {
     await expect(page.getByTestId('library-table-row')).toHaveCount(30);
 
     const scroller = page.getByTestId('library-table-scroll');
-    const corners = page.locator('.data-table-scroll', { has: scroller });
+    const corners = scroller.locator('..');
     await expect(corners).toHaveCSS('border-top-left-radius', '6px');
     await expect(corners, 'it clips the table and the shades to them').toHaveCSS(
       'overflow-x',

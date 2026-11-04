@@ -10,7 +10,8 @@
  * With its bar gone a keyboard needs a way in, and Safari gives a scroller no Tab stop of its own: so
  * while it overflows with nothing inside it to take focus it carries `tabindex="0"`, and otherwise
  * none, since a focusable child already takes the arrow keys. A screen that moves focus to the box
- * itself says `focusable`, and the stop stays whatever the box holds. A `label` makes it a region only
+ * itself says `focusable`, and the stop stays whatever the box holds. A stop also carries
+ * `data-scroll-stop`, which is how a dialog tells it from a control. A `label` makes it a region only
  * while it scrolls or is a stop, so a strip that fits at a desk adds no landmark there.
  *
  * A strip that scrolls only where its own rule asks, and at a desk would have its child's outer halo
@@ -18,6 +19,7 @@
  * `inherit` under the rule that lets it, to take `base.css`'s value back.
  */
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
+import { FOCUSABLE } from '@/utils/focusable';
 
 const props = withDefaults(
   defineProps<{
@@ -49,11 +51,9 @@ const SHADES = ['top', 'bottom', 'left', 'right'] as const;
 const shades = computed(() => SHADES.filter((edge) => more[edge]));
 const shadePrefix = computed(() => props.shadeTestid ?? props.testid);
 const isRegion = computed(() => !!props.label && (props.focusable || overflows.value));
+const isStop = computed(() => props.focusable || needsStop.value);
 
-/** What can take the keys. A `display: none` control cannot, and leaves the box with no stop. */
-const FOCUSABLE =
-  'a[href], button:not(:disabled), input:not([type=hidden]):not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex="-1"]), [contenteditable]:not([contenteditable="false"])';
-
+/** Whether something inside can take the keys: a `display: none` control cannot. */
 function holdsFocusable(box: HTMLElement): boolean {
   return [...box.querySelectorAll<HTMLElement>(FOCUSABLE)].some(
     (element) => element.checkVisibility?.({ checkVisibilityCSS: true }) ?? true,
@@ -117,7 +117,8 @@ defineExpose({ scroller });
       :data-testid="testid"
       :role="isRegion ? 'region' : undefined"
       :aria-label="isRegion ? label : undefined"
-      :tabindex="focusable || needsStop ? 0 : undefined"
+      :tabindex="isStop ? 0 : undefined"
+      :data-scroll-stop="isStop ? '' : undefined"
       @scroll="measure"
     >
       <div ref="content" class="scroll-box__content">
@@ -234,8 +235,19 @@ defineExpose({ scroller });
 
 /* On paper nothing scrolls: all of it prints, with no sign that there is more. */
 @media print {
+  /* Over a screen's class on the root, which may clip its border's corners. */
+  .scroll-box {
+    overflow: visible !important;
+  }
+
   .scroll-box__scroller {
     overflow: visible;
+  }
+
+  /* As wide as the page, not as wide as what it holds, so a table that can wrap fits it. */
+  .scroll-box__scroller--x > .scroll-box__content,
+  .scroll-box__scroller--both > .scroll-box__content {
+    width: auto;
   }
 
   .scroll-box__shade {

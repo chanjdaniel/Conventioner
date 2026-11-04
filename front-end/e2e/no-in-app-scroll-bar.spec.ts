@@ -73,11 +73,7 @@ test.describe('on a browser that draws classic scroll bars', () => {
       TEST_USER.password,
     );
     await withClassicBars({ playwright, baseURL }, { width: 1280, height: 400 }, async (page) => {
-      const login = new LoginPage(page);
-      await login.goto();
-      await login.fillEmail(TEST_USER.email);
-      await login.fillPassword(TEST_USER.password);
-      await login.clickSubmit();
+      await new LoginPage(page).login(TEST_USER.email, TEST_USER.password);
       await page.waitForURL('**/dashboard');
 
       const tables = new TablesPage(page);

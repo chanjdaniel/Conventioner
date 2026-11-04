@@ -158,6 +158,7 @@ test('the owner resets every row to its built-in default, and the reset is recor
   );
   await manage.permissionsReset.focus();
   await manage.resetPermissions();
+  await expect(page.getByTestId('manage-market-permissions-reset-confirm-body')).toBeVisible();
   await expect(manage.resetConfirm).toContainText(
     'Check vendors in: Admin and above to Editor and above',
   );

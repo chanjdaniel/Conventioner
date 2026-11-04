@@ -32,9 +32,9 @@ const OWNERS = ['components/ScrollBox.vue', 'assets/base.css'];
  * What must never happen is a line added to it: a new scroller is a `ScrollBox`.
  */
 const NOT_YET_CONVERTED = [
-  // Export vendors (ticket 11).
+  // Export vendors' preview: goes when the dialog is rebuilt around its pinned cart.
   'components/ExportVendorsDialog.vue .export-table-scroll',
-  // The pickers (ticket 16).
+  // The pickers' lists: each moves onto a `ScrollBox` once T204's rewrite of them has merged.
   'components/SearchPicker.vue .search-picker-list',
   'components/market/ReviewerPicker.vue .reviewer-picker-list',
 ];

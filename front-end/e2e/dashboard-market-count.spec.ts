@@ -168,6 +168,7 @@ test.describe('What the dashboard says about your markets', () => {
 
     await page.goto('/init');
     await page.getByTestId('init-load-existing-market-button').click();
+    await expect(page.getByTestId('load-market-body'), 'only its body scrolls').toBeVisible();
     const chooserCard = page.getByTestId('load-market-card-button').filter({ hasText: marketName });
     await expect(chooserCard).toContainText('Nov 18-20, 2026 (3 days)');
     await expectFactsOnOneLine(chooserCard);

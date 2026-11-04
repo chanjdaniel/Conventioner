@@ -96,7 +96,7 @@ watch(
           ref="body"
           class="side-panel__body"
           :testid="`${testid}-body`"
-          :shadeTestid="testid"
+          :shade-testid="testid"
           focusable
         >
           <div class="side-panel__content">

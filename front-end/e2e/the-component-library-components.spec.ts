@@ -204,5 +204,9 @@ eachWindow('the existing components entry', (size) => {
 
     await expect(page.getByTestId('library-scroll-y-shade-bottom')).toBeHidden();
     await expect(page.getByTestId('library-scroll-y')).toHaveCSS('overflow-y', 'visible');
+    await expect(page.getByTestId('library-scroll-y').locator('..')).toHaveCSS(
+      'overflow-y',
+      'visible',
+    );
   });
 });

@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
 import type { Locator, Page, PlaywrightWorkerArgs } from '@playwright/test';
+import { hideDevToolsPanel } from './hideDevToolsPanel';
 
 /**
  * Drives a browser that draws classic scroll bars. Headless Chromium hides them by a launch flag, so
@@ -16,6 +17,7 @@ export async function withClassicBars(
   });
   try {
     const context = await browser.newContext({ baseURL: baseURL!, viewport });
+    await hideDevToolsPanel(context);
     const page = await context.newPage();
     // Outside `body`, where the app's rule does not reach, so this says what the browser draws, and
     // finding no bar on a scroller later means the app hid it.

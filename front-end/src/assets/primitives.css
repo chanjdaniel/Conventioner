@@ -350,6 +350,14 @@
   white-space: nowrap;
 }
 
+/* Paper does not scroll, so a table wraps to the page rather than running off it, an address too. */
+@media print {
+  .data-table :is(th, td) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
 /* ============================================================================================
    .add-row
    ============================================================================================ */
@@ -535,7 +543,7 @@ summary:focus-visible,
 }
 
 /* Room for the halo when focus scrolls a control into view, so the edge of the scroller it sits in
-   does not cut the halo off: a dialog's window brings its last control only just into view. */
+   does not cut the halo off: a `ScrollBox` brings its last control only just into view. */
 :where(a, button, summary, [role='button'], [tabindex]) {
   scroll-margin: var(--space-2);
 }

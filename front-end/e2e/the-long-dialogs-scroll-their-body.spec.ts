@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL, LoginPage } from './fixtures';
 import { barsDrawn, barWidth, withClassicBars } from './helpers/classicBars';
 import { marketScreenPath } from './helpers/marketScreens';
+import { openScreen, SCREENS } from './helpers/screens';
 import { seedTheScreens, type TheScreensSeed } from './helpers/seedTheScreens';
 
 /**
@@ -27,11 +28,7 @@ test.beforeAll(async ({ request }) => {
 });
 
 async function signIn(page: Page) {
-  const login = new LoginPage(page);
-  await login.goto();
-  await login.fillEmail(TEST_USER.email);
-  await login.fillPassword(TEST_USER.password);
-  await login.clickSubmit();
+  await new LoginPage(page).login(TEST_USER.email, TEST_USER.password);
   await page.waitForURL('**/dashboard');
 }
 
@@ -204,12 +201,12 @@ test.describe('in a window too short to show the whole body', () => {
     // Its end still holds the window's inset, the last of its content 24px above the frame.
     await body.evaluate((el) => el.scrollTo(0, el.scrollHeight));
     await expect(page.getByTestId('manage-market-shade-bottom')).toHaveCount(0);
-    const inset = await body.evaluate((el) => {
-      const parts = el.querySelector('.dialog-scrolled')!;
-      return (
-        el.getBoundingClientRect().bottom - parts.lastElementChild!.getBoundingClientRect().bottom
-      );
-    });
+    const scrolled = page.getByTestId('manage-market-scrolled');
+    const end = (await body.boundingBox())!;
+    const inset =
+      end.y +
+      end.height -
+      (await scrolled.evaluate((el) => el.lastElementChild!.getBoundingClientRect().bottom));
     // Within a pixel, since a browser rounds the extent of a body whose content is a fractional
     // height, so the same inset can read 24.5 at its end.
     expect(Math.abs(inset - 24)).toBeLessThanOrEqual(1);
@@ -267,6 +264,30 @@ test.describe('in a window too short to show the whole body', () => {
 });
 
 /** An anchored dialog holds its top where it opened, and measures its cap from there. */
+/*
+ * What the rule for "long" named and no other spec reads (`dialogs.md`): each scrolls its `-body`,
+ * and has no `-scroll`, which is what a dialog scrolling whole has. The rest are read where a spec
+ * already opens them: Fix the form, Load market, Load Template and the permissions reset.
+ */
+test.describe('each dialog a market can outgrow scrolls only its body', () => {
+  for (const [state, testid] of [
+    ['the change-placement dialog', 'placement-dialog'],
+    ['the placement history', 'placement-history-dialog'],
+    ['the delete-organization dialog, refused while markets are under way', 'delete-org'],
+    ['opening applications, choosing reviewers', 'open-applications'],
+  ] as const) {
+    test(testid, async ({ authenticatedPage: page }) => {
+      await openScreen(
+        page,
+        SCREENS.find((s) => s.name === state)!,
+        seed,
+      );
+      await expect(page.getByTestId(`${testid}-body`)).toBeVisible();
+      await expect(page.getByTestId(`${testid}-scroll`)).toHaveCount(0);
+    });
+  }
+});
+
 test.describe('an anchored long dialog', () => {
   async function openReviewers(page: Page) {
     await page.goto(marketScreenPath(seed.open.marketId, 'applications'));
@@ -277,11 +298,25 @@ test.describe('an anchored long dialog', () => {
     return window;
   }
 
-  test('keeps its top at a laptop, under the cap', async ({ authenticatedPage: page }) => {
+  test('keeps its top at a laptop, and stops at the cap when it outgrows it', async ({
+    authenticatedPage: page,
+  }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    const box = (await (await openReviewers(page)).boundingBox())!;
-    expect(box.y).toBe(48);
-    expect(box.height).toBeLessThanOrEqual(900 * 0.8);
+    const window = await openReviewers(page);
+    const body = page.getByTestId('reviewers-dialog-scrolled');
+    const short = (await window.boundingBox())!;
+    expect(short.y).toBe(48);
+    expect(short.height, 'it holds only what its content needs').toBeLessThan(900 * 0.8);
+
+    // More chosen reviewers than the seed has: what grows here is the list, and only its height counts.
+    await body.evaluate((el) => {
+      el.append(Object.assign(document.createElement('div'), { style: 'height: 2000px' }));
+    });
+    await expect(page.getByTestId('reviewers-dialog-shade-bottom')).toBeVisible();
+
+    const grown = (await window.boundingBox())!;
+    expect(grown.y, 'its top stays where it opened').toBe(48);
+    expect(grown.height, "80% of the window's height").toBe(900 * 0.8);
   });
 
   test('on a phone it runs from that top to the gutter', async ({ authenticatedPage: page }) => {
