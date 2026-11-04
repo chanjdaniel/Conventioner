@@ -5,6 +5,10 @@
  * read both ways as choices (`exampleColumns`, `back-end/csv_start.py`). A question finds its
  * column by key, the same link the saved import mapping keeps; a question of no column behaves as
  * it always did.
+ *
+ * Two readings stand side by side (ADR 0023). `options`, the common answers, are the defaults: what
+ * a type change, "Use the answers in your file" and "Add from your file" fill. `answers`, every
+ * answer, is only what an option's own list offers.
  */
 import type { ExampleColumn, FormField } from '@/assets/types/datatypes';
 
@@ -18,12 +22,40 @@ export function columnOf(
   return columns?.find((column) => column.key === field.key) ?? null;
 }
 
-/** The file's options for a type: whole answers for Select, the options inside them for
- *  Multi-Select, and none for any other type. */
-export function fileOptions(column: ExampleColumn, type: string): string[] {
-  if (type === 'select') return column.options.select;
-  if (type === 'multi_select') return column.options.multiSelect;
+/** A type's side of a reading: whole answers for Select, the options inside them for Multi-Select,
+ *  and none for any other type. */
+function readingFor(reading: ExampleColumn['options'], type: string): string[] {
+  if (type === 'select') return reading.select;
+  if (type === 'multi_select') return reading.multiSelect;
   return [];
+}
+
+/** The file's common options for a type, the defaults a question is filled with. */
+export function fileOptions(column: ExampleColumn, type: string): string[] {
+  return readingFor(column.options, type);
+}
+
+/**
+ * Every answer the file gave for a type. A column with no `answers` has only its common options,
+ * whatever the reason: a market started before they were kept, a column whose answers are mostly
+ * different.
+ */
+export function fileAnswers(column: ExampleColumn, type: string): string[] {
+  return readingFor(column.answers ?? column.options, type);
+}
+
+/**
+ * What the option at `at` lists: the file's answers no other option on the question holds, compared
+ * after trimming, in the file's order. The option's own answer stays, as the row being edited.
+ */
+export function answersToOffer(
+  column: ExampleColumn,
+  type: string,
+  options: string[],
+  at: number,
+): string[] {
+  const taken = new Set(options.filter((_, i) => i !== at).map((option) => option.trim()));
+  return fileAnswers(column, type).filter((answer) => !taken.has(answer));
 }
 
 /** Whether two option lists are the same options in the same order. */

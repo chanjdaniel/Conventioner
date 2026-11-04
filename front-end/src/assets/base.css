@@ -287,8 +287,8 @@ h4 {
 /*
  * Words for assistive technology alone: a chip's "Remove date filter", or why a zero count offers
  * nothing (E28/F02). Kept out of sight but not out of the accessibility tree - `display: none` would
- * drop it from both. `PaymentsView.vue` copies it whole for its figures' headings on a phone; change
- * one with the other.
+ * drop it from both. `PaymentsView.vue` copies it whole for its figures' headings on a phone, and
+ * `FormFieldEditor.vue` for the label of a picker it draws; change one with the others.
  */
 .visually-hidden {
   position: absolute;

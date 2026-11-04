@@ -25,6 +25,7 @@ sources:
   - E38/F06/S01
   - E46/F01/S02
   - T206
+  - T213
 ---
 
 # Building the application form
@@ -95,9 +96,18 @@ On a market started from its Google Form's responses, the questions also draw on
    Options the organizer edited stay through any change of type, and "Use the answers in your file" puts the file's back on purpose.
 5. "Add from your file" lists the columns the start left out, such as a team's own "Status", and any question since removed; choosing one adds it with its label, type and options, and its key held, so the first import restores its column too.
    A Select or Multi-Select the file gives no options to choose from becomes Text, since a choice needs at least one option.
+6. An option on a Select or Multi-Select made from the file is a field with a list under it: every answer the file gave for that type's reading that is no other option on the question, most chosen first, with no counts ([ADR 0023](../../adr/0023-every-answer-for-an-option-to-offer.md)).
+   A click or an arrow key opens it, not Tab; with nothing typed it shows all of them, and typing narrows it.
+   Enter or a click takes a row and Escape closes the list.
+   Whatever is typed is the option, less the spaces around it, so words in no list are kept when the field is left and Save never reports a blank option over them.
+   An option keeps its own answer in its own list, and an answer comes back to the others' lists when the option holding it is removed or changed.
+   The list follows a change of type, and opens in the page's flow, moving the rows below it down.
+   A market started before this kept no answers, so its options offer only the common ones it kept; "Use the answers in your file", a type change and "Add from your file" (steps 4 and 5) fill only the common ones on every market.
 
-A question that did not come from the file behaves as above, and a market not started from one offers neither.
+A question that did not come from the file behaves as above, its options plain inputs, and a market not started from one offers none of this; nor does a locked form, whose options stay read only.
 Covered by:
+- `exampleColumns.test.ts`
+- `formBuilder.test.ts`
 - `the-questions-come-from-the-file.spec.ts`
 
 ## F3. What a reviewer reads first

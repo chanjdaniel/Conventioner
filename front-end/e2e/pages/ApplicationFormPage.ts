@@ -159,6 +159,23 @@ export class ApplicationFormPage {
     );
   }
 
+  /** The list open under one of a question's option fields. */
+  optionList(index: number): Locator {
+    return this.fieldCard(index).getByTestId('form-field-option-list');
+  }
+
+  /** The rows of the list open under one of a question's option fields. */
+  optionRows(index: number): Locator {
+    return this.fieldCard(index).getByTestId('form-field-option-option');
+  }
+
+  /** What the open list offers, top to bottom. */
+  optionsOffered(index: number): Promise<string[]> {
+    return this.optionRows(index).evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute('data-value') as string),
+    );
+  }
+
   /** The note that a question's options are its file's answers. */
   optionsFromFile(index: number): Locator {
     return this.fieldCard(index).getByTestId('form-field-options-from-file');

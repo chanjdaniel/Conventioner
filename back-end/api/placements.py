@@ -340,6 +340,7 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
     # reads the result the same way - the organization's display name included, because the
     # browser replaces the market it is holding with this response and the summary card reads it.
     payload = convert_keys_to_camel_case(assigned_market.model_dump())
+    MarketsApi.leave_out_every_answer(payload)
     _organization, organization_dict = MarketsApi._load_organization_context(
         market.organization_id
     )
