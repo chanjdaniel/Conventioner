@@ -28,6 +28,7 @@ describes:
   - front-end/src/__tests__/everyIconIsUsed.test.ts
   - front-end/src/components/FileDropZone.vue
   - front-end/src/components/ChoiceField.vue
+  - front-end/src/components/application/LongQuestion.vue
   - front-end/src/components/FilterToggles.vue
   - front-end/src/components/ListFrame.vue
   - front-end/src/components/CodeInput.vue
@@ -458,6 +459,11 @@ A card's body scrolls nothing and clips nothing ([`ElementSettingContainer.vue`]
 An option that is `disabled` is an `option` that is `disabled` in the select, its `detail` on its line, since a select's row has one, and in the field a row as above.
 It never keeps typed words, so a fix can only name what the question offers; a free-text field is `SearchPicker` itself.
 `writes` is the picker's `holdsChoice`, for a choice acted on as it is taken; `adds` says each choice is added elsewhere, as a rule's "Add an answer" and "Add from your file" do: the value stays `''`, the select goes back to its empty row and the field is the picker's `clearsOnChoice`, and the screen gives `wholeCount`, since such a set shrinks as it is used; its `open()` opens the list from elsewhere on the screen, and answers false where nothing opened, on a browser with no `HTMLSelectElement.showPicker` or one that refused it; its `showHeld()` shows what `modelValue` holds again, for a screen whose server refused the choice just taken; and `fieldId` is the control's id, the select's or the field's, for a link elsewhere on the screen to name.
+The applicant's form compares a question's options against the same number ([`LongQuestion.vue`](../front-end/src/components/application/LongQuestion.vue), T223): past 12 a `select` is a `SearchPicker` capped at 50 and a `multi_select` the same with `multiple`, in the page's flow, and at 12 or fewer each stays the select or the checkboxes it was.
+The question's words stay where every question has them, hidden from a reader and tied to no control, a press on them putting the caret in the field, and the field takes those words as its name, required mark and all, so the question is heard once.
+It is never `holdsChoice`, as a form acts on Save: the first word lets a choice go, and words not chosen clear on leaving the field.
+A locked question is `disabled`, a question in error is `invalid` and described by its error, and a stored answer no option offers is a chip among several; on one choice the field is empty, and the form's required check counts it as no answer, at either size.
+`FormPreview` mounts the same component disabled, so the organizer sees what an applicant will get ([applying online](business/flows/applying-online.md#h3a-a-new-vendor-applies)).
 The emailed six-digit sign-in code has one field, [`CodeInput.vue`](../front-end/src/components/CodeInput.vue), which both sign-ins use: the vendor page's code step and the organizer's "Sign-in code" step (T191 F21).
 It is a `.field` 48px tall at `--text-xl`, the one field read at a glance, with tabular figures, and the one field whose text is centred: its `letter-spacing` and `text-indent` take one custom property, `--code-spacing`, since a browser adds the spacing after the last digit too and a centred run without the matching indent sat half a space left of centre.
 Its placeholder, `000000`, clears on focus, so the empty field's caret, drawn at the box's centre, is never drawn inside the digit group; the label over it names it, as every label does.

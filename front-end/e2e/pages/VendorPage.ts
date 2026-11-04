@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { ChoiceField } from './ChoiceField';
 
 /**
  * A market's vendor page, `/<slug>` (ADR 0022): signed out, the market's name and the sign-in (an
@@ -250,6 +251,16 @@ export class VendorPage {
 
   async fillField(key: string, value: string) {
     await this.input(key).fill(value);
+  }
+
+  /** A question of more than 12 options, which is a field to type in (`LongQuestion`). */
+  longQuestion(key: string): ChoiceField {
+    return new ChoiceField(this.page, `apply-input-${key}`);
+  }
+
+  /** What the form says is wrong with one question. */
+  fieldError(key: string): Locator {
+    return this.page.getByTestId(`apply-error-${key}`);
   }
 
   get submitButton(): Locator {

@@ -237,6 +237,11 @@ export class ApplicationFormPage {
     return this.page.getByTestId(`form-preview-field-${key}`);
   }
 
+  /** A question of more than 12 options in the applicant preview, by its key. */
+  previewLongQuestion(key: string): ChoiceField {
+    return new ChoiceField(this.page, `form-preview-input-${key}`);
+  }
+
   /** One of the five essential-question cards in the builder panel. */
   essentialItem(name: string): Locator {
     return this.page.getByTestId(`essential-item-${name}`);

@@ -9,6 +9,11 @@ import { ToolsPage } from './pages/ToolsPage';
 import { StartFromCsvPage } from './pages/StartFromCsvPage';
 import { CsvImportPage } from './pages/CsvImportPage';
 import { finishStartedPlan, UPCOMING_YEAR } from './helpers/finishStartedPlan';
+import {
+  createApplicantLoginChallenge,
+  planSetupObject,
+  seedApplicantMarket,
+} from './helpers/seedApplicantMarket';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { decideReviewSetup } from './helpers/decideReviewSetup';
@@ -20,6 +25,15 @@ import { sweep } from './helpers/contrastSweep';
 import { fakeDiscordId, seedFakeDiscordServer } from './helpers/fakeDiscord';
 import { mongoEval } from './helpers/mongo';
 import { PHONE } from './helpers/screens';
+import {
+  detectLayout,
+  gates,
+  minTargetAt,
+  SPACE_SCALE,
+  TYPE_SCALE,
+} from './helpers/layoutDetectors';
+import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
+import { VendorPage } from './pages/VendorPage';
 
 /**
  * The app's choices at a real market's size (T223), on the committed synthetic exports: a choice
@@ -817,5 +831,290 @@ test.describe('the Discord card, on a server of 250 roles', () => {
     await tools.givingNeedsQuestion.click();
     await expect(tools.questionChoice.list).toBeVisible();
     await expectListInTheWindow(tools.questionChoice);
+  });
+});
+
+test.describe('an applicant on a question of many options', () => {
+  const DATE = '2099-08-01';
+  const CODE = '731846';
+  /** A long answer, so a phone's narrow row wraps it. */
+  const LONG_ANSWER =
+    'Hand-printed linen tea towels, block-printed cushion covers and a small range of table runners';
+  const WARES = [LONG_ANSWER, ...Array.from({ length: 59 }, (_, at) => `Ware ${at + 1}`)];
+  const CLUBS = Array.from({ length: 60 }, (_, at) => `Club ${at + 1}`);
+  const TWELVE = Array.from({ length: 12 }, (_, at) => `Day ${at + 1}`);
+  const LONG_QUESTIONS = [
+    {
+      key: 'wares',
+      label: 'What do you sell?',
+      type: 'select',
+      required: true,
+      options: WARES,
+      order: 0,
+    },
+    {
+      key: 'clubs',
+      label: 'Which clubs do you belong to?',
+      type: 'multi_select',
+      required: true,
+      options: CLUBS,
+      order: 1,
+    },
+    {
+      key: 'short_one',
+      label: 'Twelve to choose from',
+      type: 'select',
+      required: false,
+      options: TWELVE,
+      order: 2,
+    },
+    {
+      key: 'short_several',
+      label: 'Twelve to tick',
+      type: 'multi_select',
+      required: false,
+      options: TWELVE,
+      order: 3,
+    },
+  ];
+
+  async function holdsItsLayout(page: Page, width: number, what: string) {
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth),
+      `${what}: the page runs past the window`,
+    ).toBeLessThanOrEqual(0);
+    const findings = await page.evaluate(detectLayout, {
+      spaceScale: SPACE_SCALE,
+      textScale: TYPE_SCALE,
+      minTarget: minTargetAt(width),
+    });
+    expect(
+      findings
+        .filter((finding) => gates(finding, width))
+        .map((f) => `${f.kind} ${f.el}: ${f.detail}`),
+      `${what}: the layout detectors' gating findings`,
+    ).toEqual([]);
+  }
+
+  for (const width of [390, 320]) {
+    test(`at ${width}, found by typing, several as chips, an error, a submit, read back by the organizer`, async ({
+      page,
+      browser,
+      request,
+      expectAccessible,
+    }) => {
+      test.setTimeout(120_000);
+      await page.setViewportSize({ width, height: 844 });
+      const vendor = `long-questions-${width}-${Date.now()}@example.com`;
+      const market = await seedApplicantMarket(
+        request,
+        BACKEND_URL,
+        TEST_USER.email,
+        TEST_USER.password,
+        { fields: LONG_QUESTIONS, setupObject: planSetupObject([DATE]) },
+      );
+      const form = new VendorPage(page);
+      await form.goto(market.marketSlug);
+      await form.requestCode(vendor);
+      createApplicantLoginChallenge(market.marketId, vendor, CODE);
+      await form.enterCode(CODE);
+      await form.applyButton.click();
+      await expect(form.form).toBeVisible({ timeout: 30000 });
+
+      await form.fullNameInput.fill('Riley Fixture');
+      await form.tierCheckbox(DATE, 'Gold').check();
+      await form.maxDatesInput.fill('1');
+      await form.tableChoiceRadio('full').check();
+
+      // At 12 or fewer, the select and the checkboxes they were.
+      await expect(form.input('short_one')).toHaveJSProperty('tagName', 'SELECT');
+      await expect(page.getByTestId('apply-input-short_several-Day 12')).toBeVisible();
+      await expect(page.getByTestId('apply-field-short_several').getByRole('checkbox')).toHaveCount(
+        12,
+      );
+
+      const wares = form.longQuestion('wares');
+      const clubs = form.longQuestion('clubs');
+      await expect(wares.field).toHaveAttribute('placeholder', 'Find an answer');
+      // One name, the question's own, as a select's; its words on the page are not read again.
+      await expect(
+        page.getByRole('combobox', { name: 'What do you sell? *', exact: true }),
+      ).toBeVisible();
+      const words = page.locator('#apply-wares-label');
+      await expect(words).toHaveAttribute('aria-hidden', 'true');
+      await words.click();
+      await expect(wares.field).toBeFocused();
+
+      // Saved with neither answered: each reads and is read as any question in error.
+      await form.submit();
+      await expect(form.fieldError('wares')).toHaveText('"What do you sell?" is required.');
+      await expect(form.fieldError('clubs')).toHaveText(
+        '"Which clubs do you belong to?" is required.',
+      );
+      await expect(wares.field).toHaveAttribute('aria-invalid', 'true');
+      await expect(wares.field).toHaveAccessibleDescription('"What do you sell?" is required.');
+      await expect(clubs.field).toHaveAttribute('aria-invalid', 'true');
+      await expect(wares.field).toHaveCSS(
+        'border-top-color',
+        await form.fieldError('wares').evaluate((error) => getComputedStyle(error).color),
+      );
+      // A phone has no pointer to leave resting on the button, whose hover dims it.
+      await page.mouse.move(0, 0);
+      await holdsItsLayout(page, width, 'a question in error');
+      await expectAccessible('a long question in error');
+      expect((await sweep(page)).failures, 'the question in error has text below AA').toEqual([]);
+
+      // 50 of the 60 as it opens, the long answer wrapped inside the window.
+      await wares.field.click();
+      await expect(wares.options).toHaveCount(50);
+      await expect(wares.more).toHaveText('10 more, type to narrow');
+      await holdsItsLayout(page, width, 'the list open');
+      await expectAccessible('a long question, its list open');
+      expect((await sweep(page)).failures, 'the open list has text below AA').toEqual([]);
+
+      // Words it does not find say so, and clear on leaving the field: they are no answer.
+      await wares.field.pressSequentially('no such ware');
+      await expect(wares.none).toHaveText('Nothing matches "no such ware".');
+      await page.getByTestId('apply-essential-full-name-input').click();
+      await expect(wares.field).toHaveValue('');
+
+      // Found by typing; Enter takes it and does not submit, and the error goes.
+      await wares.field.click();
+      await wares.field.pressSequentially('Ware 42');
+      await expect(wares.options).toHaveText(['Ware 42']);
+      await page.keyboard.press('Enter');
+      await expect(wares.field).toHaveValue('Ware 42');
+      await expect(wares.list).toHaveCount(0);
+      await expect(form.form).toBeVisible();
+      await expect(form.fieldError('wares')).toHaveCount(0);
+      await expect(wares.field).not.toHaveAttribute('aria-invalid');
+
+      // Several, as chips.
+      await clubs.field.click();
+      await clubs.field.pressSequentially('Club 7');
+      await clubs.option('Club 7').click();
+      await clubs.field.fill('Club 60');
+      await clubs.option('Club 60').click();
+      await expect(clubs.chips).toHaveCount(2);
+      await expect(form.fieldError('clubs')).toHaveCount(0);
+      await holdsItsLayout(page, width, 'two chips, the list open');
+      await expectAccessible('a long question, two chips and its list open');
+      expect((await sweep(page)).failures, 'the chips have text below AA').toEqual([]);
+
+      // Words left in the field when it is left are no chip.
+      await clubs.field.fill('Club 3');
+      await page.getByTestId('apply-essential-full-name-input').click();
+      await expect(clubs.field).toHaveValue('');
+      await expect(clubs.chips).toHaveCount(2);
+
+      // Backspace takes the last; one more stands in for it.
+      await clubs.field.click();
+      await clubs.field.press('Backspace');
+      await expect(clubs.chips).toHaveText([/^Club 7/]);
+      await clubs.field.fill('Club 12');
+      await clubs.field.press('Enter');
+      await expect(clubs.chips).toHaveCount(2);
+      await clubs.field.press('Escape');
+      await expect(clubs.list).toHaveCount(0);
+
+      // With the list closed Enter submits, as the form did.
+      await wares.field.click();
+      await wares.field.press('Escape');
+      await wares.field.press('Enter');
+      await expect(form.form).toHaveCount(0, { timeout: 10000 });
+      await expect(form.status).toContainText('Submitted');
+      await expect(form.answer('wares')).toContainText('Ware 42');
+      await expect(form.answer('clubs')).toContainText('Club 7');
+      await expect(form.answer('clubs')).toContainText('Club 12');
+
+      // Edit opens on them.
+      await form.editButton.click();
+      await expect(form.form).toBeVisible();
+      await expect(wares.field).toHaveValue('Ware 42');
+      await expect(clubs.chips).toHaveText([/^Club 7/, /^Club 12/]);
+      await form.cancelButton.click();
+
+      // The organizer reads what they sent.
+      await withUser(browser, TEST_USER.email, TEST_USER.password, async (organizer) => {
+        const monitor = new ApplicationMonitorPage(organizer);
+        await monitor.goto(market.marketId);
+        await expect(monitor.answers).toContainText('Ware 42', { timeout: 15000 });
+        await expect(monitor.answers).toContainText('Club 7');
+        await expect(monitor.answers).toContainText('Club 12');
+      });
+    });
+  }
+
+  test('a stored answer no option offers: a chip among several, and on one choice the required check speaks', async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(120_000);
+    const vendor = `long-gone-${Date.now()}@example.com`;
+    const market = await seedApplicantMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { fields: LONG_QUESTIONS, setupObject: planSetupObject([DATE]) },
+    );
+    const form = new VendorPage(page);
+    await form.goto(market.marketSlug);
+    await form.requestCode(vendor);
+    createApplicantLoginChallenge(market.marketId, vendor, CODE);
+    await form.enterCode(CODE);
+    await form.applyButton.click();
+    await expect(form.form).toBeVisible({ timeout: 30000 });
+    await form.fullNameInput.fill('Riley Fixture');
+    await form.tierCheckbox(DATE, 'Gold').check();
+    await form.maxDatesInput.fill('1');
+    await form.tableChoiceRadio('full').check();
+    await form.longQuestion('wares').choose('Ware 1');
+    await form.longQuestion('clubs').field.fill('Club 1');
+    await form.longQuestion('clubs').option('Club 1').click();
+    await form.submit();
+    await expect(form.status).toContainText('Submitted', { timeout: 10000 });
+
+    // The form has since stopped offering both.
+    mongoEval(
+      `db.applications.updateOne({market_id: ${JSON.stringify(market.marketId)}, applicant_email: ${JSON.stringify(vendor)}}, {$set: {'form_data.wares': 'A ware since gone', 'form_data.clubs': ['Club 1', 'A club since gone']}})`,
+    );
+    await page.reload();
+    await form.editButton.click();
+    await expect(form.form).toBeVisible();
+
+    await expect(form.longQuestion('wares').field).toHaveValue('');
+    await expect(form.longQuestion('clubs').chips).toHaveText([/^Club 1/, /^A club since gone/]);
+    await form.submit();
+    await expect(form.fieldError('wares')).toHaveText('"What do you sell?" is required.');
+    await expect(form.form).toBeVisible();
+  });
+
+  test("the organizer's preview shows what an applicant will get, at either side of 12", async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const market = await seedApplicantMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { fields: LONG_QUESTIONS, setupObject: planSetupObject([DATE]), draft: true },
+    );
+    await page.goto(`${marketSetupPath(market.marketId, 'form')}?step=preview`);
+    const form = new ApplicationFormPage(page);
+    await expect(form.preview).toBeVisible({ timeout: 15000 });
+
+    for (const key of ['wares', 'clubs']) {
+      const question = form.previewLongQuestion(key);
+      await expect(question.field).toBeDisabled();
+      await expect(question.field).toHaveAttribute('placeholder', 'Find an answer');
+    }
+    await expect(
+      page.getByRole('combobox', { name: 'What do you sell? *', exact: true }),
+    ).toBeVisible();
+    await expect(form.previewField('short_one').locator('select')).toBeDisabled();
+    await expect(form.previewField('short_several').getByRole('checkbox')).toHaveCount(12);
+    expect((await sweep(page)).failures, 'the preview has text below AA').toEqual([]);
   });
 });
