@@ -974,6 +974,35 @@ for (const size of SIZES) {
       await expectFullBar(page, NO_ORG_USER.email);
     });
 
+    test('a session that ends in another tab ends the bar here, and the next account names itself', async ({
+      authenticatedPage: page,
+    }) => {
+      await page.goto('/markets');
+      await expectFullBar(page);
+      await markTheDocument(page);
+
+      const other = await page.context().newPage();
+      await other.goto('/markets');
+      if (size.phone) {
+        await press(menuButton(page));
+        await expect(page.getByTestId('app-bar-sheet')).toBeVisible();
+      }
+      await signOutFromTheBar(other);
+      await other.waitForURL(/\/login$/);
+
+      // This tab made no navigation, and it does not go on naming an account that has gone.
+      await expectLogoAlone(page);
+      await expect(page.getByTestId('app-bar-sheet')).toHaveCount(0);
+      await expect(page.locator('main')).not.toHaveAttribute('inert');
+
+      const signIn = new LoginPage(other);
+      await signIn.login(NO_ORG_USER.email, NO_ORG_USER.password);
+      await signIn.waitForMarkets();
+
+      await expectFullBar(page, NO_ORG_USER.email);
+      await expectSameDocument(page);
+    });
+
     test('Page not found offers Sign in signed out', async ({ page }) => {
       await page.goto('/no/such/page');
       const notFound = page.getByTestId('page-not-found');
@@ -1146,6 +1175,21 @@ for (const size of SIZES) {
         await press(changePasswordItem(page));
       }
     }
+
+    test('marks no place current on the reset page, Change password among them', async ({
+      authenticatedPage: page,
+    }) => {
+      await page.goto('/reset-password-request');
+      await expect(emailField(page)).toHaveValue(TEST_USER.email);
+
+      if (size.phone) await press(page.getByTestId('app-bar-menu-button'));
+      await expect(bar(page).locator('[aria-current="page"]')).toHaveCount(0);
+
+      if (!size.phone) return;
+      const row = page.getByTestId('app-bar-sheet').getByRole('link', { name: 'Change password' });
+      const mark = await row.evaluate((el) => getComputedStyle(el, '::before').content);
+      expect(mark).toBe('none');
+    });
 
     test('opens the reset page with the address filled in and editable, and not in the address', async ({
       authenticatedPage: page,

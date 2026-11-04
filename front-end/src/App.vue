@@ -30,14 +30,19 @@ const pageFailed = inject(PAGE_FAILED, ref(null));
 /**
  * Who is signed in, as the app bar and "Page not found" read it. It starts from the stored user and is read again after
  * every navigation, so each way a session starts or ends (signing in, Sign out, `endSession`, a 401)
- * only has to change what is stored and move: none of them has to tell the shell.
+ * only has to change what is stored and move: none of them has to tell the shell. It is read again
+ * on a `storage` event too, which says another tab changed what is stored or `forgetTheSession` ran
+ * here, so the bar never goes on naming an account that has gone.
  */
 const user = ref<string | null>(signedInEmail());
 provide('user', user);
-const stopReadingTheUser = router.afterEach(() => {
+function readTheUser() {
   user.value = signedInEmail();
-});
+}
+const stopReadingTheUser = router.afterEach(readTheUser);
 onUnmounted(stopReadingTheUser);
+window.addEventListener('storage', readTheUser);
+onUnmounted(() => window.removeEventListener('storage', readTheUser));
 
 onMounted(async () => {
   // Wait for the first navigation to settle before probing the session.

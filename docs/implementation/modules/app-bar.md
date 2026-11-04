@@ -55,6 +55,8 @@ So a Viewer's bar is an Owner's, an organizer with no organization has Organizat
 
 **The bar's reading of who is signed in is one, the shell's.**
 [`App.vue`](../../../front-end/src/App.vue)'s `user` starts from the stored user ([`signedInEmail`](../../../front-end/src/utils/signedIn.ts)) and is read again after every navigation, so each way a session starts or ends (signing in, Sign out, `endSession`, a 401) only changes what is stored and moves, without telling the shell.
+It is read again on a `storage` event too, for what makes no navigation here: another tab signing out or in as someone else, and `forgetTheSession`, which raises that event in its own tab, since a tab hears only another's change.
+So a finished reset drops the bar at once, 2 seconds before the page moves on, and a tab left open never goes on naming an account that has gone, an open sheet closing with it; what that tab already shows stays until its next read, which answers as whoever the shared cookie now is.
 The session probe corrects the stored address when it answers, and `user` is provided to the bar and to "Page not found".
 So the bar stands before the probe answers, with the account menu in it from the first paint.
 A person can then sign out under the probe, so its answer counts only if the stored user is still the one it asked about: a late answer brings back neither the bar nor a note that the session ended.
@@ -93,7 +95,7 @@ To someone signed in, the request page does not ask for an address it already ho
 **Setting the new password ends the session it is set in.**
 `reset_password` gives the account a new login id, which ends every session of it, so [the reset page](../../../front-end/src/views/PasswordResetView.vue) calls `forgetTheSession`, and its link goes back to reading "Back to sign in".
 Without that the stored user would turn the page's move to `/login` into a move to a page that answers 401, and sign-in would say "Your session has ended", when ending it is what they just did.
-The answer does not say whose link it was, so a link for another account forgets this browser's stored user too, and it signs in again.
+The answer does not say whose link it was, so a link for another account forgets this browser's stored user too, and it signs in again; that other session's cookie stays good until it expires, since the server was told nothing of it, so this browser reads as signed out without being so.
 A failed reset forgets nothing.
 
 ## Sign out

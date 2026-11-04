@@ -19,7 +19,7 @@ const isLoading = ref(false);
 
 // The reset ends every session of the account, so someone signed in is signed out by it.
 const user = inject<Ref<string | null>>('user', ref(null));
-const signedIn = computed(() => Boolean(user.value) && !successMessage.value);
+const signedIn = computed(() => Boolean(user.value));
 
 onMounted(() => {
   const tokenParam = route.query.token as string;

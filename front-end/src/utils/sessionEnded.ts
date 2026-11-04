@@ -5,11 +5,13 @@ import { loginAddress } from '@/utils/signInNext';
 
 /**
  * Forget what this browser holds of a session: `localStorage`, the stored user with it, and the open
- * market.
+ * market. A tab hears only another tab's change as a `storage` event, so this says so to its own, for
+ * a session that ends with no navigation to read the stored user again on (a finished reset).
  */
 export function forgetTheSession(): void {
   localStorage.clear();
   useMarketStore().clear();
+  window.dispatchEvent(new StorageEvent('storage', { key: null }));
 }
 
 /**

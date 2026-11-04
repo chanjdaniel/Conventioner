@@ -134,8 +134,12 @@ test.describe('Changing a password, signed in', () => {
 
       await reset.resetPassword(NEW_PASSWORD);
       await expect(reset.resetSuccessMessage).toBeVisible();
-      // The reset ended every session of the account, this one with it.
+      // The reset ended every session of the account, this one with it, and the bar says so at
+      // once, not when the page moves on.
       await expect(reset.resetBackLink).toHaveText('Back to sign in');
+      await expect(account).toHaveCount(0);
+      await expect(page.getByTestId('app-bar').getByRole('link')).toHaveCount(0);
+      expect(new URL(page.url()).pathname).toBe('/reset-password');
 
       // Signed out by what they just did, so it lands on sign-in with nothing to tell them.
       await expect(page).toHaveURL(/\/login$/);

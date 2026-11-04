@@ -77,6 +77,8 @@ useInertBehind(sheetOpen, () => [scrim.value, sheet.value, menuButton.value]);
 useEscapeToClose(sheetOpen, closeSheet);
 useFocusGoesBack(() => sheetOpen.value);
 watch(() => route.fullPath, closeSheet);
+// A session ended in another tab takes the button with it, and the row naming the account changes.
+watch(user, closeSheet);
 
 /** Past the break the button is gone, and nothing would be left to close the sheet with. */
 let phoneWindow: MediaQueryList | null = null;
@@ -171,7 +173,12 @@ onUnmounted(stopWatchingTheWindow);
           </RouterLink>
         </nav>
         <p class="app-bar-sheet-row app-bar-sheet-address" :title="user ?? undefined">{{ user }}</p>
-        <RouterLink :to="CHANGE_PASSWORD" class="app-bar-sheet-row" @click="closeSheet">
+        <RouterLink
+          :to="CHANGE_PASSWORD"
+          class="app-bar-sheet-row"
+          aria-current-value="false"
+          @click="closeSheet"
+        >
           Change password
         </RouterLink>
         <button
