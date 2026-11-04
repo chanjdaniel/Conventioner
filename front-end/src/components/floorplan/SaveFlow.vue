@@ -4,6 +4,7 @@ import { useFloorplanStore } from '@/stores/floorplan';
 import { api, getApiErrorMessage } from '@/utils/api';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 import { useModalRoot } from '@/utils/useModalRoot';
+import ScrollBox from '@/components/ScrollBox.vue';
 
 // ── Props ────────────────────────────────────────────────────────────
 const props = defineProps<{
@@ -231,103 +232,109 @@ async function handleSave() {
           </div>
 
           <!-- Body -->
-          <div class="save-dialog-body">
-            <!-- Success / Error messages -->
-            <p
-              v-if="successMessage"
-              class="save-dialog-success"
-              data-testid="floorplan-save-success"
-            >
-              {{ successMessage }}
-            </p>
-            <p v-if="error" class="save-dialog-error" data-testid="floorplan-save-error">
-              {{ error }}
-            </p>
+          <ScrollBox class="save-dialog-body" testid="floorplan-save-dialog-body">
+            <div class="save-dialog-parts">
+              <!-- Success / Error messages -->
+              <p
+                v-if="successMessage"
+                class="save-dialog-success"
+                data-testid="floorplan-save-success"
+              >
+                {{ successMessage }}
+              </p>
+              <p v-if="error" class="save-dialog-error" data-testid="floorplan-save-error">
+                {{ error }}
+              </p>
 
-            <!-- Summary stats -->
-            <div class="save-summary-stats">
-              <div class="save-stat">
-                <span class="save-stat-label">Total Tables</span>
-                <span class="save-stat-value">{{ totalTables }}</span>
+              <!-- Summary stats -->
+              <div class="save-summary-stats">
+                <div class="save-stat">
+                  <span class="save-stat-label">Total Tables</span>
+                  <span class="save-stat-value">{{ totalTables }}</span>
+                </div>
+                <div class="save-stat">
+                  <span class="save-stat-label">Sections</span>
+                  <span class="save-stat-value">{{ sectionSummary.length }}</span>
+                </div>
+                <div class="save-stat">
+                  <span class="save-stat-label">Locations</span>
+                  <span class="save-stat-value">{{ locations.length }}</span>
+                </div>
+                <div v-if="unassignedTableCount > 0" class="save-stat save-stat--warn">
+                  <span class="save-stat-label">Unassigned Tables</span>
+                  <span class="save-stat-value">{{ unassignedTableCount }}</span>
+                </div>
               </div>
-              <div class="save-stat">
-                <span class="save-stat-label">Sections</span>
-                <span class="save-stat-value">{{ sectionSummary.length }}</span>
-              </div>
-              <div class="save-stat">
-                <span class="save-stat-label">Locations</span>
-                <span class="save-stat-value">{{ locations.length }}</span>
-              </div>
-              <div v-if="unassignedTableCount > 0" class="save-stat save-stat--warn">
-                <span class="save-stat-label">Unassigned Tables</span>
-                <span class="save-stat-value">{{ unassignedTableCount }}</span>
-              </div>
-            </div>
 
-            <!-- Locations list -->
-            <div v-if="locations.length > 0" class="save-section">
-              <h3 class="save-section-title">Locations</h3>
-              <ul class="save-tag-list">
-                <li v-for="loc in locations" :key="loc" class="save-tag">
-                  {{ loc }}
-                </li>
-              </ul>
-            </div>
+              <!-- Locations list -->
+              <div v-if="locations.length > 0" class="save-section">
+                <h3 class="save-section-title">Locations</h3>
+                <ul class="save-tag-list">
+                  <li v-for="loc in locations" :key="loc" class="save-tag">
+                    {{ loc }}
+                  </li>
+                </ul>
+              </div>
 
-            <!-- Sections list (editable) -->
-            <div v-if="sectionSummary.length > 0" class="save-section">
-              <h3 class="save-section-title">
-                Sections
-                <span class="save-section-subtitle">Click to edit names and locations</span>
-              </h3>
-              <div class="save-sections-grid">
-                <div v-for="section in sectionSummary" :key="section.id" class="save-section-card">
-                  <div class="save-section-card-field">
-                    <label class="save-section-card-label" :for="`sec-name-${section.id}`">
-                      Section Name
-                    </label>
-                    <input
-                      :id="`sec-name-${section.id}`"
-                      type="text"
-                      class="save-section-card-input"
-                      :value="section.name"
-                      :disabled="saving"
-                      @input="
-                        (e) => updateSectionName(section.id, (e.target as HTMLInputElement).value)
-                      "
-                    />
-                  </div>
-                  <div class="save-section-card-field">
-                    <label class="save-section-card-label" :for="`sec-loc-${section.id}`">
-                      Location
-                    </label>
-                    <input
-                      :id="`sec-loc-${section.id}`"
-                      type="text"
-                      class="save-section-card-input"
-                      :value="section.locationName"
-                      :disabled="saving"
-                      @input="
-                        (e) =>
-                          updateSectionLocation(section.id, (e.target as HTMLInputElement).value)
-                      "
-                    />
-                  </div>
-                  <div class="save-section-card-meta">
-                    <span class="save-section-card-tables">
-                      {{ section.tableCount }}
-                      {{ section.tableCount === 1 ? 'table' : 'tables' }}
-                    </span>
+              <!-- Sections list (editable) -->
+              <div v-if="sectionSummary.length > 0" class="save-section">
+                <h3 class="save-section-title">
+                  Sections
+                  <span class="save-section-subtitle">Click to edit names and locations</span>
+                </h3>
+                <div class="save-sections-grid">
+                  <div
+                    v-for="section in sectionSummary"
+                    :key="section.id"
+                    class="save-section-card"
+                  >
+                    <div class="save-section-card-field">
+                      <label class="save-section-card-label" :for="`sec-name-${section.id}`">
+                        Section Name
+                      </label>
+                      <input
+                        :id="`sec-name-${section.id}`"
+                        type="text"
+                        class="save-section-card-input"
+                        :value="section.name"
+                        :disabled="saving"
+                        @input="
+                          (e) => updateSectionName(section.id, (e.target as HTMLInputElement).value)
+                        "
+                      />
+                    </div>
+                    <div class="save-section-card-field">
+                      <label class="save-section-card-label" :for="`sec-loc-${section.id}`">
+                        Location
+                      </label>
+                      <input
+                        :id="`sec-loc-${section.id}`"
+                        type="text"
+                        class="save-section-card-input"
+                        :value="section.locationName"
+                        :disabled="saving"
+                        @input="
+                          (e) =>
+                            updateSectionLocation(section.id, (e.target as HTMLInputElement).value)
+                        "
+                      />
+                    </div>
+                    <div class="save-section-card-meta">
+                      <span class="save-section-card-tables">
+                        {{ section.tableCount }}
+                        {{ section.tableCount === 1 ? 'table' : 'tables' }}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <!-- Empty state -->
-            <div v-if="sectionSummary.length === 0" class="save-empty">
-              <p>No sections defined yet. Create sections in the floorplan editor first.</p>
+              <!-- Empty state -->
+              <div v-if="sectionSummary.length === 0" class="save-empty">
+                <p>No sections defined yet. Create sections in the floorplan editor first.</p>
+              </div>
             </div>
-          </div>
+          </ScrollBox>
 
           <!-- Footer -->
           <div class="save-dialog-footer">
@@ -571,10 +578,11 @@ async function handleSave() {
 /* ── Dialog Body ────────────────────────────────────────────── */
 .save-dialog-body {
   flex: 1;
-  min-height: 0;
-  padding: 24px 22px 20px;
   background: #fff;
-  overflow-y: auto;
+}
+
+.save-dialog-parts {
+  padding: 24px 22px 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;

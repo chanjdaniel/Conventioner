@@ -25,7 +25,7 @@ describes:
   - front-end/e2e/changing-a-role-asks-first.spec.ts
   - front-end/e2e/the-component-library-summaries.spec.ts
   - front-end/src/components/DoorCodeScreen.vue
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - wayfinding/the-order-of-the-work/08
   - wayfinding/the-order-of-the-work/map
@@ -56,7 +56,7 @@ It owns the scrim, the window, the close control, Escape and backdrop dismissal,
 A new dialog is built on it, never hand-rolled; a panel that slides in from a side is [`SidePanel`](../../design-system.md#the-primitive-layer), through the same composables.
 Not every modal is a dialog on it.
 Two take the shell's parts rather than copying them: the [vendor drawer](../../business/flows/vendor-drawer.md), a panel beside the page, and the door code's full screen ([`DoorCodeScreen.vue`](../../../front-end/src/components/DoorCodeScreen.vue), [attendance and the door](../modules/attendance-and-door.md)), which fills the window at the entrance where a dialog is a small window over the page.
-The floorplan's [`SaveFlow.vue`](../../../front-end/src/components/floorplan/SaveFlow.vue) and [`SectionGrouping.vue`](../../../front-end/src/components/floorplan/SectionGrouping.vue) are hand-rolled, with their own scrim and window and, of the shell's parts, only `useModalRoot`; the app's navigation drawer holds the page inert with `useInertBehind` in [`App.vue`](../../../front-end/src/App.vue).
+The floorplan's [`SaveFlow.vue`](../../../front-end/src/components/floorplan/SaveFlow.vue) and [`SectionGrouping.vue`](../../../front-end/src/components/floorplan/SectionGrouping.vue) are hand-rolled, with their own scrim and window and, of the shell's parts, only `useModalRoot`, each scrolling in a `ScrollBox` of its own; the app's navigation drawer holds the page inert with `useInertBehind` in [`App.vue`](../../../front-end/src/App.vue).
 The door code's screen declares `role="dialog"` and `aria-modal` itself, and makes it true with `useModalRoot`, `useEscapeToClose` and `useFocusGoesBack`, so the page behind is inert, Escape closes it while it is on top, and focus opens on its Close and goes back to "Door code"; its one confirmation, New code, is an `AppDialog`, teleported beside it as a sibling.
 
 ## The rules

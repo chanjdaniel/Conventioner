@@ -32,13 +32,6 @@ const OWNERS = ['components/ScrollBox.vue', 'assets/base.css'];
  * What must never happen is a line added to it: a new scroller is a `ScrollBox`.
  */
 const NOT_YET_CONVERTED = [
-  // The floorplan (ticket 04).
-  'components/floorplan/FloorplanWorkflow.vue .step-body',
-  'components/floorplan/FloorplanWorkflow.vue .step-place',
-  'components/floorplan/FloorplanWorkflow.vue .step-save',
-  'components/floorplan/SaveFlow.vue .save-dialog-body',
-  'components/floorplan/SectionGrouping.vue .sg-panel',
-  'components/floorplan/SectionGrouping.vue .sg-dialog',
   // Sideways strips and tables (ticket 05).
   'components/MarketBar.vue .market-bar-tabs',
   'components/PhaseRail.vue .phase-spine',
