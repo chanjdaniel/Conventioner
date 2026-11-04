@@ -5,7 +5,7 @@
  * permission row's change both ask first. Choosing a role now opens a confirmation naming the
  * person, the role they hold and the role chosen, with what they gain or lose read from this
  * market's own table. Cancel, Escape and the backdrop put the select back; a refusal closes the
- * confirmation and is said beneath the row, where it has always been said.
+ * confirmation, re-reads the list and is said beneath the row, where it has always been said.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
@@ -233,6 +233,26 @@ describe('Manage market asks before it changes a role', () => {
     wrapper.unmount();
   });
 
+  it('says so in the dialog, with no list, when no row lies between the two roles', async () => {
+    served = market([person()], {
+      permissionTable: [
+        row('Read the market', MarketRole.Viewer),
+        row('Publish', MarketRole.Admin),
+      ],
+    });
+    const wrapper = await open();
+    await choose(MarketRole.Editor);
+
+    const alike = byTestId('manage-market-role-change-alike')!;
+    expect(alike.textContent?.trim()).toBe(
+      "This market's permissions treat the two roles alike, so nothing they may do changes.",
+    );
+    expect(alike.querySelector('ul')).toBeNull();
+    expect(byTestId('manage-market-role-change-gains')).toBeNull();
+    expect(byTestId('manage-market-role-change-loses')).toBeNull();
+    wrapper.unmount();
+  });
+
   it('asks nothing when the role already held is chosen', async () => {
     const wrapper = await open();
     await choose(MarketRole.Viewer);
@@ -391,6 +411,66 @@ describe('Manage market asks before it changes a role', () => {
     );
     expect(byTestId('manage-market-role-change-error')).toBeNull();
     expect(byTestId('manage-market-error')).toBeNull();
+    expect(document.activeElement).toBe(element);
+    wrapper.unmount();
+  });
+
+  it('on a refusal, re-reads the list, so the row states the role the server holds', async () => {
+    api.put.mockImplementation(async () => {
+      // Someone else made them an Admin first, which this reader may not take.
+      served = market([person({ role: MarketRole.Admin, marketRole: MarketRole.Admin })]);
+      throw refusing(403, 'You cannot make that change.');
+    });
+    const wrapper = await open();
+    const element = await choose(MarketRole.Editor);
+
+    byTestId('manage-market-role-change-submit-button')!.click();
+    await flushPromises();
+
+    expect(byTestId('manage-market-role-change-window')).toBeNull();
+    expect(element.value).toBe(MarketRole.Admin);
+    expect(byTestId('manage-market-user-error')!.textContent?.trim()).toBe(
+      'You cannot make that change.',
+    );
+    expect(document.activeElement).toBe(element);
+    wrapper.unmount();
+  });
+
+  it('keeps the words in reach, naming them, when the refused row has gone from the list', async () => {
+    api.put.mockImplementation(async () => {
+      // Someone else removed them first.
+      served = market([]);
+      throw refusing(400, 'User does not have a role in this market');
+    });
+    const wrapper = await open();
+    await choose(MarketRole.Editor);
+
+    byTestId('manage-market-role-change-submit-button')!.click();
+    await flushPromises();
+
+    expect(byTestId('manage-market-role-change-window')).toBeNull();
+    const people = byTestId('manage-market-people')!;
+    expect(people.textContent).not.toContain(`${EMAIL}'s role`);
+    expect(people.querySelectorAll('[data-testid="manage-market-person"]')).toHaveLength(1);
+    expect(byTestId('manage-market-user-error')!.textContent?.trim()).toBe(
+      `${EMAIL}: User does not have a role in this market`,
+    );
+    expect(people.contains(byTestId('manage-market-user-error'))).toBe(true);
+    expect(document.activeElement).toBe(people);
+    wrapper.unmount();
+  });
+
+  it('gives focus back to the select in a browser that does not focus it on a click', async () => {
+    const wrapper = await open();
+    const element = select();
+    // Safari's way: the value changes and the change fires, with focus left where it was.
+    element.value = MarketRole.Editor;
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+    await flushPromises();
+
+    byTestId('manage-market-role-change-cancel-button')!.click();
+    await flushPromises();
+
     expect(document.activeElement).toBe(element);
     wrapper.unmount();
   });

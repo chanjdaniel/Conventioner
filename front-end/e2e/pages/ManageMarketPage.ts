@@ -24,7 +24,6 @@ export class ManageMarketPage {
   readonly roleChangeWas: Locator;
   readonly roleChangeGains: Locator;
   readonly roleChangeLoses: Locator;
-  readonly roleChangeAlike: Locator;
   readonly roleChangeBody: Locator;
   readonly roleChangeConfirmButton: Locator;
   readonly roleChangeCancelButton: Locator;
@@ -81,7 +80,6 @@ export class ManageMarketPage {
     this.roleChangeWas = page.getByTestId('manage-market-role-change-was');
     this.roleChangeGains = page.getByTestId('manage-market-role-change-gains');
     this.roleChangeLoses = page.getByTestId('manage-market-role-change-loses');
-    this.roleChangeAlike = page.getByTestId('manage-market-role-change-alike');
     this.roleChangeBody = page.getByTestId('manage-market-role-change-body');
     this.roleChangeConfirmButton = page.getByTestId('manage-market-role-change-submit-button');
     this.roleChangeCancelButton = page.getByTestId('manage-market-role-change-cancel-button');

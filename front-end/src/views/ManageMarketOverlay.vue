@@ -55,7 +55,7 @@ const deleteError = ref('');
 /** Counts the changes this dialog has made, so its History reads them as they land. */
 const changesMade = ref(0);
 /** A refused change to one person's role, said beneath their row. */
-const userError = ref<{ userId: string; message: string } | null>(null);
+const userError = ref<{ userId: string; email: string; message: string } | null>(null);
 /**
  * The person a Remove is asking about, until it is confirmed or cancelled (E38/F15/S01), and the
  * words the confirmation says, taken when it opens: the re-read after a confirm may name the market
@@ -75,9 +75,13 @@ const peopleList = ref<HTMLElement | null>(null);
  * chose it, to put back, and the words the confirmation says, taken when it opens, as Remove's are.
  */
 const roleChange = ref<
-  | ({ userId: string; held: MarketRole; role: MarketRole; select: HTMLSelectElement } & ReturnType<
-      typeof marketRoleChange
-    >)
+  | ({
+      userId: string;
+      email: string;
+      held: MarketRole;
+      role: MarketRole;
+      select: HTMLSelectElement;
+    } & ReturnType<typeof marketRoleChange>)
   | null
 >(null);
 const roleChangeBusy = ref(false);
@@ -131,6 +135,13 @@ const accessList = computed(() =>
     ...person,
     addingNothing: roleAddingNothing(person),
   })),
+);
+
+/** A refusal whose row the re-read took away, someone else having removed them first. */
+const refusalWithNoRow = computed(() =>
+  userError.value && !accessList.value.some((row) => row.userId === userError.value?.userId)
+    ? userError.value
+    : null,
 );
 
 /** The organization a row's role comes through, by name. */
@@ -243,8 +254,11 @@ function askToChangeRole(person: PersonWithAccess, select: HTMLSelectElement) {
   const role = select.value as MarketRole;
   if (!marketData.value || role === person.role) return;
   userError.value = null;
+  // Safari focuses no select on a click, and the shell gives focus back to what held it on opening.
+  select.focus();
   roleChange.value = {
     userId: person.userId,
+    email: person.email,
     held: person.role,
     role,
     select,
@@ -265,11 +279,11 @@ function cancelRoleChange() {
 }
 
 /**
- * Confirmed: the role is changed, and the list re-read in place with Manage market still open. The
- * shell gives focus back to the select, unless the person looking changed their own role and may
- * no longer change one, when the select is gone and focus goes to the list. A refusal closes the
- * confirmation and is said beneath the row, where it has always been said (bug 43), with the select
- * back on the role they still hold.
+ * Confirmed: the role is changed, and the list re-read in place with Manage market still open. A
+ * refusal is said beneath the row, where it has always been said (bug 43), and the list is re-read
+ * too, since someone else may have moved or removed them first, as the refusal itself often means.
+ * The shell gives focus back to the select, unless the re-read took it away, as it does when the
+ * person looking changed their own role, when focus goes to the list.
  */
 async function handleRoleChange() {
   const target = roleChange.value;
@@ -280,18 +294,16 @@ async function handleRoleChange() {
       `/markets/${encodeURIComponent(marketData.value.id)}/roles/${encodeURIComponent(target.userId)}`,
       { role: target.role },
     );
+    changesMade.value++;
   } catch (err) {
     target.select.value = target.held;
     userError.value = {
       userId: target.userId,
+      email: target.email,
       message: getApiErrorMessage(err, 'The role was not changed.'),
     };
-    roleChange.value = null;
-    roleChangeBusy.value = false;
-    return;
   }
   // Busy until the confirmation closes: during the re-read its confirm would send a second write.
-  changesMade.value++;
   await fetchMarket(false);
   roleChange.value = null;
   roleChangeBusy.value = false;
@@ -488,6 +500,9 @@ async function closeAddUser() {
               {{ userError.message }}
             </p>
           </div>
+          <p v-if="refusalWithNoRow" class="form-error" data-testid="manage-market-user-error">
+            {{ refusalWithNoRow.email }}: {{ refusalWithNoRow.message }}
+          </p>
         </div>
         <p
           v-if="anyThroughOrganization"

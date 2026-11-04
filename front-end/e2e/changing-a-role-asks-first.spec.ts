@@ -213,6 +213,62 @@ test.describe('at a desk', () => {
     await expect(page.getByTestId('manage-market-error')).toHaveCount(0);
   });
 
+  test('a write refused because someone was removed meanwhile keeps its words, and the list goes true', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { marketId, marketName } = await seed(request, COLLEAGUE, 'viewer');
+    const manage = await openManage(page, marketName);
+    const select = roleSelect(page, COLLEAGUE);
+    await choose(select, 'editor');
+
+    const colleagueId = await select
+      .getAttribute('name')
+      .then((name) => name!.replace('role-', ''));
+    const removed = await request.delete(`${BACKEND_URL}/markets/${marketId}/roles/${colleagueId}`);
+    expect(removed.ok(), await removed.text()).toBeTruthy();
+    await manage.roleChangeConfirmButton.click();
+
+    await expect(manage.roleChangeConfirm).toHaveCount(0);
+    await expect(person(page, COLLEAGUE)).toHaveCount(0);
+    const people = page.getByTestId('manage-market-people');
+    await expect(people.getByTestId('manage-market-user-error')).toHaveText(
+      `${COLLEAGUE}: User does not have a role in this market`,
+    );
+    await expect(people).toBeFocused();
+  });
+
+  test('a write refused because the role moved meanwhile states the role they hold now', async ({
+    request,
+    browser,
+  }) => {
+    const { marketId, marketName } = await seed(request, COLLEAGUE, 'viewer');
+    const added = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
+      data: { user_email: EDITOR, role: 'admin' },
+    });
+    expect(added.ok(), await added.text()).toBeTruthy();
+
+    await withUser(browser, EDITOR, PASSWORD, async (page) => {
+      const manage = await openManage(page, marketName);
+      const select = roleSelect(page, COLLEAGUE);
+      await choose(select, 'editor');
+
+      // The owner makes them an Admin, a role only the owner may take.
+      const colleagueId = (await select.getAttribute('name'))!.replace('role-', '');
+      const moved = await request.put(`${BACKEND_URL}/markets/${marketId}/roles/${colleagueId}`, {
+        data: { role: 'admin' },
+      });
+      expect(moved.ok(), await moved.text()).toBeTruthy();
+      await manage.roleChangeConfirmButton.click();
+
+      await expect(manage.roleChangeConfirm).toHaveCount(0);
+      const row = person(page, COLLEAGUE);
+      await expect(row.getByTestId('manage-market-role')).toHaveText('Admin');
+      await expect(row.getByTestId('manage-market-user-error')).not.toHaveText('');
+      await expect(page.getByTestId('manage-market-people')).toBeFocused();
+    });
+  });
+
   test('the arrow keys on the closed select open its list, rather than stepping into a question', async ({
     authenticatedPage: page,
     request,
