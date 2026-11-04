@@ -1,6 +1,6 @@
 import type { Locator, Page, Route } from '@playwright/test';
 import { test, expect, BACKEND_URL, TEST_USER, LoginPage, PasswordResetPage } from './fixtures';
-import { loginViaApi } from './helpers/seeds';
+import { seedDraftMarket } from './helpers/seedDraftMarket';
 
 /**
  * The way in fits a phone (T73).
@@ -173,23 +173,32 @@ test.describe('signing in on a phone', () => {
   });
 
   test('a remembered market is drawn inside the window', async ({ page, request }) => {
-    // A market this account can reach, remembered as opening it would (`utils/lastMarket.ts`).
-    await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-    const res = await request.get(`${BACKEND_URL}/markets`);
-    expect(res.ok()).toBe(true);
-    const { markets } = (await res.json()) as { markets: { id: string }[] };
-    expect(markets.length, 'one market gets no line').toBeGreaterThan(1);
-    await page.addInitScript((id) => localStorage.setItem('lastMarketId', id), markets[0].id);
+    // A market of its own, remembered as opening it would (`utils/lastMarket.ts`), beside the one
+    // the fixture seeds: one market gets no line.
+    const { marketId } = await seedDraftMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    try {
+      await page.addInitScript((id) => localStorage.setItem('lastMarketId', id), marketId);
 
-    const release = await signInHolding(page);
-    const line = page.getByTestId('markets-previously-opened');
-    await expect(page.getByTestId('markets-create-button')).toBeVisible();
-    await expect(line, 'the line waits for the held answer').toBeHidden();
-    release();
+      const release = await signInHolding(page);
+      const line = page.getByTestId('markets-previously-opened');
+      await expect(page.getByTestId('markets-create-button')).toBeVisible();
+      await expect(line, 'the line waits for the held answer').toBeHidden();
+      release();
 
-    await expect(line).toBeVisible();
-    await expectInside(line, 'the remembered market');
-    await expectMarketsFits(page);
+      await expect(line).toBeVisible();
+      await expectInside(line, 'the remembered market');
+      await expectMarketsFits(page);
+    } finally {
+      const deleted = await request.delete(`${BACKEND_URL}/markets/${marketId}`, {
+        headers: { 'X-Owner-Email': TEST_USER.email },
+      });
+      expect(deleted.ok(), await deleted.text()).toBeTruthy();
+    }
   });
 });
 
