@@ -558,6 +558,36 @@ eachWindow('the combobox entry', (size) => {
     expect(off).toBeLessThanOrEqual(1);
   });
 
+  test("a chosen row's tick stands on the first line of its words, however they wrap", async ({
+    page,
+  }) => {
+    const long = picker(page, 'library-long-chips');
+    // Past the cap until typed for: the longest answers, chosen, so their rows carry a tick.
+    await expect(long.chips).toHaveCount(3);
+    const [longest] = (await long.chips.allInnerTexts()).sort((a, b) => b.length - a.length);
+    await long.field.fill(longest!.trim().slice(0, 20));
+    const rows = long.options.filter({ has: page.locator('.search-picker-option-tick') });
+    await expect(rows.first()).toBeVisible();
+    // No answer in the fixture is long enough to wrap by itself, so the list is narrowed to make it.
+    await long.list.evaluate((list) => {
+      list.style.width = '140px';
+    });
+    const measured = await rows.evaluateAll((elements) =>
+      elements.map((element) => {
+        const range = document.createRange();
+        range.selectNodeContents(element.querySelector('.search-picker-option-label')!);
+        const rects = [...range.getClientRects()];
+        const tick = element.querySelector('.search-picker-option-tick')!.getBoundingClientRect();
+        return {
+          off: Math.abs(rects[0]!.top + rects[0]!.height / 2 - (tick.top + tick.height / 2)),
+          lines: new Set(rects.map((rect) => Math.round(rect.top))).size,
+        };
+      }),
+    );
+    expect(Math.max(...measured.map(({ off }) => off))).toBeLessThanOrEqual(1);
+    expect(Math.max(...measured.map(({ lines }) => lines))).toBeGreaterThan(1);
+  });
+
   test('several, a typed answer is a chip of its own', async ({ page, expectAccessible }) => {
     const chips = picker(page, 'library-typed-chips');
     const readOut = readOutOf(page, 'library-typed-chips');

@@ -54,8 +54,8 @@
  *   typed, a space in the middle of typing with them, until it is left, when it names the value: an
  *   option's label, or the trimmed words. Escape closes the list and keeps the words, since a plain
  *   input has no undo, and reopened on words still being typed it does not select them, so a click
- *   can place the caret. A row or `Use "<words>"` is taken as with `acceptsTyped` alone. A press
- *   past the list leaves the field only as the press ends: on a screen whose rows lie below the
+ *   can place the caret. A row or `Use "<words>"` is taken as with `acceptsTyped` alone. A main
+ *   button's press past the list leaves the field only as the press ends: on a screen whose rows lie below the
  *   list, changing it as the focus goes would move them from under the pointer, and the click
  *   would be lost.
  */
@@ -308,6 +308,8 @@ async function removeChip(at: number): Promise<void> {
 }
 
 function onKeydown(event: KeyboardEvent): void {
+  // A press still under way when a key comes never got its end, as a scrollbar's may not.
+  pressing = false;
   const last = shownOptions.value.length - 1;
   switch (event.key) {
     case 'ArrowDown':
@@ -358,8 +360,9 @@ function leave(): void {
 
 /** Whether a press is under way, while a list that writes its words is open. */
 let pressing = false;
-function pressStarted(): void {
-  pressing = true;
+function pressStarted(event: MouseEvent): void {
+  // Only the main button: a context menu can take the end of any other's press.
+  if (event.button === 0) pressing = true;
 }
 function pressEnded(): void {
   pressing = false;
@@ -589,15 +592,16 @@ function onBlur(): void {
   color: var(--mm-text-muted);
 }
 
+/* The space over and under a row: one line stands in the middle of the target, on a phone's too,
+   and more lines grow the row down from there, so the tick can stand on the first line. */
 .search-picker-option {
+  --row-inset: max(var(--space-1), calc((var(--target-min) - 1lh) / 2));
   display: flex;
   flex-wrap: wrap;
-  align-content: center;
   align-items: baseline;
   justify-content: space-between;
   gap: 0 var(--space-3);
-  min-height: var(--target-min);
-  padding: var(--space-1) var(--space-3);
+  padding: var(--row-inset) var(--space-3);
   font-size: var(--text-sm);
   color: var(--mm-black);
   cursor: pointer;
@@ -615,7 +619,7 @@ function onBlur(): void {
 
 .search-picker-option-tick {
   position: absolute;
-  top: calc(var(--space-2) + var(--space-hairline));
+  top: calc(var(--row-inset) + (1lh - var(--space-4)) / 2);
   left: var(--space-3);
   width: var(--space-4);
   height: var(--space-4);

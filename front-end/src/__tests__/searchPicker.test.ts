@@ -1246,6 +1246,33 @@ describe('words that are the value', () => {
       wrapper.unmount();
     });
 
+    it('never waits for the end of a press with another button', async () => {
+      const wrapper = writing();
+      await input(wrapper).setValue('Soap ');
+
+      // A context menu can swallow the press's end, so a press that is not the main one counts for nothing.
+      window.dispatchEvent(new MouseEvent('mousedown', { button: 2 }));
+      await input(wrapper).trigger('blur');
+
+      expect(listOf(wrapper).exists()).toBe(false);
+      expect(inField(wrapper)).toBe('Soap');
+      wrapper.unmount();
+    });
+
+    it('never waits past a key for a press whose end did not come', async () => {
+      const wrapper = writing();
+      await input(wrapper).setValue('Soap ');
+
+      // A scrollbar's press can end with no mouseup, and the field keeps the focus through it.
+      window.dispatchEvent(new MouseEvent('mousedown'));
+      await input(wrapper).trigger('keydown', { key: 'Tab' });
+      await input(wrapper).trigger('blur');
+
+      expect(listOf(wrapper).exists()).toBe(false);
+      expect(inField(wrapper)).toBe('Soap');
+      wrapper.unmount();
+    });
+
     it('closes at once when the keyboard leaves the field', async () => {
       const wrapper = writing();
       await input(wrapper).setValue('Soap');
