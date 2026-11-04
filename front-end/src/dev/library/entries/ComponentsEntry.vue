@@ -20,6 +20,7 @@ import FileDropZone from '@/components/FileDropZone.vue';
 import PhaseBadge from '@/components/PhaseBadge.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
 import RowMenu from '@/components/RowMenu.vue';
+import ScrollBox from '@/components/ScrollBox.vue';
 import SignInMessage from '@/components/SignInMessage.vue';
 import StepHeader from '@/components/StepHeader.vue';
 import SummaryCard from '@/components/SummaryCard.vue';
@@ -189,6 +190,11 @@ const answerCount = question.options.length;
 // FileDropZone: it judges no file, so the line under it only says which one it took.
 const FILES_TAKEN = '.csv,text/csv';
 const taken = ref('');
+
+// ScrollBox: the fixture's applicants, in a box too small to hold them; and a list that shrinks.
+const scrolling = applications.slice(0, 40);
+const shrinkingCount = ref(40);
+const shrinking = computed(() => applications.slice(0, shrinkingCount.value));
 </script>
 
 <template>
@@ -525,6 +531,84 @@ const taken = ref('');
     </LibraryPanel>
   </LibrarySection>
 
+  <LibrarySection
+    title="ScrollBox"
+    about="Used on: every dialog's scrolling part; the other in-app scrollers move onto it"
+  >
+    <LibraryPanel label="Down: a shade at each edge with more beyond it">
+      <ScrollBox class="library-scroll-down" testid="library-scroll-y">
+        <div class="library-scroll-rows">
+          <p v-for="applicant in scrolling" :key="applicant.id" class="library-text">
+            {{ applicant.name }}
+          </p>
+        </div>
+      </ScrollBox>
+    </LibraryPanel>
+    <LibraryPanel label="Sideways, named as a region for the keys">
+      <ScrollBox
+        axis="x"
+        class="library-scroll-across"
+        testid="library-scroll-x"
+        label="Applicants"
+      >
+        <p class="library-scroll-line">
+          <span v-for="applicant in scrolling" :key="applicant.id">{{ applicant.name }}</span>
+        </p>
+      </ScrollBox>
+    </LibraryPanel>
+    <LibraryPanel label="Both ways">
+      <ScrollBox axis="both" class="library-scroll-down" testid="library-scroll-both">
+        <p v-for="applicant in scrolling" :key="applicant.id" class="library-scroll-line">
+          <span v-for="other in scrolling" :key="other.id">{{ other.name }}</span>
+        </p>
+      </ScrollBox>
+    </LibraryPanel>
+    <LibraryPanel label="On the dark ground, as the market bar's tabs">
+      <ScrollBox
+        axis="x"
+        tone="dark"
+        class="library-scroll-across library-scroll-dark"
+        testid="library-scroll-dark"
+        label="Applicants, on the dark ground"
+      >
+        <p class="library-scroll-line">
+          <span v-for="applicant in scrolling" :key="applicant.id">{{ applicant.name }}</span>
+        </p>
+      </ScrollBox>
+    </LibraryPanel>
+    <LibraryPanel label="With controls inside: the controls take the keys, so no stop of its own">
+      <ScrollBox class="library-scroll-down" testid="library-scroll-controls">
+        <div class="library-scroll-rows">
+          <button
+            v-for="applicant in scrolling"
+            :key="applicant.id"
+            type="button"
+            class="btn btn--secondary"
+          >
+            {{ applicant.name }}
+          </button>
+        </div>
+      </ScrollBox>
+    </LibraryPanel>
+    <LibraryPanel label="A list that has shrunk: no shade, no stop">
+      <ScrollBox class="library-scroll-down" testid="library-scroll-shrinking">
+        <div class="library-scroll-rows">
+          <p v-for="applicant in shrinking" :key="applicant.id" class="library-text">
+            {{ applicant.name }}
+          </p>
+        </div>
+      </ScrollBox>
+      <button
+        type="button"
+        class="btn btn--secondary"
+        :disabled="shrinkingCount === 2"
+        @click="shrinkingCount = 2"
+      >
+        Shrink it to two
+      </button>
+    </LibraryPanel>
+  </LibrarySection>
+
   <ChoicesForYou>
     <li>
       <code>ReadFailed</code> and <code>SignInMessage</code> each draw a red line of their own: keep
@@ -593,6 +677,44 @@ const taken = ref('');
   width: 100%;
   font-size: var(--text-sm);
   color: var(--mm-black);
+}
+
+/* A box too small for what it holds, as a screen would cap one. */
+.library-scroll-down {
+  width: 100%;
+  height: 8rem;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+
+.library-scroll-across {
+  width: 100%;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+
+.library-scroll-dark {
+  background: var(--mm-black);
+  color: var(--mm-text-muted-on-dark);
+}
+
+/* Padding in the slot's content, so a shade lies at the box's edge and a control's halo has room. */
+.library-scroll-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+}
+
+.library-scroll-line {
+  display: flex;
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  white-space: nowrap;
 }
 
 /* What the library says of a panel, apart from what the component draws. */

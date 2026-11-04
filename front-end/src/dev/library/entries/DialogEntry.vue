@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /**
- * The dialog grown (T200): `AppDialog` in its three widths, today's whole-window scroll beside the
- * body scroll on the same 150-person list, the body scroll with a tray, and the dialogs that prove
- * every existing behaviour is kept, each on the fixture's people and applicants.
+ * The dialog (T200, T217): `AppDialog` in its three widths, the whole-window scroll beside the body
+ * scroll on the same 150-person list, the body scroll with a tray, the footer without a form, a
+ * read-only list the keys scroll, and the dialogs that prove every behaviour is kept, each on the
+ * fixture's people and applicants. Daniel's choices on it are made, so it asks none.
  *
  * Every dialog here is the real `AppDialog`, opened from a button the way a screen opens one; the
  * line under each button reads out how it last closed, so a save is seen to land and a close is
@@ -16,7 +17,6 @@ import { getRoleDisplayName } from '@/utils/permissions';
 import LibrarySection from '../parts/LibrarySection.vue';
 import LibraryPanel from '../parts/LibraryPanel.vue';
 import TodayAndProposed from '../parts/TodayAndProposed.vue';
-import ChoicesForYou from '../parts/ChoicesForYou.vue';
 import PeopleChecklist from '../parts/PeopleChecklist.vue';
 import ReadOut from '../parts/ReadOut.vue';
 import { fixture } from '../fixture';
@@ -30,6 +30,8 @@ type DialogId =
   | 'window'
   | 'body'
   | 'tray'
+  | 'actions'
+  | 'read'
   | 'destructive'
   | 'error'
   | 'anchored'
@@ -78,6 +80,12 @@ const chosenInTray = ref<string[]>([...reviewers]);
 const trayNames = computed(() =>
   people.filter((person) => chosenInTray.value.includes(person.id)).map((person) => person.name),
 );
+
+// A dialog of several actions, its own pinned at its foot, with no form to be one action.
+const nameInActions = ref(applications[0]!.name);
+function act(what: string) {
+  outcome.actions = what;
+}
 
 // Every behaviour kept, in either scroll.
 const SCROLLS = [
@@ -153,9 +161,12 @@ function addUser() {
 
   <LibrarySection
     title="The window scrolls, or only the body"
-    about="Serves: every dialog whose body can outgrow a laptop window: Export vendors (F03), Manage market, Manage organization, Change reviewers (C5), Fix the form, Open applications, the assignment history"
+    about="Serves: the short dialogs scroll whole; every dialog whose body can outgrow a laptop window scrolls only that: Export vendors (F03), Manage market, Manage organization, Change reviewers (C5), Fix the form, Open applications, the assignment history"
   >
-    <TodayAndProposed today="Today: the whole window scrolls" proposed="Proposed: only the body">
+    <TodayAndProposed
+      today="A short dialog: the whole window scrolls"
+      proposed="A long dialog: only the body"
+    >
       <template #today>
         <div class="library-stack">
           <button type="button" class="btn btn--secondary" @click="open('window')">
@@ -184,6 +195,24 @@ function addUser() {
         Choose reviewers, with a tray
       </button>
       <ReadOut label="Last" :value="outcome.tray ?? null" />
+    </LibraryPanel>
+  </LibrarySection>
+
+  <LibrarySection
+    title="The body scrolls, with nothing else to focus or no form"
+    about="Serves: Permissions, the organization's Default permissions, and the other sections that open as dialogs"
+  >
+    <LibraryPanel label="Buttons of its own, pinned at its foot, and no form">
+      <button type="button" class="btn btn--secondary" @click="open('actions')">
+        Rename and reset
+      </button>
+      <ReadOut label="Last" :value="outcome.actions ?? null" />
+    </LibraryPanel>
+    <LibraryPanel label="Nothing to focus: it opens on the body, and the arrow keys scroll it">
+      <button type="button" class="btn btn--secondary" @click="open('read')">
+        Read who has access
+      </button>
+      <ReadOut label="Last" :value="outcome.read ?? null" />
     </LibraryPanel>
   </LibrarySection>
 
@@ -231,13 +260,54 @@ function addUser() {
     </LibraryPanel>
   </LibrarySection>
 
-  <ChoicesForYou>
-    <li>The broad width: 60rem to start.</li>
-    <li>Whether every dialog moves to the body scrolling, or only the long ones.</li>
-    <li>The edge shade's depth: 12px to start.</li>
-    <li>The tray's height cap: 40% of the window to start.</li>
-    <li>A dialog on a phone: as tall as the window less the gutter, as here, or centred.</li>
-  </ChoicesForYou>
+  <!-- The footer alone: its inner form's submit is its own, and its buttons never submit. -->
+  <AppDialog
+    :open="opened === 'actions'"
+    title="Rename and reset"
+    testid="library-actions"
+    size="wide"
+    scroll="body"
+    @close="closed('actions')"
+  >
+    <form class="library-add" data-testid="library-actions-rename" @submit.prevent="act('Renamed')">
+      <label class="library-field library-add__field">
+        <span class="field-label">A vendor's name</span>
+        <input v-model="nameInActions" class="field" />
+      </label>
+      <button type="submit" class="btn btn--secondary">Rename</button>
+    </form>
+    <p v-for="person in people" :key="person.id" class="library-text">{{ person.name }}</p>
+    <template #actions>
+      <button
+        type="button"
+        class="btn btn--secondary"
+        data-testid="library-actions-reset"
+        @click="act('Reset')"
+      >
+        Reset all
+      </button>
+      <button
+        type="button"
+        class="btn btn--primary"
+        data-testid="library-actions-done"
+        @click="closed('actions')"
+      >
+        Done
+      </button>
+    </template>
+  </AppDialog>
+
+  <!-- Nothing to focus, as for someone who may only read a table. -->
+  <AppDialog
+    :open="opened === 'read'"
+    title="Who has access"
+    testid="library-read"
+    size="wide"
+    scroll="body"
+    @close="closed('read')"
+  >
+    <p v-for="person in people" :key="person.id" class="library-text">{{ person.name }}</p>
+  </AppDialog>
 
   <!-- The sizes. -->
   <AppDialog

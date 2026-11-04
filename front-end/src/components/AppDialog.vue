@@ -24,15 +24,17 @@
  *
  * A dialog that hosts several independent actions - Manage organization has three - passes no
  * `confirmLabel`, and gets the scrim, window, close, Escape, backdrop and inert behaviour without
- * the single-form footer. Its own forms live in the body.
+ * the single-form footer. Its own forms live in the body. Its buttons can still be pinned at the
+ * foot, through the `actions` slot, without its body becoming a form.
  *
- * A long dialog asks for `scroll="body"` (T200): its title, close, error and actions stay in view
- * and only its body scrolls, inside a box of its own, so the window keeps its rounded corners and
- * the body its width; a shade at the body's top or bottom edge says there is more that way, and a
- * `tray` slot holds what the dialog has gathered, pinned above the actions. The window scrolling
- * whole stays the default until every dialog is converted (`dialogs.md`, the expand-contract plan).
+ * The window is a rounded frame that never scrolls and draws no bar, so its corners are round
+ * whatever the browser draws. What scrolls is a `ScrollBox`. A short dialog keeps `scroll="window"`,
+ * one box over the title and the body. A long one asks for `scroll="body"` (T200): its title, close,
+ * error and actions stay in view and only its body scrolls; a `tray` slot holds what the dialog has
+ * gathered, pinned above the actions (`dialogs.md`).
  */
-import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch, type FunctionalComponent } from 'vue';
+import ScrollBox from '@/components/ScrollBox.vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import { useFocusGoesBack } from '@/utils/useFocusGoesBack';
 import { useModalRoot } from '@/utils/useModalRoot';
@@ -44,8 +46,8 @@ const props = withDefaults(
     /** Test id prefix, so each dialog keeps stable ids: `<testid>-window`, `-close-button`, … */
     testid: string;
     /**
-     * The confirm button's label. Its PRESENCE is what makes this dialog a single form with a
-     * footer; a dialog of several independent actions leaves it out.
+     * The confirm button's label. Its PRESENCE is what makes this dialog a single form; a dialog of
+     * several independent actions leaves it out. The footer draws with this or the `actions` slot.
      */
     confirmLabel?: string;
     confirmDisabled?: boolean;
@@ -89,6 +91,16 @@ function onSubmit(event: Event) {
 
 const width = computed(() => props.size ?? (props.wide ? 'wide' : 'narrow'));
 const pinned = computed(() => props.scroll === 'body');
+
+/** The title and the body with nothing around them, as a pinned dialog has them. */
+const Unwrapped: FunctionalComponent = (_props, { slots }) => slots.default?.();
+
+/** What holds the title and the body: one `ScrollBox` over both, unless only the body scrolls. */
+const whole = computed(() =>
+  pinned.value
+    ? {}
+    : { class: 'dialog-whole', testid: `${props.testid}-scroll`, shadeTestid: props.testid },
+);
 
 useEscapeToClose(
   () => props.open,
@@ -155,44 +167,22 @@ watch(
       ? windowEl.value?.querySelector<HTMLElement>(`[data-testid="${props.testid}-cancel-button"]`)
       : null;
     const focusable = preferred ?? firstSafeControl();
-    (focusable ?? windowEl.value)?.focus();
+    if (focusable) {
+      focusable.focus();
+      return;
+    }
+    windowEl.value?.focus();
+    /*
+     * Nothing to focus: a read-only list. From the window the arrow keys would scroll nothing, so a
+     * box with more to show takes focus, the one that says so by its Tab stop (`ScrollBox`). That
+     * stop lands a tick after the box measures; a dialog mounted open has not had that tick yet.
+     */
+    await nextTick();
+    if (document.activeElement !== windowEl.value) return;
+    windowEl.value?.querySelector<HTMLElement>('[data-scroll-box] > [tabindex="0"]')?.focus();
   },
   { immediate: true },
 );
-
-/*
- * The edge shades of a body that scrolls: each drawn only while there is more that way. Measured
- * as the body scrolls, and as it or its content is resized, since content growing inside a body
- * already at its cap resizes nothing but the content. A pixel of slack, since a zoomed browser
- * stops a scroll a fraction short of the end.
- */
-const scroller = ref<HTMLElement | null>(null);
-const scrolled = ref<HTMLElement | null>(null);
-const shade = reactive({ top: false, bottom: false });
-
-function measure() {
-  const el = scroller.value;
-  shade.top = !!el && el.scrollTop > 0;
-  shade.bottom = !!el && el.scrollTop + el.clientHeight < el.scrollHeight - 1;
-}
-
-let observer: ResizeObserver | null = null;
-
-watch(
-  [scroller, scrolled],
-  ([box, content]) => {
-    observer?.disconnect();
-    observer = null;
-    measure();
-    if (!box || typeof ResizeObserver === 'undefined') return;
-    observer = new ResizeObserver(measure);
-    observer.observe(box);
-    if (content) observer.observe(content);
-  },
-  { flush: 'post' },
-);
-
-onUnmounted(() => observer?.disconnect());
 </script>
 
 <template>
@@ -235,77 +225,70 @@ onUnmounted(() => observer?.disconnect());
         &times;
       </button>
 
-      <h2 class="dialog-title">{{ title }}</h2>
+      <component :is="pinned ? Unwrapped : ScrollBox" v-bind="whole">
+        <div class="dialog-parts">
+          <h2 class="dialog-title">{{ title }}</h2>
 
-      <!--
-        The form, when this dialog is one action. `@submit.prevent` and a `type="submit"` confirm
-        are the entire Enter contract: nothing here listens for a key. A dialog of several actions
-        is a plain box, and hosts its own forms in its body.
-      -->
-      <component
-        :is="confirmLabel ? 'form' : 'div'"
-        class="dialog-body"
-        :class="{ 'dialog-body--pinned': pinned }"
-        v-on="confirmLabel ? { submit: onSubmit } : {}"
-      >
-        <!--
-          Only the body scrolls, in a box of its own between the pinned parts, so its scroll bar
-          never reaches the window's rounded corners; the shades lie over its edges and take no
-          pointer.
-        -->
-        <div v-if="pinned" class="dialog-scroll">
-          <div
-            ref="scroller"
-            class="dialog-scroller"
-            :data-testid="`${testid}-body`"
-            @scroll="measure"
+          <!--
+            The form, when this dialog is one action. `@submit.prevent` and a `type="submit"` confirm
+            are the entire Enter contract: nothing here listens for a key. A dialog of several
+            actions is a plain box, and hosts its own forms in its body.
+          -->
+          <component
+            :is="confirmLabel ? 'form' : 'div'"
+            class="dialog-body"
+            :class="{ 'dialog-body--pinned': pinned }"
+            v-on="confirmLabel ? { submit: onSubmit } : {}"
           >
-            <div ref="scrolled" class="dialog-scrolled">
-              <slot />
-            </div>
-          </div>
-          <div
-            v-if="shade.top"
-            class="dialog-shade dialog-shade--top"
-            aria-hidden="true"
-            :data-testid="`${testid}-shade-top`"
-          ></div>
-          <div
-            v-if="shade.bottom"
-            class="dialog-shade dialog-shade--bottom"
-            aria-hidden="true"
-            :data-testid="`${testid}-shade-bottom`"
-          ></div>
-        </div>
-        <slot v-else />
-
-        <div v-if="$slots.tray" class="dialog-tray" :data-testid="`${testid}-tray`">
-          <slot name="tray" />
-        </div>
-
-        <p v-if="error" class="dialog-error" :data-testid="`${testid}-error`">{{ error }}</p>
-
-        <footer v-if="confirmLabel" class="dialog-actions">
-          <slot name="actions">
-            <button
-              type="button"
-              class="btn btn--secondary"
-              :data-testid="`${testid}-cancel-button`"
-              @click="emit('close')"
+            <!-- Only the body scrolls, in a box of its own between the pinned parts. -->
+            <ScrollBox
+              v-if="pinned"
+              class="dialog-body-box"
+              :testid="`${testid}-body`"
+              :shade-testid="testid"
             >
-              {{ cancelLabel }}
-            </button>
-            <button
-              type="submit"
-              class="btn"
-              :class="destructive ? 'btn--destructive' : 'btn--primary'"
-              :disabled="confirmDisabled"
-              :data-testid="`${testid}-submit-button`"
-            >
-              {{ confirmLabel }}
-            </button>
-          </slot>
-        </footer>
+              <div class="dialog-scrolled">
+                <slot />
+              </div>
+            </ScrollBox>
+            <slot v-else />
+
+            <template v-if="$slots.tray">
+              <ScrollBox v-if="pinned" class="dialog-tray" :testid="`${testid}-tray`">
+                <div class="dialog-tray-parts">
+                  <slot name="tray" />
+                </div>
+              </ScrollBox>
+              <div v-else class="dialog-tray dialog-tray-parts" :data-testid="`${testid}-tray`">
+                <slot name="tray" />
+              </div>
+            </template>
+
+            <p v-if="error" class="dialog-error" :data-testid="`${testid}-error`">{{ error }}</p>
+
+            <footer v-if="confirmLabel || $slots.actions" class="dialog-actions">
+              <slot name="actions">
+                <button
+                  type="button"
+                  class="btn btn--secondary"
+                  :data-testid="`${testid}-cancel-button`"
+                  @click="emit('close')"
+                >
+                  {{ cancelLabel }}
+                </button>
+                <button
+                  type="submit"
+                  class="btn"
+                  :class="destructive ? 'btn--destructive' : 'btn--primary'"
+                  :disabled="confirmDisabled"
+                  :data-testid="`${testid}-submit-button`"
+                >
+                  {{ confirmLabel }}
+                </button>
+              </slot>
+            </footer>
+          </component>
+        </div>
       </component>
     </div>
   </div>
@@ -343,22 +326,35 @@ onUnmounted(() => observer?.disconnect());
  * Three widths, 26rem, 38rem when `wide` and 60rem when `broad`, never wider than the window less a
  * gutter at each side; never a percentage of the viewport. `width: 25%` gave the create-market
  * dialog 480px on a wide screen and 320px on a laptop, for the same two controls.
+ *
+ * A rounded frame: it never scrolls, so nothing can square its corners. What is taller than it
+ * scrolls in the `ScrollBox` inside it.
  */
 .dialog-window {
   position: relative;
   z-index: 1;
   width: min(100% - 2 * var(--space-4), 26rem);
   max-height: calc(100vh - 2 * var(--space-6));
-  overflow-y: auto;
-  padding: var(--space-6);
+  overflow: hidden;
 
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
 
   background: white;
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
+}
+
+.dialog-whole {
+  flex: 1 1 auto;
+}
+
+.dialog-parts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-6);
 }
 
 .dialog-window--wide {
@@ -399,23 +395,27 @@ onUnmounted(() => observer?.disconnect());
 }
 
 /*
- * `scroll="body"`: the window no longer scrolls, its parts stack edge to edge, and each pinned part
- * brings its own inset, so the scroll bar is the body's, between the title and the actions, and
- * never cuts the window's corners. `dvh`, since a phone's browser bar would otherwise cover the
- * pinned actions of a dialog as tall as the window.
+ * `scroll="body"`: its parts stack edge to edge, and each pinned part brings its own inset. As tall
+ * as its content needs, up to 80% of the window. `dvh`, since a phone's browser bar would otherwise
+ * cover the pinned actions of a dialog as tall as the window.
  */
 .dialog-window--body {
-  max-height: calc(100dvh - 2 * var(--space-6));
-  overflow: hidden;
-  padding: 0;
-  gap: 0;
+  max-height: 80dvh;
 }
 
+/* Its cap measures from where it opened, in a window too short to give it 80% below that. */
 .dialog-container--anchored .dialog-window--body {
-  max-height: calc(100dvh - var(--space-12) - var(--space-6));
+  max-height: min(80dvh, calc(100dvh - var(--space-12) - var(--space-6)));
 }
 
-.dialog-window--body > .dialog-title {
+.dialog-window--body > .dialog-parts {
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0;
+  padding: 0;
+}
+
+.dialog-window--body > .dialog-parts > .dialog-title {
   flex: none;
   padding: var(--space-6) calc(var(--space-6) + var(--space-6)) var(--space-2) var(--space-6);
 }
@@ -430,76 +430,41 @@ onUnmounted(() => observer?.disconnect());
   padding-bottom: var(--space-4);
 }
 
-.dialog-scroll {
-  position: relative;
-  display: flex;
-  flex-direction: column;
+.dialog-body-box {
   flex: 1 1 auto;
-  min-height: 0;
 }
 
-/* Its block padding is room for a control's focus halo at the body's top and bottom edge. Relative,
-   or something absolute inside it, a chip's `.visually-hidden` words, answers to the box around it,
-   neither scrolling nor clipped with the body, and can run past the window's foot. */
-.dialog-scroller {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: var(--space-2) var(--space-6);
-}
-
-/* A body with nothing to focus is a keyboard stop of the browser's own; the window clips any halo
-   drawn outside it. */
-.dialog-scroller:focus-visible {
-  border-radius: var(--radius-control);
-  box-shadow: var(--focus-halo-inset);
-}
-
+/* Its block padding is room for a control's focus halo at the body's top and bottom edge. */
 .dialog-scrolled {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
-}
-
-.dialog-shade {
-  position: absolute;
-  inset-inline: 0;
-  height: var(--edge-shade-depth);
-  pointer-events: none;
-}
-
-.dialog-shade--top {
-  top: 0;
-  background: linear-gradient(to bottom, var(--edge-shade), transparent);
-}
-
-.dialog-shade--bottom {
-  bottom: 0;
-  background: linear-gradient(to top, var(--edge-shade), transparent);
+  padding: var(--space-2) var(--space-6);
 }
 
 /* What the dialog has gathered, set off from the body by a rule. */
 .dialog-tray {
+  min-width: 0;
+  border-top: 1px solid var(--mm-border);
+}
+
+.dialog-tray-parts {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
   padding-top: var(--space-3);
-  border-top: 1px solid var(--mm-border);
 }
 
 /* Pinned, it keeps its height up to its cap, the body giving way, and scrolls inside itself past
-   the cap; relative, or something absolute inside it answers to the window and is not clipped with
-   the tray. */
+   the cap. */
 .dialog-body--pinned > .dialog-tray {
-  position: relative;
   flex: none;
   max-height: 40dvh;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+}
+
+.dialog-body--pinned .dialog-tray-parts {
   padding: var(--space-3) var(--space-6) var(--space-2);
 }
 
@@ -509,25 +474,30 @@ onUnmounted(() => observer?.disconnect());
   padding: var(--space-2) var(--space-6);
 }
 
-/* A phone: a dialog whose body scrolls is as tall as the window less the gutter, so its pinned
-   parts never crowd the body to nothing. */
-@media (width <= 640px) {
+/* A phone, or a window split so short that 80% of it would leave the body nothing: a dialog whose
+   body scrolls is as tall as the window less the gutter, so its pinned parts never crowd it. */
+@media (width <= 640px), (height <= 640px) {
   .dialog-window--body {
     height: calc(100dvh - 2 * var(--space-6));
+    max-height: calc(100dvh - 2 * var(--space-6));
   }
 
   .dialog-container--anchored .dialog-window--body {
     height: calc(100dvh - var(--space-12) - var(--space-6));
+    max-height: calc(100dvh - var(--space-12) - var(--space-6));
   }
 }
 
+/* Over what scrolls beneath it when the window scrolls whole, its own ground keeping a row's words
+   from running through it; a `ScrollBox`'s shade comes later in the same layer and lies over it. */
 .dialog-close {
   min-width: var(--target-min);
   min-height: var(--target-min);
   position: absolute;
+  z-index: 1;
   top: var(--space-2);
   right: var(--space-3);
-  background: none;
+  background: white;
   border: none;
   font-size: var(--text-xl);
   line-height: 1;

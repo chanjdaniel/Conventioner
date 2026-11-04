@@ -46,6 +46,8 @@ const LOCALLY_DEFINED = new Set([
   '--history-field-width',
   // The sign-in code's spacing, read by its letter-spacing and its indent alike (CodeInput).
   '--code-spacing',
+  // A shade's ground, set on the box by its tone and read by each edge's gradient (ScrollBox).
+  '--scroll-box-shade',
 ]);
 
 function sourceFiles(dir: string, extensions: string[]): string[] {

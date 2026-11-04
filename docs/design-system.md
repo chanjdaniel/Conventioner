@@ -320,7 +320,8 @@ One elevation shadow, extracted from the newer screens, where it is already used
 
 **The legacy halo is retired**: `0 0 4px 5px rgba(0,0,0,.25)` and its inset twin. A shadow with no offset has no light source, and a spread larger than its blur is a ring, not a shadow - which is why the older cards read as outlined in grey fog. The inset variant is what makes the setup fields look pressed and skeuomorphic. That rule is elevation's; the focus halo below is a focus indicator, deliberately a flat ring that hugs the control.
 
-**A scrolling body's edge shade** is `--edge-shade` fading to nothing over `--edge-shade-depth` (12px), drawn at a dialog body's top or bottom edge while there is more that way ([dialogs](implementation/conventions/dialogs.md)); its depth is a choice left for Daniel.
+**A scroller's edge shade** is `--edge-shade` fading to nothing over `--edge-shade-depth` (12px, Daniel's choice), drawn by [`ScrollBox`](#the-primitive-layer) at each edge that has more beyond it, so a scroller with no bar still says it scrolls ([dialogs](implementation/conventions/dialogs.md)).
+On the dark ground, where a dark shade is lost, it is `--edge-shade-on-dark`, white at 25%.
 
 ## Colour
 
@@ -460,6 +461,11 @@ A move keeps the focus on the moved row's button, or on its other button once th
 A row takes its container's width, its words wrapping and its buttons never shrinking, so nothing is clipped on the right inside a dialog's scrolling body or tray; its words are the `row` slot's when given.
 No screen mounts it yet: the library's `export-vendors` entry shows it alone and in the export dialog's tray.
 
+A box that scrolls is [`ScrollBox.vue`](../front-end/src/components/ScrollBox.vue) (T217): `axis` (`y`, `x` or `both`), `tone` (`light`, or `dark` on a dark ground), `testid` (`shadeTestid` for the shades' prefix of its own, as a dialog keeps), and `label`, which names the scroller as a region for a table a keyboard scrolls sideways.
+It draws no bar, and a shade at each edge that has more beyond it, only then, and none in print, where nothing clips; a class passed to it lands on its root, which is what a screen sizes and borders, and padding goes in the slot's content, so a shade lies at the box's edge and a control's focus halo has room inside.
+While it overflows with nothing inside it to take focus it carries `tabindex="0"`, since Safari gives a scroller no Tab stop of its own and the bar is gone; otherwise it carries none, since a focusable child already takes the keys.
+It exposes its `scroller` element for the few screens that move it themselves.
+Every dialog scrolls in one ([dialogs](implementation/conventions/dialogs.md)), a long dialog only its body at most 80% of the window's height at a desk, and a short one whole; the library's `components` entry shows each axis and tone.
 A panel that slides in from a side is [`SidePanel.vue`](../front-end/src/components/SidePanel.vue) (T200), a proposal for the vendor drawer and the navigation drawer: `side` (right or left), `width` (narrow, 20rem, or wide, 30rem, each leaving a gutter of scrim), its title and close pinned and only its body scrolling.
 It is modal as a dialog is, through the same composables: Escape and the scrim emit `close`, focus moves in to its body, so the keys scroll the panel and never the page behind, and goes back, and the page is inert.
 A dialog opened from it is mounted beside it, lies over it and takes Escape first.
@@ -514,7 +520,7 @@ The halo hugs what it marks: it takes `--radius-control` on any control that set
 A tab whose underline is a bottom border curls that underline only while it is focused, as the vendor drawer's tabs do.
 What a script focuses and Tab never reaches (`tabindex="-1"`), such as AppDialog's window when no control in it is ready, is not a control and draws nothing, the browser's ring included; a control among them, such as a menu's items, still wears a halo.
 A box that clips what lies past its edge cuts a halo off, so a control that fills such a box wears `--focus-halo-inset`, the same halo drawn inside its edge: every menu's item (`[role='menuitem']`), inside its menu's rounded box (the phase rail's, a Payment line's).
-So does a `scroll="body"` dialog's body when the browser makes it a stop, with `--radius-control`, since the dialog's window clips what lies past its edge.
+So does a [`ScrollBox`](#the-primitive-layer) when it is a stop, with `--radius-control`, since it clips what lies past its own edge and a dialog's window what lies past that.
 Every control carries a `scroll-margin` of `--space-2`, so focus that scrolls it into view leaves its halo room inside the scroller, as a dialog's window would otherwise cut off its last control's.
 A scroller the browser makes focusable, such as the export dialog's preview table, is no control to that rule, so it takes the same `scroll-margin` itself.
 The white gap is what keeps it visible on the green primary button, where a green glow would meet the fill.

@@ -166,9 +166,11 @@
   --shadow-card:
     0 0 0 1px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.07), 0 6px 14px rgba(0, 0, 0, 0.08);
 
-  /* A scrolling body's edge shade (T200): drawn at the top or bottom edge of a dialog's body while
-     there is more that way, fading from this to nothing over its depth. */
+  /* A scroller's edge shade (T200, T217): drawn by `ScrollBox` at each edge with more beyond it,
+     fading from this to nothing over its depth. A dark shade is lost on `--mm-black`, so a scroller
+     on that ground, the market bar's tabs, is shaded in white. */
   --edge-shade: rgba(39, 35, 35, 0.12);
+  --edge-shade-on-dark: rgba(255, 255, 255, 0.25);
   --edge-shade-depth: var(--space-3);
 
   /* A focused control's halo (E38/F01/S01), Daniel's choice C on the 2026-10-29 walk: a white 2px

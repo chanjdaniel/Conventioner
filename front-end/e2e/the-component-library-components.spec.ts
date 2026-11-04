@@ -30,6 +30,7 @@ const COMPONENTS = [
   'CodeInput',
   'BarLedger',
   'FileDropZone',
+  'ScrollBox',
 ];
 
 /**
@@ -129,5 +130,79 @@ eachWindow('the existing components entry', (size) => {
         .getByTestId('library-zone')
         .evaluate((zone) => getComputedStyle(zone).backgroundColor),
     );
+  });
+
+  test('ScrollBox shades only the edges with more beyond them, each way and on each ground', async ({
+    page,
+  }) => {
+    await openEntry(page, 'components');
+    const shade = (box: string, edge: string) => page.getByTestId(`${box}-shade-${edge}`);
+    const scrollTo = (box: string, top: number, left: number) =>
+      page.getByTestId(box).evaluate(
+        (el, to) => {
+          el.scrollTop = to.top;
+          el.scrollLeft = to.left;
+        },
+        { top, left },
+      );
+
+    // Down.
+    await expect(shade('library-scroll-y', 'bottom')).toBeVisible();
+    await expect(shade('library-scroll-y', 'top')).toHaveCount(0);
+    await scrollTo('library-scroll-y', 1_000_000, 0);
+    await expect(shade('library-scroll-y', 'top')).toBeVisible();
+    await expect(shade('library-scroll-y', 'bottom')).toHaveCount(0);
+
+    // Sideways, named as a region, and never down.
+    await expect(page.getByRole('region', { name: 'Applicants', exact: true })).toBeVisible();
+    await expect(shade('library-scroll-x', 'right')).toBeVisible();
+    await expect(shade('library-scroll-x', 'left')).toHaveCount(0);
+    await expect(shade('library-scroll-x', 'bottom')).toHaveCount(0);
+    await scrollTo('library-scroll-x', 0, 1_000_000);
+    await expect(shade('library-scroll-x', 'left')).toBeVisible();
+    await expect(shade('library-scroll-x', 'right')).toHaveCount(0);
+
+    // Both ways, each edge for itself.
+    await expect(shade('library-scroll-both', 'bottom')).toBeVisible();
+    await expect(shade('library-scroll-both', 'right')).toBeVisible();
+    await scrollTo('library-scroll-both', 1_000_000, 1_000_000);
+    await expect(shade('library-scroll-both', 'top')).toBeVisible();
+    await expect(shade('library-scroll-both', 'left')).toBeVisible();
+    await expect(shade('library-scroll-both', 'bottom')).toHaveCount(0);
+    await expect(shade('library-scroll-both', 'right')).toHaveCount(0);
+
+    // The dark ground's shade is its own, a light one: a dark shade is lost there.
+    const ground = (box: string) =>
+      shade(box, 'right').evaluate((el) => getComputedStyle(el).backgroundImage);
+    expect(await ground('library-scroll-dark')).toContain('rgba(255, 255, 255');
+    await scrollTo('library-scroll-x', 0, 0);
+    await expect(shade('library-scroll-x', 'right')).toBeVisible();
+    expect(await ground('library-scroll-x')).toContain('rgba(39, 35, 35');
+
+    // A Tab stop stands in for the bar, unless a control inside takes the keys.
+    await expect(page.getByTestId('library-scroll-y')).toHaveAttribute('tabindex', '0');
+    await expect(page.getByTestId('library-scroll-controls')).not.toHaveAttribute('tabindex', /.*/);
+    const stop = page.getByTestId('library-scroll-y');
+    await stop.evaluate((el) => (el.scrollTop = 0));
+    await stop.focus();
+    await page.keyboard.press('ArrowDown');
+    await expect.poll(() => stop.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+
+    // A list that has shrunk: no shade, and no stop.
+    const shrinking = page.getByTestId('library-scroll-shrinking');
+    await expect(shade('library-scroll-shrinking', 'bottom')).toBeVisible();
+    await inTheWindow(size).press(page.getByRole('button', { name: 'Shrink it to two' }));
+    await expect(shade('library-scroll-shrinking', 'bottom')).toHaveCount(0);
+    await expect(shrinking).not.toHaveAttribute('tabindex', /.*/);
+  });
+
+  test('ScrollBox draws no shade and clips nothing in print', async ({ page }) => {
+    await openEntry(page, 'components');
+    await expect(page.getByTestId('library-scroll-y-shade-bottom')).toBeVisible();
+
+    await page.emulateMedia({ media: 'print' });
+
+    await expect(page.getByTestId('library-scroll-y-shade-bottom')).toBeHidden();
+    await expect(page.getByTestId('library-scroll-y')).toHaveCSS('overflow-y', 'visible');
   });
 });

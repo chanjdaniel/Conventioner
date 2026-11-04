@@ -580,11 +580,11 @@ function download(): void {
   text-overflow: ellipsis;
 }
 
-/* Stays at the tray's foot while a long order scrolls it, and covers the tray's bottom padding, which
-   a sticky box stops short of, so no row shows under it. */
+/* Stays at the tray's foot while a long order scrolls it, and at its end covers the tray's bottom
+   padding, so no row shows under it. */
 .export-cart__bar {
   position: sticky;
-  bottom: calc(-1 * var(--space-2));
+  bottom: 0;
   margin-bottom: calc(-1 * var(--space-2));
   padding-bottom: var(--space-2);
   display: flex;
