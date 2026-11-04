@@ -11,6 +11,7 @@ verified: 2026-11-03
 sources:
   - T206
   - T191
+  - T205
 ---
 
 # Review waits on the review setup
@@ -19,7 +20,7 @@ A draft does not enter Review until its organizer has taken Review setup's two d
 - what a reviewer reads first: marked at least one answer that leads the card, or chosen "Nothing leads the card";
 - the automatic rejections: added a rule that rejects at least one answer, or chosen "No automatic rejections".
 
-Until both are taken the move out of draft is refused, "Decide what reviewers read first" and "Decide the automatic rejections" lead to Review setup, and a Google Form market's first import is refused too, saying the first open decision once nothing earlier in the move's order refuses it.
+Until both are taken the move out of draft is refused, "Decide what reviewers read first" and "Decide the automatic rejections" lead to Review setup, and a Google Form market's first import is refused too, its list naming each open decision beside whatever else the move still waits on.
 Once both are taken, "Open applications" names them before the move, so the organizer confirms the review they open: the answers that lead the card or "Nothing leads the card", and how many rules reject an answer or "None", with a "Change" back to Review setup.
 
 **Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md) and [The market's phase says what to do next](../intents/the-markets-phase-says-what-to-do-next.md).

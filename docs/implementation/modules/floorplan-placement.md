@@ -14,6 +14,7 @@ describes:
   - back-end/api/floorplans_access.py
   - back-end/api/floorplans_templates.py
   - back-end/services/gridfs_service.py
+  - back-end/utils/pdf_converter.py
   - front-end/src/components/floorplan/FloorplanUploader.vue
   - front-end/src/components/floorplan/FloorplanWorkflow.vue
   - front-end/src/utils/canvasColor.ts
@@ -24,6 +25,7 @@ sources:
   - bug/38
   - E26/F09/S01
   - E31/F01/S02
+  - T205
 ---
 
 # Floorplan placement
@@ -74,6 +76,11 @@ The settled-setup refusal stays on save alone, since only save writes the sectio
 `POST /floorplans/upload` ([`back-end/api/floorplans.py`](../../../back-end/api/floorplans.py)) takes a `market_id` form field beside the file, needs an editor of that market on a market that is not archived, and checks it before it reads the file.
 [`upload_image()`](../../../back-end/services/gridfs_service.py) keeps the market's id in the GridFS file's metadata (`metadata.marketId`), on every page of a PDF too, and `get_image_market_id()` reads it back: None for an unknown image, an id that is not an ObjectId, or an image stored without a market, so `image_refusal()` answers all three "Image not found", and no route but the public read treats an unowned image as anyone's.
 The wizard's [`FloorplanUploader.vue`](../../../front-end/src/components/floorplan/FloorplanUploader.vue) sends the market it is in.
+It takes the file on the app's one drop zone, [`FileDropZone.vue`](../../../front-end/src/components/FileDropZone.vue) ([the design language](../../design-system.md#the-primitive-layer)), offering PNG, JPG, WebP and PDF, and checks the type itself, refusing any other with "Unsupported file type. Please use PNG, JPG, WebP, or PDF." before it sends anything (T205).
+The zone stays, busy, while the file uploads, and gives way to the preview (and, for a PDF of more than one page, its page picker) once the server has it; an upload that fails leaves the zone and the error, so another file can be chosen.
+An image previews as the file chosen; a PDF previews as the page the server drew from it, fetched from `GET /floorplans/<id>` and following the page chosen, since a browser draws no PDF in an image.
+When that first page cannot be fetched, the zone comes back with "The floorplan was uploaded, but its page could not be shown. Choose the file again.", and any upload that does not end on a shown PDF page forgets the earlier PDF's pages, so no picker offers them under an image.
+The server draws each page at 200 dpi with pypdfium2 ([`pdf_converter.py`](../../../back-end/utils/pdf_converter.py)), whose `manylinux_2_17` wheel carries PDFium, so it needs no system package on Vercel, Docker or CI (T205).
 Images uploaded before images named a market have no `marketId`; the wizard never reopens a saved floorplan's image, so they are read only by the public `GET /floorplans/<id>`, and no migration gives them one.
 
 **A template is its creator's, and one filed under an organization is filed by someone in it.**

@@ -37,7 +37,7 @@ export class FloorplanWorkflowPage {
 
   // Step 0: Upload
   readonly uploadDropzone: Locator;
-  readonly uploadBrowseBtn: Locator;
+  readonly uploadFileInput: Locator;
   readonly uploadProgress: Locator;
   readonly uploadError: Locator;
 
@@ -109,7 +109,7 @@ export class FloorplanWorkflowPage {
 
     // Step 0: Upload
     this.uploadDropzone = page.getByTestId('floorplan-upload-dropzone');
-    this.uploadBrowseBtn = page.getByTestId('floorplan-upload-browse-btn');
+    this.uploadFileInput = page.getByTestId('floorplan-upload-file-input');
     this.uploadProgress = page.getByTestId('floorplan-upload-progress');
     this.uploadError = page.getByTestId('floorplan-upload-error');
 
@@ -219,12 +219,9 @@ export class FloorplanWorkflowPage {
 
   // ─── Step 0: Upload ─────────────────────────────────────────────
 
-  /** Upload a floorplan image file via the file input. */
+  /** Upload a floorplan image file through the drop zone's file input. */
   async uploadFloorplanImage(filePath: string): Promise<void> {
-    const fileChooserPromise = this.page.waitForEvent('filechooser');
-    await this.uploadBrowseBtn.click();
-    const fileChooser = await fileChooserPromise;
-    await fileChooser.setFiles(filePath);
+    await this.uploadFileInput.setInputFiles(filePath);
   }
 
   /** Wait for upload to complete (Next button enabled). */
