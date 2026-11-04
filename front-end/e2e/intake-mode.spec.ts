@@ -64,6 +64,19 @@ test.describe('Intake mode - a CSV market has no public applicant surface', () =
     });
   }
 
+  // "Page not found" offers an organizer who is signed in another way onward. It decides on the
+  // person and never on the address, so the market's own owner reads the two alike too.
+  for (const suffix of ['', '/apply', '/applicant-login', '/applicant/dashboard']) {
+    test(`an organizer signed in at /<slug>${suffix} is shown what an unknown market shows`, async ({
+      authenticatedPage: page,
+    }) => {
+      const gated = await renderedFor(page, csvMarket.marketSlug, suffix);
+      const absent = await renderedFor(page, UNKNOWN_SLUG, suffix);
+
+      expect(gated).toBe(absent);
+    });
+  }
+
   test('its vendor page says the page does not exist, rather than naming it or taking an address', async ({
     page,
   }) => {

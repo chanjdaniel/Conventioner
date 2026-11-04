@@ -282,8 +282,9 @@ async function anotherOrganizer(browser: Browser, viewport: { width: number; hei
   const context = await browser.newContext({ viewport });
   await hideDevToolsPanel(context);
   const page = await context.newPage();
-  await new LoginPage(page).login(ADMIN, PASSWORD);
-  await page.waitForURL('**/dashboard');
+  const login = new LoginPage(page);
+  await login.login(ADMIN, PASSWORD);
+  await login.waitForMarkets();
   return { page, close: () => context.close() };
 }
 

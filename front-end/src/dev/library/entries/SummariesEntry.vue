@@ -1,76 +1,48 @@
 <script setup lang="ts">
 /**
- * The summaries (T200): what stands in for a list that today unfolds above the work. L4's reviewers
- * as one line beside the real panel that lists them all, whose "and 9 more" opens Change reviewers,
- * with the chooser and the chosen in a frame; and L3's "Show N reviewed" as a dialog holding the
- * frame over every reviewed application. Both dialogs scroll their body and need nothing else for
- * the frame. Neither frame keeps its words in the address, since they would outlive the dialog.
+ * The summaries (T200): what stands in for a list that unfolds above the work. L4's reviewers, one
+ * line whose "and 9 more" opens the rest, are on their screen, so the real panel is drawn here; and
+ * L3's "Show N reviewed" as a dialog holding the frame over every reviewed application, whose body
+ * scrolls and needs nothing else for the frame. The frame keeps no words in the address, since they
+ * would outlive the dialog.
  */
-import { computed, nextTick, ref } from 'vue';
+import { ref } from 'vue';
 import { MarketPhase, type Market } from '@/assets/types/datatypes';
 import AppDialog from '@/components/AppDialog.vue';
 import ListFrame from '@/components/ListFrame.vue';
 import NameList from '@/components/NameList.vue';
-import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
 import ReviewersPanel from '@/components/market/ReviewersPanel.vue';
-import { NONE_CHOSEN, RESHUFFLE } from '@/utils/reviewTeam';
 import { reviewed } from '@/utils/reviewQueue';
 import { statusChip, statusLabel } from '@/utils/verdicts';
 import ChoicesForYou from '../parts/ChoicesForYou.vue';
 import LibraryPanel from '../parts/LibraryPanel.vue';
 import LibrarySection from '../parts/LibrarySection.vue';
 import ReadOut from '../parts/ReadOut.vue';
-import TodayAndProposed from '../parts/TodayAndProposed.vue';
 import { fixture } from '../fixture';
 
 const { applications, people, reviewers } = fixture;
 
 const REVIEWER = { one: 'reviewer', many: 'reviewers' };
 const APPLICATION = { one: 'application', many: 'applications' };
-/** How many the line names; past it the line has a button. */
-const NAMED = 3;
-/** What the chooser draws of what the words find, as the combobox entry's C5 does. */
-const CAP = 50;
 
 const holds = (text: string, words: string) => text.toLowerCase().includes(words.toLowerCase());
-const findsByLabel = (option: PickerOption, words: string) => holds(option.label, words);
 
-/** An account holds an address and no name, so a reviewer is their address, as today's panel has. */
+/** An account holds an address and no name, so a reviewer is their address, as the panel has. */
 const firstReviewers = reviewers.map((id) => people.find((person) => person.id === id)!.email);
-const accountGroups: PickerGroup[] = [
-  { options: people.map(({ email }) => ({ value: email, label: email, address: true })) },
-];
 
-const l4About = `Every reviewer is listed above the work today, and that can be everyone with access. Today's panel is drawn here for someone who may not change them; someone who may has "Change reviewers" as well. The line names ${NAMED} and opens the rest.`;
+const l4About =
+  'On its screen, so this is the real panel, for someone who may not change the reviewers. It names 3, those who can no longer review here first, and "and 9 more" opens all of them. Someone who may has "Change reviewers" as well, and their "and 9 more" opens that dialog, whose chips are the list.';
 
-/** Today's real panel, read by someone who may not change them, so it only lists. */
-const todayMarket = {
-  phase: MarketPhase.Applications,
-  reviewTeam: { reviewers: firstReviewers.map((email) => ({ email, able: true })) },
-} as Market;
-
-const chosen = ref([...firstReviewers]);
-/** What the dialog holds until Save, as today's does. */
-const held = ref<string[]>([]);
-const changing = ref(false);
-const action = computed(() => (chosen.value.length ? 'Change reviewers' : 'Choose reviewers'));
-const changeButton = ref<HTMLButtonElement>();
-
-function startChanging(): void {
-  held.value = [...chosen.value];
-  changing.value = true;
-}
-
-async function save(): Promise<void> {
-  chosen.value = [...held.value];
-  changing.value = false;
-  await nextTick();
-  // "and N more" may have opened this and gone with the save, and the page is live again by now.
-  if (chosen.value.length <= NAMED) changeButton.value?.focus();
-}
-
-const findsReviewer = (address: string, words: string) => holds(address, words);
-const addressKey = (address: string) => address;
+/** The real panel on the first `count` reviewers, those at the `unable` places marked. */
+const teamOf = (count: number, unable: readonly number[] = []) =>
+  ({
+    phase: MarketPhase.Applications,
+    reviewTeam: {
+      reviewers: firstReviewers
+        .slice(0, count)
+        .map((email, place) => ({ email, able: !unable.includes(place) })),
+    },
+  }) as Market;
 
 /** L3: today's own list, in the order they arrived, since the fixture keeps no verdict's time. */
 const reviewedApplications = reviewed(applications);
@@ -86,81 +58,21 @@ const presses = ref(0);
 
 <template>
   <LibrarySection title="L4: The reviewers, on the Applications tab" :about="l4About">
-    <TodayAndProposed
-      today="Today: every reviewer listed"
-      proposed="Proposed: one line, the rest in the dialog"
-    >
-      <template #today>
-        <ReviewersPanel :market="todayMarket" />
-      </template>
-      <template #proposed>
-        <div class="library-demo">
-          <div class="library-reviewers-head">
-            <h2 class="field-label library-reviewers-title">Reviewers</h2>
-            <button
-              ref="changeButton"
-              type="button"
-              class="btn btn--secondary btn--compact"
-              data-testid="library-l4-change"
-              @click="startChanging"
-            >
-              {{ action }}
-            </button>
-          </div>
-          <NameList
-            v-if="chosen.length"
-            :names="chosen"
-            :noun="REVIEWER"
-            :named="NAMED"
-            testid="library-l4-line"
-            @more="startChanging"
-          />
-          <p v-else class="library-quiet" data-testid="library-l4-none">{{ NONE_CHOSEN }}</p>
-          <ReadOut label="Saved" :value="`${chosen.length} chosen`" />
-        </div>
-      </template>
-    </TodayAndProposed>
-
-    <AppDialog
-      :open="changing"
-      :title="action"
-      testid="library-l4-dialog"
-      size="wide"
-      scroll="body"
-      anchored
-      confirm-label="Save reviewers"
-      @close="changing = false"
-      @submit="save"
-    >
-      <div class="library-demo">
-        <p class="library-reshuffle">{{ RESHUFFLE }}</p>
-        <SearchPicker
-          v-model="held"
-          multiple
-          :groups="accountGroups"
-          :finds="findsByLabel"
-          :cap="CAP"
-          label="Reviewers"
-          placeholder="Type an address…"
-          testid="library-l4-picker"
-        />
-        <ListFrame
-          :items="held"
-          :finds="findsReviewer"
-          :itemKey="addressKey"
-          :noun="REVIEWER"
-          findLabel="Find a chosen reviewer"
-          testid="library-l4-chosen"
-        >
-          <template #row="{ item }">
-            <span class="library-reviewer" data-testid="library-l4-reviewer">{{ item }}</span>
-          </template>
-          <template #empty>
-            <p>{{ NONE_CHOSEN }}</p>
-          </template>
-        </ListFrame>
-      </div>
-    </AppDialog>
+    <LibraryPanel label="Twelve reviewers">
+      <ReviewersPanel :market="teamOf(12)" />
+    </LibraryPanel>
+    <LibraryPanel label="One can no longer review: named first">
+      <ReviewersPanel :market="teamOf(12, [6])" />
+    </LibraryPanel>
+    <LibraryPanel label="Five can no longer review: two folded">
+      <ReviewersPanel :market="teamOf(12, [1, 3, 5, 7, 9])" />
+    </LibraryPanel>
+    <LibraryPanel label="Three: all said, no button">
+      <ReviewersPanel :market="teamOf(3)" />
+    </LibraryPanel>
+    <LibraryPanel label="None chosen">
+      <ReviewersPanel :market="teamOf(0)" />
+    </LibraryPanel>
   </LibrarySection>
 
   <LibrarySection
@@ -254,30 +166,6 @@ const presses = ref(0);
 
   <ChoicesForYou>
     <li>
-      <strong>Names named before "and N more":</strong> 3, or another number. L4's are addresses,
-      since an account holds no name, so on a phone three of them take several lines.
-    </li>
-    <li>
-      <strong>Chips and the frame together:</strong> the dialog shows who is chosen twice, as the
-      chooser's chips and as the frame. Keep both, or only one? The chips remove a person; the frame
-      finds one once there are more than 12.
-    </li>
-    <li>
-      <strong>The frame's find field in Change reviewers:</strong> it comes when the 13th person is
-      added, which moves the rows down, by the frame's threshold of 12. Keep that, or always show it
-      here?
-    </li>
-    <li>
-      <strong>A reviewer who can no longer review:</strong> today's panel marks them, and "(you)",
-      on their row. The line says only addresses, so one could sit unseen inside "and 9 more", and
-      the frame's rows here do not mark them either. Should the line say how many cannot, and the
-      frame mark them?
-    </li>
-    <li>
-      <strong>The words in a dialog:</strong> both dialogs forget them on closing and keep nothing
-      in the address. The same for every dialog, or should a reviewed list's words come back?
-    </li>
-    <li>
       <strong
         >Bars before the fold, unfolding them in place or in a dialog, and rows before a group
         folds:</strong
@@ -305,39 +193,11 @@ const presses = ref(0);
   max-width: 100%;
 }
 
-.library-reviewers-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-}
-
-.library-reviewers-title {
-  margin: 0;
-}
-
-.library-quiet,
-.library-reshuffle {
+.library-quiet {
   margin: 0;
   font-size: var(--text-sm);
   line-height: 1.4;
-}
-
-.library-quiet {
   color: var(--mm-text-muted);
-}
-
-.library-reshuffle {
-  color: var(--mm-black);
-}
-
-.library-reviewer {
-  display: block;
-  padding: var(--space-1) 0;
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-  border-bottom: 1px solid var(--mm-border);
-  overflow-wrap: anywhere;
 }
 
 /* Today's toggle, as `ApplicationMonitor.vue` draws it, opening a dialog here. */

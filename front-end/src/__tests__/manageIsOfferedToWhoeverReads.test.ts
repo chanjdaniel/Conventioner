@@ -20,7 +20,7 @@ function card(actionRefusals: Record<string, string | null> | undefined) {
     setupObject: { marketDates: [] },
     actionRefusals,
   } as unknown as Market;
-  return mount(MarketSummaryCard, { props: { market, showManage: true } });
+  return mount(MarketSummaryCard, { props: { market } });
 }
 
 const manage = (wrapper: ReturnType<typeof card>) =>

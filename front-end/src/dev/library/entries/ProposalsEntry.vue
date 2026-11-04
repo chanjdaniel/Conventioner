@@ -338,7 +338,7 @@ const panelReadOut = computed(
 
   <LibrarySection
     title="Side panel"
-    about="A shell for the vendor drawer and the navigation drawer, each of which draws its own scrim and holds the page itself. Modal as a dialog is: Escape, the scrim, focus in and back, the page inert."
+    about="A shell for the vendor drawer, which draws its own scrim and holds the page itself. Modal as a dialog is: Escape, the scrim, focus in and back, the page inert."
   >
     <LibraryPanel class="library-wide" label="One application's details">
       <div class="library-demo" data-testid="library-panel-demo">
@@ -446,18 +446,13 @@ const panelReadOut = computed(
       across, as the export's preview is; wrapping otherwise. Which is the default?
     </li>
     <li>
-      <strong>The side panel's width:</strong> narrow is 20rem, near the navigation drawer's 250 to
-      300px; wide is 30rem, the vendor drawer's 480px. Each leaves at least 32px of scrim beside it,
-      on a phone too.
+      <strong>The side panel's width:</strong> narrow is 20rem; wide is 30rem, the vendor drawer's
+      480px. Each leaves at least 32px of scrim beside it, on a phone too.
     </li>
     <li>
       <strong>The side panel's head:</strong> white, with the dialog's title and close, here. The
       vendor drawer's is dark, with an eyebrow and the address under the name: keep that, for every
       panel or as a slot?
-    </li>
-    <li>
-      <strong>The navigation drawer:</strong> it is links rather than a task, so should it move onto
-      this shell at all, given that only two places would use it?
     </li>
   </ChoicesForYou>
 </template>

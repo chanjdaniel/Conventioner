@@ -12,6 +12,7 @@ describes:
   - front-end/src/components/VendorPaymentTab.vue
   - front-end/src/components/RecordPaymentDialog.vue
   - front-end/src/components/ChangeOwedDialog.vue
+  - front-end/src/utils/useAmountField.ts
   - front-end/src/components/RowMenu.vue
   - back-end/app.py#record_refund
   - back-end/app.py#set_amount_owed
@@ -19,8 +20,7 @@ describes:
   - back-end/app.py#edit_payment
   - back-end/app.py#remove_payment
   - back-end/app.py#get_market_payments
-  - front-end/src/utils/useAmountField.ts
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - T92
   - E44/F01/S01

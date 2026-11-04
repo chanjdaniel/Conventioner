@@ -27,8 +27,6 @@ describes:
   - front-end/src/components/icons/
   - front-end/src/__tests__/everyIconIsUsed.test.ts
   - front-end/src/components/FileDropZone.vue
-  - front-end/src/components/ChoiceField.vue
-  - front-end/src/components/application/LongQuestion.vue
   - front-end/src/components/FilterToggles.vue
   - front-end/src/components/ListFrame.vue
   - front-end/src/components/CodeInput.vue
@@ -39,6 +37,8 @@ describes:
   - front-end/src/components/SidePanel.vue
   - front-end/src/components/BarLedger.vue
   - front-end/src/utils/useFold.ts
+  - front-end/src/components/ChoiceField.vue
+  - front-end/src/components/application/LongQuestion.vue
 verified: 2026-11-05
 sources:
   - wayfinding/claims-and-room/map
@@ -90,6 +90,7 @@ sources:
   - T202
   - T213
   - T223
+  - T209
 ---
 
 # Conventioner's design language
@@ -206,9 +207,8 @@ The [account pages](business/flows/accounts.md) are the way to it, so they work 
 `the-sign-in-fits-a-small-phone.spec.ts` holds the sign-in's tabs and fields inside their column and their boxes at 320px, at 390px and at a desk (T211).
 Some organizer places lift the desktop floor too, by `meta.fitsAPhone`, each with the dialogs, menus and drawers that open over it; listed in the router's order, one place a line:
 
-- the dashboard, where sign-in lands on the way to the door (T148);
-- `/markets`, the way to the market an organizer runs from the door (T142);
-- Organizations, the dashboard's other place (T148);
+- `/markets`, where sign-in lands on the way to the door, and the way to the market an organizer runs from it (T142, T148);
+- Organizations, the app bar's other place (T148);
 - the Applications page, the one page of Market Setup's view that fits, with the vendor drawer and Update info over it, where a late application is decided from a phone ([the review](business/flows/review.md)) (T180);
 - the Assignments page, where the vendor drawer's "Change assignment" at the door leads ([placements](implementation/modules/placements.md)) (T142);
 - Vendors, with the [vendor drawer](business/flows/vendor-drawer.md), Update info and the payment dialogs, where a vendor is looked up, paid and corrected from the door ([vendors](business/flows/vendors.md)) (T180);
@@ -225,11 +225,11 @@ The setup screens keep the floor, since they are built at a desk before the mark
 - Settings, the assignment rules;
 - the import;
 - start-from-CSV;
-- the floorplan beta;
-- the market chooser at `/init`.
+- the floorplan beta.
 
 `/markets` on a phone narrows its gutter to 16px, as the door does, and its finder's fields and phase toggles wrap; a market's card stacks its facts and Manage under its name, which keeps one line and its ellipsis.
-A summary card stacks so whenever it is narrower than its name, its facts and its Manage need side by side (45rem with Manage, 37.5rem without), so a card at 768px stacks too rather than pushing Manage past its edge (T148).
+Its "Previously opened" line stays one 44px row at every width, the words, the name cut with an ellipsis and a chevron, and drops its phase badge at 640px and below so the name keeps the room; the note that a remembered market has gone and the first-time message are a `.note`, wrapping to the column.
+A summary card stacks so whenever it is narrower than its name, its facts and its Manage need side by side (45rem), so a card at 768px stacks too rather than pushing Manage past its edge (T148).
 The Assignments page on a phone narrows its gutter to 16px too: its summary's figures stack, one to a 44px row, and its actions wrap under them; the filters stand in the page's flow rather than pinned, each filling its row and two sharing one where both fit; a half table's two seats stand one under the other, each seat's Change a 44px target; and a dialog's buttons wrap rather than run past its window.
 Vendors on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters, Export and Add a vendor wrapping beneath it, and a vendor's row stacks the name over its chips, which wrap where the Discord state, the badge, "Added" and the date count are wider together than the row.
 Its Discord row stacks as [the Vendors flow](business/flows/vendors.md) lays it out: the filter, then its actions, each from the line's start.
@@ -237,7 +237,6 @@ The Applications page on a phone narrows its gutter to 16px too: the All view's 
 One by one's card is the page's width, its verdict buttons wrapping inside it; "Include the N follow-ups", the reviewed list's toggle and "Choose what leads the card" are 44px targets, and a reviewer's label in the reviewers picker is a 44px row.
 Payments on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters wrapping beneath it, the market's four figures stand two to a row, and each table lays its rows out as blocks, its row heading (the tier, the date or the vendor) on a line of its own and each value on a line beside its column's heading, since neither table's columns share 343px; the vendors' headings stay above as a row of sort buttons, each a 44px target.
 Stats on a phone narrows its gutter to 16px too: its headlines stand one to a line, each a 44px row and each link a 44px target, the money set apart from the placements by a rule above it rather than beside it; the answer groups' switch's buttons are never narrower than the target's minimum, at every width, so 44px wide at least on a phone, and the cards stand one to a row, narrower than their 18rem where the window is, as on a 320px phone.
-The dashboard is one column, 716px wide at most and the window's width less a 16px gutter at each side where that is narrower: the remembered market's card, or the sentence and its step, fills it, Markets and Organizations share the row beneath in two equal tiles, and Sign out is under them.
 [Organizations](business/flows/organizations.md) on a phone narrows its gutter to 16px, as `/markets` does, and "New organization" keeps one line, wrapping under the title only when the two cannot share the row; in Manage organization each person's address takes a line of its own with the role and Remove beneath it, and an add row's email field takes the row with Add and Cancel beneath it.
 
 | Token | Value | Screens |
@@ -273,9 +272,9 @@ On the plan, Market Dates, Section Setup and Pricing are wide (Section Setup's c
 Two other rules were prototyped and rejected: two columns by purpose truncated the tier select at 1280, and packing cards by content width changed the screen's shape with the window.
 
 **A market screen's frame stays put** (E21/F04, from the-market-frame ticket 01).
-`MarketFrame` pins the screen's bar and the whole phase rail directly under the app banner, at `top: var(--banner-h)`, while the page scrolls; whatever the rail grows is pinned with it.
+`MarketFrame` pins the screen's bar and the whole phase rail directly under [the app bar](implementation/modules/app-bar.md), at `top: var(--banner-h)`, while the page scrolls; whatever the rail grows is pinned with it.
 On a phone (640px and below) it pins the bar alone, and the rail scrolls away with the page, since the whole block took half a phone's window ([the market frame](implementation/modules/market-frame.md#sharp-edges), T142).
-`--banner-h` (`clamp(30px, 5vh, 100px)`) is the banner's height as a token, so nothing measures the banner at run time; it is the clamp the banner already came to rather than one pixel height, which would have changed the banner's size at every other window height.
+`--banner-h` (`44px`, at every window size) is the app bar's height as a token, so nothing measures the bar at run time.
 What the frame pins is the one thing that is measured: on a desk it grows with whatever the rail shows, so no token could state it.
 `MarketFrame` measures it, the bar alone on a phone, and publishes `--market-frame-h` on its card (declared as `0px` in `base.css`, which is what it is outside a frame), and a screen's own sticky column - the proposal ledger's rail - sits at `top: calc(var(--banner-h) + var(--market-frame-h))`.
 A frame screen never scrolls inside its card: a sticky element inside an `overflow` ancestor stops sticking.
@@ -382,7 +381,7 @@ The brand has one folder, [`front-end/src/assets/brand/`](../front-end/src/asset
 
 | File | What it is for |
 | --- | --- |
-| `conventioner-logo.svg` | The full logo, mark and wordmark; the banner draws it. |
+| `conventioner-logo.svg` | The full logo, mark and wordmark; [the app bar](implementation/modules/app-bar.md) draws it. |
 | `conventioner-mark.svg` | The mark alone, in its colour, for wherever the logo does not fit. |
 | `conventioner-mark-currentcolor.svg` | The mark in `currentColor`, for a dark ground or a coloured control. |
 | `conventioner-wordmark.svg` | The wordmark alone. |
@@ -485,7 +484,8 @@ Enter in its field does nothing, so in a dialog's form it never saves what the p
 
 People named above the work rather than listed are [`NameList.vue`](../front-end/src/components/NameList.vue) (T200): one paragraph, so it reads as a sentence, "12 reviewers: Ana, Ben, Cai and 9 more", naming `named` (3), and its text button, "and 9 more", which a `.visually-hidden` noun names on its own, emits `more` for the screen to open the whole list.
 With `named` or fewer names it says them all and draws no button, so a screen keeps its own way to that list.
-No screen mounts it yet: the library's `summaries` entry shows it on the reviewers.
+Its `name` slot draws a name the screen's way and its `end` slot ends the sentence after the button.
+The Reviewers panel on the Applications tab is its screen ([`ReviewersPanel.vue`](../front-end/src/components/market/ReviewersPanel.vue)), which the library's `summaries` entry also draws.
 
 A long list a screen keeps grouped folds by group, in [`RowGroup.vue`](../front-end/src/components/RowGroup.vue) (T200): a heading, the first `fold` (20) rows of `items`, and "Show all 31 in North Wing", which unfolds the rest in place and becomes "Show fewer"; at `fold` rows or fewer it draws no button.
 [`BarLedger.vue`](../front-end/src/components/BarLedger.vue) folds the same way with `fold`: the rows by count, the first `fold`, then "N more answers"; without it the rows are drawn in the order they came, all of them.
@@ -498,7 +498,7 @@ A move keeps the focus on the moved row's button, or on its other button once th
 A row takes its container's width, its words wrapping and its buttons never shrinking, so nothing is clipped on the right inside a dialog's scrolling body or tray; its words are the `row` slot's when given.
 No screen mounts it yet: the library's `export-vendors` entry shows it alone and in the export dialog's tray.
 
-A panel that slides in from a side is [`SidePanel.vue`](../front-end/src/components/SidePanel.vue) (T200), a proposal for the vendor drawer and the navigation drawer: `side` (right or left), `width` (narrow, 20rem, or wide, 30rem, each leaving a gutter of scrim), its title and close pinned and only its body scrolling.
+A panel that slides in from a side is [`SidePanel.vue`](../front-end/src/components/SidePanel.vue) (T200), a proposal for the vendor drawer: `side` (right or left), `width` (narrow, 20rem, or wide, 30rem, each leaving a gutter of scrim), its title and close pinned and only its body scrolling.
 It is modal as a dialog is, through the same composables: Escape and the scrim emit `close`, focus moves in to its body, so the keys scroll the panel and never the page behind, and goes back, and the page is inert.
 A dialog opened from it is mounted beside it, lies over it and takes Escape first.
 No screen mounts it yet: the library's `proposals` entry shows it on a fixture application, with `.chip--small` and `.data-table`.
@@ -519,7 +519,7 @@ The import and the start from a Google Form take their CSV on it, and the floorp
 
 **A button or a menu item names its action in sentence case**, as a chip names its status (T181): the phase rail's moves ("Open applications", "Begin assignment", "Publish market"), its More… menu ("Reopen for editing", "Archive market"), "Publish results", and the titles and buttons of the confirmations they open.
 A proper name keeps its capitals: "Connect Discord", "Back to Market Setup", where Market Setup is the tab's name.
-A few older buttons still read in Title Case, to be changed rather than copied: the form builder's "Add Field", the start screen's "Set Up New Market" and the floorplan beta's buttons.
+A few older buttons still read in Title Case, to be changed rather than copied: the form builder's "Add Field" and the floorplan beta's buttons.
 
 **A row's destructive action is quiet; the confirmation's is filled** (E38/F15/S01).
 `.btn--secondary.btn--destructive` is the destructive intent at the secondary weight: red ink (`--mm-red`, 5.44:1 on white) on the secondary button's white and border, at 400, not a fourth intent.
@@ -528,7 +528,7 @@ It keeps the `btn--destructive` class, so [a dialog](implementation/conventions/
 
 **On a phone every target is 44px**, the size a thumb wants (T82).
 The heights are tokens in `base.css`: `--control-height` (36px) for `.btn`, `.field` and `.add-row`, `--control-height-compact` (28px) for `.btn--compact`, and `--target-min` (24px, WCAG 2.5.8's floor), the least any other target may be: a tab, a link on its own line, a Show toggle, a Copy button, a choice's label.
-At `width <= 640px`, the market frame's phone break, all three are 44px and the banner is at least that tall, so a control that takes its height from a token is a thumb's size there with nothing of its own; a bespoke control takes `min-height: var(--target-min)` (and `min-width` where it is narrow) rather than a phone rule of its own.
+At `width <= 640px`, the market frame's phone break, all three are 44px, the app bar's own height, so a control that takes its height from a token is a thumb's size there with nothing of its own; a bespoke control takes `min-height: var(--target-min)` (and `min-width` where it is narrow) rather than a phone rule of its own.
 Three exceptions take their minimum in a phone rule, since on a desk a 24px box would move the rows: `.answer-link--alone`, an answer that is only a link, its height, since on a desk the same link sits in a review card's line; the All view's row tick (`.all-tick`), its width, since on a desk a 24px square would push every row 11px right; and One by one's "Choose what leads the card" (`.choose-highlights-toggle`), its height, since on a desk it would push the card's verdicts 9px down.
 A desk keeps its denser 36px and 28px.
 
@@ -590,7 +590,7 @@ A convention nothing enforces is how the product got here. Six checks, the first
    It fails on the kinds that raised nothing false over the whole app: the page or an element past the window, a child outside its parent, text clipped by its box, text or controls drawn over each other in one layer, text squeezed into a column (three or more lines of ten characters or fewer), type off the type scale, and a tap target under 44px on a phone, a control's visible label counting toward its target and a link inside a run of text exempt, unless it is drawn as a block of its own (T142).
    Each failure names the state, the size, the element and the measurement.
    It also fails when the market bar stands at a different x or width on one market screen than on the others of its size, which no screen can see alone (bug 12), and when it found the bar on fewer than two market screens of one size, so a renamed test id cannot leave that check passing on nothing.
-   On a phone it fails when a market screen pins more than its window's top 150px, naming the screen and the measurement: `pinnedBottom` scrolls the page by a window's height, or to its end, and takes the lowest bottom of the banner and whatever is `sticky` or `fixed` at its `top`, a dialog, a drawer or a scrim aside, and the door pinned 409px of 844 until only [the market frame](implementation/modules/market-frame.md#sharp-edges)'s bar pinned there (T142).
+   On a phone it fails when a market screen pins more than its window's top 150px, naming the screen and the measurement: `pinnedBottom` scrolls the page by a window's height, or to its end, and takes the lowest bottom of the app bar and whatever is `sticky` or `fixed` at its `top`, a dialog, a drawer, a scrim or the app bar's open sheet aside, and the door pinned 409px of 844 until only [the market frame](implementation/modules/market-frame.md#sharp-edges)'s bar pinned there (T142).
    The sweep landed gating a phone target at WCAG 2.5.8's 24px, with about 75 phone controls under 44px (36px buttons and fields, 28px day buttons on phone attendance), and T82 raised them to 44px through the tokens above and the gate with them.
    The noisy kinds (spacing off the scale, uneven gaps, edges 1 to 4px apart, empty bands, truncated names, nested scrollers, small targets on a desktop) are real drift mixed with what is by design, so each test attaches them as a `layout report` and never fails on them; the spacing scale is Stylelint's to hold.
    [`e2e/layout-detectors.spec.ts`](../front-end/e2e/layout-detectors.spec.ts) proves each gating detector fires on a fixture of its defect, and that none fires on a page that only looks broken: a stuck bar over scrolled content, screen-reader-only text, an ellipsis with its title, a closed `<details>`, a menu over the page.
@@ -612,16 +612,16 @@ A convention nothing enforces is how the product got here. Six checks, the first
    It walks each state at a phone's width too, as well as at its first size: an organizer's screens ship at a desk, but a desk zoomed to 400% is that narrow, and there a table too wide for its box scrolls and becomes a keyboard stop of its own; the floorplan beta's wizard steps, which cannot be walked that narrow, are marked `deskOnly`.
    Each dialog window a state shows is focused as a keyboard user's would be and must draw no outline, a window behind another dialog on top aside, since it is inert (T148), and a test opens Manage market from the keyboard, where the window takes focus while the market loads (T140).
    Its phone walk found a dialog's buttons running out past the window's left edge where they were wider than it, and the actions row now wraps.
-   It landed with what it found fixed: the seat buttons' and the drawer tabs' own rings, and the buttons whose own `box-shadow`, `none` included, outranked the halo: the dashboard's and the start page's, New market, New organization, the vendor rows, and the floorplan's Save & Continue and Sections buttons.
+   It landed with what it found fixed: the seat buttons' and the drawer tabs' own rings, and the buttons whose own `box-shadow`, `none` included, outranked the halo: the start page's, New market, New organization, the vendor rows, and the floorplan's Save & Continue and Sections buttons.
    It needed the floorplan wizard walked at each step with a plan uploaded, which the other sweeps then walked too, and they found the beta's step labels below AA on their beige, its progress bar with no name and an invalid value, its empty table types in a 40% grey, and its Export PNG button named something other than its words; all are fixed.
 
-The sweeps are only worth the states they walk. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog, and T67's layout trial missed the dashboard's squeezed dates until it opened a market before the dashboard; **dialogs, menus, drawers, hover states, disabled controls, empty states and remembered state have to be walked deliberately.**
+The sweeps are only worth the states they walk. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog, and T67's layout trial missed a market row's squeezed dates until it opened a market first; **dialogs, menus, drawers, hover states, disabled controls, empty states and remembered state have to be walked deliberately.**
 All four sweeps walk one list, `SCREENS` in [`e2e/helpers/screens.ts`](../front-end/e2e/helpers/screens.ts), through `walkTheScreens()`, and each passes only its own check, so a state added for one is walked by all.
 The list holds these states, one a line, each beside the state it is most like, so a new state is one line there, not at the list's end ([two features never share a line](implementation/conventions/two-features-never-share-a-line.md#the-design-language)):
 
 - the router's routes
 - the dialogs, menus and drawers
-- the dashboard with a market remembered
+- `/markets` with a market remembered, one gone with others left and with none, and with no market yet
 - every phase
 - the phase rail at 390 in every phase the seed holds, both intake paths among them
 - `/markets` and the Assignments page with their dialogs at 390

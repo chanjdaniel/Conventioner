@@ -227,7 +227,7 @@ has the details.
 in one organizer session, and every other spec is a slice of it; [the market journey
 spec](implementation/testing/the-market-journey-spec.md) says what each slice covers and where a
 new test belongs. `phase-state-machine.spec.ts` walks every phase edge and the guards that refuse
-them, and `smoke.spec.ts` covers login, dashboard, and markets navigation.
+them, and `smoke.spec.ts` covers login, the landing on Markets, and markets navigation.
 Which specs walk a user flow is the "Covered by" list under each of its steps, and the gaps worth
 a spec are the coverage map in [walking the flows](implementation/testing/walking-the-flows.md#coverage-map).
 Coverage also includes tier-1 market operations journeys: public vendor check-in
@@ -314,7 +314,7 @@ The page objects in `front-end/e2e/pages/` are these, one a line, sorted by clas
 - `PersonChooser` (a chooser of one person: "Who will follow up", "Followed up by", "Assigned to", the history's "Who")
 - `ResultPage`
 - `ReviewerChooser` (the several-choice chooser of reviewers, in the panel's dialog, Open applications and the first import)
-- `ReviewersPanel` (the Applications tab's Reviewers panel and its dialog)
+- `ReviewersPanel` (the Applications tab's Reviewers panel: its line, its Change dialog and its read-only list)
 - `StartFromCsvPage`
 - `StatsPage`
 - `TablesPage`

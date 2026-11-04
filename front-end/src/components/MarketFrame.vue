@@ -3,20 +3,20 @@
  * The frame around a market screen (E21/F04, variant A of the-market-frame ticket 01).
  *
  * A card whose top - the market's bar (its name and its tabs, `MarketBar`, the same on every market
- * page since E22/F04/S02) and the whole phase rail - sticks directly under the app banner while the
+ * page since E22/F04/S02) and the whole phase rail - sticks directly under the app bar while the
  * PAGE scrolls, on a desk. Everything the rail grows (a refused transition's blockers, an error, the
  * archived note) is inside the pinned block, under the button that caused it. Condensing on scroll
  * hid "where the market is"; floating the growth covered what it asked the organizer to fix; both
  * were tried and rejected.
  *
- * On a phone only the bar pins (T142): with the banner, the whole block took 280 to 442px of a
+ * On a phone only the bar pins (T142): with the app bar, the whole block took 280 to 442px of a
  * 844px window, 409 at the door, so the check-in list scrolled in the lower half of the screen. The
  * rail, the page row and the `pinned` slot stand at the top of the page and scroll away with it; the
  * bar's dot still says where the market is worked on, and the rail is one scroll up.
  *
- * Sticky, never a viewport-height shell: the banner is sticky on the same principle (`App.vue`), and
+ * Sticky, never a viewport-height shell: the app bar is sticky on the same principle (`App.vue`), and
  * a sticky element inside an `overflow` ancestor silently stops sticking - so no screen that uses
- * this may scroll inside its card. The card is at least the height of the window under the banner,
+ * this may scroll inside its card. The card is at least the height of the window under the app bar,
  * so a short surface fills it rather than ending mid-screen.
  *
  * The frame places itself, and says what is shown until the market arrives (E26/F10/S01). Each
@@ -159,7 +159,7 @@ onBeforeUnmount(() => observer?.disconnect());
 <style scoped>
 /*
  * A gutter on three sides, so the card reads as sitting on the page rather than being it (E17/F02/
- * S02). Top is deliberately absent: the card hangs from the banner. Here rather than in each screen,
+ * S02). Top is deliberately absent: the card hangs from the app bar. Here rather than in each screen,
  * which is how one market's pages came to put it in three different places.
  */
 .market-frame-page {
@@ -181,9 +181,9 @@ onBeforeUnmount(() => observer?.disconnect());
   flex-direction: column;
   background-color: white;
   box-shadow: var(--shadow-card);
-  /* Square where it meets the banner, rounded where it ends on the page. */
+  /* Square where it meets the app bar, rounded where it ends on the page. */
   border-radius: 0 0 var(--radius-card) var(--radius-card);
-  /* The window under the banner, less the page's bottom gutter. */
+  /* The window under the app bar, less the page's bottom gutter. */
   min-height: calc(100vh - var(--banner-h) - var(--space-4));
 }
 
@@ -210,7 +210,7 @@ onBeforeUnmount(() => observer?.disconnect());
 .market-frame {
   position: sticky;
   top: var(--banner-h);
-  /* Above the surface it pins over; below the banner (30), the nav scrim and the drawer. */
+  /* Above the surface it pins over; below the app bar (30), and the sheet and the drawer. */
   z-index: 20;
   background-color: white;
 }

@@ -11,6 +11,7 @@ It ends with `## Why`, linking up to the rules and concepts it implements.
 
 One line per node, sorted by file name.
 
+- [The app bar](app-bar.md) - `AppBar`: the way between the organizer's places, one fixed 44px band, which place is current, the account menu, the one `signOut`
 - [The assignment solver](assignment-solver.md) - `assign_market` over the approved applications, the one seam `vendor_input.py`, vendor-driven placement
 - [Attendance and the door](attendance-and-door.md) - the roster off the stored assignment, the two doors that check a vendor in, the phone-sized door among the organizer market screens
 - [The component library](component-library.md) - `/dev/components`, a development build's page of every reusable component on synthetic data at real sizes; kept out of production by the router's `DEV` block, an import rule and a build that refuses its modules

@@ -101,7 +101,7 @@ test('a first import with two reviewers ticked deals its three rows 2 and 1, in 
   );
   await page.getByTestId('import-finish-button').click();
   await expect(page).toHaveURL(/\/applications$/);
-  await expect(page.getByTestId('reviewers-person')).toHaveText([ANA, BEN]);
+  await expect(page.getByTestId('reviewers-line')).toHaveText(`2 reviewers: ${ANA} and ${BEN}`);
   const body = (await (await listed).json()) as {
     applications: Array<{ applicantEmail: string; reviewer: { email: string } | null }>;
   };

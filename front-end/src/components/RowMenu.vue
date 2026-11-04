@@ -7,12 +7,19 @@
  * whose arrow keys walk them, and whose Escape - or a press anywhere else - closes it and hands
  * focus back. A choice closes it and hands focus back first, so a dialog the choice opens returns
  * focus to the button when it closes.
+ *
+ * The `trigger` slot puts words on the button in place of the dots (the app bar's account menu,
+ * T209), with the same keys, presses and focus: the words then name the button, as a control's
+ * words do, and `label` names the open menu alone.
  */
 import { nextTick, onUnmounted, ref, useId, watch } from 'vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 
 const props = defineProps<{
-  /** What the button is named, for whoever cannot see the dots: "Change Friday's amount owed". */
+  /**
+   * What the menu is named, and the button too for whoever cannot see the dots: "Change Friday's
+   * amount owed". A button with words in the `trigger` slot is named by those.
+   */
   label: string;
   items: readonly { id: string; label: string; destructive?: boolean }[];
   testid: string;
@@ -62,7 +69,23 @@ function onKey(event: KeyboardEvent) {
 
 function onPointerDown(event: PointerEvent) {
   const menu = button.value?.parentElement;
-  if (menu && !menu.contains(event.target as Node)) close(false);
+  if (!menu || menu.contains(event.target as Node)) return;
+  close(false);
+  // The press moves focus after this event: to what it landed on, if that takes focus, and nowhere
+  // if not. Nowhere is where the focused item leaves it as it goes, so the button takes it back.
+  // A thumb's drag ends in `pointercancel` instead and moves no focus, so nothing waits on after it.
+  const pressEnded = new AbortController();
+  document.addEventListener(
+    'pointerup',
+    () => {
+      pressEnded.abort();
+      if (document.activeElement === document.body) button.value?.focus({ preventScroll: true });
+    },
+    { signal: pressEnded.signal },
+  );
+  document.addEventListener('pointercancel', () => pressEnded.abort(), {
+    signal: pressEnded.signal,
+  });
 }
 watch(open, (opened) => {
   if (opened) document.addEventListener('pointerdown', onPointerDown);
@@ -85,18 +108,21 @@ const menuId = `${props.testid}-${useId()}-menu`;
       ref="button"
       type="button"
       class="row-menu-button"
-      :aria-label="label"
+      :class="{ 'row-menu-button--words': $slots.trigger }"
+      :aria-label="$slots.trigger ? undefined : label"
       aria-haspopup="menu"
       :aria-controls="menuId"
       :aria-expanded="open"
       :data-testid="`${testid}-button`"
       @click="open = !open"
     >
-      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-        <circle cx="3" cy="8" r="1.5" />
-        <circle cx="8" cy="8" r="1.5" />
-        <circle cx="13" cy="8" r="1.5" />
-      </svg>
+      <slot name="trigger">
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <circle cx="3" cy="8" r="1.5" />
+          <circle cx="8" cy="8" r="1.5" />
+          <circle cx="13" cy="8" r="1.5" />
+        </svg>
+      </slot>
     </button>
     <div
       v-if="open"
@@ -147,6 +173,17 @@ const menuId = `${props.testid}-${useId()}-menu`;
 
 .row-menu-button svg {
   fill: currentColor;
+}
+
+/* Words on the button: its row's ink, the words' room, and as wide as its parent lets it be. */
+.row-menu-button--words {
+  display: flex;
+  gap: var(--space-1);
+  max-width: 100%;
+  height: 32px;
+  padding: 0 var(--space-2);
+  color: var(--mm-black);
+  font-size: var(--text-sm);
 }
 
 .row-menu-button:hover,

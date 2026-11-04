@@ -20,7 +20,7 @@ export async function withUser<T>(
     const page = await context.newPage();
     const loginPage = new LoginPage(page);
     await loginPage.login(email, password);
-    await loginPage.waitForDashboardRedirect();
+    await loginPage.waitForMarkets();
     return await body(page);
   } finally {
     await context.close();

@@ -8,18 +8,22 @@
  * The current reviewers are offered and chosen even when the reader is not offered them, so saving
  * without touching one keeps them. Nothing is chosen by default otherwise. An address compares
  * case-folded: a chosen one is shown and offered in the one spelling the choices hold, so one person
- * never stands twice.
+ * never stands twice. A place that knows who can no longer review here passes them, so their chip
+ * and their row say so: the one who must remove them can tell which they are.
  */
 import { computed, useId } from 'vue';
 import SearchPicker from '@/components/SearchPicker.vue';
+import type { PickerOption } from '@/components/SearchPicker.vue';
 import { PEOPLE_CAP, findsPerson, personOption } from '@/utils/personChoice';
-import { PICKER_HINT, pickerChoices } from '@/utils/reviewTeam';
+import { CAN_NO_LONGER_REVIEW, PICKER_HINT, pickerChoices } from '@/utils/reviewTeam';
 
 const props = defineProps<{
   /** Whom the reader may choose: the market read's `reviewerCandidates`. */
   candidates: readonly string[];
   /** The market's reviewers now, offered whether or not the reader is offered them. */
   current: readonly string[];
+  /** Those of them who can no longer review here, to mark. */
+  unable?: readonly string[];
   disabled?: boolean;
 }>();
 
@@ -28,7 +32,20 @@ const chosen = defineModel<string[]>({ required: true });
 
 const hintId = useId();
 const choices = computed(() => pickerChoices(props.candidates, props.current));
-const groups = computed(() => [{ options: choices.value.map(personOption) }]);
+const unableKeys = computed(
+  () => new Set((props.unable ?? []).map((address) => address.toLowerCase())),
+);
+
+function reviewerOption(address: string): PickerOption {
+  const option = personOption(address);
+  if (!unableKeys.value.has(address.toLowerCase())) return option;
+  const mark = CAN_NO_LONGER_REVIEW.toLowerCase();
+  return option.detail
+    ? { ...option, detail: `You, ${mark}`, chip: `${address} (you, ${mark})` }
+    : { ...option, detail: CAN_NO_LONGER_REVIEW, chip: `${address} (${mark})` };
+}
+
+const groups = computed(() => [{ options: choices.value.map(reviewerOption) }]);
 
 const spellings = computed(
   () => new Map(choices.value.map((address) => [address.toLowerCase(), address])),

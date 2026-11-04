@@ -1,36 +1,21 @@
 <script setup lang="ts">
 import axios from 'axios';
 import { RouterView } from 'vue-router';
-import ElementBanner from './components/elements/ElementBanner.vue';
-import ElementNavigation from './components/elements/ElementNavigation.vue';
-import { useInertBehind } from '@/utils/useInertBehind';
+import AppBar from './components/AppBar.vue';
 
-import { onMounted, ref, provide, inject, computed, watch } from 'vue';
+import { onMounted, onUnmounted, ref, provide, inject, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { routerSettled } from '@/utils/routerReady';
 import { fitsAPhone as routeFitsAPhone } from '@/utils/fitsAPhone';
 import { endSession, keepsTheSession } from '@/utils/sessionEnded';
+import { signedInEmail } from '@/utils/signedIn';
 import ReadFailed from '@/components/ReadFailed.vue';
 import { PAGE_FAILED, openAfresh } from '@/utils/pageFailed';
 
 const hostname = import.meta.env.VITE_FLASK_HOST;
 
-const navOpen = ref(false);
-
-/**
- * Modal to the keyboard as well as to the mouse: the scrim stops clicks, and this takes the rest of
- * the page out of the tab order (E14/F02/S04).
- *
- * Both parts are named because they are siblings here rather than one wrapping the other: naming
- * only the scrim would mark the drawer itself, which is the thing that has to stay reachable.
- */
-const navScrim = ref<HTMLElement | null>(null);
-const navDrawer = ref<InstanceType<typeof ElementNavigation> | null>(null);
-useInertBehind(navOpen, () => [navScrim.value, navDrawer.value?.root ?? null]);
 const route = useRoute();
 const router = useRouter();
-// By the route, not the path: the router matches `/Login` and `/login/` to it too.
-const isLogin = computed(() => route.name === 'login');
 const isPublicPage = computed(() => route.matched.some((r) => r.meta.public === true));
 /**
  * A page that must also work on a phone: every public page, and an organizer screen whose route says
@@ -42,13 +27,22 @@ const fitsAPhone = computed(() => isPublicPage.value || routeFitsAPhone(route));
 // A page whose code could not be fetched: the click did nothing, so the shell says why.
 const pageFailed = inject(PAGE_FAILED, ref(null));
 
-const user = ref<string | null>(null);
-const setUser = (user_data: string | null) => {
-  user.value = user_data;
-};
-
+/**
+ * Who is signed in, as the app bar and "Page not found" read it. It starts from the stored user and is read again after
+ * every navigation, so each way a session starts or ends (signing in, Sign out, `endSession`, a 401)
+ * only has to change what is stored and move: none of them has to tell the shell. It is read again
+ * on a `storage` event too, which says another tab changed what is stored or `forgetTheSession` ran
+ * here, so the bar never goes on naming an account that has gone.
+ */
+const user = ref<string | null>(signedInEmail());
 provide('user', user);
-provide('setUser', setUser);
+function readTheUser() {
+  user.value = signedInEmail();
+}
+const stopReadingTheUser = router.afterEach(readTheUser);
+onUnmounted(stopReadingTheUser);
+window.addEventListener('storage', readTheUser);
+onUnmounted(() => window.removeEventListener('storage', readTheUser));
 
 onMounted(async () => {
   // Wait for the first navigation to settle before probing the session.
@@ -60,29 +54,29 @@ onMounted(async () => {
   // Public pages do not require an organizer session.
   if (isPublicPage.value) return;
 
+  // The bar stands before the probe answers, so an organizer can sign out under it. The answer is
+  // then about a session already over, and brings back neither the bar nor a note that it ended.
+  const asked = signedInEmail();
+  const sameSession = () => signedInEmail() === asked;
+
   try {
     const response = await axios.get(`${hostname}/check-session`, {
       withCredentials: true,
     });
 
+    if (!sameSession()) return;
+
     if (response.status === 200) {
       const user_email = response.data.email;
       localStorage.setItem('user', JSON.stringify(user_email));
-      setUser(user_email);
+      user.value = user_email;
     } else {
       endSession(router, { ended: false });
     }
   } catch (err) {
     // A lost session forgets the open market too, for the reason signing out does, and signing in
-    // returns to this page (E38/F11/S01). No answer, or a fault on the server, keeps it: the menu
-    // names the organizer it held.
-    if (keepsTheSession(router, err)) setUser(JSON.parse(localStorage.getItem('user') || 'null'));
-  }
-});
-
-watch(isLogin, (newValue) => {
-  if (newValue) {
-    navOpen.value = false;
+    // returns to this page (E38/F11/S01). No answer, or a fault on the server, keeps it.
+    if (sameSession()) keepsTheSession(router, err);
   }
 });
 </script>
@@ -90,11 +84,11 @@ watch(isLogin, (newValue) => {
 <template>
   <div class="app-container" :class="{ 'app-public': fitsAPhone }">
     <header>
-      <ElementBanner @menuOpen="navOpen = true" :isLogin="isLogin" :hasMenu="!isPublicPage" />
+      <AppBar />
     </header>
 
-    <!-- The one `main` landmark, on every route: the page's own content, apart from the banner and
-         the drawer. A wrapper, not the routed view's root, so no view has to remember to be it. -->
+    <!-- The one `main` landmark, on every route: the page's own content, apart from the bar. A
+         wrapper, not the routed view's root, so no view has to remember to be it. -->
     <main class="app-main" :class="{ 'app-main-public': fitsAPhone }">
       <ReadFailed
         v-if="pageFailed"
@@ -105,36 +99,6 @@ watch(isLogin, (newValue) => {
       />
       <RouterView class="router-view" />
     </main>
-
-    <!-- Dismissed, the scrim is gone at once for the pointer: its visibility waits for the fade
-         out, and one that swallows clicks for that 0.3s eats the click that follows a menu item,
-         such as Try again on the page whose navigation just failed (E38/F11/S01). -->
-    <div
-      v-if="!isPublicPage"
-      ref="navScrim"
-      class="nav-background"
-      :style="{
-        opacity: navOpen ? '100%' : '0%',
-        visibility: navOpen ? 'visible' : 'hidden',
-        'pointer-events': navOpen ? 'auto' : 'none',
-      }"
-      @click="navOpen = false"
-    ></div>
-
-    <!-- `visibility` as well as `left`: slid off-screen is not the same as gone, and a drawer that
-         is only off-screen keeps every one of its links in the tab order on every authenticated
-         page. That is the defect `E14/F02/S04` removes from behind a modal, standing the other way
-         round - a keyboard user tabbing into a menu nobody can see. -->
-    <ElementNavigation
-      v-if="!isPublicPage"
-      ref="navDrawer"
-      class="nav-bar"
-      :style="{
-        left: navOpen ? '0px' : '-300px',
-        visibility: navOpen ? 'visible' : 'hidden',
-      }"
-      @menuClose="navOpen = false"
-    />
   </div>
 </template>
 
@@ -184,45 +148,11 @@ header {
   max-height: 100vh;
 }
 
-.logo {
-  display: block;
-  margin: 0 auto var(--space-8);
-}
-
-.nav-bar {
-  position: fixed;
-  top: 0;
-  left: -300px;
-  /* Above the sticky header, which is 30. Order in the DOM used to be enough; once the header
-     stacks, the drawer has to say so. */
-  z-index: 100;
-  /* `visibility` rides the same duration so it flips only once the drawer has finished sliding out,
-     rather than blinking away at the start of the transition. */
-  transition:
-    left 0.3s ease-in-out,
-    visibility 0.3s ease-in-out;
-}
-
-.nav-bar.nav-open {
-  left: 0;
-}
-
-.nav-background {
-  position: fixed;
-  inset: 0;
-  /* Between the sticky header (30) and the drawer (100), so the scrim dims the bar too. */
-  z-index: 90;
-  background: rgba(0, 0, 0, 0.5);
-  opacity: 100%;
-  transition:
-    opacity 0.3s ease-in-out,
-    visibility 0.3s ease-in-out;
-}
-
-.banner {
-  width: 100%;
-  /* A token, because the market frame sticks at exactly this offset (E21/F04/S01). */
-  height: var(--banner-h);
+/* A printed page is the page: the way between the organizer's places has no use on paper. */
+@media print {
+  header {
+    display: none;
+  }
 }
 
 .app-main {
@@ -239,7 +169,7 @@ header {
 }
 
 /* A page that could not be opened is the shell's to say, not the page's, so it is a strip under
-   the banner, above the page the organizer is still on, its line centred on the window as every
+   the app bar, above the page the organizer is still on, its line centred on the window as every
    page's frame is. A notice's padding, `--space-2` by `--space-3`. */
 .app-main > .page-failed {
   justify-content: center;

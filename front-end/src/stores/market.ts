@@ -63,8 +63,8 @@ export const useMarketStore = defineStore('market', () => {
       lastFetched.value = parseMarketFromApi(response.data.market);
       status.value = 'loaded';
       stale.value = false;
-      // Arriving at a market is what opening one means, so this is the one place the dashboard's
-      // pointer is set - by the list, a link, a bookmark or a new market alike.
+      // Arriving at a market is what opening one means, so this is the one place the pointer behind
+      // "Previously opened" is set - by the list, a link, a bookmark or a new market alike.
       rememberLastMarket(id);
     } catch (err: unknown) {
       if (mine !== generation) return;
