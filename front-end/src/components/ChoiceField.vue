@@ -1,5 +1,6 @@
 <script lang="ts">
 import { LIST_FIND_FROM } from '@/components/ListFrame.vue';
+import type { PickerOption } from '@/components/SearchPicker.vue';
 
 /**
  * A set of choices is a field to type in once it is longer than this, and a list has its find field
@@ -7,6 +8,13 @@ import { LIST_FIND_FROM } from '@/components/ListFrame.vue';
  * compares against this too.
  */
 export const COMBOBOX_PAST = LIST_FIND_FROM;
+
+/** What a field draws at most of what the words find; a form of its own past 12 draws the same. */
+export const COMBOBOX_CAP = 50;
+
+/** The find of a choice with no terms of its own: the label holds the words, capitals aside. */
+export const labelHolds = (option: PickerOption, words: string) =>
+  option.label.toLowerCase().includes(words.toLowerCase());
 </script>
 
 <script setup lang="ts">
@@ -34,7 +42,7 @@ export const COMBOBOX_PAST = LIST_FIND_FROM;
  *   its focus, so the screen can respond.
  */
 import { computed, ref, useId } from 'vue';
-import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
+import SearchPicker, { type PickerGroup } from '@/components/SearchPicker.vue';
 
 const props = defineProps<{
   modelValue: string;
@@ -61,17 +69,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
 
-/** What a field draws at most of what the words find. */
-const CAP = 50;
-
 const isField = computed(
   () =>
     (props.wholeCount ?? props.groups.reduce((count, group) => count + group.options.length, 0)) >
     COMBOBOX_PAST,
 );
-
-const labelHolds = (option: PickerOption, words: string) =>
-  option.label.toLowerCase().includes(words.toLowerCase());
 
 /** A select's row has one line, so its detail stands on it. */
 const rowWords = (option: PickerOption) =>
@@ -109,7 +111,7 @@ defineExpose({ open });
     :label="label"
     :placeholder="placeholder"
     :testid="testid"
-    :cap="CAP"
+    :cap="COMBOBOX_CAP"
     :hide-label="hideLabel"
     :holds-choice="writes"
     :disabled="disabled"

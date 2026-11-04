@@ -731,6 +731,7 @@ function onFocus(): void {
 }
 
 .search-picker-chip-remove:disabled {
+  color: var(--mm-text-muted-on-beige);
   cursor: not-allowed;
 }
 

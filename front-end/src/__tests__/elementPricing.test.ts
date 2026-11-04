@@ -591,6 +591,92 @@ describe('price groups (E43/F01/S02)', () => {
     expect(wrapper.get('[data-testid="pricing-group-0-broken"]').text()).toContain('prices nobody');
   });
 
+  it("a condition on a question of 13 answers is a field, named for its group, and writes the group's list", async () => {
+    const answers = Array.from({ length: 13 }, (_, at) => ({
+      value: `Answer ${at + 1}`,
+      label: `Answer ${at + 1}`,
+    }));
+    const selling: RejectionQuestion = { key: 'selling', label: 'What you sell', answers };
+    const twelve: RejectionQuestion = {
+      key: 'twelve',
+      label: 'Twelve',
+      answers: answers.slice(0, 12),
+    };
+    const group = {
+      ...STUDENT_CLUB,
+      conditions: [
+        { key: 'selling', answers: ['Answer 1'] },
+        { key: 'twelve', answers: [] },
+      ],
+    };
+    const wrapper = mount(ElementPricing, {
+      props: { setupObject: plan(grouped([group])), questions: [selling, twelve] },
+      attachTo: document.body,
+    });
+    const picker = wrapper.get('[data-testid="pricing-group-0-answers-selling"]');
+
+    expect(picker.get('label').text()).toBe(`Answers to What you sell in ${STUDENT_CLUB.name}`);
+    expect(
+      wrapper.findAll('[data-testid="pricing-group-0-rule-selling"] [type="checkbox"]'),
+    ).toHaveLength(0);
+    expect(
+      wrapper.findAll('[data-testid="pricing-group-0-rule-twelve"] [type="checkbox"]'),
+    ).toHaveLength(12);
+
+    await picker.get('input').setValue('Answer 13');
+    await picker.get('[data-value="Answer 13"]').trigger('click');
+
+    const pricing = (wrapper.emitted('update:setupObject') as SetupObject[][]).at(-1)?.[0].pricing;
+    expect(pricing?.groups?.[0]?.conditions).toEqual([
+      { key: 'selling', answers: ['Answer 1', 'Answer 13'] },
+      { key: 'twelve', answers: [] },
+    ]);
+  });
+
+  it('settled, a condition on a question of 13 answers reads as chips and takes nothing', () => {
+    const answers = Array.from({ length: 13 }, (_, at) => ({
+      value: `Answer ${at + 1}`,
+      label: `Answer ${at + 1}`,
+    }));
+    const group = { ...STUDENT_CLUB, conditions: [{ key: 'selling', answers: ['Answer 2'] }] };
+    const wrapper = mount(ElementPricing, {
+      props: {
+        setupObject: plan(grouped([group])),
+        questions: [{ key: 'selling', label: 'What you sell', answers }],
+        fixed: true,
+      },
+    });
+
+    expect(wrapper.get('[data-testid="pricing-group-0-answers-selling-chip"]').text()).toContain(
+      'Answer 2',
+    );
+    expect(
+      wrapper.get('[data-testid="pricing-group-0-answers-selling-input"]').attributes(),
+    ).toHaveProperty('disabled');
+  });
+
+  it('an answer the form no longer offers, on a question of 13, holds the group broken until its chip goes', () => {
+    const answers = Array.from({ length: 13 }, (_, at) => ({
+      value: `Answer ${at + 1}`,
+      label: `Answer ${at + 1}`,
+    }));
+    const group = { ...STUDENT_CLUB, conditions: [{ key: 'selling', answers: ['Candles'] }] };
+    const wrapper = mount(ElementPricing, {
+      props: {
+        setupObject: plan(grouped([group])),
+        questions: [{ key: 'selling', label: 'What you sell', answers }],
+      },
+    });
+
+    expect(wrapper.get('[data-testid="pricing-group-0-answers-selling-chip"]').text()).toContain(
+      'Candles',
+    );
+    expect(wrapper.get('[data-testid="pricing-group-0-broken-selling"]').text()).toContain(
+      'The form no longer offers "Candles". Remove its chip, or remove this condition.',
+    );
+    expect(wrapper.get('[data-testid="pricing-group-0-broken"]').text()).toContain('prices nobody');
+  });
+
   it('removing a group takes its row away', async () => {
     const second = { ...STUDENT_CLUB, name: 'Example College student only' };
     const wrapper = groupCard(grouped([STUDENT_CLUB, second]));

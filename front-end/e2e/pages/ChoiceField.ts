@@ -16,6 +16,9 @@ export class ChoiceField {
   readonly more: Locator;
   /** What the picker's list says when the words find nothing. */
   readonly none: Locator;
+  /** The chips of a `SearchPicker` of several, and the button on each that takes it away. */
+  readonly chips: Locator;
+  readonly chipRemoves: Locator;
 
   /** `testid` is the control's own, on the root whose `-input`, `-list` and `-option` it prefixes. */
   constructor(scope: { getByTestId(testid: string): Locator }, testid: string) {
@@ -25,6 +28,8 @@ export class ChoiceField {
     this.options = this.root.getByTestId(`${testid}-option`);
     this.more = this.root.getByTestId(`${testid}-more`);
     this.none = this.root.getByTestId(`${testid}-none`);
+    this.chips = this.root.getByTestId(`${testid}-chip`);
+    this.chipRemoves = this.root.getByTestId(`${testid}-chip-remove`);
   }
 
   /** Whether it is the select, rather than the field to type in. */

@@ -3,12 +3,18 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { APIRequestContext, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { ChoiceField } from './pages/ChoiceField';
 import { StartFromCsvPage } from './pages/StartFromCsvPage';
 import { CsvImportPage } from './pages/CsvImportPage';
 import { finishStartedPlan, UPCOMING_YEAR } from './helpers/finishStartedPlan';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
+import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { decideReviewSetup } from './helpers/decideReviewSetup';
 import { marketSetupPath } from './helpers/marketScreens';
+import { grantMarketRole } from './helpers/grantMarketRole';
+import { ensureVerifiedUser } from './helpers/verifiedUser';
+import { withUser } from './helpers/withUser';
+import { sweep } from './helpers/contrastSweep';
 
 /**
  * The app's choices at a real market's size (T223), on the committed synthetic exports: a choice
@@ -381,5 +387,170 @@ test.describe('"Maps to", on a file of 30 columns', () => {
     await expect(waiting).toHaveCount(0);
     await expect(importer.allMapped).toBeVisible();
     await expect(importer.unmappedWarning).toHaveCount(0);
+  });
+});
+
+test.describe('an automatic rejection, on the question of 129 answers', () => {
+  const VIEWER = { email: 'e2e-choices-viewer@example.test', password: 'e2epassword123' };
+
+  test.beforeAll(() => {
+    ensureVerifiedUser(VIEWER.email, VIEWER.password);
+  });
+
+  async function openReviewSetup(page: Page, marketId: string) {
+    await page.goto(marketSetupPath(marketId, 'form'));
+    await page.getByTestId('form-step-review').click();
+    await expect(page.getByTestId('automatic-rejections')).toBeVisible({ timeout: 15000 });
+  }
+
+  test('on a market of 13 choice questions, "Add a rule on" finds one by typing', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { marketId } = await seedPhaseMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { intakeMode: 'form' },
+    );
+    const fields = Array.from({ length: 13 }, (_, order) => ({
+      key: `question_${order}`,
+      label: `Question number ${order}`,
+      type: 'select',
+      required: false,
+      options: ['Yes', 'No'],
+      order,
+    }));
+    const form = await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
+      data: { fields },
+    });
+    expect(form.ok(), await form.text()).toBeTruthy();
+
+    await openReviewSetup(page, marketId);
+    const question = new ChoiceField(page, 'rejection-rule-question');
+    const add = page.getByTestId('rejection-rule-add');
+    await expect(question.field).toBeVisible();
+    await expect(add).toBeDisabled();
+
+    // Words let the choice go, so Add never takes what the field does not show.
+    await question.choose('question_11', 'number 11');
+    await expect(add).toBeEnabled();
+    await question.field.fill('number');
+    await expect(add).toBeDisabled();
+    await question.choose('question_11', 'number 11');
+
+    await add.click();
+    await expect(page.getByTestId('rejection-rule-question_11')).toContainText(
+      'Question number 11',
+    );
+    await expect(question.field).toHaveValue('');
+    // Twelve are left, and it stays the field it was: it counts every question.
+    await expect(question.field).toBeVisible();
+    // Yes and No stay the boxes they are.
+    await expect(
+      page.getByTestId('rejection-rule-question_11').locator('input[type="checkbox"]'),
+    ).toHaveCount(2);
+  });
+
+  test('finds answers by typing, keeps them as chips when read again, and shows a Viewer them', async ({
+    authenticatedPage: page,
+    request,
+    browser,
+    expectAccessible,
+  }) => {
+    test.setTimeout(120_000);
+    const marketId = await startFromFiveDay(page, request, { keepAll: true });
+    const key = await sellingKey(request, marketId);
+    const read = await request.get(`${BACKEND_URL}/markets/${marketId}`);
+    const { market } = (await read.json()) as {
+      market: {
+        rejectionQuestions: Array<{
+          key: string;
+          label: string;
+          answers: Array<{ value: string; label: string }>;
+        }>;
+      };
+    };
+    const selling = market.rejectionQuestions.find((candidate) => candidate.key === key)!;
+    const offered = selling.answers;
+    expect(offered).toHaveLength(129);
+    const [first, second] = [offered.at(-1)!, offered.at(-2)!];
+
+    const saved = () =>
+      page.waitForResponse(
+        (r) => r.url().endsWith('/rejection-rules') && r.request().method() === 'PUT',
+      );
+
+    // The rule starts from the market's eight choice questions, a select: what passes 12 is its answers.
+    await openReviewSetup(page, marketId);
+    const question = new ChoiceField(page, 'rejection-rule-question');
+    const add = page.getByTestId('rejection-rule-add');
+    await expect(add).toBeDisabled();
+    await question.choose(key);
+    await Promise.all([saved(), add.click()]);
+    await expect(question.root).toHaveValue('');
+
+    // No wall of boxes: a field, and what a rule with no answer does.
+    const rule = page.getByTestId(`rejection-rule-${key}`);
+    const answers = new ChoiceField(page, `rejection-answers-${key}`);
+    await expect(rule.locator('input[type="checkbox"]')).toHaveCount(0);
+    await expect(rule).toContainText('this rule rejects nobody');
+    await expect(page.getByLabel(`Answers to ${selling.label}`, { exact: true })).toBeVisible();
+
+    // Fifty rows, and the rest behind a word; the list stays open for the next choice.
+    await answers.field.click();
+    await expect(answers.options).toHaveCount(50);
+    await expect(answers.more).toHaveText('79 more, type to narrow');
+    await answers.field.fill(first.label);
+    await Promise.all([saved(), answers.option(first.value).click()]);
+    await answers.field.fill(second.label);
+    await Promise.all([saved(), answers.option(second.value).click()]);
+    await expect(answers.list).toBeVisible();
+    await expect(answers.chips).toHaveCount(2);
+    await expect(rule).not.toContainText('this rule rejects nobody');
+    // From the top, or axe reads a tick that has passed under the pinned bar as too near its logo.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expectAccessible('a rule of several answers, its list open');
+    // No walk of the screens reaches a question this long, and the audit above leaves contrast out.
+    expect((await sweep(page)).failures, 'the rule has text below AA').toEqual([]);
+
+    // Read again, as chips and nothing else.
+    await page.reload();
+    await page.getByTestId('form-step-review').click();
+    await expect(answers.chips).toHaveCount(2);
+    await expect(answers.chips.nth(0)).toContainText(first.label);
+    await expect(answers.chips.nth(1)).toContainText(second.label);
+    await expect(answers.field).toHaveValue('');
+
+    // A chip taken away goes from what is saved, and Backspace in the empty field takes the last.
+    await Promise.all([saved(), answers.chipRemoves.nth(0).click()]);
+    await expect(answers.chips).toHaveCount(1);
+    const stored = async () => {
+      const res = await request.get(`${BACKEND_URL}/markets/${marketId}`);
+      return ((await res.json()) as { market: { rejectionRules: unknown } }).market.rejectionRules;
+    };
+    await expect.poll(stored).toEqual([{ key, answers: [second.value] }]);
+    await answers.field.focus();
+    await Promise.all([saved(), answers.field.press('Backspace')]);
+    await expect(answers.chips).toHaveCount(0);
+    await answers.field.fill(first.label);
+    await Promise.all([saved(), answers.option(first.value).click()]);
+    await answers.field.press('Tab');
+    await expect(answers.field).toHaveValue('');
+    await expect.poll(stored).toEqual([{ key, answers: [first.value] }]);
+
+    // Someone who may not change the rule reads what it holds, and can take nothing.
+    await grantMarketRole(request, marketId, VIEWER, 'viewer');
+    await withUser(browser, VIEWER.email, VIEWER.password, async (viewerPage) => {
+      await openReviewSetup(viewerPage, marketId);
+      const fixed = new ChoiceField(viewerPage, `rejection-answers-${key}`);
+      await expect(fixed.chips).toHaveCount(1);
+      await expect(fixed.chips).toContainText(first.label);
+      await expect(fixed.field).toBeDisabled();
+      await expect(fixed.chipRemoves).toBeDisabled();
+      await expect(viewerPage.getByTestId('rejection-rule-add')).toHaveCount(0);
+      expect((await sweep(viewerPage)).failures, 'the fixed rule has text below AA').toEqual([]);
+    });
   });
 });
