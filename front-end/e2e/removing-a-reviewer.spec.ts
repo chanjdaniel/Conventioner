@@ -13,7 +13,7 @@ import { VendorsPage } from './pages/VendorsPage';
 /**
  * Removing a reviewer deals their share and their follow-ups again (E38/F07/S02).
  *
- * Ana holds a follow-up when she falls ill; the owner unticks her in the Reviewers panel, and the
+ * Ana holds a follow-up when she falls ill; the owner takes her off in the Reviewers panel, and the
  * follow-up is handed to the reviewer it is dealt to, whose name the All view shows as its owner,
  * and its vendor's History tab says who held it before.
  */
@@ -61,7 +61,7 @@ test('a removed reviewer’s follow-up is handed to the reviewer it is dealt to'
   await reviewers.submit();
 
   // The pool is v1, v2 and the follow-up, in arrival order, dealt to Ben and Cat in turn.
-  await expect(reviewers.people).toHaveText([BEN, CAT]);
+  await expect(reviewers.line).toHaveText(`2 reviewers: ${BEN} and ${CAT}`);
   await expect(all.ownerOf(FOLLOW_UP)).toHaveText(`Followed up by ${BEN}`);
 
   const vendors = new VendorsPage(page);

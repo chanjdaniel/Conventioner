@@ -200,6 +200,17 @@ test('a chooser of a market\'s team, its rows and chips, breaks an address only 
   }
 });
 
+test('the Reviewers panel\'s line breaks an address only before its "@" or a dot', async ({
+  authenticatedPage: page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  const monitor = new ApplicationMonitorPage(page);
+  await monitor.goto(dealtMarketId);
+  const { line } = new ReviewersPanel(page);
+  await expectWholeAddress(line, reviewer);
+  await expectWholeAddress(line, reviewer, true);
+});
+
 test('"Assigned to", which offers reviewers of its own, breaks an address only before its "@" or a dot', async ({
   authenticatedPage: page,
 }) => {
