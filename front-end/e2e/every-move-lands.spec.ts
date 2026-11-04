@@ -2,7 +2,7 @@ import { test, expect, TEST_USER, APP_API, CsvImportPage } from './fixtures';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMarket';
-import { seedMarketWithVendors } from './helpers/seeds';
+import { publishResults, seedMarketWithVendors } from './helpers/seeds';
 import { seedPhaseMarket, transitionMarket } from './helpers/seedPhaseMarket';
 import { EXPORT_HEADERS, EXPORT_MAPPING, RESPONSES, exportOf } from './helpers/googleFormExport';
 
@@ -69,6 +69,7 @@ test.describe('Every move lands on its phase’s page', () => {
       TEST_USER.email,
       TEST_USER.password,
     );
+    await publishResults(page.request, APP_API, TEST_USER.email, seed.marketId);
 
     // Short enough that the result scrolls: the rail sticks, so Publish can be pressed from low on
     // the page, and the door must still open at its top.

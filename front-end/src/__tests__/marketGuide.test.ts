@@ -144,7 +144,7 @@ describe('the next step', () => {
     } as Partial<Market>);
 
     expect(nextStep(told, TODAY).text).toBe(
-      'Results are published, so the assignments are settled. Publish the market to put the check-in page up; that cannot be undone.',
+      'Results are published, so the assignments are settled. Publish the market to open check-in with the door code; that cannot be undone.',
     );
   });
 
@@ -162,12 +162,12 @@ describe('the next step', () => {
       },
     };
     expect(nextStep(market(MarketPhase.Applications, undecided), TODAY)).toMatchObject({
-      text: 'Applications are open on your application page: review them as they arrive. Finish deciding: 2 applications are still awaiting review.',
+      text: 'Applications are open on your vendor page: review them as they arrive. Finish deciding: 2 applications are still awaiting review.',
       page: 'applications',
     });
     const stopped = market(MarketPhase.Applications, { ...undecided, applicationsStopped: true });
     expect(nextStep(stopped, TODAY).text).toMatch(
-      /^Your application page is not taking applications\. Finish deciding: /,
+      /^Your vendor page is not taking applications\. Finish deciding: /,
     );
     const csv = market(MarketPhase.Applications, { ...undecided, intakeMode: IntakeMode.Csv });
     // A late export comes in by the rail's Redo import, so it says only what is so.
@@ -181,21 +181,21 @@ describe('the next step', () => {
       },
     });
     expect(nextStep(noTables, TODAY).text).toBe(
-      'Your application page is not taking applications. To begin assignment: Tier Gold has no tables.',
+      'Your vendor page is not taking applications. To begin assignment: Tier Gold has no tables.',
     );
   });
 
   it('names where applications are open, on the form path', () => {
     expect(nextStep(market(MarketPhase.Applications), TODAY).text).toMatch(
-      /^Applications are open on your application page/,
+      /^Applications are open on your vendor page/,
     );
   });
 
-  it('points an archive that ran at the record its check-in page keeps', () => {
+  it('points an archive that ran at the record its vendor page keeps', () => {
     const ran = market(MarketPhase.Archived, { phasesReached: [MarketPhase.MarketDays] });
     expect(nextStep(ran, TODAY)).toMatchObject({ page: null });
-    expect(nextStep(ran, TODAY).text).toMatch(/check-in page/);
-    expect(nextStep(market(MarketPhase.Archived), TODAY).text).not.toMatch(/check-in page/);
+    expect(nextStep(ran, TODAY).text).toMatch(/vendor page/);
+    expect(nextStep(market(MarketPhase.Archived), TODAY).text).not.toMatch(/vendor page/);
   });
 
   // Where a move into the phase lands, too: a Google Form market's importing is done on the import,
@@ -251,14 +251,14 @@ describe('what the rail tells someone the step is not theirs', () => {
       'applications, open',
       viewer(MarketPhase.Applications),
       TODAY,
-      'Applications are open on the application page. Read where each application stands.',
+      'Applications are open on the vendor page. Read where each application stands.',
       'applications',
     ],
     [
       'applications, stopped',
       viewer(MarketPhase.Applications, { applicationsStopped: true } as Partial<Market>),
       TODAY,
-      'The application page is not taking applications. Read where each application stands.',
+      'The vendor page is not taking applications. Read where each application stands.',
       'applications',
     ],
     [
@@ -286,7 +286,7 @@ describe('what the rail tells someone the step is not theirs', () => {
       'assignment, results published',
       viewer(MarketPhase.Assignment, { ...ASSIGNED, resultsPublished: true } as Partial<Market>),
       TODAY,
-      'Results are published, so the assignments are settled. The check-in page goes up when the market is published.',
+      'Results are published, so the assignments are settled. Check-in with the door code opens when the market is published.',
       'assignments',
     ],
     [
@@ -334,7 +334,7 @@ describe('what the rail tells someone the step is not theirs', () => {
     id: 'results_published',
     passed: false,
     message:
-      'Applicants have not been told whether they have a table. Publish the results before the market goes live.',
+      'Vendors have not been told whether they have a table. Publish the results before the market goes live.',
     resolutionLink: 'applications',
     resolutionLabel: 'Publish results',
     resolutionAction: MarketAction.PublishResults,
@@ -348,7 +348,7 @@ describe('what the rail tells someone the step is not theirs', () => {
     const said = nextStep(waiting, TODAY);
     expect(said.text).not.toMatch(NOT_THEIRS);
     expect(said).toMatchObject({
-      text: 'Applications are open on the application page. Read where each application stands.',
+      text: 'Applications are open on the vendor page. Read where each application stands.',
       page: 'applications',
       blocker: null,
       action: MarketAction.Read,
@@ -386,7 +386,7 @@ describe('what the rail tells someone the step is not theirs', () => {
       },
     } as unknown as Partial<Market>);
     expect(nextStep(none, TODAY).text).toBe(
-      'Applications are open on the application page. To begin assignment: There are no applications for this market. At least one application must exist before the market can enter Assignment.',
+      'Applications are open on the vendor page. To begin assignment: There are no applications for this market. At least one application must exist before the market can enter Assignment.',
     );
   });
 
@@ -405,11 +405,11 @@ describe('what the rail tells someone the step is not theirs', () => {
     });
   });
 
-  it('Assignment on a CSV market, whose guard passes: the same sentence', () => {
+  it('Assignment on a Google Form market, results not published: the same sentence', () => {
     const csv = viewer(MarketPhase.Assignment, {
       ...ASSIGNED,
       intakeMode: IntakeMode.Csv,
-      transitionBlockers: { market_days: [], applications: [] },
+      transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER], applications: [] },
     } as Partial<Market>);
     expect(nextStep(csv, TODAY)).toMatchObject({
       text: 'Tables are allocated, and the market is not published yet. Read the assignments.',
@@ -418,12 +418,26 @@ describe('what the rail tells someone the step is not theirs', () => {
     });
   });
 
+  it('Assignment on a Google Form market leads its owner to Publish results (ADR 0022)', () => {
+    const csv = market(MarketPhase.Assignment, {
+      ...ASSIGNED,
+      intakeMode: IntakeMode.Csv,
+      transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER], applications: [] },
+    } as Partial<Market>);
+    expect(nextStep(csv, TODAY)).toMatchObject({
+      text: `To publish market: ${UNPUBLISHED_BLOCKER.message}`,
+      page: 'applications',
+      blocker: { id: 'results_published' },
+      action: MarketAction.PublishResults,
+    });
+  });
+
   it('reads the blocker to whoever may take its remedy, exactly as T142 decided', () => {
     const waiting = market(MarketPhase.Applications, {
       transitionBlockers: { assignment: [UNDECIDED_BLOCKER], draft: [] },
     });
     expect(nextStep(waiting, TODAY)).toMatchObject({
-      text: `Applications are open on your application page: review them as they arrive. Finish deciding: ${UNDECIDED_BLOCKER.message}`,
+      text: `Applications are open on your vendor page: review them as they arrive. Finish deciding: ${UNDECIDED_BLOCKER.message}`,
       blocker: { id: 'all_applications_reviewed' },
       action: MarketAction.GiveVerdicts,
     });
@@ -480,7 +494,7 @@ describe('what the rail tells someone the step is not theirs', () => {
     const said = nextStep(short, TODAY);
     expect(said.text).not.toMatch(/Add a section|reject those applications/);
     expect(said).toMatchObject({
-      text: 'Applications are open on the application page. Read where each application stands.',
+      text: 'Applications are open on the vendor page. Read where each application stands.',
       blocker: null,
       action: MarketAction.Read,
     });
@@ -519,13 +533,15 @@ describe('what the rail tells someone the step is not theirs', () => {
       blocker: null,
       action: MarketAction.Assign,
     });
+    // A Google Form market publishes results too, so its Editor reads the same (ADR 0022).
     const csv = market(MarketPhase.Assignment, {
       ...ASSIGNED,
       intakeMode: IntakeMode.Csv,
       actionRefusals: EDITOR_ANSWERS,
+      transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER], applications: [] },
     } as Partial<Market>);
     expect(nextStep(csv, TODAY)).toMatchObject({
-      text: 'Check the assignments; the market is published by whoever may publish it.',
+      text: 'Check the assignments; the results are published by whoever may publish them.',
       page: 'assignments',
       action: MarketAction.Assign,
     });

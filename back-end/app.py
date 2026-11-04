@@ -22,6 +22,7 @@ import typesafe_client as TypeSafe
 import market_stats as MarketStats
 import api.attendance as AttendanceApi
 import api.door as DoorApi
+import api.vendor_check_in as VendorCheckInApi
 import api.applications as ApplicationsApi
 import api.applicant_auth as ApplicantAuthApi
 import api.applicants as ApplicantsApi
@@ -36,7 +37,7 @@ from api.floorplans_calibrate import floorplans_calibrate_bp
 from api.floorplans_export import floorplans_export_bp
 from api.floorplans_save import floorplans_save_bp
 
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional
 from flask import Flask, request, jsonify, make_response, Response, session
 from flask_login import (
     LoginManager,
@@ -360,16 +361,22 @@ app.config["REMEMBER_COOKIE_DURATION"] = UsersApi.REMEMBERED_SIGN_IN_LIFETIME
 app.config["REMEMBER_COOKIE_REFRESH_EACH_REQUEST"] = False
 app.config["SESSION_COOKIE_NAME"] = "session"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-# Not configurable, for the session cookie and the remember-me cookie alike: a SameSite=None cookie
-# is one the browser attaches to cross-site requests, and browsers only accept such a cookie when it
-# is also Secure - so an environment variable that could turn this off would not "allow plain HTTP",
-# it would ship a cookie the browser drops, or sends in the clear where it does not. Loopback counts
-# as a secure context, so local dev is unaffected. The remember-me cookie is HttpOnly by Flask-Login's
-# default.
+# Not configurable, for the session cookie, the remember-me cookie and a vendor's remember cookie
+# alike: a SameSite=None cookie is one the browser attaches to cross-site requests, and browsers
+# only accept such a cookie when it is also Secure - so an environment variable that could turn
+# this off would not "allow plain HTTP", it would ship a cookie the browser drops, or sends in the
+# clear where it does not. Loopback counts as a secure context, so local dev is unaffected. The
+# remember-me cookie is HttpOnly by Flask-Login's default. A vendor's remember cookie,
+# `__Host-vendor_remember_<market id>` (`remembered_sign_ins`, ADR 0022), is set by that module from
+# the three VENDOR_REMEMBER_COOKIE_ keys below, HttpOnly so no script on the vendor page reads it;
+# its prefix makes a browser refuse it without Secure.
 app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.config["REMEMBER_COOKIE_SECURE"] = True
 app.config["REMEMBER_COOKIE_SAMESITE"] = "None"
+app.config["VENDOR_REMEMBER_COOKIE_SECURE"] = True
+app.config["VENDOR_REMEMBER_COOKIE_SAMESITE"] = "None"
+app.config["VENDOR_REMEMBER_COOKIE_HTTPONLY"] = True
 
 configure_public_endpoint_defenses(app, check_public_endpoint_defenses())
 install_error_answers(app)
@@ -1434,63 +1441,18 @@ def get_market_tables(market_id: str) -> Response:
 
 # attendance
 
-@app.route('/public/markets/<market_slug>/vendors/<path:vendor_email>/assignments', methods=['GET'])
-def public_get_vendor_assignments(market_slug: str, vendor_email: str) -> Response:
-    """Public vendor assignment lookup by slug + email."""
-    result, status_code = AttendanceApi.get_vendor_assignment_summary(market_slug, vendor_email)
-    return jsonify(result), status_code
+@app.route('/public/markets/<market_slug>/vendor/check-in', methods=['POST'])
+def vendor_check_in(market_slug: str) -> Response:
+    """A signed-in vendor checks in for a date with the market's door code (ADR 0022). Bearer
+    token and ``{date, doorCode}``; every try counted against ``check-in:address``, a wrong code
+    against ``check-in:caller``."""
+    return VendorCheckInApi.check_in(market_slug)
 
 
-@app.route('/public/markets/<market_slug>/check-in', methods=['GET'])
-def public_checkin_page(market_slug: str) -> Response:
-    """What the check-in page can say before a vendor types anything: which market this is."""
-    result, status_code = AttendanceApi.get_checkin_page(market_slug)
-    return jsonify(result), status_code
-
-
-def _no_check_in_at(market_slug: str) -> Tuple[Response, int]:
-    """Why nobody can check in at this address: it has ended, or there is no market here.
-
-    An ended market's check-in page is a record and offers no check-in (bug 9), so a write there is
-    told so rather than told the market does not exist - the page has just said it does.
-    """
-    if AttendanceApi.get_check_in_market(market_slug):
-        return jsonify({"error": AttendanceApi.ENDED_REFUSAL}), 409
-    return jsonify({"error": "Market not found"}), 404
-
-
-@app.route('/public/markets/<market_slug>/attendance/checkin', methods=['DELETE'])
-def public_attendance_undo(market_slug: str) -> Response:
-    """Undo a check-in made on the wrong day, by slug + vendor email + date."""
-    data = json_object(required=False)
-    vendor_email = string_field(data, 'vendorEmail') or string_field(data, 'vendor_email') or ''
-    date = string_field(data, 'date') or ''
-
-    market_doc = AttendanceApi.get_published_market_by_slug(market_slug)
-    if not market_doc:
-        return _no_check_in_at(market_slug)
-
-    result, status_code = AttendanceApi.undo_attendance(
-        market_doc.get("id", ""), vendor_email, date,
-    )
-    return jsonify(result), status_code
-
-
-@app.route('/public/markets/<market_slug>/attendance/checkin', methods=['POST'])
-def public_attendance_checkin(market_slug: str) -> Response:
-    """Public attendance check-in by slug + vendor email + date."""
-    data = json_object(required=False)
-    vendor_email = string_field(data, 'vendorEmail') or string_field(data, 'vendor_email') or ''
-    date = string_field(data, 'date') or ''
-
-    market_doc = AttendanceApi.get_published_market_by_slug(market_slug)
-    if not market_doc:
-        return _no_check_in_at(market_slug)
-
-    result, status_code = AttendanceApi.record_attendance(
-        market_doc.get("id", ""), vendor_email, date,
-    )
-    return jsonify(result), status_code
+@app.route('/public/markets/<market_slug>/vendor/check-in', methods=['DELETE'])
+def vendor_undo_check_in(market_slug: str) -> Response:
+    """A signed-in vendor takes back their own check-in for a date, ``{date}``, no door code."""
+    return VendorCheckInApi.undo_check_in(market_slug)
 
 
 # applicant login - public, unauthenticated, attacker-facing
@@ -1511,15 +1473,40 @@ def applicant_login_request_code(market_slug: str) -> Response:
 def applicant_login_verify_code(market_slug: str) -> Response:
     """Verify an email login code for an applicant.
 
-    Fully indistinguishable: every failure branch collapses to one observable
-    response. The caller cannot distinguish "no such address", "no code issued",
-    "expired", "already consumed", or "wrong code".
+    A wrong try at a live code answers "retry"; every other failure collapses to
+    one observable "spent" response, so the caller cannot distinguish "no such
+    address", "no code issued", "expired", "already consumed" or "tries used up",
+    and neither answer says whether the address applied.
     """
     result, status_code = ApplicantAuthApi.verify_login_code(market_slug)
     return result, status_code
 
 
+@app.route('/public/markets/<market_slug>/applicant-login/resume', methods=['POST'])
+def applicant_login_resume(market_slug: str) -> Response:
+    """Sign a remembered vendor straight back in, from the market's remember cookie (ADR 0022).
+
+    A live cookie is answered as a right code is; every other way is one 401 that clears it.
+    """
+    result, status_code = ApplicantAuthApi.resume_sign_in(market_slug)
+    return result, status_code
+
+
+@app.route('/public/markets/<market_slug>/applicant-login/sign-out', methods=['POST'])
+def applicant_login_sign_out(market_slug: str) -> Response:
+    """End the vendor's remembered sign-in at this market, on the server and the device. 204."""
+    result, status_code = ApplicantAuthApi.sign_out(market_slug)
+    return result, status_code
+
+
 # applicant application endpoints - public, JWT-authenticated
+
+
+@app.route('/public/markets/<market_slug>/vendor-page', methods=['GET'])
+def public_get_vendor_page(market_slug: str) -> Response:
+    """Public: what a market's vendor page needs before sign-in (ADR 0022). No authentication."""
+    result, status_code = ApplicantsApi.get_vendor_page(market_slug)
+    return jsonify(result), status_code
 
 
 @app.route('/public/markets/<market_slug>/application-form', methods=['GET'])
@@ -2118,6 +2105,23 @@ def organizer_check_in(market_id: str) -> Response:
 def organizer_undo_check_in(market_id: str) -> Response:
     """An organizer takes back a check-in. Asks ``Actions.CHECK_IN``."""
     return _door_write(market_id, DoorApi.undo_check_in)
+
+
+@app.route('/markets/<market_id>/door-code', methods=['GET'])
+@login_required
+def get_door_code(market_id: str) -> Response:
+    """The market's door code, ``{code, madeAt, madeBy, url}`` or ``{code: null}`` (ADR 0022).
+    Asks ``Actions.CHECK_IN``: no market read serves it."""
+    return jsonify(DoorApi.door_code(market_id, authenticated_email())), 200
+
+
+@app.route('/markets/<market_id>/door-code', methods=['POST'])
+@login_required
+def make_door_code(market_id: str) -> Response:
+    """A new door code, which ends the old one and every poster of it. Asks
+    ``Actions.CHECK_IN``; only in Market Days, and never on an archived market."""
+    result, status_code = DoorApi.make_door_code(market_id, authenticated_email())
+    return jsonify(result), status_code
 
 
 # misc

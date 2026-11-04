@@ -115,7 +115,7 @@ The market phase lifecycle adds six suites:
   camelCase key and the slug index and markers the app boots on are seeded or verified;
   the public slug lookup is one indexed query rather than a collection scan.
 - `test_market_slug.py` - pins that `Market.slug` is derived from the name (never
-  writable from a request body), every write persists it, and `published_market_by_slug`
+  writable from a request body), every write persists it, and the public slug lookup (`market_by_slug`)
   is one indexed query with a projection the caller controls.
 - `test_market_phase_consistency.py` - a market reports the same phase whichever endpoint
   served it (the list endpoint used to hand back raw documents while the detail endpoint
@@ -294,14 +294,10 @@ seeds](implementation/testing/e2e-seeds.md) is every helper that puts users and 
 a spec starts from.
 The page objects in `front-end/e2e/pages/` are these, one a line, sorted by class name, so a new one is one line in its place ([two features never share a line](implementation/conventions/two-features-never-share-a-line.md)):
 
-- `ApplicantDashboardPage`
-- `ApplicantLoginPage`
 - `ApplicationFormPage`
 - `ApplicationMonitorPage`
 - `ApplicationsAllPage`
-- `ApplyPage`
 - `AttendanceStatusPage`
-- `CheckinPage`
 - `CsvImportPage`
 - `EmailVerificationPage` (the page a verification link opens)
 - `FloorplanWorkflowPage`
@@ -322,6 +318,7 @@ The page objects in `front-end/e2e/pages/` are these, one a line, sorted by clas
 - `ToolsPage`
 - `UpdateInfoDialog` (the vendor drawer's Update info dialog)
 - `VendorExportDialog` (the export dialog, wherever it opens)
+- `VendorPage` (a market's vendor page, `/<slug>`: its sign-in, what a signed-in vendor reads, and the application form opened on it)
 - `VendorsPage`
 
 ### Bypassing CAPTCHA and email in tests

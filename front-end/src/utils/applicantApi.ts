@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { api, getApiErrorMessage } from '@/utils/api';
 import type { Application } from '@/assets/types/datatypes';
 
@@ -23,31 +24,85 @@ export async function requestLoginCode(
  * POST /public/markets/<slug>/applicant-login/verify-code
  *
  * On success (200): { success: true, marketId, applicantEmail, token? }
- * On failure (401): { message: "Invalid or expired code." }
+ * On failure (401): { message, codeState }, `codeState` "retry" for a wrong try at a code with
+ * tries left, "spent" for every other way a code cannot pass (`codeStateFrom`).
  *
- * The backend is oracle-free: every failure branch collapses to one identical
- * 401 response. One attempt per code - a wrong code consumes it.
+ * A code lasts ten minutes and takes five tries; neither answer says whether the address applied.
+ * With `remember`, a right code also leaves this device remembered for the market (ADR 0022): the
+ * server sets an HttpOnly cookie no script here reads, which `resumeSignIn` spends.
  */
 export async function verifyLoginCode(
   marketSlug: string,
   email: string,
   code: string,
-): Promise<{ success: boolean; marketId: string; applicantEmail: string; token?: string }> {
+  remember: boolean,
+): Promise<SignedIn> {
   const { data } = await api.post(`/public/markets/${marketSlug}/applicant-login/verify-code`, {
     email,
     code,
+    remember,
   });
+  return signedInFrom(data);
+}
+
+/** What a right code, or a live remembered sign-in, answers. */
+export interface SignedIn {
+  success: boolean;
+  marketId: string;
+  applicantEmail: string;
+  token?: string;
+}
+
+function signedInFrom(data: Record<string, unknown>): SignedIn {
   return {
     success: true,
-    marketId: data.marketId,
-    applicantEmail: data.applicantEmail,
-    token: data.token,
+    marketId: String(data.marketId ?? ''),
+    applicantEmail: String(data.applicantEmail ?? ''),
+    token: typeof data.token === 'string' ? data.token : undefined,
   };
 }
 
-/** Uniform error message for verification failures (anti-oracle ruling). */
+/**
+ * Sign this device's remembered vendor straight back in (ADR 0022).
+ * POST /public/markets/<slug>/applicant-login/resume
+ *
+ * The browser sends the market's remember cookie itself (`withCredentials`); a live one is answered
+ * as a right code is. Every other way, no cookie among them, is a 401, and the page asks for a code.
+ */
+export async function resumeSignIn(marketSlug: string): Promise<SignedIn> {
+  const { data } = await api.post(`/public/markets/${marketSlug}/applicant-login/resume`, null, {
+    timeout: APPLICANT_READ_TIMEOUT_MS,
+  });
+  return signedInFrom(data);
+}
+
+/**
+ * End this device's remembered sign-in at the market, on the server too, so a copy of the cookie
+ * stops working. POST /public/markets/<slug>/applicant-login/sign-out; 204 whether or not there was one.
+ */
+export async function endRememberedSignIn(marketSlug: string): Promise<void> {
+  await api.post(`/public/markets/${marketSlug}/applicant-login/sign-out`, null, {
+    timeout: APPLICANT_READ_TIMEOUT_MS,
+  });
+}
+
+/** What a refused code's step says: the server's sentence, which says what to do next. */
 export function verifyErrorFrom(err: unknown): string {
-  return getApiErrorMessage(err, 'Invalid or expired code.');
+  return getApiErrorMessage(err, 'That code could not be checked. Please try again.');
+}
+
+/**
+ * Where a refused code stands (T191 F22): "retry" while it has tries left, so the field clears for
+ * another; "spent" once it no longer works, so only "Send a new code" is offered. Null for a
+ * refusal that says nothing of the code - too many tries from this address, or no answer at all -
+ * which leaves the step as it was.
+ */
+export type CodeState = 'retry' | 'spent';
+
+export function codeStateFrom(err: unknown): CodeState | null {
+  const data = axios.isAxiosError(err) ? err.response?.data : undefined;
+  const state = (data as { codeState?: unknown } | undefined)?.codeState;
+  return state === 'retry' || state === 'spent' ? state : null;
 }
 
 /** Suitable error message for unexpected request-code failures. */
@@ -55,13 +110,19 @@ export function requestErrorFrom(err: unknown): string {
   return getApiErrorMessage(err, 'Unable to send code. Please try again.');
 }
 
+/** What the application section says of a save the server refused, when it gave no sentence. */
+export function saveErrorFrom(err: unknown): string {
+  return getApiErrorMessage(err, 'Your application could not be saved. Please try again.');
+}
+
 /**
  * How long an applicant waits for a read before being told it did not load. Generous, because a
  * phone on a bad connection is the normal case, but bounded - an unbounded request leaves the
  * page on its loading state for ever, with nothing to retry and nothing to read.
  *
- * One bound for every read an applicant page waits on. The apply page waits on two at once, and
- * when only the form's was bounded, a stall in the other kept the page loading for ever anyway.
+ * One bound for every read the vendor page waits on. Signed in, it waits on two at once (the
+ * vendor's application and the form), and when only the form's was bounded, a stall in the other
+ * kept the form page of old loading for ever anyway.
  */
 export const APPLICANT_READ_TIMEOUT_MS = 15000;
 
@@ -97,6 +158,42 @@ export async function saveApplicantApplication(
     { headers: { Authorization: `Bearer ${token}` } },
   );
   return data.application as Application;
+}
+
+/**
+ * Check the signed-in vendor in for `date` with the market's door code, scanned or typed (ADR 0022).
+ * POST /public/markets/<slug>/vendor/check-in
+ *
+ * Answers when they checked in. Each refusal carries the sentence the page shows: no table that
+ * day, not the day itself, a wrong door code, before the market's days, or once it has ended.
+ */
+export async function checkInWithDoorCode(
+  marketSlug: string,
+  token: string,
+  date: string,
+  doorCode: string,
+): Promise<{ checkedInAt: string }> {
+  const { data } = await api.post(
+    `/public/markets/${marketSlug}/vendor/check-in`,
+    { date, doorCode },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return { checkedInAt: String(data.checkedInAt ?? '') };
+}
+
+/**
+ * Take back the signed-in vendor's own check-in for `date`; no door code needed.
+ * DELETE /public/markets/<slug>/vendor/check-in
+ */
+export async function undoOwnCheckIn(
+  marketSlug: string,
+  token: string,
+  date: string,
+): Promise<void> {
+  await api.delete(`/public/markets/${marketSlug}/vendor/check-in`, {
+    data: { date },
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 /**

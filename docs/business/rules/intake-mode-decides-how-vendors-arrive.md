@@ -5,7 +5,7 @@ describes:
   - back-end/api/markets.py#save_plan
   - back-end/market_documents.py#market_serves_applicants
   - front-end/src/components/elements/ElementIntakeMode.vue
-verified: 2026-10-30
+verified: 2026-11-04
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/06
@@ -18,12 +18,13 @@ sources:
   - E31/F03/S04
   - E32/F02
   - E03
+  - T202
 ---
 
 # Intake mode decides how vendors arrive
 
 Every market takes its vendors one way, its intake mode: `csv`, imported by the organizer from the responses their own Google Form collected, or `form`, applying on the market's own page; exactly one, chosen when the market is created and fixed once it leaves draft.
-The mode decides who fills the application form in, never whether there is one, and never who may check in on the day.
+The mode decides who fills the application form in, never whether there is one, never whether vendors read their result on the market's vendor page, and never who may check in on the day.
 
 **Serves:** [Vendors come in from the organizer's own Google Form](../intents/vendors-come-in-from-the-organizers-own-google-form.md) and [Vendors apply on the market's own page](../intents/vendors-apply-on-the-markets-own-page.md).
 
@@ -33,10 +34,12 @@ The phase cannot say this: a CSV market is in `applications` too, where its impo
 Switching the mode mid-lifecycle strands what the previous mode produced: flip a form market to CSV after people applied, and their pages go dark.
 **A market taken back to draft may change its mode again**, and that is safe: the way back is open only while nobody has applied ([the form locks at the first application](the-form-locks-at-the-first-application.md)), so nothing yet depends on how vendors were going to arrive, and its applicant pages close on the way back, as a draft's are.
 An absent mode is CSV, so the applicant surface fails closed ([ADR 0006](../../adr/0006-intake-mode-fails-closed.md)).
+Which markets have a vendor page, where a vendor signs in and reads their result, is [ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)'s.
 
 **Each path has its own ways in.**
 Importing is the CSV path's, in Draft and Review (E31/F03/S04): a form market takes its applications on its own page, so nothing is imported into it.
-Publish results is the form path's: a CSV market's vendors never see this product, so it has no applicants to tell ([Publish results waits for the allocation](publish-results-waits-for-the-allocation.md)).
+Applying on the market's page is the form path's: a CSV market's vendors are its imported responses, so its page has no application section.
+Publish results is both paths': a CSV market's vendors read their table on its vendor page, which opens with its results ([Publish results waits for the allocation](publish-results-waits-for-the-allocation.md), [a gated market answers as absent](a-gated-market-answers-as-absent.md)).
 
 **Intake mode does not gate the form builder.**
 A CSV market still has an application form, because the essential questions define the offering the CSV maps onto: its form tab is the questions its imports are mapped onto.
@@ -56,12 +59,14 @@ After that an Editor changes it on Market Setup while the market is a draft, thr
 - **It is settable only while the market is a draft**, through the plan write (`PUT /markets/:id/plan`, `save_plan` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)), whose `prepared_plan` refuses a change after that.
   The refusal is derived from the stored phase rather than from a list of late phases; a body restating the stored mode is not a change, since the plan saves itself in every phase.
 - The control is [`ElementIntakeMode.vue`](../../../front-end/src/components/elements/ElementIntakeMode.vue), a plan card; the server is the authority, so a hidden or disabled control is never the rule.
-- `market_serves_applicants` in [`back-end/market_documents.py`](../../../back-end/market_documents.py) is the one statement of "this market has an applicant surface", read by the applicant lookup and by `publish_results` ([a gated market answers as absent](a-gated-market-answers-as-absent.md)).
+- `market_serves_applicants` in [`back-end/market_documents.py`](../../../back-end/market_documents.py) is the one statement of "this market's vendors apply on its page", read by both lookups and by the vendor's own read, which leaves out a CSV market's answers ([a gated market answers as absent](a-gated-market-answers-as-absent.md)).
 - `import_refusal` in [the CSV import](../../implementation/modules/csv-import.md) refuses a form market; on the CSV path the rail offers "Import responses" from Draft and "Redo import" in Review ([review needs an import](review-needs-an-import.md)).
 - An application does not record how it arrived: the market's mode already says, so a field on the application would be a second copy ([ADR 0011](../../adr/0011-re-import-upserts-on-market-and-email.md)).
 - `back-end/tests/test_market_intake_mode.py` pins the default, the one writer and the freeze.
 
 ## Superseded
+
+Publish results was the form path's alone, since a CSV market's vendors never saw this product and it had no applicants to tell; a CSV market's vendors now read their table on its vendor page, so it publishes too ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)).
 
 The product first took vendors by CSV import only, as a temporary intake until the online form became the official path (`wayfinding/v0-1-0/map`).
 Both are now paths a market chooses between when it is created, and the Google Form path is a whole path of its own, with its own rail (E31/F03, E32/F02).

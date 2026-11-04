@@ -10,11 +10,11 @@ import {
   CsvImportPage,
   ApplicationMonitorPage,
   ResultPage,
-  ApplicantLoginPage,
+  VendorPage,
 } from './fixtures';
 import { ensureTestOrg, marketNameToSlug } from './helpers/seeds';
-import { ApplyPage } from './pages/ApplyPage';
 import { createApplicantLoginChallenge } from './helpers/seedApplicantMarket';
+import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
 
 /**
  * The MVP journey, walked once, by one organizer, in one session (E04/F01/S02).
@@ -261,21 +261,22 @@ test.describe('The MVP journey', () => {
     // --- 3. A vendor applies on the market's own page, in a browser of their own -------------
     const slug = marketNameToSlug(marketName);
     const vendorContext = await browser.newContext();
+    await hideDevToolsPanel(vendorContext);
     const vendorPage = await vendorContext.newPage();
-    const login = new ApplicantLoginPage(vendorPage);
-    await vendorPage.goto(`/${slug}/applicant-login?redirect=apply`);
+    const login = new VendorPage(vendorPage);
+    await vendorPage.goto(`/${slug}`);
     await login.requestCode(VENDOR);
     await expect(login.codeInput).toBeVisible();
     createApplicantLoginChallenge(marketId, VENDOR, '864213');
     await login.enterCode('864213');
-    const apply = new ApplyPage(vendorPage);
-    await expect(apply.form).toBeVisible({ timeout: 30000 });
-    await apply.fullNameInput.fill('Ruth Abernathy');
-    await apply.tierCheckbox(MARKET_DATES[0], TIER).check();
-    await apply.maxDatesInput.fill('1');
-    await apply.tableChoiceRadio('full').check();
-    await apply.submit();
-    await vendorPage.waitForURL(new RegExp(`/${slug}/applicant/dashboard`));
+    await login.applyButton.click();
+    await expect(login.form).toBeVisible({ timeout: 30000 });
+    await login.fullNameInput.fill('Ruth Abernathy');
+    await login.tierCheckbox(MARKET_DATES[0], TIER).check();
+    await login.maxDatesInput.fill('1');
+    await login.tableChoiceRadio('full').check();
+    await login.submit();
+    await expect(login.form).toHaveCount(0, { timeout: 10000 });
     await vendorContext.close();
 
     // --- 4. Reviewed in the same stage, applications still open ------------------------------

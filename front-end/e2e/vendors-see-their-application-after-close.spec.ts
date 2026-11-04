@@ -1,5 +1,5 @@
 import type { APIRequestContext } from '@playwright/test';
-import { test, expect, TEST_USER, BACKEND_URL, ApplicantLoginPage } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
 import {
   createApplicantLoginChallenge,
   planSetupObject,
@@ -56,30 +56,30 @@ test('after results are published and applications close, a vendor still reads t
   await post(request, `/markets/${market.marketId}/assignment`);
   await post(request, `/markets/${market.marketId}/publish-results`);
 
-  const login = new ApplicantLoginPage(page);
-  await page.goto(`/${market.marketSlug}/applicant-login`);
-  await expect(page.getByTestId('applicant-login-market')).toHaveText(market.marketName);
+  const login = new VendorPage(page);
+  await page.goto(`/${market.marketSlug}`);
+  await expect(page.getByTestId('vendor-page-market-name')).toHaveText(market.marketName);
   await login.requestCode(VENDOR);
   createApplicantLoginChallenge(market.marketId, VENDOR, CODE);
   await login.enterCode(CODE);
 
-  await page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`));
   // One of two outcomes, read off the seats (E36/F05/S02): a table, and where.
-  await expect(page.getByTestId('applicant-dashboard-status')).toContainText('You have a table');
-  await expect(page.getByTestId('applicant-dashboard-seats')).toContainText('August 1, 2099');
-  await expect(page.getByTestId('applicant-dashboard-answers')).toContainText('Returning Ceramics');
+  await expect(page.getByTestId('vendor-page-status')).toContainText('You have a table');
+  await expect(page.getByTestId('vendor-page-seats')).toContainText('August 1, 2099');
+  await expect(page.getByTestId('vendor-page-answers')).toContainText('Returning Ceramics');
 
   // Anyone without a seat reads the other, rejected or not, and never why.
-  await page.getByTestId('applicant-dashboard-logout-btn').click();
-  await page.goto(`/${market.marketSlug}/applicant-login`);
+  await page.getByTestId('vendor-page-sign-out-btn').click();
+  // Signed out once the server has ended any remembered sign-in, and the page says so.
+  await expect(login.emailInput).toBeVisible();
+  await page.goto(`/${market.marketSlug}`);
   await login.requestCode(TURNED_AWAY);
   createApplicantLoginChallenge(market.marketId, TURNED_AWAY, CODE);
   await login.enterCode(CODE);
-  await page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`));
-  const status = page.getByTestId('applicant-dashboard-status');
+  const status = page.getByTestId('vendor-page-status');
   await expect(status).toContainText('You did not get assigned');
   await expect(status).not.toContainText(/reject|accepted/i);
-  await expect(page.getByTestId('applicant-dashboard-seats')).toHaveCount(0);
+  await expect(page.getByTestId('vendor-page-seats')).toHaveCount(0);
   // Reading is open; applying is not - the save refuses it, which the back-end suite pins, and
-  // the apply page's closed state is walked in returning-vendors-edit-their-answers.spec.ts.
+  // the vendor page's read-only answers are walked in returning-vendors-edit-their-answers.spec.ts.
 });

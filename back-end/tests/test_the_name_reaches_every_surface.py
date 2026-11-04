@@ -7,7 +7,6 @@ no stored name falls back to the address and looks exactly like the product did 
 what lets this ship without making any existing market look worse.
 """
 import api.applications as ApplicationsApi
-import api.attendance as AttendanceApi
 import essential_fields as EF
 from assignment.csv_output import build_market_csv_rows
 from conftest import FakeApplicationsCollection
@@ -116,48 +115,6 @@ class TestTheAssignmentCsv:
 
         assert [row["Email"] for row in rows] == ["nadia@ember.test", "theo@thistle.test"]
         assert {row["Name"] for row in rows} == {"Sam Lee"}
-
-
-class TestTheCheckInLookup:
-    def _summary(self, monkeypatch, names):
-        monkeypatch.setattr(
-            AttendanceApi, "get_check_in_market",
-            lambda _slug: {
-                "id": "market-1", "name": "Winter Market", "isDraft": False, "phase": "market_days",
-                "setupObject": {
-                    "priority": [], "marketDates": [{"date": "2026-08-01"}], "tiers": [],
-                    "locations": [], "sections": [], "assignmentOptions": {},
-                },
-                "creationDate": "2026-01-01T00:00:00Z", "roles": {"o@example.com": "owner"},
-                "modificationList": [],
-                "assignmentObject": {"vendorAssignments": [{
-                    "email": "nadia@ember.test", "date": "2026-08-01",
-                    "tableCode": "Front Row 1", "tableChoice": "Full Table",
-                    "section": "Front Row", "tier": "Gold", "location": "Main Hall",
-                }]},
-            },
-        )
-        monkeypatch.setattr(
-            AttendanceApi.attendance_collection, "find", lambda _q: iter([]),
-        )
-        monkeypatch.setattr(
-            ApplicationsApi, "vendor_names_for_market", lambda _id: names,
-        )
-        return AttendanceApi.get_vendor_assignment_summary("winter-market", "nadia@ember.test")
-
-    def test_the_vendor_is_greeted_by_name(self, monkeypatch):
-        result, status = self._summary(monkeypatch, {"nadia@ember.test": "Nadia Okonkwo"})
-
-        assert status == 200
-        assert result["vendorName"] == "Nadia Okonkwo"
-        assert result["vendorEmail"] == "nadia@ember.test"
-
-    def test_a_vendor_with_no_name_is_still_served_their_assignment(self, monkeypatch):
-        result, status = self._summary(monkeypatch, {})
-
-        assert status == 200
-        assert result["vendorName"] == ""
-        assert result["vendorEmail"] == "nadia@ember.test"
 
 
 class TestTheFullNameInTheDownload:

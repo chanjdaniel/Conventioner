@@ -1,6 +1,7 @@
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { test, expect, APP_API, TEST_USER, LoginPage } from './fixtures';
 import { mongoEval } from './helpers/mongo';
+import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
 
 /**
  * Signing in offers "Remember me" (E38/F14/S01), and closing the browser keeps to the choice.
@@ -20,6 +21,7 @@ async function reopened(browser: Browser, closing: BrowserContext): Promise<Page
   const state = await closing.storageState();
   state.cookies = state.cookies.filter((cookie) => cookie.expires !== -1);
   const context = await browser.newContext({ storageState: state });
+  await hideDevToolsPanel(context);
   return context.newPage();
 }
 

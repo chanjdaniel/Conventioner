@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, MarketSetupPage } from './fixtures';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
 import { marketScreenPath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
@@ -117,7 +117,7 @@ test('a Google Form market back from review allocates tables again before it goe
   await expect(page.getByTestId('assignment-out-of-date')).toHaveText(
     `${REOPENED} Allocate tables again to bring the result up to date.`,
   );
-  // Publish market waits, and its fix is to allocate tables.
+  // Publish market waits, and its first fix is to allocate tables.
   await expect(page.getByTestId('phase-transition-market_days')).toBeDisabled();
   await expect(page.getByTestId('phase-rail-next')).toContainText(
     'The review was reopened after tables were allocated. Allocate tables again before the market goes live.',
@@ -125,6 +125,8 @@ test('a Google Form market back from review allocates tables again before it goe
 
   await allocateAgain(page, marketId);
   await expect(page.getByTestId('assignment-out-of-date')).toHaveCount(0);
+  // Its vendors read their results on its vendor page, so those come before going live (ADR 0022).
+  await new MarketSetupPage(page).publishResults(marketId);
   await page.getByTestId('phase-transition-market_days').click();
   await page.getByTestId('sweep-confirm-submit-button').click();
   await expect(page.getByTestId('phase-rail-current')).toHaveText('Market Days');

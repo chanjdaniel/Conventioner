@@ -1,11 +1,10 @@
 /**
- * `Publish results` follows intake mode.
+ * `Publish results` on both kinds of market (E36/F04/S01, ADR 0022).
  *
- * The label is correct for what the button does: it flips `resultsPublished`, which is what makes
- * a reviewer's verdict visible to the applicant instead of `under_review`. But every endpoint that
- * reads that flag goes through `applicant_intake_market_by_slug`, which serves form-intake markets
- * only - so on a CSV market, which is every market this product can currently create, the flag has
- * no reader and the button was a no-op with a confident label.
+ * It flips `resultsPublished`, which is what turns a vendor's "Submitted" into their outcome on
+ * their vendor page. A Google Form market's vendors read their table on the same page, which opens
+ * with its results, so the control is offered on it under the same rule as on a market whose
+ * vendors apply on its page.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
@@ -44,17 +43,28 @@ async function mounted(market: Market) {
 const button = '[data-testid="applications-publish-button"]';
 const hint = '[data-testid="applications-publish-hint"]';
 
-describe('a market with no applicants', () => {
-  it('offers no Publish results control on a CSV market', async () => {
+describe('a Google Form market (ADR 0022)', () => {
+  it('offers the Publish results control once the server would take it', async () => {
     const wrapper = await mounted(marketTaking(IntakeMode.Csv));
 
-    expect(wrapper.find(button).exists()).toBe(false);
+    expect(wrapper.find(button).exists()).toBe(true);
+    expect(wrapper.find<HTMLButtonElement>(button).element.disabled).toBe(false);
   });
 
-  it('offers none on a market that names no intake mode, which reads as CSV', async () => {
+  it('offers it on a market that names no intake mode, which reads as CSV', async () => {
     const wrapper = await mounted(marketTaking(undefined));
 
-    expect(wrapper.find(button).exists()).toBe(false);
+    expect(wrapper.find(button).exists()).toBe(true);
+  });
+
+  it("disables it with the server's reason until results may be published", async () => {
+    const reason = 'Allocate tables first: results tell each applicant whether they have a table.';
+    const wrapper = await mounted(
+      marketTaking(IntakeMode.Csv, { publishWaitsReason: reason, publishOutcomes: null }),
+    );
+
+    expect(wrapper.find<HTMLButtonElement>(button).element.disabled).toBe(true);
+    expect(wrapper.find(hint).text()).toBe(reason);
   });
 });
 
@@ -82,12 +92,52 @@ describe('a form-intake market (E36/F04/S01)', () => {
 
     await wrapper.find(button).trigger('click');
     const confirm = wrapper.find('[data-testid="publish-results-window"]');
-    expect(confirm.text()).toContain('3 applicants will read "You have a table"');
+    expect(confirm.text()).toContain('3 vendors will read "You have a table"');
     expect(confirm.text()).toContain('2 will read "You did not get assigned"');
     expect(publishResults).not.toHaveBeenCalled();
 
     await wrapper.find('[data-testid="publish-results-submit-button"]').trigger('submit');
     expect(publishResults).toHaveBeenCalledWith('m1');
+  });
+});
+
+describe("where vendors read it: the market's vendor page (ADR 0022)", () => {
+  const withSlug = () => marketTaking(IntakeMode.Form, { slug: 'spring-market' });
+
+  it('says beside the button that vendors read it on the vendor page and no email is sent', async () => {
+    const wrapper = await mounted(withSlug());
+
+    expect(wrapper.find(hint).text()).toBe(
+      "Vendors read whether they have a table on the market's vendor page. No email is sent.",
+    );
+  });
+
+  it("confirms with the telling and the page's address to share", async () => {
+    const wrapper = await mounted(withSlug());
+
+    await wrapper.find(button).trigger('click');
+    const confirm = wrapper.find('[data-testid="publish-results-window"]');
+    expect(confirm.find('[data-testid="publish-results-telling"]').text()).toContain(
+      'No email is sent',
+    );
+    const address = confirm.find('[data-testid="publish-results-address-url"]');
+    expect(address.text()).toBe(`${window.location.origin}/spring-market`);
+    expect(address.attributes('href')).toBe(`${window.location.origin}/spring-market`);
+  });
+
+  it('copies the address', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    const wrapper = await mounted(withSlug());
+
+    await wrapper.find(button).trigger('click');
+    const copy = wrapper.find('[data-testid="publish-results-address-copy"]');
+    await copy.trigger('click');
+    await wrapper.vm.$nextTick();
+
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/spring-market`);
+    expect(copy.text()).toBe('Copied');
+    vi.unstubAllGlobals();
   });
 });
 

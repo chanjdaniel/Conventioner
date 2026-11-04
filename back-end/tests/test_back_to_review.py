@@ -444,7 +444,7 @@ class TestGoingLiveAfterTheReviewReopens:
         refused = self._live(world.client)
 
         assert refused.status_code == 409
-        [blocker] = refused.get_json()["blockers"]
+        blocker, results = refused.get_json()["blockers"]
         assert blocker["id"] == "assignment_after_review"
         assert blocker["message"] == (
             "The review was reopened after tables were allocated. Allocate tables again before "
@@ -452,9 +452,16 @@ class TestGoingLiveAfterTheReviewReopens:
         )
         assert (blocker["resolutionLink"], blocker["resolutionLabel"],
                 blocker["resolutionAction"]) == ("settings", "Allocate tables", "assign")
+        # Its vendors read their results on its vendor page too, and that comes after the tables.
+        assert results["id"] == "results_published"
         assert markets.doc["phase"] == "assignment"
 
         runs()
+        refused = self._live(world.client)
+        assert [b["id"] for b in refused.get_json()["blockers"]] == ["results_published"]
+        published = world.client.post(f"/markets/{MARKET}/publish-results")
+        assert published.status_code == 200, published.get_json()
 
-        assert self._live(world.client).status_code == 200, self._live(world.client).get_json()
+        live = self._live(world.client)
+        assert live.status_code == 200, live.get_json()
         assert markets.doc["phase"] == "market_days"
