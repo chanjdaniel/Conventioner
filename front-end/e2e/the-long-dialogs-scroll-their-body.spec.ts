@@ -263,7 +263,6 @@ test.describe('in a window too short to show the whole body', () => {
   });
 });
 
-/** An anchored dialog holds its top where it opened, and measures its cap from there. */
 /*
  * What the rule for "long" named and no other spec reads (`dialogs.md`): each scrolls its `-body`,
  * and has no `-scroll`, which is what a dialog scrolling whole has. The rest are read where a spec

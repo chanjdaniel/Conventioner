@@ -112,15 +112,6 @@ const modalRoot = useModalRoot(() => props.open);
 const windowEl = ref<HTMLElement | null>(null);
 
 /**
- * Focus moves into the dialog when it opens.
- *
- * Not a nicety: `useInertBehind` marks the page behind, and the button that opened the dialog is
- * on that page - so focus would otherwise sit on an inert element, with nowhere sensible for the
- * first Tab to come from. The window itself is the fallback, so focus is inside the dialog even when
- * every control is busy.
- */
-
-/**
  * The control a dialog opens on: its first, never a destructive one. For the same reason a
  * destructive dialog opens on Cancel, a dialog listing people never opens on the first person's
  * Remove, which one stray Enter would take: Manage organization opened on its first admin's. A
@@ -144,6 +135,14 @@ function firstSafeControl(): HTMLElement | null {
 /** Focus goes back to what opened the dialog when it closes, by any path. */
 useFocusGoesBack(() => props.open);
 
+/**
+ * Focus moves into the dialog when it opens.
+ *
+ * Not a nicety: `useInertBehind` marks the page behind, and the button that opened the dialog is
+ * on that page - so focus would otherwise sit on an inert element, with nowhere sensible for the
+ * first Tab to come from. The window itself is the fallback, so focus is inside the dialog even when
+ * every control is busy.
+ */
 watch(
   () => props.open,
   async (open) => {
