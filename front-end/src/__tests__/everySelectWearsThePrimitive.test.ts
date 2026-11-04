@@ -10,7 +10,7 @@ import { join, relative, resolve as resolvePath } from 'node:path';
  * not read the primitive. No E2E can reach 49 selects cheaply, so the rule is held from the source,
  * as `modalsHoldThePageInert.test.ts` holds its own: a `<select>` in a template wears both classes,
  * and a select's other classes may size or place it but never draw it, since a scoped rule out-ranks
- * `.field--select`.
+ * `.field--select`. Nor may any rule of its file that reaches it by `select` or `.field--select`.
  *
  * What it does NOT see, so that the next reader does not assume otherwise:
  *
@@ -19,6 +19,8 @@ import { join, relative, resolve as resolvePath } from 'node:path';
  * - `\{[^{}]*\}` matches innermost blocks only, so a rule containing a nested block (CSS nesting,
  *   which this repo does not use yet) would hide the declarations around it.
  * - A `:class` is read for its words, so a variable naming a class is not followed.
+ * - A plain `.field` rule is not read, since it reaches a file's inputs too and may well set their
+ *   padding, so a select can still be drawn over through it.
  */
 
 // Resolved from the project root rather than `import.meta.url`, for the reason `contrast.test.ts`
@@ -43,6 +45,20 @@ function templateOf(source: string): string {
     .replace(/<!--[\s\S]*?-->/g, '');
 }
 
+/**
+ * Whether a selector's subject, what its last compound styles, is a select by its element or by its
+ * primitive. An attribute's value and a `:not()` name what is not styled, so neither counts.
+ */
+function reachesASelect(selector: string): boolean {
+  const subject = selector
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/:not\([^)]*\)/g, '')
+    .trim()
+    .split(/[\s>+~]+/)
+    .pop();
+  return /(?<![\w.#-])select(?![\w-])|\.field--select(?![\w-])/.test(subject ?? '');
+}
+
 /** What is wrong with each `<select>` of a single-file component's source, in words. */
 function faultsOf(source: string): string[] {
   const rules = [...source.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/g)]
@@ -54,8 +70,24 @@ function faultsOf(source: string): string[] {
     }));
 
   // A quoted value may hold a `>`, as an arrow function in a listener does.
-  const tags = templateOf(source).matchAll(/<select\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g);
-  return [...tags].flatMap(([, attributes]) => {
+  const tags = [...templateOf(source).matchAll(/<select\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g)];
+
+  // Whichever select it reaches: a rule naming the element or the primitive names no one of them.
+  const drawnOver = tags.length
+    ? rules.flatMap(({ selector, properties }) =>
+        selector
+          .split(',')
+          .map((part) => part.trim())
+          .filter(reachesASelect)
+          .flatMap((part) =>
+            properties
+              .filter((p) => DRAWS.test(p))
+              .map((property) => `a rule of this file draws a select: "${part}" sets ${property}`),
+          ),
+      )
+    : [];
+
+  const faultsOfEach = tags.flatMap(([, attributes]) => {
     const name = /data-testid="([^"]+)"/.exec(attributes)?.[1] ?? attributes.trim().split('\n')[0];
     const worn = /(?<![:\w-])class="([^"]*)"/.exec(attributes)?.[1].split(/\s+/) ?? [];
     const bound = /:class="([^"]*)"/.exec(attributes)?.[1].match(/[A-Za-z_][\w-]*/g) ?? [];
@@ -76,6 +108,7 @@ function faultsOf(source: string): string[] {
     }
     return faults;
   });
+  return [...faultsOfEach, ...drawnOver];
 }
 
 describe('faultsOf, on a component written for it', () => {
@@ -140,6 +173,60 @@ describe('faultsOf, on a component written for it', () => {
       '.other { padding: 0; } .own-label { padding: 0; }',
     );
     expect(faultsOf(source)).toEqual([]);
+  });
+
+  for (const selector of [
+    '.wrapper .field--select',
+    '.field--select:disabled',
+    '.wrapper select',
+    '.own select',
+    'select.own-state',
+    '.wrapper :deep(select)',
+  ]) {
+    it(`fails a rule that draws the select by its element or primitive: ${selector}`, () => {
+      const source = sfc(
+        '<div class="wrapper"><select class="field field--select"></select></div>',
+        `${selector} { width: auto; background: none; padding: 0; appearance: auto; }`,
+      );
+      expect(faultsOf(source)).toEqual([
+        expect.stringContaining('sets background'),
+        expect.stringContaining('sets padding'),
+        expect.stringContaining('sets appearance'),
+      ]);
+    });
+  }
+
+  it('reads each selector of a list apart, so a neighbour in it faults nothing', () => {
+    const source = sfc(
+      '<select class="field field--select"></select>',
+      '.label, .wrapper select { padding: 0; }',
+    );
+    expect(faultsOf(source)).toEqual([expect.stringContaining('".wrapper select" sets padding')]);
+    const neighbour = sfc(
+      '<select class="field field--select"></select>',
+      '.label, .wrapper select { width: auto; } .label { padding: 0; }',
+    );
+    expect(faultsOf(neighbour)).toEqual([]);
+  });
+
+  it('passes such a rule that only sizes or places the select', () => {
+    const source = sfc(
+      '<div class="pricing-currency"><select class="field field--select"></select></div>',
+      '.pricing-currency .field--select { width: auto; margin-right: auto; } .field--select.error { border-color: red; }',
+    );
+    expect(faultsOf(source)).toEqual([]);
+  });
+
+  it('leaves alone a plain .field rule, which reaches inputs too, and a select it does not reach', () => {
+    const source = sfc(
+      '<select class="field field--select"></select>',
+      '.wrapper .field { padding: 0; } .field--select-note { padding: 0; } .select { padding: 0; } select option { padding: 0; } [data-kind="select"] { padding: 0; } :not(select) { padding: 0; }',
+    );
+    expect(faultsOf(source)).toEqual([]);
+  });
+
+  it('reads such a rule only in a file with a select of its own', () => {
+    expect(faultsOf(sfc('<div></div>', '.wrapper select { padding: 0; }'))).toEqual([]);
   });
 
   it('takes a rule out of a media query, and no comment for a rule', () => {
