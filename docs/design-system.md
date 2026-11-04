@@ -31,6 +31,7 @@ describes:
   - front-end/src/components/ListFrame.vue
   - front-end/src/components/NameList.vue
   - front-end/src/components/RowGroup.vue
+  - front-end/src/components/SidePanel.vue
   - front-end/src/components/BarLedger.vue
   - front-end/src/utils/useFold.ts
 verified: 2026-11-04
@@ -445,6 +446,11 @@ A long list a screen keeps grouped folds by group, in [`RowGroup.vue`](../front-
 Both take the fold from [`useFold`](../front-end/src/utils/useFold.ts): unfolding hands the focus to the first new row, and folding keeps it on the button and brings the button back into view.
 No screen folds yet: the library's `folds` entry shows both, on the Stats tab's bars and the Assignments page's tables.
 
+A panel that slides in from a side is [`SidePanel.vue`](../front-end/src/components/SidePanel.vue) (T200), a proposal for the vendor drawer and the navigation drawer: `side` (right or left), `width` (narrow, 20rem, or wide, 30rem, each leaving a gutter of scrim), its title and close pinned and only its body scrolling.
+It is modal as a dialog is, through the same composables: Escape and the scrim emit `close`, focus moves in to its close button and goes back, and the page is inert.
+A dialog opened from it lies over the whole window and takes Escape first.
+No screen mounts it yet: the library's `proposals` entry shows it on a fixture application, with the two primitives above.
+
 A screen takes a file on [`FileDropZone.vue`](../front-end/src/components/FileDropZone.vue), its one way to (T205): a dashed zone on the beige ground that a click anywhere opens the file chooser from, its main line naming the hidden input and a hint under it saying what files it takes.
 It tints green under the pointer and while a file is over it, and its words take no pointer events, so crossing them does not fire `dragleave` and flicker the tint off.
 Busy, while its caller reads or uploads a file, it takes no file and mutes its main line, never dimming it with opacity; a chosen file clears the input, so the same file chosen again is read again.
@@ -455,7 +461,8 @@ The import and the start from a Google Form take their CSV on it, and the floorp
 | --- | --- | --- |
 | `.btn` | `--primary`, `--secondary`, `--destructive`, `--compact` | One standard height (36px) and one compact (28px), and no third, both 44px on a phone. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. `--secondary` with `--destructive` is a row's destructive action, below. |
 | `.field` | `--select`, `--textarea` | Left-aligned always - 18 of 27 controls on Market Setup were centred. `--select` carries `min-width: 0`: a select fills its column and never pushes past it, in Firefox as in Chromium. A column that must fit a select's options sizes its own track. `--select` also draws the one chevron, 13px from the right edge as its text is from the left, with room so a long option ends in an ellipsis before it, muted when disabled: two files, `public/icons/select-chevron.svg` and `select-chevron-disabled.svg`, never a `data:` URI, which the Content-Security-Policy's `img-src 'self' blob:` would refuse once it enforces. Under forced colours it keeps the browser's own arrow. A select's own class may size or place it and never sets `padding`, `background` or `appearance`. `every-select-draws-one-chevron.spec.ts` holds the look on the library's primitives entry and on the screens whose selects once drew their own, and `everySelectWearsThePrimitive.test.ts` holds, from the source, that every `<select>` wears it and that no class of its own draws it, nor any rule of its file that reaches it by `select` or `.field--select`. |
-| `.chip` | `--neutral`, `--positive`, `--attention`, `--informational`, `--destructive` | One shape, one size, sentence case. Tint with coloured ink rather than a solid fill: a list of six solid pills competes with the content it labels. The tint is an opaque `--mm-chip-*` ground, so a chip reads the same on beige as on white. A status is a chip; the action beside it is a button. |
+| `.chip` | `--neutral`, `--positive`, `--attention`, `--informational`, `--destructive`; `--small` | One shape, one size, sentence case. Tint with coloured ink rather than a solid fill: a list of six solid pills competes with the content it labels. The tint is an opaque `--mm-chip-*` ground, so a chip reads the same on beige as on white. A status is a chip; the action beside it is a button. `--small` is a proposal (T200), a size step rather than a tone: the type is already the scale's floor, so it only takes the padding in, and no screen wears it yet. |
+| `.data-table` | `--one-line` | A proposal (T200) for the six tables that each draw their own, and no screen wears it yet: a muted header, a rule between rows and the cells' padding, in a `<table>` whose columns are the screen's own. Inside `.data-table-scroll` it scrolls sideways alone and never moves the page, the scroller keeping the corners; give the scroller `tabindex="0"`, `role="region"` and a name. A cell wraps; `--one-line` keeps each on one line, for a table read across. |
 | `.link-alone` | none | A link on a line of its own is a target: a line box `--target-min` tall, 44px on a phone, with no padding, so it still sits on its text. |
 
 **A button or a menu item names its action in sentence case**, as a chip names its status (T181): the phase rail's moves ("Open applications", "Begin assignment", "Publish market"), its More… menu ("Reopen for editing", "Archive market"), "Publish results", and the titles and buttons of the confirmations they open.

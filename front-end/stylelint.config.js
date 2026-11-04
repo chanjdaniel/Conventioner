@@ -79,6 +79,7 @@ const MIGRATED = [
   'src/components/ListFrame.vue',
   'src/components/NameList.vue',
   'src/components/RowGroup.vue',
+  'src/components/SidePanel.vue',
   'src/components/MarketHistory.vue',
   'src/components/PlacementHistory.vue',
   'src/components/PlacementHistoryDialog.vue',
