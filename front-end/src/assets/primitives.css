@@ -294,6 +294,67 @@
   color: var(--mm-text-red-on-tint);
 }
 
+/* A size step, not a tone: for a chip beside small type, in a table's row or a list's. The type is
+   already the scale's floor, so the step comes off the padding, and a small chip takes the control's
+   corners, as the radius scale says. */
+.chip--small {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-control);
+}
+
+/* ============================================================================================
+   .data-table
+   ============================================================================================ */
+
+/*
+ * One look for a table whose columns are the screen's own. A primitive rather than a component, for
+ * that reason: a screen writes its own `<table>`, wide or not, inside its own scroller.
+ *
+ * A table too wide for its place scrolls inside `.data-table-scroll` and never moves the page. The
+ * scroller wears the border and the radius, and clips the table to them, so the corners stay round
+ * at any scroll. Give it `tabindex="0"`, `role="region"` and a name, so the keyboard can scroll it.
+ */
+.data-table-scroll {
+  overflow-x: auto;
+  scroll-margin: var(--space-2);
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-control);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.data-table :is(th, td) {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.data-table thead th {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--mm-text-muted);
+  white-space: nowrap;
+}
+
+/* A row's own heading names it, and reads as the row's first cell. */
+.data-table tbody th {
+  font-weight: 400;
+}
+
+.data-table tbody :is(th, td) {
+  border-top: 1px solid var(--mm-border);
+}
+
+/* Every cell on one line, for a table read across, as a file's preview is: the scroller takes the
+   width. Without it a cell wraps, and the table fits its place until its longest words do not. */
+.data-table--one-line :is(th, td) {
+  white-space: nowrap;
+}
+
 /* ============================================================================================
    .add-row
    ============================================================================================ */
@@ -469,6 +530,11 @@ summary:focus-visible,
 [tabindex='0']:not(.btn, button, [role='button']):focus-visible {
   outline: none;
   box-shadow: var(--focus-halo);
+}
+
+/* A table's scroller clips what it scrolls, and may itself sit in a box that clips an outer halo. */
+.data-table-scroll:focus-visible {
+  box-shadow: var(--focus-halo-inset);
 }
 
 /* Any other keyboard stop: a scroller the browser makes one because nothing inside it takes focus,

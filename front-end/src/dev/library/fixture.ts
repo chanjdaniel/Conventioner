@@ -1,4 +1,6 @@
 import type { ApplicationStatus, MarketRole } from '@/assets/types/datatypes';
+import type { DiscordShown } from '@/utils/discordCheck';
+import type { ExportOffered, ExportPaymentState } from '@/utils/vendorExport';
 import data from './fixture.json';
 
 /**
@@ -21,6 +23,22 @@ export interface LibraryFixture {
     status: ApplicationStatus;
     /** The person id of the reviewer it is dealt to. */
     reviewer: string;
+    /** What the export's other columns and filters read of them. */
+    export: {
+      preferredName: string;
+      /** Each question they answered, by its key: a multi-select's options, any other its cell. */
+      answers: Record<string, string | string[]>;
+      discordUsername: string;
+      discordState: DiscordShown;
+      /** As a file writes it; `state` is null for nothing owed and none paid. */
+      payment: {
+        group: string;
+        owed: string;
+        paid: string;
+        stillOwed: string;
+        state: ExportPaymentState | null;
+      };
+    };
   }[];
   /** The people with access to the market: 150. */
   people: { id: string; name: string; email: string; role: MarketRole }[];
@@ -31,13 +49,10 @@ export interface LibraryFixture {
   /** Another file's answers the question does not offer, as an import would ask to fix: 43. */
   valuesToFix: string[];
   /** Approved applications seated on each of four dates, 31 tables and 28 in two sections. */
-  seats: { date: string; section: string; table: number; application: string }[];
-  /** What the export dialog offers this market: its column groups, columns and answer filters. */
-  export: {
-    groups: { id: string; label: string }[];
-    columns: { id: string; label: string; group: string | null }[];
-    questions: { key: string; label: string; options: string[] }[];
-  };
+  seats: { date: string; section: string; table: number; tier: string; application: string }[];
+  /** What the export dialog offers this market, as its preview says it, and the invite every row
+   * exports. */
+  export: ExportOffered & { discordInvite: string };
 }
 
 export const fixture = data as LibraryFixture;
