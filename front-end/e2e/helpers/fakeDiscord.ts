@@ -52,6 +52,11 @@ export function seedFakeDiscordServer(server: FakeDiscordServer): void {
   mongoEval(`db.fake_discord_servers.insertOne(${JSON.stringify(document)})`);
 }
 
+/** Discord no longer knows the server, as when the bot has been removed from it. */
+export function removeFakeDiscordServer(guildId: string): void {
+  mongoEval(`db.fake_discord_servers.deleteOne({ guildId: ${JSON.stringify(guildId)} })`);
+}
+
 /**
  * Connect a market to a fake server as the card's routes leave it, with the form's Discord
  * username question added and chosen. Connecting through the card is Discord's approval screen,
