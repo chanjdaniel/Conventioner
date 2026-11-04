@@ -7,7 +7,7 @@ import { inTheWindow } from './helpers/phoneWindow';
  * The component library's `filter-toggles` entry (T200): `FilterToggles` on the fixture's counts, at
  * a desk and on a phone. Application statuses read their counts and choose one at a time, a view
  * switch has no counts, and several phases press in and out; pressing the chosen toggle again lets
- * it go, in every row; the row wraps and a label longer than the row wraps inside its toggle, so
+ * it go, in every row, by pointer and by keyboard; the row wraps and a label longer than the row wraps inside its toggle, so
  * nothing scrolls sideways, and a phone's toggle is a 44px target.
  */
 
@@ -133,6 +133,44 @@ eachWindow('the filter toggles entry', (size) => {
     await expect(phase('applications')).toHaveAttribute('aria-pressed', 'false');
     await expect(pressedIn(phases)).toHaveCount(0);
     await expect(readOutOf(phases)).toHaveText('Phases: All phases');
+  });
+
+  // A key press lands on the toggle in focus, so each kind of row keeps focus there as it lets go.
+  test('by keyboard, a row with an All toggle lets go to it, focus staying put', async ({
+    page,
+  }) => {
+    const statuses = page.getByTestId('library-toggles-statuses');
+    const approved = page.getByTestId('library-toggles-statuses-reviewer_approved');
+
+    await approved.press('Enter');
+    await expect(pressedIn(statuses)).toHaveText(['Approved 160']);
+    await expect(approved).toBeFocused();
+
+    await approved.press('Space');
+    await expect(approved).toHaveAttribute('aria-pressed', 'false');
+    await expect(pressedIn(statuses)).toHaveText(['Any status 359']);
+    await expect(approved).toBeFocused();
+  });
+
+  test('by keyboard, a row with no All toggle lets go to nothing, focus staying put', async ({
+    page,
+  }) => {
+    const nothing = page.getByTestId('library-toggles-zero');
+    const approved = nothing.getByRole('button', { name: 'Approved 160' });
+
+    await approved.press('Space');
+    await expect(pressedIn(nothing)).toHaveCount(0);
+    await expect(readOutOf(nothing)).toHaveText('Showing: All');
+    await expect(approved).toBeFocused();
+  });
+
+  test('by keyboard, a row of several lets one go, focus staying put', async ({ page }) => {
+    const phases = page.getByTestId('library-toggles-phases');
+    const assignment = page.getByTestId('library-toggles-phases-assignment');
+
+    await assignment.press('Enter');
+    await expect(pressedIn(phases)).toHaveText(['Applications / Review']);
+    await expect(assignment).toBeFocused();
   });
 
   test('a count of nothing reads as 0', async ({ page }) => {

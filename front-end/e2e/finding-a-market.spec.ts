@@ -170,6 +170,16 @@ test.describe('Finding a market', () => {
     await markets.phaseToggle('applications').click();
     await expect(markets.pressedPhases).toHaveCount(0);
     await markets.expectNames([ATTIC, CAFE, TEST_FAIR]);
+
+    // By keyboard too, and focus stays on the toggle while the list narrows and comes back.
+    await markets.phaseToggle('draft').press('Enter');
+    await expect(markets.phaseToggle('draft')).toHaveAttribute('aria-pressed', 'true');
+    await markets.expectNames([ATTIC, TEST_FAIR]);
+    await expect(markets.phaseToggle('draft')).toBeFocused();
+    await markets.phaseToggle('draft').press('Space');
+    await expect(markets.pressedPhases).toHaveCount(0);
+    await markets.expectNames([ATTIC, CAFE, TEST_FAIR]);
+    await expect(markets.phaseToggle('draft')).toBeFocused();
   });
 
   test('an address naming what no longer exists opens onto every market', async ({ page }) => {
