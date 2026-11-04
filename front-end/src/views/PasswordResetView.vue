@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import axios from 'axios';
-import { ref, onMounted } from 'vue';
+import { computed, inject, ref, onMounted, type Ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import AuthCard from '@/components/AuthCard.vue';
+import { forgetTheSession } from '@/utils/sessionEnded';
 
 const hostname = import.meta.env.VITE_FLASK_HOST;
 const router = useRouter();
@@ -15,6 +16,10 @@ const errorMessage = ref('');
 const successMessage = ref('');
 const showPassword = ref(false);
 const isLoading = ref(false);
+
+// The reset ends every session of the account, so someone signed in is signed out by it.
+const user = inject<Ref<string | null>>('user', ref(null));
+const signedIn = computed(() => Boolean(user.value) && !successMessage.value);
 
 onMounted(() => {
   const tokenParam = route.query.token as string;
@@ -64,6 +69,9 @@ const submitReset = async () => {
 
     if (response.status === 200) {
       successMessage.value = response.data.msg || 'Password reset successfully!';
+      // Or the sign-in below would send them on to a page that answers 401, and tell them their
+      // session ended, when ending it is what they just did.
+      forgetTheSession();
       setTimeout(() => {
         router.push('/login');
       }, 2000);
@@ -157,12 +165,11 @@ const submitReset = async () => {
       </button>
 
       <div class="form-links">
-        <a
-          href="#"
-          @click.prevent="router.push('/login')"
+        <RouterLink
+          :to="signedIn ? '/markets' : '/login'"
           class="link-alone"
           data-testid="password-reset-back-link"
-          >Back to sign in</a
+          >{{ signedIn ? 'Back to Markets' : 'Back to sign in' }}</RouterLink
         >
       </div>
     </form>

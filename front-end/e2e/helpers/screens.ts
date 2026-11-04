@@ -1168,8 +1168,21 @@ export const SCREENS: Screen[] = [
     open: at(fixed('/reset-password-request'), 'auth-card'),
   },
   {
+    // Where the bar's Change password leads, with the address filled in and the full bar over it.
+    name: 'ask for a reset link, signed in',
+    who: 'organizer',
+    sizes: PUBLIC,
+    open: at(fixed('/reset-password-request'), 'auth-card'),
+  },
+  {
     name: 'choose a new password',
     who: 'nobody',
+    sizes: PUBLIC,
+    open: at(fixed('/reset-password?token=a-token-from-an-email'), 'auth-card'),
+  },
+  {
+    name: 'choose a new password, signed in',
+    who: 'organizer',
     sizes: PUBLIC,
     open: at(fixed('/reset-password?token=a-token-from-an-email'), 'auth-card'),
   },

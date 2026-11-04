@@ -22,6 +22,7 @@ const placeLink = (page: Page, name: string) => links(page).getByRole('link', { 
 const accountButton = (page: Page) => page.getByTestId('app-bar-account-button');
 const accountMenu = (page: Page) => page.getByTestId('app-bar-account');
 const signOutItem = (page: Page) => page.getByRole('menuitem', { name: 'Sign out' });
+const changePasswordItem = (page: Page) => page.getByRole('menuitem', { name: 'Change password' });
 
 test.describe('the bar on a desk', () => {
   let marketId: string;
@@ -142,11 +143,14 @@ test.describe('the bar on a desk', () => {
     await button.focus();
     await page.keyboard.press('Enter');
     await expect(accountMenu(page)).toBeVisible();
-    await expect(signOutItem(page)).toBeFocused();
+    await expect(changePasswordItem(page)).toBeFocused();
 
-    // One item today: the arrows stay on it rather than leaving the menu.
     await page.keyboard.press('ArrowDown');
     await expect(signOutItem(page)).toBeFocused();
+
+    // The arrows go round rather than leaving the menu.
+    await page.keyboard.press('ArrowDown');
+    await expect(changePasswordItem(page)).toBeFocused();
 
     await page.keyboard.press('Escape');
     await expect(accountMenu(page)).toBeHidden();
@@ -354,7 +358,7 @@ test.describe('the bar on a phone', () => {
     expect(box!.y + box!.height).toBeLessThanOrEqual(150);
   });
 
-  test('opens a sheet of 44px rows holding the two places, the address and Sign out', async ({
+  test('opens a sheet of 44px rows holding the two places, the address, Change password and Sign out', async ({
     authenticatedPage: page,
   }) => {
     await page.goto('/markets');
@@ -371,6 +375,7 @@ test.describe('the bar on a phone', () => {
       sheetLink(page, 'Markets'),
       sheetLink(page, 'Organizations'),
       sheet(page).getByText(TEST_USER.email),
+      sheetLink(page, 'Change password'),
       sheetSignOut(page),
     ];
     let above = 0;
@@ -441,7 +446,7 @@ test.describe('the bar on a phone', () => {
 
     // The tab order holds the sheet and the button, and nothing behind them.
     const seen = new Set<string>();
-    for (let press = 0; press < 8; press++) {
+    for (let press = 0; press < 10; press++) {
       await page.keyboard.press('Tab');
       seen.add(
         await page.evaluate(() => {
@@ -454,7 +459,8 @@ test.describe('the bar on a phone', () => {
     seen.delete('');
     expect(
       [...seen].filter(
-        (name) => !['Markets', 'Organizations', 'Sign out', 'Close menu'].includes(name),
+        (name) =>
+          !['Markets', 'Organizations', 'Change password', 'Sign out', 'Close menu'].includes(name),
       ),
     ).toEqual([]);
     expect(seen).toContain('Close menu');
@@ -999,6 +1005,93 @@ for (const size of SIZES) {
       // That the count can move at all: an organizer's page does probe.
       await page.goto('/markets');
       await expect.poll(() => probes).toBe(1);
+    });
+  });
+}
+
+for (const size of SIZES) {
+  test.describe(`Change password, ${size.name}`, () => {
+    test.use(size.use);
+
+    const press = (locator: Locator) => (size.phone ? locator.tap() : locator.click());
+    const emailField = (page: Page) => page.getByTestId('password-reset-request-email-input');
+    const backLink = (page: Page) => page.getByTestId('password-reset-request-back-link');
+
+    async function chooseChangePassword(page: Page): Promise<void> {
+      if (size.phone) {
+        await press(page.getByTestId('app-bar-menu-button'));
+        await press(
+          page.getByTestId('app-bar-sheet').getByRole('link', { name: 'Change password' }),
+        );
+      } else {
+        await press(accountButton(page));
+        await press(changePasswordItem(page));
+      }
+    }
+
+    test('opens the reset page with the address filled in and editable, and not in the address', async ({
+      authenticatedPage: page,
+    }) => {
+      await page.goto('/markets');
+      await chooseChangePassword(page);
+
+      await expect(emailField(page)).toHaveValue(TEST_USER.email);
+      const here = new URL(page.url());
+      expect(here.pathname).toBe('/reset-password-request');
+      expect(here.search).toBe('');
+      expect(here.hash).toBe('');
+      await expect(page.getByTestId('app-bar-sheet')).toHaveCount(0);
+
+      await emailField(page).fill('someone-else@example.com');
+      await expect(emailField(page)).toHaveValue('someone-else@example.com');
+    });
+
+    test('chosen on the reset page itself, it stays there and the menu closes', async ({
+      authenticatedPage: page,
+    }) => {
+      await page.goto('/reset-password-request');
+      await chooseChangePassword(page);
+      await expect(page).toHaveURL(/\/reset-password-request$/);
+      await expect(page.getByTestId('app-bar-sheet')).toHaveCount(0);
+      await expect(accountMenu(page)).toBeHidden();
+    });
+
+    test('says only what is true of someone signed in, and leads back to Markets', async ({
+      authenticatedPage: page,
+    }) => {
+      await page.goto('/reset-password-request');
+      await expect(page.getByText('Enter your email address')).toHaveCount(0);
+      await expect(backLink(page)).toHaveText('Back to Markets');
+      await press(backLink(page));
+      await expect(page).toHaveURL(/\/markets$/);
+    });
+
+    test('a link that is refused keeps the session and still leads back to Markets', async ({
+      authenticatedPage: page,
+    }) => {
+      await page.goto('/reset-password?token=a-token-no-one-holds');
+      await page.getByTestId('password-reset-new-password-input').fill('E2eLinksNew456!');
+      await page.getByTestId('password-reset-confirm-password-input').fill('E2eLinksNew456!');
+      await press(page.getByTestId('password-reset-submit-button'));
+      await expect(page.getByTestId('password-reset-error-message')).toBeVisible();
+
+      const back = page.getByTestId('password-reset-back-link');
+      await expect(back).toHaveText('Back to Markets');
+      await press(back);
+      await expect(page).toHaveURL(/\/markets$/);
+      await expect(page.getByTestId('login-session-ended')).toHaveCount(0);
+    });
+
+    test('signed out, the field is empty and the page leads back to sign in', async ({ page }) => {
+      await page.goto('/reset-password-request');
+      await expect(emailField(page)).toHaveValue('');
+      await expect(page.getByText('Enter your email address')).toBeVisible();
+      await expect(backLink(page)).toHaveText('Back to sign in');
+      await press(backLink(page));
+      await expect(page).toHaveURL(/\/login$/);
+
+      await page.goto('/reset-password?token=a-token-no-one-holds');
+      await expect(page.getByTestId('password-reset-back-link')).toHaveText('Back to sign in');
     });
   });
 }

@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-11-01
+verified: 2026-11-04
 sources:
   - E26/F01/S01
   - E32/F03/S04
@@ -16,6 +16,7 @@ sources:
   - E38/F14/S02
   - T176
   - T181
+  - T209
 ---
 
 # Accounts
@@ -125,6 +126,22 @@ Covered by:
 - `auth.spec.ts` ("Password reset")
 - `sign-in-fits-a-phone.spec.ts`
 - `the-way-in-lines-up.spec.ts` ("asking for a reset reads like signing in")
+
+## A4a. Change a password while signed in
+
+**Status:** Works as far as it can be walked without a mailer: `account-links.spec.ts` walks it to the new password in one browser, reading the link's token from where the server keeps it (T209).
+**Task:** "Change your password."
+
+1. Choose "Change password" in [the bar's account menu, or its sheet on a phone](finding-a-market.md#c4-the-navigation-menu); it opens `/reset-password-request` with the address filled in.
+2. Choose "Send reset link"; the address stays editable, and "Back to Markets" leaves without sending anything.
+3. Follow the emailed link and set a new password, as in A4; every browser signed in to the account is signed out, this one with it.
+4. Expect the password's confirmation, then sign-in with nothing said of a session ending; sign in with the new password.
+
+A link that is refused, as expired or already used, changes nothing, and the person stays signed in.
+How the bar and the two password pages do this is in [the app bar](../../implementation/modules/app-bar.md#change-password).
+Covered by:
+- `account-links.spec.ts`
+- `the-app-bar.spec.ts` ("Change password, at a desk" and "on a phone")
 
 ## A5. Delete my account
 

@@ -29,7 +29,11 @@ const PLACES: readonly { place: AppPlace; to: string; label: string }[] = [
   { place: 'markets', to: '/markets', label: 'Markets' },
   { place: 'organizations', to: '/organizations', label: 'Organizations' },
 ];
-const ACCOUNT_ITEMS = [{ id: 'sign-out', label: 'Sign out' }];
+const CHANGE_PASSWORD = '/reset-password-request';
+const ACCOUNT_ITEMS = [
+  { id: 'change-password', label: 'Change password' },
+  { id: 'sign-out', label: 'Sign out' },
+];
 
 const route = useRoute();
 const router = useRouter();
@@ -43,6 +47,7 @@ function leave() {
 }
 
 function chooseFromAccount(id: string) {
+  if (id === 'change-password') void router.push(CHANGE_PASSWORD);
   if (id === 'sign-out') leave();
 }
 
@@ -164,6 +169,9 @@ onUnmounted(stopWatchingTheWindow);
           </RouterLink>
         </nav>
         <p class="app-bar-sheet-row app-bar-sheet-address" :title="user ?? undefined">{{ user }}</p>
+        <RouterLink :to="CHANGE_PASSWORD" class="app-bar-sheet-row" @click="closeSheet">
+          Change password
+        </RouterLink>
         <button
           type="button"
           class="app-bar-sheet-row"

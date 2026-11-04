@@ -9,6 +9,9 @@ describes:
   - front-end/src/utils/currentPlace.ts
   - front-end/src/utils/signedIn.ts
   - front-end/src/utils/sessionEnded.ts#signOut
+  - front-end/src/utils/sessionEnded.ts#forgetTheSession
+  - front-end/src/views/PasswordResetRequestView.vue
+  - front-end/src/views/PasswordResetView.vue
   - front-end/e2e/the-app-bar.spec.ts
   - front-end/src/__tests__/theBarsCurrentPlace.test.ts
 verified: 2026-11-04
@@ -41,7 +44,7 @@ A new market screen needs nothing there; [`theBarsCurrentPlace.test.ts`](../../.
 **The account menu is `RowMenu` with its `trigger` slot.**
 The button shows the address and a chevron, 32px tall and at most 260px wide; the address gives way first when the window is short of room, cut with an ellipsis, with its whole value as a `title` on the words.
 The words name the button, as [every control is named](../conventions/every-control-is-named.md#the-rules) asks, so `RowMenu`'s `label` then names the open menu alone.
-It holds Sign out.
+It holds Change password and Sign out.
 
 ## Who sees what
 
@@ -66,7 +69,7 @@ It decides on the person alone, never on the address, so a gated market and a mi
 **At 640px and below the links and the account menu stand aside for a menu button**, a 44px square at the band's right named "Open menu" or "Close menu", with `aria-expanded` and `aria-controls`; its icon is the menu's, or the close icon while open.
 
 **The button opens a sheet hanging from the bar**, the window's width, white with `--shadow-card`, over a `rgba(0, 0, 0, 0.5)` scrim that fills the window below the bar.
-It holds the same things as the desk's bar, in 44px rows: Markets and Organizations in a `nav` named "Main", a line, the address in `--mm-text-muted`, then Sign out.
+It holds the same things as the desk's bar, in 44px rows: Markets and Organizations in a `nav` named "Main", a line, the address in `--mm-text-muted`, then Change password and Sign out.
 The current row is `--mm-green`, semibold, with a 3px bar at its left edge, and carries `aria-current="page"`; a row's words stand on the logo's left edge, at 16px.
 A long address wraps whole, since a `title` is no use to a thumb, and the row grows with it.
 Taller than the window, the sheet scrolls within itself.
@@ -76,10 +79,25 @@ It is a list of places and not a form in a window, so it is not an `AppDialog`, 
 Choosing a row closes it, as does any route change, and a window that widens past the break, since the button is gone there and nothing would be left to close it with.
 [`modalsHoldThePageInert.test.ts`](../../../front-end/src/__tests__/modalsHoldThePageInert.test.ts) reads a full-window cover by its CSS and this scrim starts under the bar, so [`modal-inert.spec.ts`](../../../front-end/e2e/modal-inert.spec.ts) holds its wiring.
 
+## Change password
+
+**Change password leads to the emailed reset page, `/reset-password-request`, with no page and no server change of its own.**
+[The page](../../../front-end/src/views/PasswordResetRequestView.vue) fills its email field from the shell's `user`, so the address is in no URL, and the field stays editable; signed out, it is empty.
+The rest is [the reset everyone uses](../../business/flows/accounts.md#a4-reset-a-forgotten-password).
+
+**The two password pages say only what is true of the person reading them.**
+To someone signed in, the request page does not ask for an address it already holds, and its link and the reset page's read "Back to Markets" and go there, since `/login` would only forward them.
+
+**Setting the new password ends the session it is set in.**
+`reset_password` gives the account a new login id, which ends every session of it, so [the reset page](../../../front-end/src/views/PasswordResetView.vue) calls `forgetTheSession`, and its link goes back to reading "Back to sign in".
+Without that the stored user would turn the page's move to `/login` into a move to a page that answers 401, and sign-in would say "Your session has ended", when ending it is what they just did.
+The answer does not say whose link it was, so a link for another account forgets this browser's stored user too, and it signs in again.
+A failed reset forgets nothing.
+
 ## Sign out
 
 **[`signOut`](../../../front-end/src/utils/sessionEnded.ts) is the one sign-out**, the account menu's, the sheet's and the dashboard's, beside `endSession`.
-It posts `/logout`, then forgets `localStorage` and the market store and goes to `/login`, whether or not the post succeeded, so a sign-out that failed on the wire still leaves this browser signed out.
+It posts `/logout`, then forgets `localStorage` and the market store (`forgetTheSession`) and goes to `/login`, whether or not the post succeeded, so a sign-out that failed on the wire still leaves this browser signed out.
 It uses `fetch`, not the app's `axios`, so a 401 from `/logout` is not told as a session that ended under the organizer.
 
 ## Sharp edges

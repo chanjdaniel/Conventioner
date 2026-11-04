@@ -18,7 +18,7 @@ const box = async (locator: Locator) => {
   return b;
 };
 
-/** The sheet's rows a person presses, the places and Sign out. */
+/** The sheet's rows a person presses, the places, Change password and Sign out. */
 const openTheSheet = async (page: Page) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/markets');
@@ -39,7 +39,7 @@ test('every row of the sheet is one shape, Sign out included', async ({
       return { x: Math.round(box.x), width: Math.round(box.width), height: Math.round(box.height) };
     }),
   );
-  expect(rows).toHaveLength(3);
+  expect(rows).toHaveLength(4);
   for (const key of ['x', 'width', 'height'] as const) {
     expect(new Set(rows.map((row) => row[key])).size, `${key}: ${JSON.stringify(rows)}`).toBe(1);
   }
@@ -127,6 +127,6 @@ test("Sign out reads like the sheet's links", async ({ authenticatedPage: page }
         return `${s.fontFamily} ${s.fontSize} ${s.fontWeight} ${s.color}`;
       }),
   );
-  expect(looks).toHaveLength(2);
+  expect(looks).toHaveLength(3);
   expect(new Set(looks).size, looks.join('\n')).toBe(1);
 });
