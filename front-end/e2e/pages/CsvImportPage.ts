@@ -54,6 +54,8 @@ export class CsvImportPage {
   readonly unmatchedValues: Locator;
   readonly unresolvedWarning: Locator;
   readonly decidedValues: Locator;
+  /** One box of values already decided, per column they belong to. */
+  readonly decidedBoxes: Locator;
   readonly backButton: Locator;
 
   // The dry run
@@ -115,6 +117,7 @@ export class CsvImportPage {
     this.unmatchedValues = page.getByTestId('import-unmatched-value');
     this.unresolvedWarning = page.getByTestId('import-unresolved-warning');
     this.decidedValues = page.getByTestId('import-decided-unmatched-value');
+    this.decidedBoxes = page.getByTestId('import-decided-value-fixes');
     this.backButton = page.getByTestId('import-back-button');
 
     this.previewButton = page.getByTestId('import-preview-button');
@@ -211,9 +214,29 @@ export class CsvImportPage {
     await this.valueFix(value).choose(to);
   }
 
-  /** The select holding a decision already made about a value - restored, or made earlier. */
+  /** Set an unrecognised cell value aside: the choice "Ignore this value", in either control. */
+  async ignoreValue(value: string): Promise<void> {
+    await this.valueFix(value).choose('__ignore__', 'Ignore this value');
+  }
+
+  /** The control on which a decision already made about a value can be changed. */
+  decidedFix(value: string): ChoiceField {
+    return new ChoiceField(this.page, `import-decided-fix-${value}`);
+  }
+
+  /** The select holding such a decision, on a question of 12 answers or fewer. */
   decision(value: string): Locator {
-    return this.page.getByTestId(`import-decided-fix-${value}`);
+    return this.decidedFix(value).root;
+  }
+
+  /** The ledger's row for a column, by the words its header starts with. */
+  columnRow(header: string): Locator {
+    return this.columnRows.filter({ hasText: header });
+  }
+
+  /** The fields a box of values to fix draws, past 12 answers; a select is no such field. */
+  fixFields(box: Locator): Locator {
+    return box.locator('[data-testid*="-fix-"][data-testid$="-input"]');
   }
 
   /** The preview step's chooser of reviewers. */

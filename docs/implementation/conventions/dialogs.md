@@ -23,7 +23,7 @@ describes:
   - front-end/e2e/changing-a-role-asks-first.spec.ts
   - front-end/e2e/the-component-library-summaries.spec.ts
   - front-end/src/components/DoorCodeScreen.vue
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - wayfinding/the-order-of-the-work/08
   - wayfinding/the-order-of-the-work/map

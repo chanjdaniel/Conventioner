@@ -298,6 +298,7 @@ The page objects in `front-end/e2e/pages/` are these, one a line, sorted by clas
 - `ApplicationMonitorPage`
 - `ApplicationsAllPage`
 - `AttendanceStatusPage`
+- `ChoiceField` (a control, a select or a field by how many choices it has)
 - `CsvImportPage`
 - `EmailVerificationPage` (the page a verification link opens)
 - `FloorplanWorkflowPage`

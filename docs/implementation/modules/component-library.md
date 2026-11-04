@@ -11,11 +11,11 @@ describes:
   - front-end/e2e/helpers/componentLibrary.ts
 verified: 2026-11-05
 sources:
-  - T223
   - T200
   - T191
   - T211
   - T205
+  - T223
 ---
 
 # The component library

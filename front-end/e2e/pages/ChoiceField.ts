@@ -14,6 +14,8 @@ export class ChoiceField {
   /** The rows the picker's list draws, in its order. */
   readonly options: Locator;
   readonly more: Locator;
+  /** What the picker's list says when the words find nothing. */
+  readonly none: Locator;
 
   /** `testid` is the control's own, on the root whose `-input`, `-list` and `-option` it prefixes. */
   constructor(scope: { getByTestId(testid: string): Locator }, testid: string) {
@@ -22,6 +24,7 @@ export class ChoiceField {
     this.list = this.root.getByTestId(`${testid}-list`);
     this.options = this.root.getByTestId(`${testid}-option`);
     this.more = this.root.getByTestId(`${testid}-more`);
+    this.none = this.root.getByTestId(`${testid}-none`);
   }
 
   /** Whether it is the select, rather than the field to type in. */

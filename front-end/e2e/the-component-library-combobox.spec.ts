@@ -475,11 +475,12 @@ eachWindow('the combobox entry', (size) => {
     const field = page.getByTestId('library-c1-field');
     await expect(field.locator('select')).toHaveCount(0);
     await expect(field.locator('option')).toHaveCount(0);
-    await field.getByRole('combobox').click();
+    await field.locator('[data-testid$="-input"]').click();
     // The question's first 13, and "Ignore this value", all under the cap.
-    await expect(field.getByRole('option')).toHaveCount(14);
-    await expect(field.getByRole('option').first()).toHaveText('Ignore this value');
-    await field.getByRole('option').nth(1).click();
+    const rows = field.locator('[data-testid$="-option"]');
+    await expect(rows).toHaveCount(14);
+    await expect(rows.first()).toHaveText('Ignore this value');
+    await rows.nth(1).click();
     await expect(field.getByTestId('read-out')).toHaveText(`Fix: ${answer}`);
   });
 

@@ -12,7 +12,6 @@ describes:
   - front-end/src/components/ValueFixes.vue
 verified: 2026-11-05
 sources:
-  - T223
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/04
@@ -33,6 +32,7 @@ sources:
   - E38/F07/S03
   - E38/F15/S02
   - T205
+  - T223
 ---
 
 # The CSV import

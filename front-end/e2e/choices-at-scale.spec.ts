@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url';
 import type { APIRequestContext, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { StartFromCsvPage } from './pages/StartFromCsvPage';
-import { ChoiceField } from './pages/ChoiceField';
 import { CsvImportPage } from './pages/CsvImportPage';
 import { finishStartedPlan, UPCOMING_YEAR } from './helpers/finishStartedPlan';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
@@ -48,9 +47,7 @@ async function startFromFiveDay(
 
 /** The key the started form gave its selling question. */
 async function sellingKey(request: APIRequestContext, marketId: string): Promise<string> {
-  const res = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
+  const res = await request.get(`${BACKEND_URL}/markets/${marketId}`);
   const { market } = (await res.json()) as {
     market: { applicationForm: { fields: Array<{ key: string; label: string }> } };
   };
@@ -60,7 +57,7 @@ async function sellingKey(request: APIRequestContext, marketId: string): Promise
   return field!.key;
 }
 
-/** The four-day export's header row, by its column order, as the view addresses its columns. */
+/** An export's header row, by its column order, as the view addresses its columns. */
 function headersOf(csv: string): string[] {
   const headers: string[] = [];
   let cell = '';
@@ -113,12 +110,11 @@ test.describe('the import, on a later file', () => {
     await importer.clickPreview();
 
     // All the work left is in view, and not one native list is drawn for it.
-    const fixes = importer.columnRows
-      .filter({ hasText: SELLING_ON_FOUR_DAY })
-      .getByTestId('import-value-fixes');
+    const selling = importer.columnRow(SELLING_ON_FOUR_DAY);
+    const fixes = selling.getByTestId('import-value-fixes');
     const waiting = fixes.getByTestId('import-unmatched-value');
     await expect(waiting).toHaveCount(142);
-    await expect(fixes.getByRole('combobox')).toHaveCount(142);
+    await expect(importer.fixFields(fixes)).toHaveCount(142);
     await expect(fixes.locator('option')).toHaveCount(0);
     await expect(fixes.locator('select')).toHaveCount(0);
 
@@ -132,8 +128,8 @@ test.describe('the import, on a later file', () => {
     const fix = importer.valueFix(found);
 
     // The column of fields is one column.
-    const lefts = await fixes
-      .getByRole('combobox')
+    const lefts = await importer
+      .fixFields(fixes)
       .evaluateAll((fields) => fields.map((field) => field.getBoundingClientRect().left));
     expect(new Set(lefts).size).toBe(1);
 
@@ -149,6 +145,7 @@ test.describe('the import, on a later file', () => {
 
     const field = (await fix.field.boundingBox())!;
     const list = (await fix.list.boundingBox())!;
+    // 22rem, on the root's 16px.
     expect(list.width).toBeGreaterThanOrEqual(352);
     expect(list.x + list.width).toBeCloseTo(field.x + field.width, 0);
     const covering = await nextField.evaluate((element) => {
@@ -165,9 +162,7 @@ test.describe('the import, on a later file', () => {
     // Words that name no answer offer no row, and clear on leaving: a fix must be offered.
     await fix.field.fill('Nothing anyone sells');
     await expect(fix.options).toHaveCount(0);
-    await expect(fix.root.getByTestId(`import-fix-${found}-none`)).toHaveText(
-      'Nothing matches "Nothing anyone sells".',
-    );
+    await expect(fix.none).toHaveText('Nothing matches "Nothing anyone sells".');
     await fix.field.press('Tab');
     await expect(fix.field).toHaveValue('');
     await expect(importer.unresolvedWarning).toContainText('146 values still need');
@@ -180,7 +175,7 @@ test.describe('the import, on a later file', () => {
     await expect(importer.unresolvedWarning).toContainText('145 values still need');
 
     // "Ignore this value", which the cap never hides.
-    await importer.valueFix(ignored).choose('__ignore__', 'Ignore');
+    await importer.ignoreValue(ignored);
     await expect(importer.valueFix(ignored).field).toHaveValue('Ignore this value');
     await expect(importer.unresolvedWarning).toContainText('144 values still need');
 
@@ -191,6 +186,7 @@ test.describe('the import, on a later file', () => {
       await other.field.press('ArrowDown');
       await other.field.press('Enter');
     }
+    // Each its own market day, past "Choose…" and "Ignore this value".
     const dayFixes = days.locator('select');
     for (let at = 0; at < 4; at++) {
       await dayFixes.nth(at).selectOption({ index: at + 2 });
@@ -215,15 +211,11 @@ test.describe('the import, on a later file', () => {
     // Back on the columns they are decisions, each still a field naming what was chosen.
     await importer.backButton.click();
     await expect(importer.unmatchedValues).toHaveCount(0);
-    await expect(
-      importer.columnRows
-        .filter({ hasText: SELLING_ON_FOUR_DAY })
-        .getByTestId('import-decided-title'),
-    ).toHaveText(/^142 values already decided/);
-    await expect(new ChoiceField(page, `import-decided-fix-${found}`).field).toHaveValue(answer);
-    await expect(new ChoiceField(page, `import-decided-fix-${ignored}`).field).toHaveValue(
-      'Ignore this value',
+    await expect(selling.getByTestId('import-decided-title')).toHaveText(
+      /^142 values already decided/,
     );
+    await expect(importer.decidedFix(found).field).toHaveValue(answer);
+    await expect(importer.decidedFix(ignored).field).toHaveValue('Ignore this value');
   });
 
   test('a market started as proposed keeps its selects, six decided then "Show all"', async ({
@@ -235,11 +227,11 @@ test.describe('the import, on a later file', () => {
     await importer.open({ id: marketId });
     await importer.chooseFile(exportOf('five-day-grid'));
 
-    const box = page.getByTestId('import-decided-value-fixes').first();
+    const box = importer.decidedBoxes.first();
     await expect(box.getByTestId('import-decided-title')).toContainText('122 values set aside');
     await expect(box.getByTestId('import-decided-unmatched-value')).toHaveCount(6);
     await expect(box.locator('select')).toHaveCount(6);
-    await expect(box.locator('input')).toHaveCount(0);
+    await expect(importer.fixFields(box)).toHaveCount(0);
 
     const showAll = box.getByTestId('import-decided-show-all');
     await expect(showAll).toHaveText('Show all 122');
@@ -248,7 +240,7 @@ test.describe('the import, on a later file', () => {
     await expect(showAll).toHaveText('Show fewer');
 
     // The start's 123 decisions stand by the column they belong to: one more, on the clubs.
-    const clubs = page.getByTestId('import-decided-value-fixes').nth(1);
+    const clubs = importer.decidedBoxes.nth(1);
     await expect(clubs.getByTestId('import-decided-unmatched-value')).toHaveCount(1);
     await expect(clubs.locator('select')).toHaveCount(1);
     await expect(clubs.getByTestId('import-decided-show-all')).toHaveCount(0);

@@ -5,7 +5,6 @@ describes:
   - front-end/src/views/CsvImportView.vue
 verified: 2026-11-05
 sources:
-  - T223
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/04
   - wayfinding/v0-1-0/05
@@ -41,6 +40,7 @@ sources:
   - T211
   - T205
   - T204
+  - T223
 ---
 
 # Importing a Google Form's responses
