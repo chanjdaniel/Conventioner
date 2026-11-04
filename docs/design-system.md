@@ -19,8 +19,6 @@ describes:
   - front-end/e2e/focus-sweep-detectors.spec.ts
   - front-end/e2e/helpers/focusSweep.ts
   - front-end/e2e/a-links-halo-appears-at-once.spec.ts
-  - front-end/src/components/CodeInput.vue
-  - front-end/e2e/the-code-field.spec.ts
   - front-end/src/assets/brand/
   - front-end/src/__tests__/theBrandHasOneFolder.test.ts
   - front-end/scripts/brand-icons.ts
@@ -31,6 +29,8 @@ describes:
   - front-end/src/components/FileDropZone.vue
   - front-end/src/components/FilterToggles.vue
   - front-end/src/components/ListFrame.vue
+  - front-end/src/components/CodeInput.vue
+  - front-end/e2e/the-code-field.spec.ts
 verified: 2026-11-04
 sources:
   - wayfinding/claims-and-room/map
@@ -74,11 +74,11 @@ sources:
   - E38/F15/S01
   - T181
   - T180
-  - T202
   - T212
   - T205
   - T200
   - T211
+  - T202
 ---
 
 # Conventioner's design language
@@ -221,6 +221,7 @@ The setup screens keep the floor, since they are built at a desk before the mark
 A summary card stacks so whenever it is narrower than its name, its facts and its Manage need side by side (45rem with Manage, 37.5rem without), so a card at 768px stacks too rather than pushing Manage past its edge (T148).
 The Assignments page on a phone narrows its gutter to 16px too: its summary's figures stack, one to a 44px row, and its actions wrap under them; the filters stand in the page's flow rather than pinned, each filling its row and two sharing one where both fit; a half table's two seats stand one under the other, each seat's Change a 44px target; and a dialog's buttons wrap rather than run past its window.
 Vendors on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters, Export and Add a vendor wrapping beneath it, and a vendor's row stacks the name over its chips, which wrap where the Discord state, the badge, "Added" and the date count are wider together than the row.
+Its Discord row stacks as [the Vendors flow](business/flows/vendors.md) lays it out: the filter, then its actions, each from the line's start.
 The Applications page on a phone narrows its gutter to 16px too: the All view's row is one column, read down, the applicant's name and address, the leading answers, then the status chip and its lines, each the row's width; each row's tick stands in a 44px square beside it, and "Mine" is its label's 44px row; the views switch's and the status filters' buttons are never narrower than the target's minimum, at every width, so 44px wide at least on a phone.
 One by one's card is the page's width, its verdict buttons wrapping inside it; "Include the N follow-ups", the reviewed list's toggle and "Choose what leads the card" are 44px targets, and a reviewer's label in the reviewers picker is a 44px row.
 Payments on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters wrapping beneath it, the market's four figures stand two to a row, and each table lays its rows out as blocks, its row heading (the tier, the date or the vendor) on a line of its own and each value on a line beside its column's heading, since neither table's columns share 343px; the vendors' headings stay above as a row of sort buttons, each a 44px target.
