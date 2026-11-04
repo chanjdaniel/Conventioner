@@ -189,6 +189,9 @@ async function handleAddUser() {
     // is named after, and this dialog is the same shape.
     newUserEmail.value = '';
     newUserRole.value = MarketRole.Editor;
+    // A later change ends a refusal's words, as choosing a role or removing someone does, and adding
+    // back the person it named must not bring them back with the row.
+    userError.value = null;
     changesMade.value++;
     await fetchMarket(false);
   } catch (err) {

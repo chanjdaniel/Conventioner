@@ -238,6 +238,29 @@ test.describe('at a desk', () => {
     await expect(people).toBeFocused();
   });
 
+  test('adding back someone whose write was refused brings their row back without the words', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { marketId, marketName } = await seed(request, COLLEAGUE, 'viewer');
+    const manage = await openManage(page, marketName);
+    const select = roleSelect(page, COLLEAGUE);
+    await choose(select, 'editor');
+
+    const colleagueId = await select
+      .getAttribute('name')
+      .then((name) => name!.replace('role-', ''));
+    const removed = await request.delete(`${BACKEND_URL}/markets/${marketId}/roles/${colleagueId}`);
+    expect(removed.ok(), await removed.text()).toBeTruthy();
+    await manage.roleChangeConfirmButton.click();
+    await expect(page.getByTestId('manage-market-user-error')).toBeVisible();
+
+    await manage.addUser(COLLEAGUE, 'viewer');
+
+    await expect(roleSelect(page, COLLEAGUE)).toHaveValue('viewer');
+    await expect(page.getByTestId('manage-market-user-error')).toHaveCount(0);
+  });
+
   test('a write refused because the role moved meanwhile states the role they hold now', async ({
     request,
     browser,

@@ -113,7 +113,7 @@ Covered by:
 6. "Add user", for an Admin or the owner only (bug 37): the email, the role, "Add", and "Cancel" on the same row, or on a phone the email above the rest.
    An address that already has a role on the market is refused beneath the row, pointing to that person's own row: adding once overwrote any role, the owner's too, around the guards a role change keeps (T15).
 7. A refused change of role closes the confirmation, re-reads the list and is said beneath that person's row, which states the role the server holds, since someone else may have moved it first.
-   When someone else removed them first, the row is gone and the words stand at the foot of the list, after their address.
+   When someone else removed them first, the row is gone and the words stand at the foot of the list, after their address; adding them back brings the row back without the words.
 
 The organization line says "Belongs to <organization>. Its admins run it; its members can view it."
 Covered by:

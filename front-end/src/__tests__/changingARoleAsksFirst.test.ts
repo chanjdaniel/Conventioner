@@ -173,6 +173,7 @@ describe('Manage market asks before it changes a role', () => {
     setActivePinia(createPinia());
     api.get.mockReset();
     api.put.mockReset();
+    api.post.mockReset();
     document.body.innerHTML = '';
     served = market([person()]);
     api.get.mockImplementation(async (url: string) =>
@@ -457,6 +458,65 @@ describe('Manage market asks before it changes a role', () => {
     );
     expect(people.contains(byTestId('manage-market-user-error'))).toBe(true);
     expect(document.activeElement).toBe(people);
+    wrapper.unmount();
+  });
+
+  it('takes the words away once the refused person is added back, with their row', async () => {
+    api.put.mockImplementation(async () => {
+      // Someone else removed them first.
+      served = market([]);
+      throw refusing(400, 'User does not have a role in this market');
+    });
+    api.post.mockImplementation(async () => {
+      served = market([person({ role: MarketRole.Editor, marketRole: MarketRole.Editor })]);
+      return { data: {} };
+    });
+    const wrapper = await open();
+    await choose(MarketRole.Editor);
+    byTestId('manage-market-role-change-submit-button')!.click();
+    await flushPromises();
+    expect(byTestId('manage-market-user-error')).not.toBeNull();
+
+    byTestId('manage-market-add-user-button')!.click();
+    await flushPromises();
+    const address = byTestId('manage-market-add-user-input') as HTMLInputElement;
+    address.value = EMAIL;
+    address.dispatchEvent(new Event('input', { bubbles: true }));
+    await flushPromises();
+    byTestId('manage-market-add-user-submit')!.click();
+    await flushPromises();
+
+    expect(select().value).toBe(MarketRole.Editor);
+    expect(byTestId('manage-market-user-error')).toBeNull();
+    wrapper.unmount();
+  });
+
+  it('keeps the words of a refusal when adding someone back is refused too', async () => {
+    api.put.mockImplementation(async () => {
+      served = market([]);
+      throw refusing(400, 'User does not have a role in this market');
+    });
+    api.post.mockRejectedValue(refusing(403, 'You may not add someone to this market'));
+    const wrapper = await open();
+    await choose(MarketRole.Editor);
+    byTestId('manage-market-role-change-submit-button')!.click();
+    await flushPromises();
+
+    byTestId('manage-market-add-user-button')!.click();
+    await flushPromises();
+    const address = byTestId('manage-market-add-user-input') as HTMLInputElement;
+    address.value = EMAIL;
+    address.dispatchEvent(new Event('input', { bubbles: true }));
+    await flushPromises();
+    byTestId('manage-market-add-user-submit')!.click();
+    await flushPromises();
+
+    expect(byTestId('manage-market-add-user-error')!.textContent?.trim()).toBe(
+      'You may not add someone to this market',
+    );
+    expect(byTestId('manage-market-user-error')!.textContent?.trim()).toBe(
+      `${EMAIL}: User does not have a role in this market`,
+    );
     wrapper.unmount();
   });
 
