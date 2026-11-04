@@ -11,7 +11,8 @@ import { eachWindow, expectLaidOut, openEntry } from './helpers/componentLibrary
  * scrolls, and is never a choice. C5 chooses reviewers as chips beside today's checkbox per person,
  * removed by a chip's button and by Backspace, and C10 chooses among the 228 answers. C1 fixes the
  * import's values beside today's native select, each by typing and choosing or kept as typed, with
- * the rows behind "Show all", and C3 keeps a new answer as typed.
+ * the rows behind "Show all", C3 keeps a new answer as typed, and a field whose words are its value
+ * writes them as they are typed and keeps them when it is left.
  */
 
 /** Three people share this family name, all past the first 50. */
@@ -512,6 +513,38 @@ eachWindow('the combobox entry', (size) => {
     await expect(none.options).toHaveText(['Use "A first answer"']);
     await none.field.press('Enter');
     await expect(readOutOf(page, 'library-typed-first')).toHaveText('Answer: A first answer');
+  });
+
+  test('words left in a field whose words are its value reach the read-out', async ({
+    page,
+    expectAccessible,
+  }) => {
+    const written = picker(page, 'library-words-value');
+    const readOut = readOutOf(page, 'library-words-value');
+
+    await written.field.click();
+    await expect(written.options).toHaveCount(228);
+    await expectLaidOut(page, size, 'a field whose words are its value, open');
+    await expectAccessible('a field whose words are its value, open');
+
+    await written.field.pressSequentially('Hand-poured ');
+    await expect(written.field).toHaveValue('Hand-poured ');
+    await expect(readOut).toHaveText('Answer: Hand-poured');
+    await expect(written.options.first()).toHaveText('Use "Hand-poured"');
+
+    await written.field.pressSequentially('soap ');
+    await expect(readOut).toHaveText('Answer: Hand-poured soap');
+
+    await written.field.press('Escape');
+    await expect(written.list).toHaveCount(0);
+    await expect(written.field).toHaveValue('Hand-poured soap ');
+
+    await written.field.blur();
+    await expect(written.field).toHaveValue('Hand-poured soap');
+    await expect(readOut).toHaveText('Answer: Hand-poured soap');
+
+    await written.field.fill('');
+    await expect(readOut).toHaveText('Answer: nothing');
   });
 
   test('several, a typed answer is a chip of its own', async ({ page, expectAccessible }) => {

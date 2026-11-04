@@ -1175,3 +1175,236 @@ describe('a choice that holds until another is taken', () => {
     wrapper.unmount();
   });
 });
+
+describe('words that are the value', () => {
+  const ANSWERS: PickerGroup[] = [
+    {
+      options: [
+        { value: 'Art prints', label: 'Art prints' },
+        { value: 'Stickers', label: 'Stickers' },
+      ],
+    },
+  ];
+
+  function writing(modelValue = '', props: Record<string, unknown> = {}) {
+    const wrapper = mount(SearchPicker, {
+      props: {
+        modelValue,
+        acceptsTyped: true,
+        wordsAreValue: true,
+        groups: ANSWERS,
+        finds,
+        label: 'Option 1',
+        testid: 'who',
+        'onUpdate:modelValue': (value: string) => wrapper.setProps({ modelValue: value }),
+        ...props,
+      } as never,
+      attachTo: document.body,
+    });
+    return wrapper;
+  }
+  type Writing = ReturnType<typeof writing>;
+
+  const input = (wrapper: Writing) => wrapper.get('[data-testid="who-input"]');
+  const inField = (wrapper: Writing) => (input(wrapper).element as HTMLInputElement).value;
+  const rows = (wrapper: Writing) =>
+    wrapper.findAll('[role="option"]').map((row) => row.get('span').text());
+  const values = (wrapper: Writing) => wrapper.emitted('update:modelValue')?.map(([value]) => value);
+  const held = (wrapper: Writing) => wrapper.props('modelValue');
+
+  it('emits the words trimmed on every keystroke', async () => {
+    const wrapper = writing();
+    await input(wrapper).setValue('H');
+    await input(wrapper).setValue('Ha');
+    await input(wrapper).setValue(' Han ');
+
+    expect(values(wrapper)).toEqual(['H', 'Ha', 'Han']);
+    wrapper.unmount();
+  });
+
+  it('emits no empty value between a filled value and the words replacing it', async () => {
+    const wrapper = writing('Stickers');
+    await input(wrapper).setValue('Soap');
+
+    expect(values(wrapper)).toEqual(['Soap']);
+    wrapper.unmount();
+  });
+
+  it('keeps the words as typed while they are typed, a space mid-phrase with them', async () => {
+    const wrapper = writing();
+    await input(wrapper).setValue('Hand ');
+
+    expect(inField(wrapper)).toBe('Hand ');
+    expect(held(wrapper)).toBe('Hand');
+
+    await input(wrapper).setValue('Hand poured');
+    expect(inField(wrapper)).toBe('Hand poured');
+    expect(held(wrapper)).toBe('Hand poured');
+    wrapper.unmount();
+  });
+
+  it('shows the trimmed value when the field is left', async () => {
+    const wrapper = writing();
+    await input(wrapper).setValue('  Hand poured ');
+    await input(wrapper).trigger('blur');
+
+    expect(inField(wrapper)).toBe('Hand poured');
+    expect(held(wrapper)).toBe('Hand poured');
+    expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("shows the matching option's label when the field is left", async () => {
+    const wrapper = writing('', {
+      groups: [{ options: [{ value: 'Stickers', label: 'Stickers, die cut' }] }],
+    });
+    await input(wrapper).setValue('Stickers ');
+    await input(wrapper).trigger('blur');
+
+    expect(held(wrapper)).toBe('Stickers');
+    expect(inField(wrapper)).toBe('Stickers, die cut');
+    wrapper.unmount();
+  });
+
+  it('emits an empty value when the field is cleared, and stays empty when it is left', async () => {
+    const wrapper = writing('Stickers');
+    await input(wrapper).setValue('');
+
+    expect(values(wrapper)).toEqual(['']);
+    expect(rows(wrapper)).toEqual(['Art prints', 'Stickers']);
+
+    await input(wrapper).trigger('blur');
+    expect(inField(wrapper)).toBe('');
+    wrapper.unmount();
+  });
+
+  it('counts words of spaces alone as no value, and shows none once left', async () => {
+    const wrapper = writing('Stickers');
+    await input(wrapper).setValue('   ');
+
+    expect(values(wrapper)).toEqual(['']);
+    expect(inField(wrapper)).toBe('   ');
+
+    await input(wrapper).trigger('blur');
+    expect(inField(wrapper)).toBe('');
+    wrapper.unmount();
+  });
+
+  it('closes the list on Escape and keeps the words, then leaves Escape to the dialog', async () => {
+    const wrapper = writing();
+    await input(wrapper).setValue('Hand ');
+
+    const first = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
+    input(wrapper).element.dispatchEvent(first);
+    await wrapper.vm.$nextTick();
+    expect(first.defaultPrevented).toBe(true);
+    expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+    expect(inField(wrapper)).toBe('Hand ');
+    expect(held(wrapper)).toBe('Hand');
+
+    const second = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
+    input(wrapper).element.dispatchEvent(second);
+    expect(second.defaultPrevented).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('after Escape, a click reopens on the words without selecting them, as they are being typed', async () => {
+    const wrapper = writing();
+    await input(wrapper).setValue('Art');
+    await input(wrapper).trigger('keydown', { key: 'Escape' });
+    const element = input(wrapper).element as HTMLInputElement;
+    element.setSelectionRange(1, 1);
+    await input(wrapper).trigger('click');
+
+    expect(rows(wrapper)).toEqual(['Use "Art"', 'Art prints']);
+    expect([element.selectionStart, element.selectionEnd]).toEqual([1, 1]);
+    wrapper.unmount();
+  });
+
+  it('narrows as it is typed in and takes the keys, as with acceptsTyped alone', async () => {
+    const wrapper = writing();
+    await input(wrapper).setValue('art');
+    expect(rows(wrapper)).toEqual(['Use "art"', 'Art prints']);
+
+    await input(wrapper).trigger('keydown', { key: 'ArrowDown' });
+    await input(wrapper).trigger('keydown', { key: 'Enter' });
+
+    expect(held(wrapper)).toBe('Art prints');
+    expect(inField(wrapper)).toBe('Art prints');
+    expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('opens on a click with the whole list, and on an arrow key', async () => {
+    const wrapper = writing();
+    await input(wrapper).trigger('click');
+    expect(rows(wrapper)).toEqual(['Art prints', 'Stickers']);
+
+    await input(wrapper).trigger('keydown', { key: 'Escape' });
+    await input(wrapper).trigger('keydown', { key: 'ArrowDown' });
+    expect(rows(wrapper)).toEqual(['Art prints', 'Stickers']);
+    wrapper.unmount();
+  });
+
+  it('a row clicked ends with the same value and field as with acceptsTyped alone', async () => {
+    const wrapper = writing('', {
+      groups: [{ options: [{ value: 'stickers', label: 'Stickers' }] }],
+    });
+    await input(wrapper).setValue('stick');
+    await wrapper.findAll('[role="option"]')[1]!.trigger('click');
+
+    expect(held(wrapper)).toBe('stickers');
+    expect(inField(wrapper)).toBe('Stickers');
+    expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('`Use "<words>"` ends with the same value and field as with acceptsTyped alone', async () => {
+    const wrapper = writing();
+    await input(wrapper).setValue('  Hand poured ');
+    await input(wrapper).trigger('keydown', { key: 'Enter' });
+
+    expect(held(wrapper)).toBe('Hand poured');
+    expect(inField(wrapper)).toBe('Hand poured');
+    expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('shows a value changed from outside, even while words are being typed', async () => {
+    const wrapper = writing();
+    await input(wrapper).setValue('Hand ');
+    await wrapper.setProps({ modelValue: 'Stickers' });
+    expect(inField(wrapper)).toBe('Stickers');
+
+    await input(wrapper).setValue('Hand ');
+    await wrapper.setProps({ modelValue: '' });
+    expect(inField(wrapper)).toBe('');
+    wrapper.unmount();
+  });
+
+  it('reopened on a filled value, it selects the words and shows the whole list', async () => {
+    const wrapper = writing('Hand poured');
+    await input(wrapper).trigger('click');
+    const element = input(wrapper).element as HTMLInputElement;
+
+    expect(rows(wrapper)).toEqual(['Art prints', 'Stickers']);
+    expect([element.selectionStart, element.selectionEnd]).toEqual([0, 'Hand poured'.length]);
+    wrapper.unmount();
+  });
+
+  it('does nothing without acceptsTyped, since no value could be kept as words', async () => {
+    const wrapper = writing('Stickers', { acceptsTyped: false });
+    await input(wrapper).setValue('Soap');
+
+    expect(values(wrapper)).toEqual(['']);
+    wrapper.unmount();
+  });
+
+  it('does nothing with several choices, whose field holds only words to search by', async () => {
+    const wrapper = writing('', { multiple: true, modelValue: ['Stickers'] });
+    await input(wrapper).setValue('Soap');
+
+    expect(values(wrapper)).toBeUndefined();
+    wrapper.unmount();
+  });
+});

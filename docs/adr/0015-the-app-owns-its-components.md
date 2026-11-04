@@ -53,7 +53,8 @@ The app owns its components and its icons, and depends on no component library o
   - `multiple`, several choices as chips above the field;
   - `acceptsTyped`, words that are exactly no option kept as the value;
   - `noneWord`, what the list says finds no match, where the choices are not people;
-  - `holdsChoice`, one choice that holds under typed words until another is taken.
+  - `holdsChoice`, one choice that holds under typed words until another is taken;
+  - `wordsAreValue`, with `acceptsTyped` on one choice, typed words written as the value on every keystroke and kept on leaving.
 
 ## Consequences
 

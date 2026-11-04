@@ -48,6 +48,13 @@
  *   on a choice needs: typing emits nothing, and on leaving the field or on Escape the field names
  *   the choice again. Without it, the first word lets the choice go, as a dialog that acts on Save
  *   needs, so it never acts on a choice its field does not show.
+ * - Given `wordsAreValue` with `acceptsTyped` on one choice, as a screen that writes as it is typed
+ *   needs: every keystroke emits the trimmed words as the value, so no choice is let go first and no
+ *   empty value comes between a filled one and the words replacing it. The field keeps the words as
+ *   typed, a space in the middle of typing with them, until it is left, when it names the value: an
+ *   option's label, or the trimmed words. Escape closes the list and keeps the words, since a plain
+ *   input has no undo, and reopened on words still being typed it does not select them, so a click
+ *   can place the caret. A row or `Use "<words>"` is taken as with `acceptsTyped` alone.
  */
 import { computed, nextTick, ref, useId, watch } from 'vue';
 import IconCheck from '@/components/icons/IconCheck.vue';
@@ -84,6 +91,8 @@ const props = defineProps<
     noneWord?: string;
     /** With one choice: words only search, and the choice holds until another is taken. */
     holdsChoice?: boolean;
+    /** With `acceptsTyped` on one choice: every keystroke writes the words as the value. */
+    wordsAreValue?: boolean;
   } & (
     | { multiple?: false; modelValue: string }
     /** Several choices, shown as chips above the field. */
@@ -127,11 +136,18 @@ const searching = ref(false);
 const open = ref(false);
 const active = ref(-1);
 
+/** Whether what is typed is the value, rather than words to choose by. */
+const writesWords = computed(() => props.wordsAreValue && props.acceptsTyped && !props.multiple);
+
 watch(
   () => props.modelValue,
   () => {
     if (props.multiple) return;
-    if (searching.value && !props.modelValue) return;
+    // The value the words being typed emitted, or the choice they let go, leaves them as typed.
+    const fromTheWords = writesWords.value
+      ? props.modelValue === text.value.trim()
+      : !props.modelValue;
+    if (searching.value && fromTheWords) return;
     text.value = chosenOption.value?.label ?? keptWords.value;
     searching.value = false;
   },
@@ -239,7 +255,8 @@ function show(): void {
   active.value = chosenAt >= 0 ? chosenAt : heldUndrawn ? -1 : firstRow.value;
   // Reopened on a choice, its label is selected, so what is typed next replaces it and searches
   // by itself, rather than running on from the label; left untouched, the choice stays.
-  if (heldUndrawn) field.value?.select();
+  // Words still being typed are not a choice to replace: a click places the caret in them.
+  if (heldUndrawn && !(writesWords.value && searching.value)) field.value?.select();
 }
 
 function choose(option: PickerOption): void {
@@ -265,6 +282,10 @@ function typed(): void {
   searching.value = true;
   open.value = hasRows.value;
   active.value = firstRow.value;
+  if (writesWords.value) {
+    emit('update:modelValue', text.value.trim());
+    return;
+  }
   // Words that no longer name the choice let it go, so a dialog never acts on a choice its field
   // does not show.
   if (!props.multiple && !holds.value && props.modelValue) emit('update:modelValue', '');
@@ -325,7 +346,7 @@ function onKeydown(event: KeyboardEvent): void {
 
 function onBlur(): void {
   open.value = false;
-  if (holds.value) nameTheChoice();
+  if (holds.value || writesWords.value) nameTheChoice();
   if (!props.multiple) return;
   text.value = '';
   searching.value = false;
