@@ -9,6 +9,7 @@ import { computed, ref } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
 import FilterToggles from '@/components/FilterToggles.vue';
 import PhaseBadge from '@/components/PhaseBadge.vue';
+import ScrollBox from '@/components/ScrollBox.vue';
 import SidePanel from '@/components/SidePanel.vue';
 import { MarketPhase } from '@/assets/types/datatypes';
 import { statusChip, statusLabel } from '@/utils/verdicts';
@@ -265,12 +266,11 @@ const panelReadOut = computed(
     about="A primitive rather than a component, since each table's columns are its own: the header's ink and weight, a rule between rows, the cells' padding, and a scroller that keeps the corners."
   >
     <LibraryPanel class="library-wide" :label="`${rows.length} applications, one line a cell`">
-      <div
+      <ScrollBox
         class="data-table-scroll"
-        role="region"
-        :aria-label="`${rows.length} applications`"
-        tabindex="0"
-        data-testid="library-table-scroll"
+        axis="x"
+        :label="`${rows.length} applications`"
+        testid="library-table-scroll"
       >
         <table class="data-table data-table--one-line">
           <thead>
@@ -298,15 +298,14 @@ const panelReadOut = computed(
             </tr>
           </tbody>
         </table>
-      </div>
+      </ScrollBox>
     </LibraryPanel>
     <LibraryPanel class="library-wide" label="Fewer columns: the cells wrap, and nothing scrolls">
-      <div
+      <ScrollBox
         class="data-table-scroll"
-        role="region"
-        aria-label="Fewer columns"
-        tabindex="0"
-        data-testid="library-table-wrapped-scroll"
+        axis="x"
+        label="Fewer columns"
+        testid="library-table-wrapped-scroll"
       >
         <table class="data-table">
           <thead>
@@ -324,7 +323,7 @@ const panelReadOut = computed(
             </tr>
           </tbody>
         </table>
-      </div>
+      </ScrollBox>
     </LibraryPanel>
     <LibraryPanel class="library-wide" label="The six tables today">
       <ul class="library-places">

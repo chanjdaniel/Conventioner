@@ -12,6 +12,7 @@
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import type { Market } from '@/assets/types/datatypes';
+import ScrollBox from '@/components/ScrollBox.vue';
 import { marketPath } from '@/utils/market';
 import { placeFilterQuery } from '@/utils/resultFilters';
 import {
@@ -47,40 +48,41 @@ function linkTo(marketId: string, page: MarketPage) {
 </script>
 
 <template>
-  <nav
-    v-if="market && pages.length > 1"
-    class="market-pages"
-    aria-label="Pages"
-    data-testid="market-pages"
-  >
-    <RouterLink
-      v-for="page in pages"
-      :key="page"
-      :to="linkTo(market.id, page)"
-      class="market-page"
-      :class="{ active: here === page, current: current === page }"
-      :aria-current="here === page ? 'page' : undefined"
-      :data-testid="`market-pages-${page}`"
-    >
-      {{ PAGE_LABELS[page]
-      }}<span
-        v-if="current === page"
-        class="current-dot"
-        aria-hidden="true"
-        data-testid="market-pages-current-dot"
-      />
-    </RouterLink>
-  </nav>
+  <ScrollBox v-if="market && pages.length > 1" class="market-pages" axis="x" testid="market-pages">
+    <nav class="market-pages-links" aria-label="Pages">
+      <RouterLink
+        v-for="page in pages"
+        :key="page"
+        :to="linkTo(market.id, page)"
+        class="market-page"
+        :class="{ active: here === page, current: current === page }"
+        :aria-current="here === page ? 'page' : undefined"
+        :data-testid="`market-pages-${page}`"
+      >
+        {{ PAGE_LABELS[page]
+        }}<span
+          v-if="current === page"
+          class="current-dot"
+          aria-hidden="true"
+          data-testid="market-pages-current-dot"
+        />
+      </RouterLink>
+    </nav>
+  </ScrollBox>
 </template>
 
 <style scoped>
 /* A quieter second row than the bar's tabs: pages of one tab, not places of their own. */
 .market-pages {
+  --scroll-box-overflow: visible;
+  border-bottom: 1px solid var(--mm-border);
+  background-color: white;
+}
+
+.market-pages-links {
   display: flex;
   gap: var(--space-1);
   padding: var(--space-2) var(--space-6);
-  border-bottom: 1px solid var(--mm-border);
-  background-color: white;
 }
 
 .market-page {
@@ -96,14 +98,18 @@ function linkTo(marketId: string, page: MarketPage) {
    fourth page ran past the card at 390 and squeezed Assignments onto two lines (E44/F02/S01). So
    the links touch, and each label stands on the phone's 16px gutter with its pill reaching into
    it, which fits all four at 390; a narrower phone scrolls the row sideways inside itself, as the
-   bar's tabs do, never the page. The row's own padding keeps a link's halo inside the scroller.
+   bar's tabs do, never the page, its `ScrollBox` shading the end with more beyond it. The row's own
+   padding keeps a link's halo inside the scroller.
    Only on a screen that fits a phone (the frame's `market-fits-a-phone`): one that keeps the desktop
    floor is a desk's layout in a phone's window, and its labels stay on the page's desk inset. */
 @media (width <= 640px) {
   .market-fits-a-phone .market-pages {
+    --scroll-box-overflow: inherit;
+  }
+
+  .market-fits-a-phone .market-pages-links {
     gap: 0;
     padding: var(--space-2);
-    overflow-x: auto;
   }
 
   .market-fits-a-phone .market-page {

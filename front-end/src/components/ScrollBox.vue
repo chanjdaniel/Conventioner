@@ -10,7 +10,12 @@
  * With its bar gone a keyboard needs a way in, and Safari gives a scroller no Tab stop of its own: so
  * while it overflows with nothing inside it to take focus it carries `tabindex="0"`, and otherwise
  * none, since a focusable child already takes the arrow keys. A screen that moves focus to the box
- * itself says `focusable`, and the stop stays whatever the box holds.
+ * itself says `focusable`, and the stop stays whatever the box holds. A `label` makes it a region only
+ * while it scrolls or is a stop, so a strip that fits at a desk adds no landmark there.
+ *
+ * A strip that scrolls only where its own rule asks, and at a desk would have its child's outer halo
+ * clipped for nothing, sets `--scroll-box-overflow: visible` on its root where it does not scroll, and
+ * `inherit` under the rule that lets it, to take `base.css`'s value back.
  */
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 
@@ -24,7 +29,7 @@ const props = withDefaults(
     testid?: string;
     /** The shades' test id prefix, for a dialog that keeps `<testid>-shade-*` beside `-body`. */
     shadeTestid?: string;
-    /** Names the scroller as a region, for a table a keyboard scrolls sideways. */
+    /** Names the scroller as a region while it scrolls, for a table a keyboard scrolls sideways. */
     label?: string;
     /** Always a Tab stop, for a panel that puts focus on its body as it opens. */
     focusable?: boolean;
@@ -37,11 +42,13 @@ const content = ref<HTMLElement | null>(null);
 
 /** Which edges have more beyond them, and whether the keys need a stop on the scroller itself. */
 const more = reactive({ top: false, bottom: false, left: false, right: false });
+const overflows = ref(false);
 const needsStop = ref(false);
 
 const SHADES = ['top', 'bottom', 'left', 'right'] as const;
 const shades = computed(() => SHADES.filter((edge) => more[edge]));
 const shadePrefix = computed(() => props.shadeTestid ?? props.testid);
+const isRegion = computed(() => !!props.label && (props.focusable || overflows.value));
 
 /** What can take the keys. A `display: none` control cannot, and leaves the box with no stop. */
 const FOCUSABLE =
@@ -63,8 +70,8 @@ function measure() {
   more.bottom = down && box.scrollTop + box.clientHeight < box.scrollHeight - 1;
   more.left = across && box.scrollLeft > 0;
   more.right = across && box.scrollLeft + box.clientWidth < box.scrollWidth - 1;
-  const overflows = more.top || more.bottom || more.left || more.right;
-  needsStop.value = overflows && !!content.value && !holdsFocusable(content.value);
+  overflows.value = more.top || more.bottom || more.left || more.right;
+  needsStop.value = overflows.value && !!content.value && !holdsFocusable(content.value);
 }
 
 /*
@@ -108,8 +115,8 @@ defineExpose({ scroller });
       class="scroll-box__scroller"
       :class="`scroll-box__scroller--${axis}`"
       :data-testid="testid"
-      :role="label ? 'region' : undefined"
-      :aria-label="label"
+      :role="isRegion ? 'region' : undefined"
+      :aria-label="isRegion ? label : undefined"
       :tabindex="focusable || needsStop ? 0 : undefined"
       @scroll="measure"
     >
@@ -158,7 +165,7 @@ defineExpose({ scroller });
 }
 
 .scroll-box__scroller--x {
-  overflow: auto hidden;
+  overflow: var(--scroll-box-overflow);
 }
 
 .scroll-box__scroller--both {
@@ -173,7 +180,8 @@ defineExpose({ scroller });
 }
 
 /* Its own formatting context, so its height holds its children's margins and the observer sees them;
-   sideways as wide as what it holds, or a table outgrowing it would resize nothing. */
+   sideways as wide as what it holds cannot give up, or a table outgrowing it would resize nothing:
+   not `max-content`, or a table whose cells can wrap would run one line wide rather than fit. */
 .scroll-box__content {
   display: flow-root;
   min-width: 0;
@@ -181,7 +189,7 @@ defineExpose({ scroller });
 
 .scroll-box__scroller--x > .scroll-box__content,
 .scroll-box__scroller--both > .scroll-box__content {
-  width: max-content;
+  width: fit-content;
   min-width: 100%;
 }
 

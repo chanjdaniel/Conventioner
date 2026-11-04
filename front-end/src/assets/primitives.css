@@ -305,13 +305,13 @@
  * One look for a table whose columns are the screen's own. A primitive rather than a component, for
  * that reason: a screen writes its own `<table>`, wide or not, inside its own scroller.
  *
- * A table too wide for its place scrolls inside `.data-table-scroll` and never moves the page. The
- * scroller wears the border and the radius, and clips the table to them, so the corners stay round
- * at any scroll. Give it `tabindex="0"`, `role="region"` and a name, so the keyboard can scroll it.
+ * A table too wide for its place scrolls inside a `ScrollBox` with `axis="x"`, a `label` naming the
+ * region and this class on its root, and never moves the page. The root wears the border and the
+ * radius, and clips the table and the shades to them, so the corners stay round at any scroll; the
+ * `ScrollBox` is a Tab stop while the table scrolls, so the keyboard can scroll it.
  */
 .data-table-scroll {
-  overflow-x: auto;
-  scroll-margin: var(--space-2);
+  overflow: hidden;
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
 }
@@ -517,11 +517,6 @@ summary:focus-visible,
 /* A menu's item fills a box that clips it to its rounded corners (the phase rail's, a row's), so
    its halo is drawn inside its edge, where the box cannot cut it off. */
 [role='menuitem']:focus-visible {
-  box-shadow: var(--focus-halo-inset);
-}
-
-/* A table's scroller clips what it scrolls, and may itself sit in a box that clips an outer halo. */
-.data-table-scroll:focus-visible {
   box-shadow: var(--focus-halo-inset);
 }
 

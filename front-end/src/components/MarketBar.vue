@@ -13,6 +13,7 @@
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import type { Market } from '@/assets/types/datatypes';
+import ScrollBox from '@/components/ScrollBox.vue';
 import { marketPath } from '@/utils/market';
 import { currentPage, intakeModeOf, pageForTab, pathTabLabel } from '@/utils/marketGuide';
 import {
@@ -51,28 +52,30 @@ function linkFor(tab: MarketTab): string {
         <h1 class="market-bar-title" data-testid="market-bar-title" :title="market.name">
           {{ market.name }}
         </h1>
-        <nav class="market-bar-tabs" aria-label="Market" data-testid="market-bar-tabs">
-          <RouterLink
-            v-for="tab in tabs"
-            :key="tab"
-            :to="linkFor(tab)"
-            class="market-bar-tab"
-            :class="{ active: activeTab === tab, current: tabOf(current) === tab }"
-            :aria-current="tabOf(current) === tab ? 'step' : undefined"
-            :data-testid="`market-bar-tab-${tab}`"
-          >
-            <!-- One inline run, so the dot is raised against the label's capitals in its line
+        <ScrollBox class="market-bar-tabs" axis="x" tone="dark" testid="market-bar-tabs">
+          <nav class="market-bar-links" aria-label="Market">
+            <RouterLink
+              v-for="tab in tabs"
+              :key="tab"
+              :to="linkFor(tab)"
+              class="market-bar-tab"
+              :class="{ active: activeTab === tab, current: tabOf(current) === tab }"
+              :aria-current="tabOf(current) === tab ? 'step' : undefined"
+              :data-testid="`market-bar-tab-${tab}`"
+            >
+              <!-- One inline run, so the dot is raised against the label's capitals in its line
                rather than centred as a flex item of the tab. -->
-            <span
-              >{{ pathTabLabel(tab, path, TAB_LABELS)
-              }}<span
-                v-if="tabOf(current) === tab"
-                class="current-dot"
-                aria-hidden="true"
-                data-testid="market-bar-current-dot"
-            /></span>
-          </RouterLink>
-        </nav>
+              <span
+                >{{ pathTabLabel(tab, path, TAB_LABELS)
+                }}<span
+                  v-if="tabOf(current) === tab"
+                  class="current-dot"
+                  aria-hidden="true"
+                  data-testid="market-bar-current-dot"
+              /></span>
+            </RouterLink>
+          </nav>
+        </ScrollBox>
       </template>
       <!-- Where the name will be, while the market is on its way: an empty black band read as
          broken (bug 43). The words are below it, in the card. -->
@@ -120,8 +123,13 @@ function linkFor(tab: MarketTab): string {
   background-color: color-mix(in srgb, var(--mm-text-muted-on-dark) 20%, transparent);
 }
 
+/* The tabs fit here, so nothing scrolls, and a scroller would clip a tab's outer halo for nothing. */
 .market-bar-tabs {
   flex-shrink: 0;
+  --scroll-box-overflow: visible;
+}
+
+.market-bar-links {
   display: flex;
   flex-direction: row;
   gap: var(--space-hairline);
@@ -163,7 +171,8 @@ function linkFor(tab: MarketTab): string {
  * tablet: the name takes its own line and the tabs scroll sideways inside the bar rather
  * than widening the page. At 768 the name drew 0px wide beside them and the tabs ran past the
  * window (T142). Every other market screen keeps the desktop floor, where the bar is 968px wide.
- * In the scroller, which clips anything drawn outside the tabs, the halo is drawn inside.
+ * In the `ScrollBox`, which clips anything drawn outside the tabs, the halo is drawn inside, and its
+ * shade reads on the bar's dark ground (`tone="dark"`).
  */
 @container market-bar (width < 59rem) {
   .market-bar-row {
@@ -181,7 +190,7 @@ function linkFor(tab: MarketTab): string {
     flex-shrink: 1;
     min-width: 0;
     max-width: 100%;
-    overflow-x: auto;
+    --scroll-box-overflow: inherit;
   }
 
   .market-bar-tab {

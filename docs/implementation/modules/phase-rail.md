@@ -5,8 +5,7 @@ describes:
   - front-end/src/components/PhaseRail.vue
   - front-end/src/components/market/OpenApplicationsDialog.vue
   - front-end/src/utils/phase.ts
-  - front-end/src/utils/useScrollsSideways.ts
-verified: 2026-11-03
+verified: 2026-11-05
 sources:
   - wayfinding/claims-and-room/07
   - wayfinding/readable-journey/01
@@ -34,6 +33,7 @@ sources:
   - T207
   - T205
   - T206
+  - T217
 ---
 
 # The phase rail
@@ -119,8 +119,9 @@ A chip on a phone draws its name ("Vendor page") as the link, with the whole add
 Which chip shape draws is decided in the script (`onAPhone`, `useMediaQuery` on the same break), since the link's text is what changes; so one chip holds one link at any width, and a spec reading the link at a phone reads its `href` or `title`.
 Each chip is one line, 50px: a 44px Copy inset by the desk's 2px hairline in the chip's border, since with no inset Copy's border lay on the chip's; the step link is `--target-min` (44px) tall, and the buttons are through `.btn`.
 At the door in market days on a form market, its chip and More…, the door starts within the top 340px of 844 on first paint, which `phase-rail.spec.ts` holds it to; it started at 409px.
-While the spine scrolls it is a keyboard stop named "Phases", so the phases past the window's edge can be reached (axe's `scrollable-region-focusable`); [`useScrollsSideways`](../../../front-end/src/utils/useScrollsSideways.ts) measures it, and on a desk, where it fits, it is no tab stop (T82).
-Focused, it wears the shared halo of every `[tabindex='0']` ([the design language](../../design-system.md#the-primitive-layer)), with no rule of its own.
+The spine stands in a [`ScrollBox`](../../../front-end/src/components/ScrollBox.vue) with `axis="x"`, whose shades say which end has more (T217), the `ol` of steps inside it, so the list and its name hold; the test id `phase-rail-spine` names the scroller, and the class `phase-spine` the list.
+While the spine scrolls that box is a keyboard stop and a region named "Phases", so the phases past the window's edge can be reached (axe's `scrollable-region-focusable`); on a desk, where it fits, it sets `--scroll-box-overflow: visible` and is neither a stop nor a region (T82).
+Focused, it wears the inset halo of every `ScrollBox` that is a stop ([the design language](../../design-system.md#the-primitive-layer)), with no rule of its own.
 The layout sweep walks the rail on Attendance at 390 in every phase the screens seed holds, both intake paths among them, so a squeezed chip, an overlap or a control past the window fails it; a link drawn on a line of its own is a tap target to it, and only a link inside a run of text is exempt.
 
 **Crowding is measured between labels, never by overflow.**

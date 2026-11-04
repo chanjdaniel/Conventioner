@@ -37,7 +37,7 @@ import { api, getApiErrorMessage } from '@/utils/api';
 import { useMarketStore } from '@/stores/market';
 import BlockerPanel from '@/components/BlockerPanel.vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
-import { useScrollsSideways } from '@/utils/useScrollsSideways';
+import ScrollBox from '@/components/ScrollBox.vue';
 import AppDialog from '@/components/AppDialog.vue';
 import OpenApplicationsDialog from '@/components/market/OpenApplicationsDialog.vue';
 import { isHere, marketPath, resolutionPath } from '@/utils/market';
@@ -80,10 +80,6 @@ const spine = computed(() => spineFor(currentPhase.value));
 
 const currentIndex = computed(() => spine.value.indexOf(currentPhase.value));
 
-/* On a phone the spine scrolls sideways inside the rail, and a region that scrolls is a keyboard
-   stop, so the phases past the window's edge can be reached (T82). On a desk it fits, and is not. */
-const spineEl = ref<HTMLElement | null>(null);
-const spineScrolls = useScrollsSideways(spineEl, spine);
 const isArchived = computed(() => currentPhase.value === MarketPhase.Archived);
 
 /**
@@ -527,27 +523,26 @@ function cancelPending() {
 <template>
   <div v-if="market" class="phase-rail" data-testid="phase-rail">
     <div class="phase-rail-row">
-      <ol
-        ref="spineEl"
-        class="phase-spine"
-        :tabindex="spineScrolls ? 0 : undefined"
-        aria-label="Phases"
-        data-testid="phase-rail-spine"
-      >
-        <li
-          v-for="(phase, index) in spine"
-          :key="phase"
-          class="phase-step"
-          :class="`phase-step--${stepState(index)}`"
-          :data-phase="phase"
-          :data-state="stepState(index)"
-          :data-testid="stepState(index) === 'current' ? 'phase-rail-current' : 'phase-rail-step'"
-          :aria-current="stepState(index) === 'current' ? 'step' : undefined"
-        >
-          <span class="phase-step-dot" aria-hidden="true"></span>
-          <span class="phase-step-label">{{ phaseLabel(phase) }}</span>
-        </li>
-      </ol>
+      <!-- On a phone it scrolls sideways inside the rail, and its `ScrollBox` is then a keyboard stop
+           named for it, so the phases past the window's edge can be reached (T82). On a desk it
+           fits, and is neither a stop nor a region. -->
+      <ScrollBox class="phase-spine-box" axis="x" label="Phases" testid="phase-rail-spine">
+        <ol class="phase-spine" aria-label="Phases">
+          <li
+            v-for="(phase, index) in spine"
+            :key="phase"
+            class="phase-step"
+            :class="`phase-step--${stepState(index)}`"
+            :data-phase="phase"
+            :data-state="stepState(index)"
+            :data-testid="stepState(index) === 'current' ? 'phase-rail-current' : 'phase-rail-step'"
+            :aria-current="stepState(index) === 'current' ? 'step' : undefined"
+          >
+            <span class="phase-step-dot" aria-hidden="true"></span>
+            <span class="phase-step-label">{{ phaseLabel(phase) }}</span>
+          </li>
+        </ol>
+      </ScrollBox>
 
       <!-- The rail's end: the public addresses and the actions travel together, so a row that cannot
            hold them all gives them a second row of their own rather than leaving a lone button
@@ -842,6 +837,13 @@ function cancelPending() {
   flex-wrap: wrap;
 }
 
+/* Never below its content width: shrinking is what makes labels collide. It fits here, so nothing
+   scrolls. */
+.phase-spine-box {
+  flex: 0 0 auto;
+  --scroll-box-overflow: visible;
+}
+
 .phase-spine {
   display: flex;
   align-items: center;
@@ -849,12 +851,11 @@ function cancelPending() {
   list-style: none;
   margin: 0;
   padding: 0;
-  /* Never below its content width: shrinking is what makes labels collide. */
-  flex: 0 0 auto;
 }
 
 /* A phone (E29/F01): the spine keeps its full width - shrinking is what makes labels collide - and
-   scrolls sideways inside the rail rather than widening the page. The rail takes the phone's gutter
+   scrolls sideways inside the rail rather than widening the page, its `ScrollBox` shading the end
+   with more beyond it. The rail takes the phone's gutter
    on a screen that fits a phone (the frame's `market-fits-a-phone`); one that keeps the desktop
    floor keeps the desk's inset, on one line with its page. */
 @media (width <= 640px) {
@@ -862,10 +863,9 @@ function cancelPending() {
     padding: var(--space-2) var(--space-4);
   }
 
-  .phase-spine {
+  .phase-spine-box {
     flex: 1 1 100%;
-    min-width: 0;
-    overflow-x: auto;
+    --scroll-box-overflow: inherit;
   }
 
   .phase-step {

@@ -32,12 +32,6 @@ const OWNERS = ['components/ScrollBox.vue', 'assets/base.css'];
  * What must never happen is a line added to it: a new scroller is a `ScrollBox`.
  */
 const NOT_YET_CONVERTED = [
-  // Sideways strips and tables (ticket 05).
-  'components/MarketBar.vue .market-bar-tabs',
-  'components/PhaseRail.vue .phase-spine',
-  'components/MarketPages.vue .market-fits-a-phone .market-pages',
-  'components/elements/ElementPricing.vue .pricing-frame',
-  'assets/primitives.css .data-table-scroll',
   // Export vendors (ticket 11).
   'components/ExportVendorsDialog.vue .export-table-scroll',
   // The pickers (ticket 16).

@@ -39,7 +39,7 @@ describes:
   - front-end/src/components/SidePanel.vue
   - front-end/src/components/BarLedger.vue
   - front-end/src/utils/useFold.ts
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01
@@ -87,6 +87,7 @@ sources:
   - T205
   - T200
   - T211
+  - T217
 ---
 
 # Conventioner's design language
@@ -254,6 +255,7 @@ Tables, Vendors and Attendance used to be `--list-max`, so moving between a mark
 A screen that stands in the frame sets no width of its own.
 The market's name is whole wherever it fits beside the tabs, and ellipsed with its full name on hover only where it does not.
 Where the bar is too narrow for the tabs and a readable name beside them (under 59rem, which only the routes that fit a phone reach, below about a 990px window), the name takes its own line and the tabs scroll inside the bar: at 768 the name drew 0px wide and the page scrolled sideways (T142).
+The tabs, the spine and the page row each stand in a `ScrollBox` with `axis="x"`, which is no scroller where its own rule says the strip fits, and the tabs' shade says `tone="dark"` (T217).
 
 **A screen of cards is a two-track grid** (E23/F01/S01, from the-plan-uses-its-space ticket 01).
 It is `.card-grid` in `primitives.css`; a screen reaches for it rather than laying out its own rows.
@@ -469,11 +471,14 @@ A component writes no `scrollbar-width` or `::-webkit-scrollbar` of its own.
 A rule with `overflow: auto` or `scroll` that never scrolls is deleted rather than wrapped, since it only makes a scroll container that stops a sticky child sticking.
 [`everyScrollerIsAScrollBox.test.ts`](../front-end/src/__tests__/everyScrollerIsAScrollBox.test.ts) fails on `overflow: auto` or `scroll`, or any rule on a bar, in a `.vue` or `.css` file outside `ScrollBox` and `base.css`, but for its named list of what is not yet converted, which only falls; [`no-in-app-scroll-bar.spec.ts`](../front-end/e2e/no-in-app-scroll-bar.spec.ts) launches a browser that draws classic bars, which headless Chromium otherwise hides, opens two dialogs and the vendor drawer, and finds no room given to a bar under `body`, with the page's own still drawn.
 
-A box that scrolls is [`ScrollBox.vue`](../front-end/src/components/ScrollBox.vue) (T217): `axis` (`y`, `x` or `both`), `tone` (`light`, or `dark` on a dark ground), `testid` (`shadeTestid` for the shades' prefix of its own, as a dialog keeps), and `label`, which names the scroller as a region for a table a keyboard scrolls sideways.
+A box that scrolls is [`ScrollBox.vue`](../front-end/src/components/ScrollBox.vue) (T217): `axis` (`y`, `x` or `both`), `tone` (`light`, or `dark` on a dark ground), `testid` (`shadeTestid` for the shades' prefix of its own, as a dialog keeps), and `label`, which names the scroller as a region while it scrolls or is a stop, for a table a keyboard scrolls sideways.
 While it overflows with nothing inside it to take focus it is a Tab stop of its own; `focusable` keeps that stop whatever it holds, for a panel that puts focus on its body as it opens.
 It draws a shade at each edge that has more beyond it, only then, and none in print, where nothing clips; a class passed to it lands on its root, which is what a screen sizes and borders, and padding goes in the slot's content, so a shade lies at the box's edge and a control's focus halo has room inside.
 While it overflows with nothing inside it to take focus it carries `tabindex="0"`, since Safari gives a scroller no Tab stop of its own and the bar is gone; otherwise it carries none, since a focusable child already takes the keys.
 It exposes its `scroller` element for the few screens that move it themselves.
+Sideways, its content is as wide as the box or as what cannot give way, so a table whose cells can wrap fits before it scrolls.
+A strip that scrolls only under its own media or container rule sets `--scroll-box-overflow: visible` on the root where it does not scroll, since there a scroller only clips a child's outer halo, and `inherit` under the rule that lets it, to take the value in `base.css` back.
+Only `axis="x"` reads that property, and it inherits, so a sideways `ScrollBox` nested in such a root takes it too.
 Every dialog scrolls in one ([dialogs](implementation/conventions/dialogs.md)), a long dialog only its body at most 80% of the window's height at a desk, and a short one whole; the library's `components` entry shows each axis and tone.
 A panel that slides in from a side is [`SidePanel.vue`](../front-end/src/components/SidePanel.vue) (T200), a proposal for the vendor drawer and the navigation drawer: `side` (right or left), `width` (narrow, 20rem, or wide, 30rem, each leaving a gutter of scrim), its title and close pinned and only its body scrolling, a `focusable` `ScrollBox` that takes focus as the panel opens.
 It is modal as a dialog is, through the same composables: Escape and the scrim emit `close`, focus moves in to its body, so the keys scroll the panel and never the page behind, and goes back, and the page is inert.
@@ -491,7 +496,7 @@ The import and the start from a Google Form take their CSV on it, and the floorp
 | `.btn` | `--primary`, `--secondary`, `--destructive`, `--compact` | One standard height (36px) and one compact (28px), and no third, both 44px on a phone. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. `--secondary` with `--destructive` is a row's destructive action, below. |
 | `.field` | `--select`, `--textarea` | Left-aligned always - 18 of 27 controls on Market Setup were centred - but for the sign-in code's field above. `--select` carries `min-width: 0`: a select fills its column and never pushes past it, in Firefox as in Chromium. A column that must fit a select's options sizes its own track. `--select` also draws the one chevron, 13px from the right edge as its text is from the left, with room so a long option ends in an ellipsis before it, muted when disabled: two files, `public/icons/select-chevron.svg` and `select-chevron-disabled.svg`, never a `data:` URI, which the Content-Security-Policy's `img-src 'self' blob:` would refuse once it enforces. Under forced colours it keeps the browser's own arrow. A select's own class may size or place it and never sets `padding`, `background` or `appearance`. `every-select-draws-one-chevron.spec.ts` holds the look on the library's primitives entry and on the screens whose selects once drew their own, and `everySelectWearsThePrimitive.test.ts` holds, from the source, that every `<select>` wears it and that no class of its own draws it, nor any rule of its file that reaches it by `select` or `.field--select`. |
 | `.chip` | `--neutral`, `--positive`, `--attention`, `--informational`, `--destructive`; `--small` | One shape, one size, sentence case. Tint with coloured ink rather than a solid fill: a list of six solid pills competes with the content it labels. The tint is an opaque `--mm-chip-*` ground, so a chip reads the same on beige as on white. A status is a chip; the action beside it is a button. `--small` is a proposal (T200), a size step rather than a tone: the type is already the scale's floor, so it takes the padding in and takes `--radius-control`, and no screen wears it yet. |
-| `.data-table` | `--one-line` | A proposal (T200) for the six tables that each draw their own, and no screen wears it yet: a muted header, a rule between rows and the cells' padding, in a `<table>` whose columns are the screen's own. Inside `.data-table-scroll` it scrolls sideways alone and never moves the page, the scroller keeping the corners; give the scroller `tabindex="0"`, `role="region"` and a name. A cell wraps; `--one-line` keeps each on one line, for a table read across. |
+| `.data-table` | `--one-line` | A proposal (T200) for the six tables that each draw their own, and no screen wears it yet: a muted header, a rule between rows and the cells' padding, in a `<table>` whose columns are the screen's own. In a `ScrollBox` with `axis="x"`, a `label` naming the region and `.data-table-scroll` on its root, it scrolls sideways alone and never moves the page: the root keeps the border, the radius and the corners, and the box is a Tab stop while the table scrolls. A cell wraps; `--one-line` keeps each on one line, for a table read across. |
 | `.link-alone` | none | A link on a line of its own is a target: a line box `--target-min` tall, 44px on a phone, with no padding, so it still sits on its text. |
 
 **A button or a menu item names its action in sentence case**, as a chip names its status (T181): the phase rail's moves ("Open applications", "Begin assignment", "Publish market"), its More… menu ("Reopen for editing", "Archive market"), "Publish results", and the titles and buttons of the confirmations they open.

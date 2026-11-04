@@ -114,14 +114,29 @@ describe('its markup', () => {
     expect((wrapper!.vm as unknown as { scroller: HTMLElement }).scroller).toBe(scroller);
   });
 
-  it('a label names the scroller as a region; without one it is no landmark', () => {
-    const labelled = mountBox({ label: 'The prices' });
+  it('a label names the scroller as a region while it scrolls; without one it is no landmark', async () => {
+    const labelled = mountBox({ axis: 'x', label: 'The prices' });
+    expect(labelled.hasAttribute('role'), 'it fits, so it is no landmark').toBe(false);
+    expect(labelled.hasAttribute('aria-label')).toBe(false);
 
+    layOut(labelled, { scrollWidth: 400, clientWidth: 100 });
+    await resized();
     expect(labelled.getAttribute('role')).toBe('region');
     expect(labelled.getAttribute('aria-label')).toBe('The prices');
+
+    layOut(labelled, { scrollWidth: 100, clientWidth: 100 });
+    await resized();
+    expect(labelled.hasAttribute('role'), 'it fits again').toBe(false);
     wrapper!.unmount();
 
-    const bare = mountBox();
+    const stop = mountBox({ label: 'The panel', focusable: true });
+    expect(stop.getAttribute('role'), 'a stop always says what it is').toBe('region');
+    expect(stop.getAttribute('aria-label')).toBe('The panel');
+    wrapper!.unmount();
+
+    const bare = mountBox({ axis: 'x' });
+    layOut(bare, { scrollWidth: 400, clientWidth: 100 });
+    await resized();
     expect(bare.hasAttribute('role')).toBe(false);
     expect(bare.hasAttribute('aria-label')).toBe(false);
   });

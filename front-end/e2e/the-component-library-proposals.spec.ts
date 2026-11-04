@@ -101,7 +101,14 @@ eachWindow('the proposals entry', (size) => {
     await expect(page.getByTestId('library-table-row')).toHaveCount(30);
 
     const scroller = page.getByTestId('library-table-scroll');
-    await expect(scroller).toHaveCSS('border-top-left-radius', '6px');
+    const corners = page.locator('.data-table-scroll', { has: scroller });
+    await expect(corners).toHaveCSS('border-top-left-radius', '6px');
+    await expect(corners, 'it clips the table and the shades to them').toHaveCSS(
+      'overflow-x',
+      'hidden',
+    );
+    await expect(page.getByTestId('library-table-scroll-shade-right')).toBeVisible();
+    await expect(page.getByTestId('library-table-scroll-shade-left')).toHaveCount(0);
 
     const sizes = await scroller.evaluate((element) => ({
       scroll: element.scrollWidth,
@@ -113,11 +120,15 @@ eachWindow('the proposals entry', (size) => {
     await expect
       .poll(() => scroller.evaluate((element) => element.scrollLeft), 'the table scrolled')
       .toBe(200);
+    await expect(page.getByTestId('library-table-scroll-shade-left')).toBeVisible();
     await expectFits(page, 'the page, with the table scrolled');
   });
 
   test('a keyboard reaches the table and scrolls it', async ({ page }) => {
     const scroller = page.getByTestId('library-table-scroll');
+    await expect(scroller).toHaveRole('region');
+    await expect(scroller).toHaveAccessibleName('30 applications');
+    await expect(scroller).toHaveAttribute('tabindex', '0');
     await scroller.focus();
     await expect(scroller).toBeFocused();
     await page.keyboard.press('ArrowRight');
@@ -131,6 +142,8 @@ eachWindow('the proposals entry', (size) => {
       client: element.clientWidth,
     }));
     expect(sizes.scroll).toBeLessThanOrEqual(sizes.client);
+    await expect(page.getByTestId('library-table-wrapped-scroll-shade-right')).toHaveCount(0);
+    await expect(scroller, 'nothing to scroll, so no stop').not.toHaveAttribute('tabindex', /.*/);
   });
 
   test('opens the panel, and closes it by Escape, giving focus back', async ({

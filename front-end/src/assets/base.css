@@ -173,6 +173,10 @@
   --edge-shade-on-dark: rgba(255, 255, 255, 0.25);
   --edge-shade-depth: var(--space-3);
 
+  /* A sideways `ScrollBox`'s overflow. A strip that scrolls only under its own rule sets it to
+     `visible` where it fits, since a scroller there only clips a child's outer halo. */
+  --scroll-box-overflow: auto hidden;
+
   /* A focused control's halo (E38/F01/S01), Daniel's choice C on the 2026-10-29 walk: a white 2px
      gap, then a translucent green glow, hugging the control. It replaced a 2px `--mm-black` ring.
      Measured, the glow is 1.58:1 against white and 1.50 against beige, below WCAG's 3:1 for a focus

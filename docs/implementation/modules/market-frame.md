@@ -9,7 +9,7 @@ describes:
   - front-end/src/utils/marketPage.ts
   - front-end/src/views/ToolsView.vue
   - front-end/src/views/PaymentsView.vue
-verified: 2026-11-01
+verified: 2026-11-05
 sources:
   - wayfinding/the-market-frame/map
   - wayfinding/the-market-frame/01
@@ -33,6 +33,7 @@ sources:
   - E38/F15/S04
   - T180
   - T181
+  - T217
 ---
 
 # The market frame
@@ -113,6 +114,9 @@ Where the bar is narrower than the tabs and a readable name beside them (`@conta
 It is the bar's own width, not the window's, that decides: at 768 the name drew 0px wide beside the tabs and the page scrolled sideways, and `the-market-on-a-phone.spec.ts` ("between a phone and a desk") holds each market place that fits a phone at 720 and 768.
 The page row there scrolls away with the rail, each page's link a one-line 44px target by its line's height, so its current mark keeps its place.
 On a phone (640px and below), on a screen that fits one, the links touch, each label on the phone's 16px gutter with its pill reaching into it, so the Assignment tab's four pages fit a 390 phone; a narrower one scrolls the row sideways inside itself, as the bar's tabs do, never the page.
+Both strips stand in a [`ScrollBox`](../../../front-end/src/components/ScrollBox.vue) with `axis="x"`, so no bar is drawn and a shade says which end has more, the bar's with `tone="dark"` for its dark ground (T217); `the-sideways-strips-shade-their-ends.spec.ts` drags each at 390 and 320 and finds the shades come and go.
+Where a strip fits, it sets `--scroll-box-overflow: visible` on the root, so it scrolls only where its own rule asks: at a desk it is no scroller, clips no tab's outer halo and draws no shade, and the bar's and the page row's links stand where they did.
+The `nav` holding the links stands inside the box, so the test ids `market-bar-tabs` and `market-pages` name the scroller, and the page row's border and ground are on the box's root.
 The fourth page, Payments, ran past the card at 390 and squeezed Assignments onto two lines until then (E44/F02/S01); `the-assignment-tabs-pages.spec.ts` measures the row at 390 and 320, and the layout sweep's Assignments states at 390 find a link outside the row.
 A focused tab wears the white halo for the dark bar, drawn inside the tab there, since the scroller clips anything drawn outside it ([the design language](../../design-system.md#the-primitive-layer)).
 [`the-stats-tab.spec.ts`](../../../front-end/e2e/the-stats-tab.spec.ts) measures both widths: at 1280 the seven tabs hold one row beside a 60-character name on the form path, whose "Application Form" is the widest bar, the name ellipsing; at 390, on Stats, the tabs scroll inside the bar and the page does not scroll sideways.
