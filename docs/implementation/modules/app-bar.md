@@ -64,6 +64,7 @@ That says nothing about any market, and its links lead to sign-in, since the fir
 
 **["Page not found"](../../../front-end/src/components/PageNotFound.vue) offers Markets to a signed-in organizer and Sign in to anyone else.**
 It decides on the person alone, never on the address, so a gated market and a missing one read identically to each ([a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md)).
+On a phone its words stand at the phone's 16px gutter, on the logo's left edge.
 
 ## The sheet, on a phone
 

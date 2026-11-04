@@ -397,6 +397,17 @@ test.describe('the bar on a phone', () => {
     expect(await scrim(page).boundingBox()).toEqual({ x: 0, y: 44, width: 390, height: 800 });
   });
 
+  test("Page not found's words stand on the logo's left edge", async ({
+    authenticatedPage: page,
+  }) => {
+    await page.goto('/no/such/page');
+    const heading = page.getByRole('heading', { name: 'Page not found' });
+    await expect(heading).toBeVisible();
+
+    const logo = await page.getByAltText('Conventioner, Markets').boundingBox();
+    expect((await heading.boundingBox())?.x).toBe(logo!.x);
+  });
+
   test('marks the place it is in, green with a bar at its left, its words on the logo', async ({
     authenticatedPage: page,
   }) => {

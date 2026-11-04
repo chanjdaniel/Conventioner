@@ -48,4 +48,11 @@ p {
   color: var(--mm-text-muted);
   font-size: var(--text-sm);
 }
+
+/* The phone's gutter, so the words stand on the app bar's logo. */
+@media (width <= 640px) {
+  .not-found {
+    padding-inline: var(--space-4);
+  }
+}
 </style>
