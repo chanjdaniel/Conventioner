@@ -37,12 +37,16 @@ function vueFiles(dir: string): string[] {
   });
 }
 
-/** The template's own tags: a script's or a comment's `<select>` is not a control. */
-function templateOf(source: string): string {
-  return source
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '')
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/g, '')
-    .replace(/<!--[\s\S]*?-->/g, '');
+/**
+ * The `<select>` tags of a component's template, as matches whose group 1 is the tag's attributes.
+ * One pass over the tokens: a comment, a script or a style is skipped whole, so its `<select>` is not
+ * a control, and nothing is stripped and then re-read, where a removal can splice a new tag together.
+ */
+const TOKENS =
+  /<!--[\s\S]*?-->|<(?:script|style)\b[^>]*>[\s\S]*?<\/(?:script|style)>|<select\b((?:[^>"']|"[^"]*"|'[^']*')*)>/gi;
+
+function selectTags(source: string): RegExpMatchArray[] {
+  return [...source.matchAll(TOKENS)].filter((match) => match[1] !== undefined);
 }
 
 /**
@@ -70,7 +74,7 @@ function faultsOf(source: string): string[] {
     }));
 
   // A quoted value may hold a `>`, as an arrow function in a listener does.
-  const tags = [...templateOf(source).matchAll(/<select\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g)];
+  const tags = selectTags(source);
 
   // Whichever select it reaches: a rule naming the element or the primitive names no one of them.
   const drawnOver = tags.length
@@ -133,6 +137,11 @@ describe('faultsOf, on a component written for it', () => {
 
   it('ignores a <select> in a template comment or in the script', () => {
     expect(faultsOf(sfc('<!-- the <select> below --><div></div>'))).toEqual([]);
+  });
+
+  it('ignores a <select> in an upper-case script block', () => {
+    const source = `<SCRIPT setup>const html = '<select class="dropdown"></select>'</SCRIPT><template><div></div></template>`;
+    expect(faultsOf(source)).toEqual([]);
   });
 
   it('reads a tag whose attribute holds a ">"', () => {
@@ -253,8 +262,7 @@ describe('every select in the app', () => {
 
   it('finds the selects at all', () => {
     const count = vueFiles(SRC).reduce(
-      (sum, file) =>
-        sum + (templateOf(readFileSync(file, 'utf-8')).match(/<select\b/g)?.length ?? 0),
+      (sum, file) => sum + selectTags(readFileSync(file, 'utf-8')).length,
       0,
     );
     // A floor, so a broken reader cannot pass by seeing nothing; 49 when this was written.
