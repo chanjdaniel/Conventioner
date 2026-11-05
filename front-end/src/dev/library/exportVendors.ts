@@ -1,14 +1,15 @@
 import { ApplicationStatus } from '@/assets/types/datatypes';
-import type { ExportFilters, ExportStatus } from '@/utils/vendorExport';
+import type { ExportFilters, ExportPreview, ExportStatus } from '@/utils/vendorExport';
 import { fixture } from './fixture';
 
 /**
  * The export's server, in the browser, over the fixture: which vendors the filters keep and what
  * each column writes for one, as `back-end/api/vendor_export.py`'s `vendor_shown` and
- * `offered_columns` do, so the prototype's preview and summary answer as the product's would and no
- * endpoint is called. They differ in the order: the fixture's, where the server's is newest first.
+ * `offered_columns` do, so `ExportVendorsForm` is answered as the product's server would answer it
+ * and no endpoint is called. They differ in the order: the fixture's, where the server's is newest
+ * first.
  */
-export type Vendor = (typeof fixture.applications)[number];
+type Vendor = (typeof fixture.applications)[number];
 
 const { export: offered, seats } = fixture;
 
@@ -49,7 +50,7 @@ const answerValues = (answer: string | string[] | undefined) =>
   answer === undefined ? [] : Array.isArray(answer) ? answer : [answer];
 
 /** The vendors the filters keep, in the fixture's order. `reader` is who "Mine" is. */
-export function vendorsKept(filters: ExportFilters, reader: string): Vendor[] {
+function vendorsKept(filters: ExportFilters, reader: string): Vendor[] {
   const search = filters.search.trim().toLowerCase();
   return fixture.applications.filter((vendor) => {
     const status = STATUS_OF[vendor.status];
@@ -96,7 +97,7 @@ function seatCell(vendor: Vendor, columnId: string): string {
 }
 
 /** What one column writes for one vendor. Only an amount, the server's own, goes unescaped. */
-export function cellOf(vendor: Vendor, columnId: string): string {
+function cellOf(vendor: Vendor, columnId: string): string {
   const { payment } = vendor.export;
   const amounts: Record<string, string> = {
     owed: payment.owed,
@@ -123,4 +124,22 @@ function textCell(vendor: Vendor, columnId: string): string {
     discordInvite: offered.discordInvite,
   };
   return cells[columnId] ?? '';
+}
+
+/** The rows the product's preview shows (`PREVIEW_ROWS`). */
+const PREVIEW_ROWS = 3;
+
+/** The preview the server would answer with, for `ExportVendorsForm`. `reader` is who "Mine" is. */
+export function exportPreview(
+  filters: ExportFilters,
+  columns: string[],
+  reader: string,
+): ExportPreview {
+  const vendors = vendorsKept(filters, reader);
+  return {
+    count: vendors.length,
+    header: columns.map((id) => labelOf(offered.columns, id)),
+    rows: vendors.slice(0, PREVIEW_ROWS).map((vendor) => columns.map((id) => cellOf(vendor, id))),
+    offered,
+  };
 }

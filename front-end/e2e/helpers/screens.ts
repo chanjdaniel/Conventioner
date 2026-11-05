@@ -1017,14 +1017,38 @@ export const SCREENS: Screen[] = [
     ]),
   },
   {
-    // The preview's rows, not the dialog: its fields and table arrive with the first preview.
+    // The cart's count, not the dialog: its fields and its cart arrive with the first preview. A
+    // phone folds the preview's rows away.
     name: 'the export dialog',
     who: 'organizer',
     sizes: FITS_A_PHONE,
     open: at(screen('big', 'vendors'), 'vendors-list-item', [
       'vendors-export-button',
-      'vendor-export-preview-row',
+      'vendor-export-summary',
     ]),
+  },
+  {
+    name: 'the export dialog, its cart unfolded',
+    who: 'organizer',
+    sizes: [PHONE],
+    open: at(
+      screen('big', 'vendors'),
+      'vendors-list-item',
+      ['vendors-export-button', 'vendor-export-summary'],
+      ['vendor-export-cart-toggle', 'vendor-export-preview-row'],
+    ),
+  },
+  {
+    // Every filter, a seat's among them.
+    name: 'the export dialog, its filters unfolded',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(
+      screen('big', 'vendors'),
+      'vendors-list-item',
+      ['vendors-export-button', 'vendor-export-summary'],
+      ['vendor-export-filters-toggle', 'vendor-export-search'],
+    ),
   },
   {
     // Who owes (E44/F02/S01): the list, on a market that sets no prices, so it draws no figures.

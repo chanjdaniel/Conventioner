@@ -85,7 +85,7 @@ export const ENTRIES: readonly LibraryEntry[] = [
   {
     id: 'export-vendors',
     title: 'Export vendors dialog',
-    summary: 'The export redesigned on the new parts: broad, shorter, its chosen columns a cart',
+    summary: 'The real dialog on the fixture: broad, short, its chosen columns a cart',
     serves: 'The export dialog, C11, F03',
   },
 ];

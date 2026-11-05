@@ -4,6 +4,7 @@ import { barsDrawn, barWidth, withClassicBars } from './helpers/classicBars';
 import { marketScreenPath } from './helpers/marketScreens';
 import { openScreen, SCREENS } from './helpers/screens';
 import { seedTheScreens, type TheScreensSeed } from './helpers/seedTheScreens';
+import { settle } from './helpers/settle';
 
 /**
  * A long dialog keeps its title, close and buttons in view while only its body scrolls (T217).
@@ -173,13 +174,16 @@ for (const { name, viewport, tall } of WINDOWS) {
   });
 }
 
-/** Fully inside the scroller's box, not only inside the window: the body clips what is past it. */
+/**
+ * Fully inside the scroller's box, not only inside the window: the body clips what is past it.
+ * Within half a pixel, since a scroller stops on a whole pixel and what it holds need not.
+ */
 async function expectShownInTheBody(body: Locator, inside: Locator) {
   const within = await inside.evaluate(
     (el, testid) => {
       const scroller = document.querySelector(`[data-testid="${testid}"]`)!.getBoundingClientRect();
       const rect = el.getBoundingClientRect();
-      return rect.top >= scroller.top && rect.bottom <= scroller.bottom;
+      return rect.top >= scroller.top - 0.5 && rect.bottom <= scroller.bottom + 0.5;
     },
     (await body.getAttribute('data-testid'))!,
   );
@@ -262,6 +266,77 @@ test.describe('in a window too short to show the whole body', () => {
       await expect(page.getByTestId('manage-org-window')).toBeVisible();
     }
   });
+});
+
+test.describe('in a window too short to show an Add row and its refusal', () => {
+  test.use({ viewport: { width: 1280, height: 400 } });
+
+  /** Whole in the body and clear of its bottom edge shade, 12px, so it never reads as cut off. */
+  async function expectRefusalShown(page: Page, body: string, error: Locator) {
+    await expect(error).toBeVisible();
+    const scroller = page.getByTestId(body);
+    await expectShownInTheBody(scroller, error);
+    const foot = (await scroller.boundingBox())!;
+    const line = (await error.boundingBox())!;
+    expect(line.y + line.height, 'its foot is above the shade').toBeLessThanOrEqual(
+      foot.y + foot.height - 12 + 0.5,
+    );
+  }
+
+  /**
+   * Refused with the form's foot at the body's foot, as a person who has scrolled there has it, so
+   * the refusal arrives past the foot however many people the stack holds.
+   */
+  async function refuse(page: Page, body: string, button: string, input: string) {
+    const add = page.getByTestId(button);
+    await add.scrollIntoViewIfNeeded();
+    await add.click();
+    const field = page.getByTestId(input);
+    await field.fill('nobody-has-this-address@example.com');
+    const scroller = page.getByTestId(body);
+    const form = (await field.locator('xpath=ancestor::form').boundingBox())!;
+    const foot = (await scroller.boundingBox())!;
+    await scroller.evaluate(
+      (el, by) => el.scrollBy({ top: by }),
+      form.y + form.height - (foot.y + foot.height),
+    );
+    await settle(page);
+    await field.press('Enter');
+  }
+
+  test("Manage market's refusal comes into view whole", async ({ authenticatedPage: page }) => {
+    await openManageMarket(page);
+    await refuse(
+      page,
+      'manage-market-body',
+      'manage-market-add-user-button',
+      'manage-market-add-user-input',
+    );
+    await expectRefusalShown(
+      page,
+      'manage-market-body',
+      page.getByTestId('manage-market-add-user-error'),
+    );
+  });
+
+  for (const row of ['admin', 'member']) {
+    test(`Manage organization's refusal of a new ${row} comes into view whole`, async ({
+      authenticatedPage: page,
+    }) => {
+      await openManageOrganization(page);
+      await refuse(
+        page,
+        'manage-org-body',
+        `manage-org-add-${row}-button`,
+        `manage-org-add-${row}-input`,
+      );
+      await expectRefusalShown(
+        page,
+        'manage-org-body',
+        page.getByTestId(`manage-org-add-${row}-error`),
+      );
+    });
+  }
 });
 
 /*

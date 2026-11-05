@@ -61,6 +61,8 @@ const newAdminEmail = ref('');
 const newMemberEmail = ref('');
 const addAdminError = ref('');
 const addMemberError = ref('');
+const addAdminErrorLine = ref<HTMLElement | null>(null);
+const addMemberErrorLine = ref<HTMLElement | null>(null);
 const deleteConfirming = ref(false);
 /** Counts the changes this dialog has made, so its History reads them as they land. */
 const changesMade = ref(0);
@@ -226,6 +228,12 @@ function findAdded(words: Ref<string>, people: OrganizationPerson[], email: stri
   if (people.length > LIST_FIND_FROM || words.value) words.value = email;
 }
 
+/** A refusal stands under its form, which a short window's body can hold at its very foot. */
+async function showRefusal(line: Ref<HTMLElement | null>) {
+  await nextTick();
+  line.value?.scrollIntoView?.({ block: 'nearest' });
+}
+
 async function handleAddAdmin() {
   const email = newAdminEmail.value.trim();
   if (!orgData.value || !email) return;
@@ -241,6 +249,7 @@ async function handleAddAdmin() {
     findAdded(adminWords, orgData.value?.adminPeople ?? [], email);
   } catch (err) {
     addAdminError.value = getApiErrorMessage(err, 'The admin was not added.');
+    await showRefusal(addAdminErrorLine);
   }
 }
 
@@ -257,6 +266,7 @@ async function handleAddMember() {
     findAdded(memberWords, orgData.value?.memberPeople ?? [], email);
   } catch (err) {
     addMemberError.value = getApiErrorMessage(err, 'The member was not added.');
+    await showRefusal(addMemberErrorLine);
   }
 }
 
@@ -435,7 +445,12 @@ function handleDeleted() {
                 Cancel
               </button>
             </div>
-            <p v-if="addAdminError" class="form-error" data-testid="manage-org-add-admin-error">
+            <p
+              v-if="addAdminError"
+              ref="addAdminErrorLine"
+              class="form-error"
+              data-testid="manage-org-add-admin-error"
+            >
               {{ addAdminError }}
             </p>
           </form>
@@ -522,7 +537,12 @@ function handleDeleted() {
                 Cancel
               </button>
             </div>
-            <p v-if="addMemberError" class="form-error" data-testid="manage-org-add-member-error">
+            <p
+              v-if="addMemberError"
+              ref="addMemberErrorLine"
+              class="form-error"
+              data-testid="manage-org-add-member-error"
+            >
               {{ addMemberError }}
             </p>
           </form>
@@ -685,6 +705,12 @@ function handleDeleted() {
 .role-member {
   background: var(--mm-chip-positive);
   color: var(--mm-text-green);
+}
+
+/* Brought into view as it arrives, it rests clear of the body's edge shade, under which a red line
+   at the rounded foot reads as cut off. */
+.add-user-form .form-error {
+  scroll-margin-bottom: var(--edge-shade-depth);
 }
 
 .add-user-form {

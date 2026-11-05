@@ -62,7 +62,7 @@ test('a vendor drawer shows their answers and why the placements are missing', a
   await expect(rows).toHaveCount(2, { timeout: 15000 });
   await expect(page.getByTestId('vendors-summary')).toHaveText('2 vendors');
   await page.getByTestId('vendors-export-button').click();
-  await expect(page.getByTestId('vendor-export-placed')).toHaveValue('');
+  await expect(page.getByTestId('vendor-export-filters-summary')).toHaveText('All vendors');
   await expect(page.getByTestId('vendor-export-summary')).toContainText('2 vendors');
 });
 

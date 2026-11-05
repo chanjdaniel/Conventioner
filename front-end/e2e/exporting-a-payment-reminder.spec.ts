@@ -126,6 +126,7 @@ test('exporting "Owes" gives exactly the vendors whose Payment tab says they owe
   const dialog = new VendorExportDialog(page);
   await expect(dialog.window).toBeVisible();
 
+  await dialog.showFilters();
   await dialog.payment.selectOption({ label: 'Owes' });
   await dialog.column('status').uncheck();
   await expect(dialog.group('payment')).toContainText('Still owed');
@@ -180,6 +181,7 @@ test('a refund due reads "-$15.00" in the file, to the cent and a number to a sp
   const dialog = new VendorExportDialog(page);
   await expect(dialog.window).toBeVisible();
 
+  await dialog.showFilters();
   await dialog.payment.selectOption({ label: 'Paid more than owed' });
   await dialog.column('status').uncheck();
   await dialog.column('stillOwed').check();
