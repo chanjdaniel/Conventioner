@@ -131,6 +131,7 @@ const when = computed(() =>
 }
 
 .role-report-toggle {
+  --focus-border-offset: var(--focus-border-width);
   min-height: var(--target-min);
   padding: 0;
   border: 0;

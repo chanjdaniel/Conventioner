@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils';
 import FilterToggles from '@/components/FilterToggles.vue';
 
 /** The row as a screen mounts it, holding its value as `v-model` would. */
-function mountRow(props: { multiple?: boolean; modelValue: string | string[] }) {
+function mountRow(props: { multiple?: boolean; modelValue: string | string[]; rest?: string }) {
   const options = [
     { id: 'open', label: 'Open', count: 110 },
     { id: 'approved', label: 'Approved', count: 160 },
@@ -88,8 +88,29 @@ describe('one choice', () => {
     expect(pressed()).toEqual(['statuses-approved']);
   });
 
-  it('keeps the choice when the pressed toggle is pressed again', async () => {
+  it('lets the choice go when the chosen toggle is pressed again, pressing nothing', async () => {
     const { toggle, pressed, emitted } = mountRow({ modelValue: 'open' });
+    await toggle('open').trigger('click');
+    expect(emitted()).toEqual([['']]);
+    expect(pressed()).toEqual([]);
+  });
+
+  it('chooses again from nothing chosen', async () => {
+    const { toggle, pressed } = mountRow({ modelValue: '' });
+    expect(pressed()).toEqual([]);
+    await toggle('open').trigger('click');
+    expect(pressed()).toEqual(['statuses-open']);
+  });
+
+  it('lets go to the option it rests on, its default or All toggle, when it names one', async () => {
+    const { toggle, pressed, emitted } = mountRow({ modelValue: 'approved', rest: 'open' });
+    await toggle('approved').trigger('click');
+    expect(emitted()).toEqual([['open']]);
+    expect(pressed()).toEqual(['statuses-open']);
+  });
+
+  it('keeps the option it rests on when that is pressed again, having nowhere to go', async () => {
+    const { toggle, pressed, emitted } = mountRow({ modelValue: 'open', rest: 'open' });
     await toggle('open').trigger('click');
     expect(emitted()).toEqual([]);
     expect(pressed()).toEqual(['statuses-open']);

@@ -18,6 +18,7 @@ describes:
 verified: 2026-11-05
 sources:
   - T209
+  - T214
 ---
 
 # The app bar
@@ -120,6 +121,9 @@ Without it a phone's browser answers a page wider than the window by widening th
 With it the layout viewport stays the window's and the page scrolls sideways, as [the market frame](market-frame.md#sharp-edges) says it does, and a fixed box, a dialog's scrim among them, is the window's width.
 The cost is that a person can no longer pinch such a screen out to see all of it; zooming in is untouched.
 This is measured in Chromium's phone emulation only; Safari on an iPhone has not been tried.
+
+**The links that fill the band or the scrolling sheet wear `--focus-halo-inset`, since those edges would cut a halo off.**
+The menu button and the sheet's Sign out are buttons, so they draw the [green border](../../design-system.md), which lies inside the edge already.
 
 **The bar does not print**: `App.vue` hides its `header` under `@media print`.
 

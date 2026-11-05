@@ -32,6 +32,7 @@ const emit = defineEmits<{ open: [] }>();
 
 <style scoped>
 .vendor-name-button {
+  --focus-border-offset: var(--focus-border-width);
   display: inline-flex;
   align-items: center;
   min-width: 0;

@@ -6,7 +6,7 @@ describes:
   - front-end/src/utils/paymentsPage.ts
   - back-end/api/payments.py#market_payments
   - back-end/payments.py#market_summary
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - T92
   - E44/F02/S01

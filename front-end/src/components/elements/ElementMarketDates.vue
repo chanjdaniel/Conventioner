@@ -370,6 +370,7 @@ const indexOf = computed(() => {
 }
 
 .calendar-day.chosen {
+  --focus-border: var(--focus-border-on-fill);
   background: var(--mm-green);
   border-color: var(--mm-green);
   color: white;
@@ -428,8 +429,9 @@ const indexOf = computed(() => {
   border-radius: 0;
 }
 
-/* As wide as its words, so its focus halo hugs them rather than the line. */
+/* As wide as its words, so its focus border hugs them rather than the line. */
 .dates-month-name {
+  --focus-border-offset: var(--focus-border-width);
   padding: 0;
   border: none;
   background: none;
@@ -454,7 +456,7 @@ const indexOf = computed(() => {
 }
 
 /* Outlined rather than filled: the beige fill already says which month the calendar shows. */
-.dates-day:hover {
+.dates-day:hover:not(:focus-visible) {
   outline: 1px solid var(--mm-border);
   outline-offset: -1px;
 }

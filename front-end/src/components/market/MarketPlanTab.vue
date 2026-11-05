@@ -321,6 +321,7 @@ const intakeEditable = computed(() => props.intakeEditable);
 }
 
 .plan-form-link {
+  --focus-border-offset: var(--focus-border-width);
   margin-left: var(--space-2);
   padding: 0;
   border: none;

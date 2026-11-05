@@ -365,6 +365,7 @@ async function handleSave() {
 
 /* ── Save Button ────────────────────────────────────────────── */
 .save-button {
+  --focus-border: var(--focus-border-on-fill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -398,14 +399,6 @@ async function handleSave() {
   background: color-mix(in srgb, var(--mm-green) 85%, black);
   /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 4px 14px rgba(39, 35, 35, 0.22);
-}
-
-/* Its resting shadow outranks the primitives' focus rule, so it says its halo itself (E38/F01/S01);
-   after the hover rule, so a focused button under the pointer keeps it. */
-.save-button:focus-visible:not(:disabled) {
-  box-shadow:
-    var(--focus-halo),
-    0 2px 8px rgba(39, 35, 35, 0.15);
 }
 
 .save-button:active:not(:disabled) {
@@ -547,11 +540,6 @@ async function handleSave() {
 
 .save-dialog-close:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.1);
-}
-
-/* The dialog's head is dark, so the white halo rather than the green one (E38/F01/S01). */
-.save-dialog-close:focus-visible {
-  box-shadow: var(--focus-halo-on-dark);
 }
 
 .save-dialog-close:disabled {
@@ -852,6 +840,7 @@ async function handleSave() {
 }
 
 .save-dialog-btn--primary {
+  --focus-border: var(--focus-border-on-fill);
   background: var(--mm-green);
   color: white;
   min-width: 150px;

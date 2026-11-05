@@ -350,7 +350,8 @@ function toggle(label: string) {
 }
 
 .is-focus {
-  box-shadow: var(--focus-halo);
+  outline: var(--focus-border-width) solid var(--focus-border);
+  outline-offset: var(--focus-border-offset);
 }
 
 .is-hover-ink {

@@ -131,7 +131,7 @@ test.describe('Finding a market', () => {
     await markets.expectNames([TEST_FAIR, CAFE, WINTER, ATTIC]);
     await expect(markets.orgSelect).toHaveValue('');
     await expect(markets.searchInput).toHaveValue('');
-    await expect(markets.allPhasesToggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(markets.pressedPhases).toHaveCount(0);
     await expect(page).toHaveURL(/\/markets$/);
 
     // Organization + phase + sort together.
@@ -139,7 +139,6 @@ test.describe('Finding a market', () => {
     await markets.expectNames([TEST_FAIR, CAFE, ATTIC]);
     await markets.phaseToggle('draft').click();
     await expect(markets.phaseToggle('draft')).toHaveAttribute('aria-pressed', 'true');
-    await expect(markets.allPhasesToggle).toHaveAttribute('aria-pressed', 'false');
     await markets.expectNames([TEST_FAIR, ATTIC]);
     await markets.phaseToggle('applications').click();
     await markets.expectNames([TEST_FAIR, CAFE, ATTIC]);
@@ -165,10 +164,22 @@ test.describe('Finding a market', () => {
     await page.reload();
     await markets.expectNames([ATTIC, CAFE, TEST_FAIR]);
 
-    // "All phases" lets every phase back in.
-    await markets.allPhasesToggle.click();
+    // Letting the last phase go lets every phase back in: nothing pressed means all.
+    await markets.phaseToggle('draft').click();
+    await expect(markets.pressedPhases).toHaveCount(1);
+    await markets.phaseToggle('applications').click();
+    await expect(markets.pressedPhases).toHaveCount(0);
     await markets.expectNames([ATTIC, CAFE, TEST_FAIR]);
-    await expect(markets.phaseToggle('draft')).toHaveAttribute('aria-pressed', 'false');
+
+    // By keyboard too, and focus stays on the toggle while the list narrows and comes back.
+    await markets.phaseToggle('draft').press('Enter');
+    await expect(markets.phaseToggle('draft')).toHaveAttribute('aria-pressed', 'true');
+    await markets.expectNames([ATTIC, TEST_FAIR]);
+    await expect(markets.phaseToggle('draft')).toBeFocused();
+    await markets.phaseToggle('draft').press('Space');
+    await expect(markets.pressedPhases).toHaveCount(0);
+    await markets.expectNames([ATTIC, CAFE, TEST_FAIR]);
+    await expect(markets.phaseToggle('draft')).toBeFocused();
   });
 
   test('an address naming what no longer exists opens onto every market', async ({ page }) => {
@@ -180,12 +191,12 @@ test.describe('Finding a market', () => {
   });
 
   // No market reaches Offers, so the filter offers the stages the rail draws, and an old bookmark
-  // that names it opens onto every market under "All phases" (E38/F15/S03).
+  // that names it opens onto every market with no phase pressed (E38/F15/S03).
   test('the phase filter offers only the phases a market can reach', async ({ page }) => {
     const markets = new MarketsPage(page);
     await markets.goto('?phase=offers');
     await markets.expectNames([TEST_FAIR, CAFE, WINTER, ATTIC]);
-    await expect(markets.allPhasesToggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(markets.pressedPhases).toHaveCount(0);
     await expect(markets.phaseToggle('offers')).toHaveCount(0);
     expect(await markets.offeredPhases()).toEqual([
       'draft',
