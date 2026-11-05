@@ -534,6 +534,7 @@ watch(
   border: 1px solid transparent;
   font-size: var(--text-xl);
   line-height: 1;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- less the border's width, not spacing: the box stays the size it was with no line */
   padding: calc(var(--space-hairline) - 1px) calc(var(--space-2) - 1px);
   color: var(--mm-text-muted);
   cursor: pointer;
