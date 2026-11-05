@@ -1,8 +1,11 @@
 /**
  * The design language's gate (`npm run lint:css`; `docs/design-system.md#what-keeps-this-true`).
  *
- * Warnings globally, errors per migrated file: a rule that fails the build on a pre-existing
- * backlog gets switched off, so a slice adds its files to `MIGRATED` when it lands.
+ * Every rule is an error in every file, and `lint:css` passes `--max-warnings 0` too: a warning on
+ * old code lands on whichever later change touches the file. A legitimate value the patterns refuse
+ * widens them; only the floorplan beta's own values and a value that is not spacing carry a
+ * `stylelint-disable`, with its reason on that declaration, and a disable with no reason or nothing
+ * to disable is refused too.
  *
  * A module rather than JSON (T82) so the spacing patterns are built once, from named parts, rather
  * than one 300-character regex written four times; `src/__tests__/spacingScale.test.ts` runs this
@@ -35,162 +38,41 @@ const MARGIN = values(...SPACED, 'auto');
 const PADDING = values(...SPACED, String.raw`\d+(?:\.\d+)?%`);
 const GAP = values(...SPACED);
 
-const spacing = (severity) => [
-  {
-    '/^margin(-[a-z-]+)?$/': [MARGIN],
-    '/^padding(-[a-z-]+)?$/': [PADDING],
-    '/^(grid-)?(row-|column-)?gap$/': [GAP],
-  },
-  {
-    severity,
-    message:
-      'Use a --space-* token from base.css - or 0, --space-hairline, --card-grid-gap, --banner-h, a negated token or a sum of them in calc(), env(safe-area-inset-*), max()/min()/clamp() over them, auto on a margin, a percentage on a padding, or a CSS-wide keyword. See docs/design-system.md#spacing.',
-  },
-];
-
-const rawScale = (options) => [
-  {
-    '/^font-size$/': ['/^[0-9.]+(px|rem|em)$/'],
-    '/^border-radius$/': ['/^[0-9.]+(px|rem)/', '/^[0-9.]+%(?<!50%)/'],
-    '/^box-shadow$/': ['/^(?!var\\(|none)/'],
-  },
-  options,
-];
-
-/** Each file a slice has migrated: an error there is a regression, not the backlog. */
-const MIGRATED = [
-  'src/components/AppBar.vue',
-  'src/components/BlockerPanel.vue',
-  'src/components/DoorCodeScreen.vue',
-  'src/components/MarketSummaryCard.vue',
-  'src/components/MarketPermissions.vue',
-  'src/components/MarketArrival.vue',
-  'src/components/MarketBar.vue',
-  'src/components/MarketPages.vue',
-  'src/components/ResultFilterBar.vue',
-  'src/components/ResultSeat.vue',
-  'src/components/ResultStatistics.vue',
-  'src/components/ResultSummary.vue',
-  'src/components/MarketFrame.vue',
-  'src/components/PageNotFound.vue',
-  'src/components/PhaseBadge.vue',
-  'src/components/PhaseRail.vue',
-  'src/components/PlacementDialog.vue',
-  'src/components/SearchPicker.vue',
-  'src/components/ChoiceField.vue',
-  'src/components/FilterToggles.vue',
-  'src/components/ListFrame.vue',
-  'src/components/NameList.vue',
-  'src/components/OrderedList.vue',
-  'src/components/RowGroup.vue',
-  'src/components/SidePanel.vue',
-  'src/components/MarketHistory.vue',
-  'src/components/PlacementHistory.vue',
-  'src/components/PlacementHistoryDialog.vue',
-  'src/components/VendorNameButton.vue',
-  'src/components/SummaryCard.vue',
-  'src/components/VendorDateCard.vue',
-  'src/components/VendorIdentity.vue',
-  'src/components/VendorNotes.vue',
-  'src/components/TableShareNotice.vue',
-  'src/components/AppDialog.vue',
-  'src/components/DeleteOrgDialog.vue',
-  'src/components/AddVendorDialog.vue',
-  'src/components/ExportVendorsDialog.vue',
-  'src/components/AuthCard.vue',
-  'src/components/application/AmendFormDialog.vue',
-  'src/components/application/ApplicationFormFields.vue',
-  'src/components/application/ApplicationMonitor.vue',
-  'src/components/application/EssentialApplicationFields.vue',
-  'src/components/application/EssentialFieldsPanel.vue',
-  'src/components/application/FormBuilder.vue',
-  'src/components/application/FormFieldEditor.vue',
-  'src/components/application/FormPreview.vue',
-  'src/components/application/RankedChoiceInput.vue',
-  'src/components/application/AutomaticRejections.vue',
-  'src/components/application/ApplicationsAll.vue',
-  'src/components/application/FollowUpDialog.vue',
-  'src/components/application/ReviewHighlights.vue',
-  'src/components/elements/ElementAssignmentOptions.vue',
-  'src/components/market/MarketAssignmentTab.vue',
-  'src/components/market/MarketPlanTab.vue',
-  'src/components/market/MarketFormTab.vue',
-  'src/components/market/MarketDiscordCard.vue',
-  'src/components/StepHeader.vue',
-  'src/components/VendorDrawer.vue',
-  'src/components/elements/ElementAssignmentPriority.vue',
-  'src/components/elements/ElementLocationSetup.vue',
-  'src/components/elements/ElementMarketDates.vue',
-  'src/components/elements/ElementOrgSelect.vue',
-  'src/components/elements/ElementSectionSetup.vue',
-  'src/components/elements/ElementSettingContainer.vue',
-  'src/components/elements/ElementTierSetup.vue',
-  'src/views/AttendanceStatusView.vue',
-  'src/views/CsvImportView.vue',
-  'src/views/StartFromCsvView.vue',
-  'src/views/ToolsView.vue',
-  'src/views/DiscordConnectedView.vue',
-  'src/components/csvProposal/ProposalLedger.vue',
-  'src/components/ValueFixes.vue',
-  'src/views/EmailVerificationView.vue',
-  'src/views/MarketLanding.vue',
-  'src/views/LoginView.vue',
-  'src/views/ManageMarketOverlay.vue',
-  'src/views/ManageOrgOverlay.vue',
-  'src/views/MarketSetupView.vue',
-  'src/views/MarketsView.vue',
-  'src/views/NewMarketOverlay.vue',
-  'src/views/OrganizationsView.vue',
-  'src/views/PasswordResetRequestView.vue',
-  'src/views/PasswordResetView.vue',
-  'src/views/ResultView.vue',
-  'src/views/VendorsView.vue',
-  'src/views/VendorPage.vue',
-  'src/components/vendorPage/VendorSignIn.vue',
-  'src/components/vendorPage/VendorStatus.vue',
-  'src/components/vendorPage/VendorApplication.vue',
-  'src/components/vendorPage/VendorApplicationForm.vue',
-  'src/components/vendorPage/VendorCheckIn.vue',
-  'src/components/CodeInput.vue',
-  'src/views/FloorplanEditorView.vue',
-  'src/App.vue',
-  'src/assets/main.css',
-  'src/components/AnswerValue.vue',
-  'src/components/NothingAssigned.vue',
-  'src/components/elements/ElementIntakeMode.vue',
-  'src/components/market/MarketApplicationsTab.vue',
-  // The component library, migrated from its first line: it shows the language, so it keeps it.
-  'src/dev/**/*.vue',
-];
-
 /** @type {import('stylelint').Config} */
 export default {
   extends: ['stylelint-config-html/vue'],
+  reportDescriptionlessDisables: true,
+  reportNeedlessDisables: true,
   rules: {
     'color-no-hex': [
       true,
       {
-        severity: 'warning',
         message:
           'Use a --mm-* token from base.css. 351 hardcoded colours, nine reds for one semantic role, and a red that could not carry white text is how the product got here (E16/F02).',
       },
     ],
-    'declaration-property-value-disallowed-list': rawScale({
-      severity: 'warning',
-      message:
-        'Use a scale token from base.css - --text-*, --radius-*, --shadow-card. See docs/design-system.md.',
-    }),
-    'declaration-property-value-allowed-list': spacing('warning'),
+    'declaration-property-value-disallowed-list': [
+      {
+        '/^font-size$/': ['/^[0-9.]+(px|rem|em)$/'],
+        '/^border-radius$/': ['/^[0-9.]+(px|rem)/', '/^[0-9.]+%(?<!50%)/'],
+        '/^box-shadow$/': ['/^(?!var\\(|none)/'],
+      },
+      {
+        message:
+          'Use a scale token from base.css - --text-*, --radius-*, --shadow-card. See docs/design-system.md.',
+      },
+    ],
+    'declaration-property-value-allowed-list': [
+      {
+        '/^margin(-[a-z-]+)?$/': [MARGIN],
+        '/^padding(-[a-z-]+)?$/': [PADDING],
+        '/^(grid-)?(row-|column-)?gap$/': [GAP],
+      },
+      {
+        message:
+          'Use a --space-* token from base.css - or 0, --space-hairline, --card-grid-gap, --banner-h, a negated token or a sum of them in calc(), env(safe-area-inset-*), max()/min()/clamp() over them, auto on a margin, a percentage on a padding, or a CSS-wide keyword. See docs/design-system.md#spacing.',
+      },
+    ],
   },
   ignoreFiles: ['dist/**', 'node_modules/**', 'src/assets/base.css', 'src/assets/primitives.css'],
-  overrides: [
-    {
-      files: MIGRATED,
-      rules: {
-        'color-no-hex': [true, { severity: 'error' }],
-        'declaration-property-value-disallowed-list': rawScale({ severity: 'error' }),
-        'declaration-property-value-allowed-list': spacing('error'),
-      },
-    },
-  ],
 };

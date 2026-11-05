@@ -101,9 +101,8 @@ describe('every custom property a rule reads is a property something defines', (
 });
 
 describe('the scale exists as tokens', () => {
-  // E16/F02 is additive: the tokens land and nothing migrates yet. This is what stops the
-  // statement in `docs/design-system.md` and the file that ships from drifting apart while the
-  // four slice features work through 1150 stylelint warnings.
+  // E16/F02 landed the tokens before anything moved onto them. This is what stops the statement
+  // in `docs/design-system.md` and the file that ships from drifting apart.
   const SCALE = [
     '--text-xs',
     '--text-sm',
