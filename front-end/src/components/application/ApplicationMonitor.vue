@@ -570,8 +570,7 @@ function decideCurrent(status: ApplicationStatus) {
 
 /**
  * Keep a key pressed while `saving`, the last one winning. A key on the card still being written is
- * a second press of the same verdict: it is not kept, or it would decide a card the reviewer never
- * looked at.
+ * not kept: that card is already being answered, so the key has nothing to wait for and needs no word.
  */
 function holdKey(key: NonNullable<typeof heldKey>) {
   if (current.value?.id !== deciding) heldKey = key;
@@ -604,7 +603,8 @@ watch(saving, (busy) => {
  * lie. Skip did this and recorded nothing; marking a follow-up is S now, and this is N.
  */
 function next() {
-  // Moving on is the reviewer's last word on the card a key was pressed on.
+  // Moving on is the reviewer's last word: a held verdict stays unwritten, and a held Z unplayed,
+  // since it would bring the undone card back over this one. The undo stays on offer on its line.
   heldKey = null;
   if (refusedOn.value) {
     const after = refusedOn.value;

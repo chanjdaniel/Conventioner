@@ -323,6 +323,23 @@ describe('one by one', () => {
       expect(wrapper.text()).not.toContain('did not count');
     });
 
+    it('lets a held Z go when the reviewer presses N, leaving the undo on offer', async () => {
+      const wrapper = await opened();
+      const release = holdEachHandOut();
+
+      await press('a');
+      await press('z');
+      await press('n');
+      await release(0);
+      await release(1);
+
+      expect(undoVerdict).not.toHaveBeenCalled();
+      expect(wrapper.get('[data-testid="app-monitor-undo"]').text()).toContain(
+        'Approved Jane Doe (jane@example.com).',
+      );
+      expect(wrapper.text()).not.toContain('did not count');
+    });
+
     it('writes no verdict on a card a newer hand-out has overtaken', async () => {
       const read = fetchMarketApplications.getMockImplementation()!;
       fetchMarketApplications.mockImplementation(async () => [

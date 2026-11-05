@@ -95,7 +95,8 @@ The queue is triage: one application at a time, carrying every answer it holds, 
    An answer an organizer updated reads as updated, with "Updated by <address>, <when>; they wrote <their answer>" under it ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
 3. "Reject" (R), "Needs follow-up" (S), "Next" (N), "Approve" (A); the keyboard letters work.
    The next card shows as a verdict is answered, a moment before the server hands it over, and the buttons wait for that.
-   A verdict key or Z pressed in that moment waits too: a verdict lands on the card it was pressed on once that card is handed over, and N pressed after it lets it go.
+   A verdict key or Z pressed in that moment waits too: a verdict lands on the card it was pressed on once that card is handed over, and Z undoes once the hand-out answers.
+   N pressed after either lets it go with no word: no verdict is written, nothing is undone, and the undo stays on offer on its line.
    If another card comes up, or a newer hand-out overtakes it, or the hand-out fails, nothing is decided and the screen says "That key did not count. Press it again on this card.", or "That key did not count." alone with no card up; a failed hand-out's own words stand before it.
    A key held down counts as one press, for A, R and Z.
    After a verdict or a follow-up on an open application or a follow-up, a line under the counts and above the next card says what was decided, "Rejected Jane Doe (jane@example.com).", "Approved …" or "Marked … for follow-up.", with "Undo" (Z), for 2 minutes or until the next verdict ([undoing a verdict just given](#undoing-a-verdict-just-given)).
