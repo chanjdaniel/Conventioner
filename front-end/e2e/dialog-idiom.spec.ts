@@ -809,6 +809,10 @@ test.describe('The template dialogs', () => {
     const dialog = page.getByRole('dialog', { name: 'Load Template' });
 
     await expect(dialog).toHaveAttribute('aria-modal', 'true');
+    await expect(
+      page.getByTestId('floorplan-template-load-body'),
+      'only its body scrolls',
+    ).toBeVisible();
     const card = dialog.getByRole('button', { name: new RegExp(template) });
     await expect(card).toContainText('2 table types');
     // The list loads after the dialog opens, so focus is on the window or what it now holds.

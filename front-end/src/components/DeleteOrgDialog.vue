@@ -104,7 +104,8 @@ async function confirm() {
     :open="open"
     :title="`Delete ${orgName}?`"
     testid="delete-org"
-    wide
+    size="wide"
+    scroll="body"
     destructive
     confirm-label="Delete it all"
     :confirm-disabled="cannotConfirm"

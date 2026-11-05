@@ -531,23 +531,4 @@ function handleNewClose() {
   flex-direction: column;
   gap: var(--space-6);
 }
-
-/* Scrollbar styling */
-.markets-block::-webkit-scrollbar {
-  width: 8px;
-}
-
-.markets-block::-webkit-scrollbar-track {
-  background: var(--mm-beige);
-  border-radius: var(--radius-control);
-}
-
-.markets-block::-webkit-scrollbar-thumb {
-  background: var(--mm-border);
-  border-radius: var(--radius-control);
-}
-
-.markets-block::-webkit-scrollbar-thumb:hover {
-  background: var(--mm-text-muted);
-}
 </style>

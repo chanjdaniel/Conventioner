@@ -364,6 +364,25 @@ export class FloorplanWorkflowPage {
     );
   }
 
+  /** More sections than the Sections panel can show, each named for its place in the list. */
+  async listManySections(count: number): Promise<void> {
+    await this.page.evaluate((many) => {
+      const appEl = document.querySelector('#app');
+      const vueApp = (appEl as unknown as { __vue_app__?: VueAppLike })?.__vue_app__;
+      const store = vueApp?.config.globalProperties.$pinia?._s.get('floorplan');
+      if (!store) throw new Error('Floorplan store not found');
+      const tableIds = store.placedTables.map((t) => t.id);
+      store.setSections(
+        Array.from({ length: many }, (_, i) => ({
+          id: crypto.randomUUID(),
+          name: `S${i + 1}`,
+          locationName: 'Main Hall',
+          tableIds: tableIds.slice(i, i + 1),
+        })),
+      );
+    }, count);
+  }
+
   // ─── Step 4: Save ──────────────────────────────────────────────
 
   /** Open the save dialog. */

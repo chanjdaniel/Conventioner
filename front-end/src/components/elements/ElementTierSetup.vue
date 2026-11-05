@@ -197,17 +197,6 @@ const dragOptions = computed(() => ({
 </template>
 
 <style scoped>
-h4 {
-  height: auto;
-  text-align: center;
-  text-justify: center;
-  min-height: 30px;
-  max-height: 200px;
-  max-width: 400px;
-  overflow-y: scroll;
-  scrollbar-width: none;
-}
-
 h3 {
   padding-left: var(--space-1);
   padding-right: var(--space-1);
@@ -260,10 +249,6 @@ h3 {
 
 .sortable-ghost {
   opacity: 0.7;
-}
-
-.sorting-ghost {
-  opacity: 0.8;
 }
 
 .sortable-chosen {
@@ -323,14 +308,6 @@ h3 {
   overflow: visible;
 }
 
-.sorting-rows {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-  overflow: visible;
-}
-
 .rows {
   display: flex;
   flex-direction: column;
@@ -339,9 +316,6 @@ h3 {
   align-items: center;
 
   gap: var(--space-2);
-
-  overflow: auto;
-  scrollbar-width: none;
 }
 
 .click-item {
@@ -404,43 +378,5 @@ h3 {
   height: 20px;
   flex: 0 0 auto;
   cursor: pointer;
-}
-
-.sorting-order-container {
-  width: 100%;
-  max-height: 200px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-top: var(--space-2);
-  gap: 0;
-}
-
-.sorting-order-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  height: auto;
-  width: 100%;
-  cursor: grab;
-  padding: var(--space-1);
-}
-
-.sorting-index-drag {
-  min-width: 40px;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: left;
-}
-
-.sorting-text {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: var(--space-1);
-  margin-right: var(--space-1);
-  padding-left: var(--space-1);
-  padding-right: var(--space-1);
 }
 </style>

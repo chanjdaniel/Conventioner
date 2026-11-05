@@ -241,6 +241,10 @@ describe("an admin's change", () => {
       '[data-testid="manage-org-permissions-reset-confirm-window"]',
     );
     expect(reset?.textContent).toContain('Check vendors in: Admin and above to Editor and above');
+    expect(
+      document.querySelector('[data-testid="manage-org-permissions-reset-confirm-body"]'),
+      'a line per row reset, so only its body scrolls',
+    ).not.toBeNull();
     document
       .querySelector<HTMLButtonElement>(
         '[data-testid="manage-org-permissions-reset-confirm-submit-button"]',

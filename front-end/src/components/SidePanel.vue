@@ -21,6 +21,7 @@ import { nextTick, ref, watch } from 'vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import { useFocusGoesBack } from '@/utils/useFocusGoesBack';
 import { useModalRoot } from '@/utils/useModalRoot';
+import ScrollBox from '@/components/ScrollBox.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -47,14 +48,14 @@ const modalRoot = useModalRoot(() => props.open);
 /** Takes the opener as the panel opens, so focus moves in after a `nextTick`, below. */
 useFocusGoesBack(() => props.open);
 
-const body = ref<HTMLElement | null>(null);
+const body = ref<InstanceType<typeof ScrollBox> | null>(null);
 
 watch(
   () => props.open,
   async (open) => {
     if (!open) return;
     await nextTick();
-    body.value?.focus();
+    body.value?.scroller?.focus();
   },
   { immediate: true },
 );
@@ -91,9 +92,17 @@ watch(
             &times;
           </button>
         </header>
-        <div ref="body" class="side-panel__body" :data-testid="`${testid}-body`" tabindex="0">
-          <slot />
-        </div>
+        <ScrollBox
+          ref="body"
+          class="side-panel__body"
+          :testid="`${testid}-body`"
+          :shade-testid="testid"
+          focusable
+        >
+          <div class="side-panel__content">
+            <slot />
+          </div>
+        </ScrollBox>
       </template>
     </aside>
   </div>
@@ -208,14 +217,9 @@ watch(
 
 .side-panel__body {
   flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: var(--space-4) var(--space-6) var(--space-6);
 }
 
-/* The window clips any halo drawn outside it. */
-.side-panel__body:focus-visible {
-  box-shadow: var(--focus-halo-inset);
+.side-panel__content {
+  padding: var(--space-4) var(--space-6) var(--space-6);
 }
 </style>

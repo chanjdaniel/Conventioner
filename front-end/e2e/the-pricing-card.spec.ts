@@ -145,6 +145,59 @@ test.describe('the Pricing card', () => {
     });
   });
 
+  test('a table of many tiers scrolls inside the card, shading the end with more beyond it', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedMarketWithVendors(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { dates: [SEED_MARKET_DATE, SECOND_DATE] },
+    );
+    const tiers = Array.from({ length: 14 }, (_, i) => ({
+      id: i + 1,
+      name: `A long tier ${i + 1}`,
+    }));
+    await savePlan(request, BACKEND_URL, TEST_USER.email, seed.marketId, {
+      ...PLAN,
+      tiers,
+      sections: tiers.map((tier) => ({
+        name: `Section ${tier.id}`,
+        location: { name: 'Main Hall' },
+        tier,
+        count: 1,
+      })),
+    });
+
+    await page.goto(marketSetupPath(seed.marketId, 'setup'));
+    const card = page.getByTestId('plan-card-pricing');
+    await expect(card).toBeVisible({ timeout: 15000 });
+    const frame = card.getByTestId('pricing-frame');
+    const left = card.getByTestId('pricing-frame-shade-left');
+    const right = card.getByTestId('pricing-frame-shade-right');
+    await expect(right).toBeVisible();
+    await expect(left).toHaveCount(0);
+    await expect(frame, 'a cell takes the keys, so the scroller is no stop').not.toHaveAttribute(
+      'tabindex',
+      /.*/,
+    );
+
+    // Focus walks to the last cell, past the edge, and brings it into view.
+    const last = card.getByRole('textbox', { name: 'Everyone else A long tier 14' });
+    await last.focus();
+    await expect(last).toBeInViewport({ ratio: 1 });
+    await expect(left).toBeVisible();
+
+    await frame.evaluate((el) => el.scrollTo({ left: el.scrollWidth }));
+    await expect(right).toHaveCount(0);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
+      'the page stays',
+    ).toBeLessThanOrEqual(0);
+  });
+
   test('a cell reads as currency once left, and the plain number while focused', async ({
     authenticatedPage: page,
     request,

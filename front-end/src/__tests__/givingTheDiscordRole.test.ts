@@ -137,6 +137,7 @@ async function mounted(served: Market) {
         MarketFrame: false,
         GiveRolesDialog: false,
         AppDialog: false,
+        ScrollBox: false,
         DiscordRoleReport: false,
         VendorIdentity: false,
       },

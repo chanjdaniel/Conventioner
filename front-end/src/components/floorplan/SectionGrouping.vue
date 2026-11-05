@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { Layer as VLayer, Rect as VRect, Stage as VStage } from 'vue-konva';
 import { useModalRoot } from '@/utils/useModalRoot';
+import ScrollBox from '@/components/ScrollBox.vue';
 import { useFloorplanStore } from '@/stores/floorplan';
 import type { PlacedTableObject, FloorplanSectionObject } from '@/assets/types/datatypes';
 
@@ -47,6 +48,14 @@ const showDialog = ref(false);
  * and marks the whole page in one step.
  */
 const modalRoot = useModalRoot(showDialog);
+
+/** Focus goes into the dialog: `autofocus` does nothing on an element mounted after the page's load. */
+const sectionNameInput = ref<HTMLInputElement | null>(null);
+watch(showDialog, async (open) => {
+  if (!open) return;
+  await nextTick();
+  sectionNameInput.value?.focus();
+});
 const showSectionList = ref(false);
 
 // Dialog fields
@@ -448,32 +457,36 @@ onUnmounted(() => {
 
     <!-- ── Section list panel ────────────────────────────────────── -->
     <Transition name="panel-slide">
-      <aside v-if="showSectionList" class="sg-panel">
-        <h3 class="sg-panel-title">Sections</h3>
+      <aside v-if="showSectionList" class="sg-panel" data-testid="floorplan-sections-panel">
+        <ScrollBox testid="floorplan-sections-list">
+          <div class="sg-panel-parts">
+            <h3 class="sg-panel-title">Sections</h3>
 
-        <ul v-if="store.sections.length > 0" class="sg-list">
-          <li v-for="item in sectionListItems" :key="item.id" class="sg-list-item">
-            <span class="sg-color-swatch" :style="{ backgroundColor: item.colors.stroke }" />
-            <div class="sg-item-info">
-              <span class="sg-item-name">{{ item.name }}</span>
-              <span class="sg-item-meta">
-                {{ item.locationName || '/' }} &middot; {{ item.tableCount }} table{{
-                  item.tableCount !== 1 ? 's' : ''
-                }}
-              </span>
-            </div>
-            <button
-              class="sg-delete-btn"
-              title="Delete section"
-              aria-label="Delete section"
-              @click="deleteSection(item.id)"
-            >
-              &times;
-            </button>
-          </li>
-        </ul>
+            <ul v-if="store.sections.length > 0" class="sg-list">
+              <li v-for="item in sectionListItems" :key="item.id" class="sg-list-item">
+                <span class="sg-color-swatch" :style="{ backgroundColor: item.colors.stroke }" />
+                <div class="sg-item-info">
+                  <span class="sg-item-name">{{ item.name }}</span>
+                  <span class="sg-item-meta">
+                    {{ item.locationName || '/' }} &middot; {{ item.tableCount }} table{{
+                      item.tableCount !== 1 ? 's' : ''
+                    }}
+                  </span>
+                </div>
+                <button
+                  class="sg-delete-btn"
+                  title="Delete section"
+                  aria-label="Delete section"
+                  @click="deleteSection(item.id)"
+                >
+                  &times;
+                </button>
+              </li>
+            </ul>
 
-        <p v-else class="sg-empty">No sections yet.</p>
+            <p v-else class="sg-empty">No sections yet.</p>
+          </div>
+        </ScrollBox>
       </aside>
     </Transition>
 
@@ -496,75 +509,79 @@ onUnmounted(() => {
             default - three files, three answers, which is what a policy is for.
           -->
           <form class="sg-dialog" @click.stop @submit.prevent="confirmSection">
-            <h2 class="sg-dialog-title">Create Section</h2>
-            <p class="sg-dialog-sub">
-              Assign {{ lassoedTableIds.length }} selected table{{
-                lassoedTableIds.length !== 1 ? 's' : ''
-              }}
-              to a section.
-            </p>
+            <ScrollBox testid="floorplan-section-dialog-body">
+              <div class="sg-dialog-parts">
+                <h2 class="sg-dialog-title">Create Section</h2>
+                <p class="sg-dialog-sub">
+                  Assign {{ lassoedTableIds.length }} selected table{{
+                    lassoedTableIds.length !== 1 ? 's' : ''
+                  }}
+                  to a section.
+                </p>
 
-            <label class="sg-field">
-              <span class="sg-field-label">Section Name</span>
-              <input
-                v-model="dialogSectionName"
-                class="sg-field-input"
-                type="text"
-                placeholder="e.g. A"
-                autofocus
-                data-testid="floorplan-section-dialog-name-input"
-              />
-            </label>
+                <label class="sg-field">
+                  <span class="sg-field-label">Section Name</span>
+                  <input
+                    v-model="dialogSectionName"
+                    class="sg-field-input"
+                    type="text"
+                    ref="sectionNameInput"
+                    placeholder="e.g. A"
+                    data-testid="floorplan-section-dialog-name-input"
+                  />
+                </label>
 
-            <label class="sg-field">
-              <span class="sg-field-label">Location Name</span>
-              <input
-                v-model="dialogLocationName"
-                class="sg-field-input"
-                type="text"
-                placeholder="e.g. Main Hall"
-                data-testid="floorplan-section-dialog-location-input"
-              />
-            </label>
+                <label class="sg-field">
+                  <span class="sg-field-label">Location Name</span>
+                  <input
+                    v-model="dialogLocationName"
+                    class="sg-field-input"
+                    type="text"
+                    placeholder="e.g. Main Hall"
+                    data-testid="floorplan-section-dialog-location-input"
+                  />
+                </label>
 
-            <label class="sg-field">
-              <span class="sg-field-label">Tier <em class="sg-optional">(optional)</em></span>
-              <input
-                v-model="dialogTierId"
-                class="sg-field-input"
-                type="text"
-                placeholder="e.g. Premium"
-              />
-            </label>
+                <label class="sg-field">
+                  <span class="sg-field-label">Tier <em class="sg-optional">(optional)</em></span>
+                  <input
+                    v-model="dialogTierId"
+                    class="sg-field-input"
+                    type="text"
+                    placeholder="e.g. Premium"
+                  />
+                </label>
 
-            <p class="sg-code-preview" v-if="dialogSectionName.trim()">
-              Table codes:&nbsp;
-              <code>{{ dialogSectionName.trim().replace(/[\s-]+/g, '') }}1</code>
-              &ndash;
-              <code
-                >{{ dialogSectionName.trim().replace(/[\s-]+/g, '')
-                }}{{ lassoedTableIds.length }}</code
-              >
-            </p>
+                <p class="sg-code-preview" v-if="dialogSectionName.trim()">
+                  Table codes:&nbsp;
+                  <code>{{ dialogSectionName.trim().replace(/[\s-]+/g, '') }}1</code>
+                  &ndash;
+                  <code
+                    >{{ dialogSectionName.trim().replace(/[\s-]+/g, '')
+                    }}{{ lassoedTableIds.length }}</code
+                  >
+                </p>
 
-            <div class="sg-dialog-actions">
-              <button
-                type="button"
-                class="sg-btn sg-btn--cancel"
-                data-testid="floorplan-section-dialog-cancel-btn"
-                @click="cancelSection"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                class="sg-btn sg-btn--confirm"
-                :disabled="!dialogSectionName.trim()"
-                data-testid="floorplan-section-dialog-assign-btn"
-              >
-                Assign Section
-              </button>
-            </div>
+                <div class="sg-dialog-actions">
+                  <button
+                    type="button"
+                    class="sg-btn sg-btn--cancel"
+                    data-testid="floorplan-section-dialog-cancel-btn"
+                    @click="cancelSection"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    class="sg-btn sg-btn--confirm"
+                    :disabled="!dialogSectionName.trim()"
+                    data-testid="floorplan-section-dialog-assign-btn"
+                  >
+                    Assign Section
+                  </button>
+                </div>
+              </div>
+            </ScrollBox>
           </form>
         </div>
       </Transition>
@@ -712,7 +729,9 @@ onUnmounted(() => {
 
   width: 260px;
   max-height: min(420px, calc(100% - 72px));
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
@@ -720,6 +739,10 @@ onUnmounted(() => {
   border-radius: var(--radius-card);
   /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 8px 32px rgba(39, 35, 35, 0.12);
+}
+
+/* Padding inside the scroller, so the shades lie at the panel's edge and not over a gap. */
+.sg-panel-parts {
   /* stylelint-disable-next-line declaration-property-value-allowed-list -- 14px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 14px 0 8px;
 }
@@ -857,13 +880,18 @@ onUnmounted(() => {
 .sg-dialog {
   width: min(400px, 92vw);
   max-height: 90vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 
   background: white;
   /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 14px, and the nearest would change this floorplan beta corner */
   border-radius: 14px;
   /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 16px 48px rgba(39, 35, 35, 0.18);
+}
+
+.sg-dialog-parts {
   /* stylelint-disable-next-line declaration-property-value-allowed-list -- 28px and 22px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 28px 28px 22px;
 }

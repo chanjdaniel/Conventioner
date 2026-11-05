@@ -27,7 +27,8 @@ import type { Page, TestInfo } from '@playwright/test';
  *
  * The noisier kinds (spacing off the scale, uneven gaps, near-miss edges, empty bands, truncated
  * names, nested scrollers, small targets on a desktop) are real drift mixed with what is by design,
- * so they are attached to each test as `layout report`, never failed on.
+ * so they are attached to each test as `layout report`, never failed on. So is a scroller without a
+ * shade, until the last scroller is a `ScrollBox`.
  *
  * Then, across screens: the market bar stands at the same x and width on every market screen of one
  * size, which is what no screen can see alone (bug 12: the frame at x 0 on the floorplan, x 16

@@ -212,6 +212,113 @@ test.describe('The layout detectors', () => {
   });
 });
 
+test.describe('The scroller without a shade', () => {
+  const SCROLLER_KIND = 'scroller-without-a-shade';
+  const TALL = `<div style="height: 400px">More than fits</div>`;
+  const NO_BAR = 'scrollbar-width: none';
+
+  /** What the detector reports, which the sweep attaches beside the run and does not fail on. */
+  async function scrollersOn(page: Page, html: string): Promise<Finding[]> {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.setContent(`<!doctype html><html><body style="margin: 0">${html}</body></html>`);
+    const findings = await page.evaluate(detectLayout, {
+      spaceScale: SPACE_SCALE,
+      textScale: TYPE_SCALE,
+      minTarget: minTargetAt(1440),
+    });
+    return of(findings, SCROLLER_KIND);
+  }
+
+  test('fires on a scroller that draws a bar, inside a ScrollBox or not', async ({ page }) => {
+    const found = await scrollersOn(
+      page,
+      `<div data-scroll-box><div data-testid="barred" style="height: 80px; overflow-y: auto">
+         ${TALL}</div></div>`,
+    );
+    expect(found.map((f) => `${f.el}: ${f.detail}`)).toEqual(['div > div[barred]: draws a bar']);
+  });
+
+  test('fires on a scroller with no bar and no ScrollBox, so nothing says it scrolls', async ({
+    page,
+  }) => {
+    const found = await scrollersOn(
+      page,
+      `<div data-testid="bare" style="height: 80px; overflow-y: auto; ${NO_BAR}">${TALL}</div>`,
+    );
+    expect(found.map((f) => `${f.el}: ${f.detail}`)).toEqual(['div[bare]: is not a ScrollBox']);
+  });
+
+  test('fires on both at once, and on a scroller sideways', async ({ page }) => {
+    const found = await scrollersOn(
+      page,
+      `<div data-testid="strip" style="width: 80px; overflow-x: auto; white-space: nowrap">
+         <div style="width: 400px">A strip wider than its box</div></div>`,
+    );
+    expect(found.map((f) => `${f.el}: ${f.detail}`)).toEqual([
+      'div[strip]: draws a bar and is not a ScrollBox',
+    ]);
+  });
+
+  test('fires on a ScrollBox down that also scrolls sideways, which no shade of its says', async ({
+    page,
+  }) => {
+    const found = await scrollersOn(
+      page,
+      `<div data-scroll-box>
+         <div class="scroll-box__scroller--y" data-testid="sideways"
+              style="width: 80px; overflow-y: auto; ${NO_BAR}">
+           <div style="width: 400px">Wider than its box</div></div></div>`,
+    );
+    expect(found.map((f) => `${f.el}: ${f.detail}`)).toEqual([
+      'div > div[sideways].scroll-box__scroller--y: scrolls sideways with no shade',
+    ]);
+  });
+
+  test('stays quiet on a ScrollBox told to scroll that way', async ({ page }) => {
+    const found = await scrollersOn(
+      page,
+      `<div data-scroll-box>
+         <div class="scroll-box__scroller--both" style="width: 80px; overflow: auto; ${NO_BAR}">
+           <div style="width: 400px">Wider than its box</div></div></div>`,
+    );
+    expect(found).toEqual([]);
+  });
+
+  test('fires on a bare scroller nested inside a ScrollBox', async ({ page }) => {
+    const found = await scrollersOn(
+      page,
+      `<div data-scroll-box><div style="height: 300px; overflow-y: auto; ${NO_BAR}">
+         <div data-testid="nested" style="height: 80px; overflow-y: auto; ${NO_BAR}">${TALL}</div>
+         </div></div>`,
+    );
+    expect(found.map((f) => f.el)).toEqual(['div > div > div[nested]']);
+  });
+
+  test('is quiet on a ScrollBox that scrolls', async ({ page }) => {
+    const found = await scrollersOn(
+      page,
+      `<div data-scroll-box><div style="height: 80px; overflow-y: auto; ${NO_BAR}">${TALL}</div></div>`,
+    );
+    expect(found).toEqual([]);
+  });
+
+  test('is quiet on the page, a text field, and a box with nothing to scroll', async ({ page }) => {
+    const found = await scrollersOn(
+      page,
+      `<div style="height: 3000px">The page, taller than its window</div>
+       <textarea rows="2">${'A long answer. '.repeat(100)}</textarea>
+       <div style="height: 80px; overflow-y: auto">Fits</div>`,
+    );
+    expect(found).toEqual([]);
+  });
+
+  test('reports and does not gate', () => {
+    const finding = { kind: SCROLLER_KIND, el: 'div', detail: 'draws a bar', box: [0, 0, 1, 1] };
+    expect(gates(finding as Finding, 1440)).toBe(false);
+    expect(gates(finding as Finding, 390)).toBe(false);
+  });
+});
+
 test.describe('The market bar check', () => {
   test('names the screen whose bar stands apart, against where the others stand', () => {
     const bars = new Map([

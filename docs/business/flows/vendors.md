@@ -8,7 +8,7 @@ describes:
   - back-end/api/vendor_export.py
   - front-end/src/components/GiveRolesDialog.vue
   - front-end/src/components/DiscordRoleReport.vue
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - wayfinding/claims-and-room/04
   - wayfinding/rejection-visibility/02

@@ -96,7 +96,7 @@ function onSaved(payload: { market_id: string }) {
 </script>
 
 <template>
-  <div class="floorplan-workflow">
+  <div class="floorplan-workflow" data-testid="floorplan-workflow">
     <!-- ── Progress indicator ──────────────────────────────────── -->
     <div
       class="workflow-progress"
@@ -230,10 +230,10 @@ function onSaved(payload: { market_id: string }) {
 }
 
 /* ── Step bodies ────────────────────────────────────────────────── */
+/* No step scrolls: the page gives the wizard no height to outgrow, so it grows and the page scrolls. */
 .step-body {
   flex: 1;
   min-height: 0;
-  overflow: auto;
 }
 
 /* The drop zone's dashed edge sat flush against the card's, as though cut off by it. */
@@ -249,7 +249,6 @@ function onSaved(payload: { market_id: string }) {
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-4);
-  overflow: auto;
 }
 
 /* ── Step 3: Edit ───────────────────────────────────────────────── */
@@ -296,7 +295,6 @@ function onSaved(payload: { market_id: string }) {
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-4);
-  overflow: auto;
 }
 
 /* ── Navigation ──────────────────────────────────────────────────── */

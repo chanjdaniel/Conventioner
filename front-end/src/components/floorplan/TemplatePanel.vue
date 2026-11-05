@@ -228,7 +228,8 @@ function formatDate(dateStr: string): string {
       :open="loadDialog"
       :title="confirmOpen ? 'Confirm Load' : 'Load Template'"
       testid="floorplan-template-load"
-      wide
+      size="wide"
+      scroll="body"
       :error="loadError"
       @close="closeLoadDialog"
     >

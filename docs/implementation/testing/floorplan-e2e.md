@@ -5,10 +5,11 @@ describes:
   - front-end/e2e/floorplan.spec.ts
   - front-end/e2e/the-floorplan-beta-places-tables.spec.ts
   - front-end/e2e/the-floorplan-takes-the-same-zone.spec.ts
-  - front-end/e2e/the-floorplan-draws-as-its-tokens-say.spec.ts
   - front-end/e2e/pages/FloorplanWorkflowPage.ts
   - front-end/e2e/fixtures/test-floorplan.png
-verified: 2026-11-02
+  - front-end/e2e/the-floorplan-shades-its-scrollers.spec.ts
+  - front-end/e2e/the-floorplan-draws-as-its-tokens-say.spec.ts
+verified: 2026-11-05
 sources:
   - bug/38
   - E26/F09/S01
@@ -16,6 +17,7 @@ sources:
   - T45
   - E38/F01/S01
   - T205
+  - T217
   - T221
 ---
 
@@ -30,6 +32,7 @@ The fixture is [`front-end/e2e/fixtures/test-floorplan.png`](../../../front-end/
 - [`floorplan.spec.ts`](../../../front-end/e2e/floorplan.spec.ts) walks the whole wizard from a draft's Market Setup (upload, calibrate, a table type and Auto-Place, sections, save), lands back on the market's setup page, and checks that the saved plan has the floorplan's sections and locations, that the store still holds the placed tables, and that the next plan edit does not erase the floorplan (a parser that dropped `floorplans` once did, E21/F02/S03).
 - [`the-floorplan-beta-places-tables.spec.ts`](../../../front-end/e2e/the-floorplan-beta-places-tables.spec.ts) pins bug 38's fixes: the path choice promises nothing the wizard does not do, a calibration line drawn from beside the image still draws, the scale reads the right way round, a new table type seats two, and Auto-Place asked for twenty places twenty and says so.
 - [`the-floorplan-takes-the-same-zone.spec.ts`](../../../front-end/e2e/the-floorplan-takes-the-same-zone.spec.ts) pins the upload step on the app's one drop zone (T205): its words, the input named by them, a text file refused with the type message, the zone busy while a held upload is in flight, and a plan dropped on the zone uploading.
+- [`the-floorplan-shades-its-scrollers.spec.ts`](../../../front-end/e2e/the-floorplan-shades-its-scrollers.spec.ts) pins the rule on scrolling (T217): each canvas's height at 1440x900, a short window scrolling the page with nothing in the wizard scrolling, at the calibrating and placed steps, and the shades coming and going on the Sections panel, the section dialog and the save dialog, the panel keeping its translucent ground and a press beside it reaching the canvas; and focus going into the calibration's panels, on a redraw too, the section dialog and the save dialog, and back to Save as that one closes; and Enter on the length panel doing what has focus, so its field calibrates, or says a length is missing, and its Redraw redraws with nothing sent.
 - [`the-floorplan-draws-as-its-tokens-say.spec.ts`](../../../front-end/e2e/the-floorplan-draws-as-its-tokens-say.spec.ts) pins what the beta's move onto tokens leans on (T221): a section's row and its delete button read AA on the fill they hover, a wall toolbar separator stays 1px wide and a step label stays on one line at each size, so `--radius-pill` draws their corners as the raw radii did.
 
 [`FloorplanWorkflowPage`](../../../front-end/e2e/pages/FloorplanWorkflowPage.ts) is their page object, and `completeFloorplanWorkflow()` walks every step.
@@ -46,7 +49,8 @@ Those steps are marked `deskOnly`, since at a phone's width the calibration fiel
 The wizard draws on a Konva stage, and its steps are not equally drivable:
 
 - **Calibration is a real gesture**: `drawCalibrationLine()` drags with `page.mouse` across the stage.
-- **Section grouping is not**: the Konva lasso is not reliably drivable through simulated mouse events, so `groupAllTablesIntoSection()` sets the floorplan store's sections directly through `page.evaluate`.
+- **Section grouping mostly is not**: the Konva lasso is not reliably drivable through simulated mouse events, so `groupAllTablesIntoSection()` and `listManySections()` set the floorplan store's sections directly through `page.evaluate`.
+  `the-floorplan-shades-its-scrollers.spec.ts` alone drags a lasso, on the part of the canvas in view, and only to open the section dialog, which it cancels.
 - **The editor canvas is not exercised at all**: no spec drags, rotates or deletes a table.
 - `snapshotPlacedTables()` reads the store's `placedTables` through `page.evaluate`, to assert that tables survive across steps.
 

@@ -7,11 +7,11 @@ describes:
   - back-end/api/markets.py#reviewer_candidate_ids
   - back-end/review_team.py#deal_arrivals
   - front-end/src/components/market/ReviewersPanel.vue
-  - front-end/src/components/market/ReviewerName.vue
   - front-end/src/components/market/ReviewerPicker.vue
   - front-end/src/utils/personChoice.ts
   - front-end/src/utils/reviewTeam.ts
   - front-end/src/utils/reviewers.ts
+  - front-end/src/components/market/ReviewerName.vue
 verified: 2026-11-05
 sources:
   - E38/F07

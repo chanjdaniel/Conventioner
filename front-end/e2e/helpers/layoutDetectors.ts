@@ -287,6 +287,24 @@ export function detectLayout(opts: DetectOptions): Finding[] {
       push('nested-scroller-x', el, `scrolls ${dx}px of its own content horizontally`);
     }
 
+    // What really scrolls in the app is a `ScrollBox`'s own scroller, whose shades say there is more,
+    // and draws no bar (`docs/design-system.md`). The page and a text field keep theirs.
+    if (
+      el !== document.body &&
+      !isTextControl &&
+      ((/auto|scroll/.test(cs.overflowY) && dy > 1) || (/auto|scroll/.test(cs.overflowX) && dx > 1))
+    ) {
+      const wrong = [
+        ...(cs.getPropertyValue('scrollbar-width') === 'none' ? [] : ['draws a bar']),
+        ...(el.parentElement?.matches('[data-scroll-box]') ? [] : ['is not a ScrollBox']),
+        // Told to scroll down, so it shades only that way, yet what it holds is too wide for it.
+        ...(el.classList.contains('scroll-box__scroller--y') && dx > 1
+          ? ['scrolls sideways with no shade']
+          : []),
+      ];
+      if (wrong.length) push('scroller-without-a-shade', el, wrong.join(' and '));
+    }
+
     // A child that leaves its parent's box, the parent letting it show.
     if (cs.overflowX === 'visible' && cs.display !== 'inline' && cs.display !== 'contents') {
       for (const child of Array.from(el.children)) {

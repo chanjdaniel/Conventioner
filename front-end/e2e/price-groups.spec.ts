@@ -76,6 +76,19 @@ test.describe('price groups', () => {
     // "Everyone else" stays the last row.
     await expect(card.locator('tbody tr th[scope="row"]').last()).toHaveText('Everyone else');
     await expect(page.getByTestId('market-setup-plan-saved')).toBeVisible({ timeout: 10000 });
+    // The conditions wrap in the column the prices leave, rather than scrolling the table sideways.
+    const frame = card.getByTestId('pricing-frame');
+    expect(await frame.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+    await expect(card.getByTestId('pricing-frame-shade-right')).toHaveCount(0);
+    expect(
+      await card
+        .getByTestId('pricing-table')
+        .evaluate(
+          (table, width) => Math.abs(table.getBoundingClientRect().width - width),
+          (await frame.boundingBox())!.width,
+        ),
+      'grouped, the table is as wide as the card',
+    ).toBeLessThanOrEqual(1);
 
     const stored = async () =>
       (await (await request.get(`${BACKEND_URL}/markets/${marketId}`)).json()).market.setupObject

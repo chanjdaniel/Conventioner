@@ -23,7 +23,7 @@ const emit = defineEmits<{
     :open="true"
     title="Choose your setup path"
     testid="choose-path"
-    wide
+    size="wide"
     @close="emit('select', 'manual')"
   >
     <p class="choose-subtitle">How would you like to describe what this market has to offer?</p>

@@ -29,6 +29,67 @@ async function edgesOf(locator: Locator): Promise<{ top: number; bottom: number 
   return { top: Math.round(box!.y), bottom: Math.round(box!.y + box!.height) };
 }
 
+test.describe('the vendor drawer on a phone', () => {
+  const phone = PHONE_AND_DESK.find((size) => size.phone)!;
+  test.use(phone.use);
+
+  test('a thumb scrolls it under its pinned head, and its shades come and go', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { intakeMode: 'form', vendors: VENDORS },
+    );
+    const attendance = new AttendanceStatusPage(page);
+    await attendance.goto(seed.marketId);
+    await attendance.vendor(VENDOR).tap();
+    const content = page.getByTestId('vendors-detail-content');
+    await expect(page.getByTestId('vendors-detail-email')).toBeVisible();
+    // Done sliding in, or the middle of it lies past the window's edge.
+    await expect(page.getByTestId('vendors-detail-panel')).toBeInViewport({ ratio: 1 });
+    // A phone held sideways, short enough that any tab runs past the window.
+    await page.setViewportSize({ width: 390, height: 360 });
+    const top = page.getByTestId('vendors-detail-content-shade-top');
+    const bottom = page.getByTestId('vendors-detail-content-shade-bottom');
+    await expect(bottom).toBeVisible();
+    await expect(top).toHaveCount(0);
+
+    // The drag a thumb makes, from the middle of the drawer.
+    const box = (await content.boundingBox())!;
+    const cdp = await page.context().newCDPSession(page);
+    const drag = (yDistance: number) =>
+      cdp.send('Input.synthesizeScrollGesture', {
+        x: box.x + box.width / 2,
+        y: box.y + box.height / 2,
+        yDistance,
+        speed: 4000,
+      });
+
+    await drag(-40);
+    await expect.poll(() => content.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    await expect(top).toBeVisible();
+    await expect(bottom).toBeVisible();
+
+    // The head stays, and the shade starts at its foot rather than over its dark ground.
+    await expect(page.getByTestId('vendors-detail-close')).toBeInViewport({ ratio: 1 });
+    const head = (await page.getByTestId('vendors-detail-head').boundingBox())!;
+    const shade = (await top.boundingBox())!;
+    expect(Math.round(shade.y)).toBe(Math.round(head.y + head.height));
+
+    await content.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+    await expect(bottom).toHaveCount(0);
+    await expect(top).toBeVisible();
+
+    await content.evaluate((el) => el.scrollTo({ top: 0 }));
+    await expect(top).toHaveCount(0);
+    await expect(bottom).toBeVisible();
+  });
+});
+
 for (const size of PHONE_AND_DESK) {
   test.describe(size.name, () => {
     test.use(size.use);
