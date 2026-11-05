@@ -258,6 +258,8 @@ describe('saving', () => {
 
     await tryEveryClose();
     expect(byId('reviewers-dialog-window')).not.toBeNull();
+    expect(byId('reviewers-dialog-close-button')?.hasAttribute('disabled')).toBe(true);
+    expect(byId('reviewers-dialog-cancel-button')?.hasAttribute('disabled')).toBe(true);
     expect(byId('reviewers-dialog-submit-button')?.hasAttribute('disabled')).toBe(true);
     expect(words(byId('reviewers-dialog-submit-button'))).toBe('Saving…');
     expect(saved()).toBeUndefined();
@@ -266,6 +268,53 @@ describe('saving', () => {
     await flushPromises();
     expect(byId('reviewers-dialog-window')).toBeNull();
     expect(saved()).toHaveLength(1);
+  });
+
+  const chipAddresses = () =>
+    allById('reviewer-picker-chip').map(
+      (chip) => words(chip)?.match(/^person-\d+@example\.com/)?.[0],
+    );
+  /** Take the first of the team off its chips, then save. */
+  async function saveWithoutTheFirst() {
+    allById('reviewer-picker-chip')[0]!.querySelector('button')!.click();
+    await flushPromises();
+    submit();
+    await flushPromises();
+  }
+
+  it('opens on the team saved when the re-read failed, its market the one written over', async () => {
+    mountPanel(team(12), true);
+    await pressMore();
+    api.get.mockRejectedValue(new Error('Network Error'));
+    await saveWithoutTheFirst();
+    expect(byId('reviewers-dialog-window')).toBeNull();
+
+    await pressMore();
+    expect(chipAddresses()).toHaveLength(11);
+    expect(chipAddresses()).not.toContain(address(1));
+  });
+
+  it('opens on what a read says once one has landed, the team saved forgotten', async () => {
+    const panel = mountPanel(team(12), true);
+    await pressMore();
+    api.get.mockRejectedValue(new Error('Network Error'));
+    await saveWithoutTheFirst();
+
+    await panel.setProps({ market: market(team(5), true) });
+    await pressMore();
+    expect(chipAddresses()).toEqual(team(5).map(({ email }) => email));
+  });
+
+  it('opens on the market again after a refused save, as nothing was saved', async () => {
+    mountPanel(team(12), true);
+    await pressMore();
+    api.put.mockRejectedValue({ isAxiosError: true, response: { status: 400, data: {} } });
+    await saveWithoutTheFirst();
+    byId('reviewers-dialog-close-button')!.click();
+    await flushPromises();
+
+    await pressMore();
+    expect(chipAddresses()).toContain(address(1));
   });
 
   it('closes when the re-read fails in transit, as the save has landed', async () => {
@@ -289,6 +338,8 @@ describe('saving', () => {
     await flushPromises();
     expect(api.get).not.toHaveBeenCalled();
     expect(words(byId('reviewers-dialog-error'))).toBe('That person cannot be chosen.');
+    expect(byId('reviewers-dialog-close-button')?.hasAttribute('disabled')).toBe(false);
+    expect(byId('reviewers-dialog-cancel-button')?.hasAttribute('disabled')).toBe(false);
 
     byId('reviewers-dialog-close-button')!.click();
     await flushPromises();

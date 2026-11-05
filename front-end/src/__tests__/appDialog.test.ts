@@ -155,6 +155,31 @@ describe('a dialog that asks for none of the new props scrolls whole, in a Scrol
   );
 });
 
+describe('with `closeDisabled`', () => {
+  it('nothing closes it, and Cancel and the close control are drawn disabled', async () => {
+    const { state } = await openFromTheButton({ closeDisabled: true });
+    expect(byTestId('people-close-button')?.hasAttribute('disabled')).toBe(true);
+    expect(byTestId('people-cancel-button')?.hasAttribute('disabled')).toBe(true);
+
+    byTestId('people-background')!.click();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    byTestId('people-close-button')!.click();
+    byTestId('people-cancel-button')!.click();
+    await flushPromises();
+    expect(state.closes).toBe(0);
+    expect(state.open).toBe(true);
+  });
+
+  it('every close works again once it ends', async () => {
+    const { state } = await openFromTheButton({ closeDisabled: true });
+    await wrapper!.setProps({ dialog: { closeDisabled: false } });
+    expect(byTestId('people-close-button')?.hasAttribute('disabled')).toBe(false);
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await flushPromises();
+    expect(state.closes).toBe(1);
+  });
+});
+
 describe('its sizes', () => {
   it.each([
     ['narrow', 'dialog-window'],

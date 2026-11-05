@@ -58,8 +58,18 @@ const ticked = ref<string[]>([]);
 const saving = ref(false);
 const error = ref('');
 
+/**
+ * The team just saved, and the market held when it was. A read that fails or is overtaken leaves
+ * that market held, and starting from what it says would offer the team before the save, which
+ * saving writes back and deals again. Every read that lands is a new object, so this ends by itself.
+ */
+let lastSave: { over: Market; team: string[] } | null = null;
+
 function start() {
-  ticked.value = reviewerAddresses(props.market);
+  ticked.value =
+    lastSave && lastSave.over === props.market
+      ? [...lastSave.team]
+      : reviewerAddresses(props.market);
   error.value = '';
   open.value = true;
 }
@@ -69,16 +79,9 @@ function showAll() {
   else listOpen.value = true;
 }
 
-function close() {
-  // A save in flight finishes before the dialog can go, see save().
-  if (saving.value) return;
-  open.value = false;
-}
-
 /**
- * The dialog goes only once the re-read has landed: the panel behind it and the next opening's chips
- * read the market, so until then a press behind it would open on the team before this save, and
- * saving that would write it back and deal the open applications again.
+ * The dialog goes only once the re-read has answered: until then the panel behind it says the team
+ * before this save, and a close would hide a refusal. No close takes it meanwhile (`close-disabled`).
  */
 async function save() {
   if (!props.market || saving.value) return;
@@ -86,6 +89,7 @@ async function save() {
   error.value = '';
   try {
     await chooseReviewers(props.market.id, ticked.value);
+    if (props.market) lastSave = { over: props.market, team: [...ticked.value] };
     await useMarketStore().refresh();
     open.value = false;
     emit('saved');
@@ -145,9 +149,10 @@ async function save() {
       scroll="body"
       :confirm-label="saving ? 'Saving…' : 'Save reviewers'"
       :confirm-disabled="saving"
+      :close-disabled="saving"
       :error="error"
       anchored
-      @close="close"
+      @close="open = false"
       @submit="save"
     >
       <p class="reviewers-reshuffle">{{ RESHUFFLE }}</p>
