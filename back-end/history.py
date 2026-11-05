@@ -364,8 +364,10 @@ def placement_entries(market_id: str) -> List[Dict[str, Any]]:
 # --- Reading the whole history, a page at a time (E40/F01/S03) -------------------------------
 
 #: How many entries one page holds: the newest, then as many again each time more are asked for.
-#: Ten, so the History section stays a short read inside Manage market (Daniel, on T110's review).
-PAGE_SIZE = 10
+#: Twenty-five, enough to fill the box a list stands in and more, so the next page is rarely waited
+#: for. It was ten to keep the History section short in Manage market; the box does that now, since
+#: its height is bounded whatever a page holds (T224).
+PAGE_SIZE = 25
 
 # Everything an entry holds but its storage keys: the market is the one asked for.
 _ENTRY_PROJECTION = {"_id": 0, MARKET_ID_FIELD: 0}

@@ -112,6 +112,43 @@ test("a vendor's History tab reads their verdict, note and tables, newest first,
   await expect(vendors.detailPanel).not.toContainText(VENDOR.email);
 });
 
+test("a vendor's long History scrolls with the drawer's body and fetches at its end, with no box of its own", async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedTwoVendors(request);
+  // Past one page of 25, on top of the verdict, the note and the tables.
+  for (let n = 1; n <= 25; n++) {
+    await ok(
+      await request.put(
+        `${BACKEND_URL}/markets/${marketId}/vendor-notes/${encodeURIComponent(VENDOR.email)}`,
+        { data: { note: `Note ${n} on ${VENDOR.name}` } },
+      ),
+    );
+  }
+  const vendors = new VendorsPage(page);
+  await page.goto(drawerPath(marketId, VENDOR.email));
+  await expect(vendors.detailHistorySentences).toHaveCount(25);
+  await expect(page.getByText('Load more')).toHaveCount(0);
+
+  // The list has no scroller of its own: it stands in the flow of the drawer's body, which scrolls.
+  const list = page.getByTestId('market-history-box');
+  await expect(list.evaluate((box) => getComputedStyle(box).overflowY)).resolves.toBe('visible');
+  await expect(list.evaluate((box) => box.scrollHeight === box.clientHeight)).resolves.toBe(true);
+  await expect(vendors.detailPanel.getByTestId('market-history-box-shade-bottom')).toHaveCount(0);
+  await expect(page.getByTestId('vendors-detail-content-shade-bottom')).toBeVisible();
+
+  const first = await vendors.detailHistorySentences.allInnerTexts();
+  await vendors.detailContent.evaluate((body) => {
+    body.scrollTop = body.scrollHeight;
+  });
+
+  await expect(vendors.detailHistorySentences).toHaveCount(25 + 4);
+  const all = await vendors.detailHistorySentences.allInnerTexts();
+  expect(all.slice(0, 25)).toEqual(first);
+  expect(all.at(-1)).toContain('to Approved');
+});
+
 test("a Viewer the history's row is raised above has no History tab and no Permissions changes", async ({
   browser,
   request,

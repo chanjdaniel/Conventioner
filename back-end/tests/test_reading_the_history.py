@@ -318,9 +318,9 @@ class TestWhoMayBeChosen:
 
 
 class TestThousandsOfEntries:
-    def test_a_page_is_ten_entries(self):
-        """Ten, so the section stays a short read inside Manage market (Daniel, on T110's review)."""
-        assert History.PAGE_SIZE == 10
+    def test_a_page_is_twenty_five_entries(self):
+        """Enough to fill the box a list stands in; the box, not this, keeps the section short."""
+        assert History.PAGE_SIZE == 25
 
     def test_the_first_page_asks_for_one_page_on_the_index_never_the_whole_history(self, history):
         """5,000 entries: the read asks Mongo for the newest page and one more, sorted on the
@@ -395,7 +395,7 @@ class TestTheEndpoint:
         assert body["entries"][0]["detail"] == {
             "before": {"app_one": {"follow_up_owner": None}}, "after": {}}
 
-    def test_load_more_is_the_page_after_the_cursor(self, market, history, monkeypatch):
+    def test_the_next_page_is_the_one_after_the_cursor(self, market, history, monkeypatch):
         _as(monkeypatch, MarketRole.VIEWER)
         for minutes in range(History.PAGE_SIZE + 3):
             entry(history, minutes)

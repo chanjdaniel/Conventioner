@@ -65,7 +65,9 @@ export class ManageMarketPage {
   readonly historyKind: Locator;
   readonly historyVendor: PersonChooser;
   readonly historyVendorHint: Locator;
-  readonly historyLoadMore: Locator;
+  /** The box the History's entries scroll in (T224). */
+  readonly historyBox: Locator;
+  readonly historyBoxShadeBottom: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -129,13 +131,25 @@ export class ManageMarketPage {
     this.historyKind = page.getByTestId('market-history-kind');
     this.historyVendor = new PersonChooser(page, 'market-history-vendor');
     this.historyVendorHint = page.getByTestId('market-history-vendor-hint');
-    this.historyLoadMore = page.getByTestId('market-history-load-more');
+    this.historyBox = page.getByTestId('market-history-box');
+    this.historyBoxShadeBottom = page.getByTestId('market-history-box-shade-bottom');
   }
 
   /** Opens the History section, closed until opened, and waits for its first page. */
   async openHistory(): Promise<void> {
     await this.historyToggle.click();
     await this.page.getByTestId('market-history').waitFor();
+  }
+
+  /**
+   * Scrolls the dialog until the History's box is whole in sight, and the box to its end, as far as it
+   * has read: a list's end inside a box still below the dialog's fold is not in view, and asks nothing.
+   */
+  async scrollHistoryToEnd(): Promise<void> {
+    await this.historyBox.evaluate((box) => {
+      box.scrollIntoView({ block: 'nearest' });
+      box.scrollTop = box.scrollHeight;
+    });
   }
 
   /** Narrows the History section by typing "Who"'s words ("Anyone", or part of an address). */

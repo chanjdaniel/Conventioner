@@ -14,7 +14,7 @@ describes:
   - back-end/api/organizations.py#get_history
   - back-end/tests/test_the_organizations_history.py
   - back-end/api/organizations.py#get_default_permission_history
-verified: 2026-11-03
+verified: 2026-11-05
 sources:
   - wayfinding/readable-journey/08
   - E40/F01/S01
@@ -38,6 +38,7 @@ sources:
   - E46/F01/S04
   - E38/F10/S01
   - T206
+  - T224
 ---
 
 # The market's history
@@ -367,7 +368,7 @@ That was weighed and accepted for the placements when the trail was decided, and
 
 **Every reader asks the row "Read the market's history"** (`read-history`, Viewer by default, [the market's actions](../modules/market-actions.md)): by default, anyone who may read the market may read who changed it.
 
-**The whole history is read a page at a time**: `GET /markets/:id/history` (`get_history` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)) serves `entries_page`, the newest `PAGE_SIZE` (10, so the section stays a short read inside Manage market) entries and `next`, a cursor naming the last one (`<at>|<id>`), which `?before=` hands back for the page after it.
+**The whole history is read a page at a time**: `GET /markets/:id/history` (`get_history` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)) serves `entries_page`, the newest `PAGE_SIZE` (25, since the box the list stands in, not the page, keeps the section short) entries and `next`, a cursor naming the last one (`<at>|<id>`), which `?before=` hands back for the page after it.
 Entries are ordered by `at`, then `id`, both descending, so a page boundary between two entries of one instant neither loses nor repeats either, and the [lookup index](lookup-indexes.md) on (`market_id`, `at`, `id`) is that order read backwards: the first page of a market with thousands of entries is one query that walks a page of index keys and stops (`TestThousandsOfEntries` in [`back-end/tests/test_reading_the_history.py`](../../../back-end/tests/test_reading_the_history.py) seeds 5,000).
 It narrows by `?actor=`, `?group=` (a group of the table's rows, its actions' ids; an applicant's own `apply` is an Applications change, a free's $0 taken back (`assign`, `owed_taken_back`) is a Payments change too, beside the `change-owed` it undoes (`_HISTORY_GROUP_ALSO_READS`), and the Reading group is never one), `?vendor=`, and `?since=` and `?until=` (ISO instants, the first kept and the second not); a filter it cannot read answers 400.
 A filter on anything but the market and the time is applied as Mongo walks the index, so a narrow filter on a long history reads further than one page; it asks Mongo for one entry past the page, to know whether another follows, and answers no more than `PAGE_SIZE`.

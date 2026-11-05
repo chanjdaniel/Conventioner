@@ -1,6 +1,6 @@
 /**
- * Manage market's History section (E40/F01/S03): the newest changes, older ones on "Load more",
- * each filter narrowing what the server is asked for, and no section for a person below the row.
+ * Manage market's History section (E40/F01/S03): the newest changes, older ones as the end of the
+ * list comes into view, each filter narrowing what the server is asked for, and no section for a person below the row.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
@@ -10,6 +10,7 @@ import ManageMarketOverlay from '@/views/ManageMarketOverlay.vue';
 import MarketHistory from '@/components/MarketHistory.vue';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import type { MarketHistoryEntry } from '@/utils/marketHistory';
+import { installIntersectionObserver } from './support/intersection';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() }));
 
@@ -97,7 +98,8 @@ beforeEach(() => {
 });
 
 describe('the History section', () => {
-  it('shows the newest page, and Load more adds the older ones beneath it', async () => {
+  it('shows the newest page, and the end of the list coming into view adds the older ones', async () => {
+    const view = installIntersectionObserver();
     const asked = serve(
       { entries: [assigned('e3', 3), assigned('e2', 2)], next: 'cursor-2' },
       { entries: [assigned('e1', 1)], next: null },
@@ -110,12 +112,157 @@ describe('the History section', () => {
       'dana@ember.test assigned Ana Rivera ana@ember.test at A2 on Nov 19, 2026',
     ]);
 
-    await wrapper.get('[data-testid="market-history-load-more"]').trigger('click');
-    await flushPromises();
+    await view.showSentinels();
 
     expect(asked[1]).toBe('/markets/market-1/history?before=cursor-2');
     expect(wrapper.findAll('[data-testid="market-history-entry"]')).toHaveLength(3);
-    expect(wrapper.find('[data-testid="market-history-load-more"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="market-history-sentinel"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('Load more');
+  });
+
+  it('keeps a before and after open as a later page lands', async () => {
+    const view = installIntersectionObserver();
+    serve(
+      { entries: [assigned('e2', 2)], next: 'cursor-2' },
+      { entries: [assigned('e1', 1)], next: null },
+    );
+    const wrapper = mountHistory();
+    await flushPromises();
+    await wrapper.get('[data-testid="market-history-toggle"]').trigger('click');
+
+    await view.showSentinels();
+
+    expect(wrapper.findAll('[data-testid="market-history-entry"]')).toHaveLength(2);
+    expect(wrapper.findAll('[data-testid="market-history-changes"]')).toHaveLength(1);
+  });
+
+  it('drops a next page answered after a filter changed', async () => {
+    const view = installIntersectionObserver();
+    let answerLate: (page: unknown) => void = () => {};
+    const asked: string[] = [];
+    api.get.mockImplementation((url: string) => {
+      asked.push(url);
+      if (url.includes('before=')) {
+        return new Promise((resolve) => {
+          answerLate = resolve;
+        });
+      }
+      const narrowed = url.includes('group=');
+      return Promise.resolve({
+        data: {
+          entries: [assigned(narrowed ? 'narrow' : 'e2', 2)],
+          next: narrowed ? null : 'cursor-2',
+          vendorNames: {},
+          actors: [],
+          groups: GROUPS,
+        },
+      });
+    });
+    const wrapper = mountHistory();
+    await flushPromises();
+
+    await view.showSentinels();
+    expect(asked.at(-1)).toBe('/markets/market-1/history?before=cursor-2');
+
+    await wrapper.get('[data-testid="market-history-kind"]').setValue('Assignment');
+    await flushPromises();
+    answerLate({
+      data: { entries: [assigned('late', 1)], next: 'cursor-3', vendorNames: {} },
+    });
+    await flushPromises();
+
+    expect(wrapper.findAll('[data-testid="market-history-entry"]')).toHaveLength(1);
+    expect(wrapper.find('[data-testid="market-history-sentinel"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="market-history-loading"]').text()).toBe('');
+  });
+
+  it('drops a next page that fails after a filter changed, saying nothing of it', async () => {
+    const view = installIntersectionObserver();
+    let failLate: (reason: unknown) => void = () => {};
+    api.get.mockImplementation((url: string) => {
+      if (url.includes('before=')) {
+        return new Promise((_, reject) => {
+          failLate = reject;
+        });
+      }
+      return Promise.resolve({
+        data: {
+          entries: [assigned('e2', 2)],
+          next: 'cursor-2',
+          vendorNames: {},
+          actors: [],
+          groups: GROUPS,
+        },
+      });
+    });
+    const wrapper = mountHistory();
+    await flushPromises();
+
+    await view.showSentinels();
+    await wrapper.get('[data-testid="market-history-kind"]').setValue('Assignment');
+    await flushPromises();
+    failLate(new Error('late'));
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="market-history-read-failed"]').exists()).toBe(false);
+  });
+
+  it('says so when a next page fails, and Try again brings it beneath the same entries', async () => {
+    const view = installIntersectionObserver();
+    let fails = true;
+    const asked: string[] = [];
+    api.get.mockImplementation(async (url: string) => {
+      asked.push(url);
+      if (!url.includes('before=')) {
+        return {
+          data: {
+            entries: [assigned('e2', 2)],
+            next: 'cursor-2',
+            vendorNames: {},
+            actors: [],
+            groups: GROUPS,
+          },
+        };
+      }
+      if (fails) throw new Error('offline');
+      return { data: { entries: [assigned('e1', 1)], next: null, vendorNames: {} } };
+    });
+    const wrapper = mountHistory();
+    await flushPromises();
+
+    await view.showSentinels();
+
+    expect(wrapper.get('[data-testid="market-history-read-failed"]').text()).toContain(
+      'Older changes could not be loaded.',
+    );
+    expect(wrapper.findAll('[data-testid="market-history-entry"]')).toHaveLength(1);
+    // Nothing asks again by itself: a failed page waits for the reader.
+    await view.showSentinels();
+    expect(asked.filter((url) => url.includes('before='))).toHaveLength(1);
+
+    fails = false;
+    await wrapper.get('[data-testid="market-history-retry"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="market-history-read-failed"]').exists()).toBe(false);
+    expect(wrapper.findAll('[data-testid="market-history-entry"]')).toHaveLength(2);
+  });
+
+  it('asks nothing beyond the first page with no observer firing', async () => {
+    const asked = serve({ entries: [assigned('e2', 2)], next: 'cursor-2' });
+    mountHistory();
+    await flushPromises();
+
+    expect(asked).toEqual(['/markets/market-1/history']);
+  });
+
+  it('stands its list in a box of its own unless told otherwise', async () => {
+    serve({ entries: [assigned('e1', 1)], next: null });
+    const wrapper = mountHistory();
+    await flushPromises();
+
+    expect(wrapper.find('.paged-list--own').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="market-history-box"]').exists()).toBe(true);
   });
 
   it('asks the server again, narrowed, for each filter', async () => {

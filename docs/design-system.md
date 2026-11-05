@@ -33,6 +33,7 @@ describes:
   - front-end/e2e/the-code-field.spec.ts
   - front-end/src/components/NameList.vue
   - front-end/src/components/OrderedList.vue
+  - front-end/src/components/PagedList.vue
   - front-end/src/components/RowGroup.vue
   - front-end/src/components/SidePanel.vue
   - front-end/src/components/BarLedger.vue
@@ -97,6 +98,7 @@ sources:
   - T221
   - T223
   - T217
+  - T224
 ---
 
 # Conventioner's design language
@@ -493,6 +495,14 @@ The shown count goes back to one page only when the words or `filterKey` change,
 Manage market's "Users with access" and Manage organization's Admins and Members are its screens, and the library's `list-frame` entry shows it on Applications All and the people with access.
 Inside a `scroll="body"` dialog it needs nothing of its own, since the dialog's body scrolls it; the library's `summaries` entry shows it there, with no `findKey`, so the words go with the dialog.
 Enter in its field does nothing, so in a dialog's form it never saves what the person was only looking through.
+
+**A list is `ListFrame` when its rows are already read whole, and [`PagedList.vue`](../front-end/src/components/PagedList.vue) when the server pages them** (T224), since a list the server pages knows no total and cannot find among rows it has not read.
+`PagedList` holds any rows, its default slot, and knows nothing of what they are: the screen gives `hasMore`, `loading` and `error`, and reads the next page on `more`.
+`box="own"`, the default, stands them in a [`ScrollBox`](#the-primitive-layer) at most `min(28rem, 60dvh)` tall, with a hairline border, and names it `label` while it scrolls; a scroll past its end carries on to what is around it, where a `ScrollBox` alone would stop it.
+`box="parent"` has no scroller, for rows in the flow of a dialog's body or the drawer's, so no scroller stands inside another with nothing beside it.
+It asks as an `aria-hidden` sentinel over the last 12rem of the rows comes into view through every scroller around it, so it asks before the reader reaches the end and a keyboard reaches it too, and it observes the sentinel again whenever the rows change, so a page too short to fill the box leads on to the next.
+At the end of the rows it says "Loading…" in a `role="status"` line, or `ReadFailed` on `error`, whose "Try again" also emits `more` and moves focus to the first control of what landed.
+Manage market's History and the vendor drawer's History tab are its screens, read through [`useHistoryPages`](../front-end/src/utils/useHistoryPages.ts).
 
 People named above the work rather than listed are [`NameList.vue`](../front-end/src/components/NameList.vue) (T200): one paragraph, so it reads as a sentence, "12 reviewers: Ana, Ben, Cai and 9 more", naming `named` (3), and its text button, "and 9 more", which a `.visually-hidden` noun names on its own, emits `more` for the screen to open the whole list.
 With `named` or fewer names it says them all and draws no button, so a screen keeps its own way to that list.

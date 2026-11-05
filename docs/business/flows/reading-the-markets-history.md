@@ -5,6 +5,8 @@ describes:
   - front-end/src/components/MarketHistory.vue
   - front-end/src/components/HistorySection.vue
   - front-end/src/components/HistoryEntries.vue
+  - front-end/src/components/PagedList.vue
+  - front-end/src/utils/useHistoryPages.ts
   - front-end/src/utils/marketHistory.ts
   - front-end/src/utils/addressParts.ts
   - front-end/src/components/EmailAddress.vue
@@ -32,6 +34,7 @@ sources:
   - E38/F13/S01
   - T181
   - T223
+  - T224
 ---
 
 # Reading the market's history
@@ -47,7 +50,7 @@ An organizer reads it to investigate a problem or a mistake, which is why it liv
 **Status:** Works (E2E-walked by `the-markets-history.spec.ts`; not yet walked live).
 
 1. "Manage" on the market's row opens "Manage market", where "History" is a heading with a chevron, closed, so the sections after it stay in reach (Daniel, on T110's review).
-   Opening it reads the newest 10 changes, newest first, inside the dialog's own scrolling; closing it and opening it again keeps what it read and its filters, until the dialog closes.
+   Opening it reads the newest 25 changes, newest first, in a box of its own under the filters; closing it and opening it again keeps what it read and its filters, until the dialog closes, and a closed section asks for nothing.
 2. Each change is one sentence and its time.
    An address in it, who made the change, a vendor's beside their name or whose share a verdict was, breaks as an address in the table does (step 4).
    Its examples are one kind a line, in the order of the blocks of [what each write records](../../implementation/data/history.md#what-each-write-records), so a new kind's example is one line in its block's place ([two features never share a line](../../implementation/conventions/two-features-never-share-a-line.md#reading-the-markets-history)):
@@ -86,9 +89,16 @@ An organizer reads it to investigate a problem or a mistake, which is why it liv
 3. A vendor named in a change is a link to the market's Vendors page with their drawer open (`?vendor=`, [the vendor drawer](vendor-drawer.md)); the dialog closes as the page changes.
 4. "Before and after" under a change opens a table of each field it changed, as it was and as it is, and what else it recorded (a count, a date, where it was made); a phase reads as that market's other screens name it, a status and a role as the screens name them, an essential question's answer as the review card shows it, under the question's label; the table-share answer reads as one row, in the vendor's own words ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)), and where a permission row came from as "Built in", "The organization's default" or "This market"; a reset of the whole table opens to each row it returned, and a copy of the organization's defaults to each row it changed, by its label, as its role and where it came from ("Admin, This market" to "Editor, Built in").
    The Field column is one width down the whole list, as wide as the widest name of any table open, the column, its padding and border included, at most a third of the table (a longer name wraps), so Before and After, halves of the rest, line up from one change to the next; a change whose every Before is "none" draws one column instead, "Answer" for an applicant's own answers and "After" for anything else, an arrival's reviewer included; an address breaks, where a column is too narrow for it, before its "@" or a dot, in the Field column as in the values, and a part still wider than the column then inside a word, never just after a hyphen and never running over the next column (T137 review note 7, T181); every address of the history is drawn by [`EmailAddress.vue`](../../../front-end/src/components/EmailAddress.vue) from [`addressParts.ts`](../../../front-end/src/utils/addressParts.ts)'s parts, so its accessible name keeps it one word ([`an-address-breaks-only-before-its-at.spec.ts`](../../../front-end/e2e/an-address-breaks-only-before-its-at.spec.ts)), and the review's warnings and reviewer lines ([dividing the review](review.md#dividing-the-review)) and Manage organization's rows ([its people](organizations.md#b2-add-an-admin-or-a-member)) draw theirs with it; a team of reviewers reads one address a line.
-5. "Load more", under the list while older changes remain, adds the next 10 beneath, in the open dialog.
+5. The box is at most `min(28rem, 60dvh)` tall, so a short history is only as tall as it is, and a long one keeps the sections after it close.
+   Its bar is hidden, as every scroller's is, and a shade at an edge says more lies beyond it.
+   The next 25 arrive beneath the same entries as the end of the list comes into view, with nothing to press: scrolling or tabbing through the entries brings them, a page too short to fill the box leads on to the next, what was read stays put, an open "Before and after" stays open, and focus stays on its control.
+   A list's end inside a box still below the dialog's fold is not in view, so it asks nothing until the dialog is scrolled to it, and a scroll past the end of the box carries on to the dialog.
+   While a page comes the list ends in "Loading…", which a screen reader hears.
+   A page that fails ends it in what failed, "Older changes could not be loaded." unless the failure says more, and "Try again", which brings it and moves focus to the first control of what landed.
+   There is no count of the entries and no line for the list's end, since a server page cannot know one cheaply: the bottom shade going away says it.
    A change made in the dialog (a person given, changed or taken a role, a rename, a row of the permission table) reads the first page again, under the filters as they are, so it shows without reopening the dialog.
 6. The filters above the list narrow it, and stay set while the dialog is open: "Who" (a field that finds anyone who changed something as an organizer by typing part of their address, "Anyone" first; its list lies over the filters below it, the arrow keys move, Enter takes, Escape closes the list before the dialog, and the words only search, so the list of changes stays narrowed as it was until another is taken), "Kind of change" (the table's groups: Market Setup, Applications, Lifecycle, Vendors, Assignment, Payments, The door, Discord, People; a seat filled again that takes back the $0 a free set reads under both Assignment and Payments), "Vendor" (a field that finds, by a name or part of an address, the market's vendors who gave a name and every address a loaded change names, each row the name beside the address ([`personChoice.ts`](../../../front-end/src/utils/personChoice.ts)) and at most 50 drawn before "N more, type to narrow"; its list lies over the filters below it and looks the same on every browser, the words narrow as they are typed and stay as typed on leaving unless they are a vendor's whole address or label, when the field names that vendor, one match narrows to that vendor, and choosing a row narrows to them and the field names them; while the words match several it says "2 vendors match. Keep typing, or choose one.", words that match nobody narrow the list to nothing, and an address typed whole that no loaded change names is asked for all the same), and "From" and "To" (calendar days in the reader's timezone, both kept).
+   They stay above the box and in sight while it scrolls, and a change of filter starts the list again from its newest entry, at the top of the box.
    "Clear filters" sets them all back; with nothing to show the list says "No change matches these filters.", or "Nothing has changed on this market yet." when unfiltered.
 
 Someone below the row is shown no History section, and the server refuses them the read in the row's words.
@@ -97,7 +107,8 @@ An archived market's history is still read: reading it is not a change ([an arch
 
 ## One vendor's history
 
-A vendor's drawer reads the same history narrowed to that vendor on its History tab: the same component given the vendor, so the same sentences, "Before and after" and "Load more", with no filters, and the vendor named by name alone ([the vendor drawer](vendor-drawer.md)).
+A vendor's drawer reads the same history narrowed to that vendor on its History tab: the same component given the vendor, so the same sentences, "Before and after" and paging, with no filters, and the vendor named by name alone ([the vendor drawer](vendor-drawer.md)).
+The list has no box of its own there: its entries scroll with the drawer's body, and the next 25 arrive as their end comes into view.
 There, on the Vendors page, another vendor a change names opens in the same drawer, as the page's own vendor would, rather than following the link, so one Back still closes the drawer (E38/F13/S01); on any other page, and opened in a new tab, it is the link to Vendors.
 A deal of many applications ([the review is dealt among chosen reviewers](../rules/the-review-is-dealt-among-chosen-reviewers.md)) reads there as that vendor's own line, "dealt the application to <address>", and opens to their reviewer alone, before and after; in the market's History it reads "chose the reviewers: …", "changed the reviewers: added …, removed …" or "removed every reviewer", and "dealt N open applications among M reviewers", or "dealt the application of <vendor> to <address>" when it moved one, and a removed reviewer's follow-up "dealt the follow-up of <vendor> from <address> to <address>"; a verdict on someone else's share ends ", dealt to <address>", and in a selection's sentence each such vendor is followed by "(dealt to <address>)"; an applicant's own arrival reads "The application of <vendor> was dealt to <address> as it arrived", in their drawer "The application was dealt to <address> as it arrived".
 A Discord check reads there as that vendor's own line, "checked who is in the Discord server: Not found", and opens to their state alone, before and after; a check that left their state as it was names them not, and is not in their list.
