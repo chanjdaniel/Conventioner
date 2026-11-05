@@ -616,7 +616,7 @@ test('a price group\'s "Add a condition on" past 12 questions shows its whole li
   });
   expect(answers, "the list's last row is under something else").toBe(true);
   const scrolls = await card
-    .locator('.pricing-frame')
+    .getByTestId('pricing-frame')
     .evaluate((frame) => frame.scrollHeight > frame.clientHeight + 1);
   expect(scrolls, "the table's frame grew a scroller for the list").toBe(false);
 
