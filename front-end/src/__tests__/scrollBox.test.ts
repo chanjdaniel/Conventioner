@@ -274,6 +274,36 @@ describe('its tone', () => {
   });
 });
 
+describe("a combobox's list", () => {
+  const LIST = { id: 'who-list', label: 'Who sits here', multiple: true };
+
+  it('is the listbox on the scroller, named as the field says', () => {
+    const scroller = mountBox({ listbox: LIST });
+
+    expect(scroller.getAttribute('role')).toBe('listbox');
+    expect(scroller.id).toBe('who-list');
+    expect(scroller.getAttribute('aria-label')).toBe('Who sits here');
+    expect(scroller.getAttribute('aria-multiselectable')).toBe('true');
+  });
+
+  it('says nothing of several when it takes one', () => {
+    const scroller = mountBox({ listbox: { id: 'who-list', label: 'Who sits here' } });
+
+    expect(scroller.hasAttribute('aria-multiselectable')).toBe(false);
+  });
+
+  it('is never a Tab stop, overflowing with nothing focusable, since its field keys it', async () => {
+    const scroller = mountBox({ listbox: LIST });
+
+    layOut(scroller, { scrollHeight: 400, clientHeight: 100 });
+    await resized();
+
+    expect(scroller.getAttribute('tabindex'), 'nor a stop a browser makes itself').toBe('-1');
+    expect(scroller.hasAttribute('data-scroll-stop')).toBe(false);
+    expect(shaded()).toEqual(['bottom']);
+  });
+});
+
 describe('the Tab stop', () => {
   const stop = (scroller: HTMLElement) => scroller.getAttribute('tabindex');
 

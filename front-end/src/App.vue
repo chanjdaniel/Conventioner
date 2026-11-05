@@ -68,7 +68,9 @@ onMounted(async () => {
 
     if (response.status === 200) {
       const user_email = response.data.email;
-      localStorage.setItem('user', JSON.stringify(user_email));
+      // Only a correction is written. This tab may not yet have heard another tab's sign-out, so an
+      // answer repeating what it reads here would put back the user that sign-out took away.
+      if (user_email !== asked) localStorage.setItem('user', JSON.stringify(user_email));
       user.value = user_email;
     } else {
       endSession(router, { ended: false });

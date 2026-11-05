@@ -74,7 +74,7 @@ The choice is kept in the address: no `view` is All, and a saved `?view=all` sti
 Choosing All drops both `view` and `application`.
 Both views say when their list was last read from the server, "Updated just now" or "Updated N minutes ago", ageing on screen, with "Refresh" beside it to read it again at once ([`ListFreshness.vue`](../../../front-end/src/components/application/ListFreshness.vue)).
 A refresh is a re-read, not a reset: the All view keeps the ticks of rows still shown, One by one keeps the card up while it is still to decide and moves on from one decided elsewhere, and a refresh that fails says "Could not refresh. The list is as it was last read." and keeps the list.
-The page fits a phone, in every phase it is shown in, as the plan, the form and Settings do not ([the design language](../../design-system.md#layout), T180): on a phone the All view's row reads down, the name and address, the leading answers, then the status lines, each row's tick a 44px square, and the vendor drawer and Update info open inside the window; One by one's card is the window less its gutters, its verdict buttons wrapping inside it, "Include the N follow-ups", the reviewed list's toggle and "Choose what leads the card" are 44px targets, and the follow-up, reviewers, Open applications and Publish results dialogs open inside the window (`the-market-on-a-phone.spec.ts`).
+The page fits a phone, in every phase it is shown in, as the plan, the form and Settings do not ([the design language](../../design-system.md#layout), T180): on a phone the All view's row reads down, the name and address, the leading answers, then the status lines, each row's tick a 44px square, and the vendor drawer and Update info open inside the window; One by one's card is the window less its gutters, its verdict buttons wrapping inside it, "Include the N follow-ups", "Show N reviewed" and "Choose what leads the card" are 44px targets, and the reviewed applications, what leads the card, the follow-up, reviewers, Open applications and Publish results dialogs open inside the window (`the-market-on-a-phone.spec.ts`).
 A first read that fails says what went wrong (the connection, the server, or the server's own reason), with "Try again" to read it once more ([`ReadFailed.vue`](../../../front-end/src/components/ReadFailed.vue)).
 Both views give verdicts and mark follow-ups through one composable ([`front-end/src/utils/verdictActions.ts`](../../../front-end/src/utils/verdictActions.ts)), so they cannot treat one differently.
 Every verdict records who gave it and when, and the review shows it: "Approved by <email>, <date and time>", or "Rejected automatically: <reason>" for one an [automatic rejection](form-tab.md#f3-what-a-reviewer-reads-first) gave as the application arrived.
@@ -134,8 +134,8 @@ Covered by:
 The rule is [what each role may do](../rules/what-each-role-may-do.md#why): whoever gave a verdict takes it back within 2 minutes, whatever their role, while they may still give verdicts.
 Both views offer it through one composable, [`front-end/src/utils/verdictUndo.ts`](../../../front-end/src/utils/verdictUndo.ts), and a row's and One by one's line is [`VerdictUndoLine.vue`](../../../front-end/src/components/application/VerdictUndoLine.vue).
 
-1. One by one: the line under the counts, above the reviewed list when it is open and above the next card, is a polite live region, "<Approved|Rejected> <name> (<email>)." or "Marked <name> (<email>) for follow-up." (the email alone when they gave no name), with "Undo" and its key, Z.
-   It stays for the window the server's answer gives (`undoSeconds`), or until the next verdict, which offers its own; a change from the reviewed list offers none.
+1. One by one: the line under the counts, above the next card, is a polite live region, "<Approved|Rejected> <name> (<email>)." or "Marked <name> (<email>) for follow-up." (the email alone when they gave no name), with "Undo" and its key, Z.
+   It stays for the window the server's answer gives (`undoSeconds`), or until the next verdict, which offers its own; a change from the reviewed applications offers none, and takes the one on offer away.
 2. "Undo" returns the application to what the server kept of it when the verdict landed, open, or needs follow-up marked and owned as it was, still dealt to whom it was dealt, and puts it up as the card, held for the reviewer.
    A follow-up whose owner the reviewer may no longer hand one to is not brought back: the owner has lost their role since, or, to a reviewer from outside the market's organization, is not named in its roles.
    The line says "This verdict can no longer be undone here: the follow-up it closed would come back to an owner you cannot see on this market. An Admin or the market's owner can change it.", in place of the review route's two refusals of an owner ("A follow-up's owner must have a role on this market." and "You can hand a follow-up only to someone named in this market's roles."), since an undo hands the follow-up to nobody.
@@ -150,16 +150,27 @@ The story asked the line and the reviewed list to name the applicant's business 
 
 ## I2. Change a decision
 
-**Status:** Works (walked live; the giver read from the code as of E34/F01/S01; who may change one as of E38/F06/S01: `changing-a-verdict-is-its-own-row.spec.ts`; the list's order and rows as of E38/F10/S01: `undoing-a-verdict.spec.ts`).
-"Show N reviewed", beside the tally above the card, opens the decided applications above the card, newest verdict first (those with no verdict time last, in arrival order), each by name then email with its verdict and who gave it, and "Approve instead" on a rejection or "Reject instead" on an approval.
-**Changing a verdict is its own row of the table**, "Change a verdict, or overturn an automatic rejection" (default Admin), on top of giving one ([what each role may do](../rules/what-each-role-may-do.md)): "Approve instead" and "Reject instead", an automatic rejection's included, are offered only to someone it lets change one, and a reviewer it refuses reads its sentence once, above the list: "Only an Admin or the owner may change a verdict or overturn an automatic rejection on this market."
+**Status:** Works (walked live; the giver read from the code as of E34/F01/S01; who may change one as of E38/F06/S01: `changing-a-verdict-is-its-own-row.spec.ts`; the list's order and rows as of E38/F10/S01: `undoing-a-verdict.spec.ts`; the dialog as of T217: `the-reviewed-list-opens-as-a-dialog.spec.ts`).
+"Show N reviewed", beside the tally above the card, opens the "Reviewed applications" dialog over the card, which does not move.
+It lists the decided applications, newest verdict first (those with no verdict time last, in arrival order), each by name then email with its verdict and who gave it, either address breaking as the history's addresses do ([reading the market's history](reading-the-markets-history.md#l6-read-the-markets-history)), and "Approve instead" on a rejection or "Reject instead" on an approval.
+It shows 50 rows and "Show N more", and past 12 rows a field finds one by name or address, the dialog's top holding as the rows go; the words go when it closes.
+**Changing a verdict is its own row of the table**, "Change a verdict, or overturn an automatic rejection" (default Admin), on top of giving one ([what each role may do](../rules/what-each-role-may-do.md)): "Approve instead" and "Reject instead", an automatic rejection's included, are offered only to someone it lets change one, and a reviewer it refuses reads its sentence once, above the list in the dialog: "Only an Admin or the owner may change a verdict or overturn an automatic rejection on this market."
 A verdict is approved or rejected: deciding a follow-up is giving one, while sending an approved or rejected application back to needs follow-up is changing one, so the change row asks it too (E38/F06/S01).
 A follow-up is not listed here: it is decided from its own card, or from All.
 From Assignment on the list only reads.
+
+A verdict changed in the dialog leaves it open, with the rows shown as they were and focus on that row's new button, the row itself going to the head of the list as the newest verdict.
+What the server refuses is said in the dialog, and the card and the Undo line behind stay as they are.
+Closed with the answer still out, the refusal is said on the card's error line instead, naming the application ("jane@example.com was not changed: ..."), beside what the card already says, and the next opening starts clean.
+An address on that line, or in the refusal on the card that names who changed it, breaks the same way.
+A change that is written takes the undo on offer away ([undoing a verdict just given](#undoing-a-verdict-just-given)), and lets go a refused card only when it is that card's own application; any other card stays as it is.
+While the dialog is open A, R, S, N and Z do nothing, it closes when the view stops being visible or another market opens, and closing gives focus back to "Show N reviewed" with the same application up.
+A link naming a reviewed application, as a refused assignment's does, opens the dialog with the words set to its address and its row marked, however far down the list it lies; closing clears the words.
 Covered by:
 - `automatic-rejections.spec.ts` ("the preview lists the rows a rule will reject, an import rejects them, and a reviewer overturns one")
 - `changing-a-verdict-is-its-own-row.spec.ts`
 - `the-all-view.spec.ts` ("a verdict changes while the review is open, then the drawer only shows it")
+- `the-reviewed-list-opens-as-a-dialog.spec.ts`
 
 ## The All view
 

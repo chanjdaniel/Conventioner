@@ -985,6 +985,9 @@ describe('the dialog', () => {
       'keeps Enter in %s from the form',
       async (testid) => {
         const wrapper = await unfolded();
+        // Vue skips a listener attached in the millisecond an inner listener stamped the event, so
+        // the combobox's own keydown would hide the form's now and then; no person is that quick.
+        await new Promise((resolve) => setTimeout(resolve, 2));
 
         const enter = new KeyboardEvent('keydown', {
           key: 'Enter',
