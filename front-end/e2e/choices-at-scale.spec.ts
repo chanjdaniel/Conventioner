@@ -350,7 +350,15 @@ test.describe('"Maps to", on a file of 30 columns', () => {
     // sticky chrome may lie over the row where it stands, so it is centred first: a press that
     // lands on the chrome is a press outside the list, which rightly closes it.
     await taken.evaluate((row) => row.scrollIntoView({ block: 'center' }));
+    const pressable = await taken.evaluate((row) => {
+      const { left, top, width, height } = row.getBoundingClientRect();
+      return row.contains(document.elementFromPoint(left + width / 2, top + height / 2));
+    });
+    expect(pressable, 'the press would land on what lies over the taken row').toBe(true);
     await taken.click({ force: true });
+    // The list closes on a timer the press's mouseup sets, so this one, set after it, runs after
+    // it: read any sooner, a list that is closing still reads as open.
+    await page.evaluate(() => new Promise((resolve) => setTimeout(resolve)));
     await expect(other.list).toBeVisible();
     await other.field.press('Enter');
     await other.field.press('Tab');
