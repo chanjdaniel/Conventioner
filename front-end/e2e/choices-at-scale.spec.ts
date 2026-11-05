@@ -346,7 +346,10 @@ test.describe('"Maps to", on a file of 30 columns', () => {
     const taken = other.option(question.key);
     await expect(taken).toHaveAttribute('aria-disabled', 'true');
     await expect(taken).toContainText(`Mapped from "${certifyHeader}"`);
-    // Forced, since Playwright itself will not press what is `aria-disabled`; a person can.
+    // Forced, since Playwright itself will not press what is `aria-disabled`; a person can. The
+    // sticky chrome may lie over the row where it stands, so it is centred first: a press that
+    // lands on the chrome is a press outside the list, which rightly closes it.
+    await taken.evaluate((row) => row.scrollIntoView({ block: 'center' }));
     await taken.click({ force: true });
     await expect(other.list).toBeVisible();
     await other.field.press('Enter');
