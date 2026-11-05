@@ -152,7 +152,7 @@ Covered by:
 7. "Changes" lists the market's history narrowed to the table, newest first, in a box of bounded height that shows 25 more as its end scrolls into view, as the market's History does: the row, its role before and after ("Editor to Admin"), or "Reset to built-in defaults" or "Copied the organization's defaults" with each row it changed, and who made it and when, by their address, as "Users with access" names people.
    It is the market's history, so someone the row "Read the market's history" refuses (an owner may raise it above the roles that see this section) has no "Changes", and a row changed on this market says only "Changed on this market".
 8. For anyone but the owner the dialog is read-only and says "Only the market's owner changes these."; on an archived market, the owner included, it says the archived words instead.
-   A reader gets no foot, and with no control in the dialog focus lands on its body at each opening, so the arrow keys scroll the rows; the changes are read afresh each time, so "Load more" comes after focus has landed.
+   A reader gets no foot, and with no control in the dialog focus lands on its body at each opening, so the arrow keys scroll the rows; the changes are read afresh each time, so their box comes after focus has landed.
 9. Reset and Copy are pinned at the dialog's foot for the owner, in reach from any row, and a change, a reset or a copy asks first over the dialog: Cancel, Escape and the backdrop close only the confirmation, and a confirm writes once and leaves the dialog open with the table and the changes read again.
    Closing the dialog, whichever way, gives focus back to "Show", with Manage market as it was.
 

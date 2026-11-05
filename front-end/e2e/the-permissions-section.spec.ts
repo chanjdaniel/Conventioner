@@ -50,12 +50,12 @@ async function openManage(page: Page): Promise<ManageMarketPage> {
   return manage;
 }
 
-/** More changes than a page of them, so that the dialog draws "Load more". */
+/** More changes than a page of them, so that the dialog draws their box with more to come. */
 async function routeManyChanges(page: Page): Promise<void> {
   await page.route(`**/markets/${marketId}/permission-history`, (route) =>
     route.fulfill({
       json: {
-        entries: Array.from({ length: 12 }, (_, n) => ({
+        entries: Array.from({ length: 30 }, (_, n) => ({
           id: `entry-${n}`,
           actor: 'owner@example.com',
           at: '2026-11-05T10:00:00+00:00',
@@ -335,20 +335,24 @@ test.describe('a section, and a dialog over Manage market', () => {
     browser,
   }) => {
     await withUser(browser, PEOPLE.viewer.email, PEOPLE.viewer.password, async (page) => {
-      // More changes than a page, so a "Load more" arrives after the dialog has placed its focus.
+      // More changes than a page, so their box arrives after the dialog has placed its focus.
       await routeManyChanges(page);
       const manage = await openPermissions(page);
-      await expect(page.getByTestId('manage-market-permission-changes-more')).toBeVisible();
+      await expect(manage.permissionChangesBox).toBeVisible();
       await expect(manage.permissionsBody).toBeFocused();
 
       const scrollTop = () => manage.permissionsBody.evaluate((box) => box.scrollTop);
       await page.keyboard.press('ArrowDown');
       await expect.poll(scrollTop).toBeGreaterThan(0);
 
-      // Load more's focus goes on, rather than falling to <body>, when the button goes.
-      await page.getByTestId('manage-market-permission-changes-more').focus();
-      await page.keyboard.press('Enter');
-      await expect(page.getByTestId('manage-market-permission-change').nth(10)).toBeFocused();
+      // The keys reach the box, and the next changes land with the focus still on it.
+      const changes = page.getByTestId('manage-market-permission-change');
+      await expect(changes).toHaveCount(25);
+      await page.keyboard.press('Tab');
+      await expect(manage.permissionChangesBox).toBeFocused();
+      await page.keyboard.press('End');
+      await expect(changes).toHaveCount(30);
+      await expect(manage.permissionChangesBox).toBeFocused();
     });
   });
 
@@ -358,13 +362,13 @@ test.describe('a section, and a dialog over Manage market', () => {
     await withUser(browser, PEOPLE.viewer.email, PEOPLE.viewer.password, async (page) => {
       await routeManyChanges(page);
       const manage = await openPermissions(page);
-      await expect(page.getByTestId('manage-market-permission-changes-more')).toBeVisible();
+      await expect(manage.permissionChangesBox).toBeVisible();
       await page.keyboard.press('Escape');
       await expect(manage.permissionsBody).toHaveCount(0);
 
       await manage.showPermissions();
 
-      await expect(page.getByTestId('manage-market-permission-changes-more')).toBeVisible();
+      await expect(manage.permissionChangesBox).toBeVisible();
       await expect(manage.permissionsBody).toBeFocused();
       expect(await manage.permissionsBody.evaluate((box) => box.scrollTop)).toBe(0);
       await expect(manage.permissionsReadOnly).toBeInViewport();
