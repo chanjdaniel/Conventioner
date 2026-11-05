@@ -29,7 +29,8 @@ export const labelHolds = (option: PickerOption, words: string) =>
  *   `optgroup`, and `placeholder` is its empty row, with no empty row without one.
  * - Past 12 the field's root carries `testid`, it draws 50 of what the words find, its list lies over
  *   what follows and moves no row, at least 22rem wide with its right edge on the field's, so a long
- *   answer reads on a line or two in a narrow column; words it does not find say "Nothing".
+ *   answer reads on a line or two in a narrow column; a group the words empty is not drawn, so what
+ *   they find leads the list, and words that find nothing say "Nothing" once.
  * - An option that is `disabled` may not be taken either way, its `detail` saying why: a row of the
  *   list muted, words still finding it, or an `option` that is `disabled`, its detail on its line.
  * - It never takes typed words: words not chosen clear on leaving the field. A free-text field is
@@ -159,6 +160,7 @@ defineExpose({ open, showHeld });
     :field-id="fieldId"
     :list-over="!listInFlow"
     none-word="Nothing"
+    hides-emptied-groups
     @update:model-value="emit('update:modelValue', $event as string)"
   />
   <div v-else>

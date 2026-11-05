@@ -92,6 +92,7 @@ Each row of the ledger is one [`ChoiceField`](../../design-system.md#the-primiti
 Every row counts the same choices, each target and a column's two ways out, though a grid has one way out, so a ledger never mixes a select with a field.
 Its groups come in this order: Ignore ("Ignore this column" or "Ignore these columns", value `''`, and on a column "This column has nowhere to go…", which never reaches the server), then, following `ImportTarget.kind`, Essential (`identity`, `essential`, and Submitted at) and Your questions (`custom`, and "From your sheet").
 The ways out come first so that the cap never hides them, however many targets a market has, and an unmapped row's list opens at its head rather than at its tail.
+Words typed draw only the groups they found, so what they find leads the list rather than a heading with nothing under it.
 A target another row holds is disabled with `Mapped from "<heading>"`, cut to two lines as the row's own heading is, and is free again once that row lets it go.
 
 **Values are matched forgivingly, once.**

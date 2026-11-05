@@ -113,3 +113,32 @@ describe.each([48, 49, 50, 80])('a market of %i targets', (count) => {
     wrapper.unmount();
   });
 });
+
+describe('words typed in the list', () => {
+  const type = async (wrapper: VueWrapper, words: string) => {
+    await wrapper.get(`[data-testid="${FIELD}-input"]`).setValue(words);
+    await flushPromises();
+  };
+  const list = (wrapper: VueWrapper) => wrapper.get('[role="listbox"]');
+
+  it('draw only the groups they found, with no "None match" above the row', async () => {
+    const wrapper = await mapColumns(80);
+    await openList(wrapper);
+    await type(wrapper, 'Question 42');
+    expect(rows(wrapper).map((row) => row.attributes('data-value'))).toEqual(['question_42']);
+    expect(list(wrapper).text()).not.toContain('None match');
+    expect(list(wrapper).text()).not.toContain('Ignore');
+    expect(list(wrapper).text()).not.toContain('Essential');
+    expect(list(wrapper).text()).toContain('Your questions');
+    wrapper.unmount();
+  });
+
+  it('that find nothing say so once', async () => {
+    const wrapper = await mapColumns(80);
+    await openList(wrapper);
+    await type(wrapper, 'nothing holds this');
+    expect(rows(wrapper)).toHaveLength(0);
+    expect(list(wrapper).text()).toBe('Nothing matches "nothing holds this".');
+    wrapper.unmount();
+  });
+});

@@ -13,9 +13,10 @@
  *   list, Enter takes the active choice, Escape closes the list. While the list is closed, Enter
  *   and Escape belong to the dialog around it, so Enter still submits and Escape still closes.
  * - A group is never hidden by a search, only narrowed: one with a name and nothing matching says
- *   so, and one with no name has no heading to say it under. A group with no choices at all is not
- *   drawn, as an empty `optgroup` was not. A picker with no choices at all never opens its list; the
- *   note beside it says why there is nothing to choose.
+ *   so, and one with no name has no heading to say it under. Given `hidesEmptiedGroups`, a group the
+ *   words emptied is not drawn, and words that find nothing say so once. A group with no choices at
+ *   all is not drawn, as an empty `optgroup` was not. A picker with no choices at all never opens its
+ *   list; the note beside it says why there is nothing to choose.
  * - What the words find is the caller's (`finds`), so every use searches by its own terms.
  * - The list opens in the page's flow, under the field, rather than over what follows: inside a
  *   dialog a floating list is clipped by the dialog's own scroller. Given `listOver`, it lies over
@@ -157,6 +158,8 @@ const props = defineProps<
     clearsOnChoice?: boolean;
     /** Its field's id, for a link elsewhere on the screen to name. */
     fieldId?: string;
+    /** A group the words emptied is not drawn: its heading says nothing of what they did find. */
+    hidesEmptiedGroups?: boolean;
   } & (
     | { multiple?: false; modelValue: string }
     /** Several choices, shown as chips above the field. */
@@ -280,7 +283,8 @@ const cappedGroups = computed(() => {
   return matchedGroups.value.flatMap((group) => {
     const shown = group.matched.filter((option) => !led.has(option)).slice(0, room);
     room -= shown.length;
-    return group.matched.length > 0 && shown.length === 0 ? [] : [{ ...group, shown }];
+    const emptied = group.matched.length === 0 && props.hidesEmptiedGroups;
+    return (group.matched.length > 0 && shown.length === 0) || emptied ? [] : [{ ...group, shown }];
   });
 });
 /** The words as a choice of their own, while they name no option. */

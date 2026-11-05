@@ -410,6 +410,48 @@ describe('a list in the flow', () => {
   });
 });
 
+describe('words past 12', () => {
+  const named = (label: string): PickerGroup => ({
+    label,
+    options: Array.from({ length: 7 }, (_, o) => ({
+      value: `${label}-${o}`,
+      label: `${label} ${o}`,
+    })),
+  });
+  const typed = async (wrapper: Field, words: string) => {
+    await input(wrapper).trigger('focus');
+    await input(wrapper).trigger('click');
+    await input(wrapper).setValue(words);
+    await flushPromises();
+  };
+
+  it('draw no group they emptied', async () => {
+    const wrapper = field({ groups: [named('Red'), named('Blue')] });
+    await typed(wrapper, 'Blue 3');
+    const list = wrapper.get('[role="listbox"]');
+    expect(list.text()).not.toContain('None match');
+    expect(list.text()).not.toContain('Red');
+    expect(list.text()).toContain('Blue 3');
+  });
+
+  it('that find nothing say so, whatever groups it holds', async () => {
+    const wrapper = field({ groups: [named('Red'), named('Blue')] });
+    await typed(wrapper, 'green');
+    expect(wrapper.get('[data-testid="fix-none"]').text()).toBe('Nothing matches "green".');
+  });
+
+  it('that find nothing say so beside the way back to none', async () => {
+    const wrapper = field({
+      groups: choices(13),
+      modelValue: 'v1',
+      noneRow: 'No role',
+      writes: true,
+    });
+    await typed(wrapper, 'green');
+    expect(wrapper.get('[data-testid="fix-none"]').text()).toBe('Nothing matches "green".');
+  });
+});
+
 describe('a choice that adds', () => {
   const adding = (count: number, added: string[]) =>
     field({
