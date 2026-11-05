@@ -259,7 +259,12 @@ test.describe('a vendor named in the History tab', () => {
 
     await page.goBack();
     await expect(vendors.detailCloseButton).toBeHidden();
-    await expect(page).toHaveURL((url) => url.pathname === vendorsPath && url.search === '');
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === vendorsPath &&
+        url.searchParams.get('search') === ALICE &&
+        !url.searchParams.has('vendor'),
+    );
 
     // Closed by "×" instead, Back goes to the page before, and no drawer opens again.
     await toBobFromAlice(page, marketId);

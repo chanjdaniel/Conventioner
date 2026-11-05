@@ -133,7 +133,7 @@ const rows = (wrapper: View) =>
   wrapper
     .findAll('[data-testid="applications-all-row"]')
     .map((row) => row.find('.all-row-button').attributes('data-application-id'));
-const count = (wrapper: View) => wrapper.get('[data-testid="applications-all-count"]').text();
+const count = (wrapper: View) => wrapper.get('[data-testid="applications-all-list-count"]').text();
 
 describe('the "Assigned to" filter', () => {
   it('is a combobox labelled "Assigned to": Me and Anyone, then the other reviewer in a group', async () => {
@@ -179,7 +179,7 @@ describe('the "Assigned to" filter', () => {
 
     expect(picker(wrapper).exists()).toBe(false);
     expect(rows(wrapper)).toHaveLength(5);
-    expect(count(wrapper)).toBe('5 of 5');
+    expect(count(wrapper)).toBe('5 applications');
   });
 
   it('is not there with no reviewers chosen whatever the address says', async () => {
@@ -197,7 +197,7 @@ describe('what the All view opens on', () => {
 
     expect(value(wrapper)).toBe('Me');
     expect(rows(wrapper)).toEqual(['ana-1', 'ana-2']);
-    expect(count(wrapper)).toBe('2 of 5');
+    expect(count(wrapper)).toBe('2 of 5 applications');
   });
 
   it('opens anyone else, an Admin overseeing the review, on every application', async () => {
@@ -206,7 +206,7 @@ describe('what the All view opens on', () => {
 
     expect(value(wrapper)).toBe('Anyone');
     expect(rows(wrapper)).toHaveLength(5);
-    expect(count(wrapper)).toBe('5 of 5');
+    expect(count(wrapper)).toBe('5 applications');
   });
 
   it('shows another reviewer’s share, or everyone’s, as the address asks', async () => {
@@ -236,7 +236,7 @@ describe('what the All view opens on', () => {
     route.query = { status: 'undecided' };
     const mine = await allView({ market: market() });
     expect(rows(mine)).toEqual(['ana-1']);
-    expect(count(mine)).toBe('1 of 5');
+    expect(count(mine)).toBe('1 of 5 applications');
   });
 });
 

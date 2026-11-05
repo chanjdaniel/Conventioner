@@ -29,6 +29,8 @@ import { canAssignIn } from '@/utils/assignPhase';
 import ResultSummary from '@/components/ResultSummary.vue';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
+import RowGroup from '@/components/RowGroup.vue';
+import { useGroupFolds } from '@/utils/useGroupFolds';
 import { useResultFilters } from '@/utils/useResultFilters';
 import {
   HALF_TABLE_LEFT,
@@ -150,6 +152,36 @@ const groupedRows = computed((): DateGroup[] => {
   return dateGroups;
 });
 
+/** How many tables a section shows before "Show all 31 in Gold Hall" (L7). */
+const SECTION_FOLD = 20;
+
+/** A section's fold stands for it on one date, whatever the filters do to it. */
+const sectionKey = (date: string, section: string) => `${date}|${section}`;
+
+/**
+ * Each section's fold, held here because a re-read unmounts the sections: a placement or a swap
+ * leaves the page as the organizer had it. The page's search narrows first, and one "Show all" lets
+ * the browser's own find reach every table.
+ */
+const {
+  allUnfolded: allSectionsUnfolded,
+  isUnfolded: isSectionUnfolded,
+  offered: aSectionFolds,
+  reset: forgetSectionFolds,
+  rows: tablesOnThePage,
+  setUnfolded: setSectionUnfolded,
+  toggleAll: toggleAllSections,
+} = useGroupFolds(
+  () =>
+    groupedRows.value.flatMap(({ date, sections }) =>
+      sections.map(({ section, rows }) => ({
+        key: sectionKey(date, section),
+        rows: rows.length,
+      })),
+    ),
+  SECTION_FOLD,
+);
+
 const statusCounts = computed(() =>
   countStatuses(allRows.value, filters.value, vendorSearch.value),
 );
@@ -218,7 +250,14 @@ async function loadTables(): Promise<void> {
   }
 }
 
-watch(() => marketId.value, loadTables);
+watch(
+  () => marketId.value,
+  () => {
+    forgetSectionFolds();
+    allRows.value = [];
+    void loadTables();
+  },
+);
 
 onMounted(loadTables);
 
@@ -243,12 +282,19 @@ const openSeat = ref<OpenSeat | null>(null);
 const placementBusy = ref(false);
 const placementError = ref('');
 
+/*
+ * The tables stay up through the read a placement brings, and one change can move other vendors, so
+ * until that read lands a seat says what it held. A press then opens nothing, or the dialog would act
+ * on who the page no longer holds.
+ */
 function openPlace(row: MarketTableRow, seat: Seat | null): void {
+  if (isLoading.value) return;
   placementError.value = '';
   openSeat.value = { mode: 'place', row, seat, occupantEmail: null };
 }
 
 function openOccupied(row: MarketTableRow, email: string): void {
+  if (isLoading.value) return;
   placementError.value = '';
   openSeat.value = { mode: 'occupied', row, seat: seatHeldBy(row, email), occupantEmail: email };
 }
@@ -436,7 +482,9 @@ function swapSeats(withEmail: string): void {
         <ReadFailed v-if="errorMessage" name="tables" :message="errorMessage" @retry="loadTables" />
 
         <template v-if="tablesShown">
-          <div v-if="isLoading" class="status-message">Loading tables…</div>
+          <!-- Only a first read says so: a re-read leaves the tables up until the new ones come, or a
+               placement past the fold would lose the reader's place. -->
+          <div v-if="isLoading && !allRows.length" class="status-message">Loading tables…</div>
 
           <template v-else-if="allRows.length === 0 && !errorMessage">
             <div class="empty-state">
@@ -484,6 +532,18 @@ function swapSeats(withEmail: string): void {
             </div>
 
             <div v-else class="date-groups">
+              <!-- Stands above the groups, where a press leaves it, so the focus stays and nothing
+                   jumps. -->
+              <button
+                v-if="aSectionFolds"
+                type="button"
+                class="btn btn--secondary page-fold"
+                data-testid="tables-show-all"
+                @click="toggleAllSections"
+              >
+                {{ allSectionsUnfolded ? 'Show fewer' : `Show all ${tablesOnThePage} tables` }}
+              </button>
+
               <section
                 v-for="dateGroup in groupedRows"
                 :key="dateGroup.date"
@@ -499,25 +559,34 @@ function swapSeats(withEmail: string): void {
                   >
                 </h2>
 
-                <div
+                <RowGroup
                   v-for="sectionGroup in dateGroup.sections"
                   :key="`${dateGroup.date}-${sectionGroup.section}`"
                   class="section-group"
+                  :heading="sectionGroup.section"
+                  :items="sectionGroup.rows"
+                  :itemKey="(row: MarketTableRow) => `${row.date}-${row.tableCode}`"
+                  :level="3"
+                  :fold="SECTION_FOLD"
+                  :testid="`tables-section-${dateGroup.date}-${sectionGroup.section}`"
+                  :unfolded="isSectionUnfolded(sectionKey(dateGroup.date, sectionGroup.section))"
+                  @update:unfolded="
+                    setSectionUnfolded(sectionKey(dateGroup.date, sectionGroup.section), $event)
+                  "
                 >
-                  <h3 class="section-heading">
-                    <span class="section-heading-name">{{ sectionGroup.section }}</span>
-                    <span v-if="sectionGroup.location" class="section-heading-meta">{{
-                      sectionGroup.location
-                    }}</span>
-                    <span v-if="sectionGroup.tier" class="section-heading-meta">{{
-                      sectionGroup.tier
-                    }}</span>
-                  </h3>
-
-                  <ul class="table-list">
-                    <li
-                      v-for="row in sectionGroup.rows"
-                      :key="`${row.date}-${row.tableCode}`"
+                  <template #heading>
+                    <span class="section-heading">
+                      <span class="section-heading-name">{{ sectionGroup.section }}</span>
+                      <span v-if="sectionGroup.location" class="section-heading-meta">{{
+                        sectionGroup.location
+                      }}</span>
+                      <span v-if="sectionGroup.tier" class="section-heading-meta">{{
+                        sectionGroup.tier
+                      }}</span>
+                    </span>
+                  </template>
+                  <template #row="{ item: row }">
+                    <div
                       class="table-row"
                       :class="{
                         'table-row--empty': rowStatus(row).label === 'empty',
@@ -603,9 +672,9 @@ function swapSeats(withEmail: string): void {
                           </div>
                         </template>
                       </div>
-                    </li>
-                  </ul>
-                </div>
+                    </div>
+                  </template>
+                </RowGroup>
               </section>
             </div>
           </template>
@@ -804,18 +873,16 @@ function swapSeats(withEmail: string): void {
   color: var(--mm-text-muted);
 }
 
+.page-fold {
+  align-self: flex-start;
+}
+
 .section-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
   padding-left: var(--space-1);
 }
 
+/* A `RowGroup`'s heading sets the face and the size; this lays out what the section says in it. */
 .section-heading {
-  margin: 0;
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-md);
-  color: var(--mm-black);
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -827,23 +894,14 @@ function swapSeats(withEmail: string): void {
 }
 
 .section-heading-meta {
-  /* Not redundant, unlike the 273 declarations E15/F01/S01 removed: `.section-heading` sets Merge
-     One on the <h3>, and this chip is a <span> inside it, so it opts back out. */
+  /* Not redundant, unlike the 273 declarations E15/F01/S01 removed: a `RowGroup` sets Merge One on
+     its heading, and this chip is a <span> inside it, so it opts back out. */
   font-family: 'Outfit', sans-serif;
   font-size: var(--text-xs);
   padding: var(--space-hairline) var(--space-2);
   background-color: var(--mm-beige);
   border-radius: var(--radius-card);
   color: var(--mm-black);
-}
-
-.table-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
 }
 
 .table-row {

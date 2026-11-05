@@ -82,10 +82,14 @@ describe.each([
   });
 
   it(`the All view ${offered ? 'offers' : 'hides'} Export`, async () => {
-    const wrapper = mount(ApplicationsAll, { props: { market: market(refused) }, shallow: true });
+    const wrapper = mount(ApplicationsAll, {
+      props: { market: market(refused) },
+      shallow: true,
+      global: { stubs: { ListFrame: false } },
+    });
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="applications-all-count"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="applications-all-list-empty"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="applications-all-export-button"]').exists()).toBe(offered);
   });
 

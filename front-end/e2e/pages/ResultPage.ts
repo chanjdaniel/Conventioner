@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 /**
  * Page object for a market's Assignments page (E22/F04/S04, named Result until E38/F08/S01): the
@@ -27,8 +27,16 @@ export class ResultPage {
   /**
    * Where one applicant was placed: the table code of every seat they hold, one per market date
    * they were given a table on. Empty for an applicant the assignment left without a table.
+   *
+   * Reads the page unfolded: a seat past a section's first 20 tables is not drawn, and would read as
+   * no placement at all.
    */
   async placementsFor(applicantEmail: string): Promise<string[]> {
+    const showAll = this.page.getByTestId('tables-show-all');
+    if (await showAll.filter({ hasText: 'Show all' }).count()) {
+      await showAll.click();
+      await expect(showAll).toHaveText('Show fewer');
+    }
     const seats = this.page.locator(
       `[data-testid="tables-seat-occupied"][data-vendor-email="${applicantEmail}"]`,
     );

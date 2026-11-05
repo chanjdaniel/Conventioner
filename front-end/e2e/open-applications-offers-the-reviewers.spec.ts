@@ -1,4 +1,4 @@
-import type { APIRequestContext, Browser, Page } from '@playwright/test';
+import type { APIRequestContext, Browser, Page, Route } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
 import { MarketSetupPage } from './pages/MarketSetupPage';
 import { OpenApplicationsDialog } from './pages/OpenApplicationsDialog';
@@ -150,6 +150,117 @@ test('an Admin opens applications choosing two reviewers, and each new applicati
   const second = await apply(browser, market, 'Jude');
   const dealt = await reviewerOf(page, market.marketId);
   expect([dealt[first], dealt[second]].sort()).toEqual([ANA, BEN]);
+});
+
+test('a second try after a move and a re-read that fail starts from the team written', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const market = await draftWithPeople(request);
+  await page.goto(marketScreenPath(market.marketId, 'setup'));
+  const opening = new OpenApplicationsDialog(page);
+  const { currentPhase } = new MarketSetupPage(page);
+  await expect(opening.opener).toBeVisible();
+  const out = /\/markets\/[^/]+(\/transition)?$/;
+  await page.route(out, (route) => route.abort());
+  const written: string[][] = [];
+  page.on('request', (sent) => {
+    if (sent.url().endsWith('/reviewers') && sent.method() === 'PUT') {
+      written.push((sent.postDataJSON() as { reviewers: string[] }).reviewers);
+    }
+  });
+
+  await opening.openWith(ANA);
+  await expect(page.getByTestId('phase-rail-error')).toBeVisible();
+  await expect(currentPhase).toHaveText('Draft');
+  expect(written).toEqual([[ANA]]);
+
+  await opening.start();
+  await expect(opening.chooser.chips).toHaveCount(1);
+  await expect(opening.chooser.chip(ANA)).toBeVisible();
+
+  // Left as it is, nothing is written over the team; changed by one, it stands beside them.
+  await page.unroute(out);
+  await opening.chooser.choose(BEN);
+  await opening.confirm.click();
+  await expect(currentPhase).toHaveText('Applications', { timeout: 10000 });
+  expect(written).toEqual([[ANA], [ANA, BEN]]);
+});
+
+/** Every move of the phase the page sends, and the write of the reviewers held by a route. */
+async function holdTheWrite(page: Page) {
+  const moves: string[] = [];
+  page.on('request', (sent) => {
+    if (sent.url().endsWith('/transition')) moves.push(sent.url());
+  });
+  const held: Route[] = [];
+  const write = /\/reviewers$/;
+  await page.route(write, (route) => {
+    held.push(route);
+  });
+  return { moves, held, write };
+}
+
+test('no close takes the dialog during its write, and the move goes once it lands', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const market = await draftWithPeople(request);
+  await page.goto(marketScreenPath(market.marketId, 'setup'));
+  const opening = new OpenApplicationsDialog(page);
+  const { moves, held, write } = await holdTheWrite(page);
+
+  await opening.start();
+  await opening.chooser.choose(ANA);
+  await opening.confirm.click();
+  await expect.poll(() => held.length).toBe(1);
+  await page.keyboard.press('Escape');
+  await expect(opening.confirm).toHaveText('Saving…');
+  await expect(opening.cancel).toBeDisabled();
+  await expect(opening.closeControl).toBeDisabled();
+  await expect(opening.changeReviewSetup).toBeHidden();
+  expect(moves).toEqual([]);
+
+  // In this order: taking the route away first answers what it holds for it.
+  await held[0]!.continue();
+  await page.unroute(write);
+  await expect(new MarketSetupPage(page).currentPhase).toHaveText('Applications', {
+    timeout: 10000,
+  });
+});
+
+test('a dialog opened during a write the page left waits for it, and shows its refusal', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const market = await draftWithPeople(request);
+  // Arrive from Tools, a view of its own, so that Back takes the rail as well.
+  await page.goto(marketScreenPath(market.marketId, 'tools'));
+  await page.getByTestId('market-bar-tab-setup').click();
+  await expect(page).toHaveURL(/\/setup$/);
+  const opening = new OpenApplicationsDialog(page);
+  const { moves, held, write } = await holdTheWrite(page);
+
+  await opening.start();
+  await opening.chooser.choose(ANA);
+  await opening.confirm.click();
+  await expect.poll(() => held.length).toBe(1);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/tools$/);
+
+  await opening.start();
+  await expect(opening.chooser.chip(ANA)).toBeVisible();
+  await opening.confirm.click();
+  await expect(opening.confirm).toHaveText('Saving…');
+  expect(moves).toEqual([]);
+
+  const words = 'That person cannot be chosen.';
+  await held[0]!.fulfill({ status: 400, json: { error: words } });
+  await page.unroute(write);
+  await expect(opening.error).toHaveText(words);
+  await expect(opening.confirm).toHaveText('Open applications');
+  await expect(new MarketSetupPage(page).currentPhase).toHaveText('Draft');
+  expect(moves).toEqual([]);
 });
 
 test('opening with no one ticked opens as before: the first application is dealt to nobody', async ({

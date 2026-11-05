@@ -498,6 +498,12 @@ class TestTheFilters:
 
         assert _emails(_file(filters={"search": "Ana"})[0]) == ["ana@example.com"]
 
+    def test_the_search_finds_the_name_on_their_identification_too(self, market):
+        """Applications All's find field does, and Export opens on its words (T223)."""
+        market()
+
+        assert _emails(_file(filters={"search": "LIMA"})[0]) == ["ana@example.com"]
+
     @pytest.mark.parametrize("filters", [
         {"statuses": "approved"},
         {"statuses": ["accepted"]},

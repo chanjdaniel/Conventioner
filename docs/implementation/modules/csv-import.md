@@ -10,6 +10,7 @@ describes:
   - back-end/app.py#import_applications
   - front-end/src/utils/csvFile.ts
   - front-end/src/components/ValueFixes.vue
+  - front-end/src/components/csvImport/ImportRefusedRows.vue
   - front-end/src/views/CsvImportView.vue#mapsTo
 verified: 2026-11-05
 sources:
@@ -103,6 +104,12 @@ Each value is settled in [`ValueFixes.vue`](../../../front-end/src/components/Va
 **A fix can only name an answer the question offers**: the import stores what a fix names, and `application_write.py` refuses a select's answer that is no option ("must be one of"), so words typed and not chosen clear on leaving the field, and no typed fix is offered.
 The rows offered one set of answers share one list of choices, keyed by the target and the answers, since a tier grid's target offers two sets: the dates to its day headings and the tiers to its cells.
 Every value still waiting is drawn; those already decided stop at 6 and "Show all".
+
+**A list of a file's rows stops at 20, and is read whole by asking.**
+The preview's refused rows and the done step's are [`ImportRefusedRows.vue`](../../../front-end/src/components/csvImport/ImportRefusedRows.vue), the preview's replaced and rejected rows the view's own, each a [`ListFrame`](../../design-system.md#the-primitive-layer) with `showAll` and `IMPORT_LIST_FIRST`, so a bad file does not push the confirm 361 rows down.
+Each finds by what `utils/importPreview.ts` says it holds: a refused row by address, row number and reason, a replaced row by address and either row it names, a rejected row by name and address.
+None has a `findKey`, since the words last as long as the step.
+The samples are not a frame: they are a few rows, with the first open.
 
 **A grid is never split; one column is split where the comma is not inside an option.**
 A grid carries its option in each column's heading, so a cell is never cut up; a checkbox question in one column holds its chosen options joined by commas, and an option may hold a comma of its own.

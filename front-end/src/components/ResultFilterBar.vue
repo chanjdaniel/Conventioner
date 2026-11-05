@@ -24,6 +24,9 @@ const { filters, setFilter, clearFilters } = useResultFilters();
 
 const offers = (name: ResultFilterName) => props.offered.includes(name);
 
+/** The Vendors page's search is its own field under the same address key, and no filter of this bar. */
+const clearAll = () => clearFilters(offers('search') ? [] : ['search']);
+
 const formatDate = (date: string) => getFormattedDate(date) ?? date;
 
 const CHOICE_LABELS: Record<string, string> = { full: 'Full Tables', half: 'Half Tables' };
@@ -140,7 +143,7 @@ const chips = computed(() => {
         type="button"
         class="filter-chip filter-chip--clear-all"
         :data-testid="`${testid}-filter-chip-clear-all`"
-        @click="clearFilters"
+        @click="clearAll"
       >
         Clear all
       </button>

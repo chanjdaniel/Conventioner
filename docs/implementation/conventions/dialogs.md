@@ -26,7 +26,7 @@ describes:
   - front-end/src/components/ScrollBox.vue
   - front-end/src/__tests__/scrollBox.test.ts
   - front-end/e2e/the-long-dialogs-scroll-their-body.spec.ts
-verified: 2026-11-05
+verified: 2026-11-06
 sources:
   - wayfinding/the-order-of-the-work/08
   - wayfinding/the-order-of-the-work/map
@@ -112,6 +112,12 @@ A long list goes in that body as a [`ListFrame.vue`](../../../front-end/src/comp
 The shell emits `submit` and `close` as separate events and never turns one into the other.
 Three closes are correct and are pinned: deleting the thing, the explicit close control, and Escape or the backdrop.
 The parent learns about a save through its own event, never through `close`: `OrganizationsView` treating close as its refresh signal is why every membership change used to close the dialog.
+
+**A dialog whose close would hide a refusal or expose an old copy holds through its save and any re-read, with `closeDisabled`.**
+While it holds, Cancel and the close control are drawn in the one disabled state, and Escape and the scrim do nothing; the shell refuses them all, so its parent's `close` handler needs no guard.
+Save Template ([`TemplatePanel.vue`](../../../front-end/src/components/floorplan/TemplatePanel.vue)) holds through its write and Change reviewers ([`ReviewersPanel.vue`](../../../front-end/src/components/market/ReviewersPanel.vue)) through its write and the market's re-read, whose copy the next opening would start from, and Open applications ([`OpenApplicationsDialog.vue`](../../../front-end/src/components/market/OpenApplicationsDialog.vue)) through its write, since the move follows the answer.
+Browser history is not a close and no hold refuses it: it takes the page, dialog and all, so Change reviewers keeps its unanswered write beside the write itself ([`reviewTeam.ts`](../../../front-end/src/utils/reviewTeam.ts)), and a panel drawn before the answer puts the dialog back on it.
+A request that never answers is left to a reload: `api` sets no timeout, so the hold lasts as long as the browser's own.
 
 **A destructive dialog opens focused on Cancel**, deliberately: one stray Enter would otherwise be the whole irreversible action, and Cancel is a `type="button"`, so Enter there cancels.
 Any other dialog focuses its first enabled control that is not destructive: a dialog listing people never opens on the first person's Remove, which one stray Enter would take (Manage organization did, on its first admin's), and a control that takes something away without being drawn destructive, as a [`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue) chip's Remove does, carries `data-dialog-not-first` for the same reason.

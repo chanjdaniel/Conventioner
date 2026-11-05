@@ -52,6 +52,11 @@ const props = withDefaults(
      */
     confirmLabel?: string;
     confirmDisabled?: boolean;
+    /**
+     * Nothing closes it while this holds: a save in flight, whose refusal a close would hide. Cancel
+     * and the close control are drawn disabled, and Escape and the scrim do nothing.
+     */
+    closeDisabled?: boolean;
     cancelLabel?: string;
     /** A destructive confirm wears the destructive primitive - archive, delete. */
     destructive?: boolean;
@@ -101,10 +106,11 @@ const whole = computed(() =>
     : { class: 'dialog-whole', testid: `${props.testid}-scroll`, shadeTestid: props.testid },
 );
 
-useEscapeToClose(
-  () => props.open,
-  () => emit('close'),
-);
+function close() {
+  if (!props.closeDisabled) emit('close');
+}
+
+useEscapeToClose(() => props.open, close);
 
 /** Modal: the page behind it goes out of the tab order, not just out of reach of the mouse. */
 const modalRoot = useModalRoot(() => props.open);
@@ -200,7 +206,7 @@ watch(
       class="dialog-scrim"
       :style="{ opacity: open ? '100%' : '0%' }"
       :data-testid="`${testid}-background`"
-      @click="emit('close')"
+      @click="close"
     ></div>
 
     <div
@@ -224,7 +230,8 @@ watch(
         aria-label="Close"
         data-dialog-close
         :data-testid="`${testid}-close-button`"
-        @click="emit('close')"
+        :disabled="closeDisabled"
+        @click="close"
       >
         &times;
       </button>
@@ -276,7 +283,8 @@ watch(
                   type="button"
                   class="btn btn--secondary"
                   :data-testid="`${testid}-cancel-button`"
-                  @click="emit('close')"
+                  :disabled="closeDisabled"
+                  @click="close"
                 >
                   {{ cancelLabel }}
                 </button>
@@ -523,15 +531,24 @@ watch(
   top: var(--space-2);
   right: var(--space-3);
   background: white;
-  border: none;
+  border: 1px solid transparent;
   font-size: var(--text-xl);
   line-height: 1;
-  padding: var(--space-hairline) var(--space-2);
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- less the border's width, not spacing: the box stays the size it was with no line */
+  padding: calc(var(--space-hairline) - 1px) calc(var(--space-2) - 1px);
   color: var(--mm-text-muted);
   cursor: pointer;
 }
 
-.dialog-close:hover {
+.dialog-close:hover:not(:disabled) {
   color: var(--mm-black);
+}
+
+/* The one disabled state, and its line is why a transparent one stands at rest. */
+.dialog-close:disabled {
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  border-color: var(--mm-border);
+  cursor: not-allowed;
 }
 </style>

@@ -25,6 +25,9 @@ export class ReviewersPanel {
   /** The dialog's chooser of reviewers. */
   readonly chooser: ReviewerChooser;
   readonly save: Locator;
+  readonly cancel: Locator;
+  /** The dialog's close control, its x. */
+  readonly closeControl: Locator;
   readonly error: Locator;
   /** The read-only "Reviewers" dialog. */
   readonly all: Locator;
@@ -43,6 +46,8 @@ export class ReviewersPanel {
     this.dialog = page.getByTestId('reviewers-dialog-window');
     this.chooser = new ReviewerChooser(this.dialog);
     this.save = page.getByTestId('reviewers-dialog-submit-button');
+    this.cancel = page.getByTestId('reviewers-dialog-cancel-button');
+    this.closeControl = page.getByTestId('reviewers-dialog-close-button');
     this.error = page.getByTestId('reviewers-dialog-error');
     this.all = page.getByTestId('reviewers-all-window');
     this.allPeople = this.all.getByTestId('reviewers-person');

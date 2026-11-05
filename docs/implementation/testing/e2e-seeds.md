@@ -24,6 +24,7 @@ describes:
   - front-end/e2e/helpers/exampleCollegeMarket.ts
   - front-end/e2e/helpers/decideReviewSetup.ts
   - front-end/e2e/helpers/seedPeopleAtScale.ts
+  - front-end/e2e/helpers/seedMarketAtScale.ts
 verified: 2026-11-05
 sources:
   - E02
@@ -43,6 +44,7 @@ sources:
   - T181
   - T206
   - T204
+  - T223
 ---
 
 # E2E seeds
@@ -95,6 +97,16 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - every seed here that leaves a draft ready for Review calls it, `seedDraftMarket()` alone excepted
   - a spec that takes a draft of its own making into Review by its own request calls it first
   - a spec about the decisions asks its seed for `reviewSetupUndecided: true` instead
+
+**`seedMarketAtScale()`** ([file](../../../front-end/e2e/helpers/seedMarketAtScale.ts))
+- Leaves: a `csv` market of a real size, for the specs of long lists, `lists-at-scale.spec.ts` (T223), its 120 applications read in through the real import at `market-at-scale.test`, ten families of twelve so words find a family across pages, and every tenth with a preferred name:
+  - the last 10 rejected through the endpoint a selection's verdict uses
+  - by default the other 110 approved, the market in `assignment`, and an assignment by the real solver over "Example Gold Hall" of 31 tables and "Example Silver Hall" of 28, on one date, so 51 go unplaced
+  - with `assign: false`, those 110 still open and the review open, for a spec of giving verdicts
+  - with `pays: true`, a plan with prices and a payment recorded by each of the 120, each a different amount, so the Payments page lists them all, with or without a table
+- Notes:
+  - answers the applicants in arrival order, each with what they pay with `pays`, the date, the sections and the counts, for a spec to assert against
+  - it sets prices only with `pays`
 
 **`seedPeopleAtScale()`** ([file](../../../front-end/e2e/helpers/seedPeopleAtScale.ts))
 - Leaves: a `form` market in `applications` whose organization has 150 people, the case every people list and chooser must hold (T204):
@@ -165,6 +177,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - 36 vendors over four dates and three sections
   - `SCREENS_EDITOR` an Editor on that market, so a `SCREENS` state signed in as `'editor'` reads Update info with the answers the assignment reads locked
   - settled rules, on a priced market, so Payments draws the market's money and its tables by tier and by date (T180)
+  - a section of 24 tables on a market in Assignment, past the Assignments page's fold of 20, so a sweep walks a section unfolded (T223)
   - a market connected to Discord with a long last run written on it, in every group of the role report and naming a vendor no longer listed, of its own since a connection changes the Vendors page and the Tools tab the others are walked on (T217)
   - an archive
   - the CSV markets the import screens serve: one taking applications, whose saved `importMapping` the `LATER_IMPORT` export reads, so Map columns opens with values waiting, a draft with no plan, and a draft with a plan and the Viewer on it, whose first import's preview offers the reviewers

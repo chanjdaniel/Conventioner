@@ -35,6 +35,7 @@ type DialogId =
   | 'destructive'
   | 'error'
   | 'anchored'
+  | 'inFlight'
   | 'several';
 
 /** The one dialog open, if any, and how each last closed. */
@@ -95,6 +96,13 @@ const SCROLLS = [
 const keptScroll = ref<'window' | 'body'>('body');
 
 const removing = people[5]!;
+
+// A save in flight, which lands only when asked, so the hold can be looked at for as long as it takes.
+const inFlight = ref(false);
+function letTheSaveLand() {
+  inFlight.value = false;
+  saved('inFlight', 'Saved');
+}
 
 const owed = ref('120');
 const failure = ref('');
@@ -251,6 +259,12 @@ function addUser() {
         Add an address
       </button>
       <ReadOut label="Last" :value="outcome.anchored ?? null" />
+    </LibraryPanel>
+    <LibraryPanel label="A save in flight: nothing closes it until it answers">
+      <button type="button" class="btn btn--secondary" @click="open('inFlight')">
+        Name the template
+      </button>
+      <ReadOut label="Last" :value="outcome.inFlight ?? null" />
     </LibraryPanel>
     <LibraryPanel label="Several actions, no footer">
       <button type="button" class="btn btn--secondary" @click="open('several')">
@@ -475,6 +489,29 @@ function addUser() {
       <span class="field-label">Amount owed</span>
       <input v-model="owed" class="field" inputmode="decimal" />
     </label>
+  </AppDialog>
+
+  <AppDialog
+    :open="opened === 'inFlight'"
+    title="Name the template"
+    testid="library-in-flight"
+    :scroll="keptScroll"
+    :confirm-label="inFlight ? 'Saving…' : 'Save'"
+    :confirm-disabled="inFlight"
+    :close-disabled="inFlight"
+    @close="closed('inFlight')"
+    @submit="inFlight = true"
+  >
+    <p class="library-text">Save, then let it land when you have looked at the hold.</p>
+    <button
+      type="button"
+      class="btn btn--secondary"
+      :disabled="!inFlight"
+      data-testid="library-in-flight-land"
+      @click="letTheSaveLand"
+    >
+      Let the save land
+    </button>
   </AppDialog>
 
   <AppDialog

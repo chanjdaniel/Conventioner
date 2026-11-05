@@ -485,11 +485,15 @@ def _placed_matches(vendor: Vendor, filters: Filters) -> bool:
 
 
 def _search_matches(vendor: Vendor, needle: str) -> bool:
-    """By name or address, as the Vendors page's search finds them: the name they chose."""
+    """By name or address: the name they chose, or the one on their identification, as Applications
+    All's find field finds them (T223), since Export opens on its words."""
     if not needle:
         return True
-    name = EssentialFields.display_name(vendor.answers).lower()
-    return needle in vendor.email or needle in name
+    names = [
+        EssentialFields.display_name(vendor.answers),
+        str(vendor.answers.get(EssentialFields.FULL_NAME_KEY) or ""),
+    ]
+    return needle in vendor.email or any(needle in name.lower() for name in names)
 
 
 def _followed_up_by(vendor: Vendor, address: str) -> bool:

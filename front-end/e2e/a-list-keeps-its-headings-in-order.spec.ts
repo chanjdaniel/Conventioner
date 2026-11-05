@@ -8,7 +8,9 @@ import {
   seedPhaseMarket,
   transitionMarket,
 } from './helpers/seedPhaseMarket';
+import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
+import { marketScreenPath } from './helpers/marketScreens';
 
 /**
  * A list's cards are headed one level under the page's title, so a screen reader's outline of the
@@ -93,6 +95,32 @@ test('Markets opens with its title, the remembered market adding no heading', as
     const deleted = await request.delete(`${BACKEND_URL}/markets/${marketId}`);
     expect(deleted.ok(), await deleted.text()).toBeTruthy();
   }
+});
+
+/** The Assignments page heads a section one level under its date, folded or not (T223). */
+test('the Assignments page heads each section under its date, folded and unfolded', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedAssignedMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { tables: 21 },
+  );
+  await page.goto(marketScreenPath(marketId, 'assignments'));
+  await expect(page.getByTestId('tables-show-all')).toHaveText('Show all 21 tables');
+  const group = page.getByTestId('tables-date-group');
+  await expect(group.getByRole('heading', { level: 2 })).toHaveCount(1);
+  await expect(group.getByRole('heading', { level: 3 })).toHaveCount(1);
+  expect(await outlineViolations(page)).toEqual([]);
+  expect(await headingsInsideControls(page)).toEqual([]);
+
+  await page.getByTestId('tables-show-all').click();
+  await expect(page.getByTestId('tables-table-row')).toHaveCount(21);
+  expect(await outlineViolations(page)).toEqual([]);
+  expect(await headingsInsideControls(page)).toEqual([]);
 });
 
 /** The sheet's links are named by their words, and it adds no heading to the page's outline. */

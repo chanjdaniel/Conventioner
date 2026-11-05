@@ -1,4 +1,10 @@
-import type { APIRequestContext, Locator, Page, PlaywrightWorkerArgs } from '@playwright/test';
+import type {
+  APIRequestContext,
+  Locator,
+  Page,
+  PlaywrightWorkerArgs,
+  Route,
+} from '@playwright/test';
 import { test, expect, BACKEND_URL, TEST_USER } from './fixtures';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
@@ -13,7 +19,7 @@ import {
   SPACE_SCALE,
   TYPE_SCALE,
 } from './helpers/layoutDetectors';
-import { sweep } from './helpers/contrastSweep';
+import { disabledWithoutLine, sweep } from './helpers/contrastSweep';
 import { oneByOnePath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
 import { PHONE_AND_DESK, widths } from './helpers/phoneWindow';
@@ -629,6 +635,202 @@ for (const size of PHONE_AND_DESK) {
       await expect(chooser.chip(removed)).toHaveCount(0);
     });
 
+    test("waits for the save's re-read, so a press in it cannot bring back the old team", async ({
+      authenticatedPage: page,
+    }) => {
+      const { chooser } = reviewers;
+      const added = seed.members.at(-1)!.email;
+      const removed = seed.reviewers[0]!.email;
+
+      await chooser.field.fill(added.split('@')[0]!);
+      await press(chooser.option(added));
+      await press(chooser.removeButton(removed));
+      // One in and one out: the line's count says the same before and after the re-read.
+      await expect(chooser.chips).toHaveCount(seed.counts.reviewers);
+
+      const box = (await reviewers.more.boundingBox())!;
+      const [x, y] = [box.x + box.width / 2, box.y + box.height / 2];
+      const read = /\/markets\/[^/]+$/;
+      const held: Route[] = [];
+      await page.route(read, (route) => {
+        held.push(route);
+      });
+      const written = page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/reviewers') && response.request().method() === 'PUT',
+      );
+      await press(reviewers.save);
+      expect((await written).ok()).toBe(true);
+      await expect.poll(() => held.length).toBeGreaterThan(0);
+
+      // A real press where "and 9 more" stands, on whatever lies over it by now.
+      if (size.phone) await page.touchscreen.tap(x, y);
+      else await page.mouse.click(x, y);
+      await expect(reviewers.dialog).toBeVisible();
+      await expect(chooser.chip(removed)).toHaveCount(0);
+      await expect(chooser.chip(added)).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(reviewers.dialog).toBeVisible();
+      await expect(reviewers.save).toBeDisabled();
+      await expect(reviewers.save).toHaveText('Saving…');
+      await expect(reviewers.closeControl).toBeDisabled();
+      await expect(reviewers.cancel).toBeDisabled();
+      expect(await disabledWithoutLine(page), 'the hold draws the one disabled state').toEqual([]);
+      expect((await sweep(page)).failures, 'the hold has text below AA').toEqual([]);
+
+      // In this order: taking the route away first answers what it holds for it.
+      await Promise.all(held.map((route) => route.continue()));
+      await page.unroute(read);
+      await expect(reviewers.dialog).toBeHidden();
+      await expect(reviewers.line).not.toContainText(removed);
+
+      await press(reviewers.more);
+      await expect(chooser.chips).toHaveCount(seed.counts.reviewers);
+      await expect(chooser.chip(added)).toBeVisible();
+      await expect(chooser.chip(removed)).toHaveCount(0);
+    });
+
+    /** One in and one out, ready to save: the line's count says the same before and after. */
+    async function swapOne() {
+      const { chooser } = reviewers;
+      const added = seed.members.at(-1)!.email;
+      const removed = seed.reviewers[0]!.email;
+      await chooser.field.fill(added.split('@')[0]!);
+      await press(chooser.option(added));
+      await press(chooser.removeButton(removed));
+      await expect(chooser.chips).toHaveCount(seed.counts.reviewers);
+      return { added, removed };
+    }
+    const marketRead = /\/markets\/[^/]+$/;
+    const isTheWrite = (url: string, method: string) =>
+      url.endsWith('/reviewers') && method === 'PUT';
+
+    test('after a re-read that fails, the dialog opens on the team saved, and saves it', async ({
+      authenticatedPage: page,
+    }) => {
+      const { chooser } = reviewers;
+      const { added, removed } = await swapOne();
+      await page.route(marketRead, (route) => route.abort());
+
+      await press(reviewers.save);
+      await expect(reviewers.dialog).toBeHidden();
+      await press(reviewers.more);
+      await expect(chooser.chips).toHaveCount(seed.counts.reviewers);
+      await expect(chooser.chip(added)).toBeVisible();
+      await expect(chooser.chip(removed)).toHaveCount(0);
+
+      const written = page.waitForRequest((request) => isTheWrite(request.url(), request.method()));
+      await press(reviewers.save);
+      const team = ((await written).postDataJSON() as { reviewers: string[] }).reviewers;
+      expect(team).toContain(added);
+      expect(team).not.toContain(removed);
+      await expect(reviewers.dialog).toBeHidden();
+
+      await page.unroute(marketRead);
+      await new ApplicationsAllPage(page).goto(seed.marketId);
+      await expect(reviewers.line).not.toContainText(removed);
+    });
+
+    test('after a re-read that fails, a tab switch keeps the team saved', async ({
+      authenticatedPage: page,
+    }) => {
+      const { chooser } = reviewers;
+      const { added, removed } = await swapOne();
+      await page.route(marketRead, (route) => route.abort());
+      await press(reviewers.save);
+      await expect(reviewers.dialog).toBeHidden();
+
+      // Each tab's read fails too, so the market from before the save is still the one held.
+      await press(page.getByTestId('market-bar-tab-tools'));
+      await expect(reviewers.panel).toHaveCount(0);
+      await press(page.getByTestId('market-bar-tab-applications'));
+      await press(reviewers.more);
+      await expect(chooser.chips).toHaveCount(seed.counts.reviewers);
+      await expect(chooser.chip(added)).toBeVisible();
+      await expect(chooser.chip(removed)).toHaveCount(0);
+    });
+
+    test('a read overtaking the re-read leaves nothing to open on the team before', async ({
+      authenticatedPage: page,
+    }) => {
+      const { chooser } = reviewers;
+      const { added, removed } = await swapOne();
+      const held: Route[] = [];
+      await page.route(marketRead, (route) => {
+        held.push(route);
+      });
+      const written = page.waitForResponse((response) =>
+        isTheWrite(response.url(), response.request().method()),
+      );
+      await press(reviewers.save);
+      expect((await written).ok()).toBe(true);
+      await expect.poll(() => held.length).toBe(1);
+
+      // The tab coming back into view reads the market again, and the first answer is dropped.
+      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+      await expect.poll(() => held.length).toBe(2);
+      await held[0]!.continue();
+      await expect(reviewers.dialog).toBeHidden();
+
+      await press(reviewers.more);
+      await expect(chooser.chip(added)).toBeVisible();
+      await expect(chooser.chip(removed)).toHaveCount(0);
+      await page.keyboard.press('Escape');
+      await expect(reviewers.dialog).toBeHidden();
+
+      // In this order: taking the route away first answers what it holds for it.
+      await held[1]!.continue();
+      await page.unroute(marketRead);
+      await expect(reviewers.line).not.toContainText(removed);
+    });
+
+    test('Back and Forward during an unanswered write bring the dialog back held on it', async ({
+      authenticatedPage: page,
+    }) => {
+      const { chooser } = reviewers;
+      // Arrive from Tools, so that Back has a market tab to go to.
+      await press(reviewers.cancel);
+      await press(page.getByTestId('market-bar-tab-tools'));
+      await expect(reviewers.panel).toHaveCount(0);
+      await press(page.getByTestId('market-bar-tab-applications'));
+      await press(reviewers.more);
+      const { added, removed } = await swapOne();
+
+      const write = /\/reviewers$/;
+      const held: Route[] = [];
+      await page.route(write, (route) => {
+        held.push(route);
+      });
+      await press(reviewers.save);
+      await expect.poll(() => held.length).toBe(1);
+
+      await page.goBack();
+      await expect(reviewers.panel).toHaveCount(0);
+      await page.goForward();
+      await expect(reviewers.dialog).toBeVisible();
+      await expect(reviewers.save).toBeDisabled();
+      await expect(reviewers.save).toHaveText('Saving…');
+      await expect(reviewers.closeControl).toBeDisabled();
+      await expect(reviewers.cancel).toBeDisabled();
+      await expect(chooser.chip(removed)).toHaveCount(0);
+      await expect(chooser.chip(added)).toBeVisible();
+      await expect
+        .poll(() => page.evaluate(() => document.activeElement?.tagName))
+        .not.toBe('BODY');
+      expect(held, 'the second panel writes nothing of its own').toHaveLength(1);
+
+      // In this order: taking the route away first answers what it holds for it.
+      await held[0]!.continue();
+      await page.unroute(write);
+      await expect(reviewers.dialog).toBeHidden();
+      await expect(reviewers.line).not.toContainText(removed);
+      await expect(reviewers.change).toBeFocused();
+
+      await press(reviewers.more);
+      await expect(chooser.chip(added)).toBeVisible();
+      await expect(chooser.chip(removed)).toHaveCount(0);
+    });
+
     if (size.phone) {
       test('fits 320 wide, with nothing scrolling sideways or clipped', async ({
         authenticatedPage: page,
@@ -920,7 +1122,7 @@ for (const size of PHONE_AND_DESK) {
       await all.goto(seed.marketId);
       const { field, options } = all.assignedTo;
       await expect(field).toHaveValue('Anyone');
-      await expect(all.count).toHaveText('5 of 5');
+      await expect(all.count).toHaveText('5 applications');
       await expectLaidOut(page, 'the filter row');
 
       // The seed owner is no reviewer, so "Anyone" leads and every reviewer follows.
@@ -935,18 +1137,18 @@ for (const size of PHONE_AND_DESK) {
       );
       await field.fill(dealt.split('@')[0]!);
       await expect(options).toHaveText([dealt]);
-      await expect(all.count).toHaveText('5 of 5');
+      await expect(all.count).toHaveText('5 applications');
       await expectLaidOut(page, 'one reviewer found');
 
       await press(options.first());
       await expect(field).toHaveValue(dealt);
       await expect.poll(() => new URL(page.url()).searchParams.get('reviewer')).toBe(dealt);
-      await expect(all.count).toHaveText('1 of 5');
+      await expect(all.count).toHaveText('1 of 5 applications');
       await expect(all.rowReviewers).toHaveText([`Reviewer: ${dealt}`]);
 
       await page.reload();
       await expect(field).toHaveValue(dealt);
-      await expect(all.count).toHaveText('1 of 5');
+      await expect(all.count).toHaveText('1 of 5 applications');
       await expect(all.rowReviewers).toHaveText([`Reviewer: ${dealt}`]);
       await expectLaidOut(page, 'the filter row on a reviewer');
     });

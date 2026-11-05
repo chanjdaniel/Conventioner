@@ -1,5 +1,5 @@
 import { marketScreenPath } from '../helpers/marketScreens';
-import type { Locator, Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 /** The placement dialog's pickers, by the test id each is drawn with (E38/F08/S03, T208). */
 type Picker = 'vendor' | 'swap-target' | 'move-target';
@@ -41,6 +41,8 @@ export class TablesPage {
   readonly historyButton: Locator;
   readonly historyDialog: Locator;
   readonly historyEntries: Locator;
+  /** The one "Show all N tables" / "Show fewer", drawn while a section passes its fold (T223). */
+  readonly showAll: Locator;
   readonly historySentences: Locator;
   readonly historyVendorLinks: Locator;
   /** The "Market day" filter, and the day leading each entry. */
@@ -68,6 +70,7 @@ export class TablesPage {
     this.searchInput = page.getByTestId('tables-filter-search');
     this.searchChip = page.getByTestId('tables-filter-chip-search');
     this.historyButton = page.getByTestId('result-history-button');
+    this.showAll = page.getByTestId('tables-show-all');
     this.historyDialog = page.getByTestId('assignment-history-dialog-window');
     this.historyEntries = this.historyDialog.getByTestId('market-history-entry');
     this.historySentences = this.historyDialog.getByTestId('market-history-sentence');
@@ -89,6 +92,32 @@ export class TablesPage {
 
   async clearAllFilters(): Promise<void> {
     await this.clearAllFilterButton.click();
+  }
+
+  // ── A section's fold (T223) ───────────────────────────────────────────────────
+
+  /** One section on one date: its heading, its rows and its own "Show all 31 in ...". */
+  section(date: string, name: string): { heading: Locator; rows: Locator; fold: Locator } {
+    const testid = `tables-section-${date}-${name}`;
+    return {
+      heading: this.page.getByTestId(`${testid}-heading`),
+      rows: this.page.getByTestId(`${testid}-row`),
+      fold: this.page.getByTestId(`${testid}-fold`),
+    };
+  }
+
+  /**
+   * Draws a table past its section's fold, by the page's "Show all", and answers its row. `row` is a
+   * plain locator, which can press nothing, and a table past the 20th of its section is not drawn
+   * until something does: a started plan's sections are 200 tables long (`finishStartedPlan`).
+   */
+  async unfoldTo(tableCode: string): Promise<Locator> {
+    const row = this.row(tableCode);
+    if (!(await row.count())) {
+      await this.showAll.click();
+      await expect(this.showAll).toHaveText('Show fewer');
+    }
+    return row;
   }
 
   // ── Changing a placement (E11/F03/S01) ───────────────────────────────────────

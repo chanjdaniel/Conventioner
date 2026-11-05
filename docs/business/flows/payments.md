@@ -6,7 +6,7 @@ describes:
   - front-end/src/utils/paymentsPage.ts
   - back-end/api/payments.py#market_payments
   - back-end/payments.py#market_summary
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - T92
   - E44/F02/S01
@@ -33,10 +33,14 @@ The server counts all of it in one answer (`GET /markets/<id>/payments`, `market
 3. "Vendors" lists every vendor with a table-day line or a payment, a vendor whose table was freed included, by name with their address beneath: Owed, Paid, and the Difference in the Payment tab's words, "Owes $35.00", "Paid in full", "Paid $7.50 more than owed" or "Nothing owed".
 4. "Owes", "Paid in full" and "Paid more than owed" each narrow the list to the vendors in that state, with how many there are; "Paid in full" is every vendor who is square and owed something, so a vendor who owes nothing and paid nothing, "Nothing owed", is in none of the three, and is listed only unfiltered; pressed again, a filter is cleared.
    The states are the server's, the ones the export's "Payment" filter reads ([J15](vendors.md#j15-export-the-vendors-to-a-csv)), so the page's "Owes" and an export of "Owes" list the same vendors.
-   "Search vendors" finds a vendor by name or address within it, and "N of M vendors shown" counts what is left.
+   "Search vendors" finds a vendor by name or address within it, a name being the one they chose or the one on their identification, and "N of M vendors shown" counts what is left.
 5. Each column's heading sorts the list by it, pressed again the other way: the vendor A to Z to begin with, an amount largest first; the Difference sorts who owes most first, and paid more than owed last.
 6. The filter, the search and the sort are in the address (`show`, `search`, `sort` and `order`), so a reload or a shared link shows the same list.
 7. A row opens the vendor's drawer on its Payment tab, the filter kept under it; a payment recorded or an amount changed there is read on the page again at once.
+8. The table draws 50 rows, with "Showing 50 of 120" above them while the cap leaves rows off and "Show 50 more" below, which hands the focus to the first new row ([a list frame](../../design-system.md#the-primitive-layer)).
+   The toolbar's line counts the rest, so the frame says nothing once every row is drawn, and the four figures, their breakdowns and each filter's count count every vendor, not the rows on screen.
+   A filter, new words or a new sort go back to 50, since a new sort's first rows are the point of it, and a payment recorded in the drawer, with the read again it brings, holds the place.
+   A link to a vendor past the cap opens their drawer and leaves the list as it was, so their row is not drawn behind it.
 
 The page fits a phone, so who still owes is read at the door on market day (T180): each table's row reads as a block there, every value beside its column's heading, and the drawer opens inside the window ([the design language](../../design-system.md#layout)).
 
@@ -57,5 +61,7 @@ Covered by:
 - `back-end/tests/test_the_payments_page.py` (the sums, the sharing by tier and by date, a refund beyond what was paid owed back, and who may read it)
 - `exporting-a-payment-reminder.spec.ts` (the page's "Owes" against the export's)
 - `front-end/src/__tests__/paymentsPage.test.ts` (the filters, the sort, the search and when the caption is drawn)
+- `front-end/src/__tests__/thePaymentsPageAtScale.test.ts` (the cap, what folds back and what holds, and every figure counting all 120)
+- `lists-at-scale.spec.ts` (120 vendors who paid, at 1280 and 390)
 - `the-market-on-a-phone.spec.ts` (the page, its tables' headings and cells as a screen reader reads them, and the drawer of a vendor who owes, on a phone and at a desk)
 - `the-payments-page.spec.ts` (the totals against the sum of the vendors' Payment tabs, each filter and a reload, a vendor freed with the seat taken off what they owe in no filter, the sort in the address, a Viewer, a market with no prices and no filter, its payments reading "Paid $35.00" on the page and the Payment tab and its export offering no payment filter, then an amount set by hand reading "Paid $15.00 more than owed" with the filters back on the page and the export, and the market's money drawn with Paid more than owed $15.00 alone and the caption, which goes once every vendor who paid owes)
