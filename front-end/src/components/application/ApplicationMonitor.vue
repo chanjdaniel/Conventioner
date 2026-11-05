@@ -859,7 +859,7 @@ function submittedOn(app: Application): string {
       @retry="loadApplications"
     />
     <p v-if="errorMessage && !refusedOn" class="error-state" data-testid="app-monitor-error">
-      {{ errorMessage }}
+      <EmailAddress :words="errorMessage" />
     </p>
 
     <div v-if="loading" class="loading-state" data-testid="app-monitor-loading">
@@ -962,7 +962,8 @@ function submittedOn(app: Application): string {
         </p>
         <!-- Someone decided it first: said here, on what they decided (E34/F03/S01). -->
         <p v-if="refusedOn" class="changed-since" data-testid="app-monitor-changed" role="alert">
-          {{ errorMessage }}
+          <!-- One item of the band's flex: an address's pieces would each be one of their own. -->
+          <span><EmailAddress :words="errorMessage" /></span>
           <span v-if="verdictGiverLine(current)" class="verdict-giver">
             {{ verdictGiverLine(current) }}.
           </span>
@@ -1390,6 +1391,7 @@ function submittedOn(app: Application): string {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  overflow-wrap: anywhere;
   margin: var(--space-2) 0 0;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--mm-yellow);

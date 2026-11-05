@@ -538,6 +538,41 @@ describe('Show N reviewed', () => {
         expect(email()).toBe('jane@example.com');
       });
 
+      it('draws each address on either line to break only where an address may', async () => {
+        list = [application('jane'), application('kim'), reviewedAt(1)];
+        await monitor();
+        await open();
+        const refuse = await changeThenClose('vendor-001');
+
+        refuse(NO_MAY_NOT);
+        await flushPromises();
+
+        const addresses = (line: string) =>
+          page()
+            .findAll(`[data-testid="${line}"] .email-address`)
+            .map((part) => part.text());
+        expect(addresses('app-monitor-error')).toEqual(['vendor-001', '@example.com']);
+
+        reviewApplication.mockRejectedValueOnce({
+          isAxiosError: true,
+          response: {
+            status: 409,
+            data: {
+              error: 'kai@example.com approved this application since you opened it.',
+              application: {
+                ...application('jane', ApplicationStatus.ReviewerApproved),
+                verdictAt: '2026-10-31T10:00:00+00:00',
+              },
+            },
+          },
+        });
+        await press('r');
+
+        expect(addresses('app-monitor-changed')).toEqual(['kai', '@example.com']);
+        // Pieces of one sentence: the band's flex must not take each as an item of its own.
+        expect(byId('app-monitor-changed').element.children).toHaveLength(1);
+      });
+
       it('is said in the dialog when it was opened again before the answer', async () => {
         await aLongListOpen();
         const refuse = await changeThenClose('vendor-080');

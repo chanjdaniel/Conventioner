@@ -1,4 +1,6 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { expectLaidOut } from './helpers/componentLibrary';
+import { PHONE_AND_DESK } from './helpers/phoneWindow';
 import { marketScreenPath } from './helpers/marketScreens';
 import { insertApplications } from './helpers/seedApplication';
 import {
@@ -355,5 +357,108 @@ test.describe('The reviewed applications on a phone', () => {
     const body = page.getByTestId('app-monitor-decided-body');
     const sideways = await body.evaluate((el) => el.scrollWidth - el.clientWidth);
     expect(sideways).toBe(0);
+  });
+
+  const THE_PHONE = PHONE_AND_DESK.find((size) => size.name === 'on a phone')!;
+
+  /** The longest a fixture may hold unbroken, leading the list, as the row the change is on. */
+  const UNBROKEN = `${'applicant'.repeat(8)}@${DOMAIN}`;
+
+  function anUnbrokenRow(marketId: string) {
+    const at = new Date().toISOString();
+    insertApplications([
+      {
+        id: `reviewed-${marketId}-unbroken`,
+        market_id: marketId,
+        applicant_email: UNBROKEN,
+        form_data: { essential_full_name: 'Vendor Unbroken' },
+        status: 'reviewer_rejected',
+        verdict_by: { kind: 'person', email: TEST_USER.email },
+        verdict_at: at,
+        application_type: 'main',
+        submitted_at: at,
+        updated_at: at,
+      },
+    ]);
+  }
+
+  /** Press the change on the unbroken row, close with the answer held, then let it be refused. */
+  async function aChangeRefusedAfterClosing(page: Page, monitor: ApplicationMonitorPage) {
+    await page.unroute('**/applications/*/review');
+    let answer!: () => void;
+    const answered = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    await page.route('**/applications/*/review', async (route) => {
+      await answered;
+      await route.fulfill({ status: 403, json: { error: 'That is not yours to change.' } });
+    });
+    await monitor.decidedOpen.tap();
+    await monitor.changeButton('approve', UNBROKEN).tap();
+    await page.getByTestId('app-monitor-decided-close-button').tap();
+    await expect(monitor.decidedDialog).toBeHidden();
+    answer();
+  }
+
+  /** The line, read in full by its `Range`, inside its box, and the page no wider than the window. */
+  async function expectTheLineFits(page: Page, testid: string) {
+    const line = page.getByTestId(testid);
+    await expect(line).toContainText('was not changed: That is not yours to change.');
+    await settle(page);
+    const { text, box } = await line.evaluate((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return {
+        text: range.getBoundingClientRect().right,
+        box: el.getBoundingClientRect().right,
+      };
+    });
+    expect(text).toBeLessThanOrEqual(box);
+    expect(box).toBeLessThanOrEqual(390);
+    await expectLaidOut(page, THE_PHONE, testid);
+  }
+
+  test('a long address on the card line, after a change refused with the dialog closed, stays on the phone', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const marketId = await aMarket(request);
+    anUnbrokenRow(marketId);
+    const monitor = await theCardUp(page, marketId);
+
+    await aChangeRefusedAfterClosing(page, monitor);
+
+    await expectTheLineFits(page, 'app-monitor-error');
+  });
+
+  test('a long address on a refused card, beside who decided it first, stays on the phone', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const marketId = await aMarket(request);
+    anUnbrokenRow(marketId);
+    const monitor = await theCardUp(page, marketId);
+    const up = ((await monitor.email.textContent()) ?? '').trim();
+    await page.route('**/applications/*/review', (route) =>
+      route.fulfill({
+        status: 409,
+        json: {
+          error: `${TEST_USER.email} approved this application since you opened it.`,
+          application: {
+            id: route.request().url().split('/').at(-2),
+            status: 'reviewer_approved',
+            applicantEmail: up,
+            verdictBy: { kind: 'person', email: TEST_USER.email },
+            verdictAt: new Date().toISOString(),
+          },
+        },
+      }),
+    );
+    await monitor.rejectButton.tap();
+    await expect(page.getByTestId('app-monitor-changed')).toBeVisible();
+
+    await aChangeRefusedAfterClosing(page, monitor);
+
+    await expectTheLineFits(page, 'app-monitor-changed');
   });
 });
