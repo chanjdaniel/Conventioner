@@ -77,7 +77,7 @@ It still gets the scrim, window, close, Escape, backdrop and inert behaviour, wi
 **Its own buttons can still be pinned at its foot, through the `actions` slot**: the footer draws with `confirmLabel` or that slot, and with the slot alone the body is no `<form>`, so those buttons submit nothing and an inner form's submit is still its own.
 
 **A dialog is one of three widths, `size="narrow"` (26rem, the default), `"wide"` (38rem) or `"broad"` (60rem), never wider than the window less a 16px gutter at each side**, and never a percentage of the window.
-Narrow holds two controls, wide a list, and broad a list beside what it gathers, the export dialog's columns and preview.
+Narrow holds two controls, wide a list, and broad a list beside what it gathers, the export dialog's order and preview.
 A dialog's window is a rounded frame that never scrolls, so no scroll bar can square its corners; what is taller than it scrolls in a [`ScrollBox`](../../../front-end/src/components/ScrollBox.vue) ([the design language](../../design-system.md#the-primitive-layer)) inside it.
 **By default that box holds the title and the body (`scroll="window"`)**, with the close staying put over it, on its own white ground, so words scrolling beneath it never run through it.
 A long title wraps short of the close, in either scroll, by a wider right padding at 640px or less, where the close is 44px wide, and a word too long for its line breaks rather than running under the close, as a role's name in "Show who" may.
