@@ -65,7 +65,7 @@ The app owns its components and its icons, and depends on no component library o
 ## Consequences
 
 - No licence or vendor exposure in the UI layer, and 43 kB less gzipped JavaScript and the 633 kB of icon-font files gone from the build.
-- Every dialog in the product follows the one dialog rule: Enter submits, Escape and the backdrop close, the page behind is inert, focus lands in the dialog and goes back to what opened it when it closes.
+- Every dialog in the product follows the one dialog rule: Enter submits, Escape and the backdrop close, unless [a save in flight holds it](../implementation/conventions/dialogs.md), the page behind is inert, focus lands in the dialog and goes back to what opened it when it closes.
 - Keeping legal comments puts the bundled libraries' own `@license` banners (Vue's and others', MIT) back in the bundle too, about 2 kB more gzipped JavaScript in all; their licences ask for that as well.
 - The app keeps up nothing but its own code; the cost is that a new kind of control is the app's to build, held to its primitives and the [contrast contract](../design-system.md#the-contrast-contract).
 - The dimension fields lost thousands grouping ("1,800" is "1800"), which only PrimeVue's number field gave.

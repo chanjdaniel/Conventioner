@@ -6,6 +6,7 @@
  * reviewers to every reader (`reviewTeam`) and whom the reader may choose (`reviewerCandidates`),
  * so the panel and the picker decide nothing themselves.
  */
+import { toRaw } from 'vue';
 import type { Market } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
 
@@ -21,6 +22,24 @@ export const RESHUFFLE =
 /** The market's chosen reviewers' addresses, in the order they are dealt to. */
 export function reviewerAddresses(market: Pick<Market, 'reviewTeam'> | null | undefined): string[] {
   return (market?.reviewTeam?.reviewers ?? []).map((reviewer) => reviewer.email);
+}
+
+/**
+ * The team last saved over each market object. A read that fails or is overtaken leaves that market
+ * held, and starting from what it says would offer the team before the save, which saving writes back
+ * and deals again. Every read that lands is a new object, so an entry ends by itself; it is here and
+ * not on the panel because a tab switch remounts the panel, with the same market still held.
+ */
+const savedOver = new WeakMap<object, readonly string[]>();
+
+export function rememberTeamSaved(market: Market, team: readonly string[]): void {
+  savedOver.set(toRaw(market), [...team]);
+}
+
+/** Whom a change of reviewers starts from: the team saved over this market, else what it says. */
+export function teamToChange(market: Market | null | undefined): string[] {
+  const saved = market && savedOver.get(toRaw(market));
+  return saved ? [...saved] : reviewerAddresses(market);
 }
 
 /**

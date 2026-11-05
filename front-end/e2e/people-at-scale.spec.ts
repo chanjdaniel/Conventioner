@@ -731,6 +731,25 @@ for (const size of PHONE_AND_DESK) {
       await expect(reviewers.line).not.toContainText(removed);
     });
 
+    test('after a re-read that fails, a tab switch keeps the team saved', async ({
+      authenticatedPage: page,
+    }) => {
+      const { chooser } = reviewers;
+      const { added, removed } = await swapOne();
+      await page.route(marketRead, (route) => route.abort());
+      await press(reviewers.save);
+      await expect(reviewers.dialog).toBeHidden();
+
+      // Each tab's read fails too, so the market from before the save is still the one held.
+      await press(page.getByTestId('market-bar-tab-tools'));
+      await expect(reviewers.panel).toHaveCount(0);
+      await press(page.getByTestId('market-bar-tab-applications'));
+      await press(reviewers.more);
+      await expect(chooser.chips).toHaveCount(seed.counts.reviewers);
+      await expect(chooser.chip(added)).toBeVisible();
+      await expect(chooser.chip(removed)).toHaveCount(0);
+    });
+
     test('a read overtaking the re-read leaves nothing to open on the team before', async ({
       authenticatedPage: page,
     }) => {

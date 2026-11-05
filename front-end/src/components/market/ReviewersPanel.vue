@@ -18,7 +18,14 @@ import ReviewerName from '@/components/market/ReviewerName.vue';
 import ReviewerPicker from '@/components/market/ReviewerPicker.vue';
 import { getApiErrorMessage } from '@/utils/api';
 import { MarketAction, mayTake } from '@/utils/marketActions';
-import { NONE_CHOSEN, RESHUFFLE, chooseReviewers, reviewerAddresses } from '@/utils/reviewTeam';
+import {
+  NONE_CHOSEN,
+  RESHUFFLE,
+  chooseReviewers,
+  rememberTeamSaved,
+  reviewerAddresses,
+  teamToChange,
+} from '@/utils/reviewTeam';
 import { useMarketStore } from '@/stores/market';
 
 /** How many the line names before "and N more". */
@@ -58,18 +65,8 @@ const ticked = ref<string[]>([]);
 const saving = ref(false);
 const error = ref('');
 
-/**
- * The team just saved, and the market held when it was. A read that fails or is overtaken leaves
- * that market held, and starting from what it says would offer the team before the save, which
- * saving writes back and deals again. Every read that lands is a new object, so this ends by itself.
- */
-let lastSave: { over: Market; team: string[] } | null = null;
-
 function start() {
-  ticked.value =
-    lastSave && lastSave.over === props.market
-      ? [...lastSave.team]
-      : reviewerAddresses(props.market);
+  ticked.value = teamToChange(props.market);
   error.value = '';
   open.value = true;
 }
@@ -89,7 +86,7 @@ async function save() {
   error.value = '';
   try {
     await chooseReviewers(props.market.id, ticked.value);
-    if (props.market) lastSave = { over: props.market, team: [...ticked.value] };
+    if (props.market) rememberTeamSaved(props.market, ticked.value);
     await useMarketStore().refresh();
     open.value = false;
     emit('saved');

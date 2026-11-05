@@ -294,6 +294,28 @@ describe('saving', () => {
     expect(chipAddresses()).not.toContain(address(1));
   });
 
+  it('keeps the team saved through the panel going, as a tab switch takes it', async () => {
+    const held = market(team(12), true);
+    wrapper = mount(ReviewersPanel, {
+      props: { market: held },
+      attachTo: document.body,
+      global: { stubs: { Teleport: true } },
+    });
+    await pressMore();
+    api.get.mockRejectedValue(new Error('Network Error'));
+    await saveWithoutTheFirst();
+    wrapper.unmount();
+
+    wrapper = mount(ReviewersPanel, {
+      props: { market: held },
+      attachTo: document.body,
+      global: { stubs: { Teleport: true } },
+    });
+    await pressMore();
+    expect(chipAddresses()).toHaveLength(11);
+    expect(chipAddresses()).not.toContain(address(1));
+  });
+
   it('opens on what a read says once one has landed, the team saved forgotten', async () => {
     const panel = mountPanel(team(12), true);
     await pressMore();
