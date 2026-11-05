@@ -16,7 +16,7 @@ describes:
   - back-end/tests/test_a_chosen_reviewer_decides.py
   - back-end/tests/test_undoing_a_verdict.py
   - back-end/tests/test_the_market_list_shows_what_the_read_serves.py
-verified: 2026-11-01
+verified: 2026-11-05
 sources:
   - brain-dump/2026-10-19#22
   - E26/F08/S01
@@ -42,6 +42,7 @@ sources:
   - E38/F12/S01
   - E38/F15/S04
   - T181
+  - T217
 ---
 
 # What each role may do
@@ -168,7 +169,7 @@ See [the organization document](../../implementation/data/organization-document.
   Where the step itself, or the remedy of what refuses it, is one they may not take, the rail says what they may do instead: at the door a Viewer reads "Follow who has checked in at the door.", not "Check vendors in at the door.", and on a draft missing its dates "The market is being planned. Read its plan on Market Setup.", not the blocker's "Pick them on Market Setup." (E38/F15/S04).
 - **A market keeps the rows it differs on**, in its `permissions`, and every check and the market read ask the market's row where it holds one (`minimum_role`); its owner sets or resets a row through `PUT` and `DELETE /markets/:id/permissions/<action>`, or resets every row through `DELETE /markets/:id/permissions`, each change an entry in [the market's history](../../implementation/data/history.md) with its role before and after.
   [`back-end/tests/test_the_market_keeps_its_own_rows.py`](../../../back-end/tests/test_the_market_keeps_its_own_rows.py) pins that a market without rows reads every default, that an Editor's check-in is refused where "Check vendors in" asks for an Admin and allowed on another market, and each refusal of the write: anyone but the owner (an organization admin included), a fixed row, an unknown row, a role not one of the four, an archived market.
-- **Everyone who may read the market reads its table, and everyone who may read its history every change to it**, in Manage market's Permissions section, and only the owner changes it there ([setting who may do what](../flows/ending-and-managing-a-market.md#l3a-set-who-may-do-what), E39/F01/S04).
+- **Everyone who may read the market reads its table, and everyone who may read its history every change to it**, in Manage market's Permissions dialog, and only the owner changes it there ([setting who may do what](../flows/ending-and-managing-a-market.md#l3a-set-who-may-do-what), E39/F01/S04).
 - **Who is asking is the session's answer, never the request's.**
   An organizer route learns who is asking from the signed-in session, through `authenticated_email()` ([`back-end/utils/identity.py`](../../../back-end/utils/identity.py)), and a role is looked up for that address alone; no server source reads a caller's identity from a request header.
   [`back-end/tests/test_session_is_the_identity.py`](../../../back-end/tests/test_session_is_the_identity.py) walks the header attack that once read and rejected another organizer's applications, and refuses any server source that reads an identity header again (E07).

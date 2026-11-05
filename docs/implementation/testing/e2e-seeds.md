@@ -165,6 +165,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - 36 vendors over four dates and three sections
   - `SCREENS_EDITOR` an Editor on that market, so a `SCREENS` state signed in as `'editor'` reads Update info with the answers the assignment reads locked
   - settled rules, on a priced market, so Payments draws the market's money and its tables by tier and by date (T180)
+  - a market connected to Discord with a long last run written on it, in every group of the role report and naming a vendor no longer listed, of its own since a connection changes the Vendors page and the Tools tab the others are walked on (T217)
   - an archive
   - the CSV markets the import screens serve: one taking applications, whose saved `importMapping` the `LATER_IMPORT` export reads, so Map columns opens with values waiting, a draft with no plan, and a draft with a plan and the Viewer on it, whose first import's preview offers the reviewers
   - an organization of the organizer's own:

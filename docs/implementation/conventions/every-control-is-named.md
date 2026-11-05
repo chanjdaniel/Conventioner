@@ -17,6 +17,7 @@ sources:
   - E38/F01/S01
   - T181
   - T214
+  - T217
 ---
 
 # Every control is named
@@ -31,7 +32,7 @@ A placeholder goes the moment someone types, which is how the plan's name fields
 **The walk only sees the rows it seeds**: the rules page walked with no rule on it saw the card's "Add a rule" and missed every control inside one (bug 50), so a spec seeds one row of each kind before it walks.
 
 **A control is named by the words it shows, and an `aria-label` that replaces them is a defect** (WCAG 2.5.3): a voice user says what they see.
-Words a screen reader needs beyond those go beside them in a `.visually-hidden` span, as a vendor's name says ": their details" and a statistics row says what its count is a share of.
+Words a screen reader needs beyond those go beside them in a `.visually-hidden` span, as a vendor's name says ": their details", a statistics row says what its count is a share of, and Permissions' "Show", which opens a dialog and holds no state of its own to announce, says "Show permissions".
 **A control holds no control**: a market row was a `role="button"` around its own Manage button, so the row is now a click target for the pointer only, and its name is the real button the keyboard and a screen reader reach it by ([`SummaryCard.vue`](../../../front-end/src/components/SummaryCard.vue)).
 That name is a heading one level under the one its list stands under, so a screen reader's outline skips no level: an `h2` under the Markets and Organizations titles; [`a-list-keeps-its-headings-in-order.spec.ts`](../../../front-end/e2e/a-list-keeps-its-headings-in-order.spec.ts) holds axe's `heading-order` on both lists, and with `page-has-heading-one` on Markets and the app bar's open sheet, which the WCAG-tagged sweep leaves out.
 A vendor's notes are labelled by `h3`s (`VendorNotes.vue`), so an `h2` names the vendor just above them: the drawer's title, and on One by one the card's name line, else its address (`ApplicationMonitor.vue`, T181); the same spec holds both, with the notes open, in the open review and on an archived market, which has no Reviewers panel and so no other `h2` above the card.

@@ -5,7 +5,7 @@
  * long record does not push the rest of the dialog away, and it shows 25 more as its end comes into
  * view, from the rows the screen read whole, since a table's changes are few.
  *
- * Under Manage market's Permissions section, and Manage organization's default permissions
+ * Under Manage market's Permissions dialog's rows, and Manage organization's default permissions
  * (E39/F02/S01). The words are `changeLines`'.
  */
 import { computed, ref } from 'vue';
@@ -36,7 +36,7 @@ const changes = computed(() =>
 </script>
 
 <template>
-  <h4 class="subheading">Changes</h4>
+  <h3 class="subheading">Changes</h3>
   <p v-if="error" class="error">{{ error }}</p>
   <p v-else-if="!changes.length" class="hint">No changes yet.</p>
   <PagedList

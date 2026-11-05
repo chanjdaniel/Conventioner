@@ -602,8 +602,8 @@ async function closeAddUser() {
         </form>
       </section>
 
-      <!-- Who may do what on this market (E39/F01/S04): closed until opened, since the table and
-           its changes would double the dialog's length for everyone who came to add a person. -->
+      <!-- Who may do what on this market (E39/F01/S04): a line here and the rows in a dialog of
+           their own, since they would double this one's length for whoever came to add a person. -->
       <MarketPermissions
         v-if="marketData.permissionTable?.length"
         :market="marketData"

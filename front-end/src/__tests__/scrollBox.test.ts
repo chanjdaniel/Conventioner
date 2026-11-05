@@ -363,4 +363,32 @@ describe('the Tab stop', () => {
     await flushPromises();
     expect(stop(scroller)).toBeNull();
   });
+
+  it('stays while it holds the focus, when a control arrives inside, and goes as the focus leaves', async () => {
+    // A read-only dialog opens on this stop, and its changes arrive after it with a "Load more".
+    const withButton = ref(false);
+    const Host = defineComponent({
+      setup: () => () =>
+        h(
+          ScrollBox,
+          { testid: 'box' },
+          { default: () => (withButton.value ? h('button', 'Load more') : h('span', 'Rows')) },
+        ),
+    });
+    wrapper = mount(Host, { attachTo: document.body });
+    const scroller = byTestId('box')!;
+    layOut(scroller, TALL);
+    await resized();
+    scroller.focus();
+    expect(document.activeElement).toBe(scroller);
+
+    withButton.value = true;
+    await flushPromises();
+    expect(stop(scroller), 'still the stop that holds the focus').toBe('0');
+    expect(document.activeElement).toBe(scroller);
+
+    scroller.querySelector('button')!.focus();
+    await flushPromises();
+    expect(stop(scroller), 'a control has the keys now').toBeNull();
+  });
 });
