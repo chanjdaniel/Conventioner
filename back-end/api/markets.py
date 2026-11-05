@@ -1681,6 +1681,17 @@ def _history_instant(value: Optional[str]) -> Tuple[Optional[str], bool]:
     return instant.astimezone(timezone.utc).isoformat(), True
 
 
+def _history_day(value: Optional[str]) -> bool:
+    """Whether a filter's market day reads: absent, or a calendar day as a placement stores it,
+    ``YYYY-MM-DD`` and no other spelling, since any other would match nothing stored."""
+    if not value:
+        return True
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date().isoformat() == value
+    except ValueError:
+        return False
+
+
 def get_history(
     market_id: str, requesting_user: str, args: Dict[str, str],
 ) -> tuple[Dict[str, Any], int]:
@@ -1688,8 +1699,9 @@ def get_history(
     ``Actions.READ_HISTORY``.
 
     ``args`` are the request's: ``before`` (the cursor the last page answered with), ``actor``,
-    ``group`` (a group of the table), ``vendor``, and ``since`` and ``until`` (ISO instants, the
-    first kept and the second not). The first page also answers what the filters may offer: the
+    ``group`` (a group of the table), ``vendor``, ``since`` and ``until`` (ISO instants, the first
+    kept and the second not), and ``day`` (a market day, ``YYYY-MM-DD``: that day's entries and
+    those about no one day). The first page also answers what the filters may offer: the
     people who changed something, and the groups.
     """
     context = load_market_context(market_id)
@@ -1713,7 +1725,8 @@ def get_history(
             return {"error": "The history has no such kind of change."}, 400
     since, since_read = _history_instant(args.get("since"))
     until, until_read = _history_instant(args.get("until"))
-    if not (since_read and until_read):
+    day = args.get("day")
+    if not (since_read and until_read and _history_day(day)):
         return {"error": "The history's dates could not be read."}, 400
     before = args.get("before")
     if before and History.parse_cursor(before) is None:
@@ -1722,7 +1735,7 @@ def get_history(
     entries, after = History.entries_page(
         market_id, before=before or None, actor=args.get("actor") or None, actions=actions,
         kinds=_HISTORY_GROUP_ALSO_READS.get(group, ()),
-        vendor=args.get("vendor") or None, since=since, until=until,
+        vendor=args.get("vendor") or None, since=since, until=until, day=day or None,
     )
     body: Dict[str, Any] = {
         # Only the entry's own fields are recased: its subject and detail are served as stored,

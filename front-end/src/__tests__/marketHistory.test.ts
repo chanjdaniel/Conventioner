@@ -8,6 +8,7 @@ import {
   dayEnds,
   dayStarts,
   entryChanges,
+  entryDay,
   entryParts,
   fieldName,
   soleColumn,
@@ -1018,6 +1019,73 @@ describe('a placement, in the whole history and in the drawer', () => {
 
     expect(sentence({ kind: change.kind, vendors: change.vendors, detail: change.stored })).toBe(
       `dana@ember.test ${drawer[0].toLowerCase()}${drawer.slice(1)}${day}`,
+    );
+  });
+});
+
+describe('a list the market day leads', () => {
+  const moved = {
+    action: 'assign',
+    kind: 'placed',
+    subject: { date: '2026-11-19' },
+    detail: { date: '2026-11-19', table_code: 'B7', before: { table_code: 'A3' } },
+  };
+  const takenBack = {
+    action: 'assign',
+    kind: 'owed_taken_back',
+    subject: { date: '2099-05-08', currency: 'CAD' },
+    detail: { before: { owed_cents: 0 }, after: { owed_cents: 1500 } },
+  };
+  const led = (overrides: Partial<MarketHistoryEntry>, dayLeads?: boolean) =>
+    said(entryParts(entry(overrides), { names: NAMES, dayLeads }));
+
+  it.each([
+    ['placed', moved, 'moved [Ana Rivera] from A3 to B7'],
+    [
+      'freed',
+      {
+        ...moved,
+        kind: 'freed',
+        detail: { date: '2026-11-19', table_code: 'B7' },
+      },
+      'freed B7, leaving [Ana Rivera] with no table',
+    ],
+    [
+      'swapped',
+      {
+        ...moved,
+        kind: 'swapped',
+        vendors: ['ana@ember.test', 'ben@ember.test'],
+        detail: {
+          date: '2026-11-19',
+          seats: [
+            { email: 'ana@ember.test', table_code: 'A3' },
+            { email: 'ben@ember.test', table_code: 'B7' },
+          ],
+        },
+      },
+      'swapped [Ana Rivera] and [Ben Okafor] - now at A3 and B7',
+    ],
+  ])('takes the trailing day off a %s under it, and only under it', (_kind, change, words) => {
+    expect(led(change)).toBe(`dana@ember.test ${words} on Nov 19, 2026`);
+    expect(led(change, false)).toBe(`dana@ember.test ${words} on Nov 19, 2026`);
+    expect(led(change, true)).toBe(`dana@ember.test ${words}`);
+  });
+
+  it('takes the day out of a table taken back too, which stands mid-sentence', () => {
+    expect(led(takenBack)).toContain('again on May 8, 2099, taking back');
+    expect(led(takenBack, true)).toBe(
+      'dana@ember.test seated [Ana Rivera] again, taking back the $0.00 set when the table was freed',
+    );
+  });
+
+  it('reads the day an entry is about by the short date, or every market day', () => {
+    expect(entryDay(entry(moved))).toBe('Nov 19, 2026');
+    expect(entryDay(entry({ action: 'assign', kind: 'assigned', vendors: [] }))).toBe(
+      'Every market day',
+    );
+    expect(entryDay(entry({ action: 'assign', kind: 'rules', vendors: [] }))).toBe(
+      'Every market day',
     );
   });
 });

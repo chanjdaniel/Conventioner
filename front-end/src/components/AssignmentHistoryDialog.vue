@@ -2,7 +2,8 @@
 /**
  * "Assignment history" on the Assignments page: the market's History narrowed to the Assignment kind
  * of change (T224), so the two never disagree. The same entries in the same words, vendors who open,
- * "Before and after" and the same paging, in a dialog whose body is the one scroller.
+ * "Before and after" and the same paging, in a dialog whose body is the one scroller, opening on the
+ * date the page is showing, with the market day leading each entry.
  *
  * The list is read each time the dialog opens, so a placement made a moment ago on the page is in it
  * with no reload. Read-only: a close control, Escape and the backdrop, and nothing to confirm.
@@ -13,7 +14,12 @@ import MarketHistory from '@/components/MarketHistory.vue';
 import type { Market } from '@/assets/types/datatypes';
 import { intakeModeOf } from '@/utils/marketGuide';
 
-const props = defineProps<{ open: boolean; market: Market }>();
+const props = defineProps<{
+  open: boolean;
+  market: Market;
+  /** The date the page is showing, which the dialog opens on, if any. */
+  date?: string;
+}>();
 const emit = defineEmits<{ close: [] }>();
 
 /** The market's own table's labels by row id, for a change to a row of it. */
@@ -22,6 +28,7 @@ const rowLabels = computed(() =>
 );
 const assignment = computed(() => ({
   days: (props.market.setupObject?.marketDates ?? []).map((day) => day.date),
+  day: props.date,
 }));
 </script>
 

@@ -11,7 +11,6 @@
  */
 import type { MarketHistoryEntry, MarketHistoryPart } from '@/utils/marketHistory';
 import {
-  historyDate,
   historyParts,
   PLACEMENT_KINDS,
   type PlacementHistoryEntry,
@@ -28,9 +27,8 @@ function table(value: unknown): string {
 
 /**
  * A placement in the placement trail's own words (`historyParts`), its first letter lowered to
- * follow who made it, and the day it is for after it, where the trail shows that day beside the
- * line. One wording for every screen, so they cannot drift; a move names the table left and the
- * table taken.
+ * follow who made it. One wording for every screen, so they cannot drift; a move names the table
+ * left and the table taken.
  */
 function placementParts(
   entry: MarketHistoryEntry,
@@ -71,18 +69,21 @@ function placementParts(
     first?.kind === 'text'
       ? { kind: 'text' as const, text: first.text.charAt(0).toLowerCase() + first.text.slice(1) }
       : first;
-  const date = historyDate(trail);
-  return [
-    ...(opening ? [opening] : []),
-    ...rest,
-    ...(date ? [{ kind: 'text' as const, text: ` on ${date}` }] : []),
-  ];
+  return [...(opening ? [opening] : []), ...rest];
 }
 
-/** A placement's sentence: who made it, then the trail's words. Its key names a placement kind. */
+/**
+ * A placement's sentence: who made it, the trail's words, and the day it is for after them. Its key
+ * names a placement kind.
+ */
 function placement(entry: MarketHistoryEntry, context: ReaderContext): MarketHistoryPart[] {
-  const { actor } = sentence(entry, context);
-  return [actor, ...placementParts(entry, entry.kind as PlacementHistoryKind, context.names)];
+  const { actor, detail, onDay, text } = sentence(entry, context);
+  const on = onDay(detail.date);
+  return [
+    actor,
+    ...placementParts(entry, entry.kind as PlacementHistoryKind, context.names),
+    ...(on ? [text(on)] : []),
+  ];
 }
 
 export const readers: HistoryReaders = {

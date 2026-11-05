@@ -18,10 +18,15 @@ import { VendorsPage } from './pages/VendorsPage';
  *
  * It opens from the results' action row, before a run and after (E35/F03/S03), for whoever may read
  * the history. It reads what Manage market's History reads when narrowed to Assignment, in the same
- * order and the same words, in a dialog whose body is the one scroller.
+ * order and the same words but for the market day, which leads each entry, in a dialog whose body is
+ * the one scroller. It opens on the date the page is showing.
  */
 const VIEWER = { email: 'e2e-history-viewer@example.com', password: 'e2ehistoryviewer1' };
 const PAGE = 25;
+const SECOND_DATE = '2099-05-02';
+const FIRST_DAY = 'May 1, 2099';
+const SECOND_DAY = 'May 2, 2099';
+const EVERY_DAY = 'Every market day';
 
 async function ok(response: Awaited<ReturnType<APIRequestContext['put']>>) {
   expect(response.ok(), await response.text()).toBeTruthy();
@@ -48,6 +53,21 @@ async function placeAndFree(
     );
     await ok(await request.delete(placements, { data: { email, date: SEED_MARKET_DATE } }));
   }
+}
+
+/** Places a vendor on a table on a date, as the page does. */
+async function place(
+  request: APIRequestContext,
+  marketId: string,
+  email: string,
+  date: string,
+  tableCode: string,
+) {
+  await ok(
+    await request.put(`${BACKEND_URL}/markets/${marketId}/placements`, {
+      data: { email, date, table_code: tableCode, table_choice: 'Full Table' },
+    }),
+  );
 }
 
 test('a hand placement is there as it opens, and Escape, close and the backdrop close it', async ({
@@ -162,9 +182,116 @@ test("its sentences are Manage market's History narrowed to Assignment, in the s
   await manage.historyKind.selectOption('Assignment');
   await expect(manage.historySentences).toHaveCount(inTheDialog.length);
 
-  expect(await manage.historySentences.allInnerTexts()).toEqual(inTheDialog);
+  // The same words, but for the market day, which leads the entry in the dialog.
+  const manages = await manage.historySentences.allInnerTexts();
+  expect(manages.some((sentence) => sentence.includes(` on ${FIRST_DAY}`))).toBe(true);
+  expect(manages.map((sentence) => sentence.replace(` on ${FIRST_DAY}`, ''))).toEqual(inTheDialog);
   expect(inTheDialog.some((sentence) => sentence.includes('allocated tables'))).toBe(true);
   expect(inTheDialog.some((sentence) => sentence.includes(VIEWER.email))).toBe(false);
+});
+
+test('it opens on the date the page shows, and the day can be changed and let go', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+    run: false,
+    dates: [SEED_MARKET_DATE, SECOND_DATE],
+  });
+  await place(request, seed.marketId, 'alice@example.com', SEED_MARKET_DATE, 'Hall A 1');
+  await place(request, seed.marketId, 'bob@example.com', SECOND_DATE, 'Hall A 2');
+  await ok(await request.post(`${BACKEND_URL}/markets/${seed.marketId}/assignment`));
+  const tables = new TablesPage(page);
+
+  // On the second date: its placement, and the run and the rules, about every day, which lead so.
+  await tables.gotoWithFilters(seed.marketId, { date: SECOND_DATE });
+  await tables.openHistory();
+  await expect(tables.historyMarketDay).toHaveValue(SECOND_DATE);
+  await expect(tables.historyMarketDay).toBeFocused();
+  await expect(tables.historyMarketDay.locator('option')).toHaveText([
+    EVERY_DAY,
+    FIRST_DAY,
+    SECOND_DAY,
+  ]);
+  await expect(tables.historyDays).toHaveText([EVERY_DAY, SECOND_DAY, EVERY_DAY]);
+  await expect(tables.historySentences.nth(0)).toContainText('allocated tables');
+  await expect(tables.historySentences.nth(1)).toContainText('assigned');
+  await expect(tables.historySentences.nth(1)).toContainText('bob@example.com');
+  await expect(tables.historySentences.nth(2)).toContainText('changed the assignment rules');
+  // Its sentence no longer says the day, which leads it.
+  await expect(tables.historySentences.nth(1)).not.toContainText(SECOND_DAY);
+  await expect(tables.historySentences.nth(1)).toContainText(/Hall A 2 \(Full Table\)$/);
+
+  // Changed in the dialog, it reads that day, and the page's date stays as it was.
+  await tables.historyMarketDay.selectOption(SEED_MARKET_DATE);
+  await expect(tables.historyDays).toHaveText([EVERY_DAY, FIRST_DAY, EVERY_DAY]);
+  await expect(tables.historySentences.nth(1)).toContainText('alice@example.com');
+  await expect(page).toHaveURL(new RegExp(`date=${SECOND_DATE}`));
+
+  // Let go, it reads every market day, and there is nothing left to clear.
+  await tables.historyClear.click();
+  await expect(tables.historyMarketDay).toHaveValue('');
+  await expect(tables.historyDays).toHaveText([EVERY_DAY, SECOND_DAY, FIRST_DAY, EVERY_DAY]);
+  await expect(tables.historyClear).toHaveCount(0);
+
+  // Opened again, it is back on the page's date.
+  await page.keyboard.press('Escape');
+  await tables.openHistory();
+  await expect(tables.historyMarketDay).toHaveValue(SECOND_DATE);
+  await expect(tables.historyDays).toHaveCount(3);
+  await page.keyboard.press('Escape');
+
+  // With no date in the address it opens on every market day, focus on the same filter.
+  await tables.goto(seed.marketId);
+  await tables.openHistory();
+  await expect(tables.historyMarketDay).toHaveValue('');
+  await expect(tables.historyMarketDay).toBeFocused();
+  await expect(tables.historyDays).toHaveCount(4);
+  await expect(tables.historyClear).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  // A date the plan does not hold is no day to open on.
+  await tables.gotoWithFilters(seed.marketId, { date: '2099-12-25' });
+  await tables.openHistory();
+  await expect(tables.historyMarketDay).toHaveValue('');
+  await expect(tables.historyDays).toHaveCount(4);
+});
+
+test('a day with nothing says no change matches, and the filter lets it go', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  // A plan that leaves the assignment's rules as they are, so nothing is about every day.
+  const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+  await savePlan(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    seed.marketId,
+    completePlan(SEED_MARKET_DATE, [SECOND_DATE]),
+  );
+  insertApplications([
+    approvedVendorApplication(seed.marketId, 'alice@example.com', {
+      dates: [SEED_MARKET_DATE, SECOND_DATE],
+      tiers: ['Gold'],
+      fullName: 'Alice Example',
+    }),
+  ]);
+  for (const phase of ['applications', 'assignment'] as const) {
+    await transitionMarket(request, BACKEND_URL, TEST_USER.email, seed.marketId, phase);
+  }
+  await place(request, seed.marketId, 'alice@example.com', SEED_MARKET_DATE, 'Hall A 1');
+
+  const tables = new TablesPage(page);
+  await tables.gotoWithFilters(seed.marketId, { date: SECOND_DATE });
+  await tables.openHistory();
+  await expect(tables.historyEmpty).toHaveText('No change matches these filters.');
+  await expect(tables.historyMarketDay).toHaveValue(SECOND_DATE);
+
+  await tables.historyClear.click();
+  await expect(tables.historyEmpty).toHaveCount(0);
+  await expect(tables.historyDays).toHaveText([FIRST_DAY]);
+  await expect(tables.historySentences).toHaveCount(1);
 });
 
 test('a vendor opens on the Vendors page, the dialog gone and nothing behind it held', async ({

@@ -25,6 +25,7 @@ import { hasAssignment } from '@/utils/marketPage';
 import { canAssignIn } from '@/utils/assignPhase';
 import { withoutQueryKey } from '@/utils/routeQuery';
 import { satisfactionPercent } from '@/utils/satisfactionPercent';
+import { useResultFilters } from '@/utils/useResultFilters';
 
 const props = defineProps<{ market: Market }>();
 
@@ -104,6 +105,7 @@ const unassignedCount = computed(() =>
  * market's History (T224), so it is offered as Manage market's section and the drawer's tab are.
  */
 const historyOpen = ref(false);
+const { filters } = useResultFilters();
 const mayReadHistory = computed(() => mayTake(props.market, MarketAction.ReadHistory));
 
 /** Download CSV is the table's Export CSV row (E39/F01/S02). */
@@ -224,6 +226,7 @@ async function downloadCsv(): Promise<void> {
       v-if="mayReadHistory"
       :open="historyOpen"
       :market="market"
+      :date="filters.date"
       @close="historyOpen = false"
     />
   </div>

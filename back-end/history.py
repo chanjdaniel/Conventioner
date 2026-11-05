@@ -424,15 +424,18 @@ def entries_page(
     limit: int = PAGE_SIZE, actor: Optional[str] = None, actions: Optional[List[str]] = None,
     kinds: Iterable[Tuple[str, str]] = (),
     vendor: Optional[str] = None, since: Optional[str] = None, until: Optional[str] = None,
+    day: Optional[str] = None,
 ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
     """One page of the market's history, newest first, and the cursor to the page after it, or
     None when it is the last.
 
     Narrowed to one ``actor``, to entries whose action is one of ``actions`` (a group of the
     table) or whose action and kind are one of the ``kinds`` pairs beside them, to the entries
-    naming one ``vendor``, and to ``since <= at < until`` (instants in this module's ``at``
-    format). Never more than ``PAGE_SIZE`` entries: a market's history has no
-    limit, and its reader asks again for more.
+    naming one ``vendor``, to ``since <= at < until`` (instants in this module's ``at``
+    format), which is when the change was made, and to one market ``day`` (``YYYY-MM-DD``), which
+    is what the change is about: that day's entries and those about no one day, a run and the
+    rules. Never more than ``PAGE_SIZE`` entries: a market's history has no limit, and its reader
+    asks again for more.
 
     Until a database has run the move from ``placement_history``, its older placements are read
     beside the history, as the placement trail reads them, so the history does not seem to start
@@ -447,16 +450,21 @@ def entries_page(
     def page_of(collection, narrowed):
         return list(collection.find(narrowed, _ENTRY_PROJECTION).sort(_NEWEST_FIRST).limit(wanted))
 
+    def on_the_day(narrowed, date_key):
+        return {"$and": [narrowed, {date_key: {"$in": [day, None]}}]} if day else narrowed
+
+    query_of_entries = on_the_day(query, "subject.date")
     if actions:
         named = [{"action": {"$in": actions}},
                  *({"action": action, "kind": kind} for action, kind in kinds)]
-        narrowed = {"$and": [query, named[0] if len(named) == 1 else {"$or": named}]}
+        narrowed = {"$and": [query_of_entries, named[0] if len(named) == 1 else {"$or": named}]}
     else:
-        narrowed = query
+        narrowed = query_of_entries
     entries = page_of(history_collection, narrowed)
     if actions is None or ASSIGN.id in actions:
         moved_ids = {entry.get("id") for entry in entries}
-        for old in page_of(legacy_placement_collection, query):
+        # An unmoved placement has no subject: the day it is about is in its detail.
+        for old in page_of(legacy_placement_collection, on_the_day(query, "detail.date")):
             if old.get("id") in moved_ids:
                 continue
             old["action"] = ASSIGN.id

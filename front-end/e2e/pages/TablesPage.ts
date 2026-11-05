@@ -43,6 +43,11 @@ export class TablesPage {
   readonly historyEntries: Locator;
   readonly historySentences: Locator;
   readonly historyVendorLinks: Locator;
+  /** The "Market day" filter, and the day leading each entry. */
+  readonly historyMarketDay: Locator;
+  readonly historyDays: Locator;
+  readonly historyClear: Locator;
+  readonly historyEmpty: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -67,6 +72,10 @@ export class TablesPage {
     this.historyEntries = this.historyDialog.getByTestId('market-history-entry');
     this.historySentences = this.historyDialog.getByTestId('market-history-sentence');
     this.historyVendorLinks = this.historyDialog.getByTestId('market-history-vendor-link');
+    this.historyMarketDay = this.historyDialog.getByTestId('market-history-market-day');
+    this.historyDays = this.historyDialog.getByTestId('market-history-day');
+    this.historyClear = this.historyDialog.getByTestId('market-history-clear');
+    this.historyEmpty = this.historyDialog.getByTestId('market-history-empty');
   }
 
   async goto(marketId: string): Promise<void> {

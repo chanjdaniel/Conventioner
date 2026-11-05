@@ -16,6 +16,7 @@ import { readersOf } from '@/utils/historyReaders';
 import {
   asDetail,
   changedFields,
+  day,
   fieldName,
   fieldValue,
   readerContext,
@@ -84,6 +85,14 @@ export function entryParts(
 /** When it happened, as a moment, in the reader's own timezone. */
 export function entryWhen(entry: MarketHistoryEntry): string {
   return getFormattedTimestamp(entry.at) || entry.at;
+}
+
+/**
+ * The market day an entry is about, for a list the day leads (`dayLeads`). A run and the rules are
+ * about no one day.
+ */
+export function entryDay(entry: MarketHistoryEntry): string {
+  return day(entry.subject.date) || 'Every market day';
 }
 
 export { fieldName, fieldValue, valueText };

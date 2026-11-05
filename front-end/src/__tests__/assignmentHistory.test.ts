@@ -105,9 +105,9 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-function mountList() {
+function mountList(assignment: { days: string[]; day?: string } = ASSIGNMENT) {
   open = mount(MarketHistory, {
-    props: { marketId: 'market-1', path: IntakeMode.Form, assignment: ASSIGNMENT, box: 'parent' },
+    props: { marketId: 'market-1', path: IntakeMode.Form, assignment, box: 'parent' },
     global,
   });
   return open;
@@ -200,15 +200,221 @@ describe('the history, narrowed to assignments', () => {
   });
 });
 
+describe('Market day', () => {
+  const dayField = (wrapper: VueWrapper) =>
+    wrapper.get<HTMLSelectElement>('[data-testid="market-history-market-day"]');
+
+  it('offers every market day first, then each of the plan’s days, in the plan’s order', async () => {
+    serve({ entries: [], next: null });
+    const wrapper = mountList({ days: ['2026-11-20', '2026-11-19'] });
+    await flushPromises();
+
+    expect(
+      dayField(wrapper)
+        .findAll('option')
+        .map((option) => option.text()),
+    ).toEqual(['Every market day', 'Nov 20, 2026', 'Nov 19, 2026']);
+    expect(wrapper.text()).toContain('Market day');
+  });
+
+  it('is the first of the filters', async () => {
+    serve({ entries: [], next: null });
+    const wrapper = mountList();
+    await flushPromises();
+
+    const first = wrapper.get('.history-filters').find('select, input');
+    expect(first.attributes('data-testid')).toBe('market-history-market-day');
+  });
+
+  it('opens on the day it is given and asks for that day, with a way to let it go', async () => {
+    const asked = serve({ entries: [placed('e1', 1)], next: null });
+    const wrapper = mountList({ ...ASSIGNMENT, day: '2026-11-20' });
+    await flushPromises();
+
+    expect(dayField(wrapper).element.value).toBe('2026-11-20');
+    expect(asked).toEqual(['/markets/market-1/history?group=Assignment&day=2026-11-20']);
+
+    await wrapper.get('[data-testid="market-history-clear"]').trigger('click');
+    await flushPromises();
+
+    expect(dayField(wrapper).element.value).toBe('');
+    expect(asked.at(-1)).toBe('/markets/market-1/history?group=Assignment');
+    expect(wrapper.find('[data-testid="market-history-clear"]').exists()).toBe(false);
+  });
+
+  it.each([
+    ['no day', undefined],
+    ['a day the plan does not hold', '2026-12-25'],
+  ])('opens on every market day given %s', async (_case, day) => {
+    const asked = serve({ entries: [placed('e1', 1)], next: null });
+    const wrapper = mountList({ ...ASSIGNMENT, day });
+    await flushPromises();
+
+    expect(dayField(wrapper).element.value).toBe('');
+    expect(asked).toEqual(['/markets/market-1/history?group=Assignment']);
+    expect(wrapper.find('[data-testid="market-history-clear"]').exists()).toBe(false);
+  });
+
+  it('reads the day chosen from its newest entry, and the next page under it', async () => {
+    const view = installIntersectionObserver();
+    const asked = serve(
+      { entries: [placed('e2', 2)], next: null },
+      { entries: [placed('e3', 3)], next: 'cursor-3' },
+      { entries: [placed('e1', 1)], next: null },
+    );
+    const wrapper = mountList();
+    await flushPromises();
+
+    await dayField(wrapper).setValue('2026-11-19');
+    await flushPromises();
+    await view.showSentinels();
+
+    expect(asked.slice(1)).toEqual([
+      '/markets/market-1/history?group=Assignment&day=2026-11-19',
+      '/markets/market-1/history?group=Assignment&day=2026-11-19&before=cursor-3',
+    ]);
+  });
+
+  it('says no change matches on a day with nothing, with the way out beside it', async () => {
+    serve({ entries: [], next: null });
+    const wrapper = mountList({ ...ASSIGNMENT, day: '2026-11-19' });
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="market-history-empty"]').text()).toBe(
+      'No change matches these filters.',
+    );
+    expect(wrapper.find('[data-testid="market-history-clear"]').exists()).toBe(true);
+  });
+
+  it('is a select at twelve days, and a field that finds a day past them', async () => {
+    serve({ entries: [], next: null });
+    const days = (count: number) =>
+      Array.from({ length: count }, (_, n) => `2026-11-${String(n + 1).padStart(2, '0')}`);
+
+    const twelve = mountList({ days: days(12) });
+    await flushPromises();
+    expect(twelve.find('select[data-testid="market-history-market-day"]').exists()).toBe(true);
+    twelve.unmount();
+
+    const thirteen = mountList({ days: days(13) });
+    await flushPromises();
+    expect(thirteen.find('select[data-testid="market-history-market-day"]').exists()).toBe(false);
+    expect(thirteen.find('[data-testid="market-history-market-day"] input').exists()).toBe(true);
+  });
+
+  it('is not drawn in Manage market', async () => {
+    serve({ entries: [placed('e1', 1)], next: null });
+    open = mount(MarketHistory, {
+      props: { marketId: 'market-1', path: IntakeMode.Form },
+      global,
+    });
+    await flushPromises();
+
+    expect(open.find('[data-testid="market-history-market-day"]').exists()).toBe(false);
+  });
+});
+
+describe('the date filters', () => {
+  it.each([
+    ['Assignment history', { assignment: ASSIGNMENT }],
+    ['Manage market', {}],
+  ])(
+    'say when the change was made in %s, so they cannot be taken for market days',
+    async (_screen, props) => {
+      serve({ entries: [], next: null });
+      open = mount(MarketHistory, {
+        props: { marketId: 'market-1', path: IntakeMode.Form, ...props },
+        global,
+      });
+      await flushPromises();
+
+      const label = (testid: string) =>
+        open?.get(`[data-testid="${testid}"]`).element.closest('label')?.textContent?.trim();
+      expect(label('market-history-from')).toBe('Changed from');
+      expect(label('market-history-to')).toBe('Changed to');
+    },
+  );
+});
+
+describe('the market day leading each entry', () => {
+  it('leads with the day it is about, or every market day, and no sentence repeats it', async () => {
+    serve({
+      entries: [
+        placed('e3', 3),
+        { ...placed('e2', 2), kind: 'assigned', vendors: [], subject: {}, detail: {} },
+        { ...placed('e1', 1), kind: 'rules', vendors: [], subject: {}, detail: {} },
+      ],
+      next: null,
+    });
+    const wrapper = mountList();
+    await flushPromises();
+
+    expect(wrapper.findAll('[data-testid="market-history-day"]').map((d) => d.text())).toEqual([
+      'Nov 19, 2026',
+      'Every market day',
+      'Every market day',
+    ]);
+    expect(wrapper.get('[data-testid="market-history-sentence"]').text()).not.toContain(
+      'on Nov 19',
+    );
+  });
+
+  it('leaves Manage market reading the day after the sentence, with no day line', async () => {
+    serve({ entries: [placed('e1', 1)], next: null });
+    open = mount(MarketHistory, {
+      props: { marketId: 'market-1', path: IntakeMode.Form },
+      global,
+    });
+    await flushPromises();
+
+    expect(open.find('[data-testid="market-history-day"]').exists()).toBe(false);
+    expect(open.get('[data-testid="market-history-sentence"]').text()).toContain('on Nov 19, 2026');
+  });
+
+  it('leaves the drawer reading the day after the sentence, with no day line', async () => {
+    serve({ entries: [placed('e1', 1)], next: null });
+    open = mount(MarketHistory, {
+      props: {
+        marketId: 'market-1',
+        path: IntakeMode.Form,
+        vendor: 'ana@ember.test',
+        box: 'parent',
+      },
+      global,
+    });
+    await flushPromises();
+
+    expect(open.find('[data-testid="market-history-day"]').exists()).toBe(false);
+    expect(open.get('[data-testid="market-history-sentence"]').text()).toContain('on Nov 19, 2026');
+  });
+});
+
 describe('the Assignment history dialog', () => {
-  function mountDialog(opened: boolean) {
+  function mountDialog(opened: boolean, date?: string) {
     open = mount(AssignmentHistoryDialog, {
-      props: { open: opened, market: market() },
+      props: { open: opened, market: market(), date },
       attachTo: document.body,
       global,
     });
     return open;
   }
+
+  it('opens on the date the page is showing, from the plan’s days', async () => {
+    const asked = serve({ entries: [placed('e1', 1)], next: null });
+    mountDialog(true, '2026-11-20');
+    await flushPromises();
+
+    expect(asked).toEqual(['/markets/market-1/history?group=Assignment&day=2026-11-20']);
+    const select = document.querySelector<HTMLSelectElement>(
+      '[data-testid="market-history-market-day"]',
+    );
+    expect(select?.value).toBe('2026-11-20');
+    expect([...(select?.options ?? [])].map((option) => option.text)).toEqual([
+      'Every market day',
+      'Nov 19, 2026',
+      'Nov 20, 2026',
+    ]);
+  });
 
   it('reads nothing while closed, and reads again each time it opens', async () => {
     const asked = serve({ entries: [placed('e1', 1)], next: null });

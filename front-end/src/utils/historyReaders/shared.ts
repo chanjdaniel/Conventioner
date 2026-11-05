@@ -55,6 +55,9 @@ export interface HistoryContext {
   questions?: readonly RejectionQuestion[];
   /** The market's form, whose questions name a vendor's answers. */
   fields?: readonly FormField[];
+  /** The market day stands on a line of its own above the sentence (`entryDay`), so the sentence
+   * does not say it again. */
+  dayLeads?: boolean;
 }
 
 /** The context as a reader gets it: every input there, its default where the screen gave none. */
@@ -69,6 +72,7 @@ export const CONTEXT_DEFAULTS: Readonly<ReaderContext> = {
   own: '',
   questions: [],
   fields: [],
+  dayLeads: false,
 };
 
 /** A screen's context with each input it left out, or gave as undefined, at its default. */
@@ -125,7 +129,7 @@ export function listed(words: string[]): string {
 /**
  * What a sentence is made of: words, a vendor as a part of their own, so the screen draws them as
  * a link to their drawer, who made the change, the entry's first vendor, its detail and the detail's
- * two sides, and a day as " on <day>".
+ * two sides, and a day as " on <day>", or as nothing where the day leads the entry.
  */
 export function sentence(entry: MarketHistoryEntry, context: ReaderContext) {
   const text = (words: string): MarketHistoryPart => ({ kind: 'text', text: words });
@@ -139,7 +143,7 @@ export function sentence(entry: MarketHistoryEntry, context: ReaderContext) {
   const after = asDetail(detail.after);
   const vendor = who(entry.vendors[0]);
   const actor = text(`${entry.actor || 'Someone'} `);
-  const onDay = (value: unknown) => (value ? ` on ${day(value)}` : '');
+  const onDay = (value: unknown) => (value && !context.dayLeads ? ` on ${day(value)}` : '');
   return { text, who, detail, before, after, vendor, actor, onDay };
 }
 

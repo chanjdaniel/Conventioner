@@ -1330,10 +1330,10 @@ def get_history(market_id: str) -> Response:
     Asks ``Actions.READ_HISTORY``.
 
     ``?before=`` is the cursor the last page answered with; ``?actor=``, ``?group=``, ``?vendor=``,
-    ``?since=`` and ``?until=`` narrow it.
+    ``?since=``, ``?until=`` and ``?day=`` narrow it.
     """
     args = {key: request.args.get(key, "")
-            for key in ("before", "actor", "group", "vendor", "since", "until")}
+            for key in ("before", "actor", "group", "vendor", "since", "until", "day")}
     result, status_code = MarketsApi.get_history(market_id, authenticated_email(), args)
     return jsonify(result), status_code
 

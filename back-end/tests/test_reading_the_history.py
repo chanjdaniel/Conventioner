@@ -122,7 +122,7 @@ def legacy(monkeypatch):
 
 
 def entry(history, minutes, action="give-verdicts", kind="verdict", actor="dana@x.test",
-          vendors=(), detail=None, market=MARKET, entry_id=None):
+          vendors=(), detail=None, market=MARKET, entry_id=None, subject=None):
     doc = {
         "id": entry_id or f"e-{minutes:05d}",
         "market_id": market,
@@ -131,7 +131,7 @@ def entry(history, minutes, action="give-verdicts", kind="verdict", actor="dana@
         "action": action,
         "kind": kind,
         "vendors": list(vendors),
-        "subject": {},
+        "subject": subject or {},
         "detail": detail or {"before": {"status": "pending"}, "after": {"status": "approved"}},
     }
     history.docs.append(doc)
@@ -241,6 +241,40 @@ class TestTheFilters:
 
         assert ids(page) == ["e-00120", "e-00060"]
 
+    def test_a_market_day_keeps_that_days_entries_and_those_about_no_one_day(self, history):
+        """Allocating tables is about every day, so it shows on whichever day is read (T224)."""
+        entry(history, 1, action="assign", kind="placed", subject={"date": "2026-11-19"})
+        entry(history, 2, action="assign", kind="freed", subject={"date": "2026-11-20"})
+        entry(history, 3, action="assign", kind="assigned")
+        entry(history, 4, action="assign", kind="rules")
+        entry(history, 5, action="assign", kind="freed", subject={"date": None})
+
+        page, _after = History.entries_page(MARKET, day="2026-11-19")
+
+        assert ids(page) == ["e-00005", "e-00004", "e-00003", "e-00001"]
+
+    def test_a_market_day_is_not_when_the_change_was_made(self, history):
+        """A change made on the 19th about the 20th is the 20th's, whatever ``since`` asks."""
+        entry(history, 1, action="assign", kind="placed", subject={"date": "2026-11-20"})
+
+        on_its_day, _after = History.entries_page(MARKET, day="2026-11-20")
+        on_the_day_it_was_made, _after = History.entries_page(
+            MARKET, day=START.date().isoformat())
+
+        assert ids(on_its_day) == ["e-00001"]
+        assert on_the_day_it_was_made == []
+
+    def test_a_market_day_holds_from_page_to_page(self, history):
+        for minutes in range(20):
+            date = "2026-11-19" if minutes % 2 else "2026-11-20"
+            entry(history, minutes, action="assign", kind="placed", subject={"date": date})
+
+        first, after = History.entries_page(MARKET, day="2026-11-19", limit=5)
+        second, after = History.entries_page(MARKET, day="2026-11-19", before=after, limit=5)
+
+        assert ids(first) + ids(second) == [f"e-{m:05d}" for m in range(19, 0, -2)]
+        assert after is None
+
     def test_the_filters_hold_from_page_to_page(self, history):
         for minutes in range(20):
             entry(history, minutes, actor="dana@x.test" if minutes % 2 else "priya@x.test")
@@ -292,6 +326,20 @@ class TestTheEntriesNotYetMoved:
         page, _after = History.entries_page(MARKET, vendor="Ben@X.test")
 
         assert ids(page) == ["old-2"]
+
+    def test_a_market_day_reads_their_detail_since_they_have_no_subject(self, history, legacy):
+        for minutes, kind, detail in (
+                (1, "freed", {"date": "2026-11-19", "table_code": "A1"}),
+                (2, "freed", {"date": "2026-11-20", "table_code": "A1"}),
+                (3, "assigned", {"placements_written": 4})):
+            legacy.docs.append({
+                "id": f"old-{minutes}", "market_id": MARKET, "actor": "dana@x.test",
+                "at": _at(minutes), "kind": kind, "vendors": [], "detail": detail,
+            })
+
+        page, _after = History.entries_page(MARKET, day="2026-11-19")
+
+        assert ids(page) == ["old-3", "old-1"]
 
     def test_they_are_left_out_of_a_group_that_is_not_the_assignment(self, history, legacy):
         legacy.docs.append({
@@ -427,6 +475,31 @@ class TestTheEndpoint:
 
         assert status == 200
         assert ids(body["entries"]) == ["e-00001"]
+
+    def test_a_market_day_is_read_from_the_request(self, market, history, monkeypatch):
+        _as(monkeypatch, MarketRole.VIEWER)
+        entry(history, 1, action="assign", kind="placed", subject={"date": "2026-11-19"})
+        entry(history, 2, action="assign", kind="placed", subject={"date": "2026-11-20"})
+        entry(history, 3, action="assign", kind="assigned")
+
+        body, status = MarketsApi.get_history(MARKET, "viewer@x.test", {
+            "group": "Assignment", "day": "2026-11-20",
+        })
+
+        assert status == 200
+        assert ids(body["entries"]) == ["e-00003", "e-00002"]
+
+    @pytest.mark.parametrize("day", [
+        "yesterday", "2026-13-45", "2026-02-30", "20261119", "2026-W47-4", "2026-11-19T09:00:00",
+        " 2026-11-19",
+    ])
+    def test_a_day_that_is_not_a_calendar_day_is_refused(self, market, history, monkeypatch, day):
+        _as(monkeypatch, MarketRole.VIEWER)
+
+        body, status = MarketsApi.get_history(MARKET, "viewer@x.test", {"day": day})
+
+        assert status == 400
+        assert body["error"] == "The history's dates could not be read."
 
     def test_payments_reads_a_frees_deduction_taken_back_beside_the_change_it_undoes(
             self, market, history, monkeypatch):
