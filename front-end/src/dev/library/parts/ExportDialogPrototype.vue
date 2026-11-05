@@ -10,6 +10,7 @@
  */
 import { computed, nextTick, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
+import ColumnChecklist from '@/components/ColumnChecklist.vue';
 import FilterToggles from '@/components/FilterToggles.vue';
 import OrderedList from '@/components/OrderedList.vue';
 import ScrollBox from '@/components/ScrollBox.vue';
@@ -28,7 +29,6 @@ import {
 } from '@/utils/vendorExport';
 import { cellOf, vendorsKept } from '../exportVendors';
 import { fixture } from '../fixture';
-import ColumnChecklist from './ColumnChecklist.vue';
 
 const props = defineProps<{ open: boolean; variant: 'checklist' | 'combobox' }>();
 

@@ -11,13 +11,14 @@
  *
  * The filters are folded behind one line saying which vendors are in, naming whatever the page's
  * filters brought, and it opens folded every time. A question's hundreds of answers are a combobox,
- * never a box each.
+ * never a box each. The columns are `ColumnChecklist`'s.
  *
  * `filters` and `order` are its holder's: a field writes into `filters`, which the holder watches
  * deeply, and each change of the order is a new array.
  */
 import { computed, nextTick, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
+import ColumnChecklist from '@/components/ColumnChecklist.vue';
 import FilterToggles from '@/components/FilterToggles.vue';
 import OrderedList from '@/components/OrderedList.vue';
 import ScrollBox from '@/components/ScrollBox.vue';
@@ -25,6 +26,7 @@ import SearchPicker, { type PickerOption } from '@/components/SearchPicker.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 import { getFormattedDate } from '@/utils/utils';
 import {
+  chosenColumns,
   columnGroups,
   exportFiltersSummary,
   exportSummary,
@@ -103,12 +105,10 @@ function keepEnterFromTheForm(event: KeyboardEvent): void {
 const columnKey = (column: ExportColumn) => column.id;
 const columnLabel = (column: ExportColumn) => column.label;
 
-function isTicked(column: ExportColumn): boolean {
-  return order.value.some((each) => each.id === column.id);
-}
+const chosen = computed(() => chosenColumns(order.value));
 
-function tick(column: ExportColumn, event: Event): void {
-  order.value = tickedColumn(order.value, column, (event.target as HTMLInputElement).checked);
+function tick(column: ExportColumn, ticked: boolean): void {
+  order.value = tickedColumn(order.value, column, ticked);
 }
 
 const dialog = ref<InstanceType<typeof AppDialog> | null>(null);
@@ -166,6 +166,7 @@ watch(
     testid="vendor-export"
     size="broad"
     scroll="body"
+    anchored
     :confirm-label="busy ? 'Downloading…' : 'Download CSV'"
     :confirm-disabled="busy || !offered || !order.length"
     :error="error"
@@ -372,29 +373,10 @@ watch(
         </div>
       </section>
 
-      <fieldset class="export-section">
-        <legend class="export-legend">Columns</legend>
-        <fieldset
-          v-for="group in groups"
-          :key="group.id"
-          class="export-group"
-          :data-testid="`vendor-export-group-${group.id}`"
-        >
-          <legend class="field-label">{{ group.label }}</legend>
-          <div class="export-picks">
-            <label v-for="column in group.columns" :key="column.id" class="export-check">
-              <input
-                type="checkbox"
-                name="vendor-export-column"
-                :checked="isTicked(column)"
-                :data-testid="`vendor-export-column-${column.id}`"
-                @change="tick(column, $event)"
-              />
-              {{ column.label }}
-            </label>
-          </div>
-        </fieldset>
-      </fieldset>
+      <section class="export-section" aria-labelledby="vendor-export-columns-title">
+        <h3 id="vendor-export-columns-title" class="export-legend">Columns</h3>
+        <ColumnChecklist :groups="groups" :chosen="chosen" @tick="tick" />
+      </section>
     </template>
 
     <template v-if="offered || previewError" #tray>
@@ -517,9 +499,6 @@ watch(
 }
 
 .export-section {
-  margin: 0;
-  padding: 0;
-  border: none;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -527,8 +506,7 @@ watch(
 }
 
 .export-legend {
-  padding: 0;
-  margin-bottom: var(--space-2);
+  margin: 0;
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
   color: var(--mm-black);
@@ -546,10 +524,6 @@ watch(
 .export-which__said {
   flex: 1 1 16rem;
   min-width: 0;
-}
-
-.export-which .export-legend {
-  margin: 0;
 }
 
 .export-which__words {
@@ -621,36 +595,6 @@ watch(
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
   gap: var(--space-3);
   align-items: start;
-}
-
-/* A heading's columns, two to a row as the filters above are. */
-.export-group {
-  margin: 0;
-  padding: 0;
-  border: none;
-  min-width: 0;
-}
-
-/* Apart as the filters above are, so a heading reads as the next group's, not the last row's. */
-.export-group + .export-group {
-  margin-top: var(--space-1);
-}
-
-.export-group > legend {
-  padding: 0;
-  margin-bottom: var(--space-1);
-}
-
-.export-picks {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: var(--space-4);
-}
-
-@media (max-width: 640px) {
-  .export-picks {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 .export-cart {

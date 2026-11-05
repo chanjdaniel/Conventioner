@@ -218,7 +218,7 @@ function addUser() {
 
   <LibrarySection
     title="Every behaviour kept"
-    about="Serves: the 9 destructive confirmations, the 5 anchored dialogs, the 7 of several actions, and every form's error"
+    about="Serves: the 9 destructive confirmations, the 6 anchored dialogs, the 7 of several actions, and every form's error"
   >
     <LibraryPanel label="Each dialog below, opened as" class="library-wide">
       <div class="library-row" role="group" aria-label="Scroll">

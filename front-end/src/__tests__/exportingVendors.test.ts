@@ -661,6 +661,176 @@ describe('the dialog', () => {
     wrapper.unmount();
   });
 
+  describe('finding a column', () => {
+    const scrollIntoView = vi.fn();
+
+    beforeEach(() => {
+      scrollIntoView.mockClear();
+      Element.prototype.scrollIntoView = scrollIntoView;
+    });
+
+    afterEach(() => {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    });
+
+    const find = (wrapper: VueWrapper) =>
+      wrapper.get<HTMLInputElement>('[data-testid="vendor-export-columns-find"]');
+    const headings = (wrapper: VueWrapper) =>
+      wrapper.findAll('[data-testid^="vendor-export-group-"]').map((g) => g.get('legend').text());
+    const listed = (wrapper: VueWrapper) =>
+      wrapper
+        .findAll('[data-testid^="vendor-export-column-"]')
+        .map((box) => box.attributes('data-testid')!.replace('vendor-export-column-', ''));
+    const tickOf = (wrapper: VueWrapper, id: string) =>
+      wrapper.get<HTMLInputElement>(`[data-testid="vendor-export-column-${id}"]`);
+    const inTheOrder = (wrapper: VueWrapper) =>
+      wrapper.findAll('[data-testid="vendor-export-order-label"]').map((row) => row.text());
+
+    it('lists every column under its heading until something is typed', async () => {
+      const wrapper = await opened();
+
+      expect(headings(wrapper)).toEqual(['Vendor', 'Answers', 'Assignment', 'Payment']);
+      expect(listed(wrapper)).toHaveLength(OFFERED.columns.length);
+      wrapper.unmount();
+    });
+
+    it('narrows the columns as it is typed in, keeping the headings with a match', async () => {
+      const wrapper = await opened();
+
+      await find(wrapper).setValue('AMOUNT');
+
+      expect(headings(wrapper)).toEqual(['Payment']);
+      expect(listed(wrapper)).toEqual(['owed', 'paid']);
+      wrapper.unmount();
+    });
+
+    it('finds across headings, and only spaces typed narrows nothing', async () => {
+      const wrapper = await opened();
+
+      await find(wrapper).setValue(' ed ');
+      expect(headings(wrapper)).toEqual(['Vendor', 'Assignment', 'Payment']);
+      expect(listed(wrapper)).toEqual(['preferredName', 'datesPlaced', 'owed', 'stillOwed']);
+
+      await find(wrapper).setValue('   ');
+      expect(listed(wrapper)).toHaveLength(OFFERED.columns.length);
+      wrapper.unmount();
+    });
+
+    it('says when nothing matches, with the words typed, and says nothing until then', async () => {
+      const wrapper = await opened();
+      const none = '[data-testid="vendor-export-columns-none"]';
+      expect(wrapper.find(none).exists()).toBe(false);
+
+      await find(wrapper).setValue('  zzz ');
+
+      expect(wrapper.get(none).text()).toBe('Nothing matches "zzz".');
+      expect(headings(wrapper)).toEqual([]);
+      wrapper.unmount();
+    });
+
+    it('brings the first thing the words find into view, or the words saying nothing did', async () => {
+      const wrapper = await opened();
+
+      await find(wrapper).setValue('amount');
+      expect(scrollIntoView.mock.contexts).toEqual([
+        tickOf(wrapper, 'owed').element.closest('label'),
+      ]);
+
+      scrollIntoView.mockClear();
+      await find(wrapper).setValue('zzz');
+      expect(scrollIntoView.mock.contexts).toEqual([
+        wrapper.get('[data-testid="vendor-export-columns-none"]').element,
+      ]);
+      wrapper.unmount();
+    });
+
+    it('carries each label’s whole text in a title, for when an ellipsis cuts it', async () => {
+      const wrapper = await opened();
+
+      const pick = tickOf(wrapper, 'date:2099-08-01:table').element.closest('label')!;
+      const words = pick.querySelector('[title]')!;
+      expect(words.getAttribute('title')).toBe('Sat 1 Aug - table');
+      expect(words.textContent?.trim()).toBe('Sat 1 Aug - table');
+      wrapper.unmount();
+    });
+
+    it('puts a column ticked at the end of the order, and takes it out', async () => {
+      const wrapper = await opened();
+
+      await tickOf(wrapper, 'owed').setValue(true);
+      expect(inTheOrder(wrapper)).toEqual(['Name', 'Email', 'Status', 'Amount owed']);
+
+      await tickOf(wrapper, 'owed').setValue(false);
+      expect(inTheOrder(wrapper)).toEqual(['Name', 'Email', 'Status']);
+      wrapper.unmount();
+    });
+
+    it('holds its words and its ticks through a tick, a move and a remove in the cart', async () => {
+      vi.useFakeTimers();
+      const wrapper = await opened();
+      await vi.runAllTimersAsync();
+
+      await find(wrapper).setValue('amount');
+      await tickOf(wrapper, 'owed').setValue(true);
+      await tickOf(wrapper, 'paid').setValue(true);
+      await wrapper.get('[data-testid="vendor-export-order-up-paid"]').trigger('click');
+      // The server's answer replaces what is offered, which must not start the list over.
+      await vi.runAllTimersAsync();
+      await flushPromises();
+
+      expect(find(wrapper).element.value).toBe('amount');
+      expect(listed(wrapper)).toEqual(['owed', 'paid']);
+      expect(tickOf(wrapper, 'owed').element.checked).toBe(true);
+      expect(tickOf(wrapper, 'paid').element.checked).toBe(true);
+      expect(inTheOrder(wrapper)).toEqual([
+        'Name',
+        'Email',
+        'Status',
+        'Amount paid',
+        'Amount owed',
+      ]);
+
+      await wrapper.get('[data-testid="vendor-export-remove-owed"]').trigger('click');
+      await flushPromises();
+
+      expect(find(wrapper).element.value).toBe('amount');
+      expect(tickOf(wrapper, 'owed').element.checked).toBe(false);
+      expect(tickOf(wrapper, 'paid').element.checked).toBe(true);
+      wrapper.unmount();
+    });
+
+    it('forgets its words on closing', async () => {
+      const wrapper = await opened();
+      await find(wrapper).setValue('amount');
+
+      await wrapper.setProps({ open: false });
+      await flushPromises();
+      await wrapper.setProps({ open: true });
+      await flushPromises();
+
+      expect(find(wrapper).element.value).toBe('');
+      expect(listed(wrapper)).toHaveLength(OFFERED.columns.length);
+      wrapper.unmount();
+    });
+
+    it.each(['vendor-export-columns-find', 'vendor-export-column-name'])(
+      'keeps Enter in %s from the form',
+      async (testid) => {
+        const wrapper = await opened();
+
+        const enter = new KeyboardEvent('keydown', {
+          key: 'Enter',
+          bubbles: true,
+          cancelable: true,
+        });
+        wrapper.get(`[data-testid="${testid}"]`).element.dispatchEvent(enter);
+
+        expect(enter.defaultPrevented).toBe(true);
+        wrapper.unmount();
+      },
+    );
+  });
+
   describe('"Which vendors"', () => {
     const toggle = (wrapper: VueWrapper) =>
       wrapper.get('[data-testid="vendor-export-filters-toggle"]');

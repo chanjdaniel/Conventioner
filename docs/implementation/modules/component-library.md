@@ -60,7 +60,7 @@ An entry is drawn from the parts in `parts/`:
 - `ReadOut`: the line under a live demo that reads out its value ("Chosen: North Wing"), so a choice is seen to land;
 - `ChoicesForYou`: the note that ends an entry with choices left for Daniel, one item per choice; an entry whose choices are all answered has none.
 
-An entry's own parts sit beside these in `parts/`, such as `ColumnChecklist`, `ExportDialogPrototype` and `SeatRow`.
+An entry's own parts sit beside these in `parts/`, such as `ExportDialogPrototype` and `SeatRow`.
 The `combobox` entry draws [`ChoiceField`](../../../front-end/src/components/ChoiceField.vue) too: the real `ValueFixes` at 12 answers, a select, and at 13, a field, C1's long list of values through `ChoiceField`, which keeps no typed words, C2, "Maps to" as the import builds it, with two targets taken, and C12, "Add an answer", a choice that adds, and C13, the role on the Discord card, a choice that may go back to none.
 
 The page uses only the design tokens, the primitives and the app's components; Stylelint holds its files as it holds every file, so a raw colour, size or spacing is an error there.

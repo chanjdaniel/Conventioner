@@ -163,22 +163,22 @@ eachWindow('the export-vendors entry', (size) => {
   }) => {
     await open(page, 'checklist');
     await openTray(page);
-    const find = page.getByTestId('library-export-columns-find');
-    const group = (id: string) => page.getByTestId(`library-export-group-${id}`);
+    const find = page.getByTestId('vendor-export-columns-find');
+    const group = (id: string) => page.getByTestId(`vendor-export-group-${id}`);
 
     for (const id of ['vendor', 'answers', 'assignment', 'payment', 'discord']) {
       await expect(group(id)).toBeVisible();
     }
-    await expect(page.getByTestId('library-export-column-email')).toBeChecked();
+    await expect(page.getByTestId('vendor-export-column-email')).toBeChecked();
 
     await find.fill('amount owed');
-    await expect(group('payment').getByRole('heading', { name: 'Payment' })).toBeVisible();
+    await expect(group('payment').locator('legend').filter({ hasText: 'Payment' })).toBeVisible();
     await expect(group('payment').getByRole('checkbox')).toHaveCount(1);
     for (const id of ['vendor', 'answers', 'assignment', 'discord']) {
       await expect(group(id)).toHaveCount(0);
     }
 
-    await press(page.getByTestId('library-export-column-owed'));
+    await press(page.getByTestId('vendor-export-column-owed'));
     await expect(orderWords(page)).toHaveText(['Name', 'Email', 'Status', 'Amount owed']);
     await expect(header(page)).toHaveText(['Name', 'Email', 'Status', 'Amount owed']);
     await expect(summary(page)).toHaveText('359 vendors, 4 columns');
@@ -189,13 +189,13 @@ eachWindow('the export-vendors entry', (size) => {
     await expect(dialog(page)).toBeVisible();
 
     await find.fill('zzz');
-    await expect(page.getByTestId('library-export-columns-none')).toHaveText(
+    await expect(page.getByTestId('vendor-export-columns-none')).toHaveText(
       'Nothing matches "zzz".',
     );
 
     // Unticking takes it out again.
     await find.fill('amount owed');
-    await press(page.getByTestId('library-export-column-owed'));
+    await press(page.getByTestId('vendor-export-column-owed'));
     await expect(orderWords(page)).toHaveText(['Name', 'Email', 'Status']);
     await expect(summary(page)).toHaveText('359 vendors, 3 columns');
   });
@@ -268,7 +268,7 @@ eachWindow('the export-vendors entry', (size) => {
     await expect(remove).toHaveAccessibleName('Remove Email');
     await press(remove);
     await expect(orderWords(page)).toHaveText(['Name', 'Status']);
-    await expect(page.getByTestId('library-export-column-email')).not.toBeChecked();
+    await expect(page.getByTestId('vendor-export-column-email')).not.toBeChecked();
     await expect(page.getByTestId('library-export-remove-status')).toBeFocused();
 
     await press(page.getByTestId('library-export-remove-status'));
@@ -288,7 +288,7 @@ eachWindow('the export-vendors entry', (size) => {
   }) => {
     await open(page);
     await openTray(page);
-    await press(page.getByTestId(`library-export-column-${LONGEST_ID}`));
+    await press(page.getByTestId(`vendor-export-column-${LONGEST_ID}`));
     await expect(orderWords(page).last()).toHaveText(LONGEST);
 
     const row = orderRows(page).last();
@@ -396,7 +396,7 @@ eachWindow('the export-vendors entry', (size) => {
   test('a seat, a payment and Discord each write their cell', async ({ page }) => {
     await open(page);
     await openTray(page);
-    const find = page.getByTestId('library-export-columns-find');
+    const find = page.getByTestId('vendor-export-columns-find');
     for (const [words, id] of [
       ['Tue 23 Apr - table', 'date:2024-04-23:table'],
       ['Thu 25 Apr - tier', 'date:2024-04-25:tier'],
@@ -409,7 +409,7 @@ eachWindow('the export-vendors entry', (size) => {
       ['Business Name', 'answer:business_name'],
     ] as const) {
       await find.fill(words);
-      await press(page.getByTestId(`library-export-column-${id}`));
+      await press(page.getByTestId(`vendor-export-column-${id}`));
     }
     await expect(previewRows(page).nth(2).getByRole('cell')).toHaveText([
       'Brian Singh',
@@ -432,9 +432,9 @@ eachWindow('the export-vendors entry', (size) => {
   }) => {
     await open(page);
     await openTray(page);
-    const find = page.getByTestId('library-export-columns-find');
+    const find = page.getByTestId('vendor-export-columns-find');
     await find.fill('Business Twitter');
-    await press(page.getByTestId('library-export-column-answer:business_twitter_optional'));
+    await press(page.getByTestId('vendor-export-column-answer:business_twitter_optional'));
     await page.getByTestId('library-export-search').fill(WITH_A_HANDLE.email);
     await expect(previewRows(page).first().getByRole('cell').last()).toHaveText(
       WITH_A_HANDLE.twitter,
@@ -443,7 +443,7 @@ eachWindow('the export-vendors entry', (size) => {
     await page.getByTestId('library-export-search').fill('');
     await page.getByTestId('library-export-payment').selectOption('over');
     await find.fill('Still owed');
-    await press(page.getByTestId('library-export-column-stillOwed'));
+    await press(page.getByTestId('vendor-export-column-stillOwed'));
     await expect(previewRows(page).first().getByRole('cell').last()).toHaveText(/^-\$\d/);
   });
 

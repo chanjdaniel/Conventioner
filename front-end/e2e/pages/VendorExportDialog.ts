@@ -23,6 +23,10 @@ export class VendorExportDialog {
   readonly mine: Locator;
   /** Paid or not, Owes, Paid in full, Paid more than owed (S04). */
   readonly payment: Locator;
+  /** What narrows the columns, as it is typed in. */
+  readonly columnsFind: Locator;
+  /** "Nothing matches" and the words typed. */
+  readonly columnsNone: Locator;
   /** The chosen columns in the cart, in the file's order. */
   readonly orderRows: Locator;
   /** Their names, with each row's buttons left out. */
@@ -49,6 +53,8 @@ export class VendorExportDialog {
     this.placed = page.getByTestId('vendor-export-placed');
     this.mine = page.getByTestId('vendor-export-mine');
     this.payment = page.getByTestId('vendor-export-payment');
+    this.columnsFind = page.getByTestId('vendor-export-columns-find');
+    this.columnsNone = page.getByTestId('vendor-export-columns-none');
     this.orderRows = page.getByTestId('vendor-export-order-row');
     this.orderLabels = page.getByTestId('vendor-export-order-label');
     this.preview = page.getByTestId('vendor-export-preview');
@@ -82,12 +88,15 @@ export class VendorExportDialog {
     return this.page.getByTestId(`vendor-export-answer-${key}`);
   }
 
-  /** A column's box, under its heading. */
+  /** A column's box, under its heading, while `columnsFind` holds words it matches. */
   column(id: string): Locator {
     return this.page.getByTestId(`vendor-export-column-${id}`);
   }
 
-  /** The heading a column is listed under (E42/F01/S02, its money S04, its Discord S05). */
+  /**
+   * The heading a column is listed under (E42/F01/S02, its money S04, its Discord S05), while
+   * `columnsFind` holds words matching one of its columns.
+   */
   group(id: 'vendor' | 'answers' | 'assignment' | 'payment' | 'discord'): Locator {
     return this.page.getByTestId(`vendor-export-group-${id}`);
   }

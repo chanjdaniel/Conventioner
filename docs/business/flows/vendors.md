@@ -5,6 +5,7 @@ describes:
   - front-end/src/views/VendorsView.vue
   - front-end/src/components/ExportVendorsDialog.vue
   - front-end/src/components/ExportVendorsForm.vue
+  - front-end/src/components/ColumnChecklist.vue
   - front-end/src/utils/vendorExport.ts
   - back-end/api/vendor_export.py
   - front-end/src/components/GiveRolesDialog.vue
@@ -102,8 +103,11 @@ For a Google Sheet and a mail merge such as YAMM: any of the market's vendors, f
    Unfolded, in place in the body, every filter may be changed: the name or email searched; "Payment", one of "Paid or not", "Owes", "Paid in full" and "Paid more than owed", as the vendor's Payment tab reads what they paid against what they owe ([payments](../../implementation/data/payments.md)), a vendor owing nothing and having paid nothing being none of the three, and on a market with no prices offered only where some vendor owes, by an amount set by hand or a refund beyond what they paid, since an account owing nothing there is otherwise in none of them, as the Payments page offers its filters; assigned or not ("Assigned", "Assigned or not", "Not assigned"), on any date or on one; for the assigned, the seat's section, tier and size; the status, toggles of Open, Needs follow-up, Approved, Rejected and Added by hand, none pressed being any; "Mine: the follow-ups I own", a tick, the follow-ups whose owner is the one exporting, as the server reads who asks; once a Discord check has run, the Discord state as the Vendors page shows it, toggles of Has the role, In the server, Possible match, Not found, No username and Check again, none pressed being any; and each of the form's choice questions, a combobox drawing at most 50 of what its words find, whose answers show as chips, any of which the vendor chose.
    The two differ in shape on purpose: a vendor's payment is one state, so "Payment" is one choice, while the Discord states are pressed as Status is, so "Not found or No username" is one export.
    Enter in a filter's field or on the Mine tick does nothing, so nothing downloads while the organizer is still choosing; on a toggle it presses the toggle.
-3. The columns are ticked under five headings: "Vendor" (Name, the full name; Preferred name; Email; Status), "Answers" (each of the form's own questions), "Assignment", "Payment" and "Discord", each heading left out when it has no column.
+3. The columns are ticked under five headings ([`ColumnChecklist.vue`](../../../front-end/src/components/ColumnChecklist.vue)): "Vendor" (Name, the full name; Preferred name; Email; Status), "Answers" (each of the form's own questions), "Assignment", "Payment" and "Discord", each heading left out when it has no column.
    Name, Email and Status are ticked to begin with.
+   "Find a column" narrows them as it is typed in, keeping a heading while it has a match, and says "Nothing matches" with the words typed, whichever it finds first brought into view; the words stay through every tick and every change in the cart, and go when the dialog closes.
+   A label is one line with an ellipsis and its whole text on hover and in the cart, and at 640px wide or less, where nothing hovers, it wraps.
+   Enter in the find field or on a tick does nothing, so nothing downloads while the organizer is still choosing.
 4. "Assignment" holds, for each market date, where the vendor sits that day: "Wed 18 Nov - table", "- section", "- tier" and "- half or full" (Full table or Half table), empty on a date they hold no seat; then "Dates assigned", how many of the market's dates they hold one on.
    The seats are the stored placements the Assignments page draws, pins and seats moved by hand included, and a vendor added by hand exports theirs like anyone.
 5. "Payment" holds "Price group", the price group each of their lines is priced by, a freed day's kept line included, once each and joined by ", " ("Everyone else" for a vendor in no group; empty where no line names a group, or for a vendor with no line); "Amount owed" and "Amount paid", the two totals of their Payment tab; and "Still owed", the amount owed less the amount paid, below zero where they paid more than owed ("-$15.00", a refund to issue).
@@ -134,6 +138,7 @@ Covered by:
 - `exporting-vendors.spec.ts`
 - `exportingVendors.test.ts`
 - `the-export-dialogs-cart-stays-in-view.spec.ts`
+- `the-export-dialogs-columns-find.spec.ts`
 - `the-export-dialogs-filters-fold.spec.ts`
 
 ## J16. See who is in the Discord server
