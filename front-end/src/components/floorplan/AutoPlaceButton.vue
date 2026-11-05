@@ -248,7 +248,7 @@ async function triggerAutoPlace() {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .auto-place-counts {
@@ -284,15 +284,16 @@ async function triggerAutoPlace() {
   --focus-border: var(--focus-border-on-fill);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   min-width: 180px;
   height: 36px;
-  padding: 0 16px;
+  padding: 0 var(--space-4);
 
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 5px, and the nearest would change this floorplan beta corner */
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
@@ -329,7 +330,7 @@ async function triggerAutoPlace() {
 .btn-loading {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .spinner {
@@ -337,7 +338,7 @@ async function triggerAutoPlace() {
   width: 14px;
   height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.35);
-  border-top-color: #ffffff;
+  border-top-color: white;
   border-radius: 50%;
   animation: auto-place-spin 0.8s linear infinite;
   flex-shrink: 0;
@@ -353,9 +354,11 @@ async function triggerAutoPlace() {
 
 .placement-error {
   width: 100%;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 14px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 8px 14px;
   background: color-mix(in srgb, var(--mm-yellow) 20%, transparent);
   border: 1px solid var(--mm-yellow);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
 
   font-size: var(--text-xs);

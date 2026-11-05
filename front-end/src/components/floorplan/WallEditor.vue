@@ -642,7 +642,7 @@ watch(
         </svg>
       </button>
 
-      <div class="toolbar-separator" />
+      <div class="toolbar-separator" data-testid="floorplan-wall-toolbar-separator" />
 
       <!-- Select tool -->
       <button
@@ -709,7 +709,7 @@ watch(
         </svg>
       </button>
 
-      <div class="toolbar-separator" />
+      <div class="toolbar-separator" data-testid="floorplan-wall-toolbar-separator" />
 
       <!-- Delete button -->
       <button
@@ -736,7 +736,7 @@ watch(
         </svg>
       </button>
 
-      <div class="toolbar-separator" />
+      <div class="toolbar-separator" data-testid="floorplan-wall-toolbar-separator" />
 
       <!-- Zoom controls -->
       <button class="toolbar-btn" @click="zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
@@ -779,7 +779,7 @@ watch(
   min-height: 360px;
   overflow: hidden;
   background: var(--mm-beige);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   border: 2px solid var(--mm-border);
   transition: opacity 0.2s ease-in-out;
 }
@@ -802,11 +802,15 @@ watch(
   left: 10px;
   display: flex;
   align-items: center;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 3px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 3px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 5px and 6px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 5px 6px;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 2px 12px rgba(39, 35, 35, 0.12);
   z-index: 10;
 }
@@ -814,9 +818,9 @@ watch(
 .toolbar-separator {
   width: 1px;
   height: 22px;
-  margin: 0 4px;
+  margin: 0 var(--space-1);
   background: var(--mm-border);
-  border-radius: 1px;
+  border-radius: var(--radius-pill);
 }
 
 .toolbar-btn {
@@ -825,12 +829,13 @@ watch(
   justify-content: center;
   min-width: 30px;
   height: 30px;
-  padding: 0 8px;
+  padding: 0 var(--space-2);
 
   background: transparent;
   color: var(--mm-black);
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 5px, and the nearest would change this floorplan beta corner */
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
@@ -858,7 +863,7 @@ watch(
 .toolbar-btn.is-active {
   --focus-border: var(--focus-border-on-fill);
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
 }
 
 .toolbar-btn.is-active:hover {
@@ -881,13 +886,16 @@ watch(
   left: 10px;
   display: flex;
   align-items: center;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 6px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 3px and 10px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 3px 10px;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(6px);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   font-size: var(--text-xs);
   color: var(--mm-black);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 1px 6px rgba(39, 35, 35, 0.08);
   z-index: 10;
 }
@@ -901,8 +909,9 @@ watch(
 }
 
 .status-hint {
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   margin-left: 6px;
-  padding-left: 8px;
+  padding-left: var(--space-2);
   border-left: 1px solid var(--mm-border);
   color: var(--mm-text-yellow);
   font-style: italic;

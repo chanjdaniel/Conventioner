@@ -5,8 +5,8 @@
  * `docs/design-system.md` said the spacing migration was done while `src` still declared raw 10px,
  * 6px and 5px well over a hundred times: nothing refused one. `stylelint.config.js` now holds
  * every margin, padding and gap to the `--space-*` tokens, and this test runs the real config
- * through Stylelint, so the allowed values and the warning/error split are asserted against the
- * file that `npm run lint:css` reads.
+ * through Stylelint, so the allowed values and the severity are asserted against the file that
+ * `npm run lint:css` reads.
  *
  * T81's review found the rule's edges (T82): any bare number passed inside `calc()`, `auto` passed
  * on a padding or a gap, values ran together with no space between them, and the values a phone's
@@ -17,16 +17,20 @@ import { resolve as resolvePath } from 'node:path';
 import stylelint from 'stylelint';
 
 const RULE = 'declaration-property-value-allowed-list';
-const MIGRATED = 'src/views/LoginView.vue';
+const VIEW = 'src/views/LoginView.vue';
 const BETA = 'src/components/floorplan/SaveFlow.vue';
 
-async function spacingFindings(file: string, declaration: string) {
+async function findings(file: string, declaration: string) {
   const { results } = await stylelint.lint({
     code: `<template><p /></template>\n<style scoped>\n.x {\n  ${declaration};\n}\n</style>\n`,
     codeFilename: resolvePath(process.cwd(), file),
     configFile: resolvePath(process.cwd(), 'stylelint.config.js'),
   });
-  return results[0].warnings.filter((w) => w.rule === RULE);
+  return results[0].warnings;
+}
+
+async function spacingFindings(file: string, declaration: string) {
+  return (await findings(file, declaration)).filter((w) => w.rule === RULE);
 }
 
 describe('margins, paddings and gaps keep to the spacing scale', () => {
@@ -60,7 +64,7 @@ describe('margins, paddings and gaps keep to the spacing scale', () => {
     // A percentage padding, which keeps a box's proportions as it scales.
     'padding-top: 56.25%',
   ])('allows %s', async (declaration) => {
-    expect(await spacingFindings(MIGRATED, declaration)).toEqual([]);
+    expect(await spacingFindings(VIEW, declaration)).toEqual([]);
   });
 
   it.each([
@@ -94,15 +98,51 @@ describe('margins, paddings and gaps keep to the spacing scale', () => {
     'padding-top: env(keyboard-inset-height)',
     'padding-left: max(var(--space-4), 10px)',
   ])('refuses %s', async (declaration) => {
-    expect(await spacingFindings(MIGRATED, declaration)).toHaveLength(1);
+    expect(await spacingFindings(VIEW, declaration)).toHaveLength(1);
   });
 
-  it('errors in a migrated file and warns in one off the list', async () => {
-    const [migrated] = await spacingFindings(MIGRATED, 'padding: 10px');
-    const [beta] = await spacingFindings(BETA, 'padding: 10px');
+  it.each([VIEW, BETA])('names the tokens when it refuses a value in %s', async (file) => {
+    const [finding] = await spacingFindings(file, 'padding: 10px');
 
-    expect(migrated.severity).toBe('error');
-    expect(beta.severity).toBe('warning');
-    expect(beta.text).toContain('--space-*');
+    expect(finding.text).toContain('--space-*');
+  });
+
+  // A warning on old code lands on whichever later change touches the file, so no rule warns.
+  it.each([
+    'padding: 10px',
+    'color: #abcdef',
+    'font-size: 13px',
+    'border-radius: 8px',
+    'box-shadow: 0 1px 2px black',
+  ])('refuses %s as an error in every file, the floorplan beta too', async (declaration) => {
+    for (const file of [VIEW, BETA]) {
+      const severities = (await findings(file, declaration)).map((w) => w.severity);
+
+      expect(severities).toEqual(['error']);
+    }
+  });
+
+  // The rule's strength rests on its disable comments, so nothing lets one go by unread.
+  it.each([
+    [
+      'with no reason',
+      `/* stylelint-disable-next-line ${RULE} */\n  padding: 10px`,
+      '--report-descriptionless-disables',
+    ],
+    [
+      'with nothing to disable',
+      `/* stylelint-disable-next-line ${RULE} -- a reason */\n  padding: var(--space-2)`,
+      '--report-needless-disables',
+    ],
+  ])('refuses a disable %s', async (_case, declaration, report) => {
+    const reported = (await findings(BETA, declaration)).map((w) => [w.rule, w.severity]);
+
+    expect(reported).toEqual([[report, 'error']]);
+  });
+
+  it('lets a disable with its reason and a value to disable go by', async () => {
+    const declaration = `/* stylelint-disable-next-line ${RULE} -- a reason */\n  padding: 10px`;
+
+    expect(await findings(BETA, declaration)).toEqual([]);
   });
 });

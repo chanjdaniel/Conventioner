@@ -112,14 +112,16 @@ function toggleDropdown() {
   --focus-border: var(--focus-border-on-fill);
   display: inline-flex;
   align-items: center;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 6px;
   height: 32px;
-  padding: 0 12px;
+  padding: 0 var(--space-3);
 
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 5px, and the nearest would change this floorplan beta corner */
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
@@ -159,7 +161,7 @@ function toggleDropdown() {
   width: 14px;
   height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #ffffff;
+  border-top-color: white;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
@@ -185,21 +187,26 @@ function toggleDropdown() {
 
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
   min-width: 180px;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 10px 12px;
 
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(8px);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 4px 16px rgba(39, 35, 35, 0.15);
 }
 
 .export-error-msg {
   margin: 0;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px and 10px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 6px 10px;
   background: color-mix(in srgb, var(--mm-yellow) 18%, transparent);
   border: 1px solid var(--mm-yellow);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 5px, and the nearest would change this floorplan beta corner */
   border-radius: 5px;
   font-size: var(--text-xs);
   color: var(--mm-black);
@@ -209,7 +216,7 @@ function toggleDropdown() {
 .export-option {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-xs);
@@ -229,16 +236,18 @@ function toggleDropdown() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 6px;
   width: 100%;
   height: 30px;
-  margin-top: 2px;
-  padding: 0 12px;
+  margin-top: var(--space-hairline);
+  padding: 0 var(--space-3);
 
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 5px, and the nearest would change this floorplan beta corner */
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;

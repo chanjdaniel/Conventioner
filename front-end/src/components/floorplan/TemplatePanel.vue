@@ -309,7 +309,7 @@ function formatDate(dateStr: string): string {
 /* ── Action buttons ────────────────────────────────────────── */
 .template-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
@@ -317,17 +317,19 @@ function formatDate(dateStr: string): string {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
   gap: 6px;
   height: 34px;
-  padding: 0 16px;
+  padding: 0 var(--space-4);
 
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
   line-height: 1;
-  color: #ffffff;
+  color: white;
 
   /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
   border: 1px solid transparent;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 5px, and the nearest would change this floorplan beta corner */
   border-radius: 5px;
   cursor: pointer;
 
@@ -364,7 +366,8 @@ function formatDate(dateStr: string): string {
   left: 50%;
   transform: translateX(-50%);
   z-index: 3000;
-  padding: 12px 24px;
+  padding: var(--space-3) var(--space-6);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
   font-size: var(--text-sm);
   box-shadow: var(--shadow-card);
@@ -375,12 +378,12 @@ function formatDate(dateStr: string): string {
 
 .feedback-toast--success {
   background: var(--mm-green);
-  color: #ffffff;
+  color: white;
 }
 
 .feedback-toast--error {
   background: var(--mm-red);
-  color: #ffffff;
+  color: white;
 }
 
 .feedback-enter-active,
@@ -417,15 +420,15 @@ function formatDate(dateStr: string): string {
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
   text-align: center;
-  padding: 24px 0;
+  padding: var(--space-6) 0;
 }
 
 .tp-loading {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 24px 0;
+  gap: var(--space-2);
+  padding: var(--space-6) 0;
   font-size: var(--text-sm);
   color: var(--mm-black);
 }
@@ -451,19 +454,20 @@ function formatDate(dateStr: string): string {
 .tp-template-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .tp-template-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   width: 100%;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 14px is off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 14px 16px;
   background: var(--mm-beige);
   border: 1.5px solid transparent;
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   cursor: pointer;
   text-align: left;
   font-family: inherit;
@@ -476,14 +480,15 @@ function formatDate(dateStr: string): string {
 
 .tp-template-card:hover {
   border-color: var(--mm-green);
-  background: #ffffff;
+  background: white;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 2px 12px rgba(54, 130, 111, 0.12);
 }
 
 .tp-template-card-main {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
@@ -502,7 +507,7 @@ function formatDate(dateStr: string): string {
 }
 
 .tp-template-sep {
-  margin: 0 4px;
+  margin: 0 var(--space-1);
   color: rgba(39, 35, 35, 0.3);
 }
 
@@ -530,9 +535,11 @@ function formatDate(dateStr: string): string {
 
 .tp-confirm-warning {
   margin: 0;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- 10px and 14px are off the spacing scale, and the nearest token would change this floorplan beta size */
   padding: 10px 14px;
   background: color-mix(in srgb, var(--mm-yellow) 15%, transparent);
   border: 1px solid var(--mm-yellow);
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
   font-size: var(--text-xs);
   color: var(--mm-black);
