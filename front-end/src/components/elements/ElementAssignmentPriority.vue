@@ -9,6 +9,8 @@ import {
   type PriorityObject,
   type SetupObject,
 } from '@/assets/types/datatypes';
+import ChoiceField from '@/components/ChoiceField.vue';
+import type { PickerGroup } from '@/components/SearchPicker.vue';
 import IconAddRound from '../icons/IconAddRound.vue';
 import IconClickDrag from '../icons/IconClickDrag.vue';
 import IconCloseRound from '../icons/IconCloseRound.vue';
@@ -123,14 +125,38 @@ const labelFor = (target: string | null): string => fieldFor(target)?.label ?? '
 const isArranged = (rule: PriorityObject): boolean => fieldFor(rule.target)?.kind === 'arranged';
 const isMagnitude = (rule: PriorityObject): boolean => fieldFor(rule.target)?.kind === 'magnitude';
 
-/** Answers this rule's target offers that the organizer has not placed yet. */
+/**
+ * Answers this rule's target offers that the organizer has not placed yet, "All others" first so
+ * that a list cut short never hides it.
+ */
 const unplacedOptions = (rule: PriorityObject): string[] => {
   const field = fieldFor(rule.target);
   if (!field) return [];
   const remaining = field.options.filter((option) => !rule.ordering.includes(option));
-  if (!rule.ordering.includes(ALL_OTHERS)) remaining.push(ALL_OTHERS);
-  return remaining;
+  return rule.ordering.includes(ALL_OTHERS) ? remaining : [ALL_OTHERS, ...remaining];
 };
+
+/** The questions a rule may order by, as its choice draws them. */
+const targetGroups = computed<PickerGroup[]>(() =>
+  [
+    { label: 'Your questions', targets: fieldTargets.value },
+    { label: 'About the application', targets: builtInTargets.value },
+  ].map(({ label, targets }) => ({
+    label,
+    options: targets.map((target) => ({ value: target.key, label: target.label })),
+  })),
+);
+
+const unplacedGroups = (rule: PriorityObject): PickerGroup[] => [
+  { options: unplacedOptions(rule).map((option) => ({ value: option, label: option })) },
+];
+
+/**
+ * Every answer the target offers and "All others", however many are placed, so a rule stays one
+ * control as its answers are added.
+ */
+const wholeAnswerCount = (rule: PriorityObject): number =>
+  (fieldFor(rule.target)?.options.length ?? 0) + 1;
 
 const targetDefault = 'Select a question';
 const optionDefault = 'Add an answer';
@@ -148,10 +174,13 @@ const removePriorityRow = (index: number) => {
 
 /**
  * Retargeting a rule discards an ordering that belonged to a different question's answers, and
- * seeds a sensible direction when the new target is ordered by magnitude instead.
+ * seeds a sensible direction when the new target is ordered by magnitude instead. Choosing the
+ * question it already orders by, as the field's list allows, changes nothing.
  */
-const handleTargetChange = (index: number) => {
+const setTarget = (index: number, target: string) => {
   const rule = priorityObjects.value[index];
+  if (!target || target === rule.target) return;
+  rule.target = target;
   rule.ordering = [];
   rule.direction = isMagnitude(rule) ? PriorityDirection.Ascending : null;
 };
@@ -210,26 +239,21 @@ const dragOptions = computed(() => ({
               <span class="rank">{{ parentIndex + 1 }}</span>
             </div>
             <div class="cell">
-              <select
-                class="field field--select"
-                :aria-label="`Rule ${parentIndex + 1}: what it orders by`"
-                data-testid="priority-target-select"
+              <!-- Its empty row only until a question is chosen: going back to none would throw
+                   away the answers placed. -->
+              <ChoiceField
+                :model-value="priorityObjects[parentIndex].target ?? ''"
+                :groups="targetGroups"
+                :label="`Rule ${parentIndex + 1}: what it orders by`"
+                hide-label
+                :placeholder="
+                  fieldFor(priorityObjects[parentIndex].target) ? undefined : targetDefault
+                "
+                testid="priority-target-select"
+                writes
                 :disabled="readonly"
-                v-model="priorityObjects[parentIndex].target"
-                @change="handleTargetChange(parentIndex)"
-              >
-                <option disabled :value="null">{{ targetDefault }}</option>
-                <optgroup v-if="fieldTargets.length" label="Your questions">
-                  <option v-for="field in fieldTargets" :key="field.key" :value="field.key">
-                    {{ field.label }}
-                  </option>
-                </optgroup>
-                <optgroup label="About the application">
-                  <option v-for="field in builtInTargets" :key="field.key" :value="field.key">
-                    {{ field.label }}
-                  </option>
-                </optgroup>
-              </select>
+                @update:model-value="setTarget(parentIndex, $event)"
+              />
             </div>
             <div class="cell cell--answers">
               <select
@@ -248,8 +272,11 @@ const dragOptions = computed(() => ({
                 </option>
               </select>
               <template v-else-if="isArranged(priorityObjects[parentIndex])">
+                <!-- `v-show`, not `v-if`: this slot's children are diffed by key, and an `ol` coming
+                     in where its placeholder stood moved the field below it, which took the first
+                     answer's added focus away from the field that stands ready for the next. -->
                 <draggable
-                  v-if="priorityObjects[parentIndex].ordering.length"
+                  v-show="priorityObjects[parentIndex].ordering.length"
                   tag="ol"
                   class="answers"
                   v-model="priorityObjects[parentIndex].ordering"
@@ -289,26 +316,18 @@ const dragOptions = computed(() => ({
                     </li>
                   </template>
                 </draggable>
-                <select
+                <ChoiceField
                   v-if="!readonly && unplacedOptions(priorityObjects[parentIndex]).length"
-                  class="field field--select"
-                  :aria-label="`Rule ${parentIndex + 1}: add an answer`"
-                  data-testid="priority-ordering-add"
-                  :value="''"
-                  @change="
-                    addOrderingItem(parentIndex, ($event.target as HTMLSelectElement).value);
-                    ($event.target as HTMLSelectElement).value = '';
-                  "
-                >
-                  <option value="">{{ optionDefault }}</option>
-                  <option
-                    v-for="option in unplacedOptions(priorityObjects[parentIndex])"
-                    :key="option"
-                    :value="option"
-                  >
-                    {{ option }}
-                  </option>
-                </select>
+                  model-value=""
+                  :groups="unplacedGroups(priorityObjects[parentIndex])"
+                  :label="`Rule ${parentIndex + 1}: add an answer`"
+                  hide-label
+                  :placeholder="optionDefault"
+                  testid="priority-ordering-add"
+                  :whole-count="wholeAnswerCount(priorityObjects[parentIndex])"
+                  adds
+                  @update:model-value="addOrderingItem(parentIndex, $event)"
+                />
                 <p
                   class="ordering-hint"
                   v-if="!readonly && priorityObjects[parentIndex].ordering.length === 0"

@@ -4,6 +4,7 @@ import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import type { Page } from '@playwright/test';
 import { OpenApplicationsDialog } from './pages/OpenApplicationsDialog';
+import { ChoiceField } from './pages/ChoiceField';
 
 /**
  * Every market screen shows the market as the server last reported it (E21/F02).
@@ -141,8 +142,9 @@ test.describe('One market, from the server', () => {
     await page.goto(marketSetupPath(seed.marketId, 'settings'));
     await page.getByTestId('priority-add-rule').click({ timeout: 15000 });
 
-    const target = page.getByTestId('priority-target-select').last();
-    await expect(target.locator('optgroup[label="Your questions"] option')).toHaveText([
+    const rule = page.getByTestId('priority-rule-row').last();
+    const target = new ChoiceField(rule, 'priority-target-select');
+    await expect(target.root.locator('optgroup[label="Your questions"] option')).toHaveText([
       'Category',
     ]);
   });

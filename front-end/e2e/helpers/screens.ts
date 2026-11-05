@@ -25,6 +25,7 @@ import { loginViaApi } from './seeds';
 import { calendarToday } from './vendorSignIn';
 import {
   FIRST_IMPORT,
+  LATER_IMPORT,
   SCREENS_EDITOR,
   seedTheScreens,
   type TheScreensSeed,
@@ -699,6 +700,24 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: ORGANIZER,
     open: at(screen('csv', 'import'), 'import-view'),
+  },
+  {
+    // A later file on a saved mapping: restored and new columns, a grid, values waiting on a column
+    // and on the grid, and every required question ticked, each on its own ground (T223).
+    name: 'a CSV market, Map columns with values waiting',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: async (page, seed) => {
+      const importing = new CsvImportPage(page);
+      await page.goto(screen('csv', 'import')(seed));
+      await expect(importing.view).toBeVisible({ timeout: 15000 });
+      await importing.chooseFile(LATER_IMPORT.csv);
+      await expect(importing.groupRows.getByTestId('import-restored-badge')).toBeVisible();
+      await expect(importing.columnRows.getByTestId('import-new-badge')).toBeVisible();
+      await expect(importing.allMapped).toBeVisible();
+      await expect(importing.groupRows.getByTestId('import-unmatched-value')).toHaveCount(2);
+      await expect(importing.unresolvedWarning).toBeVisible();
+    },
   },
   {
     // The first import offers the reviewers on its preview, as "Open applications" does on a
@@ -1459,6 +1478,36 @@ export const SCREENS: Screen[] = [
     },
   },
   {
+    // A question of more than 12 options (T223), which only a long form reaches: the fixture's
+    // questions stand in for the market's, one in error, one with a chip and its list open.
+    name: 'the vendor page, a long question',
+    who: 'applicant',
+    sizes: PUBLIC,
+    open: async (page, seed) => {
+      await page.route(
+        `**/public/markets/${seed.open.marketSlug}/application-form`,
+        async (route) => {
+          const response = await route.fetch();
+          const body = await response.json();
+          const fields = [...body.application_form.fields, ...LONG_QUESTIONS];
+          await route.fulfill({
+            response,
+            json: { ...body, application_form: { ...body.application_form, fields } },
+          });
+        },
+      );
+      await at(slug('open'), 'vendor-page-edit-btn')(page, seed);
+      await page.getByTestId('vendor-page-edit-btn').click();
+      await visible(page, 'apply-form');
+      await page.getByTestId('apply-submit-button').click();
+      await visible(page, 'apply-error-long_one');
+      const several = page.getByTestId('apply-input-long_several-input');
+      await several.click();
+      await page.getByTestId('apply-input-long_several-option').first().click();
+      await visible(page, 'apply-input-long_several-chip');
+    },
+  },
+  {
     // A vendor on a market day (ADR 0022): today's seat on top, with the door code's field.
     name: 'the vendor page, on a market day',
     who: 'nobody',
@@ -1545,6 +1594,16 @@ function asAVendorAt(
     await visible(page, ready);
   };
 }
+
+/** Two questions of more than 12 options, one choice and several, both unanswered and required. */
+const LONG_QUESTIONS = (['long_one', 'long_several'] as const).map((key, at) => ({
+  key,
+  label: at === 0 ? 'What do you sell most of?' : 'Which clubs do you belong to?',
+  type: at === 0 ? 'select' : 'multi_select',
+  required: true,
+  options: Array.from({ length: 60 }, (_, option) => `Answer ${option + 1}`),
+  order: 100 + at,
+}));
 
 /** Signs the page's browser in as `who`, over the API: the sign-in pages are screens of their own. */
 export async function signIn(page: Page, who: Who, seed: TheScreensSeed): Promise<void> {

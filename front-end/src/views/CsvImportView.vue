@@ -26,6 +26,8 @@ import { firstImportBlockers, importRefusal, takesNoImport } from '@/utils/impor
 import BlockerPanel from '@/components/BlockerPanel.vue';
 import { readCsvFile } from '@/utils/csvFile';
 import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
+import ChoiceField from '@/components/ChoiceField.vue';
+import type { PickerGroup, PickerOption } from '@/components/SearchPicker.vue';
 import ValueFixes from '@/components/ValueFixes.vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
 import { EMPTY_ESSENTIAL_OPTIONS, applicantName } from '@/utils/essentialFields';
@@ -68,6 +70,9 @@ type Step = 'upload' | 'map' | 'preview' | 'done';
  * organizer to conclude the import is broken.
  */
 const NEEDS_A_FIELD = '__needs_a_field__';
+
+/** The target "Submitted at", `csv_import.SUBMITTED_AT_TARGET`. */
+const SUBMITTED_AT_KEY = 'submitted_at';
 
 interface ImportTarget {
   key: string;
@@ -525,17 +530,78 @@ const declarableUnasked = computed(() =>
 
 const canPreview = computed(() => unservedRequired.value.length === 0);
 
-/** A target already taken elsewhere, so the ledger can grey it out. */
-function takenBy(key: string, columnIndex: number | null, stem: string | null): boolean {
-  const byColumn = Object.entries(columnTarget.value).some(
-    ([index, value]) =>
-      value === key && Number(index) !== columnIndex && !groupedColumns.value.has(Number(index)),
-  );
-  const byGroup = Object.entries(groupTarget.value).some(
-    ([groupStem, value]) => value === key && groupStem !== stem,
-  );
-  return byColumn || byGroup;
+/** A row of the ledger: an ordinary column by its position, or a grid by its stem. */
+type LedgerRowId = { column: number; stem: null } | { column: null; stem: string };
+
+/** What the ledger calls a column, in its "Maps to" words as in its row. */
+function columnName(index: number): string {
+  return oneLine(headers.value[index] ?? '') || `column ${index + 1}`;
 }
+
+/** Which rows hold each target. */
+const holders = computed(() => {
+  const held = new Map<string, (LedgerRowId & { name: string })[]>();
+  const hold = (key: string, holder: LedgerRowId & { name: string }) => {
+    if (key) held.set(key, [...(held.get(key) ?? []), holder]);
+  };
+  for (const [index, key] of Object.entries(columnTarget.value)) {
+    const column = Number(index);
+    if (!groupedColumns.value.has(column)) {
+      hold(key, { column, stem: null, name: columnName(column) });
+    }
+  }
+  for (const [stem, key] of Object.entries(groupTarget.value)) {
+    hold(key, { column: null, stem, name: oneLine(stem) });
+  }
+  return held;
+});
+
+/** What another row calls itself if it holds this target, so this row can say why it may not. */
+function takenBy(key: string, row: LedgerRowId): string | undefined {
+  return holders.value
+    .get(key)
+    ?.find((holder) => holder.column !== row.column || holder.stem !== row.stem)?.name;
+}
+
+/** The questions every market asks, and when they applied, ahead of this market's own. */
+const isEssentialTarget = (target: ImportTarget) =>
+  target.kind === 'identity' || target.kind === 'essential' || target.key === SUBMITTED_AT_KEY;
+const essentialTargets = computed(() => targets.value.filter(isEssentialTarget));
+const ownTargets = computed(() => targets.value.filter((target) => !isEssentialTarget(target)));
+
+/** One row's "Maps to", with what another row holds taken and naming it. */
+function mapsTo(row: LedgerRowId): PickerGroup[] {
+  const option = (target: ImportTarget): PickerOption => {
+    const holder = takenBy(target.key, row);
+    return {
+      value: target.key,
+      label: `${target.label}${target.required ? ' *' : ''}`,
+      detail: holder === undefined ? undefined : `Mapped from "${holder}"`,
+      disabled: holder !== undefined,
+    };
+  };
+  // The ways out first, so the cap never hides them and an unmapped row's list opens at its head.
+  return [
+    {
+      label: 'Ignore',
+      options:
+        row.column === null
+          ? [{ value: '', label: 'Ignore these columns' }]
+          : [
+              { value: '', label: 'Ignore this column' },
+              { value: NEEDS_A_FIELD, label: 'This column has nowhere to go…' },
+            ],
+    },
+    { label: 'Essential', options: essentialTargets.value.map(option) },
+    { label: 'Your questions', options: ownTargets.value.map(option) },
+  ];
+}
+
+/**
+ * How many choices a row's "Maps to" counts: every target and a column's two ways out. A grid has
+ * one way out, and counts the same, so a ledger never mixes a select with a field.
+ */
+const mapsToCount = computed(() => targets.value.length + 2);
 
 /**
  * Take one file, whichever way it arrived.
@@ -980,22 +1046,18 @@ function startOver() {
                       </button>
                     </td>
                     <td>
-                      <select
-                        v-model="groupTarget[row.group.stem]"
-                        :aria-label="`What ${oneLine(row.group.stem)} maps to`"
-                        class="field field--select ledger-select"
-                        :data-testid="`import-group-select-${row.group.columns[0]}`"
-                      >
-                        <option value="">Ignore these columns</option>
-                        <option
-                          v-for="target in targets"
-                          :key="target.key"
-                          :value="target.key"
-                          :disabled="takenBy(target.key, null, row.group.stem)"
-                        >
-                          {{ target.label }}{{ target.required ? ' *' : '' }}
-                        </option>
-                      </select>
+                      <ChoiceField
+                        class="ledger-select"
+                        :model-value="groupTarget[row.group.stem] ?? ''"
+                        :groups="mapsTo({ column: null, stem: row.group.stem })"
+                        :whole-count="mapsToCount"
+                        :label="`What ${oneLine(row.group.stem)} maps to`"
+                        :name="`import-group-target-${row.group.columns[0]}`"
+                        :testid="`import-group-select-${row.group.columns[0]}`"
+                        hide-label
+                        writes
+                        @update:model-value="groupTarget[row.group.stem] = $event"
+                      />
 
                       <!-- Values the market does not recognise, fixed in the row that owns them. -->
                       <ValueFixes
@@ -1072,23 +1134,18 @@ function startOver() {
                     {{ samplesFor(row.index) }}
                   </td>
                   <td>
-                    <select
-                      v-model="columnTarget[row.index]"
-                      :aria-label="`What ${oneLine(headers[row.index] ?? '') || `column ${row.index + 1}`} maps to`"
-                      class="field field--select ledger-select"
-                      :data-testid="`import-target-select-${row.index}`"
-                    >
-                      <option value="">Ignore this column</option>
-                      <option
-                        v-for="target in targets"
-                        :key="target.key"
-                        :value="target.key"
-                        :disabled="takenBy(target.key, row.index, null)"
-                      >
-                        {{ target.label }}{{ target.required ? ' *' : '' }}
-                      </option>
-                      <option :value="NEEDS_A_FIELD">This column has nowhere to go…</option>
-                    </select>
+                    <ChoiceField
+                      class="ledger-select"
+                      :model-value="columnTarget[row.index] ?? ''"
+                      :groups="mapsTo({ column: row.index, stem: null })"
+                      :whole-count="mapsToCount"
+                      :label="`What ${columnName(row.index)} maps to`"
+                      :name="`import-target-${row.index}`"
+                      :testid="`import-target-select-${row.index}`"
+                      hide-label
+                      writes
+                      @update:model-value="columnTarget[row.index] = $event"
+                    />
 
                     <!--
                     WAS the dead end (E03/F04), and is now a way through (E20/F03/S01) while the
@@ -1181,7 +1238,7 @@ function startOver() {
              nothing feeding it that rule decides nothing. Saying so here is the point: it used to
              fail silently. -->
           <p
-            v-if="ordersBySubmittedAt && !mappedKeys.has('submitted_at')"
+            v-if="ordersBySubmittedAt && !mappedKeys.has(SUBMITTED_AT_KEY)"
             class="rail-warning"
             data-testid="import-no-submitted-at-warning"
           >
@@ -1650,7 +1707,8 @@ function startOver() {
   margin-top: var(--space-hairline);
   font-weight: 400;
   font-size: var(--text-xs);
-  color: var(--mm-green);
+  /* It reads on a grid row's tint, where `--mm-green` is 3.75. */
+  color: var(--mm-text-green);
 }
 
 .ledger-member td {
@@ -1684,15 +1742,20 @@ function startOver() {
   margin-left: var(--space-2);
   padding: var(--space-hairline) var(--space-2);
   border-radius: var(--radius-pill);
-  background: rgba(54, 130, 111, 0.16);
-  color: var(--mm-green);
+  background: var(--mm-chip-positive);
+  color: var(--mm-text-green);
   font-size: var(--text-xs);
   font-weight: 400;
 }
 
+/* On a grid row's own tint the chip's ground would vanish. */
+.ledger-group-row .ledger-badge {
+  background: white;
+}
+
 .ledger-badge.new {
-  background: rgba(228, 166, 41, 0.18);
-  color: var(--mm-text-yellow);
+  background: var(--mm-chip-attention);
+  color: var(--mm-text-yellow-on-tint);
 }
 
 .ledger-split {
@@ -1701,7 +1764,8 @@ function startOver() {
   background: none;
   padding: 0;
   font-size: var(--text-xs);
-  color: var(--mm-text-muted);
+  /* It reads on a grid row's tint, where `--mm-text-muted` is 4.26. */
+  color: var(--mm-text-muted-on-beige);
   text-decoration: underline;
   cursor: pointer;
 }
@@ -1727,6 +1791,15 @@ function startOver() {
   max-width: 260px;
 }
 
+/* Who holds a target, by a heading that can run to twenty lines: two, as its own row reads it. */
+.ledger-select :deep(.search-picker-option-detail) {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .import-rail {
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-card);
@@ -1749,20 +1822,22 @@ function startOver() {
   font-size: var(--text-sm);
 }
 
+/* The rail is beige: both inks are its own, as the plain muted and green fall below AA there. */
 .rail-tick {
   display: inline-block;
   width: 16px;
-  color: var(--mm-text-muted);
+  color: var(--mm-text-muted-on-beige);
 }
 
 .rail-list .served .rail-tick {
-  color: var(--mm-green);
+  color: var(--mm-text-green);
 }
 
 .rail-ok {
   margin: 0;
   font-size: var(--text-xs);
-  color: var(--mm-green);
+  /* The rail is beige, where `--mm-green` is 3.68. */
+  color: var(--mm-text-green);
 }
 
 .rail-unasked {
@@ -1792,7 +1867,8 @@ function startOver() {
 .rail-warning {
   margin: 0;
   font-size: var(--text-xs);
-  color: var(--mm-red);
+  /* The rail is beige, where `--mm-red` is 4.37. */
+  color: var(--mm-text-red-on-tint);
 }
 
 .preview-rows {

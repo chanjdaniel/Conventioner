@@ -15,8 +15,9 @@ sources:
   - T191
   - T211
   - T205
-  - T217
   - T214
+  - T223
+  - T217
 ---
 
 # The component library
@@ -60,6 +61,7 @@ An entry is drawn from the parts in `parts/`:
 - `ChoicesForYou`: the note that ends an entry with choices left for Daniel, one item per choice; an entry whose choices are all answered has none.
 
 An entry's own parts sit beside these in `parts/`, such as `ColumnChecklist`, `ExportDialogPrototype` and `SeatRow`.
+The `combobox` entry draws [`ChoiceField`](../../../front-end/src/components/ChoiceField.vue) too: the real `ValueFixes` at 12 answers, a select, and at 13, a field, C1's long list of values through `ChoiceField`, which keeps no typed words, C2, "Maps to" as the import builds it, with two targets taken, and C12, "Add an answer", a choice that adds, and C13, the role on the Discord card, a choice that may go back to none.
 
 The page uses only the design tokens, the primitives and the app's components; Stylelint holds its files as it holds every file, so a raw colour, size or spacing is an error there.
 A state the pointer or the keyboard makes (hover, held down, focus) is drawn held beside the live control by a class of the entry's own that copies what `primitives.css`, or the component it mounts, draws for it (`FileDropZone`'s focus halo); the live control is the one to trust.

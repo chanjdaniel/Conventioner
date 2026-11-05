@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { describe, it, expect } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { afterEach, describe, it, expect } from 'vitest';
+import { flushPromises, mount } from '@vue/test-utils';
 
 import ElementAssignmentPriority from '@/components/elements/ElementAssignmentPriority.vue';
 import {
@@ -340,5 +340,177 @@ describe('ElementAssignmentPriority, read-only with no rules', () => {
 
     expect(wrapper.find('[data-testid="priority-none-set"]').text()).toContain('No priority rules');
     expect(wrapper.text()).not.toContain('Add a question');
+  });
+});
+
+describe('ElementAssignmentPriority, a question of many answers (T223)', () => {
+  const asked = (count: number) =>
+    field({
+      key: 'selling',
+      label: 'What do you sell?',
+      options: Array.from({ length: count }, (_, at) => `Answer ${at + 1}`),
+    });
+
+  async function ruleOn(formFields: FormField[]) {
+    const wrapper = mount(ElementAssignmentPriority, {
+      props: { setupObject: setup(), formFields },
+      attachTo: document.body,
+    });
+    await wrapper.get('[data-testid="priority-add-rule"]').trigger('click');
+    await wrapper.get('[data-testid="priority-target-select"]').setValue('selling');
+    return wrapper;
+  }
+  const ordering = (wrapper: Awaited<ReturnType<typeof ruleOn>>) =>
+    wrapper.props('setupObject').priority[0]!.ordering;
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('stays a select with "All others" first, 11 answers and "All others" being 12', async () => {
+    const wrapper = await ruleOn([asked(11)]);
+    const add = wrapper.get('select[data-testid="priority-ordering-add"]');
+
+    expect(
+      add
+        .findAll('option')
+        .map((option) => option.text())
+        .slice(0, 3),
+    ).toEqual(['Add an answer', ALL_OTHERS, 'Answer 1']);
+    expect(wrapper.find('[data-testid="priority-ordering-add-input"]').exists()).toBe(false);
+
+    await add.setValue('Answer 2');
+    expect(ordering(wrapper)).toEqual(['Answer 2']);
+    expect((add.element as HTMLSelectElement).value).toBe('');
+    wrapper.unmount();
+  });
+
+  it('is a field at 12 answers and "All others", and stays one as answers are added', async () => {
+    const wrapper = await ruleOn([asked(12)]);
+    const input = wrapper.get('[data-testid="priority-ordering-add-input"]');
+    (input.element as HTMLInputElement).focus();
+    expect(wrapper.find('label.visually-hidden').text()).toContain('Rule 1');
+    expect(input.attributes('placeholder')).toBe('Add an answer');
+
+    await input.setValue('Answer 2');
+    await input.trigger('keydown', { key: 'Enter' });
+    await flushPromises();
+
+    expect(ordering(wrapper)).toEqual(['Answer 2']);
+    // 12 left is under the threshold, and the control must not turn into a select under the caret.
+    expect(wrapper.find('select[data-testid="priority-ordering-add"]').exists()).toBe(false);
+    const after = wrapper.get('[data-testid="priority-ordering-add-input"]');
+    expect(after.element).toBe(input.element);
+    expect(document.activeElement).toBe(input.element);
+    expect((after.element as HTMLInputElement).value).toBe('');
+    wrapper.unmount();
+  });
+
+  it('keeps "All others" in reach at the top of a list the cap cuts short', async () => {
+    const wrapper = await ruleOn([asked(230)]);
+    const input = wrapper.get('[data-testid="priority-ordering-add-input"]');
+    await input.trigger('click');
+
+    const rows = wrapper.findAll('[data-testid="priority-ordering-add-option"]');
+    expect(rows[0]!.text()).toBe(ALL_OTHERS);
+    expect(rows).toHaveLength(50);
+    expect(wrapper.get('[data-testid="priority-ordering-add-more"]').text()).toContain('181 more');
+    wrapper.unmount();
+  });
+
+  it('takes an added answer off the list, and a removed one back', async () => {
+    const wrapper = await ruleOn([asked(20)]);
+    const input = wrapper.get('[data-testid="priority-ordering-add-input"]');
+    await input.setValue('Answer 20');
+    await input.trigger('keydown', { key: 'Enter' });
+    await input.setValue('Answer 20');
+    expect(wrapper.find('[data-testid="priority-ordering-add-none"]').exists()).toBe(true);
+    await input.trigger('blur');
+
+    await wrapper.get('[data-testid="priority-ordering-remove"]').trigger('click');
+    await input.setValue('Answer 20');
+    expect(wrapper.get('[data-testid="priority-ordering-add-option"]').text()).toBe('Answer 20');
+    wrapper.unmount();
+  });
+
+  describe('the question it orders by', () => {
+    const many = Array.from({ length: 11 }, (_, at) =>
+      field({ key: `q${at}`, label: `Question ${at}`, options: ['Yes'] }),
+    );
+
+    it('is a select with its groups, at 11 questions and the two built in', async () => {
+      const wrapper = mount(ElementAssignmentPriority, {
+        props: { setupObject: setup(), formFields: many.slice(0, 10) },
+      });
+      await wrapper.get('[data-testid="priority-add-rule"]').trigger('click');
+
+      const target = wrapper.get('select[data-testid="priority-target-select"]');
+      expect(target.findAll('optgroup').map((group) => group.attributes('label'))).toEqual([
+        'Your questions',
+        'About the application',
+      ]);
+      expect((target.element as HTMLSelectElement).value).toBe('');
+      expect(target.findAll('option')[0]!.text()).toBe('Select a question');
+    });
+
+    it('leaves no empty row once a question is chosen, as a choice is not taken back', async () => {
+      const wrapper = await ruleOn([asked(2)]);
+      const target = wrapper.get('select[data-testid="priority-target-select"]');
+
+      expect((target.element as HTMLSelectElement).value).toBe('selling');
+      expect(target.findAll('option').map((option) => option.text())).not.toContain(
+        'Select a question',
+      );
+      wrapper.unmount();
+    });
+
+    it('is a field past 12, under its groups, and typing never drops the answers placed', async () => {
+      const wrapper = mount(ElementAssignmentPriority, {
+        props: { setupObject: setup(), formFields: [...many, asked(3)] },
+        attachTo: document.body,
+      });
+      await wrapper.get('[data-testid="priority-add-rule"]').trigger('click');
+      const input = wrapper.get('[data-testid="priority-target-select-input"]');
+      expect(input.attributes('placeholder')).toBe('Select a question');
+
+      await input.setValue('What do');
+      await input.trigger('keydown', { key: 'Enter' });
+      expect(wrapper.props('setupObject').priority[0]!.target).toBe('selling');
+
+      await wrapper.get('[data-testid="priority-ordering-add"]').setValue('Answer 1');
+      await input.setValue('Question');
+      await input.trigger('blur');
+      expect(wrapper.props('setupObject').priority[0]!.ordering).toEqual(['Answer 1']);
+      expect((input.element as HTMLInputElement).value).toBe('What do you sell?');
+
+      // Its own question, chosen again, throws no answer away.
+      await input.setValue('What do');
+      await input.trigger('keydown', { key: 'Enter' });
+      expect(wrapper.props('setupObject').priority[0]!.ordering).toEqual(['Answer 1']);
+
+      await input.setValue('When');
+      await input.trigger('keydown', { key: 'Enter' });
+      const rule = wrapper.props('setupObject').priority[0]!;
+      expect(rule.target).toBe('application.submitted_at');
+      expect(rule.ordering).toEqual([]);
+      expect(rule.direction).toBe(PriorityDirection.Ascending);
+      wrapper.unmount();
+    });
+
+    it('is a disabled field on a read-only rule past 12', () => {
+      const wrapper = mount(ElementAssignmentPriority, {
+        props: {
+          setupObject: {
+            ...setup(),
+            priority: [{ id: 0, target: 'q1', ordering: [], direction: null }],
+          } as unknown as SetupObject,
+          formFields: [...many, asked(3)],
+          readonly: true,
+        },
+      });
+      const input = wrapper.get('[data-testid="priority-target-select-input"]');
+      expect(input.attributes()).toHaveProperty('disabled');
+      expect((input.element as HTMLInputElement).value).toBe('Question 1');
+    });
   });
 });

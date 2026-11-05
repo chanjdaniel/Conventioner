@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/market/MarketFormTab.vue
-verified: 2026-11-03
+verified: 2026-11-05
 sources:
   - brain-dump/2026-10-19#5
   - brain-dump/2026-10-19#6
@@ -26,6 +26,7 @@ sources:
   - E46/F01/S02
   - T206
   - T213
+  - T223
 ---
 
 # Building the application form
@@ -85,6 +86,13 @@ Covered by:
 - `formBuilder.test.ts`
 - `the-tools-tab.spec.ts`
 
+A question with more than 20 options shows its first 20 and "Show all 230 options", which unfolds the rest in place and becomes "Show fewer", so one question does not fill the step; it folds on a locked form too.
+"Add option" on a folded question unfolds it and brings the new row into view; removing an option leaves the fold as it is.
+A fold changes what is drawn and nothing the question holds, so "Save Form" and "Use the answers in your file" reach the options behind it.
+Covered by:
+- `formBuilder.test.ts`
+- `the-questions-come-from-the-file.spec.ts`
+
 "Save Form" is disabled and says why while a field is invalid ('Field "Product category" is a select and needs at least one option.'); keys may not start with `essential_`, may not be one the import reads as something else (`applicant_email`, `submitted_at`, `sheet_note`), and must be unique.
 A form with no questions of its own says "No questions of your own yet. Add Field adds one."
 Covered by:
@@ -95,6 +103,7 @@ On a market started from its Google Form's responses, the questions also draw on
 4. Change a question the start made to Select and its options are its column's answers; to Multi-Select, the options inside them ("Filled from the answers in your file.").
    Options the organizer edited stay through any change of type, and "Use the answers in your file" puts the file's back on purpose.
 5. "Add from your file" lists the columns the start left out, such as a team's own "Status", and any question since removed; choosing one adds it with its label, type and options, and its key held, so the first import restores its column too.
+   It is a select while the file offered 12 such columns or fewer, counting those already questions, and past that a field that finds a column by typing and stands empty for the next, with the focus still in it.
    A Select or Multi-Select the file gives no options to choose from becomes Text, since a choice needs at least one option.
 6. An option on a Select or Multi-Select made from the file is a field with a list under it: every answer the file gave for that type's reading that is no other option on the question, most chosen first, with no counts ([ADR 0023](../../adr/0023-every-answer-for-an-option-to-offer.md)).
    A click or an arrow key opens it, not Tab; with nothing typed it shows all of them, and typing narrows it.
@@ -118,7 +127,7 @@ On Review setup, under "What a reviewer reads first", tick the questions that sh
 In a draft that has not decided, the section says "Not decided yet. Opening applications waits on this." ("Your first import waits on this." on a Google Form market) and offers "Nothing leads the card", one click; chosen, it reads back "Nothing leads the card: a reviewer reads every answer, in the form's order.", with the questions still below it, and ticking one replaces it ([review waits on the review setup](../rules/review-waits-on-the-review-setup.md)).
 Someone who may not change the form reads the notice and the read-back, with no button; a market past draft shows no notice.
 A mark counts as the form is saved, as the move into Review judges it: a mark on a question not yet saved leaves the notice up until Save Form.
-Under "Automatic rejections", "Add a rule on" a choice question and tick the answers that reject: "An application that gives one of these answers arrives in review already rejected, with the reason. An Admin or the owner can overturn it, and the applicant never sees the reason.", naming whoever the market's row "Change a verdict, or overturn an automatic rejection" lets overturn it.
+Under "Automatic rejections", "Add a rule on" a choice question and tick the answers that reject, or past 12 answers find them by typing and see them as chips: "An application that gives one of these answers arrives in review already rejected, with the reason. An Admin or the owner can overturn it, and the applicant never sees the reason.", naming whoever the market's row "Change a verdict, or overturn an automatic rejection" lets overturn it.
 In a draft that has not decided, the section says "Not decided yet. Opening applications waits on this." (or "Your first import waits on this.") and offers "No automatic rejections", one click, while no rule rejects an answer; chosen, it reads back "No automatic rejections: every application arrives undecided.", with "Add a rule on" still below it, and a rule replaces it, though a rule rejects nobody, and so decides nothing, until an answer is ticked.
 The rules stay editable while the review is open; from Assignment on they are shown fixed, saying why in the review's words ([automatic rejections](../rules/automatic-rejections.md)): in Assignment, "The automatic rejections are closed while tables are allocated. To change a rule, choose Back to review under More… on the phase rail; tables are then allocated again."
 Once the rules are fixed, the section shows no notice, no "No automatic rejections" button and no read-back.

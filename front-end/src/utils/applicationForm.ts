@@ -142,7 +142,9 @@ export function sortedFormFields(fields: FormField[]): FormField[] {
  * Returns an empty record when every required field has been answered.
  *
  * This is a front-end convenience that mirrors the back-end's ``_validated_form_data`` check
- * so the applicant sees what is wrong before the request leaves.
+ * so the applicant sees what is wrong before the request leaves. A stored answer to a one-choice
+ * question that it no longer offers is no answer: its control shows nothing chosen, so nobody could
+ * tell why the server then refused it.
  */
 export function formValidationErrors(
   fields: FormField[],
@@ -152,7 +154,8 @@ export function formValidationErrors(
   for (const field of fields) {
     if (!field.required) continue;
     const value = formData[field.key];
-    if (!isFieldAnswered(value, field.type)) {
+    const offered = field.type !== 'select' || field.options.includes(String(value).trim());
+    if (!isFieldAnswered(value, field.type) || !offered) {
       errors[field.key] = requiredFieldError(field);
     }
   }

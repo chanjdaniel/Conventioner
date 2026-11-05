@@ -114,3 +114,205 @@ describe('who may overturn an automatic rejection (E38/F06/S01)', () => {
     expect(help).toContain('The applicant never sees the reason.');
   });
 });
+
+/** A question whose answers pass the threshold, and one that stops at it. */
+const answers = (count: number) =>
+  Array.from({ length: count }, (_, at) => ({
+    value: `Answer ${at + 1}`,
+    label: `Answer ${at + 1}`,
+  }));
+const AT_THE_THRESHOLD: RejectionQuestion = {
+  key: 'twelve',
+  label: 'Twelve',
+  answers: answers(12),
+};
+const PAST_IT: RejectionQuestion = { key: 'selling', label: 'What you sell', answers: answers(13) };
+
+function mountLong(rules: RejectionRule[], lockReason: string | null = null) {
+  return mount(AutomaticRejections, {
+    props: { questions: [AT_THE_THRESHOLD, PAST_IT], rules, lockReason },
+    attachTo: document.body,
+  });
+}
+
+const PICKER = '[data-testid="rejection-answers-selling"]';
+const picked = (wrapper: ReturnType<typeof mountLong>) =>
+  wrapper.findAll(`${PICKER} [data-testid="rejection-answers-selling-chip"]`).map((c) => c.text());
+
+describe('a rule on a question of many answers', () => {
+  it('stays the checkboxes at 12 answers, and is a field to type in at 13', () => {
+    const wrapper = mountLong([
+      { key: 'twelve', answers: ['Answer 2'] },
+      { key: 'selling', answers: [] },
+    ]);
+
+    const twelve = wrapper.get('[data-testid="rejection-rule-twelve"]');
+    expect(twelve.findAll('input[type="checkbox"]')).toHaveLength(12);
+    expect(twelve.get('[data-testid="rejection-answer-twelve-Answer 2"]').classes()).toContain(
+      'meets',
+    );
+    expect(wrapper.find('[data-testid="rejection-answers-twelve"]').exists()).toBe(false);
+
+    const selling = wrapper.get('[data-testid="rejection-rule-selling"]');
+    expect(selling.findAll('input[type="checkbox"]')).toHaveLength(0);
+    const label = wrapper.get(`${PICKER} label`);
+    expect(label.text()).toBe('Answers to What you sell');
+    expect(label.classes()).toContain('visually-hidden');
+    expect(label.attributes('for')).toBe(wrapper.get(`${PICKER} input`).attributes('id'));
+  });
+
+  it('caps its list at 50 of what the words find, and finds by a word', async () => {
+    const wrapper = mount(AutomaticRejections, {
+      props: {
+        questions: [{ ...PAST_IT, answers: answers(60) }],
+        rules: [{ key: 'selling', answers: [] }],
+        lockReason: null,
+      },
+      attachTo: document.body,
+    });
+
+    await wrapper.get(`${PICKER} input`).trigger('click');
+    expect(wrapper.findAll(`${PICKER} [role="option"]`)).toHaveLength(50);
+    expect(wrapper.get('[data-testid="rejection-answers-selling-more"]').text()).toContain(
+      '10 more',
+    );
+
+    await wrapper.get(`${PICKER} input`).setValue('answer 59');
+    expect(wrapper.findAll(`${PICKER} [role="option"]`).map((row) => row.text())).toEqual([
+      'Answer 59',
+    ]);
+  });
+
+  it('writes the whole list of rules on a choice, a chip taken away and Backspace', async () => {
+    const other = { key: 'twelve', answers: ['Answer 2'] };
+    const wrapper = mountLong([other, { key: 'selling', answers: ['Answer 1'] }]);
+    expect(picked(wrapper)[0]).toContain('Answer 1');
+
+    await wrapper.get(`${PICKER} input`).setValue('Answer 13');
+    await wrapper.get(`${PICKER} [data-value="Answer 13"]`).trigger('click');
+    expect(lastWrite(wrapper)).toEqual([
+      other,
+      { key: 'selling', answers: ['Answer 1', 'Answer 13'] },
+    ]);
+
+    await wrapper.setProps({
+      rules: [other, { key: 'selling', answers: ['Answer 1', 'Answer 13'] }],
+    });
+    await wrapper
+      .findAll('[data-testid="rejection-answers-selling-chip-remove"]')[0]!
+      .trigger('click');
+    expect(lastWrite(wrapper)).toEqual([other, { key: 'selling', answers: ['Answer 13'] }]);
+
+    await wrapper.setProps({ rules: [other, { key: 'selling', answers: ['Answer 13'] }] });
+    await wrapper.get(`${PICKER} input`).setValue('');
+    await wrapper.get(`${PICKER} input`).trigger('keydown', { key: 'Backspace' });
+    expect(lastWrite(wrapper)).toEqual([other, { key: 'selling', answers: [] }]);
+  });
+
+  it('shown fixed, its chips still read and nothing can be taken', () => {
+    const wrapper = mountLong(
+      [{ key: 'selling', answers: ['Answer 3'] }],
+      'The automatic rejections closed when results were published.',
+    );
+
+    expect(picked(wrapper)[0]).toContain('Answer 3');
+    expect(wrapper.get(`${PICKER} input`).attributes()).toHaveProperty('disabled');
+    expect(
+      wrapper.get('[data-testid="rejection-answers-selling-chip-remove"]').attributes(),
+    ).toHaveProperty('disabled');
+    expect(wrapper.find('.conditions-empty').exists()).toBe(false);
+  });
+
+  it('fixed with no answer chosen, its field says so rather than offering to find one', () => {
+    const wrapper = mountLong(
+      [{ key: 'selling', answers: [] }],
+      'The automatic rejections closed when results were published.',
+    );
+
+    expect(wrapper.get(`${PICKER} input`).attributes('placeholder')).toBe('No answer chosen');
+  });
+
+  it('an answer the form no longer offers is a chip of its own words, and the line names it', async () => {
+    const wrapper = mountLong([{ key: 'selling', answers: ['Answer 1', 'Candles'] }]);
+
+    expect(picked(wrapper).some((chip) => chip.startsWith('Candles'))).toBe(true);
+    const line = wrapper.get('[data-testid="rejection-broken-selling"]');
+    expect(line.text()).toContain('The form no longer offers "Candles"');
+    expect(line.text()).toContain('Remove its chip, or remove this rule.');
+    expect(wrapper.get('[data-testid="rejection-rule-selling"]').classes()).toContain('broken');
+
+    const chipFor = wrapper
+      .findAll('[data-testid="rejection-answers-selling-chip"]')
+      .find((chip) => chip.text().startsWith('Candles'))!;
+    await chipFor.get('button').trigger('click');
+    const next = lastWrite(wrapper) as RejectionRule[];
+    expect(next).toEqual([{ key: 'selling', answers: ['Answer 1'] }]);
+
+    await wrapper.setProps({ rules: next });
+    expect(wrapper.find('[data-testid="rejection-broken-selling"]').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="rejection-rule-selling"]').classes()).not.toContain('broken');
+  });
+
+  it('with no answer chosen, says what a rule with none does', () => {
+    const wrapper = mountLong([{ key: 'selling', answers: [] }]);
+
+    expect(wrapper.get('[data-testid="rejection-rule-selling"]').text()).toContain(
+      'Until one is ticked, this rule rejects nobody.',
+    );
+  });
+});
+
+describe('"Add a rule on"', () => {
+  const many = Array.from({ length: 13 }, (_, at) => ({
+    key: `q${at}`,
+    label: `Question ${at}`,
+    answers: answers(2),
+  }));
+
+  it('is a select at 12 questions, and Add takes what it holds', async () => {
+    const wrapper = mount(AutomaticRejections, {
+      props: { questions: many.slice(0, 12), rules: [], lockReason: null },
+    });
+    const select = wrapper.get('select[data-testid="rejection-rule-question"]');
+    expect(select.find('option').text()).toBe('Choose a question');
+    expect(wrapper.get('[data-testid="rejection-rule-add"]').attributes()).toHaveProperty(
+      'disabled',
+    );
+
+    await select.setValue('q3');
+    await wrapper.get('[data-testid="rejection-rule-add"]').trigger('click');
+    expect(lastWrite(wrapper)).toEqual([{ key: 'q3', answers: [] }]);
+    // Ready for the next.
+    expect((select.element as HTMLSelectElement).value).toBe('');
+  });
+
+  it('is a field to type in at 13, and Add takes the question found', async () => {
+    const wrapper = mount(AutomaticRejections, {
+      props: { questions: many, rules: [], lockReason: null },
+      attachTo: document.body,
+    });
+    const field = wrapper.get('[data-testid="rejection-rule-question-input"]');
+    expect(wrapper.find('select').exists()).toBe(false);
+
+    await field.setValue('question 11');
+    await wrapper
+      .get('[data-testid="rejection-rule-question"] [data-value="q11"]')
+      .trigger('click');
+    await wrapper.get('[data-testid="rejection-rule-add"]').trigger('click');
+
+    expect(lastWrite(wrapper)).toEqual([{ key: 'q11', answers: [] }]);
+    expect((field.element as HTMLInputElement).value).toBe('');
+  });
+
+  it('stays the field as rules use the questions up, since it counts them all', () => {
+    const wrapper = mount(AutomaticRejections, {
+      props: {
+        questions: many,
+        rules: many.slice(0, 5).map((question) => ({ key: question.key, answers: [] })),
+        lockReason: null,
+      },
+    });
+
+    expect(wrapper.find('[data-testid="rejection-rule-question-input"]').exists()).toBe(true);
+  });
+});

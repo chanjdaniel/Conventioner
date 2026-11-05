@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { defineComponent, h, ref } from 'vue';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { defineComponent, h, nextTick, ref } from 'vue';
 import { mount } from '@vue/test-utils';
 
 import FormBuilder from '@/components/application/FormBuilder.vue';
@@ -15,6 +15,7 @@ function mountWithParent(
   initial: ApplicationForm | null,
   readonly = false,
   exampleColumns?: ExampleColumn[],
+  attachTo?: HTMLElement,
 ) {
   const form = ref<ApplicationForm | null>(initial);
   const keyTouched = ref<boolean[]>((initial?.fields ?? []).map(() => true));
@@ -40,7 +41,7 @@ function mountWithParent(
     },
   });
 
-  const wrapper = mount(Parent);
+  const wrapper = mount(Parent, { attachTo });
 
   /** Leave the Application Form tab and come back, tearing the builder down and rebuilding it. */
   async function remount() {
@@ -343,9 +344,8 @@ describe('FormBuilder, on a market started from a file (E38/F02/S02)', () => {
     ]);
     const add = wrapper.get('[data-testid="form-builder-add-from-file"]');
     expect(add.findAll('option').map((o) => o.text())).toEqual(['Choose a column', 'Status']);
-    expect(wrapper.get('label[for="form-builder-add-from-file"]').text()).toBe(
-      'Add from your file',
-    );
+    expect(wrapper.get('.add-from-file label').text()).toBe('Add from your file');
+    expect(wrapper.get('.add-from-file label').attributes('for')).toBe(add.attributes('id'));
 
     await add.setValue('status');
 
@@ -359,6 +359,72 @@ describe('FormBuilder, on a market started from a file (E38/F02/S02)', () => {
     // Its key is the one the saved import mapping names: relabelling it must not move it.
     expect(keyTouched.value).toEqual([true, true]);
     expect(wrapper.find('[data-testid="form-builder-add-from-file"]').exists()).toBe(false);
+  });
+
+  describe('past 12 columns the file offered (T223)', () => {
+    const left = (count: number): ExampleColumn[] =>
+      Array.from({ length: count }, (_, at) => ({
+        headers: [`Column ${at}`],
+        key: `column_${at}`,
+        label: `Column ${at}`,
+        helpText: null,
+        type: 'text',
+        question: false,
+        options: { select: [], multiSelect: [] },
+      }));
+
+    it('stays a select at 12, back on its empty row after each added', async () => {
+      const { wrapper, form } = mountWithParent({ fields: [] }, false, left(12));
+      const add = wrapper.get('select[data-testid="form-builder-add-from-file"]');
+      expect(add.findAll('option')).toHaveLength(13);
+
+      await add.setValue('column_3');
+
+      expect(form.value!.fields.map((f) => f.key)).toEqual(['column_3']);
+      expect((add.element as HTMLSelectElement).value).toBe('');
+      expect(add.findAll('option').map((o) => o.text())).not.toContain('Column 3');
+    });
+
+    it('is a field at 13, ready for the next, and a column added leaves the list', async () => {
+      const attachTo = document.createElement('div');
+      document.body.appendChild(attachTo);
+      const { wrapper, form, keyTouched } = mountWithParent(
+        { fields: [] },
+        false,
+        left(13),
+        attachTo,
+      );
+      const input = wrapper.get('[data-testid="form-builder-add-from-file-input"]');
+      (input.element as HTMLInputElement).focus();
+
+      await input.setValue('Column 12');
+      await input.trigger('keydown', { key: 'Enter' });
+
+      expect(form.value!.fields.map((f) => f.key)).toEqual(['column_12']);
+      expect(keyTouched.value).toEqual([true]);
+      expect((input.element as HTMLInputElement).value).toBe('');
+      expect(document.activeElement).toBe(input.element);
+
+      await input.setValue('Column 12');
+      expect(wrapper.find('[data-testid="form-builder-add-from-file-none"]').exists()).toBe(true);
+      wrapper.unmount();
+      attachTo.remove();
+    });
+
+    it('stays a field as the columns left to add fall to 12 and below', async () => {
+      const taken = left(13).slice(0, 9);
+      const { wrapper } = mountWithParent(
+        { fields: taken.map((c, order) => question({ key: c.key, order })) },
+        false,
+        left(13),
+      );
+      expect(wrapper.find('select[data-testid="form-builder-add-from-file"]').exists()).toBe(false);
+      const input = wrapper.get('[data-testid="form-builder-add-from-file-input"]');
+      await input.trigger('click');
+      expect(
+        wrapper.findAll('[data-testid="form-builder-add-from-file-option"]').map((o) => o.text()),
+      ).toEqual(['Column 9', 'Column 10', 'Column 11', 'Column 12']);
+    });
   });
 
   it('leaves a question of no column as it always was', async () => {
@@ -601,5 +667,229 @@ describe('the Discord username question (E46/F01/S02)', () => {
     const { wrapper } = mountWithParent({ fields: [] }, true);
 
     expect(wrapper.find(ADD).exists()).toBe(false);
+  });
+});
+
+describe('a question whose options fold past 20 (T223)', () => {
+  const FOLD = '[data-testid="form-field-options-fold"]';
+  const INPUT = '[data-testid="form-field-option-input"]';
+  const ADD = '[data-testid="form-field-add-option-button"]';
+  const REMOVE = '[data-testid="form-field-remove-option-button"]';
+  const scrollIntoView = vi.fn();
+
+  const named = (count: number) => Array.from({ length: count }, (_, at) => `Answer ${at + 1}`);
+  const asked = (count: number): FormField =>
+    question({ key: 'sells', label: 'What do you sell?', type: 'select', options: named(count) });
+  /** The question's column: every option is its own answer, and two more no option holds yet. */
+  const columnOf = (count: number): ExampleColumn => ({
+    ...SELLS,
+    key: 'sells',
+    options: { select: named(count), multiSelect: named(count) },
+    answers: { select: named(count + 2), multiSelect: named(count + 2) },
+  });
+  const drawn = (wrapper: ReturnType<typeof mount>) =>
+    wrapper.findAll(INPUT).map((input) => (input.element as HTMLInputElement).value);
+
+  beforeEach(() => {
+    scrollIntoView.mockClear();
+    Element.prototype.scrollIntoView = scrollIntoView;
+  });
+
+  afterEach(() => {
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    document.body.innerHTML = '';
+  });
+
+  it('draws every option and no button at 20 or fewer', () => {
+    const { wrapper } = mountWithParent({ fields: [asked(20)] });
+
+    expect(drawn(wrapper)).toEqual(named(20));
+    expect(wrapper.find(FOLD).exists()).toBe(false);
+  });
+
+  it('stops at 20 past that, and unfolds in place, then folds again', async () => {
+    const { wrapper, form } = mountWithParent({ fields: [asked(230)] });
+
+    expect(drawn(wrapper)).toEqual(named(20));
+    expect(wrapper.get(FOLD).text()).toContain('Show all 230 options');
+
+    await wrapper.get(FOLD).trigger('click');
+    expect(drawn(wrapper)).toEqual(named(230));
+    expect(wrapper.get(FOLD).text()).toContain('Show fewer');
+
+    await wrapper.get(FOLD).trigger('click');
+    expect(drawn(wrapper)).toEqual(named(20));
+    // Folding hides rows and changes nothing the question holds.
+    expect(form.value!.fields[0].options).toEqual(named(230));
+  });
+
+  it('says which question it folds to a reader, since a form can have several', () => {
+    const { wrapper } = mountWithParent({ fields: [asked(21)] });
+
+    expect(wrapper.get(`${FOLD} .visually-hidden`).text()).toBe('for What do you sell?');
+  });
+
+  it('folds on a locked form too, its rows read only and its button still working', async () => {
+    const { wrapper } = mountWithParent({ fields: [asked(25)] }, true);
+
+    expect(drawn(wrapper)).toEqual(named(20));
+    expect(
+      wrapper.findAll(INPUT).every((input) => input.attributes('disabled') !== undefined),
+    ).toBe(true);
+    expect(wrapper.find(ADD).exists()).toBe(false);
+
+    await wrapper.get(FOLD).trigger('click');
+    expect(drawn(wrapper)).toEqual(named(25));
+    await wrapper.get(FOLD).trigger('click');
+    expect(drawn(wrapper)).toEqual(named(20));
+  });
+
+  it('hands the focus to the first new row, and brings the button back into view', async () => {
+    const { wrapper } = mountWithParent({ fields: [asked(25)] }, false, undefined, document.body);
+
+    const fold = wrapper.get(FOLD);
+    await fold.trigger('click');
+    await nextTick();
+    const rows = wrapper.findAll('.option-row');
+    expect(document.activeElement).toBe(rows[20].element);
+    expect(rows[20].attributes('tabindex')).toBe('-1');
+    expect(rows[19].attributes('tabindex')).toBeUndefined();
+    expect(rows[21].attributes('tabindex')).toBeUndefined();
+
+    (fold.element as HTMLButtonElement).focus();
+    await fold.trigger('click');
+    await nextTick();
+    expect(document.activeElement).toBe(fold.element);
+    expect(scrollIntoView.mock.contexts).toEqual([fold.element]);
+    wrapper.unmount();
+  });
+
+  it('unfolds for "Add option" and brings the new row into view', async () => {
+    const { wrapper, form } = mountWithParent({ fields: [asked(230)] });
+
+    await wrapper.get(ADD).trigger('click');
+    await nextTick();
+
+    expect(form.value!.fields[0].options).toEqual([...named(230), '']);
+    expect(drawn(wrapper)).toEqual([...named(230), '']);
+    expect(wrapper.get(FOLD).text()).toContain('Show fewer');
+    expect(scrollIntoView.mock.contexts).toEqual([wrapper.findAll('.option-row')[230].element]);
+  });
+
+  it('unfolds for the 21st option, so a new row never lands behind the fold', async () => {
+    const { wrapper } = mountWithParent({ fields: [asked(20)] });
+
+    await wrapper.get(ADD).trigger('click');
+    await nextTick();
+
+    expect(drawn(wrapper)).toEqual([...named(20), '']);
+    expect(wrapper.get(FOLD).text()).toContain('Show fewer');
+  });
+
+  it('moves nothing for an option added above the fold or on an unfolded question', async () => {
+    const { wrapper } = mountWithParent({ fields: [asked(5)] });
+    await wrapper.get(ADD).trigger('click');
+    await nextTick();
+    expect(drawn(wrapper)).toEqual([...named(5), '']);
+    expect(wrapper.find(FOLD).exists()).toBe(false);
+
+    const unfolded = mountWithParent({ fields: [asked(25)] }).wrapper;
+    await unfolded.get(FOLD).trigger('click');
+    scrollIntoView.mockClear();
+    await unfolded.get(ADD).trigger('click');
+    await nextTick();
+    expect(drawn(unfolded)).toEqual([...named(25), '']);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it('keeps the fold when a row is removed, folded or unfolded', async () => {
+    const { wrapper, form } = mountWithParent({ fields: [asked(25)] });
+
+    await wrapper.findAll(REMOVE)[2].trigger('click');
+    expect(form.value!.fields[0].options).toEqual(named(25).filter((_, at) => at !== 2));
+    expect(drawn(wrapper)).toEqual(form.value!.fields[0].options.slice(0, 20));
+    expect(wrapper.get(FOLD).text()).toContain('Show all 24 options');
+
+    await wrapper.get(FOLD).trigger('click');
+    await wrapper.findAll(REMOVE)[22].trigger('click');
+    expect(drawn(wrapper)).toEqual(form.value!.fields[0].options);
+    expect(form.value!.fields[0].options).toHaveLength(23);
+    expect(wrapper.get(FOLD).text()).toContain('Show fewer');
+  });
+
+  it('draws no button once removing leaves 20, and every row stays', async () => {
+    const { wrapper } = mountWithParent({ fields: [asked(21)] });
+
+    await wrapper.findAll(REMOVE)[0].trigger('click');
+
+    expect(drawn(wrapper)).toEqual(named(21).slice(1));
+    expect(wrapper.find(FOLD).exists()).toBe(false);
+  });
+
+  it('acts on the right option past row 20: its value, its name and its Remove', async () => {
+    const { wrapper, form } = mountWithParent({ fields: [asked(30)] });
+    await wrapper.get(FOLD).trigger('click');
+    const inputs = wrapper.findAll(INPUT);
+
+    expect(inputs[24].attributes('aria-label')).toBe('Option 25');
+    await inputs[24].setValue('Twenty-five, edited');
+    expect(form.value!.fields[0].options[24]).toBe('Twenty-five, edited');
+    expect(form.value!.fields[0].options[23]).toBe('Answer 24');
+
+    const remove = wrapper.findAll(REMOVE)[27];
+    expect(remove.attributes('aria-label')).toBe('Remove option 28');
+    await remove.trigger('click');
+    expect(form.value!.fields[0].options).toHaveLength(29);
+    expect(form.value!.fields[0].options).not.toContain('Answer 28');
+    expect(form.value!.fields[0].options[27]).toBe('Answer 29');
+  });
+
+  it('offers a row past 20 its own answer and those no option holds, and takes one', async () => {
+    const field = { ...asked(30), key: 'sells', type: 'multi_select' };
+    const { wrapper, form } = mountWithParent({ fields: [field] }, false, [columnOf(30)]);
+    await wrapper.get(FOLD).trigger('click');
+
+    const input = wrapper.findAll(INPUT)[24];
+    await input.trigger('click');
+    const rows = wrapper.findAll('[data-testid="form-field-option-option"]');
+    expect(rows.map((row) => row.attributes('data-value'))).toEqual([
+      'Answer 25',
+      'Answer 31',
+      'Answer 32',
+    ]);
+
+    await rows[2].trigger('mousedown');
+    await rows[2].trigger('click');
+    expect(form.value!.fields[0].options[24]).toBe('Answer 32');
+    expect(form.value!.fields[0].options[23]).toBe('Answer 24');
+    expect(form.value!.fields[0].options[25]).toBe('Answer 26');
+  });
+
+  it('fills from the file and says so, folded or unfolded', async () => {
+    const field = { ...asked(30), key: 'sells', type: 'multi_select' };
+    const column = columnOf(30);
+    const { wrapper, form } = mountWithParent({ fields: [field] }, false, [column]);
+    const NOTE = '[data-testid="form-field-options-from-file"]';
+    const USE = '[data-testid="form-field-use-file-options-button"]';
+    expect(wrapper.get(NOTE).text()).toContain('Filled from the answers in your file');
+    expect(drawn(wrapper)).toEqual(named(20));
+
+    // Edited past the fold, the note goes; folded again, the way back still works.
+    await wrapper.get(FOLD).trigger('click');
+    await wrapper.findAll(INPUT)[25].setValue('Words the file never held');
+    expect(wrapper.find(NOTE).exists()).toBe(false);
+    await wrapper.get(FOLD).trigger('click');
+    expect(drawn(wrapper)).toEqual(named(20));
+
+    await wrapper.get(USE).trigger('click');
+    expect(form.value!.fields[0].options).toEqual(named(30));
+    expect(wrapper.get(NOTE).text()).toContain('Filled from the answers in your file');
+    expect(drawn(wrapper)).toEqual(named(20));
+
+    // And unfolded, it stays as the reader left it.
+    await wrapper.findAll(REMOVE)[0].trigger('click');
+    await wrapper.get(FOLD).trigger('click');
+    await wrapper.get(USE).trigger('click');
+    expect(drawn(wrapper)).toEqual(named(30));
   });
 });

@@ -4,6 +4,7 @@ import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { savePlan } from './helpers/savePlan';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { publishResults } from './helpers/seeds';
+import { ChoiceField } from './pages/ChoiceField';
 
 /**
  * The priority rules table is drawn from the primitives (E28/F03/S01).
@@ -81,7 +82,8 @@ test('the answers line up, the row grows, and dragging still reorders', async ({
   const scrollers = await rule.evaluate(
     (row) =>
       [row, ...Array.from(row.querySelectorAll('*'))].filter(
-        (el) => el.scrollHeight > el.clientHeight + 1,
+        // A hidden label is 1px tall by design, and nobody scrolls it.
+        (el) => !el.classList.contains('visually-hidden') && el.scrollHeight > el.clientHeight + 1,
       ).length,
   );
   expect(scrollers, 'an element inside the rule scrolls').toBe(0);
@@ -235,11 +237,11 @@ test("a rule's question stays in its column, however long the form's other quest
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(marketSetupPath(marketId, 'settings'));
-  const target = page.getByTestId('priority-target-select');
-  await expect(target).toHaveValue('student', { timeout: 15000 });
+  const target = new ChoiceField(page, 'priority-target-select');
+  await expect(target.root).toHaveValue('student', { timeout: 15000 });
 
-  const overflow = await target.evaluate((select) => {
-    const cell = select.parentElement!.getBoundingClientRect();
+  const overflow = await target.root.evaluate((select) => {
+    const cell = select.closest('.cell')!.getBoundingClientRect();
     return select.getBoundingClientRect().right - cell.right;
   });
   expect(overflow, 'the question select reaches past its column').toBeLessThanOrEqual(0);
@@ -260,10 +262,11 @@ test('the question column shows its longest built-in question whole beside the c
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(marketSetupPath(marketId, 'settings'));
   await page.getByRole('button', { name: 'Add a rule' }).click();
-  const target = page.getByTestId('priority-target-select').last();
-  await target.selectOption({ label: 'When the application arrived' });
+  const rule = page.getByTestId('priority-rule-row').last();
+  const target = new ChoiceField(rule, 'priority-target-select');
+  await target.chooseLabelled('When the application arrived');
 
-  const room = await target.evaluate((select: HTMLSelectElement) => {
+  const room = await target.root.evaluate((select: HTMLSelectElement) => {
     const style = getComputedStyle(select);
     const pen = document.createElement('canvas').getContext('2d')!;
     pen.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;

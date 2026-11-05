@@ -373,6 +373,48 @@ export const FIRST_IMPORT = (() => {
 })();
 
 /**
+ * A later Google Form export of `csv`, by `screens.ts`, which the mapping its last import saved
+ * reads: every required question served, one new column, and a value on a column and a grid's day
+ * headings that the market does not offer, so Map columns opens with values waiting.
+ */
+export const LATER_IMPORT = (() => {
+  const grid = ['Tiers [The first Saturday]', 'Tiers [The second Saturday]'];
+  const saved: Record<string, string[]> = {
+    applicant_email: ['Email Address'],
+    submitted_at: ['Timestamp'],
+    essential_full_name: ['Full Legal Name'],
+    essential_available_dates: ['Which days can you attend?'],
+    essential_max_dates: ['How many days do you want?'],
+    essential_tier_preference: grid,
+    essential_table_choice: ['Full or half table?'],
+    essential_section_ranking: ['Rank the sections'],
+    business_name: ['Business name'],
+    product_type: [FIELDS[1].label],
+    category: ['Category'],
+  };
+  const headers = [...Object.values(saved).flat(), 'A column new since the last import'];
+  const quoted = (cell: string) => `"${cell.replaceAll('"', '""')}"`;
+  const row = [
+    'later-import@example.com',
+    '2026/05/04 9:10:00',
+    'Applicant Number 3 Featherstonehaugh-Montgomery',
+    'A day the plan never had',
+    '1',
+    TIERS[0]!,
+    TIERS[1]!,
+    'full',
+    SECTIONS.join(', '),
+    ...Object.values(answers(3)).slice(0, 2),
+    'A category the form never had',
+    'Anything',
+  ];
+  return {
+    saved: { targets: saved, headers: headers.slice(0, -1), resolutions: {} },
+    csv: [headers.map(quoted).join(','), row.map(quoted).join(',')].join('\n'),
+  };
+})();
+
+/**
  * A CSV draft whose first import is still to come, `DEALT_REVIEWER` a Viewer on it, so the
  * import's preview offers the organizer and them as reviewers.
  */
@@ -682,6 +724,11 @@ export async function seedTheScreens(
   );
   insertApplications(manyVendors(csv.marketId, 'imported', 4, two));
   await walk(api, backend, email, csv.marketId, ['applications']);
+  mongoEval(
+    `db.markets.updateOne({ id: ${JSON.stringify(csv.marketId)} }, { $set: { importMapping: ${JSON.stringify(
+      LATER_IMPORT.saved,
+    )} } })`,
+  );
   const { marketId, marketName } = await seedDraftMarket(api, backend, email, password, {
     intakeMode: 'csv',
   });

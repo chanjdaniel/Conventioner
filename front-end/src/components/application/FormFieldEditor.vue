@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, nextTick } from 'vue';
 import { type ExampleColumn, type FormField } from '@/assets/types/datatypes';
 import IconAddRound from '@/components/icons/IconAddRound.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
@@ -12,6 +12,13 @@ import {
   optionsForType,
   sameOptions,
 } from '@/utils/exampleColumns';
+import { useFold } from '@/utils/useFold';
+
+/**
+ * How many of a question's options show before "Show all N options": "Keep all" can leave a
+ * question 230 of them, and one question must not fill the tab (C3).
+ */
+const FIRST_OPTIONS = 20;
 
 const props = withDefaults(
   defineProps<{
@@ -39,6 +46,19 @@ const emit = defineEmits<{
 }>();
 
 const local = computed(() => props.field);
+
+const {
+  button: foldButton,
+  list: optionRows,
+  rest: optionsFolded,
+  rowTabindex,
+  shown: shownOptions,
+  toggle: toggleOptions,
+  unfolded: optionsUnfolded,
+} = useFold(
+  () => local.value.options,
+  () => FIRST_OPTIONS,
+);
 
 function slugify(text: string): string {
   return text
@@ -108,8 +128,17 @@ function answerMatches(option: PickerOption, words: string): boolean {
   return option.label.toLowerCase().includes(words.toLowerCase());
 }
 
-function addOption() {
+/**
+ * A new row is never left behind the fold. Unfolding moves "Add option" down past every row it
+ * shows, so the row is brought into view, centred as the fold's button is.
+ */
+async function addOption() {
+  const landsPastFold = !optionsUnfolded.value && local.value.options.length >= FIRST_OPTIONS;
   emitUpdate({ options: [...local.value.options, ''] });
+  if (!landsPastFold) return;
+  optionsUnfolded.value = true;
+  await nextTick();
+  optionRows.value?.children[local.value.options.length - 1]?.scrollIntoView({ block: 'center' });
 }
 
 function removeOption(idx: number) {
@@ -186,8 +215,19 @@ function updateOption(idx: number, value: string) {
 
     <div class="field-row" v-if="local.type === 'select' || local.type === 'multi_select'">
       <span :id="`question-${index}-options`" class="field-label">Options</span>
-      <div class="options-list" role="group" :aria-labelledby="`question-${index}-options`">
-        <div v-for="(opt, optIdx) in local.options" :key="optIdx" class="option-row">
+      <div
+        ref="optionRows"
+        class="options-list"
+        role="group"
+        :aria-labelledby="`question-${index}-options`"
+      >
+        <!-- The rows stand first in the list, as the fold finds the row to focus by its place. -->
+        <div
+          v-for="(opt, optIdx) in shownOptions"
+          :key="optIdx"
+          class="option-row"
+          :tabindex="rowTabindex(optIdx)"
+        >
           <SearchPicker
             v-if="optionsOfferAnswers"
             class="option-picker"
@@ -197,6 +237,7 @@ function updateOption(idx: number, value: string) {
             :label="`Option ${optIdx + 1}`"
             :placeholder="`Option ${optIdx + 1}`"
             testid="form-field-option"
+            hide-label
             none-word="Nothing"
             accepts-typed
             words-are-value
@@ -224,6 +265,19 @@ function updateOption(idx: number, value: string) {
           </button>
         </div>
         <button
+          v-if="optionsFolded"
+          ref="foldButton"
+          type="button"
+          class="btn btn--secondary btn--compact options-action"
+          data-testid="form-field-options-fold"
+          @click="toggleOptions"
+        >
+          <!-- A form can have several of these, so a reader hears which question's. -->
+          <template v-if="optionsUnfolded">Show fewer</template>
+          <template v-else>Show all {{ local.options.length }} options</template>
+          <span v-if="local.label" class="visually-hidden"> for {{ local.label }}</span>
+        </button>
+        <button
           v-if="!readonly"
           type="button"
           class="add-option-btn"
@@ -243,7 +297,7 @@ function updateOption(idx: number, value: string) {
           <button
             v-else-if="optionsFromFile.length"
             type="button"
-            class="btn btn--secondary btn--compact use-file-options"
+            class="btn btn--secondary btn--compact options-action"
             @click="useFileOptions"
             data-testid="form-field-use-file-options-button"
           >
@@ -359,25 +413,10 @@ function updateOption(idx: number, value: string) {
   gap: var(--space-1);
 }
 
-/* The row's field in the compact height and text of `.field-input`, which cannot reach a child.
-   Its name is for a screen reader, as the plain input's is: `.visually-hidden` copied whole, since
-   the picker draws its own label. */
+/* The row's field in the compact height and text of `.field-input`, which cannot reach a child. */
 .option-picker {
   flex: 1;
   min-width: 0;
-}
-
-.option-picker :deep(.field-label) {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  /* stylelint-disable-next-line declaration-property-value-allowed-list -- the utility's own value, not spacing: it pulls the 1px box off the layout */
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
 }
 
 .option-picker :deep(.field) {
@@ -410,7 +449,7 @@ function updateOption(idx: number, value: string) {
 }
 
 /* A button in a column of rows: as wide as its words, not the column. */
-.use-file-options {
+.options-action {
   align-self: flex-start;
 }
 

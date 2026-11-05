@@ -160,7 +160,7 @@ test('a half-typed invite link is refused in its own words, and stays to be fini
   await expect(tools.inviteInput).toHaveValue('discord.gg/abc');
 
   // A role saved meanwhile re-reads the market, and says nothing of the link, still not saved.
-  await tools.roleSelect.selectOption(roleId);
+  await tools.roleChoice.pick(roleId);
   await expect(tools.roleWarning).toBeVisible();
   await expect(tools.inviteInput).toHaveValue('discord.gg/abc');
   await expect(tools.inviteError).toBeVisible();
@@ -178,7 +178,7 @@ test('a half-typed invite link is refused in its own words, and stays to be fini
   await expect(tools.inviteError).toHaveCount(0);
   await expect(tools.inviteInput).toHaveValue('');
   await page.reload();
-  await expect(tools.roleSelect).toHaveValue(roleId, { timeout: 15000 });
+  await expect(tools.roleChoice.root).toHaveValue(roleId, { timeout: 15000 });
   await expect(tools.inviteInput).toHaveValue('');
 });
 
@@ -214,17 +214,17 @@ test('the card says where roles are given, and walks what is missing down to the
 
   // Each item takes the organizer to its select, on this card, and goes once its choice has saved.
   await tools.givingNeedsRole.click();
-  await expect(tools.roleSelect).toBeFocused();
+  await expect(tools.roleChoice.root).toBeFocused();
   await expect(page).toHaveURL(address);
   await page.keyboard.press('Escape');
-  await tools.roleSelect.selectOption(roleId);
+  await tools.roleChoice.pick(roleId);
   await expect(tools.givingNeedsRole).toHaveCount(0);
 
   await tools.givingNeedsQuestion.click();
-  await expect(tools.questionSelect).toBeFocused();
+  await expect(tools.questionChoice.root).toBeFocused();
   await expect(page).toHaveURL(address);
   await page.keyboard.press('Escape');
-  await tools.questionSelect.selectOption('name');
+  await tools.questionChoice.pick('name');
   await expect(tools.givingNeedsQuestion).toHaveCount(0);
   await expect(tools.givingItems).toHaveText(['Make the assignment']);
 
@@ -258,8 +258,8 @@ test('a link to a select still answers in a browser that cannot open its list', 
   expect(labelInk, 'the label reads in its own ink first').not.toBe(linkInk);
 
   for (const [link, label, select] of [
-    [tools.givingNeedsRole, tools.roleLabel, tools.roleSelect],
-    [tools.givingNeedsQuestion, tools.questionLabel, tools.questionSelect],
+    [tools.givingNeedsRole, tools.roleLabel, tools.roleChoice.root],
+    [tools.givingNeedsQuestion, tools.questionLabel, tools.questionChoice.root],
   ] as const) {
     await link.click();
 

@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { ChoiceField } from './ChoiceField';
 
 /** The form tab's steps, in order (E33/F01/S01). */
 export type FormStep = 'essentials' | 'questions' | 'preview' | 'review';
@@ -25,7 +26,7 @@ export class ApplicationFormPage {
   readonly builderEmpty: Locator;
   readonly addFieldButton: Locator;
   /** "Add from your file", on a market started from a Google Form's responses (E38/F02/S02). */
-  readonly addFromFile: Locator;
+  readonly addFromFile: ChoiceField;
   /** The one-click "Discord username" question (E46/F01/S02). */
   readonly addDiscordButton: Locator;
   readonly lockBanner: Locator;
@@ -67,7 +68,7 @@ export class ApplicationFormPage {
     this.builder = page.getByTestId('form-builder');
     this.builderEmpty = page.getByTestId('form-builder-empty');
     this.addFieldButton = page.getByTestId('form-builder-add-field-button');
-    this.addFromFile = page.getByTestId('form-builder-add-from-file');
+    this.addFromFile = new ChoiceField(page, 'form-builder-add-from-file');
     this.addDiscordButton = page.getByTestId('form-builder-add-discord-button');
     this.lockBanner = page.getByTestId('form-builder-lock-banner');
     this.loadError = page.getByTestId('form-builder-load-error');
@@ -176,6 +177,11 @@ export class ApplicationFormPage {
     );
   }
 
+  /** The button that unfolds a question's options past the first 20, and folds them again. */
+  optionsFold(index: number): Locator {
+    return this.fieldCard(index).getByTestId('form-field-options-fold');
+  }
+
   /** The note that a question's options are its file's answers. */
   optionsFromFile(index: number): Locator {
     return this.fieldCard(index).getByTestId('form-field-options-from-file');
@@ -219,7 +225,7 @@ export class ApplicationFormPage {
 
   /** Add a question from a column of the file the market was started from, by its label. */
   async addQuestionFromFile(label: string): Promise<void> {
-    await this.addFromFile.selectOption({ label });
+    await this.addFromFile.chooseLabelled(label);
   }
 
   async save(): Promise<void> {
@@ -229,6 +235,11 @@ export class ApplicationFormPage {
   /** A field in the applicant preview, addressed by its (slugged) key. */
   previewField(key: string): Locator {
     return this.page.getByTestId(`form-preview-field-${key}`);
+  }
+
+  /** A question of more than 12 options in the applicant preview, by its key. */
+  previewLongQuestion(key: string): ChoiceField {
+    return new ChoiceField(this.page, `form-preview-input-${key}`);
   }
 
   /** One of the five essential-question cards in the builder panel. */

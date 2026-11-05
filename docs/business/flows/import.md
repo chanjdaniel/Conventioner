@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/CsvImportView.vue
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/04
@@ -40,6 +40,7 @@ sources:
   - T211
   - T205
   - T204
+  - T223
 ---
 
 # Importing a Google Form's responses
@@ -57,6 +58,8 @@ A dialog opened from the import, such as the form amendment ([H2e](#h2e-add-a-qu
 How the file becomes applications, and why each rule holds, is [the CSV import](../../implementation/modules/csv-import.md).
 
 **Map columns is a ledger of the file's columns**: one row per column in file order, each with its "Maps to" choice, and "Required questions" beside it ticking off what is served.
+"Maps to" is grouped under Ignore, Essential and Your questions, the ways out first so that a long list never hides them, and past 12 choices it is a field that finds a question by a word of its label.
+A question another column holds stays in the list, shown as taken and by which column, until that column lets it go.
 A question spread over several columns is one row with its columns beneath it, labelled with its shape ("3 columns · one per option"), and a list in one column says so too ("1 column · values split on commas").
 An answer that matches nothing is settled inside the row of the column it came from, where the organizer is already looking.
 The ledger won over a board of questions to fill and a walk-through of one question at a time because a later import opens with the mapping restored: a filled ledger is read for its exceptions, while the other two opened with nothing left to do.
@@ -105,6 +108,8 @@ For a market started from a Google Form, step 2 opens "Mapped when your form was
 **Status:** Works (re-walked live on 2026-10-03).
 Answers are split only where the comma is not inside an option, so "Monday, November 20th" arrives whole and reads as that market date (bug 27).
 "N values did not match …" lists each unmatched answer with "Choose…" to match it to an option, or "Ignore this value"; "Re-check values" re-runs the check.
+A question of 12 answers or fewer keeps a select; past that the organizer finds the answer by typing in a field on the value's row, its list lying over the rows below so none moves, and 142 values among 129 answers read 142 fields (T223).
+Words typed and not chosen clear on leaving the field, since a fix can only name an answer the question offers; once a value is fixed past 12, another answer or "Ignore this value" replaces the fix, as the field has no empty row.
 Values already decided, including those a Google Form start saved, are listed as "N values already decided - change any that are wrong" and can be changed (bug 28).
 "N values still need a match." blocks the preview until each is settled.
 

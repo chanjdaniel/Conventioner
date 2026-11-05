@@ -66,7 +66,8 @@ export class ManageMarketPage {
   readonly historyVendorLinks: Locator;
   readonly historyWho: PersonChooser;
   readonly historyKind: Locator;
-  readonly historyVendor: Locator;
+  readonly historyVendor: PersonChooser;
+  readonly historyVendorHint: Locator;
   readonly historyLoadMore: Locator;
 
   constructor(page: Page) {
@@ -132,7 +133,8 @@ export class ManageMarketPage {
     this.historyVendorLinks = page.getByTestId('market-history-vendor-link');
     this.historyWho = new PersonChooser(page, 'market-history-who');
     this.historyKind = page.getByTestId('market-history-kind');
-    this.historyVendor = page.getByTestId('market-history-vendor');
+    this.historyVendor = new PersonChooser(page, 'market-history-vendor');
+    this.historyVendorHint = page.getByTestId('market-history-vendor-hint');
     this.historyLoadMore = page.getByTestId('market-history-load-more');
   }
 

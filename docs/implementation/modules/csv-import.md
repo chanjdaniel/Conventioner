@@ -9,7 +9,9 @@ describes:
   - back-end/app.py#preview_application_import
   - back-end/app.py#import_applications
   - front-end/src/utils/csvFile.ts
-verified: 2026-10-30
+  - front-end/src/components/ValueFixes.vue
+  - front-end/src/views/CsvImportView.vue#mapsTo
+verified: 2026-11-05
 sources:
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/map
@@ -31,6 +33,7 @@ sources:
   - E38/F07/S03
   - E38/F15/S02
   - T205
+  - T223
 ---
 
 # The CSV import
@@ -84,10 +87,22 @@ A re-import updates each applicant's main application by the market and the addr
 **`submitted_at` is the form's own timestamp**, an ordinary mapping target, optional, and auto-detected from Google Forms' "Timestamp" heading; it is normalised to ISO 8601 at the boundary (`normalized_submitted_at`, [the application document](../data/application-document.md#the-fields-that-matter)).
 A row without one gets the import's moment, so the screen warns when the market orders by arrival and nothing maps it (`orders_by_submitted_at`, [priority and tie-breaks](../../business/rules/priority-and-tie-breaks.md)); the warning, not a refusal, because a market with no rule on arrival does not need the column.
 
+**A column's "Maps to" is found by typing.**
+Each row of the ledger is one [`ChoiceField`](../../design-system.md#the-primitive-layer), built by `mapsTo` in [`CsvImportView.vue`](../../../front-end/src/views/CsvImportView.vue) and written as it is chosen; past 12 choices its list lies over the rows below, so no row moves, and a list on the last row is reached by scrolling the page.
+Every row counts the same choices, each target and a column's two ways out, though a grid has one way out, so a ledger never mixes a select with a field.
+Its groups come in this order: Ignore ("Ignore this column" or "Ignore these columns", value `''`, and on a column "This column has nowhere to go…", which never reaches the server), then, following `ImportTarget.kind`, Essential (`identity`, `essential`, and Submitted at) and Your questions (`custom`, and "From your sheet").
+The ways out come first so that the cap never hides them, however many targets a market has, and an unmapped row's list opens at its head rather than at its tail.
+Words typed draw only the groups they found, so what they find leads the list rather than a heading with nothing under it.
+A target another row holds is disabled with `Mapped from "<heading>"`, cut to two lines as the row's own heading is, and is free again once that row lets it go.
+
 **Values are matched forgivingly, once.**
 Surrounding space and capitals match silently; anything else is shown once per distinct value and settled by hand, and those settlements (`resolutions`) are saved with the mapping.
 One question may be one column or, for a Google Forms checkbox grid, one column per option; both import to the same stored answer.
 Values are offered and compared in the organizer's words, never the stored ones: a date reads as a date, and a table choice as its label rather than its code.
+Each value is settled in [`ValueFixes.vue`](../../../front-end/src/components/ValueFixes.vue), one [`ChoiceField`](../../design-system.md#the-primitive-layer) per value: a select for a question of 12 answers or fewer, past that a field that finds an answer by typing, with "Ignore this value" first on either, so the cap never hides it.
+**A fix can only name an answer the question offers**: the import stores what a fix names, and `application_write.py` refuses a select's answer that is no option ("must be one of"), so words typed and not chosen clear on leaving the field, and no typed fix is offered.
+The rows offered one set of answers share one list of choices, keyed by the target and the answers, since a tier grid's target offers two sets: the dates to its day headings and the tiers to its cells.
+Every value still waiting is drawn; those already decided stop at 6 and "Show all".
 
 **A grid is never split; one column is split where the comma is not inside an option.**
 A grid carries its option in each column's heading, so a cell is never cut up; a checkbox question in one column holds its chosen options joined by commas, and an option may hold a comma of its own.

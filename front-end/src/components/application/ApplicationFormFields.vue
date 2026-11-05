@@ -12,9 +12,15 @@
  *
  * Updating a vendor's info asks the same questions (E43/F01/S03): `locked` shows the answers this
  * person may not update, read-only.
+ *
+ * A question of more than 12 options is a field to type in rather than a select or a wall of
+ * checkboxes (`LongQuestion`). Its words stand here, as every question's do, and it takes those words
+ * as its field's name, so the words here reach no control and are hidden from a reader, who would
+ * hear the question twice; a press on them still puts the caret in the field, as a label's does.
  */
 import { computed } from 'vue';
 import type { FormField } from '@/assets/types/datatypes';
+import LongQuestion, { isLongQuestion } from '@/components/application/LongQuestion.vue';
 import { sortedFormFields } from '@/utils/applicationForm';
 
 const props = withDefaults(
@@ -43,6 +49,19 @@ function errorFor(field: FormField): string {
   return props.errors[field.key] || '';
 }
 
+function controlId(field: FormField): string {
+  return `${props.prefix}-${field.key}`;
+}
+
+function errorId(field: FormField): string {
+  return `${props.prefix}-error-${field.key}`;
+}
+
+/** Only a long question's words are no label, so only they need this. */
+function pressedWords(field: FormField) {
+  if (isLongQuestion(field)) document.getElementById(controlId(field))?.focus();
+}
+
 function onFieldChange(field: FormField, value: unknown) {
   emit('update:modelValue', { ...props.modelValue, [field.key]: value });
   emit('field-change', field);
@@ -64,20 +83,37 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
     class="form-field"
     :data-testid="`${prefix}-field-${field.key}`"
   >
-    <label
+    <!-- A long question's words name no control: its field takes them as its name (`LongQuestion`). -->
+    <component
+      :is="isLongQuestion(field) ? 'span' : 'label'"
       :id="`${prefix}-${field.key}-label`"
       class="form-label"
-      :for="field.type === 'multi_select' ? undefined : `${prefix}-${field.key}`"
+      :for="field.type === 'multi_select' || isLongQuestion(field) ? undefined : controlId(field)"
+      :aria-hidden="isLongQuestion(field) ? 'true' : undefined"
+      @click="pressedWords(field)"
     >
       {{ field.label }}
       <span v-if="field.required" class="form-required">*</span>
-    </label>
+    </component>
 
     <p v-if="field.helpText" class="form-help">{{ field.helpText }}</p>
 
+    <!-- a question of more than 12 options -->
+    <LongQuestion
+      v-if="isLongQuestion(field)"
+      :field="field"
+      :model-value="modelValue[field.key]"
+      :testid="`${prefix}-input-${field.key}`"
+      :field-id="controlId(field)"
+      :disabled="isLocked(field)"
+      :invalid="!!errorFor(field)"
+      :described-by="errorFor(field) ? errorId(field) : undefined"
+      @update:model-value="onFieldChange(field, $event)"
+    />
+
     <!-- text / email -->
     <input
-      v-if="field.type === 'text' || field.type === 'email'"
+      v-else-if="field.type === 'text' || field.type === 'email'"
       :id="`${prefix}-${field.key}`"
       class="form-input"
       :class="{ error: errorFor(field) }"
@@ -172,6 +208,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 
     <p
       v-if="errorFor(field)"
+      :id="isLongQuestion(field) ? errorId(field) : undefined"
       class="form-field-error"
       :data-testid="`${prefix}-error-${field.key}`"
     >
@@ -237,6 +274,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
   flex-direction: row;
   align-items: center;
   gap: var(--space-2);
+  min-height: var(--target-min);
   font-size: var(--text-sm);
   color: var(--mm-black);
   cursor: pointer;
