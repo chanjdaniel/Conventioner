@@ -95,11 +95,16 @@ function setAnswers(key: string, chosen: string | string[]): void {
 
 /**
  * Enter in a filter's field or on its tick would submit the form around it and download what the
- * organizer is still choosing. A button keeps its key: Enter presses a toggle or a chip's Remove. An
- * open list has taken the key already. A select submits nothing by it.
+ * organizer is still choosing, and so, by their source, would Enter on a closed select in a Mac's
+ * browsers. On Linux that Enter opened the list, which Space still does. A button keeps its key: Enter
+ * presses a toggle or a chip's Remove. A combobox's open list has taken the key already, and in
+ * Chromium an open select still takes the option moved to; no other browser here can show that.
  */
 function keepEnterFromTheForm(event: KeyboardEvent): void {
-  if (event.target instanceof HTMLInputElement) event.preventDefault();
+  const { target } = event;
+  if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement) {
+    event.preventDefault();
+  }
 }
 
 const columnKey = (column: ExportColumn) => column.id;
@@ -423,7 +428,11 @@ watch(
           </section>
 
           <section
-            v-if="preview && !previewError && (order.length || !preview.count)"
+            v-if="
+              preview &&
+              !previewError &&
+              ((order.length && preview.header.length) || !preview.count)
+            "
             class="export-cart__preview"
             aria-labelledby="vendor-export-preview-title"
           >

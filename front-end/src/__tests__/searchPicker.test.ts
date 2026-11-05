@@ -3,7 +3,7 @@
  * grouped where the list is, and worked from the keyboard alone. The placement dialog's two vendor
  * pickers are its first use; it is a primitive, so it knows nothing of vendors.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
 
@@ -229,6 +229,55 @@ describe('the searchable picker', () => {
     await wrapper.setProps({ modelValue: '' });
 
     expect((field(wrapper).element as HTMLInputElement).value).toBe('');
+    wrapper.unmount();
+  });
+});
+
+describe('brought into view', () => {
+  const scrollIntoView = vi.fn();
+
+  beforeEach(() => {
+    scrollIntoView.mockClear();
+    Element.prototype.scrollIntoView = scrollIntoView;
+  });
+
+  afterEach(() => {
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  });
+
+  const movedThePicker = () =>
+    scrollIntoView.mock.contexts.filter((element: Element) => element.matches('.search-picker'))
+      .length;
+
+  it('as its list opens, however often, and as words narrow it, so a short scroller shows it', async () => {
+    const wrapper = picker();
+
+    await field(wrapper).trigger('click');
+    await flushPromises();
+    expect(movedThePicker()).toBe(1);
+
+    await field(wrapper).setValue('a');
+    await flushPromises();
+    expect(movedThePicker()).toBe(2);
+
+    await field(wrapper).trigger('keydown', { key: 'Escape' });
+    await flushPromises();
+    expect(movedThePicker()).toBe(2);
+
+    await field(wrapper).trigger('click');
+    await flushPromises();
+    expect(movedThePicker()).toBe(3);
+    wrapper.unmount();
+  });
+
+  it('never when its list lies over what follows and moves nothing', async () => {
+    const wrapper = picker();
+    await wrapper.setProps({ listOver: true });
+
+    await field(wrapper).trigger('click');
+    await flushPromises();
+
+    expect(movedThePicker()).toBe(0);
     wrapper.unmount();
   });
 });

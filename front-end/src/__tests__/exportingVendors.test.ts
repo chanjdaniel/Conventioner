@@ -924,6 +924,16 @@ describe('the dialog', () => {
       wrapper.unmount();
     });
 
+    it('holds Enter on a closed select, which submits the form around it on a Mac', async () => {
+      const wrapper = await unfolded();
+
+      const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+      wrapper.get('[data-testid="vendor-export-placed"]').element.dispatchEvent(enter);
+
+      expect(enter.defaultPrevented).toBe(true);
+      wrapper.unmount();
+    });
+
     it('takes a question’s answers in a combobox, drawing no box for any of them', async () => {
       const wrapper = await unfolded();
 
@@ -1136,6 +1146,28 @@ describe('the dialog', () => {
       );
       expect(inCart(wrapper, 'vendor-export-summary').text()).toBe('4 vendors, 0 columns');
       expect(wrapper.find('[data-testid="vendor-export-preview"]').exists()).toBe(false);
+      wrapper.unmount();
+    });
+
+    it('draws no preview for a first tick after no column until the answer names that column', async () => {
+      vi.useFakeTimers();
+      const wrapper = await opened();
+      await vi.runAllTimersAsync();
+      for (const id of OFFERED.defaultColumns) {
+        await wrapper.get(`[data-testid="vendor-export-column-${id}"]`).setValue(false);
+      }
+      await vi.runAllTimersAsync();
+      await flushPromises();
+
+      await wrapper.get('[data-testid="vendor-export-column-email"]').setValue(true);
+
+      expect(inCart(wrapper, 'vendor-export-summary').text()).toBe('4 vendors, 1 column');
+      expect(wrapper.find('[data-testid="vendor-export-preview-header"]').exists()).toBe(false);
+
+      await vi.runAllTimersAsync();
+      await flushPromises();
+
+      expect(wrapper.get('[data-testid="vendor-export-preview-header"]').text()).toBe('Email');
       wrapper.unmount();
     });
 

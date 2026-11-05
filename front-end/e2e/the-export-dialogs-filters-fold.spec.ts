@@ -202,6 +202,63 @@ for (const { name, use, phone } of PHONE_AND_DESK) {
   });
 }
 
+test.describe('an answer found at the foot of a short body', () => {
+  test.use({ viewport: { width: 1280, height: 720 } });
+
+  test('opens its list in view, and what the words find stays there', async ({
+    authenticatedPage: page,
+  }) => {
+    const dialog = await openFromAll(page);
+    await dialog.showFilters();
+    const input = page.getByTestId(`vendor-export-answer-${QUESTION}-input`);
+    const options = page.getByTestId(`vendor-export-answer-${QUESTION}-option`);
+
+    /** The field and the first row wholly in the body, where a person can read what they typed. */
+    const expectInTheBody = async (what: string) => {
+      await settle(page);
+      const body = (await dialog.body.boundingBox())!;
+      for (const [thing, name] of [
+        [input, 'the field'],
+        [options.first(), 'the first answer'],
+      ] as const) {
+        const box = (await thing.boundingBox())!;
+        expect(box.y, `${what}, ${name}: its top`).toBeGreaterThanOrEqual(body.y - 0.5);
+        expect(box.y + box.height, `${what}, ${name}: its bottom`).toBeLessThanOrEqual(
+          body.y + body.height + 0.5,
+        );
+      }
+    };
+
+    // A person scrolls until the field just shows, at the body's foot, and presses it; Playwright's
+    // own click would scroll it to the middle.
+    const pressAtTheFoot = async () => {
+      await dialog.body.evaluate((el) => el.scrollTo({ top: 0 }));
+      await settle(page);
+      const hidden = (await input.boundingBox())!;
+      const body = (await dialog.body.boundingBox())!;
+      const past = hidden.y + hidden.height - (body.y + body.height);
+      await dialog.body.evaluate((el, by) => el.scrollBy({ top: by }), past);
+      await settle(page);
+      const field = (await input.boundingBox())!;
+      await page.mouse.click(field.x + 20, field.y + 2);
+      await expect(options.first()).toBeVisible();
+    };
+
+    await pressAtTheFoot();
+    await expectInTheBody('opened');
+
+    await page.keyboard.type('Stall kind 29');
+    await expect(options.first()).toContainText('Stall kind 29');
+    await expectInTheBody('narrowed');
+
+    // Opened again, its first row is already the active one, so moving through the rows moves nothing.
+    await input.fill('');
+    await input.press('Escape');
+    await pressAtTheFoot();
+    await expectInTheBody('opened again');
+  });
+});
+
 test.describe('Enter while choosing', () => {
   test('in a filter or on a tick downloads nothing, and leaves the dialog open', async ({
     authenticatedPage: page,
@@ -235,6 +292,24 @@ test.describe('Enter while choosing', () => {
 
     // The answer to these words comes after any download those keys would have asked for.
     await expect(dialog.summary).toHaveText('0 vendors, 3 columns');
+    expect(downloads(), 'what asked for the file').toBe(0);
+  });
+
+  test('leaves an open list its Enter, which takes the option moved to', async ({
+    authenticatedPage: page,
+  }) => {
+    const dialog = await openFromAll(page);
+    await dialog.showFilters();
+    const downloads = countDownloads(page);
+
+    await dialog.placed.focus();
+    await page.keyboard.press('Space');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+
+    await expect(dialog.placed).toHaveValue('placed');
+    await expect(dialog.window).toBeVisible();
+    await expect(dialog.filtersSummary).toHaveText('Assigned');
     expect(downloads(), 'what asked for the file').toBe(0);
   });
 

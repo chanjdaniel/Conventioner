@@ -55,11 +55,12 @@ async function ask(): Promise<void> {
   try {
     // The first ask names no columns, and the server answers with its defaults ticked. So does an
     // ask with none chosen, for the count alone: the server refuses a file of no column, and the
-    // cart already says to choose one.
+    // cart already says to choose one. Its rows are of columns nobody chose, so they are not kept.
+    const countAlone = started && !columns.value.length;
     const answer = await fetchExportPreview(
       props.marketId,
       filters.value,
-      started && columns.value.length ? columns.value : undefined,
+      started && !countAlone ? columns.value : undefined,
     );
     if (mine !== asked) return;
     if (!started) {
@@ -67,7 +68,7 @@ async function ask(): Promise<void> {
       started = true;
     }
     for (const question of answer.offered.questions) filters.value.answers[question.key] ??= [];
-    preview.value = answer;
+    preview.value = countAlone ? { ...answer, header: [], rows: [] } : answer;
     previewError.value = '';
   } catch (err: unknown) {
     if (mine !== asked) return;

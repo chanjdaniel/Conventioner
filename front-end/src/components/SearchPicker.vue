@@ -19,7 +19,9 @@
  *   list; the note beside it says why there is nothing to choose.
  * - What the words find is the caller's (`finds`), so every use searches by its own terms.
  * - The list opens in the page's flow, under the field, rather than over what follows: inside a
- *   dialog a floating list is clipped by the dialog's own scroller. Given `listOver`, it lies over
+ *   dialog a floating list is clipped by the dialog's own scroller. In a short scroller that list
+ *   can lie past the foot, so opening it and typing bring the picker into view, its field first
+ *   where the whole of it does not fit. Given `listOver`, it lies over
  *   what follows and moves nothing, as a filter beside others needs ("Assigned to", the history's
  *   "Who"), as wide as the picker unless the caller gives it a width; in a dialog, what passes the
  *   scroller's edge then takes a scroll.
@@ -364,6 +366,13 @@ watch(active, async (index) => {
   option?.scrollIntoView?.({ block: 'nearest' });
 });
 
+const root = ref<HTMLElement | null>(null);
+watch([open, text], async ([isOpen]) => {
+  if (!isOpen || props.listOver) return;
+  await nextTick();
+  root.value?.scrollIntoView?.({ block: 'nearest' });
+});
+
 const field = ref<HTMLInputElement | null>(null);
 const chipList = ref<HTMLElement | null>(null);
 
@@ -552,6 +561,7 @@ function onFocus(): void {
 
 <template>
   <div
+    ref="root"
     class="search-picker"
     :class="{ 'search-picker--list-over': listOver }"
     :data-testid="testid"
