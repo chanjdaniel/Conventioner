@@ -210,5 +210,5 @@ test('a long record of changes to the default scrolls by the keys alone, a box w
 
   await expect(orgs.defaultChangesBox).toBeFocused();
   expect(await orgs.defaultChangesBox.evaluate((box) => box.clientHeight)).toBe(height);
-  await expect(orgs.manageWindow).not.toContainText('Load more');
+  await expect(orgs.defaultsWindow).not.toContainText('Load more');
 });

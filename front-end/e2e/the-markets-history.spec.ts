@@ -353,7 +353,7 @@ test('a long record of permission changes stands in its own box, and its end sho
   await expect(box).toBeFocused();
   expect((await manage.permissionChanges.allInnerTexts()).slice(0, PAGE)).toEqual(first);
   expect(await box.evaluate((element) => element.clientHeight)).toBe(height);
-  await expect(manage.window).not.toContainText('Load more');
+  await expect(manage.permissionsWindow).not.toContainText('Load more');
 });
 
 test('a closed section reads no further, with its sentinel in view, until it is opened again', async ({
@@ -464,6 +464,54 @@ test('a page that fails says so at the end of the list, and Try again brings it'
   await expect(manage.historySentences).toHaveCount(WHOLE_HISTORY);
   await expect(manage.historyEntries.nth(PAGE).getByTestId('market-history-toggle')).toBeFocused();
   await expect(manage.historyLoading).toHaveText('');
+});
+
+test('a page that fails with the reader at the very end says so in sight, and the focus stays', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketName } = await seedAHistory(request);
+  const manage = await openManage(page, marketName);
+  await expect(manage.historySentences).toHaveCount(PAGE);
+  const focused = () =>
+    page.evaluate(() => document.activeElement?.getAttribute('data-testid') ?? null);
+  const focusBefore = await focused();
+
+  await page.route(/\/history\?.*before=/, (route) => route.abort());
+  await manage.scrollHistoryToEnd();
+  await expect(manage.historyPageFailed).toBeVisible();
+
+  const boxRect = (await manage.historyBox.boundingBox())!;
+  for (const line of [manage.historyPageFailed, manage.historyRetry]) {
+    const rect = (await line.boundingBox())!;
+    expect(rect.y).toBeGreaterThanOrEqual(boxRect.y);
+    expect(rect.y + rect.height, 'whole inside the box').toBeLessThanOrEqual(
+      boxRect.y + boxRect.height,
+    );
+  }
+  // At its end, so no shade lies over the line and says more lies beyond it.
+  await expect(manage.historyBoxShadeBottom).toHaveCount(0);
+  expect(await focused()).toBe(focusBefore);
+});
+
+test('a page that fails with the reader still above the end leaves their place alone', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketName } = await seedAHistory(request);
+  const manage = await openManage(page, marketName);
+  await expect(manage.historySentences).toHaveCount(PAGE);
+
+  await page.route(/\/history\?.*before=/, (route) => route.abort());
+  // The sentinel in view, so the page is asked for, and the last of the rows still below the box.
+  const scrolledTo = await manage.historyBox.evaluate((box) => {
+    box.scrollIntoView({ block: 'nearest' });
+    box.scrollTop = box.scrollHeight - box.clientHeight - 60;
+    return box.scrollTop;
+  });
+  await expect(manage.historyPageFailed).toBeAttached();
+
+  expect(await manage.historyBox.evaluate((box) => box.scrollTop)).toBe(scrolledTo);
 });
 
 test('closing the section and opening it again keeps what it read and its filters', async ({

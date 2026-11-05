@@ -398,6 +398,37 @@ test('past a page it fetches as the dialog body reaches its end, with no scrolle
   ).toBeInViewport();
 });
 
+test('a page that fails with the body at its end says so in sight', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+    run: false,
+  });
+  await placeAndFree(request, seed.marketId, 14);
+  const tables = new TablesPage(page);
+  await tables.goto(seed.marketId);
+  await tables.openHistory();
+  await expect(tables.historySentences).toHaveCount(PAGE);
+
+  const shade = page.getByTestId('assignment-history-dialog-shade-bottom');
+  await expect(shade).toBeVisible();
+
+  await page.route(/\/history\?.*before=/, (route) => route.abort());
+  await tables.scrollHistoryToEnd();
+  const failed = tables.historyDialog.getByTestId('market-history-read-failed');
+  await expect(failed).toBeVisible();
+
+  const body = page.getByTestId('assignment-history-dialog-body');
+  const bodyRect = (await body.boundingBox())!;
+  const rect = (await failed.boundingBox())!;
+  expect(rect.y + rect.height, 'whole inside the body').toBeLessThanOrEqual(
+    bodyRect.y + bodyRect.height,
+  );
+  await expect(shade).toHaveCount(0);
+  await expect(tables.historyMarketDay).toBeFocused();
+});
+
 test('a viewer reads it after a run, and someone below the row is not offered it', async ({
   authenticatedPage: page,
   browser,

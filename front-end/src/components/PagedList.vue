@@ -16,6 +16,9 @@
  * - An observer does not fire while its target simply stays in view, so a page too short to fill the
  *   box would stall: the sentinel is observed again whenever the rows or what is on its way change,
  *   which fires once at once.
+ * - A page that fails with the reader already at the rows' end brings the failed line into view,
+ *   since it lands below them. A reader still above the end keeps their place, and neither has their
+ *   focus moved.
  * - Try again takes its own button away, so the focus waits on the rows and then goes to the first
  *   control of what landed, as `ListFrame`'s "Show N more" hands it on, or back to Try again should
  *   the page fail again. A reader who has moved it meanwhile keeps it where they put it.
@@ -23,7 +26,7 @@
  * `ListFrame` is the other list: its rows are already read whole, so it can find among them and count
  * them, and a list the server pages can do neither (`docs/design-system.md`).
  */
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import ReadFailed from '@/components/ReadFailed.vue';
 import ScrollBox from '@/components/ScrollBox.vue';
 import { FOCUSABLE } from '@/utils/focusable';
@@ -94,6 +97,23 @@ onUnmounted(() => {
 // A page can land with no new row, which only this sees, and the rows' own change is `changes`.
 watch(() => props.loading, observeSentinel, { flush: 'post' });
 
+/** Whether the end of the rows is in view in the scroller around them, its own or the one it is in. */
+function readerAtEnd(): boolean {
+  const scroller = rows.value?.closest('.scroll-box__scroller');
+  if (!rows.value || !scroller) return false;
+  return rows.value.getBoundingClientRect().bottom <= scroller.getBoundingClientRect().bottom + 1;
+}
+
+// Before the line is drawn, since what it measures is where the reader stood, not what landed.
+watch(
+  () => props.error,
+  async (error) => {
+    if (!error || !readerAtEnd()) return;
+    await nextTick();
+    failed.value?.scrollIntoView({ block: 'nearest' });
+  },
+);
+
 function controls(): HTMLElement[] {
   return [...(rows.value?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])].filter(
     (control) => control.checkVisibility?.({ checkVisibilityCSS: true }) ?? true,
@@ -149,7 +169,7 @@ watch(
       <p class="paged-list__loading" role="status" :data-testid="`${testid}-loading`">
         <template v-if="loading">Loading…</template>
       </p>
-      <div v-if="error" ref="failed">
+      <div v-if="error" ref="failed" class="paged-list__failed">
         <ReadFailed :name="testid" :message="error" @retry="tryAgain" />
       </div>
     </div>
@@ -206,6 +226,12 @@ watch(
 
 .paged-list__loading:not(:empty) {
   padding-top: var(--space-2);
+}
+
+/* Past the padding of whichever scroller it stands in, so its end's shade goes and does not lie over
+   the line. A scroll stops at the end of what scrolls, however large this is. */
+.paged-list__failed {
+  scroll-margin-block-end: var(--space-6);
 }
 
 .paged-list__content :deep(.read-failed) {
