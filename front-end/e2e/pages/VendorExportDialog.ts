@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import type { Locator, Page } from '@playwright/test';
+import { settle } from '../helpers/settle';
 
 /**
  * Page object for the Export vendors dialog (E42/F01/S01 to S05), wherever it opens from.
@@ -69,6 +70,22 @@ export class VendorExportDialog {
   async showFilters(): Promise<void> {
     await this.filtersToggle.click();
     await this.filters.waitFor();
+  }
+
+  /**
+   * Scrolls until a control just shows at the body's foot, as a person does, and presses it there;
+   * Playwright's own click would scroll it to the middle.
+   */
+  async pressAtTheBodysFoot(control: Locator): Promise<void> {
+    await this.body.evaluate((el) => el.scrollTo({ top: 0 }));
+    await settle(this.page);
+    const hidden = (await control.boundingBox())!;
+    const body = (await this.body.boundingBox())!;
+    const past = hidden.y + hidden.height - (body.y + body.height);
+    await this.body.evaluate((el, by) => el.scrollBy({ top: by }), past);
+    await settle(this.page);
+    const field = (await control.boundingBox())!;
+    await this.page.mouse.click(field.x + 20, field.y + 2);
   }
 
   /** A status's toggle: read by its `aria-pressed`. */

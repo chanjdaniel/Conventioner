@@ -229,18 +229,8 @@ test.describe('an answer found at the foot of a short body', () => {
       }
     };
 
-    // A person scrolls until the field just shows, at the body's foot, and presses it; Playwright's
-    // own click would scroll it to the middle.
     const pressAtTheFoot = async () => {
-      await dialog.body.evaluate((el) => el.scrollTo({ top: 0 }));
-      await settle(page);
-      const hidden = (await input.boundingBox())!;
-      const body = (await dialog.body.boundingBox())!;
-      const past = hidden.y + hidden.height - (body.y + body.height);
-      await dialog.body.evaluate((el, by) => el.scrollBy({ top: by }), past);
-      await settle(page);
-      const field = (await input.boundingBox())!;
-      await page.mouse.click(field.x + 20, field.y + 2);
+      await dialog.pressAtTheBodysFoot(input);
       await expect(options.first()).toBeVisible();
     };
 

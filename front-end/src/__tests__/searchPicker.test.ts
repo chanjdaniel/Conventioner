@@ -245,39 +245,41 @@ describe('brought into view', () => {
     delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
   });
 
-  const movedThePicker = () =>
-    scrollIntoView.mock.contexts.filter((element: Element) => element.matches('.search-picker'))
-      .length;
+  /** What was moved, by its role, leaving out the active row, which moves when it changes. */
+  const moved = () =>
+    scrollIntoView.mock.contexts
+      .map((element: Element) => element.getAttribute('role'))
+      .filter((role) => role !== 'option');
 
-  it('as its list opens, however often, and as words narrow it, so a short scroller shows it', async () => {
+  it('its list and then its field, as its list opens, however often, and as words narrow it', async () => {
     const wrapper = picker();
 
     await field(wrapper).trigger('click');
     await flushPromises();
-    expect(movedThePicker()).toBe(1);
+    expect(moved()).toEqual(['listbox', 'combobox']);
 
     await field(wrapper).setValue('a');
     await flushPromises();
-    expect(movedThePicker()).toBe(2);
+    expect(moved()).toEqual(['listbox', 'combobox', 'listbox', 'combobox']);
 
     await field(wrapper).trigger('keydown', { key: 'Escape' });
     await flushPromises();
-    expect(movedThePicker()).toBe(2);
+    expect(moved()).toHaveLength(4);
 
     await field(wrapper).trigger('click');
     await flushPromises();
-    expect(movedThePicker()).toBe(3);
+    expect(moved()).toHaveLength(6);
     wrapper.unmount();
   });
 
-  it('never when its list lies over what follows and moves nothing', async () => {
+  it('nothing when its list lies over what follows and moves nothing', async () => {
     const wrapper = picker();
     await wrapper.setProps({ listOver: true });
 
     await field(wrapper).trigger('click');
     await flushPromises();
 
-    expect(movedThePicker()).toBe(0);
+    expect(moved()).toEqual([]);
     wrapper.unmount();
   });
 });

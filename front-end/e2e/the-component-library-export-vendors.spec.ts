@@ -595,3 +595,76 @@ test.describe('dragging a row, at a desk', () => {
     ]);
   });
 });
+
+test.describe('a long list opened on a short window', () => {
+  test.use({ viewport: { width: 844, height: 390 } });
+
+  // The list lies past the foot of a body 137px tall, and the frame around that body holds it
+  // whole: nothing overflows the frame, so bringing the list into view leaves the title where it is.
+  test("leaves the dialog's frame and its title where they were", async ({ page }) => {
+    await openEntry(page, 'export-vendors');
+    await page.getByTestId('library-export-open').click();
+    const dialog = new VendorExportDialog(page);
+    await dialog.showFilters();
+
+    const title = dialog.window.getByRole('heading', { level: 2 });
+    const before = (await title.boundingBox())!;
+    await dialog.answer(`${WORK}-input`).click();
+    await expect(dialog.answer(`${WORK}-list`)).toBeVisible();
+    await settle(page);
+
+    expect((await title.boundingBox())!.y).toBe(before.y);
+    const frame = await dialog.window.evaluate((el) => {
+      const { scrollTop, scrollHeight, clientHeight } = el;
+      el.scrollTop = 49;
+      const pushed = el.scrollTop;
+      el.scrollTop = scrollTop;
+      return { scrollTop, overflow: scrollHeight - clientHeight, pushed };
+    });
+    expect(frame).toEqual({ scrollTop: 0, overflow: 0, pushed: 0 });
+  });
+});
+
+test.describe("an answer's list at the foot of a short body", () => {
+  test.use({ viewport: { width: 1280, height: 720 } });
+
+  // Fourteen of these long answers make the picker taller than the body, its top above and its foot
+  // below, where moving the picker as one moves nothing and the list stays under the cart.
+  test('shows the field and the first answer, however many chips it holds', async ({ page }) => {
+    await openEntry(page, 'export-vendors');
+    await page.getByTestId('library-export-open').click();
+    const dialog = new VendorExportDialog(page);
+    await dialog.showFilters();
+    const input = dialog.answer(`${WORK}-input`);
+
+    await input.click();
+    for (let chosen = 0; chosen < 14; chosen += 1) {
+      await page.keyboard.press('Enter');
+      await page.keyboard.press('ArrowDown');
+    }
+    await expect(dialog.answer(`${WORK}-chip`)).toHaveCount(14);
+    const first = dialog.answer(`${WORK}-option`).first();
+
+    // A first opening moves its new active row into view. Opened again, that row is already the
+    // active one, so only the picker's own move can show the list.
+    for (const opening of ['opened', 'opened again']) {
+      await input.press('Escape');
+      await dialog.search.focus();
+      await dialog.pressAtTheBodysFoot(input);
+      await expect(first).toBeVisible();
+      await settle(page);
+
+      const body = (await dialog.body.boundingBox())!;
+      for (const [thing, name] of [
+        [input, 'the field'],
+        [first, 'the first answer'],
+      ] as const) {
+        const box = (await thing.boundingBox())!;
+        expect(box.y, `${opening}, ${name}: its top`).toBeGreaterThanOrEqual(body.y - 0.5);
+        expect(box.y + box.height, `${opening}, ${name}: its bottom`).toBeLessThanOrEqual(
+          body.y + body.height + 0.5,
+        );
+      }
+    }
+  });
+});
