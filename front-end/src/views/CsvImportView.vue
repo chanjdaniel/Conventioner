@@ -14,7 +14,7 @@
  */
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { whoMayTake } from '@/utils/permissionTable';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 import { useOpenMarket } from '@/utils/openMarket';
@@ -836,25 +836,41 @@ async function readValues(advance: boolean) {
   if (advance && unmatched.value.length === 0) step.value = 'preview';
 }
 
+/** `marketId` goes on following the address once the page has gone, so it cannot say so itself. */
+let gone = false;
+onBeforeUnmount(() => {
+  gone = true;
+});
+
 /**
  * The confirm: the reviewers first, when the choice differs from the team they start from
  * (`teamToChange`), then the import.
  * A refused reviewers write imports nothing. Once written they stay chosen, so an import that fails
  * after them is tried again without writing them twice.
+ * A page left during those writes stops at them: the file was this page's and this market's, and
+ * whatever is on screen by the answer is not.
  */
 async function confirmImport() {
   if (offersReviewers.value) {
+    const pressedOn = marketId.value;
+    const left = () => gone || marketId.value !== pressedOn;
     busy.value = true;
     reviewersError.value = '';
     try {
       // A write left by a page history took: nothing imports before its answer, and a refusal shows here.
-      await unansweredWrite(marketId.value)?.answer;
-      if (!sameTeam(reviewers.value, teamToChange(market.value))) {
-        await chooseReviewers(marketId.value, reviewers.value);
+      await unansweredWrite(pressedOn)?.answer;
+      if (!left() && !sameTeam(reviewers.value, teamToChange(market.value))) {
+        await chooseReviewers(pressedOn, reviewers.value);
         await refreshMarket();
       }
     } catch (err) {
-      reviewersError.value = getApiErrorMessage(err, 'Could not save the reviewers.');
+      if (!left()) {
+        reviewersError.value = getApiErrorMessage(err, 'Could not save the reviewers.');
+      }
+      busy.value = false;
+      return;
+    }
+    if (left()) {
       busy.value = false;
       return;
     }
@@ -903,6 +919,8 @@ function startOver() {
   failures.value = [];
   error.value = '';
 }
+// A jump through history from one market's import to another's keeps this page, not its file.
+watch(marketId, () => startOver());
 </script>
 
 <template>

@@ -289,8 +289,55 @@ describe('confirming', () => {
     answer.resolve({ data: { dealt: 0 } });
     await flushPromises();
     expect(api.put).toHaveBeenCalledTimes(1);
-    // The gone page's confirm goes on too, as it always has, and this one's after it.
-    expect(imports()).toHaveLength(2);
+    // This page's alone: a gone page's confirm stops at its write.
+    expect(imports()).toHaveLength(1);
+  });
+
+  it('a page left during its own write imports nothing once it lands', async () => {
+    const answer = Promise.withResolvers<unknown>();
+    api.put.mockReturnValue(answer.promise);
+    const wrapper = await atPreview(market());
+    await tick(wrapper, ANA);
+    await confirm(wrapper);
+    wrapper.unmount();
+
+    answer.resolve({ data: { dealt: 0 } });
+    await flushPromises();
+    expect(api.put).toHaveBeenCalledTimes(1);
+    expect(imports()).toHaveLength(0);
+  });
+
+  it('a page left while it waits on another write writes no team and imports nothing', async () => {
+    const answer = Promise.withResolvers<unknown>();
+    api.put.mockReturnValue(answer.promise);
+    const first = await atPreview(market());
+    await tick(first, ANA);
+    await confirm(first);
+    first.unmount();
+
+    const waiting = await atPreview(market());
+    await tick(waiting, BEN);
+    await confirm(waiting);
+    waiting.unmount();
+
+    answer.resolve({ data: { dealt: 0 } });
+    await flushPromises();
+    expect(api.put).toHaveBeenCalledTimes(1);
+    expect(imports()).toHaveLength(0);
+  });
+
+  it('a page left during the re-read after its write imports nothing', async () => {
+    const reread = Promise.withResolvers<void>();
+    open.refresh.mockReturnValue(reread.promise);
+    const wrapper = await atPreview(market());
+    await tick(wrapper, ANA);
+    await confirm(wrapper);
+    expect(api.put).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+
+    reread.resolve();
+    await flushPromises();
+    expect(imports()).toHaveLength(0);
   });
 
   it('a reviewers write that fails shows its error on the step and imports nothing', async () => {
