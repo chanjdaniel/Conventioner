@@ -83,7 +83,7 @@ const presses = ref(0);
       <div class="library-demo">
         <button
           type="button"
-          class="library-reviewed-toggle"
+          class="library-reviewed-open"
           data-testid="library-l3-open"
           @click="reviewedOpen = true"
         >
@@ -202,7 +202,7 @@ const presses = ref(0);
 }
 
 /* The button, as `ApplicationMonitor.vue` draws it. */
-.library-reviewed-toggle {
+.library-reviewed-open {
   min-height: var(--target-min);
   padding: 0;
   border: none;
@@ -213,12 +213,12 @@ const presses = ref(0);
   cursor: pointer;
 }
 
-/* A reviewed row: who, then the verdict, wrapping under on a phone. */
+/* A reviewed row, as `ApplicationMonitor.vue` draws it: the verdict beside who, at every width. */
 .library-reviewed {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-1) var(--space-3);
+  gap: var(--space-2) var(--space-3);
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-sm);
   color: var(--mm-black);
@@ -227,7 +227,6 @@ const presses = ref(0);
 }
 
 .library-reviewed__who {
-  flex: 1 1 12rem;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -238,5 +237,9 @@ const presses = ref(0);
 
 .library-reviewed__address {
   color: var(--mm-text-muted);
+}
+
+.library-reviewed .chip {
+  justify-self: end;
 }
 </style>
