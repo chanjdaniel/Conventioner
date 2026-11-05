@@ -421,7 +421,7 @@ watch(
 
 .dialog-window--body > .dialog-parts > .dialog-title {
   flex: none;
-  padding: var(--space-6) calc(var(--space-6) + var(--space-6)) var(--space-2) var(--space-6);
+  padding: var(--space-6) var(--space-12) var(--space-2) var(--space-6);
 }
 
 /* The parts between the title and the window's foot: 16px apart, as `.dialog-parts`' gap sets them
@@ -485,6 +485,17 @@ watch(
 .dialog-body--pinned > .dialog-actions {
   flex: none;
   padding: var(--space-2) var(--space-6);
+}
+
+/* Where `--target-min` makes the close 44px wide, a long title wraps 8px short of it. */
+@media (width <= 640px) {
+  .dialog-title {
+    padding-right: calc(var(--space-8) + var(--space-2));
+  }
+
+  .dialog-window--body > .dialog-parts > .dialog-title {
+    padding-right: calc(var(--space-12) + var(--space-4));
+  }
 }
 
 /* A phone, or a window split so short that 80% of it would leave the body nothing: a dialog whose

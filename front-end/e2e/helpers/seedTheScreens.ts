@@ -3,6 +3,12 @@ import { mongoEval } from './mongo';
 import { approvedVendorApplication, insertApplications } from './seedApplication';
 import { seedDraftMarket } from './seedDraftMarket';
 import { decideReviewSetup } from './decideReviewSetup';
+import {
+  connectToFakeDiscord,
+  fakeDiscordId,
+  recordRoleRun,
+  type RoleRunOutcome,
+} from './fakeDiscord';
 import { transitionMarket } from './seedPhaseMarket';
 import {
   ensureOrganizationAdmin,
@@ -62,6 +68,11 @@ export interface TheScreensSeed {
    * and its tables by tier and by date.
    */
   rules: SeededMarket;
+  /**
+   * Market days, connected to Discord with a long last run on record (T217), in a market of its own
+   * since a connection changes the Vendors page and the Tools tab the other markets are walked on.
+   */
+  roleReport: SeededMarket;
   /** Archived, a CSV market. */
   archived: SeededMarket;
   /** A CSV market taking applications, which the import screen serves. */
@@ -515,6 +526,28 @@ const RULES = [
   { id: 2, target: 'application.submitted_at', ordering: [], direction: 'ascending' },
 ];
 
+/** Every group the role report has, with long words, and one vendor the page no longer lists. */
+function roleRunOf(applicationIds: string[]): RoleRunOutcome[] {
+  const held =
+    'Conventioner ran out of its time with Discord before it reached these vendors. Run it again ' +
+    'to give them the role.';
+  const refused =
+    'Conventioner’s role is below this one, or may not manage roles. In Discord, open Server ' +
+    'Settings, then Roles, and drag the Conventioner role above it.';
+  const outcomes: Pick<RoleRunOutcome, 'outcome' | 'reason'>[] = [
+    { outcome: 'given', reason: null },
+    { outcome: 'already_had', reason: null },
+    { outcome: 'not_found', reason: null },
+    { outcome: 'no_username', reason: null },
+    { outcome: 'not_yet', reason: held },
+    { outcome: 'failed', reason: refused },
+  ];
+  return [...applicationIds, 'an-application-since-removed'].map((applicationId, i) => ({
+    applicationId,
+    ...outcomes[i % outcomes.length],
+  }));
+}
+
 async function assignAndPublish(
   api: APIRequestContext,
   backend: string,
@@ -616,6 +649,26 @@ export async function seedTheScreens(
   await walk(api, backend, email, rules.marketId, UP_TO_ASSIGNMENT);
   await assignAndPublish(api, backend, email, rules.marketId);
 
+  const roleReport = await createMarket(
+    api,
+    backend,
+    email,
+    uniqueMarketName('Role Report'),
+    plan(two),
+  );
+  const reported = manyVendors(roleReport.marketId, 'reported', 30, two);
+  insertApplications(reported);
+  await walk(api, backend, email, roleReport.marketId, UP_TO_ASSIGNMENT);
+  await assignAndPublish(api, backend, email, roleReport.marketId);
+  const roleName = 'Vendor at the Fall Makers Fair in the Old Cannery Warehouse District, 2026';
+  connectToFakeDiscord(roleReport.marketId, {
+    guildId: fakeDiscordId(),
+    guildName: 'Riverside Makers',
+    roleId: fakeDiscordId(),
+    roleName,
+  });
+  recordRoleRun(roleReport.marketId, roleName, roleRunOf(reported.map(({ id }) => id)));
+
   const archived = await seedPublishedMarketWithAssignments(api, backend, email, password);
   await transitionMarket(api, backend, email, archived.marketId, 'archived');
 
@@ -649,6 +702,7 @@ export async function seedTheScreens(
     assignment,
     big,
     rules,
+    roleReport,
     archived,
     csv,
     csvDraft,

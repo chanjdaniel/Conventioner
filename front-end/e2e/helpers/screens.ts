@@ -881,6 +881,17 @@ export const SCREENS: Screen[] = [
     open: at(screen('big', 'vendors'), 'vendors-list-item'),
   },
   {
+    // Who a Discord run reached, in a dialog over the vendors (T217): each group, a reason in words
+    // and a vendor no longer listed. The seed's other markets connect no Discord.
+    name: 'the dialog of who the role report names',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(screen('roleReport', 'vendors'), 'vendors-role-report', [
+      'vendors-role-report-open',
+      'vendors-role-report-who-window',
+    ]),
+  },
+  {
     name: 'the vendor drawer',
     who: 'organizer',
     sizes: FITS_A_PHONE,

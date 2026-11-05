@@ -33,6 +33,8 @@ export class VendorsPage {
   /** Giving the market's role (E46/F01/S04): the button, and the last run's report. */
   readonly giveRolesButton: Locator;
   readonly roleReport: Locator;
+  readonly roleReportOpen: Locator;
+  readonly roleReportWho: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -62,6 +64,8 @@ export class VendorsPage {
     this.discordError = page.getByTestId('vendors-discord-error');
     this.giveRolesButton = page.getByTestId('vendors-discord-give');
     this.roleReport = page.getByTestId('vendors-role-report');
+    this.roleReportOpen = page.getByTestId('vendors-role-report-open');
+    this.roleReportWho = page.getByTestId('vendors-role-report-who-window');
   }
 
   async goto(marketId: string): Promise<void> {

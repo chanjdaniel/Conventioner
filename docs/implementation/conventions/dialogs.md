@@ -79,6 +79,7 @@ It still gets the scrim, window, close, Escape, backdrop and inert behaviour, wi
 Narrow holds two controls, wide a list, and broad a list beside what it gathers, the export dialog's columns and preview.
 A dialog's window is a rounded frame that never scrolls, so no scroll bar can square its corners; what is taller than it scrolls in a [`ScrollBox`](../../../front-end/src/components/ScrollBox.vue) ([the design language](../../design-system.md#the-primitive-layer)) inside it.
 **By default that box holds the title and the body (`scroll="window"`)**, with the close staying put over it, on its own white ground, so words scrolling beneath it never run through it.
+A long title wraps short of the close, in either scroll, by a wider right padding at 640px or less, where the close is 44px wide.
 This default stays for a short dialog, a question with a control or two, by Daniel's choice (T204's choice 21): only the long dialogs move to `scroll="body"`.
 So a dialog on a page that fits a phone opens inside a 390px window, on each place [the design language](../../design-system.md#layout) lists as fitting one; only the people and add rows of Manage market and Manage organization needed a phone rule of their own.
 The footer's buttons wrap where they are wider than the window, as the placement dialog's Cancel, Free this seat and Move them are on a phone; a row that could not wrap ran out past the window's left edge, where nothing scrolls to it.
@@ -95,7 +96,7 @@ The body, the error and the actions are still the one `<form>`, so the Enter con
 `dvh` sizes it, since a phone's browser bar would otherwise cover its pinned actions.
 An `anchored` dialog keeps its top where it opened, under the same 80% cap; on a phone or in a short window it is as tall as what lies below that top less the gutter.
 **A dialog is long when its body can outgrow a laptop window as a market's data grows**: its window scrolled in a sweep, or its body holds a list that grows with the market.
-A long dialog says `scroll="body"`: Manage market and its Permissions, Manage organization and its Default permissions, Update info, the placement dialog and the assignment history, Delete organization, Fix the form, Open applications, Change reviewers and the whole list of reviewers, "Choose what leads the card", Load Template, both confirmations of a permissions reset, and a role change's.
+A long dialog says `scroll="body"`: Manage market and its Permissions, Manage organization and its Default permissions, Update info, the placement dialog and the assignment history, Delete organization, Fix the form, Open applications, Change reviewers and the whole list of reviewers, "Choose what leads the card", the role report's "Show who", Load Template, both confirmations of a permissions reset, and a role change's.
 The export dialog is long too, and scrolls whole until it is rebuilt on `scroll="body"`.
 `scroll="window"` stays the default, for every other dialog: a question with a control or two.
 The library's `dialog` entry shows each width, the window's scroll beside the body's on 150 people, the tray, a footer with no form, a list with nothing to focus, and every behaviour below in either scroll, and its `export-vendors` entry a broad dialog with its whole tray, the export redesigned ([the component library](../modules/component-library.md)).
