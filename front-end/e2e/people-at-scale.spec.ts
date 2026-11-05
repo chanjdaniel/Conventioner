@@ -1,4 +1,10 @@
-import type { APIRequestContext, Locator, Page, PlaywrightWorkerArgs } from '@playwright/test';
+import type {
+  APIRequestContext,
+  Locator,
+  Page,
+  PlaywrightWorkerArgs,
+  Route,
+} from '@playwright/test';
 import { test, expect, BACKEND_URL, TEST_USER } from './fixtures';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
@@ -623,6 +629,57 @@ for (const size of PHONE_AND_DESK) {
       await expect(reviewers.dialog).toBeHidden();
 
       await expect(reviewers.line).toContainText(`${seed.counts.reviewers} reviewers: `);
+      await press(reviewers.more);
+      await expect(chooser.chips).toHaveCount(seed.counts.reviewers);
+      await expect(chooser.chip(added)).toBeVisible();
+      await expect(chooser.chip(removed)).toHaveCount(0);
+    });
+
+    test("waits for the save's re-read, so a press in it cannot bring back the old team", async ({
+      authenticatedPage: page,
+    }) => {
+      const { chooser } = reviewers;
+      const added = seed.members.at(-1)!.email;
+      const removed = seed.reviewers[0]!.email;
+
+      await chooser.field.fill(added.split('@')[0]!);
+      await press(chooser.option(added));
+      await press(chooser.removeButton(removed));
+      // One in and one out: the line's count says the same before and after the re-read.
+      await expect(chooser.chips).toHaveCount(seed.counts.reviewers);
+
+      const box = (await reviewers.more.boundingBox())!;
+      const [x, y] = [box.x + box.width / 2, box.y + box.height / 2];
+      const read = /\/markets\/[^/]+$/;
+      const held: Route[] = [];
+      await page.route(read, (route) => {
+        held.push(route);
+      });
+      const written = page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/reviewers') && response.request().method() === 'PUT',
+      );
+      await press(reviewers.save);
+      expect((await written).ok()).toBe(true);
+      await expect.poll(() => held.length).toBeGreaterThan(0);
+
+      // A real press where "and 9 more" stands, on whatever lies over it by now.
+      if (size.phone) await page.touchscreen.tap(x, y);
+      else await page.mouse.click(x, y);
+      await expect(reviewers.dialog).toBeVisible();
+      await expect(chooser.chip(removed)).toHaveCount(0);
+      await expect(chooser.chip(added)).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(reviewers.dialog).toBeVisible();
+      await expect(reviewers.save).toBeDisabled();
+      await expect(reviewers.save).toHaveText('Saving…');
+
+      // In this order: taking the route away first answers what it holds for it.
+      await Promise.all(held.map((route) => route.continue()));
+      await page.unroute(read);
+      await expect(reviewers.dialog).toBeHidden();
+      await expect(reviewers.line).not.toContainText(removed);
+
       await press(reviewers.more);
       await expect(chooser.chips).toHaveCount(seed.counts.reviewers);
       await expect(chooser.chip(added)).toBeVisible();

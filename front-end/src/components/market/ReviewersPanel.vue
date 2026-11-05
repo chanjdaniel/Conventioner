@@ -69,14 +69,25 @@ function showAll() {
   else listOpen.value = true;
 }
 
+function close() {
+  // A save in flight finishes before the dialog can go, see save().
+  if (saving.value) return;
+  open.value = false;
+}
+
+/**
+ * The dialog goes only once the re-read has landed: the panel behind it and the next opening's chips
+ * read the market, so until then a press behind it would open on the team before this save, and
+ * saving that would write it back and deal the open applications again.
+ */
 async function save() {
   if (!props.market || saving.value) return;
   saving.value = true;
   error.value = '';
   try {
     await chooseReviewers(props.market.id, ticked.value);
-    open.value = false;
     await useMarketStore().refresh();
+    open.value = false;
     emit('saved');
     await nextTick();
     // "and N more" may have opened this and gone with the save, so focus has nowhere to go back to.
@@ -136,7 +147,7 @@ async function save() {
       :confirm-disabled="saving"
       :error="error"
       anchored
-      @close="open = false"
+      @close="close"
       @submit="save"
     >
       <p class="reviewers-reshuffle">{{ RESHUFFLE }}</p>

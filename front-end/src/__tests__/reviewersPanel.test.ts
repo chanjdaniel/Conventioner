@@ -209,6 +209,93 @@ describe('"and N more", for someone who may choose the reviewers', () => {
   });
 });
 
+describe('saving', () => {
+  const submit = () =>
+    byId('reviewers-dialog-window')!
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  const pressEscape = () =>
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+  /** Every way a person closes the dialog, none of which may take it from under a save. */
+  async function tryEveryClose() {
+    pressEscape();
+    byId('reviewers-dialog-close-button')!.click();
+    byId('reviewers-dialog-cancel-button')!.click();
+    byId('reviewers-dialog-background')!.click();
+    await flushPromises();
+  }
+
+  it('holds the dialog through the write, by every close', async () => {
+    mountPanel(team(12), true);
+    await pressMore();
+    let answer!: () => void;
+    api.put.mockImplementation(
+      () => new Promise((resolve) => (answer = () => resolve({ data: { dealt: 0 } }))),
+    );
+    submit();
+    await flushPromises();
+    await tryEveryClose();
+    expect(byId('reviewers-dialog-window')).not.toBeNull();
+
+    answer();
+    await flushPromises();
+    expect(byId('reviewers-dialog-window')).toBeNull();
+  });
+
+  it('holds the dialog through the re-read, by every close, and goes when it lands', async () => {
+    const panel = mountPanel(team(12), true);
+    const saved = () => panel.emitted('saved');
+    await pressMore();
+    let answer!: () => void;
+    api.get.mockImplementation(
+      () => new Promise((resolve) => (answer = () => resolve({ data: { market: {} } }))),
+    );
+    submit();
+    await flushPromises();
+    expect(api.put).toHaveBeenCalledTimes(1);
+    expect(api.get).toHaveBeenCalledTimes(1);
+
+    await tryEveryClose();
+    expect(byId('reviewers-dialog-window')).not.toBeNull();
+    expect(byId('reviewers-dialog-submit-button')?.hasAttribute('disabled')).toBe(true);
+    expect(words(byId('reviewers-dialog-submit-button'))).toBe('Saving…');
+    expect(saved()).toBeUndefined();
+
+    answer();
+    await flushPromises();
+    expect(byId('reviewers-dialog-window')).toBeNull();
+    expect(saved()).toHaveLength(1);
+  });
+
+  it('closes when the re-read fails in transit, as the save has landed', async () => {
+    const panel = mountPanel(team(12), true);
+    await pressMore();
+    api.get.mockRejectedValue(new Error('Network Error'));
+    submit();
+    await flushPromises();
+    expect(byId('reviewers-dialog-window')).toBeNull();
+    expect(panel.emitted('saved')).toHaveLength(1);
+  });
+
+  it('keeps the dialog open with the error when the save is refused, and a close then works', async () => {
+    mountPanel(team(12), true);
+    await pressMore();
+    api.put.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 400, data: { error: 'That person cannot be chosen.' } },
+    });
+    submit();
+    await flushPromises();
+    expect(api.get).not.toHaveBeenCalled();
+    expect(words(byId('reviewers-dialog-error'))).toBe('That person cannot be chosen.');
+
+    byId('reviewers-dialog-close-button')!.click();
+    await flushPromises();
+    expect(byId('reviewers-dialog-window')).toBeNull();
+  });
+});
+
 describe('"and N more", for anyone else', () => {
   it('opens a read-only "Reviewers" dialog of every reviewer, unable first, chip and (you)', async () => {
     signedIn.email = address(5);
