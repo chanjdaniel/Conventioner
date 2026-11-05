@@ -257,9 +257,48 @@ describe('the primitives exist and own what tokens cannot', () => {
     expect(rulesWith(PRIMITIVES, '.field:focus')).toEqual([]);
   });
 
-  it('gives every control the soft halo rather than a ring', () => {
-    // Daniel's choice C on the 2026-10-29 walk: a white gap then a translucent green glow, the gap
-    // keeping it clear of the green primary button's own fill. The dark bar's halo is white.
+  it('draws a green border on a focused button, taking no room', () => {
+    // Daniel's word on 2026-11-04: "green border instead of the thick green ring". An outline inside
+    // the edge, so focus moves nothing and it lies over the button's own border.
+    expect(declaration(BASE, ':root', '--focus-border-width')).toBe('2px');
+    expect(declaration(BASE, ':root', '--focus-border')).toBe('var(--mm-green)');
+    expect(declaration(BASE, ':root', '--focus-border-offset')).toBe(
+      'calc(-1 * var(--focus-border-width))',
+    );
+    const buttons = [
+      '.btn:focus-visible',
+      '.add-row:focus-visible',
+      '.drag-handle:focus-visible',
+      '.step-button:focus-visible',
+      'button:focus-visible',
+      "[role='button']:focus-visible",
+    ];
+    for (const button of buttons) {
+      expect(declaration(PRIMITIVES, button, 'outline'), button).toBe(
+        'var(--focus-border-width) solid var(--focus-border)',
+      );
+      expect(declaration(PRIMITIVES, button, 'outline-offset'), button).toBe(
+        'var(--focus-border-offset)',
+      );
+      expect(declaration(PRIMITIVES, button, 'box-shadow'), button).toBeNull();
+    }
+  });
+
+  it('takes the deep green where the plain green would not show', () => {
+    for (const button of ['.btn--primary', '.btn--destructive', ".btn[aria-pressed='true']"]) {
+      expect(declaration(PRIMITIVES, button, '--focus-border'), button).toBe(
+        'var(--focus-border-on-fill)',
+      );
+    }
+    // A row's destructive action is red ink on white, where the plain green shows.
+    expect(declaration(PRIMITIVES, '.btn--secondary.btn--destructive', '--focus-border')).toBe(
+      'var(--mm-green)',
+    );
+  });
+
+  it('gives every other control the soft halo rather than a ring', () => {
+    // Daniel's choice C on the 2026-10-29 walk: a white gap then a translucent green glow. The dark
+    // bar's halo is white. A link drawn as a `.btn` is a button.
     expect(declaration(BASE, ':root', '--focus-halo')).toBe(
       '0 0 0 2px white, 0 0 0 5px rgba(54, 130, 111, 0.35)',
     );
@@ -267,16 +306,10 @@ describe('the primitives exist and own what tokens cannot', () => {
       '0 0 0 3px rgba(255, 255, 255, 0.35)',
     );
     const controls = [
-      '.btn:focus-visible',
-      '.add-row:focus-visible',
-      '.drag-handle:focus-visible',
-      '.step-button:focus-visible',
-      'a:focus-visible',
-      'button:focus-visible',
+      'a:not(.btn):focus-visible',
       'summary:focus-visible',
-      "[role='button']:focus-visible",
       // The phase rail's spine, a keyboard stop while it scrolls, has no rule of its own.
-      "[tabindex='0']:focus-visible",
+      "[tabindex='0']:not(.btn, button, [role='button']):focus-visible",
     ];
     for (const control of controls) {
       expect(declaration(PRIMITIVES, control, 'box-shadow'), control).toBe('var(--focus-halo)');

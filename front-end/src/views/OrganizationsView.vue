@@ -259,6 +259,7 @@ function handleManageChanged() {
 }
 
 .new-button {
+  --focus-border: var(--focus-border-on-fill);
   padding: var(--space-2) var(--space-6);
   background: var(--mm-green);
   color: white;
@@ -270,11 +271,6 @@ function handleManageChanged() {
   box-shadow: var(--shadow-card);
   white-space: nowrap;
   min-height: var(--target-min);
-}
-
-/* Its resting shadow outranks the primitives' focus rule, so it says its halo itself. */
-.new-button:focus-visible {
-  box-shadow: var(--focus-halo), var(--shadow-card);
 }
 
 .new-button:hover {

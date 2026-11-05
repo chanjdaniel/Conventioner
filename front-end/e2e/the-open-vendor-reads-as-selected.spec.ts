@@ -7,15 +7,15 @@ import type { Locator } from '@playwright/test';
 /**
  * The vendor whose details are open reads as selected (E38 follow-up to F01): its row takes the
  * design language's selected look, the on toggle's green tint inside a green border, where it once
- * drew a 2px black outline the focus halo did not cover. A row focused by the keyboard draws the
- * halo on its white ground instead, so the two states never read alike.
+ * drew a 2px black outline. A row focused by the keyboard draws the green focus border on its white
+ * ground instead, so the two states never read alike.
  */
 
-/** As the browser computes `--mm-chip-positive`, `--mm-green` and `--focus-halo`'s glow. */
+/** As the browser computes `--mm-chip-positive`, `--mm-green`. */
 const SELECTED_GROUND = 'rgb(223, 235, 232)';
 const GREEN = 'rgb(54, 130, 111)';
 const WHITE = 'rgb(255, 255, 255)';
-const HALO = 'rgba(54, 130, 111, 0.35)';
+const FOCUS_BORDER = 'solid 2px';
 
 /** The look of a row, as the browser paints it. */
 function lookOf(row: Locator) {
@@ -25,7 +25,6 @@ function lookOf(row: Locator) {
       ground: s.backgroundColor,
       border: s.borderTopColor,
       outline: s.outlineStyle === 'none' ? 'none' : `${s.outlineStyle} ${s.outlineWidth}`,
-      shadow: s.boxShadow,
     };
   });
 }
@@ -34,7 +33,7 @@ for (const size of [
   { name: 'a desk', width: 1440, height: 900 },
   { name: 'a phone', width: 390, height: 844 },
 ]) {
-  test(`on ${size.name}, the open vendor's row reads as selected and a focused one wears the halo`, async ({
+  test(`on ${size.name}, the open vendor's row reads as selected and a focused one draws the green border`, async ({
     authenticatedPage: page,
     request,
   }) => {
@@ -60,8 +59,7 @@ for (const size of [
     await expect(first).toBeFocused();
     await settle(page);
     const focused = await lookOf(first);
-    expect(focused.outline).toBe('none');
-    expect(focused.shadow).toContain(HALO);
+    expect(focused.outline).toBe(FOCUS_BORDER);
     expect(focused.ground).toBe(WHITE);
 
     // Open it: the row behind the drawer is the selected one, and no other row is.
@@ -72,7 +70,6 @@ for (const size of [
     expect(open.outline).toBe('none');
     expect(open.ground).toBe(SELECTED_GROUND);
     expect(open.border).toBe(GREEN);
-    expect(open.shadow).not.toContain(HALO);
     expect((await lookOf(rows.nth(1))).ground).toBe(WHITE);
 
     // Closed, focus comes back to the row, which is focused and no longer open.
@@ -81,7 +78,7 @@ for (const size of [
     await expect(first).toBeFocused();
     await settle(page);
     const back = await lookOf(first);
-    expect(back.shadow).toContain(HALO);
+    expect(back.outline).toBe(FOCUS_BORDER);
     expect(back.ground).toBe(WHITE);
   });
 }

@@ -2,8 +2,8 @@
 layer: business
 kind: flow
 describes:
-  - front-end/src/components/vendorPage/VendorCheckIn.vue
   - front-end/src/views/AttendanceStatusView.vue
+  - front-end/src/components/vendorPage/VendorCheckIn.vue
 verified: 2026-11-04
 sources:
   - brain-dump/2026-10-19#15

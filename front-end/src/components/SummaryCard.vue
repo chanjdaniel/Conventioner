@@ -107,17 +107,17 @@ defineEmits<{ select: [] }>();
     transform 0.15s ease-in-out;
 }
 
-.summary-card--selectable:hover,
-.summary-card--selectable:has(.summary-card-name :focus-visible) {
+.summary-card--selectable:hover {
   border-color: var(--mm-green);
   box-shadow: var(--shadow-card);
   transform: translateY(-2px);
 }
 
-/* The card is what the keyboard opens, so the card wears the halo (E38/F01/S01): on the name's
-   own button the name's box clipped it away. */
+/* The card is what the keyboard opens, so the card draws the focused button's border, not the
+   name's own button, whose box is only the name. It stays where it is: focus moves nothing. */
 .summary-card--selectable:has(.summary-card-name :focus-visible) {
-  box-shadow: var(--focus-halo), var(--shadow-card);
+  outline: var(--focus-border-width) solid var(--focus-border);
+  outline-offset: var(--focus-border-offset);
 }
 
 /* The badge sits at the column's right edge rather than after the name, so badges share an edge
@@ -143,8 +143,7 @@ defineEmits<{ select: [] }>();
   text-overflow: ellipsis;
 }
 
-/* The name's own button looks like the name: the card's lift and halo are its focus, as they
-   were the row's. */
+/* The name's own button looks like the name: the card's green border is its focus. */
 .summary-card-name :slotted(.summary-card-open) {
   display: block;
   max-width: 100%;
@@ -165,7 +164,7 @@ defineEmits<{ select: [] }>();
 }
 
 .summary-card-name :slotted(.summary-card-open:focus-visible) {
-  box-shadow: none;
+  outline: none;
 }
 
 /* A fixed label column, so the labels line up across every row of the list and not merely

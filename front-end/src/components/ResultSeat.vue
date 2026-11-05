@@ -144,6 +144,7 @@ const emit = defineEmits<{ open: []; view: [] }>();
    shown at rest. On a free seat the hint can wait for the pointer, because the whole seat is the
    button; here Change is the only way to the dialog, and a touch has no hover. */
 .seat-change {
+  --focus-border-offset: var(--focus-border-width);
   justify-self: end;
   padding: 0;
   border: none;

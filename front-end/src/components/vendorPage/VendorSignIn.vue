@@ -340,6 +340,7 @@ function goBack() {
 
 /* Each a target of its own (`--target-min`, 44px on a phone), sitting on its text. */
 .sign-in-link-btn {
+  --focus-border-offset: var(--focus-border-width);
   min-height: var(--target-min);
   background: none;
   border: none;

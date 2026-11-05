@@ -9,7 +9,6 @@ export class MarketsPage {
   readonly searchInput: Locator;
   readonly orgSelect: Locator;
   readonly sortSelect: Locator;
-  readonly allPhasesToggle: Locator;
   readonly resultCount: Locator;
   readonly noMatch: Locator;
   readonly clearFiltersButton: Locator;
@@ -20,7 +19,6 @@ export class MarketsPage {
     this.searchInput = page.getByTestId('markets-search-input');
     this.orgSelect = page.getByTestId('markets-org-select');
     this.sortSelect = page.getByTestId('markets-sort-select');
-    this.allPhasesToggle = page.getByTestId('markets-phase-toggle-all');
     this.resultCount = page.getByTestId('markets-result-count');
     this.noMatch = page.getByTestId('markets-no-match');
     this.clearFiltersButton = page.getByTestId('markets-clear-filters-button');
@@ -36,14 +34,17 @@ export class MarketsPage {
     return this.page.getByTestId(`markets-phase-toggle-${phase}`);
   }
 
-  /** The phases the filter offers a toggle for, in the order shown ("All phases" aside). */
+  /** The phases the filter offers a toggle for, in the order shown. */
   async offeredPhases(): Promise<string[]> {
     const ids = await this.page
       .locator('[data-testid^="markets-phase-toggle-"]')
       .evaluateAll((toggles) => toggles.map((toggle) => toggle.getAttribute('data-testid') ?? ''));
-    return ids
-      .map((id) => id.replace('markets-phase-toggle-', ''))
-      .filter((phase) => phase !== 'all');
+    return ids.map((id) => id.replace('markets-phase-toggle-', ''));
+  }
+
+  /** The phase toggles pressed: none means every phase. */
+  get pressedPhases(): Locator {
+    return this.page.locator('[data-testid^="markets-phase-toggle-"][aria-pressed="true"]');
   }
 
   /** The market names on show, in the order shown. */

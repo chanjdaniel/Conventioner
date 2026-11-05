@@ -307,15 +307,6 @@ function handleNewClose() {
             <span id="markets-phase-label" class="field-label">Phase</span>
             <div class="phase-toggles">
               <button
-                type="button"
-                class="btn btn--compact btn--secondary phase-toggle"
-                :aria-pressed="query.phases.length === 0"
-                data-testid="markets-phase-toggle-all"
-                @click="setQuery({ phases: [] })"
-              >
-                All phases
-              </button>
-              <button
                 v-for="phase in FILTERABLE_PHASES"
                 :key="phase"
                 type="button"
@@ -404,6 +395,7 @@ function handleNewClose() {
 }
 
 .new-market-button {
+  --focus-border: var(--focus-border-on-fill);
   /* A thumb's 44px on a phone; a desk's padding is taller than its target already. */
   min-height: var(--target-min);
   padding: var(--space-2) var(--space-6);
@@ -415,11 +407,6 @@ function handleNewClose() {
   font-size: var(--text-sm);
   font-weight: 400;
   box-shadow: var(--shadow-card);
-}
-
-/* Its resting shadow outranks the primitives' focus rule, so it says its halo itself. */
-.new-market-button:focus-visible {
-  box-shadow: var(--focus-halo), var(--shadow-card);
 }
 
 .new-market-button:hover {

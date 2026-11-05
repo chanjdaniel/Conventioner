@@ -264,6 +264,22 @@ eachWindow('the proposals entry', (size) => {
     );
   });
 
+  test('a chosen default stays pressed, and the other toggle returns to it', async ({ page }) => {
+    for (const [row, rest, other] of [
+      ['library-panel-side', 'right', 'left'],
+      ['library-panel-width', 'wide', 'narrow'],
+    ]) {
+      const chosen = page.getByTestId(`${row}-${rest}`);
+      await expect(chosen).toHaveAttribute('aria-pressed', 'true');
+      await press(chosen);
+      await expect(chosen).toHaveAttribute('aria-pressed', 'true');
+      await press(page.getByTestId(`${row}-${other}`));
+      await expect(chosen).toHaveAttribute('aria-pressed', 'false');
+      await press(page.getByTestId(`${row}-${other}`));
+      await expect(chosen).toHaveAttribute('aria-pressed', 'true');
+    }
+  });
+
   test('takes a side and a width, leaving a gutter of scrim', async ({ page }) => {
     const width = await windowWidth(page);
 

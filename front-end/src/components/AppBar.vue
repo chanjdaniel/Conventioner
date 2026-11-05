@@ -378,8 +378,8 @@ onUnmounted(stopWatchingTheWindow);
   background: var(--mm-beige);
 }
 
-/* The sheet scrolls, so its edges would cut off a halo drawn outside a row. */
-.app-bar-sheet-row:focus-visible {
+/* The sheet scrolls, so its edges would cut off a halo drawn outside a link's row. */
+a.app-bar-sheet-row:focus-visible {
   box-shadow: var(--focus-halo-inset);
 }
 
@@ -454,11 +454,6 @@ onUnmounted(stopWatchingTheWindow);
 
   .app-bar-menu-button:hover {
     background-color: var(--mm-beige);
-  }
-
-  /* It fills the band, whose edge is the window's, so it wears the halo inside its own. */
-  .app-bar-menu-button:focus-visible {
-    box-shadow: var(--focus-halo-inset);
   }
 }
 </style>

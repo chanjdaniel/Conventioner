@@ -736,6 +736,7 @@ function deleteType(tt: TableTypeObject) {
 }
 
 .tt-btn--primary {
+  --focus-border: var(--focus-border-on-fill);
   background: var(--mm-green);
 }
 

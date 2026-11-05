@@ -241,6 +241,7 @@ describe('the palette carries a contrast contract', () => {
       ...FILLS.map(([f]) => f),
       ...CHIPS.map(([ground]) => ground),
       // Lines, hover states and a scroller's edge shades. These never sit under text.
+      '--focus-border-on-fill',
       '--mm-border',
       '--hover-grey',
       '--edge-shade',
@@ -279,10 +280,6 @@ describe('the focus halo measures what its comment says', () => {
     expect(contrast(over(glow.rgb, glow.alpha, beige), beige)).toBe(1.5);
   });
 
-  it("the white gap is 4.59:1 against the green primary button's fill", () => {
-    expect(contrast(WHITE, resolve('--mm-green'))).toBe(4.59);
-  });
-
   it('the white halo is 3.17:1 on --mm-black, past the 3:1 a focus indicator wants', () => {
     const black = resolve('--mm-black');
     const ratio = contrast(over(darkGlow.rgb, darkGlow.alpha, black), black);
@@ -296,6 +293,20 @@ describe('the focus halo measures what its comment says', () => {
 
   it('the inset green halo is the same colour as the green halo', () => {
     expect(haloColour('--focus-halo-inset')).toEqual(glow);
+  });
+
+  it('the green border is past 3:1 on white, beige and --mm-black', () => {
+    const green = resolve('--mm-green');
+    expect(contrast(green, WHITE)).toBe(4.59);
+    expect(contrast(green, resolve('--mm-beige'))).toBe(3.68);
+    expect(contrast(green, resolve('--mm-black'))).toBe(3.39);
+  });
+
+  it('the deep green is past 3:1 on the green and red fills it marks, and on a pressed toggle', () => {
+    const deep = resolve('--focus-border-on-fill');
+    expect(contrast(deep, resolve('--mm-green'))).toBe(3.62);
+    expect(contrast(deep, resolve('--mm-red'))).toBe(3.05);
+    expect(contrast(deep, resolve('--mm-chip-positive'))).toBe(13.57);
   });
 });
 

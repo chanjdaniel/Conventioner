@@ -729,18 +729,14 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
   box-shadow: var(--shadow-card);
 }
 
-/* Its resting shadow outranks the primitives' focus rule, so it says its halo itself. */
-.vendor-row-button:focus-visible {
-  box-shadow: var(--focus-halo), var(--shadow-card);
-}
-
 .vendor-row-button:active {
   transform: translateY(1px);
 }
 
 /* The vendor whose details are open is the selected row: the on toggle's green tint inside a green
-   border (`docs/design-system.md`), where it once drew a 2px black outline beside the focus halo. */
+   border (`docs/design-system.md`), where it once drew a 2px black outline. */
 .vendor-row--open .vendor-row-button {
+  --focus-border: var(--focus-border-on-fill);
   background: var(--mm-chip-positive);
   border-color: var(--mm-green);
 }

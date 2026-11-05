@@ -632,6 +632,7 @@ onUnmounted(() => {
 }
 
 .sg-toolbar-btn {
+  --focus-border: var(--focus-border-on-fill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -662,6 +663,7 @@ onUnmounted(() => {
 }
 
 .sg-toolbar-btn.is-active {
+  --focus-border: var(--focus-border-on-fill);
   background: var(--mm-yellow);
   color: var(--mm-black);
 }
@@ -672,6 +674,7 @@ onUnmounted(() => {
 }
 
 .sg-toolbar-btn--sections {
+  --focus-border: var(--mm-green);
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
   color: var(--mm-black);
@@ -682,13 +685,6 @@ onUnmounted(() => {
 .sg-toolbar-btn--sections:hover {
   background: var(--mm-beige);
   opacity: 1;
-}
-
-/* Its resting shadow outranks the primitives' focus rule, so it says its halo itself (E38/F01/S01). */
-.sg-toolbar-btn--sections:focus-visible {
-  box-shadow:
-    var(--focus-halo),
-    0 2px 12px rgba(39, 35, 35, 0.12);
 }
 
 /* ── Hint bar ───────────────────────────────────────────────────── */
@@ -1018,6 +1014,7 @@ onUnmounted(() => {
 }
 
 .sg-btn--confirm {
+  --focus-border: var(--focus-border-on-fill);
   background: var(--mm-green);
   color: white;
 }

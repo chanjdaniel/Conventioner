@@ -7,7 +7,7 @@ describes:
   - front-end/src/components/csvProposal/ProposalLedger.vue
   - front-end/src/components/market/DraftedFrom.vue
   - front-end/src/utils/draftedFrom.ts
-verified: 2026-11-03
+verified: 2026-11-04
 sources:
   - wayfinding/the-form-started-from-a-csv/05
   - wayfinding/the-form-started-from-a-csv/map
@@ -17,7 +17,6 @@ sources:
   - E30/F02/S01
   - E31/F03/S01
   - E33/F02/S01
-  - T213
   - bug/4
   - bug/24
   - bug/27
@@ -25,6 +24,7 @@ sources:
   - E38/F02/S01
   - E38/F15/S02
   - T205
+  - T213
 ---
 
 # Starting from a Google Form's responses

@@ -16,6 +16,7 @@ sources:
   - T211
   - T205
   - T217
+  - T214
 ---
 
 # The component library
@@ -56,7 +57,7 @@ An entry is drawn from the parts in `parts/`:
 - `LibraryPanel`: one variant or state in a labelled box, a region named by its label;
 - `TodayAndProposed`: how a place looks today beside how it would look, two columns at a desk, stacked on a phone;
 - `ReadOut`: the line under a live demo that reads out its value ("Chosen: North Wing"), so a choice is seen to land;
-- `ChoicesForYou`: the note that ends an entry with choices left for Daniel, one item per choice; it goes once they are all answered.
+- `ChoicesForYou`: the note that ends an entry with choices left for Daniel, one item per choice; an entry whose choices are all answered has none.
 
 An entry's own parts sit beside these in `parts/`, such as `ColumnChecklist`, `ExportDialogPrototype` and `SeatRow`.
 

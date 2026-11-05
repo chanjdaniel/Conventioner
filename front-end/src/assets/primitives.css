@@ -8,7 +8,8 @@
  *
  * So these three own height, padding, radius, type and the disabled state, and a component that
  * needs a control reaches for one of them rather than deciding again. This file also holds the one
- * focus halo every control wears, and the rule that a field shows none (E38/F01/S01).
+ * focus border every button draws, the one focus halo every other control wears, and the rule that
+ * a field shows neither (E38/F01/S01).
  *
  * NOTHING MIGRATES IN THIS FILE'S OWN FEATURE. `E16/F05`-`F08` move one surface at a time, each
  * reviewed and shipped on its own, because a single diff across 71 files is unreviewable and
@@ -62,6 +63,7 @@
  * that ask for a decision are 600 and the one that steps out of the way is 400.
  */
 .btn--primary {
+  --focus-border: var(--focus-border-on-fill);
   background: var(--mm-green);
   color: white;
   font-weight: 600;
@@ -78,6 +80,7 @@
  * weight of `Add user`, on a dialog where one is irreversible.
  */
 .btn--destructive {
+  --focus-border: var(--focus-border-on-fill);
   background: var(--mm-red);
   color: white;
   font-weight: 600;
@@ -90,6 +93,7 @@
  * `btn--destructive`, so a dialog never opens on it.
  */
 .btn--secondary.btn--destructive {
+  --focus-border: var(--mm-green);
   background: white;
   color: var(--mm-red);
   border-color: var(--mm-border);
@@ -109,11 +113,12 @@
 /*
  * A toggle that is on (E25/F01/S01): any `.btn` with `aria-pressed="true"`. A state rather than a
  * fourth intent, because the toggle's intent does not change when it is pressed - the markets
- * list's phase filter is nine secondary buttons, several of them on at once. Tinted with coloured
+ * list's phase filter is a row of secondary buttons, several of them on at once. Tinted with coloured
  * ink, as the positive chip is, rather than filled: a row of solid green pills would compete with
  * the list it filters. The ink is 5.34:1 on that tint (`contrast.test.ts`).
  */
 .btn[aria-pressed='true'] {
+  --focus-border: var(--focus-border-on-fill);
   background: var(--mm-chip-positive);
   border-color: var(--mm-green);
   color: var(--mm-text-green);
@@ -505,57 +510,66 @@ select:focus {
 }
 
 /*
- * Every control shows the soft halo on `:focus-visible` (E38/F01/S01): the primitives, and every
- * link, button and other keyboard stop, so the browser's own ring is drawn nowhere. It replaced a
- * 2px `--mm-black` ring at 2px of offset, which Daniel found thick and bulky.
+ * A button shows a green border on `:focus-visible`, by Daniel's word on 2026-11-04: every `button`,
+ * `.btn` and `[role='button']`, a menu's items and a tab among them, and the primitives drawn as a
+ * button. It replaced the soft halo (E38/F01/S01) for them.
  *
- * The halo's white gap is what keeps it visible on the green primary button, whose fill a green
- * glow would otherwise meet. A control on a dark ground takes `--focus-halo-on-dark` in its own
- * rule, and a component rule that gives a control a resting `box-shadow` outranks this one, so it
- * says its own focus too.
+ * It is an outline drawn inside the edge rather than a `border`, which a text button has none of, and
+ * which would move the page wherever a button's own is thinner. So focus moves nothing, the outline
+ * lies over the button's own border and leaves a resting shadow alone, no box clips it, and it stays
+ * in forced colours, which drop a shadow. A button the green would not show on, by its fill or its
+ * own green border, sets `--focus-border` to `--focus-border-on-fill` in the rule that draws it. A
+ * text button, with no padding to hold the border off its words, sets `--focus-border-offset`.
  */
 .btn:focus-visible,
 .add-row:focus-visible,
 .drag-handle:focus-visible,
 .step-button:focus-visible,
-a:focus-visible,
 button:focus-visible,
-summary:focus-visible,
-[role='button']:focus-visible,
-[tabindex='0']:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-halo);
+[role='button']:focus-visible {
+  outline: var(--focus-border-width) solid var(--focus-border);
+  outline-offset: var(--focus-border-offset);
 }
 
-/* A menu's item fills a box that clips it to its rounded corners (the phase rail's, a row's), so
-   its halo is drawn inside its edge, where the box cannot cut it off. */
-[role='menuitem']:focus-visible {
-  box-shadow: var(--focus-halo-inset);
+/*
+ * Every other control shows the soft halo on `:focus-visible` (E38/F01/S01): a link, a disclosure's
+ * `summary` and any other keyboard stop, so the browser's own ring is drawn nowhere. It replaced a
+ * 2px `--mm-black` ring at 2px of offset, which Daniel found thick and bulky. A control on a dark
+ * ground takes `--focus-halo-on-dark` in its own rule, and a component rule that gives a control a
+ * resting `box-shadow` outranks this one, so it says its own focus too.
+ */
+a:not(.btn):focus-visible,
+summary:focus-visible,
+[tabindex='0']:not(.btn, button, [role='button']):focus-visible {
+  outline: none;
+  box-shadow: var(--focus-halo);
 }
 
 /* Any other keyboard stop: a scroller the browser makes one because nothing inside it takes focus,
-   as a table too wide for a phone's dialog does. Fields and what only a script focuses are not
-   controls, and `:where` keeps this below every rule above. */
-:where(:focus-visible:not(input, textarea, select, [tabindex='-1'])) {
+   as a table too wide for a phone's dialog does. Fields, buttons and what only a script focuses are
+   not its concern, and `:where` keeps this below every rule above. */
+:where(
+  :focus-visible:not(input, textarea, select, [tabindex='-1'], .btn, button, [role='button'])
+) {
   outline: none;
   box-shadow: var(--focus-halo);
 }
 
-/* A text link or a text button has no corners of its own, so its halo would be a hard rectangle
+/* A text link or a text button has no corners of its own, so what it wears would be a hard rectangle
    around the words. `:where` keeps this below any control that sets a radius, so it keeps its shape. */
 :where(a, button, summary, [role='button'], [tabindex='0']):focus-visible {
   border-radius: var(--radius-control);
 }
 
-/* Room for the halo when focus scrolls a control into view, so the edge of the scroller it sits in
-   does not cut the halo off: a `ScrollBox` brings its last control only just into view. */
+/* Room around a control when focus scrolls it into view, so the edge of the scroller it sits in
+   does not cut a halo off: a `ScrollBox` brings its last control only just into view. */
 :where(a, button, summary, [role='button'], [tabindex]) {
   scroll-margin: var(--space-2);
 }
 
 /* What a script focuses and Tab never reaches (`tabindex="-1"`) is not a control: AppDialog's
    window, which takes focus when no control in it is ready. It draws nothing, not even the
-   browser's own ring. A control among them, such as a menu item, still wears a halo. */
+   browser's own ring. A control among them, such as a menu item, still shows its focus. */
 :where([tabindex='-1']):focus {
   outline: none;
 }

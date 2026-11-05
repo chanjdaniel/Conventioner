@@ -343,11 +343,18 @@ const panelReadOut = computed(
     <LibraryPanel class="library-wide" label="One application's details">
       <div class="library-demo" data-testid="library-panel-demo">
         <div class="library-chips">
-          <FilterToggles v-model="side" :options="SIDES" label="Side" testid="library-panel-side" />
+          <FilterToggles
+            v-model="side"
+            :options="SIDES"
+            label="Side"
+            rest="right"
+            testid="library-panel-side"
+          />
           <FilterToggles
             v-model="width"
             :options="WIDTHS"
             label="Width"
+            rest="wide"
             testid="library-panel-width"
           />
         </div>
