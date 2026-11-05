@@ -2,13 +2,14 @@
 /**
  * The last "Give roles" run's report (E46/F01/S04), kept on the market so every reader of the
  * Vendors page reads it: the role and when it last ran (never "given", since a run may give nobody
- * the role), how many ended in each outcome, and, opened, each group's vendors, a failure's reason,
- * or why the rest are not given yet, said once for the vendors it held back. A vendor it did not
- * find whom the check offers a possible match now is counted beside "not found", since their row
- * says "Possible match".
+ * the role), how many ended in each outcome, and, in a dialog so that up to every vendor never
+ * pushes the table down, each group's vendors, a failure's reason, or why the rest are not given
+ * yet, said once for the vendors it held back. A vendor it did not find whom the check offers a
+ * possible match now is counted beside "not found", since their row says "Possible match".
  */
 import { computed, ref } from 'vue';
 
+import AppDialog from '@/components/AppDialog.vue';
 import VendorIdentity from '@/components/VendorIdentity.vue';
 import type { DiscordRoleRun } from '@/assets/types/datatypes';
 import { agoWords } from '@/utils/discordCheck';
@@ -40,6 +41,7 @@ const summary = computed(() => roleRunSummary(roleRunCounts(props.run), possible
 const when = computed(() =>
   agoWords(props.run.ranAt, Math.max(props.now, Date.parse(props.run.ranAt))),
 );
+const title = computed(() => `${props.run.roleName || 'The role'}, last run ${when.value}`);
 </script>
 
 <template>
@@ -49,68 +51,77 @@ const when = computed(() =>
     data-testid="vendors-role-report"
   >
     <p class="role-report-line">
-      <span id="role-report-title" class="role-report-title"
-        >{{ run.roleName || 'The role' }}, last run {{ when }}</span
-      >
+      <span id="role-report-title" class="role-report-title">{{ title }}</span>
       <span class="role-report-summary" data-testid="vendors-role-report-summary">{{
         summary
       }}</span>
       <button
         v-if="groups.length"
         type="button"
-        class="role-report-toggle"
-        :aria-expanded="opened"
-        aria-controls="role-report-groups"
-        data-testid="vendors-role-report-toggle"
-        @click="opened = !opened"
+        class="role-report-open"
+        data-testid="vendors-role-report-open"
+        @click="opened = true"
       >
-        {{ opened ? 'Hide who' : 'Show who' }}
+        Show who
       </button>
     </p>
-    <div v-if="opened" id="role-report-groups" class="role-report-groups">
-      <div
-        v-for="group in groups"
-        :key="`${group.outcome}:${group.reason}`"
-        class="role-report-group"
-        data-testid="vendors-role-report-group"
-      >
-        <p class="role-report-group-head">
-          <span :class="roleOutcomeChip(group.outcome)">{{ roleOutcomeLabel(group.outcome) }}</span>
-          <span class="role-report-count">{{ group.applicationIds.length }}</span>
-        </p>
-        <p v-if="group.reason" class="role-report-reason" data-testid="vendors-role-report-reason">
-          {{ group.reason }}
-        </p>
-        <p
-          v-if="group.outcome === 'not_found' && possibleMatches"
-          class="role-report-reason"
-          data-testid="vendors-role-report-matches"
+    <AppDialog
+      :open="opened"
+      :title="title"
+      testid="vendors-role-report-who"
+      size="wide"
+      scroll="body"
+      @close="opened = false"
+    >
+      <!-- One box, or the body's gap would come between each group as well as its own margins. -->
+      <div class="role-report-groups">
+        <div
+          v-for="group in groups"
+          :key="`${group.outcome}:${group.reason}`"
+          class="role-report-group"
+          data-testid="vendors-role-report-group"
         >
-          {{ possibleMatchesLine(possibleMatches) }}
-        </p>
-        <ul class="role-report-vendors">
-          <li v-for="id in group.applicationIds" :key="id">
-            <VendorIdentity v-if="addresses.get(id)" :email="addresses.get(id)" :names="names" />
-            <span v-else class="role-report-gone">A vendor no longer listed</span>
-          </li>
-        </ul>
+          <p class="role-report-group-head">
+            <span :class="roleOutcomeChip(group.outcome)">{{
+              roleOutcomeLabel(group.outcome)
+            }}</span>
+            <span class="role-report-count">{{ group.applicationIds.length }}</span>
+          </p>
+          <p
+            v-if="group.reason"
+            class="role-report-reason"
+            data-testid="vendors-role-report-reason"
+          >
+            {{ group.reason }}
+          </p>
+          <p
+            v-if="group.outcome === 'not_found' && possibleMatches"
+            class="role-report-reason"
+            data-testid="vendors-role-report-matches"
+          >
+            {{ possibleMatchesLine(possibleMatches) }}
+          </p>
+          <ul class="role-report-vendors">
+            <li v-for="id in group.applicationIds" :key="id">
+              <VendorIdentity v-if="addresses.get(id)" :email="addresses.get(id)" :names="names" />
+              <span v-else class="role-report-gone">A vendor no longer listed</span>
+            </li>
+          </ul>
+        </div>
       </div>
-    </div>
+    </AppDialog>
   </section>
 </template>
 
 <style scoped>
 .role-report {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-card);
   background: white;
 }
 
-/* The title, the counts and the toggle: one line that wraps on a phone. */
+/* The title, the counts and the button: one line that wraps on a phone. */
 .role-report-line {
   margin: 0;
   display: flex;
@@ -130,7 +141,7 @@ const when = computed(() =>
   color: var(--mm-text-muted);
 }
 
-.role-report-toggle {
+.role-report-open {
   --focus-border-offset: var(--focus-border-width);
   min-height: var(--target-min);
   padding: 0;

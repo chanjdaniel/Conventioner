@@ -4,7 +4,7 @@
  * reads by group for every reader.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 
 import VendorsView from '@/views/VendorsView.vue';
@@ -139,6 +139,8 @@ async function mounted(served: Market) {
         GiveRolesDialog: false,
         AppDialog: false,
         ScrollBox: false,
+        // What holds a `scroll="body"` dialog's title and body; a stub would drop them.
+        Unwrapped: false,
         DiscordRoleReport: false,
         VendorIdentity: false,
       },
@@ -151,6 +153,15 @@ async function mounted(served: Market) {
 }
 
 const marketReads = () => api.get.mock.calls.filter(([url]) => url === `/markets/${MARKET_ID}`);
+
+/** "Show who" opens the groups in a dialog. */
+async function openWho(wrapper: VueWrapper) {
+  await wrapper.find('[data-testid="vendors-role-report-open"]').trigger('click');
+}
+
+async function click(wrapper: VueWrapper, testid: string) {
+  await wrapper.find(`[data-testid="${testid}"]`).trigger('click');
+}
 
 beforeEach(() => {
   setActivePinia(createPinia());
@@ -407,16 +418,37 @@ describe('the Vendors page', () => {
     expect(report.find('[data-testid="vendors-role-report-summary"]').text()).toBe(
       '1 given, 2 failed',
     );
-    await report.find('[data-testid="vendors-role-report-toggle"]').trigger('click');
+    await openWho(wrapper);
 
-    const groups = report.findAll('[data-testid="vendors-role-report-group"]');
+    const groups = wrapper.findAll('[data-testid="vendors-role-report-group"]');
     expect(groups).toHaveLength(2);
     expect(groups[0].text()).toContain('Given');
+    expect(groups[0].text()).toContain('1');
     expect(groups[0].text()).toContain('ana@thistle.test');
     expect(groups[1].text()).toContain('Failed');
+    expect(groups[1].text()).toContain('2');
     expect(groups[1].findAll('[data-testid="vendors-role-report-reason"]')).toHaveLength(1);
     expect(groups[1].text()).toContain('ben@thistle.test');
     expect(groups[1].text()).toContain('cy@thistle.test');
+  });
+
+  it('says so of a vendor the page no longer lists', async () => {
+    const gone = {
+      ...RUN,
+      outcomes: [
+        { applicationId: 'app-ana', outcome: 'given', reason: null },
+        { applicationId: 'app-removed', outcome: 'given', reason: null },
+      ],
+    };
+    const wrapper = await mounted(
+      market({ discord: { ...market().discord, roleRun: gone } } as Partial<Market>),
+    );
+
+    await openWho(wrapper);
+
+    const given = wrapper.find('[data-testid="vendors-role-report-group"]');
+    expect(given.text()).toContain('ana@thistle.test');
+    expect(given.text()).toContain('A vendor no longer listed');
   });
 
   it('says a vendor it did not find has a possible match, as their row does', async () => {
@@ -449,12 +481,98 @@ describe('the Vendors page', () => {
     expect(report.find('[data-testid="vendors-role-report-summary"]').text()).toBe(
       '1 given, 2 not found (1 possible match)',
     );
-    await report.find('[data-testid="vendors-role-report-toggle"]').trigger('click');
+    await openWho(wrapper);
 
-    const notFound = report.findAll('[data-testid="vendors-role-report-group"]')[1];
+    const notFound = wrapper.findAll('[data-testid="vendors-role-report-group"]')[1];
     expect(notFound.text()).toContain('Not found');
     expect(notFound.find('[data-testid="vendors-role-report-matches"]').text()).toBe(
       '1 has a possible match to confirm or decline.',
     );
+  });
+});
+
+describe('"Show who"', () => {
+  const withARun = () =>
+    market({ discord: { ...market().discord, roleRun: RUN } } as Partial<Market>);
+  const whoWindow = (wrapper: VueWrapper) =>
+    wrapper.find('[data-testid="vendors-role-report-who-window"]');
+
+  it('keeps the report’s line, its summary and the button, folding nothing open in the page', async () => {
+    const wrapper = await mounted(withARun());
+    const report = wrapper.find('[data-testid="vendors-role-report"]');
+    const button = report.find('[data-testid="vendors-role-report-open"]');
+
+    expect(report.find('#role-report-title').text()).toMatch(/^Vendor Nov 2026, last run /);
+    expect(report.find('[data-testid="vendors-role-report-summary"]').text()).toBe(
+      '1 given, 2 failed',
+    );
+    expect(button.text()).toBe('Show who');
+    expect(button.attributes('aria-expanded')).toBeUndefined();
+    expect(button.attributes('aria-controls')).toBeUndefined();
+    expect(whoWindow(wrapper).exists()).toBe(false);
+    expect(wrapper.find('[data-testid="vendors-role-report-group"]').exists()).toBe(false);
+
+    await openWho(wrapper);
+
+    // The button keeps its word, and the report's line stays beneath the dialog.
+    expect(button.text()).toBe('Show who');
+    expect(report.find('[data-testid="vendors-role-report-summary"]').text()).toBe(
+      '1 given, 2 failed',
+    );
+  });
+
+  it('opens a wide dialog that scrolls its body, titled with the report’s own line', async () => {
+    const wrapper = await mounted(withARun());
+
+    await openWho(wrapper);
+
+    const line = wrapper.find('#role-report-title').text();
+    const dialog = whoWindow(wrapper);
+    expect(dialog.attributes('role')).toBe('dialog');
+    expect(dialog.attributes('aria-label')).toBe(line);
+    expect(dialog.classes()).toContain('dialog-window--wide');
+    expect(dialog.classes()).toContain('dialog-window--body');
+    expect(dialog.find('h2').text()).toBe(line);
+    expect(dialog.find('[data-testid="vendors-role-report-who-body"]').text()).toContain('Given');
+  });
+
+  it('offers no button on a run with no group to show', async () => {
+    const wrapper = await mounted(
+      market({
+        discord: { ...market().discord, roleRun: { ...RUN, outcomes: [] } },
+      } as Partial<Market>),
+    );
+
+    expect(wrapper.find('[data-testid="vendors-role-report"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="vendors-role-report-open"]').exists()).toBe(false);
+  });
+
+  it.each([
+    ['its close', (wrapper: VueWrapper) => click(wrapper, 'vendors-role-report-who-close-button')],
+    ['its backdrop', (wrapper: VueWrapper) => click(wrapper, 'vendors-role-report-who-background')],
+    [
+      'Escape',
+      () => {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        return Promise.resolve();
+      },
+    ],
+  ])('closes by %s, with focus back on "Show who"', async (_way, close) => {
+    const wrapper = await mounted(withARun());
+    const button = wrapper.find('[data-testid="vendors-role-report-open"]');
+    (button.element as HTMLElement).focus();
+
+    await openWho(wrapper);
+    expect(whoWindow(wrapper).exists()).toBe(true);
+    await vi.waitFor(() => {
+      expect(whoWindow(wrapper).element.contains(document.activeElement)).toBe(true);
+    });
+
+    await close(wrapper);
+
+    await vi.waitFor(() => {
+      expect(whoWindow(wrapper).exists()).toBe(false);
+      expect(document.activeElement).toBe(button.element);
+    });
   });
 });

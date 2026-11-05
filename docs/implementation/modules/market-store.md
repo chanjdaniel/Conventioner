@@ -6,7 +6,7 @@ describes:
   - front-end/src/utils/openMarket.ts
   - front-end/src/utils/lastMarket.ts
   - front-end/src/utils/marketActions.ts
-verified: 2026-11-03
+verified: 2026-11-05
 sources:
   - E38/F04/S02
   - wayfinding/the-market-frame/03
@@ -21,6 +21,7 @@ sources:
   - E40/F01/S03
   - E40/F01/S04
   - T205
+  - T217
 ---
 
 # The market store
@@ -108,7 +109,7 @@ A new control is one line under its screen, and a new screen is a block beside t
 
 **Manage market**
 - each role's select, Remove, Add user: the row that gives the role (`canManageRoles` in [`permissions.ts`](../../../front-end/src/utils/permissions.ts))
-- the Permissions section's Show and its rows; its changes; each row's select and Reset to built-in defaults: Read the market; Read the market's history; Change this table
+- the Permissions section's Show and its dialog's rows; its changes; each row's select and Reset to built-in defaults: Read the market; Read the market's history; Change this table
 - History: Read the market's history
 - Rename: Change Market Setup
 - Delete: Delete the market

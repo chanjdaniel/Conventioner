@@ -4,8 +4,9 @@ import { completePlan, ensureTestOrg, loginViaApi } from './helpers/seeds';
 import { decideReviewSetup } from './helpers/decideReviewSetup';
 import { seedApplication } from './helpers/seedApplication';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
+import { settle } from './helpers/settle';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 
 /**
  * Which answers a reviewer reads first (E19/F03/S01).
@@ -225,9 +226,8 @@ test.describe('What a reviewer reads first', () => {
     // Where the reviewer is now, so it can be shown they are still there afterwards.
     const before = ((await monitor.email.textContent()) ?? '').trim();
 
-    await page.getByTestId('app-monitor-choose-highlights').click();
+    await monitor.openChooseHighlights();
     const highlights = page.getByTestId('review-highlights');
-    await expect(highlights).toBeVisible();
 
     await Promise.all([
       page.waitForResponse(
@@ -237,6 +237,10 @@ test.describe('What a reviewer reads first', () => {
       ),
       highlights.getByTestId('review-highlight-instagram').click(),
     ]);
+
+    // The tick is saved as it is made: nothing asks for a save, and Done only closes.
+    await monitor.chooseHighlightsDone.click();
+    await expect(monitor.chooseHighlightsDialog).toHaveCount(0);
 
     // The card in front of them changed, without leaving the queue and without a reload.
     const leading = page.getByTestId('app-monitor-leading');
@@ -261,6 +265,167 @@ test.describe('What a reviewer reads first', () => {
     await page.goto(oneByOnePath(marketId));
     await monitor.waitForLoaded();
     await expect(page.getByTestId('app-monitor-leading').locator('dt')).toHaveText(['Instagram']);
+  });
+});
+
+/**
+ * The ticks open in a dialog over the card (T217), where they used to unfold between its answers and
+ * its verdict buttons: the card stays where it is, the same application is up after, and a verdict
+ * key never reaches a card the reviewer cannot see.
+ */
+test.describe('Choosing what leads the card, in a dialog', () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  /** A queue of its own: a test here gives a verdict, which would move the others' cards. */
+  async function aQueue(request: APIRequestContext, page: Page): Promise<ApplicationMonitorPage> {
+    const { marketId } = await seedMarketWithAForm(request);
+    seedApplication(marketId, 'nadia@ember.test', ANSWERS);
+    seedApplication(marketId, 'rafi@kiln.test', { ...ANSWERS, business_name: 'Kiln & Co' });
+    seedApplication(marketId, 'sana@loom.test', { ...ANSWERS, business_name: 'Loom & Co' });
+    const monitor = new ApplicationMonitorPage(page);
+    await monitor.goto(marketId);
+    await monitor.waitForLoaded();
+    await expect(monitor.email).toBeVisible({ timeout: 15000 });
+    return monitor;
+  }
+
+  test('it opens over the card, which does not move, with one Done and no Cancel', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const monitor = await aQueue(request, page);
+    await expect(monitor.chooseHighlightsButton).toHaveText('Choose what leads the card');
+    await expect(monitor.chooseHighlightsButton).not.toHaveAttribute('aria-expanded');
+    const approve = await monitor.approveButton.boundingBox();
+
+    await monitor.openChooseHighlights();
+
+    await expect(monitor.chooseHighlightsDialog).toHaveAttribute(
+      'aria-label',
+      'Choose what leads the card',
+    );
+    await expect(page.getByTestId('choose-highlights-cancel-button')).toHaveCount(0);
+    await expect(monitor.chooseHighlightsDialog.locator('footer button')).toHaveText(['Done']);
+    // The first tick has the keyboard, and the card behind has not moved.
+    await expect(
+      page.getByTestId('review-highlights').locator('input[type="checkbox"]').first(),
+    ).toBeFocused();
+    expect(await monitor.approveButton.boundingBox()).toEqual(approve);
+  });
+
+  test('in a short window the ticks scroll under a title and a Done that stay', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const monitor = await aQueue(request, page);
+    await page.setViewportSize({ width: 1280, height: 420 });
+    await monitor.openChooseHighlights();
+
+    const body = page.getByTestId('choose-highlights-body');
+    const title = monitor.chooseHighlightsDialog.getByRole('heading', { level: 2 });
+    const titleAt = await title.boundingBox();
+    await expect(page.getByTestId('choose-highlights-shade-bottom')).toBeVisible();
+
+    await body.hover();
+    await page.mouse.wheel(0, 2000);
+    await expect(page.getByTestId('choose-highlights-shade-bottom')).toHaveCount(0);
+    await expect(page.getByTestId('choose-highlights-shade-top')).toBeVisible();
+
+    expect(await title.boundingBox()).toEqual(titleAt);
+    const done = (await monitor.chooseHighlightsDone.boundingBox())!;
+    expect(done.y + done.height).toBeLessThanOrEqual(420);
+  });
+
+  test('A, R, S, N and Z do nothing to the card, from a tick or from Done', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const monitor = await aQueue(request, page);
+    // A verdict first, so Z has one to undo.
+    await monitor.approveButton.click();
+    await expect(monitor.undoLine).toBeVisible();
+    await expect(monitor.approveButton).toBeEnabled();
+    const up = ((await monitor.email.textContent()) ?? '').trim();
+
+    // A verdict, an undo, a follow-up or a hand-out; a key may renew the claim, which moves nothing.
+    const moved: string[] = [];
+    page.on('request', (sent) => {
+      if (/\/review(\/next|\/undo)?$|\/verdicts|\/follow-up/.test(new URL(sent.url()).pathname)) {
+        moved.push(sent.url());
+      }
+    });
+
+    await monitor.openChooseHighlights();
+    for (const focused of [
+      page.getByTestId('review-highlights').locator('input[type="checkbox"]').first(),
+      monitor.chooseHighlightsDone,
+    ]) {
+      await focused.focus();
+      for (const key of ['a', 'r', 's', 'n', 'z']) await page.keyboard.press(key);
+    }
+    await settle(page);
+
+    expect(moved).toEqual([]);
+    await expect(monitor.chooseHighlightsDialog).toBeVisible();
+    await expect(page.getByTestId('follow-up-window')).toHaveCount(0);
+
+    await monitor.chooseHighlightsDone.click();
+    await expect(monitor.chooseHighlightsDialog).toHaveCount(0);
+    await expect(monitor.email).toHaveText(up);
+    await expect(monitor.undoLine).toBeVisible();
+
+    // And it was the dialog that held them: with it closed, the same key is a verdict.
+    await page.keyboard.press('a');
+    await expect(monitor.email).not.toHaveText(up);
+  });
+
+  test('Done, the close, Escape and the backdrop each give focus back, the same card up', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const monitor = await aQueue(request, page);
+    const up = ((await monitor.email.textContent()) ?? '').trim();
+    const ways: [string, () => Promise<void>][] = [
+      ['Done', () => monitor.chooseHighlightsDone.click()],
+      ['the close', () => page.getByTestId('choose-highlights-close-button').click()],
+      ['Escape', () => page.keyboard.press('Escape')],
+      [
+        'the backdrop',
+        () => page.getByTestId('choose-highlights-background').click({ position: { x: 4, y: 4 } }),
+      ],
+    ];
+    for (const [how, close] of ways) {
+      await monitor.openChooseHighlights();
+      await close();
+      await expect(monitor.chooseHighlightsDialog, how).toHaveCount(0);
+      await expect(monitor.chooseHighlightsButton, how).toBeFocused();
+      await expect(monitor.email, how).toHaveText(up);
+    }
+  });
+
+  test('a tick that cannot be saved is said in the dialog, and taken back', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const monitor = await aQueue(request, page);
+    await page.route('**/review-highlights', (route) =>
+      route.request().method() === 'PUT'
+        ? route.fulfill({ status: 500, json: { error: 'no' } })
+        : route.continue(),
+    );
+    await monitor.openChooseHighlights();
+
+    const tick = page.getByTestId('review-highlight-instagram').locator('input');
+    await tick.click();
+
+    await expect(page.getByTestId('choose-highlights-error')).toBeVisible();
+    await expect(tick).not.toBeChecked();
+    await expect(monitor.chooseHighlightsDialog).toBeVisible();
+
+    // Read once: the next opening starts clean.
+    await monitor.chooseHighlightsDone.click();
+    await monitor.openChooseHighlights();
+    await expect(page.getByTestId('choose-highlights-error')).toHaveCount(0);
   });
 });
 

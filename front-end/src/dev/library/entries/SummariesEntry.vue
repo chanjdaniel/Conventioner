@@ -77,7 +77,7 @@ const presses = ref(0);
 
   <LibrarySection
     title='L3: "Show N reviewed", on Applications One by one'
-    :about="`Every verdict given unfolds above the card today, ${reviewedApplications.length} rows here. In a dialog the card stays where it is, and the frame finds one. L9, the Discord report's &quot;Show who&quot;, unfolds its vendors the same way and would take the same dialog.`"
+    :about="`Every verdict given unfolds above the card today, ${reviewedApplications.length} rows here. In a dialog the card stays where it is, and the frame finds one. L9, the Discord report's &quot;Show who&quot;, opens a dialog too, its vendors in their groups with no frame yet.`"
   >
     <LibraryPanel label="The reviewed list in a dialog" class="library-wide">
       <div class="library-demo">

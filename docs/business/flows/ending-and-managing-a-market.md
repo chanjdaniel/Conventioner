@@ -38,6 +38,7 @@ sources:
   - E38/F15/S01
   - T181
   - T211
+  - T217
   - T204
 ---
 
@@ -139,30 +140,33 @@ Covered by:
 
 **Status:** Works (E39/F01/S04; read from the code and driven by `the-permissions-section.spec.ts`).
 
-1. "Permissions", after "Users with access", is closed until "Show" opens it, and says beneath its heading "Who may do what on this market." with "Every row is at its built-in default." or how many rows differ from the built-in defaults.
-2. Open, it lists every row of [the market's table](../../implementation/modules/market-actions.md#a-markets-own-rows) under its group, in the table's order: its label, where its role came from ("Built-in default", "Copied from the organization" for a row its organization's default set ([B8](organizations.md#b8-set-the-default-permissions-for-new-markets)), or "Changed on this market by <address>, <when>", from the row's newest change), and its role as "Viewer and above", "Editor and above", "Admin and above" or "Owner only".
+1. "Permissions", after "Users with access", is a heading, the line "Who may do what on this market." with "Every row is at its built-in default." or how many rows differ from the built-in defaults, and "Show", which opens the rows in a dialog of their own over Manage market, so reading them never grows it (T217).
+2. The dialog, "Permissions", is at most 80% of the window at a desk, and the window less the gutter on a phone or in a short window; its title stays as its rows and changes scroll, and it lists every row of [the market's table](../../implementation/modules/market-actions.md#a-markets-own-rows) under its group, in the table's order: its label, where its role came from ("Built-in default", "Copied from the organization" for a row its organization's default set ([B8](organizations.md#b8-set-the-default-permissions-for-new-markets)), or "Changed on this market by <address>, <when>", from the row's newest change), and its role as "Viewer and above", "Editor and above", "Admin and above" or "Owner only".
    A group's title sits nearer its own rows than the group above, at a desk and on a phone (T211), and Manage organization's default permissions read the same.
 3. For the owner each row that is not fixed is a dropdown of those four, named by the row's label, whose arrow keys open its list rather than step it, since each step would be a change to confirm; a fixed row ("Read the market...", "Give and take Admin roles", "Delete the market", "Change this table") states its role with "Always" and no control.
    "Give and take Editor and Viewer roles" says beside it that at "Viewer and above" any Viewer can make themself an Editor, since one row asks for both the role given and the role taken.
 4. Choosing a role asks first, in words naming who may after it and who loses or gains it ("Let only Admins and the owner check vendors in at this market?", "Editors lose this."), and for that row lowered to Viewer adds "A Viewer could then make themself an Editor."; "Change" saves that row alone, Cancel puts the dropdown back, and a refusal is said in the confirmation.
-5. "Reset to built-in defaults" lists each row it returns, from its role now to its default, opens on Cancel since it throws away every row the owner set, and resets them all in one write, recorded as one change; it is disabled while every row is at its default, so after a reset focus goes to the section's toggle rather than back to it.
+5. "Reset to built-in defaults" lists each row it returns, from its role now to its default, opens on Cancel since it throws away every row the owner set, and resets them all in one write, recorded as one change; it is disabled while every row is at its default, so after a reset focus goes to the dialog's first control rather than back to it.
 6. "Copy the organization's defaults again", beside it for the owner of a market that belongs to an organization, asks first ("Copy the organization's defaults again?", saying every row takes the organization's default as it is now, a row it does not set returns to its built-in default, and rows changed on this market are replaced), opens on Cancel, and copies them in one write, recorded as one change; each copied row then says "Copied from the organization".
 7. "Changes" lists the market's history narrowed to the table, newest first, ten at a time with "Load more" as the market's History pages: the row, its role before and after ("Editor to Admin"), or "Reset to built-in defaults" or "Copied the organization's defaults" with each row it changed, and who made it and when, by their address, as "Users with access" names people.
    It is the market's history, so someone the row "Read the market's history" refuses (an owner may raise it above the roles that see this section) has no "Changes", and a row changed on this market says only "Changed on this market".
-8. For anyone but the owner the section is read-only and says "Only the market's owner changes these."; on an archived market, the owner included, it says the archived words instead.
+8. For anyone but the owner the dialog is read-only and says "Only the market's owner changes these."; on an archived market, the owner included, it says the archived words instead.
+   A reader gets no foot, and with no control in the dialog focus lands on its body at each opening, so the arrow keys scroll the rows; the changes are read afresh each time, so "Load more" comes after focus has landed.
+9. Reset and Copy are pinned at the dialog's foot for the owner, in reach from any row, and a change, a reset or a copy asks first over the dialog: Cancel, Escape and the backdrop close only the confirmation, and a confirm writes once and leaves the dialog open with the table and the changes read again.
+   Closing the dialog, whichever way, gives focus back to "Show", with Manage market as it was.
 
 Beneath Permissions, "History", closed until opened, lists every change on the market, newest first, for whoever may read the market's history: [L6](reading-the-markets-history.md#l6-read-the-markets-history).
 
-A change reaches every screen at its next read of the market: the section shows the table the write answers, and the market open in the store, when it is this one, is re-read, as a rename re-reads it.
-The section is [`MarketPermissions.vue`](../../../front-end/src/components/MarketPermissions.vue), its rows and its changes the shared [`PermissionRows.vue`](../../../front-end/src/components/PermissionRows.vue) and [`PermissionChanges.vue`](../../../front-end/src/components/PermissionChanges.vue) that Manage organization's default permissions show too, its three confirmations teleported beside Manage market as a dialog opened from a dialog is ([dialogs](../../implementation/conventions/dialogs.md)); the words are [`front-end/src/utils/permissionTable.ts`](../../../front-end/src/utils/permissionTable.ts)'s, and the server keeps the table and its changes structured.
+A change reaches every screen at its next read of the market: the dialog and the section's line show the table the write answers, and the market open in the store, when it is this one, is re-read, as a rename re-reads it.
+The section and its dialog are [`MarketPermissions.vue`](../../../front-end/src/components/MarketPermissions.vue), its rows and its changes the shared [`PermissionRows.vue`](../../../front-end/src/components/PermissionRows.vue) and [`PermissionChanges.vue`](../../../front-end/src/components/PermissionChanges.vue) that Manage organization's default permissions show too, the dialog and its three confirmations teleported beside Manage market as a dialog opened from a dialog is ([dialogs](../../implementation/conventions/dialogs.md)); the words are [`front-end/src/utils/permissionTable.ts`](../../../front-end/src/utils/permissionTable.ts)'s, and the server keeps the table and its changes structured.
 Covered by:
-- `*-sweep.spec.ts`, which walk the section open
-- `every-control-is-named.spec.ts`, which walks the section open
+- `*-sweep.spec.ts`, which walk the dialog open
+- `every-control-is-named.spec.ts`, which walks the dialog open
 - `manageIsOfferedToWhoeverReads.test.ts`
 - `marketPermissions.test.ts`
 - `permissionTable.test.ts`
 - `the-organizations-default.spec.ts` for the copy again
-- [`the-permissions-section.spec.ts`](../../../front-end/e2e/the-permissions-section.spec.ts) (a group's title nearer its rows than the group above, at 1280 and 390)
+- [`the-permissions-section.spec.ts`](../../../front-end/e2e/the-permissions-section.spec.ts) (a group's title nearer its rows than the group above, at 1280 and 390; the dialog's height, its confirmations, focus and Manage market's scroll on closing, and a reader's keys)
 
 ## L4. Rename a market
 
