@@ -261,9 +261,10 @@ test.describe('Applications All', () => {
         await all.find.fill('copperfen');
         await all.exportButton.click();
         await expect(dialog.window).toBeVisible();
-        await expect(page.getByTestId('vendor-export-search')).toHaveValue('copperfen');
-        await expect(dialog.status('open')).toBeChecked();
         await expect(dialog.summary).toHaveText('11 vendors, 3 columns');
+        await dialog.showFilters();
+        await expect(dialog.search).toHaveValue('copperfen');
+        await expect(dialog.status('open')).toHaveAttribute('aria-pressed', 'true');
         await page.keyboard.press('Escape');
         await expect(dialog.window).toBeHidden();
         await all.find.fill('');
@@ -351,8 +352,9 @@ test.describe('Vendors', () => {
         // Export opens on the words, as it did when they lived in the page.
         await vendors.exportButton.click();
         await expect(dialog.window).toBeVisible();
-        await expect(page.getByTestId('vendor-export-search')).toHaveValue(family);
         await expect(dialog.summary).toContainText('12 vendors');
+        await dialog.showFilters();
+        await expect(dialog.search).toHaveValue(family);
         await page.keyboard.press('Escape');
         await expect(dialog.window).toBeHidden();
 
@@ -365,8 +367,9 @@ test.describe('Vendors', () => {
           goesBy.preferredName!,
         );
         await vendors.exportButton.click();
-        await expect(page.getByTestId('vendor-export-search')).toHaveValue(legalFamily);
         await expect(dialog.summary).toContainText('12 vendors');
+        await dialog.showFilters();
+        await expect(dialog.search).toHaveValue(legalFamily);
         await page.keyboard.press('Escape');
         await expect(dialog.window).toBeHidden();
         await vendors.searchInput.fill(family);
