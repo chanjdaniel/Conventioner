@@ -95,13 +95,57 @@ eachWindow('the proposals entry', (size) => {
     await expect(page.getByTestId('phase-badge')).toHaveCount(3);
   });
 
+  test('prints the table of 30 whole on a Letter page, with nothing clipped', async ({ page }) => {
+    // A Letter page's width, less half an inch each side.
+    await page.setViewportSize({ width: 720, height: 1056 });
+    await expect(page.getByTestId('library-table-row')).toHaveCount(30);
+
+    await page.emulateMedia({ media: 'print' });
+
+    const scroller = page.getByTestId('library-table-scroll');
+    await expect(scroller.locator('..'), 'its root, which clips on a screen').toHaveCSS(
+      'overflow-x',
+      'visible',
+    );
+    await expect(scroller).toHaveCSS('overflow-x', 'visible');
+    const last = (await page.getByRole('columnheader', { name: 'Reviewer' }).boundingBox())!;
+    expect(last.x + last.width, 'the last column ends on the page').toBeLessThanOrEqual(720);
+
+    // Each word on one line, up to a hyphen, and each piece of an address, which is its own text.
+    const split = await scroller.locator('th, td').evaluateAll((cells) =>
+      cells.flatMap((cell) => {
+        const texts = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+        const words: string[] = [];
+        while (texts.nextNode()) {
+          const text = texts.currentNode as Text;
+          for (const word of text.data.matchAll(/[^\s-]+/g)) {
+            const range = document.createRange();
+            range.setStart(text, word.index);
+            range.setEnd(text, word.index + word[0].length);
+            const tops = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
+            if (tops.size > 1) words.push(word[0]);
+          }
+        }
+        return words;
+      }),
+    );
+    expect(split, 'the words split across lines').toEqual([]);
+  });
+
   test('scrolls the table of 30 inside its scroller, its corners kept, the page still', async ({
     page,
   }) => {
     await expect(page.getByTestId('library-table-row')).toHaveCount(30);
 
     const scroller = page.getByTestId('library-table-scroll');
-    await expect(scroller).toHaveCSS('border-top-left-radius', '6px');
+    const corners = scroller.locator('..');
+    await expect(corners).toHaveCSS('border-top-left-radius', '6px');
+    await expect(corners, 'it clips the table and the shades to them').toHaveCSS(
+      'overflow-x',
+      'hidden',
+    );
+    await expect(page.getByTestId('library-table-scroll-shade-right')).toBeVisible();
+    await expect(page.getByTestId('library-table-scroll-shade-left')).toHaveCount(0);
 
     const sizes = await scroller.evaluate((element) => ({
       scroll: element.scrollWidth,
@@ -113,11 +157,15 @@ eachWindow('the proposals entry', (size) => {
     await expect
       .poll(() => scroller.evaluate((element) => element.scrollLeft), 'the table scrolled')
       .toBe(200);
+    await expect(page.getByTestId('library-table-scroll-shade-left')).toBeVisible();
     await expectFits(page, 'the page, with the table scrolled');
   });
 
   test('a keyboard reaches the table and scrolls it', async ({ page }) => {
     const scroller = page.getByTestId('library-table-scroll');
+    await expect(scroller).toHaveRole('region');
+    await expect(scroller).toHaveAccessibleName('30 applications');
+    await expect(scroller).toHaveAttribute('tabindex', '0');
     await scroller.focus();
     await expect(scroller).toBeFocused();
     await page.keyboard.press('ArrowRight');
@@ -131,6 +179,8 @@ eachWindow('the proposals entry', (size) => {
       client: element.clientWidth,
     }));
     expect(sizes.scroll).toBeLessThanOrEqual(sizes.client);
+    await expect(page.getByTestId('library-table-wrapped-scroll-shade-right')).toHaveCount(0);
+    await expect(scroller, 'nothing to scroll, so no stop').not.toHaveAttribute('tabindex', /.*/);
   });
 
   test('opens the panel, and closes it by Escape, giving focus back', async ({
@@ -172,8 +222,12 @@ eachWindow('the proposals entry', (size) => {
     const body = page.getByTestId('library-side-panel-body');
     const overflow = await body.evaluate((element) => element.scrollHeight - element.clientHeight);
     expect(overflow, 'the body is longer than the panel').toBeGreaterThan(0);
+    await expect(page.getByTestId('library-side-panel-shade-bottom')).toBeVisible();
+    await expect(page.getByTestId('library-side-panel-shade-top')).toHaveCount(0);
 
     await body.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
+    await expect(page.getByTestId('library-side-panel-shade-bottom')).toHaveCount(0);
+    await expect(page.getByTestId('library-side-panel-shade-top')).toBeVisible();
     await expectInside(closeButton(page), 'the close button');
     await expectInside(page.getByTestId('library-side-panel-title'), 'the title');
     await expect(page.getByTestId('library-panel-other').last()).toBeInViewport();

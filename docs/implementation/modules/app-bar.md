@@ -78,7 +78,7 @@ On a phone its words stand at the phone's 16px gutter, on the logo's left edge.
 It holds the same things as the desk's bar, in 44px rows: Markets and Organizations in a `nav` named "Main", a line, the address in `--mm-text-muted`, then Change password and Sign out.
 The current row is `--mm-green`, semibold, with a 3px bar at its left edge, and carries `aria-current="page"`; a row's words stand on the logo's left edge, at 16px.
 A long address wraps whole, since a `title` is no use to a thumb, and the row grows with it.
-Taller than the window, the sheet scrolls within itself.
+Taller than the window, the sheet scrolls within itself, in a [`ScrollBox`](../../design-system.md#the-primitive-layer) that shades the edge with more beyond it.
 
 **It behaves as a modal, without being a dialog.**
 It is a list of places and not a form in a window, so it is not an `AppDialog`, but it keeps a modal's contract ([dialogs](../conventions/dialogs.md)): `useInertBehind` holds the page out, the logo with it, with the sheet, the scrim and the menu button as its parts, since the button is how it closes; focus moves to its first row on opening; Escape, a press on the scrim and the button close it and return focus to the button (`useEscapeToClose`, `useFocusGoesBack`).

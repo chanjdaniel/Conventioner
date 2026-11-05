@@ -22,6 +22,7 @@ import type {
   TierPrice,
 } from '@/assets/types/datatypes';
 import ChoiceConditions from '@/components/application/ChoiceConditions.vue';
+import ScrollBox from '@/components/ScrollBox.vue';
 import { brokenCondition } from '@/utils/choiceConditions';
 import {
   CURRENCIES,
@@ -307,7 +308,12 @@ onBeforeUnmount(() => {
       <!-- Grouped, the table takes the card's width: each group's conditions sit beside its
            prices, in the column that grows, rather than under them with the card's right half
            empty. A table too wide for a narrow card scrolls inside it. -->
-      <div class="pricing-frame" :class="{ 'pricing-frame--grouped': groups.length }">
+      <ScrollBox
+        class="pricing-frame"
+        :class="{ 'pricing-frame--grouped': groups.length }"
+        axis="x"
+        testid="pricing-frame"
+      >
         <table class="pricing-table" data-testid="pricing-table">
           <caption class="pricing-caption">
             A full table for one market day, in
@@ -442,7 +448,7 @@ onBeforeUnmount(() => {
             </tr>
           </tbody>
         </table>
-      </div>
+      </ScrollBox>
       <button
         v-if="!fixed && questions.length"
         type="button"
@@ -577,7 +583,6 @@ onBeforeUnmount(() => {
 .pricing-frame {
   align-self: flex-start;
   max-width: 100%;
-  overflow-x: auto;
 }
 
 .pricing-frame--grouped {

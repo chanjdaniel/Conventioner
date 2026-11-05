@@ -94,4 +94,16 @@ const body = computed(() => {
     position: static;
   }
 }
+
+/* The side list has no use on paper, and would take a third of the page from what prints. */
+@media print {
+  .library {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0;
+  }
+
+  .library__nav {
+    display: none;
+  }
+}
 </style>

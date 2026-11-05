@@ -25,7 +25,8 @@ vi.mock('@/utils/api', async (importOriginal) => {
   // A hand-out answers the application asked for by name, else the first still to decide.
   const post = async (url: string, body: { want?: string | null }) => {
     if (!url.endsWith('/review/next')) return { data: {} };
-    handedOut(body.want ?? null);
+    const named = await handedOut(body.want ?? null);
+    if (named) return { data: { application: named } };
     const apps: Application[] = await fetchMarketApplications('m1');
     const wanted = body.want ? apps.find((app) => app.id === body.want) : undefined;
     const handed =
@@ -166,6 +167,248 @@ describe('one by one', () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key }));
     await flushPromises();
   };
+
+  describe('a key pressed while the next card is still being handed out', () => {
+    /** Hold the hand-outs from here on, until `release` answers them, with `answer` if given. */
+    function holdHandOuts(answer?: Application) {
+      let release = () => {};
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      handedOut.mockImplementation(async () => {
+        await held;
+        return answer;
+      });
+      return release;
+    }
+    /** Hold each hand-out from here on with its own promise: `release(n)` answers the nth. */
+    function holdEachHandOut() {
+      const answers: Array<() => void> = [];
+      handedOut.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            answers.push(resolve);
+          }),
+      );
+      return async (n: number) => {
+        answers[n]!();
+        await flushPromises();
+      };
+    }
+    let up: Awaited<ReturnType<typeof monitor>> | undefined;
+    const opened = async () => (up = await monitor());
+    // Unmounted here, so a failed test's window listener cannot press keys in the next.
+    afterEach(() => up?.unmount());
+    const verdictsOn = () =>
+      reviewApplication.mock.calls.map(([, app, status]) => [(app as Application).id, status]);
+
+    it('lands on the card it was pressed on, once that card is handed out', async () => {
+      const wrapper = await opened();
+      const release = holdHandOuts();
+
+      await press('a');
+      expect(wrapper.get('[data-testid="app-monitor-email"]').text()).toBe('kim@example.com');
+      await press('r');
+      expect(verdictsOn()).toEqual([['jane', ApplicationStatus.ReviewerApproved]]);
+
+      release();
+      await flushPromises();
+      expect(verdictsOn()).toEqual([
+        ['jane', ApplicationStatus.ReviewerApproved],
+        ['kim', ApplicationStatus.ReviewerRejected],
+      ]);
+      expect(wrapper.get('[data-testid="app-monitor-undo"]').text()).toContain(
+        'Rejected kim@example.com',
+      );
+      expect(wrapper.text()).not.toContain('did not count');
+    });
+
+    it('says the key did not count when another card is handed out, and decides neither', async () => {
+      const wrapper = await opened();
+      const release = holdHandOuts(application('lee', ApplicationStatus.Open));
+
+      await press('a');
+      await press('r');
+      release();
+      await flushPromises();
+
+      expect(verdictsOn()).toEqual([['jane', ApplicationStatus.ReviewerApproved]]);
+      expect(wrapper.get('[data-testid="app-monitor-email"]').text()).toBe('lee@example.com');
+      expect(wrapper.text()).toContain('That key did not count');
+
+      // Moving on leaves the words behind: they were about the card the key was pressed on.
+      handedOut.mockImplementation(async () => undefined);
+      await press('n');
+      expect(wrapper.text()).not.toContain('That key did not count');
+    });
+
+    it('says the key did not count when the hand-out fails, keeping why', async () => {
+      const wrapper = await opened();
+      let refuse: (reason: Error) => void = () => {};
+      handedOut.mockImplementation(
+        () =>
+          new Promise((_, reject) => {
+            refuse = reject;
+          }),
+      );
+
+      await press('a');
+      await press('r');
+      refuse(new Error('down'));
+      await flushPromises();
+
+      expect(verdictsOn()).toEqual([['jane', ApplicationStatus.ReviewerApproved]]);
+      expect(wrapper.text()).toContain('Could not open the next application.');
+      expect(wrapper.text()).toContain('That key did not count');
+    });
+
+    it('asks for no second press when no card is handed out', async () => {
+      const wrapper = await opened();
+      const release = holdHandOuts();
+
+      await press('a');
+      await press('r');
+      const decided = application('kim', ApplicationStatus.ReviewerApproved);
+      fetchMarketApplications.mockImplementation(async () => [decided]);
+      release();
+      await flushPromises();
+
+      expect(verdictsOn()).toEqual([['jane', ApplicationStatus.ReviewerApproved]]);
+      expect(wrapper.find('[data-testid="app-monitor-card"]').exists()).toBe(false);
+      expect(wrapper.text()).toContain('That key did not count.');
+      expect(wrapper.text()).not.toContain('Press it again');
+    });
+
+    it('takes the last key pressed, if the reviewer changes their mind', async () => {
+      await opened();
+      const release = holdHandOuts();
+
+      await press('a');
+      await press('r');
+      await press('a');
+      release();
+      await flushPromises();
+
+      expect(verdictsOn()).toEqual([
+        ['jane', ApplicationStatus.ReviewerApproved],
+        ['kim', ApplicationStatus.ReviewerApproved],
+      ]);
+    });
+
+    it('holds no key that repeats, so a long press decides one card', async () => {
+      const wrapper = await opened();
+      const release = holdHandOuts();
+
+      await press('a');
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', repeat: true }));
+      release();
+      await flushPromises();
+
+      expect(verdictsOn()).toEqual([['jane', ApplicationStatus.ReviewerApproved]]);
+      expect(wrapper.text()).not.toContain('did not count');
+    });
+
+    it('lets the key go when the reviewer presses N past that card', async () => {
+      const wrapper = await opened();
+      const release = holdEachHandOut();
+
+      await press('a');
+      expect(wrapper.get('[data-testid="app-monitor-email"]').text()).toBe('kim@example.com');
+      await press('r');
+      await press('n');
+      await release(0);
+      await release(1);
+
+      expect(verdictsOn()).toEqual([['jane', ApplicationStatus.ReviewerApproved]]);
+      expect(wrapper.text()).not.toContain('did not count');
+    });
+
+    it('lets a held Z go when the reviewer presses N, leaving the undo on offer', async () => {
+      const wrapper = await opened();
+      const release = holdEachHandOut();
+
+      await press('a');
+      await press('z');
+      await press('n');
+      await release(0);
+      await release(1);
+
+      expect(undoVerdict).not.toHaveBeenCalled();
+      expect(wrapper.get('[data-testid="app-monitor-undo"]').text()).toContain(
+        'Approved Jane Doe (jane@example.com).',
+      );
+      expect(wrapper.text()).not.toContain('did not count');
+    });
+
+    it('writes no verdict on a card a newer hand-out has overtaken', async () => {
+      const read = fetchMarketApplications.getMockImplementation()!;
+      fetchMarketApplications.mockImplementation(async () => [
+        ...(await read()),
+        application('fay', ApplicationStatus.NeedsFollowUp),
+      ]);
+      const wrapper = await opened();
+      const release = holdEachHandOut();
+
+      await press('a');
+      await press('r');
+      await wrapper.get('[data-testid="app-monitor-include-follow-ups"]').setValue(true);
+      await release(0);
+
+      expect(verdictsOn()).toEqual([['jane', ApplicationStatus.ReviewerApproved]]);
+      expect(wrapper.text()).toContain('That key did not count');
+
+      await release(1);
+      expect(verdictsOn()).toEqual([['jane', ApplicationStatus.ReviewerApproved]]);
+    });
+
+    it('decides no next card on a long press, once the hand-out has answered', async () => {
+      await opened();
+
+      await press('a');
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', repeat: true }));
+      await flushPromises();
+
+      expect(verdictsOn()).toEqual([['jane', ApplicationStatus.ReviewerApproved]]);
+    });
+
+    it('undoes by Z once the hand-out answers', async () => {
+      const wrapper = await opened();
+      const release = holdHandOuts();
+
+      await press('a');
+      await press('z');
+      expect(undoVerdict).not.toHaveBeenCalled();
+
+      handedOut.mockImplementation(async () => undefined);
+      release();
+      await flushPromises();
+
+      expect(undoVerdict).toHaveBeenCalledTimes(1);
+      expect(wrapper.get('[data-testid="app-monitor-email"]').text()).toBe('jane@example.com');
+    });
+
+    it('carries no key pressed on the card whose verdict is being written', async () => {
+      const wrapper = await opened();
+      let answer = () => {};
+      const written = new Promise<void>((resolve) => {
+        answer = resolve;
+      });
+      const write = reviewApplication.getMockImplementation()!;
+      reviewApplication.mockImplementation(async (...args: unknown[]) => {
+        await written;
+        return write(...args);
+      });
+
+      await press('a');
+      await press('a');
+      await press('r');
+      answer();
+      await flushPromises();
+
+      expect(verdictsOn()).toEqual([['jane', ApplicationStatus.ReviewerApproved]]);
+      expect(wrapper.text()).not.toContain('did not count');
+    });
+  });
 
   it('names the applicant on the card, then their address', async () => {
     const wrapper = await monitor();

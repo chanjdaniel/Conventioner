@@ -19,6 +19,8 @@ export class AttendanceStatusPage {
   readonly doorCodeButton: Locator;
   /** The door code's full-screen view, and what it shows. */
   readonly doorCode: Locator;
+  readonly doorCodeScroller: Locator;
+  readonly doorCodeMade: Locator;
   readonly doorCodeMarket: Locator;
   readonly doorCodeValue: Locator;
   /** "Scan with your phone's camera to check in". */
@@ -43,6 +45,8 @@ export class AttendanceStatusPage {
     this.undos = page.getByTestId('attendance-undo');
     this.doorCodeButton = page.getByTestId('attendance-door-code');
     this.doorCode = page.getByTestId('door-code');
+    this.doorCodeScroller = page.getByTestId('door-code-scroll');
+    this.doorCodeMade = page.getByTestId('door-code-made');
     this.doorCodeMarket = page.getByTestId('door-code-market');
     this.doorCodeValue = page.getByTestId('door-code-value');
     this.doorCodeInstruction = page.getByTestId('door-code-instruction');
@@ -54,6 +58,10 @@ export class AttendanceStatusPage {
     this.newCodeConfirm = page.getByTestId('door-code-new-confirm-window');
     this.newCodeConfirmButton = page.getByTestId('door-code-new-confirm-submit-button');
     this.newCodeCancel = page.getByTestId('door-code-new-confirm-cancel-button');
+  }
+
+  doorCodeShade(edge: 'top' | 'bottom'): Locator {
+    return this.page.getByTestId(`door-code-scroll-shade-${edge}`);
   }
 
   async goto(marketId: string): Promise<void> {

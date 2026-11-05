@@ -292,6 +292,7 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
       :open="resetConfirming"
       title="Reset every row to its built-in default?"
       testid="manage-market-permissions-reset-confirm"
+      scroll="body"
       destructive
       confirm-label="Reset"
       :error="writeError"

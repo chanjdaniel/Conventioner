@@ -80,3 +80,36 @@ test('an Editor rejects by key, undoes from the line, and finds an earlier verdi
     await expect(review.decidedEmails).toHaveText(['ben@ember.test', 'cleo@fern.test']);
   });
 });
+
+test('a key pressed on the next card before it is handed out lands on that card', async ({
+  browser,
+}) => {
+  seedApplicationWithStatus(marketId, 'open', 'dee@wren.test', {
+    essential_full_name: 'Dee Wren',
+  });
+  await withUser(browser, EDITOR.email, EDITOR.password, async (page) => {
+    const review = new ApplicationMonitorPage(page);
+    await review.goto(marketId);
+    await review.waitForLoaded();
+    await review.advanceTo('ana@thistle.test');
+
+    // The next card shows with the verdict's answer, and the server has yet to hand it over.
+    let handOver = () => {};
+    const held = new Promise<void>((resolve) => {
+      handOver = resolve;
+    });
+    await page.route('**/review/next', async (route) => {
+      await held;
+      await route.continue();
+    });
+
+    await page.keyboard.press('a');
+    await expect(review.undoLine).toContainText('Approved Ana Rivera (ana@thistle.test).');
+    await expect(review.email).toHaveText('dee@wren.test');
+    await page.keyboard.press('r');
+    await expect(review.undoLine).toContainText('Approved Ana Rivera (ana@thistle.test).');
+
+    handOver();
+    await expect(review.undoLine).toContainText('Rejected Dee Wren (dee@wren.test).');
+  });
+});

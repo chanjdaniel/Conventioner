@@ -18,6 +18,7 @@ import { computed, nextTick, onMounted, ref } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
 import EmailAddress from '@/components/EmailAddress.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
+import ScrollBox from '@/components/ScrollBox.vue';
 import { getApiErrorMessage } from '@/utils/api';
 import { doorCodeInWords, makeDoorCode, readDoorCode, type DoorCode } from '@/utils/doorCode';
 import { qrDrawing } from '@/utils/qrDrawing';
@@ -115,84 +116,88 @@ onMounted(async () => {
       :aria-label="`Door code for ${marketName}`"
       data-testid="door-code"
     >
-      <div class="door-code-controls">
-        <button
-          ref="closeButton"
-          type="button"
-          class="btn btn--secondary"
-          data-testid="door-code-close"
-          @click="emit('close')"
-        >
-          Close
-        </button>
-        <span v-if="live" class="door-code-actions">
-          <button
-            ref="printButton"
-            type="button"
-            class="btn btn--secondary"
-            data-testid="door-code-print"
-            @click="print"
-          >
-            Print
-          </button>
-          <button
-            type="button"
-            class="btn btn--secondary"
-            data-testid="door-code-new"
-            @click="confirming = true"
-          >
-            New code
-          </button>
-        </span>
-      </div>
+      <ScrollBox class="door-code-box" testid="door-code-scroll">
+        <div class="door-code-screen">
+          <div class="door-code-controls">
+            <button
+              ref="closeButton"
+              type="button"
+              class="btn btn--secondary"
+              data-testid="door-code-close"
+              @click="emit('close')"
+            >
+              Close
+            </button>
+            <span v-if="live" class="door-code-actions">
+              <button
+                ref="printButton"
+                type="button"
+                class="btn btn--secondary"
+                data-testid="door-code-print"
+                @click="print"
+              >
+                Print
+              </button>
+              <button
+                type="button"
+                class="btn btn--secondary"
+                data-testid="door-code-new"
+                @click="confirming = true"
+              >
+                New code
+              </button>
+            </span>
+          </div>
 
-      <div class="door-code-poster">
-        <h1 class="door-code-market" data-testid="door-code-market">{{ marketName }}</h1>
-        <ReadFailed v-if="readError" name="door-code" :message="readError" @retry="load" />
-        <p v-else-if="!door" class="door-code-note">Loading…</p>
-        <template v-else-if="live && drawing">
-          <svg
-            class="door-code-qr"
-            :viewBox="`0 0 ${drawing.side} ${drawing.side}`"
-            shape-rendering="crispEdges"
-            role="img"
-            aria-label="QR code to check in"
-            :data-url="live.url"
-            data-testid="door-code-qr"
-          >
-            <rect :width="drawing.side" :height="drawing.side" fill="white" />
-            <path :d="drawing.path" fill="black" />
-          </svg>
-          <p class="door-code-value" data-testid="door-code-value">
-            {{ doorCodeInWords(live.code) }}
-          </p>
-          <p class="door-code-instruction" data-testid="door-code-instruction">
-            Scan with your phone's camera to check in
-          </p>
-          <!-- Who made it and when, for whoever stands the screen at the door; not on the poster. -->
-          <p class="door-code-made" data-testid="door-code-made">
-            <EmailAddress :words="`Made ${getFormattedTimestamp(live.madeAt)} by ${madeBy}`" />
-          </p>
-        </template>
-        <template v-else>
-          <p class="door-code-note">
-            This market has no door code yet. Make one, then show it at the entrance or print it as
-            a poster.
-          </p>
-          <button
-            type="button"
-            class="btn btn--primary"
-            :disabled="making"
-            data-testid="door-code-make"
-            @click="makeFirst"
-          >
-            Make a door code
-          </button>
-        </template>
-        <p v-if="makeError && !confirming" class="door-code-error" role="alert">
-          {{ makeError }}
-        </p>
-      </div>
+          <div class="door-code-poster">
+            <h1 class="door-code-market" data-testid="door-code-market">{{ marketName }}</h1>
+            <ReadFailed v-if="readError" name="door-code" :message="readError" @retry="load" />
+            <p v-else-if="!door" class="door-code-note">Loading…</p>
+            <template v-else-if="live && drawing">
+              <svg
+                class="door-code-qr"
+                :viewBox="`0 0 ${drawing.side} ${drawing.side}`"
+                shape-rendering="crispEdges"
+                role="img"
+                aria-label="QR code to check in"
+                :data-url="live.url"
+                data-testid="door-code-qr"
+              >
+                <rect :width="drawing.side" :height="drawing.side" fill="white" />
+                <path :d="drawing.path" fill="black" />
+              </svg>
+              <p class="door-code-value" data-testid="door-code-value">
+                {{ doorCodeInWords(live.code) }}
+              </p>
+              <p class="door-code-instruction" data-testid="door-code-instruction">
+                Scan with your phone's camera to check in
+              </p>
+              <!-- Who made it and when, for whoever stands the screen at the door; not on the poster. -->
+              <p class="door-code-made" data-testid="door-code-made">
+                <EmailAddress :words="`Made ${getFormattedTimestamp(live.madeAt)} by ${madeBy}`" />
+              </p>
+            </template>
+            <template v-else>
+              <p class="door-code-note">
+                This market has no door code yet. Make one, then show it at the entrance or print it
+                as a poster.
+              </p>
+              <button
+                type="button"
+                class="btn btn--primary"
+                :disabled="making"
+                data-testid="door-code-make"
+                @click="makeFirst"
+              >
+                Make a door code
+              </button>
+            </template>
+            <p v-if="makeError && !confirming" class="door-code-error" role="alert">
+              {{ makeError }}
+            </p>
+          </div>
+        </div>
+      </ScrollBox>
     </div>
 
     <AppDialog
@@ -219,11 +224,22 @@ onMounted(async () => {
   z-index: 95;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-6) var(--space-6);
-  overflow-y: auto;
   background: white;
   color: var(--mm-black);
+}
+
+.door-code-box {
+  flex: 1 1 auto;
+}
+
+/* The window's height to the letter, so the QR code below has a height to give way to; what still
+   cannot fit a short window runs past it, and the box scrolls that. */
+.door-code-screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  height: 100dvh;
+  padding: var(--space-4) var(--space-6) var(--space-6);
 }
 
 .door-code-controls {
@@ -246,13 +262,15 @@ onMounted(async () => {
   margin-inline-start: auto;
 }
 
-/* The poster: everything is centred, and the QR code takes whatever height the rest leaves. */
+/* The poster: everything is centred, and the QR code takes whatever height the rest leaves. Safely,
+   since in a window too short for it plain `center` runs it past the top too, where nothing scrolls
+   to, over the controls. */
 .door-code-poster {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: safe center;
   align-items: center;
   gap: var(--space-4);
   text-align: center;
@@ -308,7 +326,7 @@ onMounted(async () => {
 }
 
 @media (width <= 640px) {
-  .door-code {
+  .door-code-screen {
     padding: var(--space-3) var(--space-4) var(--space-4);
   }
 
@@ -327,9 +345,12 @@ onMounted(async () => {
 @media print {
   .door-code {
     position: static;
-    overflow: visible;
-    padding: 0;
     break-inside: avoid;
+  }
+
+  .door-code-screen {
+    height: auto;
+    padding: 0;
   }
 
   .door-code-controls,

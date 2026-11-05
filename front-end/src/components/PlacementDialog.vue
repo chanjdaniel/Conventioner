@@ -362,7 +362,8 @@ function findsToMove(option: PickerOption, words: string): boolean {
     :open="open"
     :title="tableCode"
     testid="placement-dialog"
-    wide
+    size="wide"
+    scroll="body"
     :confirm-label="primaryLabel"
     :confirm-disabled="!primaryEnabled"
     :error="errorMessage"

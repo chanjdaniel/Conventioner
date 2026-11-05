@@ -37,9 +37,11 @@ describes:
   - front-end/src/components/SidePanel.vue
   - front-end/src/components/BarLedger.vue
   - front-end/src/utils/useFold.ts
+  - front-end/e2e/a-focused-button-moves-nothing.spec.ts
   - front-end/src/components/ChoiceField.vue
   - front-end/src/components/application/LongQuestion.vue
-  - front-end/e2e/a-focused-button-moves-nothing.spec.ts
+  - front-end/e2e/no-in-app-scroll-bar.spec.ts
+  - front-end/src/__tests__/everyScrollerIsAScrollBox.test.ts
 verified: 2026-11-05
 sources:
   - wayfinding/claims-and-room/map
@@ -87,13 +89,14 @@ sources:
   - T205
   - T200
   - T211
+  - T204
   - T202
   - T213
-  - T221
-  - T204
   - T209
-  - T223
   - T214
+  - T221
+  - T223
+  - T217
 ---
 
 # Conventioner's design language
@@ -260,6 +263,7 @@ Tables, Vendors and Attendance used to be `--list-max`, so moving between a mark
 A screen that stands in the frame sets no width of its own.
 The market's name is whole wherever it fits beside the tabs, and ellipsed with its full name on hover only where it does not.
 Where the bar is too narrow for the tabs and a readable name beside them (under 59rem, which only the routes that fit a phone reach, below about a 990px window), the name takes its own line and the tabs scroll inside the bar: at 768 the name drew 0px wide and the page scrolled sideways (T142).
+The tabs, the spine and the page row each stand in a `ScrollBox` with `axis="x"`, which is no scroller where its own rule says the strip fits, and the tabs' shade says `tone="dark"` (T217).
 
 **A screen of cards is a two-track grid** (E23/F01/S01, from the-plan-uses-its-space ticket 01).
 It is `.card-grid` in `primitives.css`; a screen reaches for it rather than laying out its own rows.
@@ -328,7 +332,8 @@ One elevation shadow, extracted from the newer screens, where it is already used
 
 **The legacy halo is retired**: `0 0 4px 5px rgba(0,0,0,.25)` and its inset twin. A shadow with no offset has no light source, and a spread larger than its blur is a ring, not a shadow - which is why the older cards read as outlined in grey fog. The inset variant is what makes the setup fields look pressed and skeuomorphic. That rule is elevation's; the focus halo below is a focus indicator, deliberately a flat ring that hugs the control.
 
-**A scrolling body's edge shade** is `--edge-shade` fading to nothing over `--edge-shade-depth` (12px), drawn at a dialog body's top or bottom edge while there is more that way ([dialogs](implementation/conventions/dialogs.md)); its depth is a choice left for Daniel.
+**A scroller's edge shade** is `--edge-shade` fading to nothing over `--edge-shade-depth` (12px, Daniel's choice), drawn by [`ScrollBox`](#the-primitive-layer) at each edge that has more beyond it, so a scroller with no bar still says it scrolls ([dialogs](implementation/conventions/dialogs.md)).
+On the dark ground, where a dark shade is lost, it is `--edge-shade-on-dark`, white at 25%.
 
 ## Colour
 
@@ -505,7 +510,22 @@ A move keeps the focus on the moved row's button, or on its other button once th
 A row takes its container's width, its words wrapping and its buttons never shrinking, so nothing is clipped on the right inside a dialog's scrolling body or tray; its words are the `row` slot's when given.
 No screen mounts it yet: the library's `export-vendors` entry shows it alone and in the export dialog's tray.
 
-A panel that slides in from a side is [`SidePanel.vue`](../front-end/src/components/SidePanel.vue) (T200), a proposal for the vendor drawer: `side` (right or left), `width` (narrow, 20rem, or wide, 30rem, each leaving a gutter of scrim), its title and close pinned and only its body scrolling.
+**No in-app scroller draws a bar, on any browser** (T217): one rule in `base.css` hides it on everything under `body`, and a box that scrolls is a [`ScrollBox`](../front-end/src/components/ScrollBox.vue), whose shades say there is more.
+Two things keep their bars: the page, since `html` is outside the rule and its bar says how long the page is, along with its `scrollbar-gutter`; and a `textarea`, a field with no room for a shade.
+A component writes no `scrollbar-width` or `::-webkit-scrollbar` of its own.
+A rule with `overflow: auto` or `scroll` that never scrolls is deleted rather than wrapped, since it only makes a scroll container that stops a sticky child sticking.
+[`everyScrollerIsAScrollBox.test.ts`](../front-end/src/__tests__/everyScrollerIsAScrollBox.test.ts) fails on `overflow: auto` or `scroll`, or any rule on a bar, in a `.vue` or `.css` file outside `ScrollBox` and `base.css`, but for its named list of what is not yet converted, which only falls; [`no-in-app-scroll-bar.spec.ts`](../front-end/e2e/no-in-app-scroll-bar.spec.ts) launches a browser that draws classic bars, which headless Chromium otherwise hides, opens two dialogs and the vendor drawer, and finds no room given to a bar under `body`, with the page's own still drawn.
+
+A box that scrolls is [`ScrollBox.vue`](../front-end/src/components/ScrollBox.vue) (T217): `axis` (`y`, `x` or `both`), `tone` (`light`, or `dark` on a dark ground), `testid` (`shadeTestid` for the shades' prefix of its own, as a dialog keeps), and `label`, which names the scroller as a region while it scrolls or is a stop, for a table a keyboard scrolls sideways.
+While it overflows with nothing inside it to take focus it carries `tabindex="0"`, since Safari gives a scroller no Tab stop of its own and the bar is gone; otherwise it carries none, since a focusable child already takes the keys.
+`focusable` keeps that stop whatever it holds, for a panel that puts focus on its body as it opens.
+It draws a shade at each edge that has more beyond it, only then, and none in print, where nothing clips, the root's own class included, and a sideways table takes the page's width; a class passed to it lands on its root, which is what a screen sizes and borders, and padding goes in the slot's content, so a shade lies at the box's edge and a control's focus halo has room inside.
+It exposes its `scroller` element for the few screens that move it themselves.
+Sideways, its content is as wide as the box or as what cannot give way, so a table whose cells can wrap fits before it scrolls.
+A strip that scrolls only under its own media or container rule sets `--scroll-box-overflow: visible` on the root where it does not scroll, since there a scroller only clips a child's outer halo, and `inherit` under the rule that lets it, to take the value in `base.css` back.
+Only `axis="x"` reads that property, and it inherits, so a sideways `ScrollBox` nested in such a root takes it too.
+Every dialog scrolls in one ([dialogs](implementation/conventions/dialogs.md)), a long dialog only its body at most 80% of the window's height at a desk, and a short one whole; the library's `components` entry shows each axis and tone.
+A panel that slides in from a side is [`SidePanel.vue`](../front-end/src/components/SidePanel.vue) (T200), a proposal for the vendor drawer: `side` (right or left), `width` (narrow, 20rem, or wide, 30rem, each leaving a gutter of scrim), its title and close pinned and only its body scrolling, a `focusable` `ScrollBox` that takes focus as the panel opens.
 It is modal as a dialog is, through the same composables: Escape and the scrim emit `close`, focus moves in to its body, so the keys scroll the panel and never the page behind, and goes back, and the page is inert.
 A dialog opened from it is mounted beside it, lies over it and takes Escape first.
 No screen mounts it yet: the library's `proposals` entry shows it on a fixture application, with `.chip--small` and `.data-table`.
@@ -521,7 +541,7 @@ The import and the start from a Google Form take their CSV on it, and the floorp
 | `.btn` | `--primary`, `--secondary`, `--destructive`, `--compact` | One standard height (36px) and one compact (28px), and no third, both 44px on a phone. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. `--secondary` with `--destructive` is a row's destructive action, below. |
 | `.field` | `--select`, `--textarea` | Left-aligned always - 18 of 27 controls on Market Setup were centred - but for the sign-in code's field above. `--select` carries `min-width: 0`: a select fills its column and never pushes past it, in Firefox as in Chromium. A column that must fit a select's options sizes its own track. `--select` also draws the one chevron, 13px from the right edge as its text is from the left, with room so a long option ends in an ellipsis before it, muted when disabled: two files, `public/icons/select-chevron.svg` and `select-chevron-disabled.svg`, never a `data:` URI, which the Content-Security-Policy's `img-src 'self' blob:` would refuse once it enforces. Under forced colours it keeps the browser's own arrow. A select's own class may size or place it and never sets `padding`, `background` or `appearance`. `every-select-draws-one-chevron.spec.ts` holds the look on the library's primitives entry and on the screens whose selects once drew their own, and `everySelectWearsThePrimitive.test.ts` holds, from the source, that every `<select>` wears it and that no class of its own draws it, nor any rule of its file that reaches it by `select` or `.field--select`. |
 | `.chip` | `--neutral`, `--positive`, `--attention`, `--informational`, `--destructive`; `--small` | One shape, one size, sentence case. Tint with coloured ink rather than a solid fill: a list of six solid pills competes with the content it labels. The tint is an opaque `--mm-chip-*` ground, so a chip reads the same on beige as on white. A status is a chip; the action beside it is a button. `--small` is a proposal (T200), a size step rather than a tone: the type is already the scale's floor, so it takes the padding in and takes `--radius-control`, and no screen wears it yet. |
-| `.data-table` | `--one-line` | A proposal (T200) for the six tables that each draw their own, and no screen wears it yet: a muted header, a rule between rows and the cells' padding, in a `<table>` whose columns are the screen's own. Inside `.data-table-scroll` it scrolls sideways alone and never moves the page, the scroller keeping the corners; give the scroller `tabindex="0"`, `role="region"` and a name. A cell wraps; `--one-line` keeps each on one line, for a table read across. |
+| `.data-table` | `--one-line` | A proposal (T200) for the six tables that each draw their own, and no screen wears it yet: a muted header, a rule between rows and the cells' padding, in a `<table>` whose columns are the screen's own. In a `ScrollBox` with `axis="x"`, a `label` naming the region and `.data-table-scroll` on its root, it scrolls sideways alone and never moves the page: the root keeps the border, the radius and the corners, and the box is a Tab stop while the table scrolls. A cell wraps; `--one-line` keeps each on one line, for a table read across, and on paper lets them wrap to the page, with each word whole and sizing its column, so a table whose longest words outgrow the paper runs off it. An address drawn by `EmailAddress` stays in its pieces there too. |
 | `.link-alone` | none | A link on a line of its own is a target: a line box `--target-min` tall, 44px on a phone, with no padding, so it still sits on its text. |
 
 **A button or a menu item names its action in sentence case**, as a chip names its status (T181): the phase rail's moves ("Open applications", "Begin assignment", "Publish market"), its More… menu ("Reopen for editing", "Archive market"), "Publish results", and the titles and buttons of the confirmations they open.
@@ -567,8 +587,8 @@ A link's halo appears at once, corners and all: the global `a` rule in `main.css
 The border and the halo hug what they mark: each takes `--radius-control` on any control that sets no radius of its own, through a `:where` rule that a control's own radius outranks, so a text link, a text button and a disclosure's `summary` wear it rounded rather than as a hard rectangle (T140); and a text control is as wide as its words, so what it wears is not the width of the row it sits in ("N more answers", a month's name in the dates card).
 A tab whose underline is a bottom border curls that underline only while it is focused, as the vendor drawer's tabs do.
 What a script focuses and Tab never reaches (`tabindex="-1"`), such as AppDialog's window when no control in it is ready, is not a control and draws nothing, the browser's ring included; a control among them, such as a menu's items, still shows its focus.
-A box that clips what lies past its edge cuts a halo off, so a control that fills such a box wears `--focus-halo-inset`, the same halo drawn inside its edge: a `scroll="body"` dialog's body when the browser makes it a stop, with `--radius-control`, since the dialog's window clips what lies past its edge.
-Every control carries a `scroll-margin` of `--space-2`, so focus that scrolls it into view leaves its halo room inside the scroller, as a dialog's window would otherwise cut off its last control's.
+A box that clips what lies past its edge cuts a halo off, so a control that fills such a box wears `--focus-halo-inset`, the same halo drawn inside its edge: a [`ScrollBox`](#the-primitive-layer) when it is a stop, with `--radius-control`, since it clips what lies past its own edge and a dialog's window what lies past that.
+Every control carries a `scroll-margin` of `--space-2`, so focus that scrolls it into view leaves its halo room inside the scroller, as a `ScrollBox` would otherwise cut off its last control's.
 A scroller the browser makes focusable, such as the export dialog's preview table, is no control to that rule, so it takes the same `scroll-margin` itself.
 A link on a dark ground (the market bar's tabs) takes `--focus-halo-on-dark`, white at 35%, drawn inside the tab where the bar is narrower than the tabs and they scroll sideways on its lower edge (`--focus-halo-on-dark-inset`), since the scroller would clip it; and a component rule that gives a control a resting `box-shadow` outranks the shared rule, so it says `var(--focus-halo), <its shadow>` itself.
 Measured, the green glow is 1.58:1 against white and 1.50:1 against beige, below the 3:1 WCAG asks of a focus indicator by Daniel's choice of look, since 3:1 takes about 77% green on white and 87% on beige, no longer a soft halo; and the dark halo is 3.17:1 on `--mm-black`, raised from the prototype's 28% (2.53:1), which looked the same.
@@ -608,10 +628,12 @@ A convention nothing enforces is how the product got here. Six checks, the first
    On a phone it fails when a market screen pins more than its window's top 150px, naming the screen and the measurement: `pinnedBottom` scrolls the page by a window's height, or to its end, and takes the lowest bottom of the app bar and whatever is `sticky` or `fixed` at its `top`, a dialog, a drawer, a scrim or the app bar's open sheet aside, and the door pinned 409px of 844 until only [the market frame](implementation/modules/market-frame.md#sharp-edges)'s bar pinned there (T142).
    The sweep landed gating a phone target at WCAG 2.5.8's 24px, with about 75 phone controls under 44px (36px buttons and fields, 28px day buttons on phone attendance), and T82 raised them to 44px through the tokens above and the gate with them.
    The noisy kinds (spacing off the scale, uneven gaps, edges 1 to 4px apart, empty bands, truncated names, nested scrollers, small targets on a desktop) are real drift mixed with what is by design, so each test attaches them as a `layout report` and never fails on them; the spacing scale is Stylelint's to hold.
+   `scroller-without-a-shade` is attached the same way until the last scroller is converted: it names what really scrolls, other than the page and a text control, that draws a bar, is not a `ScrollBox`'s own scroller, or is a `ScrollBox` down that also scrolls sideways with no shade to say so, which sees what the source guard cannot, a scroller made by a binding or a script.
    [`e2e/layout-detectors.spec.ts`](../front-end/e2e/layout-detectors.spec.ts) proves each gating detector fires on a fixture of its defect, and that none fires on a page that only looks broken: a stuck bar over scrolled content, screen-reader-only text, an ellipsis with its title, a closed `<details>`, a menu over the page.
    It proves a link in a sentence is exempt as a target and one drawn on a line of its own is not.
    It proves an overlap is measured on the part of each box that shows past its clipping ancestors, so a control scrolled half out of a dialog's body overlaps nothing past that body's edge.
    It proves a text scrolled past its box keeps its own edge for the edge check, so it slips against nothing once it is scrolled.
+   It proves `scroller-without-a-shade` fires on each defect, a bar, a scroller outside a `ScrollBox` and a `ScrollBox` down that scrolls sideways, and on a bare scroller nested inside one, that it is quiet on a `ScrollBox`, the page and a text field, and that it does not gate.
    It proves `pinnedBottom` counts a pinned header and a block pinned under it, and not a block that scrolls away, one that sticks only sideways, or an open drawer or dialog.
    It holds the sweep's phone break to `base.css`'s by rendering sign-in on each side of it: at the widest width the sweep calls a phone, the sign-in button is 44px tall and `--target-min` 44px, and a pixel wider they are 36px and 24px.
    It landed with what it and the newly walked states found fixed: the form's step list hung 8px outside its header, a long web address in an answer ran 108px past a phone, the sign-in and reset fields and their Show buttons were 20px and 15px tall inside their 36px boxes, the standalone back links and the rail's addresses were 18px and 19px tall, and on states the other sweeps had never opened, role badges and "Results Published" on translucent tints, the import's hint on beige, the verification error in raw `red`, an unmarked link in a note, and the start page's coloured words on black.

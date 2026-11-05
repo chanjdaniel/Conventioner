@@ -12,6 +12,7 @@ import { computed, nextTick, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
 import FilterToggles from '@/components/FilterToggles.vue';
 import OrderedList from '@/components/OrderedList.vue';
+import ScrollBox from '@/components/ScrollBox.vue';
 import SearchPicker, { type PickerOption } from '@/components/SearchPicker.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 import { getFormattedDate } from '@/utils/utils';
@@ -378,13 +379,12 @@ function download(): void {
             <p v-if="!vendors.length" class="export-hint" data-testid="library-export-no-vendor">
               No vendor matches these filters.
             </p>
-            <div
+            <ScrollBox
               v-else-if="order.length"
               class="data-table-scroll"
-              role="region"
-              aria-label="The file's first rows"
-              tabindex="0"
-              data-testid="library-export-preview"
+              axis="x"
+              label="The file's first rows"
+              testid="library-export-preview"
             >
               <table class="data-table data-table--one-line export-cart__table">
                 <thead>
@@ -404,7 +404,7 @@ function download(): void {
                   </tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollBox>
           </section>
         </div>
 
@@ -580,11 +580,11 @@ function download(): void {
   text-overflow: ellipsis;
 }
 
-/* Stays at the tray's foot while a long order scrolls it, and covers the tray's bottom padding, which
-   a sticky box stops short of, so no row shows under it. */
+/* Stays at the tray's foot while a long order scrolls it, and at its end covers the tray's bottom
+   padding, so no row shows under it. */
 .export-cart__bar {
   position: sticky;
-  bottom: calc(-1 * var(--space-2));
+  bottom: 0;
   margin-bottom: calc(-1 * var(--space-2));
   padding-bottom: var(--space-2);
   display: flex;

@@ -50,7 +50,7 @@ async function shownCode(door: AttendanceStatusPage): Promise<string> {
 /** Nothing scrolls sideways, every control is a phone's 44px, and the QR code is a square in the
  *  window, as large as what is around it allows. */
 async function expectItFits(page: Page, door: AttendanceStatusPage, phone: boolean) {
-  const { innerWidth, innerHeight, scrollWidth } = await door.doorCode.evaluate((el) => ({
+  const { innerWidth, innerHeight, scrollWidth } = await door.doorCodeScroller.evaluate((el) => ({
     innerWidth: window.innerWidth,
     innerHeight: window.innerHeight,
     scrollWidth: el.scrollWidth,
@@ -204,6 +204,56 @@ test('the poster prints on one page, with nothing of the app on it', async ({ pa
   }
   await page.emulateMedia({ media: 'screen' });
   expect(await shownCode(door)).toBe(code);
+});
+
+test('in a short window it scrolls under a shade, and still prints whole with none', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signIn(page, EDITOR, 1280);
+  const made = await page.request.post(`${APP_API}/markets/${marketId}/door-code`);
+  expect(made.ok(), await made.text()).toBeTruthy();
+  const door = new AttendanceStatusPage(page);
+  await door.goto(marketId);
+  await door.doorCodeButton.click();
+  await shownCode(door);
+  await expect(door.doorCodeScroller, 'it fits a laptop, so it says nothing of more').toBeVisible();
+  await expect(door.doorCodeShade('bottom')).toHaveCount(0);
+
+  await page.setViewportSize({ width: 1280, height: 320 });
+  await expect(door.doorCodeShade('bottom')).toBeVisible();
+  await expect(door.doorCodeShade('top')).toHaveCount(0);
+
+  // The screen's top holds the close, with nothing of the poster riding up over it.
+  await expect(door.doorCodeClose).toBeInViewport({ ratio: 1 });
+  const close = (await door.doorCodeClose.boundingBox())!;
+  const market = (await door.doorCodeMarket.boundingBox())!;
+  expect(market.y, 'the poster starts below the controls').toBeGreaterThanOrEqual(
+    close.y + close.height,
+  );
+
+  // Its foot can be reached, where the shade goes.
+  await door.doorCodeScroller.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+  await expect(door.doorCodeShade('bottom')).toHaveCount(0);
+  await expect(door.doorCodeShade('top')).toBeVisible();
+  // Short of whole by a fraction of a pixel, the scroller's height being rounded.
+  await expect(door.doorCodeMade).toBeInViewport({ ratio: 0.9 });
+
+  // On paper: all of it, on one page, with no shade, however short the window it is printed from.
+  await door.doorCodeScroller.evaluate((el) =>
+    el.scrollTo({ top: (el.scrollHeight - el.clientHeight) / 2 }),
+  );
+  await expect(door.doorCodeShade('bottom')).toBeVisible();
+  await page.emulateMedia({ media: 'print' });
+  await expect(door.doorCodeShade('bottom')).toBeHidden();
+  await expect(door.doorCodeShade('top')).toBeHidden();
+  const qr = (await door.doorCodeQr.boundingBox())!;
+  expect(Math.round(qr.width)).toBe(529);
+  for (const format of ['Letter', 'A4']) {
+    const pdf = (await page.pdf({ format })).toString('latin1');
+    expect(pdf.match(/\/Type\s*\/Page[^s]/g) ?? [], `one ${format} page`).toHaveLength(1);
+  }
+  await page.emulateMedia({ media: 'screen' });
 });
 
 for (const size of SIZES) {

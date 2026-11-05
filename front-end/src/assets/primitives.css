@@ -310,13 +310,13 @@
  * One look for a table whose columns are the screen's own. A primitive rather than a component, for
  * that reason: a screen writes its own `<table>`, wide or not, inside its own scroller.
  *
- * A table too wide for its place scrolls inside `.data-table-scroll` and never moves the page. The
- * scroller wears the border and the radius, and clips the table to them, so the corners stay round
- * at any scroll. Give it `tabindex="0"`, `role="region"` and a name, so the keyboard can scroll it.
+ * A table too wide for its place scrolls inside a `ScrollBox` with `axis="x"`, a `label` naming the
+ * region and this class on its root, and never moves the page. The root wears the border and the
+ * radius, and clips the table and the shades to them, so the corners stay round at any scroll; the
+ * `ScrollBox` is a Tab stop while the table scrolls, so the keyboard can scroll it.
  */
 .data-table-scroll {
-  overflow-x: auto;
-  scroll-margin: var(--space-2);
+  overflow: hidden;
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
 }
@@ -353,6 +353,19 @@
    width. Without it a cell wraps, and the table fits its place until its longest words do not. */
 .data-table--one-line :is(th, td) {
   white-space: nowrap;
+}
+
+/* Paper does not scroll, so a table wraps to the page rather than running off it. A word stays whole
+   and sizes its column, as does each piece of an address drawn by `EmailAddress`, which breaks only
+   before its "@" or a dot. */
+@media print {
+  .data-table :is(th, td) {
+    white-space: normal;
+  }
+
+  .data-table :is(th, td) .email-address {
+    overflow-wrap: normal;
+  }
 }
 
 /* ============================================================================================
@@ -532,11 +545,6 @@ summary:focus-visible,
   box-shadow: var(--focus-halo);
 }
 
-/* A table's scroller clips what it scrolls, and may itself sit in a box that clips an outer halo. */
-.data-table-scroll:focus-visible {
-  box-shadow: var(--focus-halo-inset);
-}
-
 /* Any other keyboard stop: a scroller the browser makes one because nothing inside it takes focus,
    as a table too wide for a phone's dialog does. Fields, buttons and what only a script focuses are
    not its concern, and `:where` keeps this below every rule above. */
@@ -554,7 +562,7 @@ summary:focus-visible,
 }
 
 /* Room around a control when focus scrolls it into view, so the edge of the scroller it sits in
-   does not cut a halo off: a dialog's window brings its last control only just into view. */
+   does not cut a halo off: a `ScrollBox` brings its last control only just into view. */
 :where(a, button, summary, [role='button'], [tabindex]) {
   scroll-margin: var(--space-2);
 }

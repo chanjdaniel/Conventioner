@@ -10,8 +10,8 @@ import { nextTick, onBeforeUnmount, watch } from 'vue';
  * `nextTick` waits for). It is left alone when it has left the page - a deleted row, a navigation -
  * and when something has already put focus somewhere of its own.
  *
- * `AppDialog`, the vendor drawer, the door code's screen and `SidePanel` share it, which is why it is
- * not the dialog's alone.
+ * `AppDialog`, the vendor drawer, the door code's screen, `SidePanel`, the floorplan's save dialog and
+ * the app bar's sheet share it, which is why it is not the dialog's alone.
  *
  * @param isOpen whether the modal is open, as a getter.
  */

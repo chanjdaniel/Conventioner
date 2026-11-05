@@ -187,11 +187,6 @@ const condition = computed(() => {
 .settings-body.settings-body-stacked {
   flex-direction: column;
   gap: 0;
-  /* The review queue grows with the application in front of the organizer, and the reviewed list
-     grows with the market. Without its own scroll the content spilled out past the white panel,
-     where it was unreachable. The other tabs each scroll inside their own card; this one has no
-     card to scroll inside. */
-  overflow-y: auto;
 }
 
 /* The phone's gutter, as the other pages that fit a phone take it (T180). */

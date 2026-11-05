@@ -11,6 +11,7 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import BarLedger from '@/components/BarLedger.vue';
 import RowGroup from '@/components/RowGroup.vue';
+import ScrollBox from '@/components/ScrollBox.vue';
 import { ledgerRows } from '@/utils/barLedger';
 import { getFormattedDate } from '@/utils/utils';
 import type { VendorNames } from '@/utils/vendorIdentity';
@@ -132,20 +133,14 @@ const groupStates = [
       :proposed="`Proposed: the first ${BARS_SHOWN} by count, the rest unfolding in place`"
     >
       <template #today>
-        <div
-          class="library-today-box"
-          role="group"
-          aria-label="Today's bars"
-          tabindex="0"
-          data-testid="library-l11-today-box"
-        >
+        <ScrollBox class="library-today-box" label="Today's bars" testid="library-l11-today-box">
           <BarLedger
             :title="question.label"
             :rows="answers"
             testid="library-l11-today"
             whole="applicants"
           />
-        </div>
+        </ScrollBox>
       </template>
       <template #proposed>
         <BarLedger
@@ -328,12 +323,5 @@ const groupStates = [
 /* Tall enough to see the bars run on, short enough that the page does too. */
 .library-today-box {
   max-height: 32rem;
-  overflow-y: auto;
-  border-radius: var(--radius-card);
-}
-
-/* The box clips an outer halo, so the keyboard's is drawn inside it. */
-.library-today-box:focus-visible {
-  box-shadow: var(--focus-halo-inset);
 }
 </style>

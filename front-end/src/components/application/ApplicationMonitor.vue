@@ -88,6 +88,14 @@ const readAt = ref<number | null>(null);
 const refreshing = ref(false);
 const refreshError = ref('');
 const saving = ref(false);
+/** The application whose verdict or follow-up is being written, until the next card has answered. */
+let deciding: string | null = null;
+/**
+ * A key pressed while `saving`, on a card other than the one being written: the next card shows as
+ * soon as the verdict is answered, before the server has handed it over, so a reviewer can press on
+ * it in that moment. It is played as `saving` ends, and a verdict only on the card it was pressed on.
+ */
+let heldKey: { undo: true } | { status: ApplicationStatus; on: string } | null = null;
 /** Where in the undecided queue the reviewer is. Skipping moves it; a verdict does not. */
 const cursor = ref(0);
 const showDecided = ref(false);
@@ -514,6 +522,7 @@ function isUp(app: Application): boolean {
 async function decide(app: Application, status: ApplicationStatus) {
   if (!props.market || saving.value) return;
   saving.value = true;
+  deciding = app.id;
   errorMessage.value = '';
   const onCard = isUp(app);
   const before = { ...app };
@@ -522,6 +531,7 @@ async function decide(app: Application, status: ApplicationStatus) {
     offerUndo(before, outcome, status);
     await settle(app, outcome, onCard);
   } finally {
+    deciding = null;
     saving.value = false;
   }
 }
@@ -559,10 +569,43 @@ function decideCurrent(status: ApplicationStatus) {
 }
 
 /**
+ * Keep a key pressed while `saving`, the last one winning. A key on the card still being written is
+ * not kept: that card is already being answered, so the key has nothing to wait for and needs no word.
+ */
+function holdKey(key: NonNullable<typeof heldKey>) {
+  if (current.value?.id !== deciding) heldKey = key;
+}
+
+/** The server has answered: do what the held key asked, or say it did not count. */
+watch(saving, (busy) => {
+  const key = heldKey;
+  if (busy || !key) return;
+  heldKey = null;
+  if (!props.visible) return;
+  if ('undo' in key) {
+    if (undoOffered.value && !undoRefusal.value) void undoLast();
+    return;
+  }
+  const app = current.value;
+  // Held for the reviewer is what makes it handed over: a hand-out overtaken ends `saving` with the
+  // newer one still out, and the card up then is only the queue's guess, which may be someone else's.
+  const handedOver = app?.id === key.on && claims.held.value === key.on;
+  if (!errorMessage.value && handedOver && decidesCurrent.value && !followUpOpen.value) {
+    void decide(app, key.status);
+    return;
+  }
+  const again = app ? ' Press it again on this card.' : '';
+  errorMessage.value = `${errorMessage.value} That key did not count.${again}`.trim();
+});
+
+/**
  * On to the next card without a verdict: it stays in the queue, so the count of work left does not
  * lie. Skip did this and recorded nothing; marking a follow-up is S now, and this is N.
  */
 function next() {
+  // Moving on is the reviewer's last word: a held verdict stays unwritten, and a held Z unplayed,
+  // since it would bring the undone card back over this one. The undo stays on offer on its line.
+  heldKey = null;
   if (refusedOn.value) {
     const after = refusedOn.value;
     refusedOn.value = null;
@@ -571,6 +614,8 @@ function next() {
     return;
   }
   if (undecided.value.length === 0 && !handedNothing.value) return;
+  // What the last card's verdict or hand-out said is not this card's.
+  errorMessage.value = '';
   void takeNext(current.value?.id ?? null);
 }
 
@@ -587,6 +632,7 @@ async function markFollowUp(choice: { ownerEmail: string; note?: string }) {
   if (!app || saving.value) return;
   followUpError.value = '';
   saving.value = true;
+  deciding = app.id;
   const onCard = isUp(app);
   const before = { ...app };
   try {
@@ -604,6 +650,7 @@ async function markFollowUp(choice: { ownerEmail: string; note?: string }) {
     offerUndo(before, outcome, ApplicationStatus.NeedsFollowUp);
     await settle(app, outcome, onCard);
   } finally {
+    deciding = null;
     saving.value = false;
   }
 }
@@ -636,9 +683,12 @@ function onKey(event: KeyboardEvent) {
     return;
   }
   const key = event.key.toLowerCase();
+  // A verdict or an undo is one press: a long press would decide card after card, unseen.
+  if (event.repeat && (key === 'a' || key === 'r' || key === 'z')) return;
   if (key === 'z' && undoOffered.value && !undoRefusal.value) {
     event.preventDefault();
-    void undoLast();
+    if (saving.value) holdKey({ undo: true });
+    else void undoLast();
     return;
   }
   if (!current.value) return;
@@ -649,8 +699,12 @@ function onKey(event: KeyboardEvent) {
   }
   if (!decidesCurrent.value || (key !== 'a' && key !== 'r' && key !== 's')) return;
   event.preventDefault();
-  if (key === 'a') decideCurrent(ApplicationStatus.ReviewerApproved);
-  if (key === 'r') decideCurrent(ApplicationStatus.ReviewerRejected);
+  if (key === 'a' || key === 'r') {
+    const status =
+      key === 'a' ? ApplicationStatus.ReviewerApproved : ApplicationStatus.ReviewerRejected;
+    if (saving.value) holdKey({ status, on: current.value.id });
+    else decideCurrent(status);
+  }
   // S was Skip; it marks the follow-up now, the dialog asking who and what (E34/F02/S01).
   if (key === 's' && current.value.status !== ApplicationStatus.NeedsFollowUp) {
     followUpOpen.value = true;

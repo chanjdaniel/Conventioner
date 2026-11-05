@@ -89,6 +89,7 @@ test.describe('Fixing the form from inside the import', () => {
 
     const dialog = page.getByTestId('amend-form-window');
     await expect(dialog).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('amend-form-body'), 'only its body scrolls').toBeVisible();
 
     // Prefilled from the column that opened it, so the organizer is not retyping their own header.
     await expect(page.getByTestId('amend-form-label-input')).toHaveValue('Our secret handshake');

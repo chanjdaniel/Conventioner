@@ -4,22 +4,22 @@ kind: module
 describes:
   - back-end/api/attendance.py
   - back-end/api/door.py
+  - back-end/api/vendor_check_in.py
+  - back-end/app.py#vendor_check_in
+  - back-end/app.py#vendor_undo_check_in
   - back-end/app.py#get_market_attendance
   - back-end/app.py#_door_write
   - back-end/app.py#organizer_check_in
   - back-end/app.py#organizer_undo_check_in
-  - front-end/src/views/AttendanceStatusView.vue
-  - front-end/src/App.vue#fitsAPhone
-  - front-end/src/utils/fitsAPhone.ts
-  - back-end/api/vendor_check_in.py
-  - back-end/app.py#vendor_check_in
-  - back-end/app.py#vendor_undo_check_in
   - back-end/app.py#get_door_code
   - back-end/app.py#make_door_code
+  - front-end/src/views/AttendanceStatusView.vue
   - front-end/src/components/DoorCodeScreen.vue
   - front-end/src/utils/doorCode.ts
   - front-end/src/utils/qrDrawing.ts
   - front-end/src/components/vendorPage/VendorCheckIn.vue
+  - front-end/src/App.vue#fitsAPhone
+  - front-end/src/utils/fitsAPhone.ts
 verified: 2026-11-04
 sources:
   - wayfinding/real-market-readiness/map
@@ -138,7 +138,7 @@ The QR code is encoded by the `qrcode` package and drawn by the app as one SVG p
 The package loads only with Attendance's chunk, never the entry's ([the bundle budget](../testing/ci-and-the-gate.md#the-bundle-budget)).
 The QR code's box is a square the window's width that gives up height where the rest needs it, and the typed code is the scale's display figure, `--text-2xl`.
 "Print" prints the same poster on one page: the print rules sit in the component's scoped block, since unscoped ones lost to the scoped screen rules and the poster printed as the fixed screen; only the rule that hides the app, a sibling of the screen under `body`, is global.
-[`the-door-code.spec.ts`](../../../front-end/e2e/the-door-code.spec.ts) holds the journey, the fit at 390 and 1280, a 14cm QR code on one Letter and one A4 page, and a Viewer offered nothing and refused the code; the layout sweep walks it before a code, full screen and at its confirmation.
+[`the-door-code.spec.ts`](../../../front-end/e2e/the-door-code.spec.ts) holds the journey, the fit at 390 and 1280, a 14cm QR code on one Letter and one A4 page, a short window where the screen scrolls in a `ScrollBox` from its controls down and prints whole with no shade, and a Viewer offered nothing and refused the code; the layout sweep walks it before a code, full screen and at its confirmation.
 
 **Each check-in and its undo records into [the market's history](../data/history.md)** (`checked_in`, `check_in_undone`, under `check-in`) in `record_attendance` and `undo_attendance`, so both doors record alike, and only when whether the vendor is here changed: the organizer is the actor at theirs, and the vendor's own records no actor beside the vendor it names, with `via: door_code` for a check-in and `via: vendor_page` for an undo; an entry from the old public page keeps `via: check_in_page`, and its readers word all three.
 
