@@ -269,7 +269,7 @@ for (const width of [1280, 390]) {
       Promise.all(
         [...others, manage.historySentences.first()].map((item) =>
           item.evaluate((element) => {
-            const scroller = element.closest('[data-testid="manage-market-window"]');
+            const scroller = element.closest('[data-testid="manage-market-body"]');
             const { x, y, width } = element.getBoundingClientRect();
             return { x, y: y + (scroller?.scrollTop ?? 0), width };
           }),
