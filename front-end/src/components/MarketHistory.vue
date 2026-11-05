@@ -286,7 +286,7 @@ const emptyText = computed(() => {
       <ChoiceField
         v-if="assignment"
         v-model="marketDay"
-        class="history-filter"
+        class="history-filter history-filter--market-day"
         :groups="dayGroups"
         writes
         label="Market day"
@@ -444,6 +444,18 @@ const emptyText = computed(() => {
 /* "Who" in the second column: its list runs left over the first, its right edge on the field's. */
 .history-filters--market-day .history-who :deep(.search-picker-list) {
   left: auto;
+}
+
+/* "Every market day" does not fit half a phone's dialog, so there the day and who each take a row. */
+@media (width <= 640px) {
+  .history-filter--market-day,
+  .history-filters--market-day .history-who {
+    grid-column: 1 / -1;
+  }
+
+  .history-filters--market-day .history-who :deep(.search-picker-list) {
+    width: 100%;
+  }
 }
 
 .history-filter-notes {

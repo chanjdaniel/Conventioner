@@ -119,6 +119,7 @@ Someone below the row is shown no History tab, as no History section.
 "Assignment history" on the Assignments page reads the same history narrowed to the Assignment kind of change ([J13](placing-by-hand.md#j13-assignment-history)): the same component, in [`AssignmentHistoryDialog.vue`](../../../front-end/src/components/AssignmentHistoryDialog.vue), asking `group=Assignment` on every read, so the same sentences, in the same order, "Before and after" and paging.
 It draws no "Kind of change", and that kind does not count as a filter, so "Clear filters" shows only once another filter is set; with nothing filtered and nothing there it says "No assignments have been changed yet."
 "Market day" stands first among its filters: "Every market day", then each of the plan's days, opened on the date the Assignments page is showing when the plan holds it, and asking `day=` so a change about another day is left out while allocating tables and the assignment rules, about no one day, stay.
+On a phone "Market day" and "Who" each take a row, since "Every market day" does not fit half of that dialog.
 It counts as a filter, so "Clear filters" lets it go, and a day with nothing says "No change matches these filters."
 The market day leads each entry there, on a line above its sentence, or "Every market day" on a run and on the rules, and the sentence does not say it again; everywhere else the day stays after the sentence, with no such line.
 The list has no box of its own there either: the dialog's body is the one scroller, and the filters scroll away with it.

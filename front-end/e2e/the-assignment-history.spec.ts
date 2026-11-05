@@ -294,6 +294,47 @@ test('a day with nothing says no change matches, and the filter lets it go', asy
   await expect(tables.historySentences).toHaveCount(1);
 });
 
+test('on a phone "Every market day" reads whole, the day and who each on a row of their own', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+    run: false,
+    dates: [SEED_MARKET_DATE, SECOND_DATE],
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const tables = new TablesPage(page);
+  await tables.goto(seed.marketId);
+  await tables.openHistory();
+  await expect(tables.historyMarketDay).toHaveValue('');
+
+  const fits = await tables.historyMarketDay.evaluate((el) => {
+    const select = el as HTMLSelectElement;
+    const style = getComputedStyle(select);
+    const pen = document.createElement('canvas').getContext('2d')!;
+    pen.font = style.font;
+    return {
+      text: pen.measureText(select.selectedOptions[0].text).width,
+      room: select.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+    };
+  });
+  expect(fits.text, 'the words are not cut').toBeLessThanOrEqual(fits.room);
+
+  // "Who"'s list stays on its field now that the field is a row, inside the dialog.
+  const who = tables.historyDialog.getByTestId('market-history-who-input');
+  const vendor = tables.historyDialog.getByTestId('market-history-vendor-input');
+  const whoBox = (await who.boundingBox())!;
+  const vendorBox = (await vendor.boundingBox())!;
+  expect(whoBox.width, 'who is as wide as the vendor, on a row').toBeCloseTo(vendorBox.width, 0);
+  await who.click();
+  const listBox = (await tables.historyDialog
+    .getByTestId('market-history-who-list')
+    .boundingBox())!;
+  const windowBox = (await tables.historyDialog.boundingBox())!;
+  expect(listBox.x).toBeGreaterThanOrEqual(windowBox.x);
+  expect(listBox.x + listBox.width).toBeLessThanOrEqual(windowBox.x + windowBox.width);
+});
+
 test('a vendor opens on the Vendors page, the dialog gone and nothing behind it held', async ({
   authenticatedPage: page,
   request,
