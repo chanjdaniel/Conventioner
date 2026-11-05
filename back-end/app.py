@@ -1338,16 +1338,6 @@ def get_history(market_id: str) -> Response:
     return jsonify(result), status_code
 
 
-@app.route('/markets/<market_id>/placement-history', methods=['GET'])
-@login_required
-def get_placement_history(market_id: str) -> Response:
-    """Who changed a placement, to what, and when, across the market. Asks
-    ``Actions.READ_HISTORY``. One vendor's changes are the history's, narrowed (``/history``).
-    """
-    result, status_code = MarketsApi.get_placement_history(market_id, authenticated_email())
-    return jsonify(result), status_code
-
-
 @app.route('/markets/<market_id>/placements/swap', methods=['POST'])
 @login_required
 def swap_placements(market_id: str) -> Response:

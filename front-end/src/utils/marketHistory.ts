@@ -7,9 +7,8 @@
  * `docs/implementation/data/history.md`) - and the wording is in the front end, so a sentence can
  * change without a migration or a back-end release. Each area's words are its own file under
  * `historyReaders/`, keyed by the entry's action and kind; this file composes them, and words what
- * no reader has words for. A placement is worded by `placementHistory.ts`, the assignment history's
- * own words, so the two screens say it alike. The organizer's words: assign and allocate tables,
- * never place, seat or run.
+ * no reader has words for. The organizer's words: assign and allocate tables, never place, seat or
+ * run.
  * The detail and the subject are served as stored, snake_case, since their keys are data.
  */
 import { readersOf } from '@/utils/historyReaders';

@@ -17,7 +17,6 @@ import {
   type MarketHistoryPart,
 } from '@/utils/marketHistory';
 import { addressParts, dotPieces, hyphenRuns, partsText } from '@/utils/addressParts';
-import { historyParts, type PlacementHistoryEntry } from '@/utils/placementHistory';
 
 const NAMES = { 'ana@ember.test': 'Ana Rivera', 'ben@ember.test': 'Ben Okafor' };
 
@@ -943,83 +942,133 @@ describe('a verdict on an application dealt to a reviewer (E38/F07/S02)', () => 
   });
 });
 
-describe('a placement, in the whole history and in the drawer', () => {
-  /** One placement change as both read it: stored, as the whole history serves it, and recased,
-   * as the placement trail serves it to the drawer. */
-  const changes: Array<{
-    kind: PlacementHistoryEntry['kind'];
-    vendors: string[];
-    stored: Record<string, unknown>;
-    trail: PlacementHistoryEntry['detail'];
-  }> = [
-    {
-      kind: 'placed',
-      vendors: ['ana@ember.test'],
-      stored: { date: '2026-11-19', table_code: 'B7', table_choice: 'Full Table' },
-      trail: { date: '2026-11-19', tableCode: 'B7', tableChoice: 'Full Table' },
-    },
-    {
-      kind: 'placed',
-      vendors: ['ana@ember.test'],
-      stored: { date: '2026-11-19', table_code: 'B7', before: { table_code: 'A3' } },
-      trail: { date: '2026-11-19', tableCode: 'B7', before: { tableCode: 'A3' } },
-    },
-    {
-      kind: 'freed',
-      vendors: ['ana@ember.test'],
-      stored: { date: '2026-11-19', table_code: 'B7' },
-      trail: { date: '2026-11-19', tableCode: 'B7' },
-    },
-    {
-      kind: 'swapped',
-      vendors: ['ana@ember.test', 'ben@ember.test'],
-      stored: {
+/** A placement, read from the stored detail; a vendor in it is named by name and email. */
+describe('a placement', () => {
+  const ON_THE_DAY = ' on Nov 19, 2026';
+
+  it.each([
+    [
+      'a hand placement, by the vendor and the seat',
+      'placed',
+      ['ana@ember.test'],
+      { date: '2026-11-19', table_code: 'B7', table_choice: 'Full Table' },
+      `dana@ember.test assigned [Ana Rivera] at B7 (Full Table)${ON_THE_DAY}`,
+    ],
+    [
+      'a placement that recorded no table choice, by the table alone',
+      'placed',
+      ['ana@ember.test'],
+      { date: '2026-11-19', table_code: 'B7' },
+      `dana@ember.test assigned [Ana Rivera] at B7${ON_THE_DAY}`,
+    ],
+    [
+      'a move, from the table left to the table taken',
+      'placed',
+      ['ana@ember.test'],
+      { date: '2026-11-19', table_code: 'B7', before: { table_code: 'A3' } },
+      `dana@ember.test moved [Ana Rivera] from A3 to B7${ON_THE_DAY}`,
+    ],
+    [
+      'a freed seat, by what it left behind',
+      'freed',
+      ['ana@ember.test'],
+      { date: '2026-11-19', table_code: 'B7' },
+      `dana@ember.test freed B7, leaving [Ana Rivera] with no table${ON_THE_DAY}`,
+    ],
+    [
+      'a swap, as one thing that happened to two people',
+      'swapped',
+      ['ana@ember.test', 'ben@ember.test'],
+      {
         date: '2026-11-19',
         seats: [
           { email: 'ana@ember.test', table_code: 'A3' },
           { email: 'ben@ember.test', table_code: 'B7' },
         ],
       },
-      trail: {
-        date: '2026-11-19',
-        seats: [
-          { email: 'ana@ember.test', tableCode: 'A3' },
-          { email: 'ben@ember.test', tableCode: 'B7' },
-        ],
-      },
-    },
-    {
-      kind: 'swapped',
-      vendors: ['ana@ember.test', 'ben@ember.test'],
-      stored: {},
-      trail: {},
-    },
-    {
-      kind: 'assigned',
-      vendors: [],
-      stored: { placements_written: 40, pins_preserved: 3 },
-      trail: { placementsWritten: 40, pinsPreserved: 3 },
-    },
-  ];
+      `dana@ember.test swapped [Ana Rivera] and [Ben Okafor] - now at A3 and B7${ON_THE_DAY}`,
+    ],
+    [
+      'a swap that recorded no seats, by its vendors',
+      'swapped',
+      ['ana@ember.test', 'ben@ember.test'],
+      {},
+      'dana@ember.test swapped [Ana Rivera] and [Ben Okafor]',
+    ],
+    [
+      'a swap that recorded no seats and one vendor',
+      'swapped',
+      ['ana@ember.test'],
+      {},
+      'dana@ember.test swapped [Ana Rivera]',
+    ],
+    [
+      'a run, as one sentence naming what it touched',
+      'assigned',
+      [],
+      { placements_written: 47, pins_preserved: 3 },
+      'dana@ember.test allocated tables: 47 assignments written, 3 pins preserved',
+    ],
+    [
+      'a run that preserved no pins, leaving them out',
+      'assigned',
+      [],
+      { placements_written: 1, pins_preserved: 0 },
+      'dana@ember.test allocated tables: 1 assignment written',
+    ],
+    [
+      'a vendor with no stored name, by their address',
+      'placed',
+      ['nobody@ember.test'],
+      { table_code: 'B7', table_choice: 'Full Table' },
+      'dana@ember.test assigned [nobody@ember.test] at B7 (Full Table)',
+    ],
+  ])('words %s', (_what, kind, vendors, detail, words) => {
+    expect(sentence({ kind, vendors, detail })).toBe(words);
+  });
 
-  it.each(changes)('words $kind in the drawer’s words, after who and before the day', (change) => {
-    const drawer = said(
-      historyParts(
-        {
-          id: 'e1',
-          actor: 'dana@ember.test',
-          at: '2026-11-01T10:00:00+00:00',
-          ...change,
-          detail: change.trail,
-        },
-        NAMES,
-      ),
-    );
-    const day = change.stored.date ? ' on Nov 19, 2026' : '';
+  it('names the market day like every other market date, or none for a run', () => {
+    // A stored YYYY-MM-DD on screen would be a second date format (E09/F04/S02).
+    expect(
+      sentence({
+        kind: 'freed',
+        detail: { date: '2026-08-01', table_code: 'B7' },
+      }),
+    ).toContain(' on Aug 1, 2026');
+    expect(sentence({ kind: 'assigned', vendors: [], detail: {} })).not.toContain(' on ');
+  });
 
-    expect(sentence({ kind: change.kind, vendors: change.vendors, detail: change.stored })).toBe(
-      `dana@ember.test ${drawer[0].toLowerCase()}${drawer.slice(1)}${day}`,
-    );
+  /** Two vendors can share a name, and the address is what tells them apart (E35/F03/S03). */
+  describe('who it names', () => {
+    const vendorsIn = (overrides: Partial<MarketHistoryEntry>) =>
+      entryParts(entry(overrides), { names: NAMES }).filter((part) => part.kind === 'vendor');
+
+    it('names a placed vendor by name and email', () => {
+      expect(vendorsIn({ detail: { table_code: 'B7', table_choice: 'Full Table' } })).toEqual([
+        { kind: 'vendor', name: 'Ana Rivera', email: 'ana@ember.test' },
+      ]);
+    });
+
+    it('names both vendors of a swap', () => {
+      expect(
+        vendorsIn({
+          kind: 'swapped',
+          vendors: ['ana@ember.test', 'ben@ember.test'],
+          detail: {
+            seats: [
+              { email: 'ana@ember.test', table_code: 'B7' },
+              { email: 'ben@ember.test', table_code: 'A3' },
+            ],
+          },
+        }).map((part) => part.kind === 'vendor' && part.email),
+      ).toEqual(['ana@ember.test', 'ben@ember.test']);
+    });
+
+    it('reads a vendor with no name as their email, once', () => {
+      expect(
+        vendorsIn({ kind: 'freed', vendors: ['cy@ember.test'], detail: { table_code: 'B 2' } }),
+      ).toEqual([{ kind: 'vendor', name: '', email: 'cy@ember.test' }]);
+    });
   });
 });
 

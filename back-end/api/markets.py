@@ -1615,33 +1615,6 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
     return payload, 200
 
 
-def get_placement_history(market_id: str, requesting_user: str) -> tuple[Dict[str, Any], int]:
-    """This market's placement trail - its history narrowed to placements - newest first. Asks
-    ``Actions.READ_HISTORY``.
-
-    Read on the history's row, written on the Assignment row: the trail is the market's history
-    narrowed, and anyone who may read that history may read how vendors came to sit where they do.
-    """
-    context = load_market_context(market_id)
-    if context is None:
-        return {"error": "Market not found"}, 404
-    if context.market is None:
-        return {"error": "Invalid market data"}, 400
-
-    refused = Actions.refusal(
-        Actions.READ_HISTORY, requesting_user, context.market, context.organization)
-    if refused:
-        return {"error": refused}, 403
-
-    entries = History.placement_entries(market_id)
-    return {
-        "entries": [convert_keys_to_camel_case(entry) for entry in entries],
-        # Names against addresses, as every other vendor surface gets them, so the log reads as
-        # people rather than as a column of email.
-        "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
-    }, 200
-
-
 #: The table's groups that change something, in its order: the kinds of change the history is
 #: narrowed by. An applicant's own change (``History.APPLY``), which no row asks, is an
 #: application's.

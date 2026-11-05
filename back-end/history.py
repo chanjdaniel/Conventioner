@@ -3,8 +3,8 @@
 **One history for every change** (E40, ADR 0017). It began as the placement history, which kept
 placements only; Daniel widened it ("every change is logged", Q23), so every write that changes a
 market, its applications or its vendors records here, after its change has landed (E40/F01/S02;
-``tests/test_every_write_records.py`` sends each), and the placement trail is this history narrowed
-to placements. What is state stays where it is - an application's verdict, the market's
+``tests/test_every_write_records.py`` sends each), and Assignment history is this history narrowed
+to the ``assign`` action. What is state stays where it is - an application's verdict, the market's
 ``phaseHistory`` - and its changes are recorded here as well. The deletion trail (``deletion_trail.py``) stays apart, because it
 must outlive what it describes and this history is deleted with its market.
 
@@ -17,8 +17,7 @@ change to its default rows (E39/F02/S01).
 (``api.market_actions``, so the verb that asked "may this person" is the one recorded), a finer
 kind where one action covers several changes, the vendors it is about, whatever else it is about,
 and a structured detail. The wording belongs to whichever surface shows it
-(``front-end/src/utils/marketHistory.ts`` for the history and a vendor's own, ``placementHistory.ts``
-for the placements, which both read) and must be changeable without a migration - the same rule
+(``front-end/src/utils/marketHistory.ts`` and its ``historyReaders/``, for every list of it) and must be changeable without a migration - the same rule
 ``placement_reasons`` follows.
 
 **A run is one entry**, not none and not one per placement. Omitting runs would leave the history
@@ -261,7 +260,7 @@ def _newest_first(entries: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return sorted(entries, key=lambda entry: entry.get("at") or "", reverse=True)
 
 
-# --- Placements: the ``assign`` action's seat changes, and the trail the results read --------
+# --- Placements: the ``assign`` action's seat changes ----------------------------------------
 
 # What happened to a seat. Kinds rather than a message, so a surface can word it, group it or
 # filter by it without parsing prose.
@@ -269,11 +268,6 @@ PLACED = "placed"
 FREED = "freed"
 SWAPPED = "swapped"
 ASSIGNED = "assigned"
-PLACEMENT_KINDS = (PLACED, FREED, SWAPPED, ASSIGNED)
-
-# The fields a placement entry carried before the history widened, and all the placement endpoint
-# answers with, so the Assignment history reads exactly what it always did.
-_PLACEMENT_FIELDS = ("id", MARKET_ID_FIELD, "actor", "at", "kind", "vendors", "detail")
 
 
 def placement_subject(kind: str, detail: Dict[str, Any]) -> Dict[str, Any]:
@@ -337,28 +331,6 @@ def record_assignment_run(
         "placements_written": placements_written,
         "pins_preserved": pins_preserved,
     })
-
-
-def placement_entries(market_id: str) -> List[Dict[str, Any]]:
-    """The placement trail: this market's history narrowed to placements, newest first, each entry
-    in the shape it had before the history widened.
-
-    Until a database has run ``migrations/migrate_placement_history.py``, its older entries are
-    still in ``placement_history``, so they are read from there too: without them, between the
-    deploy and the migration, the Assignment history would say nobody changed a placement someone
-    did. An entry can be in both for a moment - the migration writes each one to ``history``
-    before it deletes it from the old collection, and a run can stop between the two - so an old
-    entry whose id ``history`` already holds is left out.
-    """
-    query = {MARKET_ID_FIELD: market_id, "kind": {"$in": list(PLACEMENT_KINDS)}}
-    projection = {"_id": 0, **{field: 1 for field in _PLACEMENT_FIELDS}}
-    moved = list(history_collection.find({**query, "action": ASSIGN.id}, projection))
-    moved_ids = {entry.get("id") for entry in moved}
-    return _newest_first([
-        *moved,
-        *(entry for entry in legacy_placement_collection.find(query, projection)
-          if entry.get("id") not in moved_ids),
-    ])
 
 
 # --- Reading the whole history, a page at a time (E40/F01/S03) -------------------------------
@@ -438,8 +410,9 @@ def entries_page(
     asks again for more.
 
     Until a database has run the move from ``placement_history``, its older placements are read
-    beside the history, as the placement trail reads them, so the history does not seem to start
-    where the migration has not run yet.
+    beside the history, so the history does not seem to start where the migration has not run yet.
+    An entry can be in both for a moment - the migration writes each one to ``history`` before it
+    deletes it from the old collection, and a run can stop between the two - and is read once.
     """
     if isinstance(before, str):
         before = parse_cursor(before)

@@ -20,7 +20,7 @@ describes:
   - back-end/api/permissions.py#market_role_of
   - back-end/tests/test_a_chosen_reviewer_decides.py
   - back-end/api/markets.py#read_refused
-verified: 2026-11-03
+verified: 2026-11-05
 sources:
   - E39
   - E39/F01/S01
@@ -45,6 +45,7 @@ sources:
   - E46/F01/S05
   - E38/F12/S01
   - T181
+  - T224
 ---
 
 # The market's actions
@@ -120,8 +121,7 @@ Asked by:
 Default: Viewer.
 
 Asked by:
-- `GET /markets/:id/history` (Manage market's History section, and a vendor's drawer's History tab with `?vendor=`)
-- `GET /markets/:id/placement-history` (the assignment history)
+- `GET /markets/:id/history` (Manage market's History section, a vendor's drawer's History tab with `?vendor=`, and Assignment history with `?group=Assignment`)
 - `GET /markets/:id/permission-history` (the changes to the market's table)
 
 ### Export CSV (`export-csv`)

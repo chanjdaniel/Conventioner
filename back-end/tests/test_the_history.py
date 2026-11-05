@@ -2,41 +2,20 @@
 
 The placement history widened (Daniel, Q23: "every change is logged"): an entry names the market,
 who, when, the ``E39`` action and the finer kind, the vendors and whatever else it is about, and a
-structured detail. The placement endpoint reads the same store narrowed to placements.
+structured detail. Assignment history reads the same store narrowed to the ``assign`` action.
 """
 import pytest
 
-from conftest import mongo_matches, mongo_project
-
 import api.market_actions as Actions
 import history as History
+from test_reading_the_history import PagedHistory, _matches
 
 
-class FakeHistoryCollection:
-    """The ``history`` collection: Mongo's filter, with an array field matched by membership."""
-
-    def __init__(self):
-        self.docs = []
-
-    def insert_one(self, document):
-        self.docs.append(document)
-
-    def _matches(self, doc, query):
-        for key, condition in query.items():
-            value = doc.get(key)
-            if isinstance(value, list) and not isinstance(condition, dict):
-                if condition not in value:
-                    return False
-            elif not mongo_matches(doc, {key: condition}):
-                return False
-        return True
-
-    def find(self, query, projection=None):
-        found = [doc for doc in self.docs if self._matches(doc, query)]
-        return [mongo_project(dict(doc), projection) for doc in found]
+class FakeHistoryCollection(PagedHistory):
+    """The ``history`` collection, read through a cursor, as its pages are, and deleted from."""
 
     def delete_many(self, query):
-        gone = [doc for doc in self.docs if self._matches(doc, query)]
+        gone = [doc for doc in self.docs if _matches(doc, query)]
         self.docs = [doc for doc in self.docs if doc not in gone]
         return type("R", (), {"deleted_count": len(gone)})()
 
@@ -144,26 +123,34 @@ class TestAPlacementEntry:
         assert entry["subject"] == {}
 
 
-class TestThePlacementView:
-    """The placement endpoint answers as it did before the widening."""
+def assignments(market_id):
+    """The market's history narrowed to the ``assign`` action, as Assignment history reads it."""
+    entries, _after = History.entries_page(market_id, actions=[Actions.ASSIGN.id])
+    return entries
 
-    def test_it_holds_only_placements(self, history):
+
+class TestReadingTheAssignmentAction:
+    """Assignment history is this store narrowed to the ``assign`` action, whatever its kind."""
+
+    def test_it_holds_only_that_actions_entries(self, history):
         History.record_freed("m1", "a@x.test", "v@x.test", "2026-08-01", "A 1")
         History.record("m1", "a@x.test", Actions.CHECK_IN, vendors=["v@x.test"], detail={})
-        History.record("m1", "a@x.test", Actions.ASSIGN, kind="rules-changed", detail={})
+        History.record("m1", "a@x.test", Actions.ASSIGN, kind=History.RULES, detail={})
 
-        assert [e["kind"] for e in History.placement_entries("m1")] == [History.FREED]
+        assert sorted(e["kind"] for e in assignments("m1")) == [History.FREED, History.RULES]
 
-    def test_an_entry_carries_the_fields_it_always_did_and_no_others(self, history):
+    def test_an_entry_carries_all_it_holds_but_its_storage_keys(self, history):
         History.record_freed("m1", "a@x.test", "v@x.test", "2026-08-01", "A 1")
 
-        [entry] = History.placement_entries("m1")
-        assert set(entry) == {"id", "market_id", "actor", "at", "kind", "vendors", "detail"}
+        [entry] = assignments("m1")
+        assert set(entry) == {
+            "id", "actor", "at", "action", "kind", "vendors", "subject", "detail",
+        }
 
 
-class TestThePlacementViewBeforeTheMigration:
+class TestReadingItBeforeTheMigration:
     """Until ``migrate_placement_history.py`` runs, the older entries are still in
-    ``placement_history``, without ``action`` or ``subject``, and the trail reads them as before."""
+    ``placement_history``, without ``action`` or ``subject``, and they are read beside the rest."""
 
     def old_entry(self, market_id, at, table_code):
         return {
@@ -172,18 +159,18 @@ class TestThePlacementViewBeforeTheMigration:
             "detail": {"date": "2026-08-01", "table_code": table_code},
         }
 
-    def test_both_stores_answer_newest_first_in_the_old_shape(self, history, placement_history):
+    def test_both_stores_answer_newest_first_in_one_shape(self, history, placement_history):
         placement_history.insert_one(self.old_entry("m1", "2026-01-01T00:00:00+00:00", "Old 1"))
         placement_history.insert_one(self.old_entry("m1", "2026-03-01T00:00:00+00:00", "Old 2"))
         placement_history.insert_one(self.old_entry("m2", "2026-02-01T00:00:00+00:00", "Other"))
         History.record_freed("m1", "a@x.test", "v@x.test", "2026-08-01", "New 1")
         history.docs[0]["at"] = "2026-02-01T00:00:00+00:00"
 
-        entries = History.placement_entries("m1")
+        entries = assignments("m1")
 
         assert [e["detail"]["table_code"] for e in entries] == ["Old 2", "New 1", "Old 1"]
         assert all(
-            set(e) == {"id", "market_id", "actor", "at", "kind", "vendors", "detail"}
+            set(e) == {"id", "actor", "at", "action", "kind", "vendors", "subject", "detail"}
             for e in entries
         )
 
@@ -193,7 +180,7 @@ class TestThePlacementViewBeforeTheMigration:
         placement_history.insert_one(old)
         history.insert_one({**old, "action": Actions.ASSIGN.id, "subject": {}})
 
-        assert [e["id"] for e in History.placement_entries("m1")] == ["old-A 1"]
+        assert [e["id"] for e in assignments("m1")] == ["old-A 1"]
 
     def test_deleting_a_market_takes_its_unmoved_entries_too(self, history, placement_history):
         placement_history.insert_one(self.old_entry("m1", "2026-01-01T00:00:00+00:00", "A 1"))
