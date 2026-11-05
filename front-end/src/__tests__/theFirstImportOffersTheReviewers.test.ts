@@ -245,6 +245,54 @@ describe('confirming', () => {
     expect(imports()).toHaveLength(1);
   });
 
+  it('a write left unanswered as the page went: its confirm waits, and shows a refusal of it', async () => {
+    const answer = Promise.withResolvers<unknown>();
+    api.put.mockReturnValue(answer.promise);
+    const first = await atPreview(market());
+    await tick(first, ANA);
+    await confirm(first);
+    first.unmount();
+
+    const wrapper = await atPreview(market());
+    expect(chips(wrapper)).toEqual([ANA]);
+    await confirm(wrapper);
+    expect(imports()).toHaveLength(0);
+
+    answer.reject({
+      isAxiosError: true,
+      response: { status: 400, data: { error: 'ana@example.com cannot be chosen here.' } },
+    });
+    await flushPromises();
+    expect(imports()).toHaveLength(0);
+    expect(api.put).toHaveBeenCalledTimes(1);
+    expect(wrapper.get(`${SECTION} [data-testid="import-reviewers-error"]`).text()).toBe(
+      'ana@example.com cannot be chosen here.',
+    );
+  });
+
+  it('a write left unanswered as the page went: once it lands, the import goes', async () => {
+    const store = useMarketStore();
+    store.marketId = 'market-1';
+    api.get.mockResolvedValueOnce({ data: { market: market() } });
+    await store.refresh();
+    const held = computed(() => store.market!);
+    const answer = Promise.withResolvers<unknown>();
+    api.put.mockReturnValue(answer.promise);
+    const first = await atPreview(held);
+    await tick(first, ANA);
+    await confirm(first);
+    first.unmount();
+
+    const wrapper = await atPreview(held);
+    await confirm(wrapper);
+    expect(imports()).toHaveLength(0);
+    answer.resolve({ data: { dealt: 0 } });
+    await flushPromises();
+    expect(api.put).toHaveBeenCalledTimes(1);
+    // The gone page's confirm goes on too, as it always has, and this one's after it.
+    expect(imports()).toHaveLength(2);
+  });
+
   it('a reviewers write that fails shows its error on the step and imports nothing', async () => {
     api.put.mockRejectedValueOnce({
       isAxiosError: true,

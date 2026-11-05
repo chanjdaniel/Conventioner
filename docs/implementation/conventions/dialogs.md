@@ -115,7 +115,7 @@ The parent learns about a save through its own event, never through `close`: `Or
 
 **A dialog whose close would hide a refusal or expose an old copy holds through its save and any re-read, with `closeDisabled`.**
 While it holds, Cancel and the close control are drawn in the one disabled state, and Escape and the scrim do nothing; the shell refuses them all, so its parent's `close` handler needs no guard.
-Save Template ([`TemplatePanel.vue`](../../../front-end/src/components/floorplan/TemplatePanel.vue)) holds through its write and Change reviewers ([`ReviewersPanel.vue`](../../../front-end/src/components/market/ReviewersPanel.vue)) through its write and the market's re-read, whose copy the next opening would start from.
+Save Template ([`TemplatePanel.vue`](../../../front-end/src/components/floorplan/TemplatePanel.vue)) holds through its write and Change reviewers ([`ReviewersPanel.vue`](../../../front-end/src/components/market/ReviewersPanel.vue)) through its write and the market's re-read, whose copy the next opening would start from, and Open applications ([`OpenApplicationsDialog.vue`](../../../front-end/src/components/market/OpenApplicationsDialog.vue)) through its write, since the move follows the answer.
 Browser history is not a close and no hold refuses it: it takes the page, dialog and all, so Change reviewers keeps its unanswered write beside the write itself ([`reviewTeam.ts`](../../../front-end/src/utils/reviewTeam.ts)), and a panel drawn before the answer puts the dialog back on it.
 A request that never answers is left to a reload: `api` sets no timeout, so the hold lasts as long as the browser's own.
 

@@ -387,6 +387,71 @@ describe('saving', () => {
       expect(chipAddresses()).toContain(address(1));
     });
 
+    const refusal = {
+      isAxiosError: true,
+      response: { status: 400, data: { error: 'That person cannot be chosen.' } },
+    };
+
+    it('a close after the refusal sends focus to the button, as nothing here opened the dialog', async () => {
+      const { answer, store } = await leftUnanswered();
+      remount(store.market!);
+      await flushPromises();
+      answer.reject(refusal);
+      await flushPromises();
+
+      byId('reviewers-dialog-close-button')!.click();
+      await flushPromises();
+      expect(byId('reviewers-dialog-window')).toBeNull();
+      expect(document.activeElement).toBe(byId('reviewers-change'));
+    });
+
+    it('a second save after the refusal sends focus to the button when it lands', async () => {
+      const { answer, store } = await leftUnanswered();
+      remount(store.market!);
+      await flushPromises();
+      answer.reject(refusal);
+      await flushPromises();
+
+      api.put.mockResolvedValue({ data: { dealt: 0 } });
+      submit();
+      await flushPromises();
+      expect(byId('reviewers-dialog-window')).toBeNull();
+      expect(document.activeElement).toBe(byId('reviewers-change'));
+    });
+
+    it('a press after a put-back that closed leaves focus to what opened it', async () => {
+      const { answer, store } = await leftUnanswered();
+      remount(store.market!);
+      await flushPromises();
+      answer.resolve({ data: { dealt: 0 } });
+      await flushPromises();
+      expect(byId('reviewers-dialog-window')).toBeNull();
+
+      await pressMore();
+      expect(document.activeElement).not.toBe(more());
+      byId('reviewers-dialog-close-button')!.click();
+      await flushPromises();
+      expect(document.activeElement).toBe(more());
+    });
+
+    it('leaves a market it was not for alone: the one now held opens on its own team', async () => {
+      const { answer, store } = await leftUnanswered();
+      const other = { ...market(team(5), true), id: 'market-2' };
+      api.get.mockResolvedValueOnce({ data: { market: other } });
+      await store.open('market-2');
+      const held = store.market!;
+      expect(held.id).toBe('market-2');
+      api.get.mockRejectedValue(new Error('Network Error'));
+
+      answer.resolve({ data: { dealt: 0 } });
+      await flushPromises();
+      remount(held);
+      await flushPromises();
+      expect(byId('reviewers-dialog-window')).toBeNull();
+      await pressMore();
+      expect(chipAddresses()).toEqual(team(5).map(({ email }) => email));
+    });
+
     it('remembers over the market held at the answer, not the one the panel was given', async () => {
       const { answer, store } = await leftUnanswered();
       // The remount's own read lands a new object from before the write commits.

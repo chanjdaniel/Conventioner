@@ -202,24 +202,93 @@ describe('confirming', () => {
     });
   });
 
-  it('opening it during the write starts from the team being written', async () => {
-    const store = useMarketStore();
-    api.get.mockResolvedValueOnce({ data: { market: draft() } });
-    await store.refresh();
-    let answer!: (value: unknown) => void;
-    api.put.mockImplementation(() => new Promise((resolve) => (answer = resolve)));
-    const wrapper = await pressOpen(store.market!);
+  /** A write of Ana held, as the dialog's first try left it: what to answer it with. */
+  async function writeHeld(wrapper: VueWrapper) {
+    const answer = Promise.withResolvers<unknown>();
+    api.put.mockReturnValue(answer.promise);
     await tick(wrapper, ANA);
     await confirm(wrapper);
-    await wrapper.get('[data-testid="open-applications-cancel-button"]').trigger('click');
-    await flushPromises();
-    expect(wrapper.find(DIALOG).exists()).toBe(false);
+    return answer;
+  }
+  const submit = (wrapper: VueWrapper) =>
+    wrapper.get('[data-testid="open-applications-submit-button"]');
 
-    await wrapper.get('[data-testid="phase-transition-applications"]').trigger('click');
+  it('no close takes it during the write, and the move goes when the write lands', async () => {
+    const wrapper = await pressOpen(draft());
+    const answer = await writeHeld(wrapper);
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await wrapper.get('[data-testid="open-applications-cancel-button"]').trigger('click');
+    await wrapper.get('[data-testid="open-applications-close-button"]').trigger('click');
+    await wrapper.get('[data-testid="open-applications-background"]').trigger('click');
     await flushPromises();
-    expect(ticked(wrapper)).toEqual([ANA]);
-    answer({ data: { dealt: 0 } });
+    expect(wrapper.find(DIALOG).exists()).toBe(true);
+    expect(submit(wrapper).text()).toBe('Saving…');
+    expect(
+      wrapper.get('[data-testid="open-applications-cancel-button"]').attributes('disabled'),
+    ).toBeDefined();
+    expect(
+      wrapper.get('[data-testid="open-applications-close-button"]').attributes('disabled'),
+    ).toBeDefined();
+    expect(
+      wrapper.get('[data-testid="open-applications-change-review-setup"]').attributes('style'),
+    ).toContain('hidden');
+    expect(api.post).not.toHaveBeenCalled();
+
+    answer.resolve({ data: { dealt: 0 } });
     await flushPromises();
+    expect(api.post).toHaveBeenCalledTimes(1);
+    expect(wrapper.find(DIALOG).exists()).toBe(false);
+  });
+
+  describe('a write left unanswered as the rail goes', () => {
+    /** On the market as the store holds it, which is what the write's answer is remembered over. */
+    async function leftUnanswered() {
+      const store = useMarketStore();
+      api.get.mockResolvedValueOnce({ data: { market: draft() } });
+      await store.refresh();
+      const first = await pressOpen(store.market!);
+      const answer = await writeHeld(first);
+      first.unmount();
+      return { answer, wrapper: await pressOpen(store.market!) };
+    }
+
+    it('a new dialog starts from the team being written', async () => {
+      const { answer, wrapper } = await leftUnanswered();
+
+      expect(ticked(wrapper)).toEqual([ANA]);
+      answer.resolve({ data: { dealt: 0 } });
+      await flushPromises();
+    });
+
+    it('its confirm waits for the answer, on "Saving…", and makes the move once it lands', async () => {
+      const { answer, wrapper } = await leftUnanswered();
+
+      await confirm(wrapper);
+      expect(api.post).not.toHaveBeenCalled();
+      expect(submit(wrapper).text()).toBe('Saving…');
+
+      answer.resolve({ data: { dealt: 0 } });
+      await flushPromises();
+      expect(api.put).toHaveBeenCalledTimes(1);
+      expect(api.post).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows a refusal of it, and makes no move', async () => {
+      const { answer, wrapper } = await leftUnanswered();
+
+      await confirm(wrapper);
+      answer.reject({
+        isAxiosError: true,
+        response: { status: 400, data: { error: 'ana@example.com cannot be chosen here.' } },
+      });
+      await flushPromises();
+      expect(wrapper.get('[data-testid="open-applications-error"]').text()).toBe(
+        'ana@example.com cannot be chosen here.',
+      );
+      expect(wrapper.find(DIALOG).exists()).toBe(true);
+      expect(api.post).not.toHaveBeenCalled();
+    });
   });
 
   it('the stored team, untouched, is not written again', async () => {

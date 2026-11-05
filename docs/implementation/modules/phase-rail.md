@@ -91,6 +91,7 @@ The rail opens the dialog only while the move has no blocker, so both read decid
 Its "Change" leads to `form?step=review` and closes the dialog, and is drawn only for someone who may take `change-form`.
 A save the server refuses keeps that dialog open with its error and makes no move; a move refused after a save re-reads the market, as every refused move does, so the rail and a second try show the reviewers chosen.
 A move and a re-read that both fail after a save leave the market held from before it, and a second try still starts from the team written, and writes nothing unless it changes.
+During its write the dialog holds, with `closeDisabled` ([dialogs](../conventions/dialogs.md)), and "Change" is hidden with its box kept, and a confirm first waits on a write left unanswered by a dialog browser history took (`unansweredWrite`), so nothing moves before its answer and a refusal shows here.
 A Google Form market's way into the stage is its first import, so its rail offers no picker, and nor does it to someone who may move the phase but not choose reviewers.
 Someone the table's Move the phase row refuses (`mayTake(market, MarketAction.MovePhase)`, E39/F01/S02) is offered no move at all, and the rail still says where the market stands ([what each role may do](../../business/rules/what-each-role-may-do.md)).
 

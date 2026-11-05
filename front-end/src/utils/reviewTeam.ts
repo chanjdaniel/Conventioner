@@ -41,7 +41,7 @@ interface TeamWrite {
 }
 const unanswered = new Map<string, TeamWrite>();
 
-/** The write of this market's team still unanswered, so a panel drawn during it can hold on it. */
+/** The write of this market's team still unanswered, so what is drawn during it can wait on it. */
 export function unansweredWrite(marketId: string): TeamWrite | undefined {
   return unanswered.get(marketId);
 }

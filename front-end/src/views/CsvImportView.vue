@@ -44,7 +44,13 @@ import ImportRowList, { type ImportRow } from '@/components/csvImport/ImportRowL
 import ImportRefusedRows, { type RefusedRow } from '@/components/csvImport/ImportRefusedRows.vue';
 import ListFrame from '@/components/ListFrame.vue';
 import ReviewerPicker from '@/components/market/ReviewerPicker.vue';
-import { chooseReviewers, reviewerAddresses, sameTeam, teamToChange } from '@/utils/reviewTeam';
+import {
+  chooseReviewers,
+  reviewerAddresses,
+  sameTeam,
+  teamToChange,
+  unansweredWrite,
+} from '@/utils/reviewTeam';
 import {
   MarketPhase,
   type ApplicationForm,
@@ -837,17 +843,21 @@ async function readValues(advance: boolean) {
  * after them is tried again without writing them twice.
  */
 async function confirmImport() {
-  if (offersReviewers.value && !sameTeam(reviewers.value, teamToChange(market.value))) {
+  if (offersReviewers.value) {
     busy.value = true;
     reviewersError.value = '';
     try {
-      await chooseReviewers(marketId.value, reviewers.value);
+      // A write left by a page history took: nothing imports before its answer, and a refusal shows here.
+      await unansweredWrite(marketId.value)?.answer;
+      if (!sameTeam(reviewers.value, teamToChange(market.value))) {
+        await chooseReviewers(marketId.value, reviewers.value);
+        await refreshMarket();
+      }
     } catch (err) {
       reviewersError.value = getApiErrorMessage(err, 'Could not save the reviewers.');
       busy.value = false;
       return;
     }
-    await refreshMarket();
   }
   await runImport();
 }

@@ -76,8 +76,18 @@ function showAll() {
   else listOpen.value = true;
 }
 
-/** The hold was taken over from a panel that has gone, so nothing on this page opened the dialog. */
-let tookOver = false;
+/** A dialog put back: nothing on this page opened it, so nothing takes focus back when it goes. */
+let noOpener = false;
+
+async function closeDialog() {
+  open.value = false;
+  await nextTick();
+  // "and N more" may have opened this and gone with the save, so focus has nowhere to go back to.
+  if ((noOpener || reviewers.value.length <= NAMED) && document.activeElement === document.body) {
+    changeButton.value?.focus();
+  }
+  noOpener = false;
+}
 
 /**
  * The dialog goes only once the re-read has answered: until then the panel behind it says the team
@@ -89,18 +99,12 @@ async function holdUntilAnswered(write: Promise<number>) {
   try {
     await write;
     await useMarketStore().refresh();
-    open.value = false;
     emit('saved');
-    await nextTick();
-    // "and N more" may have opened this and gone with the save, so focus has nowhere to go back to.
-    if ((tookOver || reviewers.value.length <= NAMED) && document.activeElement === document.body) {
-      changeButton.value?.focus();
-    }
+    await closeDialog();
   } catch (err) {
     error.value = getApiErrorMessage(err, 'Could not save the reviewers.');
   } finally {
     saving.value = false;
-    tookOver = false;
   }
 }
 
@@ -120,7 +124,7 @@ watch(
     if (!left || saving.value) return;
     ticked.value = [...left.team];
     open.value = true;
-    tookOver = true;
+    noOpener = true;
     void holdUntilAnswered(left.answer);
   },
   { immediate: true },
@@ -173,7 +177,7 @@ watch(
       :close-disabled="saving"
       :error="error"
       anchored
-      @close="open = false"
+      @close="closeDialog"
       @submit="save"
     >
       <p class="reviewers-reshuffle">{{ RESHUFFLE }}</p>
