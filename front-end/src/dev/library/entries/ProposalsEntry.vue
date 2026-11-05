@@ -3,7 +3,7 @@
  * The later targets, as proposals (T200's `component-review.md`, sections 6, 8 and 9): the chip's
  * five tones with a small step beside the one-off badges each would replace, a `.data-table` on
  * fixture rows, and the `SidePanel` shell on a fixture application. No screen changes: the one-offs,
- * the six tables and the two drawers stay as they are, and are listed here rather than copied.
+ * the five tables and the two drawers stay as they are, and are listed here rather than copied.
  */
 import { computed, ref } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
@@ -168,15 +168,11 @@ const TONES: readonly { tone: string; label: string; oneOffs: readonly OneOff[] 
 
 const PHASES = [MarketPhase.Draft, MarketPhase.Applications, MarketPhase.MarketDays];
 
-/** The six tables the primitive would serve, and what each draws its own way. */
+/** The tables the primitive would serve, and what each draws its own way. */
 const TABLES = [
   {
     file: 'components/HistoryEntries.vue',
     differs: 'Boxed cells, every side ruled, in small type; fixed columns',
-  },
-  {
-    file: 'components/ExportVendorsDialog.vue',
-    differs: 'The preview: a beige header, one line a cell, cut at 16rem; has its own scroller',
   },
   {
     file: 'components/csvProposal/ProposalLedger.vue',
@@ -326,7 +322,7 @@ const panelReadOut = computed(
         </table>
       </ScrollBox>
     </LibraryPanel>
-    <LibraryPanel class="library-wide" label="The six tables today">
+    <LibraryPanel class="library-wide" label="The five tables today">
       <ul class="library-places">
         <li v-for="{ file, differs } in TABLES" :key="file">
           <code class="library-name">{{ file }}</code>

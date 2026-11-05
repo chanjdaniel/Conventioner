@@ -55,12 +55,14 @@ test('Export from the All view opens on its filter and Mine, and downloads exact
   await all.exportButton.click();
   await expect(dialog.window).toBeVisible();
   // A vendor added by hand is approved in the All view, so the export keeps them too.
-  await expect(dialog.status('approved')).toBeChecked();
-  await expect(dialog.status('added')).toBeChecked();
-  await expect(dialog.status('rejected')).not.toBeChecked();
-  await expect(dialog.status('open')).not.toBeChecked();
-  await expect(dialog.mine).not.toBeChecked();
+  await expect(dialog.filtersSummary).toHaveText('Status: Approved, Added by hand');
   await expect(dialog.summary).toHaveText('2 vendors, 3 columns');
+  await dialog.showFilters();
+  await expect(dialog.status('approved')).toHaveAttribute('aria-pressed', 'true');
+  await expect(dialog.status('added')).toHaveAttribute('aria-pressed', 'true');
+  await expect(dialog.status('rejected')).toHaveAttribute('aria-pressed', 'false');
+  await expect(dialog.status('open')).toHaveAttribute('aria-pressed', 'false');
+  await expect(dialog.mine).not.toBeChecked();
   await expect(dialog.previewRows).toHaveCount(2);
 
   const approved = await dialog.download();
@@ -73,9 +75,11 @@ test('Export from the All view opens on its filter and Mine, and downloads exact
   await all.mine.check();
   await expect(all.rows).toHaveCount(1);
   await all.exportButton.click();
-  await expect(dialog.status('follow_up')).toBeChecked();
-  await expect(dialog.mine).toBeChecked();
+  await expect(dialog.filtersSummary).toHaveText('Status: Needs follow-up · Mine');
   await expect(dialog.summary).toHaveText('1 vendor, 3 columns');
+  await dialog.showFilters();
+  await expect(dialog.status('follow_up')).toHaveAttribute('aria-pressed', 'true');
+  await expect(dialog.mine).toBeChecked();
 
   const mine = await dialog.download();
   expect(emailsIn(mine.text)).toEqual(['dee@ember.test']);

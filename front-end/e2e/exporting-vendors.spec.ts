@@ -46,10 +46,12 @@ test('Export opens on "Unassigned only" and downloads exactly the unassigned ven
   await vendors.exportButton.click();
   const dialog = new VendorExportDialog(page);
   await expect(dialog.window).toBeVisible();
-  await expect(dialog.status('approved')).toBeChecked();
-  await expect(dialog.status('rejected')).not.toBeChecked();
-  await expect(dialog.placed).toHaveValue('unplaced');
+  await expect(dialog.filtersSummary).toHaveText('Not assigned · Status: Approved, Added by hand');
   await expect(dialog.summary).toHaveText('1 vendor, 3 columns');
+  await dialog.showFilters();
+  await expect(dialog.status('approved')).toHaveAttribute('aria-pressed', 'true');
+  await expect(dialog.status('rejected')).toHaveAttribute('aria-pressed', 'false');
+  await expect(dialog.placed).toHaveValue('unplaced');
   await expect(dialog.previewRows).toHaveCount(1);
   await expect(dialog.previewRows.first()).toContainText(unassigned);
 

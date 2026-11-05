@@ -367,6 +367,8 @@ test.describe('the Payments page', () => {
     const dialog = new VendorExportDialog(page);
     await expect(dialog.window).toBeVisible();
     await expect(dialog.summary).toContainText('vendors');
+    await dialog.showFilters();
+    await expect(dialog.placed).toBeVisible();
     await expect(dialog.payment).toHaveCount(0);
 
     // The reading follows the account, not the market (finding 10): Alice set to owe $20 by hand
@@ -404,6 +406,7 @@ test.describe('the Payments page', () => {
     await vendors.goto(unpriced);
     await vendors.exportButton.click();
     await expect(dialog.window).toBeVisible();
+    await dialog.showFilters();
     await expect(dialog.payment).toBeVisible();
     await dialog.payment.selectOption({ label: 'Paid more than owed' });
     await expect(dialog.summary).toHaveText(/^1 vendor,/);
