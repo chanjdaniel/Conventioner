@@ -282,12 +282,19 @@ const openSeat = ref<OpenSeat | null>(null);
 const placementBusy = ref(false);
 const placementError = ref('');
 
+/*
+ * The tables stay up through the read a placement brings, and one change can move other vendors, so
+ * until that read lands a seat says what it held. A press then opens nothing, or the dialog would act
+ * on who the page no longer holds.
+ */
 function openPlace(row: MarketTableRow, seat: Seat | null): void {
+  if (isLoading.value) return;
   placementError.value = '';
   openSeat.value = { mode: 'place', row, seat, occupantEmail: null };
 }
 
 function openOccupied(row: MarketTableRow, email: string): void {
+  if (isLoading.value) return;
   placementError.value = '';
   openSeat.value = { mode: 'occupied', row, seat: seatHeldBy(row, email), occupantEmail: email };
 }

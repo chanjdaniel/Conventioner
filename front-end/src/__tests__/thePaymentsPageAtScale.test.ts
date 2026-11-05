@@ -34,6 +34,7 @@ vi.mock('@/utils/vendorDetails', async (importOriginal) => {
     ...actual,
     useVendorDetails: () => ({
       vendorNames: ref({}),
+      legalNames: ref({}),
       load: vi.fn(() => Promise.resolve()),
     }),
   };

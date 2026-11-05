@@ -33,7 +33,7 @@ The server counts all of it in one answer (`GET /markets/<id>/payments`, `market
 3. "Vendors" lists every vendor with a table-day line or a payment, a vendor whose table was freed included, by name with their address beneath: Owed, Paid, and the Difference in the Payment tab's words, "Owes $35.00", "Paid in full", "Paid $7.50 more than owed" or "Nothing owed".
 4. "Owes", "Paid in full" and "Paid more than owed" each narrow the list to the vendors in that state, with how many there are; "Paid in full" is every vendor who is square and owed something, so a vendor who owes nothing and paid nothing, "Nothing owed", is in none of the three, and is listed only unfiltered; pressed again, a filter is cleared.
    The states are the server's, the ones the export's "Payment" filter reads ([J15](vendors.md#j15-export-the-vendors-to-a-csv)), so the page's "Owes" and an export of "Owes" list the same vendors.
-   "Search vendors" finds a vendor by name or address within it, and "N of M vendors shown" counts what is left.
+   "Search vendors" finds a vendor by name or address within it, a name being the one they chose or the one on their identification, and "N of M vendors shown" counts what is left.
 5. Each column's heading sorts the list by it, pressed again the other way: the vendor A to Z to begin with, an amount largest first; the Difference sorts who owes most first, and paid more than owed last.
 6. The filter, the search and the sort are in the address (`show`, `search`, `sort` and `order`), so a reload or a shared link shows the same list.
 7. A row opens the vendor's drawer on its Payment tab, the filter kept under it; a payment recorded or an amount changed there is read on the page again at once.

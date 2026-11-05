@@ -57,7 +57,7 @@ const assigned = computed(() => hasAssignment(market.value));
 
 /** The market's vendors, read once and shared with the drawer (E35/F01/S01). */
 const details = useVendorDetails(marketId, market);
-const { tableRows, vendorNames, isLoading } = details;
+const { tableRows, vendorNames, legalNames, isLoading } = details;
 /** The open vendor and tab, in the address. */
 const drawer = useVendorDrawer();
 
@@ -244,7 +244,7 @@ const filteredVendors = computed(() => {
   if (!term) return listed;
   // Name AND address. The box used to read "Filter by email" and match only that, which on a
   // market of 232 vendors meant knowing someone's address to find them by name.
-  return listed.filter((v) => vendorMatches(term, v.email, vendorNames.value));
+  return listed.filter((v) => vendorMatches(term, v.email, vendorNames.value, legalNames.value));
 });
 
 /** Everything that narrows the rows: a change of any goes back to the first page (`ListFrame`). */

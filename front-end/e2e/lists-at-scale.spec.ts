@@ -1,4 +1,4 @@
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext, Page, Route } from '@playwright/test';
 import { test, expect, APP_API, BACKEND_URL, CsvImportPage, TEST_USER } from './fixtures';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
 import { PaymentsPage } from './pages/PaymentsPage';
@@ -356,6 +356,22 @@ test.describe('Vendors', () => {
         await page.keyboard.press('Escape');
         await expect(dialog.window).toBeHidden();
 
+        // The name on their identification finds those who go by another, on the page as in Export.
+        const goesBy = seed.applicants.find(({ preferredName }) => preferredName)!;
+        const legalFamily = goesBy.fullName.split(' ')[1]!.toLowerCase();
+        await vendors.searchInput.fill(legalFamily);
+        await expect(vendors.vendorListItems).toHaveCount(12);
+        await expect(vendors.vendorListItems.filter({ hasText: goesBy.email })).toContainText(
+          goesBy.preferredName!,
+        );
+        await vendors.exportButton.click();
+        await expect(page.getByTestId('vendor-export-search')).toHaveValue(legalFamily);
+        await expect(dialog.summary).toContainText('12 vendors');
+        await page.keyboard.press('Escape');
+        await expect(dialog.window).toBeHidden();
+        await vendors.searchInput.fill(family);
+        await expect(vendors.vendorListItems).toHaveCount(12);
+
         // A refresh keeps them; Back leaves rather than stepping through them.
         await page.reload();
         await expect(vendors.searchInput).toHaveValue(family);
@@ -571,6 +587,13 @@ test.describe('Payments', () => {
         await holdsItsLayout(page, width, 'a search');
 
         // Words that find nobody say what they said.
+        const goesBy = seed.applicants.find(({ preferredName }) => preferredName)!;
+        await payments.search.fill(goesBy.fullName.split(' ')[1]!);
+        await expect(payments.rows).toHaveCount(12);
+        await expect(payments.rows.filter({ hasText: goesBy.email })).toContainText(
+          goesBy.preferredName!,
+        );
+
         await payments.search.fill('nobody by this name');
         await expect(payments.noneShown).toHaveText('No vendor matches "nobody by this name".');
         await expect(payments.summary).toHaveText(`0 of ${applications} vendors shown`);
@@ -883,6 +906,63 @@ test.describe('The Assignments page', () => {
       });
     });
   }
+
+  test.describe('while the tables are read again', () => {
+    test.use({ viewport: { width: 1280, height: 844 } });
+
+    /** Holds the page's reads of the tables, until the answer is let go. */
+    async function holdTheNextRead(page: Page): Promise<() => Promise<void>> {
+      const read = /\/markets\/[^/]+\/tables$/;
+      const held: Route[] = [];
+      await page.route(read, (route) => {
+        held.push(route);
+      });
+      // In this order: taking the route away first answers what it holds for it.
+      return async () => {
+        await Promise.all(held.map((route) => route.continue()));
+        await page.unroute(read);
+      };
+    }
+
+    test('a seat just freed or just filled cannot be opened on what it held', async ({
+      authenticatedPage: page,
+      request,
+    }) => {
+      const { tables, gold } = await openTheTables(page, request);
+      const far = `${gold.name} ${PAST_THE_FOLD}`;
+      await gold.fold.click();
+      const seat = tables.occupiedSeat(far);
+      const holder = await tables.occupantOf(seat);
+
+      let letGo = await holdTheNextRead(page);
+      await tables.change(seat);
+      await tables.freeSeat();
+      await expect(tables.dialog).toBeHidden();
+      // The page still says who sat there, and a press on them opens nothing that could act on it.
+      await expect(seat).toBeVisible();
+      await tables.change(seat);
+      await expect(tables.dialog).toBeHidden();
+      await letGo();
+      await expect(tables.vacantSeat(far)).toBeVisible();
+
+      await tables.vacantSeat(far).click();
+      await tables.pick('vendor', holder);
+      // Enabled once what the last change read has all come, so the hold takes this one's read.
+      await expect(tables.placeButton).toBeEnabled();
+      letGo = await holdTheNextRead(page);
+      await tables.placeButton.click();
+      await expect(tables.dialog).toBeHidden();
+      await expect(tables.vacantSeat(far)).toBeVisible();
+      await tables.vacantSeat(far).click();
+      await expect(tables.dialog).toBeHidden();
+      await letGo();
+      await expect(tables.seatIn(far, holder)).toBeVisible();
+
+      // Once it lands, the seat opens as ever.
+      await tables.change(tables.seatIn(far, holder));
+      await expect(tables.dialog).toBeVisible();
+    });
+  });
 });
 
 test.describe("The import's lists of rows", () => {

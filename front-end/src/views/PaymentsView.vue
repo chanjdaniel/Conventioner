@@ -143,7 +143,12 @@ const vendors = computed(() => found.value?.vendors ?? []);
 const listed = computed(() =>
   shownVendors(
     vendors.value,
-    { shown: shown.value, search: search.value, names: names.value },
+    {
+      shown: shown.value,
+      search: search.value,
+      names: names.value,
+      legalNames: details.legalNames.value,
+    },
     sort.value,
   ),
 );
