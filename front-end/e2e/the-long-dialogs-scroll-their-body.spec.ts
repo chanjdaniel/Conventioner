@@ -260,6 +260,7 @@ test.describe('in a window too short to show the whole body', () => {
       await field.press('Enter');
       await expect(page.getByTestId(error)).toBeVisible();
       await expect(page.getByTestId('manage-org-window')).toBeVisible();
+      await expectShownInTheBody(body, page.getByTestId(error));
     }
   });
 });

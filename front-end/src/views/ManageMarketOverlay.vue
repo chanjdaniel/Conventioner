@@ -51,6 +51,7 @@ const showAddUserForm = ref(false);
 const newUserEmail = ref('');
 const newUserRole = ref<MarketRole>(MarketRole.Editor);
 const addUserError = ref('');
+const addUserRefusal = ref<HTMLElement | null>(null);
 const renameError = ref('');
 const deleteConfirming = ref(false);
 const deleteError = ref('');
@@ -217,6 +218,9 @@ async function handleAddUser() {
     findPerson(email);
   } catch (err) {
     addUserError.value = getApiErrorMessage(err, 'The person was not added.');
+    // It stands under the row, which can be the body's last line in view.
+    await nextTick();
+    addUserRefusal.value?.scrollIntoView({ block: 'center' });
   }
 }
 
@@ -596,7 +600,12 @@ async function closeAddUser() {
               Cancel
             </button>
           </div>
-          <p v-if="addUserError" class="form-error" data-testid="manage-market-add-user-error">
+          <p
+            v-if="addUserError"
+            ref="addUserRefusal"
+            class="form-error"
+            data-testid="manage-market-add-user-error"
+          >
             {{ addUserError }}
           </p>
         </form>

@@ -61,6 +61,8 @@ const newAdminEmail = ref('');
 const newMemberEmail = ref('');
 const addAdminError = ref('');
 const addMemberError = ref('');
+const addAdminRefusal = ref<HTMLElement | null>(null);
+const addMemberRefusal = ref<HTMLElement | null>(null);
 const deleteConfirming = ref(false);
 /** Counts the changes this dialog has made, so its History reads them as they land. */
 const changesMade = ref(0);
@@ -241,6 +243,9 @@ async function handleAddAdmin() {
     findAdded(adminWords, orgData.value?.adminPeople ?? [], email);
   } catch (err) {
     addAdminError.value = getApiErrorMessage(err, 'The admin was not added.');
+    // It stands under the row, which can be the body's last line in view.
+    await nextTick();
+    addAdminRefusal.value?.scrollIntoView({ block: 'center' });
   }
 }
 
@@ -257,6 +262,8 @@ async function handleAddMember() {
     findAdded(memberWords, orgData.value?.memberPeople ?? [], email);
   } catch (err) {
     addMemberError.value = getApiErrorMessage(err, 'The member was not added.');
+    await nextTick();
+    addMemberRefusal.value?.scrollIntoView({ block: 'center' });
   }
 }
 
@@ -435,7 +442,12 @@ function handleDeleted() {
                 Cancel
               </button>
             </div>
-            <p v-if="addAdminError" class="form-error" data-testid="manage-org-add-admin-error">
+            <p
+              v-if="addAdminError"
+              ref="addAdminRefusal"
+              class="form-error"
+              data-testid="manage-org-add-admin-error"
+            >
               {{ addAdminError }}
             </p>
           </form>
@@ -522,7 +534,12 @@ function handleDeleted() {
                 Cancel
               </button>
             </div>
-            <p v-if="addMemberError" class="form-error" data-testid="manage-org-add-member-error">
+            <p
+              v-if="addMemberError"
+              ref="addMemberRefusal"
+              class="form-error"
+              data-testid="manage-org-add-member-error"
+            >
               {{ addMemberError }}
             </p>
           </form>
