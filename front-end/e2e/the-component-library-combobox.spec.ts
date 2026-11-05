@@ -617,10 +617,10 @@ eachWindow('the combobox entry', (size) => {
     await expect(readOutOf(page, 'library-c2')).toHaveText('Maps to: Ignored');
 
     // The first row these words find is taken, so Enter takes the first that is not.
-    await c2.field.fill('e');
+    await c2.field.fill('an');
     await expect(c2.options.first()).toHaveAttribute('data-value', 'email');
     await c2.field.press('Enter');
-    await expect(readOutOf(page, 'library-c2')).toHaveText('Maps to: submitted');
+    await expect(readOutOf(page, 'library-c2')).toHaveText('Maps to: dates');
   });
 
   test('C1 can ignore a value, as today', async ({ page }) => {
