@@ -177,7 +177,7 @@ test.describe('the import, on a later file', () => {
       const { left, top, width, height } = element.getBoundingClientRect();
       return document
         .elementFromPoint(left + width / 2, top + height / 2)
-        ?.closest('[role="listbox"]')
+        ?.closest('.search-picker-list')
         ?.getAttribute('data-testid');
     });
     expect(covering).toBe(`import-fix-${found}-list`);

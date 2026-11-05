@@ -22,13 +22,13 @@ import type { Page, TestInfo } from '@playwright/test';
  * Every state in the shared inventory (`helpers/screens.ts`) is measured at each of its sizes by
  * the detectors in `helpers/layoutDetectors.ts`, and the test fails on any finding of a gating kind:
  * the page or an element past the window, a child outside its parent, text clipped, text or
- * controls overlapping, text squeezed into a column, type off the scale, and a tap target under
- * 44px on a phone (T82). Each failure names the state, the size, the element and the measurement.
+ * controls overlapping, text squeezed into a column, type off the scale, a scroller that draws a bar
+ * or has no shade (T217), and a tap target under 44px on a phone (T82). Each failure names the state,
+ * the size, the element and the measurement.
  *
  * The noisier kinds (spacing off the scale, uneven gaps, near-miss edges, empty bands, truncated
  * names, nested scrollers, small targets on a desktop) are real drift mixed with what is by design,
- * so they are attached to each test as `layout report`, never failed on. So is a scroller without a
- * shade, until the last scroller is a `ScrollBox`.
+ * so they are attached to each test as `layout report`, never failed on.
  *
  * Then, across screens: the market bar stands at the same x and width on every market screen of one
  * size, which is what no screen can see alone (bug 12: the frame at x 0 on the floorplan, x 16
