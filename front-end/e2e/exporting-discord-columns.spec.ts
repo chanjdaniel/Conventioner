@@ -109,8 +109,10 @@ test('Export from “Not found” downloads exactly the vendors the page shows a
   await vendors.exportButton.click();
   const dialog = new VendorExportDialog(page);
   await expect(dialog.window).toBeVisible();
-  await expect(dialog.discordState('not_found')).toBeChecked();
-  await expect(dialog.discordState('in_server')).not.toBeChecked();
+  await expect(dialog.filtersSummary).toHaveText('Discord: Not found');
+  await dialog.showFilters();
+  await expect(dialog.discordState('not_found')).toHaveAttribute('aria-pressed', 'true');
+  await expect(dialog.discordState('in_server')).toHaveAttribute('aria-pressed', 'false');
   await expect(dialog.group('discord')).toContainText('Discord username');
   await expect(dialog.group('answers')).not.toContainText('Discord Username');
 

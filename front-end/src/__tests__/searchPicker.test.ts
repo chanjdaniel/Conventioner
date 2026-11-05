@@ -3,7 +3,7 @@
  * grouped where the list is, and worked from the keyboard alone. The placement dialog's two vendor
  * pickers are its first use; it is a primitive, so it knows nothing of vendors.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
 
@@ -229,6 +229,57 @@ describe('the searchable picker', () => {
     await wrapper.setProps({ modelValue: '' });
 
     expect((field(wrapper).element as HTMLInputElement).value).toBe('');
+    wrapper.unmount();
+  });
+});
+
+describe('brought into view', () => {
+  const scrollIntoView = vi.fn();
+
+  beforeEach(() => {
+    scrollIntoView.mockClear();
+    Element.prototype.scrollIntoView = scrollIntoView;
+  });
+
+  afterEach(() => {
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  });
+
+  /** What was moved, by its role, leaving out the active row, which moves when it changes. */
+  const moved = () =>
+    scrollIntoView.mock.contexts
+      .map((element: Element) => element.getAttribute('role'))
+      .filter((role) => role !== 'option');
+
+  it('its list and then its field, as its list opens, however often, and as words narrow it', async () => {
+    const wrapper = picker();
+
+    await field(wrapper).trigger('click');
+    await flushPromises();
+    expect(moved()).toEqual(['listbox', 'combobox']);
+
+    await field(wrapper).setValue('a');
+    await flushPromises();
+    expect(moved()).toEqual(['listbox', 'combobox', 'listbox', 'combobox']);
+
+    await field(wrapper).trigger('keydown', { key: 'Escape' });
+    await flushPromises();
+    expect(moved()).toHaveLength(4);
+
+    await field(wrapper).trigger('click');
+    await flushPromises();
+    expect(moved()).toHaveLength(6);
+    wrapper.unmount();
+  });
+
+  it('nothing when its list lies over what follows and moves nothing', async () => {
+    const wrapper = picker();
+    await wrapper.setProps({ listOver: true });
+
+    await field(wrapper).trigger('click');
+    await flushPromises();
+
+    expect(moved()).toEqual([]);
     wrapper.unmount();
   });
 });

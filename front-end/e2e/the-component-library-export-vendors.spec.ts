@@ -3,17 +3,17 @@ import { test, expect } from './fixtures';
 import { eachWindow, expectLaidOut, openEntry } from './helpers/componentLibrary';
 import { inTheWindow } from './helpers/phoneWindow';
 import { settle } from './helpers/settle';
+import { VendorExportDialog } from './pages/VendorExportDialog';
 
 /**
- * The component library's `export-vendors` entry (T200): the export dialog redesigned, broad, its
- * body scrolling under a pinned title, tray and actions, at a desk and on a phone. A column is found
- * and added in each variant, one removed, one moved up by its button and one dragged, an answer
- * filters, each filter narrows the file, and the tray stays in view while the body scrolls. Nothing
- * asks the server.
+ * The component library's `export-vendors` entry (T200, T217): the product's own form, mounted on the
+ * fixture's market of 43 columns and six answer filters, at a desk and on a phone, so what is
+ * critiqued there is what ships. A column is found and added, one removed, one moved up by its button
+ * and one dragged, an answer filters, each filter narrows the file, and the tray stays in view while
+ * the body scrolls. Nothing asks the server.
  *
  * The counts are the fixture's: 359 vendors, 181 who sell stickers, 110 open and 62 of those.
  */
-const DIALOG = 'library-export-dialog';
 const STICKERS = 181;
 const OPEN = 110;
 const REJECTED = 64;
@@ -28,20 +28,21 @@ const LONGEST_ID = 'answer:i_understand_that_a_vendor_who_does_not';
 const CHOSEN = { name: 'Angela', full: 'Angela Lee' };
 /** Someone whose answer begins with a formula's lead. */
 const WITH_A_HANDLE = { email: 'mary.li13@example.com', twitter: "'@examplemaryli13" };
+/** The question with 228 answers. */
+const WORK = 'what_kinds_of_work_will_you_sell';
+const ANSWER_FILTERS = [
+  WORK,
+  'i_certify_that_i_designed_and_made_the',
+  'are_you_an_example_college_student',
+  'which_clubs_are_you_in',
+  'i_understand_that_tables_and_days_cannot',
+  'i_understand_that_a_vendor_who_does_not',
+];
+const GROUPS = ['vendor', 'answers', 'assignment', 'payment', 'discord'] as const;
 
-const dialog = (page: Page) => page.getByTestId(`${DIALOG}-window`);
-const body = (page: Page) => page.getByTestId(`${DIALOG}-body`);
-const tray = (page: Page) => page.getByTestId(`${DIALOG}-tray`);
-const summary = (page: Page) => page.getByTestId('library-export-summary');
-const orderRows = (page: Page) => page.getByTestId('library-export-order-row');
-const header = (page: Page) =>
-  page.getByTestId('library-export-preview-header').getByRole('columnheader');
-const previewRows = (page: Page) => page.getByTestId('library-export-preview-row');
-const answerField = (page: Page, at: number) =>
-  page.getByTestId(`library-export-answer-${at}-input`);
-
-/** The chosen columns' names, as the order list reads them with its row's buttons left out. */
-const orderWords = (page: Page) => page.getByTestId('library-export-order-label');
+/** What the entry's panel reads out of a download. */
+const readOut = (page: Page) =>
+  page.getByRole('region', { name: 'Open it' }).getByTestId('read-out');
 
 /** The bottom of a thing is inside the window, and its top. */
 async function expectInView(page: Page, thing: Locator, what: string) {
@@ -55,60 +56,73 @@ async function expectInView(page: Page, thing: Locator, what: string) {
 eachWindow('the export-vendors entry', (size) => {
   const { press, expectInside } = inTheWindow(size);
 
-  async function open(page: Page, variant: 'checklist' | 'combobox' = 'checklist') {
-    await press(page.getByTestId(`library-export-variant-${variant}`));
+  async function open(page: Page): Promise<VendorExportDialog> {
+    const dialog = new VendorExportDialog(page);
     await press(page.getByTestId('library-export-open'));
-    await expect(dialog(page)).toBeVisible();
+    await expect(dialog.window).toBeVisible();
+    return dialog;
   }
 
   /** On a phone the tray is folded to its summary line; a test reading it opens it first. */
-  async function openTray(page: Page) {
-    if (size.phone) await press(page.getByTestId('library-export-cart-toggle'));
+  async function openTray(dialog: VendorExportDialog) {
+    if (size.phone) await press(dialog.cartToggle);
+  }
+
+  /** The filters are folded every time it opens; a test using one unfolds them first. */
+  async function openFilters(dialog: VendorExportDialog) {
+    await press(dialog.filtersToggle);
+    await expect(dialog.filters).toBeVisible();
   }
 
   test.beforeEach(async ({ page }) => {
     await openEntry(page, 'export-vendors');
   });
 
-  test('the chosen variant stays pressed, and the other toggle returns to it', async ({ page }) => {
-    const checklist = page.getByTestId('library-export-variant-checklist');
-    await expect(checklist).toHaveAttribute('aria-pressed', 'true');
-    await press(checklist);
-    await expect(checklist).toHaveAttribute('aria-pressed', 'true');
-    const combobox = page.getByTestId('library-export-variant-combobox');
-    await press(combobox);
-    await expect(checklist).toHaveAttribute('aria-pressed', 'false');
-    await press(combobox);
-    await expect(checklist).toHaveAttribute('aria-pressed', 'true');
-  });
-
-  test('names what it serves and ends with the choices left', async ({
+  test('names what it serves and leaves no choice open, each answered', async ({
     page,
     expectAccessible,
   }) => {
     await expect(page.getByTestId('library-serves')).toContainText('The export dialog, C11, F03');
-    const choices = page.getByTestId('choices-for-you');
-    await expect(choices).toContainText('The column choice');
-    await expect(choices).toContainText('What the tray holds');
-    await expect(choices).toContainText("The preview's rows");
-    await expect(choices).toContainText('The tray folded on a phone');
+    await expect(page.getByTestId('choices-for-you')).toHaveCount(0);
+    await expect(page.getByTestId('library-export-variant')).toHaveCount(0);
     await expectLaidOut(page, size, 'the export-vendors entry');
     await expectAccessible('the export-vendors entry');
   });
 
-  test('opens broad, on its first field, and never taller than the window', async ({
+  test("holds the fixture's market whole: 43 columns and six answer filters", async ({
     page,
     expectAccessible,
   }) => {
-    await open(page);
-    await expect(page.getByTestId('library-export-search')).toBeFocused();
+    const dialog = await open(page);
+    await expect(page.locator('[data-testid^="vendor-export-column-"]')).toHaveCount(43);
+    for (const group of GROUPS) await expect(dialog.group(group)).toBeVisible();
+    await expect(dialog.filtersSummary).toHaveText('All vendors');
 
-    const box = (await dialog(page).boundingBox())!;
+    await openFilters(dialog);
+    await expect(
+      page.locator('[data-testid^="vendor-export-answer-"][data-testid$="-input"]'),
+    ).toHaveCount(ANSWER_FILTERS.length);
+    for (const key of ANSWER_FILTERS) await expect(dialog.answer(key)).toBeVisible();
+
+    await expectLaidOut(page, size, 'the filters unfolded');
+    await expectAccessible('the filters unfolded');
+  });
+
+  test('opens broad, on its first control, and no taller than the shell allows', async ({
+    page,
+    expectAccessible,
+  }) => {
+    const dialog = await open(page);
+    await expect(dialog.filtersToggle).toBeFocused();
+
+    const box = (await dialog.window.boundingBox())!;
     const viewport = page.viewportSize()!;
-    // 60rem at a desk; a phone's window less its gutter.
+    // 60rem and 80% of the window at a desk; a phone's window less its gutter.
     expect(box.width).toBe(size.phone ? viewport.width - 32 : 960);
-    expect(box.height).toBeLessThanOrEqual(viewport.height - 48);
-    await expectInside(dialog(page), 'the dialog');
+    expect(box.height).toBeLessThanOrEqual(
+      size.phone ? viewport.height - 32 : viewport.height * 0.8,
+    );
+    await expectInside(dialog.window, 'the dialog');
 
     await expectLaidOut(page, size, 'the dialog');
     await expectAccessible('the dialog');
@@ -117,137 +131,109 @@ eachWindow('the export-vendors entry', (size) => {
   test('the title, tray and actions stay in view while the body scrolls end to end', async ({
     page,
   }) => {
-    await open(page);
+    const dialog = await open(page);
     const pinned = [
       page.getByRole('heading', { name: 'Export vendors', exact: true }),
-      page.getByTestId(`${DIALOG}-close-button`),
-      tray(page),
-      summary(page),
-      page.getByTestId(`${DIALOG}-cancel-button`),
-      page.getByTestId(`${DIALOG}-submit-button`),
+      page.getByTestId('vendor-export-close-button'),
+      dialog.tray,
+      dialog.summary,
+      dialog.cancelButton,
+      dialog.downloadButton,
     ];
-    const scroller = body(page);
+    const scroller = dialog.body;
     const { scrollHeight, clientHeight } = await scroller.evaluate((el) => ({
       scrollHeight: el.scrollHeight,
       clientHeight: el.clientHeight,
     }));
     expect(scrollHeight, 'the body has more than it shows').toBeGreaterThan(clientHeight);
 
-    await expect(page.getByTestId(`${DIALOG}-shade-bottom`)).toBeVisible();
+    await expect(page.getByTestId('vendor-export-shade-bottom')).toBeVisible();
     for (const part of pinned) await expectInView(page, part, 'at the top, a pinned part');
 
     await scroller.evaluate((el) => (el.scrollTop = el.scrollHeight));
-    await expect(page.getByTestId(`${DIALOG}-shade-top`)).toBeVisible();
-    await expect(page.getByTestId(`${DIALOG}-shade-bottom`)).toHaveCount(0);
+    await expect(page.getByTestId('vendor-export-shade-top')).toBeVisible();
+    await expect(page.getByTestId('vendor-export-shade-bottom')).toHaveCount(0);
     for (const part of pinned) await expectInView(page, part, 'at the end, a pinned part');
-    await expect(dialog(page)).toHaveJSProperty('scrollTop', 0);
+    await expect(dialog.window).toHaveJSProperty('scrollTop', 0);
   });
 
-  for (const variant of ['checklist', 'combobox'] as const) {
-    test(`${variant}: starts from the product's default columns and the first 3 vendors`, async ({
-      page,
-    }) => {
-      await open(page, variant);
-      await expect(summary(page)).toHaveText('359 vendors, 3 columns');
-      await openTray(page);
-      await expect(orderWords(page)).toHaveText(['Name', 'Email', 'Status']);
-      await expect(header(page)).toHaveText(['Name', 'Email', 'Status']);
-      await expect(previewRows(page)).toHaveCount(3);
-      await expect(previewRows(page).first()).toContainText('Angela Lee');
-      await expectLaidOut(page, size, `${variant}, the tray open`);
-    });
-  }
+  test("starts from the product's default columns and the first 3 vendors", async ({ page }) => {
+    const dialog = await open(page);
+    await expect(dialog.summary).toHaveText('359 vendors, 3 columns');
+    await openTray(dialog);
+    await expect(dialog.orderLabels).toHaveText(['Name', 'Email', 'Status']);
+    await expect(dialog.previewHeader.getByRole('columnheader')).toHaveText([
+      'Name',
+      'Email',
+      'Status',
+    ]);
+    await expect(dialog.previewRows).toHaveCount(3);
+    await expect(dialog.previewRows.first()).toContainText('Angela Lee');
+    await expectLaidOut(page, size, 'the tray open');
+  });
 
-  test('the checklist: finding a column keeps only its group, and a tick adds it', async ({
-    page,
-  }) => {
-    await open(page, 'checklist');
-    await openTray(page);
-    const find = page.getByTestId('library-export-columns-find');
-    const group = (id: string) => page.getByTestId(`library-export-group-${id}`);
+  test('finding a column keeps only its group, and a tick adds it', async ({ page }) => {
+    const dialog = await open(page);
+    await openTray(dialog);
+    const find = dialog.columnsFind;
 
-    for (const id of ['vendor', 'answers', 'assignment', 'payment', 'discord']) {
-      await expect(group(id)).toBeVisible();
-    }
-    await expect(page.getByTestId('library-export-column-email')).toBeChecked();
+    for (const id of GROUPS) await expect(dialog.group(id)).toBeVisible();
+    await expect(dialog.column('email')).toBeChecked();
 
     await find.fill('amount owed');
-    await expect(group('payment').getByRole('heading', { name: 'Payment' })).toBeVisible();
-    await expect(group('payment').getByRole('checkbox')).toHaveCount(1);
-    for (const id of ['vendor', 'answers', 'assignment', 'discord']) {
-      await expect(group(id)).toHaveCount(0);
+    await expect(
+      dialog.group('payment').locator('legend').filter({ hasText: 'Payment' }),
+    ).toBeVisible();
+    await expect(dialog.group('payment').getByRole('checkbox')).toHaveCount(1);
+    for (const id of ['vendor', 'answers', 'assignment', 'discord'] as const) {
+      await expect(dialog.group(id)).toHaveCount(0);
     }
 
-    await press(page.getByTestId('library-export-column-owed'));
-    await expect(orderWords(page)).toHaveText(['Name', 'Email', 'Status', 'Amount owed']);
-    await expect(header(page)).toHaveText(['Name', 'Email', 'Status', 'Amount owed']);
-    await expect(summary(page)).toHaveText('359 vendors, 4 columns');
-    await expect(previewRows(page).first().getByRole('cell').last()).toHaveText('$0.00');
+    await press(dialog.column('owed'));
+    await expect(dialog.orderLabels).toHaveText(['Name', 'Email', 'Status', 'Amount owed']);
+    await expect(dialog.previewHeader.getByRole('columnheader')).toHaveText([
+      'Name',
+      'Email',
+      'Status',
+      'Amount owed',
+    ]);
+    await expect(dialog.summary).toHaveText('359 vendors, 4 columns');
+    await expect(dialog.previewRows.first().getByRole('cell').last()).toHaveText('$0.00');
 
     // Enter only looks: it never downloads what the person was looking through.
     await find.press('Enter');
-    await expect(dialog(page)).toBeVisible();
+    await expect(dialog.window).toBeVisible();
 
     await find.fill('zzz');
-    await expect(page.getByTestId('library-export-columns-none')).toHaveText(
-      'Nothing matches "zzz".',
-    );
+    await expect(dialog.columnsNone).toHaveText('Nothing matches "zzz".');
 
     // Unticking takes it out again.
     await find.fill('amount owed');
-    await press(page.getByTestId('library-export-column-owed'));
-    await expect(orderWords(page)).toHaveText(['Name', 'Email', 'Status']);
-    await expect(summary(page)).toHaveText('359 vendors, 3 columns');
-  });
-
-  test('the combobox: finding a column in its group adds it, and its chip removes it', async ({
-    page,
-  }) => {
-    await open(page, 'combobox');
-    await openTray(page);
-    const field = page.getByTestId('library-export-columns-input');
-    const chips = page.getByTestId('library-export-columns-chip');
-    await expect(chips).toHaveText(['Name', 'Email', 'Status'].map((w) => new RegExp(`^${w}`)));
-
-    await press(field);
-    const list = page.getByTestId('library-export-columns-list');
-    for (const heading of ['Vendor', 'Answers', 'Assignment', 'Payment', 'Discord']) {
-      await expect(list.getByText(heading, { exact: true })).toBeVisible();
-    }
-    await field.fill('amount owed');
-    const option = page.getByTestId('library-export-columns-option');
-    await expect(option).toHaveText(['Amount owed']);
-    await press(option);
-
-    await expect(orderWords(page)).toHaveText(['Name', 'Email', 'Status', 'Amount owed']);
-    await expect(summary(page)).toHaveText('359 vendors, 4 columns');
-    await expect(chips).toHaveCount(4);
-
-    await press(chips.filter({ hasText: 'Email' }).getByRole('button'));
-    await expect(orderWords(page)).toHaveText(['Name', 'Status', 'Amount owed']);
-    await expect(header(page)).toHaveText(['Name', 'Status', 'Amount owed']);
-    await expect(summary(page)).toHaveText('359 vendors, 3 columns');
-
-    await page.getByTestId('library-export-columns-input').press('Enter');
-    await expect(dialog(page)).toBeVisible();
+    await press(dialog.column('owed'));
+    await expect(dialog.orderLabels).toHaveText(['Name', 'Email', 'Status']);
+    await expect(dialog.summary).toHaveText('359 vendors, 3 columns');
   });
 
   test('a move button changes the order, the preview with it, and holds the focus', async ({
     page,
   }) => {
-    await open(page);
-    await openTray(page);
-    const up = (id: string) => page.getByTestId(`library-export-order-up-${id}`);
-    const down = (id: string) => page.getByTestId(`library-export-order-down-${id}`);
+    const dialog = await open(page);
+    await openTray(dialog);
+    const up = (id: string) => page.getByTestId(`vendor-export-order-up-${id}`);
+    const down = (id: string) => dialog.moveDownButton(id);
 
     await expect(up('name')).toBeDisabled();
     await expect(down('status')).toBeDisabled();
     await expect(up('email')).toHaveAccessibleName('Move Email up');
 
     await press(up('status'));
-    await expect(orderWords(page)).toHaveText(['Name', 'Status', 'Email']);
-    await expect(header(page)).toHaveText(['Name', 'Status', 'Email']);
-    await expect(previewRows(page).first().getByRole('cell')).toHaveText([
+    await expect(dialog.orderLabels).toHaveText(['Name', 'Status', 'Email']);
+    await expect(dialog.previewHeader.getByRole('columnheader')).toHaveText([
+      'Name',
+      'Status',
+      'Email',
+    ]);
+    await expect(dialog.previewRows.first().getByRole('cell')).toHaveText([
       'Angela Lee',
       'Open',
       'angela.lee0@example.com',
@@ -256,50 +242,50 @@ eachWindow('the export-vendors entry', (size) => {
 
     // At the top its up is disabled, so the focus goes to its down rather than the page.
     await page.keyboard.press('Enter');
-    await expect(orderWords(page)).toHaveText(['Status', 'Name', 'Email']);
+    await expect(dialog.orderLabels).toHaveText(['Status', 'Name', 'Email']);
     await expect(down('status')).toBeFocused();
     await expect(up('status')).toBeDisabled();
   });
 
   test("a cart row's remove takes the column out, and the focus goes on", async ({ page }) => {
-    await open(page);
-    await openTray(page);
-    const remove = page.getByTestId('library-export-remove-email');
+    const dialog = await open(page);
+    await openTray(dialog);
+    const remove = dialog.removeButton('email');
     await expect(remove).toHaveAccessibleName('Remove Email');
     await press(remove);
-    await expect(orderWords(page)).toHaveText(['Name', 'Status']);
-    await expect(page.getByTestId('library-export-column-email')).not.toBeChecked();
-    await expect(page.getByTestId('library-export-remove-status')).toBeFocused();
+    await expect(dialog.orderLabels).toHaveText(['Name', 'Status']);
+    await expect(dialog.column('email')).not.toBeChecked();
+    await expect(dialog.removeButton('status')).toBeFocused();
 
-    await press(page.getByTestId('library-export-remove-status'));
-    await expect(page.getByTestId('library-export-remove-name')).toBeFocused();
-    await press(page.getByTestId('library-export-remove-name'));
-    await expect(orderWords(page)).toHaveCount(0);
+    await press(dialog.removeButton('status'));
+    await expect(dialog.removeButton('name')).toBeFocused();
+    await press(dialog.removeButton('name'));
+    await expect(dialog.orderLabels).toHaveCount(0);
 
     // Nothing chosen: nothing to download, and the tray says what to do.
-    await expect(summary(page)).toHaveText('359 vendors, 0 columns');
-    await expect(page.getByTestId('library-export-order-none')).toBeVisible();
-    await expect(page.getByTestId(`${DIALOG}-submit-button`)).toBeDisabled();
-    await expect(page.getByTestId('library-export-preview')).toHaveCount(0);
+    await expect(dialog.summary).toHaveText('359 vendors, 0 columns');
+    await expect(page.getByTestId('vendor-export-order-none')).toBeVisible();
+    await expect(dialog.downloadButton).toBeDisabled();
+    await expect(dialog.preview).toHaveCount(0);
   });
 
   test('the longest label is whole in the cart: its row is never clipped on the right', async ({
     page,
   }) => {
-    await open(page);
-    await openTray(page);
-    await press(page.getByTestId(`library-export-column-${LONGEST_ID}`));
-    await expect(orderWords(page).last()).toHaveText(LONGEST);
+    const dialog = await open(page);
+    await openTray(dialog);
+    await press(dialog.column(LONGEST_ID));
+    await expect(dialog.orderLabels.last()).toHaveText(LONGEST);
 
-    const row = orderRows(page).last();
-    const list = page.getByTestId('library-export-order');
+    const row = dialog.orderRows.last();
+    const list = page.getByTestId('vendor-export-order');
     await row.scrollIntoViewIfNeeded();
     const listBox = (await list.boundingBox())!;
     const down = (await row.getByRole('button', { name: /down$/ }).boundingBox())!;
     expect(down.x + down.width, 'its last button is inside the list').toBeLessThanOrEqual(
       listBox.x + listBox.width,
     );
-    for (const scroller of [tray(page), body(page)]) {
+    for (const scroller of [dialog.tray, dialog.body]) {
       const sideways = await scroller.evaluate((el) => el.scrollWidth - el.clientWidth);
       expect(sideways, 'nothing runs past it on the right').toBeLessThanOrEqual(0);
     }
@@ -307,96 +293,96 @@ eachWindow('the export-vendors entry', (size) => {
   });
 
   test('an answer filters through its combobox, among 228, by typing', async ({ page }) => {
-    await open(page);
-    await openTray(page);
-    const field = answerField(page, 0);
+    const dialog = await open(page);
+    await openTray(dialog);
+    await openFilters(dialog);
+    const answer = (part: string) => page.getByTestId(`vendor-export-answer-${WORK}-${part}`);
+    const field = answer('input');
 
     await press(field);
-    await expect(page.getByTestId('library-export-answer-0-more')).toHaveText(
-      '178 more, type to narrow',
-    );
+    await expect(answer('more')).toHaveText('178 more, type to narrow');
     await field.fill('stickers');
-    await press(
-      page.getByTestId('library-export-answer-0-option').filter({ hasText: /^Stickers$/ }),
-    );
-    await expect(page.getByTestId('library-export-answer-0-chip')).toHaveCount(1);
-    await expect(summary(page)).toHaveText(`${STICKERS} vendors, 3 columns`);
-    await expect(previewRows(page).nth(1)).toContainText('Philip Lopez');
+    await press(answer('option').filter({ hasText: /^Stickers$/ }));
+    await expect(answer('chip')).toHaveCount(1);
+    await expect(dialog.summary).toHaveText(`${STICKERS} vendors, 3 columns`);
+    await expect(dialog.filtersSummary).toContainText('Stickers');
+    await expect(dialog.previewRows.nth(1)).toContainText('Philip Lopez');
 
     // With the status: both must hold.
-    await press(page.getByTestId('library-export-status-open'));
-    await expect(summary(page)).toHaveText(`${OPEN_WITH_STICKERS} vendors, 3 columns`);
+    await press(dialog.status('open'));
+    await expect(dialog.summary).toHaveText(`${OPEN_WITH_STICKERS} vendors, 3 columns`);
 
-    await press(page.getByTestId('library-export-answer-0-chip-remove'));
-    await expect(summary(page)).toHaveText(`${OPEN} vendors, 3 columns`);
+    await press(answer('chip-remove'));
+    await expect(dialog.summary).toHaveText(`${OPEN} vendors, 3 columns`);
   });
 
   test('every filter narrows the file, and one that finds nobody says so', async ({ page }) => {
-    await open(page);
-    await openTray(page);
+    const dialog = await open(page);
+    await openTray(dialog);
+    await openFilters(dialog);
+    const select = (name: string) => page.getByTestId(`vendor-export-${name}`);
     const vendors = (count: number) =>
-      expect(summary(page)).toHaveText(`${count} vendor${count === 1 ? '' : 's'}, 3 columns`);
+      expect(dialog.summary).toHaveText(`${count} vendor${count === 1 ? '' : 's'}, 3 columns`);
 
-    await page.getByTestId('library-export-search').fill('LOPEZ');
+    await dialog.search.fill('LOPEZ');
     await vendors(5);
     // By the name they chose or their address, as the Vendors page's search finds them.
-    await page.getByTestId('library-export-search').fill(CHOSEN.name);
+    await dialog.search.fill(CHOSEN.name);
     await vendors(1);
-    await page.getByTestId('library-export-search').fill(CHOSEN.full);
+    await dialog.search.fill(CHOSEN.full);
     await vendors(0);
-    await page.getByTestId('library-export-search').fill('');
+    await dialog.search.fill('');
 
-    await press(page.getByTestId('library-export-status-open'));
-    await press(page.getByTestId('library-export-status-rejected'));
+    await press(dialog.status('open'));
+    await press(dialog.status('rejected'));
     await vendors(OPEN + REJECTED);
-    await press(page.getByTestId('library-export-status-open'));
-    await press(page.getByTestId('library-export-status-rejected'));
+    await press(dialog.status('open'));
+    await press(dialog.status('rejected'));
 
-    await press(page.getByTestId('library-export-status-added'));
+    await press(dialog.status('added'));
     await vendors(0);
-    await expect(page.getByTestId('library-export-no-vendor')).toHaveText(
+    await expect(page.getByTestId('vendor-export-no-vendor')).toHaveText(
       'No vendor matches these filters.',
     );
-    await expect(page.getByTestId('library-export-preview')).toHaveCount(0);
-    await press(page.getByTestId('library-export-status-added'));
+    await expect(dialog.preview).toHaveCount(0);
+    await press(dialog.status('added'));
 
     const mine = page.locator('label', { hasText: 'Mine: the follow-ups I own' });
     await press(mine);
     await vendors(1);
     await press(mine);
 
-    await press(page.getByTestId('library-export-discord-not_found'));
+    await press(dialog.discordState('not_found'));
     await vendors(60);
-    await press(page.getByTestId('library-export-discord-not_found'));
+    await press(dialog.discordState('not_found'));
 
-    await page.getByTestId('library-export-payment').selectOption('owes');
+    await dialog.payment.selectOption('owes');
     await vendors(40);
-    await page.getByTestId('library-export-payment').selectOption('');
+    await dialog.payment.selectOption('');
 
-    // The assignment's selects come as today's do: only once they would mean something.
-    await expect(page.getByTestId('library-export-date')).toHaveCount(0);
-    await page.getByTestId('library-export-placed').selectOption('unplaced');
-    await expect(page.getByTestId('library-export-section')).toHaveCount(0);
+    // The assignment's selects come as the product's do: only once they would mean something.
+    await expect(select('date')).toHaveCount(0);
+    await dialog.placed.selectOption('unplaced');
+    await expect(select('section')).toHaveCount(0);
     await vendors(224);
-    await page.getByTestId('library-export-date').selectOption(FIRST_DATE);
+    await select('date').selectOption(FIRST_DATE);
     await vendors(300);
-    await page.getByTestId('library-export-placed').selectOption('placed');
+    await dialog.placed.selectOption('placed');
     await vendors(59);
-    await page.getByTestId('library-export-section').selectOption('North Wing');
+    await select('section').selectOption('North Wing');
     await vendors(31);
-    await page.getByTestId('library-export-tier').selectOption('Silver');
+    await select('tier').selectOption('Silver');
     await vendors(0);
-    await page.getByTestId('library-export-tier').selectOption('Gold');
-    await page.getByTestId('library-export-size').selectOption('half');
+    await select('tier').selectOption('Gold');
+    await select('size').selectOption('half');
     await vendors(0);
-    await page.getByTestId('library-export-size').selectOption('full');
+    await select('size').selectOption('full');
     await vendors(31);
   });
 
   test('a seat, a payment and Discord each write their cell', async ({ page }) => {
-    await open(page);
-    await openTray(page);
-    const find = page.getByTestId('library-export-columns-find');
+    const dialog = await open(page);
+    await openTray(dialog);
     for (const [words, id] of [
       ['Tue 23 Apr - table', 'date:2024-04-23:table'],
       ['Thu 25 Apr - tier', 'date:2024-04-25:tier'],
@@ -408,10 +394,10 @@ eachWindow('the export-vendors entry', (size) => {
       ['Discord username', 'discordUsername'],
       ['Business Name', 'answer:business_name'],
     ] as const) {
-      await find.fill(words);
-      await press(page.getByTestId(`library-export-column-${id}`));
+      await dialog.columnsFind.fill(words);
+      await press(dialog.column(id));
     }
-    await expect(previewRows(page).nth(2).getByRole('cell')).toHaveText([
+    await expect(dialog.previewRows.nth(2).getByRole('cell')).toHaveText([
       'Brian Singh',
       'brian.singh2@example.com',
       'Approved',
@@ -430,46 +416,42 @@ eachWindow('the export-vendors entry', (size) => {
   test('a cell a spreadsheet would run is written as text, and an amount as it is', async ({
     page,
   }) => {
-    await open(page);
-    await openTray(page);
-    const find = page.getByTestId('library-export-columns-find');
-    await find.fill('Business Twitter');
-    await press(page.getByTestId('library-export-column-answer:business_twitter_optional'));
-    await page.getByTestId('library-export-search').fill(WITH_A_HANDLE.email);
-    await expect(previewRows(page).first().getByRole('cell').last()).toHaveText(
+    const dialog = await open(page);
+    await openTray(dialog);
+    await openFilters(dialog);
+    await dialog.columnsFind.fill('Business Twitter');
+    await press(dialog.column('answer:business_twitter_optional'));
+    await dialog.search.fill(WITH_A_HANDLE.email);
+    await expect(dialog.previewRows.first().getByRole('cell').last()).toHaveText(
       WITH_A_HANDLE.twitter,
     );
 
-    await page.getByTestId('library-export-search').fill('');
-    await page.getByTestId('library-export-payment').selectOption('over');
-    await find.fill('Still owed');
-    await press(page.getByTestId('library-export-column-stillOwed'));
-    await expect(previewRows(page).first().getByRole('cell').last()).toHaveText(/^-\$\d/);
+    await dialog.search.fill('');
+    await dialog.payment.selectOption('over');
+    await dialog.columnsFind.fill('Still owed');
+    await press(dialog.column('stillOwed'));
+    await expect(dialog.previewRows.first().getByRole('cell').last()).toHaveText(/^-\$\d/);
   });
 
   test('Enter in the name or email field only looks', async ({ page }) => {
-    await open(page);
-    const field = page.getByTestId('library-export-search');
-    await field.fill('angela');
-    await field.press('Enter');
+    const dialog = await open(page);
+    await openFilters(dialog);
+    await dialog.search.fill('angela');
+    await dialog.search.press('Enter');
 
-    await expect(dialog(page)).toBeVisible();
-    await expect(field).toHaveValue('angela');
-    await expect(
-      page.getByRole('region', { name: 'Open it on either column choice' }).getByTestId('read-out'),
-    ).toHaveText('Download CSV would export: nothing');
+    await expect(dialog.window).toBeVisible();
+    await expect(dialog.search).toHaveValue('angela');
+    await expect(readOut(page)).toHaveText('Download CSV would export: nothing');
   });
 
   test('Enter on the Mine tick only looks', async ({ page }) => {
-    await open(page);
-    const mine = page.getByTestId('library-export-mine');
-    await mine.focus();
-    await mine.press('Enter');
+    const dialog = await open(page);
+    await openFilters(dialog);
+    await dialog.mine.focus();
+    await dialog.mine.press('Enter');
 
-    await expect(dialog(page)).toBeVisible();
-    await expect(
-      page.getByRole('region', { name: 'Open it on either column choice' }).getByTestId('read-out'),
-    ).toHaveText('Download CSV would export: nothing');
+    await expect(dialog.window).toBeVisible();
+    await expect(readOut(page)).toHaveText('Download CSV would export: nothing');
   });
 
   test('Download only reads out what it would export, and asks no server', async ({ page }) => {
@@ -479,53 +461,55 @@ eachWindow('the export-vendors entry', (size) => {
       if (pathname.startsWith('/api')) asked.push(request.url());
     });
 
-    await open(page);
-    await openTray(page);
-    await press(page.getByTestId('library-export-order-up-status'));
-    await press(page.getByTestId('library-export-status-open'));
-    await press(page.getByTestId(`${DIALOG}-submit-button`));
+    const dialog = await open(page);
+    await openTray(dialog);
+    await openFilters(dialog);
+    await press(page.getByTestId('vendor-export-order-up-status'));
+    await press(dialog.status('open'));
+    await press(dialog.downloadButton);
 
-    await expect(dialog(page)).toHaveCount(0);
-    await expect(
-      page.getByRole('region', { name: 'Open it on either column choice' }).getByTestId('read-out'),
-    ).toHaveText(`Download CSV would export: ${OPEN} vendors, 3 columns: Name, Status, Email`);
+    await expect(dialog.window).toHaveCount(0);
+    await expect(readOut(page)).toHaveText(
+      `Download CSV would export: ${OPEN} vendors, 3 columns: Name, Status, Email`,
+    );
     await expect(page.getByTestId('library-export-open')).toBeFocused();
     expect(asked).toEqual([]);
   });
 
   test('Cancel and Escape leave nothing, and it starts afresh each time', async ({ page }) => {
-    await open(page);
-    await openTray(page);
-    await press(page.getByTestId('library-export-status-open'));
-    await press(page.getByTestId('library-export-remove-email'));
-    await press(page.getByTestId(`${DIALOG}-cancel-button`));
-    await expect(dialog(page)).toHaveCount(0);
-    await expect(
-      page.getByRole('region', { name: 'Open it on either column choice' }).getByTestId('read-out'),
-    ).toHaveText('Download CSV would export: nothing');
+    const dialog = await open(page);
+    await openTray(dialog);
+    await openFilters(dialog);
+    await press(dialog.status('open'));
+    await press(dialog.removeButton('email'));
+    await press(dialog.cancelButton);
+    await expect(dialog.window).toHaveCount(0);
+    await expect(readOut(page)).toHaveText('Download CSV would export: nothing');
 
     await press(page.getByTestId('library-export-open'));
-    await expect(summary(page)).toHaveText('359 vendors, 3 columns');
+    await expect(dialog.summary).toHaveText('359 vendors, 3 columns');
+    await expect(dialog.filtersSummary).toHaveText('All vendors');
+    await expect(dialog.filters).toHaveCount(0);
     await page.keyboard.press('Escape');
-    await expect(dialog(page)).toHaveCount(0);
+    await expect(dialog.window).toHaveCount(0);
   });
 
   test('the tray folds on a phone, and at a desk has no fold', async ({ page }) => {
-    await open(page);
-    const toggle = page.getByTestId('library-export-cart-toggle');
-    const order = page.getByTestId('library-export-order');
+    const dialog = await open(page);
+    const toggle = dialog.cartToggle;
+    const order = page.getByTestId('vendor-export-order');
     if (!size.phone) {
       await expect(toggle).toBeHidden();
       await expect(order).toBeVisible();
-      await expect(page.getByTestId('library-export-preview')).toBeVisible();
+      await expect(dialog.preview).toBeVisible();
       return;
     }
     await expect(order).toBeHidden();
-    await expect(page.getByTestId('library-export-preview')).toBeHidden();
-    await expect(summary(page)).toHaveText('359 vendors, 3 columns');
+    await expect(dialog.preview).toBeHidden();
+    await expect(dialog.summary).toHaveText('359 vendors, 3 columns');
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await expect(toggle).toHaveText('Show the file');
-    const folded = (await tray(page).boundingBox())!;
+    const folded = (await dialog.tray.boundingBox())!;
     const viewport = page.viewportSize()!;
     expect(folded.height, 'the body keeps the room').toBeLessThan(viewport.height * 0.15);
 
@@ -536,10 +520,10 @@ eachWindow('the export-vendors entry', (size) => {
     await expectLaidOut(page, size, 'the tray open on a phone');
 
     // The bar keeps its place under the thumb, and no row shows beneath it as the tray scrolls.
-    await tray(page).evaluate((el) => (el.scrollTop = 40));
+    await dialog.tray.evaluate((el) => (el.scrollTop = 40));
     await settle(page);
-    const bar = (await page.getByTestId('library-export-cart-bar').boundingBox())!;
-    const opened = (await tray(page).boundingBox())!;
+    const bar = (await page.getByTestId('vendor-export-cart-bar').boundingBox())!;
+    const opened = (await dialog.tray.boundingBox())!;
     expect(Math.round(bar.y + bar.height)).toBe(Math.round(opened.y + opened.height));
 
     await press(toggle);
@@ -569,14 +553,15 @@ eachWindow('the export-vendors entry', (size) => {
 test.describe('at 1280 wide', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
-  test('broad, within the window less its gutter, with the tray in view', async ({ page }) => {
+  test('broad, no taller than 80% of the window, with the tray in view', async ({ page }) => {
     await openEntry(page, 'export-vendors');
     await page.getByTestId('library-export-open').click();
-    await expect(dialog(page)).toBeVisible();
-    const box = (await dialog(page).boundingBox())!;
+    const dialog = new VendorExportDialog(page);
+    await expect(dialog.window).toBeVisible();
+    const box = (await dialog.window.boundingBox())!;
     expect(box.width).toBe(960);
-    expect(box.height).toBeLessThanOrEqual(800 - 48);
-    await expectInView(page, tray(page), 'the tray');
+    expect(box.height).toBeLessThanOrEqual(800 * 0.8);
+    await expectInView(page, dialog.tray, 'the tray');
   });
 });
 
@@ -586,10 +571,11 @@ test.describe('dragging a row, at a desk', () => {
   test('the handle sets the order, the preview with it', async ({ page }) => {
     await openEntry(page, 'export-vendors');
     await page.getByTestId('library-export-open').click();
-    await expect(dialog(page)).toBeVisible();
+    const dialog = new VendorExportDialog(page);
+    await expect(dialog.window).toBeVisible();
 
-    const rows = orderRows(page);
-    const handle = (await rows.nth(2).getByTestId('library-export-order-handle').boundingBox())!;
+    const rows = dialog.orderRows;
+    const handle = (await rows.nth(2).getByTestId('vendor-export-order-handle').boundingBox())!;
     const x = handle.x + handle.width / 2;
     await page.mouse.move(x, handle.y + handle.height / 2);
     await page.mouse.down();
@@ -601,7 +587,84 @@ test.describe('dragging a row, at a desk', () => {
     }
     await page.mouse.up();
 
-    await expect(orderWords(page)).toHaveText(['Status', 'Name', 'Email']);
-    await expect(header(page)).toHaveText(['Status', 'Name', 'Email']);
+    await expect(dialog.orderLabels).toHaveText(['Status', 'Name', 'Email']);
+    await expect(dialog.previewHeader.getByRole('columnheader')).toHaveText([
+      'Status',
+      'Name',
+      'Email',
+    ]);
+  });
+});
+
+test.describe('a long list opened on a short window', () => {
+  test.use({ viewport: { width: 844, height: 390 } });
+
+  // The list lies past the foot of a body 137px tall, and the frame around that body holds it
+  // whole: nothing overflows the frame, so bringing the list into view leaves the title where it is.
+  test("leaves the dialog's frame and its title where they were", async ({ page }) => {
+    await openEntry(page, 'export-vendors');
+    await page.getByTestId('library-export-open').click();
+    const dialog = new VendorExportDialog(page);
+    await dialog.showFilters();
+
+    const title = dialog.window.getByRole('heading', { level: 2 });
+    const before = (await title.boundingBox())!;
+    await dialog.answer(`${WORK}-input`).click();
+    await expect(dialog.answer(`${WORK}-list`)).toBeVisible();
+    await settle(page);
+
+    expect((await title.boundingBox())!.y).toBe(before.y);
+    const frame = await dialog.window.evaluate((el) => {
+      const { scrollTop, scrollHeight, clientHeight } = el;
+      el.scrollTop = 49;
+      const pushed = el.scrollTop;
+      el.scrollTop = scrollTop;
+      return { scrollTop, overflow: scrollHeight - clientHeight, pushed };
+    });
+    expect(frame).toEqual({ scrollTop: 0, overflow: 0, pushed: 0 });
+  });
+});
+
+test.describe("an answer's list at the foot of a short body", () => {
+  test.use({ viewport: { width: 1280, height: 720 } });
+
+  // Fourteen of these long answers make the picker taller than the body, its top above and its foot
+  // below, where moving the picker as one moves nothing and the list stays under the cart.
+  test('shows the field and the first answer, however many chips it holds', async ({ page }) => {
+    await openEntry(page, 'export-vendors');
+    await page.getByTestId('library-export-open').click();
+    const dialog = new VendorExportDialog(page);
+    await dialog.showFilters();
+    const input = dialog.answer(`${WORK}-input`);
+
+    await input.click();
+    for (let chosen = 0; chosen < 14; chosen += 1) {
+      await page.keyboard.press('Enter');
+      await page.keyboard.press('ArrowDown');
+    }
+    await expect(dialog.answer(`${WORK}-chip`)).toHaveCount(14);
+    const first = dialog.answer(`${WORK}-option`).first();
+
+    // A first opening moves its new active row into view. Opened again, that row is already the
+    // active one, so only the picker's own move can show the list.
+    for (const opening of ['opened', 'opened again']) {
+      await input.press('Escape');
+      await dialog.search.focus();
+      await dialog.pressAtTheBodysFoot(input);
+      await expect(first).toBeVisible();
+      await settle(page);
+
+      const body = (await dialog.body.boundingBox())!;
+      for (const [thing, name] of [
+        [input, 'the field'],
+        [first, 'the first answer'],
+      ] as const) {
+        const box = (await thing.boundingBox())!;
+        expect(box.y, `${opening}, ${name}: its top`).toBeGreaterThanOrEqual(body.y - 0.5);
+        expect(box.y + box.height, `${opening}, ${name}: its bottom`).toBeLessThanOrEqual(
+          body.y + body.height + 0.5,
+        );
+      }
+    }
   });
 });

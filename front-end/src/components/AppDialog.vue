@@ -58,7 +58,7 @@ const props = withDefaults(
     /**
      * The window's width, a step and never a free width: a percentage per dialog is what the
      * product had. `narrow` (26rem) holds two controls, `wide` (38rem) a list, and `broad` (60rem)
-     * a list beside what it gathers, the export dialog's columns and preview.
+     * a list beside what it gathers, the export dialog's order and preview.
      */
     size?: 'narrow' | 'wide' | 'broad';
     /**

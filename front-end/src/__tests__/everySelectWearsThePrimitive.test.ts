@@ -305,7 +305,8 @@ describe('every select in the app', () => {
       (sum, file) => sum + selectsOf(readFileSync(file, 'utf-8')).length,
       0,
     );
-    // A floor, so a broken reader cannot pass by seeing nothing; 50 when this was written.
-    expect(count).toBeGreaterThan(40);
+    // A floor, so a broken reader cannot pass by seeing nothing; 39 when last moved, as the library's
+    // export prototype and its selects went.
+    expect(count).toBeGreaterThan(30);
   });
 });

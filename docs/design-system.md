@@ -37,11 +37,11 @@ describes:
   - front-end/src/components/SidePanel.vue
   - front-end/src/components/BarLedger.vue
   - front-end/src/utils/useFold.ts
+  - front-end/e2e/no-in-app-scroll-bar.spec.ts
+  - front-end/src/__tests__/everyScrollerIsAScrollBox.test.ts
   - front-end/e2e/a-focused-button-moves-nothing.spec.ts
   - front-end/src/components/ChoiceField.vue
   - front-end/src/components/application/LongQuestion.vue
-  - front-end/e2e/no-in-app-scroll-bar.spec.ts
-  - front-end/src/__tests__/everyScrollerIsAScrollBox.test.ts
   - front-end/src/utils/useGroupFolds.ts
 verified: 2026-11-05
 sources:
@@ -90,14 +90,14 @@ sources:
   - T205
   - T200
   - T211
-  - T204
   - T202
   - T213
-  - T209
-  - T214
   - T221
-  - T223
+  - T204
+  - T209
   - T217
+  - T214
+  - T223
 ---
 
 # Conventioner's design language
@@ -433,6 +433,8 @@ Two smaller controls had no owner either, each re-decided per file, and are prim
 A link on a line of its own is `.link-alone`, a target `--target-min` tall in the link ink, underlined under the pointer: "Forgot password?" under sign-in and "Back to sign in" under the password and verification pages, which each carried a copy of the rule as their own `.link` (T181).
 A link inside a sentence is not one, since it sits on the sentence's line.
 A choice among many, found by typing, is [`SearchPicker.vue`](../front-end/src/components/SearchPicker.vue) (E38/F08/S03): a field over a grouped list that it narrows as it is typed in, worked by the arrow keys, Enter and Escape, its list opening in the flow under the field so a dialog's scroller cannot clip it; it narrows a group and never hides one, a named group with nothing matching saying so and one with no name drawing nothing, unless the caller gives `hidesEmptiedGroups`, as `ChoiceField` does, and then a group the words emptied is not drawn and words that find nothing say so once; the caller says what the words find.
+In a short scroller that list can lie past the foot, so opening it and typing bring the list and the field into view, the field first where both do not fit, unless the caller gives `listOver`.
+Chips above them may then lie past the top.
 Reopened on a choice, it selects that choice's label, so typing replaces it and searches afresh rather than running on from the label; left untouched, the choice stays.
 A picker with no choices at all never opens its list, and "Nobody matches" (the caller's `noneWord` in place of "Nobody", where the choices are not people) shows only once words are typed, so the note the caller puts beside it says why there is nothing to choose.
 Given a `cap`, it draws at most that many matches, counted across the groups in order, under a line "N more, type to narrow" that stays in view as the list scrolls and that the keys skip; a group the cap alone leaves out is not drawn, and a choice past the cap is named by the field, with no row active, so Enter keeps it.
@@ -483,7 +485,7 @@ The row wraps and a long label wraps inside its toggle, so it never scrolls side
 One rule holds in every row, Daniel's choice on 2026-11-04: pressing the chosen toggle again lets it go, and nothing pressed means all, so a row needs no All toggle, and Markets' phase filter has none.
 With one choice, letting go empties the value, unless the row names in `rest` an option to return to: its default, or the All toggle a row still draws, which stays pressed when it is pressed again.
 Several emit in the options' order.
-No screen mounts it yet: the library's `filter-toggles` entry lists the eight rows it would replace.
+Export vendors' Status and Discord filters mount it, with `multiple`; the library's `filter-toggles` entry lists the eight rows it would replace.
 
 A list that can grow with a market is [`ListFrame.vue`](../front-end/src/components/ListFrame.vue) (T200), generic over the row: a find field once the whole list passes `findFrom` rows (12), the screen's own filters beside it, a count line, the first `pageSize` rows (50) and "Show N more".
 The screen narrows `items` by its filters and brings `finds`, `itemKey` and the `row` slot; the frame does the finding and the paging on what is already read.
@@ -515,7 +517,7 @@ A question's options on the form builder take the same fold in [`FormFieldEditor
 A list someone puts in order is [`OrderedList.vue`](../front-end/src/components/OrderedList.vue) (T200), generic over the item: each row has the `.drag-handle` and its own move up and move down buttons, named by `itemLabel`, so the keyboard can do what the mouse can, the first's up and the last's down disabled.
 A move keeps the focus on the moved row's button, or on its other button once that one is disabled.
 A row takes its container's width, its words wrapping and its buttons never shrinking, so nothing is clipped on the right inside a dialog's scrolling body or tray; its words are the `row` slot's when given.
-No screen mounts it yet: the library's `export-vendors` entry shows it alone and in the export dialog's tray.
+Export vendors' cart mounts it, and the library's `export-vendors` entry shows it alone.
 
 **No in-app scroller draws a bar, on any browser** (T217): one rule in `base.css` hides it on everything under `body`, and a box that scrolls is a [`ScrollBox`](../front-end/src/components/ScrollBox.vue), whose shades say there is more.
 Two things keep their bars: the page, since `html` is outside the rule and its bar says how long the page is, along with its `scrollbar-gutter`; and a `textarea`, a field with no room for a shade.
@@ -549,7 +551,7 @@ The import and the start from a Google Form take their CSV on it, and the floorp
 | `.btn` | `--primary`, `--secondary`, `--destructive`, `--compact` | One standard height (36px) and one compact (28px), and no third, both 44px on a phone. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. `--secondary` with `--destructive` is a row's destructive action, below. |
 | `.field` | `--select`, `--textarea` | Left-aligned always - 18 of 27 controls on Market Setup were centred - but for the sign-in code's field above. `--select` carries `min-width: 0`: a select fills its column and never pushes past it, in Firefox as in Chromium. A column that must fit a select's options sizes its own track. `--select` also draws the one chevron, 13px from the right edge as its text is from the left, with room so a long option ends in an ellipsis before it, muted when disabled: two files, `public/icons/select-chevron.svg` and `select-chevron-disabled.svg`, never a `data:` URI, which the Content-Security-Policy's `img-src 'self' blob:` would refuse once it enforces. Under forced colours it keeps the browser's own arrow. A select's own class may size or place it and never sets `padding`, `background` or `appearance`. `every-select-draws-one-chevron.spec.ts` holds the look on the library's primitives entry and on the screens whose selects once drew their own, and `everySelectWearsThePrimitive.test.ts` holds, from the source, that every `<select>` wears it and that no class of its own draws it, nor any rule of its file that reaches it by `select` or `.field--select`. |
 | `.chip` | `--neutral`, `--positive`, `--attention`, `--informational`, `--destructive`; `--small` | One shape, one size, sentence case. Tint with coloured ink rather than a solid fill: a list of six solid pills competes with the content it labels. The tint is an opaque `--mm-chip-*` ground, so a chip reads the same on beige as on white. A status is a chip; the action beside it is a button. `--small` is a proposal (T200), a size step rather than a tone: the type is already the scale's floor, so it takes the padding in and takes `--radius-control`, and no screen wears it yet. |
-| `.data-table` | `--one-line` | A proposal (T200) for the six tables that each draw their own, and no screen wears it yet: a muted header, a rule between rows and the cells' padding, in a `<table>` whose columns are the screen's own. In a `ScrollBox` with `axis="x"`, a `label` naming the region and `.data-table-scroll` on its root, it scrolls sideways alone and never moves the page: the root keeps the border, the radius and the corners, and the box is a Tab stop while the table scrolls. A cell wraps; `--one-line` keeps each on one line, for a table read across, and on paper lets them wrap to the page, with each word whole and sizing its column, so a table whose longest words outgrow the paper runs off it. An address drawn by `EmailAddress` stays in its pieces there too. |
+| `.data-table` | `--one-line` | A proposal (T200) for the six tables that each draw their own, and only Export vendors' preview wears it yet: a muted header, a rule between rows and the cells' padding, in a `<table>` whose columns are the screen's own. In a `ScrollBox` with `axis="x"`, a `label` naming the region and `.data-table-scroll` on its root, it scrolls sideways alone and never moves the page: the root keeps the border, the radius and the corners, and the box is a Tab stop while the table scrolls. A cell wraps; `--one-line` keeps each on one line, for a table read across, and on paper lets them wrap to the page, with each word whole and sizing its column, so a table whose longest words outgrow the paper runs off it. An address drawn by `EmailAddress` stays in its pieces there too. |
 | `.link-alone` | none | A link on a line of its own is a target: a line box `--target-min` tall, 44px on a phone, with no padding, so it still sits on its text. |
 
 **A button or a menu item names its action in sentence case**, as a chip names its status (T181): the phase rail's moves ("Open applications", "Begin assignment", "Publish market"), its More… menu ("Reopen for editing", "Archive market"), "Publish results", and the titles and buttons of the confirmations they open.
@@ -588,7 +590,7 @@ A market card draws it for its name, whose own box is only the name, and lifts u
 
 **A soft halo on every other control**, Daniel's choice on the same walk (E38/F01/S01): `--focus-halo`, a white 2px gap then a translucent green glow, in `base.css`.
 `primitives.css` gives it to every link, `summary` and `[tabindex='0']` on `:focus-visible`, with no outline, so the browser's own ring is drawn nowhere.
-Any other keyboard stop takes it from a zero-specificity rule beneath those: a scroller the browser makes a stop because nothing inside it takes focus, as the export dialog's preview table is on a phone.
+Any other keyboard stop takes it from a zero-specificity rule beneath those.
 A file input is drawn invisible inside the drop zone that stands for it, so the zone wears the halo while its input has keyboard focus (`:has(input:focus-visible)`): the zone marking its one control, not a ring around a field's box, and the focus sweep reads a file input as such a control.
 A link's halo appears at once, corners and all: the global `a` rule in `main.css` eases `color` alone, where easing every property drew the halo square and rounded it over 0.4s (T181).
 [`a-links-halo-appears-at-once.spec.ts`](../front-end/e2e/a-links-halo-appears-at-once.spec.ts) reaches each sign-in page's `.link-alone` by Tab at 390px and 1440px and reads its halo whole in the frame after focus.
@@ -597,7 +599,6 @@ A tab whose underline is a bottom border curls that underline only while it is f
 What a script focuses and Tab never reaches (`tabindex="-1"`), such as AppDialog's window when no control in it is ready, is not a control and draws nothing, the browser's ring included; a control among them, such as a menu's items, still shows its focus.
 A box that clips what lies past its edge cuts a halo off, so a control that fills such a box wears `--focus-halo-inset`, the same halo drawn inside its edge: a [`ScrollBox`](#the-primitive-layer) when it is a stop, with `--radius-control`, since it clips what lies past its own edge and a dialog's window what lies past that.
 Every control carries a `scroll-margin` of `--space-2`, so focus that scrolls it into view leaves its halo room inside the scroller, as a `ScrollBox` would otherwise cut off its last control's.
-A scroller the browser makes focusable, such as the export dialog's preview table, is no control to that rule, so it takes the same `scroll-margin` itself.
 A link on a dark ground (the market bar's tabs) takes `--focus-halo-on-dark`, white at 35%, drawn inside the tab where the bar is narrower than the tabs and they scroll sideways on its lower edge (`--focus-halo-on-dark-inset`), since the scroller would clip it; and a component rule that gives a control a resting `box-shadow` outranks the shared rule, so it says `var(--focus-halo), <its shadow>` itself.
 Measured, the green glow is 1.58:1 against white and 1.50:1 against beige, below the 3:1 WCAG asks of a focus indicator by Daniel's choice of look, since 3:1 takes about 77% green on white and 87% on beige, no longer a soft halo; and the dark halo is 3.17:1 on `--mm-black`, raised from the prototype's 28% (2.53:1), which looked the same.
 

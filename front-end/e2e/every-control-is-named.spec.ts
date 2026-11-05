@@ -283,6 +283,7 @@ test('every field on every other organizer screen and dialog has a name', async 
   await page.goto(marketScreenPath(published.marketId, 'vendors'));
   await page.getByTestId('vendors-export-button').click();
   await expect(page.getByTestId('vendor-export-summary')).not.toBeEmpty();
+  await page.getByTestId('vendor-export-filters-toggle').click();
   await page.getByTestId('vendor-export-placed').selectOption('placed');
   await named('the export dialog');
   await page.keyboard.press('Escape');
