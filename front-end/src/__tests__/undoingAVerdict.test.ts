@@ -230,7 +230,7 @@ describe('one by one', () => {
 
     it('says the key did not count when the hand-out fails, keeping why', async () => {
       const wrapper = await opened();
-      let refuse = (_: Error) => {};
+      let refuse: (reason: Error) => void = () => {};
       handedOut.mockImplementation(
         () =>
           new Promise((_, reject) => {
@@ -266,7 +266,7 @@ describe('one by one', () => {
     });
 
     it('takes the last key pressed, if the reviewer changes their mind', async () => {
-      const wrapper = await opened();
+      await opened();
       const release = holdHandOuts();
 
       await press('a');
