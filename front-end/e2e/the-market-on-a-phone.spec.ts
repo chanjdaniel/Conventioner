@@ -588,6 +588,17 @@ for (const size of PHONE_AND_DESK) {
       await expectTargets(page.getByTestId('app-monitor-choose-highlights'), 'Choose highlights');
       await expectAcross(page.getByTestId('applications-refresh'), 'Refresh');
 
+      // What leads the card opens inside the window, each tick a thumb's target, and is put away.
+      await press(page.getByTestId('app-monitor-choose-highlights'));
+      const choosing = page.getByTestId('choose-highlights-window');
+      await expect(choosing).toBeVisible();
+      await expectInside(choosing, 'the dialog of what leads the card');
+      await expectInside(page.getByTestId('choose-highlights-done'), 'its Done');
+      await expectTargets(choosing.locator('[data-testid^="review-highlight-"]'), 'a tick');
+      await expectTargets(page.getByTestId('choose-highlights-done'), 'its Done');
+      await press(page.getByTestId('choose-highlights-done'));
+      await expect(choosing).toHaveCount(0);
+
       // The follow-up dialog opens inside the window, and is put away.
       await press(page.getByTestId('app-monitor-follow-up-button'));
       const followUp = page.getByTestId('follow-up-window');

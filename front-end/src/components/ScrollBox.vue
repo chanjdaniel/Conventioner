@@ -9,10 +9,11 @@
  *
  * With its bar gone a keyboard needs a way in, and Safari gives a scroller no Tab stop of its own: so
  * while it overflows with nothing inside it to take focus it carries `tabindex="0"`, and otherwise
- * none, since a focusable child already takes the arrow keys. A screen that moves focus to the box
- * itself says `focusable`, and the stop stays whatever the box holds. A stop also carries
- * `data-scroll-stop`, which is how a dialog tells it from a control. A `label` makes it a region only
- * while it scrolls or is a stop, so a strip that fits at a desk adds no landmark there.
+ * none, since a focusable child already takes the arrow keys. A stop holding focus stays one until
+ * focus leaves it, or a control arriving inside could drop that focus to `<body>`. A screen that
+ * moves focus to the box itself says `focusable`, and the stop stays whatever the box holds. A stop
+ * also carries `data-scroll-stop`, which is how a dialog tells it from a control. A `label` makes it
+ * a region only while it scrolls or is a stop, so a strip that fits at a desk adds no landmark there.
  *
  * A strip that scrolls only where its own rule asks, and at a desk would have its child's outer halo
  * clipped for nothing, sets `--scroll-box-overflow: visible` on its root where it does not scroll, and
@@ -71,7 +72,9 @@ function measure() {
   more.left = across && box.scrollLeft > 0;
   more.right = across && box.scrollLeft + box.clientWidth < box.scrollWidth - 1;
   overflows.value = more.top || more.bottom || more.left || more.right;
-  needsStop.value = overflows.value && !!content.value && !holdsFocusable(content.value);
+  needsStop.value =
+    document.activeElement === box ||
+    (overflows.value && !!content.value && !holdsFocusable(content.value));
 }
 
 /*
@@ -120,6 +123,7 @@ defineExpose({ scroller });
       :tabindex="isStop ? 0 : undefined"
       :data-scroll-stop="isStop ? '' : undefined"
       @scroll="measure"
+      @blur="measure"
     >
       <div ref="content" class="scroll-box__content">
         <slot />

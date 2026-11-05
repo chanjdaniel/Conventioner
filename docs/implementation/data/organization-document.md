@@ -46,6 +46,7 @@ sources:
   - E38/F15/S01
   - T181
   - T204
+  - T217
 ---
 
 # The organization document, and roles
@@ -99,7 +100,7 @@ A market's owner takes the organization's current default with "Copy the organiz
 **Its owner and its admins change it, its members read it**: `set_default_permission` (`PUT /organizations/:id/default-permissions/<row>`, body `{role}`), `reset_default_permission` (`DELETE` the same path) and `reset_default_permissions` (`DELETE /organizations/:id/default-permissions`, every row in one write) each answer the default table.
 Anyone else is refused with "Only the organization's owner or its admins may change its default permissions.", 403, an organization nobody has 404; then an unknown row, a fixed row and a role that is not one of the four, 400, as a market's own writes refuse them.
 Setting the role a row already asks, or resetting a row it does not set, writes and records nothing; a stored field that is not a map is replaced by one holding the row, as Mongo cannot set a key inside it, and a whole reset leaves a row this build cannot read where it is.
-Manage organization's "Default permissions for new markets" ([`OrganizationPermissions.vue`](../../../front-end/src/components/OrganizationPermissions.vue)) shows it with Manage market's rows and changes; a change confirms first and says it reaches only markets created from now on.
+Manage organization's "Default permissions for new markets" ([`OrganizationPermissions.vue`](../../../front-end/src/components/OrganizationPermissions.vue)) is a line in Manage organization and a dialog over it (T217), showing the table with Manage market's rows and changes; a change confirms first and says it reaches only markets created from now on.
 
 ## The organization's history
 
@@ -114,7 +115,7 @@ A change made in the dialog shows in its History as it lands: the section reads 
 **The organization itself is its people's too**: `GET /organizations/:id` (`read_organization`) answers its owner, admins and members, and anyone else 403, an organization nobody has 404, as its other routes do; it answered anyone signed in who had its id, its people's ids among it.
 The screens read an organization only through the list, `get_organizations_for_user`, which was always scoped.
 The first page also names every row of the market's table by its label, for the changes to its default table, recorded under `change-the-default`.
-Those changes alone are also read under the default table's section, through `get_default_permission_history` (`GET /organizations/:id/default-permission-history`), by the same people.
+Those changes alone are also read in the default table's dialog, through `get_default_permission_history` (`GET /organizations/:id/default-permission-history`), by the same people.
 
 ## Roles on a market
 

@@ -34,6 +34,7 @@ import {
   reviewQueue,
   reviewed,
 } from '@/utils/reviewQueue';
+import AppDialog from '@/components/AppDialog.vue';
 import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
 import SearchPicker from '@/components/SearchPicker.vue';
 import { PEOPLE_CAP, findsPerson, personOption } from '@/utils/personChoice';
@@ -151,8 +152,14 @@ const current = computed<Application | undefined>(
 const marketRef = computed(() => props.market);
 const { highlights, error: highlightsError, save: saveHighlights } = useReviewHighlights(marketRef);
 
-/** Whether the reviewer has the marking control open. Closed by default: the queue is for judging. */
+/** Whether the marking dialog is open. Closed by default: the queue is for judging. */
 const choosingHighlights = ref(false);
+
+/** What a failed tick said was said in the dialog; the next opening starts clean. */
+function stopChoosingHighlights() {
+  choosingHighlights.value = false;
+  highlightsError.value = '';
+}
 
 /**
  * What the essential questions offered this market's applicants.
@@ -583,14 +590,15 @@ watch(saving, (busy) => {
   heldKey = null;
   if (!props.visible) return;
   if ('undo' in key) {
-    if (undoOffered.value && !undoRefusal.value) void undoLast();
+    // Opening a dialog is the reviewer's own choice, as N is: the undo stays on offer on its line.
+    if (!dialogOverCard.value && undoOffered.value && !undoRefusal.value) void undoLast();
     return;
   }
   const app = current.value;
   // Held for the reviewer is what makes it handed over: a hand-out overtaken ends `saving` with the
   // newer one still out, and the card up then is only the queue's guess, which may be someone else's.
   const handedOver = app?.id === key.on && claims.held.value === key.on;
-  if (!errorMessage.value && handedOver && decidesCurrent.value && !followUpOpen.value) {
+  if (!errorMessage.value && handedOver && decidesCurrent.value && !dialogOverCard.value) {
     void decide(app, key.status);
     return;
   }
@@ -626,6 +634,9 @@ function next() {
  */
 const followUpOpen = ref(false);
 const followUpError = ref('');
+
+/** A dialog is open over the card: its own controls have the keyboard, and no key reaches the card. */
+const dialogOverCard = computed(() => followUpOpen.value || choosingHighlights.value);
 
 async function markFollowUp(choice: { ownerEmail: string; note?: string }) {
   const app = current.value;
@@ -675,8 +686,7 @@ async function reassign(app: Application, ownerEmail: string) {
  */
 function onKey(event: KeyboardEvent) {
   if (!props.visible) return;
-  // A dialog is open over the card: its own controls have the keyboard.
-  if (followUpOpen.value) return;
+  if (dialogOverCard.value) return;
   if (event.metaKey || event.ctrlKey || event.altKey) return;
   const target = event.target as HTMLElement | null;
   if (target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable)) {
@@ -720,6 +730,22 @@ watch(
   () => props.dealt,
   () => void refresh(),
 );
+
+// The dialog belongs to this view of this market, for someone who may mark: left open, it would
+// come back with the view and hold the keys from a card it no longer lies over.
+watch([() => props.visible, () => props.market?.id, marksHighlights], stopChoosingHighlights);
+
+// A tick still being written when Done was pressed has no dialog left to say it failed in. Said
+// beside what the card already says, which on a refused card is who decided it first, and only
+// once however many ticks fail that way.
+watch(highlightsError, (words) => {
+  if (!words || choosingHighlights.value) return;
+  if (!errorMessage.value.includes(words)) {
+    errorMessage.value = `${errorMessage.value} ${words}`.trim();
+  }
+  highlightsError.value = '';
+});
+
 onMounted(() => {
   window.addEventListener('keydown', onKey);
   window.addEventListener('keydown', active);
@@ -997,37 +1023,16 @@ function submittedOn(app: Application): string {
           @changed="loadNotes"
         />
 
-        <!--
-          Change what leads the card, from where the knowing happens (E19/F03/S02).
-
-          Nothing here touches `cursor`, so a reviewer on card twelve stays on card twelve: the
-          marks change what the card SHOWS, never which application is up.
-        -->
+        <!-- Change what leads the card, from where the knowing happens (E19/F03/S02). -->
         <div v-if="marksHighlights" class="choose-highlights">
           <button
             type="button"
-            class="choose-highlights-toggle"
-            :aria-expanded="choosingHighlights"
+            class="choose-highlights-open"
             data-testid="app-monitor-choose-highlights"
-            @click="choosingHighlights = !choosingHighlights"
+            @click="choosingHighlights = true"
           >
-            {{ choosingHighlights ? 'Done choosing' : 'Choose what leads the card' }}
+            Choose what leads the card
           </button>
-          <div v-if="choosingHighlights" class="choose-highlights-body">
-            <ReviewHighlights
-              :fields="market?.applicationForm?.fields ?? []"
-              :essentialOptions="essentialOptions"
-              :highlights="highlights"
-              @update:highlights="saveHighlights"
-            />
-            <p
-              v-if="highlightsError"
-              class="choose-highlights-error"
-              data-testid="app-monitor-highlights-error"
-            >
-              {{ highlightsError }}
-            </p>
-          </div>
         </div>
 
         <!-- A reader walks the queue with Next alone; the verdicts are a reviewer's. -->
@@ -1136,6 +1141,40 @@ function submittedOn(app: Application): string {
         @confirm="markFollowUp"
       />
     </template>
+
+    <!--
+      Beside the card rather than in it, so a card that goes while it is open takes nothing with it.
+
+      Nothing here touches `cursor`, so a reviewer on card twelve stays on card twelve: the marks
+      change what the card SHOWS, never which application is up. Each tick is saved as it is made, so
+      there is a Done and no Cancel, which would promise an undo the ticks do not have.
+    -->
+    <AppDialog
+      :open="choosingHighlights"
+      title="Choose what leads the card"
+      testid="choose-highlights"
+      size="wide"
+      scroll="body"
+      :error="highlightsError"
+      @close="stopChoosingHighlights"
+    >
+      <ReviewHighlights
+        :fields="market?.applicationForm?.fields ?? []"
+        :essentialOptions="essentialOptions"
+        :highlights="highlights"
+        @update:highlights="saveHighlights"
+      />
+      <template #actions>
+        <button
+          type="button"
+          class="btn btn--primary"
+          data-testid="choose-highlights-done"
+          @click="stopChoosingHighlights"
+        >
+          Done
+        </button>
+      </template>
+    </AppDialog>
   </div>
 </template>
 
@@ -1380,7 +1419,7 @@ function submittedOn(app: Application): string {
   margin: 0 0 var(--space-4);
 }
 
-.choose-highlights-toggle {
+.choose-highlights-open {
   --focus-border-offset: var(--focus-border-width);
   border: none;
   background: none;
@@ -1391,30 +1430,16 @@ function submittedOn(app: Application): string {
   text-decoration: underline;
 }
 
-.choose-highlights-toggle:hover {
+.choose-highlights-open:hover {
   color: var(--mm-black);
 }
 
 /* A thumb's target on a phone (T180). Its minimum is a phone rule, since on a desk a 24px box would
    push the card's verdicts 9px down. */
 @media (width <= 640px) {
-  .choose-highlights-toggle {
+  .choose-highlights-open {
     min-height: var(--target-min);
   }
-}
-
-.choose-highlights-body {
-  margin-top: var(--space-3);
-  padding: var(--space-3);
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-card);
-  background: var(--mm-beige);
-}
-
-.choose-highlights-error {
-  margin: var(--space-2) 0 0;
-  font-size: var(--text-xs);
-  color: var(--mm-red);
 }
 
 .card-actions {

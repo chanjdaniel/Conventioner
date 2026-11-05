@@ -528,8 +528,8 @@ function handleDeleted() {
           </form>
         </section>
 
-        <!-- The table its new markets copy (E39/F02/S01): its owner and admins change it, its
-             members read it. -->
+        <!-- The table its new markets copy (E39/F02/S01): a line here and the rows in a dialog of
+             their own; its owner and admins change it, its members read it. -->
         <OrganizationPermissions :key="orgData.id" :org="orgData" @changed="defaultsChanged" />
 
         <!-- The organization's own changes, newest first (E40/F02/S01), opened as Manage market's

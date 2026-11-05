@@ -333,7 +333,7 @@ export const SCREENS: Screen[] = [
     ]),
   },
   {
-    // With its Permissions section open, which is closed until asked for (E39/F01/S04).
+    // With its Permissions dialog open over it (E39/F01/S04, T217).
     name: 'the manage-market dialog',
     who: 'organizer',
     sizes: FITS_A_PHONE,
@@ -341,7 +341,7 @@ export const SCREENS: Screen[] = [
       fixed('/markets'),
       'markets-result-count',
       ['market-card-manage-button', 'manage-market-window'],
-      ['manage-market-permissions-toggle', 'manage-market-permission-source'],
+      ['manage-market-permissions-open', 'manage-market-permission-source'],
     ),
   },
   {
@@ -439,7 +439,7 @@ export const SCREENS: Screen[] = [
     open: at(fixed('/organizations'), 'organization-card'),
   },
   {
-    // With its default permissions for new markets open, closed until asked for (E39/F02/S01).
+    // With its default permissions for new markets open over it (E39/F02/S01, T217).
     name: 'the manage-organization dialog',
     who: 'organizer',
     sizes: FITS_A_PHONE,
@@ -447,7 +447,7 @@ export const SCREENS: Screen[] = [
       fixed('/organizations'),
       'organization-card',
       ['organizations-manage-button', 'manage-org-window'],
-      ['manage-org-permissions-toggle', 'manage-org-permission-source'],
+      ['manage-org-permissions-open', 'manage-org-permission-source'],
     ),
   },
   {
@@ -588,6 +588,16 @@ export const SCREENS: Screen[] = [
     open: at(oneByOne('open'), 'app-monitor-card', [
       'app-monitor-follow-up-button',
       'follow-up-window',
+    ]),
+  },
+  {
+    // What leads the card, in a dialog over it (T217).
+    name: 'the dialog of what leads the card',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(oneByOne('open'), 'app-monitor-card', [
+      'app-monitor-choose-highlights',
+      'choose-highlights-window',
     ]),
   },
   {
@@ -888,6 +898,17 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: FITS_A_PHONE,
     open: at(screen('big', 'vendors'), 'vendors-list-item'),
+  },
+  {
+    // Who a Discord run reached, in a dialog over the vendors (T217): each group, a reason in words
+    // and a vendor no longer listed. The seed's other markets connect no Discord.
+    name: 'the dialog of who the role report names',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(screen('roleReport', 'vendors'), 'vendors-role-report', [
+      'vendors-role-report-open',
+      'vendors-role-report-who-window',
+    ]),
   },
   {
     name: 'the vendor drawer',

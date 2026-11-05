@@ -1,7 +1,11 @@
-import type { Locator, Page } from '@playwright/test';
+import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
-import { seedApprovedVendor } from './helpers/seedApplication';
+import {
+  approvedVendorApplication,
+  insertApplications,
+  seedApprovedVendor,
+} from './helpers/seedApplication';
 import { SEED_MARKET_DATE } from './helpers/seeds';
 import { marketScreenPath } from './helpers/marketScreens';
 import { grantMarketRole } from './helpers/grantMarketRole';
@@ -9,6 +13,7 @@ import { mongoEval } from './helpers/mongo';
 import {
   connectToFakeDiscord,
   fakeDiscordId,
+  recordRoleRun,
   removeFakeDiscordServer,
   seedFakeDiscordServer,
 } from './helpers/fakeDiscord';
@@ -43,7 +48,7 @@ const ROLE_NAME = 'Vendor Nov 2026';
 const VIEWER = { email: 'e2e-discord-row-viewer@example.com', password: 'e2epassword123' };
 
 /** Connect the market to a server of its own, no one in it, with nothing left to choose. */
-function connectWithNoMembers(marketId: string): string {
+function connectWithNoMembers(marketId: string, roleName = ROLE_NAME): string {
   const guildId = fakeDiscordId();
   const roleId = fakeDiscordId();
   const botRoleId = fakeDiscordId();
@@ -51,7 +56,7 @@ function connectWithNoMembers(marketId: string): string {
     guildId,
     name: 'Riverside Makers',
     roles: [
-      { id: roleId, name: ROLE_NAME, position: 1 },
+      { id: roleId, name: roleName, position: 1 },
       { id: botRoleId, name: 'Conventioner', position: 2 },
     ],
     botRoles: [botRoleId],
@@ -61,7 +66,7 @@ function connectWithNoMembers(marketId: string): string {
     guildId,
     guildName: 'Riverside Makers',
     roleId,
-    roleName: ROLE_NAME,
+    roleName,
   });
   return guildId;
 }
@@ -170,7 +175,7 @@ test('Give roles confirms, reports a refusal by group, and gives the role once i
   await expect(dialog).toHaveCount(0);
   await expect(vendors.roleReport).toContainText(`${ROLE_NAME}, last run just now`);
   await expect(summary).toHaveText('1 not found (1 possible match), 1 failed');
-  await page.getByTestId('vendors-role-report-toggle').click();
+  await vendors.roleReportOpen.click();
   await expect(groups).toHaveCount(2);
   await expect(groups.nth(0)).toContainText('Not found');
   await expect(groups.nth(0)).toContainText(oak.applicant_email);
@@ -183,6 +188,8 @@ test('Give roles confirms, reports a refusal by group, and gives the role once i
     `Conventioner's role is below ${ROLE_NAME}, or may not manage roles. In Discord, open ` +
       'Server Settings, then Roles, and drag the Conventioner role above it.',
   );
+  await page.getByTestId('vendors-role-report-who-close-button').click();
+  await expect(vendors.roleReportWho).toHaveCount(0);
   await expect(
     vendors.vendorListItems
       .filter({ hasText: oak.applicant_email })
@@ -190,12 +197,17 @@ test('Give roles confirms, reports a refusal by group, and gives the role once i
   ).toHaveText('Discord: Possible match');
   expect(memberRoles('1001')).toEqual([]);
 
-  // On the phone at the door (T180): the report, its groups open, and the rows' Discord states
-  // keep the window's width and are laid out as the layout sweep holds a screen (the screens seed
-  // connects no Discord), and Give roles opens inside the window.
+  // On the phone at the door (T180): the report and the rows' Discord states keep the window's width
+  // and are laid out as the layout sweep holds a screen, the report's dialog fits (T217), and Give
+  // roles opens inside the window.
   const desk = page.viewportSize()!;
   await page.setViewportSize(PHONE);
   await expectLaidOutOnAPhone(page, 'Vendors with the role report');
+  await vendors.roleReportOpen.click();
+  await expect(groups).toHaveCount(2);
+  await expectLaidOutOnAPhone(page, 'The role report in its dialog');
+  await page.keyboard.press('Escape');
+  await expect(vendors.roleReportWho).toHaveCount(0);
   await vendors.giveRolesButton.click();
   const box = (await dialog.boundingBox())!;
   expect(box.x, 'Give roles starts inside the window').toBeGreaterThanOrEqual(0);
@@ -418,5 +430,189 @@ test('someone the row refuses reads the filter at the left and “Checked…” 
     expect(phoneChecked.y, '"Checked…" stands under the filter on a phone').toBeGreaterThanOrEqual(
       phoneFilter.bottom,
     );
+  });
+});
+
+test.describe('"Show who"', () => {
+  /** A connected market whose last run reached 40 vendors more than it seats, and one since gone. */
+  async function aLongReport(request: APIRequestContext, roleName = ROLE_NAME) {
+    const seed = await seedAssignedMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const listed = Array.from({ length: 40 }, (_, i) =>
+      approvedVendorApplication(seed.marketId, `e2e-who-${i}@example.com`, {
+        dates: [SEED_MARKET_DATE],
+        tiers: ['Gold'],
+      }),
+    );
+    insertApplications(listed);
+    connectWithNoMembers(seed.marketId, roleName);
+    recordRoleRun(seed.marketId, roleName, [
+      ...listed.map(({ id }, i) => ({
+        applicationId: id,
+        outcome: i < 30 ? ('given' as const) : ('not_found' as const),
+        reason: null,
+      })),
+      { applicationId: 'an-application-since-removed', outcome: 'given', reason: null },
+    ]);
+    return seed.marketId;
+  }
+
+  test('opens over the table, which stays put, and its body scrolls under a title that stays', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const marketId = await aLongReport(request);
+    const vendors = new VendorsPage(page);
+    const title = page.getByTestId('vendors-role-report-who-window').getByRole('heading');
+    const body = page.getByTestId('vendors-role-report-who-body');
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await vendors.goto(marketId);
+    await expect(vendors.vendorListItems.first()).toBeVisible({ timeout: 15000 });
+
+    await expect(vendors.roleReportOpen).toHaveText('Show who');
+    await expect(vendors.roleReportOpen).not.toHaveAttribute('aria-expanded');
+    const line = (await page.locator('#role-report-title').textContent())!;
+    expect(line).toBe(`${ROLE_NAME}, last run 5 minutes ago`);
+    const tableBefore = (await vendors.vendorListItems.first().boundingBox())!;
+
+    await vendors.roleReportOpen.click();
+
+    await expect(title).toHaveText(line);
+    await expect(page.getByTestId('vendors-role-report-group')).toHaveCount(2);
+    await expect(page.getByTestId('vendors-role-report-group').first()).toContainText(
+      'A vendor no longer listed',
+    );
+    expect(await vendors.vendorListItems.first().boundingBox(), 'the table under it').toEqual(
+      tableBefore,
+    );
+
+    // At most 80% of the window, and it holds nothing to focus, so the keys scroll its body.
+    const box = (await vendors.roleReportWho.boundingBox())!;
+    expect(box.height).toBeLessThanOrEqual(800 * 0.8 + 1);
+    await expect(body).toBeFocused();
+    expect(
+      await body.evaluate((scroller) => scroller.matches(':focus-visible')),
+      'a mouse opened it, so no halo',
+    ).toBe(false);
+    const titleBefore = (await title.boundingBox())!;
+    const close = page.getByTestId('vendors-role-report-who-close-button');
+    const closeBefore = (await close.boundingBox())!;
+    await expect(page.getByTestId('vendors-role-report-who-shade-top')).toHaveCount(0);
+    await expect(page.getByTestId('vendors-role-report-who-shade-bottom')).toBeVisible();
+
+    await page.keyboard.press('End');
+
+    await expect(page.getByTestId('vendors-role-report-who-shade-top')).toBeVisible();
+    await expect(page.getByTestId('vendors-role-report-who-shade-bottom')).toHaveCount(0);
+    expect(await title.boundingBox(), 'the title stays').toEqual(titleBefore);
+    expect(await close.boundingBox(), 'the close stays').toEqual(closeBefore);
+
+    await close.click();
+
+    await expect(vendors.roleReportWho).toHaveCount(0);
+    await expect(vendors.roleReportOpen).toBeFocused();
+    expect(await vendors.vendorListItems.first().boundingBox(), 'the table after').toEqual(
+      tableBefore,
+    );
+  });
+
+  test('closes by Escape and the backdrop with focus back, and fits a phone', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const marketId = await aLongReport(request);
+    const vendors = new VendorsPage(page);
+    await vendors.goto(marketId);
+    await expect(vendors.vendorListItems.first()).toBeVisible({ timeout: 15000 });
+
+    await vendors.roleReportOpen.click();
+    await expect(vendors.roleReportWho).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(vendors.roleReportWho).toHaveCount(0);
+    await expect(vendors.roleReportOpen).toBeFocused();
+
+    await vendors.roleReportOpen.click();
+    await expect(vendors.roleReportWho).toBeVisible();
+    await page.getByTestId('vendors-role-report-who-background').click({
+      position: { x: 4, y: 4 },
+    });
+    await expect(vendors.roleReportWho).toHaveCount(0);
+    await expect(vendors.roleReportOpen).toBeFocused();
+
+    await page.setViewportSize(PHONE);
+    await vendors.roleReportOpen.click();
+    await expect(vendors.roleReportWho).toBeVisible();
+    const box = (await vendors.roleReportWho.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(PHONE.width);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(PHONE.height);
+    await expectLaidOutOnAPhone(page, 'The long role report in its dialog');
+  });
+
+  test('a long name with no break in it stays whole in the title on a phone', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const marketId = await aLongReport(request, 'V'.repeat(60));
+    const vendors = new VendorsPage(page);
+    await page.setViewportSize(PHONE);
+    await vendors.goto(marketId);
+    await expect(vendors.vendorListItems.first()).toBeVisible({ timeout: 15000 });
+
+    await vendors.roleReportOpen.click();
+    await expect(vendors.roleReportWho).toBeVisible();
+
+    const title = await page.getByTestId('vendors-role-report-who-window').evaluate((window) => {
+      const heading = window.querySelector('h2')!;
+      const range = document.createRange();
+      range.selectNodeContents(heading);
+      const lines = [...range.getClientRects()].map((line) => line.right);
+      const close = window.querySelector('[data-dialog-close]')!.getBoundingClientRect();
+      return {
+        clearance: close.left - Math.max(...lines),
+        overflow: heading.scrollWidth - heading.clientWidth,
+      };
+    });
+    expect(title.clearance).toBeGreaterThanOrEqual(0);
+    expect(title.overflow).toBeLessThanOrEqual(0);
+  });
+
+  test('a long title clears the close on a phone, in a dialog of either scroll', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const marketId = await aLongReport(
+      request,
+      'Vendor at the Fall Makers Fair in the Old Cannery Warehouse District, 2026',
+    );
+    const vendors = new VendorsPage(page);
+    await page.setViewportSize(PHONE);
+    await vendors.goto(marketId);
+    await expect(vendors.vendorListItems.first()).toBeVisible({ timeout: 15000 });
+
+    /** How far the title's text ends left of the close, each line measured whole. */
+    const clearance = (dialog: string) =>
+      page.getByTestId(`${dialog}-window`).evaluate((window) => {
+        const range = document.createRange();
+        range.selectNodeContents(window.querySelector('h2')!);
+        const lines = [...range.getClientRects()].map((line) => line.right);
+        const close = window.querySelector('[data-dialog-close]')!.getBoundingClientRect();
+        return close.left - Math.max(...lines);
+      });
+
+    await vendors.roleReportOpen.click();
+    await expect(vendors.roleReportWho).toBeVisible();
+    expect(await clearance('vendors-role-report-who')).toBeGreaterThanOrEqual(0);
+    await page.keyboard.press('Escape');
+    await expect(vendors.roleReportWho).toHaveCount(0);
+
+    await vendors.giveRolesButton.click();
+    await expect(page.getByTestId('give-roles-window')).toBeVisible();
+    expect(await clearance('give-roles')).toBeGreaterThanOrEqual(0);
   });
 });

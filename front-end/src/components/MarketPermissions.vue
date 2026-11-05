@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * Manage market's Permissions section (E39/F01/S04): who may do what on this market, where each
- * row's role came from, and every change to it.
+ * Manage market's Permissions (E39/F01/S04): who may do what on this market, where each row's role
+ * came from, and every change to it. The section is a heading, one line and a button; the rows and
+ * changes open in a dialog of their own (T217), since 27 rows grew Manage market to 3,000px.
  *
  * Its owner sets each row, after a confirmation naming who may after it, resets them all, or
  * copies its organization's default again (E39/F02/S01); everyone else who may read the market
@@ -40,6 +41,7 @@ const emit = defineEmits<{
 
 /** Closed until asked for: every row of the table, and its changes. */
 const open = ref(false);
+const dialog = ref<InstanceType<typeof AppDialog> | null>(null);
 const history = ref<PermissionHistoryEntry[]>([]);
 const historyError = ref('');
 /** A row's change waiting on its confirmation, with the select that asked, to put back on Cancel. */
@@ -50,7 +52,6 @@ const pendingChange = ref<{
 } | null>(null);
 const resetConfirming = ref(false);
 const copyConfirming = ref(false);
-const toggleEl = ref<HTMLButtonElement | null>(null);
 /** A refused change to the table, said in the confirmation that sent it. */
 const writeError = ref('');
 
@@ -67,7 +68,7 @@ const readsHistory = computed(() => mayTake(props.market, MarketAction.ReadHisto
 const mayChange = computed(() => mayTake(props.market, MarketAction.ChangeTheTable));
 
 /**
- * Why the section is read-only, or null for the owner. An archived market refuses its owner too,
+ * Why the dialog is read-only, or null for the owner. An archived market refuses its owner too,
  * and the archived rule's words say so; everyone else is told whose the table is.
  */
 const readOnlyLine = computed(() => {
@@ -78,7 +79,7 @@ const readOnlyLine = computed(() => {
   return "Only the market's owner changes these.";
 });
 
-/** Said with the heading, so the closed section says whether there is anything to look at. */
+/** Said with the heading, so the section says whether there is anything to look at. */
 const summary = computed(() => {
   const count = held.value.length;
   if (!count) return 'Every row is at its built-in default.';
@@ -98,12 +99,15 @@ const mayCopy = computed(() => mayChange.value && !!props.market.organizationId)
 
 const marketPath = () => `/markets/${encodeURIComponent(props.market.id)}`;
 
-async function toggle() {
-  open.value = !open.value;
-  if (open.value) await fetchHistory();
+async function openDialog() {
+  // Read afresh, so a second opening is the first: changes already drawn would put "Load more" in
+  // the dialog as it places its focus, and a reader, with no select, would open at the end of them.
+  history.value = [];
+  open.value = true;
+  await fetchHistory();
 }
 
-/** The market's history narrowed to its table, newest first: read when the section opens and
+/** The market's history narrowed to its table, newest first: read when the dialog opens and
  * after each change, never on the market read, which every write re-reads. */
 async function fetchHistory() {
   historyError.value = '';
@@ -156,9 +160,9 @@ async function confirmReset() {
     const response = await api.delete(`${marketPath()}/permissions`);
     resetConfirming.value = false;
     await afterWrite(response.data.permissionTable);
-    // The dialog gives focus back to "Reset to built-in defaults", which is disabled now that
-    // nothing is held, and focusing a disabled control does nothing: the section's toggle takes it.
-    if (document.activeElement === document.body) toggleEl.value?.focus();
+    // The confirmation gives focus back to "Reset to built-in defaults", which is disabled now that
+    // nothing is held, and focusing a disabled control does nothing: the dialog takes it in again.
+    if (document.activeElement === document.body) await dialog.value?.focusInside();
   } catch (err) {
     writeError.value = getApiErrorMessage(err, 'The table was not reset.');
   }
@@ -181,7 +185,7 @@ async function confirmCopy() {
 }
 
 /**
- * The write answers the table, which the section shows at once; the changes are read again. The
+ * The write answers the table, which the dialog shows at once; the changes are read again. The
  * open market is re-read if it is this one, as a rename does, and every other screen asks the table
  * at its next read of the market.
  */
@@ -202,32 +206,54 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
     <div class="section-head">
       <h3 id="manage-market-permissions-heading">Permissions</h3>
       <button
-        ref="toggleEl"
         type="button"
         class="btn btn--secondary btn--compact"
-        :aria-expanded="open"
-        :aria-controls="open ? 'manage-market-permissions-body' : undefined"
-        data-testid="manage-market-permissions-toggle"
-        @click="toggle"
+        data-testid="manage-market-permissions-open"
+        @click="openDialog"
       >
-        {{ open ? 'Hide' : 'Show' }}
+        Show<span class="visually-hidden"> permissions</span>
       </button>
     </div>
     <p class="hint" data-testid="manage-market-permissions-summary">
       Who may do what on this market. {{ summary }}
     </p>
-    <div v-if="open" id="manage-market-permissions-body" class="body">
-      <p v-if="readOnlyLine" class="hint" data-testid="manage-market-permissions-read-only">
-        {{ readOnlyLine }}
-      </p>
-      <PermissionRows
-        :table="table"
-        :editable="mayChange"
-        :source-of="(row) => sourceLine(row, history)"
-        testid="manage-market-permission"
-        @ask="askChange"
-      />
-      <div v-if="mayChange" class="actions">
+  </section>
+
+  <!-- Siblings of Manage market rather than inside its window, as a dialog opened from a dialog
+       is (docs/implementation/conventions/dialogs.md). -->
+  <Teleport to="body">
+    <!-- First, so the confirmations it opens paint above it. Its rows and changes scroll beneath
+         a title that stays, and whoever may change the table reaches Reset and Copy from any row. -->
+    <AppDialog
+      ref="dialog"
+      :open="open"
+      title="Permissions"
+      testid="manage-market-permissions"
+      size="wide"
+      scroll="body"
+      @close="open = false"
+    >
+      <!-- One box, or the body's gap would come between each group as well as its own margins. -->
+      <div>
+        <p v-if="readOnlyLine" class="hint" data-testid="manage-market-permissions-read-only">
+          {{ readOnlyLine }}
+        </p>
+        <PermissionRows
+          :table="table"
+          :editable="mayChange"
+          :source-of="(row) => sourceLine(row, history)"
+          testid="manage-market-permission"
+          @ask="askChange"
+        />
+        <PermissionChanges
+          v-if="readsHistory"
+          :entries="history"
+          :table="table"
+          :error="historyError"
+          testid="manage-market-permission"
+        />
+      </div>
+      <template v-if="mayChange" #actions>
         <button
           type="button"
           class="btn btn--secondary"
@@ -246,21 +272,9 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
         >
           Copy the organization's defaults again
         </button>
-      </div>
+      </template>
+    </AppDialog>
 
-      <PermissionChanges
-        v-if="readsHistory"
-        :entries="history"
-        :table="table"
-        :error="historyError"
-        testid="manage-market-permission"
-      />
-    </div>
-  </section>
-
-  <!-- Siblings of Manage market rather than inside its window, as a dialog opened from a dialog
-       is (docs/implementation/conventions/dialogs.md). -->
-  <Teleport to="body">
     <!-- A row's change is saved on its own, once confirmed in words naming who may after it. -->
     <AppDialog
       :open="!!pendingChange"
@@ -345,21 +359,10 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
   font-size: var(--text-xs);
 }
 
-.body {
-  margin-top: var(--space-2);
-}
-
 .rows {
   list-style: none;
   margin: 0;
   padding: 0;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
 }
 
 .confirm-text {

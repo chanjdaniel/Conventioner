@@ -3,10 +3,10 @@
  * Every change to a permission table, newest first, ten at a time (E39/F01/S04): the row, or the
  * whole table, each row's role before and after, and who changed it when.
  *
- * Under Manage market's Permissions section, and Manage organization's default permissions
+ * Under Manage market's Permissions dialog's rows, and Manage organization's default permissions
  * (E39/F02/S01). The words are `changeLines`'.
  */
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import { type PermissionTableRow } from '@/assets/types/datatypes';
 import { changeLines, type PermissionHistoryEntry } from '@/utils/permissionTable';
 import { getFormattedTimestamp } from '@/utils/utils';
@@ -30,17 +30,28 @@ const changes = computed(() =>
     .slice(0, shown.value)
     .map((entry) => ({ entry, ...changeLines(entry, props.table) })),
 );
+
+const list = ref<HTMLOListElement>();
+
+/** Hands the focus to the first new change, since the button goes with the last page. */
+async function loadMore(): Promise<void> {
+  const firstNew = shown.value;
+  shown.value += PAGE;
+  await nextTick();
+  (list.value?.children[firstNew] as HTMLElement | undefined)?.focus();
+}
 </script>
 
 <template>
-  <h4 class="subheading">Changes</h4>
+  <h3 class="subheading">Changes</h3>
   <p v-if="error" class="error">{{ error }}</p>
   <p v-else-if="!changes.length" class="hint">No changes yet.</p>
-  <ol v-else class="rows" :data-testid="`${testid}-changes`">
+  <ol v-else ref="list" class="rows" :data-testid="`${testid}-changes`">
     <li
       v-for="{ entry, title, rows } in changes"
       :key="entry.id"
       class="change"
+      tabindex="-1"
       :data-testid="`${testid}-change`"
     >
       <span class="label change-title">{{ title }}</span>
@@ -53,7 +64,7 @@ const changes = computed(() =>
     type="button"
     class="btn btn--secondary more"
     :data-testid="`${testid}-changes-more`"
-    @click="shown += PAGE"
+    @click="loadMore"
   >
     Load more
   </button>

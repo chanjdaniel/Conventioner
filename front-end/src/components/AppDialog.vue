@@ -132,6 +132,27 @@ function firstSafeControl(): HTMLElement | null {
   );
 }
 
+/**
+ * Focus on the dialog's first control or, with nothing to focus, on what scrolls: from the window
+ * the arrow keys would scroll nothing, so a box with more to show takes it, the one that says so by
+ * `ScrollBox`'s `data-scroll-stop`. That stop lands a tick after the box measures; a dialog mounted
+ * open has not had that tick yet. Exposed for a parent whose control went away with what it did, a
+ * reset whose button is disabled now, so focus never falls to `<body>`.
+ */
+async function focusInside() {
+  const control = firstSafeControl();
+  if (control) {
+    control.focus();
+    return;
+  }
+  windowEl.value?.focus();
+  await nextTick();
+  if (document.activeElement !== windowEl.value) return;
+  windowEl.value?.querySelector<HTMLElement>('[data-scroll-stop]')?.focus();
+}
+
+defineExpose({ focusInside });
+
 /** Focus goes back to what opened the dialog when it closes, by any path. */
 useFocusGoesBack(() => props.open);
 
@@ -161,20 +182,8 @@ watch(
     const preferred = props.destructive
       ? windowEl.value?.querySelector<HTMLElement>(`[data-testid="${props.testid}-cancel-button"]`)
       : null;
-    const focusable = preferred ?? firstSafeControl();
-    if (focusable) {
-      focusable.focus();
-      return;
-    }
-    windowEl.value?.focus();
-    /*
-     * Nothing to focus: a read-only list. From the window the arrow keys would scroll nothing, so a
-     * box with more to show takes focus, the one that says so by `ScrollBox`'s `data-scroll-stop`.
-     * That stop lands a tick after the box measures; a dialog mounted open has not had that tick yet.
-     */
-    await nextTick();
-    if (document.activeElement !== windowEl.value) return;
-    windowEl.value?.querySelector<HTMLElement>('[data-scroll-stop]')?.focus();
+    if (preferred) preferred.focus();
+    else await focusInside();
   },
   { immediate: true },
 );
@@ -363,6 +372,7 @@ watch(
 .dialog-title {
   margin: 0;
   padding-right: var(--space-6);
+  overflow-wrap: anywhere;
   font-size: var(--text-lg);
   color: var(--mm-black);
 }
@@ -412,7 +422,7 @@ watch(
 
 .dialog-window--body > .dialog-parts > .dialog-title {
   flex: none;
-  padding: var(--space-6) calc(var(--space-6) + var(--space-6)) var(--space-2) var(--space-6);
+  padding: var(--space-6) var(--space-12) var(--space-2) var(--space-6);
 }
 
 /* The parts between the title and the window's foot: 16px apart, as `.dialog-parts`' gap sets them
@@ -476,6 +486,17 @@ watch(
 .dialog-body--pinned > .dialog-actions {
   flex: none;
   padding: var(--space-2) var(--space-6);
+}
+
+/* Where `--target-min` makes the close 44px wide, a long title wraps 8px short of it. */
+@media (width <= 640px) {
+  .dialog-title {
+    padding-right: calc(var(--space-8) + var(--space-2));
+  }
+
+  .dialog-window--body > .dialog-parts > .dialog-title {
+    padding-right: calc(var(--space-12) + var(--space-4));
+  }
 }
 
 /* A phone, or a window split so short that 80% of it would leave the body nothing: a dialog whose

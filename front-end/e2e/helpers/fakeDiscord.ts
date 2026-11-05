@@ -76,3 +76,26 @@ export function connectToFakeDiscord(
       `discord: ${JSON.stringify({ ...connection, usernameQuestion: question.key })} } })`,
   );
 }
+
+/** One vendor's line in a role run's report, as `DiscordRoleRun` keeps it. */
+export interface RoleRunOutcome {
+  applicationId: string;
+  outcome: 'given' | 'already_had' | 'not_found' | 'no_username' | 'not_yet' | 'failed';
+  reason: string | null;
+}
+
+/**
+ * Put a last run on a connected market, as Give roles leaves it, for a spec about reading the report
+ * rather than making it. Written, so it needs no server for the fake to answer from.
+ */
+export function recordRoleRun(
+  marketId: string,
+  roleName: string,
+  outcomes: RoleRunOutcome[],
+): void {
+  const run = { ranAt: new Date(Date.now() - 5 * 60_000).toISOString(), roleName, outcomes };
+  mongoEval(
+    `db.markets.updateOne({ id: ${JSON.stringify(marketId)} }, ` +
+      `{ $set: { 'discord.roleRun': ${JSON.stringify(run)} } })`,
+  );
+}

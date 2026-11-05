@@ -20,7 +20,7 @@ describes:
   - back-end/api/permissions.py#market_role_of
   - back-end/tests/test_a_chosen_reviewer_decides.py
   - back-end/api/markets.py#read_refused
-verified: 2026-11-03
+verified: 2026-11-05
 sources:
   - E39
   - E39/F01/S01
@@ -45,6 +45,7 @@ sources:
   - E46/F01/S05
   - E38/F12/S01
   - T181
+  - T217
 ---
 
 # The market's actions
@@ -358,7 +359,7 @@ Only the owner's write stores a row, so neither happens unless a document was ch
 `create_market` writes the organization's default rows, copied, whatever the create body carried, and `{}` for a market of no organization or of one that sets none.
 
 **`table(market)` is the table for display**, served on the market read as `permissionTable`: every row in order with its `id`, `group`, `label`, the `role` it asks here, its `default`, its `source` (`built-in`, `organization` or `market`), whether it is `fixed`, and `mayWhat`, the action after "may", which Manage market's confirmation of a change words; and `whoMay`, who may take it here in the words a refusal names them ("an Admin or the owner"), the stricter of its own role and that of the row it rides on (`who_may`), so with the change row set to Viewer it still names "an Editor, an Admin or the owner"; a screen that says who may reads it through `whoMayTake` (E38/F06/S01).
-Manage market's Permissions section shows it ([setting who may do what](../../business/flows/ending-and-managing-a-market.md#l3a-set-who-may-do-what)); a control asks `actionRefusals`, never this.
+Manage market's Permissions dialog shows it ([setting who may do what](../../business/flows/ending-and-managing-a-market.md#l3a-set-who-may-do-what)); a control asks `actionRefusals`, never this.
 
 **The owner's writes alone**: `PUT /markets/:id/permissions/<action>` with `{"role": "admin"}` sets the row (`set_permission`), `DELETE` on the same path returns it to its built-in default (`reset_permission`), `DELETE /markets/:id/permissions` returns every row the market holds to its default in one write (`reset_permissions`, E39/F01/S04), and `POST /markets/:id/permissions/organization-default` copies the organization's default again (`copy_organization_default`, [below](#the-organizations-default)); each answers the market's table.
 All four load through `_load_market_to_change` with the fixed row `change-the-table`, so anyone but the market's one owner is refused with "Only the market's owner may change who may do what on this market." (an organization's owner and admins hold Admin, never Owner), and so is an archived market, in the archived rule's words.

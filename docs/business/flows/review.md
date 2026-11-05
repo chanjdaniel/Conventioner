@@ -55,6 +55,7 @@ sources:
   - T180
   - T181
   - T204
+  - T217
 ---
 
 # Reviewing applications
@@ -215,9 +216,16 @@ The rule is [the review is dealt among chosen reviewers](../rules/the-review-is-
 ## I3. Choose what leads the card
 
 **Status:** Works (walked live).
-"Choose what leads the card" on a card edits the highlights ([F3](form-tab.md#f3-what-a-reviewer-reads-first)) in place, without moving off the card.
+"Choose what leads the card" on a card opens a dialog of the highlights ([F3](form-tab.md#f3-what-a-reviewer-reads-first)) over the card, where they used to unfold between its answers and its verdict buttons (T217).
+Each tick is saved as it is made, so the dialog has one Done and no Cancel, which would promise an undo the ticks do not have.
+A tick that cannot be saved is taken back and said in the dialog, or on the page if the dialog has closed by the time it fails, beside whatever the card already says, such as who decided it first.
+Done, the close, Escape and the backdrop each close the dialog, with focus back on the button and the same application up: a tick changes what the card leads with, never which application it is.
+With the dialog open, A, R, S, N and Z do nothing to the card, and a key held for a card still arriving does not play behind it: a verdict says it did not count, and a Z leaves the undo on offer.
+The dialog closes when the view stops showing, when another market opens, and when the person may no longer change the form.
 Covered by:
+- `choosingWhatLeadsTheCard.test.ts`
 - `review-highlights.spec.ts`
+- `the-market-on-a-phone.spec.ts`
 
 ## I4. Enter the review
 
