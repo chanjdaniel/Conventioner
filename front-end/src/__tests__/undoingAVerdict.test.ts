@@ -4,10 +4,10 @@
  * Right after a verdict, whoever gave it reads what they decided and an Undo, for as long as the
  * server says it may be undone or until their next verdict; Undo puts the application back as it
  * was, as the card up. The reviewed list is newest verdict first, each row naming the applicant,
- * and its toggle sits beside the counts, above the card.
+ * and "Show N reviewed", which opens it, sits beside the counts, above the card.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { flushPromises, mount } from '@vue/test-utils';
+import { DOMWrapper, flushPromises, mount } from '@vue/test-utils';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
 import { ApplicationStatus, type Application, type Market } from '@/assets/types/datatypes';
 import { isDecided } from '@/utils/verdicts';
@@ -443,17 +443,18 @@ describe('one by one', () => {
     wrapper.unmount();
   });
 
-  it('keeps the line over the reviewed list, so opening the list never pushes it down', async () => {
+  it('keeps the line and the card as they are behind the reviewed list', async () => {
     const wrapper = await monitor();
     await press('r');
 
-    await wrapper.get('[data-testid="app-monitor-decided-toggle"]').trigger('click');
+    await wrapper.get('[data-testid="app-monitor-decided-open"]').trigger('click');
+    await flushPromises();
 
     const line = wrapper.get('[data-testid="app-monitor-undo"]').element;
-    const list = wrapper.get('[data-testid="app-monitor-decided-list"]').element;
     const card = wrapper.get('[data-testid="app-monitor-card"]').element;
-    expect(line.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(list.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(line.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const list = new DOMWrapper(document.body).get('[data-testid="app-monitor-decided-list"]');
+    expect(card.contains(list.element)).toBe(false);
     wrapper.unmount();
   });
 
@@ -521,20 +522,13 @@ describe('one by one', () => {
     wrapper.unmount();
   });
 
-  it('offers no undo of a change from the reviewed list', async () => {
-    const wrapper = await monitor();
-    await wrapper.get('[data-testid="app-monitor-decided-toggle"]').trigger('click');
-
-    expect(wrapper.find('[data-testid="app-monitor-undo"]').exists()).toBe(false);
-    wrapper.unmount();
-  });
-
   it('lists the reviewed newest first, each row naming the applicant then the address', async () => {
     const wrapper = await monitor();
     await press('r');
-    await wrapper.get('[data-testid="app-monitor-decided-toggle"]').trigger('click');
+    await wrapper.get('[data-testid="app-monitor-decided-open"]').trigger('click');
+    await flushPromises();
 
-    const rows = wrapper.findAll('[data-testid="app-monitor-decided-row"]');
+    const rows = new DOMWrapper(document.body).findAll('[data-testid="app-monitor-decided-row"]');
     expect(rows.map((row) => row.get('[data-testid="app-monitor-decided-name"]').text())).toEqual([
       'Jane Doe',
       'Earl Ier',
@@ -545,13 +539,13 @@ describe('one by one', () => {
     wrapper.unmount();
   });
 
-  it('puts the toggle beside the counts, before the card', async () => {
+  it('puts its button beside the counts, before the card', async () => {
     const wrapper = await monitor();
 
     const html = wrapper.html();
-    const toggle = wrapper.get('[data-testid="app-monitor-decided-toggle"]');
-    expect(toggle.text()).toBe('Show 1 reviewed');
-    expect(html.indexOf('app-monitor-decided-toggle')).toBeLessThan(
+    const button = wrapper.get('[data-testid="app-monitor-decided-open"]');
+    expect(button.text()).toBe('Show 1 reviewed');
+    expect(html.indexOf('app-monitor-decided-open')).toBeLessThan(
       html.indexOf('data-testid="app-monitor-card"'),
     );
     wrapper.unmount();

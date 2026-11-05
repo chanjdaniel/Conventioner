@@ -68,11 +68,11 @@ test('an Editor rejects by key, undoes from the line, and finds an earlier verdi
     await expect(review.email).toHaveText('ana@thistle.test');
     await expect(review.status).toHaveText('Open');
 
-    // The toggle is beside the counts, above the card, in view without a scroll.
-    await expect(review.decidedToggle).toBeInViewport();
-    const toggle = await review.decidedToggle.boundingBox();
+    // "Show N reviewed" is beside the counts, above the card, in view without a scroll.
+    await expect(review.decidedOpen).toBeInViewport();
+    const button = await review.decidedOpen.boundingBox();
     const card = await review.card.boundingBox();
-    expect(toggle!.y + toggle!.height).toBeLessThanOrEqual(card!.y);
+    expect(button!.y + button!.height).toBeLessThanOrEqual(card!.y);
 
     // Newest verdict first: Ben's, then the one decided before verdicts kept a time.
     await review.openDecided();

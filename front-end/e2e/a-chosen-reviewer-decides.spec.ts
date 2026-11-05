@@ -57,9 +57,11 @@ test('a chosen Viewer approves, marks a follow-up without notes, and changes no 
     await expect(review.readOnly).toHaveCount(0);
 
     await review.approve('amy@thistle.test');
+    await review.openDecided();
     await expect(review.decidedGiverOf('amy@thistle.test')).toHaveText(
       new RegExp(`^Approved by ${ANA}, `),
     );
+    await review.closeDecided();
 
     await expect(review.email).toHaveText('ben@ember.test');
     await review.followUpButton.click();
@@ -71,6 +73,7 @@ test('a chosen Viewer approves, marks a follow-up without notes, and changes no 
     await expect(review.done).toBeVisible();
 
     // Approved by someone else first: a change, which is the change row's.
+    await review.openDecided();
     await expect(review.decidedReason).toHaveText(CHANGE_REFUSED);
     await expect(review.changeButton('reject', 'cleo@fern.test')).toHaveCount(0);
 
