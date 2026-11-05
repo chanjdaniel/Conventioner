@@ -160,7 +160,9 @@ A follow-up is not listed here: it is decided from its own card, or from All.
 From Assignment on the list only reads.
 
 A verdict changed in the dialog leaves it open, with the rows shown as they were and focus on that row's new button, the row itself going to the head of the list as the newest verdict.
-What the server refuses is said in the dialog; a change of the application whose refused card is up lets that card go, and otherwise the card and the Undo line behind stay as they are.
+What the server refuses is said in the dialog, and the card and the Undo line behind stay as they are.
+Closed with the answer still out, the refusal is said on the card's error line instead, naming the application ("jane@example.com was not changed: ..."), beside what the card already says, and the next opening starts clean.
+A change that is written takes the undo on offer away ([undoing a verdict just given](#undoing-a-verdict-just-given)), and lets go a refused card only when it is that card's own application; any other card stays as it is.
 While the dialog is open A, R, S, N and Z do nothing, it closes when the view stops being visible or another market opens, and closing gives focus back to "Show N reviewed" with the same application up.
 A link naming a reviewed application, as a refused assignment's does, opens the dialog with the words set to its address and its row marked, however far down the list it lies; closing clears the words.
 Covered by:
