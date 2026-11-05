@@ -566,6 +566,16 @@ async function decide(app: Application, status: ApplicationStatus) {
 }
 
 /**
+ * What failed with no dialog left to say it in: beside what the card already says, which on a refused
+ * card is who decided it first, and only once however many times it fails that way.
+ */
+function sayBesideTheCard(words: string) {
+  if (!errorMessage.value.includes(words)) {
+    errorMessage.value = `${errorMessage.value} ${words}`.trim();
+  }
+}
+
+/**
  * "Approve instead" or "Reject instead" in the dialog (T217). The dialog stays open and the card
  * behind stays up, its words with it: what was refused is said here, in sight. The one card this
  * moves is a refused one whose own row was changed, since deciding it again is what it waits for.
@@ -586,7 +596,10 @@ async function changeVerdict(app: Application, status: ApplicationStatus, event:
     const outcome = await verdicts.give(app, status);
     offerUndo(before, outcome, status);
     if (outcome.kind !== 'written') {
-      reviewedError.value = outcome.message;
+      // Closed with the answer still out: said where the reviewer now is, and which one, since the
+      // card up is another application and its "this application" would read as that one.
+      if (showingReviewed.value) reviewedError.value = outcome.message;
+      else sayBesideTheCard(`${app.applicantEmail} was not changed: ${outcome.message}`);
     } else if (app.id === refusedOn.value) {
       errorMessage.value = '';
       await settle(app, outcome);
@@ -595,10 +608,11 @@ async function changeVerdict(app: Application, status: ApplicationStatus, event:
     deciding = null;
     saving.value = false;
   }
-  // The answer can take the row from the list, when someone else reopened it meanwhile.
   await nextTick();
   if (row?.isConnected) (row.querySelector('button') ?? row).focus();
-  else await reviewedDialog.value?.focusInside();
+  // The answer can take the row from the list, when someone else reopened it meanwhile, and its focus
+  // with it. A row closed away has left focus where the closing gave it, which stays.
+  else if (document.activeElement === document.body) await reviewedDialog.value?.focusInside();
 }
 
 /**
@@ -795,14 +809,10 @@ watch(
 watch([() => props.visible, () => props.market?.id, marksHighlights], stopChoosingHighlights);
 watch([() => props.visible, () => props.market?.id], stopShowingReviewed);
 
-// A tick still being written when Done was pressed has no dialog left to say it failed in. Said
-// beside what the card already says, which on a refused card is who decided it first, and only
-// once however many ticks fail that way.
+// A tick still being written when Done was pressed has no dialog left to say it failed in.
 watch(highlightsError, (words) => {
   if (!words || choosingHighlights.value) return;
-  if (!errorMessage.value.includes(words)) {
-    errorMessage.value = `${errorMessage.value} ${words}`.trim();
-  }
+  sayBesideTheCard(words);
   highlightsError.value = '';
 });
 
@@ -848,7 +858,9 @@ function submittedOn(app: Application): string {
       :message="loadError"
       @retry="loadApplications"
     />
-    <p v-if="errorMessage && !refusedOn" class="error-state">{{ errorMessage }}</p>
+    <p v-if="errorMessage && !refusedOn" class="error-state" data-testid="app-monitor-error">
+      {{ errorMessage }}
+    </p>
 
     <div v-if="loading" class="loading-state" data-testid="app-monitor-loading">
       Loading applications...

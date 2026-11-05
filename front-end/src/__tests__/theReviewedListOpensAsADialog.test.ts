@@ -439,6 +439,121 @@ describe('Show N reviewed', () => {
       expect(byId('app-monitor-decided-error').exists()).toBe(false);
     });
 
+    describe('a change that fails after the dialog was closed', () => {
+      /** A press whose answer is held, then the dialog closed with that answer still out. */
+      async function changeThenClose(id: string) {
+        let refuse!: (reason: unknown) => void;
+        reviewApplication.mockImplementationOnce(
+          () =>
+            new Promise((_resolve, reject) => {
+              refuse = reject;
+            }),
+        );
+        await changeOn(id);
+        await flushPromises();
+        await byId('app-monitor-decided-close-button').trigger('click');
+        await flushPromises();
+        expect(dialog().exists()).toBe(false);
+        return refuse;
+      }
+
+      const NO_MAY_NOT = {
+        isAxiosError: true,
+        response: { status: 403, data: { error: 'The server said no.' } },
+      };
+
+      it('is said on the card, naming the application, and not in the next opening', async () => {
+        await aLongListOpen();
+        const up = email();
+        const refuse = await changeThenClose('vendor-080');
+
+        refuse(NO_MAY_NOT);
+        await flushPromises();
+
+        expect(byId('app-monitor-error').text()).toBe(
+          'vendor-080@example.com was not changed: The server said no.',
+        );
+        expect(email()).toBe(up);
+        expect(focused()).toBe(button().element);
+
+        await open();
+        expect(byId('app-monitor-decided-error').exists()).toBe(false);
+      });
+
+      it('says who changed it since, on the row and on the card', async () => {
+        await aLongListOpen();
+        const seen = list.find((app) => app.id === 'vendor-080')!;
+        const refuse = await changeThenClose('vendor-080');
+
+        refuse({
+          isAxiosError: true,
+          response: {
+            status: 409,
+            data: {
+              error: 'kai@example.com approved this application since you opened it.',
+              application: { ...seen, status: ApplicationStatus.ReviewerApproved },
+            },
+          },
+        });
+        await flushPromises();
+
+        expect(byId('app-monitor-error').text()).toBe(
+          'vendor-080@example.com was not changed: ' +
+            'kai@example.com approved this application since you opened it.',
+        );
+
+        await open();
+        expect(byId('app-monitor-decided-error').exists()).toBe(false);
+        expect(rowOf('vendor-080').get('[data-testid="app-monitor-decided-status"]').text()).toBe(
+          'Approved',
+        );
+      });
+
+      it('keeps a refused card its own words, and adds the failure beside them', async () => {
+        list = [application('jane'), application('kim'), reviewedAt(1)];
+        await monitor();
+        reviewApplication.mockRejectedValueOnce({
+          isAxiosError: true,
+          response: {
+            status: 409,
+            data: {
+              error: 'kai@example.com approved this application since you opened it.',
+              application: {
+                ...application('jane', ApplicationStatus.ReviewerApproved),
+                verdictAt: '2026-10-31T10:00:00+00:00',
+              },
+            },
+          },
+        });
+        await press('r');
+        await open();
+        const refuse = await changeThenClose('vendor-001');
+
+        refuse(NO_MAY_NOT);
+        await flushPromises();
+
+        const said = byId('app-monitor-changed').text();
+        expect(said).toContain('kai@example.com approved this application');
+        expect(said).toContain('vendor-001@example.com was not changed: The server said no.');
+        expect(email()).toBe('jane@example.com');
+      });
+
+      it('is said in the dialog when it was opened again before the answer', async () => {
+        await aLongListOpen();
+        const refuse = await changeThenClose('vendor-080');
+        await open();
+        const closeButton = byId('app-monitor-decided-close-button').element as HTMLElement;
+        closeButton.focus();
+
+        refuse(NO_MAY_NOT);
+        await flushPromises();
+
+        expect(byId('app-monitor-decided-error').text()).toContain('The server said no.');
+        expect(byId('app-monitor-error').exists()).toBe(false);
+        expect(focused()).toBe(closeButton);
+      });
+    });
+
     it('takes a row that left the list by a refusal, focus staying in the dialog', async () => {
       await aLongListOpen();
       const seen = list.find((app) => app.id === 'vendor-080')!;
