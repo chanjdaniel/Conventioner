@@ -103,9 +103,10 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - the last 10 rejected through the endpoint a selection's verdict uses
   - by default the other 110 approved, the market in `assignment`, and an assignment by the real solver over "Example Gold Hall" of 31 tables and "Example Silver Hall" of 28, on one date, so 51 go unplaced
   - with `assign: false`, those 110 still open and the review open, for a spec of giving verdicts
+  - with `pays: true`, a plan with prices and a payment recorded by each of the 120, each a different amount, so the Payments page lists them all, with or without a table
 - Notes:
-  - answers the applicants in arrival order, the sections and the counts, for a spec to assert against
-  - it sets no prices
+  - answers the applicants in arrival order, each with what they pay with `pays`, the sections and the counts, for a spec to assert against
+  - it sets prices only with `pays`
 
 **`seedPeopleAtScale()`** ([file](../../../front-end/e2e/helpers/seedPeopleAtScale.ts))
 - Leaves: a `form` market in `applications` whose organization has 150 people, the case every people list and chooser must hold (T204):

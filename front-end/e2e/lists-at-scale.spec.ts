@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect, BACKEND_URL } from './fixtures';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
+import { PaymentsPage } from './pages/PaymentsPage';
 import { UpdateInfoDialog } from './pages/UpdateInfoDialog';
 import { VendorExportDialog } from './pages/VendorExportDialog';
 import { VendorsPage } from './pages/VendorsPage';
@@ -483,6 +484,189 @@ test.describe('Vendors', () => {
         await expect(vendors.detailCloseButton).toBeHidden();
         await expect(page).not.toHaveURL(/vendor=/);
         await expect(vendors.vendorListItems).toHaveCount(50);
+      });
+    });
+  }
+});
+
+test.describe('Payments', () => {
+  /** "$7,260.00" from 726000 cents, as the page writes CAD. */
+  const dollars = (cents: number) =>
+    `$${(cents / 100).toLocaleString('en-CA', { minimumFractionDigits: 2 })}`;
+
+  for (const width of [1280, 390]) {
+    test.describe(`at ${width}`, () => {
+      test.use({ viewport: { width, height: 844 } });
+
+      test('shows 50 of 120 with its table as it is, and every figure counts all 120', async ({
+        authenticatedPage: page,
+        request,
+        expectAccessible,
+      }) => {
+        test.setTimeout(120_000);
+        const seed = await seedMarketAtScale(request, { pays: true });
+        const payments = new PaymentsPage(page);
+        const { applications } = seed.counts;
+        const read = await request.get(`${BACKEND_URL}/markets/${seed.marketId}/payments`);
+        expect(read.ok(), await read.text()).toBeTruthy();
+        const { vendors } = (await read.json()) as { vendors: { balanceState: string | null }[] };
+        const inState = (state: string) => vendors.filter((v) => v.balanceState === state).length;
+        const allPaid = seed.applicants.reduce((sum, { paysCents }) => sum + paysCents, 0);
+
+        await payments.goto(seed.marketId);
+        await expect(payments.listCount).toHaveText(`Showing 50 of ${applications}`);
+        await expect(payments.rows).toHaveCount(50);
+        await expect(payments.showMore).toHaveText('Show 50 more');
+
+        // Under the cap the table stands as it was: its head, its sort, its order.
+        await expect(payments.sortButtons).toHaveText(['Vendor▲', 'Owed', 'Paid', 'Difference']);
+        await expect(payments.columnSortedBy('ascending')).toContainText('Vendor');
+        await expect(payments.rows.first()).toContainText(seed.applicants[0]!.email);
+
+        // Each figure counts every vendor, none of them cut to the rows on screen.
+        await expect(payments.total('paidCents')).toContainText(dollars(allPaid));
+        await expect(payments.summary).toHaveText(`${applications} vendors`);
+        await expect(payments.filter('owes')).toHaveText(`Owes (${inState('owes')})`);
+        await expect(payments.filter('over')).toHaveText(
+          `Paid more than owed (${inState('over')})`,
+        );
+
+        // A row's values each beside their heading on a phone, and in their column at a desk.
+        const firstRow = payments.rows.first();
+        const labels = firstRow.getByTestId('payments-cell-label');
+        await expect(labels).toHaveText(['Owed', 'Paid', 'Difference']);
+        for (const label of await labels.all()) {
+          await (width === 390 ? expect(label).toBeVisible() : expect(label).toBeHidden());
+        }
+        await holdsItsLayout(page, width, 'the first page');
+        await expectAccessible('the first page of 120 vendors on Payments');
+        await readsAtAA(page, 'the first page');
+
+        // A filter that leaves more than a page is capped, and the toolbar still counts them.
+        const over = inState('over');
+        expect(over).toBeGreaterThan(50);
+        await payments.filter('over').click();
+        await expect(payments.summary).toHaveText(`${over} of ${applications} vendors shown`);
+        await expect(payments.listCount).toHaveText(`Showing 50 of ${over}`);
+        await expect(payments.total('paidCents')).toContainText(dollars(allPaid));
+        await payments.filter('over').click();
+
+        // Words, in the address as they were: the toolbar counts, so the frame says nothing.
+        const far = seed.applicants[60]!;
+        const family = far.fullName.split(' ')[1]!.toLowerCase();
+        await payments.search.fill(family);
+        await expect(page).toHaveURL(new RegExp(`[?&]search=${family}(&|$)`));
+        await expect(payments.rows).toHaveCount(12);
+        await expect(payments.rows.filter({ hasText: far.email })).toBeVisible();
+        await expect(payments.summary).toHaveText(`12 of ${applications} vendors shown`);
+        await expect(payments.listCount).toHaveCount(0);
+        await expect(payments.showMore).toHaveCount(0);
+        await page.reload();
+        await expect(payments.search).toHaveValue(family);
+        await expect(payments.rows).toHaveCount(12);
+        await holdsItsLayout(page, width, 'a search');
+
+        // Words that find nobody say what they said.
+        await payments.search.fill('nobody by this name');
+        await expect(payments.noneShown).toHaveText('No vendor matches "nobody by this name".');
+        await expect(payments.summary).toHaveText(`0 of ${applications} vendors shown`);
+        await expect(payments.listCount).toHaveCount(0);
+        await holdsItsLayout(page, width, 'words that find nobody');
+      });
+
+      test('pages on with the focus, holds its place through a payment, and a new sort folds back', async ({
+        authenticatedPage: page,
+        request,
+      }) => {
+        test.setTimeout(120_000);
+        const seed = await seedMarketAtScale(request, { pays: true });
+        const payments = new PaymentsPage(page);
+        const { applications } = seed.counts;
+        const allPaid = seed.applicants.reduce((sum, { paysCents }) => sum + paysCents, 0);
+        await payments.goto(seed.marketId);
+        await expect(payments.rows).toHaveCount(50);
+
+        // The focus goes on to the first new row, and Tab into it.
+        await payments.showMore.focus();
+        await page.keyboard.press('Enter');
+        await expect(payments.rows).toHaveCount(100);
+        await expect(payments.rows.nth(50)).toBeFocused();
+        await page.keyboard.press('Tab');
+        await expect(payments.rows.nth(50).getByTestId('payments-row-open')).toBeFocused();
+        await expect(payments.listCount).toHaveText(`Showing 100 of ${applications}`);
+        await holdsItsLayout(page, width, 'two pages');
+
+        // A payment recorded on a row past the first page: the read again holds the place.
+        const row = payments.rows.nth(70);
+        await row.scrollIntoViewIfNeeded();
+        const scrolled = await page.evaluate(() => Math.round(window.scrollY));
+        expect(scrolled).toBeGreaterThan(0);
+        const email = await row.getAttribute('data-email');
+        await row.getByTestId('payments-row-open').click();
+        await payments.recordPayment('1');
+        await expect(payments.total('paidCents')).toContainText(dollars(allPaid + 100));
+        await expect(payments.listCount).toHaveText(`Showing 100 of ${applications}`);
+        await expect(payments.rows).toHaveCount(100);
+        await payments.closeDrawer();
+        await expect(payments.rows.nth(70)).toHaveAttribute('data-email', email!);
+        await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(scrolled);
+
+        // A new sort starts from its first rows, the focus staying on the heading pressed.
+        const paidSort = payments.sort('paid');
+        await paidSort.focus();
+        await page.keyboard.press('Enter');
+        await expect(payments.rows).toHaveCount(50);
+        await expect(paidSort).toBeFocused();
+        await expect(payments.columnSortedBy('descending')).toContainText('Paid');
+        await expect(payments.rows.first()).toHaveAttribute(
+          'data-email',
+          seed.applicants.at(-1)!.email,
+        );
+        await expect(payments.listCount).toHaveText(`Showing 50 of ${applications}`);
+
+        // The other way round, too; the order's in the address, so a reload starts it the same.
+        await payments.showMore.click();
+        await expect(payments.rows).toHaveCount(100);
+        await paidSort.click();
+        await expect(payments.rows).toHaveCount(50);
+        await expect(payments.columnSortedBy('ascending')).toContainText('Paid');
+        await expect(payments.rows.first()).toHaveAttribute(
+          'data-email',
+          seed.applicants[0]!.email,
+        );
+        await page.reload();
+        await expect(payments.columnSortedBy('ascending')).toContainText('Paid');
+        await expect(payments.rows).toHaveCount(50);
+
+        // New words fold back, and so does a filter.
+        await payments.showMore.click();
+        await expect(payments.rows).toHaveCount(100);
+        await payments.search.fill('vendor');
+        await expect(payments.rows).toHaveCount(50);
+        await payments.search.fill('');
+        await expect(payments.rows).toHaveCount(50);
+        await payments.showMore.click();
+        await expect(payments.rows).toHaveCount(100);
+        await payments.filter('over').click();
+        await expect(payments.rows).toHaveCount(50);
+        await payments.filter('over').click();
+
+        // A last page says nothing more, and offers nothing more.
+        await payments.showMore.click();
+        await payments.showMore.click();
+        await expect(payments.rows).toHaveCount(applications);
+        await expect(payments.showMore).toHaveCount(0);
+        await expect(payments.listCount).toHaveCount(0);
+
+        // A link to a vendor past the cap opens the drawer and leaves the list as it was.
+        const far = seed.applicants[60]!;
+        await payments.goto(seed.marketId, `?vendor=${encodeURIComponent(far.email)}`);
+        await expect(page.getByTestId('vendors-detail-email')).toHaveText(far.email);
+        await expect(payments.rows).toHaveCount(50);
+        await expect(payments.rows.filter({ hasText: far.email })).toHaveCount(0);
+        await payments.closeDrawer();
+        await expect(page).not.toHaveURL(/vendor=/);
+        await expect(payments.rows).toHaveCount(50);
       });
     });
   }

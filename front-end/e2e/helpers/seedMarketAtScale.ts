@@ -30,6 +30,15 @@ const FAMILIES = [
 ];
 /** How often an applicant also gave the name they go by, which their row then calls them. */
 const PREFERRED_EVERY = 10;
+/** What a table costs with `pays`, in the tiers' order. */
+const PRICING = {
+  currency: 'CAD',
+  halfTablePercent: 50,
+  everyoneElse: [
+    { tier: TIERS[0], cents: 3500 },
+    { tier: TIERS[1], cents: 3000 },
+  ],
+};
 
 export interface ApplicantAtScale {
   email: string;
@@ -39,6 +48,8 @@ export interface ApplicantAtScale {
   preferredName: string | null;
   /** What their row calls them. */
   shownName: string;
+  /** What they paid with `pays`: a dollar for each place in the order they came, so none is alike. */
+  paysCents: number;
 }
 
 export interface MarketAtScaleSeed {
@@ -67,6 +78,7 @@ function applicantAtScale(n: number): ApplicantAtScale {
     fullName,
     preferredName,
     shownName: preferredName ?? fullName,
+    paysCents: n * 100,
   };
 }
 
@@ -148,14 +160,16 @@ async function give(
  * market, read in through the real import, the last 10 rejected as a reviewer rejects a selection,
  * then, unless `assign` is false, the other 110 approved and an assignment run by the real solver
  * over a section of 31 tables and one of 28, on one date. With `assign: false` the review is still
- * open and those 110 are undecided, which is the market a spec of giving verdicts wants.
+ * open and those 110 are undecided, which is the market a spec of giving verdicts wants. With `pays`
+ * the plan sets prices and every applicant has recorded a payment, so the Payments page lists all
+ * 120, whether or not they hold a table.
  *
  * Under the signed-in seed owner, whose session `request` carries afterwards; fixture values only. A
  * spec asserts against what this answers, never a number typed twice.
  */
 export async function seedMarketAtScale(
   request: APIRequestContext,
-  { assign = true }: { assign?: boolean } = {},
+  { assign = true, pays = false }: { assign?: boolean; pays?: boolean } = {},
 ): Promise<MarketAtScaleSeed> {
   const seed = await seedApplicantMarket(
     request,
@@ -173,6 +187,7 @@ export async function seedMarketAtScale(
           tier: { id: tier, name: TIERS[tier] },
           count,
         })),
+        ...(pays ? { pricing: PRICING } : {}),
       },
       fields: [
         {
@@ -216,6 +231,15 @@ export async function seedMarketAtScale(
     await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'assignment');
     const ran = await request.post(`${BACKEND_URL}/markets/${marketId}/assignment`);
     expect(ran.ok(), await ran.text()).toBeTruthy();
+  }
+
+  if (pays) {
+    for (const { email, paysCents } of applicants) {
+      const paid = await request.post(`${BACKEND_URL}/markets/${marketId}/payments/${email}`, {
+        data: { cents: paysCents, method: 'e-transfer', paidOn: '2026-05-03', note: '' },
+      });
+      expect(paid.ok(), await paid.text()).toBeTruthy();
+    }
   }
 
   return {

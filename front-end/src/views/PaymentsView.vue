@@ -8,7 +8,9 @@
  * line or a payment, with what they owe, what they paid and how the two compare, in the words of
  * their Payment tab; filtered to "Owes", "Paid in full" or "Paid more than owed", searched, and
  * sorted by any column, all in the address, so a link or a reload shows the same list. A row opens
- * the vendor's drawer on its Payment tab, and a change made there is read here again.
+ * the vendor's drawer on its Payment tab, and a change made there is read here again. The table
+ * draws 50 rows at a time (`ListFrame`), and every figure and count above it still counts every
+ * vendor.
  *
  * The server counts all of it (`utils/paymentsPage.ts`). It reads and changes nothing itself, so
  * anyone who reads the market reads it; a market that sets no prices says so, and where to set them.
@@ -39,6 +41,7 @@ import { withoutQueryKey } from '@/utils/routeQuery';
 import { signedInEmail } from '@/utils/signedIn';
 import { dateLabel, useVendorDetails } from '@/utils/vendorDetails';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
+import ListFrame from '@/components/ListFrame.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import NothingAssigned from '@/components/NothingAssigned.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
@@ -151,6 +154,13 @@ const counts = computed(
     ),
 );
 const narrowed = computed(() => !!shown.value || !!search.value.trim());
+/**
+ * Everything that orders or narrows the rows: a change of any goes back to the first page
+ * (`ListFrame`), since a new sort's first rows are the point of it.
+ */
+const listFilterKey = computed(() =>
+  JSON.stringify([shown.value, search.value.trim(), sort.value.key, sort.value.descending]),
+);
 
 const COLUMNS: readonly { key: PaymentsSortKey; label: string; amount: boolean }[] = [
   { key: 'vendor', label: 'Vendor', amount: false },
@@ -352,82 +362,104 @@ const nobodyShown = computed(() => {
             <p v-if="!listed.length" class="payments-note" data-testid="payments-none-shown">
               {{ nobodyShown }}
             </p>
-            <table v-else role="table" class="payments-table payments-table--vendors">
-              <thead role="rowgroup">
-                <tr role="row">
-                  <th
-                    v-for="column in COLUMNS"
-                    :key="column.key"
-                    role="columnheader"
-                    scope="col"
-                    :aria-sort="ariaSort(column.key)"
-                    :class="{ 'payments-amount': column.amount }"
-                  >
-                    <button
-                      type="button"
-                      class="payments-sort"
-                      :data-testid="`payments-sort-${column.key}`"
-                      @click="sortBy(column.key)"
-                    >
-                      {{ column.label
-                      }}<span
-                        v-if="ariaSort(column.key)"
-                        class="payments-sort-mark"
-                        aria-hidden="true"
-                        >{{ sort.descending ? '▼' : '▲' }}</span
+            <ListFrame
+              v-else
+              :items="listed"
+              :filter-key="listFilterKey"
+              :item-key="(vendor) => vendor.email"
+              :noun="{ one: 'vendor', many: 'vendors' }"
+              testid="payments-list"
+            >
+              <template #rows="{ rows }">
+                <table role="table" class="payments-table payments-table--vendors">
+                  <thead role="rowgroup">
+                    <tr role="row">
+                      <th
+                        v-for="column in COLUMNS"
+                        :key="column.key"
+                        role="columnheader"
+                        scope="col"
+                        :aria-sort="ariaSort(column.key)"
+                        :class="{ 'payments-amount': column.amount }"
                       >
-                    </button>
-                  </th>
-                </tr>
-              </thead>
-              <tbody role="rowgroup">
-                <tr
-                  v-for="vendor in listed"
-                  :key="vendor.email"
-                  role="row"
-                  class="payments-row"
-                  :class="{ 'payments-row--open': vendor.email === drawer.email.value }"
-                  :data-email="vendor.email"
-                  data-testid="payments-row"
-                  @click="drawer.open(vendor.email, 'payment')"
-                >
-                  <td role="cell">
-                    <!-- The row's one keyboard stop; a click anywhere on the row does the same. -->
-                    <button
-                      type="button"
-                      class="payments-row-open"
-                      data-testid="payments-row-open"
-                      @click.stop="drawer.open(vendor.email, 'payment')"
+                        <button
+                          type="button"
+                          class="payments-sort"
+                          :data-testid="`payments-sort-${column.key}`"
+                          @click="sortBy(column.key)"
+                        >
+                          {{ column.label
+                          }}<span
+                            v-if="ariaSort(column.key)"
+                            class="payments-sort-mark"
+                            aria-hidden="true"
+                            >{{ sort.descending ? '▼' : '▲' }}</span
+                          >
+                        </button>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody role="rowgroup">
+                    <tr
+                      v-for="vendor in rows"
+                      :key="vendor.email"
+                      role="row"
+                      data-list-row
+                      tabindex="-1"
+                      class="payments-row"
+                      :class="{ 'payments-row--open': vendor.email === drawer.email.value }"
+                      :data-email="vendor.email"
+                      data-testid="payments-row"
+                      @click="drawer.open(vendor.email, 'payment')"
                     >
-                      <VendorIdentity :email="vendor.email" :names="names" />
-                    </button>
-                  </td>
-                  <td role="cell" class="payments-amount" data-testid="payments-row-owed">
-                    <span class="payments-cell-label" aria-hidden="true">{{
-                      COLUMNS[1].label
-                    }}</span>
-                    {{ amount(vendor.owedCents) }}
-                  </td>
-                  <td role="cell" class="payments-amount" data-testid="payments-row-paid">
-                    <span class="payments-cell-label" aria-hidden="true">{{
-                      COLUMNS[2].label
-                    }}</span>
-                    {{ amount(vendor.paidCents) }}
-                  </td>
-                  <td role="cell" class="payments-amount">
-                    <span class="payments-cell-label" aria-hidden="true">{{
-                      COLUMNS[3].label
-                    }}</span>
-                    <span
-                      class="chip"
-                      :class="balanceChip({ ...vendor, currency: found.currency })"
-                      data-testid="payments-row-balance"
-                      >{{ balanceText({ ...vendor, currency: found.currency }) }}</span
-                    >
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                      <td role="cell">
+                        <!-- The row's one keyboard stop; a click anywhere on the row does the same. -->
+                        <button
+                          type="button"
+                          class="payments-row-open"
+                          data-testid="payments-row-open"
+                          @click.stop="drawer.open(vendor.email, 'payment')"
+                        >
+                          <VendorIdentity :email="vendor.email" :names="names" />
+                        </button>
+                      </td>
+                      <td role="cell" class="payments-amount" data-testid="payments-row-owed">
+                        <span
+                          class="payments-cell-label"
+                          aria-hidden="true"
+                          data-testid="payments-cell-label"
+                          >{{ COLUMNS[1].label }}</span
+                        >
+                        {{ amount(vendor.owedCents) }}
+                      </td>
+                      <td role="cell" class="payments-amount" data-testid="payments-row-paid">
+                        <span
+                          class="payments-cell-label"
+                          aria-hidden="true"
+                          data-testid="payments-cell-label"
+                          >{{ COLUMNS[2].label }}</span
+                        >
+                        {{ amount(vendor.paidCents) }}
+                      </td>
+                      <td role="cell" class="payments-amount">
+                        <span
+                          class="payments-cell-label"
+                          aria-hidden="true"
+                          data-testid="payments-cell-label"
+                          >{{ COLUMNS[3].label }}</span
+                        >
+                        <span
+                          class="chip"
+                          :class="balanceChip({ ...vendor, currency: found.currency })"
+                          data-testid="payments-row-balance"
+                          >{{ balanceText({ ...vendor, currency: found.currency }) }}</span
+                        >
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </template>
+            </ListFrame>
           </section>
         </template>
       </div>
