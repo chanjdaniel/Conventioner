@@ -94,7 +94,7 @@ describes:
   - front-end/e2e/a-failure-says-what-to-do.spec.ts
   - back-end/app.py#vendor_check_in
   - back-end/app.py#vendor_undo_check_in
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - T74
   - E41/F01/S01
@@ -102,6 +102,7 @@ sources:
   - E38/F11/S01
   - T161
   - T181
+  - T224
 ---
 
 # An exception never reaches a client
@@ -265,6 +266,7 @@ The account pages (sign in, register, password reset, email verification) still 
 
 **A screen whose own read failed offers Try again**: [`ReadFailed.vue`](../../../front-end/src/components/ReadFailed.vue) shows the message with a button that runs the read once more, its test ids `<name>-read-failed` and `<name>-retry`.
 Applications (both views, `applications`), Markets (`markets`), Organizations (`organizations`), Assignments (`tables`) and Attendance (`attendance`) use it; a market that could not be loaded at all is [the market frame](../modules/market-frame.md)'s `MarketArrival` to say, with its own Try again.
+A list the server pages shows it at the list's end for a page that failed, from [`PagedList.vue`](../../../front-end/src/components/PagedList.vue) (Manage market's History and a vendor's, `market-history`).
 Its button is a `.btn`, so it is 44px on a phone.
 
 **A session that ends mid-work** answers 401 to the next request, and one response interceptor on `api`, installed from `main.ts` by `installSessionEnded` in [`front-end/src/utils/sessionEnded.ts`](../../../front-end/src/utils/sessionEnded.ts), takes the organizer to sign in again.

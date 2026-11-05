@@ -21,6 +21,7 @@ import { ManageMarketPage } from './pages/ManageMarketPage';
  */
 const VENDOR = { email: 'e2e-drawer-history-vera@example.com', name: 'Vera Vendor' };
 const OTHER = { email: 'e2e-drawer-history-otto@example.com', name: 'Otto Other' };
+const PAGE = 25;
 const VIEWER = { email: 'e2e-drawer-history-viewer@example.com', password: 'e2epassword123' };
 
 async function ok(response: Awaited<ReturnType<APIRequestContext['put']>>) {
@@ -117,8 +118,8 @@ test("a vendor's long History scrolls with the drawer's body and fetches at its 
   request,
 }) => {
   const { marketId } = await seedTwoVendors(request);
-  // Past one page of 25, on top of the verdict, the note and the tables.
-  for (let n = 1; n <= 25; n++) {
+  // Past one page, on top of the verdict, the note and the tables.
+  for (let n = 1; n <= PAGE; n++) {
     await ok(
       await request.put(
         `${BACKEND_URL}/markets/${marketId}/vendor-notes/${encodeURIComponent(VENDOR.email)}`,
@@ -128,8 +129,8 @@ test("a vendor's long History scrolls with the drawer's body and fetches at its 
   }
   const vendors = new VendorsPage(page);
   await page.goto(drawerPath(marketId, VENDOR.email));
-  await expect(vendors.detailHistorySentences).toHaveCount(25);
-  await expect(page.getByText('Load more')).toHaveCount(0);
+  await expect(vendors.detailHistorySentences).toHaveCount(PAGE);
+  await expect(vendors.detailPanel).not.toContainText('Load more');
 
   // The list has no scroller of its own: it stands in the flow of the drawer's body, which scrolls.
   const list = page.getByTestId('market-history-box');
@@ -139,13 +140,11 @@ test("a vendor's long History scrolls with the drawer's body and fetches at its 
   await expect(page.getByTestId('vendors-detail-content-shade-bottom')).toBeVisible();
 
   const first = await vendors.detailHistorySentences.allInnerTexts();
-  await vendors.detailContent.evaluate((body) => {
-    body.scrollTop = body.scrollHeight;
-  });
+  await vendors.scrollDetailToEnd();
 
-  await expect(vendors.detailHistorySentences).toHaveCount(25 + 4);
+  await expect(vendors.detailHistorySentences).toHaveCount(PAGE + 4);
   const all = await vendors.detailHistorySentences.allInnerTexts();
-  expect(all.slice(0, 25)).toEqual(first);
+  expect(all.slice(0, PAGE)).toEqual(first);
   expect(all.at(-1)).toContain('to Approved');
 });
 

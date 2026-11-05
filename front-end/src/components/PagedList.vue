@@ -38,7 +38,7 @@ const props = withDefaults(
     error?: string;
     /** Its own scroller, or the one around it. */
     box?: 'own' | 'parent';
-    /** Names the box as a region while it scrolls. */
+    /** Names its own box as a region while it scrolls; `box="parent"` has none to name. */
     label?: string;
     /** `<testid>-box` on the box and its shades, `<testid>-sentinel`, `<testid>-loading`, and
      * `ReadFailed`'s two under `<testid>`. */
@@ -58,7 +58,7 @@ const rows = ref<HTMLElement | null>(null);
 const sentinel = ref<HTMLElement | null>(null);
 const failed = ref<HTMLElement | null>(null);
 
-const asksAtTheEnd = computed(() => props.hasMore && !props.error);
+const drawsSentinel = computed(() => props.hasMore && !props.error);
 
 const boxProps = computed(() =>
   props.box === 'own'
@@ -66,18 +66,18 @@ const boxProps = computed(() =>
     : { 'data-testid': `${props.testid}-box` },
 );
 
-let view: IntersectionObserver | null = null;
+let inView: IntersectionObserver | null = null;
 let changes: MutationObserver | null = null;
 
 function observeSentinel() {
-  view?.disconnect();
-  if (sentinel.value) view?.observe(sentinel.value);
+  inView?.disconnect();
+  if (sentinel.value) inView?.observe(sentinel.value);
 }
 
 onMounted(() => {
   // A test's DOM has no observer, as `ScrollBox` finds with `ResizeObserver`.
   if (typeof IntersectionObserver !== 'undefined') {
-    view = new IntersectionObserver((seen) => {
+    inView = new IntersectionObserver((seen) => {
       if (seen.at(-1)?.isIntersecting && !props.loading) emit('more');
     });
   }
@@ -87,7 +87,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  view?.disconnect();
+  inView?.disconnect();
   changes?.disconnect();
 });
 
@@ -138,7 +138,7 @@ watch(
       <div ref="rows" class="paged-list__rows" tabindex="-1">
         <slot />
         <div
-          v-if="asksAtTheEnd"
+          v-if="drawsSentinel"
           ref="sentinel"
           class="paged-list__sentinel"
           aria-hidden="true"

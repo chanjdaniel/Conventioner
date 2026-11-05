@@ -85,6 +85,13 @@ export class VendorsPage {
   }
 
   /** One of the drawer's tabs (E35/F01/S01): it opens on Application. */
+  /** Scrolls the drawer's body to its end, as far as it has read. */
+  async scrollDetailToEnd(): Promise<void> {
+    await this.detailContent.evaluate((body) => {
+      body.scrollTop = body.scrollHeight;
+    });
+  }
+
   async openTab(tab: 'application' | 'assignments' | 'history'): Promise<void> {
     await this.page.getByTestId(`vendor-drawer-tab-${tab}`).click();
     await this.page.getByTestId(`vendor-drawer-panel-${tab}`).waitFor();

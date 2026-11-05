@@ -29,6 +29,8 @@ const RENAMES = 20;
  * verdict, the assignment, two roles. */
 const WHOLE_HISTORY = 1 + 2 + 1 + RENAMES + 2 + 1 + 1 + 2;
 const PAGE = 25;
+/** The box's maximum at a desk, `PagedList`'s 28rem. */
+const BOX_MOST = 28 * 16;
 
 test.beforeAll(() => ensureVerifiedUser(COLLEAGUE.email, COLLEAGUE.password));
 
@@ -141,7 +143,7 @@ test('every kind of change reads as a sentence, newest first, and older ones com
   expect(first).not.toContain(`${me} changed Market Setup: sections`);
 
   // Older entries come beneath the newest, in the same open dialog, with nothing to press.
-  await expect(page.getByText('Load more')).toHaveCount(0);
+  await expect(manage.history).not.toContainText('Load more');
   await manage.scrollHistoryToEnd();
   await expect(manage.historySentences).toHaveCount(WHOLE_HISTORY);
   const all = await manage.historySentences.allInnerTexts();
@@ -152,7 +154,7 @@ test('every kind of change reads as a sentence, newest first, and older ones com
     `${me} decided nothing leads the card`,
     `${me} changed the application form`,
   ]);
-  await expect(page.getByTestId('market-history-sentinel')).toHaveCount(0);
+  await expect(manage.historySentinel).toHaveCount(0);
   await expect(manage.window).toBeVisible();
 
   // An entry opens to show what it was before and after.
@@ -166,19 +168,19 @@ test('the list stands in a box one height, its shade says there is more, and the
   authenticatedPage: page,
   request,
 }) => {
-  // A laptop's height, the lowest the filters are held in sight beside the whole box at.
+  // A laptop's height, where the filters stay in sight beside the whole box.
   await page.setViewportSize({ width: 1280, height: 800 });
   const { marketName } = await seedAHistory(request);
   const manage = await openManage(page, marketName);
   await expect(manage.historySentences).toHaveCount(PAGE);
 
   const height = await manage.historyBox.evaluate((box) => box.clientHeight);
-  expect(height).toBeLessThanOrEqual(28 * 16);
+  expect(height).toBeLessThanOrEqual(BOX_MOST);
   await expect(manage.historyBoxShadeBottom).toBeVisible();
   // A box below the dialog's fold is scrolled into sight first, as a reader's wheel carries on to it.
-  await manage.historyBox.evaluate((box) => box.scrollIntoView({ block: 'nearest' }));
+  await manage.showHistoryBox();
   const windowBefore = await manage.window.boundingBox();
-  const filter = page.getByTestId('market-history-kind');
+  const filter = manage.historyKind;
   const filterBefore = await filter.boundingBox();
 
   await manage.scrollHistoryToEnd();
@@ -195,7 +197,7 @@ test('the list stands in a box one height, its shade says there is more, and the
   // The shade goes only at the very end, which says the rest; the top's says where the reader was.
   await manage.scrollHistoryToEnd();
   await expect(manage.historyBoxShadeBottom).toHaveCount(0);
-  await expect(page.getByTestId('market-history-box-shade-top')).toBeVisible();
+  await expect(manage.historyBoxShadeTop).toBeVisible();
 });
 
 test('a scroll past the end of the box carries on to the dialog', async ({
@@ -210,8 +212,7 @@ test('a scroll past the end of the box carries on to the dialog', async ({
   await manage.scrollHistoryToEnd();
   await expect(manage.historyBoxShadeBottom).toHaveCount(0);
 
-  const body = page.getByTestId('manage-market-body');
-  const scrolled = () => body.evaluate((element) => element.scrollTop);
+  const scrolled = () => manage.body.evaluate((element) => element.scrollTop);
   const before = await scrolled();
   await manage.historyBox.hover();
 
@@ -238,27 +239,36 @@ test('a short history is only as tall as it is, with no shade and nothing to fet
     scrollHeight: box.scrollHeight,
   }));
   expect(clientHeight).toBe(scrollHeight);
-  expect(clientHeight).toBeLessThan(28 * 16);
+  expect(clientHeight).toBeLessThan(BOX_MOST);
   await expect(manage.historyBoxShadeBottom).toHaveCount(0);
-  await expect(page.getByTestId('market-history-sentinel')).toHaveCount(0);
+  await expect(manage.historySentinel).toHaveCount(0);
 });
 
-test('a page too short to fill the box still leads to the next one', async ({
-  authenticatedPage: page,
-  request,
-}) => {
-  // Tall enough that the whole box stands in the dialog's sight, so only the observer can stall it.
-  await page.setViewportSize({ width: 1280, height: 1600 });
-  const { marketId, marketName } = await seedAHistory(request);
+/**
+ * Answers the market's history two entries at a time, each page naming the next as its cursor, from
+ * its own first page, so a page never fills the box; records each cursor asked for, and holds each
+ * next page until `release` once `hold` is on.
+ */
+async function serveShortPages(page: Page, request: APIRequestContext, marketId: string) {
   const whole = (await (
     await request.get(`${BACKEND_URL}/markets/${marketId}/history`)
   ).json()) as { entries: unknown[]; vendorNames: unknown };
-
-  // The market's own first page, two entries at a time, each naming the next as its cursor.
   const asked: string[] = [];
+  const served = {
+    whole: whole.entries.length,
+    asked,
+    held: Promise.resolve(),
+    release: () => {},
+    hold() {
+      served.held = new Promise<void>((resolve) => {
+        served.release = resolve;
+      });
+    },
+  };
   await page.route(/\/markets\/[^/]+\/history(\?|$)/, async (route) => {
     const before = new URL(route.request().url()).searchParams.get('before');
     asked.push(before ?? '');
+    if (before) await served.held;
     const from = Number(before ?? 0);
     await route.fulfill({
       json: {
@@ -270,15 +280,67 @@ test('a page too short to fill the box still leads to the next one', async ({
       },
     });
   });
+  return served;
+}
+
+/** Long enough for an observer to have said what it sees. */
+const twoFrames = (page: Page) =>
+  page.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
+
+test('a page too short to fill the box still leads to the next one', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  // Tall enough that the whole box stands in the dialog's sight, so only the observer can stall it.
+  await page.setViewportSize({ width: 1280, height: 1600 });
+  const { marketId, marketName } = await seedAHistory(request);
+  const served = await serveShortPages(page, request, marketId);
   const manage = await openManage(page, marketName);
 
   // Each short page leaves the sentinel in view, which fires no more by itself. It goes on asking
-  // until the box is full and its end has left the sentinel's reach, then stops.
+  // until the box is full and its end has left the sentinel's reach.
   await expect
     .poll(() => manage.historyBox.evaluate((box) => box.scrollHeight > box.clientHeight))
     .toBe(true);
   await expect(manage.historyBoxShadeBottom).toBeVisible();
-  await expect.poll(() => manage.historySentences.count()).toBeLessThan(whole.entries.length);
+  // A stalled list would have asked for two pages at most: the first, and the one its sentinel fired.
+  expect(served.asked.length).toBeGreaterThan(2);
+
+  // Then it stops, with more to read, rather than running on through the whole history.
+  await expect(async () => {
+    const shown = await manage.historySentences.count();
+    await twoFrames(page);
+    expect(await manage.historySentences.count()).toBe(shown);
+  }).toPass();
+  expect(await manage.historySentences.count()).toBeLessThan(served.whole);
+});
+
+test('a closed section reads no further, with its sentinel in view, until it is opened again', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  // The whole box in sight, so an open section would go on asking after each short page.
+  await page.setViewportSize({ width: 1280, height: 1600 });
+  const { marketId, marketName } = await seedAHistory(request);
+  const served = await serveShortPages(page, request, marketId);
+  served.hold();
+  const manage = await openManage(page, marketName);
+
+  // The second page is on its way when the section closes, and lands in the closed section.
+  await expect.poll(() => served.asked.length).toBe(2);
+  await manage.historyToggle.click();
+  await expect(manage.historyBox).toBeHidden();
+  served.release();
+  await expect(manage.historySentences).toHaveCount(4);
+  await twoFrames(page);
+  expect(served.asked.length).toBe(2);
+
+  // Opened again, its end is in view and it goes on from what it read.
+  await manage.historyToggle.click();
+  await expect.poll(() => served.asked.length).toBeGreaterThan(2);
+  await expect(manage.historySentences.first()).toBeVisible();
 });
 
 test('a filter changed on the second page starts again at the top', async ({
@@ -337,7 +399,7 @@ test('a page that fails says so at the end of the list, and Try again brings it'
 
   await page.route(/\/history\?.*before=/, (route) => route.abort());
   await manage.scrollHistoryToEnd();
-  const failed = page.getByTestId('market-history-read-failed');
+  const failed = manage.historyPageFailed;
   await expect(failed).toBeVisible();
   await expect(manage.historySentences).toHaveCount(PAGE);
   await manage.scrollHistoryToEnd();
@@ -353,19 +415,19 @@ test('a page that fails says so at the end of the list, and Try again brings it'
     await held;
     await route.continue();
   });
-  await page.getByTestId('market-history-retry').click();
-  await expect(page.getByTestId('market-history-loading')).toHaveText('Loading…');
-  await expect(page.getByTestId('market-history-loading')).toHaveRole('status');
+  await manage.historyRetry.click();
+  await expect(manage.historyLoading).toHaveText('Loading…');
+  await expect(manage.historyLoading).toHaveRole('status');
   await expect(failed).toHaveCount(0);
   expect(await page.evaluate(() => document.activeElement === document.body)).toBe(false);
   release();
 
   await expect(manage.historySentences).toHaveCount(WHOLE_HISTORY);
   await expect(manage.historyEntries.nth(PAGE).getByTestId('market-history-toggle')).toBeFocused();
-  await expect(page.getByTestId('market-history-loading')).toHaveText('');
+  await expect(manage.historyLoading).toHaveText('');
 });
 
-test('a closed section asks for nothing, and opening it again keeps what it read and its filters', async ({
+test('closing the section and opening it again keeps what it read and its filters', async ({
   authenticatedPage: page,
   request,
 }) => {

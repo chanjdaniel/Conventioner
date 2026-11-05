@@ -20,7 +20,7 @@ import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/
 import { api } from '@/utils/api';
 import { marketPath } from '@/utils/market';
 import { findsPerson, PEOPLE_CAP, personOption, vendorOption } from '@/utils/personChoice';
-import { useHistoryPages } from '@/utils/useHistoryPages';
+import { useHistoryPages, type HistoryPage } from '@/utils/useHistoryPages';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
 import { vendorMatches, type VendorNames } from '@/utils/vendorIdentity';
 import {
@@ -55,10 +55,8 @@ const props = defineProps<{
 
 const ownVendor = computed(() => props.vendor?.trim().toLowerCase() ?? '');
 
-interface HistoryPage {
-  entries: MarketHistoryEntry[];
-  next: string | null;
-  vendorNames: VendorNames;
+interface MarketHistoryPage extends HistoryPage {
+  vendorNames?: VendorNames;
   actors?: string[];
   groups?: MarketHistoryGroup[];
 }
@@ -165,12 +163,12 @@ const filtered = computed(
   () => !!(actor.value || group.value || vendorText.value.trim() || from.value || to.value),
 );
 
-async function read(before: string | null): Promise<HistoryPage> {
+async function read(before: string | null): Promise<MarketHistoryPage> {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(filters.value)) if (value) query.set(key, value);
   if (before) query.set('before', before);
   const asked = query.toString();
-  const response = await api.get<HistoryPage>(
+  const response = await api.get<MarketHistoryPage>(
     `/markets/${encodeURIComponent(props.marketId)}/history${asked ? `?${asked}` : ''}`,
   );
   return response.data;
@@ -186,7 +184,7 @@ const {
   more,
   clear,
   load: readFirst,
-} = useHistoryPages<HistoryPage>({
+} = useHistoryPages<MarketHistoryPage>({
   read,
   // What the market's vendors and people are holds whatever the page was narrowed by, so a page
   // asked for before a filter changed still tells the filter who it may name: a vendor typed

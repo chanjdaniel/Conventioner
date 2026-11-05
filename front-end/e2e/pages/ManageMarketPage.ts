@@ -68,6 +68,13 @@ export class ManageMarketPage {
   /** The box the History's entries scroll in (T224). */
   readonly historyBox: Locator;
   readonly historyBoxShadeBottom: Locator;
+  readonly historyBoxShadeTop: Locator;
+  readonly historySentinel: Locator;
+  readonly historyLoading: Locator;
+  readonly historyPageFailed: Locator;
+  readonly historyRetry: Locator;
+  /** The dialog's own scrolling body, around the History's box. */
+  readonly body: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -133,12 +140,23 @@ export class ManageMarketPage {
     this.historyVendorHint = page.getByTestId('market-history-vendor-hint');
     this.historyBox = page.getByTestId('market-history-box');
     this.historyBoxShadeBottom = page.getByTestId('market-history-box-shade-bottom');
+    this.historyBoxShadeTop = page.getByTestId('market-history-box-shade-top');
+    this.historySentinel = page.getByTestId('market-history-sentinel');
+    this.historyLoading = page.getByTestId('market-history-loading');
+    this.historyPageFailed = page.getByTestId('market-history-read-failed');
+    this.historyRetry = page.getByTestId('market-history-retry');
+    this.body = page.getByTestId('manage-market-body');
   }
 
   /** Opens the History section, closed until opened, and waits for its first page. */
   async openHistory(): Promise<void> {
     await this.historyToggle.click();
     await this.page.getByTestId('market-history').waitFor();
+  }
+
+  /** Scrolls the dialog until the History's box is whole in sight. */
+  async showHistoryBox(): Promise<void> {
+    await this.historyBox.evaluate((box) => box.scrollIntoView({ block: 'nearest' }));
   }
 
   /**

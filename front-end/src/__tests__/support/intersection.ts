@@ -24,10 +24,6 @@ class FakeObserver {
     this.targets.add(target);
   }
 
-  unobserve(target: Element) {
-    this.targets.delete(target);
-  }
-
   disconnect() {
     this.targets.clear();
   }
@@ -37,23 +33,18 @@ export function installIntersectionObserver() {
   FakeObserver.all.clear();
   FakeObserver.observes = 0;
   vi.stubGlobal('IntersectionObserver', FakeObserver);
+  async function fire(isIntersecting: boolean) {
+    for (const observer of FakeObserver.all) {
+      const entries = [...observer.targets].map((target) => ({ isIntersecting, target }));
+      if (entries.length) observer.fire(entries);
+    }
+    await flushPromises();
+  }
   return {
     /** Says each observed sentinel is in view, as scrolling to the list's end does. */
-    async showSentinels() {
-      for (const observer of FakeObserver.all) {
-        const entries = [...observer.targets].map((target) => ({ isIntersecting: true, target }));
-        if (entries.length) observer.fire(entries);
-      }
-      await flushPromises();
-    },
+    showSentinels: () => fire(true),
     /** Says each observed sentinel is out of view. */
-    async hideSentinels() {
-      for (const observer of FakeObserver.all) {
-        const entries = [...observer.targets].map((target) => ({ isIntersecting: false, target }));
-        if (entries.length) observer.fire(entries);
-      }
-      await flushPromises();
-    },
+    hideSentinels: () => fire(false),
     watched: () => [...FakeObserver.all].reduce((sum, o) => sum + o.targets.size, 0),
     observed: () => FakeObserver.observes,
   };
