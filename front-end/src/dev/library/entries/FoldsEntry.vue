@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /**
  * The folds (T200): L11's answer bars on the Stats tab, folded past 10 beside today's every bar, and
- * L7's tables on the Assignments page by date and section, each section folded past 20. The seats
- * are real `ResultSeat`s, each row reading out its own presses (`SeatRow`).
+ * L7's tables on the Assignments page by date and section, each section folded past 20 under one
+ * "Show all" for the page. The seats are real `ResultSeat`s, each row reading out its own presses
+ * (`SeatRow`).
  *
  * Today's bars sit in a box of their own, or the rest of this page would lie 228 bars below them. The
  * label says so, since on the tab they run the page's length.
@@ -13,6 +14,7 @@ import BarLedger from '@/components/BarLedger.vue';
 import RowGroup from '@/components/RowGroup.vue';
 import ScrollBox from '@/components/ScrollBox.vue';
 import { ledgerRows } from '@/utils/barLedger';
+import { useGroupFolds } from '@/utils/useGroupFolds';
 import { getFormattedDate } from '@/utils/utils';
 import type { VendorNames } from '@/utils/vendorIdentity';
 import ChoicesForYou from '../parts/ChoicesForYou.vue';
@@ -75,6 +77,25 @@ const dates = [...new Set(seats.map((seat) => seat.date))].map((date) => {
   };
 });
 const firstSection = dates[0]!.sections[0]!;
+
+// As the Assignments page holds its sections' folds, so its "Show all" speaks for every section.
+const sectionKey = (date: string, section: string) => `${date}|${section}`;
+const {
+  allUnfolded: allSectionsUnfolded,
+  isUnfolded: isSectionUnfolded,
+  rows: tablesOnThePage,
+  setUnfolded: setSectionUnfolded,
+  toggleAll: toggleAllSections,
+} = useGroupFolds(
+  () =>
+    dates.flatMap(({ date, sections }) =>
+      sections.map(({ section, seats: sectionSeats }) => ({
+        key: sectionKey(date, section),
+        rows: sectionSeats.length,
+      })),
+    ),
+  TABLES_SHOWN,
+);
 
 /** The fixture's three longest answers, standing for a section whose name runs over the line. */
 const longName = question.options
@@ -219,8 +240,18 @@ const groupStates = [
 
   <LibrarySection
     title="L7: The tables, on the Assignments page"
-    :about="`Every table of every section draws today, ${seats.length} over these ${dates.length} dates. The groups stay, and each section keeps its first ${TABLES_SHOWN}. Change and a name only read out here, under the row pressed.`"
+    :about="`The groups stay, ${seats.length} tables over these ${dates.length} dates, and each section keeps its first ${TABLES_SHOWN}, with one button above them to unfold the page. Change and a name only read out here, under the row pressed.`"
   >
+    <LibraryPanel label="One button for the page, above the groups" class="library-wide">
+      <button
+        type="button"
+        class="btn btn--secondary"
+        data-testid="library-l7-show-all"
+        @click="toggleAllSections"
+      >
+        {{ allSectionsUnfolded ? 'Show fewer' : `Show all ${tablesOnThePage} tables` }}
+      </button>
+    </LibraryPanel>
     <LibraryPanel
       v-for="group in dates"
       :key="group.date"
@@ -237,6 +268,8 @@ const groupStates = [
           :level="4"
           :fold="TABLES_SHOWN"
           :testid="sectionTestid(group.date, section)"
+          :unfolded="isSectionUnfolded(sectionKey(group.date, section))"
+          @update:unfolded="setSectionUnfolded(sectionKey(group.date, section), $event)"
         >
           <template #row="{ item }">
             <SeatRow :code="seatCode(item)" :email="seatEmail(item)" :names="names" />
@@ -288,13 +321,15 @@ const groupStates = [
       past 5" shows a shorter one.
     </li>
     <li>
-      <strong>Unfolding a section in place:</strong> in place too, one section at a time. A press
-      per section, on every date, to read it all: should there be one "Show all" for the page, too?
+      <strong>Unfolding a section in place:</strong> in place too, one section at a time, with one
+      "Show all" for the page above the groups, which keeps the focus and turns to "Show fewer" once
+      every section is unfolded, however they got there.
     </li>
     <li>
       <strong>Finding a vendor on the Assignments page:</strong> the browser's own find (Ctrl+F)
       cannot reach a folded row. The page's search narrows the rows first, so what it finds shows,
-      unless more than {{ TABLES_SHOWN }} match in one section. Is that enough?
+      unless more than {{ TABLES_SHOWN }} match in one section, and "Show all" lets Ctrl+F reach
+      every table.
     </li>
     <li>
       <strong>"Show fewer" at the foot:</strong> the button stays under the rows, so after 228 bars

@@ -37,6 +37,7 @@ describes:
   - front-end/src/components/SidePanel.vue
   - front-end/src/components/BarLedger.vue
   - front-end/src/utils/useFold.ts
+  - front-end/src/utils/useGroupFolds.ts
   - front-end/e2e/a-focused-button-moves-nothing.spec.ts
   - front-end/src/components/ChoiceField.vue
   - front-end/src/components/application/LongQuestion.vue
@@ -503,9 +504,11 @@ Its `name` slot draws a name the screen's way and its `end` slot ends the senten
 The Reviewers panel on the Applications tab is its screen ([`ReviewersPanel.vue`](../front-end/src/components/market/ReviewersPanel.vue)), which the library's `summaries` entry also draws.
 
 A long list a screen keeps grouped folds by group, in [`RowGroup.vue`](../front-end/src/components/RowGroup.vue) (T200): a heading, the first `fold` (20) rows of `items`, and "Show all 31 in North Wing", which unfolds the rest in place and becomes "Show fewer"; at `fold` rows or fewer it draws no button.
+Its `heading` slot draws more beside the name, as a section's location and tier, and the `heading` prop still names the group on the button.
+A page that must keep its groups' folds past a re-read, or unfold them together, holds them with [`useGroupFolds`](../front-end/src/utils/useGroupFolds.ts) and each group's `v-model:unfolded` (T223): one "Show all 59 tables" above the groups, drawn only while one on the page passes the fold, which keeps the focus and stays where it stood, says "Show fewer" once all of them are unfolded however they came to be, and leaves a group a filter has hidden as it was.
 [`BarLedger.vue`](../front-end/src/components/BarLedger.vue) folds the same way with `fold`: the rows by count, the first `fold`, then "N more answers"; without it the rows are drawn in the order they came, all of them.
-Both take the fold from [`useFold`](../front-end/src/utils/useFold.ts): unfolding hands the focus to the first new row, and folding keeps it on the button and brings the button back into view.
-Neither is on a screen yet: the library's `folds` entry shows both, on the Stats tab's bars and the Assignments page's tables.
+Both take the fold from [`useFold`](../front-end/src/utils/useFold.ts): unfolding by a group's own button hands the focus to the first new row, and folding keeps it on the button and brings the button back into view.
+The Assignments page's sections are `RowGroup`s; `BarLedger`'s fold is on no screen yet, and the library's `folds` entry shows both.
 A question's options on the form builder take the same fold in [`FormFieldEditor.vue`](../front-end/src/components/application/FormFieldEditor.vue), past 20, and "Add option" unfolds them, so a new row is never behind it.
 
 A list someone puts in order is [`OrderedList.vue`](../front-end/src/components/OrderedList.vue) (T200), generic over the item: each row has the `.drag-handle` and its own move up and move down buttons, named by `itemLabel`, so the keyboard can do what the mouse can, the first's up and the last's down disabled.

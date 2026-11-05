@@ -57,6 +57,8 @@ export interface MarketAtScaleSeed {
   marketName: string;
   /** In arrival order, the order the All view lists them. */
   applicants: ApplicantAtScale[];
+  /** The one market date. */
+  date: string;
   /** Each section's name and table count, on the one date. */
   sections: { name: string; count: number }[];
   counts: {
@@ -246,6 +248,7 @@ export async function seedMarketAtScale(
     marketId,
     marketName: seed.marketName,
     applicants,
+    date: DATE,
     sections: SECTIONS.map(({ name, count }) => ({ name, count })),
     counts: {
       applications: APPLICATIONS,

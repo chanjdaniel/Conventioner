@@ -1,7 +1,9 @@
-import type { Page } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 import { test, expect, BACKEND_URL } from './fixtures';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
 import { PaymentsPage } from './pages/PaymentsPage';
+import { ResultPage } from './pages/ResultPage';
+import { TablesPage } from './pages/TablesPage';
 import { UpdateInfoDialog } from './pages/UpdateInfoDialog';
 import { VendorExportDialog } from './pages/VendorExportDialog';
 import { VendorsPage } from './pages/VendorsPage';
@@ -14,7 +16,7 @@ import {
   TYPE_SCALE,
 } from './helpers/layoutDetectors';
 import { marketScreenPath } from './helpers/marketScreens';
-import { seedMarketAtScale } from './helpers/seedMarketAtScale';
+import { seedMarketAtScale, type MarketAtScaleSeed } from './helpers/seedMarketAtScale';
 
 /**
  * The app's long lists at a real market's size (T223): each is a list frame over what its screen
@@ -74,6 +76,7 @@ test('the seed: 120 applications from the import, and the solver fills a section
   );
   await page.goto(marketScreenPath(seed.marketId, 'assignments'));
   const tables = seed.sections.reduce((all, { count }) => all + count, 0);
+  await page.getByTestId('tables-show-all').click();
   await expect(page.getByTestId('tables-table-row')).toHaveCount(tables);
   // The solver filled the tables: more vendors want one than there are.
   await expect(page.getByTestId('tables-seat-empty')).toHaveCount(0);
@@ -667,6 +670,196 @@ test.describe('Payments', () => {
         await payments.closeDrawer();
         await expect(page).not.toHaveURL(/vendor=/);
         await expect(payments.rows).toHaveCount(50);
+      });
+    });
+  }
+});
+
+test.describe('The Assignments page', () => {
+  const PAST_THE_FOLD = 25;
+
+  /** The market, its two sections, and the page open on them with their tables read. */
+  async function openTheTables(page: Page, request: APIRequestContext) {
+    const seed = await seedMarketAtScale(request);
+    const tables = new TablesPage(page);
+    await page.goto(marketScreenPath(seed.marketId, 'assignments'));
+    const [gold, silver] = seed.sections as [
+      MarketAtScaleSeed['sections'][number],
+      MarketAtScaleSeed['sections'][number],
+    ];
+    const whole = gold.count + silver.count;
+    await expect(tables.showAll).toHaveText(`Show all ${whole} tables`);
+    return {
+      tables,
+      whole,
+      gold: { ...gold, ...tables.section(seed.date, gold.name) },
+      silver: { ...silver, ...tables.section(seed.date, silver.name) },
+    };
+  }
+
+  for (const width of [1280, 390, 320]) {
+    test.describe(`at ${width}`, () => {
+      test.use({ viewport: { width, height: 844 } });
+
+      test("each section shows 20, one unfolds alone, and the page's button unfolds them all", async ({
+        authenticatedPage: page,
+        request,
+        expectAccessible,
+      }) => {
+        test.setTimeout(120_000);
+        const { tables, whole, gold, silver } = await openTheTables(page, request);
+
+        // Each section names itself, where it is and its tier, in the page's outline.
+        await expect(page.getByRole('heading', { level: 3, name: gold.name })).toBeVisible();
+        await expect(gold.heading).toContainText('Indoors');
+        await expect(gold.heading).toContainText('Gold');
+        await expect(silver.heading).toContainText('Silver');
+        await expect(gold.rows).toHaveCount(20);
+        await expect(silver.rows).toHaveCount(20);
+        await expect(tables.tableRows).toHaveCount(40);
+        await expect(gold.fold).toHaveText(`Show all ${gold.count} in ${gold.name}`);
+        await expect(silver.fold).toHaveText(`Show all ${silver.count} in ${silver.name}`);
+        // The page's count is of its tables, not of what is unfolded.
+        await expect(page.locator('.counts-primary')).toHaveText(`${whole} of ${whole} tables`);
+        await holdsItsLayout(page, width, 'the sections folded');
+        await expectAccessible('the sections folded');
+        await readsAtAA(page, 'the sections folded');
+
+        await gold.fold.click();
+        await expect(gold.rows).toHaveCount(gold.count);
+        await expect(gold.rows.nth(20), 'the first new row has the focus').toBeFocused();
+        await expect(gold.rows.nth(20).getByTestId('tables-table-row')).toHaveAttribute(
+          'data-table-code',
+          `${gold.name} 21`,
+        );
+        await expect(gold.fold).toHaveText(`Show fewer in ${gold.name}`);
+        await expect(silver.rows, 'the other section stays folded').toHaveCount(20);
+        await expect(tables.showAll).toHaveText(`Show all ${whole} tables`);
+        await holdsItsLayout(page, width, 'a section unfolded');
+        await expectAccessible('a section unfolded');
+        await readsAtAA(page, 'a section unfolded');
+
+        // The page's button reflects sections unfolded one at a time, and one folded again.
+        await silver.fold.click();
+        await expect(silver.rows).toHaveCount(silver.count);
+        await expect(tables.showAll).toHaveText('Show fewer');
+        await gold.fold.scrollIntoViewIfNeeded();
+        await gold.fold.click();
+        await expect(gold.rows).toHaveCount(20);
+        await expect(gold.fold).toBeFocused();
+        await expect(tables.showAll).toHaveText(`Show all ${whole} tables`);
+
+        // It unfolds what is left, keeps the focus and stays where it stood.
+        await tables.showAll.scrollIntoViewIfNeeded();
+        const stood = await tables.showAll.boundingBox();
+        await tables.showAll.click();
+        await expect(tables.tableRows).toHaveCount(whole);
+        await expect(tables.showAll).toHaveText('Show fewer');
+        await expect(tables.showAll).toBeFocused();
+        await expect(gold.fold).toHaveText(`Show fewer in ${gold.name}`);
+        await expect(silver.fold).toHaveText(`Show fewer in ${silver.name}`);
+        expect((await tables.showAll.boundingBox())!.y).toBe(stood!.y);
+        await holdsItsLayout(page, width, 'the page unfolded');
+        await expectAccessible('the page unfolded');
+        await readsAtAA(page, 'the page unfolded');
+
+        await tables.showAll.click();
+        await expect(tables.tableRows).toHaveCount(40);
+        await expect(tables.showAll).toHaveText(`Show all ${whole} tables`);
+        await expect(tables.showAll).toBeFocused();
+        expect((await tables.showAll.boundingBox())!.y).toBe(stood!.y);
+      });
+
+      test('a seat freed, placed and swapped past the fold leaves every fold as it was', async ({
+        authenticatedPage: page,
+        request,
+      }) => {
+        test.setTimeout(120_000);
+        const { tables, gold, silver } = await openTheTables(page, request);
+        const far = `${gold.name} ${PAST_THE_FOLD}`;
+        await expect(tables.row(far), 'folded away').toHaveCount(0);
+
+        await gold.fold.click();
+        const seat = tables.occupiedSeat(far);
+        await expect(seat).toBeVisible();
+        const holder = await tables.occupantOf(seat);
+
+        await tables.change(seat);
+        await tables.freeSeat();
+        await expect(tables.vacantSeat(far)).toBeVisible();
+        await expect(gold.rows).toHaveCount(gold.count);
+        await expect(silver.rows).toHaveCount(20);
+
+        await tables.vacantSeat(far).click();
+        await tables.placeVendor(holder);
+        await expect(tables.seatIn(far, holder)).toBeVisible();
+        await expect(gold.rows).toHaveCount(gold.count);
+        await expect(gold.fold).toHaveText(`Show fewer in ${gold.name}`);
+        await expect(silver.rows).toHaveCount(20);
+
+        const other = `${gold.name} ${PAST_THE_FOLD + 1}`;
+        const swapped = await tables.occupantOf(tables.occupiedSeat(other));
+        await tables.change(tables.seatIn(far, holder));
+        await tables.swapWith(swapped);
+        await expect(tables.seatIn(far, swapped)).toBeVisible();
+        await expect(tables.seatIn(other, holder)).toBeVisible();
+        await expect(gold.rows).toHaveCount(gold.count);
+        await expect(silver.rows).toHaveCount(20);
+        await holdsItsLayout(page, width, 'after a swap past the fold');
+
+        // A fold lasts until the page is left, and the page objects reach past one.
+        await page.reload();
+        await expect(tables.showAll).toBeVisible();
+        await expect(gold.rows).toHaveCount(20);
+        await expect(tables.row(far)).toHaveCount(0);
+        await expect(await tables.unfoldTo(far)).toBeVisible();
+        await page.reload();
+        await expect(tables.showAll).toBeVisible();
+        await expect(tables.row(far)).toHaveCount(0);
+        expect(await new ResultPage(page).placementsFor(swapped)).toEqual([far]);
+      });
+
+      test('a filter under the fold shows every match and no button, and leaves the folds as they were', async ({
+        authenticatedPage: page,
+        request,
+      }) => {
+        test.setTimeout(120_000);
+        const { tables, whole, gold, silver } = await openTheTables(page, request);
+        await gold.fold.click();
+        await expect(gold.rows).toHaveCount(gold.count);
+
+        // One family of the seed's ten, so a few tables of each section at most.
+        await tables.search('Ashgrove');
+        await expect(page.locator('.counts-primary')).not.toHaveText(`${whole} of ${whole} tables`);
+        const matches = Number(
+          /^\d+/.exec((await page.locator('.counts-primary').textContent())!.trim())![0],
+        );
+        expect(matches).toBeGreaterThan(0);
+        expect(matches).toBeLessThanOrEqual(20);
+        await expect(tables.tableRows).toHaveCount(matches);
+        await expect(tables.showAll).toHaveCount(0);
+        await expect(gold.fold).toHaveCount(0);
+        await expect(silver.fold).toHaveCount(0);
+        await holdsItsLayout(page, width, 'the tables narrowed');
+
+        await tables.search('');
+        await expect(gold.rows, 'the words leave the fold as it was').toHaveCount(gold.count);
+        await expect(silver.rows).toHaveCount(20);
+
+        // A filter that leaves a section past the fold: the button speaks for what is on the page.
+        await tables.setFilter('section', silver.name);
+        await expect(tables.tableRows).toHaveCount(20);
+        await expect(gold.rows).toHaveCount(0);
+        await expect(tables.showAll).toHaveText(`Show all ${silver.count} tables`);
+        await tables.showAll.click();
+        await expect(tables.tableRows).toHaveCount(silver.count);
+        await expect(tables.showAll).toHaveText('Show fewer');
+        await tables.showAll.click();
+        await expect(tables.tableRows).toHaveCount(20);
+
+        await tables.clearAllFilters();
+        await expect(gold.rows, 'what the filter hid comes back as it was').toHaveCount(gold.count);
+        await expect(silver.rows).toHaveCount(20);
       });
     });
   }

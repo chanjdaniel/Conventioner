@@ -62,6 +62,11 @@ export interface TheScreensSeed {
    * and its tables by tier and by date.
    */
   rules: SeededMarket;
+  /**
+   * In Assignment, run, its first section past the Assignments page's fold of 20 tables (T223), so a
+   * section can unfold.
+   */
+  longSection: SeededMarket;
   /** Archived, a CSV market. */
   archived: SeededMarket;
   /** A CSV market taking applications, which the import screen serves. */
@@ -658,6 +663,18 @@ export async function seedTheScreens(
   await walk(api, backend, email, rules.marketId, UP_TO_ASSIGNMENT);
   await assignAndPublish(api, backend, email, rules.marketId);
 
+  const planned = plan(two);
+  const longSection = await createMarket(api, backend, email, uniqueMarketName('Long Section'), {
+    ...planned,
+    sections: planned.sections.map((section, at) =>
+      at === 0 ? { ...section, count: 24 } : section,
+    ),
+  });
+  insertApplications(manyVendors(longSection.marketId, 'longsection', 30, two));
+  await walk(api, backend, email, longSection.marketId, UP_TO_ASSIGNMENT);
+  const ran = await api.post(`${backend}/markets/${longSection.marketId}/assignment`);
+  if (!ran.ok()) throw new Error(`Assign failed: ${ran.status()} ${await ran.text()}`);
+
   const archived = await seedPublishedMarketWithAssignments(api, backend, email, password);
   await transitionMarket(api, backend, email, archived.marketId, 'archived');
 
@@ -696,6 +713,7 @@ export async function seedTheScreens(
     assignment,
     big,
     rules,
+    longSection,
     archived,
     csv,
     csvDraft,

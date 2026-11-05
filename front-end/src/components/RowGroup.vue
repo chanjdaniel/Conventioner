@@ -6,8 +6,13 @@
  * `fold` rows or fewer it shows them all and draws no button.
  *
  * What a row is belongs to the screen, in the `row` slot; the heading says the group's name in the
- * level the page's outline needs. A plain block, not a named region: a page repeats the same groups
- * date after date, and a landmark's name must be its own.
+ * level the page's outline needs. The `heading` slot draws more beside the name, such as a section's
+ * location and tier, and the `heading` prop still names the group on the button. A plain block, not a
+ * named region: a page repeats the same groups date after date, and a landmark's name must be its
+ * own.
+ *
+ * With `v-model:unfolded` the page holds the fold (`utils/useGroupFolds.ts`), so that it outlives the
+ * group and one "Show all" can speak for every group on the page.
  */
 import { useFold } from '@/utils/useFold';
 
@@ -26,18 +31,21 @@ const props = withDefaults(
   { fold: 20, level: 3 },
 );
 
-defineSlots<{ row(scope: { item: T; index: number }): unknown }>();
+const unfolded = defineModel<boolean>('unfolded', { default: false });
 
-const { button, list, rest, rowTabindex, shown, toggle, unfolded } = useFold(
+defineSlots<{ heading?(): unknown; row(scope: { item: T; index: number }): unknown }>();
+
+const { button, list, rest, rowTabindex, shown, toggle } = useFold(
   () => props.items,
   () => props.fold,
+  unfolded,
 );
 </script>
 
 <template>
   <div class="row-group" :data-testid="testid">
     <component :is="`h${level}`" class="row-group__heading" :data-testid="`${testid}-heading`">
-      {{ heading }}
+      <slot name="heading">{{ heading }}</slot>
     </component>
     <ul ref="list" class="row-group__rows">
       <li

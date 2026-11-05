@@ -6,9 +6,9 @@ import { settle } from './helpers/settle';
 
 /**
  * The component library's `folds` entry (T200), at a desk and on a phone: L11's bars folded past 10
- * beside today's every bar, and L7's seats by date and section, each section folded past 20. The bars
- * and a section unfold in place and fold again, the focus going to the first new row and then staying
- * on the button, which stays in the window.
+ * beside today's every bar, and L7's seats by date and section, each section folded past 20 under one
+ * "Show all" for the page. The bars and a section unfold in place and fold again, the focus going to
+ * the first new row and then staying on the button, which stays in the window.
  */
 
 /** The fixture's question, its answers most chosen first. */
@@ -185,6 +185,42 @@ eachWindow('the folds entry', (size) => {
     await expect(fold).toHaveText(`Show all ${NORTH} in North Wing`);
     await expect(fold).toBeFocused();
     await expectInTheWindow(page, fold, 'the button, folded again');
+  });
+
+  test("the page's one button unfolds every section, keeping the focus, and reflects them", async ({
+    page,
+    expectAccessible,
+  }) => {
+    const showAll = page.getByTestId('library-l7-show-all');
+    const whole = DATES.length * (NORTH + SOUTH);
+    const north = sectionId(DATES[0]!, 'north');
+    await expect(showAll).toHaveText(`Show all ${whole} tables`);
+
+    await press(showAll);
+    await expect(showAll).toHaveText('Show fewer');
+    await expect(showAll).toBeFocused();
+    for (const date of DATES) {
+      await expect(seats(page, sectionId(date, 'north'))).toHaveCount(NORTH);
+      await expect(seats(page, sectionId(date, 'south'))).toHaveCount(SOUTH);
+    }
+    await expect(foldOf(page, north)).toHaveText('Show fewer in North Wing');
+    await expectLaidOut(page, size, 'the page unfolded');
+    await expectAccessible('the page unfolded');
+
+    // One section folded alone: the page's button offers them all again.
+    await press(foldOf(page, north));
+    await expect(seats(page, north)).toHaveCount(20);
+    await expect(showAll).toHaveText(`Show all ${whole} tables`);
+    await press(foldOf(page, north));
+    await expect(showAll).toHaveText('Show fewer');
+
+    await press(showAll);
+    await expect(showAll).toHaveText(`Show all ${whole} tables`);
+    await expect(showAll).toBeFocused();
+    for (const date of DATES) {
+      await expect(seats(page, sectionId(date, 'north'))).toHaveCount(20);
+      await expect(seats(page, sectionId(date, 'south'))).toHaveCount(20);
+    }
   });
 
   test("a seat row is the result's, and a press reads out under it, in view", async ({ page }) => {

@@ -105,7 +105,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - with `assign: false`, those 110 still open and the review open, for a spec of giving verdicts
   - with `pays: true`, a plan with prices and a payment recorded by each of the 120, each a different amount, so the Payments page lists them all, with or without a table
 - Notes:
-  - answers the applicants in arrival order, each with what they pay with `pays`, the sections and the counts, for a spec to assert against
+  - answers the applicants in arrival order, each with what they pay with `pays`, the date, the sections and the counts, for a spec to assert against
   - it sets prices only with `pays`
 
 **`seedPeopleAtScale()`** ([file](../../../front-end/e2e/helpers/seedPeopleAtScale.ts))
@@ -177,6 +177,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - 36 vendors over four dates and three sections
   - `SCREENS_EDITOR` an Editor on that market, so a `SCREENS` state signed in as `'editor'` reads Update info with the answers the assignment reads locked
   - settled rules, on a priced market, so Payments draws the market's money and its tables by tier and by date (T180)
+  - a section of 24 tables on a market in Assignment, past the Assignments page's fold of 20, so a sweep walks a section unfolded (T223)
   - an archive
   - the CSV markets the import screens serve: one taking applications, whose saved `importMapping` the `LATER_IMPORT` export reads, so Map columns opens with values waiting, a draft with no plan, and a draft with a plan and the Viewer on it, whose first import's preview offers the reviewers
   - an organization of the organizer's own:
