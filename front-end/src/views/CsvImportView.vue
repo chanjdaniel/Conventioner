@@ -652,6 +652,22 @@ const amendAvailability = computed(() =>
     : null,
 );
 
+/**
+ * The page's stays on one market: it moves on when the page goes, and when the router keeps the page
+ * for another market's import, as a jump through history does, there and back alike. `marketId` goes
+ * on following the address once the page has gone, so it cannot say any of this itself.
+ */
+let visit = 0;
+onBeforeUnmount(() => {
+  visit += 1;
+});
+
+/** Noted before a request: asked at its answer, whether that answer is still this page's to show. */
+function leftSinceNow(): () => boolean {
+  const at = visit;
+  return () => visit !== at;
+}
+
 async function openAmend(options: { fieldLabel?: string; unasked?: string }) {
   amendFieldLabel.value = options.fieldLabel ?? '';
   amendUnasked.value = options.unasked ?? '';
@@ -681,8 +697,10 @@ async function onAmended() {
   const keptGroups = { ...groupTarget.value };
   const keptResolutions = { ...resolutions.value };
   const keptStep = step.value;
+  const left = leftSinceNow();
 
   await inspect();
+  if (left()) return;
 
   // By column index and group stem, both of which are properties of the FILE - and the file is
   // the one thing that did not change.
@@ -697,12 +715,14 @@ async function onAmended() {
 }
 
 async function inspect() {
+  const left = leftSinceNow();
   busy.value = true;
   error.value = '';
   try {
     const { data } = await api.post(`/markets/${marketId.value}/applications/import/inspect`, {
       csvContent: csvContent.value,
     });
+    if (left()) return;
     headers.value = data.headers ?? [];
     sampleValues.value = data.sampleValues ?? [];
     rowCount.value = data.rowCount ?? 0;
@@ -765,7 +785,7 @@ async function inspect() {
     // the page to be seen and changed before anything is previewed (bug 28).
     if (Object.keys(data.restoredMapping ?? {}).length) await readValues(false);
   } catch (e) {
-    error.value = getApiErrorMessage(e, 'That file could not be read.');
+    if (!left()) error.value = getApiErrorMessage(e, 'That file could not be read.');
   } finally {
     busy.value = false;
   }
@@ -801,12 +821,13 @@ function currentResolutions(): Record<string, Record<string, string | null>> {
  * values keep the organizer on the mapping step, with each one shown in the row that owns it.
  */
 async function checkValues() {
+  const left = leftSinceNow();
   busy.value = true;
   error.value = '';
   try {
     await readValues(true);
   } catch (e) {
-    error.value = getApiErrorMessage(e, 'That file could not be checked.');
+    if (!left()) error.value = getApiErrorMessage(e, 'That file could not be checked.');
   } finally {
     busy.value = false;
   }
@@ -814,11 +835,13 @@ async function checkValues() {
 
 /** The dry run: what the file's values mean, and - with `advance` - on to the preview. */
 async function readValues(advance: boolean) {
+  const left = leftSinceNow();
   const { data } = await api.post(`/markets/${marketId.value}/applications/import/preview`, {
     csvContent: csvContent.value,
     mapping: currentMapping(),
     resolutions: currentResolutions(),
   });
+  if (left()) return;
   unmatched.value = data.unmatched ?? [];
   decided.value = data.decided ?? [];
   validRows.value = data.validRows ?? 0;
@@ -836,24 +859,18 @@ async function readValues(advance: boolean) {
   if (advance && unmatched.value.length === 0) step.value = 'preview';
 }
 
-/** `marketId` goes on following the address once the page has gone, so it cannot say so itself. */
-let gone = false;
-onBeforeUnmount(() => {
-  gone = true;
-});
-
 /**
  * The confirm: the reviewers first, when the choice differs from the team they start from
  * (`teamToChange`), then the import.
  * A refused reviewers write imports nothing. Once written they stay chosen, so an import that fails
  * after them is tried again without writing them twice.
- * A page left during those writes stops at them: the file was this page's and this market's, and
- * whatever is on screen by the answer is not.
+ * A page left during those writes stops at them: the file was this stay's, and whatever is on
+ * screen by the answer is not.
  */
 async function confirmImport() {
   if (offersReviewers.value) {
     const pressedOn = marketId.value;
-    const left = () => gone || marketId.value !== pressedOn;
+    const left = leftSinceNow();
     busy.value = true;
     reviewersError.value = '';
     try {
@@ -879,6 +896,7 @@ async function confirmImport() {
 }
 
 async function runImport() {
+  const left = leftSinceNow();
   busy.value = true;
   error.value = '';
   reviewersError.value = '';
@@ -888,6 +906,9 @@ async function runImport() {
       mapping: currentMapping(),
       resolutions: currentResolutions(),
     });
+    // Applications now exist, which locks the form: part of the market every screen reads.
+    void refreshMarket();
+    if (left()) return;
     created.value = data.created ?? 0;
     updated.value = data.updated ?? 0;
     unchanged.value = data.unchanged ?? 0;
@@ -896,10 +917,8 @@ async function runImport() {
     repeats.value = data.repeats ?? [];
     enteredReview.value = firstImport.value && data.phase === MarketPhase.Applications;
     step.value = 'done';
-    // Applications now exist, which locks the form: part of the market every screen reads.
-    void refreshMarket();
   } catch (e) {
-    error.value = getApiErrorMessage(e, 'The import could not be completed.');
+    if (!left()) error.value = getApiErrorMessage(e, 'The import could not be completed.');
   } finally {
     busy.value = false;
   }
@@ -918,9 +937,18 @@ function startOver() {
   headers.value = [];
   failures.value = [];
   error.value = '';
+  reviewersError.value = '';
 }
-// A jump through history from one market's import to another's keeps this page, not its file.
-watch(marketId, () => startOver());
+// A jump through history from one market's import to another's keeps this page, not its file, and
+// at once, so that no answer can land between the jump and a later flush.
+watch(
+  marketId,
+  () => {
+    visit += 1;
+    startOver();
+  },
+  { flush: 'sync' },
+);
 </script>
 
 <template>

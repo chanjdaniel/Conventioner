@@ -248,10 +248,11 @@ test('a file the person left never replaces the one they confirmed last', async 
   expect(nadia?.formData.product_type).toBe('Linocuts');
 });
 
-test("a history jump to another market's import, the same page on screen, takes no file with it", async ({
-  authenticatedPage: page,
-  request,
-}) => {
+/**
+ * Two drafts' imports in one running app, the page on the second's: going between them by history is
+ * a long press on Back, where the router keeps the page and hands it the other market.
+ */
+async function twoImports(page: Page, request: APIRequestContext) {
   const jumpedTo = await draftWithPeople(request);
   const here = await draftWithPeople(request);
   const importPage = new CsvImportPage(page);
@@ -266,32 +267,179 @@ test("a history jump to another market's import, the same page on screen, takes 
   await markets.cardNames.filter({ hasText: here.marketName }).getByRole('button').click();
   await expect(page).toHaveURL(new RegExp(`/markets/${here.marketId}/`));
   await followTheRail(page, importPage);
+  const hereAt = await position();
 
+  const go = async (steps: number, marketId: string) => {
+    await page.evaluate((delta) => history.go(delta), steps);
+    await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/import$`));
+  };
+  return {
+    jumpedTo,
+    here,
+    importPage,
+    jump: () => go(jumpedToAt - hereAt, jumpedTo.marketId),
+    jumpBack: () => go(hereAt - jumpedToAt, here.marketId),
+  };
+}
+
+/** Holds what the page sends to `address`, so that a jump can come before its answer. */
+async function holdRequests(page: Page, address: RegExp) {
+  const held: Route[] = [];
+  await page.route(address, (route) => {
+    held.push(route);
+  });
+  return held;
+}
+
+/** The page once whatever was in flight has answered: the drop zone takes a file again, and says nothing. */
+async function expectAFreshUpload(importPage: CsvImportPage) {
+  await expect(importPage.fileInput).toBeEnabled();
+  await expect(importPage.preview).toBeHidden();
+  await expect(importPage.map).toBeHidden();
+  await expect(importPage.resultSummary).toBeHidden();
+  await expect(importPage.filename).toBeHidden();
+  await expect(importPage.error).toBeHidden();
+}
+
+test("a history jump during the write, to another market's import, takes no file with it", async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { here, jumpedTo, importPage, jump } = await twoImports(page, request);
   await toThePreview(importPage, CSV);
   const { imports, held, write } = await holdTheWrite(page);
   await importPage.reviewerChooser.choose(ANA);
   await importPage.clickConfirm();
   await expect.poll(() => held.length).toBe(1);
 
-  // A long press on Back: the router keeps this page and hands it the other market.
-  const steps = jumpedToAt - (await position());
-  await page.evaluate((delta) => history.go(delta), steps);
-  await expect(page).toHaveURL(new RegExp(`/markets/${jumpedTo.marketId}/import$`));
-
-  const reread = page.waitForResponse(
-    (response) =>
-      response.request().method() === 'GET' &&
-      response.url().endsWith(`/markets/${jumpedTo.marketId}`),
-  );
+  await jump();
   await held[0]!.continue();
   await page.unroute(write);
-  await reread;
 
-  // Upload, on the market in the address, ready for its own file.
-  await expect(importPage.fileInput).toBeAttached();
-  await expect(importPage.preview).toBeHidden();
-  await expect(importPage.filename).toBeHidden();
+  await expectAFreshUpload(importPage);
   await expect.poll(() => applicationsOf(request, here.marketId)).toEqual([]);
   expect(imports).toEqual([]);
   expect(await applicationsOf(request, jumpedTo.marketId)).toEqual([]);
+});
+
+test('a refusal of the write after a jump stays off the next preview of the market jumped to', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { importPage, jump } = await twoImports(page, request);
+  await toThePreview(importPage, CSV);
+  const { imports, held, write } = await holdTheWrite(page);
+  await importPage.reviewerChooser.choose(ANA);
+  await importPage.clickConfirm();
+  await expect.poll(() => held.length).toBe(1);
+
+  await jump();
+  await held[0]!.fulfill({ status: 400, json: { error: 'That person cannot be chosen.' } });
+  await page.unroute(write);
+
+  await expectAFreshUpload(importPage);
+  await toThePreview(importPage, CSV);
+  await expect(importPage.reviewers).toBeVisible();
+  await expect(page.getByTestId('import-reviewers-error')).toBeHidden();
+  expect(imports).toEqual([]);
+});
+
+test('a jump away and back during the write posts nothing, and leaves a fresh Upload', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { here, importPage, jump, jumpBack } = await twoImports(page, request);
+  await toThePreview(importPage, CSV);
+  const { imports, held, write } = await holdTheWrite(page);
+  await importPage.reviewerChooser.choose(ANA);
+  await importPage.clickConfirm();
+  await expect.poll(() => held.length).toBe(1);
+
+  await jump();
+  await jumpBack();
+  await held[0]!.continue();
+  await page.unroute(write);
+
+  await expectAFreshUpload(importPage);
+  expect(imports).toEqual([]);
+  const written = await request.get(`${BACKEND_URL}/markets/${here.marketId}`);
+  expect(
+    (await written.json()).market.reviewTeam.reviewers.map((r: { email: string }) => r.email),
+  ).toEqual([ANA]);
+  expect(await applicationsOf(request, here.marketId)).toEqual([]);
+});
+
+test("an import's answer after a jump is its own market's, and the market jumped to shows none of it", async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { here, jumpedTo, importPage, jump } = await twoImports(page, request);
+  await toThePreview(importPage, CSV);
+  const address = /\/applications\/import$/;
+  const held = await holdRequests(page, address);
+  await importPage.clickConfirm();
+  await expect.poll(() => held.length).toBe(1);
+
+  await jump();
+  await held[0]!.continue();
+  await page.unroute(address);
+
+  await expectAFreshUpload(importPage);
+  await expect.poll(async () => (await applicationsOf(request, here.marketId)).length).toBe(3);
+  expect(await applicationsOf(request, jumpedTo.marketId)).toEqual([]);
+});
+
+test("an import's refusal after a jump stays off the market jumped to", async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { importPage, jump } = await twoImports(page, request);
+  await toThePreview(importPage, CSV);
+  const address = /\/applications\/import$/;
+  const held = await holdRequests(page, address);
+  await importPage.clickConfirm();
+  await expect.poll(() => held.length).toBe(1);
+
+  await jump();
+  await held[0]!.fulfill({ status: 400, json: { error: 'That file could not be imported.' } });
+  await page.unroute(address);
+
+  await expectAFreshUpload(importPage);
+});
+
+test("a preview's answer after a jump leaves the market jumped to at Upload", async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { importPage, jump } = await twoImports(page, request);
+  await importPage.chooseFile(CSV);
+  await importPage.mapColumns(HEADERS, MAPPING);
+  await expect(importPage.allMapped).toBeVisible();
+  const address = /\/import\/preview$/;
+  const held = await holdRequests(page, address);
+  await importPage.clickPreview();
+  await expect.poll(() => held.length).toBe(1);
+
+  await jump();
+  await held[0]!.continue();
+  await page.unroute(address);
+
+  await expectAFreshUpload(importPage);
+});
+
+test("reading a file's columns, answered after a jump, leaves the market jumped to at Upload", async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { importPage, jump } = await twoImports(page, request);
+  const address = /\/import\/inspect$/;
+  const held = await holdRequests(page, address);
+  await importPage.chooseFile(CSV);
+  await expect.poll(() => held.length).toBe(1);
+
+  await jump();
+  await held[0]!.continue();
+  await page.unroute(address);
+
+  await expectAFreshUpload(importPage);
 });
