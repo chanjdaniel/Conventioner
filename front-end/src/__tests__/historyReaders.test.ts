@@ -25,7 +25,6 @@ import * as payments from '@/utils/historyReaders/payments';
 import * as people from '@/utils/historyReaders/people';
 import * as setup from '@/utils/historyReaders/setup';
 import * as vendors from '@/utils/historyReaders/vendors';
-import { PLACEMENT_KINDS } from '@/utils/placementHistory';
 
 const AREAS = [
   applications,
@@ -182,8 +181,10 @@ describe('the history readers', () => {
     );
   });
 
-  it('words every placement kind of assign in the placement trail’s words', () => {
-    const parts = [...PLACEMENT_KINDS].map((kind) => HISTORY_READERS[`assign/${kind}`]?.parts);
+  it('words every placement kind of assign by the one reader', () => {
+    const parts = assignment.PLACEMENT_KINDS.map(
+      (kind) => HISTORY_READERS[`assign/${kind}`]?.parts,
+    );
     expect(parts.every((one) => typeof one === 'function')).toBe(true);
     expect(new Set(parts).size).toBe(1);
   });

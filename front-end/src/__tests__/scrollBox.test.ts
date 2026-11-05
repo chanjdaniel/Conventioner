@@ -395,14 +395,14 @@ describe('the Tab stop', () => {
   });
 
   it('stays while it holds the focus, when a control arrives inside, and goes as the focus leaves', async () => {
-    // A read-only dialog opens on this stop, and its changes arrive after it with a "Load more".
+    // A read-only dialog opens on this stop, and its changes arrive after it, in a box of their own.
     const withButton = ref(false);
     const Host = defineComponent({
       setup: () => () =>
         h(
           ScrollBox,
           { testid: 'box' },
-          { default: () => (withButton.value ? h('button', 'Load more') : h('span', 'Rows')) },
+          { default: () => (withButton.value ? h('button', 'A control') : h('span', 'Rows')) },
         ),
     });
     wrapper = mount(Host, { attachTo: document.body });

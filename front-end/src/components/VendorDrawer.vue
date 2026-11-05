@@ -423,6 +423,7 @@ watch(
               v-if="market?.id"
               :marketId="market.id"
               :vendor="email"
+              box="parent"
               :rowLabels="rowLabels"
               :path="intakeModeOf(market)"
               :fields="market.applicationForm?.fields ?? []"

@@ -7,11 +7,17 @@
  * first page and never today's every row. L2's reviewers read as they do on the screen, by address,
  * through the real filter's choices and row words (`utils/reviewers.ts`). Nothing here is a read: the
  * failed and loading panels are the frame told so.
+ *
+ * Then `PagedList` (T224), the list the server pages, in a box of its own, with a page that fails, and
+ * in a dialog's body: each pages the fixture's applications through `pagedRead`, a short timer in
+ * place of a request, so a page is seen to land and no endpoint or store is touched.
  */
 import { computed, onMounted, reactive, ref } from 'vue';
 import { MarketRole } from '@/assets/types/datatypes';
+import AppDialog from '@/components/AppDialog.vue';
 import FilterToggles, { type FilterToggle } from '@/components/FilterToggles.vue';
 import ListFrame from '@/components/ListFrame.vue';
+import PagedList from '@/components/PagedList.vue';
 import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
 import { OFFLINE_MESSAGE } from '@/utils/api';
 import { getRoleDisplayName } from '@/utils/permissions';
@@ -27,6 +33,7 @@ import {
 import ApplicationRow from '../parts/ApplicationRow.vue';
 import LibraryPanel from '../parts/LibraryPanel.vue';
 import LibrarySection from '../parts/LibrarySection.vue';
+import PagedApplicationRows from '../parts/PagedApplicationRows.vue';
 import ReadOut from '../parts/ReadOut.vue';
 import { fixture, type LibraryFixture } from '../fixture';
 
@@ -116,6 +123,45 @@ function changeRole(person: LibraryPerson, role: MarketRole): void {
   roles[person.id] = role;
   lastRoleChange.value = `${person.email} is now ${getRoleDisplayName(role)}`;
 }
+
+/** As the history's pages are: long enough that "Loading…" is read, short enough to scroll on. */
+const PAGE_SIZE = 25;
+const READ_TAKES_MS = 400;
+
+/** The next page after a wait, as a screen's read gives it; `failsOnce` loses the second page once. */
+function pagedRead({ failsOnce = false } = {}) {
+  const count = ref(PAGE_SIZE);
+  const loading = ref(false);
+  const error = ref('');
+  let fails = failsOnce;
+
+  function more(): void {
+    loading.value = true;
+    error.value = '';
+    window.setTimeout(() => {
+      loading.value = false;
+      if (fails) error.value = OFFLINE_MESSAGE;
+      else count.value += PAGE_SIZE;
+      fails = false;
+    }, READ_TAKES_MS);
+  }
+
+  return {
+    loading,
+    error,
+    more,
+    shown: computed(() => applications.slice(0, count.value)),
+    hasMore: computed(() => count.value < applications.length),
+    readOut: computed(
+      () => `${Math.min(count.value, applications.length)} of ${applications.length}`,
+    ),
+  };
+}
+
+const ownBox = reactive(pagedRead());
+const failing = reactive(pagedRead({ failsOnce: true }));
+const inDialog = reactive(pagedRead());
+const dialogOpen = ref(false);
 
 /** What every state panel's frame is told alike. */
 const stateFrame = {
@@ -297,6 +343,78 @@ onMounted(() => {
   </LibrarySection>
 
   <LibrarySection
+    title="F18, F27: A list the server pages"
+    about="A list is PagedList when the server pages it, as the history is, since it knows no total and cannot find among rows it has not read; it is ListFrame when its rows are already read whole. Each demo here reads 25 more of the fixture's applications as its end comes into view."
+  >
+    <LibraryPanel label="A box of its own">
+      <div class="library-demo" data-testid="library-paged-own">
+        <PagedList
+          :hasMore="ownBox.hasMore"
+          :loading="ownBox.loading"
+          :error="ownBox.error"
+          label="Applications"
+          testid="library-paged-own"
+          @more="ownBox.more"
+        >
+          <PagedApplicationRows :applications="ownBox.shown" />
+        </PagedList>
+        <ReadOut label="Read" :value="ownBox.readOut" />
+      </div>
+    </LibraryPanel>
+    <LibraryPanel label="A page that fails">
+      <div class="library-demo" data-testid="library-paged-failing">
+        <PagedList
+          :hasMore="failing.hasMore"
+          :loading="failing.loading"
+          :error="failing.error"
+          label="Applications, the second page failing"
+          testid="library-paged-failing"
+          @more="failing.more"
+        >
+          <PagedApplicationRows :applications="failing.shown" />
+        </PagedList>
+        <ReadOut label="Read" :value="failing.readOut" />
+      </div>
+    </LibraryPanel>
+    <LibraryPanel label="In a dialog's body, which is the box">
+      <div class="library-demo library-demo--start" data-testid="library-paged-dialog">
+        <button
+          type="button"
+          class="btn btn--secondary"
+          data-testid="library-paged-dialog-open"
+          @click="dialogOpen = true"
+        >
+          Open the applications
+        </button>
+        <ReadOut label="Read" :value="inDialog.readOut" />
+      </div>
+    </LibraryPanel>
+  </LibrarySection>
+
+  <AppDialog
+    :open="dialogOpen"
+    title="Applications"
+    testid="library-paged-dialog"
+    size="wide"
+    scroll="body"
+    @close="dialogOpen = false"
+  >
+    <PagedList
+      box="parent"
+      :hasMore="inDialog.hasMore"
+      :loading="inDialog.loading"
+      :error="inDialog.error"
+      testid="library-paged-dialog-list"
+      @more="inDialog.more"
+    >
+      <PagedApplicationRows :applications="inDialog.shown" />
+    </PagedList>
+    <template #tray>
+      <ReadOut label="Read" :value="inDialog.readOut" />
+    </template>
+  </AppDialog>
+
+  <LibrarySection
     title="The states"
     about="What a list says when it has no rows to show; each frame here is told its state, and reads nothing."
   >
@@ -386,6 +504,11 @@ onMounted(() => {
   gap: var(--space-3);
   width: 100%;
   min-width: 0;
+}
+
+/* A button at its own width, as the dialog entry's are, with its read-out under it. */
+.library-demo--start {
+  align-items: flex-start;
 }
 
 /* "Assigned to" stands beside the find field, one height with it; the status toggles have a row. */

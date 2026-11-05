@@ -3,6 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/PlacementDialog.vue
+  - front-end/src/components/AssignmentHistoryDialog.vue
   - front-end/src/utils/personChoice.ts
   - front-end/src/components/SearchPicker.vue
 verified: 2026-11-05
@@ -30,6 +31,7 @@ sources:
   - T142
   - T208
   - T223
+  - T224
 ---
 
 # Placing by hand
@@ -149,14 +151,20 @@ Covered by:
 
 ## J13. Assignment history
 
-**Status:** Works (walked live; the button and the names read from the code as of E35/F03/S03, `the-placement-history-dialog.spec.ts`; the drawer's tab as of E40/F01/S04, `the-vendors-history.spec.ts`).
-"Assignment history" on the Assignments page opens the market's assignment history in full.
-A vendor's drawer holds their placements on its History tab, among everything else [the market's history](reading-the-markets-history.md) holds about them, each led by who made it and followed by the day it is for ([the vendor drawer](vendor-drawer.md)).
-Each entry says what changed, naming each vendor by name with their email beside, who made it and when: "Assigned <vendor> at Front 10 (Full Table)" (the table alone where no table choice was recorded), "Moved <vendor> from Back 1 to Front 10 (Full Table)" when they had a table that day, "Swapped <vendor> and <vendor> - now at Front 10 and Back 1", "Freed Back 1, leaving <vendor> with no table"; a solver run is one entry, "Allocated tables: N assignments written, M pins preserved", and names nobody, so it is in no vendor's tab.
+**Status:** Works (E2E-walked by `the-assignment-history.spec.ts` as of T224; the drawer's tab as of E40/F01/S04, `the-vendors-history.spec.ts`).
+"Assignment history" on the Assignments page opens [the market's history](reading-the-markets-history.md) narrowed to the Assignment kind of change, in a [dialog](../../implementation/conventions/dialogs.md) with its title pinned and only its body scrolling ([`AssignmentHistoryDialog.vue`](../../../front-end/src/components/AssignmentHistoryDialog.vue)).
+It is read each time it opens, so a placement just made is there with no reload.
+The button is on the results' action row before a run and after one, for whoever may read the market's history and nobody else ([what each role may do](../rules/what-each-role-may-do.md)).
+Being that list, it reads what Manage market's History reads when narrowed to Assignment, in the same order: a table taken back and a change to the assignment rules as well as the placements, with "Before and after", the next 25 arriving as the body's end comes into view, and "Market day", "Who", "Vendor", "Changed from" and "Changed to" above the entries, scrolling away with the body.
+It opens on the date the Assignments page is showing, focus on "Market day", which offers "Every market day" and each of the plan's days and can be changed or let go with "Clear filters"; with no date on the page, or one the plan does not hold, it opens on every market day.
+A day holds its own changes and those about no one day, allocating tables and the assignment rules, and a day with nothing says "No change matches these filters."
+A vendor's name leads to the Vendors page with their drawer open, and the dialog goes with the page it left.
+With nothing filtered and nothing there it says "No assignments have been changed yet."
+A vendor's drawer holds their placements on its History tab, among everything else the market's history holds about them ([the vendor drawer](vendor-drawer.md)).
+Each entry leads with the market day it is about, "Every market day" on a run and on the rules, then says who made the change and what changed, naming each vendor by name with their email beside, and when: "e2e@example.com assigned <vendor> at Front 10 (Full Table)" (the table alone where no table choice was recorded), "e2e@example.com moved <vendor> from Back 1 to Front 10 (Full Table)" when they had a table that day, "e2e@example.com swapped <vendor> and <vendor> - now at Front 10 and Back 1", "e2e@example.com freed Back 1, leaving <vendor> with no table"; a solver run is one entry, "e2e@example.com allocated tables: N assignments written, M pins preserved", and names nobody, so it is in no vendor's tab.
 A move recorded before the history kept the table left reads as an assignment.
-Anyone who may read the market's history can read it, and the drawer holds no History tab for anyone else ([what each role may do](../rules/what-each-role-may-do.md)).
 Covered by:
-- `the-placement-history-dialog.spec.ts`
+- `the-assignment-history.spec.ts`
 - `the-vendors-history.spec.ts`
 
 ## The rules it obeys

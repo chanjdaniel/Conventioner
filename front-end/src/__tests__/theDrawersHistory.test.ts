@@ -15,6 +15,7 @@ import { MarketAction } from '@/utils/marketActions';
 import type { MarketHistoryEntry } from '@/utils/marketHistory';
 import { useVendorDetails } from '@/utils/vendorDetails';
 import type { VendorTab } from '@/utils/vendorDrawer';
+import { installIntersectionObserver } from './support/intersection';
 import { answersRefusing } from './support/servedAnswers';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() }));
@@ -87,6 +88,7 @@ describe('one vendor’s history', () => {
   }
 
   it('asks for that vendor’s entries alone, and older ones keep to them', async () => {
+    const view = installIntersectionObserver();
     const asked = serve(
       { entries: [entry('e2', 2), entry('e1', 1)], next: 'cursor-1' },
       { entries: [entry('e0', 0)], next: null },
@@ -97,8 +99,7 @@ describe('one vendor’s history', () => {
     expect(asked).toEqual(['/markets/market-1/history?vendor=ana%40ember.test']);
     expect(history.findAll('[data-testid="market-history-entry"]')).toHaveLength(2);
 
-    await history.get('[data-testid="market-history-load-more"]').trigger('click');
-    await flushPromises();
+    await view.showSentinels();
 
     expect(asked.at(-1)).toBe('/markets/market-1/history?vendor=ana%40ember.test&before=cursor-1');
     expect(history.findAll('[data-testid="market-history-entry"]')).toHaveLength(3);
@@ -205,6 +206,24 @@ describe('the drawer’s History tab', () => {
     expect(drawer.get('[data-testid="vendor-drawer-panel-history"]').text()).toContain(
       'dana@ember.test changed the note on Ana Rivera',
     );
+  });
+
+  it('has no scroller of the list’s own: its entries stand in the flow of the drawer’s body', async () => {
+    const view = installIntersectionObserver();
+    const asked = serve(
+      { entries: [entry('e2', 2)], next: 'cursor-1' },
+      { entries: [entry('e1', 1)], next: null },
+    );
+    const drawer = await openDrawer('history');
+
+    const panel = drawer.get('[data-testid="vendor-drawer-panel-history"]');
+    expect(panel.find('.paged-list--parent').exists()).toBe(true);
+    expect(panel.find('.scroll-box').exists()).toBe(false);
+
+    await view.showSentinels();
+
+    expect(asked.at(-1)).toBe('/markets/market-1/history?vendor=ana%40ember.test&before=cursor-1');
+    expect(panel.findAll('[data-testid="market-history-entry"]')).toHaveLength(2);
   });
 
   it('holds no History tab for a person the history’s row refuses, and never asks for it', async () => {

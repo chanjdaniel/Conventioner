@@ -4,13 +4,14 @@ kind: data
 describes:
   - back-end/lookup_indexes.py
   - back-end/app.py#build_lookup_indexes
-verified: 2026-11-03
+verified: 2026-11-05
 sources:
   - E32/F03/S04
   - E40/F01/S03
   - E40/F02/S01
   - E44/F01/S01
   - T204
+  - T224
 ---
 
 # Lookup indexes

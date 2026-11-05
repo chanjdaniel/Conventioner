@@ -788,7 +788,7 @@ ASSIGNMENT_AND_PLACEMENT_ROUTES = [
      {"email": "ana@example.com", "date": "2099-08-01", "tableCode": "Main Hall 1",
       "tableChoice": "Full Table"},
      PlacementsApi, "write_placement"),
-    ("get", "/markets/market-123/placement-history", None, MarketsApi, "get_placement_history"),
+    ("get", "/markets/market-123/history", None, MarketsApi, "get_history"),
     ("post", "/markets/market-123/placements/swap",
      {"date": "2099-08-01", "emails": ["ana@example.com", "ben@example.com"]},
      PlacementsApi, "swap_placements"),
@@ -871,7 +871,7 @@ class TestTheAssignmentAndPlacementRoutes:
         assert response.get_json() == {"error": MarketsApi.ARCHIVED_REFUSAL}
 
     def test_the_history_of_a_market_that_does_not_exist(self, client):
-        response = client.get("/markets/market-missing/placement-history")
+        response = client.get("/markets/market-missing/history")
 
         assert response.status_code == 404
         assert response.get_json() == {"error": "Market not found"}
@@ -881,7 +881,7 @@ class TestTheAssignmentAndPlacementRoutes:
             setupObject={**COMPLETE_PLAN, "sections": "unreadable-sections"},
         ))
 
-        response = client.get("/markets/market-123/placement-history")
+        response = client.get("/markets/market-123/history")
 
         assert response.status_code == 400
         assert response.get_json() == {"error": "Invalid market data"}

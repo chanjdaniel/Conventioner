@@ -139,13 +139,23 @@ test.describe('Changing a placement on the Tables view', () => {
       at: string;
       vendors: string[];
     }
-    const read = async (path: string): Promise<Entry[]> => {
-      const res = await page.request.get(`${APP_API}/markets/${seed.marketId}/${path}`, {
-        headers: { 'X-Owner-Email': TEST_USER.email },
-      });
-      return ((await res.json()) as { entries: Entry[] }).entries;
+    /** Every entry of a read, walking its pages, so a count is of the whole trail. */
+    const read = async (query: string): Promise<Entry[]> => {
+      const entries: Entry[] = [];
+      let before: string | null = null;
+      do {
+        const after: string = before ? `&before=${encodeURIComponent(before)}` : '';
+        const res = await page.request.get(
+          `${APP_API}/markets/${seed.marketId}/history?${query}${after}`,
+          { headers: { 'X-Owner-Email': TEST_USER.email } },
+        );
+        const body = (await res.json()) as { entries: Entry[]; next: string | null };
+        entries.push(...body.entries);
+        before = body.next;
+      } while (before);
+      return entries;
     };
-    const trail = () => read('placement-history');
+    const trail = () => read('group=Assignment');
 
     // A delta, because the specs above share this market and have already changed placements on
     // it. What is being pinned is that ONE action leaves ONE entry.
@@ -172,7 +182,7 @@ test.describe('Changing a placement on the Tables view', () => {
     }
 
     // The vendor's drawer reads the history narrowed to them; the market's trail holds all of it.
-    const theirs = (await read(`history?vendor=${encodeURIComponent(first)}`)).filter(
+    const theirs = (await read(`vendor=${encodeURIComponent(first)}`)).filter(
       (entry) => entry.action === 'assign',
     );
     expect(theirs.length).toBeGreaterThan(0);
@@ -193,7 +203,7 @@ test.describe('Changing a placement on the Tables view', () => {
     );
 
     const before = await request.get(
-      `${BACKEND_URL}/markets/${doomed.marketId}/placement-history`,
+      `${BACKEND_URL}/markets/${doomed.marketId}/history?group=Assignment`,
       { headers: { 'X-Owner-Email': TEST_USER.email } },
     );
     expect(((await before.json()) as { entries: unknown[] }).entries.length).toBeGreaterThan(0);
@@ -203,9 +213,10 @@ test.describe('Changing a placement on the Tables view', () => {
     });
     expect(deleted.ok(), await deleted.text()).toBeTruthy();
 
-    const after = await request.get(`${BACKEND_URL}/markets/${doomed.marketId}/placement-history`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const after = await request.get(
+      `${BACKEND_URL}/markets/${doomed.marketId}/history?group=Assignment`,
+      { headers: { 'X-Owner-Email': TEST_USER.email } },
+    );
     expect(after.status()).toBe(404);
   });
 

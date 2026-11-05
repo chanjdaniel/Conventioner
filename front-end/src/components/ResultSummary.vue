@@ -12,9 +12,9 @@
  */
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import AssignmentHistoryDialog from '@/components/AssignmentHistoryDialog.vue';
 import ResultStatistics from '@/components/ResultStatistics.vue';
 import NothingAssigned from '@/components/NothingAssigned.vue';
-import PlacementHistoryDialog from '@/components/PlacementHistoryDialog.vue';
 import type { AssignmentStatistics, Market } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
 import { downloadErrorMessage, saveCsv } from '@/utils/download';
@@ -25,6 +25,7 @@ import { hasAssignment } from '@/utils/marketPage';
 import { canAssignIn } from '@/utils/assignPhase';
 import { withoutQueryKey } from '@/utils/routeQuery';
 import { satisfactionPercent } from '@/utils/satisfactionPercent';
+import { useResultFilters } from '@/utils/useResultFilters';
 
 const props = defineProps<{ market: Market }>();
 
@@ -99,10 +100,13 @@ const unassignedCount = computed(() =>
 );
 
 /**
- * The placement trail opens from the action row, before and after a run alike (E35/F03/S03): a
- * hand placement made before the first run is history too, and reading it changes nothing.
+ * Assignment history opens from the action row, before and after a run alike (E35/F03/S03): a hand
+ * placement made before the first run is history too, and reading it changes nothing. It is the
+ * market's History (T224), so it is offered as Manage market's section and the drawer's tab are.
  */
 const historyOpen = ref(false);
+const { filters } = useResultFilters();
+const mayReadHistory = computed(() => mayTake(props.market, MarketAction.ReadHistory));
 
 /** Download CSV is the table's Export CSV row (E39/F01/S02). */
 const mayExport = computed(() => mayTake(props.market, MarketAction.ExportCsv));
@@ -143,7 +147,7 @@ async function downloadCsv(): Promise<void> {
           around them.
         </span>
       </NothingAssigned>
-      <span class="result-actions">
+      <span v-if="mayReadHistory" class="result-actions">
         <button
           type="button"
           class="btn btn--secondary"
@@ -188,6 +192,7 @@ async function downloadCsv(): Promise<void> {
           Statistics
         </button>
         <button
+          v-if="mayReadHistory"
           type="button"
           class="btn btn--secondary"
           data-testid="result-history-button"
@@ -217,9 +222,11 @@ async function downloadCsv(): Promise<void> {
     <p v-if="downloadError" class="result-error" data-testid="result-download-error">
       {{ downloadError }}
     </p>
-    <PlacementHistoryDialog
+    <AssignmentHistoryDialog
+      v-if="mayReadHistory"
       :open="historyOpen"
-      :marketId="market.id"
+      :market="market"
+      :date="filters.date"
       @close="historyOpen = false"
     />
   </div>

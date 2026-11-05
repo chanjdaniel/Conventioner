@@ -1,27 +1,36 @@
 <script setup lang="ts">
 /**
- * Every change on a market, newest first: Manage market's History section (E40/F01/S03), and one
- * vendor's in their drawer's History tab (E40/F01/S04).
+ * Every change on a market, newest first: Manage market's History section (E40/F01/S03), one
+ * vendor's in their drawer's History tab (E40/F01/S04), and the Assignment kind of change alone in
+ * the Assignment history dialog (T224).
  *
- * A page at a time - the newest entries, then older ones on "Load more" - inside the dialog's own
- * scrolling, so a market with thousands of changes opens as quickly as one with ten. Narrowed by
- * who, by kind (a group of the table's rows), by vendor and by date; the filters live as long as
- * the dialog holds this section, which is while it is open. Given a `vendor`, it is that vendor's
- * history alone, with no filters: the same entries in the same words, narrowed by the server.
+ * A page at a time - the newest entries, then older ones as the end of the list comes into view -
+ * so a market with thousands of changes opens as quickly as one with ten. The list stands in a box
+ * of its own, or in the flow of a scrolling body around it with `box="parent"`, the drawer's or the
+ * dialog's, and the filters stay above it (`PagedList`). Narrowed by who, by kind (a group of the
+ * table's rows), by vendor, by when the change was made and, in that dialog, by the market day it is
+ * about; the filters live as long as the dialog holds this section, which is while it is open. Given a `vendor`,
+ * it is that vendor's history alone, with no filters: the same entries in the same words, narrowed
+ * by the server.
  */
 import { computed, ref, useId, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import type { FormField, IntakeMode, RejectionQuestion } from '@/assets/types/datatypes';
+import ChoiceField from '@/components/ChoiceField.vue';
 import HistoryEntries from '@/components/HistoryEntries.vue';
+import PagedList from '@/components/PagedList.vue';
 import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
-import { api, getApiErrorMessage } from '@/utils/api';
+import { api } from '@/utils/api';
 import { marketPath } from '@/utils/market';
 import { findsPerson, PEOPLE_CAP, personOption, vendorOption } from '@/utils/personChoice';
+import { useHistoryPages, type HistoryPage } from '@/utils/useHistoryPages';
+import { getShortDate } from '@/utils/utils';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
 import { vendorMatches, type VendorNames } from '@/utils/vendorIdentity';
 import {
   dayEnds,
   dayStarts,
+  ASSIGNMENT_GROUP,
   type HistoryContext,
   type MarketHistoryEntry,
   type MarketHistoryGroup,
@@ -44,28 +53,27 @@ const props = defineProps<{
   /** Only this vendor's entries, for their drawer: the filters are not drawn, and the vendor is
    * named by name alone, as text rather than a link to the drawer that already shows them. */
   vendor?: string | null;
+  /** Where the list scrolls: in a box of its own, the default, or in the flow of the scroller around
+   * it, as the drawer's and the Assignment history dialog's bodies are. */
+  box?: 'own' | 'parent';
+  /** Only the Assignment kind of change, for the Assignment history dialog: "Kind of change" is not
+   * drawn or counted as a filter, "Market day" stands first among the filters, and the market day
+   * leads each entry. One prop, since its parts mean nothing apart. `days` are the market's days, in
+   * the plan's order, and `day` the one it opens on, on every market day when `days` does not hold it. */
+  assignment?: { days: readonly string[]; day?: string };
 }>();
 
 const ownVendor = computed(() => props.vendor?.trim().toLowerCase() ?? '');
 
-interface HistoryPage {
-  entries: MarketHistoryEntry[];
-  next: string | null;
-  vendorNames: VendorNames;
+interface MarketHistoryPage extends HistoryPage {
+  vendorNames?: VendorNames;
   actors?: string[];
   groups?: MarketHistoryGroup[];
 }
 
-const entries = ref<MarketHistoryEntry[]>([]);
-const next = ref<string | null>(null);
 const vendorNames = ref<VendorNames>({});
 const actors = ref<string[]>([]);
 const groups = ref<MarketHistoryGroup[]>([]);
-const loading = ref(false);
-const loadingMore = ref(false);
-const loadError = ref('');
-/** Counts the first pages read, so a new one draws its entries closed. */
-const firstPages = ref(0);
 
 const actor = ref('');
 /** "Who": Anyone, the empty value, then everyone who changed something, found by address. */
@@ -73,6 +81,15 @@ const whoGroups = computed<PickerGroup[]>(() => [
   { options: [{ value: '', label: 'Anyone' }, ...actors.value.map((a) => personOption(a))] },
 ]);
 const group = ref('');
+const marketDay = ref(
+  props.assignment?.day && props.assignment.days.includes(props.assignment.day)
+    ? props.assignment.day
+    : '',
+);
+/** "Market day": each of the plan's days, after the empty row, "Every market day". */
+const dayGroups = computed<PickerGroup[]>(() => [
+  { options: (props.assignment?.days ?? []).map((d) => ({ value: d, label: getShortDate(d) })) },
+]);
 const vendorText = ref('');
 const from = ref('');
 const to = ref('');
@@ -94,6 +111,7 @@ const context = computed<HistoryContext>(() => ({
   own: ownVendor.value,
   questions: props.questions,
   fields: props.fields,
+  dayLeads: !!props.assignment,
 }));
 
 /**
@@ -155,80 +173,67 @@ const vendorHintId = useId();
 
 const filters = computed(() => ({
   actor: actor.value,
-  group: group.value,
+  group: props.assignment ? ASSIGNMENT_GROUP : group.value,
+  day: marketDay.value,
   vendor: narrowedTo.value,
   since: from.value ? dayStarts(from.value) : '',
   until: to.value ? dayEnds(to.value) : '',
 }));
 
 const filtered = computed(
-  () => !!(actor.value || group.value || vendorText.value.trim() || from.value || to.value),
+  () =>
+    !!(
+      actor.value ||
+      group.value ||
+      marketDay.value ||
+      vendorText.value.trim() ||
+      from.value ||
+      to.value
+    ),
 );
 
-async function read(before: string | null): Promise<HistoryPage> {
+async function read(before: string | null): Promise<MarketHistoryPage> {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(filters.value)) if (value) query.set(key, value);
   if (before) query.set('before', before);
   const asked = query.toString();
-  const response = await api.get<HistoryPage>(
+  const response = await api.get<MarketHistoryPage>(
     `/markets/${encodeURIComponent(props.marketId)}/history${asked ? `?${asked}` : ''}`,
   );
   return response.data;
 }
 
-/** The first page, under the filters as they are; a page asked for before it is dropped. */
-let asking = 0;
-async function load(): Promise<void> {
-  const mine = ++asking;
-  loadError.value = '';
-  if (vendorMatchesNobody.value) {
-    entries.value = [];
-    next.value = null;
-    loading.value = false;
-    return;
-  }
-  loading.value = true;
-  try {
-    const page = await read(null);
-    // What the market's vendors and people are holds whatever the page was narrowed by, so a page
-    // asked for before a filter changed still tells the filter who it may name: a vendor typed
-    // while the first page was on its way is found once it lands.
+const {
+  entries,
+  next,
+  loading,
+  loadingMore,
+  loadError,
+  firstPages,
+  more,
+  clear,
+  load: readFirst,
+} = useHistoryPages<MarketHistoryPage>({
+  read,
+  // What the market's vendors and people are holds whatever the page was narrowed by, so a page
+  // asked for before a filter changed still tells the filter who it may name: a vendor typed
+  // while the first page was on its way is found once it lands.
+  firstPage(page) {
     see(page.entries ?? []);
     vendorNames.value = page.vendorNames ?? {};
     actors.value = page.actors ?? [];
     groups.value = page.groups ?? [];
-    if (mine !== asking) return;
-    entries.value = page.entries ?? [];
-    next.value = page.next ?? null;
-    firstPages.value++;
-  } catch (err) {
-    if (mine !== asking) return;
-    loadError.value = getApiErrorMessage(err, 'The history could not be loaded.');
-    entries.value = [];
-    next.value = null;
-  } finally {
-    if (mine === asking) loading.value = false;
-  }
-}
-
-async function loadMore(): Promise<void> {
-  if (!next.value || loadingMore.value) return;
-  const mine = asking;
-  loadingMore.value = true;
-  loadError.value = '';
-  try {
-    const page = await read(next.value);
-    if (mine !== asking) return;
-    entries.value = [...entries.value, ...(page.entries ?? [])];
+  },
+  nextPage(page) {
     see(page.entries ?? []);
-    next.value = page.next ?? null;
     vendorNames.value = { ...vendorNames.value, ...(page.vendorNames ?? {}) };
-  } catch (err) {
-    if (mine !== asking) return;
-    loadError.value = getApiErrorMessage(err, 'Older changes could not be loaded.');
-  } finally {
-    loadingMore.value = false;
-  }
+  },
+});
+
+/** The first page, under the filters as they are, unless they can match nobody at all. */
+function load() {
+  if (vendorMatchesNobody.value) clear();
+  else void readFirst();
 }
 
 watch(() => props.marketId, load, { immediate: true });
@@ -238,6 +243,7 @@ watch(() => [JSON.stringify(filters.value), vendorMatchesNobody.value], load);
 function clearFilters() {
   actor.value = '';
   group.value = '';
+  marketDay.value = '';
   vendorText.value = '';
   from.value = '';
   to.value = '';
@@ -263,15 +269,32 @@ const openVendor = computed(() =>
 
 const emptyText = computed(() => {
   if (ownVendor.value) return 'Nothing has been recorded about this vendor yet.';
-  return filtered.value
-    ? 'No change matches these filters.'
+  if (filtered.value) return 'No change matches these filters.';
+  return props.assignment
+    ? 'No assignments have been changed yet.'
     : 'Nothing has changed on this market yet.';
 });
 </script>
 
 <template>
   <div class="market-history" data-testid="market-history">
-    <div v-if="!ownVendor" class="history-filters">
+    <div
+      v-if="!ownVendor"
+      class="history-filters"
+      :class="{ 'history-filters--market-day': assignment }"
+    >
+      <ChoiceField
+        v-if="assignment"
+        v-model="marketDay"
+        class="history-filter history-filter--market-day"
+        :groups="dayGroups"
+        writes
+        label="Market day"
+        placeholder="Every market day"
+        none-row="Every market day"
+        name="market-history-market-day"
+        testid="market-history-market-day"
+      />
       <SearchPicker
         v-model="actor"
         class="history-filter history-who"
@@ -284,7 +307,7 @@ const emptyText = computed(() => {
         placeholder="Type an address…"
         testid="market-history-who"
       />
-      <label class="history-filter">
+      <label v-if="!assignment" class="history-filter">
         <span class="field-label">Kind of change</span>
         <select
           v-model="group"
@@ -311,7 +334,7 @@ const emptyText = computed(() => {
         testid="market-history-vendor"
       />
       <label class="history-filter">
-        <span class="field-label">From</span>
+        <span class="field-label">Changed from</span>
         <input
           v-model="from"
           type="date"
@@ -322,7 +345,7 @@ const emptyText = computed(() => {
         />
       </label>
       <label class="history-filter">
-        <span class="field-label">To</span>
+        <span class="field-label">Changed to</span>
         <input
           v-model="to"
           type="date"
@@ -365,29 +388,26 @@ const emptyText = computed(() => {
       {{ emptyText }}
     </p>
 
-    <HistoryEntries
+    <!-- Only with entries to stand in it, so a new first page starts the box at its top. -->
+    <PagedList
       v-if="!loading && entries.length"
-      :key="firstPages"
-      :entries="entries"
+      :box="box"
+      :has-more="!!next"
+      :loading="loadingMore"
+      :error="loadError"
+      label="History"
       testid="market-history"
-      :context="context"
-      :vendor-link="vendorLink"
-      :open-vendor="openVendor"
-    />
-
-    <p v-if="loadError && entries.length" class="form-error" data-testid="market-history-error">
-      {{ loadError }}
-    </p>
-    <button
-      v-if="!loading && next"
-      type="button"
-      class="btn btn--secondary history-more"
-      :disabled="loadingMore"
-      data-testid="market-history-load-more"
-      @click="loadMore"
+      @more="more"
     >
-      {{ loadingMore ? 'Loading…' : 'Load more' }}
-    </button>
+      <HistoryEntries
+        :key="firstPages"
+        :entries="entries"
+        testid="market-history"
+        :context="context"
+        :vendor-link="vendorLink"
+        :open-vendor="openVendor"
+      />
+    </PagedList>
   </div>
 </template>
 
@@ -398,7 +418,8 @@ const emptyText = computed(() => {
   gap: var(--space-3);
 }
 
-/* Two columns: who and kind, the vendor across both, then the range's two ends side by side. */
+/* Two columns: who and kind, or the market day and who, the vendor across both, then the range's two
+   ends side by side. */
 .history-filters {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -420,6 +441,23 @@ const emptyText = computed(() => {
   width: calc(200% + var(--space-3));
 }
 
+/* "Who" in the second column: its list runs left over the first, its right edge on the field's. */
+.history-filters--market-day .history-who :deep(.search-picker-list) {
+  left: auto;
+}
+
+/* "Every market day" does not fit half a phone's dialog, so there the day and who each take a row. */
+@media (width <= 640px) {
+  .history-filter--market-day,
+  .history-filters--market-day .history-who {
+    grid-column: 1 / -1;
+  }
+
+  .history-filters--market-day .history-who :deep(.search-picker-list) {
+    width: 100%;
+  }
+}
+
 .history-filter-notes {
   display: flex;
   align-items: center;
@@ -437,9 +475,5 @@ const emptyText = computed(() => {
   margin: 0;
   color: var(--mm-red);
   font-size: var(--text-xs);
-}
-
-.history-more {
-  align-self: flex-start;
 }
 </style>

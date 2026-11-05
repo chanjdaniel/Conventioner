@@ -21,7 +21,6 @@ import * as people from './people';
 import * as setup from './setup';
 import * as vendors from './vendors';
 import type { MarketHistoryEntry } from '@/utils/marketHistory';
-import { isPlacementKind } from '@/utils/placementHistory';
 import type { HistoryArea, HistoryReader } from './shared';
 
 const AREAS: Readonly<Record<string, HistoryArea>> = {
@@ -86,7 +85,9 @@ export function readerKeys(entry: Pick<MarketHistoryEntry, 'action' | 'kind'>): 
   const kind = entry.kind ?? '';
   return [
     ...new Set([
-      ...(entry.action === 'assign' && isPlacementKind(entry.kind) ? [`assign/${kind}`] : []),
+      ...(entry.action === 'assign' && assignment.isPlacementKind(entry.kind)
+        ? [`assign/${kind}`]
+        : []),
       `*/${kind}`,
       `${entry.action}/${kind}`,
       `${entry.action}/*`,
