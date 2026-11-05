@@ -590,6 +590,16 @@ export const SCREENS: Screen[] = [
     ]),
   },
   {
+    // What leads the card, in a dialog over it (T217).
+    name: 'the dialog of what leads the card',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(oneByOne('open'), 'app-monitor-card', [
+      'app-monitor-choose-highlights',
+      'choose-highlights-window',
+    ]),
+  },
+  {
     name: 'applications open, all at once',
     who: 'organizer',
     sizes: FITS_A_PHONE,

@@ -7,7 +7,7 @@ describes:
   - front-end/src/utils/reviewHighlights.ts
   - front-end/src/utils/reviewQueue.ts#reviewAnswers
   - front-end/src/components/application/ReviewHighlights.vue
-verified: 2026-11-03
+verified: 2026-11-05
 sources:
   - wayfinding/the-order-of-the-work/05
   - E19/F03/S01
@@ -15,6 +15,7 @@ sources:
   - E19
   - E38/F03/S01
   - T206
+  - T217
 ---
 
 # Review highlights
@@ -38,7 +39,7 @@ A draft does not enter Review until one or the other is decided, a live mark or 
 The review queue's "Choose what leads the card" offers no such choice: the decision belongs to a draft.
 
 **Authored where the questions are written, corrected where the knowing happens.**
-The organizer marks them on the form tab's Review setup, and a reviewer changes them from the review card mid-queue ("Choose what leads the card") without leaving the card they are on.
+The organizer marks them on the form tab's Review setup, and a reviewer changes them from the review card mid-queue ("Choose what leads the card"), in a dialog over the card they are on, which is still up when it closes.
 Both are one list with one writer, so neither screen holds its own idea of what leads.
 
 **A flag, not a rank.**

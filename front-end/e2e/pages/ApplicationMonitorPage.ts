@@ -60,6 +60,10 @@ export class ApplicationMonitorPage {
   readonly followUpOwner: PersonChooser;
   /** The frame's line saying why the person looking may change nothing on the market (T15). */
   readonly readOnly: Locator;
+  /** "Choose what leads the card" on the card, which opens the dialog of ticks (T217). */
+  readonly chooseHighlightsButton: Locator;
+  readonly chooseHighlightsDialog: Locator;
+  readonly chooseHighlightsDone: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -95,6 +99,9 @@ export class ApplicationMonitorPage {
     this.followUpButton = page.getByTestId('app-monitor-follow-up-button');
     this.followUpOwner = new PersonChooser(page, 'app-monitor-follow-up-owner');
     this.readOnly = page.getByTestId('market-read-only');
+    this.chooseHighlightsButton = page.getByTestId('app-monitor-choose-highlights');
+    this.chooseHighlightsDialog = page.getByTestId('choose-highlights-window');
+    this.chooseHighlightsDone = page.getByTestId('choose-highlights-done');
   }
 
   /** A row of the reviewed list, by its applicant. */
@@ -130,6 +137,13 @@ export class ApplicationMonitorPage {
   async openNotes(): Promise<void> {
     await this.notes.getByTestId('app-monitor-notes-summary').click();
     await expect(this.notes).toHaveAttribute('open', '');
+  }
+
+  /** Open the dialog of what leads the card, and wait for its ticks. */
+  async openChooseHighlights(): Promise<void> {
+    await this.chooseHighlightsButton.click();
+    await expect(this.chooseHighlightsDialog).toBeVisible();
+    await expect(this.chooseHighlightsDialog.getByTestId('review-highlights')).toBeVisible();
   }
 
   /** Wait for the queue to settle, so a count is a count and not a race with the fetch. */

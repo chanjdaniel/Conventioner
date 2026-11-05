@@ -118,6 +118,8 @@ function toggle(key: string, on: boolean) {
   align-items: center;
   gap: var(--space-2);
 
+  /* A thumb's target: a reviewer ticks these on a phone, in the card's dialog (T217). */
+  min-height: var(--target-min);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);

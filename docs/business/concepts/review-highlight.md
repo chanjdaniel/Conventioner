@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: concept
-verified: 2026-10-22
+verified: 2026-11-05
 ---
 
 # Review highlight
@@ -17,7 +17,7 @@ verified: 2026-10-22
 ## Flows
 
 - [What a reviewer reads first](../flows/form-tab.md#f3-what-a-reviewer-reads-first): the organizer marks them on the form tab's Review setup.
-- [Work through the queue](../flows/review.md#i1-work-through-the-queue) and [choose what leads the card](../flows/review.md#i3-choose-what-leads-the-card): the review card leads with them, and edits them in place.
+- [Work through the queue](../flows/review.md#i1-work-through-the-queue) and [choose what leads the card](../flows/review.md#i3-choose-what-leads-the-card): the review card leads with them, and edits them in a dialog over it.
 
 ## Implementation
 
