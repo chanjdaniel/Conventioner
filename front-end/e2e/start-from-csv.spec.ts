@@ -237,7 +237,7 @@ test.describe('Draft this market from a Google Form', () => {
     await importer.chooseFile(readFileSync(join(CORPUS, 'five-day-grid.csv'), 'utf8'));
     await importer.clickPreview();
     await expect(importer.previewCounts).toBeVisible();
-    const refusals = await importer.previewFailureRows.allInnerTexts();
+    const refusals = await importer.allPreviewFailures();
     expect(refusals.filter((r) => r.includes('What do you plan to sell'))).toEqual([]);
   });
 
@@ -287,7 +287,7 @@ test.describe('Draft this market from a Google Form', () => {
     await expect(page.getByTestId('import-decided-value-fixes').first()).toContainText(/\d+ rows?/);
     await importer.clickPreview();
     await expect(importer.previewCounts).toBeVisible();
-    const selling = (await importer.previewFailureRows.allInnerTexts()).filter((r) =>
+    const selling = (await importer.allPreviewFailures()).filter((r) =>
       r.includes('What do you plan to sell'),
     );
     expect(selling.length).toBeGreaterThan(0);
@@ -465,7 +465,7 @@ test.describe('Draft this market from a Google Form', () => {
     // name two of the three table choices. Neither may cost an applicant their application.
     await importer.clickPreview();
     await expect(importer.previewCounts).toBeVisible();
-    const failures = await importer.previewFailureRows.allInnerTexts();
+    const failures = await importer.allPreviewFailures();
     expect(failures.filter((f) => /I certify|I understand/.test(f))).toEqual([]);
     expect(failures.filter((f) => f.includes("'Table choice' is required"))).toEqual([]);
     // The one still refused has no name. The 15 whose every answer was an option too rare to keep

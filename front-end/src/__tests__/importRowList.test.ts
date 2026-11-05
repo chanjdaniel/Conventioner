@@ -67,6 +67,16 @@ describe('the import preview’s rows', () => {
     ).toBe(false);
   });
 
+  it('marks each row for the list frame, which hands the focus to the first new one', () => {
+    const rows = list({ rows: [NADIA, THEO] }).findAll('[data-testid="import-sample-row"]');
+
+    for (const row of rows) {
+      expect(row.element.tagName).toBe('DETAILS');
+      expect(row.attributes('data-list-row')).toBeDefined();
+      expect(row.attributes('tabindex')).toBe('-1');
+    }
+  });
+
   it('opens to the leading answers, then the rest behind "N more answers"', () => {
     const nadia = list({ rows: [NADIA] }).get('[data-testid="import-sample-row"]');
 

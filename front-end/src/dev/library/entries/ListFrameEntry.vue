@@ -4,7 +4,8 @@
  * fixture application, with its status toggles and an "Assigned to" combobox (C6), its own rows in
  * the `rows` slot and Select all in `aboveRows`, on the rows `drawn` says are on screen, as the screen
  * does (T223), and a switch to today's every-row list on the same filters; L1, the 150 people with
- * access, a role select per row in the `row` slot; then a panel per state. Only the chosen view of L2
+ * access, a role select per row in the `row` slot; then a panel per state, L10's list read whole by
+ * asking, the import's real refused rows, among them. Only the chosen view of L2
  * is mounted, so the first paint draws the frame's first page and never today's every row. L2's
  * reviewers read as they do on the screen, by address, through the real filter's choices and row words
  * (`utils/reviewers.ts`). Nothing here is a read: the failed and loading panels are the frame told so.
@@ -12,6 +13,7 @@
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
 import { MarketRole } from '@/assets/types/datatypes';
 import FilterToggles, { type FilterToggle } from '@/components/FilterToggles.vue';
+import ImportRefusedRows from '@/components/csvImport/ImportRefusedRows.vue';
 import ListFrame from '@/components/ListFrame.vue';
 import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
 import { OFFLINE_MESSAGE } from '@/utils/api';
@@ -35,6 +37,15 @@ type LibraryApplication = LibraryFixture['applications'][number];
 type LibraryPerson = LibraryFixture['people'][number];
 
 const { applications, people, reviewers } = fixture;
+
+/** A bad file's refused rows, in the import's words: a row it refuses has an address or is blank. */
+const refused = applications
+  .slice(0, 30)
+  .map((application, at) =>
+    at % 10 === 9
+      ? { row: at + 2, email: '', error: 'Every column this import reads is empty.' }
+      : { row: at + 2, email: application.email, error: "'Full name' is required." },
+  );
 
 const APPLICATION = { one: 'application', many: 'applications' };
 const PERSON = { one: 'person', many: 'people' };
@@ -407,6 +418,13 @@ onMounted(() => {
       >
         <template #row="{ item }">{{ item.name }}</template>
       </ListFrame>
+    </LibraryPanel>
+    <LibraryPanel :label="`${refused.length} refused rows: the first 20, then Show all`">
+      <ImportRefusedRows
+        :rows="refused"
+        testid="library-state-refused"
+        row-testid="library-state-refused-row"
+      />
     </LibraryPanel>
   </LibrarySection>
 </template>

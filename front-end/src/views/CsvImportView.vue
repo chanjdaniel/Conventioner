@@ -32,12 +32,17 @@ import ValueFixes from '@/components/ValueFixes.vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
 import { EMPTY_ESSENTIAL_OPTIONS, applicantName } from '@/utils/essentialFields';
 import {
+  findsRejectedRow,
+  findsReplacedRow,
+  IMPORT_LIST_FIRST,
   previewHeadline as previewHeadlineText,
   rejectedRowsWhy,
   writingRowCount,
 } from '@/utils/importPreview';
 import { reviewAnswers } from '@/utils/reviewQueue';
 import ImportRowList, { type ImportRow } from '@/components/csvImport/ImportRowList.vue';
+import ImportRefusedRows, { type RefusedRow } from '@/components/csvImport/ImportRefusedRows.vue';
+import ListFrame from '@/components/ListFrame.vue';
 import ReviewerPicker from '@/components/market/ReviewerPicker.vue';
 import { chooseReviewers, reviewerAddresses, sameTeam } from '@/utils/reviewTeam';
 import {
@@ -108,12 +113,6 @@ interface PreviewRow {
 /** A value a saved decision settles, with that decision: listed so it can be changed. */
 interface DecidedValue extends UnmatchedValue {
   choice: string | null;
-}
-
-interface ImportFailure {
-  row: number;
-  email: string;
-  error: string;
 }
 
 /** An earlier submission, replaced by the same applicant's later row in the file. */
@@ -246,10 +245,10 @@ const updated = ref(0);
 const unchanged = ref(0);
 /** How many the market's automatic rejections rejected (E33/F03/S02). */
 const rejectedByRules = ref(0);
-const failures = ref<ImportFailure[]>([]);
+const failures = ref<RefusedRow[]>([]);
 /** What the dry run said would import, and what it said would be skipped. */
 const validRows = ref(0);
-const previewFailures = ref<ImportFailure[]>([]);
+const previewFailures = ref<RefusedRow[]>([]);
 /** How the file lands against what is already here. */
 const newRows = ref(0);
 const updatedRows = ref(0);
@@ -1326,11 +1325,26 @@ function startOver() {
             replaced by the same applicant's later row. Each applicant is imported once, from their
             latest row, keeping the time they first applied.
           </p>
-          <ul>
-            <li v-for="repeat in repeats" :key="repeat.row">
-              Row {{ repeat.row }} ({{ repeat.email }}) is replaced by row {{ repeat.latestRow }}
-            </li>
-          </ul>
+          <ListFrame
+            class="import-note-list"
+            :items="repeats"
+            :finds="findsReplacedRow"
+            :item-key="(repeat) => String(repeat.row)"
+            :noun="{ one: 'submission', many: 'submissions' }"
+            :page-size="IMPORT_LIST_FIRST"
+            show-all
+            find-label="Find by address or row"
+            testid="import-repeats-list"
+          >
+            <template #rows="{ rows }">
+              <ul>
+                <li v-for="repeat in rows" :key="repeat.row" data-list-row tabindex="-1">
+                  Row {{ repeat.row }} ({{ repeat.email }}) is replaced by row
+                  {{ repeat.latestRow }}
+                </li>
+              </ul>
+            </template>
+          </ListFrame>
         </div>
 
         <!-- Already here, not in this file. Left alone: absence is almost always a filtered export,
@@ -1358,16 +1372,11 @@ function startOver() {
             These will not be imported. Import the rest, or fix them first: in your spreadsheet, or
             with Back, for an answer that was left out or ignored.
           </p>
-          <ul>
-            <li
-              v-for="failure in previewFailures"
-              :key="failure.row"
-              data-testid="import-preview-failure-row"
-            >
-              <strong>Row {{ failure.row }}</strong>
-              <span v-if="failure.email"> ({{ failure.email }})</span>: {{ failure.error }}
-            </li>
-          </ul>
+          <ImportRefusedRows
+            :rows="previewFailures"
+            testid="import-preview-failures-list"
+            row-testid="import-preview-failure-row"
+          />
         </div>
         <!-- The organizer's own data, read through the mapping they just chose. Without a cell of
            it on screen, "Preview" only restates the previous step. -->
@@ -1397,7 +1406,20 @@ function startOver() {
           <p class="preview-rows-why" data-testid="import-rejected-why">
             {{ rejectedRowsWhy(overturnedBy) }}
           </p>
-          <ImportRowList :rows="rejectedApplications" row-testid="import-rejected-row" />
+          <ListFrame
+            :items="rejectedApplications"
+            :finds="findsRejectedRow"
+            :item-key="(row) => String(row.row)"
+            :noun="{ one: 'row', many: 'rows' }"
+            :page-size="IMPORT_LIST_FIRST"
+            show-all
+            find-label="Find by name or address"
+            testid="import-rejected-list"
+          >
+            <template #rows="{ rows }">
+              <ImportRowList :rows="rows" row-testid="import-rejected-row" />
+            </template>
+          </ListFrame>
         </section>
 
         <h3 class="preview-mapping-heading">Where each answer comes from</h3>
@@ -1458,12 +1480,11 @@ function startOver() {
             These were not imported. Fix them and import again: in your spreadsheet, or, for an
             answer that was left out or ignored, when you map the columns.
           </p>
-          <ul>
-            <li v-for="failure in failures" :key="failure.row" data-testid="import-failure-row">
-              <strong>Row {{ failure.row }}</strong>
-              <span v-if="failure.email"> ({{ failure.email }})</span>: {{ failure.error }}
-            </li>
-          </ul>
+          <ImportRefusedRows
+            :rows="failures"
+            testid="import-failures-list"
+            row-testid="import-failure-row"
+          />
         </div>
       </section>
 
@@ -1946,6 +1967,8 @@ function startOver() {
   border-radius: var(--radius-control);
   background: var(--mm-beige);
   font-size: var(--text-xs);
+  /* On beige, for what stands in the note too: a list's field label and count line. */
+  --mm-text-muted: var(--mm-text-muted-on-beige);
   color: var(--mm-text-muted);
 }
 
@@ -1953,8 +1976,12 @@ function startOver() {
   margin: 0;
 }
 
+.import-note-list {
+  margin-top: var(--space-1);
+}
+
 .import-note ul {
-  margin: var(--space-1) 0 0;
+  margin: 0;
   padding-left: var(--space-4);
 }
 
@@ -1969,15 +1996,6 @@ function startOver() {
   margin: 0 0 var(--space-1);
   font-size: var(--text-sm);
   color: var(--mm-red);
-}
-
-.import-failures ul {
-  margin: var(--space-2) 0 0;
-  padding-left: var(--space-6);
-  font-size: var(--text-xs);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
 }
 
 .import-actions {

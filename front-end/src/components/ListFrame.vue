@@ -29,6 +29,11 @@ export const LIST_FIND_FROM = 12;
  * - The shown count goes back to one page only when the words or `filterKey` change, the choice of
  *   rows being someone's. A read again or a verdict that changes the rows holds the place.
  * - "Show N more" hands the focus to the first new row, since the button goes with the last page.
+ * - With `showAll`, a list read whole by asking: `pageSize` says the first page, the button reads
+ *   "Show all N" and draws every row the words find, handing the focus on the same way, then "Show
+ *   fewer", which goes back to one page, keeps the focus and brings itself into view, as `useFold`
+ *   does. The count line shows only with the field or while rows are cut, since such a list stands
+ *   under a heading that counts it.
  * - A screen whose rows are its own (a `ul` or `table` with its own classes, or groups between the
  *   rows) gives the `rows` slot rather than `row`, each row carrying `data-list-row` and
  *   `tabindex="-1"`, which is how the focus finds it.
@@ -64,6 +69,8 @@ const props = withDefaults(
     /** What a row is, for the count line and what the frame says of the list. */
     noun: { one: string; many: string };
     pageSize?: number;
+    /** After the first page the button draws every row, then folds them, rather than paging. */
+    showAll?: boolean;
     /** The find field shows when the whole list is longer than this. */
     findFrom?: number;
     /** The route query key that holds the words; without one they stay in the frame. */
@@ -155,10 +162,21 @@ const found = computed(() => {
     : props.items;
 });
 
+/** How many pages are drawn: `Infinity` once `showAll` has drawn them all. */
 const pages = ref(1);
 const rowsShown = computed(() => found.value.slice(0, pages.value * props.pageSize));
 const rowsLeft = computed(() => found.value.length - rowsShown.value.length);
 const nextPageRows = computed(() => Math.min(props.pageSize, rowsLeft.value));
+const folds = computed(
+  () => props.showAll && !rowsLeft.value && found.value.length > props.pageSize,
+);
+const moreWords = computed(() => {
+  if (folds.value) return 'Show fewer';
+  return props.showAll ? `Show all ${found.value.length}` : `Show ${nextPageRows.value} more`;
+});
+const showsCount = computed(
+  () => rowsLeft.value > 0 || (props.showAll ? showsField.value : Boolean(props.finds)),
+);
 
 watch([words, () => props.filterKey], () => {
   pages.value = 1;
@@ -190,10 +208,17 @@ const countLine = computed(() => {
 });
 
 const frame = ref<HTMLElement>();
+const moreButton = ref<HTMLButtonElement>();
 
 async function showMore(): Promise<void> {
+  if (folds.value) {
+    pages.value = 1;
+    await nextTick();
+    moreButton.value?.scrollIntoView({ block: 'center' });
+    return;
+  }
   const firstNew = rowsShown.value.length;
-  pages.value += 1;
+  pages.value = props.showAll ? Infinity : pages.value + 1;
   await nextTick();
   frame.value?.querySelectorAll<HTMLElement>('[data-list-row]')[firstNew]?.focus();
 }
@@ -249,12 +274,7 @@ async function showMore(): Promise<void> {
     </div>
     <template v-else>
       <!-- Announced: a reader stays in the field while the rows change under it. -->
-      <p
-        v-if="finds || rowsLeft"
-        class="list-frame__words"
-        role="status"
-        :data-testid="`${testid}-count`"
-      >
+      <p v-if="showsCount" class="list-frame__words" role="status" :data-testid="`${testid}-count`">
         {{ countLine }}
       </p>
       <slot v-if="found.length && $slots.rows" name="rows" :rows="rowsShown" />
@@ -270,14 +290,16 @@ async function showMore(): Promise<void> {
           <slot name="row" :item="item" :index="index" />
         </li>
       </ul>
+      <!-- One element through "Show all N" and "Show fewer", or the fold would drop the focus. -->
       <button
-        v-if="rowsLeft"
+        v-if="rowsLeft || folds"
+        ref="moreButton"
         type="button"
         class="btn btn--secondary list-frame__more"
         :data-testid="`${testid}-more`"
         @click="showMore"
       >
-        Show {{ nextPageRows }} more
+        {{ moreWords }}
       </button>
     </template>
   </div>

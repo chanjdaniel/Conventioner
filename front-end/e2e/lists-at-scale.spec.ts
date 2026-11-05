@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { test, expect, BACKEND_URL } from './fixtures';
+import { test, expect, APP_API, BACKEND_URL, CsvImportPage, TEST_USER } from './fixtures';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
 import { PaymentsPage } from './pages/PaymentsPage';
 import { ResultPage } from './pages/ResultPage';
@@ -16,6 +16,7 @@ import {
   TYPE_SCALE,
 } from './helpers/layoutDetectors';
 import { marketScreenPath } from './helpers/marketScreens';
+import { planSetupObject, seedApplicantMarket } from './helpers/seedApplicantMarket';
 import { seedMarketAtScale, type MarketAtScaleSeed } from './helpers/seedMarketAtScale';
 
 /**
@@ -863,4 +864,231 @@ test.describe('The Assignments page', () => {
       });
     });
   }
+});
+
+test.describe("The import's lists of rows", () => {
+  const HEADERS = [
+    'Timestamp',
+    'Email Address',
+    'Full Legal Name',
+    'Which days can you attend?',
+    'How many days do you want?',
+    'Which tiers will you accept?',
+    'Full or half table?',
+    'Rank the sections',
+    'Business name',
+    'What do you sell?',
+  ];
+  const MAPPING: Record<string, string> = {
+    'Full Legal Name': 'essential_full_name',
+    'Which days can you attend?': 'essential_available_dates',
+    'How many days do you want?': 'essential_max_dates',
+    'Which tiers will you accept?': 'essential_tier_preference',
+    'Full or half table?': 'essential_table_choice',
+    'Rank the sections': 'essential_section_ranking',
+    'Business name': 'business_name',
+    'What do you sell?': 'product_type',
+  };
+
+  const row = (email: string, name: string, table = 'full', minute = 0) =>
+    `2026/05/02 9:${String(minute).padStart(2, '0')}:00,${email},${name},2099-08-01,1,Gold,${table},"Garden, Main Hall",Example Stall,Pottery`;
+
+  const numbered = (count: number, make: (at: number) => string) =>
+    Array.from({ length: count }, (_, at) => make(at + 1));
+
+  /**
+   * A bad file: rows 2 to 31 refused, 24 for their address and 6 for a missing name, then 25 earlier
+   * submissions each replaced by a later row, 25 of those rows rejected by the market's rule, and a
+   * row that imports as it should.
+   */
+  const BAD_FILE = [
+    HEADERS.join(','),
+    ...numbered(24, (at) => row(`broken-${at}`, `Broken ${at}`)),
+    ...numbered(6, (at) => row(`nameless${at}@fixture.test`, '')),
+    ...numbered(25, (at) => row(`twice${at}@fixture.test`, `Twice ${at}`, 'half', 1)),
+    ...numbered(25, (at) => row(`twice${at}@fixture.test`, `Twice ${at}`, 'half', 2)),
+    row('fine@fixture.test', 'Fine Vendor'),
+  ].join('\n');
+
+  async function preview(page: Page): Promise<CsvImportPage> {
+    const seed = await seedApplicantMarket(
+      page.request,
+      APP_API,
+      TEST_USER.email,
+      TEST_USER.password,
+      { setupObject: planSetupObject(), intakeMode: 'csv' },
+    );
+    const rule = await page.request.put(`${APP_API}/markets/${seed.marketId}/rejection-rules`, {
+      data: { rules: [{ key: 'essential_table_choice', answers: ['half'] }] },
+    });
+    expect(rule.ok(), await rule.text()).toBeTruthy();
+    const importer = new CsvImportPage(page);
+    await page.goto(marketScreenPath(seed.marketId, 'import'));
+    await expect(importer.view).toBeVisible({ timeout: 15000 });
+    await importer.chooseFile(BAD_FILE);
+    await importer.mapColumns(HEADERS, MAPPING);
+    await importer.clickPreview();
+    await expect(importer.previewCounts).toBeVisible();
+    return importer;
+  }
+
+  test.describe('at 1280', () => {
+    test.use({ viewport: { width: 1280, height: 800 } });
+
+    test('a file refusing 30 rows shows 20, found by a reason, shown whole, then fewer', async ({
+      authenticatedPage: page,
+    }) => {
+      const importer = await preview(page);
+      const { previewFailures: list, previewFailureRows: rows } = importer;
+
+      await expect(page.getByTestId('import-preview-failures').locator('h3')).toHaveText(
+        '30 rows will be skipped',
+      );
+      await expect(rows).toHaveCount(20);
+      await expect(rows.first()).toHaveText("Row 2: 'broken-1' is not an email address.");
+      await expect(list.count).toHaveText('Showing 20 of 30');
+      await expect(list.more).toHaveText('Show all 30');
+      await holdsItsLayout(page, 1280, 'the preview, capped');
+
+      // By a word of a reason, by a row number, and by an address.
+      await list.find.fill('REQUIRED');
+      await expect(list.count).toHaveText('6 of 30 match "REQUIRED"');
+      await expect(rows).toHaveCount(6);
+      await expect(list.more).toHaveCount(0);
+      await list.find.fill('row 31');
+      await expect(rows).toHaveCount(1);
+      await expect(rows.first()).toContainText('nameless6@fixture.test');
+      await list.find.fill('broken-17');
+      await expect(rows).toHaveText(["Row 18: 'broken-17' is not an email address."]);
+
+      // Enter does nothing to the step: no read, no write, the same rows.
+      let asked = 0;
+      page.on('request', (sent) => {
+        if (sent.method() === 'POST') asked += 1;
+      });
+      await list.find.press('Enter');
+      await expect(rows).toHaveCount(1);
+      await expect(importer.preview).toBeVisible();
+      await expect(importer.resultSummary).toHaveCount(0);
+      expect(asked).toBe(0);
+      await list.find.fill('');
+      await expect(rows).toHaveCount(20);
+
+      // Whole, with the focus on the first new row, so Tab goes on from there.
+      await list.more.click();
+      await expect(rows).toHaveCount(30);
+      await expect(list.count).toHaveText('30 rows');
+      await expect(rows.nth(20)).toBeFocused();
+      await expect(list.more).toHaveText('Show fewer');
+      await holdsItsLayout(page, 1280, 'the preview, whole');
+      await readsAtAA(page, 'the preview, whole');
+
+      // Back to the first page, keeping the focus, with the button in view.
+      await list.more.focus();
+      await page.keyboard.press('Enter');
+      await expect(rows).toHaveCount(20);
+      await expect(list.more).toBeFocused();
+      await expect(list.more).toHaveText('Show all 30');
+      await expect(list.more).toBeInViewport();
+    });
+
+    test('the replaced rows and the rows a rule rejects stop at 20 the same way', async ({
+      authenticatedPage: page,
+    }) => {
+      const importer = await preview(page);
+
+      const replaced = importer.repeatNote.getByRole('listitem');
+      await expect(importer.repeatNote.locator('> p')).toContainText(
+        '25 earlier submissions will be replaced',
+      );
+      await expect(replaced).toHaveCount(20);
+      await expect(importer.repeats.more).toHaveText('Show all 25');
+      await importer.repeats.find.fill('twice7@');
+      await expect(replaced).toHaveCount(1);
+      await expect(replaced.first()).toHaveText(
+        'Row 38 (twice7@fixture.test) is replaced by row 63',
+      );
+      await importer.repeats.find.fill('row 63');
+      await expect(replaced).toHaveCount(1);
+      await importer.repeats.find.fill('');
+      await importer.repeats.more.click();
+      await expect(replaced).toHaveCount(25);
+      await expect(replaced.nth(20)).toBeFocused();
+
+      const { rejected, rejectedRows, rejectedCount } = importer;
+      await expect(rejectedCount).toHaveText('25');
+      await expect(rejectedRows).toHaveCount(20);
+      await expect(rejected.more).toHaveText('Show all 25');
+      await rejected.find.fill('TWICE 19');
+      await expect(rejected.count).toHaveText('1 of 25 matches "TWICE 19"');
+      await expect(rejectedRows.getByTestId('import-row-name')).toHaveText(['Twice 19']);
+      await rejected.find.fill('twice2@');
+      await expect(rejectedRows.getByTestId('import-row-email')).toHaveText([
+        'twice2@fixture.test',
+      ]);
+      await rejected.find.fill('');
+      await rejected.more.click();
+      await expect(rejectedRows).toHaveCount(25);
+      await expect(rejectedRows.nth(20)).toBeFocused();
+      // The first new row still opens by its heading, and reads its reason.
+      await page.keyboard.press('Tab');
+      await page.keyboard.press('Enter');
+      await expect(rejectedRows.nth(20)).toHaveJSProperty('open', true);
+      await expect(rejectedRows.nth(20).getByTestId('import-row-reason')).toBeVisible();
+      await expect(rejectedRows.first()).toHaveJSProperty('open', false);
+
+      // The samples check the mapping: not a frame, and their first row open as it was.
+      await expect(importer.sampleRows).toHaveCount(1);
+      await expect(importer.sampleRows.first()).toHaveJSProperty('open', true);
+      await holdsItsLayout(page, 1280, 'the replaced and rejected rows, whole');
+      await readsAtAA(page, 'the replaced and rejected rows, whole');
+    });
+
+    test('the done step stops its skipped rows at 20 too', async ({ authenticatedPage: page }) => {
+      const importer = await preview(page);
+      await importer.clickConfirm();
+      await expect(importer.resultSummary).toBeVisible();
+
+      const { failures: list, failureRows: rows } = importer;
+      await expect(page.getByTestId('import-failures').locator('h3')).toHaveText('30 rows skipped');
+      await expect(rows).toHaveCount(20);
+      await expect(list.more).toHaveText('Show all 30');
+      await list.find.fill('required');
+      await expect(rows).toHaveCount(6);
+      await list.find.press('Enter');
+      await expect(rows).toHaveCount(6);
+      await list.find.fill('');
+      await list.more.click();
+      await expect(rows).toHaveCount(30);
+      await expect(rows.nth(20)).toBeFocused();
+      await holdsItsLayout(page, 1280, 'the done step, whole');
+      await readsAtAA(page, 'the done step, whole');
+    });
+  });
+
+  test.describe('at 390, on the desk floor', () => {
+    test.use({ viewport: { width: 390, height: 844 } });
+
+    test('nothing of a list is clipped: the desk layout scrolls sideways, as it did', async ({
+      authenticatedPage: page,
+    }) => {
+      const importer = await preview(page);
+      for (const list of [importer.previewFailures, importer.repeats, importer.rejected]) {
+        await expect(list.find).toBeVisible();
+        const clippedBy = await list.root.evaluate((root) => {
+          const box = root.getBoundingClientRect();
+          const clips: string[] = [];
+          for (let at = root.parentElement; at; at = at.parentElement) {
+            const held = at.getBoundingClientRect();
+            const hides = getComputedStyle(at).overflowX !== 'visible';
+            if (hides && at !== document.body && at !== document.documentElement) {
+              if (box.left < held.left || box.right > held.right) clips.push(at.className);
+            }
+          }
+          return clips;
+        });
+        expect(clippedBy).toEqual([]);
+      }
+    });
+  });
 });

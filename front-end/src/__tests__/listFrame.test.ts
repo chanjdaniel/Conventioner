@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { createMemoryHistory, createRouter, type Router } from 'vue-router';
 import { h } from 'vue';
@@ -720,5 +720,134 @@ describe('without finds, a screen whose own field lies elsewhere', () => {
     await more(wrapper).trigger('click');
     await flushPromises();
     expect(document.activeElement?.id).toBe('Row-50');
+  });
+});
+
+describe('with showAll, a list read whole by asking', () => {
+  const allOf = { pageSize: 20, showAll: true };
+  const scrolled: HTMLElement[] = [];
+  const realScroll = Element.prototype.scrollIntoView;
+
+  beforeEach(() => {
+    scrolled.length = 0;
+    Element.prototype.scrollIntoView = function (this: HTMLElement) {
+      scrolled.push(this);
+    };
+  });
+  afterEach(() => {
+    Element.prototype.scrollIntoView = realScroll;
+  });
+
+  it('draws one page, and the button offers every row by its number', async () => {
+    const { wrapper } = await mountFrame({ ...allOf, items: rows(30) });
+    expect(drawn(wrapper)).toBe(20);
+    expect(more(wrapper).text()).toBe('Show all 30');
+    expect(count(wrapper)).toBe('Showing 20 of 30');
+  });
+
+  it('has no button when the first page holds every row', async () => {
+    const { wrapper } = await mountFrame({ ...allOf, items: rows(20) });
+    expect(drawn(wrapper)).toBe(20);
+    expect(more(wrapper).exists()).toBe(false);
+  });
+
+  it('draws every row and hands the focus to the first new one', async () => {
+    const { wrapper } = await mountFrame({ ...allOf, items: rows(130) });
+    await more(wrapper).trigger('click');
+    await flushPromises();
+    expect(drawn(wrapper)).toBe(130);
+    expect(count(wrapper)).toBe('130 applications');
+    expect(document.activeElement).toBe(wrapper.findAll('[data-testid="frame-row"]')[20]!.element);
+    expect(more(wrapper).text()).toBe('Show fewer');
+  });
+
+  it('then goes back to one page, keeps the focus, and brings the button into view', async () => {
+    const { wrapper } = await mountFrame({ ...allOf, items: rows(30) });
+    await more(wrapper).trigger('click');
+    await flushPromises();
+    const button = more(wrapper);
+    (button.element as HTMLButtonElement).focus();
+    await button.trigger('click');
+    await flushPromises();
+    expect(drawn(wrapper)).toBe(20);
+    // The same element, so the focus it holds is not lost as it changes its words.
+    expect(more(wrapper).element).toBe(button.element);
+    expect(document.activeElement).toBe(button.element);
+    expect(button.text()).toBe('Show all 30');
+    expect(scrolled).toEqual([button.element]);
+  });
+
+  it('counts what the words find, and offers only those', async () => {
+    const { wrapper } = await mountFrame({ ...allOf, items: rows(130) });
+    await type(wrapper, 'row 1');
+    expect(count(wrapper)).toBe('41 of 130 match "row 1"');
+    expect(drawn(wrapper)).toBe(20);
+    expect(more(wrapper).text()).toBe('Show all 41');
+  });
+
+  it('folds back when the words change, and offers no fold over what they found', async () => {
+    const { wrapper } = await mountFrame({ ...allOf, items: rows(130) });
+    await more(wrapper).trigger('click');
+    await flushPromises();
+    await type(wrapper, 'row 1');
+    expect(drawn(wrapper)).toBe(20);
+    expect(more(wrapper).text()).toBe('Show all 41');
+    await type(wrapper, 'row 12');
+    expect(drawn(wrapper)).toBe(11);
+    expect(more(wrapper).exists()).toBe(false);
+  });
+
+  it('holds every row through a read again', async () => {
+    const { wrapper } = await mountFrame({ ...allOf, items: rows(30) });
+    await more(wrapper).trigger('click');
+    await flushPromises();
+    await wrapper.setProps({ items: rows(35) });
+    await flushPromises();
+    expect(drawn(wrapper)).toBe(35);
+    expect(more(wrapper).text()).toBe('Show fewer');
+    await wrapper.setProps({ items: rows(5) });
+    await flushPromises();
+    expect(drawn(wrapper)).toBe(5);
+    expect(more(wrapper).exists()).toBe(false);
+  });
+
+  it('adds no count line under a heading that counts, while nothing is cut or found', async () => {
+    const { wrapper } = await mountFrame({ ...allOf, items: rows(5) });
+    expect(drawn(wrapper)).toBe(5);
+    expect(wrapper.find('[data-testid="frame-count"]').exists()).toBe(false);
+  });
+
+  it('draws the field past 12 and counts with it, whatever the page holds', async () => {
+    const { wrapper } = await mountFrame({ ...allOf, items: rows(13) });
+    expect(field(wrapper).exists()).toBe(true);
+    expect(count(wrapper)).toBe('13 applications');
+  });
+
+  it('hands the focus on through the rows slot too', async () => {
+    const { wrapper } = await mountFrame(
+      { ...allOf, items: rows(30) },
+      {
+        rows: ({ rows: shown }: { rows: Row[] }) =>
+          h(
+            'ul',
+            shown.map((row) =>
+              h('li', { key: row.id, 'data-list-row': '', tabindex: -1, id: row.id }, row.name),
+            ),
+          ),
+      },
+    );
+    await more(wrapper).trigger('click');
+    await flushPromises();
+    expect(document.activeElement?.id).toBe('Row-20');
+  });
+
+  it('says what it drew to a screen that acts on the rows', async () => {
+    const { wrapper } = await mountFrame({ ...allOf, items: rows(30) });
+    await more(wrapper).trigger('click');
+    await flushPromises();
+    const drawnEvents = wrapper.emitted('drawn') as Array<[Row[], number]>;
+    const [rowsNow, left] = drawnEvents.at(-1)!;
+    expect(rowsNow).toHaveLength(30);
+    expect(left).toBe(0);
   });
 });

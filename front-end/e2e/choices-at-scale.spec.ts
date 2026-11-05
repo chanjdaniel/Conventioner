@@ -230,7 +230,7 @@ test.describe('the import, on a later file', () => {
     expect(resolutions[key]![found]).toBe(answer);
     expect(resolutions[key]![ignored]).toBeNull();
     await expect(importer.previewCounts).toContainText('rows will be imported');
-    const refusals = await importer.previewFailureRows.allInnerTexts();
+    const refusals = await importer.allPreviewFailures();
     expect(refusals.filter((refusal) => refusal.includes('must be one of'))).toEqual([]);
 
     // Back on the columns they are decisions, each still a field naming what was chosen.

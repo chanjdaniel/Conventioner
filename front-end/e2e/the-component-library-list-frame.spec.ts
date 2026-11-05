@@ -363,4 +363,29 @@ eachWindow('the list frame entry', (size) => {
     await expect(page.getByTestId('library-state-past-threshold-find')).toBeVisible();
     await expect(countOf(page, 'library-state-past-threshold')).toHaveText('13 people');
   });
+
+  test('a list read whole by asking: the first 20, every row, then the first 20 again', async ({
+    page,
+  }) => {
+    const { press } = inTheWindow(size);
+    const rows = rowsOf(page, 'library-state-refused');
+    const button = page.getByTestId('library-state-refused-more');
+    await expect(rows).toHaveCount(20);
+    await expect(countOf(page, 'library-state-refused')).toHaveText('Showing 20 of 30');
+    await expect(button).toHaveText('Show all 30');
+
+    await press(button);
+    await expect(rows).toHaveCount(30);
+    await expect(rows.nth(20)).toBeFocused();
+    await expect(button).toHaveText('Show fewer');
+
+    await press(button);
+    await expect(rows).toHaveCount(20);
+    await expect(button).toHaveText('Show all 30');
+    await expect(button).toBeInViewport();
+
+    await page.getByTestId('library-state-refused-find').fill('every column');
+    await expect(rows).toHaveCount(3);
+    await expect(button).toHaveCount(0);
+  });
 });
