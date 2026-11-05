@@ -46,6 +46,7 @@ sources:
   - E38/F15/S01
   - T181
   - T204
+  - T224
 ---
 
 # The organization document, and roles
@@ -108,7 +109,7 @@ Each is recorded once its change has landed, never fails it, and records nothing
 An organization has no table of who may do what, so its actions are the history's own verbs, one per kind of change; a change with an admin on either side of it is `manage-organization-admins`, a member added or removed `manage-organization-members`, as a market's role changes go under the row their check asked, and ownership handed on is `transfer-organization`.
 Creating the organization and deleting it record nothing here: its history starts empty, and the deletion takes the history with it after the [deletion trail](../../business/rules/when-an-organization-may-be-deleted.md) is written.
 
-**Its owner, its admins and its members read it**, in Manage organization's History section ([`ManageOrgOverlay.vue`](../../../front-end/src/views/ManageOrgOverlay.vue), with its entries drawn by [`OrganizationHistory.vue`](../../../front-end/src/components/OrganizationHistory.vue)), through `get_history` (`GET /organizations/:id/history`), a page at a time; anyone else is refused, 403.
+**Its owner, its admins and its members read it**, in Manage organization's History section ([`ManageOrgOverlay.vue`](../../../front-end/src/views/ManageOrgOverlay.vue), with its entries drawn by [`OrganizationHistory.vue`](../../../front-end/src/components/OrganizationHistory.vue)), through `get_history` (`GET /organizations/:id/history`), 25 at a time as the end of its box scrolls into view ([`PagedList`](../../../front-end/src/components/PagedList.vue)); anyone else is refused, 403.
 So every one of its people has "Manage" on the organization's card; a member's dialog holds the owner, the default permissions (read-only) and the History, and none of the other people or controls the owner and the admins manage.
 A change made in the dialog shows in its History as it lands: the section reads its first page again after each.
 **The organization itself is its people's too**: `GET /organizations/:id` (`read_organization`) answers its owner, admins and members, and anyone else 403, an organization nobody has 404, as its other routes do; it answered anyone signed in who had its id, its people's ids among it.

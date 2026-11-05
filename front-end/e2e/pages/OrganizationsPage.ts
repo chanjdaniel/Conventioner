@@ -65,7 +65,9 @@ export class OrganizationsPage {
   readonly historyToggle: Locator;
   readonly historyEntries: Locator;
   readonly historySentences: Locator;
-  readonly historyLoadMore: Locator;
+  readonly historyBox: Locator;
+  readonly historyBoxShadeBottom: Locator;
+  readonly historySentinel: Locator;
 
   // ── Manage org's default permissions for new markets (E39/F02/S01) ──
   readonly defaults: Locator;
@@ -73,6 +75,7 @@ export class OrganizationsPage {
   readonly defaultsReadOnly: Locator;
   readonly defaultSelects: Locator;
   readonly defaultChanges: Locator;
+  readonly defaultChangesBox: Locator;
   readonly defaultConfirm: Locator;
 
   constructor(page: Page) {
@@ -130,13 +133,16 @@ export class OrganizationsPage {
     this.historyToggle = page.getByTestId('manage-org-history-toggle');
     this.historyEntries = page.getByTestId('org-history-entry');
     this.historySentences = page.getByTestId('org-history-sentence');
-    this.historyLoadMore = page.getByTestId('org-history-load-more');
+    this.historyBox = page.getByTestId('org-history-box');
+    this.historyBoxShadeBottom = page.getByTestId('org-history-box-shade-bottom');
+    this.historySentinel = page.getByTestId('org-history-sentinel');
 
     this.defaults = page.getByTestId('manage-org-permissions');
     this.defaultsToggle = page.getByTestId('manage-org-permissions-toggle');
     this.defaultsReadOnly = page.getByTestId('manage-org-permissions-read-only');
     this.defaultSelects = page.getByTestId('manage-org-permission-select');
     this.defaultChanges = page.getByTestId('manage-org-permission-change');
+    this.defaultChangesBox = page.getByTestId('manage-org-permission-changes-box');
     this.defaultConfirm = page.getByTestId('manage-org-permission-confirm-window');
   }
 
@@ -239,6 +245,14 @@ export class OrganizationsPage {
   async openHistory(): Promise<void> {
     await this.historyToggle.click();
     await this.page.getByTestId('org-history').waitFor();
+  }
+
+  /** Brings the History's box into sight and scrolls it to its end, as a reader's wheel does. */
+  async scrollHistoryToEnd(): Promise<void> {
+    await this.historyBox.evaluate((box) => {
+      box.scrollIntoView({ block: 'nearest' });
+      box.scrollTop = box.scrollHeight;
+    });
   }
 
   /** Open one entry's before and after, and return them. */

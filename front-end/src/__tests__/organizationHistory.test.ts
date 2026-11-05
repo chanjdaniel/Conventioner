@@ -8,6 +8,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import ManageOrgOverlay from '@/views/ManageOrgOverlay.vue';
 import type { Organization } from '@/assets/types/datatypes';
 import { entryChanges, entryParts, type MarketHistoryEntry } from '@/utils/marketHistory';
+import { installIntersectionObserver } from './support/intersection';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() }));
 
@@ -286,6 +287,13 @@ const sentences = () =>
   );
 const byTestId = (id: string) => within().querySelector<HTMLElement>(`[data-testid="${id}"]`);
 
+function renameInTheDialog() {
+  const input = byTestId('manage-org-rename-input') as HTMLInputElement;
+  input.value = 'Ember Collective';
+  input.dispatchEvent(new Event('input'));
+  input.form!.requestSubmit();
+}
+
 beforeEach(() => {
   api.get.mockReset();
   document.body.innerHTML = '';
@@ -310,7 +318,8 @@ describe('the History section of Manage organization', () => {
     wrapper.unmount();
   });
 
-  it('shows the newest page, and Load more adds the older ones beneath it', async () => {
+  it('shows the newest page, and its end coming into view adds the older ones beneath it', async () => {
+    const observer = installIntersectionObserver();
     const asked = serve(
       { entries: [renamed('e3', 3, 'Three'), renamed('e2', 2, 'Two')], next: 'cursor-2' },
       { entries: [renamed('e1', 1, 'One')], next: null },
@@ -319,13 +328,67 @@ describe('the History section of Manage organization', () => {
     await flushPromises();
     byTestId('manage-org-history-toggle')!.click();
     await flushPromises();
+    expect(asked).toHaveLength(1);
 
-    byTestId('org-history-load-more')!.click();
-    await flushPromises();
+    await observer.showSentinels();
 
     expect(asked[1]).toBe('/organizations/org-1/history?before=cursor-2');
     expect(within().querySelectorAll('[data-testid="org-history-entry"]')).toHaveLength(3);
-    expect(byTestId('org-history-load-more')).toBeNull();
+    expect(sentences()[2]).toContain('"One"');
+    // The last page leaves nothing to watch and no button to press.
+    expect(observer.watched()).toBe(0);
+    expect(byTestId('org-history-sentinel')).toBeNull();
+    expect(within().textContent).not.toContain('Load more');
+    wrapper.unmount();
+  });
+
+  it('says so at the end of the list when a page fails, and Try again brings it', async () => {
+    const observer = installIntersectionObserver();
+    api.get
+      .mockResolvedValueOnce({ data: { entries: [renamed('e2', 2, 'Two')], next: 'cursor-2' } })
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ data: { entries: [renamed('e1', 1, 'One')], next: null } });
+    const wrapper = mountDialog();
+    await flushPromises();
+    byTestId('manage-org-history-toggle')!.click();
+    await flushPromises();
+
+    await observer.showSentinels();
+
+    expect(byTestId('org-history-read-failed')?.textContent).toContain(
+      'Older changes could not be loaded.',
+    );
+    expect(sentences()).toHaveLength(1);
+
+    byTestId('org-history-retry')!.click();
+    await flushPromises();
+
+    expect(byTestId('org-history-read-failed')).toBeNull();
+    expect(sentences()).toHaveLength(2);
+    wrapper.unmount();
+  });
+
+  it('drops a later page answered after a change read the first page again', async () => {
+    const observer = installIntersectionObserver();
+    let answerLate: (value: unknown) => void = () => {};
+    api.get
+      .mockResolvedValueOnce({ data: { entries: [renamed('e2', 2, 'Two')], next: 'cursor-2' } })
+      .mockReturnValueOnce(new Promise((resolve) => (answerLate = resolve)))
+      .mockResolvedValueOnce({ data: { entries: [renamed('e3', 3, 'Three')], next: null } });
+    api.put.mockResolvedValue({ data: {} });
+    const wrapper = mountDialog();
+    await flushPromises();
+    byTestId('manage-org-history-toggle')!.click();
+    await flushPromises();
+    await observer.showSentinels();
+
+    renameInTheDialog();
+    await flushPromises();
+    answerLate({ data: { entries: [renamed('e1', 1, 'One')], next: null } });
+    await flushPromises();
+
+    expect(sentences()).toHaveLength(1);
+    expect(sentences()[0]).toContain('"Three"');
     wrapper.unmount();
   });
 
@@ -351,10 +414,7 @@ describe('the History section of Manage organization', () => {
     byTestId('manage-org-history-toggle')!.click();
     await flushPromises();
 
-    const input = byTestId('manage-org-rename-input') as HTMLInputElement;
-    input.value = 'Ember Collective';
-    input.dispatchEvent(new Event('input'));
-    input.form!.requestSubmit();
+    renameInTheDialog();
     await flushPromises();
 
     expect(asked).toEqual(['/organizations/org-1/history', '/organizations/org-1/history']);

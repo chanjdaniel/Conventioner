@@ -17,6 +17,7 @@ import {
   type PermissionTableRow,
 } from '@/assets/types/datatypes';
 import { MarketAction } from '@/utils/marketActions';
+import { installIntersectionObserver } from './support/intersection';
 import { answersRefusing } from './support/servedAnswers';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn(), delete: vi.fn(), post: vi.fn() }));
@@ -194,11 +195,12 @@ describe('the selects', () => {
 });
 
 describe('the changes', () => {
-  it('are shown ten at a time, newest first, as the market history is', async () => {
-    const entries = Array.from({ length: 12 }, (_, n) => ({
+  it('are shown 25 at a time, newest first, as their end comes into view', async () => {
+    const observer = installIntersectionObserver();
+    const entries = Array.from({ length: 60 }, (_, n) => ({
       id: `entry-${n}`,
       actor: 'owner@example.com',
-      at: `2026-11-${String(20 - n).padStart(2, '0')}T10:00:00+00:00`,
+      at: new Date(Date.UTC(2026, 10, 20, 10) - n * 60_000).toISOString(),
       action: 'change-the-table',
       kind: 'permission_set',
       subject: { action: 'check-in' },
@@ -211,13 +213,57 @@ describe('the changes', () => {
 
     const section = await openSection(HELD);
     const shown = () => section.findAll('[data-testid="manage-market-permission-change"]');
-    expect(shown()).toHaveLength(10);
-
-    await section.get('[data-testid="manage-market-permission-changes-more"]').trigger('click');
-    expect(shown()).toHaveLength(12);
-    expect(section.find('[data-testid="manage-market-permission-changes-more"]').exists()).toBe(
-      false,
+    const box = '[data-testid="manage-market-permission-changes-box"]';
+    expect(section.get(box).find('[data-testid="manage-market-permission-changes"]').exists()).toBe(
+      true,
     );
+    expect(shown()).toHaveLength(25);
+
+    await observer.showSentinels();
+    expect(shown()).toHaveLength(50);
+
+    await observer.showSentinels();
+    expect(shown()).toHaveLength(60);
+
+    // All of them are read, so nothing is left to watch or to press, and no read went to the server.
+    expect(observer.watched()).toBe(0);
+    expect(section.text()).not.toContain('Load more');
+    expect(
+      api.get.mock.calls.filter(([url]) => url === '/markets/market-1/permission-history'),
+    ).toHaveLength(1);
+  });
+
+  it('name their box "Changes" as a region once it scrolls', async () => {
+    api.get.mockResolvedValue({
+      data: {
+        entries: [
+          {
+            id: 'entry-1',
+            actor: 'owner@example.com',
+            at: '2026-11-20T10:00:00+00:00',
+            action: 'change-the-table',
+            kind: 'permission_set',
+            subject: { action: 'check-in' },
+            detail: {
+              before: { role: 'editor', source: 'built-in' },
+              after: { role: 'admin', source: 'market' },
+            },
+          },
+        ],
+      },
+    });
+
+    const section = await openSection(HELD);
+    const box = section.get<HTMLElement>('[data-testid="manage-market-permission-changes-box"]');
+    Object.defineProperties(box.element, {
+      clientHeight: { configurable: true, value: 100 },
+      scrollHeight: { configurable: true, value: 400 },
+    });
+    await box.trigger('scroll');
+
+    expect(box.attributes('role')).toBe('region');
+    expect(box.attributes('aria-label')).toBe('Changes');
+    expect(box.attributes('tabindex')).toBe('0');
   });
 
   it('are left out, and never asked for, for a person the history is not open to', async () => {

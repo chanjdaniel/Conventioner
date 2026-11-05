@@ -502,7 +502,8 @@ Enter in its field does nothing, so in a dialog's form it never saves what the p
 `box="parent"` has no scroller, for rows in the flow of a dialog's body or the drawer's, so no scroller stands inside another with nothing beside it.
 It asks as an `aria-hidden` sentinel over the last 12rem of the rows comes into view through every scroller around it, so it asks before the reader reaches the end and a keyboard reaches it too, and it observes the sentinel again whenever the rows change, so a page too short to fill the box leads on to the next.
 At the end of the rows it says "Loading…" in a `role="status"` line, or `ReadFailed` on `error`, whose "Try again" also emits `more` and moves focus to the first control of what landed.
-Manage market's History and the vendor drawer's History tab are its screens, read through [`useHistoryPages`](../front-end/src/utils/useHistoryPages.ts).
+Manage market's History, the organization's History and the vendor drawer's History tab are its screens, read through [`useHistoryPages`](../front-end/src/utils/useHistoryPages.ts).
+The permission changes stand in it too, showing rows their screen read whole 25 at a time, since the box is what keeps a long record from pushing the rest of the dialog away.
 
 People named above the work rather than listed are [`NameList.vue`](../front-end/src/components/NameList.vue) (T200): one paragraph, so it reads as a sentence, "12 reviewers: Ana, Ben, Cai and 9 more", naming `named` (3), and its text button, "and 9 more", which a `.visually-hidden` noun names on its own, emits `more` for the screen to open the whole list.
 With `named` or fewer names it says them all and draws no button, so a screen keeps its own way to that list.

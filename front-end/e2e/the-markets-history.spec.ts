@@ -317,6 +317,45 @@ test('a page too short to fill the box still leads to the next one', async ({
   expect(await manage.historySentences.count()).toBeLessThan(served.whole);
 });
 
+test('a long record of permission changes stands in its own box, and its end shows the rest', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+  const changes = PAGE * 2 + 3;
+  for (let n = 0; n < changes; n++) {
+    await ok(
+      await request.put(`${BACKEND_URL}/markets/${seed.marketId}/permissions/check-in`, {
+        data: { role: n % 2 ? 'editor' : 'admin' },
+      }),
+    );
+  }
+  await page.goto(`/markets?q=${encodeURIComponent(seed.marketName)}`);
+  await page.getByTestId('market-card-manage-button').click();
+  const manage = new ManageMarketPage(page);
+  await manage.waitForOverlay();
+  await manage.showPermissions();
+
+  await expect(manage.permissionChanges).toHaveCount(PAGE);
+  const first = await manage.permissionChanges.allInnerTexts();
+  const box = manage.permissionChangesBox;
+  const height = await box.evaluate((element) => element.clientHeight);
+  expect(height).toBeLessThanOrEqual(BOX_MOST);
+  await expect(page.getByRole('region', { name: 'Changes' })).toHaveAttribute('tabindex', '0');
+
+  // Nothing among its rows takes focus, so the keys reach every change through the box itself.
+  await box.focus();
+  await expect(async () => {
+    await page.keyboard.press('End');
+    await expect(manage.permissionChanges).toHaveCount(changes, { timeout: 250 });
+  }).toPass({ timeout: 15_000 });
+
+  await expect(box).toBeFocused();
+  expect((await manage.permissionChanges.allInnerTexts()).slice(0, PAGE)).toEqual(first);
+  expect(await box.evaluate((element) => element.clientHeight)).toBe(height);
+  await expect(manage.window).not.toContainText('Load more');
+});
+
 test('a closed section reads no further, with its sentinel in view, until it is opened again', async ({
   authenticatedPage: page,
   request,

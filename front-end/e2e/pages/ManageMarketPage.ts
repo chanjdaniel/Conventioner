@@ -51,6 +51,7 @@ export class ManageMarketPage {
   readonly permissionSelects: Locator;
   readonly permissionSources: Locator;
   readonly permissionChanges: Locator;
+  readonly permissionChangesBox: Locator;
   readonly permissionsReset: Locator;
   readonly permissionConfirm: Locator;
   readonly permissionsCopy: Locator;
@@ -123,6 +124,7 @@ export class ManageMarketPage {
     this.permissionSelects = page.getByTestId('manage-market-permission-select');
     this.permissionSources = page.getByTestId('manage-market-permission-source');
     this.permissionChanges = page.getByTestId('manage-market-permission-change');
+    this.permissionChangesBox = page.getByTestId('manage-market-permission-changes-box');
     this.permissionsReset = page.getByTestId('manage-market-permissions-reset');
     // Each its own dialog, a sibling of Manage market.
     this.permissionConfirm = page.getByTestId('manage-market-permission-confirm-window');

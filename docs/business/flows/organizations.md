@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/views/OrganizationsView.vue
   - front-end/src/__tests__/OrganizationsView.test.ts
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - E26/F06/S02
   - E26/F08/S01
@@ -19,6 +19,7 @@ sources:
   - E38/F15/S01
   - T181
   - T204
+  - T224
 ---
 
 # Organizations
@@ -139,7 +140,7 @@ Its gaps worth a spec are in [walking the flows](../../implementation/testing/wa
 **Who:** the organization's owner, its admins and its members; anyone else is refused.
 
 1. On the organization's card, "Manage"; every one of its people has it, and a member's dialog holds only the owner, the default permissions ([B8](#b8-set-the-default-permissions-for-new-markets)) and the History.
-2. "History", a heading with a chevron, closed until opened, as [Manage market's](reading-the-markets-history.md#l6-read-the-markets-history) is; opening it reads the newest 10 changes, newest first, and "Load more" adds the next 10.
+2. "History", a heading with a chevron, closed until opened, as [Manage market's](reading-the-markets-history.md#l6-read-the-markets-history) is; opening it reads the newest 25 changes, newest first, in a box of bounded height, as Manage market's is, and the next 25 come as its end scrolls into view.
 3. Each change is one sentence and its time, worded as the market's history words them: "e2e@example.com renamed the organization from "Ember Markets" to "Ember Fairs"", "e2e@example.com gave priya@example.com the Admin role", "e2e@example.com changed priya@example.com from Member to Admin", "e2e@example.com took the Member role from priya@example.com", "e2e@example.com handed the organization to priya@example.com", "e2e@example.com created the market "Winter Fair"", "e2e@example.com deleted the market "Winter Fair"", "e2e@example.com added the floorplan template "Main hall"" (and "changed", "removed"), "e2e@example.com moved the floorplan template "Main hall" out of the organization" (and "into"), "e2e@example.com changed Check vendors in for new markets from Editor to Admin", "e2e@example.com set Check vendors in for new markets back to its default, Editor", "e2e@example.com reset Check vendors in and Export CSV for new markets to their built-in defaults".
 4. "Before and after" opens a table of what each change set, as it was and as it is.
 5. A change made in the dialog while the History is open (a person added or removed, a rename, a change to the default permissions) shows at its top as it lands, without reopening the dialog.
@@ -159,7 +160,7 @@ Covered by:
 2. Open, it lists the rows of a market's table as [Manage market's Permissions](ending-and-managing-a-market.md#l3a-set-who-may-do-what) does, each with where its role came from ("Built-in default", or "Set for this organization by <address>, <when>"), a "Who may" dropdown for the owner and the admins, the same "Always" for a fixed row, and the same note beside "Give and take Editor and Viewer roles".
 3. Choosing a role asks first: "Change “Check vendors in” for new markets?", the row from its role now to the one chosen and who loses or gains it, and "Markets created from now on start with this. The markets it already holds keep their own."; "Change" saves that row alone, Cancel puts the dropdown back.
 4. "Reset to built-in defaults" lists each row it returns, opens on Cancel, and resets them all in one write, recorded as one change.
-5. "Changes" lists every change to the default, newest first, ten at a time: the row, its role before and after, who and when; each is in the organization's History too ([B7](#b7-read-the-organizations-history)).
+5. "Changes" lists every change to the default, newest first, in a box of bounded height that shows 25 more as its end scrolls into view: the row, its role before and after, who and when; each is in the organization's History too ([B7](#b7-read-the-organizations-history)).
 6. For a member the section is read-only and says "Only the organization's owner and its admins change these."
 
 A market created in the organization afterwards starts with these rows, each "Copied from the organization" in its own Permissions section; a market created before keeps its own until its owner copies the organization's defaults again ([L3a](ending-and-managing-a-market.md#l3a-set-who-may-do-what)).
@@ -168,3 +169,4 @@ Covered by:
 - `organizationPermissions.test.ts`
 - `test_the_organizations_default.py` for the writes, the refusals and the copy
 - `the-organizations-default.spec.ts`
+- `the-organizations-history.spec.ts` for a long record of its changes, in their box

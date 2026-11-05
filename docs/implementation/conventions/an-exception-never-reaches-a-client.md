@@ -266,7 +266,7 @@ The account pages (sign in, register, password reset, email verification) still 
 
 **A screen whose own read failed offers Try again**: [`ReadFailed.vue`](../../../front-end/src/components/ReadFailed.vue) shows the message with a button that runs the read once more, its test ids `<name>-read-failed` and `<name>-retry`.
 Applications (both views, `applications`), Markets (`markets`), Organizations (`organizations`), Assignments (`tables`) and Attendance (`attendance`) use it; a market that could not be loaded at all is [the market frame](../modules/market-frame.md)'s `MarketArrival` to say, with its own Try again.
-A list the server pages shows it at the list's end for a page that failed, from [`PagedList.vue`](../../../front-end/src/components/PagedList.vue) (Manage market's History and a vendor's, `market-history`).
+A list the server pages shows it at the list's end for a page that failed, from [`PagedList.vue`](../../../front-end/src/components/PagedList.vue) (Manage market's History and a vendor's, `market-history`, and the organization's, `org-history`).
 Its button is a `.btn`, so it is 44px on a phone.
 
 **A session that ends mid-work** answers 401 to the next request, and one response interceptor on `api`, installed from `main.ts` by `installSessionEnded` in [`front-end/src/utils/sessionEnded.ts`](../../../front-end/src/utils/sessionEnded.ts), takes the organizer to sign in again.

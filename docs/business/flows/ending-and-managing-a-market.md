@@ -39,6 +39,7 @@ sources:
   - T181
   - T211
   - T204
+  - T224
 ---
 
 # Ending and managing a market
@@ -147,7 +148,7 @@ Covered by:
 4. Choosing a role asks first, in words naming who may after it and who loses or gains it ("Let only Admins and the owner check vendors in at this market?", "Editors lose this."), and for that row lowered to Viewer adds "A Viewer could then make themself an Editor."; "Change" saves that row alone, Cancel puts the dropdown back, and a refusal is said in the confirmation.
 5. "Reset to built-in defaults" lists each row it returns, from its role now to its default, opens on Cancel since it throws away every row the owner set, and resets them all in one write, recorded as one change; it is disabled while every row is at its default, so after a reset focus goes to the section's toggle rather than back to it.
 6. "Copy the organization's defaults again", beside it for the owner of a market that belongs to an organization, asks first ("Copy the organization's defaults again?", saying every row takes the organization's default as it is now, a row it does not set returns to its built-in default, and rows changed on this market are replaced), opens on Cancel, and copies them in one write, recorded as one change; each copied row then says "Copied from the organization".
-7. "Changes" lists the market's history narrowed to the table, newest first, ten at a time with "Load more" as the market's History pages: the row, its role before and after ("Editor to Admin"), or "Reset to built-in defaults" or "Copied the organization's defaults" with each row it changed, and who made it and when, by their address, as "Users with access" names people.
+7. "Changes" lists the market's history narrowed to the table, newest first, in a box of bounded height that shows 25 more as its end scrolls into view, as the market's History does: the row, its role before and after ("Editor to Admin"), or "Reset to built-in defaults" or "Copied the organization's defaults" with each row it changed, and who made it and when, by their address, as "Users with access" names people.
    It is the market's history, so someone the row "Read the market's history" refuses (an owner may raise it above the roles that see this section) has no "Changes", and a row changed on this market says only "Changed on this market".
 8. For anyone but the owner the section is read-only and says "Only the market's owner changes these."; on an archived market, the owner included, it says the archived words instead.
 
@@ -161,6 +162,7 @@ Covered by:
 - `manageIsOfferedToWhoeverReads.test.ts`
 - `marketPermissions.test.ts`
 - `permissionTable.test.ts`
+- `the-markets-history.spec.ts` for a long record of its changes, in their box
 - `the-organizations-default.spec.ts` for the copy again
 - [`the-permissions-section.spec.ts`](../../../front-end/e2e/the-permissions-section.spec.ts) (a group's title nearer its rows than the group above, at 1280 and 390)
 
