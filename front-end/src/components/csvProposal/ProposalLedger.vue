@@ -14,6 +14,7 @@
  * and never changes what it was handed.
  */
 import { computed, ref } from 'vue';
+import ListFrame from '@/components/ListFrame.vue';
 import ValueFixes from '@/components/ValueFixes.vue';
 import {
   choiceOfTarget,
@@ -31,6 +32,7 @@ import {
   type Proposal,
   type ProposalDraft,
   type ProposedDate,
+  type ProposedOption,
   type RowChoice,
 } from '@/utils/csvProposal';
 import { ESSENTIAL_KEYS, essentialLabel } from '@/utils/essentialFields';
@@ -60,23 +62,18 @@ const emit = defineEmits<{
 const rows = computed(() => draftRows(props.proposal, props.draft));
 
 /**
- * How many options a question shows before "Show all answers". A checkbox question's one-off
- * answers run to hundreds; every one is there to keep, but listing them all at once buried the
- * ledger (bug 4).
+ * How many options a question draws before "Show all N". A checkbox question's one-off answers run
+ * to hundreds; every one is there to keep, but listing them all at once buried the ledger (bug 4).
+ * As chips, 228 kept answers would stand 5,120px tall in this column, so each stays a tick with its
+ * count, in a frame (T223).
  */
 const FIRST_OPTIONS = 20;
-const showingAll = ref<Set<number>>(new Set());
 
-function shownOptions(row: LedgerRow) {
-  const options = row.field?.options ?? [];
-  return showingAll.value.has(first(row)) ? options : options.slice(0, FIRST_OPTIONS);
-}
+/** Each question's words are its own, and last as long as its row, whatever it becomes meanwhile. */
+const optionWords = ref<Record<number, string>>({});
 
-function toggleShowAll(row: LedgerRow) {
-  const next = new Set(showingAll.value);
-  if (next.has(first(row))) next.delete(first(row));
-  else next.add(first(row));
-  showingAll.value = next;
+function findsAnswer(option: ProposedOption, words: string): boolean {
+  return option.value.toLowerCase().includes(words.toLowerCase());
 }
 
 /** Keep every option of the row's reading, one-offs included, in one click (bug 4). */
@@ -375,60 +372,57 @@ function onSettle(kind: string, value: string, choice: string) {
                 </label>
               </div>
 
-              <div
+              <ListFrame
                 v-if="row.fate === 'custom' && row.field?.options.length"
-                class="options"
-                data-testid="proposal-row-options"
+                v-model:words="optionWords[first(row)]"
+                :items="row.field.options"
+                :filter-key="row.field.type"
+                :finds="findsAnswer"
+                :item-key="(option) => option.value"
+                :noun="{ one: 'answer', many: 'answers' }"
+                :page-size="FIRST_OPTIONS"
+                show-all
+                find-label="Find an answer"
+                testid="proposal-row-list"
               >
-                <label
-                  v-for="option in shownOptions(row)"
-                  :key="option.value"
-                  class="option"
-                  :class="{ rare: option.rare }"
-                  data-testid="proposal-option"
-                >
-                  <input
-                    type="checkbox"
-                    :checked="option.keep"
-                    @change="emit('toggle', first(row), option.value)"
-                  />
-                  <!-- One run of text, so the count follows the option's last word (bug 43): as
-                       two flex items, a long option took the line and pushed it to the far edge. -->
-                  <span class="option-text"
-                    >{{ option.value }}
-                    <span class="muted">{{
-                      option.rare ? `chosen by ${option.count} - keep?` : option.count
-                    }}</span></span
+                <template v-if="row.field.options.some((o) => !o.keep)" #filters>
+                  <button
+                    type="button"
+                    class="btn btn--secondary keep-all"
+                    data-testid="proposal-row-keep-all"
+                    @click="keepAll(row)"
                   >
-                </label>
-              </div>
-              <div
-                v-if="row.fate === 'custom' && row.field?.options.length"
-                class="options-actions"
-              >
-                <button
-                  v-if="row.field.options.length > FIRST_OPTIONS"
-                  type="button"
-                  class="btn btn--compact btn--secondary"
-                  data-testid="proposal-row-show-all"
-                  @click="toggleShowAll(row)"
-                >
-                  {{
-                    showingAll.has(first(row))
-                      ? 'Show fewer answers'
-                      : `Show all answers (${row.field.options.length - FIRST_OPTIONS} more)`
-                  }}
-                </button>
-                <button
-                  v-if="row.field.options.some((o) => !o.keep)"
-                  type="button"
-                  class="btn btn--compact btn--secondary"
-                  data-testid="proposal-row-keep-all"
-                  @click="keepAll(row)"
-                >
-                  Keep all {{ row.field.options.length }}
-                </button>
-              </div>
+                    Keep all {{ row.field.options.length }}
+                  </button>
+                </template>
+                <template #rows="{ rows: options }">
+                  <div class="options" data-testid="proposal-row-options">
+                    <label
+                      v-for="option in options"
+                      :key="option.value"
+                      class="option"
+                      :class="{ rare: option.rare }"
+                      data-list-row
+                      tabindex="-1"
+                      data-testid="proposal-option"
+                    >
+                      <input
+                        type="checkbox"
+                        :checked="option.keep"
+                        @change="emit('toggle', first(row), option.value)"
+                      />
+                      <!-- One run of text, so the count follows the option's last word (bug 43): as
+                           two flex items, a long option took the line and pushed it to the far edge. -->
+                      <span class="option-text"
+                        >{{ option.value }}
+                        <span class="muted">{{
+                          option.rare ? `chosen by ${option.count} - keep?` : option.count
+                        }}</span></span
+                      >
+                    </label>
+                  </div>
+                </template>
+              </ListFrame>
               <!-- Said before it happens: a required question an applicant has no kept answer to
                    refuses their whole application at the import (bug 4). -->
               <p
@@ -629,11 +623,9 @@ function onSettle(kind: string, value: string, choice: string) {
   color: var(--mm-text-muted);
 }
 
-.options-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
+/* Ends on the field's line where the two fit; where they do not, the frame wraps it under. */
+.keep-all {
+  align-self: flex-end;
 }
 
 .dropped {

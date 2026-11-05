@@ -217,12 +217,13 @@ test.describe('Draft this market from a Google Form', () => {
     );
 
     // Every answer can be seen and ticked, one-offs included.
-    const listed = await selling.getByTestId('proposal-option').count();
-    await selling.getByTestId('proposal-row-show-all').click();
-    expect(await selling.getByTestId('proposal-option').count()).toBeGreaterThan(listed + 50);
+    const answers = flow.answers(selling);
+    const listed = await answers.options.count();
+    await answers.more.click();
+    expect(await answers.options.count()).toBeGreaterThan(listed + 50);
 
     // And one click keeps them all.
-    await selling.getByTestId('proposal-row-keep-all').click();
+    await answers.keepAll.click();
     await expect(selling.getByTestId('proposal-row-dropped')).toHaveCount(0);
     await expect(
       selling.locator('[data-testid="proposal-option"] input:not(:checked)'),

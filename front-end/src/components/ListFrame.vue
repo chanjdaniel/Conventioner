@@ -32,8 +32,8 @@ export const LIST_FIND_FROM = 12;
  * - With `showAll`, a list read whole by asking: `pageSize` says the first page, the button reads
  *   "Show all N" and draws every row the words find, handing the focus on the same way, then "Show
  *   fewer", which goes back to one page, keeps the focus and brings itself into view, as `useFold`
- *   does. The count line shows only with the field or while rows are cut, since such a list stands
- *   under a heading that counts it.
+ *   does. The count line shows only with the field or while rows are cut, since a list that short is
+ *   read at a glance, often under a heading that counts it.
  * - A screen whose rows are its own (a `ul` or `table` with its own classes, or groups between the
  *   rows) gives the `rows` slot rather than `row`, each row carrying `data-list-row` and
  *   `tabindex="-1"`, which is how the focus finds it.

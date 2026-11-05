@@ -1,5 +1,29 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
+/** A question's answers on the proposal: the first 20, "Show all N", a find field past 12. */
+class ProposalAnswers {
+  readonly root: Locator;
+  readonly find: Locator;
+  readonly count: Locator;
+  readonly more: Locator;
+  readonly keepAll: Locator;
+  readonly options: Locator;
+
+  constructor(row: Locator) {
+    this.root = row.getByTestId('proposal-row-list');
+    this.find = row.getByTestId('proposal-row-list-find');
+    this.count = row.getByTestId('proposal-row-list-count');
+    this.more = row.getByTestId('proposal-row-list-more');
+    this.keepAll = row.getByTestId('proposal-row-keep-all');
+    this.options = row.getByTestId('proposal-option');
+  }
+
+  /** The row of the answer holding `words`. */
+  option(words: string): Locator {
+    return this.options.filter({ hasText: words });
+  }
+}
+
 /**
  * Page object for starting a draft from a Google Form's responses (`/markets/:id/start-from-csv`).
  *
@@ -63,6 +87,10 @@ export class StartFromCsvPage {
     return this.rows.filter({
       has: this.page.getByTestId('proposal-row-header').filter({ hasText: starts }),
     });
+  }
+
+  answers(row: Locator): ProposalAnswers {
+    return new ProposalAnswers(row);
   }
 
   async count(which: 'to-check' | 'custom' | 'left-out' | 'essential'): Promise<number> {
