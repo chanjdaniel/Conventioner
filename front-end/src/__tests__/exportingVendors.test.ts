@@ -6,8 +6,10 @@
  * server builds the file and the preview from the same filters.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { flushPromises, mount } from '@vue/test-utils';
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import ExportVendorsDialog from '@/components/ExportVendorsDialog.vue';
+import ExportVendorsForm from '@/components/ExportVendorsForm.vue';
+import ScrollBox from '@/components/ScrollBox.vue';
 import {
   applicationsAllSeed,
   chosenColumns,
@@ -34,9 +36,9 @@ vi.mock('@/utils/api', async (importOriginal) => {
   return {
     ...actual,
     api: {
-      post: (url: string, body: { columns?: string[] }) => {
+      post: async (url: string, body: { columns?: string[] }) => {
         posted.push({ url, body });
-        return Promise.resolve({ data: answer(body), headers: {} });
+        return { data: answer(body), headers: {} };
       },
     },
   };
@@ -381,7 +383,7 @@ describe('the dialog', () => {
     posted.length = 0;
 
     await wrapper.get('[data-testid="vendor-export-column-answer:category"]').setValue(true);
-    await wrapper.get('[data-testid="vendor-export-move-up-answer:category"]').trigger('click');
+    await wrapper.get('[data-testid="vendor-export-order-up-answer:category"]').trigger('click');
     await vi.runAllTimersAsync();
     await flushPromises();
 
@@ -416,7 +418,7 @@ describe('the dialog', () => {
     await wrapper.get('[data-testid="vendor-export-column-datesPlaced"]').setValue(true);
 
     expect(
-      wrapper.findAll('[data-testid="vendor-export-order-item"]').map((i) => i.text()),
+      wrapper.findAll('[data-testid="vendor-export-order-label"]').map((i) => i.text()),
     ).toEqual(['Name', 'Email', 'Status', 'Dates assigned']);
     wrapper.unmount();
   });
@@ -523,6 +525,305 @@ describe('the dialog', () => {
       (wrapper.get('[data-testid="vendor-export-submit-button"]').element as HTMLButtonElement)
         .disabled,
     ).toBe(true);
+    wrapper.unmount();
+  });
+
+  describe('the cart', () => {
+    const inCart = (wrapper: VueWrapper, testid: string) =>
+      wrapper.get('[data-testid="vendor-export-tray"]').find(`[data-testid="${testid}"]`);
+
+    it('holds the count, the order, the preview’s header and its rows, all in the tray', async () => {
+      const wrapper = await opened();
+
+      expect(inCart(wrapper, 'vendor-export-summary').text()).toBe('4 vendors, 3 columns');
+      expect(inCart(wrapper, 'vendor-export-order').exists()).toBe(true);
+      expect(inCart(wrapper, 'vendor-export-preview-header').text()).toBe('NameEmailStatus');
+      expect(
+        wrapper
+          .get('[data-testid="vendor-export-tray"]')
+          .findAll('[data-testid="vendor-export-preview-row"]'),
+      ).toHaveLength(3);
+      wrapper.unmount();
+    });
+
+    it('draws a broad dialog whose body alone scrolls', async () => {
+      const wrapper = await opened();
+
+      const window = wrapper.get('[data-testid="vendor-export-window"]');
+      expect(window.classes()).toContain('dialog-window--broad');
+      expect(window.classes()).toContain('dialog-window--body');
+      expect(wrapper.find('[data-testid="vendor-export-body"]').exists()).toBe(true);
+      wrapper.unmount();
+    });
+
+    it('draws the preview as the data table, one line a cell, in a named sideways box', async () => {
+      const wrapper = await opened();
+
+      const box = wrapper
+        .findAllComponents(ScrollBox)
+        .find((each) => each.props('testid') === 'vendor-export-preview')!;
+      expect(box.props()).toMatchObject({ axis: 'x', label: "The file's first rows" });
+      expect(box.classes()).toContain('data-table-scroll');
+      expect(box.get('table').classes()).toEqual(
+        expect.arrayContaining(['data-table', 'data-table--one-line']),
+      );
+      expect(wrapper.find('.export-table').exists()).toBe(false);
+      expect(wrapper.find('.export-table-scroll').exists()).toBe(false);
+      wrapper.unmount();
+    });
+
+    it('takes a column out, unticks it in the list, and asks again without it', async () => {
+      vi.useFakeTimers();
+      const wrapper = await opened();
+      await vi.runAllTimersAsync();
+      posted.length = 0;
+
+      await wrapper.get('[data-testid="vendor-export-remove-email"]').trigger('click');
+      await vi.runAllTimersAsync();
+      await flushPromises();
+
+      expect(
+        wrapper.findAll('[data-testid="vendor-export-order-label"]').map((i) => i.text()),
+      ).toEqual(['Name', 'Status']);
+      expect(
+        (wrapper.get('[data-testid="vendor-export-column-email"]').element as HTMLInputElement)
+          .checked,
+      ).toBe(false);
+      expect(posted.at(-1)?.body).toMatchObject({ columns: ['name', 'status'] });
+      wrapper.unmount();
+    });
+
+    it('moves the focus to the next Remove when one goes, and to the one before at the end', async () => {
+      const wrapper = await opened();
+      const remove = (id: string) => wrapper.get(`[data-testid="vendor-export-remove-${id}"]`);
+
+      await remove('name').trigger('click');
+      await flushPromises();
+      expect(document.activeElement).toBe(remove('email').element);
+
+      await remove('status').trigger('click');
+      await flushPromises();
+      expect(document.activeElement).toBe(remove('email').element);
+      wrapper.unmount();
+    });
+
+    it('moves the focus into the dialog when the last column goes, never to the page', async () => {
+      const wrapper = await opened();
+
+      for (const id of OFFERED.defaultColumns) {
+        await wrapper.get(`[data-testid="vendor-export-remove-${id}"]`).trigger('click');
+        await flushPromises();
+      }
+
+      expect(document.activeElement).toBe(
+        wrapper.get('[data-testid="vendor-export-search"]').element,
+      );
+      wrapper.unmount();
+    });
+
+    it('never opens on a Remove: a stray Enter would take a column', async () => {
+      const wrapper = await opened();
+
+      expect(wrapper.get('[data-testid="vendor-export-remove-name"]').attributes()).toHaveProperty(
+        'data-dialog-not-first',
+      );
+      expect(document.activeElement).toBe(
+        wrapper.get('[data-testid="vendor-export-search"]').element,
+      );
+      wrapper.unmount();
+    });
+
+    it('says when no column is chosen, in the cart, with the preview gone', async () => {
+      const wrapper = await opened();
+
+      for (const id of OFFERED.defaultColumns) {
+        await wrapper.get(`[data-testid="vendor-export-column-${id}"]`).setValue(false);
+      }
+
+      expect(inCart(wrapper, 'vendor-export-order-none').text()).toBe(
+        'Choose a column to export it.',
+      );
+      expect(wrapper.find('[data-testid="vendor-export-preview"]').exists()).toBe(false);
+      wrapper.unmount();
+    });
+
+    it('says when no vendor matches, in the cart', async () => {
+      const answering = answer;
+      answer = (body) => ({ ...answering(body), count: 0, rows: [] });
+      const wrapper = await opened();
+
+      expect(inCart(wrapper, 'vendor-export-no-vendor').text()).toBe(
+        'No vendor matches these filters.',
+      );
+      expect(inCart(wrapper, 'vendor-export-summary').text()).toBe('0 vendors, 3 columns');
+      expect(wrapper.find('[data-testid="vendor-export-preview"]').exists()).toBe(false);
+      wrapper.unmount();
+    });
+
+    it('says a first preview that failed in the cart, with no loading line left', async () => {
+      answer = () => {
+        throw new Error('down');
+      };
+      const wrapper = await opened();
+
+      expect(inCart(wrapper, 'vendor-export-preview-error').text()).toBe(
+        'The preview could not be loaded.',
+      );
+      expect(wrapper.text()).not.toContain('Loading');
+      expect(
+        (wrapper.get('[data-testid="vendor-export-submit-button"]').element as HTMLButtonElement)
+          .disabled,
+      ).toBe(true);
+      wrapper.unmount();
+    });
+
+    it('says a later failure in the cart in place of a count and rows it can no longer stand by', async () => {
+      vi.useFakeTimers();
+      const wrapper = await opened();
+      await vi.runAllTimersAsync();
+      answer = () => {
+        throw new Error('down');
+      };
+
+      await wrapper.get('[data-testid="vendor-export-search"]').setValue('ana');
+      await vi.runAllTimersAsync();
+      await flushPromises();
+
+      expect(inCart(wrapper, 'vendor-export-preview-error').text()).toBe(
+        'The preview could not be loaded.',
+      );
+      expect(wrapper.find('[data-testid="vendor-export-summary"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="vendor-export-preview"]').exists()).toBe(false);
+      // The columns are still the organizer's to set, and the file is still theirs to ask for.
+      expect(inCart(wrapper, 'vendor-export-order').exists()).toBe(true);
+      expect(
+        (wrapper.get('[data-testid="vendor-export-submit-button"]').element as HTMLButtonElement)
+          .disabled,
+      ).toBe(false);
+      wrapper.unmount();
+    });
+
+    it('folds by a toggle that says what it does', async () => {
+      const wrapper = await opened();
+
+      const toggle = wrapper.get('[data-testid="vendor-export-cart-toggle"]');
+      const cart = wrapper.get('[data-testid="vendor-export-cart"]');
+      expect(toggle.text()).toBe('Show the file');
+      expect(toggle.attributes('aria-expanded')).toBe('false');
+      expect(cart.classes()).not.toContain('export-cart--open');
+
+      await toggle.trigger('click');
+
+      expect(toggle.text()).toBe('Hide the file');
+      expect(toggle.attributes('aria-expanded')).toBe('true');
+      expect(cart.classes()).toContain('export-cart--open');
+      wrapper.unmount();
+    });
+  });
+});
+
+describe('the form, drawn from what it is given', () => {
+  const preview: ExportPreview = {
+    count: 2,
+    header: ['Name', 'Email'],
+    rows: [['Ana', 'ana@example.test']],
+    offered: OFFERED,
+  };
+  const order = OFFERED.columns.filter((column) => ['name', 'email'].includes(column.id));
+  const filtersOf = () => ({ ...NO_FILTERS, statuses: [], discord: [], answers: { category: [] } });
+
+  function form(props: Partial<InstanceType<typeof ExportVendorsForm>['$props']> = {}) {
+    return mount(ExportVendorsForm, {
+      props: {
+        open: true,
+        offered: OFFERED,
+        filters: filtersOf(),
+        order,
+        preview,
+        previewError: '',
+        error: '',
+        busy: false,
+        ...props,
+      },
+      attachTo: document.body,
+    });
+  }
+
+  beforeEach(() => {
+    posted.length = 0;
+  });
+
+  it('draws the dialog and asks the server nothing', async () => {
+    const wrapper = form();
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="vendor-export-summary"]').text()).toBe(
+      '2 vendors, 2 columns',
+    );
+    expect(wrapper.findAll('[data-testid="vendor-export-preview-row"]')).toHaveLength(1);
+    expect(posted).toEqual([]);
+    wrapper.unmount();
+  });
+
+  it('says what the organizer changed, and leaves the download to whoever holds it', async () => {
+    const wrapper = form();
+
+    await wrapper.get('[data-testid="vendor-export-remove-name"]').trigger('click');
+    expect(wrapper.emitted('update:order')?.at(-1)?.[0]).toEqual([order[1]]);
+
+    await wrapper.get('form').trigger('submit');
+    expect(wrapper.emitted('download')).toHaveLength(1);
+
+    await wrapper.get('[data-testid="vendor-export-cancel-button"]').trigger('click');
+    expect(wrapper.emitted('close')).toHaveLength(1);
+    wrapper.unmount();
+  });
+
+  it('says it is busy on the button, with the button disabled', () => {
+    const wrapper = form({ busy: true });
+
+    const button = wrapper.get('[data-testid="vendor-export-submit-button"]');
+    expect(button.text()).toBe('Downloading…');
+    expect((button.element as HTMLButtonElement).disabled).toBe(true);
+    wrapper.unmount();
+  });
+
+  it('says what refused the download above the buttons', () => {
+    const wrapper = form({ error: 'The export could not be downloaded.' });
+
+    expect(wrapper.get('[data-testid="vendor-export-error"]').text()).toBe(
+      'The export could not be downloaded.',
+    );
+    wrapper.unmount();
+  });
+
+  it('moves the focus to the first field when the first answer draws the fields', async () => {
+    const wrapper = form({ offered: null, preview: null, order: [] });
+    await flushPromises();
+    expect(wrapper.find('[data-testid="vendor-export-search"]').exists()).toBe(false);
+    expect(document.activeElement).toBe(
+      wrapper.get('[data-testid="vendor-export-cancel-button"]').element,
+    );
+
+    await wrapper.setProps({ offered: OFFERED, preview, order });
+    await flushPromises();
+
+    expect(document.activeElement).toBe(
+      wrapper.get('[data-testid="vendor-export-search"]').element,
+    );
+    wrapper.unmount();
+  });
+
+  it('leaves the focus where the organizer moved it before the first answer', async () => {
+    const wrapper = form({ offered: null, preview: null, order: [] });
+    await flushPromises();
+    const close = wrapper.get('[data-testid="vendor-export-close-button"]').element as HTMLElement;
+    close.focus();
+
+    await wrapper.setProps({ offered: OFFERED, preview, order });
+    await flushPromises();
+
+    expect(document.activeElement).toBe(close);
     wrapper.unmount();
   });
 });

@@ -4,6 +4,7 @@ kind: flow
 describes:
   - front-end/src/views/VendorsView.vue
   - front-end/src/components/ExportVendorsDialog.vue
+  - front-end/src/components/ExportVendorsForm.vue
   - front-end/src/utils/vendorExport.ts
   - back-end/api/vendor_export.py
   - front-end/src/components/GiveRolesDialog.vue
@@ -94,7 +95,7 @@ Covered by:
 **Status:** Works (E42/F01/S01, `exporting-vendors.spec.ts`; the placement columns E42/F01/S02, `exporting-placements-by-date.spec.ts`; from the Applications tab E42/F01/S03, `exporting-from-the-applications-tab.spec.ts`; the money columns E42/F01/S04, `exporting-a-payment-reminder.spec.ts`; the Discord columns E42/F01/S05, `exporting-discord-columns.spec.ts`, against the stack's fake Discord).
 For a Google Sheet and a mail merge such as YAMM: any of the market's vendors, filtered by what the app knows of them, with the columns chosen.
 
-1. "Export", beside the show-only choices, opens "Export vendors" ([`ExportVendorsDialog.vue`](../../../front-end/src/components/ExportVendorsDialog.vue)) on what the page shows ([`vendorsPageSeed`](../../../front-end/src/utils/vendorExport.ts)): "Unassigned only" as the approved and added vendors not assigned, on the page's date when one is chosen; "Rejected only" as the rejected; the page's date, section, tier and table size as the vendors assigned there; the page's Discord state as the vendors in it; and the search.
+1. "Export", beside the show-only choices, opens "Export vendors" ([`ExportVendorsDialog.vue`](../../../front-end/src/components/ExportVendorsDialog.vue), drawn by [`ExportVendorsForm.vue`](../../../front-end/src/components/ExportVendorsForm.vue)) on what the page shows ([`vendorsPageSeed`](../../../front-end/src/utils/vendorExport.ts)): "Unassigned only" as the approved and added vendors not assigned, on the page's date when one is chosen; "Rejected only" as the rejected; the page's date, section, tier and table size as the vendors assigned there; the page's Discord state as the vendors in it; and the search.
    The Applications tab's All view opens the same dialog on its status filter and Mine ([the All view](review.md#the-all-view), `applicationsAllSeed`).
 2. Every filter is shown and may be changed: the name or email searched; the status, any of Open, Needs follow-up, Approved, Rejected and Added by hand, none ticked being any; "Mine: the follow-ups I own", the follow-ups whose owner is the one exporting, as the server reads who asks; assigned or not ("Assigned", "Assigned or not", "Not assigned"), on any date or on one; for the assigned, the seat's section, tier and size; "Payment", one of "Paid or not", "Owes", "Paid in full" and "Paid more than owed", as the vendor's Payment tab reads what they paid against what they owe ([payments](../../implementation/data/payments.md)), a vendor owing nothing and having paid nothing being none of the three, and on a market with no prices offered only where some vendor owes, by an amount set by hand or a refund beyond what they paid, since an account owing nothing there is otherwise in none of them, as the Payments page offers its filters; once a Discord check has run, the Discord state as the Vendors page shows it, any of Has the role, In the server, Possible match, Not found, No username and Check again, none ticked being any; and the options of each of the form's choice questions, any of which the vendor chose.
    The two differ in shape on purpose: a vendor's payment is one state, so "Payment" is one choice, while the Discord states are ticked as Status is, so "Not found or No username" is one export.
@@ -107,8 +108,11 @@ For a Google Sheet and a mail merge such as YAMM: any of the market's vendors, f
    So a payment reminder is one export: "Owes", with Name, Email and Still owed.
 6. "Discord" holds what the market knows of each vendor there (E42/F01/S05): "Discord username", the answer to the Discord card's username question as updated, tidied as the check reads it (lowercase, with no leading `@` or old `#1234` tag, so a mail merge never quotes `'@name`), offered while the card names one of the form's text questions, and then listed here rather than under "Answers"; "Discord state", the vendor's state as the Vendors page shows it, in its words, "Possible match" and "Check again" included ([J16](#j16-see-who-is-in-the-discord-server)), empty for a vendor the last check did not read (one who applied since, or a waitlist application), offered once a check has run; and "Discord invite link", the card's link on every row, offered when it holds one.
    So "please fix your Discord username" is one export: "Not found" on the page, Export, and tick the username ([who is in the server](../../implementation/modules/discord.md#who-is-in-the-server)).
-7. "In the file, in this order" lists the ticked columns: a column ticked joins the end, and each is moved by dragging or with its up and down buttons.
-8. "N vendors, M columns" and the file's first three rows preview it, and follow every change.
+7. The dialog is 60rem wide and no taller than 80% of the window, and only the filters and the columns scroll: a cart stays pinned above Cancel and "Download CSV".
+   "In the file, in this order" lists the ticked columns: a column ticked joins the end, and each is moved by dragging or with its up and down buttons, or taken out with its Remove, which also unticks it.
+8. Beside the order, the cart shows the file's first three rows under its header in that order, and beneath them "N vendors, M columns"; all of it follows every change.
+   With no column chosen it says "Choose a column to export it." and "Download CSV" is disabled; with no vendor matching it says "No vendor matches these filters."; a preview that failed says so on the cart's line, in place of a count and rows it can no longer stand by.
+   At 640px wide or less, or 500px tall or less, the cart folds to that line with "Show the file", so the choosing has the room and the buttons stay in view.
 9. "Download CSV" saves one row per vendor, the header the columns as named, a multi-select answer one cell joined by ", ", a box Yes or No. The file is UTF-8 with a byte-order mark, so a spreadsheet reads accents, and is named for the market and the organizer's day, `<market>_vendors_<YYYY-MM-DD>.csv`.
 
 The server builds the file and the preview from the filters the dialog sends ([`vendor_export.py`](../../../back-end/api/vendor_export.py)), so what is exported is what the server holds, a seat is read from the stored placements the Assignments page draws, and a Discord state as the Vendors page shows it, worked out from what the last check kept on the market and the answers now (`shown_vendors`), so the file and the page agree.
@@ -126,6 +130,7 @@ Covered by:
 - `exporting-placements-by-date.spec.ts`
 - `exporting-vendors.spec.ts`
 - `exportingVendors.test.ts`
+- `the-export-dialogs-cart-stays-in-view.spec.ts`
 
 ## J16. See who is in the Discord server
 

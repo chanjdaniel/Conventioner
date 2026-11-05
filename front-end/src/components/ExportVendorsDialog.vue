@@ -4,30 +4,18 @@
  * from the Vendors page or the Applications tab's All view (S03). A payment reminder is one
  * export: "Owes" and the amount still owed (S04).
  *
- * It opens on the page's filters (`seed`), shows them and lets them change. The columns are ticked
- * under their headings, where they sit on each date under "Assignment" (S02) and the Discord
- * username, state and invite link under "Discord" (S05), and the ticked ones are put in order
- * beneath, by dragging or with each row's move buttons. Before the download it says how many
- * vendors and columns the file holds and shows its first rows, which the server builds from the
- * same filters as the file.
+ * This is what the dialog asks of the server: it opens on the page's filters (`seed`), asks for the
+ * preview as they and the columns change, and downloads the file, which the server builds from the
+ * same filters as the preview. `ExportVendorsForm` draws it.
  */
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
-import draggable from 'vuedraggable';
-import AppDialog from '@/components/AppDialog.vue';
-import IconClickDrag from '@/components/icons/IconClickDrag.vue';
-import IconExpandDown from '@/components/icons/IconExpandDown.vue';
-import IconExpandUp from '@/components/icons/IconExpandUp.vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import ExportVendorsForm from '@/components/ExportVendorsForm.vue';
 import { getApiErrorMessage } from '@/utils/api';
-import { getFormattedDate } from '@/utils/utils';
 import {
   chosenColumns,
-  columnGroups,
   defaultOrder,
   downloadExport,
-  exportSummary,
   fetchExportPreview,
-  movedColumn,
-  tickedColumn,
   type ExportColumn,
   type ExportFilters,
   type ExportPreview,
@@ -61,7 +49,6 @@ function copyOf(seed: ExportFilters): ExportFilters {
 
 const offered = computed(() => preview.value?.offered ?? null);
 const columns = computed(() => chosenColumns(order.value));
-const groups = computed(() => (offered.value ? columnGroups(offered.value) : []));
 
 async function ask(): Promise<void> {
   const mine = ++asked;
@@ -73,30 +60,16 @@ async function ask(): Promise<void> {
       started ? columns.value : undefined,
     );
     if (mine !== asked) return;
-    const first = !started;
-    if (first) {
+    if (!started) {
       order.value = defaultOrder(answer.offered);
       started = true;
     }
     for (const question of answer.offered.questions) filters.value.answers[question.key] ??= [];
     preview.value = answer;
     previewError.value = '';
-    if (first) void focusSearch();
   } catch (err: unknown) {
     if (mine !== asked) return;
     previewError.value = getApiErrorMessage(err, 'The preview could not be loaded.');
-  }
-}
-
-/**
- * The fields arrive with the first answer, so the dialog opened onto Cancel, its first control then;
- * once they are drawn, focus moves to the first of them, unless the organizer has moved it.
- */
-async function focusSearch(): Promise<void> {
-  await nextTick();
-  const search = document.getElementById('vendor-export-search');
-  if (document.activeElement?.matches('[data-testid="vendor-export-cancel-button"]')) {
-    search?.focus();
   }
 }
 
@@ -130,23 +103,6 @@ watch(
 
 onBeforeUnmount(() => clearTimeout(timer));
 
-function move(index: number, by: number): void {
-  order.value = movedColumn(order.value, index, by);
-}
-
-function isTicked(column: ExportColumn): boolean {
-  return order.value.some((each) => each.id === column.id);
-}
-
-function tick(column: ExportColumn, event: Event): void {
-  order.value = tickedColumn(order.value, column, (event.target as HTMLInputElement).checked);
-}
-
-const placed = computed(() => filters.value.placed === 'placed');
-const summary = computed(() =>
-  preview.value ? exportSummary(preview.value.count, columns.value.length) : '',
-);
-
 async function download(): Promise<void> {
   if (busy.value || !columns.value.length) return;
   busy.value = true;
@@ -162,526 +118,16 @@ async function download(): Promise<void> {
 </script>
 
 <template>
-  <AppDialog
+  <ExportVendorsForm
+    v-model:filters="filters"
+    v-model:order="order"
     :open="open"
-    title="Export vendors"
-    testid="vendor-export"
-    size="wide"
-    :confirm-label="busy ? 'Downloading…' : 'Download CSV'"
-    :confirm-disabled="busy || !offered || !columns.length"
+    :offered="offered"
+    :preview="preview"
+    :preview-error="previewError"
     :error="error"
+    :busy="busy"
     @close="emit('close')"
-    @submit="download"
-  >
-    <p class="export-note">
-      A CSV for a Google Sheet, one row per vendor. It starts from what the page shows.
-    </p>
-
-    <p v-if="previewError" class="export-error" data-testid="vendor-export-preview-error">
-      {{ previewError }}
-    </p>
-    <p v-else-if="!offered" class="export-loading">Loading…</p>
-
-    <template v-if="offered">
-      <fieldset class="export-section">
-        <legend class="export-legend">Vendors</legend>
-
-        <div class="export-fields">
-          <div class="export-field export-field--wide">
-            <label class="field-label" for="vendor-export-search">Name or email</label>
-            <input
-              id="vendor-export-search"
-              v-model="filters.search"
-              type="search"
-              autocomplete="off"
-              class="field"
-              data-testid="vendor-export-search"
-            />
-          </div>
-
-          <fieldset class="export-field export-field--wide export-choices">
-            <legend class="field-label">
-              Status <span class="export-hint">(none ticked: any status)</span>
-            </legend>
-            <label v-for="status in offered.statuses" :key="status.id" class="export-check">
-              <input
-                v-model="filters.statuses"
-                type="checkbox"
-                name="vendor-export-status"
-                :value="status.id"
-                :data-testid="`vendor-export-status-${status.id}`"
-              />
-              {{ status.label }}
-            </label>
-          </fieldset>
-
-          <!-- The Applications tab's Mine (S03), whose follow-ups the server reads as the asker's. -->
-          <label class="export-check export-field--wide">
-            <input v-model="filters.mine" type="checkbox" data-testid="vendor-export-mine" />
-            Mine: the follow-ups I own
-          </label>
-
-          <div class="export-field">
-            <label class="field-label" for="vendor-export-placed">Assigned</label>
-            <select
-              id="vendor-export-placed"
-              v-model="filters.placed"
-              class="field field--select"
-              data-testid="vendor-export-placed"
-            >
-              <option value="">Assigned or not</option>
-              <option value="placed">Assigned</option>
-              <option value="unplaced">Not assigned</option>
-            </select>
-          </div>
-
-          <div v-if="filters.placed" class="export-field">
-            <label class="field-label" for="vendor-export-date">On</label>
-            <select
-              id="vendor-export-date"
-              v-model="filters.date"
-              class="field field--select"
-              data-testid="vendor-export-date"
-            >
-              <option value="">Any date</option>
-              <option v-for="date in offered.dates" :key="date" :value="date">
-                {{ getFormattedDate(date) }}
-              </option>
-            </select>
-          </div>
-
-          <template v-if="placed">
-            <div class="export-field">
-              <label class="field-label" for="vendor-export-section">Section</label>
-              <select
-                id="vendor-export-section"
-                v-model="filters.section"
-                class="field field--select"
-                data-testid="vendor-export-section"
-              >
-                <option value="">Any section</option>
-                <option v-for="section in offered.sections" :key="section" :value="section">
-                  {{ section }}
-                </option>
-              </select>
-            </div>
-            <div class="export-field">
-              <label class="field-label" for="vendor-export-tier">Tier</label>
-              <select
-                id="vendor-export-tier"
-                v-model="filters.tier"
-                class="field field--select"
-                data-testid="vendor-export-tier"
-              >
-                <option value="">Any tier</option>
-                <option v-for="tier in offered.tiers" :key="tier" :value="tier">
-                  {{ tier }}
-                </option>
-              </select>
-            </div>
-            <div class="export-field">
-              <label class="field-label" for="vendor-export-size">Table size</label>
-              <select
-                id="vendor-export-size"
-                v-model="filters.size"
-                class="field field--select"
-                data-testid="vendor-export-size"
-              >
-                <option value="">Any size</option>
-                <option value="full">Full table</option>
-                <option value="half">Half table</option>
-              </select>
-            </div>
-          </template>
-
-          <!-- A market without prices offers no payment state: nothing is owed there, so everyone
-               who paid would be "Paid more than owed" (E44/F02/S01). -->
-          <div v-if="offered.paymentStates.length" class="export-field">
-            <label class="field-label" for="vendor-export-payment">Payment</label>
-            <select
-              id="vendor-export-payment"
-              v-model="filters.payment"
-              class="field field--select"
-              data-testid="vendor-export-payment"
-            >
-              <option value="">Paid or not</option>
-              <option v-for="state in offered.paymentStates" :key="state.id" :value="state.id">
-                {{ state.label }}
-              </option>
-            </select>
-          </div>
-
-          <!-- Who is in the Discord server, once a check has run (S05). -->
-          <fieldset
-            v-if="offered.discordStates.length"
-            class="export-field export-field--wide export-choices"
-            data-testid="vendor-export-discord"
-          >
-            <legend class="field-label">
-              Discord <span class="export-hint">(none ticked: any state)</span>
-            </legend>
-            <label v-for="state in offered.discordStates" :key="state.id" class="export-check">
-              <input
-                v-model="filters.discord"
-                type="checkbox"
-                name="vendor-export-discord"
-                :value="state.id"
-                :data-testid="`vendor-export-discord-${state.id}`"
-              />
-              {{ state.label }}
-            </label>
-          </fieldset>
-
-          <fieldset
-            v-for="question in offered.questions"
-            :key="question.key"
-            class="export-field export-field--wide export-choices"
-          >
-            <legend class="field-label">
-              {{ question.label }} <span class="export-hint">(none ticked: any answer)</span>
-            </legend>
-            <label v-for="option in question.options" :key="option" class="export-check">
-              <input
-                v-model="filters.answers[question.key]"
-                type="checkbox"
-                :name="`vendor-export-answer-${question.key}`"
-                :value="option"
-                :data-testid="`vendor-export-answer-${question.key}-${option}`"
-              />
-              {{ option }}
-            </label>
-          </fieldset>
-        </div>
-      </fieldset>
-
-      <fieldset class="export-section">
-        <legend class="export-legend">Columns</legend>
-        <fieldset
-          v-for="group in groups"
-          :key="group.id"
-          class="export-group"
-          :data-testid="`vendor-export-group-${group.id}`"
-        >
-          <legend class="field-label">{{ group.label }}</legend>
-          <div class="export-picks">
-            <label v-for="column in group.columns" :key="column.id" class="export-check">
-              <input
-                type="checkbox"
-                name="vendor-export-column"
-                :checked="isTicked(column)"
-                :data-testid="`vendor-export-column-${column.id}`"
-                @change="tick(column, $event)"
-              />
-              {{ column.label }}
-            </label>
-          </div>
-        </fieldset>
-
-        <h3 class="field-label export-order-title" id="vendor-export-order-title">
-          In the file, in this order
-        </h3>
-        <p v-if="!order.length" class="export-hint">Tick a column above to export it.</p>
-        <draggable
-          v-else
-          v-model="order"
-          tag="ol"
-          class="export-columns"
-          item-key="id"
-          handle=".drag-handle"
-          :animation="150"
-          aria-labelledby="vendor-export-order-title"
-        >
-          <template #item="{ element, index }">
-            <li class="export-column" data-testid="vendor-export-order-item">
-              <span class="drag-handle" aria-hidden="true"
-                ><IconClickDrag class="drag-handle__icon"
-              /></span>
-              <span class="export-column-label">{{ element.label }}</span>
-              <button
-                type="button"
-                class="export-move"
-                :aria-label="`Move ${element.label} up`"
-                :disabled="index === 0"
-                :data-testid="`vendor-export-move-up-${element.id}`"
-                @click="move(index, -1)"
-              >
-                <IconExpandUp aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                class="export-move"
-                :aria-label="`Move ${element.label} down`"
-                :disabled="index === order.length - 1"
-                :data-testid="`vendor-export-move-down-${element.id}`"
-                @click="move(index, 1)"
-              >
-                <IconExpandDown aria-hidden="true" />
-              </button>
-            </li>
-          </template>
-        </draggable>
-      </fieldset>
-
-      <section class="export-preview" aria-live="polite" aria-label="Preview">
-        <p class="export-summary" data-testid="vendor-export-summary">{{ summary }}</p>
-        <p v-if="preview && !preview.count" class="export-hint">No vendor matches these filters.</p>
-        <div v-else-if="preview && columns.length" class="export-table-scroll">
-          <table class="export-table">
-            <thead>
-              <tr data-testid="vendor-export-preview-header">
-                <th v-for="(label, at) in preview.header" :key="at" scope="col">{{ label }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="(row, at) in preview.rows"
-                :key="at"
-                data-testid="vendor-export-preview-row"
-              >
-                <td v-for="(cell, col) in row" :key="col">{{ cell }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </template>
-  </AppDialog>
+    @download="download"
+  />
 </template>
-
-<style scoped>
-.export-note,
-.export-loading {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-}
-
-.export-error {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--mm-red);
-}
-
-.export-section {
-  margin: 0;
-  padding: 0;
-  border: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.export-legend {
-  padding: 0;
-  margin-bottom: var(--space-2);
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-}
-
-/* Two columns of label-and-control; a list of choices takes the whole row. */
-.export-fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
-}
-
-@media (max-width: 640px) {
-  .export-fields {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.export-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.export-field--wide {
-  grid-column: 1 / -1;
-}
-
-.export-choices {
-  margin: 0;
-  padding: 0;
-  border: none;
-  flex-flow: row wrap;
-  column-gap: var(--space-4);
-}
-
-.export-choices > legend {
-  padding: 0;
-  margin-bottom: var(--space-1);
-}
-
-.export-hint {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-}
-
-.export-check {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--target-min);
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-  cursor: pointer;
-}
-
-/* A heading's columns, two to a row as the filters above are. */
-.export-group {
-  margin: 0;
-  padding: 0;
-  border: none;
-  min-width: 0;
-}
-
-/* Apart as the filters above are, so a heading reads as the next group's, not the last row's. */
-.export-group + .export-group {
-  margin-top: var(--space-1);
-}
-
-.export-group > legend {
-  padding: 0;
-  margin-bottom: var(--space-1);
-}
-
-.export-picks {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: var(--space-4);
-}
-
-@media (max-width: 640px) {
-  .export-picks {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.export-order-title {
-  margin: var(--space-2) 0 0;
-}
-
-.export-columns {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-}
-
-.export-column {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
-  background: white;
-}
-
-.export-column + .export-column {
-  border-top: 1px solid var(--mm-border);
-}
-
-.export-column .drag-handle {
-  align-self: stretch;
-}
-
-.export-column-label {
-  flex: 1;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-}
-
-.export-move {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--target-min);
-  min-height: var(--target-min);
-  padding: 0;
-  /* Drawn as the application form's order arrows are (`RankedChoiceInput.vue`), so the app has one
-     order control, and its disabled beige reads the quieter of the two (T162). */
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  background: white;
-  color: var(--mm-black);
-  cursor: pointer;
-}
-
-.export-move svg {
-  width: var(--space-4);
-  height: var(--space-4);
-}
-
-.export-move:hover:not(:disabled) {
-  border-color: var(--mm-green);
-  color: var(--mm-green);
-}
-
-.export-move:disabled {
-  /* The primitives' one disabled state (`.btn:disabled`): an arrow in `--mm-border` was all but
-     invisible on white (T162). */
-  background: var(--mm-beige);
-  color: var(--mm-text-muted-on-beige);
-  border-color: var(--mm-border);
-  cursor: not-allowed;
-}
-
-.export-preview {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.export-summary {
-  margin: 0;
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-sm);
-  color: var(--mm-green);
-}
-
-/* The preview is as wide as its columns; the dialog is not. A scroller the browser makes focusable
-   is no control the primitive layer gives room to, so it takes the controls' `scroll-margin` here:
-   focus brought it only just into view, and the dialog's window cut its halo off. */
-.export-table-scroll {
-  scroll-margin: var(--space-2);
-  overflow-x: auto;
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-}
-
-.export-table {
-  border-collapse: collapse;
-  font-size: var(--text-xs);
-  min-width: 100%;
-}
-
-.export-table th,
-.export-table td {
-  padding: var(--space-1) var(--space-2);
-  text-align: left;
-  white-space: nowrap;
-  max-width: 16rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.export-table th {
-  background: var(--mm-beige);
-  color: var(--mm-black);
-}
-
-.export-table td {
-  border-top: 1px solid var(--mm-border);
-  color: var(--mm-black);
-}
-</style>
