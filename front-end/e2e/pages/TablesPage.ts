@@ -37,10 +37,12 @@ export class TablesPage {
   /** The search beside the filters (E35/F02/S01), and its chip. */
   readonly searchInput: Locator;
   readonly searchChip: Locator;
-  /** The placement history, behind its button (E35/F03/S03). */
+  /** Assignment history, behind its button (E35/F03/S03): the market's History, narrowed (T224). */
   readonly historyButton: Locator;
   readonly historyDialog: Locator;
   readonly historyEntries: Locator;
+  readonly historySentences: Locator;
+  readonly historyVendorLinks: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -61,8 +63,10 @@ export class TablesPage {
     this.searchInput = page.getByTestId('tables-filter-search');
     this.searchChip = page.getByTestId('tables-filter-chip-search');
     this.historyButton = page.getByTestId('result-history-button');
-    this.historyDialog = page.getByTestId('placement-history-dialog-window');
-    this.historyEntries = page.getByTestId('placement-history-entry');
+    this.historyDialog = page.getByTestId('assignment-history-dialog-window');
+    this.historyEntries = this.historyDialog.getByTestId('market-history-entry');
+    this.historySentences = this.historyDialog.getByTestId('market-history-sentence');
+    this.historyVendorLinks = this.historyDialog.getByTestId('market-history-vendor-link');
   }
 
   async goto(marketId: string): Promise<void> {
@@ -113,10 +117,17 @@ export class TablesPage {
     return codes;
   }
 
-  /** Open the placement history from its button. */
+  /** Open Assignment history from its button. */
   async openHistory(): Promise<void> {
     await this.historyButton.click();
     await this.historyDialog.waitFor();
+  }
+
+  /** Scrolls Assignment history's body, the one scroller it has, to its end. */
+  async scrollHistoryToEnd(): Promise<void> {
+    await this.page
+      .getByTestId('assignment-history-dialog-body')
+      .evaluate((body) => body.scrollTo({ top: body.scrollHeight }));
   }
 
   /** Open whoever holds a seat, by their name (E35/F01/S02). */

@@ -282,12 +282,12 @@ test('every field on every other organizer screen and dialog has a name', async 
   await named('the export dialog');
   await page.keyboard.press('Escape');
 
-  // The placement history, opened with the run's entry in it (E35/F03/S03).
+  // Assignment history, opened with the run's entry in it (E35/F03/S03, T224).
   const tables = new TablesPage(page);
   await tables.goto(published.marketId);
   await tables.openHistory();
   await expect(tables.historyEntries.first()).toBeVisible();
-  await named('the placement history');
+  await named('the assignment history');
   await page.keyboard.press('Escape');
 });
 

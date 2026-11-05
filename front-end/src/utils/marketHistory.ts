@@ -42,6 +42,9 @@ export interface MarketHistoryEntry {
   detail: Detail | null;
 }
 
+/** The group of the table Assignment history is narrowed to, as the server names it. */
+export const ASSIGNMENT_GROUP = 'Assignment';
+
 /** A group of the table, the kinds of change the history is narrowed by. */
 export interface MarketHistoryGroup {
   group: string;

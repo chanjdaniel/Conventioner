@@ -49,6 +49,7 @@ sources:
   - T211
   - T204
   - T217
+  - T224
 ---
 
 # Dialogs
@@ -99,6 +100,7 @@ A long dialog says `scroll="body"`: Manage market, Manage organization, Update i
 The export dialog is long too, and scrolls whole until it is rebuilt on `scroll="body"`.
 `scroll="window"` stays the default, for every other dialog: a question with a control or two.
 The library's `dialog` entry shows each width, the window's scroll beside the body's on 150 people, the tray, a footer with no form, a list with nothing to focus, and every behaviour below in either scroll, and its `export-vendors` entry a broad dialog with its whole tray, the export redesigned ([the component library](../modules/component-library.md)).
+A list the server pages goes in that body as a [`PagedList.vue`](../../../front-end/src/components/PagedList.vue) with `box="parent"`, so the body is the one scroller, as [the assignment history](../../business/flows/placing-by-hand.md#j13-assignment-history)'s does.
 A long list goes in that body as a [`ListFrame.vue`](../../../front-end/src/components/ListFrame.vue), whose field keeps its Enter, as above, and which needs nothing else there: the library's `summaries` entry holds the reviewed list so ([`the-component-library-summaries.spec.ts`](../../../front-end/e2e/the-component-library-summaries.spec.ts)).
 
 **A dialog sits centred, unless its body grows as it is used**: `anchored` holds its top where it opened, so a field's error appearing as a key is typed does not move the dialog half a line under the pointer (the amendment's dialog, E38/F02).

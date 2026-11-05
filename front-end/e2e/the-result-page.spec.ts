@@ -7,7 +7,7 @@ import { seedAssignedMarket } from './helpers/seedAssignedMarket';
  * The Assignments page is the assignment, read and changed (E22/F04/S04, from the-assignment-tab 01).
  *
  * Top to bottom: a summary strip (approved applicants assigned, tables used, unassigned, satisfaction, Download
- * CSV), the tables grid with its seat editing - the Tables screen, moved in - and the placement
+ * CSV), the tables grid with its seat editing - the Tables screen, moved in - and Assignment
  * history. The old results page, its quick links and its Unassigned Tables list are gone: the
  * grid's "empty" filter shows those tables on the grid itself.
  */
@@ -45,7 +45,7 @@ test.describe('The Assignments page', () => {
     await expect(page.getByTestId('assignment-satisfaction-score')).toBeVisible();
     await expect(page.getByTestId('tables-count-assigned')).toBeVisible();
     // The trail is behind its own button now, not under every table (E35/F03/S03).
-    await expect(page.getByTestId('placement-history')).toHaveCount(0);
+    await expect(page.getByTestId('market-history')).toHaveCount(0);
     await expect(page.getByTestId('result-history-button')).toBeVisible();
     // Retired with the old results page.
     await expect(page.locator('.assignment-results')).toHaveCount(0);

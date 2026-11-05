@@ -1,12 +1,13 @@
 <script setup lang="ts">
 /**
- * Every change on a market, newest first: Manage market's History section (E40/F01/S03), and one
- * vendor's in their drawer's History tab (E40/F01/S04).
+ * Every change on a market, newest first: Manage market's History section (E40/F01/S03), one
+ * vendor's in their drawer's History tab (E40/F01/S04), and the Assignment kind of change alone in
+ * the Assignment history dialog (T224).
  *
  * A page at a time - the newest entries, then older ones as the end of the list comes into view -
  * so a market with thousands of changes opens as quickly as one with ten. The list stands in a box
- * of its own, or in the flow of the drawer's body with `box="parent"`, and the filters stay above it
- * (`PagedList`). Narrowed by who, by kind (a group of the table's rows), by vendor and by date; the
+ * of its own, or in the flow of a scrolling body around it with `box="parent"`, the drawer's or the
+ * dialog's, and the filters stay above it (`PagedList`). Narrowed by who, by kind (a group of the table's rows), by vendor and by date; the
  * filters live as long as the dialog holds this section, which is while it is open. Given a `vendor`,
  * it is that vendor's history alone, with no filters: the same entries in the same words, narrowed
  * by the server.
@@ -26,6 +27,7 @@ import { vendorMatches, type VendorNames } from '@/utils/vendorIdentity';
 import {
   dayEnds,
   dayStarts,
+  ASSIGNMENT_GROUP,
   type HistoryContext,
   type MarketHistoryEntry,
   type MarketHistoryGroup,
@@ -49,8 +51,12 @@ const props = defineProps<{
    * named by name alone, as text rather than a link to the drawer that already shows them. */
   vendor?: string | null;
   /** Where the list scrolls: in a box of its own, the default, or in the flow of the scroller around
-   * it, as the drawer's body is. */
+   * it, as the drawer's and the Assignment history dialog's bodies are. */
   box?: 'own' | 'parent';
+  /** Only the Assignment kind of change, for the Assignment history dialog: "Kind of change" is not
+   * drawn or counted as a filter. One prop, since its parts mean nothing apart. `days` are the
+   * market's days, in the plan's order. */
+  assignment?: { days: readonly string[]; day?: string };
 }>();
 
 const ownVendor = computed(() => props.vendor?.trim().toLowerCase() ?? '');
@@ -153,7 +159,7 @@ const vendorHintId = useId();
 
 const filters = computed(() => ({
   actor: actor.value,
-  group: group.value,
+  group: props.assignment ? ASSIGNMENT_GROUP : group.value,
   vendor: narrowedTo.value,
   since: from.value ? dayStarts(from.value) : '',
   until: to.value ? dayEnds(to.value) : '',
@@ -239,8 +245,9 @@ const openVendor = computed(() =>
 
 const emptyText = computed(() => {
   if (ownVendor.value) return 'Nothing has been recorded about this vendor yet.';
-  return filtered.value
-    ? 'No change matches these filters.'
+  if (filtered.value) return 'No change matches these filters.';
+  return props.assignment
+    ? 'No assignments have been changed yet.'
     : 'Nothing has changed on this market yet.';
 });
 </script>
@@ -260,7 +267,7 @@ const emptyText = computed(() => {
         placeholder="Type an address…"
         testid="market-history-who"
       />
-      <label class="history-filter">
+      <label v-if="!assignment" class="history-filter">
         <span class="field-label">Kind of change</span>
         <select
           v-model="group"

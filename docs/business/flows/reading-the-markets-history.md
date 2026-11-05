@@ -3,6 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/MarketHistory.vue
+  - front-end/src/components/AssignmentHistoryDialog.vue
   - front-end/src/components/HistorySection.vue
   - front-end/src/components/HistoryEntries.vue
   - front-end/src/components/PagedList.vue
@@ -65,7 +66,7 @@ An organizer reads it to investigate a problem or a mistake, which is why it liv
    - An organizer's update of a vendor's answers reads "e2e@example.com updated the info of Ana Rivera", and a save that only kept updates over answers the vendor changed since reads "e2e@example.com kept their update to the info of Ana Rivera", opening to each answer kept under its question's label.
    - A possible Discord match declined reads "e2e@example.com said the Discord member @fern_studio_42 is not Ana Rivera", opening to the member, by username and the names that looked alike, and the username on file it was offered for ([possible matches](../../implementation/modules/discord.md#possible-matches)); one confirmed is the update of their info it saved.
    - "e2e@example.com assigned Ana Rivera at B7 (Full Table) on Nov 19, 2026"
-   - A placement reads as [the assignment history](placing-by-hand.md#j13-assignment-history) says it, after who made it and before the day it is for, so the two never differ: a move names the table left and the table taken, "e2e@example.com moved Ana Rivera from A3 to B7 (Full Table) on Nov 19, 2026", and allocating tables reads "allocated tables: 40 assignments written, 3 pins preserved".
+   - A placement reads the same in [the assignment history](placing-by-hand.md#j13-assignment-history), which is this list: a move names the table left and the table taken, "e2e@example.com moved Ana Rivera from A3 to B7 (Full Table) on Nov 19, 2026", and allocating tables reads "allocated tables: 40 assignments written, 3 pins preserved".
    - The door reads "e2e@example.com checked Ana Rivera in on Nov 19, 2026", a vendor's own check-in "Ana Rivera checked in with the door code on Nov 19, 2026" and its undo "Ana Rivera undid their check-in on their vendor page on Nov 19, 2026", and a door code "e2e@example.com made the door code", or "… made a new door code, which ended the old one and every poster of it", never naming the code ([the door on market day](market-day-door.md#k2-a-vendor-scans-the-door-code-and-is-checked-in)).
    - A vendor's money reads in the market's currency ([payments](../../implementation/data/payments.md)), each opening to its amount, how it was paid, the day and the note, or the amount owed, in the Payment tab's words:
      - "… seated Ana Rivera again on May 8, 2099, taking back the $0.00 set when the table was freed"
@@ -115,6 +116,11 @@ A Discord check reads there as that vendor's own line, "checked who is in the Di
 A "Give roles" run reads "gave the Discord role “Vendor Nov 2026”" in the drawer of a vendor it gave the role, and "… to the assigned vendors: Not found" in that of a vendor whose state it changed otherwise.
 The server narrows it to the changes that name the vendor, so a run of the assignment, which names nobody, is in no vendor's list.
 Someone below the row is shown no History tab, as no History section.
+
+"Assignment history" on the Assignments page reads the same history narrowed to the Assignment kind of change ([J13](placing-by-hand.md#j13-assignment-history)): the same component, in [`AssignmentHistoryDialog.vue`](../../../front-end/src/components/AssignmentHistoryDialog.vue), asking `group=Assignment` on every read, so the same sentences, in the same order, "Before and after" and paging.
+It draws no "Kind of change", and that kind does not count as a filter, so "Clear filters" shows only once another filter is set; with nothing filtered and nothing there it says "No assignments have been changed yet."
+The list has no box of its own there either: the dialog's body is the one scroller, and the filters scroll away with it.
+A vendor's name leads to the Vendors page with their drawer open, as in Manage market.
 
 ## The rules it obeys
 
