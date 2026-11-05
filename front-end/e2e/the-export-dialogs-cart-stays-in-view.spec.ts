@@ -176,14 +176,28 @@ test.describe('at a desk', () => {
     authenticatedPage: page,
   }) => {
     const dialog = await openExport(page);
+    // The ask for no column, which the debounce holds back, so the words are read after its answer.
+    const askedForTheCount = page.waitForResponse(
+      (response) =>
+        response.url().endsWith('/vendor-export/preview') &&
+        response.request().postDataJSON().columns === undefined,
+    );
 
     for (const id of ['name', 'email', 'status']) await dialog.removeButton(id).click();
 
+    expect((await askedForTheCount).ok(), 'the server is never asked for no column').toBe(true);
     await expect(dialog.tray).toContainText('Choose a column to export it.');
     await expect(dialog.preview).toHaveCount(0);
     await expect(dialog.summary).toHaveText('5 vendors, 0 columns');
+    await expect(page.getByTestId('vendor-export-preview-error')).toHaveCount(0);
     await expect(dialog.downloadButton).toBeDisabled();
     await expect(dialog.filtersToggle, 'the focus stays inside').toBeFocused();
+
+    await dialog.showFilters();
+    await dialog.search.fill('ana');
+    await expect(dialog.summary, 'the count still follows the filters').toHaveText(
+      '1 vendor, 0 columns',
+    );
   });
 
   test('no vendor matching says so in the cart', async ({ authenticatedPage: page }) => {

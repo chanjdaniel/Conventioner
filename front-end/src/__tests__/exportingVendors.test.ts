@@ -1118,6 +1118,27 @@ describe('the dialog', () => {
       wrapper.unmount();
     });
 
+    it('keeps the count with no column chosen, asking as it does at the start, never for no column', async () => {
+      vi.useFakeTimers();
+      const wrapper = await opened();
+      await vi.runAllTimersAsync();
+      posted.length = 0;
+
+      for (const id of OFFERED.defaultColumns) {
+        await wrapper.get(`[data-testid="vendor-export-column-${id}"]`).setValue(false);
+      }
+      await vi.runAllTimersAsync();
+      await flushPromises();
+
+      expect(posted.at(-1)?.body).not.toHaveProperty('columns');
+      expect(posted.map((asked) => asked.body)).not.toContainEqual(
+        expect.objectContaining({ columns: [] }),
+      );
+      expect(inCart(wrapper, 'vendor-export-summary').text()).toBe('4 vendors, 0 columns');
+      expect(wrapper.find('[data-testid="vendor-export-preview"]').exists()).toBe(false);
+      wrapper.unmount();
+    });
+
     it('says when no vendor matches, in the cart', async () => {
       const answering = answer;
       answer = (body) => ({ ...answering(body), count: 0, rows: [] });

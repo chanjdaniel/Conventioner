@@ -53,11 +53,13 @@ const columns = computed(() => chosenColumns(order.value));
 async function ask(): Promise<void> {
   const mine = ++asked;
   try {
-    // The first ask names no columns, and the server answers with its defaults ticked.
+    // The first ask names no columns, and the server answers with its defaults ticked. So does an
+    // ask with none chosen, for the count alone: the server refuses a file of no column, and the
+    // cart already says to choose one.
     const answer = await fetchExportPreview(
       props.marketId,
       filters.value,
-      started ? columns.value : undefined,
+      started && columns.value.length ? columns.value : undefined,
     );
     if (mine !== asked) return;
     if (!started) {
