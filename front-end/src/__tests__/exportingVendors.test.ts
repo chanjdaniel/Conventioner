@@ -989,6 +989,9 @@ describe('the dialog', () => {
       'keeps Enter in %s from the form',
       async (testid) => {
         const wrapper = await unfolded();
+        // Vue skips a listener attached in the millisecond an inner listener stamped the event, as
+        // the picker's does, so a key pressed the moment the filters unfold would miss their guard.
+        await new Promise((resolve) => setTimeout(resolve, 2));
 
         const enter = new KeyboardEvent('keydown', {
           key: 'Enter',
