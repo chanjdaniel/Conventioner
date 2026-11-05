@@ -326,7 +326,7 @@ test('every field of the import has a name', async ({ authenticatedPage: page, r
     ].join('\n'),
   );
   await expect(importPage.columnRows.first()).toBeVisible();
-  await importPage.targetSelectAt(2).selectOption('essential_available_dates');
+  await importPage.targetSelectAt(2).pick('essential_available_dates');
   expect(await namelessControls(page), 'the mapping step').toEqual([]);
 });
 

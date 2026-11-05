@@ -54,6 +54,8 @@
 
 .setting-body {
   flex-grow: 1;
+  /* It clips nothing and never scrolls: the card ends at its content, and a list lying over what
+     follows (`ChoiceField`) passes its foot, where a scroller would cut the list off at the card. */
   background-color: white;
   border-bottom-left-radius: 10px;
   border-bottom-right-radius: 10px;

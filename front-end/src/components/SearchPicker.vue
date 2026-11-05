@@ -13,9 +13,10 @@
  *   list, Enter takes the active choice, Escape closes the list. While the list is closed, Enter
  *   and Escape belong to the dialog around it, so Enter still submits and Escape still closes.
  * - A group is never hidden by a search, only narrowed: one with a name and nothing matching says
- *   so, and one with no name has no heading to say it under. A group with no choices at all is not
- *   drawn, as an empty `optgroup` was not. A picker with no choices at all never opens its list; the
- *   note beside it says why there is nothing to choose.
+ *   so, and one with no name has no heading to say it under. Given `hidesEmptiedGroups`, a group the
+ *   words emptied is not drawn, and words that find nothing say so once. A group with no choices at
+ *   all is not drawn, as an empty `optgroup` was not. A picker with no choices at all never opens its
+ *   list; the note beside it says why there is nothing to choose.
  * - What the words find is the caller's (`finds`), so every use searches by its own terms.
  * - The list opens in the page's flow, under the field, rather than over what follows: inside a
  *   dialog a floating list is clipped by the dialog's own scroller. Given `listOver`, it lies over
@@ -78,6 +79,26 @@
  *   option's label, or the trimmed words. Escape closes the list and keeps the words, since a plain
  *   input has no undo, and reopened on words still being typed it does not select them, so a click
  *   can place the caret. A row or `Use "<words>"` is taken as with `acceptsTyped` alone.
+ * - An option whose value is `''` is a real row under `holdsChoice`: chosen while `modelValue` is
+ *   `''`, named by the field and ticked as any other, as "Ignore this column" needs.
+ * - Given `hideLabel`, its label is `.visually-hidden`: the screen's row says it, and the label stays
+ *   for a reader.
+ * - Given `invalid`, its field is `aria-invalid="true"` and ringed in red, as a field is on Pricing;
+ *   the words saying why are the caller's, through `describedBy`.
+ * - An option that is `disabled` may not be taken, as a target another column holds: drawn muted with
+ *   `aria-disabled="true"`, its `detail` saying why. The keys and the first active row pass it by, and
+ *   neither a click nor Enter nor words naming it take it. Words still find it and the cap still
+ *   counts it, so nobody wonders where it went. Held as the choice, the field names it and no row is
+ *   active, so Enter keeps it.
+ * - Given `clearsOnChoice`, on one choice, each choice is added elsewhere, as a ranked list's next
+ *   answer: after emitting, the field empties, the list closes and the focus stays, ready for the next
+ *   word, and the value stays `''`.
+ * - Given `fieldId`, its field has that id, for a link elsewhere on the screen to name.
+ * - `show()`, exposed, takes the focus and opens the list, for a link elsewhere on the screen, and
+ *   answers whether the list is open. A disabled field takes neither; with no rows to list, the
+ *   field has the focus and no list.
+ * - `showChoice()`, exposed, has the field name the choice that holds again, for a screen whose
+ *   server refused the one just taken, which `modelValue` never became. Words being typed stay.
  */
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue';
 import IconCheck from '@/components/icons/IconCheck.vue';
@@ -94,6 +115,8 @@ export interface PickerOption {
   chip?: string;
   /** Its label and chip hold an address, so a line breaks it only before its "@" or a dot. */
   address?: boolean;
+  /** It may not be taken; its `detail` says why. Words still find it. */
+  disabled?: boolean;
 }
 
 export interface PickerGroup {
@@ -127,6 +150,16 @@ const props = defineProps<
     listOver?: boolean;
     /** With `acceptsTyped` on one choice: every keystroke writes the words as the value. */
     wordsAreValue?: boolean;
+    /** The screen's row says what this is: the label stays for a reader, out of view. */
+    hideLabel?: boolean;
+    /** Its field reads as wrong, and says so to a reader. */
+    invalid?: boolean;
+    /** On one choice: each is added elsewhere, so the field empties, ready for the next word. */
+    clearsOnChoice?: boolean;
+    /** Its field's id, for a link elsewhere on the screen to name. */
+    fieldId?: string;
+    /** A group the words emptied is not drawn: its heading says nothing of what they did find. */
+    hidesEmptiedGroups?: boolean;
   } & (
     | { multiple?: false; modelValue: string }
     /** Several choices, shown as chips above the field. */
@@ -137,7 +170,7 @@ const props = defineProps<
 const emit = defineEmits<{ 'update:modelValue': [value: string | string[]] }>();
 
 const id = useId();
-const inputId = `${id}-input`;
+const inputId = computed(() => props.fieldId ?? `${id}-input`);
 const listId = `${id}-list`;
 const optionId = (index: number) => `${id}-option-${index}`;
 const moreId = `${id}-more`;
@@ -250,7 +283,8 @@ const cappedGroups = computed(() => {
   return matchedGroups.value.flatMap((group) => {
     const shown = group.matched.filter((option) => !led.has(option)).slice(0, room);
     room -= shown.length;
-    return group.matched.length > 0 && shown.length === 0 ? [] : [{ ...group, shown }];
+    const emptied = group.matched.length === 0 && props.hidesEmptiedGroups;
+    return (group.matched.length > 0 && shown.length === 0) || emptied ? [] : [{ ...group, shown }];
   });
 });
 /** The words as a choice of their own, while they name no option. */
@@ -285,10 +319,19 @@ const moreCount = computed(
     leadRows.value.length -
     cappedGroups.value.reduce((count, group) => count + group.shown.length, 0),
 );
+/** The next row past `from` in the direction of `step` that can be taken, or `from` if none is. */
+function rowFrom(from: number, step: 1 | -1): number {
+  const rows = shownOptions.value;
+  for (let at = from + step; at >= 0 && at < rows.length; at += step) {
+    if (!rows[at]!.disabled) return at;
+  }
+  return from;
+}
 /** With nothing chosen, the row the keys start on; words that name an option lead to it. */
 const firstRow = computed(() => {
-  if (!shownOptions.value.length) return -1;
-  return Math.max(shownOptions.value.indexOf(namedOption.value as PickerOption), 0);
+  const named = namedOption.value?.disabled ? undefined : namedOption.value;
+  const at = named ? shownOptions.value.indexOf(named) : -1;
+  return at >= 0 ? at : rowFrom(-1, 1);
 });
 /** Whether there is anything to list: an option, or words to use. */
 const hasRows = computed(() => hasChoices.value || Boolean(typedOption.value));
@@ -324,11 +367,13 @@ watch(active, async (index) => {
 const field = ref<HTMLInputElement | null>(null);
 const chipList = ref<HTMLElement | null>(null);
 
-function show(): void {
+function openList(): void {
   if (open.value || !hasRows.value || props.disabled) return;
   pinTheChosen();
   open.value = true;
-  const chosenAt = shownOptions.value.findIndex((option) => option.value === props.modelValue);
+  const chosenAt = shownOptions.value.findIndex(
+    (option) => option.value === props.modelValue && !option.disabled,
+  );
   const heldUndrawn = chosenOption.value || keptWords.value;
   // A choice the cap leaves undrawn, or that no option offers, makes no row active, so Enter keeps
   // it.
@@ -339,7 +384,23 @@ function show(): void {
   if (heldUndrawn && !(writesWords.value && searching.value)) field.value?.select();
 }
 
+/** Opens the list from elsewhere on the screen, so the focus comes here first. */
+function show(): boolean {
+  if (props.disabled) return false;
+  field.value?.focus();
+  openList();
+  return open.value;
+}
+
+/** Back to naming the choice that holds, as after one that did not stand; words being typed stay. */
+function showChoice(): void {
+  if (!searching.value) nameTheChoice();
+}
+
+defineExpose({ show, showChoice });
+
 function choose(option: PickerOption): void {
+  if (option.disabled) return;
   if (props.multiple) {
     emit(
       'update:modelValue',
@@ -351,7 +412,8 @@ function choose(option: PickerOption): void {
     return;
   }
   // The field shows the words themselves, not the row that offered them.
-  text.value = option === typedOption.value ? option.value : option.label;
+  if (props.clearsOnChoice) text.value = '';
+  else text.value = option === typedOption.value ? option.value : option.label;
   searching.value = false;
   open.value = false;
   active.value = -1;
@@ -379,7 +441,8 @@ function typed(): void {
 function keepTheWords(): void {
   if (!props.acceptsTyped || holds.value) return;
   const option = namedOption.value ?? (writesWords.value ? undefined : typedOption.value);
-  if (!option || (writesWords.value && option.value === props.modelValue)) return;
+  if (!option || option.disabled || (writesWords.value && option.value === props.modelValue))
+    return;
   if (!props.multiple) choose(option);
   else if (!isChosen(option)) emit('update:modelValue', [...props.modelValue, option.value]);
 }
@@ -400,17 +463,16 @@ async function removeChip(at: number): Promise<void> {
 function onKeydown(event: KeyboardEvent): void {
   // A press still under way when a key comes never got its end, as a scrollbar's may not.
   pressing = false;
-  const last = shownOptions.value.length - 1;
   switch (event.key) {
     case 'ArrowDown':
       event.preventDefault();
-      if (!open.value) show();
-      else active.value = Math.min(active.value + 1, last);
+      if (!open.value) openList();
+      else active.value = rowFrom(active.value, 1);
       return;
     case 'ArrowUp':
       event.preventDefault();
-      if (!open.value) show();
-      else active.value = Math.max(active.value - 1, Math.min(0, last));
+      if (!open.value) openList();
+      else active.value = active.value < 0 ? rowFrom(-1, 1) : rowFrom(active.value, -1);
       return;
     case 'Enter': {
       // With the list closed the key goes on to the form, which reads the words as kept.
@@ -494,7 +556,7 @@ function onFocus(): void {
     :class="{ 'search-picker--list-over': listOver }"
     :data-testid="testid"
   >
-    <label class="field-label" :for="inputId">{{ label }}</label>
+    <label :class="hideLabel ? 'visually-hidden' : 'field-label'" :for="inputId">{{ label }}</label>
     <!-- `mousedown.prevent` keeps the field's focus, its words and its open list while a pointer
          removes a chip. -->
     <ul
@@ -543,11 +605,12 @@ function onFocus(): void {
       :aria-controls="listId"
       :aria-activedescendant="activeId"
       :aria-describedby="fieldDescribedBy"
+      :aria-invalid="invalid ? 'true' : undefined"
       :disabled="disabled"
       :placeholder="placeholder"
       :data-testid="`${testid}-input`"
       @input="typed"
-      @click="show"
+      @click="openList"
       @keydown="onKeydown"
       @focus="onFocus"
       @blur="onBlur"
@@ -586,12 +649,14 @@ function onFocus(): void {
           :class="{
             'search-picker-option--active': active === groupStarts[g]! + o,
             'search-picker-option--several': multiple,
+            'search-picker-option--disabled': option.disabled,
           }"
           :aria-selected="isChosen(option) ? 'true' : 'false'"
+          :aria-disabled="option.disabled ? 'true' : undefined"
           :data-value="option.value"
           :data-testid="`${testid}-option`"
           @click="choose(option)"
-          @mousemove="active = groupStarts[g]! + o"
+          @mousemove="option.disabled || (active = groupStarts[g]! + o)"
         >
           <IconCheck
             v-if="multiple && isChosen(option)"
@@ -638,6 +703,10 @@ function onFocus(): void {
   flex-direction: column;
 }
 
+.search-picker .field[aria-invalid='true'] {
+  border-color: var(--mm-red);
+}
+
 .search-picker-chips {
   display: flex;
   flex-wrap: wrap;
@@ -682,6 +751,7 @@ function onFocus(): void {
 }
 
 .search-picker-chip-remove:disabled {
+  color: var(--mm-text-muted-on-beige);
   cursor: not-allowed;
 }
 
@@ -765,6 +835,11 @@ function onFocus(): void {
 
 .search-picker-option[aria-selected='true'] .search-picker-option-label {
   font-weight: 600;
+}
+
+.search-picker-option--disabled {
+  color: var(--mm-text-muted);
+  cursor: not-allowed;
 }
 
 .search-picker-option-label {

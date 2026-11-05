@@ -2206,3 +2206,341 @@ describe('words that are the value', () => {
     wrapper.unmount();
   });
 });
+
+describe('what ChoiceField asks of the picker', () => {
+  const COLUMNS: PickerGroup[] = [
+    {
+      options: [
+        { value: '', label: 'Ignore this column' },
+        { value: 'name', label: 'Full name' },
+        { value: 'email', label: 'Email address' },
+      ],
+    },
+  ];
+  const mountIt = (props: Record<string, unknown> = {}) => {
+    const wrapper = mount(SearchPicker, {
+      props: {
+        modelValue: '',
+        groups: COLUMNS,
+        finds,
+        label: 'Maps to',
+        testid: 'who',
+        'onUpdate:modelValue': (value: string) => wrapper.setProps({ modelValue: value }),
+        ...props,
+      },
+      attachTo: document.body,
+    });
+    return wrapper;
+  };
+  const inField = (wrapper: ReturnType<typeof mountIt>) =>
+    (wrapper.get('[data-testid="who-input"]').element as HTMLInputElement).value;
+  const open = (wrapper: ReturnType<typeof mountIt>) =>
+    wrapper.get('[data-testid="who-input"]').trigger('click');
+  const row = (wrapper: ReturnType<typeof mountIt>, label: string) =>
+    wrapper.findAll('[role="option"]').find((option) => option.text() === label)!;
+
+  describe('clearsOnChoice', () => {
+    const adding: PickerGroup[] = [
+      {
+        options: [
+          { value: 'gold', label: 'Gold' },
+          { value: 'silver', label: 'Silver' },
+        ],
+      },
+    ];
+    const choosing = () => {
+      const chosen: unknown[] = [];
+      const wrapper = mount(SearchPicker, {
+        props: {
+          modelValue: '',
+          groups: adding,
+          finds,
+          label: 'Add an answer',
+          testid: 'who',
+          clearsOnChoice: true,
+          'onUpdate:modelValue': (value: string | string[]) => chosen.push(value),
+        },
+        attachTo: document.body,
+      });
+      return { wrapper, chosen, input: wrapper.get('[data-testid="who-input"]') };
+    };
+
+    it('empties the field, closes the list and keeps the focus, on a click', async () => {
+      const { wrapper, chosen, input } = choosing();
+      (input.element as HTMLInputElement).focus();
+      await input.setValue('sil');
+      await wrapper.get('[role="option"]').trigger('click');
+
+      expect(chosen).toEqual(['silver']);
+      expect((input.element as HTMLInputElement).value).toBe('');
+      expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+      expect(document.activeElement).toBe(input.element);
+      wrapper.unmount();
+    });
+
+    it('stands ready for the next, by the keys alone', async () => {
+      const { wrapper, chosen, input } = choosing();
+      (input.element as HTMLInputElement).focus();
+      await input.setValue('gol');
+      await input.trigger('keydown', { key: 'Enter' });
+      await input.setValue('sil');
+      await input.trigger('keydown', { key: 'Enter' });
+
+      expect(chosen).toEqual(['gold', 'silver']);
+      expect((input.element as HTMLInputElement).value).toBe('');
+      wrapper.unmount();
+    });
+
+    it('opens on every row again, the words gone', async () => {
+      const { wrapper, input } = choosing();
+      await input.setValue('sil');
+      await input.trigger('keydown', { key: 'Enter' });
+      await input.trigger('keydown', { key: 'ArrowDown' });
+
+      expect(wrapper.findAll('[role="option"]').map((row) => row.text())).toEqual([
+        'Gold',
+        'Silver',
+      ]);
+      wrapper.unmount();
+    });
+
+    it('leaves words not chosen to clear as the field is left, emitting nothing', async () => {
+      const { wrapper, chosen, input } = choosing();
+      await input.setValue('sil');
+      await input.trigger('blur');
+
+      expect(chosen).toEqual([]);
+      expect((input.element as HTMLInputElement).value).toBe('');
+      wrapper.unmount();
+    });
+  });
+
+  it('hides its label from the eye and keeps it naming the field, given hideLabel', () => {
+    const wrapper = mountIt({ hideLabel: true });
+    const label = wrapper.get('label');
+    expect(label.classes()).toContain('visually-hidden');
+    expect(label.classes()).not.toContain('field-label');
+    expect(label.attributes('for')).toBe(wrapper.get('input').attributes('id'));
+    expect(label.text()).toBe('Maps to');
+    wrapper.unmount();
+  });
+
+  it('keeps its label in view without hideLabel', () => {
+    const wrapper = mountIt();
+    expect(wrapper.get('label').classes()).toContain('field-label');
+    expect(wrapper.get('label').classes()).not.toContain('visually-hidden');
+    wrapper.unmount();
+  });
+
+  it('says its field is invalid only when given invalid', async () => {
+    const wrapper = mountIt();
+    expect(wrapper.get('input').attributes('aria-invalid')).toBeUndefined();
+    await wrapper.setProps({ invalid: true });
+    expect(wrapper.get('input').attributes('aria-invalid')).toBe('true');
+    wrapper.unmount();
+  });
+
+  it('show() takes the focus and opens the list, and says so', async () => {
+    const wrapper = mountIt();
+    const { show } = wrapper.vm as unknown as { show(): boolean };
+
+    expect(show()).toBe(true);
+    await flushPromises();
+    expect(document.activeElement).toBe(wrapper.get('input').element);
+    expect(wrapper.find('[role="listbox"]').exists()).toBe(true);
+    // Asked again with the list open, it is still open.
+    expect(show()).toBe(true);
+    wrapper.unmount();
+  });
+
+  it('show() answers false where no list can open, a disabled field untouched', async () => {
+    const none = mountIt({ groups: [] });
+    expect((none.vm as unknown as { show(): boolean }).show()).toBe(false);
+    await flushPromises();
+    expect(none.find('[role="listbox"]').exists()).toBe(false);
+    expect(document.activeElement).toBe(none.get('input').element);
+    none.unmount();
+
+    const disabled = mountIt({ disabled: true });
+    expect((disabled.vm as unknown as { show(): boolean }).show()).toBe(false);
+    await flushPromises();
+    expect(disabled.find('[role="listbox"]').exists()).toBe(false);
+    expect(document.activeElement).not.toBe(disabled.get('input').element);
+    disabled.unmount();
+  });
+
+  describe('an option whose value is empty, under holdsChoice', () => {
+    it('is the choice while the value is empty: named by the field, its row chosen and active', async () => {
+      const wrapper = mountIt({ holdsChoice: true });
+      expect(inField(wrapper)).toBe('Ignore this column');
+
+      await open(wrapper);
+      const ignore = row(wrapper, 'Ignore this column');
+      expect(ignore.attributes('aria-selected')).toBe('true');
+      expect(ignore.classes()).toContain('search-picker-option--active');
+      wrapper.unmount();
+    });
+
+    it('can be chosen again after another, and the value is empty once more', async () => {
+      const wrapper = mountIt({ holdsChoice: true, modelValue: 'name' });
+      expect(inField(wrapper)).toBe('Full name');
+
+      await open(wrapper);
+      await row(wrapper, 'Ignore this column').trigger('click');
+      await flushPromises();
+
+      expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual(['']);
+      expect(inField(wrapper)).toBe('Ignore this column');
+      expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+      wrapper.unmount();
+    });
+
+    it('holds under words not chosen, which clear on leaving and write nothing', async () => {
+      const wrapper = mountIt({ holdsChoice: true });
+      await wrapper.get('input').setValue('Ema');
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+
+      await wrapper.get('input').trigger('blur');
+      expect(inField(wrapper)).toBe('Ignore this column');
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+      wrapper.unmount();
+    });
+  });
+
+  describe('an option that may not be taken', () => {
+    const TARGETS: PickerGroup[] = [
+      {
+        label: 'Essential',
+        options: [
+          { value: 'email', label: 'Email address', disabled: true, detail: 'Mapped from "Mail"' },
+          { value: 'name', label: 'Full name' },
+          { value: 'tier', label: 'Tier', disabled: true, detail: 'Mapped from "Tiers"' },
+          { value: 'dates', label: 'Dates' },
+        ],
+      },
+    ];
+    const activeRow = (wrapper: ReturnType<typeof mountIt>) =>
+      wrapper.find('.search-picker-option--active').attributes('data-value');
+    const press = (wrapper: ReturnType<typeof mountIt>, key: string) =>
+      wrapper.get('input').trigger('keydown', { key });
+
+    it('is drawn muted and says so to a reader, with its detail saying why', async () => {
+      const wrapper = mountIt({ groups: TARGETS });
+      await open(wrapper);
+
+      const taken = row(wrapper, 'Email addressMapped from "Mail"');
+      expect(taken.attributes('aria-disabled')).toBe('true');
+      expect(taken.classes()).toContain('search-picker-option--disabled');
+      expect(taken.text()).toContain('Mapped from "Mail"');
+      expect(row(wrapper, 'Full name').attributes('aria-disabled')).toBeUndefined();
+      wrapper.unmount();
+    });
+
+    it('is not the first active row', async () => {
+      const wrapper = mountIt({ groups: TARGETS });
+      await open(wrapper);
+      expect(activeRow(wrapper)).toBe('name');
+
+      await wrapper.get('input').setValue('a');
+      expect(activeRow(wrapper)).toBe('name');
+      wrapper.unmount();
+    });
+
+    it('is skipped by the arrow keys, each way, and the last that can be taken stays', async () => {
+      const wrapper = mountIt({ groups: TARGETS });
+      await open(wrapper);
+
+      await press(wrapper, 'ArrowDown');
+      expect(activeRow(wrapper)).toBe('dates');
+      await press(wrapper, 'ArrowDown');
+      expect(activeRow(wrapper)).toBe('dates');
+      await press(wrapper, 'ArrowUp');
+      expect(activeRow(wrapper)).toBe('name');
+      await press(wrapper, 'ArrowUp');
+      expect(activeRow(wrapper)).toBe('name');
+      wrapper.unmount();
+    });
+
+    it('is not taken by a click, and the list stays open', async () => {
+      const wrapper = mountIt({ groups: TARGETS });
+      await open(wrapper);
+      await row(wrapper, 'Email addressMapped from "Mail"').trigger('click');
+
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+      expect(wrapper.find('[role="listbox"]').exists()).toBe(true);
+      wrapper.unmount();
+    });
+
+    it('does not become active under the pointer, so Enter never lands on it', async () => {
+      const wrapper = mountIt({ groups: TARGETS });
+      await open(wrapper);
+      await row(wrapper, 'Email addressMapped from "Mail"').trigger('mousemove');
+      expect(activeRow(wrapper)).toBe('name');
+
+      await press(wrapper, 'Enter');
+      expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual(['name']);
+      wrapper.unmount();
+    });
+
+    it('is still found by words, and Enter on nothing else to take takes nothing', async () => {
+      const wrapper = mountIt({ groups: TARGETS });
+      await wrapper.get('input').setValue('Email');
+
+      expect(wrapper.findAll('[role="option"]').map((o) => o.attributes('data-value'))).toEqual([
+        'email',
+      ]);
+      expect(wrapper.find('.search-picker-option--active').exists()).toBe(false);
+      await press(wrapper, 'Enter');
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+      expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+      wrapper.unmount();
+    });
+
+    it('counts as a match against the cap', async () => {
+      const wrapper = mountIt({ groups: TARGETS, cap: 2 });
+      await open(wrapper);
+
+      expect(wrapper.findAll('[role="option"]')).toHaveLength(2);
+      expect(wrapper.get('[data-testid="who-more"]').text()).toBe('2 more, type to narrow');
+      wrapper.unmount();
+    });
+
+    it('held as the choice, is named by the field with no row active, and Enter keeps it', async () => {
+      const wrapper = mountIt({ groups: TARGETS, modelValue: 'email', holdsChoice: true });
+      expect(inField(wrapper)).toBe('Email address');
+
+      await open(wrapper);
+      expect(wrapper.find('.search-picker-option--active').exists()).toBe(false);
+      await press(wrapper, 'Enter');
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+      expect(inField(wrapper)).toBe('Email address');
+      wrapper.unmount();
+    });
+
+    it('is not toggled among several', async () => {
+      const wrapper = mountIt({ groups: TARGETS, multiple: true, modelValue: [] });
+      await open(wrapper);
+      await row(wrapper, 'Email addressMapped from "Mail"').trigger('click');
+
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+      wrapper.unmount();
+    });
+
+    it('is not taken by words naming it, one choice or several, and offers no `Use` row', async () => {
+      for (const props of [
+        { acceptsTyped: true },
+        { acceptsTyped: true, multiple: true, modelValue: [] },
+      ]) {
+        const wrapper = mountIt({ groups: TARGETS, ...props });
+        await wrapper.get('input').setValue('email address');
+        expect(wrapper.findAll('[role="option"]').map((o) => o.text())).toEqual([
+          'Email addressMapped from "Mail"',
+        ]);
+
+        await wrapper.get('input').trigger('blur');
+        expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+        wrapper.unmount();
+      }
+    });
+  });
+});

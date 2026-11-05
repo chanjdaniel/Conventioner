@@ -4,20 +4,23 @@
  * opens on C7, "Who will follow up", capped among 150 people as its dialog and card are, then the
  * cap on a long plain list and across groups, and the states the cap brings. Several choices follow:
  * C5, the reviewers as Choose reviewers draws them, and C10's answers.
- * Typed text ends it: C1, the import's value fixes, beside today's real row with its native select,
- * C3's option input, which keeps a new answer as typed, and the field whose words are its value,
- * for a screen that writes as it is typed.
+ * Next, `ChoiceField`, a select or a field by how many choices it has: C1, the import's value fixes,
+ * on each side of the threshold, then every value of a long list of them, C2, "Maps to", grouped
+ * with a target another column holds taken, C12, "Add an answer", a choice that adds, and C13, the
+ * Discord card's role, a choice that may go back to none.
+ * Typed text ends it: C3's option input, which keeps a new answer as typed, and the field whose words
+ * are its value, for a screen that writes as it is typed.
  *
- * Every picker here is the real `SearchPicker`; the line under each reads out what it holds, so a
- * choice is seen to land.
+ * Every control here is the real one; the line under each reads out what it holds, so a choice is
+ * seen to land.
  */
 import { computed, ref } from 'vue';
+import ChoiceField, { COMBOBOX_PAST } from '@/components/ChoiceField.vue';
 import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
 import ValueFixes from '@/components/ValueFixes.vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
 import LibrarySection from '../parts/LibrarySection.vue';
 import LibraryPanel from '../parts/LibraryPanel.vue';
-import TodayAndProposed from '../parts/TodayAndProposed.vue';
 import ReadOut from '../parts/ReadOut.vue';
 import { fixture } from '../fixture';
 
@@ -99,7 +102,7 @@ const allAddresses = people.map((person) => person.email);
 const proposedReviewers = ref([...reviewerAddresses]);
 /** An account holds an address and no name, so a reviewer's row and chip are the address. */
 const accountGroups: PickerGroup[] = [
-  { options: allAddresses.map((email) => ({ value: email, label: email })) },
+  { options: allAddresses.map((email) => ({ value: email, label: email, address: true })) },
 ];
 
 /** C10's answers, none chosen yet. */
@@ -141,9 +144,14 @@ const fixGroups: PickerGroup[] = [
 ];
 const offeredAnswers = question.options.map(({ label }) => label);
 
-/** C1 today: the real control, on one row, since each row draws every option. */
-const todayFixes = [{ target: question.label, value: valuesToFix[0]!, offered: offeredAnswers }];
-const todayFix = ref('');
+/** The real row, at each side of the threshold: the question's first answers, as many as that. */
+const fixesOf = (count: number) => [
+  { target: question.label, value: valuesToFix[0]!, offered: offeredAnswers.slice(0, count) },
+];
+const selectFixes = fixesOf(COMBOBOX_PAST);
+const fieldFixes = fixesOf(COMBOBOX_PAST + 1);
+const selectFix = ref('');
+const fieldFix = ref('');
 
 /**
  * The values still waiting are all shown, since they are the work; only those already decided,
@@ -164,9 +172,73 @@ const fixes = ref<Record<string, string>>(
 const fixedCount = computed(() => waitingFixes.filter((value) => fixes.value[value]).length);
 function fixReadOut(fix: string | undefined): string {
   if (!fix) return '';
-  if (fix === IGNORE_VALUE) return IGNORE_LABEL;
-  return offeredAnswers.includes(fix) ? fix : `${fix}, as typed`;
+  return fix === IGNORE_VALUE ? IGNORE_LABEL : fix;
 }
+
+/** C2: a column's "Maps to" as the import builds it, one question held by another column. */
+const NOWHERE_TO_GO = 'nowhere';
+const targetGroups: PickerGroup[] = [
+  {
+    label: 'Ignore',
+    options: [
+      { value: '', label: 'Ignore this column' },
+      { value: NOWHERE_TO_GO, label: 'This column has nowhere to go…' },
+    ],
+  },
+  {
+    label: 'Essential',
+    options: [
+      {
+        value: 'email',
+        label: 'Applicant email *',
+        detail: 'Mapped from "Email Address"',
+        disabled: true,
+      },
+      { value: 'submitted', label: 'Submitted at' },
+      { value: 'name', label: 'Full name *' },
+      { value: 'preferred', label: 'Preferred name' },
+      { value: 'dates', label: 'Which days can you come? *' },
+      { value: 'tiers', label: 'Which table tiers would you accept? *' },
+      { value: 'table', label: 'Would you like a half table or a full table? *' },
+    ],
+  },
+  {
+    label: 'Your questions',
+    options: [
+      { value: 'sheet', label: 'From your sheet (your own notes)' },
+      { value: 'business', label: 'Business name' },
+      {
+        value: 'made',
+        label: question.label,
+      },
+      {
+        value: 'confirm',
+        label:
+          "I confirm that everything I sell at the fair is designed and made by me, and that I have the right to sell it. If a piece uses someone else's pattern, I will say so in my comments.",
+        detail: 'Mapped from "I certify that I designed and made the work I will sell"',
+        disabled: true,
+      },
+    ],
+  },
+];
+const mapsTo = ref('');
+
+/** C13: the Discord card's role, written as it is taken, which may go back to none. */
+const heldRole = ref(question.options[0]!.label);
+const roleOptions = computed<PickerGroup[]>(() => [
+  { options: question.options.map(({ label }) => ({ value: label, label })) },
+]);
+
+/** C12: a rule's "Add an answer", where each choice leaves the list for the ranked answers. */
+const ALL_OTHERS_LABEL = '<All others>';
+const ranked = ref<string[]>([]);
+const rankOptions = computed<PickerGroup[]>(() => [
+  {
+    options: [ALL_OTHERS_LABEL, ...question.options.map(({ label }) => label)]
+      .filter((label) => !ranked.value.includes(label))
+      .map((label) => ({ value: label, label })),
+  },
+]);
 
 /** C3: an option's input, which takes one of the answers already offered or a new one. */
 const newAnswer = ref('');
@@ -180,7 +252,7 @@ const writtenAnswer = ref('');
 <template>
   <LibrarySection
     title="One choice from many"
-    about="One choice serves C2, C6, C7, C8, C9, C13 and C14. C6, C7 and C8 are on their screens; the others are the native selects and the datalist that hold a long list today."
+    about="One choice serves C2, C6, C7, C8, C9, C12, C13 and C14, each on its screen."
   >
     <LibraryPanel :label="`Found by name or address, capped at ${CAP} (C7's shape)`">
       <div class="library-demo">
@@ -307,7 +379,7 @@ const writtenAnswer = ref('');
 
   <LibrarySection
     title="Several choices, as chips"
-    about="Several choices serve C5, C10, C11 and C12. C5 is on its screen; the others are a checkbox per answer today, up to 230 answers, and the rule that ranks a field's options."
+    about="Several choices serve C5, C10, C11 and C12. C5 is on its screen, and so is C10 past 12 answers; C11 is the export dialog's own, a checkbox per column today; and C12 takes one choice at a time, ranked as it is added."
   >
     <LibraryPanel
       :label="`C5: the reviewers among ${people.length}, as Choose reviewers draws them`"
@@ -428,76 +500,149 @@ const writtenAnswer = ref('');
   </LibrarySection>
 
   <LibrarySection
-    title="Typed text kept"
-    about="Typed text serves C1, C3 and F08: a native select of every answer on each row of the import's value fixes, and a question's options, where a new answer is never lost."
+    title="A select or a field, by how many choices"
+    about="ChoiceField is one choice from a set that can grow: a native select at 12 choices or fewer, a capped field past that, its list over the rows below. C1, the import's value fixes, takes it: a fix must name an answer the question offers, so words not chosen clear."
   >
-    <TodayAndProposed
-      :today="`Today: a native select of ${question.options.length} answers on every row (C1)`"
-      proposed="Proposed: found by typing, or kept as typed, every waiting value shown"
-    >
-      <template #today>
-        <div class="library-demo" data-testid="library-c1-today">
-          <ValueFixes
-            :entries="todayFixes"
-            :resolution-for="() => todayFix"
-            testid="library-c1-today"
-            @resolve="(_target, _value, choice) => (todayFix = choice)"
-          />
-          <ReadOut label="Fix" :value="fixReadOut(todayFix)" />
-        </div>
-      </template>
-      <template #proposed>
-        <div class="library-fixes">
-          <template v-for="(value, at) in shownFixes" :key="value">
-            <p v-if="at === 0" class="library-fixes-heading" data-testid="library-c1-waiting">
-              {{ waitingFixes.length }} values still waiting
-            </p>
-            <p
-              v-if="at === waitingFixes.length"
-              class="library-fixes-heading"
-              data-testid="library-c1-decided"
-            >
-              {{ decidedFixes.length }} values already decided
-            </p>
-            <div
-              class="library-demo"
-              role="group"
-              :aria-labelledby="`library-c1-value-${at}`"
-              data-testid="library-c1-value"
-            >
-              <code :id="`library-c1-value-${at}`" class="library-fix-value">{{ value }}</code>
-              <SearchPicker
-                :model-value="fixes[value] ?? ''"
-                :groups="fixGroups"
-                :finds="findsByLabel"
-                :cap="CAP"
-                accepts-typed
-                label="What it means"
-                placeholder="Type to find an answer…"
-                none-word="Nothing"
-                :testid="`library-c1-fix-${at}`"
-                @update:model-value="fixes[value] = $event as string"
-              />
-              <ReadOut label="Fix" :value="fixReadOut(fixes[value])" />
-            </div>
-          </template>
-          <div class="library-fixes-foot">
-            <button
-              type="button"
-              class="btn btn--compact btn--secondary"
-              data-testid="library-c1-show-all"
-              @click="allFixes = !allFixes"
-            >
-              {{ allFixes ? 'Show fewer' : `Show all ${decidedFixes.length}` }}
-            </button>
-            <div data-testid="library-c1-fixed">
-              <ReadOut label="Fixed" :value="`${fixedCount} of ${waitingFixes.length}`" />
-            </div>
+    <LibraryPanel :label="`${COMBOBOX_PAST} answers: a select (C1)`">
+      <div class="library-demo" data-testid="library-c1-select">
+        <ValueFixes
+          :entries="selectFixes"
+          :resolution-for="() => selectFix"
+          testid="library-c1-select"
+          @resolve="(_target, _value, choice) => (selectFix = choice)"
+        />
+        <ReadOut label="Fix" :value="fixReadOut(selectFix)" />
+      </div>
+    </LibraryPanel>
+
+    <LibraryPanel :label="`${COMBOBOX_PAST + 1} answers: a field (C1)`">
+      <div class="library-demo" data-testid="library-c1-field">
+        <ValueFixes
+          :entries="fieldFixes"
+          :resolution-for="() => fieldFix"
+          testid="library-c1-field"
+          @resolve="(_target, _value, choice) => (fieldFix = choice)"
+        />
+        <ReadOut label="Fix" :value="fixReadOut(fieldFix)" />
+      </div>
+    </LibraryPanel>
+
+    <LibraryPanel :label="`C1 among ${question.options.length} answers, every waiting value shown`">
+      <div class="library-fixes">
+        <template v-for="(value, at) in shownFixes" :key="value">
+          <p v-if="at === 0" class="library-fixes-heading" data-testid="library-c1-waiting">
+            {{ waitingFixes.length }} values still waiting
+          </p>
+          <p
+            v-if="at === waitingFixes.length"
+            class="library-fixes-heading"
+            data-testid="library-c1-decided"
+          >
+            {{ decidedFixes.length }} values already decided
+          </p>
+          <div
+            class="library-demo"
+            role="group"
+            :aria-labelledby="`library-c1-value-${at}`"
+            data-testid="library-c1-value"
+          >
+            <code :id="`library-c1-value-${at}`" class="library-fix-value">{{ value }}</code>
+            <ChoiceField
+              :model-value="fixes[value] ?? ''"
+              :groups="fixGroups"
+              :label="`What ${value} means`"
+              :name="`library-c1-fix-${at}`"
+              :testid="`library-c1-fix-${at}`"
+              placeholder="Choose…"
+              hide-label
+              writes
+              @update:model-value="fixes[value] = $event"
+            />
+            <ReadOut label="Fix" :value="fixReadOut(fixes[value])" />
+          </div>
+        </template>
+        <div class="library-fixes-foot">
+          <button
+            type="button"
+            class="btn btn--compact btn--secondary"
+            data-testid="library-c1-show-all"
+            @click="allFixes = !allFixes"
+          >
+            {{ allFixes ? 'Show fewer' : `Show all ${decidedFixes.length}` }}
+          </button>
+          <div data-testid="library-c1-fixed">
+            <ReadOut label="Fixed" :value="`${fixedCount} of ${waitingFixes.length}`" />
           </div>
         </div>
-      </template>
-    </TodayAndProposed>
+      </div>
+    </LibraryPanel>
+  </LibrarySection>
 
+  <LibrarySection
+    title="A target another column holds"
+    about='C2, the import&apos;s "Maps to": a ChoiceField under Ignore, Essential and Your questions, the ways out first, so the cap never hides them. A choice another column holds stays in the list and is found by words, muted, saying which column; neither a press nor the keys take it.'
+  >
+    <LibraryPanel label="C2, two questions taken">
+      <div class="library-demo">
+        <ChoiceField
+          v-model="mapsTo"
+          :groups="targetGroups"
+          label="What Business Twitter maps to"
+          testid="library-c2"
+          hide-label
+          writes
+        />
+        <ReadOut label="Maps to" :value="mapsTo || 'Ignored'" />
+      </div>
+    </LibraryPanel>
+  </LibrarySection>
+
+  <LibrarySection
+    title="A choice that adds"
+    about='C12, a rule&apos;s "Add an answer", and C14, "Add from your file": each choice leaves the list for what it adds to, and the field empties with the focus still in it, ready for the next. It counts the whole set, so it stays one control as the set shrinks, and "<All others>" comes first, so the cap never hides it.'
+  >
+    <LibraryPanel :label="`C12, ranking among ${question.options.length} answers`">
+      <div class="library-demo">
+        <ChoiceField
+          model-value=""
+          :groups="rankOptions"
+          label="Rule 1: add an answer"
+          placeholder="Add an answer"
+          testid="library-c12"
+          :whole-count="question.options.length + 1"
+          adds
+          hide-label
+          @update:model-value="ranked.push($event)"
+        />
+        <ReadOut label="Ranked" :value="ranked.join(', ')" />
+      </div>
+    </LibraryPanel>
+  </LibrarySection>
+
+  <LibrarySection
+    title="A choice that may go back to none"
+    about="C13, the Discord card's &quot;Role to give&quot;: while a choice holds, the first row lets it go, as a select's empty row does. With none held, the row is not drawn."
+  >
+    <LibraryPanel :label="`C13, among ${question.options.length} roles`">
+      <div class="library-demo">
+        <ChoiceField
+          v-model="heldRole"
+          :groups="roleOptions"
+          label="Role to give"
+          placeholder="Choose a role"
+          testid="library-c13-none"
+          none-row="No role"
+          writes
+        />
+        <ReadOut label="Holds" :value="heldRole || 'No role'" />
+      </div>
+    </LibraryPanel>
+  </LibrarySection>
+
+  <LibrarySection
+    title="Typed text kept"
+    about="Typed text serves C3 and F08: a question's options, where a new answer is never lost."
+  >
     <LibraryPanel label="A new answer, kept as typed (C3's shape)">
       <div class="library-demo">
         <SearchPicker

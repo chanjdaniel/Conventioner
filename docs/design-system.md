@@ -37,9 +37,11 @@ describes:
   - front-end/src/components/SidePanel.vue
   - front-end/src/components/BarLedger.vue
   - front-end/src/utils/useFold.ts
+  - front-end/e2e/a-focused-button-moves-nothing.spec.ts
+  - front-end/src/components/ChoiceField.vue
+  - front-end/src/components/application/LongQuestion.vue
   - front-end/e2e/no-in-app-scroll-bar.spec.ts
   - front-end/src/__tests__/everyScrollerIsAScrollBox.test.ts
-  - front-end/e2e/a-focused-button-moves-nothing.spec.ts
 verified: 2026-11-05
 sources:
   - wayfinding/claims-and-room/map
@@ -87,13 +89,14 @@ sources:
   - T205
   - T200
   - T211
+  - T204
   - T202
   - T213
-  - T221
-  - T204
   - T209
-  - T217
   - T214
+  - T221
+  - T223
+  - T217
 ---
 
 # Conventioner's design language
@@ -347,7 +350,7 @@ The contract says which values are text and holds those to AA; it does not raise
 
 **Ink on light and ink on dark are separate families** (`--mm-text-muted` and `--mm-text-muted-on-dark`), because contrast belongs to a pair: one muted grey cannot serve white and the near-black bar both, and two families make white text on a white page unwritable.
 Where the beige card needs a darker ink than white does, that is a token of its own (`--mm-text-muted-on-beige`).
-It also serves the Assignments page's muted text inside a table row, which can sit on an empty table's yellow ground (`--mm-yellow` at 0.18 over white, `.table-row--empty`) or a hovered seat's beige: there `--mm-text-muted` reads 4.38 and 4.23, and `--mm-text-muted-on-beige` 5.42 and 5.19, so a change to the yellow, the beige or the token is measured on those grounds too.
+It also serves the Assignments page's muted text inside a table row, which can sit on an empty table's yellow ground (`--mm-yellow` at 0.18 over white, `.table-row--empty`) or a hovered seat's beige: there `--mm-text-muted` reads 4.38 and 4.23, and `--mm-text-muted-on-beige` 5.42 and 5.19, and the import's value fixes' row counts on their red ground, `--mm-chip-destructive`, 4.24 and 5.21, so a change to the yellow, the beige, that ground or the token is measured on those grounds too.
 
 **Fills carry the reciprocal check**: each fill declares the ink it is legible under, white on `--mm-green`, `--mm-red` and `--mm-blue`, `--mm-black` on `--mm-yellow` and `--mm-beige`.
 That check is what made the brand green darker rather than leaving each button to a judgement call.
@@ -428,7 +431,7 @@ The searchable picker is the app's own, and the ADR records why that combobox di
 Two smaller controls had no owner either, each re-decided per file, and are primitives of their own: `.add-row`, the button that adds a row to a plan card (it was an icon with a click handler, unreachable from a keyboard), and `.drag-handle`, the control that reorders a row (E17/F01).
 A link on a line of its own is `.link-alone`, a target `--target-min` tall in the link ink, underlined under the pointer: "Forgot password?" under sign-in and "Back to sign in" under the password and verification pages, which each carried a copy of the rule as their own `.link` (T181).
 A link inside a sentence is not one, since it sits on the sentence's line.
-A choice among many, found by typing, is [`SearchPicker.vue`](../front-end/src/components/SearchPicker.vue) (E38/F08/S03): a field over a grouped list that it narrows as it is typed in, worked by the arrow keys, Enter and Escape, its list opening in the flow under the field so a dialog's scroller cannot clip it; it narrows a group and never hides one, a named group with nothing matching saying so and one with no name drawing nothing, and the caller says what the words find.
+A choice among many, found by typing, is [`SearchPicker.vue`](../front-end/src/components/SearchPicker.vue) (E38/F08/S03): a field over a grouped list that it narrows as it is typed in, worked by the arrow keys, Enter and Escape, its list opening in the flow under the field so a dialog's scroller cannot clip it; it narrows a group and never hides one, a named group with nothing matching saying so and one with no name drawing nothing, unless the caller gives `hidesEmptiedGroups`, as `ChoiceField` does, and then a group the words emptied is not drawn and words that find nothing say so once; the caller says what the words find.
 Reopened on a choice, it selects that choice's label, so typing replaces it and searches afresh rather than running on from the label; left untouched, the choice stays.
 A picker with no choices at all never opens its list, and "Nobody matches" (the caller's `noneWord` in place of "Nobody", where the choices are not people) shows only once words are typed, so the note the caller puts beside it says why there is nothing to choose.
 Given a `cap`, it draws at most that many matches, counted across the groups in order, under a line "N more, type to narrow" that stays in view as the list scrolls and that the keys skip; a group the cap alone leaves out is not drawn, and a choice past the cap is named by the field, with no row active, so Enter keeps it.
@@ -449,6 +452,27 @@ The placement dialog's pickers are its first use, with no `cap`; Choose reviewer
 The All view's "Assigned to" and the market history's "Who" hold their choice too, as filters.
 Given `listOver`, its list lies over what follows and moves nothing, as those two need: in the flow, "Assigned to" would push the rows down beside a wide empty band, and "Who" would push the filters below it down beside an empty half of its row.
 "Who" gives its list the width of both its columns, so a phone reads an address on one line; in a dialog, what passes the scroller's edge takes a scroll.
+Given `hideLabel`, its label is `.visually-hidden`, for a row that says what the field is; given `invalid`, its field is `aria-invalid="true"` and ringed in `--mm-red`, as Pricing rings a field, and the words saying why are the caller's, through `describedBy`.
+An option whose value is `''` is a real row under `holdsChoice`, chosen while the value is `''`, as "Ignore this column" needs.
+An option that is `disabled` may not be taken, as a target another column holds: drawn in `--mm-text-muted` with `aria-disabled="true"`, its `detail` saying why, passed by the keys and as the first active row, taken by neither a click, Enter nor words naming it; words still find it and the cap still counts it, so nobody wonders where it went.
+Given `clearsOnChoice`, on one choice, each choice is added elsewhere, as a ranked list's next answer: after emitting, the field empties, the list closes and the focus stays, ready for the next word, and the value stays `''`.
+Given `fieldId`, its field has that id, for a link elsewhere on the screen to name.
+Its exposed `show()` takes the focus and opens the list, for a link elsewhere on the screen, and answers whether the list is open; its `showChoice()` has the field name the choice that holds again, for a screen whose server refused the one just taken, leaving words being typed.
+A choice from a set that can grow is [`ChoiceField.vue`](../front-end/src/components/ChoiceField.vue) (T223): a native select at 12 choices or fewer, the same to its screen as the `SearchPicker` it mounts past that, so no screen writes the threshold, the cap or the two markups.
+**The threshold is one number**: its `COMBOBOX_PAST` is `ListFrame`'s `LIST_FIND_FROM`, 12, the length past which a list has its find field too, and a screen drawing its own small form compares against that export, with `COMBOBOX_CAP` and `labelHolds` for the `SearchPicker` it mounts past that, as `ChoiceConditions` does: a choice of several has no `ChoiceField`.
+It counts the whole set, `wholeCount` where the screen gives it, else the options drawn, so a set that shrinks as it is used never turns into the other control under the caret; the import's value fixes give it the question's answers, leaving "Ignore this value" out of the count.
+At 12 or fewer the select carries the `testid` and the `name`, a group with a label is an `optgroup`, and `placeholder` is its empty row.
+Past 12 the picker's root carries the `testid`, it draws 50 of what the words find, its words find by the label unless the screen gives `finds`, and its list lies over what follows, at least 22rem wide, or the window's width less twice `--space-8` where that is narrower, with its right edge on the field's, so a long answer reads on a line or two in a narrow column.
+A card's body scrolls nothing and clips nothing ([`ElementSettingContainer.vue`](../front-end/src/components/elements/ElementSettingContainer.vue)), so such a list passes a card's foot whole.
+A host that clips or scrolls, as the frame of Pricing's table does, gives `listInFlow`, so the list pushes what follows down rather than being cut off; `ChoiceConditions` does, on either card.
+An option that is `disabled` is an `option` that is `disabled` in the select, its `detail` on its line, since a select's row has one, and in the field a row as above.
+It never keeps typed words, so a fix can only name what the question offers; a free-text field is `SearchPicker` itself.
+`writes` is the picker's `holdsChoice`, for a choice acted on as it is taken; `noneRow` is for a choice that may go back to none, as the Discord card's: while one holds, its words are the field's first row, whose value is `''`, as the select's empty row is, counting toward no threshold; `adds` says each choice is added elsewhere, as a rule's "Add an answer" and "Add from your file" do: the value stays `''`, the select goes back to its empty row and the field is the picker's `clearsOnChoice`, and the screen gives `wholeCount`, since such a set shrinks as it is used; its `open()` opens the list from elsewhere on the screen, and answers false where nothing opened, on a browser with no `HTMLSelectElement.showPicker` or one that refused it; its `showHeld()` shows what `modelValue` holds again, for a screen whose server refused the choice just taken; and `fieldId` is the control's id, the select's or the field's, for a link elsewhere on the screen to name.
+The applicant's form compares a question's options against the same number ([`LongQuestion.vue`](../front-end/src/components/application/LongQuestion.vue), T223): past 12 a `select` is a `SearchPicker` capped at 50 and a `multi_select` the same with `multiple`, in the page's flow, and at 12 or fewer each stays the select or the checkboxes it was.
+The question's words stay where every question has them, hidden from a reader and tied to no control, a press on them putting the caret in the field, and the field takes those words as its name, required mark and all, so the question is heard once.
+It is never `holdsChoice`, as a form acts on Save: the first word lets a choice go, and words not chosen clear on leaving the field.
+A locked question is `disabled`, a question in error is `invalid` and described by its error, and a stored answer no option offers is a chip among several; on one choice the field is empty, and the form's required check counts it as no answer, at either size.
+`FormPreview` mounts the same component disabled, so the organizer sees what an applicant will get ([applying online](business/flows/applying-online.md#h3a-a-new-vendor-applies)).
 The emailed six-digit sign-in code has one field, [`CodeInput.vue`](../front-end/src/components/CodeInput.vue), which both sign-ins use: the vendor page's code step and the organizer's "Sign-in code" step (T191 F21).
 It is a `.field` 48px tall at `--text-xl`, the one field read at a glance, with tabular figures, and the one field whose text is centred: its `letter-spacing` and `text-indent` take one custom property, `--code-spacing`, since a browser adds the spacing after the last digit too and a centred run without the matching indent sat half a space left of centre.
 Its placeholder, `000000`, clears on focus, so the empty field's caret, drawn at the box's centre, is never drawn inside the digit group; the label over it names it, as every label does.
@@ -478,7 +502,8 @@ The Reviewers panel on the Applications tab is its screen ([`ReviewersPanel.vue`
 A long list a screen keeps grouped folds by group, in [`RowGroup.vue`](../front-end/src/components/RowGroup.vue) (T200): a heading, the first `fold` (20) rows of `items`, and "Show all 31 in North Wing", which unfolds the rest in place and becomes "Show fewer"; at `fold` rows or fewer it draws no button.
 [`BarLedger.vue`](../front-end/src/components/BarLedger.vue) folds the same way with `fold`: the rows by count, the first `fold`, then "N more answers"; without it the rows are drawn in the order they came, all of them.
 Both take the fold from [`useFold`](../front-end/src/utils/useFold.ts): unfolding hands the focus to the first new row, and folding keeps it on the button and brings the button back into view.
-No screen folds yet: the library's `folds` entry shows both, on the Stats tab's bars and the Assignments page's tables.
+Neither is on a screen yet: the library's `folds` entry shows both, on the Stats tab's bars and the Assignments page's tables.
+A question's options on the form builder take the same fold in [`FormFieldEditor.vue`](../front-end/src/components/application/FormFieldEditor.vue), past 20, and "Add option" unfolds them, so a new row is never behind it.
 
 A list someone puts in order is [`OrderedList.vue`](../front-end/src/components/OrderedList.vue) (T200), generic over the item: each row has the `.drag-handle` and its own move up and move down buttons, named by `itemLabel`, so the keyboard can do what the mouse can, the first's up and the last's down disabled.
 A move keeps the focus on the moved row's button, or on its other button once that one is disabled.

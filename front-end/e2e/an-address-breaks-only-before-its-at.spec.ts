@@ -1,11 +1,15 @@
 import type { Locator } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { seedAssignedMarket } from './helpers/seedAssignedMarket';
+import { seedApprovedVendor } from './helpers/seedApplication';
+import { SEED_MARKET_DATE } from './helpers/seeds';
 import { seedTheScreens } from './helpers/seedTheScreens';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
 import { ManageMarketPage } from './pages/ManageMarketPage';
 import { OrganizationsPage } from './pages/OrganizationsPage';
 import { ReviewersPanel } from './pages/ReviewersPanel';
+import { TablesPage } from './pages/TablesPage';
 import { VendorsPage } from './pages/VendorsPage';
 
 /**
@@ -224,6 +228,53 @@ test('"Assigned to", which offers reviewers of its own, breaks an address only b
     .locator('.search-picker-option-label');
   await expectWholeAddress(row, reviewer);
   await expectWholeAddress(row, reviewer, true);
+});
+
+test('"Who sits here" and "Swap them with" break an address only before its "@" or a dot', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const seated = 'e2e-seated-vendor@example.com';
+  const waiting = 'e2e-waiting-vendor@example.com';
+  const { marketId } = await seedAssignedMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { run: false },
+  );
+  seedApprovedVendor(marketId, seated, {
+    dates: [SEED_MARKET_DATE],
+    tiers: ['Gold'],
+    fullName: 'Sam Seated',
+  });
+  const run = await request.post(`${BACKEND_URL}/markets/${marketId}/assignment`, {
+    headers: { 'X-Owner-Email': TEST_USER.email },
+  });
+  expect(run.ok()).toBe(true);
+  // Applied after the run, so the seat's list has someone with no table to offer.
+  seedApprovedVendor(marketId, waiting, {
+    dates: [SEED_MARKET_DATE],
+    tiers: ['Gold'],
+    fullName: 'Wren Waiting',
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const tables = new TablesPage(page);
+  await tables.goto(marketId);
+  const words = (email: string, which: 'vendor' | 'swap-target') =>
+    tables.pickerOption(which, email).locator('.search-picker-option-label');
+
+  await page.getByTestId('tables-seat-empty').first().click();
+  await tables.openPicker('vendor');
+  await expectWholeAddress(words(waiting, 'vendor'), waiting);
+  await expectWholeAddress(words(waiting, 'vendor'), waiting, true);
+  await tables.cancel();
+
+  await tables.change(tables.seatOf('alice@example.com'));
+  await tables.openPicker('swap-target');
+  await expectWholeAddress(words(seated, 'swap-target'), seated);
+  await expectWholeAddress(words(seated, 'swap-target'), seated, true);
 });
 
 test('in a line narrower than the address, each sentence breaks it only before its "@" or a dot', async ({

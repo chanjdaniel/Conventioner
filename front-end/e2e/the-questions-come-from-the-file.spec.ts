@@ -1,11 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL, ApplicationFormPage } from './fixtures';
+import { sweep } from './helpers/contrastSweep';
+import { UPCOMING_YEAR } from './helpers/finishStartedPlan';
+import { seedApplication } from './helpers/seedApplication';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { namelessControls } from './helpers/accessibleNames';
+import { StartFromCsvPage } from './pages/StartFromCsvPage';
 
 /**
  * The Questions tab of a market started from a Google Form's responses offers what the example
@@ -117,7 +121,7 @@ test('the Questions tab fills options from the example file and adds a left-out 
   await expect.poll(() => form.optionValues(booth)).toEqual(['Small', 'Large', 'Medium']);
 
   // The team's own "Status" column was left out; it can come back as a question.
-  await expect(form.addFromFile.locator('option')).toHaveText([
+  await expect(form.addFromFile.root.locator('option')).toHaveText([
     'Choose a column',
     'Status',
     'Notes',
@@ -128,7 +132,7 @@ test('the Questions tab fills options from the example file and adds a left-out 
   await expect(form.keyInput(status)).toHaveValue('status');
   await expect(form.typeSelect(status)).toHaveValue('select');
   await expect.poll(() => form.optionValues(status)).toEqual(['Accepted', 'Waitlist', 'Rejected']);
-  await expect(form.addFromFile.locator('option')).toHaveText(['Choose a column', 'Notes']);
+  await expect(form.addFromFile.root.locator('option')).toHaveText(['Choose a column', 'Notes']);
 
   // The walk of every control never sees a market started from a file, so this screen is looked
   // at here: the new controls are named by the words they show.
@@ -390,6 +394,138 @@ test('a column the start left out, retyped as a choice, offers its rare answers'
   await form.addOption(plain, 'Own option');
   await expect(form.optionInputs(plain)).not.toHaveAttribute('role', 'combobox');
   await expect(form.optionList(plain)).toHaveCount(0);
+});
+
+test.describe('a question of every answer the file gave', () => {
+  /** A draft started from the five-day grid with "Keep all" on its choice column, at its question. */
+  async function startKeepingAll(page: Page, request: APIRequestContext) {
+    const { marketId } = await seedDraftMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const flow = new StartFromCsvPage(page);
+    await flow.open(marketId);
+    await flow.chooseFile(GRID);
+    await flow.answerYear(UPCOMING_YEAR['five-day-grid']);
+    await flow.row(SELLS).getByTestId('proposal-row-keep-all').click();
+    await flow.confirm.click();
+    await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
+
+    const form = new ApplicationFormPage(page);
+    const at = await openQuestions(page, form, marketId);
+    return { marketId, form, at };
+  }
+
+  const inView = (locator: Locator) =>
+    locator.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      return box.top >= 0 && box.bottom <= window.innerHeight;
+    });
+
+  test('folds at 20, and every row past the fold acts on its own option', async ({
+    authenticatedPage: page,
+    request,
+    expectAccessible,
+  }) => {
+    test.setTimeout(60_000);
+    const { marketId, form, at } = await startKeepingAll(page, request);
+    const fold = form.optionsFold(at);
+    const saved = async (): Promise<string[]> => {
+      const res = await request.get(`${BACKEND_URL}/markets/${marketId}`);
+      const { market } = await res.json();
+      return market.applicationForm.fields.find((f: { label: string }) => f.label === SELLS)
+        .options;
+    };
+    const all = await saved();
+    expect(all).toHaveLength(129);
+
+    // Folded: the first 20, and how many there are.
+    await expect(form.optionInputs(at)).toHaveCount(20);
+    await expect(fold).toContainText('Show all 129 options');
+    await expect.poll(() => form.optionValues(at)).toEqual(all.slice(0, 20));
+    await expectAccessible('a question of 129 options, folded');
+    // No walk of the screens reaches a question this long, and the audit above leaves contrast out.
+    expect((await sweep(page)).failures, 'the fold has text below AA').toEqual([]);
+
+    // Unfolded by the keys: the rows are in place, and Tab goes on from the first new one.
+    await fold.focus();
+    await page.keyboard.press('Enter');
+    await expect(form.optionInputs(at)).toHaveCount(129);
+    await expect(fold).toContainText('Show fewer');
+    const rows = form.fieldCard(at).locator('.option-row');
+    await expect(rows.nth(20)).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(form.optionInputs(at).nth(20)).toBeFocused();
+    expect(await namelessControls(page)).toEqual([]);
+
+    // Past the fold, an option's list holds its own answer and none another option holds, since
+    // "Keep all" left it nothing else; its value and its Remove act on that row and no other.
+    const row = 99;
+    const input = form.optionInputs(at).nth(row);
+    await input.click();
+    await expect(form.optionList(at)).toBeVisible();
+    await expect.poll(() => form.optionsOffered(at)).toContain(all[row]);
+    expect(await form.optionsOffered(at)).not.toContain(all[row - 1]);
+    await form.labelInput(at).click();
+    await input.fill('Words the file never held');
+    await form.labelInput(at).click();
+    const edited = all.map((option, place) =>
+      place === row ? 'Words the file never held' : option,
+    );
+    await expect.poll(() => form.optionValues(at)).toEqual(edited);
+    await rows.nth(120).getByTestId('form-field-remove-option-button').click();
+    const removed = edited.filter((_, place) => place !== 120);
+    await expect.poll(() => form.optionValues(at)).toEqual(removed);
+    await expect(fold).toContainText('Show fewer');
+
+    // Folded again: the button comes back into view, it says the new count, and nothing is lost.
+    await fold.focus();
+    await page.keyboard.press('Enter');
+    await expect(form.optionInputs(at)).toHaveCount(20);
+    await expect(fold).toBeFocused();
+    expect(await inView(fold)).toBe(true);
+    await expect(fold).toContainText('Show all 128 options');
+    await form.save();
+    await expect(form.saveSuccess).toBeVisible();
+    await expect.poll(saved).toEqual(removed);
+
+    // "Add option" on the folded question: every row, with the new one in view and empty.
+    const add = form.fieldCard(at).getByTestId('form-field-add-option-button');
+    await add.click();
+    await expect(form.optionInputs(at)).toHaveCount(129);
+    await expect(form.optionInputs(at).last()).toHaveValue('');
+    expect(await inView(form.optionInputs(at).last())).toBe(true);
+    await expect(fold).toContainText('Show fewer');
+
+    // The way back to the file's common answers reaches behind a fold too.
+    await fold.focus();
+    await page.keyboard.press('Enter');
+    await form.useFileOptionsButton(at).click();
+    await expect(form.optionsFromFile(at)).toBeVisible();
+    await expect(fold).toHaveCount(0);
+    await expect.poll(() => form.optionValues(at)).not.toContain('');
+  });
+
+  test('folds read only on a locked form', async ({ authenticatedPage: page, request }) => {
+    const { marketId, form, at } = await startKeepingAll(page, request);
+    await form.save();
+    await expect(form.saveSuccess).toBeVisible();
+    seedApplication(marketId);
+
+    await page.goto(`${marketScreenPath(marketId, 'form')}?step=questions`);
+    await expect(form.lockBanner).toBeVisible();
+    await expect(form.optionInputs(at)).toHaveCount(20);
+    await expect(form.optionInputs(at).first()).toBeDisabled();
+    await expect(form.fieldCard(at).getByTestId('form-field-add-option-button')).toHaveCount(0);
+
+    await form.optionsFold(at).click();
+    await expect(form.optionInputs(at)).toHaveCount(129);
+    await expect(form.optionInputs(at).last()).toBeDisabled();
+    await form.optionsFold(at).click();
+    await expect(form.optionInputs(at)).toHaveCount(20);
+  });
 });
 
 /**

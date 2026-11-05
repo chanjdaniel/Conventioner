@@ -10,7 +10,7 @@ describes:
   - back-end/api/markets.py#leave_out_every_answer
   - back-end/tests/test_csv_proposal.py
   - front-end/src/utils/exampleColumns.ts
-verified: 2026-10-30
+verified: 2026-11-05
 sources:
   - wayfinding/the-form-started-from-a-csv/03
   - wayfinding/the-form-started-from-a-csv/05

@@ -1,4 +1,5 @@
 import { marketScreenPath } from '../helpers/marketScreens';
+import { ChoiceField } from './ChoiceField';
 import type { Locator, Page } from '@playwright/test';
 
 /**
@@ -13,11 +14,11 @@ export class ToolsPage {
   readonly roleValue: Locator;
   readonly questionValue: Locator;
   readonly inviteValue: Locator;
-  readonly roleSelect: Locator;
+  readonly roleChoice: ChoiceField;
   readonly inviteInput: Locator;
   readonly inviteError: Locator;
   readonly roleWarning: Locator;
-  readonly questionSelect: Locator;
+  readonly questionChoice: ChoiceField;
   readonly roleLabel: Locator;
   readonly questionLabel: Locator;
   readonly giving: Locator;
@@ -35,11 +36,11 @@ export class ToolsPage {
     this.roleValue = page.getByTestId('discord-role-value');
     this.questionValue = page.getByTestId('discord-question-value');
     this.inviteValue = page.getByTestId('discord-invite-value');
-    this.roleSelect = page.getByTestId('discord-role-select');
+    this.roleChoice = new ChoiceField(page, 'discord-role-select');
     this.inviteInput = page.getByTestId('discord-invite-input');
     this.inviteError = page.getByTestId('discord-invite-error');
     this.roleWarning = page.getByTestId('discord-role-warning');
-    this.questionSelect = page.getByTestId('discord-question-select');
+    this.questionChoice = new ChoiceField(page, 'discord-question-select');
     this.roleLabel = page.locator('label[for="discord-role"]');
     this.questionLabel = page.locator('label[for="discord-question"]');
     this.giving = page.getByTestId('discord-giving');
@@ -54,9 +55,9 @@ export class ToolsPage {
     await this.page.goto(marketScreenPath(marketId, 'tools'));
   }
 
-  /** The server's role, once the card has read the server's roles. */
+  /** On a small server, a select: the server's role, once the card has read the server's roles. */
   roleOption(roleId: string): Locator {
-    return this.roleSelect.locator(`option[value="${roleId}"]`);
+    return this.roleChoice.root.locator(`option[value="${roleId}"]`);
   }
 
   /** Write in "Invite link" and leave the field, which saves it, until the server has answered. */

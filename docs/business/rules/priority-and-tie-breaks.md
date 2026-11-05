@@ -8,7 +8,7 @@ describes:
   - back-end/assignment/assignment.py#MarketAssignment._magnitude_score
   - back-end/csv_import.py#orders_by_submitted_at
   - front-end/src/components/elements/ElementAssignmentPriority.vue
-verified: 2026-10-30
+verified: 2026-11-05
 sources:
   - wayfinding/v0-1-0/02
   - wayfinding/v0-1-0/03
@@ -18,6 +18,7 @@ sources:
   - brain-dump/2026-10-19#17
   - E34/F05/S01
   - T211
+  - T223
 ---
 
 # Priority and tie-breaks
@@ -46,6 +47,8 @@ How to order follows from the target's type, and there is nothing to declare:
 - **Arranged** (a select or multi-select): the organizer puts the answers in order; `<All others>` stands where every answer they left out sorts, and without it an unplaced answer sorts behind every placed one.
   A multi-select answer stands where its best-placed choice does.
   A blank answer stands behind every placed position, `<All others>` included; the rule editor's hint says how several answers and a blank sort.
+  The answers are added one at a time from "Add an answer", `<All others>` first so that a long list never hides it: a select while the question's answers and `<All others>` come to 12 or fewer, past that a field that finds an answer by typing and stands empty for the next, whichever are placed already.
+  The question a rule orders by is the same choice, by how many questions there are, and choosing the one it already orders by keeps the answers placed.
 - **By magnitude** (a number, a date, a checkbox, the submission time): the organizer picks an end, lowest or highest, earliest or latest, ticked or unticked first.
   An answer with no usable value sorts last whichever end is picked: an absent answer is not evidence of anything.
 

@@ -15,7 +15,7 @@ describes:
   - scripts/discord_rest_proof.py
   - front-end/src/utils/discordRoles.ts
   - back-end/datatypes.py#DiscordRoleRun
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - T92
   - E46
@@ -27,6 +27,7 @@ sources:
   - E42/F01/S05
   - E46/F01/S04
   - T210
+  - T223
 ---
 
 # The Discord connection
@@ -49,6 +50,14 @@ The choices:
   The form builder offers that question ready-made, "Add Discord username" (optional, key `discord_username`, [`discordQuestion.ts`](../../../front-end/src/utils/discordQuestion.ts)), until the form has a text question labelled for Discord ([building the application form](../../business/flows/form-tab.md#f2-custom-questions)).
 - **Invite link**: optional, an `https://` address of at most 200 characters.
 
+**The role and the question are each a [`ChoiceField`](../../design-system.md#the-primitive-layer) that writes as it is taken** (`T223`): a select at 12 choices or fewer, and past that a field that finds by typing and draws 50 of what the words find, so a server of 250 roles and a form of many text questions read the same way.
+Typing writes nothing, and on leaving the field it names the choice that held.
+The role's count holds a stored role the server no longer lists, which is still offered and still shown.
+Taking the choice the field holds again writes nothing, as a select never fires for that.
+A refused choice says so in `discord-save-error`, and the control goes back to what is stored (`showHeld`), so it never names a choice the market does not have.
+While one holds, the field's first row, "No role" or "No question" (`noneRow`), writes null, as the select's empty row does; with none held the row is not drawn.
+The card sets where each list runs: the first column's runs right from its field, and on a phone each is its field's width, since `ChoiceField`'s own width and right edge would pass the window's left edge from a narrow field near it.
+
 Each choice saves as it is made (`PUT /markets/:id/discord`, any of `roleId`, `usernameQuestion`, `inviteLink`, each a string or null), and the page then re-reads the market ([one market, from the server](../conventions/one-market-from-the-server.md)).
 
 **A refused invite link stays in its field, under its refusal's words** (`discord-invite-error`, `T210`).
@@ -64,17 +73,17 @@ The refusals of `_load_market_to_change` are not the card's, and `DiscordUnavail
 **Once a server is connected, the card says where roles are given** (`T210`): a "Giving roles" block ends it, "Check who is in the server and give roles on the Vendors page.", since those controls stand on [the Vendors page](../../business/flows/vendors.md) and the card alone read as a dead end (Daniel's walk).
 Under that, "Still needed:" and a list of only what is missing, in this order, each item a link to where it is done:
 
-- **"Choose the role to give"**, to the role's select.
-- **"Choose the question that asks their Discord username"**, to the question's select; on a form with no text question, "Add a question that asks their Discord username", to the form page, since that select would be empty.
+- **"Choose the role to give"**, to the role's choice.
+- **"Choose the question that asks their Discord username"**, to the question's choice; on a form with no text question, "Add a question that asks their Discord username", to the form page, since that select would be empty.
 - **"Make the assignment"**, to the Settings page, in every phase, where Vendors' own "Nothing assigned yet" sends the same reader: in a phase that refuses a run the page there says why, so the card does not repeat it.
 
 With nothing missing there is no list, and one link, "Give roles on Vendors".
-A link to a select is a real `href`, whose click stays on the address, focuses the select and opens its list with `showPicker()`.
-A browser without that method, as every released Safari on a desk and on an iPhone is by MDN's compatibility data on 2026-11-04, or one that refuses the call, opens no list: the select still takes the focus, and since [a field shows no focus at all](../../design-system.md), its `field-label` takes the link ink for a moment (1.5 seconds), or the link would look dead (Daniel's choice, T210).
+A link to a choice is a real `href`, naming the control's id whichever it is (`fieldId`), whose click stays on the address and calls `ChoiceField`'s `open()`: a field takes the focus and opens its list, and a select does so with `showPicker()`.
+A browser without that method, as every released Safari on a desk and on an iPhone is by MDN's compatibility data on 2026-11-04, or one that refuses the call, opens no list on a select: it still takes the focus, and since [a field shows no focus at all](../../design-system.md), its `field-label` takes the link ink for a moment (1.5 seconds), or the link would look dead (Daniel's choice, T210).
 Every link in the block is `.link-alone`, 44px tall on a phone.
 Someone the row refuses, an archived market and a Conventioner without Discord's values read no block, since it would point at controls they are not offered.
 
-**What is missing is one reading, `rolesStillNeed`, beside `mayGiveRoles`** ([`discordRoles.ts`](../../../front-end/src/utils/discordRoles.ts)): a role when the connection names none, an assignment by `hasAssignment`, and a question unless the connection names one that is still among the form's text questions (`formTextQuestions`, [`discordQuestion.ts`](../../../front-end/src/utils/discordQuestion.ts), which the card's select reads too).
+**What is missing is one reading, `rolesStillNeed`, beside `mayGiveRoles`** ([`discordRoles.ts`](../../../front-end/src/utils/discordRoles.ts)): a role when the connection names none, an assignment by `hasAssignment`, and a question unless the connection names one that is still among the form's text questions (`formTextQuestions`, [`discordQuestion.ts`](../../../front-end/src/utils/discordQuestion.ts), which the card's choice reads too).
 So nothing missing always means Vendors offers "Give roles" to someone the row allows.
 The reverse does not hold: `mayCheckDiscord` reads only that a question is named, so a question gone from the form is on the list while Vendors still offers the button, and the server refuses it in its own words.
 A role above the bot's counts as chosen, since the card's warning, right above the block, already says what to do about it.

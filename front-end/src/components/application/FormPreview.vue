@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { type ApplicationForm, type EssentialFormOptions } from '@/assets/types/datatypes';
 import EssentialApplicationFields from './EssentialApplicationFields.vue';
+import LongQuestion, { isLongQuestion } from './LongQuestion.vue';
 
 const props = defineProps<{
   applicationForm: ApplicationForm | null;
@@ -56,19 +57,37 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
       >
         <!-- Each question names its control, as the live form does: the preview's labels pointed at
              nothing, so a screen reader announced every field here as unnamed (bug 44). -->
-        <label
+        <component
+          :is="isLongQuestion(field) ? 'span' : 'label'"
           :id="`preview-${field.key}-label`"
           class="preview-label"
-          :for="field.type === 'multi_select' ? undefined : `preview-${field.key}`"
+          :for="
+            field.type === 'multi_select' || isLongQuestion(field)
+              ? undefined
+              : `preview-${field.key}`
+          "
+          :aria-hidden="isLongQuestion(field) ? 'true' : undefined"
         >
           {{ field.label }}
           <span v-if="field.required" class="preview-required">*</span>
-        </label>
+        </component>
 
         <p v-if="field.helpText" class="preview-help">{{ field.helpText }}</p>
 
+        <!-- Past 12 options, as an applicant gets it: its field takes these words as its name. -->
+        <LongQuestion
+          v-if="isLongQuestion(field)"
+          class="preview-long"
+          :field="field"
+          :model-value="field.type === 'multi_select' ? [] : ''"
+          :testid="`form-preview-input-${field.key}`"
+          :field-id="`preview-${field.key}`"
+          disabled
+          previewing
+        />
+
         <input
-          v-if="field.type === 'text' || field.type === 'email'"
+          v-else-if="field.type === 'text' || field.type === 'email'"
           :id="`preview-${field.key}`"
           class="preview-input"
           :type="field.type === 'email' ? 'email' : 'text'"
@@ -224,7 +243,8 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 }
 
 /* The primitive, at the height and type of the preview's other fields. */
-.preview-select {
+.preview-select,
+.preview-long :deep(.field) {
   height: 32px;
   font-size: var(--text-xs);
 }

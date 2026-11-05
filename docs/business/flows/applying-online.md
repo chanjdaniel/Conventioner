@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-11-03
+verified: 2026-11-05
 sources:
   - E26/F07
   - E32/F03/S01
@@ -49,9 +49,12 @@ Covered by:
 4. The page reads "You have not applied to this market yet." with "Apply", which opens the form in its place, on the same page and address: "Apply", the essential questions, then "More questions" (the custom ones); "Save application" and "Cancel".
 5. Saved, the form closes on "Your answers" with "Edit", and the page reads "Submitted" (H3c).
 A save the server refuses says why above "Save application", and every answer typed stays; a required answer left blank is named under its question before anything is sent.
+A one-choice answer the form no longer offers counts as blank there, since its control shows nothing chosen.
+A question of more than 12 options is a field they type in to find an answer, one choice or several as chips; words they typed and did not choose clear when they leave the field ([the design language](../../design-system.md)).
 The vendor page reads the form and the saved application together before it draws; when either does not load within 15 seconds, or the request fails, it says "This page could not be loaded" with "Try again", never that the market is not open and never an endless "Loading..." (E06/F01/S01).
 Covered by:
 - `a-first-time-vendor-applies.spec.ts`
+- `choices-at-scale.spec.ts`
 - `essential-fields.spec.ts`
 
 ### H3b. A returning vendor edits their application
