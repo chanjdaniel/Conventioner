@@ -18,6 +18,7 @@ sources:
   - T214
   - T223
   - T217
+  - T224
 ---
 
 # The component library
@@ -60,8 +61,10 @@ An entry is drawn from the parts in `parts/`:
 - `ReadOut`: the line under a live demo that reads out its value ("Chosen: North Wing"), so a choice is seen to land;
 - `ChoicesForYou`: the note that ends an entry with choices left for Daniel, one item per choice; an entry whose choices are all answered has none.
 
-An entry's own parts sit beside these in `parts/`, such as `ColumnChecklist`, `ExportDialogPrototype` and `SeatRow`.
+An entry's own parts sit beside these in `parts/`, such as `ColumnChecklist`, `ExportDialogPrototype`, `PagedApplicationRows` and `SeatRow`.
 The `combobox` entry draws [`ChoiceField`](../../../front-end/src/components/ChoiceField.vue) too: the real `ValueFixes` at 12 answers, a select, and at 13, a field, C1's long list of values through `ChoiceField`, which keeps no typed words, C2, "Maps to" as the import builds it, with two targets taken, and C12, "Add an answer", a choice that adds, and C13, the role on the Discord card, a choice that may go back to none.
+The `list-frame` entry draws [`PagedList`](../../../front-end/src/components/PagedList.vue) beside `ListFrame`: a box of its own, a page that fails once until "Try again" brings it, and a body-scroll dialog whose body is the box, each with a `ReadOut` of how many it has read.
+Each pages the fixture's 359 applications 25 at a time through `pagedRead`, a short timer in the entry in place of a request, so a page is seen to land with no endpoint and no store.
 
 The page uses only the design tokens, the primitives and the app's components; Stylelint holds its files as it holds every file, so a raw colour, size or spacing is an error there.
 A state the pointer or the keyboard makes (hover, held down, focus) is drawn held beside the live control by a class of the entry's own that copies what `primitives.css`, or the component it mounts, draws for it (`FileDropZone`'s focus halo); the live control is the one to trust.
