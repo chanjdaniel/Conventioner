@@ -707,6 +707,12 @@ function handleDeleted() {
   color: var(--mm-text-green);
 }
 
+/* Brought into view as it arrives, it rests clear of the body's edge shade, under which a red line
+   at the rounded foot reads as cut off. */
+.add-user-form .form-error {
+  scroll-margin-bottom: var(--edge-shade-depth);
+}
+
 .add-user-form {
   margin-top: var(--space-3);
   display: flex;

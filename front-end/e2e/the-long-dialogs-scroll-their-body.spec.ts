@@ -270,6 +270,18 @@ test.describe('in a window too short to show the whole body', () => {
 test.describe('in a window too short to show an Add row and its refusal', () => {
   test.use({ viewport: { width: 1280, height: 400 } });
 
+  /** Whole in the body and clear of its bottom edge shade, 12px, so it never reads as cut off. */
+  async function expectRefusalShown(page: Page, body: string, error: Locator) {
+    await expect(error).toBeVisible();
+    const scroller = page.getByTestId(body);
+    await expectShownInTheBody(scroller, error);
+    const foot = (await scroller.boundingBox())!;
+    const line = (await error.boundingBox())!;
+    expect(line.y + line.height, 'its foot is above the shade').toBeLessThanOrEqual(
+      foot.y + foot.height - 12 + 0.5,
+    );
+  }
+
   /** Each person a market or an organization holds adds a row, which puts the refusal past the foot. */
   async function refuse(page: Page, button: string, input: string) {
     const add = page.getByTestId(button);
@@ -283,9 +295,11 @@ test.describe('in a window too short to show an Add row and its refusal', () => 
   test("Manage market's refusal comes into view whole", async ({ authenticatedPage: page }) => {
     await openManageMarket(page);
     await refuse(page, 'manage-market-add-user-button', 'manage-market-add-user-input');
-    const error = page.getByTestId('manage-market-add-user-error');
-    await expect(error).toBeVisible();
-    await expectShownInTheBody(page.getByTestId('manage-market-body'), error);
+    await expectRefusalShown(
+      page,
+      'manage-market-body',
+      page.getByTestId('manage-market-add-user-error'),
+    );
   });
 
   for (const row of ['admin', 'member']) {
@@ -294,9 +308,11 @@ test.describe('in a window too short to show an Add row and its refusal', () => 
     }) => {
       await openManageOrganization(page);
       await refuse(page, `manage-org-add-${row}-button`, `manage-org-add-${row}-input`);
-      const error = page.getByTestId(`manage-org-add-${row}-error`);
-      await expect(error).toBeVisible();
-      await expectShownInTheBody(page.getByTestId('manage-org-body'), error);
+      await expectRefusalShown(
+        page,
+        'manage-org-body',
+        page.getByTestId(`manage-org-add-${row}-error`),
+      );
     });
   }
 });
