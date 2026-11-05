@@ -37,6 +37,11 @@ export const labelHolds = (option: PickerOption, words: string) =>
  * - `writes` says the choice is acted on as it is taken, `SearchPicker`'s `holdsChoice`: typing
  *   writes nothing, and only another choice replaces this one. Without it, as on a form that acts on
  *   Save, the first word lets the choice go.
+ * - `noneRow` is a choice that may go back to none: past 12, while one holds, these words are the
+ *   list's first row, whose value is `''`, as the select's empty row is at 12 or fewer. It counts
+ *   toward neither the threshold nor `wholeCount`.
+ * - `listInFlow` draws a field's list in the page's flow instead of over what follows, for a host
+ *   that scrolls or clips, where a list lying over would be cut off.
  * - `adds` says each choice is added elsewhere, as a ranked list's next answer: the value stays `''`,
  *   the select goes back to its empty row, and the field empties with the focus still in it, ready
  *   for the next. Such a set shrinks as it is used, so the screen gives `wholeCount`.
@@ -76,6 +81,10 @@ const props = defineProps<{
   describedBy?: string;
   /** The control's id, the select's or the field's, for a link elsewhere on the screen to name. */
   fieldId?: string;
+  /** Past 12, while a choice holds, the words of a first row that lets it go. */
+  noneRow?: string;
+  /** Past 12, the list pushes what follows down rather than lying over it. */
+  listInFlow?: boolean;
 }>();
 
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
@@ -84,6 +93,13 @@ const isField = computed(
   () =>
     (props.wholeCount ?? props.groups.reduce((count, group) => count + group.options.length, 0)) >
     COMBOBOX_PAST,
+);
+
+/** The field's rows: the way back to none first, so the cap never hides it. */
+const fieldGroups = computed<PickerGroup[]>(() =>
+  props.noneRow && props.modelValue
+    ? [{ options: [{ value: '', label: props.noneRow }] }, ...props.groups]
+    : props.groups,
 );
 
 /** A select's row has one line, so its detail stands on it. */
@@ -129,7 +145,7 @@ defineExpose({ open, showHeld });
     ref="picker"
     class="choice-field-picker"
     :model-value="modelValue"
-    :groups="groups"
+    :groups="fieldGroups"
     :finds="finds ?? labelHolds"
     :label="label"
     :placeholder="placeholder"
@@ -141,7 +157,7 @@ defineExpose({ open, showHeld });
     :disabled="disabled"
     :described-by="describedBy"
     :field-id="fieldId"
-    list-over
+    :list-over="!listInFlow"
     none-word="Nothing"
     @update:model-value="emit('update:modelValue', $event as string)"
   />

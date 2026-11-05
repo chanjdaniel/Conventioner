@@ -580,9 +580,8 @@ function mapsTo(row: LedgerRowId): PickerGroup[] {
       disabled: holder !== undefined,
     };
   };
+  // The ways out first, so the cap never hides them and an unmapped row's list opens at its head.
   return [
-    { label: 'Essential', options: essentialTargets.value.map(option) },
-    { label: 'Your questions', options: ownTargets.value.map(option) },
     {
       label: 'Ignore',
       options:
@@ -593,6 +592,8 @@ function mapsTo(row: LedgerRowId): PickerGroup[] {
               { value: NEEDS_A_FIELD, label: 'This column has nowhere to go…' },
             ],
     },
+    { label: 'Essential', options: essentialTargets.value.map(option) },
+    { label: 'Your questions', options: ownTargets.value.map(option) },
   ];
 }
 

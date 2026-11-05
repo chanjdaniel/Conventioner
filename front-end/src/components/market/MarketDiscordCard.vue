@@ -328,6 +328,7 @@ async function disconnect(): Promise<void> {
                 placeholder="Choose a role"
                 testid="discord-role-select"
                 field-id="discord-role"
+                none-row="No role"
                 writes
                 @update:model-value="onRole"
               />
@@ -345,6 +346,7 @@ async function disconnect(): Promise<void> {
                 placeholder="Choose a question"
                 testid="discord-question-select"
                 field-id="discord-question"
+                none-row="No question"
                 writes
                 @update:model-value="onQuestion"
               />

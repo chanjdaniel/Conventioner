@@ -507,6 +507,30 @@ describe('a server of many roles', () => {
       wrapper.unmount();
     });
 
+    it('lets the role it holds go, as the select`s empty row does', async () => {
+      const held = { ...CONNECTED, roleId: 'r-4', roleName: 'Role 4' };
+      const wrapper = await withRoles(count, market({ discord: held }));
+      await input(wrapper, ROLE).trigger('click');
+      await flushPromises();
+      expect(wrapper.findAll(`[data-testid="${ROLE}-option"]`)[0]!.text()).toBe('No role');
+
+      await row(wrapper, ROLE, '').trigger('click');
+      await flushPromises();
+      expect(api.put).toHaveBeenCalledOnce();
+      expect(api.put).toHaveBeenCalledWith('/markets/market-123/discord', { roleId: null });
+
+      await wrapper.setProps({ market: market({ discord: { ...CONNECTED, roleId: null } }) });
+      await flushPromises();
+      const field = input(wrapper, ROLE);
+      expect((field.element as HTMLInputElement).value).toBe('');
+      expect(field.attributes('placeholder')).toBe('Choose a role');
+      await field.trigger('click');
+      await flushPromises();
+      // Nothing holds, so there is nothing to let go.
+      expect(row(wrapper, ROLE, '').exists()).toBe(false);
+      wrapper.unmount();
+    });
+
     it('opens on the card`s link, with the focus in the field and the label as it is', async () => {
       const wrapper = await withRoles(count);
       await find(wrapper, 'discord-giving-needs-role').trigger('click');
@@ -554,6 +578,29 @@ describe('a server of many roles', () => {
         })),
       },
     } as Partial<Market>);
+
+    it('lets the question it holds go, as the select`s empty row does', async () => {
+      const wrapper = card(
+        market({
+          ...manyQuestions,
+          discord: { ...CONNECTED, usernameQuestion: 'q-4' },
+        }),
+      );
+      await flushPromises();
+      const field = find(wrapper, `${QUESTION}-input`);
+      expect((field.element as HTMLInputElement).value).toBe('Question 4');
+      await field.trigger('click');
+      await flushPromises();
+      const none = wrapper.find(`[data-testid="${QUESTION}-option"][data-value=""]`);
+      expect(none.text()).toBe('No question');
+      await none.trigger('click');
+      await flushPromises();
+      expect(api.put).toHaveBeenCalledOnce();
+      expect(api.put).toHaveBeenCalledWith('/markets/market-123/discord', {
+        usernameQuestion: null,
+      });
+      wrapper.unmount();
+    });
 
     it('finds the username question by typing, writes it as taken, and opens on its link', async () => {
       const wrapper = card(manyQuestions);

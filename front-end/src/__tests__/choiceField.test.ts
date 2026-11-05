@@ -348,6 +348,68 @@ describe('an option that may not be taken', () => {
   });
 });
 
+describe('a way back to none', () => {
+  const thirteen = [
+    {
+      options: Array.from({ length: 13 }, (_, at) => ({ value: `v${at}`, label: `Choice ${at}` })),
+    },
+  ];
+  const rows = (wrapper: ReturnType<typeof field>) => wrapper.findAll('[role="option"]');
+
+  it('past 12, is the first row while a choice holds, and takes it to none', async () => {
+    const wrapper = field({
+      groups: thirteen,
+      modelValue: 'v4',
+      writes: true,
+      noneRow: 'No choice',
+    });
+    await wrapper.get('input').trigger('click');
+    expect(rows(wrapper)[0]!.text()).toBe('No choice');
+    await rows(wrapper)[0]!.trigger('click');
+    expect(wrapper.emitted('update:modelValue')).toEqual([['']]);
+    wrapper.unmount();
+  });
+
+  it('past 12, is not drawn with nothing to let go', async () => {
+    const wrapper = field({ groups: thirteen, modelValue: '', writes: true, noneRow: 'No choice' });
+    await wrapper.get('input').trigger('click');
+    expect(rows(wrapper).map((row) => row.text())).not.toContain('No choice');
+    wrapper.unmount();
+  });
+
+  it('counts toward no threshold, so 12 choices stay a select holding its own empty row', () => {
+    const twelve = [{ options: thirteen[0]!.options.slice(0, 12) }];
+    const wrapper = field({
+      groups: twelve,
+      modelValue: 'v4',
+      writes: true,
+      placeholder: 'Choose',
+      noneRow: 'No choice',
+    });
+    const select = wrapper.get('select');
+    expect(select.findAll('option').map((option) => option.text())).not.toContain('No choice');
+    expect(select.findAll('option')).toHaveLength(13);
+    wrapper.unmount();
+  });
+});
+
+describe('a list in the flow', () => {
+  const thirteen = [
+    {
+      options: Array.from({ length: 13 }, (_, at) => ({ value: `v${at}`, label: `Choice ${at}` })),
+    },
+  ];
+
+  it('lies over what follows unless asked', () => {
+    const over = field({ groups: thirteen });
+    expect(over.find('.search-picker--list-over').exists()).toBe(true);
+    over.unmount();
+    const inFlow = field({ groups: thirteen, listInFlow: true });
+    expect(inFlow.find('.search-picker--list-over').exists()).toBe(false);
+    inFlow.unmount();
+  });
+});
+
 describe('a choice that adds', () => {
   const adding = (count: number, added: string[]) =>
     field({

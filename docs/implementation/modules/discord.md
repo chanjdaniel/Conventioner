@@ -55,7 +55,7 @@ Typing writes nothing, and on leaving the field it names the choice that held.
 The role's count holds a stored role the server no longer lists, which is still offered and still shown.
 Taking the choice the field holds again writes nothing, as a select never fires for that.
 A refused choice says so in `discord-save-error`, and the control goes back to what is stored (`showHeld`), so it never names a choice the market does not have.
-The field offers no way back to no role or no question, as the select's empty row does; only another choice replaces one.
+While one holds, the field's first row, "No role" or "No question" (`noneRow`), writes null, as the select's empty row does; with none held the row is not drawn.
 The card sets where each list runs: the first column's runs right from its field, and on a phone each is its field's width, since `ChoiceField`'s own width and right edge would pass the window's left edge from a narrow field near it.
 
 Each choice saves as it is made (`PUT /markets/:id/discord`, any of `roleId`, `usernameQuestion`, `inviteLink`, each a string or null), and the page then re-reads the market ([one market, from the server](../conventions/one-market-from-the-server.md)).

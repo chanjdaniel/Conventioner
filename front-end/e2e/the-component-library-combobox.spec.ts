@@ -554,6 +554,18 @@ eachWindow('the combobox entry', (size) => {
     expect(list.x).toBeGreaterThanOrEqual(0);
   });
 
+  test('C13 lets the role it holds go, and offers that only while one holds', async ({ page }) => {
+    const c13 = picker(page, 'library-c13-none');
+    await c13.field.click();
+    await expect(c13.options.first()).toHaveText('No role');
+    await c13.options.first().click();
+    await expect(c13.field).toHaveValue('');
+    await expect(c13.field).toHaveAttribute('placeholder', 'Choose a role');
+    await c13.field.click();
+    await expect(c13.options.first()).not.toHaveText('No role');
+    await c13.field.press('Escape');
+  });
+
   test('C12 adds each choice and stands ready for the next, "<All others>" first', async ({
     page,
     expectAccessible,

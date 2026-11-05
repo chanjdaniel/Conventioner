@@ -6,7 +6,8 @@
  * C5, the reviewers as Choose reviewers draws them, and C10's answers.
  * Next, `ChoiceField`, a select or a field by how many choices it has: C1, the import's value fixes,
  * on each side of the threshold, then every value of a long list of them, C2, "Maps to", grouped
- * with a target another column holds taken, and C12, "Add an answer", a choice that adds.
+ * with a target another column holds taken, C12, "Add an answer", a choice that adds, and C13, the
+ * Discord card's role, a choice that may go back to none.
  * Typed text ends it: C3's option input, which keeps a new answer as typed, and the field whose words
  * are its value, for a screen that writes as it is typed.
  *
@@ -178,6 +179,13 @@ function fixReadOut(fix: string | undefined): string {
 const NOWHERE_TO_GO = 'nowhere';
 const targetGroups: PickerGroup[] = [
   {
+    label: 'Ignore',
+    options: [
+      { value: '', label: 'Ignore this column' },
+      { value: NOWHERE_TO_GO, label: 'This column has nowhere to go…' },
+    ],
+  },
+  {
     label: 'Essential',
     options: [
       {
@@ -212,15 +220,14 @@ const targetGroups: PickerGroup[] = [
       },
     ],
   },
-  {
-    label: 'Ignore',
-    options: [
-      { value: '', label: 'Ignore this column' },
-      { value: NOWHERE_TO_GO, label: 'This column has nowhere to go…' },
-    ],
-  },
 ];
 const mapsTo = ref('');
+
+/** C13: the Discord card's role, written as it is taken, which may go back to none. */
+const heldRole = ref(question.options[0]!.label);
+const roleOptions = computed<PickerGroup[]>(() => [
+  { options: question.options.map(({ label }) => ({ value: label, label })) },
+]);
 
 /** C12: a rule's "Add an answer", where each choice leaves the list for the ranked answers. */
 const ALL_OTHERS_LABEL = '<All others>';
@@ -573,7 +580,7 @@ const writtenAnswer = ref('');
 
   <LibrarySection
     title="A target another column holds"
-    about='C2, the import&apos;s "Maps to": a ChoiceField under Essential, Your questions and Ignore. A choice another column holds stays in the list and is found by words, muted, saying which column; neither a press nor the keys take it.'
+    about='C2, the import&apos;s "Maps to": a ChoiceField under Ignore, Essential and Your questions, the ways out first, so the cap never hides them. A choice another column holds stays in the list and is found by words, muted, saying which column; neither a press nor the keys take it.'
   >
     <LibraryPanel label="C2, two questions taken">
       <div class="library-demo">
@@ -608,6 +615,26 @@ const writtenAnswer = ref('');
           @update:model-value="ranked.push($event)"
         />
         <ReadOut label="Ranked" :value="ranked.join(', ')" />
+      </div>
+    </LibraryPanel>
+  </LibrarySection>
+
+  <LibrarySection
+    title="A choice that may go back to none"
+    about="C13, the Discord card's &quot;Role to give&quot;: while a choice holds, the first row lets it go, as a select's empty row does. With none held, the row is not drawn."
+  >
+    <LibraryPanel :label="`C13, among ${question.options.length} roles`">
+      <div class="library-demo">
+        <ChoiceField
+          v-model="heldRole"
+          :groups="roleOptions"
+          label="Role to give"
+          placeholder="Choose a role"
+          testid="library-c13-none"
+          none-row="No role"
+          writes
+        />
+        <ReadOut label="Holds" :value="heldRole || 'No role'" />
       </div>
     </LibraryPanel>
   </LibrarySection>

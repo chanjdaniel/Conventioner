@@ -574,6 +574,59 @@ test.describe('an automatic rejection, on the question of 129 answers', () => {
   });
 });
 
+test('a price group\'s "Add a condition on" past 12 questions shows its whole list on the card', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  const fields = Array.from({ length: 13 }, (_, order) => ({
+    key: `question_${order}`,
+    label: `Question number ${order}`,
+    type: 'select',
+    required: false,
+    options: ['Yes', 'No'],
+    order,
+  }));
+  const form = await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
+    data: { fields },
+  });
+  expect(form.ok(), await form.text()).toBeTruthy();
+
+  await page.goto(marketSetupPath(marketId, 'setup'));
+  const card = page.getByTestId('plan-card-pricing');
+  await expect(card).toBeVisible({ timeout: 15000 });
+  await card.getByTestId('pricing-add-group').click();
+
+  const question = new ChoiceField(card, 'pricing-group-0-rule-question');
+  await question.field.click();
+  await expect(question.options.filter({ hasText: 'Question number 12' })).toBeVisible();
+
+  // Nothing around the list clips it or scrolls it away: its last row answers where it is drawn.
+  const last = question.options.last();
+  await last.scrollIntoViewIfNeeded();
+  const answers = await last.evaluate((row) => {
+    const { left, top, width, height } = row.getBoundingClientRect();
+    return row.contains(document.elementFromPoint(left + width / 2, top + height / 2));
+  });
+  expect(answers, "the list's last row is under something else").toBe(true);
+  const scrolls = await card
+    .locator('.pricing-frame')
+    .evaluate((frame) => frame.scrollHeight > frame.clientHeight + 1);
+  expect(scrolls, "the table's frame grew a scroller for the list").toBe(false);
+
+  await question.choose('question_11', 'number 11');
+  await card.getByTestId('pricing-group-0-rule-add').click();
+  await expect(card.getByTestId('pricing-group-0-rule-question_11')).toContainText(
+    'Question number 11',
+  );
+});
+
 test.describe('a choice that adds, on the question of 129 answers', () => {
   async function startedForm(request: APIRequestContext, marketId: string) {
     const res = await request.get(`${BACKEND_URL}/markets/${marketId}`);

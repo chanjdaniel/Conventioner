@@ -90,7 +90,8 @@ A row without one gets the import's moment, so the screen warns when the market 
 **A column's "Maps to" is found by typing.**
 Each row of the ledger is one [`ChoiceField`](../../design-system.md#the-primitive-layer), built by `mapsTo` in [`CsvImportView.vue`](../../../front-end/src/views/CsvImportView.vue) and written as it is chosen; past 12 choices its list lies over the rows below, so no row moves, and a list on the last row is reached by scrolling the page.
 Every row counts the same choices, each target and a column's two ways out, though a grid has one way out, so a ledger never mixes a select with a field.
-The groups follow `ImportTarget.kind`: Essential (`identity`, `essential`, and Submitted at), Your questions (`custom`, and "From your sheet"), and Ignore ("Ignore this column" or "Ignore these columns", value `''`, and on a column "This column has nowhere to go…", which never reaches the server).
+Its groups come in this order: Ignore ("Ignore this column" or "Ignore these columns", value `''`, and on a column "This column has nowhere to go…", which never reaches the server), then, following `ImportTarget.kind`, Essential (`identity`, `essential`, and Submitted at) and Your questions (`custom`, and "From your sheet").
+The ways out come first so that the cap never hides them, however many targets a market has, and an unmapped row's list opens at its head rather than at its tail.
 A target another row holds is disabled with `Mapped from "<heading>"`, cut to two lines as the row's own heading is, and is free again once that row lets it go.
 
 **Values are matched forgivingly, once.**

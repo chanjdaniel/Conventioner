@@ -205,6 +205,7 @@ function toggle(condition: AnswerCondition, answer: string, meets: boolean) {
         :whole-count="questions.length"
         placeholder="Choose a question"
         :testid="`${testid}-rule-question`"
+        list-in-flow
       />
       <button
         type="button"
@@ -308,10 +309,11 @@ function toggle(condition: AnswerCondition, answer: string, meets: boolean) {
 /* The label, the choice and the button in one row packed to the start, wrapping where the column is
    narrow (a price group's, beside its prices on a 1000px screen) rather than squeezing the choice to
    a sliver: it grows to 24rem and never shrinks below 12rem. */
+/* On one line with the field's words, however tall its open list makes the field's column. */
 .condition-add {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-2);
 }
 
