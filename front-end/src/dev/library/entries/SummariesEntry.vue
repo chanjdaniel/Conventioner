@@ -9,6 +9,7 @@
 import { ref } from 'vue';
 import { MarketPhase, type Market } from '@/assets/types/datatypes';
 import AppDialog from '@/components/AppDialog.vue';
+import EmailAddress from '@/components/EmailAddress.vue';
 import ListFrame from '@/components/ListFrame.vue';
 import NameList from '@/components/NameList.vue';
 import ReviewersPanel from '@/components/market/ReviewersPanel.vue';
@@ -117,8 +118,10 @@ const presses = ref(0);
         <template #row="{ item }">
           <div class="library-reviewed">
             <span class="library-reviewed__who">
-              <span data-testid="library-l3-name">{{ item.name }}</span>
-              <span class="library-reviewed__address">{{ item.email }}</span>
+              <span class="library-reviewed__name" data-testid="library-l3-name">
+                {{ item.name }}
+              </span>
+              <span data-testid="library-l3-email"><EmailAddress :words="item.email" /></span>
             </span>
             <span :class="statusChip(item.status)">{{ statusLabel(item.status) }}</span>
           </div>
@@ -232,11 +235,11 @@ const presses = ref(0);
   align-items: baseline;
   gap: 0 var(--space-2);
   min-width: 0;
-  overflow-wrap: anywhere;
 }
 
-.library-reviewed__address {
-  color: var(--mm-text-muted);
+.library-reviewed__name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .library-reviewed .chip {
