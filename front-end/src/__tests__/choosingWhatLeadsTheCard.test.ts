@@ -289,6 +289,61 @@ describe('Choose what leads the card', () => {
       expect(line).toContain(REFUSAL);
       expect(line).toContain('Could not save what a reviewer reads first.');
     });
+
+    describe('that fails after the dialog closed, a second time', () => {
+      const FAILED = 'Could not save what a reviewer reads first.';
+
+      /** A tick, Done, then the write refused, with the dialog gone by the time it fails. */
+      async function tickThatFailsAfterDone() {
+        let refuse = () => {};
+        putHighlights.mockImplementationOnce(
+          () =>
+            new Promise((_resolve, reject) => {
+              refuse = () => reject(new Error('offline'));
+            }),
+        );
+        await open();
+        await tick();
+        await byId('choose-highlights-done').trigger('click');
+        await flushPromises();
+        refuse();
+        await flushPromises();
+      }
+
+      const timesSaid = (line: string) => line.split(FAILED).length - 1;
+
+      it('says so once on a refused card, beside the refusal', async () => {
+        const REFUSAL = 'kai@example.com approved this application since you opened it.';
+        reviewApplication.mockRejectedValueOnce({
+          isAxiosError: true,
+          response: {
+            status: 409,
+            data: {
+              error: REFUSAL,
+              application: application('jane', ApplicationStatus.ReviewerApproved),
+            },
+          },
+        });
+        await monitor();
+        await press('a');
+
+        await tickThatFailsAfterDone();
+        await tickThatFailsAfterDone();
+
+        const line = byId('app-monitor-changed').text();
+        expect(line).toContain(REFUSAL);
+        expect(timesSaid(line)).toBe(1);
+      });
+
+      it('says so once on a card nobody refused', async () => {
+        await monitor();
+
+        await tickThatFailsAfterDone();
+        await tickThatFailsAfterDone();
+
+        expect(timesSaid(byId('app-monitor-panel').text())).toBe(1);
+      });
+    });
   });
 
   describe('with the dialog open', () => {

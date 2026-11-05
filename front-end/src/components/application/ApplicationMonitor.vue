@@ -736,10 +736,13 @@ watch(
 watch([() => props.visible, () => props.market?.id, marksHighlights], stopChoosingHighlights);
 
 // A tick still being written when Done was pressed has no dialog left to say it failed in. Said
-// beside what the card already says, which on a refused card is who decided it first.
+// beside what the card already says, which on a refused card is who decided it first, and only
+// once however many ticks fail that way.
 watch(highlightsError, (words) => {
   if (!words || choosingHighlights.value) return;
-  errorMessage.value = `${errorMessage.value} ${words}`.trim();
+  if (!errorMessage.value.includes(words)) {
+    errorMessage.value = `${errorMessage.value} ${words}`.trim();
+  }
   highlightsError.value = '';
 });
 
