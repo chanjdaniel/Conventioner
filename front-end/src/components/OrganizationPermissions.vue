@@ -6,7 +6,7 @@
  *
  * Its owner and its admins set each row, or reset them all, after a confirmation saying the change
  * reaches only markets created from now on; its members read it. The rows and the changes are
- * Manage market's Permissions section's (`PermissionRows`, `PermissionChanges`), and the words
+ * Manage market's Permissions' (`PermissionRows`, `PermissionChanges`), and the words
  * `utils/permissionTable.ts`'s.
  */
 import { computed, ref } from 'vue';

@@ -17,7 +17,7 @@ import { ManageMarketPage } from './pages/ManageMarketPage';
  * vendor, newest first, in the words of Manage market's History section. Two vendors are given a
  * verdict, a note and a table each through the API the screens call, on a fixture market, and each
  * drawer reads its own vendor's entries and never the other's. Raised above a Viewer, the history's
- * row takes the tab from their drawer and the changes from their Permissions section.
+ * row takes the tab from their drawer and the changes from their Permissions dialog.
  */
 const VENDOR = { email: 'e2e-drawer-history-vera@example.com', name: 'Vera Vendor' };
 const OTHER = { email: 'e2e-drawer-history-otto@example.com', name: 'Otto Other' };
@@ -122,7 +122,7 @@ test("a Viewer the history's row is raised above has no History tab and no Permi
   await ok(
     await request.post(`${market}/roles`, { data: { user_email: VIEWER.email, role: 'viewer' } }),
   );
-  // As the owner raises it from the Permissions section.
+  // As the owner raises it from the Permissions dialog.
   await ok(await request.put(`${market}/permissions/read-history`, { data: { role: 'editor' } }));
 
   await withUser(browser, VIEWER.email, VIEWER.password, async (page) => {

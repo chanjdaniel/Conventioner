@@ -68,7 +68,7 @@ const readsHistory = computed(() => mayTake(props.market, MarketAction.ReadHisto
 const mayChange = computed(() => mayTake(props.market, MarketAction.ChangeTheTable));
 
 /**
- * Why the section is read-only, or null for the owner. An archived market refuses its owner too,
+ * Why the dialog is read-only, or null for the owner. An archived market refuses its owner too,
  * and the archived rule's words say so; everyone else is told whose the table is.
  */
 const readOnlyLine = computed(() => {
