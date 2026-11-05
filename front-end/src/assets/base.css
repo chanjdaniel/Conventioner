@@ -198,7 +198,7 @@
      `contrast.test.ts` computes each figure here. */
   --focus-halo: 0 0 0 2px white, 0 0 0 5px rgba(54, 130, 111, 0.35);
   /* The same halo drawn inside the control's edge, for one whose box clips what lies past it: a
-     dialog's scrolling body, inside the dialog's window. */
+     `ScrollBox` that is a stop, and a link filling the app bar's band or its sheet. */
   --focus-halo-inset: inset 0 0 0 2px white, inset 0 0 0 5px rgba(54, 130, 111, 0.35);
   /* The halo on a dark ground (the market bar's tabs, which are links): white at 35%, 3.17:1 on
      `--mm-black`. The walk's prototype had 28%, at 2.53; 35% reaches 3:1 with the same look.
