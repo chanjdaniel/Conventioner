@@ -183,13 +183,14 @@ test.describe('at a desk', () => {
     await expect(dialog.preview).toHaveCount(0);
     await expect(dialog.summary).toHaveText('5 vendors, 0 columns');
     await expect(dialog.downloadButton).toBeDisabled();
-    await expect(page.getByTestId('vendor-export-search'), 'the focus stays inside').toBeFocused();
+    await expect(dialog.filtersToggle, 'the focus stays inside').toBeFocused();
   });
 
   test('no vendor matching says so in the cart', async ({ authenticatedPage: page }) => {
     const dialog = await openExport(page);
+    await dialog.showFilters();
 
-    await page.getByTestId('vendor-export-search').fill('nobody-at-all');
+    await dialog.search.fill('nobody-at-all');
 
     await expect(dialog.summary).toHaveText('0 vendors, 3 columns');
     await expect(dialog.tray).toContainText('No vendor matches these filters.');
@@ -200,18 +201,19 @@ test.describe('at a desk', () => {
     authenticatedPage: page,
   }) => {
     const dialog = await openExport(page);
+    await dialog.showFilters();
     const failed = page.getByTestId('vendor-export-preview-error');
     const preview = `**/markets/${marketId}/vendor-export/preview`;
 
     await page.route(preview, (route) => route.fulfill({ status: 500, json: {} }));
-    await page.getByTestId('vendor-export-search').fill('ana');
+    await dialog.search.fill('ana');
     await expect(dialog.tray.getByTestId('vendor-export-preview-error')).toBeVisible();
     await expect(dialog.summary).toHaveCount(0);
     await expect(dialog.preview).toHaveCount(0);
     await expectInTheWindow(page, failed, 'the words');
 
     await page.unroute(preview);
-    await page.getByTestId('vendor-export-search').fill('');
+    await dialog.search.fill('');
     await expect(failed).toHaveCount(0);
     await expect(dialog.summary).toHaveText('5 vendors, 3 columns');
   });
@@ -304,11 +306,12 @@ test.describe('on a phone', () => {
     authenticatedPage: page,
   }) => {
     const dialog = await openExport(page);
+    await dialog.showFilters();
     await page.route(`**/markets/${marketId}/vendor-export/preview`, (route) =>
       route.fulfill({ status: 500, json: {} }),
     );
 
-    await page.getByTestId('vendor-export-search').fill('ana');
+    await dialog.search.fill('ana');
 
     const failed = page.getByTestId('vendor-export-preview-error');
     await expect(failed).toBeVisible();

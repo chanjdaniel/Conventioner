@@ -13,6 +13,7 @@ import type { DiscordShown } from '@/utils/discordCheck';
 import { downloadErrorMessage, saveCsv } from '@/utils/download';
 import { hasPlaceFilter, type ResultFilters, type VendorsShown } from '@/utils/resultFilters';
 import type { AllViewFilter } from '@/utils/reviewQueue';
+import { getFormattedDate } from '@/utils/utils';
 
 export type ExportStatus = 'open' | 'follow_up' | 'approved' | 'rejected' | 'added';
 
@@ -199,6 +200,56 @@ const counted = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 /** "12 vendors, 3 columns". */
 export function exportSummary(vendors: number, columns: number): string {
   return `${counted(vendors, 'vendor')}, ${counted(columns, 'column')}`;
+}
+
+const SIZE_WORDS: Record<Exclude<ExportFilters['size'], ''>, string> = {
+  full: 'Full table',
+  half: 'Half table',
+};
+
+/** Where the vendors sit, as far as the server holds them to it: a seat's parts only of the placed. */
+function placeWords(filters: ExportFilters): string[] {
+  if (!filters.placed) return [];
+  const assigned = filters.placed === 'placed' ? 'Assigned' : 'Not assigned';
+  const on = filters.date ? ` on ${getFormattedDate(filters.date)}` : '';
+  if (filters.placed === 'unplaced') return [`${assigned}${on}`];
+  return [
+    `${assigned}${on}`,
+    ...(filters.section ? [`Section: ${filters.section}`] : []),
+    ...(filters.tier ? [`Tier: ${filters.tier}`] : []),
+    ...(filters.size ? [SIZE_WORDS[filters.size]] : []),
+  ];
+}
+
+/**
+ * The one line saying which vendors are in, while the filters are folded: "All vendors" with nothing
+ * narrowing, else each filter named, in the order its field stands. It says only what narrows the
+ * file, as the server reads the filters: a seat's section, tier or size with nobody asked to be
+ * placed narrows nothing, and neither does a payment state on a market that offers none.
+ */
+export function exportFiltersSummary(
+  filters: ExportFilters,
+  offered: Pick<ExportOffered, 'statuses' | 'questions' | 'paymentStates' | 'discordStates'>,
+): string {
+  const labels = (ids: string[], options: { id: string; label: string }[]) =>
+    ids.map((id) => options.find((option) => option.id === id)?.label ?? id).join(', ');
+  const search = filters.search.trim();
+  const payment = offered.paymentStates.find((state) => state.id === filters.payment);
+  const parts = [
+    ...(search ? [`Name or email: "${search}"`] : []),
+    ...(payment ? [`Payment: ${payment.label}`] : []),
+    ...placeWords(filters),
+    ...(filters.statuses.length ? [`Status: ${labels(filters.statuses, offered.statuses)}`] : []),
+    ...(filters.mine ? ['Mine'] : []),
+    ...(filters.discord.length
+      ? [`Discord: ${labels(filters.discord, offered.discordStates)}`]
+      : []),
+    ...offered.questions.flatMap((question) => {
+      const answers = filters.answers[question.key];
+      return answers?.length ? [`${question.label}: ${answers.join(', ')}`] : [];
+    }),
+  ];
+  return parts.join(' · ') || 'All vendors';
 }
 
 /** Today where the organizer is, which names the file: their evening is the server's tomorrow. */

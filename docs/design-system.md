@@ -482,7 +482,7 @@ The row wraps and a long label wraps inside its toggle, so it never scrolls side
 One rule holds in every row, Daniel's choice on 2026-11-04: pressing the chosen toggle again lets it go, and nothing pressed means all, so a row needs no All toggle, and Markets' phase filter has none.
 With one choice, letting go empties the value, unless the row names in `rest` an option to return to: its default, or the All toggle a row still draws, which stays pressed when it is pressed again.
 Several emit in the options' order.
-No screen mounts it yet: the library's `filter-toggles` entry lists the eight rows it would replace.
+Export vendors' Status and Discord filters mount it, with `multiple`; the library's `filter-toggles` entry lists the eight rows it would replace.
 
 A list that can grow with a market is [`ListFrame.vue`](../front-end/src/components/ListFrame.vue) (T200), generic over the row: a find field once the whole list passes `findFrom` rows (12), the screen's own filters beside it, a count line, the first `pageSize` rows (50) and "Show N more".
 The screen narrows `items` by its filters and brings `finds`, `itemKey` and the `row` slot; the frame does the finding and the paging on what is already read.

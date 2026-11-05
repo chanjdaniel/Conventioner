@@ -13,6 +13,12 @@ export class VendorExportDialog {
   /** What is pinned above the buttons: the cart. */
   readonly tray: Locator;
   readonly summary: Locator;
+  /** The line saying which vendors are in, with the filters folded behind it. */
+  readonly filtersSummary: Locator;
+  readonly filtersToggle: Locator;
+  /** What unfolds: every filter below. Each is drawn only once `showFilters` has run. */
+  readonly filters: Locator;
+  readonly search: Locator;
   readonly placed: Locator;
   readonly mine: Locator;
   /** Paid or not, Owes, Paid in full, Paid more than owed (S04). */
@@ -36,6 +42,10 @@ export class VendorExportDialog {
     this.body = page.getByTestId('vendor-export-body');
     this.tray = page.getByTestId('vendor-export-tray');
     this.summary = page.getByTestId('vendor-export-summary');
+    this.filtersSummary = page.getByTestId('vendor-export-filters-summary');
+    this.filtersToggle = page.getByTestId('vendor-export-filters-toggle');
+    this.filters = page.getByTestId('vendor-export-filters');
+    this.search = page.getByTestId('vendor-export-search');
     this.placed = page.getByTestId('vendor-export-placed');
     this.mine = page.getByTestId('vendor-export-mine');
     this.payment = page.getByTestId('vendor-export-payment');
@@ -49,15 +59,27 @@ export class VendorExportDialog {
     this.downloadButton = page.getByTestId('vendor-export-submit-button');
   }
 
+  /** Unfolds the filters; the dialog opens with them folded, every time. */
+  async showFilters(): Promise<void> {
+    await this.filtersToggle.click();
+    await this.filters.waitFor();
+  }
+
+  /** A status's toggle: read by its `aria-pressed`. */
   status(id: 'open' | 'follow_up' | 'approved' | 'rejected' | 'added'): Locator {
     return this.page.getByTestId(`vendor-export-status-${id}`);
   }
 
-  /** A Discord state's box, offered once a check has run (E42/F01/S05). */
+  /** A Discord state's toggle, offered once a check has run (E42/F01/S05). */
   discordState(
     id: 'has_role' | 'in_server' | 'possible_match' | 'not_found' | 'no_username' | 'check_again',
   ): Locator {
     return this.page.getByTestId(`vendor-export-discord-${id}`);
+  }
+
+  /** A question's answers, a combobox: `-input`, `-option`, `-chip` and `-more` on this test id. */
+  answer(key: string): Locator {
+    return this.page.getByTestId(`vendor-export-answer-${key}`);
   }
 
   /** A column's box, under its heading. */

@@ -1039,6 +1039,18 @@ export const SCREENS: Screen[] = [
     ),
   },
   {
+    // Every filter, a seat's among them.
+    name: 'the export dialog, its filters unfolded',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(
+      screen('big', 'vendors'),
+      'vendors-list-item',
+      ['vendors-export-button', 'vendor-export-summary'],
+      ['vendor-export-filters-toggle', 'vendor-export-search'],
+    ),
+  },
+  {
     // Who owes (E44/F02/S01): the list, on a market that sets no prices, so it draws no figures.
     name: 'the payments',
     who: 'organizer',
