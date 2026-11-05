@@ -1,4 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { expectWholeAddress } from './helpers/addressBreaks';
 import { expectLaidOut } from './helpers/componentLibrary';
 import { PHONE_AND_DESK } from './helpers/phoneWindow';
 import { marketScreenPath } from './helpers/marketScreens';
@@ -357,6 +358,22 @@ test.describe('The reviewed applications on a phone', () => {
     const body = page.getByTestId('app-monitor-decided-body');
     const sideways = await body.evaluate((el) => el.scrollWidth - el.clientWidth);
     expect(sideways).toBe(0);
+  });
+
+  test('a reviewed row\'s address breaks only before its "@" or a dot, in the dialog', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const monitor = await theCardUp(page, await aMarket(request));
+    await monitor.decidedOpen.tap();
+    await expect(monitor.decidedDialog).toBeVisible();
+    await settle(page);
+
+    // Row 1 is the newest verdict: vendor-001, the address a phone broke mid-word.
+    const email = monitor.decidedEmails.first();
+    await expect(email).toHaveText(address(1));
+    await expectWholeAddress(email, address(1));
+    await expectWholeAddress(email, address(1), true);
   });
 
   const THE_PHONE = PHONE_AND_DESK.find((size) => size.name === 'on a phone')!;

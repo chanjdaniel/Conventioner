@@ -1231,7 +1231,7 @@ function submittedOn(app: Application): string {
                 {{ nameOf(app) }}
               </span>
               <span class="app-email" data-testid="app-monitor-decided-email">
-                {{ app.applicantEmail }}
+                <EmailAddress :words="app.applicantEmail" />
               </span>
             </span>
             <span :class="statusChip(app.status)" data-testid="app-monitor-decided-status">
@@ -1620,8 +1620,10 @@ function submittedOn(app: Application): string {
   outline: 1px solid var(--mm-green);
 }
 
+/* The address breaks before its "@" or a dot (EmailAddress), never mid-word as break-all would. */
 .decided-row .app-email {
   font-size: var(--text-sm);
+  word-break: normal;
 }
 
 .decided-row .chip {
