@@ -70,6 +70,18 @@ eachWindow('the export-vendors entry', (size) => {
     await openEntry(page, 'export-vendors');
   });
 
+  test('the chosen variant stays pressed, and the other toggle returns to it', async ({ page }) => {
+    const checklist = page.getByTestId('library-export-variant-checklist');
+    await expect(checklist).toHaveAttribute('aria-pressed', 'true');
+    await press(checklist);
+    await expect(checklist).toHaveAttribute('aria-pressed', 'true');
+    const combobox = page.getByTestId('library-export-variant-combobox');
+    await press(combobox);
+    await expect(checklist).toHaveAttribute('aria-pressed', 'false');
+    await press(combobox);
+    await expect(checklist).toHaveAttribute('aria-pressed', 'true');
+  });
+
   test('names what it serves and ends with the choices left', async ({
     page,
     expectAccessible,

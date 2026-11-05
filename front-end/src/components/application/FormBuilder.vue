@@ -264,6 +264,7 @@ const fieldCount = computed(() => fields.value.length);
 
 /* The control height, so it stands level with the "Add from your file" select beside it. */
 .add-field-btn {
+  --focus-border: var(--focus-border-on-fill);
   display: flex;
   align-items: center;
   min-height: var(--control-height);

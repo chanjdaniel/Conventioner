@@ -61,6 +61,7 @@ function toggle() {
 
 /* The heading's words, with a chevron saying whether the section is open. */
 .section-toggle {
+  --focus-border-offset: var(--focus-border-width);
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);

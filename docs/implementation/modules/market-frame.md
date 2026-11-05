@@ -11,7 +11,6 @@ describes:
   - front-end/src/views/PaymentsView.vue
 verified: 2026-11-04
 sources:
-  - T209
   - wayfinding/the-market-frame/map
   - wayfinding/the-market-frame/01
   - wayfinding/the-order-of-the-work/map
@@ -34,6 +33,7 @@ sources:
   - E38/F15/S04
   - T180
   - T181
+  - T209
 ---
 
 # The market frame

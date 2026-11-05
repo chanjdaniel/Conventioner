@@ -412,6 +412,7 @@ h2 {
 }
 
 .link {
+  --focus-border-offset: var(--focus-border-width);
   margin-left: var(--space-1);
   border: none;
   background: none;

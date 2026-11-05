@@ -735,12 +735,14 @@ function swapSeats(withEmail: string): void {
 }
 
 .count-badge--assigned {
+  --focus-border: var(--focus-border-on-fill);
   background-color: var(--mm-green);
   border-color: var(--mm-green);
   color: white;
 }
 
 .count-badge--partial {
+  --focus-border: var(--focus-border-on-fill);
   background-color: var(--mm-yellow);
   border-color: var(--mm-yellow);
   color: var(--mm-black);

@@ -109,6 +109,7 @@ function toggleDropdown() {
 
 /* ── Main button ─────────────────────────────────── */
 .export-btn {
+  --focus-border: var(--focus-border-on-fill);
   display: inline-flex;
   align-items: center;
   /* stylelint-disable-next-line declaration-property-value-allowed-list -- 6px is off the spacing scale, and the nearest token would change this floorplan beta size */
@@ -231,6 +232,7 @@ function toggleDropdown() {
 }
 
 .export-action-btn {
+  --focus-border: var(--focus-border-on-fill);
   display: inline-flex;
   align-items: center;
   justify-content: center;

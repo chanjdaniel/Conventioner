@@ -245,13 +245,19 @@ h1 {
   font-size: var(--text-sm);
 }
 
-/* Its focus halo is the primitives' own: this set `outline: none`, so a keyboard user could not
+/* The field hands its Show button `--space-1` of its padding: the button's room inside its edge for
+   the focus border, which would cross the field's own outside it. The word stays put. */
+.password-field:has(.show-button) {
+  padding-right: var(--space-2);
+}
+
+/* Its focus border is the primitives' own: this set `outline: none`, so a keyboard user could not
    see they were on it. */
 .show-button {
-  min-width: var(--target-min);
+  min-width: calc(var(--target-min) + var(--space-1));
   border: none;
   background-color: transparent;
-  padding: 0 0 0 var(--space-2);
+  padding: 0 var(--space-1) 0 var(--space-2);
   color: var(--mm-text-link);
   font-size: var(--text-xs);
   cursor: pointer;
@@ -272,7 +278,7 @@ h1 {
   color: var(--mm-text-green);
 }
 
-/* `.btn btn--primary` carries the height, radius, fill, weight, focus halo and disabled state. */
+/* `.btn btn--primary` carries the height, radius, fill, weight, focus border and disabled state. */
 .submit-button {
   width: 100%;
   margin-top: var(--space-6);

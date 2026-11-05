@@ -281,6 +281,7 @@ async function triggerAutoPlace() {
 /* ── Button ──────────────────────────────────────────────────── */
 
 .auto-place-btn {
+  --focus-border: var(--focus-border-on-fill);
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);

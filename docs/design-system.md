@@ -39,6 +39,7 @@ describes:
   - front-end/src/utils/useFold.ts
   - front-end/src/components/ChoiceField.vue
   - front-end/src/components/application/LongQuestion.vue
+  - front-end/e2e/a-focused-button-moves-nothing.spec.ts
 verified: 2026-11-05
 sources:
   - wayfinding/claims-and-room/map
@@ -86,12 +87,13 @@ sources:
   - T205
   - T200
   - T211
-  - T204
   - T202
   - T213
+  - T221
+  - T204
   - T209
   - T223
-  - T221
+  - T214
 ---
 
 # Conventioner's design language
@@ -416,7 +418,7 @@ An icon is added when a screen uses it, and [`everyIconIsUsed.test.ts`](../front
 
 Tokens alone cannot fix what is actually wrong. A `--radius-control` does not stop a file writing `height: 45px`, and the concentrated damage is exactly there: five control heights on the login screen, ten on Market Setup, four disabled treatments, sixty button-ish class names, two designs for the same `Manage` button.
 
-Three primitives own height, padding, radius, type and the disabled state, and `primitives.css` holds the one focus halo every control wears. They live in `front-end/src/assets/primitives.css`, and `src/__tests__/primitives.test.ts` is the reference a migration checks against.
+Three primitives own height, padding, radius, type and the disabled state, and `primitives.css` holds the one focus border every button draws and the one focus halo every other control wears. They live in `front-end/src/assets/primitives.css`, and `src/__tests__/primitives.test.ts` is the reference a migration checks against.
 Every primitive and reusable component is drawn in its variants and states on the [component library](implementation/modules/component-library.md)'s page, `/dev/components` in a development build, which is where one is looked at and critiqued; the test, not the page, holds the contract.
 Reach for a primitive rather than deciding again.
 They and `AppDialog` are the app's components: it installs no component library, and a widget too hard to own starts from a headless one styled with these tokens ([ADR 0015](adr/0015-the-app-owns-its-components.md)).
@@ -472,7 +474,9 @@ Its placeholder, `000000`, clears on focus, so the empty field's caret, drawn at
 [`the-code-field.spec.ts`](../front-end/e2e/the-code-field.spec.ts) holds both sign-ins' field inside its card with its digits centred within 1px, at 1280, 390 and 320 wide.
 A row of pressed buttons that filters a list or switches a view is [`FilterToggles.vue`](../front-end/src/components/FilterToggles.vue) (T200): compact secondary `.btn`s in a named `role="group"`, one choice by default or several with `multiple`, each named by the words it shows, its label then an optional count.
 The row wraps and a long label wraps inside its toggle, so it never scrolls sideways, and on a phone a toggle is at least 44px each way.
-Pressing the chosen toggle again keeps it; several emit in the options' order.
+One rule holds in every row, Daniel's choice on 2026-11-04: pressing the chosen toggle again lets it go, and nothing pressed means all, so a row needs no All toggle, and Markets' phase filter has none.
+With one choice, letting go empties the value, unless the row names in `rest` an option to return to: its default, or the All toggle a row still draws, which stays pressed when it is pressed again.
+Several emit in the options' order.
 No screen mounts it yet: the library's `filter-toggles` entry lists the eight rows it would replace.
 
 A list that can grow with a market is [`ListFrame.vue`](../front-end/src/components/ListFrame.vue) (T200), generic over the row: a find field once the whole list passes `findFrom` rows (12), the screen's own filters beside it, a count line, the first `pageSize` rows (50) and "Show N more".
@@ -545,27 +549,34 @@ The contrast sweep fails a shown disabled control drawn as a box, with a fill, t
 A browser treats a focused text field as `:focus-visible` whether it was clicked or tabbed into, so no rule could keep a ring for the keyboard alone, and Daniel chose this knowing a keyboard user loses it too; an accessibility pass does not put it back.
 `primitives.css` sets `outline: none` on every focused field, so the browser's own outline does not appear either, and no component draws a ring around a field's box (`:focus-within`).
 
-**A soft halo on every control**, Daniel's choice on the same walk (E38/F01/S01): `--focus-halo`, a white 2px gap then a translucent green glow, in `base.css`.
-`primitives.css` gives it to the primitives and to every link, button, `summary`, `[role='button']` and `[tabindex='0']` on `:focus-visible`, with no outline, so the browser's own ring is drawn nowhere.
+**A green border on every button**, Daniel's word on 2026-11-04 ("for focus for the buttons green border instead of the thick green ring"), over the soft halo the 2026-10-29 walk gave them: `--focus-border`, `--mm-green`, `--focus-border-width` (2px) wide, in `base.css`.
+`primitives.css` draws it on `:focus-visible` on every `button`, `.btn`, `[role='button']`, `.add-row`, `.drag-handle` and `.step-button`, so a menu's item, a button drawn as a tab and a link drawn as a `.btn` draw it too.
+It is an outline on the inside of the edge rather than a `border`, so it takes no room whatever the button's own border is, a text button's none included: focus moves nothing, it lies over the button's own border and leaves a resting shadow alone, no box that clips can cut it off, and it stays in forced colours, which drop a shadow.
+A button the green would not show on, on a fill it is under 3:1 with or over a green border of its own, sets `--focus-border` to `--focus-border-on-fill` in the rule that draws it, a deep green: 3.62:1 on `--mm-green`, 3.05 on `--mm-red`; so the primary and destructive buttons, each screen's own green button, a pressed toggle and the Vendors page's open row.
+On a dark ground, the vendor drawer's and the save dialog's close, it is the plain green, 3.39:1 on `--mm-black`.
+A text button, with no fill, no border and no padding, would have it lie over its words, so it sets `--focus-border-offset` to the border's width in its own rule, and the border runs 2px clear around its words: a vendor's name, a seat's Change, a history entry's toggle, Payments' sorts, the first of a form's steps, which starts at its header's edge.
+A text button whose border would cross what lies around it takes room inside its edge instead, given back so the words stay put: Show on sign-in and the password reset, inside its field, by that much of the field's own padding, so its box stays inside the field's padding and the input keeps its width.
+A market card draws it for its name, whose own box is only the name, and lifts under the pointer alone, since focus moves nothing.
+
+**A soft halo on every other control**, Daniel's choice on the same walk (E38/F01/S01): `--focus-halo`, a white 2px gap then a translucent green glow, in `base.css`.
+`primitives.css` gives it to every link, `summary` and `[tabindex='0']` on `:focus-visible`, with no outline, so the browser's own ring is drawn nowhere.
 Any other keyboard stop takes it from a zero-specificity rule beneath those: a scroller the browser makes a stop because nothing inside it takes focus, as the export dialog's preview table is on a phone.
 A file input is drawn invisible inside the drop zone that stands for it, so the zone wears the halo while its input has keyboard focus (`:has(input:focus-visible)`): the zone marking its one control, not a ring around a field's box, and the focus sweep reads a file input as such a control.
-A link's halo appears at once, corners and all, as a button's does: the global `a` rule in `main.css` eases `color` alone, where easing every property drew the halo square and rounded it over 0.4s (T181).
+A link's halo appears at once, corners and all: the global `a` rule in `main.css` eases `color` alone, where easing every property drew the halo square and rounded it over 0.4s (T181).
 [`a-links-halo-appears-at-once.spec.ts`](../front-end/e2e/a-links-halo-appears-at-once.spec.ts) reaches each sign-in page's `.link-alone` by Tab at 390px and 1440px and reads its halo whole in the frame after focus.
-The halo hugs what it marks: it takes `--radius-control` on any control that sets no radius of its own, through a `:where` rule that a control's own radius outranks, so a text link, a text button and a disclosure's `summary` wear it rounded rather than as a hard rectangle (T140); and a text control is as wide as its words, so its halo is not the width of the row it sits in ("N more answers", a month's name in the dates card).
+The border and the halo hug what they mark: each takes `--radius-control` on any control that sets no radius of its own, through a `:where` rule that a control's own radius outranks, so a text link, a text button and a disclosure's `summary` wear it rounded rather than as a hard rectangle (T140); and a text control is as wide as its words, so what it wears is not the width of the row it sits in ("N more answers", a month's name in the dates card).
 A tab whose underline is a bottom border curls that underline only while it is focused, as the vendor drawer's tabs do.
-What a script focuses and Tab never reaches (`tabindex="-1"`), such as AppDialog's window when no control in it is ready, is not a control and draws nothing, the browser's ring included; a control among them, such as a menu's items, still wears a halo.
-A box that clips what lies past its edge cuts a halo off, so a control that fills such a box wears `--focus-halo-inset`, the same halo drawn inside its edge: every menu's item (`[role='menuitem']`), inside its menu's rounded box (the phase rail's, a Payment line's).
-So does a `scroll="body"` dialog's body when the browser makes it a stop, with `--radius-control`, since the dialog's window clips what lies past its edge.
+What a script focuses and Tab never reaches (`tabindex="-1"`), such as AppDialog's window when no control in it is ready, is not a control and draws nothing, the browser's ring included; a control among them, such as a menu's items, still shows its focus.
+A box that clips what lies past its edge cuts a halo off, so a control that fills such a box wears `--focus-halo-inset`, the same halo drawn inside its edge: a `scroll="body"` dialog's body when the browser makes it a stop, with `--radius-control`, since the dialog's window clips what lies past its edge.
 Every control carries a `scroll-margin` of `--space-2`, so focus that scrolls it into view leaves its halo room inside the scroller, as a dialog's window would otherwise cut off its last control's.
 A scroller the browser makes focusable, such as the export dialog's preview table, is no control to that rule, so it takes the same `scroll-margin` itself.
-The white gap is what keeps it visible on the green primary button, where a green glow would meet the fill.
-A control on a dark ground (the market bar's tabs, the vendor drawer's close) takes `--focus-halo-on-dark`, white at 35%, drawn inside the tab where the bar is narrower than the tabs and they scroll sideways on its lower edge (`--focus-halo-on-dark-inset`), since the scroller would clip it; a component rule that gives a control a resting `box-shadow` outranks the shared rule, so it says `var(--focus-halo), <its shadow>` itself; and a market card wears the halo for its name, whose own box clips it.
-Measured, the green glow is 1.58:1 against white and 1.50:1 against beige, below the 3:1 WCAG asks of a focus indicator by Daniel's choice of look, since 3:1 takes about 77% green on white and 87% on beige, no longer a soft halo; the white gap is 4.59:1 against the green button's fill; and the dark halo is 3.17:1 on `--mm-black`, raised from the prototype's 28% (2.53:1), which looked the same.
+A link on a dark ground (the market bar's tabs) takes `--focus-halo-on-dark`, white at 35%, drawn inside the tab where the bar is narrower than the tabs and they scroll sideways on its lower edge (`--focus-halo-on-dark-inset`), since the scroller would clip it; and a component rule that gives a control a resting `box-shadow` outranks the shared rule, so it says `var(--focus-halo), <its shadow>` itself.
+Measured, the green glow is 1.58:1 against white and 1.50:1 against beige, below the 3:1 WCAG asks of a focus indicator by Daniel's choice of look, since 3:1 takes about 77% green on white and 87% on beige, no longer a soft halo; and the dark halo is 3.17:1 on `--mm-black`, raised from the prototype's 28% (2.53:1), which looked the same.
 
 **A selected row is the on toggle's look**, so selection and focus never read alike (T123).
 A toggle that is on (`.btn[aria-pressed='true']` in `primitives.css`) is the one selected state the language had: a `--mm-chip-positive` ground inside a `--mm-green` border.
 **A tap shows on the control, never as the browser's box** (T142): `base.css` turns off the tap highlight, which flashed a square light-blue box over a tapped control whatever its shape, and a `.btn` shows its press itself, `opacity: 0.8` under `:active`, a step past its hover's 0.9.
-The [Vendors page](business/flows/vendors.md)'s open vendor takes the same pair (`.vendor-row--open` in [`VendorsView.vue`](../front-end/src/views/VendorsView.vue)), where it drew a 2px black outline beside the halo; its row keeps its own ink, and a focused row keeps its white ground and wears the halo.
+The [Vendors page](business/flows/vendors.md)'s open vendor takes the same pair (`.vendor-row--open` in [`VendorsView.vue`](../front-end/src/views/VendorsView.vue)), where it drew a 2px black outline; its row keeps its own ink, and a focused row keeps its white ground and draws the green border.
 The tint is a chip's own ground, so inside a selected row a chip keeps its ink on white, and its muted lines, the address under a name and the date count, take `--mm-text-muted-on-beige`, since `--mm-text-muted` is 4.27:1 on the tint; `contrast.test.ts` holds the row's text, its muted lines and its 3.75:1 border to the tint.
 
 They were built in `E16/F04`, deliberately **after** `E16/F03` rewrote Market Setup, so they had a real consumer rather than a layout about to be replaced. **Nothing migrated onto them in that feature**: `E16/F05`-`F08` move one surface at a time.
@@ -605,18 +616,21 @@ A convention nothing enforces is how the product got here. Six checks, the first
    It holds the sweep's phone break to `base.css`'s by rendering sign-in on each side of it: at the widest width the sweep calls a phone, the sign-in button is 44px tall and `--target-min` 44px, and a pixel wider they are 36px and 24px.
    It landed with what it and the newly walked states found fixed: the form's step list hung 8px outside its header, a long web address in an answer ran 108px past a phone, the sign-in and reset fields and their Show buttons were 20px and 15px tall inside their 36px boxes, the standalone back links and the rail's addresses were 18px and 19px tall, and on states the other sweeps had never opened, role badges and "Results Published" on translucent tints, the import's hint on beige, the verification error in raw `red`, an unmarked link in a note, and the start page's coloured words on black.
 6. **A focus sweep**, [`e2e/focus-sweep.spec.ts`](../front-end/e2e/focus-sweep.spec.ts), presses Tab through every state (E38/F01/S01), with [`e2e/helpers/focusSweep.ts`](../front-end/e2e/helpers/focusSweep.ts)'s judge, Tab walk and menu walk.
-   A field it lands on must look as it did unfocused, it and the two boxes around it, and a control must draw no outline and the halo for its ground: white at 35% where the first ancestor with a fill is dark, the green halo elsewhere.
+   A field it lands on must look as it did unfocused, it and the two boxes around it.
+   A button must draw the green border and no halo, inside its edge and not over its words, or 2px clear around them on a text button with no fill or border and inside the window, at the size it had at rest, in the deep green where the plain green is under 3:1 with the fill beneath it or the button has a green border of its own; a box up to four levels around it may draw the border for it.
+   Any other control must draw no outline and the halo for its ground: white at 35% where the first ancestor with a fill is dark, the green halo elsewhere.
    A file input is a control, not a field, since nothing is typed into it and the drop zone around it wears its halo.
    It moves the pointer to the window's corner before it reads how the fields look unfocused, since a focus that scrolls a dialog's body can bring the box around the focused field under a pointer left there, and that box's hover fill read as a look focus drew (T180).
-   The halo must have rounded corners, no box that clips what lies past its edge may cut it off, and a text control with no fill or border may be no more than 24px wider than its words and its padding, room for a disclosure's marker.
+   Both must have rounded corners, no box that clips what lies past its edge may cut either off, and a text control with no fill or border may be no more than 24px wider than its words and its padding, room for a disclosure's marker.
    A box clips only what is placed inside it, so the clip check climbs the chain of containing blocks: a positioned box holds what is placed absolutely, and a box with a `transform`, `translate`, `rotate`, `scale`, `perspective`, `filter` or `backdrop-filter`, a `will-change` naming one of them, a `contain` of `layout`, `paint`, `strict` or `content`, or a `container-type` of `size` or `inline-size` holds what is placed fixed or absolutely.
    A menu's items are no Tab stop, so in every state it opens each menu with Enter on its button (`aria-haspopup="menu"`) and judges each item it reaches with the arrow keys; Enter, and each arrow key that moves to the next item, must land focus on a `[role='menuitem']` of the menu it opened, or the sweep names the menu, its button and where focus is, so a menu that keeps focus on its button cannot pass.
-   [`e2e/focus-sweep-detectors.spec.ts`](../front-end/e2e/focus-sweep-detectors.spec.ts) proves them on fixtures: a halo at the edge of a box that holds it through each of `transform`, `filter`, `will-change: transform` and `contain: paint`, placed absolutely and fixed, is caught, as is one in a static box around a transformed box that holds it, and one in a static box is not; a menu whose arrows leave focus on its button is caught, and a working one passes; and a drop zone that shows no focus for its file input is caught, and one that wears the halo passes.
+   [`e2e/focus-sweep-detectors.spec.ts`](../front-end/e2e/focus-sweep-detectors.spec.ts) proves them on fixtures: a halo at the edge of a box that holds it through each of `transform`, `filter`, `will-change: transform` and `contain: paint`, placed absolutely and fixed, is caught, as is one in a static box around a transformed box that holds it, and one in a static box is not; a menu whose arrows leave focus on its button is caught, and a working one passes; and a drop zone that shows no focus for its file input is caught, and one that wears the halo passes; and a button that wears the halo, draws its border outside its edge or over its words, draws the plain green on a green fill or its own green border, draws the deep green where the plain shows, or is resized by focus is caught, as is a text button whose border is cut off by a box or runs off the window, and a button, a text button clear of its words or a card around one drawing it rightly passes.
+   [`e2e/a-focused-button-moves-nothing.spec.ts`](../front-end/e2e/a-focused-button-moves-nothing.spec.ts) reads each button and the boxes around it focused and at rest, on the library's primitives and on Markets, at a desk and on a phone.
    It also proves that `alsoAt` adds its size to a copy of a screen's sizes, so a sweep's added size never reaches the sizes another sweep walks, which screens share.
    It walks each state at a phone's width too, as well as at its first size: an organizer's screens ship at a desk, but a desk zoomed to 400% is that narrow, and there a table too wide for its box scrolls and becomes a keyboard stop of its own; the floorplan beta's wizard steps, which cannot be walked that narrow, are marked `deskOnly`.
    Each dialog window a state shows is focused as a keyboard user's would be and must draw no outline, a window behind another dialog on top aside, since it is inert (T148), and a test opens Manage market from the keyboard, where the window takes focus while the market loads (T140).
    Its phone walk found a dialog's buttons running out past the window's left edge where they were wider than it, and the actions row now wraps.
-   It landed with what it found fixed: the seat buttons' and the drawer tabs' own rings, and the buttons whose own `box-shadow`, `none` included, outranked the halo: the start page's, New market, New organization, the vendor rows, and the floorplan's Save & Continue and Sections buttons.
+   It landed with what it found fixed: the seat buttons' and the drawer tabs' own rings, and the buttons whose own `box-shadow`, `none` included, outranked the halo they then wore: the start page's, New market, New organization, the vendor rows, and the floorplan's Save & Continue and Sections buttons.
    It needed the floorplan wizard walked at each step with a plan uploaded, which the other sweeps then walked too, and they found the beta's step labels below AA on their beige, its progress bar with no name and an invalid value, its empty table types in a 40% grey, and its Export PNG button named something other than its words; all are fixed.
 
 The sweeps are only worth the states they walk. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog, and T67's layout trial missed a market row's squeezed dates until it opened a market first; **dialogs, menus, drawers, hover states, disabled controls, empty states and remembered state have to be walked deliberately.**
@@ -649,3 +663,4 @@ The contrast contract rests on an audit that measured every colour on the ground
 - `--list-max` was to hold a market's Tables, Vendors and Attendance (wayfinding/claims-and-room/01); every market screen is the workspace width, set by the frame (E22/F04/S01).
 - A row's panels were to stay even by stretching to the tallest (`align-items: stretch`), which is why no minimum row height was needed (wayfinding/claims-and-room/01); a card ends at its own content in the card grid (E23/F01/S01).
 - Every primitive was to show a 2px `--mm-black` focus ring at 2px of offset, fields included (E16/F04); a field shows no focus and a control the soft halo (E38/F01/S01).
+- Every control, buttons among them, was to wear the soft halo (E38/F01/S01); by Daniel's word on 2026-11-04 a button draws a green border, and links and the other stops keep the halo.

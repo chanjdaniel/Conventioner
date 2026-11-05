@@ -1759,6 +1759,7 @@ function startOver() {
 }
 
 .ledger-split {
+  --focus-border-offset: var(--focus-border-width);
   border: none;
   background: none;
   padding: 0;
@@ -1999,6 +2000,7 @@ function startOver() {
 }
 
 .button-primary {
+  --focus-border: var(--focus-border-on-fill);
   background: var(--mm-green);
   border-color: var(--mm-green);
   color: white;

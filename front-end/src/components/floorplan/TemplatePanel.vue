@@ -351,6 +351,7 @@ function formatDate(dateStr: string): string {
 }
 
 .tp-btn--save {
+  --focus-border: var(--focus-border-on-fill);
   background: var(--mm-green);
 }
 

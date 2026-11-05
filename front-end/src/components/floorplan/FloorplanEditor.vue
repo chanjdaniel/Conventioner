@@ -658,6 +658,7 @@ watch(
 }
 
 .toolbar-btn {
+  --focus-border: var(--focus-border-on-fill);
   display: inline-flex;
   align-items: center;
   justify-content: center;

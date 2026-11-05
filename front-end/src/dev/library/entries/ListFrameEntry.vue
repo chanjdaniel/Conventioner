@@ -152,6 +152,7 @@ onMounted(() => {
         <FilterToggles
           v-model="view"
           :options="viewOptions"
+          rest="proposed"
           label="How the list is drawn"
           testid="library-l2-view"
         />
@@ -185,6 +186,7 @@ onMounted(() => {
               v-model="status"
               class="library-status"
               :options="statusOptions"
+              rest="all"
               label="Status"
               testid="library-l2-status"
             />
