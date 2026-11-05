@@ -1308,6 +1308,7 @@ function submittedOn(app: Application): string {
   color: var(--mm-red);
   font-size: var(--text-sm);
   margin-bottom: var(--space-3);
+  overflow-wrap: anywhere;
 }
 
 .progress-row {
