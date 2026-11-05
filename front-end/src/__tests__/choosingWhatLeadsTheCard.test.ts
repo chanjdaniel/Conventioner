@@ -254,6 +254,41 @@ describe('Choose what leads the card', () => {
       await open();
       expect(byId('choose-highlights-error').exists()).toBe(false);
     });
+
+    it("that fails after the dialog closed keeps a refused card's line, and is said beside it", async () => {
+      const REFUSAL = 'kai@example.com approved this application since you opened it.';
+      reviewApplication.mockRejectedValueOnce({
+        isAxiosError: true,
+        response: {
+          status: 409,
+          data: {
+            error: REFUSAL,
+            application: application('jane', ApplicationStatus.ReviewerApproved),
+          },
+        },
+      });
+      let refuse = () => {};
+      putHighlights.mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            refuse = () => reject(new Error('offline'));
+          }),
+      );
+      await monitor();
+      await press('a');
+      expect(byId('app-monitor-changed').text()).toContain(REFUSAL);
+      await open();
+      await tick();
+      await byId('choose-highlights-done').trigger('click');
+      await flushPromises();
+
+      refuse();
+      await flushPromises();
+
+      const line = byId('app-monitor-changed').text();
+      expect(line).toContain(REFUSAL);
+      expect(line).toContain('Could not save what a reviewer reads first.');
+    });
   });
 
   describe('with the dialog open', () => {

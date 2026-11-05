@@ -69,6 +69,9 @@ const resetChanges = computed(() =>
 const orgPath = () => `/organizations/${encodeURIComponent(props.org.id)}`;
 
 async function openDialog() {
+  // Read afresh, so a second opening is the first: changes already drawn would put "Load more" in
+  // the dialog as it places its focus, and a reader, with no select, would open at the end of them.
+  history.value = [];
   open.value = true;
   await fetchHistory();
 }
@@ -154,7 +157,7 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
         data-testid="manage-org-permissions-open"
         @click="openDialog"
       >
-        Show
+        Show<span class="visually-hidden"> default permissions</span>
       </button>
     </div>
     <p class="hint" data-testid="manage-org-permissions-summary">

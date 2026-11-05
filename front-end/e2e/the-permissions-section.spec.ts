@@ -50,6 +50,28 @@ async function openManage(page: Page): Promise<ManageMarketPage> {
   return manage;
 }
 
+/** More changes than a page of them, so that the dialog draws "Load more". */
+async function routeManyChanges(page: Page): Promise<void> {
+  await page.route(`**/markets/${marketId}/permission-history`, (route) =>
+    route.fulfill({
+      json: {
+        entries: Array.from({ length: 12 }, (_, n) => ({
+          id: `entry-${n}`,
+          actor: 'owner@example.com',
+          at: '2026-11-05T10:00:00+00:00',
+          action: 'change-the-table',
+          kind: 'permission_set',
+          subject: { action: 'check-in' },
+          detail: {
+            before: { role: 'editor', source: 'built-in' },
+            after: { role: 'admin', source: 'market' },
+          },
+        })),
+      },
+    }),
+  );
+}
+
 async function openPermissions(page: Page): Promise<ManageMarketPage> {
   const manage = await openManage(page);
   await manage.showPermissions();
@@ -221,6 +243,8 @@ test.describe('a section, and a dialog over Manage market', () => {
     const scrolled = page.getByTestId('manage-market-scrolled');
     const before = await scrolled.evaluate((box) => box.scrollHeight);
     await expect(manage.permissionsOpen).not.toHaveAttribute('aria-expanded');
+    await expect(manage.permissionsOpen).toHaveAccessibleName('Show permissions');
+    await expect(manage.permissionsOpen.locator('.visually-hidden')).toHaveText('permissions');
     await expect(manage.permissionSelects).toHaveCount(0);
 
     await manage.showPermissions();
@@ -311,24 +335,7 @@ test.describe('a section, and a dialog over Manage market', () => {
   }) => {
     await withUser(browser, PEOPLE.viewer.email, PEOPLE.viewer.password, async (page) => {
       // More changes than a page, so a "Load more" arrives after the dialog has placed its focus.
-      await page.route(`**/markets/${marketId}/permission-history`, (route) =>
-        route.fulfill({
-          json: {
-            entries: Array.from({ length: 12 }, (_, n) => ({
-              id: `entry-${n}`,
-              actor: 'owner@example.com',
-              at: '2026-11-05T10:00:00+00:00',
-              action: 'change-the-table',
-              kind: 'permission_set',
-              subject: { action: 'check-in' },
-              detail: {
-                before: { role: 'editor', source: 'built-in' },
-                after: { role: 'admin', source: 'market' },
-              },
-            })),
-          },
-        }),
-      );
+      await routeManyChanges(page);
       const manage = await openPermissions(page);
       await expect(page.getByTestId('manage-market-permission-changes-more')).toBeVisible();
       await expect(manage.permissionsBody).toBeFocused();
@@ -341,6 +348,25 @@ test.describe('a section, and a dialog over Manage market', () => {
       await page.getByTestId('manage-market-permission-changes-more').focus();
       await page.keyboard.press('Enter');
       await expect(page.getByTestId('manage-market-permission-change').nth(10)).toBeFocused();
+    });
+  });
+
+  test('someone who may only read opens it a second time where the first opened', async ({
+    browser,
+  }) => {
+    await withUser(browser, PEOPLE.viewer.email, PEOPLE.viewer.password, async (page) => {
+      await routeManyChanges(page);
+      const manage = await openPermissions(page);
+      await expect(page.getByTestId('manage-market-permission-changes-more')).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(manage.permissionsBody).toHaveCount(0);
+
+      await manage.showPermissions();
+
+      await expect(page.getByTestId('manage-market-permission-changes-more')).toBeVisible();
+      await expect(manage.permissionsBody).toBeFocused();
+      expect(await manage.permissionsBody.evaluate((box) => box.scrollTop)).toBe(0);
+      await expect(manage.permissionsReadOnly).toBeInViewport();
     });
   });
 

@@ -554,6 +554,34 @@ test.describe('"Show who"', () => {
     await expectLaidOutOnAPhone(page, 'The long role report in its dialog');
   });
 
+  test('a long name with no break in it stays whole in the title on a phone', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const marketId = await aLongReport(request, 'V'.repeat(60));
+    const vendors = new VendorsPage(page);
+    await page.setViewportSize(PHONE);
+    await vendors.goto(marketId);
+    await expect(vendors.vendorListItems.first()).toBeVisible({ timeout: 15000 });
+
+    await vendors.roleReportOpen.click();
+    await expect(vendors.roleReportWho).toBeVisible();
+
+    const title = await page.getByTestId('vendors-role-report-who-window').evaluate((window) => {
+      const heading = window.querySelector('h2')!;
+      const range = document.createRange();
+      range.selectNodeContents(heading);
+      const lines = [...range.getClientRects()].map((line) => line.right);
+      const close = window.querySelector('[data-dialog-close]')!.getBoundingClientRect();
+      return {
+        clearance: close.left - Math.max(...lines),
+        overflow: heading.scrollWidth - heading.clientWidth,
+      };
+    });
+    expect(title.clearance).toBeGreaterThanOrEqual(0);
+    expect(title.overflow).toBeLessThanOrEqual(0);
+  });
+
   test('a long title clears the close on a phone, in a dialog of either scroll', async ({
     authenticatedPage: page,
     request,

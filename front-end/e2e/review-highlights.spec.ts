@@ -350,7 +350,7 @@ test.describe('Choosing what leads the card, in a dialog', () => {
     // A verdict, an undo, a follow-up or a hand-out; a key may renew the claim, which moves nothing.
     const moved: string[] = [];
     page.on('request', (sent) => {
-      if (/\/review(\/next)?$|\/verdicts|\/follow-up/.test(new URL(sent.url()).pathname)) {
+      if (/\/review(\/next|\/undo)?$|\/verdicts|\/follow-up/.test(new URL(sent.url()).pathname)) {
         moved.push(sent.url());
       }
     });

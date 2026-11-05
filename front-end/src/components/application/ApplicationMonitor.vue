@@ -735,10 +735,11 @@ watch(
 // come back with the view and hold the keys from a card it no longer lies over.
 watch([() => props.visible, () => props.market?.id, marksHighlights], stopChoosingHighlights);
 
-// A tick still being written when Done was pressed has no dialog left to say it failed in.
+// A tick still being written when Done was pressed has no dialog left to say it failed in. Said
+// beside what the card already says, which on a refused card is who decided it first.
 watch(highlightsError, (words) => {
   if (!words || choosingHighlights.value) return;
-  errorMessage.value = words;
+  errorMessage.value = `${errorMessage.value} ${words}`.trim();
   highlightsError.value = '';
 });
 

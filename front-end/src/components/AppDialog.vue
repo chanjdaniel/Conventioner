@@ -372,6 +372,7 @@ watch(
 .dialog-title {
   margin: 0;
   padding-right: var(--space-6);
+  overflow-wrap: anywhere;
   font-size: var(--text-lg);
   color: var(--mm-black);
 }

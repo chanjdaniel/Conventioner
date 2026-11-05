@@ -100,6 +100,9 @@ const mayCopy = computed(() => mayChange.value && !!props.market.organizationId)
 const marketPath = () => `/markets/${encodeURIComponent(props.market.id)}`;
 
 async function openDialog() {
+  // Read afresh, so a second opening is the first: changes already drawn would put "Load more" in
+  // the dialog as it places its focus, and a reader, with no select, would open at the end of them.
+  history.value = [];
   open.value = true;
   await fetchHistory();
 }
@@ -208,7 +211,7 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
         data-testid="manage-market-permissions-open"
         @click="openDialog"
       >
-        Show
+        Show<span class="visually-hidden"> permissions</span>
       </button>
     </div>
     <p class="hint" data-testid="manage-market-permissions-summary">

@@ -151,6 +151,42 @@ test('a member reads the default and changes nothing', async ({ browser }) => {
   });
 });
 
+test('a member opens it a second time where the first opened', async ({ browser }) => {
+  await withUser(browser, MEMBER.email, MEMBER.password, async (page) => {
+    // More changes than a page of them, so that the dialog draws "Load more".
+    await page.route(`**/organizations/${orgId}/default-permission-history`, (route) =>
+      route.fulfill({
+        json: {
+          entries: Array.from({ length: 12 }, (_, n) => ({
+            id: `entry-${n}`,
+            actor: 'owner@example.com',
+            at: '2026-11-05T10:00:00+00:00',
+            action: 'change-organization-default',
+            kind: 'permission_set',
+            subject: { action: 'check-in' },
+            detail: {
+              before: { role: 'editor', source: 'built-in' },
+              after: { role: 'admin', source: 'organization' },
+            },
+          })),
+        },
+      }),
+    );
+    const orgs = await openOrganization(page);
+    const more = page.getByTestId('manage-org-permission-changes-more');
+    await expect(more).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(orgs.defaultsBody).toHaveCount(0);
+
+    await orgs.showDefaults();
+
+    await expect(more).toBeVisible();
+    await expect(orgs.defaultsBody).toBeFocused();
+    expect(await orgs.defaultsBody.evaluate((box) => box.scrollTop)).toBe(0);
+    await expect(orgs.defaultsReadOnly).toBeInViewport();
+  });
+});
+
 test('a market created afterwards starts with the row copied, and one created before keeps Editor', async ({
   authenticatedPage: page,
 }) => {
@@ -202,6 +238,8 @@ test.describe('a section, and a dialog over Manage organization', () => {
     const scrolled = page.getByTestId('manage-org-body');
     const before = await scrolled.evaluate((box) => box.scrollHeight);
     await expect(orgs.defaultsOpen).not.toHaveAttribute('aria-expanded');
+    await expect(orgs.defaultsOpen).toHaveAccessibleName('Show default permissions');
+    await expect(orgs.defaultsOpen.locator('.visually-hidden')).toHaveText('default permissions');
     await expect(orgs.defaultSelects).toHaveCount(0);
 
     await orgs.showDefaults();

@@ -79,7 +79,7 @@ It still gets the scrim, window, close, Escape, backdrop and inert behaviour, wi
 Narrow holds two controls, wide a list, and broad a list beside what it gathers, the export dialog's columns and preview.
 A dialog's window is a rounded frame that never scrolls, so no scroll bar can square its corners; what is taller than it scrolls in a [`ScrollBox`](../../../front-end/src/components/ScrollBox.vue) ([the design language](../../design-system.md#the-primitive-layer)) inside it.
 **By default that box holds the title and the body (`scroll="window"`)**, with the close staying put over it, on its own white ground, so words scrolling beneath it never run through it.
-A long title wraps short of the close, in either scroll, by a wider right padding at 640px or less, where the close is 44px wide.
+A long title wraps short of the close, in either scroll, by a wider right padding at 640px or less, where the close is 44px wide, and a word too long for its line breaks rather than running under the close, as a role's name in "Show who" may.
 This default stays for a short dialog, a question with a control or two, by Daniel's choice (T204's choice 21): only the long dialogs move to `scroll="body"`.
 So a dialog on a page that fits a phone opens inside a 390px window, on each place [the design language](../../design-system.md#layout) lists as fitting one; only the people and add rows of Manage market and Manage organization needed a phone rule of their own.
 The footer's buttons wrap where they are wider than the window, as the placement dialog's Cancel, Free this seat and Move them are on a phone; a row that could not wrap ran out past the window's left edge, where nothing scrolls to it.
