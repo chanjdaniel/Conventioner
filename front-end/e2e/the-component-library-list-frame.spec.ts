@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 import { eachWindow, expectLaidOut, openEntry } from './helpers/componentLibrary';
 import { inTheWindow } from './helpers/phoneWindow';
@@ -8,10 +8,32 @@ import { inTheWindow } from './helpers/phoneWindow';
  * and the 150 people with access (L1), at a desk and on a phone. An application is found by a family
  * name, narrowed by a status, unfolded page by page until the count line reads all, and the words
  * outlive a reload; the first paint draws one page; each state reads as it should.
+ *
+ * It also holds `PagedList` (T224) on the same applications through a fake read: a box of its own
+ * and a dialog's body each bring a second page as their end comes into view, and a failed page says
+ * so and "Try again" brings it. How the observer and the focus work is `pagedList.test.ts`'s.
  */
 
 const rowsOf = (page: Page, testid: string) => page.getByTestId(`${testid}-row`);
 const countOf = (page: Page, testid: string) => page.getByTestId(`${testid}-count`);
+
+/** Brings a `PagedList`'s own box into the window and scrolls it to its end. */
+const scrollBoxToEnd = (box: Locator) =>
+  box.evaluate((element) => {
+    element.scrollIntoView({ block: 'nearest' });
+    element.scrollTop = element.scrollHeight;
+  });
+
+/** Settles once the line says "Loading…", so a short read cannot pass before a poll sees it. */
+const saysLoading = (line: Locator) =>
+  line.evaluate(
+    (element) =>
+      new Promise<void>((said) => {
+        new MutationObserver(() => {
+          if (element.textContent?.includes('Loading…')) said();
+        }).observe(element, { childList: true, subtree: true, characterData: true });
+      }),
+  );
 
 eachWindow('the list frame entry', (size) => {
   test.beforeEach(async ({ page }) => {
@@ -20,6 +42,7 @@ eachWindow('the list frame entry', (size) => {
 
   test('names what it serves and draws one page first', async ({ page, expectAccessible }) => {
     await expect(page.getByTestId('library-serves')).toContainText('L1, L2, L5, L6, L10, L12, C6');
+    await expect(page.getByTestId('library-serves')).toContainText('the history, F18, F27');
 
     await expect(countOf(page, 'library-l2')).toHaveText('Showing 50 of 359');
     await expect(rowsOf(page, 'library-l2')).toHaveCount(50);
@@ -397,5 +420,100 @@ eachWindow('the list frame entry', (size) => {
     await page.getByTestId('library-state-refused-find').fill('every column');
     await expect(rows).toHaveCount(3);
     await expect(button).toHaveCount(0);
+  });
+
+  test('a list the server pages reads on as the end of its box comes into view', async ({
+    page,
+    expectAccessible,
+  }) => {
+    const { press } = inTheWindow(size);
+    const box = page.getByTestId('library-paged-own-box');
+    const rows = box.getByTestId('library-paged-row');
+    const readOut = page.getByTestId('library-paged-own').getByTestId('read-out');
+
+    await expect(rows).toHaveCount(25);
+    await expect(readOut).toHaveText('Read: 25 of 359');
+    await box.evaluate((element) => element.scrollIntoView({ block: 'nearest' }));
+    await expect(page.getByTestId('library-paged-own-box-shade-bottom')).toBeVisible();
+    await expectAccessible('the box of its own');
+
+    const first = rows.first();
+    await press(first.locator('summary'));
+    await expect(first).toHaveAttribute('open');
+    const height = await box.evaluate((element) => element.clientHeight);
+
+    const said = saysLoading(page.getByTestId('library-paged-own-loading'));
+    await scrollBoxToEnd(box);
+    await said;
+    await expect(rows).toHaveCount(50);
+    await expect(readOut).toHaveText('Read: 50 of 359');
+    await expect(page.getByTestId('library-paged-own-loading')).toHaveText('');
+
+    expect(await box.evaluate((element) => element.clientHeight)).toBe(height);
+    expect(await box.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await expect(first).toHaveAttribute('open');
+    await expectLaidOut(page, size, 'a box of its own on its second page');
+  });
+
+  test('a page that fails says so, and "Try again" brings it and hands the focus on', async ({
+    page,
+    expectAccessible,
+  }) => {
+    const { press } = inTheWindow(size);
+    const box = page.getByTestId('library-paged-failing-box');
+    const rows = box.getByTestId('library-paged-row');
+    const readOut = page.getByTestId('library-paged-failing').getByTestId('read-out');
+    const failed = page.getByTestId('library-paged-failing-read-failed');
+
+    await scrollBoxToEnd(box);
+    await expect(failed).toContainText('You seem to be offline.');
+    await expect(rows).toHaveCount(25);
+    await expect(readOut).toHaveText('Read: 25 of 359');
+    await expect(page.getByTestId('library-paged-failing-sentinel')).toHaveCount(0);
+    await expectLaidOut(page, size, 'a failed page');
+    await expectAccessible('a failed page');
+
+    await press(page.getByTestId('library-paged-failing-retry'));
+    await expect(rows).toHaveCount(50);
+    await expect(failed).toHaveCount(0);
+    await expect(readOut).toHaveText('Read: 50 of 359');
+    await expect(rows.nth(25).locator('summary')).toBeFocused();
+    await expect(page.getByTestId('library-paged-failing-sentinel')).toBeAttached();
+    await expectLaidOut(page, size, 'the failed page, brought');
+  });
+
+  test("in a dialog's body the rows have no scroller of their own, and the body reads on", async ({
+    page,
+    expectAccessible,
+  }) => {
+    const { press } = inTheWindow(size);
+    await press(page.getByTestId('library-paged-dialog-open'));
+
+    const body = page.getByTestId('library-paged-dialog-body');
+    const list = page.getByTestId('library-paged-dialog-list-box');
+    const rows = list.getByTestId('library-paged-row');
+    const tray = page.getByTestId('library-paged-dialog-tray').getByTestId('read-out');
+    const dialog = page.getByTestId('library-paged-dialog-window');
+
+    await expect(rows).toHaveCount(25);
+    await expect(tray).toHaveText('Read: 25 of 359');
+    expect(await list.evaluate((element) => getComputedStyle(element).overflowY)).toBe('visible');
+    await expectAccessible("the list in a dialog's body");
+
+    const before = await dialog.boundingBox();
+    await body.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect(rows).toHaveCount(50);
+    await expect(tray).toHaveText('Read: 50 of 359');
+    expect(await dialog.boundingBox()).toEqual(before);
+    await expect(page.getByTestId('library-paged-dialog-close-button')).toBeInViewport();
+    await expectLaidOut(page, size, "a dialog's body on its second page");
+
+    await press(page.getByTestId('library-paged-dialog-close-button'));
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByTestId('library-paged-dialog').getByTestId('read-out')).toHaveText(
+      'Read: 50 of 359',
+    );
   });
 });

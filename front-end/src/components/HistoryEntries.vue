@@ -10,6 +10,7 @@ import { RouterLink, type RouteLocationRaw } from 'vue-router';
 import EmailAddress from '@/components/EmailAddress.vue';
 import {
   entryChanges,
+  entryDay,
   entryParts,
   entryWhen,
   soleColumn,
@@ -23,8 +24,8 @@ const props = withDefaults(
     /** The prefix of every test id: `market-history`, `org-history`. */
     testid: string;
     /** What the entries' words are given: the vendors' names, the table's rows, the market's path,
-     * its questions and form, and the vendor whose own history this is, in their drawer, who is
-     * named by name alone, as text. */
+     * its questions and form, the vendor whose own history this is, in their drawer, who is named by
+     * name alone, as text, and whether the market day leads each entry, on a line above its sentence. */
     context?: HistoryContext;
     /** Where a vendor named in an entry opens; without it a vendor is drawn as text. */
     vendorLink?: (email: string) => RouteLocationRaw;
@@ -138,6 +139,9 @@ onUpdated(measureFields);
       :data-action="entry.action"
       :data-testid="`${testid}-entry`"
     >
+      <p v-if="context.dayLeads" class="history-day" :data-testid="`${testid}-day`">
+        {{ entryDay(entry) }}
+      </p>
       <!-- An address in the sentence, who made the change or whose share it was, breaks, if at
            all, only before its "@" or a dot, as the table's do (T181). -->
       <p class="history-what" :data-testid="`${testid}-sentence`">
@@ -257,6 +261,13 @@ onUpdated(measureFields);
 .history-entry {
   border-left: 3px solid var(--mm-border);
   padding: var(--space-2) 0 var(--space-2) var(--space-3);
+}
+
+.history-day {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--mm-black);
 }
 
 .history-what {

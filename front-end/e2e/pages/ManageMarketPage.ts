@@ -54,6 +54,7 @@ export class ManageMarketPage {
   readonly permissionSelects: Locator;
   readonly permissionSources: Locator;
   readonly permissionChanges: Locator;
+  readonly permissionChangesBox: Locator;
   readonly permissionsReset: Locator;
   readonly permissionConfirm: Locator;
   readonly permissionsCopy: Locator;
@@ -68,7 +69,16 @@ export class ManageMarketPage {
   readonly historyKind: Locator;
   readonly historyVendor: PersonChooser;
   readonly historyVendorHint: Locator;
-  readonly historyLoadMore: Locator;
+  /** The box the History's entries scroll in (T224). */
+  readonly historyBox: Locator;
+  readonly historyBoxShadeBottom: Locator;
+  readonly historyBoxShadeTop: Locator;
+  readonly historySentinel: Locator;
+  readonly historyLoading: Locator;
+  readonly historyPageFailed: Locator;
+  readonly historyRetry: Locator;
+  /** The dialog's own scrolling body, around the History's box. */
+  readonly body: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -120,6 +130,7 @@ export class ManageMarketPage {
     this.permissionSelects = page.getByTestId('manage-market-permission-select');
     this.permissionSources = page.getByTestId('manage-market-permission-source');
     this.permissionChanges = page.getByTestId('manage-market-permission-change');
+    this.permissionChangesBox = page.getByTestId('manage-market-permission-changes-box');
     this.permissionsReset = page.getByTestId('manage-market-permissions-reset');
     // Each its own dialog, a sibling of Manage market.
     this.permissionConfirm = page.getByTestId('manage-market-permission-confirm-window');
@@ -135,13 +146,36 @@ export class ManageMarketPage {
     this.historyKind = page.getByTestId('market-history-kind');
     this.historyVendor = new PersonChooser(page, 'market-history-vendor');
     this.historyVendorHint = page.getByTestId('market-history-vendor-hint');
-    this.historyLoadMore = page.getByTestId('market-history-load-more');
+    this.historyBox = page.getByTestId('market-history-box');
+    this.historyBoxShadeBottom = page.getByTestId('market-history-box-shade-bottom');
+    this.historyBoxShadeTop = page.getByTestId('market-history-box-shade-top');
+    this.historySentinel = page.getByTestId('market-history-sentinel');
+    this.historyLoading = page.getByTestId('market-history-loading');
+    this.historyPageFailed = page.getByTestId('market-history-read-failed');
+    this.historyRetry = page.getByTestId('market-history-retry');
+    this.body = page.getByTestId('manage-market-body');
   }
 
   /** Opens the History section, closed until opened, and waits for its first page. */
   async openHistory(): Promise<void> {
     await this.historyToggle.click();
     await this.page.getByTestId('market-history').waitFor();
+  }
+
+  /** Scrolls the dialog until the History's box is whole in sight. */
+  async showHistoryBox(): Promise<void> {
+    await this.historyBox.evaluate((box) => box.scrollIntoView({ block: 'nearest' }));
+  }
+
+  /**
+   * Scrolls the dialog until the History's box is whole in sight, and the box to its end, as far as it
+   * has read: a list's end inside a box still below the dialog's fold is not in view, and asks nothing.
+   */
+  async scrollHistoryToEnd(): Promise<void> {
+    await this.historyBox.evaluate((box) => {
+      box.scrollIntoView({ block: 'nearest' });
+      box.scrollTop = box.scrollHeight;
+    });
   }
 
   /** Narrows the History section by typing "Who"'s words ("Anyone", or part of an address). */

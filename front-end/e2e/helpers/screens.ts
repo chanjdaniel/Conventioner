@@ -899,12 +899,12 @@ export const SCREENS: Screen[] = [
     ),
   },
   {
-    name: 'the placement history',
+    name: 'the assignment history',
     who: 'organizer',
     sizes: FITS_A_PHONE,
     open: at(screen('big', 'assignments'), 'tables-count-assigned', [
       'result-history-button',
-      'placement-history-dialog-window',
+      'assignment-history-dialog-window',
     ]),
   },
   {

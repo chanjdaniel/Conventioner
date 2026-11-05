@@ -153,11 +153,11 @@ test('a member reads the default and changes nothing', async ({ browser }) => {
 
 test('a member opens it a second time where the first opened', async ({ browser }) => {
   await withUser(browser, MEMBER.email, MEMBER.password, async (page) => {
-    // More changes than a page of them, so that the dialog draws "Load more".
+    // More changes than a page of them, so that the dialog draws their box with more to come.
     await page.route(`**/organizations/${orgId}/default-permission-history`, (route) =>
       route.fulfill({
         json: {
-          entries: Array.from({ length: 12 }, (_, n) => ({
+          entries: Array.from({ length: 30 }, (_, n) => ({
             id: `entry-${n}`,
             actor: 'owner@example.com',
             at: '2026-11-05T10:00:00+00:00',
@@ -173,14 +173,13 @@ test('a member opens it a second time where the first opened', async ({ browser 
       }),
     );
     const orgs = await openOrganization(page);
-    const more = page.getByTestId('manage-org-permission-changes-more');
-    await expect(more).toBeVisible();
+    await expect(orgs.defaultChangesBox).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(orgs.defaultsBody).toHaveCount(0);
 
     await orgs.showDefaults();
 
-    await expect(more).toBeVisible();
+    await expect(orgs.defaultChangesBox).toBeVisible();
     await expect(orgs.defaultsBody).toBeFocused();
     expect(await orgs.defaultsBody.evaluate((box) => box.scrollTop)).toBe(0);
     await expect(orgs.defaultsReadOnly).toBeInViewport();

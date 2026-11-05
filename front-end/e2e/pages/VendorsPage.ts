@@ -20,6 +20,8 @@ export class VendorsPage {
   readonly detailAssignmentItems: Locator;
   /** The drawer's History tab: each entry's sentence, newest first (E40/F01/S04). */
   readonly detailHistorySentences: Locator;
+  /** The drawer's body, the one thing the History tab's entries scroll with (T224). */
+  readonly detailContent: Locator;
   /** The Assignments and Vendors pages' shared filter bar (E28/F02/S02). */
   readonly dateFilter: Locator;
   readonly choiceFilter: Locator;
@@ -57,6 +59,7 @@ export class VendorsPage {
     this.detailHistorySentences = page
       .getByTestId('vendor-drawer-panel-history')
       .getByTestId('market-history-sentence');
+    this.detailContent = page.getByTestId('vendors-detail-content');
     this.dateFilter = page.getByTestId('vendors-filter-date');
     this.choiceFilter = page.getByTestId('vendors-filter-choice');
     this.dateFilterChip = page.getByTestId('vendors-filter-chip-date');
@@ -94,6 +97,13 @@ export class VendorsPage {
   }
 
   /** One of the drawer's tabs (E35/F01/S01): it opens on Application. */
+  /** Scrolls the drawer's body to its end, as far as it has read. */
+  async scrollDetailToEnd(): Promise<void> {
+    await this.detailContent.evaluate((body) => {
+      body.scrollTop = body.scrollHeight;
+    });
+  }
+
   async openTab(tab: 'application' | 'assignments' | 'history'): Promise<void> {
     await this.page.getByTestId(`vendor-drawer-tab-${tab}`).click();
     await this.page.getByTestId(`vendor-drawer-panel-${tab}`).waitFor();

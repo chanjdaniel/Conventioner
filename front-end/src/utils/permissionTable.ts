@@ -3,8 +3,8 @@
  * organization's of the default its new markets copy (E39/F02/S01).
  *
  * The server keeps the table and every change to it structured (`back-end/api/market_actions.py`,
- * `back-end/history.py`); the words are here, as the placement history's are
- * (`placementHistory.ts`), so a sentence can change without a back-end release.
+ * `back-end/history.py`); the words are here, as the market history's are (`marketHistory.ts`), so
+ * a sentence can change without a back-end release.
  */
 import { MarketRole, type PermissionTableRow } from '@/assets/types/datatypes';
 import { getRoleDisplayName } from '@/utils/permissions';

@@ -5,7 +5,7 @@ describes:
   - front-end/src/components/VendorDrawer.vue
   - front-end/src/utils/vendorDrawer.ts
   - front-end/src/components/VendorDiscordOffer.vue
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - brain-dump/2026-10-19#13
   - brain-dump/2026-10-19#14
@@ -35,6 +35,7 @@ sources:
   - E38/F13/S01
   - T180
   - T211
+  - T224
 ---
 
 # The vendor drawer
@@ -71,7 +72,7 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
      "Record payment", at the end of the Payments heading for whoever the row "Record a payment" allows, opens a dialog of the amount (reading as currency once left, "$35.00", and the plain number while focused, "35.00", as [every amount field](../rules/an-amount-reads-to-the-cent.md#an-amount-field) does), e-transfer or cash, the day paid (today to begin with) and an optional note; once recorded, the tab reads the account the server answers.
      For whoever the row "Change the amount owed" allows, each line has a "..." menu: "Change the amount owed" opens a dialog that says the change before Save ("Friday, May 8, 2099 will owe $0.00 instead of $15.00."), $0 waiving it; a line set by hand shows the calculated price struck beside it, "Set by <address>, <when>", or "Removed when the table was freed, by <address>, <when>" for the $0 a free's deduction set, which seating the day again takes back, and its menu adds "Use the calculated price", confirmed first.
      For whoever the row "Adjust the amount paid" allows, "Record refund" sits beside "Record payment", for money given back ("-$15.00", "Refund by e-transfer, given …"), and each entry has a "..." menu: "Edit" opens the same dialog filled in, and "Remove", confirmed first, takes it out of what they paid and leaves it listed, struck; an edited or removed entry keeps "Recorded by …", with "Edited by …" or "Removed by …" under it ([payments](../../implementation/data/payments.md)).
-   - **History:** everything [the market's history](reading-the-markets-history.md) holds about them, newest first, a page of ten at a time with "Load more": applying and editing their application, being added by hand, verdicts and follow-ups, the application dealt to a reviewer, notes, tables assigned, moved, swapped and freed ([J13](placing-by-hand.md#j13-assignment-history)), check-ins, their info updated, a Discord member said not to be them, and their payments, refunds and amounts owed changed.
+   - **History:** everything [the market's history](reading-the-markets-history.md) holds about them, newest first, scrolling with the drawer's body, the next 25 arriving as the end of the list comes into view: applying and editing their application, being added by hand, verdicts and follow-ups, the application dealt to a reviewer, notes, tables assigned, moved, swapped and freed ([J13](placing-by-hand.md#j13-assignment-history)), check-ins, their info updated, a Discord member said not to be them, and their payments, refunds and amounts owed changed.
      Each entry reads as in Manage market's History section, opening to its before and after; the vendor reads by name alone, as text, since the head shows their address, and any other vendor an entry names links to their own drawer, by name and address: on the Vendors page it opens in this drawer, a change of vendor that adds no step to Back, and on any other page it leads to Vendors.
      A run of the assignment names nobody, so it is not in a vendor's list.
      There are no filters: it is already one vendor's.

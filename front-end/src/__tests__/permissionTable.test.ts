@@ -3,7 +3,7 @@
  * choice, where its role came from, the confirmation of a change, and the changes made.
  *
  * The server keeps the table and its history structured (`back-end/api/market_actions.py`,
- * `back-end/history.py`); the words are here, as the placement history's are.
+ * `back-end/history.py`); the words are here, as the market history's are.
  */
 import { describe, expect, it } from 'vitest';
 import { MarketRole, type PermissionTableRow } from '@/assets/types/datatypes';

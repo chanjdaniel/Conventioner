@@ -60,8 +60,9 @@ export const ENTRIES: readonly LibraryEntry[] = [
   {
     id: 'list-frame',
     title: 'List frame',
-    summary: 'Find, the screen\'s filters, the count line, 50 rows and "Show N more"',
-    serves: 'L1, L2, L5, L6, L10, L12, C6',
+    summary:
+      'Find, the screen\'s filters, the count line, 50 rows and "Show N more"; PagedList for a list the server pages, the history',
+    serves: 'L1, L2, L5, L6, L10, L12, C6; the history, F18, F27',
   },
   {
     id: 'summaries',
