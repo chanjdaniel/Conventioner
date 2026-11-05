@@ -311,6 +311,7 @@ test.describe('a section, and a dialog over Manage market', () => {
     await manage.permissionsOpen.scrollIntoViewIfNeeded();
     await body.evaluate((box) => box.scrollBy(0, 40));
     const scrolledTo = await body.evaluate((box) => box.scrollTop);
+    expect(scrolledTo, 'Manage market has somewhere to hold').toBeGreaterThan(0);
 
     for (const close of [
       () => page.keyboard.press('Escape'),
