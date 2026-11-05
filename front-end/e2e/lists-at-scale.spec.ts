@@ -820,6 +820,25 @@ test.describe('The Assignments page', () => {
         expect(await new ResultPage(page).placementsFor(swapped)).toEqual([far]);
       });
 
+      test('a seat freed past the fold keeps the page where it was', async ({
+        authenticatedPage: page,
+        request,
+      }) => {
+        const { tables, gold } = await openTheTables(page, request);
+        const far = `${gold.name} ${PAST_THE_FOLD}`;
+        await gold.fold.click();
+        const seat = tables.occupiedSeat(far);
+        await seat.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+        const before = await page.evaluate(() => window.scrollY);
+        expect(before, 'the seat is far enough down to lose').toBeGreaterThan(300);
+
+        await tables.change(seat);
+        await tables.freeSeat();
+        await expect(tables.vacantSeat(far)).toBeVisible();
+        await expect(tables.vacantSeat(far)).toBeInViewport();
+        expect(Math.abs((await page.evaluate(() => window.scrollY)) - before)).toBeLessThan(2);
+      });
+
       test('a filter under the fold shows every match and no button, and leaves the folds as they were', async ({
         authenticatedPage: page,
         request,

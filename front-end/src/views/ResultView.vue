@@ -254,6 +254,7 @@ watch(
   () => marketId.value,
   () => {
     forgetSectionFolds();
+    allRows.value = [];
     void loadTables();
   },
 );
@@ -474,7 +475,9 @@ function swapSeats(withEmail: string): void {
         <ReadFailed v-if="errorMessage" name="tables" :message="errorMessage" @retry="loadTables" />
 
         <template v-if="tablesShown">
-          <div v-if="isLoading" class="status-message">Loading tables…</div>
+          <!-- Only a first read says so: a re-read leaves the tables up until the new ones come, or a
+               placement past the fold would lose the reader's place. -->
+          <div v-if="isLoading && !allRows.length" class="status-message">Loading tables…</div>
 
           <template v-else-if="allRows.length === 0 && !errorMessage">
             <div class="empty-state">
