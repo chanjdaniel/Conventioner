@@ -376,6 +376,56 @@ test.describe('The reviewed applications on a phone', () => {
     await expectWholeAddress(email, address(1), true);
   });
 
+  for (const { what, giver } of [
+    // 60 characters with no hyphen, so plain text has nowhere to break.
+    { what: 'with no hyphen', giver: `${'giver'.repeat(10)}@fern.test` },
+    { what: 'with hyphens', giver: `a-very-long-giver-address-for-a-narrow-row@${DOMAIN}` },
+  ]) {
+    test(`who gave a verdict, a long address ${what}, stays in the row and breaks only before its "@" or a dot`, async ({
+      authenticatedPage: page,
+      request,
+    }) => {
+      const marketId = await aMarket(request);
+      const applicant = `given-by-long@${DOMAIN}`;
+      const at = new Date().toISOString();
+      insertApplications([
+        {
+          id: `reviewed-${marketId}-long-giver`,
+          market_id: marketId,
+          applicant_email: applicant,
+          form_data: { essential_full_name: 'Vendor Long Giver' },
+          status: 'reviewer_rejected',
+          verdict_by: { kind: 'person', email: giver },
+          verdict_at: at,
+          application_type: 'main',
+          submitted_at: at,
+          updated_at: at,
+        },
+      ]);
+      const monitor = await theCardUp(page, marketId);
+      await monitor.decidedOpen.tap();
+      await expect(monitor.decidedDialog).toBeVisible();
+      await settle(page);
+
+      const line = monitor.decidedGiverOf(applicant);
+      await expect(line).toContainText(`Rejected by ${giver}, `);
+      const { text, row } = await line.evaluate((el) => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        return {
+          text: range.getBoundingClientRect().right,
+          row: el.closest('[data-testid="app-monitor-decided-row"]')!.getBoundingClientRect().right,
+        };
+      });
+      expect(text).toBeLessThanOrEqual(row);
+      const body = page.getByTestId('app-monitor-decided-body');
+      expect(await body.evaluate((el) => el.scrollWidth - el.clientWidth)).toBe(0);
+
+      await expectWholeAddress(line, giver);
+      await expectWholeAddress(line, giver, true);
+    });
+  }
+
   const THE_PHONE = PHONE_AND_DESK.find((size) => size.name === 'on a phone')!;
 
   /** An address with nothing to break at, leading the list, as the row the change is on. */

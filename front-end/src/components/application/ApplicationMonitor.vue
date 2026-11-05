@@ -1242,7 +1242,7 @@ function submittedOn(app: Application): string {
               class="verdict-giver"
               data-testid="app-monitor-decided-giver"
             >
-              {{ givers.get(app.id) }}
+              <EmailAddress :words="givers.get(app.id) ?? ''" />
             </span>
             <!-- The action is a quiet button beside the verdict, never a second verdict, and never
                  what the dialog opens on, which one stray Enter would make. -->
