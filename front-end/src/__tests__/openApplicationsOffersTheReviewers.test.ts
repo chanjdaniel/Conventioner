@@ -166,6 +166,62 @@ describe('confirming', () => {
     expect(router.push).toHaveBeenCalledWith('/markets/market-1/applications');
   });
 
+  /** A first try whose write lands, with the move and every read after it failing. */
+  async function firstTryFailing(): Promise<VueWrapper> {
+    const store = useMarketStore();
+    api.get.mockResolvedValueOnce({ data: { market: draft() } });
+    await store.refresh();
+    api.get.mockRejectedValue(new Error('Network Error'));
+    api.post.mockRejectedValueOnce(new Error('Network Error'));
+    const wrapper = await pressOpen(store.market!);
+    await tick(wrapper, ANA);
+    await confirm(wrapper);
+    expect(api.put).toHaveBeenCalledTimes(1);
+    expect(wrapper.find(DIALOG).exists()).toBe(false);
+    await wrapper.get('[data-testid="phase-transition-applications"]').trigger('click');
+    await flushPromises();
+    return wrapper;
+  }
+
+  it('a second try starts from the team written, when the move and the re-read failed', async () => {
+    const wrapper = await firstTryFailing();
+
+    expect(ticked(wrapper)).toEqual([ANA]);
+    await confirm(wrapper);
+    expect(api.put).toHaveBeenCalledTimes(1);
+    expect(api.post).toHaveBeenCalledTimes(2);
+  });
+
+  it('a second try changed by one writes the team written plus that one', async () => {
+    const wrapper = await firstTryFailing();
+
+    await tick(wrapper, BEN);
+    await confirm(wrapper);
+    expect(api.put).toHaveBeenLastCalledWith('/markets/market-1/reviewers', {
+      reviewers: [ANA, BEN],
+    });
+  });
+
+  it('opening it during the write starts from the team being written', async () => {
+    const store = useMarketStore();
+    api.get.mockResolvedValueOnce({ data: { market: draft() } });
+    await store.refresh();
+    let answer!: (value: unknown) => void;
+    api.put.mockImplementation(() => new Promise((resolve) => (answer = resolve)));
+    const wrapper = await pressOpen(store.market!);
+    await tick(wrapper, ANA);
+    await confirm(wrapper);
+    await wrapper.get('[data-testid="open-applications-cancel-button"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.find(DIALOG).exists()).toBe(false);
+
+    await wrapper.get('[data-testid="phase-transition-applications"]').trigger('click');
+    await flushPromises();
+    expect(ticked(wrapper)).toEqual([ANA]);
+    answer({ data: { dealt: 0 } });
+    await flushPromises();
+  });
+
   it('the stored team, untouched, is not written again', async () => {
     const wrapper = await pressOpen(
       draft({

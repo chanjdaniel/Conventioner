@@ -10,7 +10,7 @@ describes:
   - front-end/src/components/market/ReviewerName.vue
   - front-end/src/components/application/VerdictUndoLine.vue
   - front-end/src/utils/verdictUndo.ts
-verified: 2026-11-05
+verified: 2026-11-06
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/08
@@ -208,6 +208,8 @@ The rule is [the review is dealt among chosen reviewers](../rules/the-review-is-
 4. "Save reviewers" deals every open application among the chosen people, re-reads the market, closes, and re-reads the open view's list; a refused save keeps the dialog open with its error.
    Until the market's re-read answers the dialog says "Saving…", with Cancel and its close control disabled, and no close takes it, so no press behind it can open the dialog on the team before this save, which a further save would write back.
    A re-read that fails in transit closes the dialog too, since the save landed; the line behind it still says the team before, until a read lands, and until then the dialog opens on the team saved, through a tab switch too.
+   Browser history can still take the panel from under an unanswered write, and the write goes on: a panel drawn before it answers puts the dialog back on "Saving…", on the team being written, and closes it or shows the refusal as the first would have.
+   A refusal that answers with no panel drawn is shown to no one, and the line still says the team before.
    A save from "and 9 more" that leaves three or fewer takes that button away, so focus goes to "Change reviewers" or, with none left, "Choose reviewers".
 5. The people offered are those whose role the row "Be chosen as a reviewer, and then give verdicts and follow-ups" lets be chosen (any role, by default); once chosen, they give verdicts and follow-ups on any application, a Viewer included, and the frame no longer says the market is read-only to them.
 6. The same picker is offered as an own-form market opens applications, and in a Google Form market's first import, on its preview step, so the reviewers can be chosen before the first application arrives ([taking applications](taking-applications.md#h1-open-applications), [the import](import.md#h2a-first-import-everything-maps)).

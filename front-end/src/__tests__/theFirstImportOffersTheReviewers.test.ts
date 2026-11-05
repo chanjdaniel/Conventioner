@@ -9,9 +9,11 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
-import { isRef, ref, type Ref } from 'vue';
+import { computed, isRef, ref, type Ref } from 'vue';
+import { createPinia, setActivePinia } from 'pinia';
 
 import CsvImportView from '@/views/CsvImportView.vue';
+import { useMarketStore } from '@/stores/market';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import { MarketAction } from '@/utils/marketActions';
 import { PICKER_HINT } from '@/utils/reviewTeam';
@@ -73,6 +75,7 @@ function serveTheImport() {
 }
 
 beforeEach(() => {
+  setActivePinia(createPinia());
   api.get.mockReset();
   api.get.mockResolvedValue({ data: {} });
   api.post.mockReset();
@@ -161,6 +164,47 @@ describe('who meets the reviewers on the preview step', () => {
     await confirm(wrapper);
     expect(api.put).not.toHaveBeenCalled();
     expect(imports()).toHaveLength(1);
+  });
+});
+
+describe('a second try after a write whose re-read and import failed', () => {
+  /** The market as the store holds it, the first try's write landed and everything after it lost. */
+  async function firstTryFailing(): Promise<VueWrapper> {
+    const store = useMarketStore();
+    store.marketId = 'market-1';
+    api.get.mockResolvedValueOnce({ data: { market: market() } });
+    await store.refresh();
+    const wrapper = await atPreview(computed(() => store.market!));
+    await tick(wrapper, ANA);
+    const served = api.post.getMockImplementation()!;
+    api.post.mockImplementation(async (url: string) => {
+      if (url.endsWith('/import')) throw new Error('Network Error');
+      return served(url);
+    });
+    await confirm(wrapper);
+    expect(api.put).toHaveBeenCalledTimes(1);
+    expect(imports()).toHaveLength(1);
+    expect(wrapper.find('[data-testid="import-error"]').exists()).toBe(true);
+    api.post.mockImplementation(served);
+    return wrapper;
+  }
+
+  it('writes nothing over the team written', async () => {
+    const wrapper = await firstTryFailing();
+
+    await confirm(wrapper);
+    expect(api.put).toHaveBeenCalledTimes(1);
+    expect(imports()).toHaveLength(2);
+  });
+
+  it('changed by one, writes the team written plus that one', async () => {
+    const wrapper = await firstTryFailing();
+
+    await tick(wrapper, BEN);
+    await confirm(wrapper);
+    expect(api.put).toHaveBeenLastCalledWith('/markets/market-1/reviewers', {
+      reviewers: [ANA, BEN],
+    });
   });
 });
 

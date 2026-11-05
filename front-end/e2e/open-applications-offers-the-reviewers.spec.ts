@@ -152,6 +152,41 @@ test('an Admin opens applications choosing two reviewers, and each new applicati
   expect([dealt[first], dealt[second]].sort()).toEqual([ANA, BEN]);
 });
 
+test('a second try after a move and a re-read that fail starts from the team written', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const market = await draftWithPeople(request);
+  await page.goto(marketScreenPath(market.marketId, 'setup'));
+  const opening = new OpenApplicationsDialog(page);
+  const { currentPhase } = new MarketSetupPage(page);
+  await expect(opening.opener).toBeVisible();
+  const out = /\/markets\/[^/]+(\/transition)?$/;
+  await page.route(out, (route) => route.abort());
+  const written: string[][] = [];
+  page.on('request', (sent) => {
+    if (sent.url().endsWith('/reviewers') && sent.method() === 'PUT') {
+      written.push((sent.postDataJSON() as { reviewers: string[] }).reviewers);
+    }
+  });
+
+  await opening.openWith(ANA);
+  await expect(page.getByTestId('phase-rail-error')).toBeVisible();
+  await expect(currentPhase).toHaveText('Draft');
+  expect(written).toEqual([[ANA]]);
+
+  await opening.start();
+  await expect(opening.chooser.chips).toHaveCount(1);
+  await expect(opening.chooser.chip(ANA)).toBeVisible();
+
+  // Left as it is, nothing is written over the team; changed by one, it stands beside them.
+  await page.unroute(out);
+  await opening.chooser.choose(BEN);
+  await opening.confirm.click();
+  await expect(currentPhase).toHaveText('Applications', { timeout: 10000 });
+  expect(written).toEqual([[ANA], [ANA, BEN]]);
+});
+
 test('opening with no one ticked opens as before: the first application is dealt to nobody', async ({
   authenticatedPage: page,
   request,

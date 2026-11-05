@@ -282,8 +282,21 @@ describe('saving', () => {
     await flushPromises();
   }
 
+  /** The market as the store holds it, as every screen's is, on a panel of its own. */
+  async function mountHeld(reviewers: ReturnType<typeof team>) {
+    const store = useMarketStore();
+    api.get.mockResolvedValueOnce({ data: { market: market(reviewers, true) } });
+    await store.refresh();
+    wrapper = mount(ReviewersPanel, {
+      props: { market: store.market },
+      attachTo: document.body,
+      global: { stubs: { Teleport: true } },
+    });
+    return store.market!;
+  }
+
   it('opens on the team saved when the re-read failed, its market the one written over', async () => {
-    mountPanel(team(12), true);
+    await mountHeld(team(12));
     await pressMore();
     api.get.mockRejectedValue(new Error('Network Error'));
     await saveWithoutTheFirst();
@@ -295,16 +308,11 @@ describe('saving', () => {
   });
 
   it('keeps the team saved through the panel going, as a tab switch takes it', async () => {
-    const held = market(team(12), true);
-    wrapper = mount(ReviewersPanel, {
-      props: { market: held },
-      attachTo: document.body,
-      global: { stubs: { Teleport: true } },
-    });
+    const held = await mountHeld(team(12));
     await pressMore();
     api.get.mockRejectedValue(new Error('Network Error'));
     await saveWithoutTheFirst();
-    wrapper.unmount();
+    wrapper!.unmount();
 
     wrapper = mount(ReviewersPanel, {
       props: { market: held },
@@ -316,19 +324,99 @@ describe('saving', () => {
     expect(chipAddresses()).not.toContain(address(1));
   });
 
+  describe('a write left unanswered as the panel goes', () => {
+    const remount = (held: Market) => {
+      wrapper = mount(ReviewersPanel, {
+        props: { market: held },
+        attachTo: document.body,
+        global: { stubs: { Teleport: true } },
+      });
+      return wrapper;
+    };
+    /** The store holding the market, as the app's does, with a write of 11 of 12 left unanswered. */
+    async function leftUnanswered() {
+      const store = useMarketStore();
+      api.get.mockResolvedValueOnce({ data: { market: market(team(12), true) } });
+      await store.refresh();
+      remount(store.market!);
+      await pressMore();
+      const answer = Promise.withResolvers<unknown>();
+      api.put.mockReturnValue(answer.promise);
+      await saveWithoutTheFirst();
+      wrapper!.unmount();
+      await flushPromises();
+      return { answer, store };
+    }
+
+    it('a new panel opens the dialog held on it, and goes when it lands', async () => {
+      const { answer, store } = await leftUnanswered();
+      const panel = remount(store.market!);
+      await flushPromises();
+
+      expect(byId('reviewers-dialog-window')).not.toBeNull();
+      expect(chipAddresses()).toHaveLength(11);
+      expect(chipAddresses()).not.toContain(address(1));
+      expect(words(byId('reviewers-dialog-submit-button'))).toBe('Saving…');
+      expect(byId('reviewers-dialog-submit-button')?.hasAttribute('disabled')).toBe(true);
+      await tryEveryClose();
+      expect(byId('reviewers-dialog-window')).not.toBeNull();
+      expect(api.put).toHaveBeenCalledTimes(1);
+
+      answer.resolve({ data: { dealt: 0 } });
+      await flushPromises();
+      expect(byId('reviewers-dialog-window')).toBeNull();
+      expect(panel.emitted('saved')).toHaveLength(1);
+    });
+
+    it('a new panel shows the refusal, and starts from the market after it', async () => {
+      const { answer, store } = await leftUnanswered();
+      remount(store.market!);
+      await flushPromises();
+
+      answer.reject({
+        isAxiosError: true,
+        response: { status: 400, data: { error: 'That person cannot be chosen.' } },
+      });
+      await flushPromises();
+      expect(words(byId('reviewers-dialog-error'))).toBe('That person cannot be chosen.');
+      expect(byId('reviewers-dialog-close-button')?.hasAttribute('disabled')).toBe(false);
+      byId('reviewers-dialog-close-button')!.click();
+      await flushPromises();
+
+      await pressMore();
+      expect(chipAddresses()).toContain(address(1));
+    });
+
+    it('remembers over the market held at the answer, not the one the panel was given', async () => {
+      const { answer, store } = await leftUnanswered();
+      // The remount's own read lands a new object from before the write commits.
+      api.get.mockResolvedValueOnce({ data: { market: market(team(12), true) } });
+      await store.refresh();
+      const landed = store.market!;
+      api.get.mockRejectedValue(new Error('Network Error'));
+
+      answer.resolve({ data: { dealt: 0 } });
+      await flushPromises();
+      remount(landed);
+      await pressMore();
+      expect(chipAddresses()).toHaveLength(11);
+      expect(chipAddresses()).not.toContain(address(1));
+    });
+  });
+
   it('opens on what a read says once one has landed, the team saved forgotten', async () => {
-    const panel = mountPanel(team(12), true);
+    await mountHeld(team(12));
     await pressMore();
     api.get.mockRejectedValue(new Error('Network Error'));
     await saveWithoutTheFirst();
 
-    await panel.setProps({ market: market(team(5), true) });
+    await wrapper!.setProps({ market: market(team(5), true) });
     await pressMore();
     expect(chipAddresses()).toEqual(team(5).map(({ email }) => email));
   });
 
   it('opens on the market again after a refused save, as nothing was saved', async () => {
-    mountPanel(team(12), true);
+    await mountHeld(team(12));
     await pressMore();
     api.put.mockRejectedValue({ isAxiosError: true, response: { status: 400, data: {} } });
     await saveWithoutTheFirst();

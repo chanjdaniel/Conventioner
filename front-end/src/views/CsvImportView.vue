@@ -44,7 +44,7 @@ import ImportRowList, { type ImportRow } from '@/components/csvImport/ImportRowL
 import ImportRefusedRows, { type RefusedRow } from '@/components/csvImport/ImportRefusedRows.vue';
 import ListFrame from '@/components/ListFrame.vue';
 import ReviewerPicker from '@/components/market/ReviewerPicker.vue';
-import { chooseReviewers, reviewerAddresses, sameTeam } from '@/utils/reviewTeam';
+import { chooseReviewers, reviewerAddresses, sameTeam, teamToChange } from '@/utils/reviewTeam';
 import {
   MarketPhase,
   type ApplicationForm,
@@ -178,7 +178,7 @@ const reviewers = ref<string[]>([]);
 watch(
   () => market.value?.id,
   () => {
-    reviewers.value = reviewerAddresses(market.value);
+    reviewers.value = teamToChange(market.value);
   },
   { immediate: true },
 );
@@ -831,12 +831,13 @@ async function readValues(advance: boolean) {
 }
 
 /**
- * The confirm: the reviewers first, when the choice differs from the stored team, then the import.
+ * The confirm: the reviewers first, when the choice differs from the team they start from
+ * (`teamToChange`), then the import.
  * A refused reviewers write imports nothing. Once written they stay chosen, so an import that fails
  * after them is tried again without writing them twice.
  */
 async function confirmImport() {
-  if (offersReviewers.value && !sameTeam(reviewers.value, reviewerAddresses(market.value))) {
+  if (offersReviewers.value && !sameTeam(reviewers.value, teamToChange(market.value))) {
     busy.value = true;
     reviewersError.value = '';
     try {

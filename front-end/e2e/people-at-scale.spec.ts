@@ -784,6 +784,53 @@ for (const size of PHONE_AND_DESK) {
       await expect(reviewers.line).not.toContainText(removed);
     });
 
+    test('Back and Forward during an unanswered write bring the dialog back held on it', async ({
+      authenticatedPage: page,
+    }) => {
+      const { chooser } = reviewers;
+      // Arrive from Tools, so that Back has a market tab to go to.
+      await press(reviewers.cancel);
+      await press(page.getByTestId('market-bar-tab-tools'));
+      await expect(reviewers.panel).toHaveCount(0);
+      await press(page.getByTestId('market-bar-tab-applications'));
+      await press(reviewers.more);
+      const { added, removed } = await swapOne();
+
+      const write = /\/reviewers$/;
+      const held: Route[] = [];
+      await page.route(write, (route) => {
+        held.push(route);
+      });
+      await press(reviewers.save);
+      await expect.poll(() => held.length).toBe(1);
+
+      await page.goBack();
+      await expect(reviewers.panel).toHaveCount(0);
+      await page.goForward();
+      await expect(reviewers.dialog).toBeVisible();
+      await expect(reviewers.save).toBeDisabled();
+      await expect(reviewers.save).toHaveText('Saving…');
+      await expect(reviewers.closeControl).toBeDisabled();
+      await expect(reviewers.cancel).toBeDisabled();
+      await expect(chooser.chip(removed)).toHaveCount(0);
+      await expect(chooser.chip(added)).toBeVisible();
+      await expect
+        .poll(() => page.evaluate(() => document.activeElement?.tagName))
+        .not.toBe('BODY');
+      expect(held, 'the second panel writes nothing of its own').toHaveLength(1);
+
+      // In this order: taking the route away first answers what it holds for it.
+      await held[0]!.continue();
+      await page.unroute(write);
+      await expect(reviewers.dialog).toBeHidden();
+      await expect(reviewers.line).not.toContainText(removed);
+      await expect(reviewers.change).toBeFocused();
+
+      await press(reviewers.more);
+      await expect(chooser.chip(added)).toBeVisible();
+      await expect(chooser.chip(removed)).toHaveCount(0);
+    });
+
     if (size.phone) {
       test('fits 320 wide, with nothing scrolling sideways or clipped', async ({
         authenticatedPage: page,

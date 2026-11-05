@@ -10,7 +10,7 @@
  * folded. "and N more" opens the Change dialog, whose chips are the whole list and mark them too,
  * for someone who may choose, and for anyone else a read-only list.
  */
-import { computed, nextTick, ref } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { MarketPhase, type Market } from '@/assets/types/datatypes';
 import AppDialog from '@/components/AppDialog.vue';
 import NameList from '@/components/NameList.vue';
@@ -22,9 +22,9 @@ import {
   NONE_CHOSEN,
   RESHUFFLE,
   chooseReviewers,
-  rememberTeamSaved,
   reviewerAddresses,
   teamToChange,
+  unansweredWrite,
 } from '@/utils/reviewTeam';
 import { useMarketStore } from '@/stores/market';
 
@@ -76,31 +76,55 @@ function showAll() {
   else listOpen.value = true;
 }
 
+/** The hold was taken over from a panel that has gone, so nothing on this page opened the dialog. */
+let tookOver = false;
+
 /**
  * The dialog goes only once the re-read has answered: until then the panel behind it says the team
  * before this save, and a close would hide a refusal. No close takes it meanwhile (`close-disabled`).
  */
-async function save() {
-  if (!props.market || saving.value) return;
+async function holdUntilAnswered(write: Promise<number>) {
   saving.value = true;
   error.value = '';
   try {
-    await chooseReviewers(props.market.id, ticked.value);
-    if (props.market) rememberTeamSaved(props.market, ticked.value);
+    await write;
     await useMarketStore().refresh();
     open.value = false;
     emit('saved');
     await nextTick();
     // "and N more" may have opened this and gone with the save, so focus has nowhere to go back to.
-    if (reviewers.value.length <= NAMED && document.activeElement === document.body) {
+    if ((tookOver || reviewers.value.length <= NAMED) && document.activeElement === document.body) {
       changeButton.value?.focus();
     }
   } catch (err) {
     error.value = getApiErrorMessage(err, 'Could not save the reviewers.');
   } finally {
     saving.value = false;
+    tookOver = false;
   }
 }
+
+async function save() {
+  if (!props.market || saving.value) return;
+  await holdUntilAnswered(chooseReviewers(props.market.id, ticked.value));
+}
+
+/**
+ * Browser history takes the panel from under a save, hold and all, and not the write. A panel drawn
+ * before it answers puts the dialog back as it was, on "Saving…", and sees the save through.
+ */
+watch(
+  () => props.market?.id,
+  (id) => {
+    const left = id ? unansweredWrite(id) : undefined;
+    if (!left || saving.value) return;
+    ticked.value = [...left.team];
+    open.value = true;
+    tookOver = true;
+    void holdUntilAnswered(left.answer);
+  },
+  { immediate: true },
+);
 </script>
 
 <template>

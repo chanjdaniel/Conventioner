@@ -4,8 +4,8 @@
  * are offered in the same step, so the review is divided from the first submission. The rail opens
  * this only for someone the table's "Choose reviewers" row lets choose.
  *
- * Confirming writes the reviewers only when the choice differs from the stored team, and says so to
- * the rail, which then moves the phase as it always has. A write that fails keeps the dialog open
+ * Confirming writes the reviewers only when the choice differs from the team they start from
+ * (`teamToChange`), and says so to the rail, which then moves the phase as it always has. A write that fails keeps the dialog open
  * with its error, and the rail does not move.
  *
  * Below the picker it names the review setup the organizer is about to open (T206): what a reviewer
@@ -22,7 +22,7 @@ import { resolutionPath } from '@/utils/market';
 import { MarketAction, mayTake } from '@/utils/marketActions';
 import { rejectingRules } from '@/utils/rejectionRules';
 import { leadingLabels } from '@/utils/reviewHighlights';
-import { chooseReviewers, reviewerAddresses, sameTeam } from '@/utils/reviewTeam';
+import { chooseReviewers, reviewerAddresses, sameTeam, teamToChange } from '@/utils/reviewTeam';
 
 const props = defineProps<{
   open: boolean;
@@ -66,12 +66,12 @@ const changeTo = computed(() =>
 const saving = ref(false);
 const error = ref('');
 
-/* Each opening starts from the stored team: none, or whoever was chosen in draft before. */
+/* Each opening starts from the team as it stands: none, or whoever was chosen in draft before. */
 watch(
   () => props.open,
   (open) => {
     if (!open) return;
-    ticked.value = reviewerAddresses(props.market);
+    ticked.value = teamToChange(props.market);
     error.value = '';
   },
   { immediate: true },
@@ -79,7 +79,7 @@ watch(
 
 async function confirm() {
   if (!props.market || saving.value || props.moving) return;
-  if (sameTeam(ticked.value, reviewerAddresses(props.market))) {
+  if (sameTeam(ticked.value, teamToChange(props.market))) {
     emit('chosen', false);
     return;
   }
