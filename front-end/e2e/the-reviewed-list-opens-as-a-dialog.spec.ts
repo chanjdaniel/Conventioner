@@ -361,7 +361,7 @@ test.describe('The reviewed applications on a phone', () => {
 
   const THE_PHONE = PHONE_AND_DESK.find((size) => size.name === 'on a phone')!;
 
-  /** The longest a fixture may hold unbroken, leading the list, as the row the change is on. */
+  /** An address with nothing to break at, leading the list, as the row the change is on. */
   const UNBROKEN = `${'applicant'.repeat(8)}@${DOMAIN}`;
 
   function anUnbrokenRow(marketId: string) {
