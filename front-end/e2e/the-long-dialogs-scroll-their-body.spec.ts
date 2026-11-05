@@ -4,6 +4,7 @@ import { barsDrawn, barWidth, withClassicBars } from './helpers/classicBars';
 import { marketScreenPath } from './helpers/marketScreens';
 import { openScreen, SCREENS } from './helpers/screens';
 import { seedTheScreens, type TheScreensSeed } from './helpers/seedTheScreens';
+import { settle } from './helpers/settle';
 
 /**
  * A long dialog keeps its title, close and buttons in view while only its body scrolls (T217).
@@ -282,19 +283,35 @@ test.describe('in a window too short to show an Add row and its refusal', () => 
     );
   }
 
-  /** Each person a market or an organization holds adds a row, which puts the refusal past the foot. */
-  async function refuse(page: Page, button: string, input: string) {
+  /**
+   * Refused with the form's foot at the body's foot, as a person who has scrolled there has it, so
+   * the refusal arrives past the foot however many people the stack holds.
+   */
+  async function refuse(page: Page, body: string, button: string, input: string) {
     const add = page.getByTestId(button);
     await add.scrollIntoViewIfNeeded();
     await add.click();
     const field = page.getByTestId(input);
     await field.fill('nobody-has-this-address@example.com');
+    const scroller = page.getByTestId(body);
+    const form = (await field.locator('xpath=ancestor::form').boundingBox())!;
+    const foot = (await scroller.boundingBox())!;
+    await scroller.evaluate(
+      (el, by) => el.scrollBy({ top: by }),
+      form.y + form.height - (foot.y + foot.height),
+    );
+    await settle(page);
     await field.press('Enter');
   }
 
   test("Manage market's refusal comes into view whole", async ({ authenticatedPage: page }) => {
     await openManageMarket(page);
-    await refuse(page, 'manage-market-add-user-button', 'manage-market-add-user-input');
+    await refuse(
+      page,
+      'manage-market-body',
+      'manage-market-add-user-button',
+      'manage-market-add-user-input',
+    );
     await expectRefusalShown(
       page,
       'manage-market-body',
@@ -307,7 +324,12 @@ test.describe('in a window too short to show an Add row and its refusal', () => 
       authenticatedPage: page,
     }) => {
       await openManageOrganization(page);
-      await refuse(page, `manage-org-add-${row}-button`, `manage-org-add-${row}-input`);
+      await refuse(
+        page,
+        'manage-org-body',
+        `manage-org-add-${row}-button`,
+        `manage-org-add-${row}-input`,
+      );
       await expectRefusalShown(
         page,
         'manage-org-body',
