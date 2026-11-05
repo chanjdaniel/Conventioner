@@ -60,7 +60,7 @@ An entry is drawn from the parts in `parts/`:
 - `ReadOut`: the line under a live demo that reads out its value ("Chosen: North Wing"), so a choice is seen to land;
 - `ChoicesForYou`: the note that ends an entry with choices left for Daniel, one item per choice; an entry whose choices are all answered has none.
 
-An entry's own parts sit beside these in `parts/`, such as `ExportDialogPrototype` and `SeatRow`.
+An entry's own parts sit beside these in `parts/`, such as `SeatRow`.
 The `combobox` entry draws [`ChoiceField`](../../../front-end/src/components/ChoiceField.vue) too: the real `ValueFixes` at 12 answers, a select, and at 13, a field, C1's long list of values through `ChoiceField`, which keeps no typed words, C2, "Maps to" as the import builds it, with two targets taken, and C12, "Add an answer", a choice that adds, and C13, the role on the Discord card, a choice that may go back to none.
 
 The page uses only the design tokens, the primitives and the app's components; Stylelint holds its files as it holds every file, so a raw colour, size or spacing is an error there.
@@ -75,7 +75,7 @@ What a proposal would replace is listed by its file and left in its screen rathe
 What no file holds (each application's status and reviewer, each person's role, who reviews, who sits where, each vendor's Discord state and what they have paid) is dealt from a seeded draw in counts the deriver states.
 
 It holds 359 applications (every applicant of the four-day grid with a full name and an address), 150 people with access (the five-day grid's first distinct applicants), 12 reviewers among those who may decide, the question "What kinds of work will you sell?" with its 228 answers and their counts, the 43 answers of the five-day grid the question does not offer, the approved applications seated over four dates in "North Wing" (31 tables, the Gold tier) and "South Wing" (28, Silver), and what the export's preview offers: its 43 columns in its five groups, its default columns, its statuses, dates, sections, tiers, payment and Discord states, and its 6 answer filters.
-Each application's `export` holds what those columns and filters read of a vendor, which only the `export-vendors` entry reads: there [`exportVendors.ts`](../../../front-end/src/dev/library/exportVendors.ts) answers as the product's export would, so its preview and summary follow its filters with no endpoint.
+Each application's `export` holds what those columns and filters read of a vendor, which only the `export-vendors` entry reads: there [`exportVendors.ts`](../../../front-end/src/dev/library/exportVendors.ts) answers as the product's server would, so [`ExportVendorsForm.vue`](../../../front-end/src/components/ExportVendorsForm.vue), the dialog that ships, mounted there on the fixture, follows its filters with no endpoint, and its Download only reads out what it would export.
 
 **Never edit it by hand**: change the deriver and run `python tests/fixtures/component_library_fixture.py` from `back-end/`.
 [`test_component_library_fixture.py`](../../../back-end/tests/test_component_library_fixture.py) fails when the committed file is not exactly its output, and pins every count above, since the library exists to judge a pattern at the size it must work at.

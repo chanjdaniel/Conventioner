@@ -1,14 +1,22 @@
 <script setup lang="ts">
 /**
- * The export vendors dialog, redesigned as a prototype (T200): the dialog itself, opened on either
- * column choice, and `OrderedList`, its first use, in its own states. The real dialog is unchanged.
+ * Export vendors on the fixture's market (T200, T217): `ExportVendorsForm`, the dialog that ships,
+ * with `exportVendors.ts` answering in place of the server, and `OrderedList`, which its cart is made
+ * of, in its own states. Download only says what it would export.
  */
 import { computed, ref } from 'vue';
-import FilterToggles from '@/components/FilterToggles.vue';
+import ExportVendorsForm from '@/components/ExportVendorsForm.vue';
 import OrderedList from '@/components/OrderedList.vue';
-import { columnGroups, exportSummary, type ExportColumn } from '@/utils/vendorExport';
-import ChoicesForYou from '../parts/ChoicesForYou.vue';
-import ExportDialogPrototype from '../parts/ExportDialogPrototype.vue';
+import {
+  chosenColumns,
+  columnGroups,
+  defaultOrder,
+  exportSummary,
+  NO_FILTERS,
+  type ExportColumn,
+  type ExportFilters,
+} from '@/utils/vendorExport';
+import { exportPreview } from '../exportVendors';
 import LibraryPanel from '../parts/LibraryPanel.vue';
 import LibrarySection from '../parts/LibrarySection.vue';
 import ReadOut from '../parts/ReadOut.vue';
@@ -16,18 +24,34 @@ import { fixture } from '../fixture';
 
 const offered = fixture.export;
 const groups = columnGroups(offered);
+/** The first reviewer stands for who is exporting, as the `list-frame` entry has it. */
+const READER = fixture.reviewers[0]!;
 
-const VARIANTS = [
-  { id: 'checklist', label: 'A: a searchable grouped checklist' },
-  { id: 'combobox', label: 'B: a grouped combobox' },
-];
-const variantId = ref('checklist');
-const variant = computed(() => (variantId.value === 'combobox' ? 'combobox' : 'checklist'));
+/** As the product's, every question is there with nothing chosen. */
+const blankFilters = (): ExportFilters => ({
+  ...NO_FILTERS,
+  statuses: [],
+  discord: [],
+  answers: Object.fromEntries(offered.questions.map((question) => [question.key, []])),
+});
+
 const open = ref(false);
+const filters = ref(blankFilters());
+const order = ref<ExportColumn[]>(defaultOrder(offered));
+const preview = computed(() => exportPreview(filters.value, chosenColumns(order.value), READER));
 const downloaded = ref<string | null>(null);
 
-function download(vendors: number, columns: string[]): void {
-  downloaded.value = `${exportSummary(vendors, columns.length)}: ${columns.join(', ')}`;
+/** It starts afresh each time it opens, as the product's does. */
+function start(): void {
+  filters.value = blankFilters();
+  order.value = defaultOrder(offered);
+  open.value = true;
+}
+
+function download(): void {
+  if (!order.value.length) return;
+  const columns = order.value.map(columnLabel).join(', ');
+  downloaded.value = `${exportSummary(preview.value.count, order.value.length)}: ${columns}`;
   open.value = false;
 }
 
@@ -48,25 +72,15 @@ const labels = (list: ExportColumn[]) => list.map(columnLabel);
 <template>
   <LibrarySection
     title="The dialog"
-    :about="`Today's is 38rem wide and its whole window scrolls, so its order list and its preview lie below ${offered.questions.reduce((sum, question) => sum + question.options.length, 0)} answer checkboxes on this market. Here it is broad, its filters in columns, and the chosen columns and the file's first rows are pinned as a cart.`"
+    :about="`The dialog that ships, on a market of ${offered.columns.length} columns and ${offered.questions.length} answer filters. At a desk it is 60rem wide and no taller than 80% of the window; only the choosing scrolls, the filters folded behind one line and the columns under a find field, while the chosen columns and the file's first rows stay pinned as a cart.`"
   >
-    <LibraryPanel label="Open it on either column choice" class="library-wide">
+    <LibraryPanel label="Open it" class="library-wide">
       <div class="library-demo">
-        <div class="library-variant">
-          <span class="field-label">How the columns are chosen</span>
-          <FilterToggles
-            v-model="variantId"
-            :options="VARIANTS"
-            label="How the columns are chosen"
-            rest="checklist"
-            testid="library-export-variant"
-          />
-        </div>
         <button
           type="button"
           class="btn btn--primary"
           data-testid="library-export-open"
-          @click="open = true"
+          @click="start"
         >
           Export vendors
         </button>
@@ -77,9 +91,15 @@ const labels = (list: ExportColumn[]) => list.map(columnLabel);
         </p>
       </div>
     </LibraryPanel>
-    <ExportDialogPrototype
+    <ExportVendorsForm
+      v-model:filters="filters"
+      v-model:order="order"
       :open="open"
-      :variant="variant"
+      :offered="offered"
+      :preview="preview"
+      preview-error=""
+      error=""
+      :busy="false"
       @close="open = false"
       @download="download"
     />
@@ -138,39 +158,6 @@ const labels = (list: ExportColumn[]) => list.map(columnLabel);
       </OrderedList>
     </LibraryPanel>
   </LibrarySection>
-
-  <ChoicesForYou>
-    <li>
-      <strong>The column choice:</strong> the grouped checklist (A) or the combobox (B). A shows
-      every column while nothing is typed, and takes the body's height for it; B keeps the body
-      short and shows the chosen twice, as chips and in the cart.
-    </li>
-    <li>
-      <strong>What the tray holds:</strong> the order and the preview, as here, or the order only
-      with the preview a step of its own.
-    </li>
-    <li>
-      <strong>The preview's rows:</strong> 3, as the product's preview has, or more, which takes the
-      body's height or scrolls inside the tray's cap?
-    </li>
-    <li>
-      <strong>The tray folded on a phone:</strong> folded to its summary line, as here, or open
-      until closed.
-    </li>
-    <li>
-      <strong>Remove on a cart's row:</strong> beyond the plan, so a column goes without finding it
-      again in the body. Keep it? On a phone it leaves the row's words less room.
-    </li>
-    <li>
-      <strong>The order beside the preview at a desk:</strong> a long order scrolls the tray while
-      the preview stays, up to the tray's cap of 40% of the window. Keep the two side by side, or
-      stack them?
-    </li>
-    <li>
-      <strong>Mine:</strong> kept as a tick beside the status toggles. Keep it a tick, make it one
-      of the toggles, or leave it out of this dialog?
-    </li>
-  </ChoicesForYou>
 </template>
 
 <style scoped>
@@ -195,13 +182,6 @@ const labels = (list: ExportColumn[]) => list.map(columnLabel);
   margin: 0;
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
-}
-
-.library-variant {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
 }
 
 .library-slot-row {
