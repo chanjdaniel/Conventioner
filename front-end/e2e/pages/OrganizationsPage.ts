@@ -69,7 +69,13 @@ export class OrganizationsPage {
 
   // ── Manage org's default permissions for new markets (E39/F02/S01) ──
   readonly defaults: Locator;
-  readonly defaultsToggle: Locator;
+  readonly defaultsOpen: Locator;
+  readonly defaultsWindow: Locator;
+  readonly defaultsBody: Locator;
+  readonly defaultsClose: Locator;
+  readonly defaultsSummary: Locator;
+  readonly defaultsReset: Locator;
+  readonly defaultsResetConfirm: Locator;
   readonly defaultsReadOnly: Locator;
   readonly defaultSelects: Locator;
   readonly defaultChanges: Locator;
@@ -132,8 +138,15 @@ export class OrganizationsPage {
     this.historySentences = page.getByTestId('org-history-sentence');
     this.historyLoadMore = page.getByTestId('org-history-load-more');
 
+    // A section's line, and a button opening the rows' own dialog (T217).
     this.defaults = page.getByTestId('manage-org-permissions');
-    this.defaultsToggle = page.getByTestId('manage-org-permissions-toggle');
+    this.defaultsOpen = page.getByTestId('manage-org-permissions-open');
+    this.defaultsWindow = page.getByTestId('manage-org-permissions-window');
+    this.defaultsBody = page.getByTestId('manage-org-permissions-body');
+    this.defaultsClose = page.getByTestId('manage-org-permissions-close-button');
+    this.defaultsSummary = page.getByTestId('manage-org-permissions-summary');
+    this.defaultsReset = page.getByTestId('manage-org-permissions-reset');
+    this.defaultsResetConfirm = page.getByTestId('manage-org-permissions-reset-confirm-window');
     this.defaultsReadOnly = page.getByTestId('manage-org-permissions-read-only');
     this.defaultSelects = page.getByTestId('manage-org-permission-select');
     this.defaultChanges = page.getByTestId('manage-org-permission-change');
@@ -250,8 +263,10 @@ export class OrganizationsPage {
 
   // ── Default permissions for new markets ──
 
+  /** Opens the default's dialog, over Manage organization. */
   async showDefaults(): Promise<void> {
-    await this.defaultsToggle.click();
+    await this.defaultsOpen.click();
+    await this.defaultsWindow.waitFor();
   }
 
   /** One row of the default, by its action id: `check-in`. */

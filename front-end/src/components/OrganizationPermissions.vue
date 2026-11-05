@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
  * Manage organization's "Default permissions for new markets" (E39/F02/S01): the table each market
- * created in the organization starts with, copied into it, and every change to it.
+ * created in the organization starts with, copied into it, and every change to it. The section is a
+ * heading, one line and a button; the rows and changes open in a dialog of their own (T217).
  *
  * Its owner and its admins set each row, or reset them all, after a confirmation saying the change
  * reaches only markets created from now on; its members read it. The rows and the changes are
@@ -34,6 +35,7 @@ const emit = defineEmits<{
 
 /** Closed until asked for: every row of the table, and its changes. */
 const open = ref(false);
+const dialog = ref<InstanceType<typeof AppDialog> | null>(null);
 const history = ref<PermissionHistoryEntry[]>([]);
 const historyError = ref('');
 /** A row's change waiting on its confirmation, with the select that asked, to put back on Cancel. */
@@ -43,7 +45,6 @@ const pendingChange = ref<{
   select: HTMLSelectElement;
 } | null>(null);
 const resetConfirming = ref(false);
-const toggleEl = ref<HTMLButtonElement | null>(null);
 /** A refused change to the table, said in the confirmation that sent it. */
 const writeError = ref('');
 
@@ -53,7 +54,7 @@ const held = computed(() => heldRows(table.value));
 /** The organization's owner and its admins change it, as the server holds (Daniel, Q22). */
 const mayChange = computed(() => props.org.userRole === 'owner' || props.org.userRole === 'admin');
 
-/** Said with the heading, so the closed section says whether there is anything to look at. */
+/** Said with the heading, so the section says whether there is anything to look at. */
 const summary = computed(() => {
   const count = held.value.length;
   if (!count) return 'Every row is at its built-in default.';
@@ -67,12 +68,12 @@ const resetChanges = computed(() =>
 
 const orgPath = () => `/organizations/${encodeURIComponent(props.org.id)}`;
 
-async function toggle() {
-  open.value = !open.value;
-  if (open.value) await fetchHistory();
+async function openDialog() {
+  open.value = true;
+  await fetchHistory();
 }
 
-/** The organization's history narrowed to its default, newest first: read when the section opens
+/** The organization's history narrowed to its default, newest first: read when the dialog opens
  * and after each change. */
 async function fetchHistory() {
   historyError.value = '';
@@ -124,15 +125,15 @@ async function confirmReset() {
     const response = await api.delete(`${orgPath()}/default-permissions`);
     resetConfirming.value = false;
     await afterWrite(response.data.permissionTable);
-    // The reset button is disabled once nothing is set, so focus would fall to the page: the
-    // section's toggle takes it, as in Manage market.
-    if (document.activeElement === document.body) toggleEl.value?.focus();
+    // The confirmation gives focus back to "Reset to built-in defaults", which is disabled now that
+    // nothing is set, and focusing a disabled control does nothing: the dialog takes it in again.
+    if (document.activeElement === document.body) await dialog.value?.focusInside();
   } catch (err) {
     writeError.value = getApiErrorMessage(err, 'The defaults were not reset.');
   }
 }
 
-/** The write answers the table, which the section shows at once; the changes are read again. */
+/** The write answers the table, which the dialog shows at once; the changes are read again. */
 async function afterWrite(answered: PermissionTableRow[] | undefined) {
   if (answered) emit('changed', answered);
   await fetchHistory();
@@ -148,32 +149,53 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
     <div class="section-head">
       <h3 id="manage-org-permissions-heading">Default permissions for new markets</h3>
       <button
-        ref="toggleEl"
         type="button"
         class="btn btn--secondary btn--compact"
-        :aria-expanded="open"
-        :aria-controls="open ? 'manage-org-permissions-body' : undefined"
-        data-testid="manage-org-permissions-toggle"
-        @click="toggle"
+        data-testid="manage-org-permissions-open"
+        @click="openDialog"
       >
-        {{ open ? 'Hide' : 'Show' }}
+        Show
       </button>
     </div>
     <p class="hint" data-testid="manage-org-permissions-summary">
       Each market created in this organization starts with these. {{ summary }}
     </p>
-    <div v-if="open" id="manage-org-permissions-body" class="body">
-      <p v-if="!mayChange" class="hint" data-testid="manage-org-permissions-read-only">
-        Only the organization's owner and its admins change these.
-      </p>
-      <PermissionRows
-        :table="table"
-        :editable="mayChange"
-        :source-of="(row) => defaultSourceLine(row, history)"
-        testid="manage-org-permission"
-        @ask="askChange"
-      />
-      <div v-if="mayChange" class="actions">
+  </section>
+
+  <!-- Siblings of Manage organization rather than inside its window, as a dialog opened from a
+       dialog is (docs/implementation/conventions/dialogs.md). -->
+  <Teleport to="body">
+    <!-- First, so the confirmations it opens paint above it. Its rows and changes scroll beneath a
+         title that stays, and whoever may change the table reaches Reset from any row. -->
+    <AppDialog
+      ref="dialog"
+      :open="open"
+      title="Default permissions for new markets"
+      testid="manage-org-permissions"
+      size="wide"
+      scroll="body"
+      @close="open = false"
+    >
+      <!-- One box, or the body's gap would come between each group as well as its own margins. -->
+      <div>
+        <p v-if="!mayChange" class="hint" data-testid="manage-org-permissions-read-only">
+          Only the organization's owner and its admins change these.
+        </p>
+        <PermissionRows
+          :table="table"
+          :editable="mayChange"
+          :source-of="(row) => defaultSourceLine(row, history)"
+          testid="manage-org-permission"
+          @ask="askChange"
+        />
+        <PermissionChanges
+          :entries="history"
+          :table="table"
+          :error="historyError"
+          testid="manage-org-permission"
+        />
+      </div>
+      <template v-if="mayChange" #actions>
         <button
           type="button"
           class="btn btn--secondary"
@@ -183,19 +205,9 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
         >
           Reset to built-in defaults
         </button>
-      </div>
-      <PermissionChanges
-        :entries="history"
-        :table="table"
-        :error="historyError"
-        testid="manage-org-permission"
-      />
-    </div>
-  </section>
+      </template>
+    </AppDialog>
 
-  <!-- Siblings of Manage organization rather than inside its window, as a dialog opened from a
-       dialog is (docs/implementation/conventions/dialogs.md). -->
-  <Teleport to="body">
     <!-- A row's change is saved on its own, once confirmed in words saying what it reaches. -->
     <AppDialog
       :open="!!pendingChange"
@@ -267,21 +279,10 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
   font-size: var(--text-xs);
 }
 
-.body {
-  margin-top: var(--space-2);
-}
-
 .rows {
   list-style: none;
   margin: 0;
   padding: 0;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
 }
 
 .confirm-text {

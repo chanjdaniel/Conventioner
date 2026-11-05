@@ -438,7 +438,7 @@ export const SCREENS: Screen[] = [
     open: at(fixed('/organizations'), 'organization-card'),
   },
   {
-    // With its default permissions for new markets open, closed until asked for (E39/F02/S01).
+    // With its default permissions for new markets open over it (E39/F02/S01, T217).
     name: 'the manage-organization dialog',
     who: 'organizer',
     sizes: FITS_A_PHONE,
@@ -446,7 +446,7 @@ export const SCREENS: Screen[] = [
       fixed('/organizations'),
       'organization-card',
       ['organizations-manage-button', 'manage-org-window'],
-      ['manage-org-permissions-toggle', 'manage-org-permission-source'],
+      ['manage-org-permissions-open', 'manage-org-permission-source'],
     ),
   },
   {

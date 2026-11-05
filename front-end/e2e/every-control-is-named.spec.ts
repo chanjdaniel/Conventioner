@@ -254,13 +254,16 @@ test('every field on every other organizer screen and dialog has a name', async 
   await page.getByTestId('manage-org-history-toggle').click();
   await page.getByTestId('org-history-toggle').first().click();
   await expect(page.getByTestId('org-history-changes')).toBeVisible();
-  // Its default permissions for new markets, open, and a row's confirmation (E39/F02/S01).
-  await page.getByTestId('manage-org-permissions-toggle').click();
-  await expect(page.getByTestId('manage-org-permission-select').first()).toBeVisible();
   await named('Manage organization');
+  // Its default permissions for new markets, a dialog over it, and a row's confirmation
+  // (E39/F02/S01, T217).
+  await page.getByTestId('manage-org-permissions-open').click();
+  await expect(page.getByTestId('manage-org-permission-select').first()).toBeVisible();
+  await named('Default permissions');
   await page.getByTestId('manage-org-permission-select').first().selectOption('owner');
   await expect(page.getByTestId('manage-org-permission-confirm-window')).toBeVisible();
   await named("a change to Manage organization's default permissions");
+  await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
   await page.getByTestId('organizations-create-button').click();

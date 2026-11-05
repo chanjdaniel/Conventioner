@@ -156,15 +156,15 @@ Covered by:
 **Status:** Works (E39/F02/S01; E2E-walked by `the-organizations-default.spec.ts`; not yet walked live).
 **Who:** the organization's owner and its admins change it; its members read it.
 
-1. In Manage organization, "Default permissions for new markets", just above the History, is closed until "Show" opens it, and says beneath its heading "Each market created in this organization starts with these." with "Every row is at its built-in default." or how many rows differ.
-2. Open, it lists the rows of a market's table as [Manage market's Permissions](ending-and-managing-a-market.md#l3a-set-who-may-do-what) does, each with where its role came from ("Built-in default", or "Set for this organization by <address>, <when>"), a "Who may" dropdown for the owner and the admins, the same "Always" for a fixed row, and the same note beside "Give and take Editor and Viewer roles".
-3. Choosing a role asks first: "Change “Check vendors in” for new markets?", the row from its role now to the one chosen and who loses or gains it, and "Markets created from now on start with this. The markets it already holds keep their own."; "Change" saves that row alone, Cancel puts the dropdown back.
-4. "Reset to built-in defaults" lists each row it returns, opens on Cancel, and resets them all in one write, recorded as one change.
+1. In Manage organization, "Default permissions for new markets", just above the History, is a heading, a line beneath it saying "Each market created in this organization starts with these." with "Every row is at its built-in default." or how many rows differ, and "Show", which opens the rows in a dialog of that title over Manage organization, at most 80% of the window at a desk and the window less the gutter on a phone or in a short window; closing it gives focus back to "Show", with Manage organization as it was.
+2. The dialog lists the rows of a market's table as [Manage market's Permissions](ending-and-managing-a-market.md#l3a-set-who-may-do-what) does, each with where its role came from ("Built-in default", or "Set for this organization by <address>, <when>"), a "Who may" dropdown for the owner and the admins, the same "Always" for a fixed row, and the same note beside "Give and take Editor and Viewer roles".
+3. Choosing a role asks first: "Change “Check vendors in” for new markets?", the row from its role now to the one chosen and who loses or gains it, and "Markets created from now on start with this. The markets it already holds keep their own.", over the dialog; "Change" saves that row alone and leaves the dialog open, and Cancel, Escape or the backdrop close only the question and put the dropdown back.
+4. "Reset to built-in defaults", pinned at the dialog's foot, lists each row it returns, says the same of what it reaches, opens on Cancel, and resets them all in one write, recorded as one change; its button is disabled once nothing is set, so focus then goes to the dialog's first control.
 5. "Changes" lists every change to the default, newest first, ten at a time: the row, its role before and after, who and when; each is in the organization's History too ([B7](#b7-read-the-organizations-history)).
-6. For a member the section is read-only and says "Only the organization's owner and its admins change these."
+6. For a member the dialog is read-only and says "Only the organization's owner and its admins change these.", with no foot, and the arrow keys scroll its body.
 
 A market created in the organization afterwards starts with these rows, each "Copied from the organization" in its own Permissions dialog; a market created before keeps its own until its owner copies the organization's defaults again ([L3a](ending-and-managing-a-market.md#l3a-set-who-may-do-what)).
-What is stored, and why it is a copy: [the organization document](../../implementation/data/organization-document.md#its-default-table).
+What is stored, and why it is a copy: [the organization document](../../implementation/data/organization-document.md#its-default-table); how a dialog opened from a dialog lies over it: [dialogs](../../implementation/conventions/dialogs.md).
 Covered by:
 - `organizationPermissions.test.ts`
 - `test_the_organizations_default.py` for the writes, the refusals and the copy
