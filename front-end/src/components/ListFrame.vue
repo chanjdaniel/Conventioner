@@ -11,6 +11,10 @@ export const LIST_FIND_FROM = 12;
  *
  * - `items` come already narrowed by the screen's filters; the frame narrows them further by the
  *   words in its find field, through the screen's `finds`, which gets the words trimmed.
+ * - A screen whose own field stands elsewhere, pinned with the frame, gives no `finds`: the frame
+ *   draws no field and `items` are final, so `filterKey` must carry the screen's words as well as its
+ *   filters. The count line shows only while the cap leaves rows off, since the screen's own line
+ *   counts the rest, and `empty` speaks for what the screen's words found nothing for.
  * - The field shows once the whole list passes `findFrom`: `wholeCount` on a screen with filters, so
  *   a narrow filter never takes the field away, and `items` without one. It also stays while it
  *   holds words, which would otherwise narrow the rows with no way to clear them. Once focused it
@@ -53,8 +57,8 @@ const props = withDefaults(
     wholeCount?: number;
     /** The screen's filters as one string: a change goes back to one page. */
     filterKey?: string;
-    /** Whether the words, trimmed, find this row. */
-    finds: (item: T, words: string) => boolean;
+    /** Whether the words, trimmed, find this row; without it the frame has no field. */
+    finds?: (item: T, words: string) => boolean;
     /** What tells a row from the others, across reads. */
     itemKey: (item: T) => string;
     /** What a row is, for the count line and what the frame says of the list. */
@@ -64,7 +68,8 @@ const props = withDefaults(
     findFrom?: number;
     /** The route query key that holds the words; without one they stay in the frame. */
     findKey?: string;
-    findLabel: string;
+    /** The field's label, with `finds`. */
+    findLabel?: string;
     state?: 'ready' | 'loading' | 'failed';
     /** What a failed read says, `getApiErrorMessage`'s on a screen. */
     failedMessage?: string;
@@ -74,6 +79,8 @@ const props = withDefaults(
   {
     wholeCount: undefined,
     filterKey: undefined,
+    finds: undefined,
+    findLabel: undefined,
     pageSize: 50,
     findFrom: LIST_FIND_FROM,
     state: 'ready',
@@ -135,14 +142,18 @@ const field = ref<HTMLInputElement>();
 const fieldKept = ref(false);
 const showsField = computed(
   () =>
-    (props.wholeCount ?? props.items.length) > props.findFrom ||
-    typed.value !== '' ||
-    fieldKept.value,
+    Boolean(props.finds) &&
+    ((props.wholeCount ?? props.items.length) > props.findFrom ||
+      typed.value !== '' ||
+      fieldKept.value),
 );
 
-const found = computed(() =>
-  words.value ? props.items.filter((item) => props.finds(item, words.value)) : props.items,
-);
+const found = computed(() => {
+  const { finds } = props;
+  return finds && words.value
+    ? props.items.filter((item) => finds(item, words.value))
+    : props.items;
+});
 
 const pages = ref(1);
 const rowsShown = computed(() => found.value.slice(0, pages.value * props.pageSize));
@@ -238,7 +249,12 @@ async function showMore(): Promise<void> {
     </div>
     <template v-else>
       <!-- Announced: a reader stays in the field while the rows change under it. -->
-      <p class="list-frame__words" role="status" :data-testid="`${testid}-count`">
+      <p
+        v-if="finds || rowsLeft"
+        class="list-frame__words"
+        role="status"
+        :data-testid="`${testid}-count`"
+      >
         {{ countLine }}
       </p>
       <slot v-if="found.length && $slots.rows" name="rows" :rows="rowsShown" />

@@ -644,3 +644,81 @@ describe('the states', () => {
     expect(drawn(wrapper)).toBe(2);
   });
 });
+
+describe('without finds, a screen whose own field lies elsewhere', () => {
+  const noField = { finds: undefined, findLabel: undefined };
+
+  it('draws no field however long the list is, and no tools with no filters', async () => {
+    const { wrapper } = await mountFrame({ ...noField, items: rows(300) });
+    expect(field(wrapper).exists()).toBe(false);
+    expect(wrapper.find('[data-testid="frame-tools"]').exists()).toBe(false);
+  });
+
+  it('takes items as final: words in the address are not its own', async () => {
+    const { wrapper } = await mountFrame({ ...noField, items: rows(60) }, {}, '/list?search=row+1');
+    expect(count(wrapper)).toBe('Showing 50 of 60');
+    expect(drawn(wrapper)).toBe(50);
+  });
+
+  it('counts only while the cap leaves rows off, as the screen counts the rest', async () => {
+    const capped = await mountFrame({ ...noField, items: rows(120) });
+    expect(count(capped.wrapper)).toBe('Showing 50 of 120');
+    expect(more(capped.wrapper).text()).toBe('Show 50 more');
+
+    await more(capped.wrapper).trigger('click');
+    expect(count(capped.wrapper)).toBe('Showing 100 of 120');
+    await more(capped.wrapper).trigger('click');
+    expect(drawn(capped.wrapper)).toBe(120);
+    expect(capped.wrapper.find('[data-testid="frame-count"]').exists()).toBe(false);
+    expect(more(capped.wrapper).exists()).toBe(false);
+
+    const short = await mountFrame({ ...noField, items: rows(50) });
+    expect(short.wrapper.find('[data-testid="frame-count"]').exists()).toBe(false);
+    expect(drawn(short.wrapper)).toBe(50);
+  });
+
+  it('folds back only on filterKey, which must carry the words, and holds through new rows', async () => {
+    const { wrapper } = await mountFrame({
+      ...noField,
+      items: rows(120),
+      filterKey: JSON.stringify(['', '']),
+    });
+    await more(wrapper).trigger('click');
+    expect(drawn(wrapper)).toBe(100);
+
+    // A re-read: other rows under the same words and filters.
+    await wrapper.setProps({ items: rows(118, 'Read') } as never);
+    expect(drawn(wrapper)).toBe(100);
+
+    // The screen's words narrow the items and change the key together.
+    await wrapper.setProps({ items: rows(80), filterKey: JSON.stringify(['', 'row']) } as never);
+    expect(drawn(wrapper)).toBe(50);
+  });
+
+  it('lets the empty slot speak for what the screen found nothing for', async () => {
+    const { wrapper } = await mountFrame(
+      { ...noField, items: [] },
+      { empty: () => h('p', 'No vendors match "ada".') },
+    );
+    expect(wrapper.get('[data-testid="frame-empty"]').text()).toBe('No vendors match "ada".');
+    expect(wrapper.find('[data-testid="frame-count"]').exists()).toBe(false);
+  });
+
+  it('hands the focus to the first new row of the rows slot', async () => {
+    const { wrapper } = await mountFrame(
+      { ...noField, items: rows(62) },
+      {
+        rows: ({ rows: shown }: { rows: Row[] }) =>
+          h(
+            'ul',
+            shown.map((row) =>
+              h('li', { key: row.id, 'data-list-row': '', tabindex: -1, id: row.id }, row.name),
+            ),
+          ),
+      },
+    );
+    await more(wrapper).trigger('click');
+    await flushPromises();
+    expect(document.activeElement?.id).toBe('Row-50');
+  });
+});

@@ -135,6 +135,7 @@ async function mounted(served: Market) {
     global: {
       stubs: {
         MarketFrame: false,
+        ListFrame: false,
         GiveRolesDialog: false,
         AppDialog: false,
         ScrollBox: false,

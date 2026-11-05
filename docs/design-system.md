@@ -492,7 +492,8 @@ A screen with filters gives `wholeCount`, so a narrow filter never takes the fie
 On a page, `findKey` puts the words in the route's query, written with `router.replace`; a dialog gives none, since they would outlive it, and a screen that sets the words itself holds them with `v-model:words`.
 The shown count goes back to one page only when the words or `filterKey` change, so a read again or a verdict that changes the rows holds the place.
 `state` draws loading and failed (`ReadFailed`, unless the `failed` slot replaces it), the `empty` slot says why there are no `items`, and the count line says when the words find nothing.
-Manage market's "Users with access", Manage organization's Admins and Members, and Applications All are its screens, and the library's `list-frame` entry shows it on Applications All and the people with access.
+A screen whose own field stands elsewhere gives no `finds`: the frame draws no field, `items` are final, so `filterKey` must carry the screen's words too, and the count line shows only while the cap leaves rows off, "Showing 50 of 120", since the screen's own line counts the rest.
+Manage market's "Users with access", Manage organization's Admins and Members, and Applications All are its screens, with Vendors, whose search stays pinned in `MarketFrame`, on it with no `finds`, and the library's `list-frame` entry shows it on Applications All and the people with access.
 Inside a `scroll="body"` dialog it needs nothing of its own, since the dialog's body scrolls it; the library's `summaries` entry shows it there, with no `findKey`, so the words go with the dialog.
 Enter in its field does nothing, so in a dialog's form it never saves what the person was only looking through.
 

@@ -55,16 +55,23 @@ At 320 the longer "Checking Discord…" or "Giving roles…" takes the second bu
 **Status:** Works (re-walked live on 2026-10-03; every applicant listed, and the filters, read from the code as of E36/F02/S04 and E36/F03/S01: `vendors-and-limits.spec.ts`, `placing-someone-not-approved.spec.ts`).
 
 1. "Search vendors" ("Filter by name or email…") finds a vendor by name or address; each row names the vendor, with their address beside.
+   The field stays pinned with the frame on a desk, and its words are in the address as `search`, written with `router.replace` ([every market page has an address](../../implementation/conventions/every-market-page-has-an-address.md)), so a refresh and a link keep them, Back leaves the page rather than stepping through them, and Export opens on them.
+   The Assignments page's search shares the key and neither travels to the other (`placeFilterQuery`), and the filter bar's "Clear all" leaves these words.
 2. "N of M vendors assigned" counts the vendors who need a table, the approved applicants and the vendors added by hand, and never a rejected applicant (bug 10); a filter or search reads "N of M vendors shown".
    The line is in the muted ink and its counts in the brand green, each at AA on white; it once dimmed the whole line with opacity, which took the counts to 3.2:1 (T162 review).
 3. Each row of a vendor who needs a table shows Assigned or Unassigned and "N of M dates", against the dates they could have had; a vendor added by hand needs a table on every market day, and shows "Added" beside it; a rejected applicant shows "Rejected".
 4. "Unassigned only" lists the vendors who need a table and hold none, and with a date chosen those with none that day, a vendor added by hand included (E38/F08/S02); it and "Rejected only", shown when anyone was rejected, narrow the list, each cleared with its "×"; the Assignments page's filters (Date, Section, Tier, Table) narrow it to where vendors are placed, and are kept across the two pages.
 5. The Assignments page's "N unassigned" link, and the Stats tab's "N vendors unassigned" ([the market's statistics](stats.md)), open this list filtered, as "Unassigned only", and count the same vendors.
+6. The list draws 50 rows, with "Showing 50 of 120" above them while the cap leaves rows off and "Show 50 more" below, which hands the focus to the first new row ([a list frame](../../design-system.md#the-primitive-layer)).
+   The line in step 2 counts the rest, so the frame says nothing once every row is drawn.
+   New words or a filter go back to 50, and a change in the drawer or a read again holds the place.
+   A link to a vendor past the cap opens their drawer and leaves the list as it was, so their row is not drawn behind it.
 
 When the server cannot say where vendors sit, the page shows its reason above the list and says nothing of who is placed: "N vendors", the whole list counted before a run or after, each row its verdict and no date count, and no "Unassigned only" or filter by where they sit, one in the address ignored and Export opening on neither; the names and the search by name still hold, from the applications (T123).
 
 Before a run the page lists the vendors and says nothing is assigned yet.
 Covered by:
+- `lists-at-scale.spec.ts`, 120 vendors at 1280 and 390
 - `placing-someone-not-approved.spec.ts`
 - `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`, the refused read
 - `the-market-on-a-phone.spec.ts`, on a phone and at a desk: the page, every tab of the drawer, a payment recorded and an Editor's Update info

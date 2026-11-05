@@ -21,10 +21,13 @@ export function useResultFilters() {
     void router.replace({ query: next });
   }
 
-  /** Lets go of every filter, and of nothing else the address holds (an open vendor, say). */
-  function clearFilters(): void {
+  /**
+   * Lets go of every filter but those in `kept`, and of nothing else the address holds (an open
+   * vendor, say).
+   */
+  function clearFilters(kept: readonly ResultFilterName[] = []): void {
     const next = { ...route.query };
-    for (const name of FILTER_NAMES) delete next[name];
+    for (const name of FILTER_NAMES) if (!kept.includes(name)) delete next[name];
     void router.replace({ query: next });
   }
 
