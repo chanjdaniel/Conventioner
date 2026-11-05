@@ -133,9 +133,11 @@ A vendor's name leads to the Vendors page with their drawer open, as in Manage m
 
 Covered by:
 - `a-verdict-names-whom-it-was-dealt-to.spec.ts`
+- `assignmentHistory.test.ts` for the Assignment history's filters, the paging and the words
 - `manageMarketHistory.test.ts` for the filters, the paging and the words
 - `marketHistory.test.ts` for the filters, the paging and the words
 - `people-at-scale.spec.ts` for "Who", at a desk and at 390 and 320 wide
+- [`the-assignment-history.spec.ts`](../../../front-end/e2e/the-assignment-history.spec.ts)
 - [`the-markets-history.spec.ts`](../../../front-end/e2e/the-markets-history.spec.ts)
 - `the-vendors-history.spec.ts` for one vendor's
 - `theDrawersHistory.test.ts` for the filters, the paging and the words
