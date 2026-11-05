@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/views/OrganizationsView.vue
   - front-end/src/__tests__/OrganizationsView.test.ts
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - E26/F06/S02
   - E26/F08/S01
@@ -19,6 +19,7 @@ sources:
   - E38/F15/S01
   - T181
   - T204
+  - T217
 ---
 
 # Organizations
@@ -162,7 +163,7 @@ Covered by:
 5. "Changes" lists every change to the default, newest first, ten at a time: the row, its role before and after, who and when; each is in the organization's History too ([B7](#b7-read-the-organizations-history)).
 6. For a member the section is read-only and says "Only the organization's owner and its admins change these."
 
-A market created in the organization afterwards starts with these rows, each "Copied from the organization" in its own Permissions section; a market created before keeps its own until its owner copies the organization's defaults again ([L3a](ending-and-managing-a-market.md#l3a-set-who-may-do-what)).
+A market created in the organization afterwards starts with these rows, each "Copied from the organization" in its own Permissions dialog; a market created before keeps its own until its owner copies the organization's defaults again ([L3a](ending-and-managing-a-market.md#l3a-set-who-may-do-what)).
 What is stored, and why it is a copy: [the organization document](../../implementation/data/organization-document.md#its-default-table).
 Covered by:
 - `organizationPermissions.test.ts`

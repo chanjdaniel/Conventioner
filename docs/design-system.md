@@ -493,6 +493,7 @@ A rule with `overflow: auto` or `scroll` that never scrolls is deleted rather th
 
 A box that scrolls is [`ScrollBox.vue`](../front-end/src/components/ScrollBox.vue) (T217): `axis` (`y`, `x` or `both`), `tone` (`light`, or `dark` on a dark ground), `testid` (`shadeTestid` for the shades' prefix of its own, as a dialog keeps), and `label`, which names the scroller as a region while it scrolls or is a stop, for a table a keyboard scrolls sideways.
 While it overflows with nothing inside it to take focus it carries `tabindex="0"`, since Safari gives a scroller no Tab stop of its own and the bar is gone; otherwise it carries none, since a focusable child already takes the keys.
+A stop holding focus stays one until focus leaves it, so a control arriving inside it cannot drop that focus to `<body>`, as a browser that gives a scroller no stop of its own may.
 `focusable` keeps that stop whatever it holds, for a panel that puts focus on its body as it opens.
 It draws a shade at each edge that has more beyond it, only then, and none in print, where nothing clips, the root's own class included, and a sideways table takes the page's width; a class passed to it lands on its root, which is what a screen sizes and borders, and padding goes in the slot's content, so a shade lies at the box's edge and a control's focus halo has room inside.
 It exposes its `scroller` element for the few screens that move it themselves.

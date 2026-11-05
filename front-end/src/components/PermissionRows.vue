@@ -3,9 +3,9 @@
  * A permission table's rows under their groups (E39/F01/S04): each row's label, where its role
  * came from, and a "Who may" select for someone who may change it, else a chip naming who may.
  *
- * Manage market's Permissions section shows a market's table with it, and Manage organization's
+ * Manage market's Permissions dialog shows a market's table with it, and Manage organization's
  * default permissions the table its new markets copy (E39/F02/S01). A choice is not sent from
- * here: the section asks about it first, and puts the select back if it is cancelled.
+ * here: its parent asks about it first, and puts the select back if it is cancelled.
  */
 import { computed } from 'vue';
 import { MarketRole, type PermissionTableRow } from '@/assets/types/datatypes';
@@ -48,7 +48,7 @@ function chose(row: PermissionTableRow, select: HTMLSelectElement) {
     class="group"
     :data-testid="`${testid}-group`"
   >
-    <h4 class="subheading" :data-testid="`${testid}-group-title`">{{ group }}</h4>
+    <h3 class="subheading" :data-testid="`${testid}-group-title`">{{ group }}</h3>
     <ul class="rows">
       <li v-for="row in rows" :key="row.id" class="row" :data-testid="`${testid}-row-${row.id}`">
         <div class="text">
@@ -94,7 +94,12 @@ function chose(row: PermissionTableRow, select: HTMLSelectElement) {
   color: var(--mm-black);
 }
 
-/* A title belongs to the rows beneath it. The first keeps its margin, under the section's heading. */
+/* A title belongs to the rows beneath it. The first starts where its box does, unless a line stands
+   above it. */
+.group:first-child .subheading {
+  margin-top: 0;
+}
+
 .group + .group .subheading {
   margin-top: var(--space-6);
 }

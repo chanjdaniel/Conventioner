@@ -144,10 +144,10 @@ test("a Viewer the history's row is raised above has no History tab and no Permi
     await expect(manage.history).toHaveCount(0);
     await manage.showPermissions();
     await expect(manage.permissionRole('read-history')).toHaveText('Editor and above');
-    await expect(manage.permissions).not.toContainText('Changes');
+    await expect(manage.permissionsWindow).not.toContainText('Changes');
     await expect(manage.permissionChanges).toHaveCount(0);
     await expect(
-      manage.permissions
+      manage.permissionsWindow
         .getByTestId('manage-market-permission-row-read-history')
         .getByTestId('manage-market-permission-source'),
     ).toHaveText('Changed on this market');

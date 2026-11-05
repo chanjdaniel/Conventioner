@@ -43,7 +43,10 @@ export class ManageMarketPage {
   readonly deleteConfirmButton: Locator;
   readonly deleteCancelButton: Locator;
   readonly permissions: Locator;
-  readonly permissionsToggle: Locator;
+  readonly permissionsOpen: Locator;
+  readonly permissionsWindow: Locator;
+  readonly permissionsBody: Locator;
+  readonly permissionsClose: Locator;
   readonly permissionsSummary: Locator;
   readonly permissionsReadOnly: Locator;
   readonly permissionGroups: Locator;
@@ -103,9 +106,12 @@ export class ManageMarketPage {
     // Its own destructive dialog (bug 43), so its buttons are that dialog's.
     this.deleteConfirmButton = page.getByTestId('manage-market-delete-submit-button');
     this.deleteCancelButton = page.getByTestId('manage-market-delete-cancel-button');
-    // Who may do what (E39/F01/S04): closed until its toggle opens it.
+    // Who may do what (E39/F01/S04): a section's line, and a button opening the rows' own dialog.
     this.permissions = page.getByTestId('manage-market-permissions');
-    this.permissionsToggle = page.getByTestId('manage-market-permissions-toggle');
+    this.permissionsOpen = page.getByTestId('manage-market-permissions-open');
+    this.permissionsWindow = page.getByTestId('manage-market-permissions-window');
+    this.permissionsBody = page.getByTestId('manage-market-permissions-body');
+    this.permissionsClose = page.getByTestId('manage-market-permissions-close-button');
     this.permissionsSummary = page.getByTestId('manage-market-permissions-summary');
     this.permissionsReadOnly = page.getByTestId('manage-market-permissions-read-only');
     this.permissionGroups = page.getByTestId('manage-market-permission-group');
@@ -210,8 +216,10 @@ export class ManageMarketPage {
 
   // ── Permissions ──
 
+  /** Opens the Permissions dialog, over Manage market. */
   async showPermissions(): Promise<void> {
-    await this.permissionsToggle.click();
+    await this.permissionsOpen.click();
+    await this.permissionsWindow.waitFor();
   }
 
   /** Where each group's title and rows stand: the title, its first label, its last row's content. */

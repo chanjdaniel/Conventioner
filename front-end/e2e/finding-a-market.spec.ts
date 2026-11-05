@@ -245,10 +245,11 @@ test.describe('Finding a market', () => {
       const manage = page.getByTestId('manage-market-window');
       await expect(manage).toBeVisible();
       await expectInside(manage, 'Manage market');
-      await page.getByTestId('manage-market-permissions-toggle').tap();
+      await page.getByTestId('manage-market-permissions-open').tap();
       await expect(page.getByTestId('manage-market-permission-source').first()).toBeVisible();
-      await expectInside(manage, 'Manage market, its permissions open');
+      await expectInside(page.getByTestId('manage-market-permissions-window'), 'Permissions');
       expect(await widths(page)).toEqual({ layout: 390, page: 390, zoom: 1 });
+      await page.getByTestId('manage-market-permissions-close-button').tap();
       await page.getByTestId('manage-market-close-button').tap();
       await expect(manage).toBeHidden();
 
