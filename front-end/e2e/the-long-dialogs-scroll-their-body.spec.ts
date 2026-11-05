@@ -173,13 +173,16 @@ for (const { name, viewport, tall } of WINDOWS) {
   });
 }
 
-/** Fully inside the scroller's box, not only inside the window: the body clips what is past it. */
+/**
+ * Fully inside the scroller's box, not only inside the window: the body clips what is past it.
+ * Within half a pixel, since a scroller stops on a whole pixel and what it holds need not.
+ */
 async function expectShownInTheBody(body: Locator, inside: Locator) {
   const within = await inside.evaluate(
     (el, testid) => {
       const scroller = document.querySelector(`[data-testid="${testid}"]`)!.getBoundingClientRect();
       const rect = el.getBoundingClientRect();
-      return rect.top >= scroller.top && rect.bottom <= scroller.bottom;
+      return rect.top >= scroller.top - 0.5 && rect.bottom <= scroller.bottom + 0.5;
     },
     (await body.getAttribute('data-testid'))!,
   );
@@ -262,6 +265,40 @@ test.describe('in a window too short to show the whole body', () => {
       await expect(page.getByTestId('manage-org-window')).toBeVisible();
     }
   });
+});
+
+test.describe('in a window too short to show an Add row and its refusal', () => {
+  test.use({ viewport: { width: 1280, height: 400 } });
+
+  /** Each person a market or an organization holds adds a row, which puts the refusal past the foot. */
+  async function refuse(page: Page, button: string, input: string) {
+    const add = page.getByTestId(button);
+    await add.scrollIntoViewIfNeeded();
+    await add.click();
+    const field = page.getByTestId(input);
+    await field.fill('nobody-has-this-address@example.com');
+    await field.press('Enter');
+  }
+
+  test("Manage market's refusal comes into view whole", async ({ authenticatedPage: page }) => {
+    await openManageMarket(page);
+    await refuse(page, 'manage-market-add-user-button', 'manage-market-add-user-input');
+    const error = page.getByTestId('manage-market-add-user-error');
+    await expect(error).toBeVisible();
+    await expectShownInTheBody(page.getByTestId('manage-market-body'), error);
+  });
+
+  for (const row of ['admin', 'member']) {
+    test(`Manage organization's refusal of a new ${row} comes into view whole`, async ({
+      authenticatedPage: page,
+    }) => {
+      await openManageOrganization(page);
+      await refuse(page, `manage-org-add-${row}-button`, `manage-org-add-${row}-input`);
+      const error = page.getByTestId(`manage-org-add-${row}-error`);
+      await expect(error).toBeVisible();
+      await expectShownInTheBody(page.getByTestId('manage-org-body'), error);
+    });
+  }
 });
 
 /*
