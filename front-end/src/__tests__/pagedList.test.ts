@@ -131,7 +131,7 @@ describe('asking for the next page', () => {
     expect(view.watched()).toBe(0);
   });
 
-  it('hides its sentinel from a reader and from the pointer', async () => {
+  it('hides its sentinel from a reader', async () => {
     installIntersectionObserver();
     const { wrapper } = mountList();
     await flushPromises();

@@ -498,7 +498,7 @@ Enter in its field does nothing, so in a dialog's form it never saves what the p
 
 **A list is `ListFrame` when its rows are already read whole, and [`PagedList.vue`](../front-end/src/components/PagedList.vue) when the server pages them** (T224), since a list the server pages knows no total and cannot find among rows it has not read.
 `PagedList` holds any rows, its default slot, and knows nothing of what they are: the screen gives `hasMore`, `loading` and `error`, and reads the next page on `more`.
-`box="own"`, the default, stands them in a [`ScrollBox`](#the-primitive-layer) at most `min(28rem, 60dvh)` tall, with a hairline border, and names it `label` while it scrolls; a scroll past its end carries on to what is around it, where a `ScrollBox` alone would stop it.
+`box="own"`, the default, stands them in a [`ScrollBox`](#the-primitive-layer) at most `min(28rem, 45dvh)` tall, with a hairline border, and names it `label` while it scrolls; a scroll past its end carries on to what is around it, where a `ScrollBox` alone would stop it.
 `box="parent"` has no scroller, for rows in the flow of a dialog's body or the drawer's, so no scroller stands inside another with nothing beside it.
 It asks as an `aria-hidden` sentinel over the last 12rem of the rows comes into view through every scroller around it, so it asks before the reader reaches the end and a keyboard reaches it too, and it observes the sentinel again whenever the rows change, so a page too short to fill the box leads on to the next.
 At the end of the rows it says "Loading…" in a `role="status"` line, or `ReadFailed` on `error`, whose "Try again" also emits `more` and moves focus to the first control of what landed.

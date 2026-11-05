@@ -161,9 +161,11 @@ watch(
   min-width: 0;
 }
 
-/* A maximum, so a short list is only as tall as it is. Its corners clip the shades, as a table's do. */
+/* A maximum, so a short list is only as tall as it is, and low enough that what stands above it in a
+   dialog's body stays in sight beside it at a laptop's height. Its corners clip the shades, as a
+   table's do. */
 .paged-list--own {
-  max-height: min(28rem, 60dvh);
+  max-height: min(28rem, 45dvh);
   overflow: hidden;
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);

@@ -166,6 +166,8 @@ test('the list stands in a box one height, its shade says there is more, and the
   authenticatedPage: page,
   request,
 }) => {
+  // A laptop's height, the lowest the filters are held in sight beside the whole box at.
+  await page.setViewportSize({ width: 1280, height: 800 });
   const { marketName } = await seedAHistory(request);
   const manage = await openManage(page, marketName);
   await expect(manage.historySentences).toHaveCount(PAGE);
@@ -186,7 +188,9 @@ test('the list stands in a box one height, its shade says there is more, and the
   expect(await manage.historyBox.evaluate((box) => box.clientHeight)).toBe(height);
   expect(await manage.window.boundingBox()).toEqual(windowBefore);
   expect(await filter.boundingBox()).toEqual(filterBefore);
-  await expect(filter).toBeInViewport();
+  await expect(filter).toBeInViewport({ ratio: 1 });
+  await expect(manage.historyWho.field).toBeInViewport({ ratio: 1 });
+  await expect(manage.historyBox).toBeInViewport({ ratio: 1 });
 
   // The shade goes only at the very end, which says the rest; the top's says where the reader was.
   await manage.scrollHistoryToEnd();
@@ -210,9 +214,13 @@ test('a scroll past the end of the box carries on to the dialog', async ({
   const scrolled = () => body.evaluate((element) => element.scrollTop);
   const before = await scrolled();
   await manage.historyBox.hover();
-  await page.mouse.wheel(0, 200);
 
-  await expect.poll(scrolled).toBeGreaterThan(before);
+  // One wheel alone did not always carry on at a fractional box height, and the next did: a box can
+  // stop a fraction short of its end, and the first spends itself there.
+  await expect(async () => {
+    await page.mouse.wheel(0, 200);
+    expect(await scrolled()).toBeGreaterThan(before);
+  }).toPass({ timeout: 10_000 });
 });
 
 test('a short history is only as tall as it is, with no shade and nothing to fetch', async ({
