@@ -671,13 +671,17 @@ function leftSinceNow(): () => boolean {
 async function openAmend(options: { fieldLabel?: string; unasked?: string }) {
   amendFieldLabel.value = options.fieldLabel ?? '';
   amendUnasked.value = options.unasked ?? '';
+  const left = leftSinceNow();
   try {
     const { data } = await api.get(`/markets/${marketId.value}/application-form`);
+    if (left()) return;
     amendForm.value = (data?.application_form ?? null) as ApplicationForm | null;
     amendOptions.value = (data?.essential_options ??
       EMPTY_ESSENTIAL_OPTIONS) as EssentialFormOptions;
   } catch (err) {
-    error.value = getApiErrorMessage(err, "Could not read this market's application form.");
+    if (!left()) {
+      error.value = getApiErrorMessage(err, "Could not read this market's application form.");
+    }
     return;
   }
   amendOpen.value = true;
@@ -939,16 +943,13 @@ function startOver() {
   error.value = '';
   reviewersError.value = '';
 }
-// A jump through history from one market's import to another's keeps this page, not its file, and
-// at once, so that no answer can land between the jump and a later flush.
-watch(
-  marketId,
-  () => {
-    visit += 1;
-    startOver();
-  },
-  { flush: 'sync' },
-);
+// A jump through history from one market's import to another's keeps this page, not its file, nor
+// a dialog holding the first market's form, which it would save over the other's.
+watch(marketId, () => {
+  visit += 1;
+  amendOpen.value = false;
+  startOver();
+});
 </script>
 
 <template>

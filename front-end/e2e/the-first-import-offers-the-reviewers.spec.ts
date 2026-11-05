@@ -1,6 +1,10 @@
 import type { APIRequestContext, Page, Route } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL, CsvImportPage } from './fixtures';
-import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMarket';
+import {
+  APPLICATION_FIELDS,
+  seedApplicantMarket,
+  planSetupObject,
+} from './helpers/seedApplicantMarket';
 import { marketScreenPath } from './helpers/marketScreens';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { MarketsPage } from './pages/MarketsPage';
@@ -54,14 +58,14 @@ const CSV = [
 ].join('\n');
 
 /** A Google Form draft of the owner's, ready for its first import, with Ana and Ben on it. */
-async function draftWithPeople(request: APIRequestContext) {
+async function draftWithPeople(request: APIRequestContext, fields?: Record<string, unknown>[]) {
   for (const email of [ANA, BEN]) ensureVerifiedUser(email, PASSWORD);
   const market = await seedApplicantMarket(
     request,
     BACKEND_URL,
     TEST_USER.email,
     TEST_USER.password,
-    { setupObject: planSetupObject(), intakeMode: 'csv' },
+    { setupObject: planSetupObject(), intakeMode: 'csv', fields },
   );
   for (const email of [ANA, BEN]) {
     const res = await request.post(`${BACKEND_URL}/markets/${market.marketId}/roles`, {
@@ -252,8 +256,12 @@ test('a file the person left never replaces the one they confirmed last', async 
  * Two drafts' imports in one running app, the page on the second's: going between them by history is
  * a long press on Back, where the router keeps the page and hands it the other market.
  */
-async function twoImports(page: Page, request: APIRequestContext) {
-  const jumpedTo = await draftWithPeople(request);
+async function twoImports(
+  page: Page,
+  request: APIRequestContext,
+  jumpedToFields?: Record<string, unknown>[],
+) {
+  const jumpedTo = await draftWithPeople(request, jumpedToFields);
   const here = await draftWithPeople(request);
   const importPage = new CsvImportPage(page);
   const position = () => page.evaluate(() => (history.state as { position: number }).position);
@@ -442,4 +450,122 @@ test("reading a file's columns, answered after a jump, leaves the market jumped 
   await page.unroute(address);
 
   await expectAFreshUpload(importPage);
+});
+
+/** The market jumped to has a question of its own, which a form written over it would lose. */
+const ITS_OWN_QUESTION = {
+  key: 'only_the_first_asks',
+  label: 'Only the first market asks this',
+  type: 'text',
+  required: true,
+  options: [],
+  order: 2,
+};
+const FORM_OF_THE_ONE_JUMPED_TO = ['business_name', 'product_type', ITS_OWN_QUESTION.key];
+const HANDSHAKE = 'Our secret handshake';
+
+async function formKeys(request: APIRequestContext, marketId: string) {
+  const res = await request.get(`${BACKEND_URL}/markets/${marketId}/application-form`);
+  expect(res.ok(), await res.text()).toBeTruthy();
+  const { application_form: form } = (await res.json()) as {
+    application_form: { fields: Array<{ key: string }> };
+  };
+  return form.fields.map((field) => field.key);
+}
+
+/** On Map columns, a column with nowhere to go, its offer on screen and not yet pressed. */
+async function toTheFormsOffer(page: Page, importPage: CsvImportPage) {
+  await importPage.chooseFile(
+    [[...HEADERS, HANDSHAKE].join(','), `${CSV.split('\n')[1]},Left hand twice`].join('\n'),
+  );
+  await importPage.targetSelectAt(HEADERS.length).pick('__needs_a_field__');
+  return page.getByTestId('import-add-a-field-button');
+}
+
+/**
+ * The frame draws its slot again with the other market in hand, and until then an open dialog is
+ * hidden too, so the Upload comes first, and two frames for an answer just in to draw what it would.
+ */
+async function expectNoDialogOverAFreshUpload(page: Page, importPage: CsvImportPage) {
+  await expectAFreshUpload(importPage);
+  await page.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
+  await expect(page.getByTestId('amend-form-window')).toBeHidden();
+  await expectAFreshUpload(importPage);
+}
+
+test('the Fix the form dialog closes at a jump, and writes nothing on the market jumped to', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { jumpedTo, importPage, jump } = await twoImports(page, request, [
+    ...APPLICATION_FIELDS,
+    ITS_OWN_QUESTION,
+  ]);
+  const offer = await toTheFormsOffer(page, importPage);
+  await offer.click();
+  const dialog = page.getByTestId('amend-form-window');
+  await expect(dialog).toBeVisible();
+
+  await jump();
+
+  await expectNoDialogOverAFreshUpload(page, importPage);
+  expect(await formKeys(request, jumpedTo.marketId)).toEqual(FORM_OF_THE_ONE_JUMPED_TO);
+});
+
+for (const [answer, fulfil] of [
+  ['its form', (route: Route) => route.continue()],
+  ['a refusal', (route: Route) => route.fulfill({ status: 500, json: { error: 'No.' } })],
+] as const) {
+  test(`the form read for that dialog, answered with ${answer} after a jump, opens nothing and says nothing`, async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { importPage, jump } = await twoImports(page, request);
+    const offer = await toTheFormsOffer(page, importPage);
+    const address = /\/application-form$/;
+    const held = await holdRequests(page, address);
+    await offer.click();
+    await expect.poll(() => held.length).toBe(1);
+
+    await jump();
+    const answered = page.waitForResponse(address);
+    await Promise.all(held.map(fulfil));
+    await answered;
+    await page.unroute(address);
+
+    await expectNoDialogOverAFreshUpload(page, importPage);
+  });
+}
+
+test('a save of that dialog answered after a jump is on the market pressed on, and no dialog comes back', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { here, jumpedTo, importPage, jump } = await twoImports(page, request, [
+    ...APPLICATION_FIELDS,
+    ITS_OWN_QUESTION,
+  ]);
+  const offer = await toTheFormsOffer(page, importPage);
+  await offer.click();
+  const dialog = page.getByTestId('amend-form-window');
+  await expect(dialog).toBeVisible();
+  const address = /\/application-form$/;
+  const held = await holdRequests(page, address);
+  await page.getByTestId('amend-form-submit-button').click();
+  await expect.poll(() => held.length).toBe(1);
+
+  await jump();
+  const answered = page.waitForResponse(address);
+  await held[0]!.continue();
+  await answered;
+  await page.unroute(address);
+
+  await expectNoDialogOverAFreshUpload(page, importPage);
+  expect(await formKeys(request, here.marketId)).toEqual([
+    ...APPLICATION_FIELDS.map((field) => field.key),
+    'our_secret_handshake',
+  ]);
+  expect(await formKeys(request, jumpedTo.marketId)).toEqual(FORM_OF_THE_ONE_JUMPED_TO);
 });
