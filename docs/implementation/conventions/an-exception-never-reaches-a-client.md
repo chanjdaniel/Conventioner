@@ -46,7 +46,6 @@ describes:
   - back-end/app.py#run_assignment
   - back-end/app.py#add_vendor
   - back-end/app.py#write_placement
-  - back-end/app.py#get_placement_history
   - back-end/app.py#get_history
   - back-end/app.py#swap_placements
   - back-end/app.py#remove_placement
@@ -94,7 +93,7 @@ describes:
   - front-end/e2e/a-failure-says-what-to-do.spec.ts
   - back-end/app.py#vendor_check_in
   - back-end/app.py#vendor_undo_check_in
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - T74
   - E41/F01/S01
@@ -102,6 +101,7 @@ sources:
   - E38/F11/S01
   - T161
   - T181
+  - T224
 ---
 
 # An exception never reaches a client
@@ -194,7 +194,7 @@ So do the application form and phase routes: reading and saving the form, the ph
 None catches anything, and each keeps its literal answers (`to_phase is required`, `stopped must be true or false`, `Unknown phase: '<phase>'. Valid phases: ...`, `Market not found`, `Invalid market data`, and the permission 403s the routes ask themselves).
 A form saved in a phase that has fixed it answers its lock reason, 409; the phase move answers its own guards' 409, a market moved under it with `PhaseChangedUnderRequest.body()`, and a fact its guards read changed under it with `MoveBlockedUnderRequest.body()`; a stop asked of a market that takes none answers why, 409.
 
-So do the assignment and placement routes: running the assignment, adding a vendor who never applied, writing, swapping and freeing a placement, and reading the placement history and the market's history.
+So do the assignment and placement routes: running the assignment, adding a vendor who never applied, writing, swapping and freeing a placement, and reading the market's history.
 None catches anything.
 A run over incomplete answers is still `run_assignment`'s 400 in [`back-end/api/placements.py`](../../../back-end/api/placements.py), with `IncompleteApplicationsError.message()` and the applicants; a run outside its phase, a vendor the market already holds, a taken seat and a change that would land over another change to the tables answer 409, and a placement the plan has no seat for 400, each as raised ([placements](../modules/placements.md)).
 A builtin `PermissionError` is no longer answered 403 with its text: nothing of ours raises one, so it is a bug, and it answers 500.
@@ -265,6 +265,7 @@ The account pages (sign in, register, password reset, email verification) still 
 
 **A screen whose own read failed offers Try again**: [`ReadFailed.vue`](../../../front-end/src/components/ReadFailed.vue) shows the message with a button that runs the read once more, its test ids `<name>-read-failed` and `<name>-retry`.
 Applications (both views, `applications`), Markets (`markets`), Organizations (`organizations`), Assignments (`tables`) and Attendance (`attendance`) use it; a market that could not be loaded at all is [the market frame](../modules/market-frame.md)'s `MarketArrival` to say, with its own Try again.
+A list the server pages shows it at the list's end for a page that failed, from [`PagedList.vue`](../../../front-end/src/components/PagedList.vue) (Manage market's History and a vendor's, `market-history`, and the organization's, `org-history`).
 Its button is a `.btn`, so it is 44px on a phone.
 
 **A session that ends mid-work** answers 401 to the next request, and one response interceptor on `api`, installed from `main.ts` by `installSessionEnded` in [`front-end/src/utils/sessionEnded.ts`](../../../front-end/src/utils/sessionEnded.ts), takes the organizer to sign in again.

@@ -347,7 +347,7 @@ test.describe('in a window too short to show an Add row and its refusal', () => 
 test.describe('each dialog a market can outgrow scrolls only its body', () => {
   for (const [state, testid] of [
     ['the change-placement dialog', 'placement-dialog'],
-    ['the placement history', 'placement-history-dialog'],
+    ['the assignment history', 'assignment-history-dialog'],
     ['the delete-organization dialog, refused while markets are under way', 'delete-org'],
     ['opening applications, choosing reviewers', 'open-applications'],
   ] as const) {

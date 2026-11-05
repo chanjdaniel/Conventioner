@@ -4,9 +4,9 @@
  *
  * It was the Tables screen, reached by a quick link from a results page under the rules. The
  * organizer's "result" is who sits where, which is this grid, so the grid became the page: a
- * summary strip on top (`ResultSummary`), then the tables with their seat editing, then the
- * placement history. It stands under the Assignment tab, between Settings and Vendors, and was
- * called Result until the pages took the names of what they hold (E38/F08/S01).
+ * summary strip on top (`ResultSummary`), then the tables with their seat editing. It stands under
+ * the Assignment tab, between Settings and Vendors, and was called Result until the pages took the
+ * names of what they hold (E38/F08/S01).
  */
 import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, onMounted, ref, watch } from 'vue';

@@ -2,7 +2,8 @@
 
 A placement that differs from what the solver produced is a fact someone will later ask about,
 and a flag saying "hand-placed" cannot answer it. The entries live in the market's history
-(E40/F01/S01), and this trail is that history narrowed to placements.
+(E40/F01/S01), and Assignment history reads that history narrowed to the ``assign`` action. The
+endpoint that once served them alone is gone (T224), so this reads them as that dialog does.
 """
 import pytest
 
@@ -12,6 +13,7 @@ import api.market_actions as Actions
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
+import app as app_module
 import history as History
 from datatypes import MarketPhase
 from test_the_history import FakeHistoryCollection
@@ -35,6 +37,12 @@ def collection(monkeypatch):
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
     monkeypatch.setattr(PlacementsApi, "has_applied", lambda _market_id, _address: True)
     return fake
+
+
+def assignments(market_id):
+    """The market's history narrowed to the ``assign`` action, as Assignment history reads it."""
+    entries, _after = History.entries_page(market_id, actions=[Actions.ASSIGN.id])
+    return entries
 
 
 def seat(collection, email, date, table_code, choice="Full Table"):
@@ -129,7 +137,7 @@ class TestReadingTheTrail:
             "organizer@x.test",
         )
 
-        entries = History.placement_entries("market-123")
+        entries = assignments("market-123")
 
         assert len(entries) == 2
 
@@ -139,7 +147,7 @@ class TestReadingTheTrail:
         history.docs[0]["at"] = "2020-01-01T00:00:00+00:00"
         history.docs[1]["at"] = "2026-01-01T00:00:00+00:00"
 
-        assert [e["detail"]["table_code"] for e in History.placement_entries("m")] == [
+        assert [e["detail"]["table_code"] for e in assignments("m")] == [
             "A 2", "A 1",
         ]
 
@@ -147,28 +155,34 @@ class TestReadingTheTrail:
         History.record_freed("m1", "a@x.test", "v@x.test", "2026-08-01", "A 1")
         History.record_freed("m2", "a@x.test", "v@x.test", "2026-08-01", "A 1")
 
-        assert len(History.placement_entries("m1")) == 1
+        assert len(assignments("m1")) == 1
 
 
 class TestTheEndpoint:
-    def test_it_answers_the_placements_as_it_always_did(self, collection, history):
-        """Served from the market's history, narrowed to placements, in the shape the trail reads."""
+    def test_the_history_answers_them_narrowed_to_the_assignment_group(self, collection, history):
+        """Served as stored: an entry's detail is data, so its keys stay as they were written."""
         PlacementsApi.write_placement("market-123", placement(), "organizer@x.test")
         History.record("market-123", "organizer@x.test", Actions.CHECK_IN,
                        vendors=["ana@example.com"], detail={})
 
-        body, status = MarketsApi.get_placement_history("market-123", "organizer@x.test")
+        body, status = MarketsApi.get_history(
+            "market-123", "organizer@x.test", {"group": "Assignment"})
 
         assert status == 200
         [entry] = body["entries"]
-        assert set(entry) == {"id", "marketId", "actor", "at", "kind", "vendors", "detail"}
+        assert set(entry) == {"id", "actor", "at", "action", "kind", "vendors", "subject", "detail"}
         assert entry["kind"] == "placed"
         # A new placement also names the seat it moved the vendor from: none, here.
         assert entry["detail"] == {
-            "date": "2026-08-01", "tableCode": "Hall A 1", "tableChoice": "Full Table",
+            "date": "2026-08-01", "table_code": "Hall A 1", "table_choice": "Full Table",
             "before": None,
         }
         assert "vendorNames" in body
+
+    def test_the_route_that_served_them_alone_is_gone(self):
+        response = app_module.app.test_client().get("/markets/market-123/placement-history")
+
+        assert response.status_code == 404
 
 
 class TestTheTrailIsKeptWithTheMarket:
@@ -179,8 +193,8 @@ class TestTheTrailIsKeptWithTheMarket:
         gone = History.delete_for_market("m1")
 
         assert gone == 1
-        assert History.placement_entries("m1") == []
-        assert len(History.placement_entries("m2")) == 1
+        assert assignments("m1") == []
+        assert len(assignments("m2")) == 1
 
 
 def test_a_trail_that_cannot_be_written_does_not_break_the_placement(collection, monkeypatch):
@@ -211,4 +225,4 @@ def test_deleting_a_market_deletes_its_trail_through_the_endpoint(monkeypatch, h
 
     MarketsApi.delete_market("market-123", "owner@example.com")
 
-    assert History.placement_entries("market-123") == []
+    assert assignments("market-123") == []

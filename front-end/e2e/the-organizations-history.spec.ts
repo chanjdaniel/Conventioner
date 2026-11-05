@@ -9,12 +9,20 @@ import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
  *
  * The owner adds an admin and renames the organization in Manage organization, as they would;
  * the section reads both back, newest first, each saying who and when, and a member of the
- * organization opens the same History from their own Organizations page.
+ * organization opens the same History from their own Organizations page. A long history, and a
+ * long record of changes to the default, each stand in a box and bring more as their end scrolls
+ * into view.
  */
 test.use({ viewport: { width: 1440, height: 900 } });
 
 const ADMIN = { email: 'e2e-org-history-admin@example.com', password: 'e2epassword123' };
 const MEMBER = { email: 'e2e-org-history-member@example.com', password: 'e2epassword123' };
+/** What the server answers at a time, and the list shows at a time. */
+const PAGE = 25;
+/** Enough that the first page ends before the last of them. */
+const CHANGES = PAGE + 5;
+/** The box's maximum: `28rem`, at the app's 16px. */
+const BOX_MOST = 28 * 16;
 
 test.beforeAll(() => {
   ensureVerifiedUser(ADMIN.email, ADMIN.password);
@@ -133,4 +141,74 @@ test('a member opens the organization and reads its History', async ({ browser, 
   } finally {
     await context.close();
   }
+});
+
+test('a long history opens on one page in its box, and the box’s end brings the rest beneath', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const org = await makeOrganization(request);
+  for (let n = 1; n <= CHANGES; n++) {
+    await ok(
+      await request.put(`${BACKEND_URL}/organizations/${org.id}`, {
+        data: { name: `${org.name} ${n}` },
+      }),
+    );
+  }
+  const orgs = await openManage(page, `${org.name} ${CHANGES}`);
+  await orgs.openHistory();
+
+  await expect(orgs.historySentences).toHaveCount(PAGE);
+  const first = await orgs.historySentences.allInnerTexts();
+  const height = await orgs.historyBox.evaluate((box) => box.clientHeight);
+  expect(height).toBeLessThanOrEqual(BOX_MOST);
+  await expect(orgs.historyBoxShadeBottom).toBeVisible();
+  await expect(orgs.history).not.toContainText('Load more');
+
+  await orgs.scrollHistoryToEnd();
+  await expect(orgs.historySentences).toHaveCount(CHANGES);
+
+  // The rest came beneath the same entries, in order, and the box did not grow to take them.
+  const all = await orgs.historySentences.allInnerTexts();
+  expect(all.slice(0, PAGE)).toEqual(first);
+  expect(all.at(-1)).toBe(
+    `${TEST_USER.email} renamed the organization from "${org.name}" to "${org.name} 1"`,
+  );
+  expect(await orgs.historyBox.evaluate((box) => box.clientHeight)).toBe(height);
+  await expect(orgs.historySentinel).toHaveCount(0);
+
+  await orgs.scrollHistoryToEnd();
+  await expect(orgs.historyBoxShadeBottom).toHaveCount(0);
+});
+
+test('a long record of changes to the default scrolls by the keys alone, a box with no control in it', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const org = await makeOrganization(request);
+  for (let n = 0; n < CHANGES; n++) {
+    await ok(
+      await request.put(`${BACKEND_URL}/organizations/${org.id}/default-permissions/check-in`, {
+        data: { role: n % 2 ? 'editor' : 'admin' },
+      }),
+    );
+  }
+  const orgs = await openManage(page, org.name);
+  await orgs.showDefaults();
+
+  await expect(orgs.defaultChanges).toHaveCount(PAGE);
+  await expect(page.getByRole('region', { name: 'Changes' })).toHaveAttribute('tabindex', '0');
+  const height = await orgs.defaultChangesBox.evaluate((box) => box.clientHeight);
+  expect(height).toBeLessThanOrEqual(BOX_MOST);
+
+  await orgs.defaultChangesBox.focus();
+  await expect(orgs.defaultChangesBox).toBeFocused();
+  await expect(async () => {
+    await page.keyboard.press('End');
+    await expect(orgs.defaultChanges).toHaveCount(CHANGES, { timeout: 250 });
+  }).toPass({ timeout: 15_000 });
+
+  await expect(orgs.defaultChangesBox).toBeFocused();
+  expect(await orgs.defaultChangesBox.evaluate((box) => box.clientHeight)).toBe(height);
+  await expect(orgs.defaultsWindow).not.toContainText('Load more');
 });

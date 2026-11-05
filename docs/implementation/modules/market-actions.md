@@ -45,6 +45,7 @@ sources:
   - E46/F01/S05
   - E38/F12/S01
   - T181
+  - T224
   - T217
 ---
 
@@ -121,8 +122,7 @@ Asked by:
 Default: Viewer.
 
 Asked by:
-- `GET /markets/:id/history` (Manage market's History section, and a vendor's drawer's History tab with `?vendor=`)
-- `GET /markets/:id/placement-history` (the assignment history)
+- `GET /markets/:id/history` (Manage market's History section, a vendor's drawer's History tab with `?vendor=`, and Assignment history with `?group=Assignment`)
 - `GET /markets/:id/permission-history` (the changes to the market's table)
 
 ### Export CSV (`export-csv`)

@@ -7,15 +7,15 @@
  * `docs/implementation/data/history.md`) - and the wording is in the front end, so a sentence can
  * change without a migration or a back-end release. Each area's words are its own file under
  * `historyReaders/`, keyed by the entry's action and kind; this file composes them, and words what
- * no reader has words for. A placement is worded by `placementHistory.ts`, the assignment history's
- * own words, so the two screens say it alike. The organizer's words: assign and allocate tables,
- * never place, seat or run.
+ * no reader has words for. The organizer's words: assign and allocate tables, never place, seat or
+ * run.
  * The detail and the subject are served as stored, snake_case, since their keys are data.
  */
 import { readersOf } from '@/utils/historyReaders';
 import {
   asDetail,
   changedFields,
+  day,
   fieldName,
   fieldValue,
   readerContext,
@@ -41,6 +41,9 @@ export interface MarketHistoryEntry {
   subject: Detail;
   detail: Detail | null;
 }
+
+/** The group of the table Assignment history is narrowed to, as the server names it. */
+export const ASSIGNMENT_GROUP = 'Assignment';
 
 /** A group of the table, the kinds of change the history is narrowed by. */
 export interface MarketHistoryGroup {
@@ -81,6 +84,14 @@ export function entryParts(
 /** When it happened, as a moment, in the reader's own timezone. */
 export function entryWhen(entry: MarketHistoryEntry): string {
   return getFormattedTimestamp(entry.at) || entry.at;
+}
+
+/**
+ * The market day an entry is about, for a list the day leads (`dayLeads`). A run and the rules are
+ * about no one day.
+ */
+export function entryDay(entry: MarketHistoryEntry): string {
+  return day(entry.subject.date) || 'Every market day';
 }
 
 export { fieldName, fieldValue, valueText };

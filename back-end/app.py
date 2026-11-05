@@ -1330,21 +1330,11 @@ def get_history(market_id: str) -> Response:
     Asks ``Actions.READ_HISTORY``.
 
     ``?before=`` is the cursor the last page answered with; ``?actor=``, ``?group=``, ``?vendor=``,
-    ``?since=`` and ``?until=`` narrow it.
+    ``?since=``, ``?until=`` and ``?day=`` narrow it.
     """
     args = {key: request.args.get(key, "")
-            for key in ("before", "actor", "group", "vendor", "since", "until")}
+            for key in ("before", "actor", "group", "vendor", "since", "until", "day")}
     result, status_code = MarketsApi.get_history(market_id, authenticated_email(), args)
-    return jsonify(result), status_code
-
-
-@app.route('/markets/<market_id>/placement-history', methods=['GET'])
-@login_required
-def get_placement_history(market_id: str) -> Response:
-    """Who changed a placement, to what, and when, across the market. Asks
-    ``Actions.READ_HISTORY``. One vendor's changes are the history's, narrowed (``/history``).
-    """
-    result, status_code = MarketsApi.get_placement_history(market_id, authenticated_email())
     return jsonify(result), status_code
 
 

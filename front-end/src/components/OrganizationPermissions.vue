@@ -69,8 +69,8 @@ const resetChanges = computed(() =>
 const orgPath = () => `/organizations/${encodeURIComponent(props.org.id)}`;
 
 async function openDialog() {
-  // Read afresh, so a second opening is the first: changes already drawn would put "Load more" in
-  // the dialog as it places its focus, and a reader, with no select, would open at the end of them.
+  // Read afresh, so a second opening is the first: changes already drawn would put their box's Tab
+  // stop in the dialog as it places its focus, and a reader, with no select, would open on it.
   history.value = [];
   open.value = true;
   await fetchHistory();
