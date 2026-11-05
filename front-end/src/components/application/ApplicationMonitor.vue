@@ -570,12 +570,11 @@ function decideCurrent(status: ApplicationStatus) {
 
 /**
  * Keep a key pressed while `saving`, the last one winning. A key on the card still being written is
- * a second press of the same verdict, and one that repeats is a long press: neither is kept, or it
- * would decide a card the reviewer never looked at.
+ * a second press of the same verdict: it is not kept, or it would decide a card the reviewer never
+ * looked at.
  */
-function holdKey(key: NonNullable<typeof heldKey>, event: KeyboardEvent) {
-  if (event.repeat || current.value?.id === deciding) return;
-  heldKey = key;
+function holdKey(key: NonNullable<typeof heldKey>) {
+  if (current.value?.id !== deciding) heldKey = key;
 }
 
 /** The server has answered: do what the held key asked, or say it did not count. */
@@ -589,7 +588,10 @@ watch(saving, (busy) => {
     return;
   }
   const app = current.value;
-  if (!errorMessage.value && app?.id === key.on && decidesCurrent.value && !followUpOpen.value) {
+  // Held for the reviewer is what makes it handed over: a hand-out overtaken ends `saving` with the
+  // newer one still out, and the card up then is only the queue's guess, which may be someone else's.
+  const handedOver = app?.id === key.on && claims.held.value === key.on;
+  if (!errorMessage.value && handedOver && decidesCurrent.value && !followUpOpen.value) {
     void decide(app, key.status);
     return;
   }
@@ -602,6 +604,8 @@ watch(saving, (busy) => {
  * lie. Skip did this and recorded nothing; marking a follow-up is S now, and this is N.
  */
 function next() {
+  // Moving on is the reviewer's last word on the card a key was pressed on.
+  heldKey = null;
   if (refusedOn.value) {
     const after = refusedOn.value;
     refusedOn.value = null;
@@ -679,9 +683,11 @@ function onKey(event: KeyboardEvent) {
     return;
   }
   const key = event.key.toLowerCase();
+  // A verdict or an undo is one press: a long press would decide card after card, unseen.
+  if (event.repeat && (key === 'a' || key === 'r' || key === 'z')) return;
   if (key === 'z' && undoOffered.value && !undoRefusal.value) {
     event.preventDefault();
-    if (saving.value) holdKey({ undo: true }, event);
+    if (saving.value) holdKey({ undo: true });
     else void undoLast();
     return;
   }
@@ -696,7 +702,7 @@ function onKey(event: KeyboardEvent) {
   if (key === 'a' || key === 'r') {
     const status =
       key === 'a' ? ApplicationStatus.ReviewerApproved : ApplicationStatus.ReviewerRejected;
-    if (saving.value) holdKey({ status, on: current.value.id }, event);
+    if (saving.value) holdKey({ status, on: current.value.id });
     else decideCurrent(status);
   }
   // S was Skip; it marks the follow-up now, the dialog asking who and what (E34/F02/S01).
