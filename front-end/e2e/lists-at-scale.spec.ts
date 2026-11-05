@@ -586,7 +586,7 @@ test.describe('Payments', () => {
         await expect(payments.rows).toHaveCount(12);
         await holdsItsLayout(page, width, 'a search');
 
-        // Words that find nobody say what they said.
+        // The name on their identification finds those who go by another.
         const goesBy = seed.applicants.find(({ preferredName }) => preferredName)!;
         await payments.search.fill(goesBy.fullName.split(' ')[1]!);
         await expect(payments.rows).toHaveCount(12);
@@ -594,6 +594,7 @@ test.describe('Payments', () => {
           goesBy.preferredName!,
         );
 
+        // Words that find nobody say what they said.
         await payments.search.fill('nobody by this name');
         await expect(payments.noneShown).toHaveText('No vendor matches "nobody by this name".');
         await expect(payments.summary).toHaveText(`0 of ${applications} vendors shown`);
