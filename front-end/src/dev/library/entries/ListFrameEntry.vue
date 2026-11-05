@@ -153,6 +153,16 @@ const atThreshold = people.slice(0, 12);
 const pastThreshold = people.slice(0, 13);
 const noRows: LibraryPerson[] = [];
 
+/** Vendors' and Payments' way: the search stands elsewhere, so the frame gets its rows found. */
+const PINNED_PAGE = 5;
+const pinnedWords = ref('');
+const pinnedFound = computed(() => {
+  const words = pinnedWords.value.trim();
+  return words
+    ? pastThreshold.filter((person) => findsByNameOrAddress(person, words))
+    : pastThreshold;
+});
+
 const retries = ref(0);
 
 /** The no-match panel opens as someone left it: the words go in through the field, as typed. */
@@ -419,6 +429,30 @@ onMounted(() => {
         <template #row="{ item }">{{ item.name }}</template>
       </ListFrame>
     </LibraryPanel>
+    <LibraryPanel label="No field of its own: the search stands elsewhere">
+      <div class="library-pinned-search">
+        <label class="field-label" for="library-state-pinned-words">Search, pinned elsewhere</label>
+        <input
+          id="library-state-pinned-words"
+          v-model="pinnedWords"
+          type="search"
+          autocomplete="off"
+          class="field"
+          name="library-state-pinned-words"
+          data-testid="library-state-pinned-words"
+        />
+      </div>
+      <ListFrame
+        :items="pinnedFound"
+        :filter-key="pinnedWords.trim()"
+        :item-key="keyOf"
+        :noun="PERSON"
+        :page-size="PINNED_PAGE"
+        testid="library-state-pinned"
+      >
+        <template #row="{ item }">{{ item.name }}</template>
+      </ListFrame>
+    </LibraryPanel>
     <LibraryPanel :label="`${refused.length} refused rows: the first 20, then Show all`">
       <ImportRefusedRows
         :rows="refused"
@@ -432,6 +466,10 @@ onMounted(() => {
 <style scoped>
 .library-wide {
   grid-column: 1 / -1;
+}
+
+.library-pinned-search {
+  margin-bottom: var(--space-3);
 }
 
 .library-demo {

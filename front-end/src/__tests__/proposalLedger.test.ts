@@ -163,6 +163,12 @@ describe('the proposal ledger', () => {
     expect(wrapper.emitted('settle')?.[0]).toEqual(['tier', 'Bronze', 'Silver']);
   });
 
+  it('names every control it draws, so the browser can tell them apart', () => {
+    const controls = ledger().findAll('select, input');
+    expect(controls.length).toBeGreaterThan(0);
+    expect(controls.filter((control) => !control.attributes('name'))).toEqual([]);
+  });
+
   describe("a question's options", () => {
     it('draws the first 20, then every one by asking, then folds them', async () => {
       const row = rowAt(ledger(proposalOf(answers(229))));

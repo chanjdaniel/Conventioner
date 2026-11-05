@@ -264,6 +264,7 @@ function onSettle(kind: string, value: string, choice: string) {
                 class="field field--select fate"
                 :value="draft.ceiling.days ?? ''"
                 aria-label="Most days one vendor may get"
+                name="proposal-plan-ceiling-days"
                 data-testid="proposal-plan-ceiling-days"
                 @change="chooseCeiling"
               >
@@ -314,6 +315,7 @@ function onSettle(kind: string, value: string, choice: string) {
                 class="field field--select fate"
                 :value="targetOf(row)"
                 :aria-label="`What ${oneLine(row.header)} becomes`"
+                :name="`proposal-row-fate-${first(row)}`"
                 data-testid="proposal-row-fate"
                 @change="chooseFate(row, $event)"
               >
@@ -350,6 +352,7 @@ function onSettle(kind: string, value: string, choice: string) {
                   class="field field--select type"
                   :value="row.field.type"
                   aria-label="Question type"
+                  :name="`proposal-row-type-${first(row)}`"
                   data-testid="proposal-row-type"
                   @change="chooseType(row, $event)"
                 >
@@ -361,6 +364,7 @@ function onSettle(kind: string, value: string, choice: string) {
                   <input
                     type="checkbox"
                     :checked="row.field.required"
+                    :name="`proposal-row-required-${first(row)}`"
                     data-testid="proposal-row-required"
                     @change="
                       emit('correct', first(row), {
@@ -409,6 +413,7 @@ function onSettle(kind: string, value: string, choice: string) {
                       <input
                         type="checkbox"
                         :checked="option.keep"
+                        :name="`proposal-option-${first(row)}`"
                         @change="emit('toggle', first(row), option.value)"
                       />
                       <!-- One run of text, so the count follows the option's last word (bug 43): as

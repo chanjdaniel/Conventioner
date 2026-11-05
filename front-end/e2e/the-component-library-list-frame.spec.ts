@@ -362,6 +362,16 @@ eachWindow('the list frame entry', (size) => {
     await expect(countOf(page, 'library-state-at-threshold')).toHaveText('12 people');
     await expect(page.getByTestId('library-state-past-threshold-find')).toBeVisible();
     await expect(countOf(page, 'library-state-past-threshold')).toHaveText('13 people');
+
+    // A search standing elsewhere: no field here, and a count line only while the cap cuts rows.
+    await expect(page.getByTestId('library-state-pinned-find')).toHaveCount(0);
+    await expect(countOf(page, 'library-state-pinned')).toHaveText('Showing 5 of 13');
+    await press(page.getByTestId('library-state-pinned-more'));
+    await expect(rowsOf(page, 'library-state-pinned')).toHaveCount(10);
+    const name = (await rowsOf(page, 'library-state-pinned').first().innerText()).trim();
+    await page.getByTestId('library-state-pinned-words').fill(name);
+    await expect(rowsOf(page, 'library-state-pinned').first()).toHaveText(name);
+    await expect(countOf(page, 'library-state-pinned')).toHaveCount(0);
   });
 
   test('a list read whole by asking: the first 20, every row, then the first 20 again', async ({
