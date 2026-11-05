@@ -103,9 +103,18 @@ const ALL_VIEW_STATUSES: Record<AllViewFilter, ExportStatus[]> = {
   [ApplicationStatus.ReviewerRejected]: ['rejected'],
 };
 
-/** The Applications tab's All view, its status filter and Mine, as the export's filters. */
-export function applicationsAllSeed(view: { filter: AllViewFilter; mine: boolean }): ExportFilters {
-  return { ...NO_FILTERS, statuses: [...ALL_VIEW_STATUSES[view.filter]], mine: view.mine };
+/** The Applications tab's All view, its status filter, Mine and words, as the export's filters. */
+export function applicationsAllSeed(view: {
+  filter: AllViewFilter;
+  mine: boolean;
+  search?: string;
+}): ExportFilters {
+  return {
+    ...NO_FILTERS,
+    statuses: [...ALL_VIEW_STATUSES[view.filter]],
+    mine: view.mine,
+    search: (view.search ?? '').trim(),
+  };
 }
 
 /** Which heading the dialog lists a column under. */

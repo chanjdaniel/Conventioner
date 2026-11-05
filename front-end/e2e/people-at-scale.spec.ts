@@ -920,7 +920,7 @@ for (const size of PHONE_AND_DESK) {
       await all.goto(seed.marketId);
       const { field, options } = all.assignedTo;
       await expect(field).toHaveValue('Anyone');
-      await expect(all.count).toHaveText('5 of 5');
+      await expect(all.count).toHaveText('5 applications');
       await expectLaidOut(page, 'the filter row');
 
       // The seed owner is no reviewer, so "Anyone" leads and every reviewer follows.
@@ -935,18 +935,18 @@ for (const size of PHONE_AND_DESK) {
       );
       await field.fill(dealt.split('@')[0]!);
       await expect(options).toHaveText([dealt]);
-      await expect(all.count).toHaveText('5 of 5');
+      await expect(all.count).toHaveText('5 applications');
       await expectLaidOut(page, 'one reviewer found');
 
       await press(options.first());
       await expect(field).toHaveValue(dealt);
       await expect.poll(() => new URL(page.url()).searchParams.get('reviewer')).toBe(dealt);
-      await expect(all.count).toHaveText('1 of 5');
+      await expect(all.count).toHaveText('1 of 5 applications');
       await expect(all.rowReviewers).toHaveText([`Reviewer: ${dealt}`]);
 
       await page.reload();
       await expect(field).toHaveValue(dealt);
-      await expect(all.count).toHaveText('1 of 5');
+      await expect(all.count).toHaveText('1 of 5 applications');
       await expect(all.rowReviewers).toHaveText([`Reviewer: ${dealt}`]);
       await expectLaidOut(page, 'the filter row on a reviewer');
     });

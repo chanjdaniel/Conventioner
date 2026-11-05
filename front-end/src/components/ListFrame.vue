@@ -25,6 +25,14 @@ export const LIST_FIND_FROM = 12;
  * - The shown count goes back to one page only when the words or `filterKey` change, the choice of
  *   rows being someone's. A read again or a verdict that changes the rows holds the place.
  * - "Show N more" hands the focus to the first new row, since the button goes with the last page.
+ * - A screen whose rows are its own (a `ul` or `table` with its own classes, or groups between the
+ *   rows) gives the `rows` slot rather than `row`, each row carrying `data-list-row` and
+ *   `tabindex="-1"`, which is how the focus finds it.
+ * - `aboveRows` stands between the tools and the count line, in every state, for what acts on the
+ *   rows; `drawn` says which rows are on screen at mount and whenever they change, none while `state`
+ *   draws none, with how many the cap leaves off, for a screen that acts on exactly those.
+ * - With `wholeCount` and the filters leaving fewer than that, the count line says so:
+ *   "Showing 50 of 110 (359 in all)", or "110 of 359 applications" with every row drawn.
  * - Enter in the field does nothing, since the rows narrow as it is typed in: in a dialog's form it
  *   would otherwise submit the form, and save what the person was only looking through.
  * - `state` says what the screen's read is doing: only `'ready'` draws rows. `'failed'` is
@@ -74,12 +82,21 @@ const props = withDefaults(
   },
 );
 
-defineEmits<{ retry: [] }>();
+const emit = defineEmits<{
+  retry: [];
+  /** The rows on screen, and how many more `Show N more` would reach. */
+  drawn: [rows: T[], left: number];
+}>();
 
 defineSlots<{
   /** The screen's filters: each is its own item in the row beside the find field, and sizes itself. */
   filters?: () => unknown;
-  row: (scope: { item: T; index: number }) => unknown;
+  /** What acts on the rows: over the count line, in every state, so it says for itself when it shows. */
+  aboveRows?: () => unknown;
+  /** One row, in the frame's own list. */
+  row?: (scope: { item: T; index: number }) => unknown;
+  /** The rows on screen, drawn by the screen; each row carries `data-list-row` and `tabindex="-1"`. */
+  rows?: (scope: { rows: T[] }) => unknown;
   /** Why there are no `items`. */
   empty?: () => unknown;
   failed?: () => unknown;
@@ -135,6 +152,10 @@ const nextPageRows = computed(() => Math.min(props.pageSize, rowsLeft.value));
 watch([words, () => props.filterKey], () => {
   pages.value = 1;
 });
+const onScreen = computed(() => (props.state === 'ready' ? rowsShown.value : []));
+watch(onScreen, (drawn) => emit('drawn', drawn, drawn.length ? rowsLeft.value : 0), {
+  immediate: true,
+});
 const itemKeys = computed(() => props.items.map(props.itemKey).join('\n'));
 watch(itemKeys, () => {
   fieldKept.value = document.activeElement === field.value;
@@ -147,22 +168,28 @@ const countLine = computed(() => {
     if (!matching) return `Nothing matches "${words.value}"`;
     return `${matching} of ${total} ${matching === 1 ? 'matches' : 'match'} "${words.value}"`;
   }
-  if (rowsLeft.value) return `Showing ${rowsShown.value.length} of ${total}`;
+  const whole = props.wholeCount ?? total;
+  const narrowed = total < whole;
+  if (rowsLeft.value) {
+    const showing = `Showing ${rowsShown.value.length} of ${total}`;
+    return narrowed ? `${showing} (${whole} in all)` : showing;
+  }
+  if (narrowed) return `${total} of ${whole} ${props.noun.many}`;
   return `${total} ${total === 1 ? props.noun.one : props.noun.many}`;
 });
 
-const list = ref<HTMLUListElement>();
+const frame = ref<HTMLElement>();
 
 async function showMore(): Promise<void> {
   const firstNew = rowsShown.value.length;
   pages.value += 1;
   await nextTick();
-  (list.value?.children[firstNew] as HTMLElement | undefined)?.focus();
+  frame.value?.querySelectorAll<HTMLElement>('[data-list-row]')[firstNew]?.focus();
 }
 </script>
 
 <template>
-  <div class="list-frame" :data-testid="testid">
+  <div ref="frame" class="list-frame" :data-testid="testid">
     <div
       v-if="showsField || $slots.filters"
       class="list-frame__tools"
@@ -186,6 +213,8 @@ async function showMore(): Promise<void> {
       </div>
       <div v-if="$slots.filters" class="list-frame__filters"><slot name="filters" /></div>
     </div>
+
+    <slot name="aboveRows" />
 
     <p
       v-if="state === 'loading'"
@@ -212,10 +241,12 @@ async function showMore(): Promise<void> {
       <p class="list-frame__words" role="status" :data-testid="`${testid}-count`">
         {{ countLine }}
       </p>
-      <ul v-if="found.length" ref="list" class="list-frame__rows" :data-testid="`${testid}-rows`">
+      <slot v-if="found.length && $slots.rows" name="rows" :rows="rowsShown" />
+      <ul v-else-if="found.length" class="list-frame__rows" :data-testid="`${testid}-rows`">
         <li
           v-for="(item, index) in rowsShown"
           :key="itemKey(item)"
+          data-list-row
           tabindex="-1"
           class="list-frame__row"
           :data-testid="`${testid}-row`"

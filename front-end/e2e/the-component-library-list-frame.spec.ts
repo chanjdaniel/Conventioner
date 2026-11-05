@@ -46,7 +46,7 @@ eachWindow('the list frame entry', (size) => {
     await expect(count).toHaveText('9 of 359 match "singh"');
     await expect(rows).toHaveCount(9);
     await expect(page.getByTestId('library-application-name').first()).toContainText('Singh');
-    await expect(page).toHaveURL(/[?&]find=singh(&|$)/);
+    await expect(page).toHaveURL(/[?&]search=singh(&|$)/);
 
     await page.reload();
     await expect(find).toHaveValue('singh');
@@ -60,18 +60,18 @@ eachWindow('the list frame entry', (size) => {
     );
 
     await find.fill('');
-    await expect(page).not.toHaveURL(/[?&]find=/);
-    await expect(count).toHaveText('Showing 50 of 160');
+    await expect(page).not.toHaveURL(/[?&]search=/);
+    await expect(count).toHaveText('Showing 50 of 160 (359 in all)');
 
     const more = page.getByTestId('library-l2-more');
     await expect(more).toHaveText('Show 50 more');
     await press(more);
-    await expect(count).toHaveText('Showing 100 of 160');
+    await expect(count).toHaveText('Showing 100 of 160 (359 in all)');
     await press(more);
-    await expect(count).toHaveText('Showing 150 of 160');
+    await expect(count).toHaveText('Showing 150 of 160 (359 in all)');
     await expect(more).toHaveText('Show 10 more');
     await press(more);
-    await expect(count).toHaveText('160 applications');
+    await expect(count).toHaveText('160 of 359 applications');
     await expect(rows).toHaveCount(160);
     await expect(more).toHaveCount(0);
     await expectLaidOut(page, size, 'every approved application unfolded');
@@ -103,7 +103,7 @@ eachWindow('the list frame entry', (size) => {
     await page.getByTestId('library-l2-assigned').click();
     await press(page.getByTestId('library-l2-assigned-option').nth(2));
     await press(page.getByTestId('library-l2-status-needs_follow_up'));
-    await expect(count).toHaveText(/^\d applications?$/);
+    await expect(count).toHaveText(/^\d of 359 applications$/);
     await expect(find).toBeVisible();
   });
 
@@ -135,7 +135,7 @@ eachWindow('the list frame entry', (size) => {
     const address = (await reviewer.innerText()).trim();
     expect(address).toMatch(/^[^\s@]+@example\.com$/);
     await press(reviewer);
-    await expect(count).toHaveText('30 applications');
+    await expect(count).toHaveText('30 of 359 applications');
     await expect(rowsOf(page, 'library-l2')).toHaveCount(30);
     await expect(page.getByTestId('library-l2-status-all')).toHaveText('Any status 30');
     // The read-out and every row say the one address, as the real filter's label and rows do.
@@ -167,7 +167,7 @@ eachWindow('the list frame entry', (size) => {
     await field.fill('robert.bailey11@example.com');
     await expect(options).toHaveText(['Me']);
     await inTheWindow(size).press(options.first());
-    await expect(page.getByTestId('library-l2-count')).toHaveText('30 applications');
+    await expect(page.getByTestId('library-l2-count')).toHaveText('30 of 359 applications');
     await expect(page.getByTestId('library-l2-row').first()).toContainText('Reviewer: you');
   });
 
@@ -217,12 +217,12 @@ eachWindow('the list frame entry', (size) => {
     const reviewer = page.getByTestId('library-l2-assigned-option').nth(2);
     const address = (await reviewer.innerText()).trim();
     await press(reviewer);
-    await expect(count).toHaveText('30 applications');
+    await expect(count).toHaveText('30 of 359 applications');
 
     await field.click();
     await field.fill('zzz');
     await expect(page.getByTestId('library-l2-assigned-list')).toContainText('None match "zzz".');
-    await expect(count).toHaveText('30 applications');
+    await expect(count).toHaveText('30 of 359 applications');
     await expect(filters).toContainText(`assigned to ${address}`);
 
     await field.press('Escape');
@@ -238,7 +238,7 @@ eachWindow('the list frame entry', (size) => {
   test("a switch shows today's every row on the same filters, and back", async ({ page }) => {
     const { press } = inTheWindow(size);
     await press(page.getByTestId('library-l2-status-needs_follow_up'));
-    await expect(countOf(page, 'library-l2')).toHaveText('25 applications');
+    await expect(countOf(page, 'library-l2')).toHaveText('25 of 359 applications');
 
     await press(page.getByTestId('library-l2-view-today'));
     const today = page.getByTestId('library-l2-today');
@@ -264,17 +264,46 @@ eachWindow('the list frame entry', (size) => {
     );
   });
 
-  test('a tick outlives the words and the filters', async ({ page }) => {
+  test('a tick leaves with its row, whether words or a filter take it off the screen', async ({
+    page,
+  }) => {
     const { press } = inTheWindow(size);
     const selected = page.getByTestId('read-out').filter({ hasText: 'Selected:' });
+    const rows = rowsOf(page, 'library-l2');
     await expect(selected).toHaveText('Selected: nothing');
 
-    await rowsOf(page, 'library-l2').first().getByTestId('library-application-tick').check();
+    await rows.first().getByTestId('library-application-tick').check();
+    await rows.nth(1).getByTestId('library-application-tick').check();
+    await expect(selected).toHaveText('Selected: 2');
+
+    const name = await rows.first().getByTestId('library-application-name').innerText();
+    await page.getByTestId('library-l2-find').fill(name);
+    await expect(selected).toHaveText('Selected: 1');
+    await page.getByTestId('library-l2-find').fill('');
     await expect(selected).toHaveText('Selected: 1');
 
-    await page.getByTestId('library-l2-find').fill('singh');
+    await press(page.getByTestId('library-l2-status-reviewer_approved'));
+    await rows.first().getByTestId('library-application-tick').check();
     await press(page.getByTestId('library-l2-status-reviewer_rejected'));
-    await expect(selected).toHaveText('Selected: 1');
+    await expect(selected).toHaveText('Selected: nothing');
+  });
+
+  test('Select all ticks the rows on screen, and says how many while capped', async ({ page }) => {
+    const { press } = inTheWindow(size);
+    const selected = page.getByTestId('read-out').filter({ hasText: 'Selected:' });
+    const select = page.getByTestId('library-l2-select-all');
+    await expect(select).toHaveText('Select all 50 shown');
+    await press(select);
+    await expect(selected).toHaveText('Selected: 50');
+
+    await press(page.getByTestId('library-l2-more'));
+    await expect(select).toHaveText('Select all 100 shown');
+    await expect(selected).toHaveText('Selected: 50');
+
+    await page.getByTestId('library-l2-find').fill('singh');
+    await expect(select).toHaveText('Select all');
+    await expect(rowsOf(page, 'library-l2')).toHaveCount(9);
+    await expectLaidOut(page, size, 'Select all, narrowed');
   });
 
   test('the people: found by address, each row a role select, unfolded to 150', async ({

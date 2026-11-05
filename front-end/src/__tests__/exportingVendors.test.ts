@@ -142,6 +142,10 @@ describe('the seed the Applications tab’s All view gives the export', () => {
     expect(applicationsAllSeed({ filter: 'all', mine: false })).toEqual(NO_FILTERS);
   });
 
+  it('carries the words, trimmed', () => {
+    expect(applicationsAllSeed({ filter: 'all', mine: false, search: ' ann ' }).search).toBe('ann');
+  });
+
   it('turns "Open" into the open applications', () => {
     expect(applicationsAllSeed({ filter: 'undecided', mine: false }).statuses).toEqual(['open']);
   });

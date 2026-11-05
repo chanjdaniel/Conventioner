@@ -1,14 +1,15 @@
 <script setup lang="ts">
 /**
  * The list frame (T200): `ListFrame` on the survey's two worst lists. L2, Applications All, on every
- * fixture application, with its status toggles and an "Assigned to" combobox (C6), and a switch to
- * today's every-row list on the same filters; L1, the 150 people with access, a role select per row;
- * then a panel per state. Only the chosen view of L2 is mounted, so the first paint draws the frame's
- * first page and never today's every row. L2's reviewers read as they do on the screen, by address,
- * through the real filter's choices and row words (`utils/reviewers.ts`). Nothing here is a read: the
- * failed and loading panels are the frame told so.
+ * fixture application, with its status toggles and an "Assigned to" combobox (C6), its own rows in
+ * the `rows` slot and Select all in `aboveRows`, on the rows `drawn` says are on screen, as the screen
+ * does (T223), and a switch to today's every-row list on the same filters; L1, the 150 people with
+ * access, a role select per row in the `row` slot; then a panel per state. Only the chosen view of L2
+ * is mounted, so the first paint draws the frame's first page and never today's every row. L2's
+ * reviewers read as they do on the screen, by address, through the real filter's choices and row words
+ * (`utils/reviewers.ts`). Nothing here is a read: the failed and loading panels are the frame told so.
  */
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
 import { MarketRole } from '@/assets/types/datatypes';
 import FilterToggles, { type FilterToggle } from '@/components/FilterToggles.vue';
 import ListFrame from '@/components/ListFrame.vue';
@@ -96,11 +97,23 @@ const filtered = computed(() =>
 );
 
 const opened = ref<string | null>(null);
-/** The rows ticked, which outlive a filter, the words and the fold, as today's selection does. */
+/** The rows on screen, as the frame says, and whether the cap leaves any off. */
+const onScreen = shallowRef<LibraryApplication[]>([]);
+const capped = ref(false);
+/** The rows ticked, each leaving with its row, as the screen's selection does. */
 const ticked = reactive(new Set<string>());
 function tick(id: string, on: boolean): void {
   if (on) ticked.add(id);
   else ticked.delete(id);
+}
+function rowsDrawn(rows: LibraryApplication[], left: number): void {
+  onScreen.value = rows;
+  capped.value = left > 0;
+  const drawn = new Set(rows.map(({ id }) => id));
+  for (const id of [...ticked]) if (!drawn.has(id)) ticked.delete(id);
+}
+function selectAllShown(): void {
+  for (const { id } of onScreen.value) ticked.add(id);
 }
 /** "Reviewer: you" on the reader's own, as today's row says it. */
 const reviewerWords = ({ status, reviewer }: LibraryApplication) =>
@@ -165,9 +178,10 @@ onMounted(() => {
           :finds="findsByNameOrAddress"
           :itemKey="keyOf"
           :noun="APPLICATION"
-          findKey="find"
+          findKey="search"
           :findLabel="NAME_OR_ADDRESS"
           testid="library-l2"
+          @drawn="rowsDrawn"
         >
           <template #filters>
             <div class="library-assigned">
@@ -191,14 +205,36 @@ onMounted(() => {
               testid="library-l2-status"
             />
           </template>
-          <template #row="{ item }">
-            <ApplicationRow
-              :application="item"
-              :reviewer="reviewerWords(item)"
-              :ticked="ticked.has(item.id)"
-              @open="opened = item.name"
-              @tick="tick(item.id, $event)"
-            />
+          <template #aboveRows>
+            <div v-if="onScreen.length">
+              <button
+                type="button"
+                class="btn btn--secondary btn--compact"
+                data-testid="library-l2-select-all"
+                @click="selectAllShown"
+              >
+                {{ capped ? `Select all ${onScreen.length} shown` : 'Select all' }}
+              </button>
+            </div>
+          </template>
+          <template #rows="{ rows }">
+            <ul class="library-today-rows">
+              <li
+                v-for="item in rows"
+                :key="item.id"
+                data-list-row
+                tabindex="-1"
+                data-testid="library-l2-row"
+              >
+                <ApplicationRow
+                  :application="item"
+                  :reviewer="reviewerWords(item)"
+                  :ticked="ticked.has(item.id)"
+                  @open="opened = item.name"
+                  @tick="tick(item.id, $event)"
+                />
+              </li>
+            </ul>
           </template>
           <template #empty>
             <p>No application matches.</p>

@@ -24,6 +24,7 @@ describes:
   - front-end/e2e/helpers/exampleCollegeMarket.ts
   - front-end/e2e/helpers/decideReviewSetup.ts
   - front-end/e2e/helpers/seedPeopleAtScale.ts
+  - front-end/e2e/helpers/seedMarketAtScale.ts
 verified: 2026-11-05
 sources:
   - E02
@@ -43,6 +44,7 @@ sources:
   - T181
   - T206
   - T204
+  - T223
 ---
 
 # E2E seeds
@@ -95,6 +97,15 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - every seed here that leaves a draft ready for Review calls it, `seedDraftMarket()` alone excepted
   - a spec that takes a draft of its own making into Review by its own request calls it first
   - a spec about the decisions asks its seed for `reviewSetupUndecided: true` instead
+
+**`seedMarketAtScale()`** ([file](../../../front-end/e2e/helpers/seedMarketAtScale.ts))
+- Leaves: a `csv` market of a real size, for the specs of long lists, `lists-at-scale.spec.ts` (T223), its 120 applications read in through the real import at `market-at-scale.test`, ten families of twelve so words find a family across pages, and every tenth with a preferred name:
+  - the last 10 rejected through the endpoint a selection's verdict uses
+  - by default the other 110 approved, the market in `assignment`, and an assignment by the real solver over "Example Gold Hall" of 31 tables and "Example Silver Hall" of 28, on one date, so 51 go unplaced
+  - with `assign: false`, those 110 still open and the review open, for a spec of giving verdicts
+- Notes:
+  - answers the applicants in arrival order, the sections and the counts, for a spec to assert against
+  - it sets no prices
 
 **`seedPeopleAtScale()`** ([file](../../../front-end/e2e/helpers/seedPeopleAtScale.ts))
 - Leaves: a `form` market in `applications` whose organization has 150 people, the case every people list and chooser must hold (T204):

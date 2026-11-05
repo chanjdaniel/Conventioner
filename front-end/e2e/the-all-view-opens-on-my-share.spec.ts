@@ -69,16 +69,16 @@ test('a chosen reviewer lands on their share, and anyone’s is a filter away', 
     await expect(all.assignedTo.field).toHaveValue('Me');
     await expect(await all.openAssignedTo()).toHaveText(['Me', 'Anyone', BEN]);
     await all.assignedTo.field.press('Escape');
-    await expect(all.count).toHaveText('3 of 5');
+    await expect(all.count).toHaveText('3 of 5 applications');
     await expect(all.rowReviewers).toHaveText(['Reviewer: you', 'Reviewer: you', 'Reviewer: you']);
 
     await all.assignTo('Anyone');
     await expect.poll(() => reviewerIn(page.url())).toBe('anyone');
-    await expect(all.count).toHaveText('5 of 5');
+    await expect(all.count).toHaveText('5 applications');
 
     await all.assignTo(BEN);
     await expect.poll(() => reviewerIn(page.url())).toBe(BEN);
-    await expect(all.count).toHaveText('2 of 5');
+    await expect(all.count).toHaveText('2 of 5 applications');
     await expect(all.row(ANAS_FIRST)).toHaveCount(0);
 
     // Ben's, opened from his share, says whose it is before she decides it.
@@ -92,10 +92,10 @@ test('a chosen reviewer lands on their share, and anyone’s is a filter away', 
     await all.filter('undecided');
     await page.reload();
     await expect(all.assignedTo.field).toHaveValue(BEN);
-    await expect(all.count).toHaveText('2 of 5');
+    await expect(all.count).toHaveText('2 of 5 applications');
 
     await all.assignTo('Me');
-    await expect(all.count).toHaveText('3 of 5');
+    await expect(all.count).toHaveText('3 of 5 applications');
   });
 });
 
@@ -118,7 +118,7 @@ test('a follow-up I own on another’s share is mine, under Me and with Mine', a
     await all.closeDrawer();
 
     await all.assignTo('Me');
-    await expect(all.count).toHaveText('4 of 5');
+    await expect(all.count).toHaveText('4 of 5 applications');
     await expect(all.reviewerOf(BENS_FIRST)).toHaveText(`Reviewer: ${BEN}`);
 
     // Hers to follow up, so its drawer does not warn her that it is Ben's.
@@ -128,7 +128,7 @@ test('a follow-up I own on another’s share is mine, under Me and with Mine', a
     await all.closeDrawer();
 
     await all.mine.check();
-    await expect(all.count).toHaveText('1 of 5');
+    await expect(all.count).toHaveText('1 of 5 applications');
     await expect(all.rows).toHaveCount(1);
     await expect(all.row(BENS_FIRST)).toHaveCount(1);
   });
@@ -137,7 +137,7 @@ test('a follow-up I own on another’s share is mine, under Me and with Mine', a
   await withUser(browser, CAL, PASSWORD, async (page) => {
     const all = new ApplicationsAllPage(page);
     await all.goto(marketId, ANA);
-    await expect(all.count).toHaveText('4 of 5');
+    await expect(all.count).toHaveText('4 of 5 applications');
     await expect(all.row(BENS_FIRST)).toHaveCount(1);
   });
 });
@@ -151,10 +151,10 @@ test('an Admin who is not a reviewer opens on every application', async ({ brows
     await expect(all.assignedTo.field).toHaveValue('Anyone');
     await expect(await all.openAssignedTo()).toHaveText(['Anyone', ANA, BEN]);
     await all.assignedTo.field.press('Escape');
-    await expect(all.count).toHaveText('5 of 5');
+    await expect(all.count).toHaveText('5 applications');
 
     await all.assignTo(ANA);
-    await expect(all.count).toHaveText('3 of 5');
+    await expect(all.count).toHaveText('3 of 5 applications');
   });
 });
 
@@ -167,6 +167,6 @@ test('a market with no reviewers chosen shows no filter, and every application',
   await all.goto(marketId, ANA);
 
   await expect(all.rows).toHaveCount(5);
-  await expect(all.count).toHaveText('5 of 5');
+  await expect(all.count).toHaveText('5 applications');
   await expect(all.assignedTo.root).toHaveCount(0);
 });

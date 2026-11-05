@@ -125,7 +125,7 @@ describe('the find field', () => {
   it('counts the whole list when told it, so a narrow filter leaves the field where it is', async () => {
     const { wrapper } = await mountFrame({ items: rows(3), wholeCount: 359 });
     expect(field(wrapper).exists()).toBe(true);
-    expect(count(wrapper)).toBe('3 applications');
+    expect(count(wrapper)).toBe('3 of 359 applications');
     await wrapper.setProps({ items: [] });
     expect(field(wrapper).exists()).toBe(true);
   });
@@ -205,6 +205,160 @@ describe('the count line', () => {
   it('is announced, since a reader stays in the field as the rows change', async () => {
     const { wrapper } = await mountFrame();
     expect(wrapper.get('[data-testid="frame-count"]').attributes('role')).toBe('status');
+  });
+});
+
+describe('the count line with wholeCount', () => {
+  it('says the filters left fewer than the whole, capped', async () => {
+    const { wrapper } = await mountFrame({ items: rows(110), wholeCount: 359 });
+    expect(count(wrapper)).toBe('Showing 50 of 110 (359 in all)');
+  });
+
+  it('says the filters left fewer than the whole, every one drawn', async () => {
+    const { wrapper } = await mountFrame({ items: rows(40), wholeCount: 359 });
+    expect(count(wrapper)).toBe('40 of 359 applications');
+  });
+
+  it('reads as it does without one when nothing is narrowed', async () => {
+    const capped = await mountFrame({ items: rows(359), wholeCount: 359 });
+    expect(count(capped.wrapper)).toBe('Showing 50 of 359');
+    const whole = await mountFrame({ items: rows(5), wholeCount: 5 });
+    expect(count(whole.wrapper)).toBe('5 applications');
+  });
+
+  it('leaves the words to say what they found', async () => {
+    const { wrapper } = await mountFrame({ items: rows(110), wholeCount: 359 });
+    await type(wrapper, 'row 10');
+    expect(count(wrapper)).toBe('11 of 110 match "row 10"');
+  });
+});
+
+describe('the rows slot', () => {
+  /** A screen's own table, as a screen draws one: its rows carry `data-list-row` and `tabindex`. */
+  const table = {
+    rows: ({ rows: drawnRows }: { rows: Row[] }) =>
+      h('table', { 'data-testid': 'own-table' }, [
+        h('tbody', [
+          h('tr', { 'data-testid': 'group' }, [h('th', 'A heading between rows')]),
+          ...drawnRows.map((item) =>
+            h('tr', { key: item.id, 'data-list-row': '', tabindex: -1, 'data-testid': 'own-row' }, [
+              h('td', item.name),
+            ]),
+          ),
+        ]),
+      ]),
+  };
+  const ownRows = (wrapper: VueWrapper) => wrapper.findAll('[data-testid="own-row"]');
+
+  it("draws the screen's rows in place of the frame's list, a page at a time", async () => {
+    const { wrapper } = await mountFrame({}, table);
+    expect(wrapper.find('[data-testid="frame-rows"]').exists()).toBe(false);
+    expect(drawn(wrapper)).toBe(0);
+    expect(ownRows(wrapper)).toHaveLength(50);
+    expect(count(wrapper)).toBe('Showing 50 of 312');
+  });
+
+  it('hands the focus to the first new row, whatever stands between the rows', async () => {
+    const { wrapper } = await mountFrame({ items: rows(62) }, table);
+    const button = more(wrapper);
+    (button.element as HTMLButtonElement).focus();
+    await button.trigger('click');
+    await flushPromises();
+    expect(ownRows(wrapper)).toHaveLength(62);
+    expect(document.activeElement).toBe(ownRows(wrapper)[50]!.element);
+  });
+
+  it('draws nothing of the screen when the words find no row', async () => {
+    const { wrapper } = await mountFrame({}, table);
+    await type(wrapper, 'ann');
+    expect(wrapper.find('[data-testid="own-table"]').exists()).toBe(false);
+    expect(count(wrapper)).toBe('Nothing matches "ann"');
+  });
+
+  it("marks the frame's own rows too, so the focus is found the same way in either slot", async () => {
+    const { wrapper } = await mountFrame({ items: rows(2) });
+    const row = wrapper.get('[data-testid="frame-row"]');
+    expect(row.attributes('data-list-row')).toBeDefined();
+    expect(row.attributes('tabindex')).toBe('-1');
+  });
+});
+
+describe('the aboveRows slot', () => {
+  const above = { aboveRows: () => h('p', { 'data-testid': 'above' }, 'Select all') };
+
+  it('stands between the tools and the count line', async () => {
+    const { wrapper } = await mountFrame({}, above);
+    const order = wrapper.get('[data-testid="frame"]').element.children;
+    const testids = [...order].map((child) => child.getAttribute('data-testid'));
+    expect(testids.indexOf('frame-tools')).toBeLessThan(testids.indexOf('above'));
+    expect(testids.indexOf('above')).toBeLessThan(testids.indexOf('frame-count'));
+  });
+
+  it('stays in every state, each line judging for itself when it speaks', async () => {
+    for (const state of ['loading', 'failed']) {
+      const { wrapper } = await mountFrame({ state, items: [] }, above);
+      expect(wrapper.find('[data-testid="above"]').exists()).toBe(true);
+    }
+    const { wrapper } = await mountFrame({ items: [] }, above);
+    expect(wrapper.find('[data-testid="above"]').exists()).toBe(true);
+  });
+});
+
+describe('the drawn event', () => {
+  const said = (wrapper: VueWrapper) =>
+    wrapper.emitted('drawn') as [rows: Row[], left: number][] | undefined;
+  const last = (wrapper: VueWrapper) => said(wrapper)!.at(-1)!;
+
+  it('says the rows on screen at mount, and how many the cap leaves off', async () => {
+    const { wrapper } = await mountFrame({ items: rows(62) });
+    expect(last(wrapper)[0]).toHaveLength(50);
+    expect(last(wrapper)[1]).toBe(12);
+  });
+
+  it('says so again with each page', async () => {
+    const { wrapper } = await mountFrame({ items: rows(62) });
+    await more(wrapper).trigger('click');
+    await flushPromises();
+    expect(last(wrapper)[0]).toHaveLength(62);
+    expect(last(wrapper)[1]).toBe(0);
+  });
+
+  it('follows the words, and what the filters leave', async () => {
+    const { wrapper } = await mountFrame({ items: rows(62) });
+    await type(wrapper, 'row 61');
+    expect(last(wrapper)[0].map((row) => row.id)).toEqual(['Row-61']);
+    await type(wrapper, '');
+    await wrapper.setProps({ items: rows(3) });
+    await flushPromises();
+    expect(last(wrapper)[0]).toHaveLength(3);
+  });
+
+  it('follows a fold back: rows past the first page are off the screen again', async () => {
+    const { wrapper } = await mountFrame({ filterKey: 'open' });
+    await more(wrapper).trigger('click');
+    await flushPromises();
+    expect(last(wrapper)[0]).toHaveLength(100);
+    await wrapper.setProps({ filterKey: 'approved' });
+    await flushPromises();
+    expect(last(wrapper)[0]).toHaveLength(50);
+  });
+
+  it('says the new rows when a read again brings them, at the same place', async () => {
+    const { wrapper } = await mountFrame();
+    await wrapper.setProps({ items: rows(312, 'Other') });
+    await flushPromises();
+    expect(last(wrapper)[0][0]!.id).toBe('Other-0');
+  });
+
+  it('says none while the state draws no rows', async () => {
+    const { wrapper } = await mountFrame({ items: rows(5) });
+    expect(last(wrapper)[0]).toHaveLength(5);
+    await wrapper.setProps({ state: 'failed' });
+    await flushPromises();
+    expect(last(wrapper)).toEqual([[], 0]);
+    await wrapper.setProps({ state: 'ready' });
+    await flushPromises();
+    expect(last(wrapper)[0]).toHaveLength(5);
   });
 });
 

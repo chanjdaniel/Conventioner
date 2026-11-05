@@ -486,11 +486,13 @@ No screen mounts it yet: the library's `filter-toggles` entry lists the eight ro
 
 A list that can grow with a market is [`ListFrame.vue`](../front-end/src/components/ListFrame.vue) (T200), generic over the row: a find field once the whole list passes `findFrom` rows (12), the screen's own filters beside it, a count line, the first `pageSize` rows (50) and "Show N more".
 The screen narrows `items` by its filters and brings `finds`, `itemKey` and the `row` slot; the frame does the finding and the paging on what is already read.
-A screen with filters gives `wholeCount`, so a narrow filter never takes the field away, and `filterKey`, its filters as one string.
+A screen whose rows are its own gives the `rows` slot instead, its `ul` or `table` over the rows on screen, each row carrying `data-list-row` and `tabindex="-1"`, which is how "Show N more" hands the focus on in either slot.
+`aboveRows` stands between the tools and the count line in every state, for what acts on the rows, and `drawn` says the rows on screen at mount and whenever they change, none while `state` draws none, with how many the cap leaves off, for a screen that acts on exactly those.
+A screen with filters gives `wholeCount`, so a narrow filter never takes the field away and the count line names the whole, "Showing 50 of 110 (359 in all)" or "110 of 359 applications", and `filterKey`, its filters as one string.
 On a page, `findKey` puts the words in the route's query, written with `router.replace`; a dialog gives none, since they would outlive it, and a screen that sets the words itself holds them with `v-model:words`.
 The shown count goes back to one page only when the words or `filterKey` change, so a read again or a verdict that changes the rows holds the place.
 `state` draws loading and failed (`ReadFailed`, unless the `failed` slot replaces it), the `empty` slot says why there are no `items`, and the count line says when the words find nothing.
-Manage market's "Users with access" and Manage organization's Admins and Members are its screens, and the library's `list-frame` entry shows it on Applications All and the people with access.
+Manage market's "Users with access", Manage organization's Admins and Members, and Applications All are its screens, and the library's `list-frame` entry shows it on Applications All and the people with access.
 Inside a `scroll="body"` dialog it needs nothing of its own, since the dialog's body scrolls it; the library's `summaries` entry shows it there, with no `findKey`, so the words go with the dialog.
 Enter in its field does nothing, so in a dialog's form it never saves what the person was only looking through.
 
