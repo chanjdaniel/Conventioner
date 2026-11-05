@@ -142,7 +142,9 @@ function toggle(key: string, on: boolean) {
 }
 
 .highlight-kind {
+  flex-shrink: 0;
   margin-left: auto;
+  white-space: nowrap;
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
