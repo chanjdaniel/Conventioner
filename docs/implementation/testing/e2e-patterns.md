@@ -16,7 +16,7 @@ describes:
   - front-end/e2e/helpers/settle.ts
   - front-end/src/utils/utils.ts#getFormattedDate
   - front-end/e2e/helpers/phoneWindow.ts#inTheWindow
-verified: 2026-11-06
+verified: 2026-11-08
 sources:
   - E21/F02/S02
   - E22/F04/S02
@@ -38,6 +38,7 @@ sources:
   - T181
   - T211
   - T205
+  - T223
 ---
 
 # E2E patterns
@@ -115,6 +116,11 @@ Every signed-out vendor page, and every vendor request that finds its tab's sign
 A stack's interfaces keep changing for a while after `up` returns: each takes an IPv6 address within a second, and changes link state again about 15 seconds later, and Chromium fails whatever it has in flight with `net::ERR_NETWORK_CHANGED` at each change, so the first spec after a stack started lost a module and failed.
 `global-setup.ts` waits until the host's newest container interface (`veth`, `br-` or `docker`, aged by its `/sys/class/net` entry) is 20 seconds old ([`networkSettles.ts`](../../../front-end/e2e/helpers/networkSettles.ts)), and prints how long; a settled host, or one with no such interface, waits for nothing.
 Another stack starting or stopping during a run can still abort a request: [CI and the gate](ci-and-the-gate.md#the-no-mistakes-gate) has the lock that keeps two gate runs apart.
+
+**A spec finds a market or an organization by name through the page's search, never by scanning the cards.**
+Markets and Organizations show 50 cards at a time, in date order and in the order the organizations were made, and the shared test user gathers hundreds of markets over runs on one stack, so a card made in the spec can be past the first page.
+`MarketsPage.narrowTo(name)` and `OrganizationsPage.findCard(name)` fill the search when the page draws it and use nothing when it does not, since the page then holds 12 or fewer and shows them all.
+Markets' search is drawn only past 12 markets or while the address holds words, so a spec that types into it gives its user 13 markets of its own, as [`finding-a-market.spec.ts`](../../../front-end/e2e/finding-a-market.spec.ts) does, or brings its words in the address (T223).
 
 **A spec ends an organizer's session on the server**: `mongoEval` unsets the user's `login_id`, so the cookie names a login no account holds and the next request answers 401, as after a password reset; the next sign-in gives the account a new one.
 `context.clearCookies()` ends it only in the browser: the stack keeps its sessions on disk, where it stays until it lapses.

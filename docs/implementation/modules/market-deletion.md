@@ -8,7 +8,7 @@ describes:
   - back-end/app.py#delete_market
   - front-end/e2e/market-records-go-with-it.spec.ts
   - back-end/history.py#delete_for_market
-verified: 2026-11-03
+verified: 2026-11-08
 sources:
   - E20/F04/S01
   - bug/47
