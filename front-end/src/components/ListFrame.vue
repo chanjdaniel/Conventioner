@@ -132,7 +132,8 @@ const typed = computed(() => {
   const asked = route.query[props.findKey];
   return typeof asked === 'string' ? asked : '';
 });
-const words = computed(() => typed.value.trim());
+/** The words the frame finds by: the typed text, trimmed. */
+const trimmed = computed(() => typed.value.trim());
 
 function setTyped(value: string): void {
   const key = props.findKey;
@@ -157,8 +158,8 @@ const showsField = computed(
 
 const found = computed(() => {
   const { finds } = props;
-  return finds && words.value
-    ? props.items.filter((item) => finds(item, words.value))
+  return finds && trimmed.value
+    ? props.items.filter((item) => finds(item, trimmed.value))
     : props.items;
 });
 
@@ -178,7 +179,7 @@ const showsCount = computed(
   () => rowsLeft.value > 0 || (props.showAll ? showsField.value : Boolean(props.finds)),
 );
 
-watch([words, () => props.filterKey], () => {
+watch([trimmed, () => props.filterKey], () => {
   pages.value = 1;
 });
 const onScreen = computed(() => (props.state === 'ready' ? rowsShown.value : []));
@@ -193,9 +194,9 @@ watch(itemKeys, () => {
 const countLine = computed(() => {
   const total = props.items.length;
   const matching = found.value.length;
-  if (words.value) {
-    if (!matching) return `Nothing matches "${words.value}"`;
-    return `${matching} of ${total} ${matching === 1 ? 'matches' : 'match'} "${words.value}"`;
+  if (trimmed.value) {
+    if (!matching) return `Nothing matches "${trimmed.value}"`;
+    return `${matching} of ${total} ${matching === 1 ? 'matches' : 'match'} "${trimmed.value}"`;
   }
   const whole = props.wholeCount ?? total;
   const narrowed = total < whole;
