@@ -230,7 +230,7 @@ test.describe('an organization admin with no role on the market', () => {
       // And the market's card offers Manage, as it does a market admin.
       const markets = new MarketsPage(page);
       await markets.goto();
-      await markets.searchInput.fill(published.marketName);
+      await markets.narrowTo(published.marketName);
       await expect(
         markets.card(published.marketName).getByTestId('market-card-manage-button'),
       ).toBeVisible({ timeout: 15000 });

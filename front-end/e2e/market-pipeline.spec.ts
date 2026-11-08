@@ -19,6 +19,7 @@ import { upcomingSaturday } from './helpers/upcoming';
 // Still to come whenever this runs: a market leaves draft only with such dates (E31/F01/S01).
 const MARKET_DATE = upcomingSaturday();
 import { forgetSignInAttempts, signInOnThePage } from './helpers/vendorSignIn';
+import { MarketsPage } from './pages/MarketsPage';
 
 test.describe('Market pipeline E2E', () => {
   test.beforeAll(async ({ request }) => {
@@ -233,8 +234,10 @@ test.describe('Market pipeline E2E', () => {
     // which the intake-mode gate serves only to form-intake markets, so every MVP market landed
     // on "Page not found". The old assertion here waited for that URL and passed, because the URL
     // was right and only the page was wrong; this asserts what rendered.
-    await page.goto('/markets');
-    await page.getByTestId('market-card').filter({ hasText: marketName }).first().click();
+    const markets = new MarketsPage(page);
+    await markets.goto();
+    await markets.narrowTo(marketName);
+    await markets.card(marketName).first().click();
     await page.waitForURL(/\/markets\/[^/]+\/attendance$/, { timeout: 10000 });
     await expect(page.getByTestId('page-not-found')).toHaveCount(0);
     await expect(page.getByTestId('market-bar-title')).toHaveText(marketName, { timeout: 10000 });

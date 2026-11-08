@@ -173,10 +173,11 @@ test.describe('the bar on a desk', () => {
     await accountButton(page).click();
     await expect(accountMenu(page)).toBeVisible();
 
-    const search = page.getByTestId('markets-search-input');
-    await search.click();
+    // A control every Markets page draws: its search is drawn only past 12 markets (T223).
+    const toggle = page.getByTestId('markets-phase-toggle-draft');
+    await toggle.click();
     await expect(accountMenu(page)).toBeHidden();
-    await expect(search).toBeFocused();
+    await expect(toggle).toBeFocused();
   });
 
   test('cuts a long address with an ellipsis, keeps it whole in a title, and keeps its shape', async ({
@@ -445,13 +446,13 @@ test.describe('the bar on a phone', () => {
     authenticatedPage: page,
   }) => {
     await page.goto('/markets');
-    const search = page.getByTestId('markets-search-input');
-    await expect(search).toBeVisible();
+    const sort = page.getByTestId('markets-sort-select');
+    await expect(sort).toBeVisible();
 
     await menuButton(page).tap();
     await expect(sheetLink(page, 'Markets')).toBeFocused();
 
-    expect(await search.evaluate((el) => el.closest('[inert]') !== null)).toBe(true);
+    expect(await sort.evaluate((el) => el.closest('[inert]') !== null)).toBe(true);
     const logo = page.getByAltText('Conventioner, Markets');
     expect(await logo.evaluate((el) => el.closest('[inert]') !== null)).toBe(true);
     for (const part of [sheet(page), scrim(page), menuButton(page)]) {
@@ -482,7 +483,7 @@ test.describe('the bar on a phone', () => {
     await page.getByRole('button', { name: 'Close menu' }).tap();
     await expect(sheet(page)).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Open menu' })).toBeFocused();
-    expect(await search.evaluate((el) => el.closest('[inert]') !== null)).toBe(false);
+    expect(await sort.evaluate((el) => el.closest('[inert]') !== null)).toBe(false);
   });
 
   test('Escape and a press on the scrim close it and return focus to the button', async ({
@@ -528,7 +529,7 @@ test.describe('the bar on a phone', () => {
     await page.waitForURL(/\/markets$/);
     await expect(sheet(page)).toHaveCount(0);
     expect(
-      await page.getByTestId('markets-search-input').evaluate((el) => el.closest('[inert]')),
+      await page.getByTestId('markets-sort-select').evaluate((el) => el.closest('[inert]')),
     ).toBeNull();
   });
 
@@ -587,7 +588,7 @@ test.describe('the bar on a phone', () => {
   }) => {
     await page.setViewportSize({ width: 640, height: 800 });
     await page.goto('/markets');
-    const search = page.getByTestId('markets-search-input');
+    const sort = page.getByTestId('markets-sort-select');
     await expect(menuButton(page)).toBeVisible();
     await expect(links(page)).toBeHidden();
 
@@ -599,7 +600,7 @@ test.describe('the bar on a phone', () => {
     await expect(scrim(page)).toHaveCount(0);
     await expect(menuButton(page)).toBeHidden();
     await expect(links(page)).toBeVisible();
-    expect(await search.evaluate((el) => el.closest('[inert]'))).toBeNull();
+    expect(await sort.evaluate((el) => el.closest('[inert]'))).toBeNull();
   });
 
   test.describe('on a screen that keeps the desktop floor', () => {

@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-11-04
+verified: 2026-11-08
 sources:
   - wayfinding/readable-journey/07
   - E21/F02/S02
@@ -21,6 +21,7 @@ sources:
   - T181
   - T209
   - T214
+  - T223
 ---
 
 # Finding and opening markets
@@ -61,6 +62,8 @@ Covered by:
 **Status:** Works (walked live; the finder read from the code and `finding-a-market.spec.ts`).
 `/markets` lists every market whose own page opens for the organizer ([what each role may do](../rules/what-each-role-may-do.md)), with its phase badge, dates ("Nov 17-21, 2025 (5 days)"; two separate days are named both, "Oct 3 and 10, 2026") and organization; a long name is cut with an ellipsis rather than wrapped (bug 14).
 Above the list a finder narrows it: "Search" by market name as it is typed (case and accents do not count), "Organization", "Sort by" ("Market date", "Name", "Created") and a "Phase" toggle per stage the phase rail draws, in its order, so no "Offers", which nothing moves a market into (E38/F15/S03), several at once, and none pressed means every phase; once narrowed the count says "N of M markets", and when nothing matches the page says "No markets match these filters" and offers "Clear filters".
+"Search" is drawn only once the account has more than 12 markets, the length past which every list has its find field ([the list frame](../../design-system.md)), or while the address holds words, so they can always be cleared; once it has the focus it stays until the list is next read with the focus elsewhere, so clearing it never drops the caret (T223).
+The list shows 50 markets at a time under the finder, "Showing 50 of 120" under the count and "Show 50 more" after the 50th, which hands the focus to the first new card; a change to the search, a filter or the order goes back to the first 50, and closing a dialog, which reads the list again, keeps the place.
 The finder's choices are held in the page's address; a value there that no longer means anything (an organization the organizer has left, a phase the finder does not offer, `offers` included) is dropped, so an old bookmark opens onto markets.
 Clicking a card opens the market; "Manage", shown to anyone who may read the market, opens the Manage market dialog ([L3 to L5](ending-and-managing-a-market.md#l3-manage-who-has-access)), where each control asks its own row and everyone reads [who may do what](ending-and-managing-a-market.md#l3a-set-who-may-do-what) (E39/F01/S04).
 The list fits a phone, since an organizer at the door finds the market there first (T142): at 390px nothing scrolls sideways, every control is a 44px target, and Manage market and the create-market dialog open inside the window.
@@ -79,8 +82,9 @@ The list fits a phone, since an organizer at the door finds the market there fir
 
 Covered by:
 - `access-control.spec.ts`
-- `finding-a-market.spec.ts`
+- `finding-a-market.spec.ts`, whose user owns 13 markets so its search is drawn
 - `markets-opening-words.spec.ts`
+- [`theMarketsAndOrganizationsAtScale.test.ts`](../../../front-end/src/__tests__/theMarketsAndOrganizationsAtScale.test.ts) for the search at 12 and 13 and the first 50 of 51
 
 ## C3. Open a market by its address
 

@@ -177,8 +177,8 @@ test('a first import left during its write imports nothing, here or into the mar
   // By the app bar and the Markets page, as a person goes, so the app stays the one running.
   await page.getByTestId('app-bar-logo').click();
   const markets = new MarketsPage(page);
-  await markets.searchInput.fill(there.marketName);
-  await markets.cardNames.filter({ hasText: there.marketName }).getByRole('button').click();
+  await markets.narrowTo(there.marketName);
+  await markets.card(there.marketName).getByTestId('market-card-name').getByRole('button').click();
   await expect(page).toHaveURL(new RegExp(`/markets/${there.marketId}/`));
 
   // Answered by the server, so the market re-read that comes next says the write landed.
@@ -271,8 +271,8 @@ async function twoImports(
   const jumpedToAt = await position();
   await page.getByTestId('app-bar-logo').click();
   const markets = new MarketsPage(page);
-  await markets.searchInput.fill(here.marketName);
-  await markets.cardNames.filter({ hasText: here.marketName }).getByRole('button').click();
+  await markets.narrowTo(here.marketName);
+  await markets.card(here.marketName).getByTestId('market-card-name').getByRole('button').click();
   await expect(page).toHaveURL(new RegExp(`/markets/${here.marketId}/`));
   await followTheRail(page, importPage);
   const hereAt = await position();

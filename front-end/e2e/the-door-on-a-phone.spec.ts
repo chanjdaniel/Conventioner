@@ -112,8 +112,7 @@ for (const size of PHONE_AND_DESK) {
       // The market, found on /markets.
       const markets = new MarketsPage(page);
       await markets.goto();
-      await markets.searchInput.fill(seed.marketName);
-      await markets.expectNames([seed.marketName]);
+      await markets.narrowTo(seed.marketName);
       await expectFits(page, '/markets');
 
       // Its Manage market dialog opens inside the window, and closes back to the list.

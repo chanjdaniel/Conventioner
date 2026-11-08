@@ -375,8 +375,7 @@ test.describe('Market visibility - org deletion', () => {
       await page.waitForSelector('.organizations-view', { timeout: 10000 });
 
       const orgsPage = new OrganizationsPage(page);
-      const orgCard = page.getByTestId('organization-card').filter({ hasText: orgName });
-      await expect(orgCard).toBeVisible({ timeout: 5000 });
+      const orgCard = await orgsPage.findCard(orgName);
 
       await orgCard.getByTestId('organizations-manage-button').click();
       await orgsPage.waitForManageOverlay();

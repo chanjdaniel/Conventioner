@@ -15,6 +15,7 @@ import { OrganizationsPage } from './pages/OrganizationsPage';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
 import { seedFloorplanTemplate } from './helpers/seedFloorplanTemplate';
+import { MarketsPage } from './pages/MarketsPage';
 
 const FLOORPLAN_PATH = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -243,8 +244,7 @@ test.describe('Manage organization stays open', () => {
 
     const orgName = `E2E DialogStays ${Date.now()}`;
     await orgs.createOrg(orgName);
-    const card = page.getByTestId('organization-card').filter({ hasText: orgName });
-    await expect(card).toBeVisible({ timeout: 10000 });
+    const card = await orgs.findCard(orgName);
 
     await card.getByTestId('organizations-manage-button').click();
     await orgs.waitForManageOverlay();
@@ -367,9 +367,7 @@ test.describe('Enter means the same thing in every dialog', () => {
     const name = `E2E EnterOrg ${Date.now()}`;
     await orgs.fillOrgName(name);
     await orgs.createNameInput.press('Enter');
-    await expect(page.getByTestId('organization-card').filter({ hasText: name })).toBeVisible({
-      timeout: 10000,
-    });
+    await orgs.findCard(name);
   });
 
   test('the manage-market dialog, which had no Enter handling at all', async ({
@@ -394,10 +392,10 @@ test.describe('Enter means the same thing in every dialog', () => {
     });
     expect(created.ok(), await created.text()).toBeTruthy();
 
-    await page.goto('/markets');
-    await expect(page.locator('.markets-view')).toBeVisible({ timeout: 10000 });
-    const card = page.getByTestId('market-card').filter({ hasText: mine });
-    await expect(card).toBeVisible({ timeout: 10000 });
+    const markets = new MarketsPage(page);
+    await markets.goto();
+    await markets.narrowTo(mine);
+    const card = markets.card(mine);
     await card.getByTestId('market-card-manage-button').click();
 
     const dialog = page.getByTestId('manage-market-window');
@@ -445,8 +443,7 @@ test.describe('A dialog opened from a dialog can be used', () => {
 
     const name = `E2E StackedDialog ${Date.now()}`;
     await orgs.createOrg(name);
-    const card = page.getByTestId('organization-card').filter({ hasText: name });
-    await expect(card).toBeVisible({ timeout: 10000 });
+    const card = await orgs.findCard(name);
 
     await card.getByTestId('organizations-manage-button').click();
     await orgs.waitForManageOverlay();
@@ -473,8 +470,7 @@ test.describe('A dialog opened from a dialog can be used', () => {
 
     const name = `E2E StackedBack ${Date.now()}`;
     await orgs.createOrg(name);
-    const card = page.getByTestId('organization-card').filter({ hasText: name });
-    await expect(card).toBeVisible({ timeout: 10000 });
+    const card = await orgs.findCard(name);
 
     await card.getByTestId('organizations-manage-button').click();
     await orgs.waitForManageOverlay();
@@ -508,8 +504,7 @@ test.describe('A dialog opened from a dialog can be used', () => {
 
     const name = `E2E StackedEscape ${Date.now()}`;
     await orgs.createOrg(name);
-    const card = page.getByTestId('organization-card').filter({ hasText: name });
-    await expect(card).toBeVisible({ timeout: 10000 });
+    const card = await orgs.findCard(name);
 
     await card.getByTestId('organizations-manage-button').click();
     await orgs.waitForManageOverlay();

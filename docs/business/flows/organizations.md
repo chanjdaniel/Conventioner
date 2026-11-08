@@ -4,7 +4,8 @@ kind: flow
 describes:
   - front-end/src/views/OrganizationsView.vue
   - front-end/src/__tests__/OrganizationsView.test.ts
-verified: 2026-11-05
+  - front-end/src/__tests__/theMarketsAndOrganizationsAtScale.test.ts
+verified: 2026-11-08
 sources:
   - E26/F06/S02
   - E26/F08/S01
@@ -21,6 +22,7 @@ sources:
   - T204
   - T224
   - T217
+  - T223
 ---
 
 # Organizations
@@ -48,10 +50,13 @@ Covered by:
 3. Expect a card with the name and your role (Owner).
 
 Each organization's card says its name, your role in it, how many markets it holds and its owner.
+The cards are a [list frame](../../design-system.md), in the order the organizations were made (T223): a line counts them, "3 organizations", past 12 a field, "Find an organization", finds by any part of a name, capitals and accents aside, as Markets' search does, its words held in the address as `search`, and the list shows 50 at a time, "Showing 50 of 51" and "Show 1 more".
+It says "Loading organizations…" while it first reads, "No organizations found" with none, and a failed read says why with "Try again".
 The count is the organization read's `marketCount`, counted from the markets themselves, the count Remove's confirmation says too ([B3](#b3-remove-a-person)), so the two never disagree on one screen (E38/F15/S01); [`OrganizationsView.test.ts`](../../../front-end/src/__tests__/OrganizationsView.test.ts) pins it.
 
 A person with no organization is told on the Markets list and in the create-market dialog to make one here first ([D4](creating-a-market.md#d4-create-a-market-with-no-organization-yet)).
 Covered by:
+- [`theMarketsAndOrganizationsAtScale.test.ts`](../../../front-end/src/__tests__/theMarketsAndOrganizationsAtScale.test.ts) for the field at 12 and 13 and the first 50 of 51
 - `tier2.spec.ts` ("Organization CRUD")
 
 ## B2. Add an admin or a member

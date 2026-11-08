@@ -18,6 +18,8 @@ import {
   FloorplanWorkflowPage,
 } from '../fixtures';
 import { EmailVerificationPage } from '../pages/EmailVerificationPage';
+import { MarketsPage } from '../pages/MarketsPage';
+import { OrganizationsPage } from '../pages/OrganizationsPage';
 import { marketScreenPath, marketSetupPath, oneByOnePath } from './marketScreens';
 import { mongoEval } from './mongo';
 import { createApplicantLoginChallenge } from './seedApplicantMarket';
@@ -169,14 +171,10 @@ const fixed = (path: string) => () => path;
  */
 const managing = (market: keyof TheScreensSeed) => async (page: Page, seed: TheScreensSeed) => {
   const name = (seed[market] as { marketName: string }).marketName;
-  await page.goto('/markets');
-  await visible(page, 'markets-result-count');
-  await page.getByTestId('markets-search-input').fill(name);
-  await page
-    .getByTestId('market-card')
-    .filter({ hasText: name })
-    .getByTestId('market-card-manage-button')
-    .click();
+  const markets = new MarketsPage(page);
+  await markets.goto();
+  await markets.narrowTo(name);
+  await markets.card(name).getByTestId('market-card-manage-button').click();
   await visible(page, 'manage-market-window');
 };
 
@@ -185,10 +183,11 @@ const managing = (market: keyof TheScreensSeed) => async (page: Page, seed: TheS
  * addresses drawn and both its add rows open.
  */
 const managingTheOrganization = async (page: Page, seed: TheScreensSeed) => {
-  await page.goto('/organizations');
-  await page
-    .getByTestId('organization-card')
-    .filter({ hasText: seed.organization.name })
+  const orgs = new OrganizationsPage(page);
+  await orgs.goto();
+  await (
+    await orgs.findCard(seed.organization.name)
+  )
     .getByTestId('organizations-manage-button')
     .click();
   await visible(page, 'manage-org-member-email');
@@ -203,10 +202,11 @@ const managingTheOrganization = async (page: Page, seed: TheScreensSeed) => {
  * (E38/F15/S01): the confirmation names their long address and what they lose.
  */
 const removingFromTheOrganization = async (page: Page, seed: TheScreensSeed) => {
-  await page.goto('/organizations');
-  await page
-    .getByTestId('organization-card')
-    .filter({ hasText: seed.organization.name })
+  const orgs = new OrganizationsPage(page);
+  await orgs.goto();
+  await (
+    await orgs.findCard(seed.organization.name)
+  )
     .getByTestId('organizations-manage-button')
     .click();
   await visible(page, 'manage-org-member-email');

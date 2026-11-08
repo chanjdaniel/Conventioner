@@ -16,6 +16,10 @@ export class OrganizationsPage {
   readonly createButton: Locator;
   readonly orgCards: Locator;
   readonly manageButtons: Locator;
+  /** "Find an organization", drawn past 12 (T223). */
+  readonly findInput: Locator;
+  /** The list's count line, drawn once the list has been read. */
+  readonly listCount: Locator;
 
   // ── Create org overlay ──
   readonly createOverlayBackground: Locator;
@@ -91,6 +95,8 @@ export class OrganizationsPage {
     this.createButton = page.getByTestId('organizations-create-button');
     this.orgCards = page.getByTestId('organization-card');
     this.manageButtons = page.getByTestId('organizations-manage-button');
+    this.findInput = page.getByTestId('organizations-list-find');
+    this.listCount = page.getByTestId('organizations-list-count');
 
     // Create org overlay
     this.createOverlayBackground = page.getByTestId('organizations-overlay-background');
@@ -165,6 +171,21 @@ export class OrganizationsPage {
 
   async waitForLoaded(): Promise<void> {
     await this.page.waitForSelector('.organizations-view', { timeout: 10000 });
+  }
+
+  /**
+   * One organization's card, found as a person finds it: by "Find an organization" when the page
+   * offers it, and by nothing at 12 or fewer. The list shows 50 at a time in the order the
+   * organizations were made (T223), so a new one on an account that has gathered many is past the
+   * first page. The words stay in the address as `search`, the find field filled, until changed.
+   */
+  async findCard(name: string): Promise<Locator> {
+    await expect(this.createNameInput).toBeHidden();
+    await expect(this.listCount).toBeVisible({ timeout: 10000 });
+    if (await this.findInput.isVisible()) await this.findInput.fill(name);
+    const card = this.orgCards.filter({ hasText: name });
+    await expect(card.first()).toBeVisible({ timeout: 10000 });
+    return card;
   }
 
   // ── Create org ──
