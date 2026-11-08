@@ -2,6 +2,8 @@ import type { Locator } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { savePlan } from './helpers/savePlan';
+import { MarketsPage } from './pages/MarketsPage';
+import { OrganizationsPage } from './pages/OrganizationsPage';
 
 /**
  * The Markets and Organizations lists read cleanly (bug 14, and items 8 and 9 of bug 43;
@@ -41,9 +43,10 @@ test('a market on two separate days names both, and its name keeps to one line',
   });
   expect(rename.ok(), await rename.text()).toBeTruthy();
 
-  await page.goto('/markets');
-  await page.getByTestId('markets-search-input').fill(market.marketName);
-  const card = page.getByTestId('market-card');
+  const markets = new MarketsPage(page);
+  await markets.goto();
+  await markets.narrowTo(market.marketName);
+  const card = markets.card(market.marketName);
   await expect(card).toHaveCount(1);
 
   await expect(card).toContainText('Oct 3 and 10, 2026');
@@ -58,16 +61,23 @@ test('an organization name keeps to one line, and Manage is one button on both l
   request,
 }) => {
   const market = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-  const orgName = `Pier Collective Society of Independent Makers ${Date.now()}`;
-  const created = await request.post(`${BACKEND_URL}/organizations`, { data: { name: orgName } });
-  expect(created.ok(), await created.text()).toBeTruthy();
+  // A short name beside the long one, found by the stamp they share, so the cards compared are
+  // these two whatever else the account holds: past 50 a new card is past the first page.
+  const stamp = String(Date.now());
+  const orgName = `Pier Collective Society of Independent Makers ${stamp}`;
+  for (const name of [orgName, `Pier ${stamp}`]) {
+    const created = await request.post(`${BACKEND_URL}/organizations`, { data: { name } });
+    expect(created.ok(), await created.text()).toBeTruthy();
+  }
 
-  await page.goto('/organizations');
-  const org = page.getByTestId('organization-card').filter({ hasText: orgName.slice(-13) });
+  const orgs = new OrganizationsPage(page);
+  await orgs.goto();
+  const cards = await orgs.findCard(stamp);
+  await expect(cards).toHaveCount(2);
+  const org = cards.filter({ hasText: orgName });
   const orgTitle = org.locator('h2');
   await expect(orgTitle).toHaveAttribute('title', orgName);
   expect(await lineCount(orgTitle)).toBe(1);
-  const cards = page.getByTestId('organization-card');
   const heights = await cards.evaluateAll((els) =>
     els.map((el) => Math.round(el.getBoundingClientRect().height)),
   );
@@ -80,8 +90,11 @@ test('an organization name keeps to one line, and Manage is one button on both l
     });
   const onOrganizations = await look(org.getByTestId('organizations-manage-button'));
 
-  await page.goto('/markets');
-  await page.getByTestId('markets-search-input').fill(market.marketName);
-  const onMarkets = await look(page.getByTestId('market-card-manage-button'));
+  const markets = new MarketsPage(page);
+  await markets.goto();
+  await markets.narrowTo(market.marketName);
+  const onMarkets = await look(
+    markets.card(market.marketName).getByTestId('market-card-manage-button'),
+  );
   expect(onOrganizations).toBe(onMarkets);
 });

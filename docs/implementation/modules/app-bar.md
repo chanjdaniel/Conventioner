@@ -15,7 +15,7 @@ describes:
   - front-end/src/views/PasswordResetView.vue
   - front-end/e2e/the-app-bar.spec.ts
   - front-end/src/__tests__/theBarsCurrentPlace.test.ts
-verified: 2026-11-05
+verified: 2026-11-08
 sources:
   - T209
   - T214

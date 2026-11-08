@@ -87,13 +87,9 @@ test('Manage organization\'s rows break an address only before its "@" or a dot'
   authenticatedPage: page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/organizations');
-  await page
-    .getByTestId('organization-card')
-    .filter({ hasText: organizationName })
-    .getByTestId('organizations-manage-button')
-    .click();
   const orgs = new OrganizationsPage(page);
+  await orgs.goto();
+  await (await orgs.findCard(organizationName)).getByTestId('organizations-manage-button').click();
   await expect(orgs.manageWindow).toBeVisible();
 
   // A row's address takes what the row leaves it, so it is freed to take the width it is given.

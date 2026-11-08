@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { computed, ref, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { type Organization } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { fetchOrganizations } from '@/utils/organizations';
 import { getRoleDisplayName } from '@/utils/permissions';
 import AppDialog from '@/components/AppDialog.vue';
+import ListFrame from '@/components/ListFrame.vue';
+import { nameHolds } from '@/utils/marketList';
 import type { SummaryFact } from '@/utils/summary';
 import SummaryCard from '@/components/SummaryCard.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
@@ -54,6 +56,16 @@ function retry() {
   loading.value = true;
   void loadOrganizations();
 }
+
+/**
+ * The cards are a `ListFrame` (T223, L12): "Find an organization" past 12, by name as Markets'
+ * search finds a market, its words in the address as `search`, and 50 at a time.
+ */
+const ORGANIZATION = { one: 'organization', many: 'organizations' };
+const findsOrganization = (org: Organization, words: string) => nameHolds(org.name, words);
+const listState = computed(() =>
+  loading.value ? 'loading' : errorMessage.value ? 'failed' : 'ready',
+);
 
 function factsFor(org: Organization): SummaryFact[] {
   return [
@@ -144,48 +156,61 @@ function handleManageChanged() {
     </div>
 
     <div class="content-block">
-      <p v-if="loading" class="empty-state">Loading organizations...</p>
-      <ReadFailed
-        v-else-if="errorMessage"
-        name="organizations"
-        :message="errorMessage"
-        @retry="retry"
-      />
-      <p v-else-if="organizations.length === 0" class="empty-state">No organizations found</p>
-      <div v-else class="cards-container">
-        <SummaryCard
-          v-for="org in organizations"
-          :key="org.id"
-          :facts="factsFor(org)"
-          data-testid="organization-card"
-        >
-          <template #name>
-            <h2 :title="org.name">{{ org.name }}</h2>
-          </template>
-          <template #badge>
-            <span
-              v-if="org.userRole"
-              class="role-badge"
-              :class="`role-${org.userRole}`"
-              :title="`Your role in this organization`"
+      <ListFrame
+        :items="organizations"
+        :finds="findsOrganization"
+        :item-key="(org) => org.id"
+        :noun="ORGANIZATION"
+        find-key="search"
+        find-label="Find an organization"
+        :state="listState"
+        testid="organizations-list"
+      >
+        <template #failed>
+          <ReadFailed name="organizations" :message="errorMessage" @retry="retry" />
+        </template>
+        <template #empty>
+          <p class="empty-state">No organizations found</p>
+        </template>
+        <template #rows="{ rows }">
+          <div class="cards-container">
+            <SummaryCard
+              v-for="org in rows"
+              :key="org.id"
+              :facts="factsFor(org)"
+              data-list-row
+              tabindex="-1"
+              data-testid="organization-card"
             >
-              {{ getRoleDisplayName(org.userRole) }}
-            </span>
-          </template>
-          <template #actions>
-            <!-- The same Manage as on Markets: it was solid black here and outlined there (bug 43). -->
-            <!-- Every one of its people opens it: a member to read its History (E40/F02/S01). -->
-            <button
-              type="button"
-              class="btn btn--secondary"
-              data-testid="organizations-manage-button"
-              @click="handleManage(org)"
-            >
-              Manage
-            </button>
-          </template>
-        </SummaryCard>
-      </div>
+              <template #name>
+                <h2 :title="org.name">{{ org.name }}</h2>
+              </template>
+              <template #badge>
+                <span
+                  v-if="org.userRole"
+                  class="role-badge"
+                  :class="`role-${org.userRole}`"
+                  :title="`Your role in this organization`"
+                >
+                  {{ getRoleDisplayName(org.userRole) }}
+                </span>
+              </template>
+              <template #actions>
+                <!-- The same Manage as on Markets: it was solid black here and outlined there (bug 43). -->
+                <!-- Every one of its people opens it: a member to read its History (E40/F02/S01). -->
+                <button
+                  type="button"
+                  class="btn btn--secondary"
+                  data-testid="organizations-manage-button"
+                  @click="handleManage(org)"
+                >
+                  Manage
+                </button>
+              </template>
+            </SummaryCard>
+          </div>
+        </template>
+      </ListFrame>
     </div>
 
     <ManageOrgOverlay

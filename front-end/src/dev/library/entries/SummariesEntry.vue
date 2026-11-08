@@ -4,15 +4,19 @@
  * line whose "and 9 more" opens the rest, are on their screen, so the real panel is drawn here; and
  * L3's "Show N reviewed", as One by one has it, a dialog holding the frame over every reviewed
  * application, whose body scrolls and needs nothing else for the frame. The frame keeps no words in
- * the address, since they would outlive the dialog.
+ * the address, since they would outlive the dialog. L9, the Discord report's "Show who", is the real
+ * report on the fixture's approved vendors, its groups standing over the frame's rows (T223).
  */
 import { ref } from 'vue';
-import { MarketPhase, type Market } from '@/assets/types/datatypes';
+import { MarketPhase, type DiscordRoleRun, type Market } from '@/assets/types/datatypes';
 import AppDialog from '@/components/AppDialog.vue';
+import DiscordRoleReport from '@/components/DiscordRoleReport.vue';
 import EmailAddress from '@/components/EmailAddress.vue';
 import ListFrame from '@/components/ListFrame.vue';
 import NameList from '@/components/NameList.vue';
 import ReviewersPanel from '@/components/market/ReviewersPanel.vue';
+import type { DiscordShown } from '@/utils/discordCheck';
+import type { RoleOutcome } from '@/utils/discordRoles';
 import { reviewed } from '@/utils/reviewQueue';
 import { statusChip, statusLabel } from '@/utils/verdicts';
 import ChoicesForYou from '../parts/ChoicesForYou.vue';
@@ -52,6 +56,45 @@ const findsApplication = (item: { name: string; email: string }, words: string) 
   holds(item.name, words) || holds(item.email, words);
 const idKey = (item: { id: string }) => item.id;
 
+/**
+ * L9: a run over the approved vendors, each outcome as their Discord state on the fixture would leave
+ * it, and one vendor since removed. A possible match was not found, and is offered now.
+ */
+const HELD =
+  'Conventioner ran out of its time with Discord before it reached these vendors. Run it again ' +
+  'to give them the role.';
+const OUTCOME_OF: Record<DiscordShown, RoleOutcome> = {
+  has_role: 'already_had',
+  in_server: 'given',
+  not_found: 'not_found',
+  possible_match: 'not_found',
+  no_username: 'no_username',
+  check_again: 'not_yet',
+};
+const approved = applications.filter(({ status }) => status === 'reviewer_approved');
+const RAN_AT = '2026-10-31T12:00:00+00:00';
+const NOW = Date.parse('2026-10-31T12:05:00+00:00');
+function runOver(vendors: typeof applications): DiscordRoleRun {
+  return {
+    ranAt: RAN_AT,
+    roleName: 'Vendor Nov 2026',
+    outcomes: [
+      ...vendors.map(({ id, export: { discordState } }) => {
+        const outcome = OUTCOME_OF[discordState];
+        return { applicationId: id, outcome, reason: outcome === 'not_yet' ? HELD : null };
+      }),
+      { applicationId: 'an-application-since-removed', outcome: 'given', reason: null },
+    ],
+  };
+}
+const reportAddresses = new Map(applications.map(({ id, email }) => [id, email]));
+const reportNames = Object.fromEntries(applications.map(({ email, name }) => [email, name]));
+const reportOffered = new Set(
+  approved.filter(({ export: e }) => e.discordState === 'possible_match').map(({ id }) => id),
+);
+const wholeRun = runOver(approved);
+const shortRun = runOver(approved.slice(0, 8));
+
 /** The states of the line itself, on people's names, as it reads once an account holds one. */
 const names = people.map(({ name }) => name);
 const presses = ref(0);
@@ -78,7 +121,7 @@ const presses = ref(0);
 
   <LibrarySection
     title='L3: "Show N reviewed", on Applications One by one'
-    :about="`Every verdict given, ${reviewedApplications.length} rows here, in a dialog: the card stays where it is, and the frame finds one. L9, the Discord report's &quot;Show who&quot;, opens a dialog too, its vendors in their groups with no frame yet.`"
+    :about="`Every verdict given, ${reviewedApplications.length} rows here, in a dialog: the card stays where it is, and the frame finds one.`"
   >
     <LibraryPanel label="The reviewed list in a dialog" class="library-wide">
       <div class="library-demo">
@@ -128,6 +171,30 @@ const presses = ref(0);
         </template>
       </ListFrame>
     </AppDialog>
+  </LibrarySection>
+
+  <LibrarySection
+    title='L9: The Discord report&apos;s "Show who", on Vendors'
+    :about="`The real report. Its dialog is the frame over one row per vendor, ${wholeRun.outcomes.length} here: past 12 it finds one by name or address and draws 50 at a time, each group's outcome, whole count and reason standing over its first drawn row, and a group with none drawn not at all. A vendor the page no longer lists is drawn with no words typed, and no words find them. At 12 or fewer it reads with no field and no count.`"
+  >
+    <LibraryPanel label="A run over every approved vendor" class="library-wide">
+      <DiscordRoleReport
+        :run="wholeRun"
+        :addresses="reportAddresses"
+        :names="reportNames"
+        :now="NOW"
+        :offered="reportOffered"
+      />
+    </LibraryPanel>
+    <LibraryPanel label="A run over 8: no field" class="library-wide">
+      <DiscordRoleReport
+        :run="shortRun"
+        :addresses="reportAddresses"
+        :names="reportNames"
+        :now="NOW"
+        :offered="reportOffered"
+      />
+    </LibraryPanel>
   </LibrarySection>
 
   <LibrarySection

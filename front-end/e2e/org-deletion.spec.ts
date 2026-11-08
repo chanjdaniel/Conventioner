@@ -127,8 +127,7 @@ test.describe('Deleting an organization', () => {
     const orgs = new OrganizationsPage(page);
     await orgs.goto();
     await orgs.waitForLoaded();
-    const card = page.getByTestId('organization-card').filter({ hasText: orgName });
-    await expect(card).toBeVisible({ timeout: 10000 });
+    const card = await orgs.findCard(orgName);
     await card.getByTestId('organizations-manage-button').click();
     await orgs.waitForManageOverlay();
     await orgs.clickDelete();
@@ -172,8 +171,7 @@ test.describe('Deleting an organization', () => {
     const orgs = new OrganizationsPage(page);
     await orgs.goto();
     await orgs.waitForLoaded();
-    const card = page.getByTestId('organization-card').filter({ hasText: orgName });
-    await expect(card).toBeVisible({ timeout: 10000 });
+    const card = await orgs.findCard(orgName);
     await card.getByTestId('organizations-manage-button').click();
     await orgs.waitForManageOverlay();
     await orgs.clickDelete();
@@ -220,8 +218,7 @@ test.describe('Deleting an organization', () => {
     const orgs = new OrganizationsPage(page);
     await orgs.goto();
     await orgs.waitForLoaded();
-    const card = page.getByTestId('organization-card').filter({ hasText: orgName });
-    await expect(card).toBeVisible({ timeout: 10000 });
+    const card = await orgs.findCard(orgName);
     await card.getByTestId('organizations-manage-button').click();
     await orgs.waitForManageOverlay();
     await orgs.clickDelete();

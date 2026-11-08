@@ -1,6 +1,7 @@
 import { test, expect, NewMarketPage, BACKEND_URL, APP_API, TEST_USER } from './fixtures';
 import { completePlan, ensureTestOrg } from './helpers/seeds';
 import { decideReviewSetup } from './helpers/decideReviewSetup';
+import { MarketsPage } from './pages/MarketsPage';
 
 /**
  * A public address belongs to one market (E21/F03/S03).
@@ -75,8 +76,10 @@ test.describe('A public address belongs to one market', () => {
     });
     expect(opened.ok(), await opened.text()).toBe(true);
 
-    await page.goto('/markets');
-    const card = page.getByTestId('market-card').filter({ hasText: name });
+    const markets = new MarketsPage(page);
+    await markets.goto();
+    await markets.narrowTo(name);
+    const card = markets.card(name);
     await card.getByTestId('market-card-manage-button').click();
 
     await expect(page.getByTestId('manage-market-rename-fixed')).toContainText(

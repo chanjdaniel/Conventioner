@@ -1,5 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL, LoginPage } from './fixtures';
+import { MarketsPage } from './pages/MarketsPage';
+import { OrganizationsPage } from './pages/OrganizationsPage';
 import { barsDrawn, barWidth, withClassicBars } from './helpers/classicBars';
 import { marketScreenPath } from './helpers/marketScreens';
 import { openScreen, SCREENS } from './helpers/screens';
@@ -35,22 +37,19 @@ async function signIn(page: Page) {
 }
 
 async function openManageMarket(page: Page) {
-  const name = seed.big.marketName;
-  await page.goto('/markets');
-  await page.getByTestId('markets-search-input').fill(name);
-  await page
-    .getByTestId('market-card')
-    .filter({ hasText: name })
-    .getByTestId('market-card-manage-button')
-    .click();
+  const markets = new MarketsPage(page);
+  await markets.goto();
+  await markets.narrowTo(seed.big.marketName);
+  await markets.card(seed.big.marketName).getByTestId('market-card-manage-button').click();
   await expect(page.getByTestId('manage-market-window')).toBeVisible();
 }
 
 async function openManageOrganization(page: Page) {
-  await page.goto('/organizations');
-  await page
-    .getByTestId('organization-card')
-    .filter({ hasText: seed.organization.name })
+  const orgs = new OrganizationsPage(page);
+  await orgs.goto();
+  await (
+    await orgs.findCard(seed.organization.name)
+  )
     .getByTestId('organizations-manage-button')
     .click();
   await expect(page.getByTestId('manage-org-member-email').first()).toBeVisible();

@@ -396,7 +396,7 @@ describe('the Vendors page', () => {
       market({ discord: { ...market().discord, roleRun: nobody } } as Partial<Market>),
     );
 
-    const title = wrapper.find('#role-report-title').text();
+    const title = wrapper.find('[data-testid="vendors-role-report-title"]').text();
     expect(title).toMatch(/^Vendor Nov 2026, last run /);
     expect(title).not.toContain('given');
   });
@@ -430,6 +430,9 @@ describe('the Vendors page', () => {
     expect(groups[1].findAll('[data-testid="vendors-role-report-reason"]')).toHaveLength(1);
     expect(groups[1].text()).toContain('ben@thistle.test');
     expect(groups[1].text()).toContain('cy@thistle.test');
+    // Three vendors read at a glance: no field to find one, and no count over the groups (T223).
+    expect(wrapper.find('[data-testid="vendors-role-report-list-find"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="vendors-role-report-list-count"]').exists()).toBe(false);
   });
 
   it('says so of a vendor the page no longer lists', async () => {
@@ -502,7 +505,9 @@ describe('"Show who"', () => {
     const report = wrapper.find('[data-testid="vendors-role-report"]');
     const button = report.find('[data-testid="vendors-role-report-open"]');
 
-    expect(report.find('#role-report-title').text()).toMatch(/^Vendor Nov 2026, last run /);
+    expect(report.find('[data-testid="vendors-role-report-title"]').text()).toMatch(
+      /^Vendor Nov 2026, last run /,
+    );
     expect(report.find('[data-testid="vendors-role-report-summary"]').text()).toBe(
       '1 given, 2 failed',
     );
@@ -526,7 +531,7 @@ describe('"Show who"', () => {
 
     await openWho(wrapper);
 
-    const line = wrapper.find('#role-report-title').text();
+    const line = wrapper.find('[data-testid="vendors-role-report-title"]').text();
     const dialog = whoWindow(wrapper);
     expect(dialog.attributes('role')).toBe('dialog');
     expect(dialog.attributes('aria-label')).toBe(line);

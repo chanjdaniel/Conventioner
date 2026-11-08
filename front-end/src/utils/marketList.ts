@@ -50,6 +50,11 @@ function folded(text: string): string {
   return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
 }
 
+/** Whether a name holds the words, as Markets' search reads them; Organizations finds the same way. */
+export function nameHolds(name: string, words: string): boolean {
+  return folded(name).includes(folded(words));
+}
+
 function byName(a: Market, b: Market): number {
   return folded(a.name ?? '').localeCompare(folded(b.name ?? ''));
 }
@@ -96,7 +101,7 @@ export function viewMarkets(markets: Market[], query: MarketListQuery, today: st
   const search = folded(query.search);
   const matching = markets.filter(
     (market) =>
-      (!search || folded(market.name ?? '').includes(search)) &&
+      (!search || nameHolds(market.name ?? '', search)) &&
       (!query.organizationId || market.organizationId === query.organizationId) &&
       (query.phases.length === 0 ||
         (query.phases as string[]).includes(effectivePhase(market.phase))),

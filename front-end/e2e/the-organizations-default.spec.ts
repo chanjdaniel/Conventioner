@@ -69,11 +69,7 @@ async function openManage(page: Page): Promise<OrganizationsPage> {
   const orgs = new OrganizationsPage(page);
   await orgs.goto();
   await orgs.waitForLoaded();
-  await page
-    .getByTestId('organization-card')
-    .filter({ hasText: ORG_NAME })
-    .getByTestId('organizations-manage-button')
-    .click();
+  await (await orgs.findCard(ORG_NAME)).getByTestId('organizations-manage-button').click();
   await orgs.waitForManageOverlay();
   await expect(orgs.defaultsSummary).toBeVisible();
   return orgs;
