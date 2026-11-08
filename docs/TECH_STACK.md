@@ -9,7 +9,7 @@ describes:
   - .nvmrc
   - docker-compose.yml
   - front-end/vite.config.ts
-verified: 2026-11-04
+verified: 2026-11-09
 ---
 # Technology Stack
 
@@ -158,7 +158,7 @@ How each part of the code works is in the implementation layer of the [knowledge
   - Public and protected routes
 
 ### HTTP Client
-- **Axios 1.12.2** - Promise-based HTTP client
+- **Axios 1.21.0** - Promise-based HTTP client
   - API communication through one instance, `src/utils/api.ts`
   - Cookie-based authentication support
 
@@ -178,7 +178,7 @@ How each part of the code works is in the implementation layer of the [knowledge
   - `npm run format` fixes and `npm run format:check` verifies; CI runs the check in `frontend-lint-and-types`, so unformatted front-end code fails the build: run `npm run format` before committing
   - The one-time reformat commit is listed in `.git-blame-ignore-revs`, which `git blame` skips once `git config blame.ignoreRevsFile .git-blame-ignore-revs` is set
 - **Stylelint 17** - The design language's gate (`npm run lint:css`, which refuses a warning as it does an error), configured in `stylelint.config.js`
-- **Vue TSC 3.3.13** - TypeScript type checker for Vue
+- **Vue TSC 3.3.14** - TypeScript type checker for Vue
   - Type checking for Vue components
 
 ### Testing Tools
