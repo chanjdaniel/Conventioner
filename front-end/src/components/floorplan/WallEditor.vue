@@ -867,7 +867,7 @@ watch(
 }
 
 .toolbar-btn.is-active:hover {
-  background: color-mix(in srgb, var(--mm-green) 85%, black);
+  background: var(--mm-green-hover);
 }
 
 .toolbar-btn--danger:hover:not(:disabled) {

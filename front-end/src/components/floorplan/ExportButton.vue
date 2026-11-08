@@ -129,14 +129,11 @@ function toggleDropdown() {
   line-height: 1;
   cursor: pointer;
 
-  transition:
-    opacity 0.15s ease-in-out,
-    background-color 0.15s ease-in-out;
+  transition: background-color 0.15s ease-in-out;
 }
 
 .export-btn:hover:not(:disabled) {
-  opacity: 0.85;
-  background: color-mix(in srgb, var(--mm-green) 85%, black);
+  background: var(--mm-green-hover);
 }
 
 .export-btn:disabled {
@@ -255,14 +252,11 @@ function toggleDropdown() {
   line-height: 1;
   cursor: pointer;
 
-  transition:
-    opacity 0.15s ease-in-out,
-    background-color 0.15s ease-in-out;
+  transition: background-color 0.15s ease-in-out;
 }
 
 .export-action-btn:hover:not(:disabled) {
-  opacity: 0.85;
-  background: color-mix(in srgb, var(--mm-green) 85%, black);
+  background: var(--mm-green-hover);
 }
 
 .export-action-btn:disabled {
