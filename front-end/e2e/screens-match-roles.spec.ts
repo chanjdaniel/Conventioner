@@ -4,6 +4,8 @@ import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMarket';
 import {
   ensureOrganizationAdmin,
+  loginViaApi,
+  removeFromOrganization,
   seedPublishedMarketWithAssignments,
   type PublishedSeedResult,
 } from './helpers/seeds';
@@ -199,6 +201,13 @@ test.describe('an organization admin with no role on the market', () => {
       TEST_USER.password,
     );
     await ensureOrganizationAdmin(request, BACKEND_URL, published.orgId, ORG_ADMIN.email);
+  });
+
+  // The seed's shared organization, left as the seed made it for the specs after this one.
+  test.afterAll(async ({ request }) => {
+    if (!published) return;
+    await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    await removeFromOrganization(request, BACKEND_URL, published.orgId, ORG_ADMIN.email);
   });
 
   test('swaps two seats on market day, and is offered what a market admin is', async ({

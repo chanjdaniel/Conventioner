@@ -176,6 +176,39 @@ export async function ensureOrganizationAdmin(
 }
 
 /**
+ * Take `email` off the organization, as its owner, whose session the request carries: the undo of
+ * `ensureOrganizationAdmin` (or of a member added), and nothing when they are not on it.
+ *
+ * A spec that grants on the seed's shared organization undoes it in a teardown, `afterEach` or
+ * `afterAll`, which runs however the test ends: the shards are dealt by time, so any spec may come
+ * after it on the same database, and one that counts the organization's people (Manage market lists
+ * them) would read a person more than the seed made.
+ */
+export async function removeFromOrganization(
+  request: APIRequestContext,
+  baseURL: string,
+  orgId: string,
+  email: string,
+): Promise<void> {
+  const orgs = await request.get(`${baseURL}/organizations`);
+  if (!orgs.ok())
+    throw new Error(`Organization list failed: ${orgs.status()} ${await orgs.text()}`);
+  type Person = { userId: string; email: string };
+  const { organizations = [] } = (await orgs.json()) as {
+    organizations?: { id: string; adminPeople?: Person[]; memberPeople?: Person[] }[];
+  };
+  const org = organizations.find((o) => o.id === orgId);
+  const person = [...(org?.adminPeople ?? []), ...(org?.memberPeople ?? [])].find(
+    (p) => p.email === email,
+  );
+  if (!person) return;
+  const removed = await request.delete(`${baseURL}/organizations/${orgId}/users/${person.userId}`);
+  if (!removed.ok()) {
+    throw new Error(`Removing ${email} from the organization failed: ${await removed.text()}`);
+  }
+}
+
+/**
  * Log in and make sure the user belongs to at least `count` organizations, creating the rest.
  *
  * For a spec whose subject needs a CHOICE of organization: with one, the create-market dialog

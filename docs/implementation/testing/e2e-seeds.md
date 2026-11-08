@@ -7,6 +7,7 @@ describes:
   - front-end/e2e/helpers/seeds.ts#ensureTestOrgs
   - front-end/e2e/helpers/seeds.ts#ensureTestOrg
   - front-end/e2e/helpers/seeds.ts#ensureOrganizationAdmin
+  - front-end/e2e/helpers/seeds.ts#removeFromOrganization
   - front-end/e2e/helpers/seeds.ts#seedMarketWithVendors
   - front-end/e2e/helpers/seeds.ts#seedPublishedMarketWithAssignments
   - front-end/e2e/helpers/seedAssignedMarket.ts
@@ -25,7 +26,7 @@ describes:
   - front-end/e2e/helpers/decideReviewSetup.ts
   - front-end/e2e/helpers/seedPeopleAtScale.ts
   - front-end/e2e/helpers/seedMarketAtScale.ts
-verified: 2026-11-06
+verified: 2026-11-09
 sources:
   - E02
   - E11/F01/S01
@@ -45,6 +46,7 @@ sources:
   - T206
   - T204
   - T223
+  - T234
 ---
 
 # E2E seeds
@@ -71,6 +73,8 @@ A spec that creates a market through the UI calls `ensureTestOrg()` in `beforeAl
 `ensureTestOrgs(count)` is for a spec whose subject is a choice of organization, which a split run (CI shards) no longer guaranteed by accident.
 `ensureOrganizationAdmin(orgId, email)` makes a verified user an admin of that organization, through the owner's session the request carries, and so Admin on every market it holds; it is idempotent across runs.
 Every spec using it adds its own account to the shared `E2E Test Org`, so that account is Admin on every market seeded there and no other spec signs in as it.
+Such a spec takes the account off again with `removeFromOrganization(orgId, email)` in a teardown (`afterEach`, or `afterAll` for a grant made in `beforeAll`), which runs however the test ends: the CI shards are [dealt by time](ci-and-the-gate.md#the-e2e-shards), so any spec may run after it on the same database, and Manage market lists the organization's people, so one more of them moves what stands below the list.
+A spec whose subject is a layout under that list seeds its market in an organization of its own, as `the-markets-history.spec.ts` does.
 
 ## The seed helpers
 

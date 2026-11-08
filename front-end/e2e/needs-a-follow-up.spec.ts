@@ -8,7 +8,7 @@ import {
 } from './helpers/seedPhaseMarket';
 import { oneByOnePath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
-import { ensureOrganizationAdmin } from './helpers/seeds';
+import { ensureOrganizationAdmin, loginViaApi, removeFromOrganization } from './helpers/seeds';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { namelessControls } from './helpers/accessibleNames';
 import { withUser } from './helpers/withUser';
@@ -26,6 +26,18 @@ const ORG_ADMIN = {
   email: 'e2e-follow-up-org-admin@example.com',
   password: 'e2efollowuporgadmin1',
 };
+
+/**
+ * The seed's shared organization a test made ORG_ADMIN an admin of, undone however the test ends,
+ * so a spec after this one on the shard reads the organization's people as the seed made them.
+ */
+let orgAdminOn: string | undefined;
+test.afterEach(async ({ request }) => {
+  if (!orgAdminOn) return;
+  await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+  await removeFromOrganization(request, BACKEND_URL, orgAdminOn, ORG_ADMIN.email);
+  orgAdminOn = undefined;
+});
 
 test('a follow-up is marked, waits out of the queue, holds the market, and is handed on', async ({
   authenticatedPage: page,
@@ -133,6 +145,7 @@ test('an organization admin with no role on the market marks a follow-up and own
     TEST_USER.password,
     { intakeMode: 'form' },
   );
+  orgAdminOn = orgId;
   await ensureOrganizationAdmin(request, BACKEND_URL, orgId, ORG_ADMIN.email);
   await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
   const nadia = seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
@@ -245,6 +258,7 @@ test('an editor from outside the organization is offered only the people on the 
     TEST_USER.password,
     { intakeMode: 'form' },
   );
+  orgAdminOn = orgId;
   await ensureOrganizationAdmin(request, BACKEND_URL, orgId, ORG_ADMIN.email);
   await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
   seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');

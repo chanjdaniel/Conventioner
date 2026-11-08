@@ -13,8 +13,8 @@ describes:
   - front-end/e2e/removing-someone-asks-first.spec.ts
   - front-end/e2e/changing-a-role-asks-first.spec.ts
   - front-end/src/utils/openInsteadOfStepping.ts
-  - front-end/e2e/people-at-scale.spec.ts
-verified: 2026-11-05
+  - front-end/e2e/people-at-scale-market.spec.ts
+verified: 2026-11-08
 sources:
   - E20/F01/S03
   - E21/F03/S04
@@ -132,7 +132,7 @@ Covered by:
 - [`an-address-breaks-only-before-its-at.spec.ts`](../../../front-end/e2e/an-address-breaks-only-before-its-at.spec.ts) (its rows)
 - [`changing-a-role-asks-first.spec.ts`](../../../front-end/e2e/changing-a-role-asks-first.spec.ts) (the confirmation's words, its closes, one write on confirm and where focus goes, a table whose owner moved a row, a refusal, one after someone else moved or removed them first, the arrow keys, and Viewer to Admin in sight at 1280 and 390)
 - [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (the walk's case, and at 390 nothing overflowing and each Remove a 44px target, on one edge)
-- [`people-at-scale.spec.ts`](../../../front-end/e2e/people-at-scale.spec.ts) (the list at 154 people: a page at a time, finding one person, the place kept, someone just added; on a phone at 390 and 320)
+- [`people-at-scale-market.spec.ts`](../../../front-end/e2e/people-at-scale-market.spec.ts) (the list at 154 people: a page at a time, finding one person, the place kept, someone just added; on a phone at 390 and 320)
 - [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) (the confirmation's words, Cancel, Escape, confirming and where focus goes, someone removed in another window included, at 1440 and 390)
 - `the-manage-market-dialog-holds-together.spec.ts`
 - `tier2.spec.ts` ("add user, change role, and remove user from market")
