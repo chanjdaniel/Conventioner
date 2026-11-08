@@ -434,15 +434,18 @@ test('someone the row refuses reads the filter at the left and “Checked…” 
 });
 
 test.describe('"Show who"', () => {
-  /** A connected market whose last run reached 40 vendors more than it seats, and one since gone. */
-  async function aLongReport(request: APIRequestContext, roleName = ROLE_NAME) {
+  /**
+   * A connected market whose last run reached `listedCount` vendors, 40 by default, more than it
+   * seats, and one since gone; the last 10 listed were not found.
+   */
+  async function aLongReport(request: APIRequestContext, roleName = ROLE_NAME, listedCount = 40) {
     const seed = await seedAssignedMarket(
       request,
       BACKEND_URL,
       TEST_USER.email,
       TEST_USER.password,
     );
-    const listed = Array.from({ length: 40 }, (_, i) =>
+    const listed = Array.from({ length: listedCount }, (_, i) =>
       approvedVendorApplication(seed.marketId, `e2e-who-${i}@example.com`, {
         dates: [SEED_MARKET_DATE],
         tiers: ['Gold'],
@@ -453,7 +456,7 @@ test.describe('"Show who"', () => {
     recordRoleRun(seed.marketId, roleName, [
       ...listed.map(({ id }, i) => ({
         applicationId: id,
-        outcome: i < 30 ? ('given' as const) : ('not_found' as const),
+        outcome: i < listedCount - 10 ? ('given' as const) : ('not_found' as const),
         reason: null,
       })),
       { applicationId: 'an-application-since-removed', outcome: 'given', reason: null },
@@ -517,6 +520,36 @@ test.describe('"Show who"', () => {
     expect(await vendors.vendorListItems.first().boundingBox(), 'the table after').toEqual(
       tableBefore,
     );
+  });
+
+  test('a report of 12, opened by a mouse, opens on its body with no halo, and the keys scroll it', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Eleven listed and one since gone: 12 rows, so no find field (T223), and nothing else in the
+    // body takes focus, so the dialog opens on its body.
+    const marketId = await aLongReport(request, ROLE_NAME, 11);
+    const vendors = new VendorsPage(page);
+    const body = page.getByTestId('vendors-role-report-who-body');
+    await page.setViewportSize({ width: 1280, height: 480 });
+    await vendors.goto(marketId);
+    await expect(vendors.vendorListItems.first()).toBeVisible({ timeout: 15000 });
+
+    await vendors.roleReportOpen.click();
+
+    await expect(page.getByTestId('vendors-role-report-vendor')).toHaveCount(12);
+    await expect(page.getByTestId('vendors-role-report-list-find')).toHaveCount(0);
+    await expect(page.getByTestId('vendors-role-report-who-shade-bottom')).toBeVisible();
+    await expect(body).toBeFocused();
+    expect(
+      await body.evaluate((scroller) => scroller.matches(':focus-visible')),
+      'a mouse opened it, so no halo',
+    ).toBe(false);
+
+    await page.keyboard.press('End');
+
+    await expect(page.getByTestId('vendors-role-report-who-shade-top')).toBeVisible();
+    await expect(page.getByTestId('vendors-role-report-who-shade-bottom')).toHaveCount(0);
   });
 
   test('closes by Escape and the backdrop with focus back, and fits a phone', async ({

@@ -208,7 +208,7 @@ The card points here: its "Giving roles" block says what is still missing, and o
 A run that cannot start says why in the dialog: no role chosen, the username question gone, Discord out of reach, or the bot no longer in the server.
 Covered by:
 - `back-end/tests/test_discord_connection.py`
-- `giving-the-discord-role.spec.ts` (the report and the rows' Discord states laid out at 390, "Show who" over a table that stays put, its body scrolling under its title, its ways of closing, and it and Give roles inside the window there)
+- `giving-the-discord-role.spec.ts` (the report and the rows' Discord states laid out at 390, "Show who" over a table that stays put, its body scrolling under its title, a report of 12 opened by a mouse on its body with no halo, its ways of closing, and it and Give roles inside the window there)
 - `givingTheDiscordRole.test.ts`
 - `lists-at-scale.spec.ts`, "The role report's dialog" (a run over 120 at 1280 and 390: 50 of 121 in their groups, the next 50 taking the focus, a vendor found by name and by address, the words gone with the dialog)
 - `theRoleReportAtScale.test.ts`
