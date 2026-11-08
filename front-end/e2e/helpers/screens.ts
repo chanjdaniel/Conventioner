@@ -577,7 +577,7 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: FITS_A_PHONE,
     open: at(oneByOne('open'), 'app-monitor-card', [
-      'app-monitor-decided-toggle',
+      'app-monitor-decided-open',
       'app-monitor-decided-row',
     ]),
   },

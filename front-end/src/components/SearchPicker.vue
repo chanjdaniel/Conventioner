@@ -30,7 +30,7 @@
  *   (`aria-activedescendant`).
  * - Given a `cap`, it draws at most that many of what the words find, counted across the groups in
  *   order, then a line saying how many more there are and to type to narrow them. The line is not
- *   a choice, so the keys never land on it; it stays in view as the list scrolls, since a list cut
+ *   a choice, so the keys never land on it; it stands under what scrolls, since a list cut
  *   short says so where it is read. A group the cap alone leaves out is not drawn, as it has matches
  *   and so "None match" would be false. A choice made past the cap is not drawn either: the field
  *   names it, no row is active, and Enter keeps it rather than taking the first row.
@@ -106,6 +106,7 @@ import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue';
 import IconCheck from '@/components/icons/IconCheck.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 import EmailAddress from '@/components/EmailAddress.vue';
+import ScrollBox from '@/components/ScrollBox.vue';
 
 export interface PickerOption {
   value: string;
@@ -360,7 +361,20 @@ const fieldDescribedBy = computed(
 );
 
 const list = ref<HTMLElement | null>(null);
+/** Set as the pointer makes a row active, for the watcher below to leave it where it stands. */
+let pointedAt = false;
+function pointAt(index: number): void {
+  if (active.value === index) return;
+  pointedAt = true;
+  active.value = index;
+}
+// The keys bring a row into view clear of a shade, by its `scroll-margin-block`. A pointer does not:
+// a row moved clear from under it in the shade's depth leaves it on the next row, which moves too.
 watch(active, async (index) => {
+  if (pointedAt) {
+    pointedAt = false;
+    return;
+  }
   await nextTick();
   const option = list.value?.querySelector<HTMLElement>(`#${CSS.escape(optionId(index))}`);
   option?.scrollIntoView?.({ block: 'nearest' });
@@ -630,75 +644,79 @@ function onFocus(): void {
          not closed by the field's blur before the click lands. -->
     <div
       v-if="open"
-      :id="listId"
       ref="list"
-      role="listbox"
       class="search-picker-list"
-      :class="{ 'search-picker-list--capped': moreCount > 0 }"
-      :aria-label="label"
-      :aria-multiselectable="multiple ? 'true' : undefined"
       :data-testid="`${testid}-list`"
       @mousedown.prevent
     >
-      <div
-        v-for="(group, g) in shownGroups"
-        :key="group.label ?? g"
-        role="group"
-        :aria-labelledby="group.label ? `${id}-group-${g}` : undefined"
-        class="search-picker-group"
-        :data-testid="group.testid"
+      <ScrollBox
+        :testid="`${testid}-list-rows`"
+        :shade-testid="`${testid}-list`"
+        :listbox="{ id: listId, label, multiple }"
       >
-        <div v-if="group.label" :id="`${id}-group-${g}`" class="search-picker-group-label">
-          {{ group.label }}
-        </div>
-        <div
-          v-for="(option, o) in group.shown"
-          :id="optionId(groupStarts[g]! + o)"
-          :key="option.value"
-          role="option"
-          class="search-picker-option"
-          :class="{
-            'search-picker-option--active': active === groupStarts[g]! + o,
-            'search-picker-option--several': multiple,
-            'search-picker-option--disabled': option.disabled,
-          }"
-          :aria-selected="isChosen(option) ? 'true' : 'false'"
-          :aria-disabled="option.disabled ? 'true' : undefined"
-          :data-value="option.value"
-          :data-testid="`${testid}-option`"
-          @click="choose(option)"
-          @mousemove="option.disabled || (active = groupStarts[g]! + o)"
-        >
-          <IconCheck
-            v-if="multiple && isChosen(option)"
-            class="search-picker-option-tick"
-            :data-testid="`${testid}-option-tick`"
-          />
-          <span class="search-picker-option-label"
-            ><EmailAddress v-if="option.address" :words="option.label" /><template v-else>{{
-              option.label
-            }}</template></span
+        <div class="search-picker-rows" :class="{ 'search-picker-rows--capped': moreCount > 0 }">
+          <div
+            v-for="(group, g) in shownGroups"
+            :key="group.label ?? g"
+            role="group"
+            :aria-labelledby="group.label ? `${id}-group-${g}` : undefined"
+            class="search-picker-group"
+            :data-testid="group.testid"
           >
-          <span v-if="option.detail" class="search-picker-option-detail">{{ option.detail }}</span>
+            <div v-if="group.label" :id="`${id}-group-${g}`" class="search-picker-group-label">
+              {{ group.label }}
+            </div>
+            <div
+              v-for="(option, o) in group.shown"
+              :id="optionId(groupStarts[g]! + o)"
+              :key="option.value"
+              role="option"
+              class="search-picker-option"
+              :class="{
+                'search-picker-option--active': active === groupStarts[g]! + o,
+                'search-picker-option--several': multiple,
+                'search-picker-option--disabled': option.disabled,
+              }"
+              :aria-selected="isChosen(option) ? 'true' : 'false'"
+              :aria-disabled="option.disabled ? 'true' : undefined"
+              :data-value="option.value"
+              :data-testid="`${testid}-option`"
+              @click="choose(option)"
+              @mousemove="option.disabled || pointAt(groupStarts[g]! + o)"
+            >
+              <IconCheck
+                v-if="multiple && isChosen(option)"
+                class="search-picker-option-tick"
+                :data-testid="`${testid}-option-tick`"
+              />
+              <span class="search-picker-option-label"
+                ><EmailAddress v-if="option.address" :words="option.label" /><template v-else>{{
+                  option.label
+                }}</template></span
+              >
+              <span v-if="option.detail" class="search-picker-option-detail">{{
+                option.detail
+              }}</span>
+            </div>
+            <p
+              v-if="group.label && !group.shown.length && cappedGroups.length > 1"
+              class="search-picker-none"
+            >
+              None match "{{ words }}".
+            </p>
+          </div>
+          <p
+            v-if="!shownOptions.length && cappedGroups.length <= 1"
+            class="search-picker-none"
+            :data-testid="`${testid}-none`"
+          >
+            {{ noneWord ?? 'Nobody' }} matches "{{ words }}".
+          </p>
         </div>
-        <p
-          v-if="group.label && !group.shown.length && cappedGroups.length > 1"
-          class="search-picker-none"
-        >
-          None match "{{ words }}".
-        </p>
-      </div>
-      <p
-        v-if="!shownOptions.length && cappedGroups.length <= 1"
-        class="search-picker-none"
-        :data-testid="`${testid}-none`"
-      >
-        {{ noneWord ?? 'Nobody' }} matches "{{ words }}".
-      </p>
+      </ScrollBox>
       <p
         v-if="moreCount > 0"
         :id="moreId"
-        role="presentation"
         class="search-picker-more"
         :data-testid="`${testid}-more`"
       >
@@ -771,13 +789,14 @@ function onFocus(): void {
   height: var(--space-3);
 }
 
+/* The frame around what scrolls and the line under it, which no shade lies over. Clipping, so the rows
+   and the shades keep to its round corners. */
 .search-picker-list {
   display: flex;
   flex-direction: column;
   max-height: 240px;
   margin-top: var(--space-1);
-  padding: var(--space-1) 0;
-  overflow-y: auto;
+  overflow: hidden;
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: white;
@@ -796,10 +815,12 @@ function onFocus(): void {
   box-shadow: var(--shadow-card);
 }
 
-/* The keys bring the active choice into view clear of the line pinned over the list's foot. */
-.search-picker-list--capped {
+.search-picker-rows {
+  padding: var(--space-1) 0;
+}
+
+.search-picker-rows--capped {
   padding-bottom: 0;
-  scroll-padding-bottom: var(--space-8);
 }
 
 .search-picker-group-label {
@@ -813,6 +834,7 @@ function onFocus(): void {
    and more lines grow the row down from there, so the tick can stand on the first line. */
 .search-picker-option {
   --row-inset: max(var(--space-1), calc((var(--target-min) - 1lh) / 2));
+  scroll-margin-block: var(--edge-shade-depth);
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -871,8 +893,6 @@ function onFocus(): void {
   color: var(--mm-text-muted);
 }
 .search-picker-more {
-  position: sticky;
-  bottom: 0;
   display: flex;
   flex: none;
   align-items: center;
@@ -882,6 +902,5 @@ function onFocus(): void {
   border-top: 1px solid var(--mm-border);
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
-  background: white;
 }
 </style>

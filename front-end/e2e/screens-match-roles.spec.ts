@@ -61,7 +61,7 @@ test('a Viewer reads every market page and is offered nothing to change', async 
     await expect(page.getByTestId('market-read-only')).toContainText('view this market');
 
     await page.goto(oneByOnePath(marketId));
-    await page.getByTestId('app-monitor-decided-toggle').click();
+    await page.getByTestId('app-monitor-decided-open').click();
     await expect(page.getByTestId('app-monitor-decided-row').first()).toBeVisible();
     await expect(page.getByTestId('app-monitor-decided-reject-button')).toHaveCount(0);
     await expect(page.getByTestId('market-read-only')).toHaveCount(1);
@@ -86,7 +86,7 @@ test('an Editor changes the seats, but neither decides nor moves a phase once as
     await expect(page.locator('button.seat-button').first()).toBeVisible({ timeout: 15000 });
 
     await page.goto(oneByOnePath(marketId));
-    await page.getByTestId('app-monitor-decided-toggle').click();
+    await page.getByTestId('app-monitor-decided-open').click();
     await expect(page.getByTestId('app-monitor-decided-row').first()).toBeVisible();
     await expect(page.getByTestId('app-monitor-decided-reject-button')).toHaveCount(0);
     await expect(page.getByTestId('market-setup-applications-condition')).toContainText(

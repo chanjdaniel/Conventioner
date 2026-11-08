@@ -21,6 +21,11 @@
  * says `fieldsLeaveTheStop`, and a text entry inside it leaves the box its stop, one Shift+Tab before
  * the field. A dialog's scrollers say it (T223).
  *
+ * A combobox's list says `listbox`: its scroller is the listbox its field names, and never a Tab stop,
+ * since the field keeps the focus and keys it by `aria-activedescendant`. Its `tabindex="-1"` is what
+ * stops a browser making a stop of a scroller by itself, as Chromium does, which took a Tab press
+ * into a list that closes as the field is left, and dropped the focus to `<body>`.
+ *
  * A strip that scrolls only where its own rule asks, and at a desk would have its child's outer halo
  * clipped for nothing, sets `--scroll-box-overflow: visible` on its root where it does not scroll, and
  * `inherit` under the rule that lets it, to take `base.css`'s value back.
@@ -44,6 +49,8 @@ const props = withDefaults(
     focusable?: boolean;
     /** A text entry inside does not stand in for the stop, as a find field over rows does not. */
     fieldsLeaveTheStop?: boolean;
+    /** The scroller is a combobox's listbox, which its field keys, so it is never a Tab stop. */
+    listbox?: { id: string; label: string; multiple?: boolean };
   }>(),
   { axis: 'y', tone: 'light' },
 );
@@ -60,7 +67,8 @@ const SHADES = ['top', 'bottom', 'left', 'right'] as const;
 const shades = computed(() => SHADES.filter((edge) => more[edge]));
 const shadePrefix = computed(() => props.shadeTestid ?? props.testid);
 const isRegion = computed(() => !!props.label && (props.focusable || overflows.value));
-const isStop = computed(() => props.focusable || needsStop.value);
+const isStop = computed(() => !props.listbox && (props.focusable || needsStop.value));
+const stopIndex = computed(() => (isStop.value ? 0 : props.listbox ? -1 : undefined));
 
 /** What keeps the scroll keys for itself when focused: a text entry, a select, a radio's arrows. */
 const TEXT_ENTRY =
@@ -136,9 +144,11 @@ defineExpose({ scroller });
       class="scroll-box__scroller"
       :class="`scroll-box__scroller--${axis}`"
       :data-testid="testid"
-      :role="isRegion ? 'region' : undefined"
-      :aria-label="isRegion ? label : undefined"
-      :tabindex="isStop ? 0 : undefined"
+      :id="listbox?.id"
+      :role="listbox ? 'listbox' : isRegion ? 'region' : undefined"
+      :aria-label="listbox?.label ?? (isRegion ? label : undefined)"
+      :aria-multiselectable="listbox?.multiple ? 'true' : undefined"
+      :tabindex="stopIndex"
       :data-scroll-stop="isStop ? '' : undefined"
       @scroll="measure"
       @blur="measure"

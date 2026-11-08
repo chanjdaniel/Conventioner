@@ -61,6 +61,7 @@ test('an Editor gives a verdict, and is offered no change to one already given',
 
     // A first verdict is still theirs.
     await review.approve('ana@thistle.test');
+    await review.openDecided();
     await expect(review.decidedGiverOf('ana@thistle.test')).toHaveText(
       new RegExp(`^Approved by ${PEOPLE.editor.email}, `),
     );

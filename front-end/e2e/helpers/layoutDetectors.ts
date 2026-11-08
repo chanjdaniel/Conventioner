@@ -59,6 +59,7 @@ export const GATING = [
   'overlap',
   'squeezed-text',
   'off-scale-type',
+  'scroller-without-a-shade',
 ];
 
 /**

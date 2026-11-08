@@ -114,6 +114,98 @@ eachWindow('the combobox entry', (size) => {
     expect(lastRow.y + lastRow.height).toBeLessThanOrEqual((await box(c7.more)).y + 1);
   });
 
+  test('the list shades the edge with more beyond it, and goes at the end', async ({ page }) => {
+    const c7 = picker(page, 'library-c7');
+    await c7.field.click();
+
+    const rows = page.getByTestId('library-c7-list-rows');
+    const top = page.getByTestId('library-c7-list-shade-top');
+    const bottom = page.getByTestId('library-c7-list-shade-bottom');
+    await expect(bottom).toBeVisible();
+    await expect(top).toHaveCount(0);
+
+    // Its foot stands on the line under the list, which no shade lies over.
+    const shade = (await bottom.boundingBox())!;
+    const line = (await c7.more.boundingBox())!;
+    expect(shade.y + shade.height).toBeCloseTo(line.y, 0);
+
+    await rows.hover();
+    await page.mouse.wheel(0, 1000);
+    await expect(top).toBeVisible();
+    await expect(bottom).toBeVisible();
+
+    await page.mouse.wheel(0, 100000);
+    await expect(bottom).toHaveCount(0);
+    await expect(top).toBeVisible();
+    await expect(c7.more).toBeVisible();
+  });
+
+  test('the keys bring the active row into view, its words clear of a shade', async ({ page }) => {
+    const c7 = picker(page, 'library-c7');
+    await c7.field.click();
+
+    const rows = page.getByTestId('library-c7-list-rows');
+    const words = c7.list.locator('.search-picker-option--active .search-picker-option-label');
+    const box = async (locator: Locator) => (await locator.boundingBox())!;
+    const list = await box(rows);
+    const DEPTH = 12;
+
+    // Far enough to scroll, and short of the last row, where the bottom shade has gone.
+    const down = 20;
+    for (let press = 0; press < down; press++) {
+      await c7.field.press('ArrowDown');
+      const seen = await box(words);
+      expect(seen.y + seen.height, `row ${press + 2}, going down`).toBeLessThanOrEqual(
+        list.y + list.height - DEPTH + 0.5,
+      );
+      expect(seen.y, `row ${press + 2}, going down`).toBeGreaterThanOrEqual(list.y);
+    }
+    expect(await rows.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+
+    // Back up, short of the first row, where the top shade has gone.
+    for (let press = 0; press < down - 1; press++) {
+      await c7.field.press('ArrowUp');
+      const seen = await box(words);
+      expect(seen.y, `row ${down - press}, going up`).toBeGreaterThanOrEqual(list.y + DEPTH - 0.5);
+    }
+
+    // Held down to the last row, and held up to the first: the shade has gone at each end.
+    for (let press = 0; press < 60; press++) await c7.field.press('ArrowDown');
+    await expect(page.getByTestId('library-c7-list-shade-bottom')).toHaveCount(0);
+    for (let press = 0; press < 60; press++) await c7.field.press('ArrowUp');
+    await expect(page.getByTestId('library-c7-list-shade-top')).toHaveCount(0);
+  });
+
+  test('a row under the pointer stays where it stands', async ({ page }) => {
+    const c7 = picker(page, 'library-c7');
+    await c7.field.click();
+
+    const rows = page.getByTestId('library-c7-list-rows');
+    const list = (await rows.boundingBox())!;
+    const scrolled = () => rows.evaluate((el) => el.scrollTop);
+    const before = await scrolled();
+    // Moved a pixel at a time along the list's foot, under its shade.
+    for (const x of [20, 21, 22, 23]) await page.mouse.move(list.x + x, list.y + list.height - 4);
+    await expect(c7.list.locator('.search-picker-option--active')).toBeVisible();
+    expect(await scrolled()).toBe(before);
+  });
+
+  test('Tab leaves the field for what follows it, and the open list is no stop', async ({
+    page,
+  }) => {
+    const c7 = picker(page, 'library-c7');
+    await c7.field.click();
+    await expect(c7.more).toBeVisible();
+
+    await c7.field.press('Tab');
+
+    await expect(c7.list).toHaveCount(0);
+    const onAControl = await page.evaluate(() =>
+      document.activeElement?.matches('a, button, input, select, textarea, [tabindex="0"]'),
+    );
+    expect(onAControl).toBe(true);
+  });
+
   test('228 options are capped, and the line counts what the words find', async ({ page }) => {
     const options = picker(page, 'library-options');
     await options.field.click();

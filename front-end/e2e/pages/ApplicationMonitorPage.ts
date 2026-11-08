@@ -31,7 +31,12 @@ export class ApplicationMonitorPage {
   readonly approveButton: Locator;
   readonly rejectButton: Locator;
   readonly nextButton: Locator;
-  readonly decidedToggle: Locator;
+  /** "Show N reviewed" beside the counts, which opens the dialog of the reviewed (T217). */
+  readonly decidedOpen: Locator;
+  readonly decidedDialog: Locator;
+  readonly decidedFind: Locator;
+  readonly decidedCount: Locator;
+  readonly decidedMore: Locator;
   readonly decidedRows: Locator;
   readonly decidedEmails: Locator;
   /** Why a verdict already given is not this reviewer's to change (E38/F06/S01). */
@@ -81,7 +86,11 @@ export class ApplicationMonitorPage {
     this.approveButton = page.getByTestId('app-monitor-approve-button');
     this.rejectButton = page.getByTestId('app-monitor-reject-button');
     this.nextButton = page.getByTestId('app-monitor-next-button');
-    this.decidedToggle = page.getByTestId('app-monitor-decided-toggle');
+    this.decidedOpen = page.getByTestId('app-monitor-decided-open');
+    this.decidedDialog = page.getByTestId('app-monitor-decided-window');
+    this.decidedFind = page.getByTestId('app-monitor-decided-list-find');
+    this.decidedCount = page.getByTestId('app-monitor-decided-list-count');
+    this.decidedMore = page.getByTestId('app-monitor-decided-list-more');
     this.decidedRows = page.getByTestId('app-monitor-decided-row');
     this.decidedEmails = page.getByTestId('app-monitor-decided-email');
     this.decidedReason = page.getByTestId('app-monitor-decided-reason');
@@ -188,6 +197,7 @@ export class ApplicationMonitorPage {
 
   /** Approve one applicant, and wait for the queue to shrink before moving on. */
   async approve(applicantEmail: string): Promise<void> {
+    await this.closeDecided();
     await this.advanceTo(applicantEmail);
     const before = await this.remaining();
     await this.approveButton.click();
@@ -196,13 +206,14 @@ export class ApplicationMonitorPage {
 
   /** Reject one applicant, and wait for the queue to shrink before moving on. */
   async reject(applicantEmail: string): Promise<void> {
+    await this.closeDecided();
     await this.advanceTo(applicantEmail);
     const before = await this.remaining();
     await this.rejectButton.click();
     await this.waitForReviewed(applicantEmail, 'Rejected', before);
   }
 
-  /** The verdict recorded for one applicant, read from the reviewed list. */
+  /** The verdict recorded for one applicant, read from the reviewed list, once it is open. */
   decidedStatusOf(applicantEmail: string): Locator {
     return this.decidedRows
       .filter({ has: this.page.getByTestId('app-monitor-decided-email').getByText(applicantEmail) })
@@ -236,18 +247,20 @@ export class ApplicationMonitorPage {
     }
     await this.openDecided();
     await expect(this.decidedStatusOf(applicantEmail)).toHaveText(verdict);
+    await this.closeDecided();
   }
 
-  /**
-   * Open the reviewed list, if it is not open. Read from the toggle's own state: whether a row
-   * happened to be visible was a race with the list re-rendering after a verdict, and clicking on a
-   * "closed" read of an open list closed it.
-   */
+  /** Open the dialog of the reviewed, if it is not open: it lies over the card and its buttons. */
   async openDecided(): Promise<void> {
-    await expect(this.decidedToggle).toBeVisible();
-    if ((await this.decidedToggle.getAttribute('aria-expanded')) !== 'true') {
-      await this.decidedToggle.click();
-    }
-    await expect(this.decidedToggle).toHaveAttribute('aria-expanded', 'true');
+    if (await this.decidedDialog.isVisible()) return;
+    await this.decidedOpen.click();
+    await expect(this.decidedDialog).toBeVisible();
+  }
+
+  /** Close the dialog of the reviewed, if it is open, so the card takes a press again. */
+  async closeDecided(): Promise<void> {
+    if (!(await this.decidedDialog.isVisible())) return;
+    await this.page.getByTestId('app-monitor-decided-close-button').click();
+    await expect(this.decidedDialog).toHaveCount(0);
   }
 }
