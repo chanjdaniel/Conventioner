@@ -85,7 +85,7 @@ test('a swap partner is found by typing, and the swap is made as before', async 
 
   await tables.dialog.getByTestId('placement-dialog-swap').click();
   await expect(tables.dialog).toBeHidden();
-  await expect(tables.seatOf('cora@example.com')).toBeVisible();
-  expect(await tables.tableCodeOf(tables.seatOf('cora@example.com'))).toBe(aliceTable);
-  expect(await tables.tableCodeOf(tables.seatOf('alice@example.com'))).toBe(coraTable);
+  // The dialog closes before the tables are re-read, so each seat is awaited where it lands.
+  await expect(tables.seatIn(aliceTable, 'cora@example.com')).toBeVisible();
+  await expect(tables.seatIn(coraTable, 'alice@example.com')).toBeVisible();
 });

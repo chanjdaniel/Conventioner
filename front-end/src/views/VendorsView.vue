@@ -15,6 +15,7 @@ import ExportVendorsDialog from '@/components/ExportVendorsDialog.vue';
 import GiveRolesDialog from '@/components/GiveRolesDialog.vue';
 import DiscordRoleReport from '@/components/DiscordRoleReport.vue';
 import { hasAssignment } from '@/utils/marketPage';
+import ListFrame from '@/components/ListFrame.vue';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
 import {
   filterOptions,
@@ -56,7 +57,7 @@ const assigned = computed(() => hasAssignment(market.value));
 
 /** The market's vendors, read once and shared with the drawer (E35/F01/S01). */
 const details = useVendorDetails(marketId, market);
-const { tableRows, vendorNames, isLoading } = details;
+const { tableRows, vendorNames, legalNames, isLoading } = details;
 /** The open vendor and tab, in the address. */
 const drawer = useVendorDrawer();
 
@@ -64,7 +65,6 @@ const signedOut = ref(false);
 const loadError = computed(() =>
   signedOut.value ? 'You must be signed in.' : details.loadError.value,
 );
-const filterText = ref('');
 
 async function loadVendors(): Promise<void> {
   signedOut.value = !signedInEmail();
@@ -112,7 +112,13 @@ function show(choice: VendorsShown): void {
  * The Assignments page's filters, asked of where each vendor is placed (E28/F02/S02): the same bar and
  * the same address keys as the tables, so a filter set there is still set here.
  */
-const { filters: addressFilters } = useResultFilters();
+const { filters: addressFilters, setFilter } = useResultFilters();
+/**
+ * The search, as typed, in the address, so a refresh and a link keep it. Under the Assignments page's
+ * key, but it never travels between them (`placeFilterQuery`), and the bar here neither offers nor
+ * clears it.
+ */
+const filterText = computed(() => addressFilters.value.search);
 /** The where-filters, or the date alone beside "Unassigned only" (`filtersBeside`). */
 const offered = computed(() =>
   // None on a refused read: a filter by where vendors sit would ask that read of the list, and
@@ -238,8 +244,13 @@ const filteredVendors = computed(() => {
   if (!term) return listed;
   // Name AND address. The box used to read "Filter by email" and match only that, which on a
   // market of 232 vendors meant knowing someone's address to find them by name.
-  return listed.filter((v) => vendorMatches(term, v.email, vendorNames.value));
+  return listed.filter((v) => vendorMatches(term, v.email, vendorNames.value, legalNames.value));
 });
+
+/** Everything that narrows the rows: a change of any goes back to the first page (`ListFrame`). */
+const listFilterKey = computed(() =>
+  JSON.stringify([shown.value, filters.value, discordShown.value, filterText.value.trim()]),
+);
 
 /** A vendor who never applied, added by hand (E36/F03/S01): offered when the server would take it. */
 const adding = ref(false);
@@ -287,12 +298,13 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
           <label class="filter-label" for="vendor-filter">Search vendors</label>
           <input
             id="vendor-filter"
-            v-model="filterText"
+            :value="filterText"
             type="search"
             placeholder="Filter by name or email…"
             autocomplete="off"
             class="filter-input"
             data-testid="vendors-search-input"
+            @input="setFilter('search', ($event.target as HTMLInputElement).value)"
           />
           <div
             v-if="assigned && (!placementsRefused || anyRejected)"
@@ -462,85 +474,104 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
           <p v-else-if="shown === 'rejected'">Nobody was rejected.</p>
         </div>
 
-        <ul v-else class="vendor-list">
-          <li
-            v-for="vendor in filteredVendors"
-            :key="vendor.rowIndex"
-            class="vendor-row"
-            :class="{ 'vendor-row--open': vendor.email === drawer.email.value }"
-          >
-            <button
-              type="button"
-              class="vendor-row-button"
-              @click="drawer.open(vendor.email)"
-              data-testid="vendors-list-item"
-            >
-              <VendorIdentity
-                class="vendor-email"
-                :email="vendor.displayEmail"
-                :names="vendorNames"
-              />
-              <span v-if="assigned || discordChecked" class="vendor-meta">
-                <!-- Discord leads at every width, then the badge or verdict, then "Added", then the
-                     date count, each a column of its own width, so every column holds one place down
-                     the list. A vendor who applied after the check has no state yet, and keeps the
-                     column empty. -->
-                <span v-if="discordChecked" class="vendor-discord">
-                  <span
-                    v-if="discordByApplication.get(vendor.applicationId)"
-                    :class="discordShownChip(discordByApplication.get(vendor.applicationId)!.shown)"
-                    data-testid="vendors-list-discord"
-                    ><span class="visually-hidden">Discord: </span
-                    >{{
-                      discordShownLabel(discordByApplication.get(vendor.applicationId)!.shown)
-                    }}</span
-                  >
-                </span>
-                <template v-if="assigned">
-                  <!-- Whoever needs a table says whether they have one, a vendor added by hand
-                     included (E38/F08/S02); for anyone else the verdict stands there
-                     (E36/F02/S04). -->
-                  <span class="vendor-standing">
-                    <span
-                      v-if="vendor.needsATable"
-                      class="vendor-badge"
-                      :class="
-                        vendor.isAssigned ? 'vendor-badge--assigned' : 'vendor-badge--unassigned'
-                      "
-                      data-testid="vendors-list-badge"
-                    >
-                      {{ vendor.isAssigned ? 'Assigned' : 'Unassigned' }}
+        <!-- Hidden through a re-read rather than gone, so the rows shown stay as many. -->
+        <ListFrame
+          v-if="filteredVendors.length"
+          v-show="!isLoading"
+          :items="filteredVendors"
+          :filter-key="listFilterKey"
+          :item-key="(vendor) => String(vendor.rowIndex)"
+          :noun="{ one: 'vendor', many: 'vendors' }"
+          testid="vendors-list"
+        >
+          <template #rows="{ rows }">
+            <ul class="vendor-list">
+              <li
+                v-for="vendor in rows"
+                :key="vendor.rowIndex"
+                data-list-row
+                tabindex="-1"
+                class="vendor-row"
+                :class="{ 'vendor-row--open': vendor.email === drawer.email.value }"
+              >
+                <button
+                  type="button"
+                  class="vendor-row-button"
+                  @click="drawer.open(vendor.email)"
+                  data-testid="vendors-list-item"
+                >
+                  <VendorIdentity
+                    class="vendor-email"
+                    :email="vendor.displayEmail"
+                    :names="vendorNames"
+                  />
+                  <span v-if="assigned || discordChecked" class="vendor-meta">
+                    <!-- Discord leads at every width, then the badge or verdict, then "Added", then the
+                         date count, each a column of its own width, so every column holds one place down
+                         the list. A vendor who applied after the check has no state yet, and keeps the
+                         column empty. -->
+                    <span v-if="discordChecked" class="vendor-discord">
+                      <span
+                        v-if="discordByApplication.get(vendor.applicationId)"
+                        :class="
+                          discordShownChip(discordByApplication.get(vendor.applicationId)!.shown)
+                        "
+                        data-testid="vendors-list-discord"
+                        ><span class="visually-hidden">Discord: </span
+                        >{{
+                          discordShownLabel(discordByApplication.get(vendor.applicationId)!.shown)
+                        }}</span
+                      >
                     </span>
-                    <span
-                      v-else
-                      :class="statusChip(vendor.status)"
-                      data-testid="vendors-list-status"
-                      >{{ statusLabel(vendor.status) }}</span
-                    >
+                    <template v-if="assigned">
+                      <!-- Whoever needs a table says whether they have one, a vendor added by hand
+                         included (E38/F08/S02); for anyone else the verdict stands there
+                         (E36/F02/S04). -->
+                      <span class="vendor-standing">
+                        <span
+                          v-if="vendor.needsATable"
+                          class="vendor-badge"
+                          :class="
+                            vendor.isAssigned
+                              ? 'vendor-badge--assigned'
+                              : 'vendor-badge--unassigned'
+                          "
+                          data-testid="vendors-list-badge"
+                        >
+                          {{ vendor.isAssigned ? 'Assigned' : 'Unassigned' }}
+                        </span>
+                        <span
+                          v-else
+                          :class="statusChip(vendor.status)"
+                          data-testid="vendors-list-status"
+                          >{{ statusLabel(vendor.status) }}</span
+                        >
+                      </span>
+                      <!-- A slot of its own while anyone listed was added, held empty on everyone else,
+                           so it never moves the columns before it (T137 review note 6). -->
+                      <span v-if="anyAdded" class="vendor-added">
+                        <span
+                          v-if="vendor.added"
+                          class="chip chip--informational"
+                          data-testid="vendors-list-status"
+                          >Added</span
+                        >
+                      </span>
+                      <span
+                        v-if="!placementsRefused"
+                        class="vendor-date-count"
+                        data-testid="vendor-date-count"
+                      >
+                        {{ vendor.assignedDateCount }} of {{ vendor.reachableDateCount }}
+                        {{ vendor.reachableDateCount === 1 ? 'date' : 'dates' }}
+                      </span>
+                    </template>
                   </span>
-                  <!-- A slot of its own while anyone listed was added, held empty on everyone else,
-                       so it never moves the columns before it (T137 review note 6). -->
-                  <span v-if="anyAdded" class="vendor-added">
-                    <span
-                      v-if="vendor.added"
-                      class="chip chip--informational"
-                      data-testid="vendors-list-status"
-                      >Added</span
-                    >
-                  </span>
-                  <span
-                    v-if="!placementsRefused"
-                    class="vendor-date-count"
-                    data-testid="vendor-date-count"
-                  >
-                    {{ vendor.assignedDateCount }} of {{ vendor.reachableDateCount }}
-                    {{ vendor.reachableDateCount === 1 ? 'date' : 'dates' }}
-                  </span>
-                </template>
-              </span>
-            </button>
-          </li>
-        </ul>
+                </button>
+              </li>
+            </ul>
+          </template>
+        </ListFrame>
       </div>
     </MarketFrame>
 

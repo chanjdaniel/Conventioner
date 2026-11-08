@@ -69,6 +69,11 @@ export interface TheScreensSeed {
    */
   rules: SeededMarket;
   /**
+   * In Assignment, run, its first section past the Assignments page's fold of 20 tables (T223), so a
+   * section can unfold.
+   */
+  longSection: SeededMarket;
+  /**
    * Market days, connected to Discord with a long last run on record (T217), in a market of its own
    * since a connection changes the Vendors page and the Tools tab the other markets are walked on.
    */
@@ -691,6 +696,18 @@ export async function seedTheScreens(
   await walk(api, backend, email, rules.marketId, UP_TO_ASSIGNMENT);
   await assignAndPublish(api, backend, email, rules.marketId);
 
+  const planned = plan(two);
+  const longSection = await createMarket(api, backend, email, uniqueMarketName('Long Section'), {
+    ...planned,
+    sections: planned.sections.map((section, at) =>
+      at === 0 ? { ...section, count: 24 } : section,
+    ),
+  });
+  insertApplications(manyVendors(longSection.marketId, 'longsection', 30, two));
+  await walk(api, backend, email, longSection.marketId, UP_TO_ASSIGNMENT);
+  const ran = await api.post(`${backend}/markets/${longSection.marketId}/assignment`);
+  if (!ran.ok()) throw new Error(`Assign failed: ${ran.status()} ${await ran.text()}`);
+
   const roleReport = await createMarket(
     api,
     backend,
@@ -749,6 +766,7 @@ export async function seedTheScreens(
     assignment,
     big,
     rules,
+    longSection,
     roleReport,
     archived,
     csv,

@@ -766,6 +766,20 @@ export const SCREENS: Screen[] = [
     open: at(screen('big', 'assignments'), 'tables-count-assigned'),
   },
   {
+    // A section past the fold of 20 tables, unfolded, its button now "Show fewer" (T223).
+    name: 'the result, a section unfolded',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: async (page, seed) => {
+      await at(screen('longSection', 'assignments'), 'tables-count-assigned')(page, seed);
+      await page
+        .getByRole('button', { name: /^Show all 24 in / })
+        .first()
+        .click();
+      await expect(page.getByRole('button', { name: /^Show fewer in / }).first()).toBeVisible();
+    },
+  },
+  {
     // The ledger of bars (E35/F03/S01): a share in muted ink on white.
     name: 'the statistics',
     who: 'organizer',

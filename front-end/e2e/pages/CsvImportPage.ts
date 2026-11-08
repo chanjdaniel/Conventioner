@@ -3,6 +3,26 @@ import { marketScreenPath } from '../helpers/marketScreens';
 import { ChoiceField } from './ChoiceField';
 import { ReviewerChooser } from './ReviewerChooser';
 
+/** One of the import's lists of rows: the first 20, "Show all N", and a find field past 12. */
+class ImportList {
+  readonly root: Locator;
+  readonly find: Locator;
+  readonly count: Locator;
+  readonly more: Locator;
+
+  constructor(page: Page, testid: string) {
+    this.root = page.getByTestId(testid);
+    this.find = page.getByTestId(`${testid}-find`);
+    this.count = page.getByTestId(`${testid}-count`);
+    this.more = page.getByTestId(`${testid}-more`);
+  }
+
+  /** Draw every row, if the list stops short of them. */
+  async showAll(): Promise<void> {
+    if (await this.more.filter({ hasText: /^Show all/ }).isVisible()) await this.more.click();
+  }
+}
+
 /**
  * Page object for the CSV vendor import flow (`/markets/:marketId/import`).
  *
@@ -70,6 +90,9 @@ export class CsvImportPage {
   readonly dropZone: Locator;
   readonly previewMerge: Locator;
   readonly previewFailureRows: Locator;
+  readonly previewFailures: ImportList;
+  readonly rejected: ImportList;
+  readonly repeats: ImportList;
   readonly absentNote: Locator;
   readonly returningNote: Locator;
   readonly repeatNote: Locator;
@@ -82,6 +105,7 @@ export class CsvImportPage {
   readonly confirmButton: Locator;
   readonly resultSummary: Locator;
   readonly failureRows: Locator;
+  readonly failures: ImportList;
 
   constructor(page: Page) {
     this.page = page;
@@ -140,6 +164,17 @@ export class CsvImportPage {
     this.confirmButton = page.getByTestId('import-confirm-button');
     this.resultSummary = page.getByTestId('import-result-summary');
     this.failureRows = page.getByTestId('import-failure-row');
+
+    this.previewFailures = new ImportList(page, 'import-preview-failures-list');
+    this.failures = new ImportList(page, 'import-failures-list');
+    this.repeats = new ImportList(page, 'import-repeats-list');
+    this.rejected = new ImportList(page, 'import-rejected-list');
+  }
+
+  /** What every row the preview refuses says, past its first 20 too. */
+  async allPreviewFailures(): Promise<string[]> {
+    await this.previewFailures.showAll();
+    return await this.previewFailureRows.allInnerTexts();
   }
 
   /**

@@ -4,6 +4,32 @@
  * tested apart from the view that shows it.
  */
 
+/** How many rows each of the import's lists shows before "Show all N". */
+export const IMPORT_LIST_FIRST = 20;
+
+const holds = (text: string, words: string) => text.toLowerCase().includes(words.toLowerCase());
+
+/** A row refused, by what it reads: its row number, its address and its reason. */
+export function findsRefusedRow(
+  failure: { row: number; email: string; error: string },
+  words: string,
+): boolean {
+  return holds(`Row ${failure.row} ${failure.email} ${failure.error}`, words);
+}
+
+/** An earlier submission, by its address and the row it stands on or the row that replaces it. */
+export function findsReplacedRow(
+  repeat: { row: number; email: string; latestRow: number },
+  words: string,
+): boolean {
+  return holds(`Row ${repeat.row} ${repeat.email} row ${repeat.latestRow}`, words);
+}
+
+/** A row a rule rejects, by who it is, as its heading names them. */
+export function findsRejectedRow(row: { email: string; name: string }, words: string): boolean {
+  return holds(row.name, words) || holds(row.email, words);
+}
+
 export interface ImportPreviewCounts {
   rowCount: number;
   validRows: number;

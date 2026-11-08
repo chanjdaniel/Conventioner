@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/CsvImportView.vue
-verified: 2026-11-05
+verified: 2026-11-06
 sources:
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/04
@@ -94,10 +94,15 @@ On a first import only Timestamp and Email Address are mapped for you, even wher
    "The first N rows, as they will be imported" checks the mapping: the first rows that import and no rule rejects, as a list of rows that expand, each headed by the vendor's name over their email and its file row ("Row 2"), the first open.
    A row opens to its answers as the review card lays them out: the market's highlighted answers, then "N more answers" ([review highlights](../rules/review-highlights.md)).
    "Rejected by your automatic rejections", with its count, checks the rules: every row the import's judging will newly reject, in the same format, each marked "Rejected" and opening on "Rejected automatically:" and its reason; its line says who may overturn one, as the market's row "Change a verdict, or overturn an automatic rejection" stands (`rejectedRowsWhy`, "an Admin or the owner" by default, E38/F06/S01).
+   Its first 20 rows show, then "Show all N", and past 12 a field finds a row by name or address.
    Then "Where each answer comes from".
    Last, on a first import and for someone who may choose reviewers (an Admin or the owner, by default), "Reviewers": a field that finds each person they may choose by typing, the chosen as chips above it, none at first (or the reviewers chosen in draft before), and the hint "Choose no one and everyone reviews first come, first served. You can choose reviewers later from the Applications tab." ([the review is dealt among chosen reviewers](../rules/the-review-is-dealt-among-chosen-reviewers.md)).
+   Its confirm waits first for a write of the reviewers a previous page left unanswered, so a refusal shows here and nothing imports; that page's own confirm stops at its write, so a file it held is never imported, here or into the market then on screen, and the person who leaves during the write and never comes back has a draft still waiting on its first import, its reviewers saved if the write was accepted.
+   A jump through history to another market's import starts that market at Upload, without the file, and so does a jump there and back.
+   The answer to a read of the file, a preview or an import sent before the jump changes nothing on screen: what an import wrote is on the first market, and a refusal is shown to no one.
+   "Fix the form" closes at such a jump, and its form read, answered after one, opens nothing, so the first market's form is never saved over the other's; a save already sent lands on the first market.
    A Redo import offers no reviewers: by then they are the Reviewers panel's ([dividing the review](review.md#dividing-the-review)).
-4. **Confirm** ("Import N rows"): when the reviewers chosen differ from the ones stored, they are saved first, so every imported row is dealt to the next reviewer in turn as it arrives; a save that is refused shows its error under the reviewers and imports nothing, and an import refused after the save shows its error as any refused import does, the reviewers staying chosen.
+4. **Confirm** ("Import N rows"): when the reviewers chosen differ from the ones it started from, they are saved first, so every imported row is dealt to the next reviewer in turn as it arrives; a save that is refused shows its error under the reviewers and imports nothing, and an import refused after the save shows its error as any refused import does, the reviewers staying chosen.
    Then "Imported N new applications."; on a first import "This market is now in Review: decide every application, then begin assignment.", and "Go to the review" leads to Applications (bug 16).
 5. Expect N applications, each Open and awaiting review, except those an automatic rejection rejects: "N were rejected by your automatic rejections, each with its reason; an Admin or the owner can overturn any of them.", naming whoever the market's change row lets overturn them ([F3](form-tab.md#f3-what-a-reviewer-reads-first)).
 
@@ -165,6 +170,8 @@ On the Google Form path a later export comes in from Review with the rail's "Red
 
 **Status:** Works (re-walked live on 2026-10-03).
 The preview lists "N rows will be skipped" with every reason for each row, and confirming writes only the good rows (bug 5).
+A bad file does not push the confirm down: the list shows its first 20 rows, then "Show all N", "Show fewer" once they are all drawn, and past 12 rows "Find by address, row number or reason"; the done step's "N rows skipped" reads the same (`lists-at-scale.spec.ts`).
+The earlier submissions a preview says will be replaced stop at 20 the same way, found by address or row.
 A blank row says "Every column this import reads is empty."; an answer the organizer chose to ignore on a required question says so, rather than that the applicant left it blank, and the fix is on the previous step.
 
 ### H2j. Import after review has begun

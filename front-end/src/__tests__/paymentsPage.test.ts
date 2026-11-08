@@ -163,6 +163,17 @@ describe('the Payments page sort', () => {
 });
 
 describe('the Payments page search', () => {
+  it('finds someone going by another name by the name on their identification', () => {
+    const found = (legalNames?: Record<string, string>) =>
+      shownVendors(
+        ALL,
+        { shown: null, search: 'marchetti', names: NAMES, legalNames },
+        { key: 'vendor', descending: false },
+      ).map((v) => v.email);
+    expect(found()).toEqual([]);
+    expect(found({ [BEN.email]: 'Ben Marchetti' })).toEqual([BEN.email]);
+  });
+
   it('finds by name or address, within the filter', () => {
     const found = (search: string, shown: 'owes' | null = null) =>
       shownVendors(ALL, { shown, search, names: NAMES }, { key: 'vendor', descending: false }).map(

@@ -148,6 +148,10 @@ describe('the seed the Applications tab’s All view gives the export', () => {
     expect(applicationsAllSeed({ filter: 'all', mine: false })).toEqual(NO_FILTERS);
   });
 
+  it('carries the words, trimmed', () => {
+    expect(applicationsAllSeed({ filter: 'all', mine: false, search: ' ann ' }).search).toBe('ann');
+  });
+
   it('turns "Open" into the open applications', () => {
     expect(applicationsAllSeed({ filter: 'undecided', mine: false }).statuses).toEqual(['open']);
   });
@@ -985,8 +989,8 @@ describe('the dialog', () => {
       'keeps Enter in %s from the form',
       async (testid) => {
         const wrapper = await unfolded();
-        // Vue skips a listener attached in the millisecond an inner listener stamped the event, so
-        // the combobox's own keydown would hide the form's now and then; no person is that quick.
+        // Vue skips a listener attached in the millisecond an inner listener stamped the event, as
+        // the picker's does, so a key pressed the moment the filters unfold would miss their guard.
         await new Promise((resolve) => setTimeout(resolve, 2));
 
         const enter = new KeyboardEvent('keydown', {

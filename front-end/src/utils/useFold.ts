@@ -13,15 +13,19 @@
  *   the window's top edge.
  *
  * It stays as it was when the rows change: a fold is the reader's, and unlike a list frame's pages it
- * starts nothing new.
+ * starts nothing new. A page that must keep it past the list's own life, or change it from outside,
+ * passes the `unfolded` ref (`useGroupFolds`); the focus moves only on the list's own button.
  *
  * Bind `list` to the rows' parent, with the rows its first children, and `button` to the button, with
  * `ref="list"` and `ref="button"`, and each row's `tabindex` to `rowTabindex(index)`.
  */
-import { computed, nextTick, ref } from 'vue';
+import { computed, nextTick, ref, type Ref } from 'vue';
 
-export function useFold<T>(items: () => readonly T[], fold: () => number | undefined) {
-  const unfolded = ref(false);
+export function useFold<T>(
+  items: () => readonly T[],
+  fold: () => number | undefined,
+  unfolded: Ref<boolean> = ref(false),
+) {
   const list = ref<HTMLElement>();
   const button = ref<HTMLButtonElement>();
 
@@ -37,9 +41,11 @@ export function useFold<T>(items: () => readonly T[], fold: () => number | undef
   const rowTabindex = (index: number) => (index === fold() ? -1 : undefined);
 
   async function toggle(): Promise<void> {
-    unfolded.value = !unfolded.value;
+    // Read now: a fold the page holds is only as it was told once the page has drawn it.
+    const unfolding = !unfolded.value;
+    unfolded.value = unfolding;
     await nextTick();
-    if (unfolded.value) (list.value?.children[fold()!] as HTMLElement | undefined)?.focus();
+    if (unfolding) (list.value?.children[fold()!] as HTMLElement | undefined)?.focus();
     else button.value?.scrollIntoView({ block: 'center' });
   }
 

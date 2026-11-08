@@ -2,7 +2,12 @@ import { computed, ref, type Ref } from 'vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { fetchMarketApplications } from '@/utils/applicantApi';
 // One rendering of an answer for the drawer, its dialog and the review card alike (E41/F01/S01).
-import { ESSENTIAL_KEY_PREFIX, answerText, applicantName } from '@/utils/essentialFields';
+import {
+  ESSENTIAL_KEY_PREFIX,
+  FULL_NAME_KEY,
+  answerText,
+  applicantName,
+} from '@/utils/essentialFields';
 import { getFormattedDate } from '@/utils/utils';
 import { datesTheyNeed } from '@/utils/datesWithinReach';
 import { addedLine, verdictLine } from '@/utils/verdicts';
@@ -172,6 +177,17 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
       if (email && name) names[email] = name;
     }
     return { ...names, ...servedNames.value };
+  });
+
+  /** The name on each vendor's identification, which a search finds as well (`vendorMatches`). */
+  const legalNames = computed<VendorNames>(() => {
+    const names: Record<string, string> = {};
+    for (const application of applications.value) {
+      const email = (application.applicantEmail ?? '').trim().toLowerCase();
+      const name = String(application.formData?.[FULL_NAME_KEY] ?? '').trim();
+      if (email && name) names[email] = name;
+    }
+    return names;
   });
 
   function forgetPlacements(): void {
@@ -376,6 +392,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
     applications,
     tableRows,
     vendorNames,
+    legalNames,
     isLoading,
     loaded,
     loadError,

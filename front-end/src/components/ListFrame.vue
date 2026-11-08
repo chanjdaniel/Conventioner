@@ -11,6 +11,10 @@ export const LIST_FIND_FROM = 12;
  *
  * - `items` come already narrowed by the screen's filters; the frame narrows them further by the
  *   words in its find field, through the screen's `finds`, which gets the words trimmed.
+ * - A screen whose own field stands elsewhere, pinned with the frame, gives no `finds`: the frame
+ *   draws no field and `items` are final, so `filterKey` must carry the screen's words as well as its
+ *   filters. The count line shows only while the cap leaves rows off, since the screen's own line
+ *   counts the rest, and `empty` speaks for what the screen's words found nothing for.
  * - The field shows once the whole list passes `findFrom`: `wholeCount` on a screen with filters, so
  *   a narrow filter never takes the field away, and `items` without one. It also stays while it
  *   holds words, which would otherwise narrow the rows with no way to clear them. Once focused it
@@ -25,6 +29,19 @@ export const LIST_FIND_FROM = 12;
  * - The shown count goes back to one page only when the words or `filterKey` change, the choice of
  *   rows being someone's. A read again or a verdict that changes the rows holds the place.
  * - "Show N more" hands the focus to the first new row, since the button goes with the last page.
+ * - With `showAll`, a list read whole by asking: `pageSize` says the first page, the button reads
+ *   "Show all N" and draws every row the words find, handing the focus on the same way, then "Show
+ *   fewer", which goes back to one page, keeps the focus and brings itself into view, as `useFold`
+ *   does. The count line shows only with the field or while rows are cut, since a list that short is
+ *   read at a glance, often under a heading that counts it.
+ * - A screen whose rows are its own (a `ul` or `table` with its own classes, or groups between the
+ *   rows) gives the `rows` slot rather than `row`, each row carrying `data-list-row` and
+ *   `tabindex="-1"`, which is how the focus finds it.
+ * - `aboveRows` stands between the tools and the count line, in every state, for what acts on the
+ *   rows; `drawn` says which rows are on screen at mount and whenever they change, none while `state`
+ *   draws none, with how many the cap leaves off, for a screen that acts on exactly those.
+ * - With `wholeCount` and the filters leaving fewer than that, the count line says so:
+ *   "Showing 50 of 110 (359 in all)", or "110 of 359 applications" with every row drawn.
  * - Enter in the field does nothing, since the rows narrow as it is typed in: in a dialog's form it
  *   would otherwise submit the form, and save what the person was only looking through.
  * - `state` says what the screen's read is doing: only `'ready'` draws rows. `'failed'` is
@@ -45,18 +62,21 @@ const props = withDefaults(
     wholeCount?: number;
     /** The screen's filters as one string: a change goes back to one page. */
     filterKey?: string;
-    /** Whether the words, trimmed, find this row. */
-    finds: (item: T, words: string) => boolean;
+    /** Whether the words, trimmed, find this row; without it the frame has no field. */
+    finds?: (item: T, words: string) => boolean;
     /** What tells a row from the others, across reads. */
     itemKey: (item: T) => string;
     /** What a row is, for the count line and what the frame says of the list. */
     noun: { one: string; many: string };
     pageSize?: number;
+    /** After the first page the button draws every row, then folds them, rather than paging. */
+    showAll?: boolean;
     /** The find field shows when the whole list is longer than this. */
     findFrom?: number;
     /** The route query key that holds the words; without one they stay in the frame. */
     findKey?: string;
-    findLabel: string;
+    /** The field's label, with `finds`. */
+    findLabel?: string;
     state?: 'ready' | 'loading' | 'failed';
     /** What a failed read says, `getApiErrorMessage`'s on a screen. */
     failedMessage?: string;
@@ -66,6 +86,8 @@ const props = withDefaults(
   {
     wholeCount: undefined,
     filterKey: undefined,
+    finds: undefined,
+    findLabel: undefined,
     pageSize: 50,
     findFrom: LIST_FIND_FROM,
     state: 'ready',
@@ -74,12 +96,21 @@ const props = withDefaults(
   },
 );
 
-defineEmits<{ retry: [] }>();
+const emit = defineEmits<{
+  retry: [];
+  /** The rows on screen, and how many more `Show N more` would reach. */
+  drawn: [rows: T[], left: number];
+}>();
 
 defineSlots<{
   /** The screen's filters: each is its own item in the row beside the find field, and sizes itself. */
   filters?: () => unknown;
-  row: (scope: { item: T; index: number }) => unknown;
+  /** What acts on the rows: over the count line, in every state, so it says for itself when it shows. */
+  aboveRows?: () => unknown;
+  /** One row, in the frame's own list. */
+  row?: (scope: { item: T; index: number }) => unknown;
+  /** The rows on screen, drawn by the screen; each row carries `data-list-row` and `tabindex="-1"`. */
+  rows?: (scope: { rows: T[] }) => unknown;
   /** Why there are no `items`. */
   empty?: () => unknown;
   failed?: () => unknown;
@@ -118,22 +149,41 @@ const field = ref<HTMLInputElement>();
 const fieldKept = ref(false);
 const showsField = computed(
   () =>
-    (props.wholeCount ?? props.items.length) > props.findFrom ||
-    typed.value !== '' ||
-    fieldKept.value,
+    Boolean(props.finds) &&
+    ((props.wholeCount ?? props.items.length) > props.findFrom ||
+      typed.value !== '' ||
+      fieldKept.value),
 );
 
-const found = computed(() =>
-  words.value ? props.items.filter((item) => props.finds(item, words.value)) : props.items,
-);
+const found = computed(() => {
+  const { finds } = props;
+  return finds && words.value
+    ? props.items.filter((item) => finds(item, words.value))
+    : props.items;
+});
 
+/** How many pages are drawn: `Infinity` once `showAll` has drawn them all. */
 const pages = ref(1);
 const rowsShown = computed(() => found.value.slice(0, pages.value * props.pageSize));
 const rowsLeft = computed(() => found.value.length - rowsShown.value.length);
 const nextPageRows = computed(() => Math.min(props.pageSize, rowsLeft.value));
+const folds = computed(
+  () => props.showAll && !rowsLeft.value && found.value.length > props.pageSize,
+);
+const moreWords = computed(() => {
+  if (folds.value) return 'Show fewer';
+  return props.showAll ? `Show all ${found.value.length}` : `Show ${nextPageRows.value} more`;
+});
+const showsCount = computed(
+  () => rowsLeft.value > 0 || (props.showAll ? showsField.value : Boolean(props.finds)),
+);
 
 watch([words, () => props.filterKey], () => {
   pages.value = 1;
+});
+const onScreen = computed(() => (props.state === 'ready' ? rowsShown.value : []));
+watch(onScreen, (drawn) => emit('drawn', drawn, drawn.length ? rowsLeft.value : 0), {
+  immediate: true,
 });
 const itemKeys = computed(() => props.items.map(props.itemKey).join('\n'));
 watch(itemKeys, () => {
@@ -147,22 +197,35 @@ const countLine = computed(() => {
     if (!matching) return `Nothing matches "${words.value}"`;
     return `${matching} of ${total} ${matching === 1 ? 'matches' : 'match'} "${words.value}"`;
   }
-  if (rowsLeft.value) return `Showing ${rowsShown.value.length} of ${total}`;
+  const whole = props.wholeCount ?? total;
+  const narrowed = total < whole;
+  if (rowsLeft.value) {
+    const showing = `Showing ${rowsShown.value.length} of ${total}`;
+    return narrowed ? `${showing} (${whole} in all)` : showing;
+  }
+  if (narrowed) return `${total} of ${whole} ${props.noun.many}`;
   return `${total} ${total === 1 ? props.noun.one : props.noun.many}`;
 });
 
-const list = ref<HTMLUListElement>();
+const frame = ref<HTMLElement>();
+const moreButton = ref<HTMLButtonElement>();
 
 async function showMore(): Promise<void> {
+  if (folds.value) {
+    pages.value = 1;
+    await nextTick();
+    moreButton.value?.scrollIntoView({ block: 'center' });
+    return;
+  }
   const firstNew = rowsShown.value.length;
-  pages.value += 1;
+  pages.value = props.showAll ? Infinity : pages.value + 1;
   await nextTick();
-  (list.value?.children[firstNew] as HTMLElement | undefined)?.focus();
+  frame.value?.querySelectorAll<HTMLElement>('[data-list-row]')[firstNew]?.focus();
 }
 </script>
 
 <template>
-  <div class="list-frame" :data-testid="testid">
+  <div ref="frame" class="list-frame" :data-testid="testid">
     <div
       v-if="showsField || $slots.filters"
       class="list-frame__tools"
@@ -187,6 +250,8 @@ async function showMore(): Promise<void> {
       <div v-if="$slots.filters" class="list-frame__filters"><slot name="filters" /></div>
     </div>
 
+    <slot name="aboveRows" />
+
     <p
       v-if="state === 'loading'"
       class="list-frame__words"
@@ -209,13 +274,15 @@ async function showMore(): Promise<void> {
     </div>
     <template v-else>
       <!-- Announced: a reader stays in the field while the rows change under it. -->
-      <p class="list-frame__words" role="status" :data-testid="`${testid}-count`">
+      <p v-if="showsCount" class="list-frame__words" role="status" :data-testid="`${testid}-count`">
         {{ countLine }}
       </p>
-      <ul v-if="found.length" ref="list" class="list-frame__rows" :data-testid="`${testid}-rows`">
+      <slot v-if="found.length && $slots.rows" name="rows" :rows="rowsShown" />
+      <ul v-else-if="found.length" class="list-frame__rows" :data-testid="`${testid}-rows`">
         <li
           v-for="(item, index) in rowsShown"
           :key="itemKey(item)"
+          data-list-row
           tabindex="-1"
           class="list-frame__row"
           :data-testid="`${testid}-row`"
@@ -223,14 +290,16 @@ async function showMore(): Promise<void> {
           <slot name="row" :item="item" :index="index" />
         </li>
       </ul>
+      <!-- One element through "Show all N" and "Show fewer", or the fold would drop the focus. -->
       <button
-        v-if="rowsLeft"
+        v-if="rowsLeft || folds"
+        ref="moreButton"
         type="button"
         class="btn btn--secondary list-frame__more"
         :data-testid="`${testid}-more`"
         @click="showMore"
       >
-        Show {{ nextPageRows }} more
+        {{ moreWords }}
       </button>
     </template>
   </div>

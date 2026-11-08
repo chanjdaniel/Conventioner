@@ -15,6 +15,8 @@ export class OpenApplicationsDialog {
   readonly dialog: Locator;
   readonly confirm: Locator;
   readonly cancel: Locator;
+  /** The dialog's close control, its x. */
+  readonly closeControl: Locator;
   readonly error: Locator;
   /** The dialog's chooser of reviewers. */
   readonly chooser: ReviewerChooser;
@@ -30,6 +32,7 @@ export class OpenApplicationsDialog {
     this.dialog = page.getByTestId('open-applications-window');
     this.confirm = page.getByTestId('open-applications-submit-button');
     this.cancel = page.getByTestId('open-applications-cancel-button');
+    this.closeControl = page.getByTestId('open-applications-close-button');
     this.error = page.getByTestId('open-applications-error');
     this.chooser = new ReviewerChooser(this.dialog);
     this.leads = this.dialog.getByTestId('open-applications-leads');

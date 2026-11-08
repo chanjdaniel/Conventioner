@@ -14,7 +14,7 @@
  */
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { whoMayTake } from '@/utils/permissionTable';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 import { useOpenMarket } from '@/utils/openMarket';
@@ -32,14 +32,25 @@ import ValueFixes from '@/components/ValueFixes.vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
 import { EMPTY_ESSENTIAL_OPTIONS, applicantName } from '@/utils/essentialFields';
 import {
+  findsRejectedRow,
+  findsReplacedRow,
+  IMPORT_LIST_FIRST,
   previewHeadline as previewHeadlineText,
   rejectedRowsWhy,
   writingRowCount,
 } from '@/utils/importPreview';
 import { reviewAnswers } from '@/utils/reviewQueue';
 import ImportRowList, { type ImportRow } from '@/components/csvImport/ImportRowList.vue';
+import ImportRefusedRows, { type RefusedRow } from '@/components/csvImport/ImportRefusedRows.vue';
+import ListFrame from '@/components/ListFrame.vue';
 import ReviewerPicker from '@/components/market/ReviewerPicker.vue';
-import { chooseReviewers, reviewerAddresses, sameTeam } from '@/utils/reviewTeam';
+import {
+  chooseReviewers,
+  reviewerAddresses,
+  sameTeam,
+  teamToChange,
+  unansweredWrite,
+} from '@/utils/reviewTeam';
 import {
   MarketPhase,
   type ApplicationForm,
@@ -110,12 +121,6 @@ interface DecidedValue extends UnmatchedValue {
   choice: string | null;
 }
 
-interface ImportFailure {
-  row: number;
-  email: string;
-  error: string;
-}
-
 /** An earlier submission, replaced by the same applicant's later row in the file. */
 interface ImportRepeat {
   row: number;
@@ -179,7 +184,7 @@ const reviewers = ref<string[]>([]);
 watch(
   () => market.value?.id,
   () => {
-    reviewers.value = reviewerAddresses(market.value);
+    reviewers.value = teamToChange(market.value);
   },
   { immediate: true },
 );
@@ -246,10 +251,10 @@ const updated = ref(0);
 const unchanged = ref(0);
 /** How many the market's automatic rejections rejected (E33/F03/S02). */
 const rejectedByRules = ref(0);
-const failures = ref<ImportFailure[]>([]);
+const failures = ref<RefusedRow[]>([]);
 /** What the dry run said would import, and what it said would be skipped. */
 const validRows = ref(0);
-const previewFailures = ref<ImportFailure[]>([]);
+const previewFailures = ref<RefusedRow[]>([]);
 /** How the file lands against what is already here. */
 const newRows = ref(0);
 const updatedRows = ref(0);
@@ -647,16 +652,36 @@ const amendAvailability = computed(() =>
     : null,
 );
 
+/**
+ * The page's stays on one market: it moves on when the page goes, and when the router keeps the page
+ * for another market's import, as a jump through history does, there and back alike. `marketId` goes
+ * on following the address once the page has gone, so it cannot say any of this itself.
+ */
+let visit = 0;
+onBeforeUnmount(() => {
+  visit += 1;
+});
+
+/** Noted before a request: asked at its answer, whether that answer is still this page's to show. */
+function leftSinceNow(): () => boolean {
+  const at = visit;
+  return () => visit !== at;
+}
+
 async function openAmend(options: { fieldLabel?: string; unasked?: string }) {
   amendFieldLabel.value = options.fieldLabel ?? '';
   amendUnasked.value = options.unasked ?? '';
+  const left = leftSinceNow();
   try {
     const { data } = await api.get(`/markets/${marketId.value}/application-form`);
+    if (left()) return;
     amendForm.value = (data?.application_form ?? null) as ApplicationForm | null;
     amendOptions.value = (data?.essential_options ??
       EMPTY_ESSENTIAL_OPTIONS) as EssentialFormOptions;
   } catch (err) {
-    error.value = getApiErrorMessage(err, "Could not read this market's application form.");
+    if (!left()) {
+      error.value = getApiErrorMessage(err, "Could not read this market's application form.");
+    }
     return;
   }
   amendOpen.value = true;
@@ -676,8 +701,10 @@ async function onAmended() {
   const keptGroups = { ...groupTarget.value };
   const keptResolutions = { ...resolutions.value };
   const keptStep = step.value;
+  const left = leftSinceNow();
 
   await inspect();
+  if (left()) return;
 
   // By column index and group stem, both of which are properties of the FILE - and the file is
   // the one thing that did not change.
@@ -692,12 +719,14 @@ async function onAmended() {
 }
 
 async function inspect() {
+  const left = leftSinceNow();
   busy.value = true;
   error.value = '';
   try {
     const { data } = await api.post(`/markets/${marketId.value}/applications/import/inspect`, {
       csvContent: csvContent.value,
     });
+    if (left()) return;
     headers.value = data.headers ?? [];
     sampleValues.value = data.sampleValues ?? [];
     rowCount.value = data.rowCount ?? 0;
@@ -760,7 +789,7 @@ async function inspect() {
     // the page to be seen and changed before anything is previewed (bug 28).
     if (Object.keys(data.restoredMapping ?? {}).length) await readValues(false);
   } catch (e) {
-    error.value = getApiErrorMessage(e, 'That file could not be read.');
+    if (!left()) error.value = getApiErrorMessage(e, 'That file could not be read.');
   } finally {
     busy.value = false;
   }
@@ -796,12 +825,13 @@ function currentResolutions(): Record<string, Record<string, string | null>> {
  * values keep the organizer on the mapping step, with each one shown in the row that owns it.
  */
 async function checkValues() {
+  const left = leftSinceNow();
   busy.value = true;
   error.value = '';
   try {
     await readValues(true);
   } catch (e) {
-    error.value = getApiErrorMessage(e, 'That file could not be checked.');
+    if (!left()) error.value = getApiErrorMessage(e, 'That file could not be checked.');
   } finally {
     busy.value = false;
   }
@@ -809,11 +839,13 @@ async function checkValues() {
 
 /** The dry run: what the file's values mean, and - with `advance` - on to the preview. */
 async function readValues(advance: boolean) {
+  const left = leftSinceNow();
   const { data } = await api.post(`/markets/${marketId.value}/applications/import/preview`, {
     csvContent: csvContent.value,
     mapping: currentMapping(),
     resolutions: currentResolutions(),
   });
+  if (left()) return;
   unmatched.value = data.unmatched ?? [];
   decided.value = data.decided ?? [];
   validRows.value = data.validRows ?? 0;
@@ -832,27 +864,43 @@ async function readValues(advance: boolean) {
 }
 
 /**
- * The confirm: the reviewers first, when the choice differs from the stored team, then the import.
+ * The confirm: the reviewers first, when the choice differs from the team they start from
+ * (`teamToChange`), then the import.
  * A refused reviewers write imports nothing. Once written they stay chosen, so an import that fails
  * after them is tried again without writing them twice.
+ * A page left during those writes stops at them: the file was this stay's, and whatever is on
+ * screen by the answer is not.
  */
 async function confirmImport() {
-  if (offersReviewers.value && !sameTeam(reviewers.value, reviewerAddresses(market.value))) {
+  if (offersReviewers.value) {
+    const pressedOn = marketId.value;
+    const left = leftSinceNow();
     busy.value = true;
     reviewersError.value = '';
     try {
-      await chooseReviewers(marketId.value, reviewers.value);
+      // A write left by a page history took: nothing imports before its answer, and a refusal shows here.
+      await unansweredWrite(pressedOn)?.answer;
+      if (!left() && !sameTeam(reviewers.value, teamToChange(market.value))) {
+        await chooseReviewers(pressedOn, reviewers.value);
+        await refreshMarket();
+      }
     } catch (err) {
-      reviewersError.value = getApiErrorMessage(err, 'Could not save the reviewers.');
+      if (!left()) {
+        reviewersError.value = getApiErrorMessage(err, 'Could not save the reviewers.');
+      }
       busy.value = false;
       return;
     }
-    await refreshMarket();
+    if (left()) {
+      busy.value = false;
+      return;
+    }
   }
   await runImport();
 }
 
 async function runImport() {
+  const left = leftSinceNow();
   busy.value = true;
   error.value = '';
   reviewersError.value = '';
@@ -862,6 +910,9 @@ async function runImport() {
       mapping: currentMapping(),
       resolutions: currentResolutions(),
     });
+    // Applications now exist, which locks the form: part of the market every screen reads.
+    void refreshMarket();
+    if (left()) return;
     created.value = data.created ?? 0;
     updated.value = data.updated ?? 0;
     unchanged.value = data.unchanged ?? 0;
@@ -870,10 +921,8 @@ async function runImport() {
     repeats.value = data.repeats ?? [];
     enteredReview.value = firstImport.value && data.phase === MarketPhase.Applications;
     step.value = 'done';
-    // Applications now exist, which locks the form: part of the market every screen reads.
-    void refreshMarket();
   } catch (e) {
-    error.value = getApiErrorMessage(e, 'The import could not be completed.');
+    if (!left()) error.value = getApiErrorMessage(e, 'The import could not be completed.');
   } finally {
     busy.value = false;
   }
@@ -892,7 +941,15 @@ function startOver() {
   headers.value = [];
   failures.value = [];
   error.value = '';
+  reviewersError.value = '';
 }
+// A jump through history from one market's import to another's keeps this page, not its file, nor
+// a dialog holding the first market's form, which it would save over the other's.
+watch(marketId, () => {
+  visit += 1;
+  amendOpen.value = false;
+  startOver();
+});
 </script>
 
 <template>
@@ -1326,11 +1383,26 @@ function startOver() {
             replaced by the same applicant's later row. Each applicant is imported once, from their
             latest row, keeping the time they first applied.
           </p>
-          <ul>
-            <li v-for="repeat in repeats" :key="repeat.row">
-              Row {{ repeat.row }} ({{ repeat.email }}) is replaced by row {{ repeat.latestRow }}
-            </li>
-          </ul>
+          <ListFrame
+            class="import-note-list"
+            :items="repeats"
+            :finds="findsReplacedRow"
+            :item-key="(repeat) => String(repeat.row)"
+            :noun="{ one: 'submission', many: 'submissions' }"
+            :page-size="IMPORT_LIST_FIRST"
+            show-all
+            find-label="Find by address or row"
+            testid="import-repeats-list"
+          >
+            <template #rows="{ rows }">
+              <ul>
+                <li v-for="repeat in rows" :key="repeat.row" data-list-row tabindex="-1">
+                  Row {{ repeat.row }} ({{ repeat.email }}) is replaced by row
+                  {{ repeat.latestRow }}
+                </li>
+              </ul>
+            </template>
+          </ListFrame>
         </div>
 
         <!-- Already here, not in this file. Left alone: absence is almost always a filtered export,
@@ -1358,16 +1430,11 @@ function startOver() {
             These will not be imported. Import the rest, or fix them first: in your spreadsheet, or
             with Back, for an answer that was left out or ignored.
           </p>
-          <ul>
-            <li
-              v-for="failure in previewFailures"
-              :key="failure.row"
-              data-testid="import-preview-failure-row"
-            >
-              <strong>Row {{ failure.row }}</strong>
-              <span v-if="failure.email"> ({{ failure.email }})</span>: {{ failure.error }}
-            </li>
-          </ul>
+          <ImportRefusedRows
+            :rows="previewFailures"
+            testid="import-preview-failures-list"
+            row-testid="import-preview-failure-row"
+          />
         </div>
         <!-- The organizer's own data, read through the mapping they just chose. Without a cell of
            it on screen, "Preview" only restates the previous step. -->
@@ -1397,7 +1464,20 @@ function startOver() {
           <p class="preview-rows-why" data-testid="import-rejected-why">
             {{ rejectedRowsWhy(overturnedBy) }}
           </p>
-          <ImportRowList :rows="rejectedApplications" row-testid="import-rejected-row" />
+          <ListFrame
+            :items="rejectedApplications"
+            :finds="findsRejectedRow"
+            :item-key="(row) => String(row.row)"
+            :noun="{ one: 'row', many: 'rows' }"
+            :page-size="IMPORT_LIST_FIRST"
+            show-all
+            find-label="Find by name or address"
+            testid="import-rejected-list"
+          >
+            <template #rows="{ rows }">
+              <ImportRowList :rows="rows" row-testid="import-rejected-row" />
+            </template>
+          </ListFrame>
         </section>
 
         <h3 class="preview-mapping-heading">Where each answer comes from</h3>
@@ -1458,12 +1538,11 @@ function startOver() {
             These were not imported. Fix them and import again: in your spreadsheet, or, for an
             answer that was left out or ignored, when you map the columns.
           </p>
-          <ul>
-            <li v-for="failure in failures" :key="failure.row" data-testid="import-failure-row">
-              <strong>Row {{ failure.row }}</strong>
-              <span v-if="failure.email"> ({{ failure.email }})</span>: {{ failure.error }}
-            </li>
-          </ul>
+          <ImportRefusedRows
+            :rows="failures"
+            testid="import-failures-list"
+            row-testid="import-failure-row"
+          />
         </div>
       </section>
 
@@ -1946,6 +2025,8 @@ function startOver() {
   border-radius: var(--radius-control);
   background: var(--mm-beige);
   font-size: var(--text-xs);
+  /* On beige, for what stands in the note too: a list's field label and count line. */
+  --mm-text-muted: var(--mm-text-muted-on-beige);
   color: var(--mm-text-muted);
 }
 
@@ -1953,8 +2034,12 @@ function startOver() {
   margin: 0;
 }
 
+.import-note-list {
+  margin-top: var(--space-1);
+}
+
 .import-note ul {
-  margin: var(--space-1) 0 0;
+  margin: 0;
   padding-left: var(--space-4);
 }
 
@@ -1969,15 +2054,6 @@ function startOver() {
   margin: 0 0 var(--space-1);
   font-size: var(--text-sm);
   color: var(--mm-red);
-}
-
-.import-failures ul {
-  margin: var(--space-2) 0 0;
-  padding-left: var(--space-6);
-  font-size: var(--text-xs);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
 }
 
 .import-actions {

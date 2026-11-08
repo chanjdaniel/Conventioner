@@ -9,7 +9,8 @@
  * reject (E38/F03/S02) opens led by the reason the review will show on it.
  *
  * A heading is a native `summary`, so it is a disclosure to the keyboard and to a reader, and it
- * takes the shared focus treatment with no rule of its own.
+ * takes the shared focus treatment with no rule of its own. Each row carries what a list frame's
+ * `rows` slot asks of a row, so "Show all N" over the rows a rule rejects hands the focus on.
  */
 import type { AnswerRow } from '@/utils/essentialFields';
 import ApplicationAnswers from '@/components/application/ApplicationAnswers.vue';
@@ -41,6 +42,8 @@ defineProps<{
       v-for="(item, index) in rows"
       :key="item.row"
       class="import-row"
+      data-list-row
+      tabindex="-1"
       :open="openFirst && index === 0"
       :data-testid="rowTestid"
     >

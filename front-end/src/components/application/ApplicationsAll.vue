@@ -12,11 +12,16 @@
  * reviewer's share, and a chosen reviewer lands on their own (E38/F07/S04).
  * A verdict just given, a row's or a selection's, offers its giver Undo for the window the server
  * gives, until their next verdict (E38/F10/S01).
+ *
+ * The rows stand in a `ListFrame` (T223): a find field by name or address, its words in the address
+ * as `search`, 50 rows and "Show 50 more". A selection only ever holds rows on screen, so `drawn`
+ * drives it: Select all, what it says it left out and the ticks all read what the frame drew. Export
+ * opens on the words too.
  */
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { whoMayTake } from '@/utils/permissionTable';
 import { PEOPLE_CAP } from '@/utils/personChoice';
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
 import { useRoute, useRouter, type LocationQuery } from 'vue-router';
 import { ApplicationStatus, type Application, type Market } from '@/assets/types/datatypes';
 import {
@@ -30,6 +35,7 @@ import {
   ALL_VIEW_FILTERS,
   allViewApplications,
   allViewFilter,
+  findsApplication,
   heldElsewhere as heldBySomeoneElse,
   notSelectedLine,
   reviewAnswers,
@@ -57,6 +63,7 @@ import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
 import AppDialog from '@/components/AppDialog.vue';
 import ExportVendorsDialog from '@/components/ExportVendorsDialog.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
+import ListFrame from '@/components/ListFrame.vue';
 import ListFreshness from '@/components/application/ListFreshness.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
 import EmailAddress from '@/components/EmailAddress.vue';
@@ -152,6 +159,12 @@ onUnmounted(() => {
 /** The status filter and Mine, in the address beside the view itself. */
 const filter = computed(() => allViewFilter(route.query.status));
 const mine = computed(() => route.query.mine === '1');
+/** The words in the find field, which `ListFrame` holds in the address, for the export to open on. */
+const SEARCH_KEY = 'search';
+const words = computed(() => {
+  const asked = route.query[SEARCH_KEY];
+  return typeof asked === 'string' ? asked.trim() : '';
+});
 
 /** Giving verdicts, as the one-by-one review gives them too (`useVerdictActions`). */
 const verdicts = useVerdictActions(
@@ -208,6 +221,23 @@ const shown = computed(() =>
   ),
 );
 
+const APPLICATION_NOUN = { one: 'application', many: 'applications' };
+const applicationKey = (app: Application) => app.id;
+/** The filters as one string: a change is the reader's own choice of rows, so the list folds back. */
+const filterKey = computed(() => `${filter.value}|${mine.value}|${assignedTo.value}`);
+const listState = computed(() => {
+  if (errorMessage.value) return 'failed';
+  return loading.value && !applications.value.length ? 'loading' : 'ready';
+});
+
+/** The rows on screen, as the frame drew them, and whether the cap leaves any off. */
+const onScreen = shallowRef<Application[]>([]);
+const capped = ref(false);
+function rowsDrawn(rows: Application[], left: number): void {
+  onScreen.value = rows;
+  capped.value = left > 0;
+}
+
 function nameOf(app: Application): string {
   return applicantName(app.formData);
 }
@@ -237,13 +267,17 @@ function reviewerOf(app: Application): AddressPart[] | null {
   return reviewerLine(app, me.value, props.market);
 }
 
-/** The applications shown, as a CSV: the dialog opens on the filter and Mine, taken as it opens. */
+/** The applications shown, as a CSV: the dialog opens on the filter, Mine and the words, taken as it opens. */
 const exporting = ref(false);
 /** Export is the table's Export CSV row (E39/F01/S02): a market that raises it hides the button. */
 const mayExport = computed(() => mayTake(props.market, MarketAction.ExportCsv));
 const exportSeed = ref<ExportFilters>(NO_FILTERS);
 function openExport(): void {
-  exportSeed.value = applicationsAllSeed({ filter: filter.value, mine: mine.value });
+  exportSeed.value = applicationsAllSeed({
+    filter: filter.value,
+    mine: mine.value,
+    search: words.value,
+  });
   exporting.value = true;
 }
 
@@ -363,8 +397,9 @@ watch(
 
 /**
  * The ticked applications. Only ever rows ticked on screen, one by one or by Select all, which
- * ticks the rows shown (E38/F05/S02): there is no action on "everything matching" beyond them, so
- * no verdict reaches an application whose row was not in front of the reviewer, counted.
+ * ticks the rows shown (E38/F05/S02), the first page's alone while the list is capped: there is no
+ * action on "everything matching" beyond them, so no verdict reaches an application whose row was not
+ * in front of the reviewer, counted.
  */
 const selected = ref<Set<string>>(new Set());
 /** One another reviewer has open cannot be ticked; it says who. */
@@ -382,7 +417,7 @@ function untickable(app: Application): string | null {
   return decidedForMe(app) ? changeRefusal.value : null;
 }
 /** Said once over the list while it shows a row this person may not change (E38/F06/S01). */
-const showsUnchangeable = computed(() => shown.value.some((a) => decidedForMe(a)));
+const showsUnchangeable = computed(() => onScreen.value.some((a) => decidedForMe(a)));
 /** How many rows Select all left unticked, by why, to say so. */
 const skippedHeld = ref(0);
 const skippedDecided = ref(0);
@@ -401,7 +436,7 @@ function forgetSkipped() {
   skippedDecided.value = 0;
 }
 function tickAllShown() {
-  const { ids, held, decided } = selectAll(shown.value, me.value, changes.value);
+  const { ids, held, decided } = selectAll(onScreen.value, me.value, changes.value);
   selected.value = new Set(ids);
   skippedHeld.value = held;
   skippedDecided.value = decided;
@@ -411,11 +446,11 @@ function clearSelection() {
   forgetSkipped();
 }
 // Another filter is another set of rows: what Select all skipped was said of the last one.
-watch([filter, mine, assignedTo], forgetSkipped);
-// A filter that hides a ticked row leaves it unticked: what is decided is what is on screen.
-// A row decided since it was ticked is a change now, which leaves the selection as it leaves the
-// ticks for someone who may not change a verdict (E38/F06/S01).
-watch(shown, (rows) => {
+watch([filter, mine, assignedTo, words], forgetSkipped);
+// A filter or words that hide a ticked row leave it unticked, as does a list folded back past it:
+// what is decided is what is on screen. A row decided since it was ticked is a change now, which
+// leaves the selection as it leaves the ticks for someone who may not change a verdict (E38/F06/S01).
+watch(onScreen, (rows) => {
   const tickable = new Set(rows.filter((a) => !decidedForMe(a)).map((a) => a.id));
   selected.value = new Set([...selected.value].filter((id) => tickable.has(id)));
   // What Select all left out is said only while it is still held: a re-read that shows a row let
@@ -509,244 +544,280 @@ async function decideSelection() {
       :failed="refreshError"
       @refresh="refresh"
     />
-    <!-- Named by the words over it, with what the statuses that are not plain mean (E38/F05/S01). -->
-    <div class="all-filter-group">
-      <span id="applications-all-filter-label" class="field-label">Filter</span>
-      <div class="all-filters">
-        <div
-          class="all-status"
-          role="group"
-          aria-labelledby="applications-all-filter-label"
-          aria-describedby="applications-all-filter-hint"
-        >
-          <button
-            v-for="option in ALL_VIEW_FILTERS"
-            :key="option.id"
-            type="button"
-            class="btn btn--compact"
-            :class="option.id === filter ? 'btn--primary' : 'btn--secondary'"
-            :aria-pressed="option.id === filter"
-            :data-testid="`applications-all-filter-${option.id}`"
-            @click="setQuery({ status: option.id === 'all' ? null : option.id })"
-          >
-            {{ option.label }}
-          </button>
+    <ListFrame
+      :items="shown"
+      :wholeCount="applications.length"
+      :filterKey="filterKey"
+      :finds="findsApplication"
+      :itemKey="applicationKey"
+      :noun="APPLICATION_NOUN"
+      :findKey="SEARCH_KEY"
+      findLabel="Find by name or address"
+      :state="listState"
+      testid="applications-all-list"
+      @drawn="rowsDrawn"
+    >
+      <template #filters>
+        <!-- Named by the words over it, with what the statuses that are not plain mean (E38/F05/S01). -->
+        <div class="all-filter-group">
+          <span id="applications-all-filter-label" class="field-label">Filter</span>
+          <div class="all-filters">
+            <div
+              class="all-status"
+              role="group"
+              aria-labelledby="applications-all-filter-label"
+              aria-describedby="applications-all-filter-hint"
+            >
+              <button
+                v-for="option in ALL_VIEW_FILTERS"
+                :key="option.id"
+                type="button"
+                class="btn btn--compact"
+                :class="option.id === filter ? 'btn--primary' : 'btn--secondary'"
+                :aria-pressed="option.id === filter"
+                :data-testid="`applications-all-filter-${option.id}`"
+                @click="setQuery({ status: option.id === 'all' ? null : option.id })"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+            <label class="all-mine">
+              <input
+                type="checkbox"
+                :checked="mine"
+                data-testid="applications-all-mine"
+                @change="
+                  setQuery({ mine: ($event.target as HTMLInputElement).checked ? '1' : null })
+                "
+              />
+              Mine: the follow-ups I own
+            </label>
+            <SearchPicker
+              v-if="assignedTo"
+              class="all-assigned"
+              :model-value="assignedTo"
+              :groups="assignedGroups"
+              :finds="findsAssigned"
+              :cap="PEOPLE_CAP"
+              holds-choice
+              list-over
+              label="Assigned to"
+              placeholder="Type an address…"
+              testid="applications-all-assigned-to"
+              @update:model-value="assignTo($event as string)"
+            />
+            <button
+              v-if="mayExport"
+              type="button"
+              class="btn btn--secondary btn--compact all-export"
+              data-testid="applications-all-export-button"
+              @click="openExport"
+            >
+              Export
+            </button>
+          </div>
         </div>
-        <label class="all-mine">
-          <input
-            type="checkbox"
-            :checked="mine"
-            data-testid="applications-all-mine"
-            @change="setQuery({ mine: ($event.target as HTMLInputElement).checked ? '1' : null })"
-          />
-          Mine: the follow-ups I own
-        </label>
-        <SearchPicker
-          v-if="assignedTo"
-          class="all-assigned"
-          :model-value="assignedTo"
-          :groups="assignedGroups"
-          :finds="findsAssigned"
-          :cap="PEOPLE_CAP"
-          holds-choice
-          list-over
-          label="Assigned to"
-          placeholder="Type an address…"
-          testid="applications-all-assigned-to"
-          @update:model-value="assignTo($event as string)"
-        />
-        <!-- Nothing read is not none: under a failed read there is nothing to count. The box stays,
-             so Export keeps its place at the row's end. -->
-        <span class="all-count" data-testid="applications-all-count">
-          <template v-if="!errorMessage">{{ shown.length }} of {{ applications.length }}</template>
-        </span>
-        <button
-          v-if="mayExport"
-          type="button"
-          class="btn btn--secondary btn--compact"
-          data-testid="applications-all-export-button"
-          @click="openExport"
-        >
-          Export
-        </button>
-      </div>
-      <p id="applications-all-filter-hint" class="all-filter-hint">
-        Open is not decided yet. Needs follow-up waits on someone reaching out to the applicant.
-      </p>
-    </div>
+      </template>
 
-    <!-- The rows shown, ticked at once (E38/F05/S02); a reviewer's, as the ticks are. -->
-    <div v-if="decides && shown.length && !errorMessage" class="all-select-all">
-      <button
-        type="button"
-        class="btn btn--secondary btn--compact"
-        data-testid="applications-all-select-all"
-        @click="tickAllShown"
-      >
-        Select all
-      </button>
-      <span
-        v-if="notSelected"
-        class="all-meta"
-        role="status"
-        data-testid="applications-all-select-all-skipped"
-        >{{ notSelected }}</span
-      >
-    </div>
-    <!-- Why a decided row has no tick, said once rather than on every row (E38/F06/S01), unless
-         what Select all left out says it already. -->
-    <p
-      v-if="showsUnchangeable && changeRefusal && !skippedDecided && !errorMessage"
-      class="all-meta change-reason"
-      data-testid="applications-all-change-reason"
-    >
-      {{ changeRefusal }}
-    </p>
+      <template #aboveRows>
+        <p id="applications-all-filter-hint" class="all-filter-hint">
+          Open is not decided yet. Needs follow-up waits on someone reaching out to the applicant.
+        </p>
 
-    <!-- The selection's verdicts, on the rows ticked (E34/F04/S02, E38/F05/S02). -->
-    <div
-      v-if="decides && selected.size"
-      class="all-selection"
-      data-testid="applications-all-selection"
-    >
-      <span class="all-selected">{{ plural(selected.size) }} selected</span>
-      <button
-        type="button"
-        class="btn btn--destructive btn--compact"
-        data-testid="applications-all-selection-reject"
-        @click="asking = ApplicationStatus.ReviewerRejected"
-      >
-        Reject
-      </button>
-      <button
-        type="button"
-        class="btn btn--secondary btn--compact"
-        data-testid="applications-all-selection-follow-up"
-        @click="asking = ApplicationStatus.NeedsFollowUp"
-      >
-        Needs follow-up
-      </button>
-      <button
-        type="button"
-        class="btn btn--primary btn--compact"
-        data-testid="applications-all-selection-approve"
-        @click="asking = ApplicationStatus.ReviewerApproved"
-      >
-        Approve
-      </button>
-      <button
-        type="button"
-        class="btn btn--secondary btn--compact"
-        data-testid="applications-all-selection-clear"
-        @click="clearSelection"
-      >
-        Clear
-      </button>
-    </div>
-
-    <!-- A row's verdict just given, once its drawer is closed (E38/F10/S01). -->
-    <VerdictUndoLine
-      v-if="undoOffered && undoFrom === 'row' && !undoInDrawer"
-      :line="undoOffered.line"
-      :refusal="undoRefusal"
-      :busy="undoing || saving"
-      testid="applications-all-undo"
-      @undo="undoLast"
-    />
-
-    <div v-if="result" class="all-result" data-testid="applications-all-result" role="status">
-      <p class="all-result-line">
-        <span
-          >{{ plural(result.written.length) }} {{ result.done
-          }}<template v-if="result.skipped.length">; {{ result.skipped.length }} skipped:</template
-          ><template v-else>.</template></span
-        >
-        <template v-if="undoOffered && undoFrom === 'selection'">
-          <span v-if="undoRefusal" class="all-meta" data-testid="applications-all-result-refusal">{{
-            undoRefusal
-          }}</span>
+        <!-- The rows shown, ticked at once (E38/F05/S02); a reviewer's, as the ticks are. -->
+        <div v-if="decides && onScreen.length" class="all-select-all">
           <button
-            v-else
             type="button"
             class="btn btn--secondary btn--compact"
-            :disabled="undoing"
-            data-testid="applications-all-result-undo"
-            @click="undoLast"
+            data-testid="applications-all-select-all"
+            @click="tickAllShown"
           >
-            Undo
+            {{ capped ? `Select all ${onScreen.length} shown` : 'Select all' }}
           </button>
-        </template>
-      </p>
-      <ul v-if="result.skipped.length">
-        <li v-for="skip in result.skipped" :key="skip.id" data-testid="applications-all-skipped">
-          {{ skip.email ?? skip.id }}: {{ skip.reason }}
-        </li>
-      </ul>
-    </div>
-
-    <ReadFailed v-if="errorMessage" name="applications" :message="errorMessage" @retry="load" />
-    <p v-else-if="loading && !applications.length" class="all-empty">Loading applications…</p>
-    <!-- Nothing has come in is not nothing matching: the tab opens here now (E38/F05/S01). -->
-    <p v-else-if="!applications.length" class="all-empty" data-testid="applications-all-empty">
-      No applications received yet.
-    </p>
-    <p v-else-if="!shown.length" class="all-empty" data-testid="applications-all-empty">
-      No application matches.
-    </p>
-
-    <ul v-else :class="['all-list', { 'all-list-no-leading': !leadingShown }]">
-      <li v-for="app in shown" :key="app.id" class="all-row" data-testid="applications-all-row">
-        <!-- The box inside a square of its own, the target a thumb taps on a phone. -->
-        <label v-if="decides" class="all-tick">
-          <input
-            type="checkbox"
-            :checked="selected.has(app.id)"
-            :disabled="!!untickable(app)"
-            :aria-label="
-              untickable(app)
-                ? `${app.applicantEmail}: ${untickable(app)}`
-                : `Select ${app.applicantEmail}`
-            "
-            data-testid="applications-all-tick"
-            @change="toggle(app, ($event.target as HTMLInputElement).checked)"
-          />
-        </label>
-        <button
-          type="button"
-          class="all-row-button"
-          :data-application-id="app.id"
-          @click="drawer.open(app.applicantEmail)"
+          <span
+            v-if="notSelected"
+            class="all-meta"
+            role="status"
+            data-testid="applications-all-select-all-skipped"
+            >{{ notSelected }}</span
+          >
+        </div>
+        <!-- Why a decided row has no tick, said once rather than on every row (E38/F06/S01), unless
+             what Select all left out says it already. -->
+        <p
+          v-if="showsUnchangeable && changeRefusal && !skippedDecided"
+          class="all-meta change-reason"
+          data-testid="applications-all-change-reason"
         >
-          <span class="all-who">
-            <span class="all-name" data-testid="applications-all-name">{{
-              nameOf(app) || app.applicantEmail
-            }}</span>
-            <span v-if="nameOf(app)" class="all-email">{{ app.applicantEmail }}</span>
-          </span>
-          <span v-if="leadingShown" class="all-leading">{{ leading(app) }}</span>
-          <span class="all-state">
-            <span :class="statusChip(app.status)" data-testid="applications-all-status">
-              {{ statusLabel(app.status) }}
-            </span>
+          {{ changeRefusal }}
+        </p>
+
+        <!-- The selection's verdicts, on the rows ticked (E34/F04/S02, E38/F05/S02). -->
+        <div
+          v-if="decides && selected.size"
+          class="all-selection"
+          data-testid="applications-all-selection"
+        >
+          <span class="all-selected">{{ plural(selected.size) }} selected</span>
+          <button
+            type="button"
+            class="btn btn--destructive btn--compact"
+            data-testid="applications-all-selection-reject"
+            @click="asking = ApplicationStatus.ReviewerRejected"
+          >
+            Reject
+          </button>
+          <button
+            type="button"
+            class="btn btn--secondary btn--compact"
+            data-testid="applications-all-selection-follow-up"
+            @click="asking = ApplicationStatus.NeedsFollowUp"
+          >
+            Needs follow-up
+          </button>
+          <button
+            type="button"
+            class="btn btn--primary btn--compact"
+            data-testid="applications-all-selection-approve"
+            @click="asking = ApplicationStatus.ReviewerApproved"
+          >
+            Approve
+          </button>
+          <button
+            type="button"
+            class="btn btn--secondary btn--compact"
+            data-testid="applications-all-selection-clear"
+            @click="clearSelection"
+          >
+            Clear
+          </button>
+        </div>
+
+        <!-- A row's verdict just given, once its drawer is closed (E38/F10/S01). -->
+        <VerdictUndoLine
+          v-if="undoOffered && undoFrom === 'row' && !undoInDrawer"
+          :line="undoOffered.line"
+          :refusal="undoRefusal"
+          :busy="undoing || saving"
+          testid="applications-all-undo"
+          @undo="undoLast"
+        />
+
+        <div v-if="result" class="all-result" data-testid="applications-all-result" role="status">
+          <p class="all-result-line">
             <span
-              v-if="verdictGiverLine(app)"
-              class="all-meta"
-              data-testid="applications-all-giver"
-              >{{ verdictGiverLine(app) }}</span
+              >{{ plural(result.written.length) }} {{ result.done
+              }}<template v-if="result.skipped.length"
+                >; {{ result.skipped.length }} skipped:</template
+              ><template v-else>.</template></span
             >
-            <span v-if="reviewerOf(app)" class="all-meta" data-testid="applications-all-reviewer"
-              ><EmailAddress :words="reviewerOf(app) ?? []"
-            /></span>
-            <span v-if="app.followUpOwner" class="all-meta" data-testid="applications-all-owner"
-              >Followed up by {{ app.followUpOwner.email }}</span
+            <template v-if="undoOffered && undoFrom === 'selection'">
+              <span
+                v-if="undoRefusal"
+                class="all-meta"
+                data-testid="applications-all-result-refusal"
+                >{{ undoRefusal }}</span
+              >
+              <button
+                v-else
+                type="button"
+                class="btn btn--secondary btn--compact"
+                :disabled="undoing"
+                data-testid="applications-all-result-undo"
+                @click="undoLast"
+              >
+                Undo
+              </button>
+            </template>
+          </p>
+          <ul v-if="result.skipped.length">
+            <li
+              v-for="skip in result.skipped"
+              :key="skip.id"
+              data-testid="applications-all-skipped"
             >
-            <span v-if="holderOf(app)" class="all-meta" data-testid="applications-all-holder">{{
-              holderOf(app)
-            }}</span>
-          </span>
-        </button>
-      </li>
-    </ul>
+              {{ skip.email ?? skip.id }}: {{ skip.reason }}
+            </li>
+          </ul>
+        </div>
+      </template>
+
+      <template #failed>
+        <ReadFailed name="applications" :message="errorMessage" @retry="load" />
+      </template>
+      <!-- Nothing has come in is not nothing matching: the tab opens here now (E38/F05/S01). -->
+      <template #empty>
+        <p data-testid="applications-all-empty">
+          {{ applications.length ? 'No application matches.' : 'No applications received yet.' }}
+        </p>
+      </template>
+
+      <template #rows="{ rows }">
+        <ul :class="['all-list', { 'all-list-no-leading': !leadingShown }]">
+          <li
+            v-for="app in rows"
+            :key="app.id"
+            data-list-row
+            tabindex="-1"
+            class="all-row"
+            data-testid="applications-all-row"
+          >
+            <!-- The box inside a square of its own, the target a thumb taps on a phone. -->
+            <label v-if="decides" class="all-tick">
+              <input
+                type="checkbox"
+                :checked="selected.has(app.id)"
+                :disabled="!!untickable(app)"
+                :aria-label="
+                  untickable(app)
+                    ? `${app.applicantEmail}: ${untickable(app)}`
+                    : `Select ${app.applicantEmail}`
+                "
+                data-testid="applications-all-tick"
+                @change="toggle(app, ($event.target as HTMLInputElement).checked)"
+              />
+            </label>
+            <button
+              type="button"
+              class="all-row-button"
+              :data-application-id="app.id"
+              @click="drawer.open(app.applicantEmail)"
+            >
+              <span class="all-who">
+                <span class="all-name" data-testid="applications-all-name">{{
+                  nameOf(app) || app.applicantEmail
+                }}</span>
+                <span v-if="nameOf(app)" class="all-email">{{ app.applicantEmail }}</span>
+              </span>
+              <span v-if="leadingShown" class="all-leading">{{ leading(app) }}</span>
+              <span class="all-state">
+                <span :class="statusChip(app.status)" data-testid="applications-all-status">
+                  {{ statusLabel(app.status) }}
+                </span>
+                <span
+                  v-if="verdictGiverLine(app)"
+                  class="all-meta"
+                  data-testid="applications-all-giver"
+                  >{{ verdictGiverLine(app) }}</span
+                >
+                <span
+                  v-if="reviewerOf(app)"
+                  class="all-meta"
+                  data-testid="applications-all-reviewer"
+                  ><EmailAddress :words="reviewerOf(app) ?? []"
+                /></span>
+                <span v-if="app.followUpOwner" class="all-meta" data-testid="applications-all-owner"
+                  >Followed up by {{ app.followUpOwner.email }}</span
+                >
+                <span v-if="holderOf(app)" class="all-meta" data-testid="applications-all-holder">{{
+                  holderOf(app)
+                }}</span>
+              </span>
+            </button>
+          </li>
+        </ul>
+      </template>
+    </ListFrame>
 
     <VendorDrawer
       ref="drawerPanel"
@@ -892,18 +963,22 @@ async function decideSelection() {
   gap: var(--space-3);
 }
 
+/* A row of its own, under the find field. */
 .all-filter-group {
   display: flex;
+  flex: 1 1 100%;
   flex-direction: column;
   gap: var(--space-1);
+  min-width: 0;
 }
 
 .all-filter-group .field-label {
   margin-bottom: 0;
 }
 
+/* It speaks of the filters over it, so it stands 4px under them, not the frame's gap of 12. */
 .all-filter-hint {
-  margin: 0;
+  margin: calc(-1 * var(--space-2)) 0 0;
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
@@ -965,16 +1040,8 @@ async function decideSelection() {
   height: var(--control-height-compact);
 }
 
-.all-count {
+.all-export {
   margin-left: auto;
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-}
-
-.all-empty {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--mm-text-muted);
 }
 
 .all-selection {

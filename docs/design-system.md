@@ -43,6 +43,7 @@ describes:
   - front-end/src/components/ChoiceField.vue
   - front-end/src/components/application/LongQuestion.vue
   - front-end/src/components/PagedList.vue
+  - front-end/src/utils/useGroupFolds.ts
 verified: 2026-11-05
 sources:
   - wayfinding/claims-and-room/map
@@ -491,11 +492,15 @@ Export vendors' Status and Discord filters mount it, with `multiple`; the librar
 
 A list that can grow with a market is [`ListFrame.vue`](../front-end/src/components/ListFrame.vue) (T200), generic over the row: a find field once the whole list passes `findFrom` rows (12), the screen's own filters beside it, a count line, the first `pageSize` rows (50) and "Show N more".
 The screen narrows `items` by its filters and brings `finds`, `itemKey` and the `row` slot; the frame does the finding and the paging on what is already read.
-A screen with filters gives `wholeCount`, so a narrow filter never takes the field away, and `filterKey`, its filters as one string.
+A screen whose rows are its own gives the `rows` slot instead, its `ul` or `table` over the rows on screen, each row carrying `data-list-row` and `tabindex="-1"`, which is how "Show N more" hands the focus on in either slot.
+`aboveRows` stands between the tools and the count line in every state, for what acts on the rows, and `drawn` says the rows on screen at mount and whenever they change, none while `state` draws none, with how many the cap leaves off, for a screen that acts on exactly those.
+A screen with filters gives `wholeCount`, so a narrow filter never takes the field away and the count line names the whole, "Showing 50 of 110 (359 in all)" or "110 of 359 applications", and `filterKey`, its filters as one string.
 On a page, `findKey` puts the words in the route's query, written with `router.replace`; a dialog gives none, since they would outlive it, and a screen that sets the words itself holds them with `v-model:words`.
 The shown count goes back to one page only when the words or `filterKey` change, so a read again or a verdict that changes the rows holds the place.
 `state` draws loading and failed (`ReadFailed`, unless the `failed` slot replaces it), the `empty` slot says why there are no `items`, and the count line says when the words find nothing.
-Manage market's "Users with access", Manage organization's Admins and Members, and One by one's reviewed applications are its screens, and the library's `list-frame` entry shows it on Applications All and the people with access.
+A screen whose own field stands elsewhere gives no `finds`: the frame draws no field, `items` are final, so `filterKey` must carry the screen's words too, and the count line shows only while the cap leaves rows off, "Showing 50 of 120", since the screen's own line counts the rest.
+A list read whole by asking gives `showAll`, its `pageSize` the first page: the button reads "Show all N" and draws every row the words find, handing the focus to the first new one, then "Show fewer", which goes back to one page, keeps the focus and brings itself into view, as `useFold` does; the count line shows only with the field or while rows are cut, since a list that short is read at a glance, often under a heading that counts it.
+Manage market's "Users with access", Manage organization's Admins and Members, Applications All and One by one's reviewed applications are its screens, with Vendors and Payments, whose searches stay pinned in `MarketFrame`, on it with no `finds`, the import's four lists of rows and each question's answers on the proposal on it with `showAll` and a first page of 20, and the library's `list-frame` entry shows it on Applications All, the people with access, the import's refused rows and a search standing elsewhere.
 Inside a `scroll="body"` dialog it needs nothing of its own, since the dialog's body scrolls it; the library's `summaries` entry shows it there, with no `findKey`, so the words go with the dialog.
 Enter in its field does nothing, so in a dialog's form it never saves what the person was only looking through.
 
@@ -515,9 +520,11 @@ Its `name` slot draws a name the screen's way and its `end` slot ends the senten
 The Reviewers panel on the Applications tab is its screen ([`ReviewersPanel.vue`](../front-end/src/components/market/ReviewersPanel.vue)), which the library's `summaries` entry also draws.
 
 A long list a screen keeps grouped folds by group, in [`RowGroup.vue`](../front-end/src/components/RowGroup.vue) (T200): a heading, the first `fold` (20) rows of `items`, and "Show all 31 in North Wing", which unfolds the rest in place and becomes "Show fewer"; at `fold` rows or fewer it draws no button.
+Its `heading` slot draws more beside the name, as a section's location and tier, and the `heading` prop still names the group on the button.
+A page that must keep its groups' folds past a re-read, or unfold them together, holds them with [`useGroupFolds`](../front-end/src/utils/useGroupFolds.ts) and each group's `v-model:unfolded` (T223): one "Show all 59 tables" above the groups, drawn only while one on the page passes the fold, which keeps the focus and stays where it stood, says "Show fewer" once all of them are unfolded however they came to be, and leaves a group a filter has hidden as it was.
 [`BarLedger.vue`](../front-end/src/components/BarLedger.vue) folds the same way with `fold`: the rows by count, the first `fold`, then "N more answers"; without it the rows are drawn in the order they came, all of them.
-Both take the fold from [`useFold`](../front-end/src/utils/useFold.ts): unfolding hands the focus to the first new row, and folding keeps it on the button and brings the button back into view.
-Neither is on a screen yet: the library's `folds` entry shows both, on the Stats tab's bars and the Assignments page's tables.
+Both take the fold from [`useFold`](../front-end/src/utils/useFold.ts): unfolding by a group's own button hands the focus to the first new row, and folding keeps it on the button and brings the button back into view.
+The Assignments page's sections are `RowGroup`s; `BarLedger`'s fold is on no screen yet, and the library's `folds` entry shows both.
 A question's options on the form builder take the same fold in [`FormFieldEditor.vue`](../front-end/src/components/application/FormFieldEditor.vue), past 20, and "Add option" unfolds them, so a new row is never behind it.
 
 A list someone puts in order is [`OrderedList.vue`](../front-end/src/components/OrderedList.vue) (T200), generic over the item: each row has the `.drag-handle` and its own move up and move down buttons, named by `itemLabel`, so the keyboard can do what the mouse can, the first's up and the last's down disabled.

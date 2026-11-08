@@ -130,9 +130,12 @@ The button is disabled with the reason; the server refuses too, in every phase b
    There is no list of the free tables: the grid's empty filter shows them where they are.
 4. Tables by date then section; each seat shows its occupant's name, or "Vacant" (half a table) / "Unassigned" (a whole free table); a seat held by someone not approved is marked "Not approved".
    A name opens the [vendor drawer](vendor-drawer.md).
+   A section shows its first 20 tables and "Show all 31 in Gold Hall", which unfolds it in place, and one "Show all 59 tables" above the groups, drawn only while a section on the page passes 20, unfolds them all, so a day can be scanned and still be read whole or searched with the browser's find.
+   A fold stays through a placement, a swap, a re-read and a filter, and lasts until the page is left, and a re-read leaves the tables up until the new ones come, so a placement keeps the page where it was, and until they come a seat's press opens nothing; a filter that leaves a section 20 tables or fewer shows every match and no button.
 
 Covered by:
 - `a-search-on-the-results.spec.ts`
+- `lists-at-scale.spec.ts`, sections of 31 and 28 tables at 1280, 390 and 320
 - `tables.spec.ts`
 - `the-result-page.spec.ts`
 - `tier2.spec.ts` (CSV export)

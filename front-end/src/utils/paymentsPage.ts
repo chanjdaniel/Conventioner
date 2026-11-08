@@ -154,14 +154,24 @@ function amount(vendor: PaymentsVendor, key: Exclude<PaymentsSortKey, 'vendor'>)
  * in the sort's order, a tie by vendor. */
 export function shownVendors(
   vendors: readonly PaymentsVendor[],
-  { shown, search, names }: { shown: PaymentsShown | null; search: string; names: VendorNames },
+  {
+    shown,
+    search,
+    names,
+    legalNames = {},
+  }: {
+    shown: PaymentsShown | null;
+    search: string;
+    names: VendorNames;
+    legalNames?: VendorNames;
+  },
   sort: PaymentsSort,
 ): PaymentsVendor[] {
   const label = (v: PaymentsVendor) => vendorHeadline(v.email, names).toLowerCase();
   const byVendor = (a: PaymentsVendor, b: PaymentsVendor) => label(a).localeCompare(label(b));
   const order = sort.descending ? -1 : 1;
   return vendors
-    .filter((v) => vendorShownIn(v, shown) && vendorMatches(search, v.email, names))
+    .filter((v) => vendorShownIn(v, shown) && vendorMatches(search, v.email, names, legalNames))
     .sort((a, b) => {
       if (sort.key === 'vendor') return order * byVendor(a, b);
       return order * (amount(a, sort.key) - amount(b, sort.key)) || byVendor(a, b);

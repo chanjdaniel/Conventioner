@@ -173,7 +173,7 @@ test.describe('No element falls through to a user-agent font', () => {
     authenticatedPage,
   }) => {
     // This screen is why removing a component's `font-family` is not a blind find-and-replace:
-    // `.section-heading` sets Merge One on the <h3>, so `.section-heading-meta` - a <span> inside
+    // a `RowGroup` sets Merge One on its heading, so `.section-heading-meta` - a <span> inside
     // it - has to opt back out. Twenty-four chips silently became headings when that declaration
     // was first removed, which is how the exception was found.
     await openTheSeededMarket(authenticatedPage);
@@ -188,7 +188,7 @@ test.describe('No element falls through to a user-agent font', () => {
       .locator('.section-heading-meta')
       .first()
       .evaluate((el) => getComputedStyle(el).fontFamily.split(',')[0].replace(/["']/g, ''));
-    // `.section-heading` (the <h3> this chip sits inside) sets Merge One, so the chip opts back out.
+    // The `RowGroup`'s heading, the <h3> around this chip, sets Merge One, so the chip opts back out.
     expect(metaFace, 'the section meta chip should not inherit the heading face').toBe('Outfit');
   });
 

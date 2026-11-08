@@ -4,9 +4,10 @@
  * are offered in the same step, so the review is divided from the first submission. The rail opens
  * this only for someone the table's "Choose reviewers" row lets choose.
  *
- * Confirming writes the reviewers only when the choice differs from the stored team, and says so to
- * the rail, which then moves the phase as it always has. A write that fails keeps the dialog open
- * with its error, and the rail does not move.
+ * Confirming writes the reviewers only when the choice differs from the team they start from
+ * (`teamToChange`), and says so to the rail, which then moves the phase as it always has. A write that fails keeps the dialog open
+ * with its error, and the rail does not move. No close takes it during the write, since the move
+ * follows the answer (`close-disabled`), and "Change" below steps aside with them.
  *
  * Below the picker it names the review setup the organizer is about to open (T206): what a reviewer
  * reads first and the automatic rejections, as the market serves them. The rail opens this only
@@ -22,7 +23,13 @@ import { resolutionPath } from '@/utils/market';
 import { MarketAction, mayTake } from '@/utils/marketActions';
 import { rejectingRules } from '@/utils/rejectionRules';
 import { leadingLabels } from '@/utils/reviewHighlights';
-import { chooseReviewers, reviewerAddresses, sameTeam } from '@/utils/reviewTeam';
+import {
+  chooseReviewers,
+  reviewerAddresses,
+  sameTeam,
+  teamToChange,
+  unansweredWrite,
+} from '@/utils/reviewTeam';
 
 const props = defineProps<{
   open: boolean;
@@ -66,12 +73,12 @@ const changeTo = computed(() =>
 const saving = ref(false);
 const error = ref('');
 
-/* Each opening starts from the stored team: none, or whoever was chosen in draft before. */
+/* Each opening starts from the team as it stands: none, or whoever was chosen in draft before. */
 watch(
   () => props.open,
   (open) => {
     if (!open) return;
-    ticked.value = reviewerAddresses(props.market);
+    ticked.value = teamToChange(props.market);
     error.value = '';
   },
   { immediate: true },
@@ -79,21 +86,21 @@ watch(
 
 async function confirm() {
   if (!props.market || saving.value || props.moving) return;
-  if (sameTeam(ticked.value, reviewerAddresses(props.market))) {
-    emit('chosen', false);
-    return;
-  }
   saving.value = true;
   error.value = '';
+  let wrote = false;
   try {
-    await chooseReviewers(props.market.id, ticked.value);
+    // A write left by a dialog history took: nothing moves before its answer, and a refusal shows here.
+    await unansweredWrite(props.market.id)?.answer;
+    wrote = !sameTeam(ticked.value, teamToChange(props.market));
+    if (wrote) await chooseReviewers(props.market.id, ticked.value);
   } catch (err) {
     error.value = getApiErrorMessage(err, 'Could not save the reviewers.');
     return;
   } finally {
     saving.value = false;
   }
-  emit('chosen', true);
+  emit('chosen', wrote);
 }
 </script>
 
@@ -105,6 +112,7 @@ async function confirm() {
     scroll="body"
     :confirm-label="saving ? 'Saving…' : 'Open applications'"
     :confirm-disabled="saving || moving"
+    :close-disabled="saving"
     :error="error"
     anchored
     @close="emit('close')"
@@ -124,6 +132,7 @@ async function confirm() {
           :to="changeTo"
           class="link-alone"
           data-testid="open-applications-change-review-setup"
+          :style="{ visibility: saving ? 'hidden' : undefined }"
           @click="emit('close')"
           >Change<span class="visually-hidden"> the review setup</span></RouterLink
         >

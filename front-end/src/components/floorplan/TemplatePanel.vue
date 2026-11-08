@@ -142,8 +142,6 @@ function cancelConfirm() {
 }
 
 function closeSaveDialog() {
-  // A save in flight finishes before the dialog can go.
-  if (saving.value) return;
   saveDialog.value = false;
   saveError.value = '';
   templateName.value = '';
@@ -198,6 +196,7 @@ function formatDate(dateStr: string): string {
       testid="floorplan-template-save"
       :confirm-label="saving ? 'Saving…' : 'Save'"
       :confirm-disabled="saving || !templateName.trim()"
+      :close-disabled="saving"
       :error="saveError"
       @submit="saveTemplate"
       @close="closeSaveDialog"

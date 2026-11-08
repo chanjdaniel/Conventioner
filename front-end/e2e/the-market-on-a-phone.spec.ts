@@ -519,7 +519,7 @@ for (const size of PHONE_AND_DESK) {
           await expectTargets(editor.getByTestId(/^applications-all-filter-/), 'a filter');
           await expectWide(editor.getByTestId(/^applications-all-filter-/), 'a filter');
           await expectTargets(editor.getByTestId('applications-all-export-button'), 'Export');
-          await expectAcross(editor.getByTestId('applications-all-count'), 'the count');
+          await expectAcross(editor.getByTestId('applications-all-list-count'), 'the count');
           await expectLabelTarget(editor.getByTestId('applications-all-mine'), 'Mine');
           await expectLabelTarget(row.getByTestId('applications-all-tick'), "the row's tick");
           await tap(row.getByTestId('applications-all-tick'));
