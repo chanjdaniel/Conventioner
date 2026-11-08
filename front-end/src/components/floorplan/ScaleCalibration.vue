@@ -893,7 +893,7 @@ onUnmounted(() => {
 }
 
 .cal-btn--primary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--mm-green) 85%, black);
+  background: var(--mm-green-hover);
 }
 
 .cal-btn--secondary {
@@ -903,7 +903,7 @@ onUnmounted(() => {
 }
 
 .cal-btn--secondary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--mm-beige) 90%, black);
+  background: var(--mm-beige-hover);
 }
 
 /* ── Button spinner ────────────────────────────────────────────── */

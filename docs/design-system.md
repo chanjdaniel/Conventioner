@@ -42,8 +42,8 @@ describes:
   - front-end/e2e/a-focused-button-moves-nothing.spec.ts
   - front-end/src/components/ChoiceField.vue
   - front-end/src/components/application/LongQuestion.vue
-  - front-end/src/utils/useGroupFolds.ts
   - front-end/src/components/PagedList.vue
+  - front-end/src/utils/useGroupFolds.ts
 verified: 2026-11-08
 sources:
   - wayfinding/claims-and-room/map
@@ -100,6 +100,7 @@ sources:
   - T214
   - T223
   - T224
+  - T229
 ---
 
 # Conventioner's design language
@@ -357,6 +358,14 @@ It also serves the Assignments page's muted text inside a table row, which can s
 
 **Fills carry the reciprocal check**: each fill declares the ink it is legible under, white on `--mm-green`, `--mm-red` and `--mm-blue`, `--mm-black` on `--mm-yellow` and `--mm-beige`.
 That check is what made the brand green darker rather than leaving each button to a judgement call.
+
+**A button under the pointer and pressed is a fill of its own, never a dimmed one** (T229): each fill takes a step darker on `:hover` and another on `:active`, and the words keep their ink, so they only gain on their ground.
+The pairs are `--mm-green-hover` and `--mm-green-pressed` (white on them 5.23 and 5.91:1), `--mm-red-hover` and `--mm-red-pressed` (6.19 and 6.98), `--mm-white-hover` and `--mm-white-pressed` for the secondary button (`--mm-black` 14.38 and 13.30, the row's destructive red 5.03 and 4.65), and `--mm-chip-positive-hover` and `--mm-chip-positive-pressed` for a toggle that is on (`--mm-text-green` 5.06 and 4.79).
+They were `opacity` 0.9 and 0.8, which faded the words with the fill: white on green read 3.81 and 3.21:1, white on red pressed 3.86, and the on toggle's green 3.53 pressed.
+`contrast.test.ts` holds each to every ink its button sets on it, opaque, and each a step further from rest than the one before, at least 1.04:1 from it, so a hover never matches rest and a press never matches the hover; [`the-component-library-primitives.spec.ts`](../front-end/e2e/the-component-library-primitives.spec.ts) hovers and holds down every live button of the primitives entry and runs the contrast sweep in each state.
+A button drawn by a component of its own takes the same fills where it shares the colour, the floorplan beta's green buttons and the Markets and Organizations pages' New buttons among them, and none of them dims.
+The other fills such a button is drawn in step once, on hover: `--mm-yellow-hover` for the floorplan's yellow toolbar and the assignment counts' partial pill (`--mm-black` 6.16), `--mm-beige-hover` for the floorplan's beige Cancel buttons and the empty pill (10.49), and `--mm-black-hover`, a step lighter, for the floorplan's black Load (white 12.15).
+The deep focus border reads less on a darker fill: 3.17:1 on `--mm-green-hover`, 2.80 on `--mm-green-pressed`, 2.68 on `--mm-red-hover` and 2.37 on `--mm-red-pressed`, against 3.26, 2.74, 2.68 and 2.28 under the opacity it replaced.
 
 **A mark that carries no text is held to the non-text bar, 3:1**: the bar's current-tab dot, `--mm-green` on `--mm-black`, measures 3.39:1, and the test pins it, so a bar retinted darker or a green lightened for a light ground cannot take it under unnoticed.
 
@@ -623,7 +632,7 @@ Measured, the green glow is 1.58:1 against white and 1.50:1 against beige, below
 
 **A selected row is the on toggle's look**, so selection and focus never read alike (T123).
 A toggle that is on (`.btn[aria-pressed='true']` in `primitives.css`) is the one selected state the language had: a `--mm-chip-positive` ground inside a `--mm-green` border.
-**A tap shows on the control, never as the browser's box** (T142): `base.css` turns off the tap highlight, which flashed a square light-blue box over a tapped control whatever its shape, and a `.btn` shows its press itself, `opacity: 0.8` under `:active`, a step past its hover's 0.9.
+**A tap shows on the control, never as the browser's box** (T142): `base.css` turns off the tap highlight, which flashed a square light-blue box over a tapped control whatever its shape, and a `.btn` shows its press itself, its pressed fill under `:active`, a step past its hover's ([a fill of its own](#the-contrast-contract)).
 The [Vendors page](business/flows/vendors.md)'s open vendor takes the same pair (`.vendor-row--open` in [`VendorsView.vue`](../front-end/src/views/VendorsView.vue)), where it drew a 2px black outline; its row keeps its own ink, and a focused row keeps its white ground and draws the green border.
 The tint is a chip's own ground, so inside a selected row a chip keeps its ink on white, and its muted lines, the address under a name and the date count, take `--mm-text-muted-on-beige`, since `--mm-text-muted` is 4.27:1 on the tint; `contrast.test.ts` holds the row's text, its muted lines and its 3.75:1 border to the tint.
 
@@ -714,3 +723,4 @@ The contrast contract rests on an audit that measured every colour on the ground
 - A row's panels were to stay even by stretching to the tallest (`align-items: stretch`), which is why no minimum row height was needed (wayfinding/claims-and-room/01); a card ends at its own content in the card grid (E23/F01/S01).
 - Every primitive was to show a 2px `--mm-black` focus ring at 2px of offset, fields included (E16/F04); a field shows no focus and a control the soft halo (E38/F01/S01).
 - Every control, buttons among them, was to wear the soft halo (E38/F01/S01); by Daniel's word on 2026-11-04 a button draws a green border, and links and the other stops keep the halo.
+- A `.btn` was to show hover and press by `opacity`, 0.9 and 0.8 (E16/F04, T142); it darkens its fill a step for each, since the opacity faded its words below AA (T229).

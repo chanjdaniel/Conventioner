@@ -1,6 +1,7 @@
 import { test, expect } from './fixtures';
 import { eachWindow, expectLaidOut, openEntry } from './helpers/componentLibrary';
 import { inTheWindow } from './helpers/phoneWindow';
+import { sweep } from './helpers/contrastSweep';
 
 /**
  * The component library's `primitives` entry (T200): every primitive of `primitives.css` in its
@@ -54,4 +55,37 @@ eachWindow('the primitives entry', (size) => {
     await section.getByRole('combobox').selectOption('South Wing');
     await expect(section.getByTestId('read-out')).toHaveText('Chosen: South Wing');
   });
+});
+
+/**
+ * A button's words keep AA under the pointer and pressed, as at rest (T229): hover and pressed were
+ * `opacity` 0.9 and 0.8, which faded white on green to 3.81:1 and 3.21:1, and a sweep of the page at
+ * rest never saw it. At a desk, where a pointer hovers; each live button is hovered, then held down,
+ * and the page swept once its fill has settled.
+ */
+test('every live button keeps AA when hovered and held down', async ({ page }) => {
+  await openEntry(page, 'primitives');
+  const entry = page.getByTestId('library-entry-primitives');
+  // The entry's body is loaded on its own, after the frame the entry's test id is on.
+  await expect(entry.getByRole('heading', { level: 2, name: 'Buttons' })).toBeVisible();
+  const buttons = entry.locator('.btn:not(:disabled):not([tabindex="-1"])');
+  const count = await buttons.count();
+  expect(count, 'the Buttons section draws its live buttons').toBeGreaterThan(8);
+
+  const settled = () =>
+    page.evaluate(() => Promise.all(document.getAnimations().map((motion) => motion.finished)));
+  for (let i = 0; i < count; i++) {
+    const button = buttons.nth(i);
+    const name = (await button.textContent())?.trim();
+    await button.hover();
+    await settled();
+    const hovered = await sweep(page);
+    expect(hovered.checked, 'the sweep measured the page').toBeGreaterThan(0);
+    expect(hovered.failures, `"${name}" hovered`).toEqual([]);
+
+    await page.mouse.down();
+    await settled();
+    expect((await sweep(page)).failures, `"${name}" held down`).toEqual([]);
+    await page.mouse.up();
+  }
 });

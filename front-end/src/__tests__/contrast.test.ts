@@ -104,6 +104,33 @@ function inkOn(name: string, ground: Rgb): Rgb {
 
 const WHITE: Rgb = [255, 255, 255];
 
+/**
+ * Each button fill at rest, then the fills it steps to under the pointer and, where it has one,
+ * pressed, and the inks set on it. The `.btn` intents have both steps; the fills only a component's
+ * own button is drawn in step once, on hover.
+ */
+const BUTTON_STATES: Array<[string, string[], string[]]> = [
+  ['--mm-green', ['--mm-green-hover', '--mm-green-pressed'], ['white']],
+  ['--mm-red', ['--mm-red-hover', '--mm-red-pressed'], ['white']],
+  // The secondary button, and the row's destructive action on it in red ink.
+  ['white', ['--mm-white-hover', '--mm-white-pressed'], ['--mm-black', '--mm-red']],
+  [
+    '--mm-chip-positive',
+    ['--mm-chip-positive-hover', '--mm-chip-positive-pressed'],
+    ['--mm-text-green'],
+  ],
+  ['--mm-yellow', ['--mm-yellow-hover'], ['--mm-black']],
+  ['--mm-beige', ['--mm-beige-hover'], ['--mm-black']],
+  ['--mm-black', ['--mm-black-hover'], ['white']],
+];
+
+/**
+ * How far one state's fill must stand from the one before it, as a contrast ratio. The faintest
+ * step the product ships is the on toggle's hover, 1.05:1 from its rest, and that still shows; a
+ * token nudged nearer its neighbour than this would leave the step unseen.
+ */
+const MIN_STEP = 1.04;
+
 describe('the palette carries a contrast contract', () => {
   const LIGHT_GROUNDS: Array<[string, Rgb]> = [
     ['white', WHITE],
@@ -223,6 +250,36 @@ describe('the palette carries a contrast contract', () => {
     });
   }
 
+  /*
+   * A button under the pointer and pressed (T229): a fill a step darker than its rest, then another,
+   * each opaque and each held to every ink the button sets on it. `opacity` 0.9 and 0.8 faded the
+   * ink with the fill, white on green to 3.81 and 3.21, and nothing measured it, since a state that
+   * is not a token has no name to hold to a contract.
+   */
+  for (const [rest, steps, inks] of BUTTON_STATES) {
+    const restRgb = rest === 'white' ? WHITE : resolve(rest);
+    for (const state of steps) {
+      for (const ink of inks) {
+        it(`${ink} is legible on the ${state} fill`, () => {
+          expect(alphaOf(tokens[state])).toBe(1);
+          const inkRgb = ink === 'white' ? WHITE : inkOn(ink, resolve(state));
+          expect(contrast(inkRgb, resolve(state))).toBeGreaterThanOrEqual(AA_NORMAL);
+        });
+      }
+    }
+    it(`${steps.join(' then ')} each step visibly further from ${rest}`, () => {
+      // Each state shows: a hover the same as rest, or a press no further than the hover, would
+      // leave a tap unseen on a touch screen, where the browser's highlight is off. Every fill
+      // darkens but the black, which can only lighten; either way all its steps go one way.
+      const fills = [restRgb, ...steps.map(resolve)];
+      const way = Math.sign(luminance(fills[1]) - luminance(fills[0]));
+      for (let i = 1; i < fills.length; i++) {
+        expect(Math.sign(luminance(fills[i]) - luminance(fills[i - 1])), steps[i - 1]).toBe(way);
+        expect(contrast(fills[i], fills[i - 1]), steps[i - 1]).toBeGreaterThanOrEqual(MIN_STEP);
+      }
+    });
+  }
+
   it('white is never put on --mm-yellow, which is a black-text fill', () => {
     // Stated as a test so the reason survives: white on this yellow is 2.15, and someone will
     // eventually reach for it because every other fill in the product takes white.
@@ -240,6 +297,7 @@ describe('the palette carries a contrast contract', () => {
       '--color-background',
       ...FILLS.map(([f]) => f),
       ...CHIPS.map(([ground]) => ground),
+      ...BUTTON_STATES.flatMap(([, steps]) => steps),
       // Lines, hover states and a scroller's edge shades. These never sit under text.
       '--focus-border-on-fill',
       '--mm-border',
