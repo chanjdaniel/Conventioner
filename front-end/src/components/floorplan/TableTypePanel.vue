@@ -718,13 +718,7 @@ function deleteType(tt: TableTypeObject) {
   /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 5px, and the nearest would change this floorplan beta corner */
   border-radius: 5px;
   cursor: pointer;
-  transition:
-    opacity 0.15s ease-in-out,
-    background-color 0.15s ease-in-out;
-}
-
-.tt-btn:hover:not(:disabled) {
-  opacity: 0.88;
+  transition: background-color 0.15s ease-in-out;
 }
 
 .tt-btn:disabled {
@@ -746,6 +740,15 @@ function deleteType(tt: TableTypeObject) {
   background: white;
   color: var(--mm-black);
   border-color: var(--mm-border);
+}
+
+/* Under the pointer the fill takes its hover token, never dims (T229): opacity faded the words. */
+.tt-btn--primary:hover:not(:disabled) {
+  background: var(--mm-green-hover);
+}
+
+.tt-btn--secondary:hover:not(:disabled) {
+  background: var(--mm-white-hover);
 }
 
 /* ── Transitions ─────────────────────────────────────────────── */

@@ -49,7 +49,7 @@
   white-space: nowrap;
 
   cursor: pointer;
-  transition: opacity 0.15s ease-in-out;
+  transition: background-color 0.15s ease-in-out;
 }
 
 .btn--compact {
@@ -100,14 +100,43 @@
   font-weight: 400;
 }
 
-.btn:hover:not(:disabled) {
-  opacity: 0.9;
+/*
+ * Hover and pressed darken the fill a step and then another (T229), and the ink stays as it is, so
+ * the words only gain on their ground; they were `opacity` 0.9 and 0.8, which faded the words with
+ * the fill, white on green to 3.21:1 pressed. Pressed, a step past hover, is what shows the tap on a
+ * touch screen, since the browser's own tap highlight is off (`base.css`). The pressed toggle's own
+ * pair is under its rule below.
+ */
+.btn--primary:hover:not(:disabled) {
+  background: var(--mm-green-hover);
 }
 
-/* Pressed, a step past hover: on a touch screen it is what shows the tap, since the browser's own
-   tap highlight is off (`base.css`). */
-.btn:active:not(:disabled) {
-  opacity: 0.8;
+.btn--primary:active:not(:disabled) {
+  background: var(--mm-green-pressed);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background: var(--mm-white-hover);
+}
+
+.btn--secondary:active:not(:disabled) {
+  background: var(--mm-white-pressed);
+}
+
+.btn--destructive:hover:not(:disabled) {
+  background: var(--mm-red-hover);
+}
+
+.btn--destructive:active:not(:disabled) {
+  background: var(--mm-red-pressed);
+}
+
+.btn--secondary.btn--destructive:hover:not(:disabled) {
+  background: var(--mm-white-hover);
+}
+
+.btn--secondary.btn--destructive:active:not(:disabled) {
+  background: var(--mm-white-pressed);
 }
 
 /*
@@ -123,6 +152,15 @@
   border-color: var(--mm-green);
   color: var(--mm-text-green);
   font-weight: 600;
+}
+
+/* Its tint deepens a step and another, as a fill does; the ink keeps 4.79:1 pressed. */
+.btn[aria-pressed='true']:hover:not(:disabled) {
+  background: var(--mm-chip-positive-hover);
+}
+
+.btn[aria-pressed='true']:active:not(:disabled) {
+  background: var(--mm-chip-positive-pressed);
 }
 
 /*

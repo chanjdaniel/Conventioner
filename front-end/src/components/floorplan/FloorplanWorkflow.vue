@@ -325,13 +325,7 @@ function onSaved(payload: { market_id: string }) {
   /* stylelint-disable-next-line declaration-property-value-disallowed-list -- no radius token is 8px, and the nearest would change this floorplan beta corner */
   border-radius: 8px;
   cursor: pointer;
-  transition:
-    opacity 0.15s ease-in-out,
-    background-color 0.15s ease-in-out;
-}
-
-.nav-btn:hover:not(:disabled) {
-  opacity: 0.85;
+  transition: background-color 0.15s ease-in-out;
 }
 
 .nav-btn:disabled {
@@ -353,5 +347,14 @@ function onSaved(payload: { market_id: string }) {
   background: var(--mm-green);
   color: white;
   margin-left: auto;
+}
+
+/* Under the pointer the fill darkens, never dims (T229): opacity took white on green to 3.4:1. */
+.nav-btn--back:hover:not(:disabled) {
+  background: var(--mm-white-hover);
+}
+
+.nav-btn--next:hover:not(:disabled) {
+  background: var(--mm-green-hover);
 }
 </style>
