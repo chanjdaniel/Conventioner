@@ -18,8 +18,8 @@
  * the verdicts (E38/F07/S03). A chosen reviewer is handed their own share first, and once it is done
  * is offered the rest (E38/F07/S04).
  * After a verdict, the line above the next card says what was decided and offers its giver Undo, by
- * click or Z, until their next verdict or the window ends (E38/F10/S01); the reviewed list's toggle
- * sits beside the counts, and the list is newest verdict first.
+ * click or Z, until their next verdict or the window ends (E38/F10/S01); "Show N reviewed" sits
+ * beside the counts and opens the reviewed list in a dialog, newest verdict first (T217).
  */
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
@@ -36,6 +36,7 @@ import {
 } from '@/utils/reviewQueue';
 import AppDialog from '@/components/AppDialog.vue';
 import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
+import ListFrame from '@/components/ListFrame.vue';
 import SearchPicker from '@/components/SearchPicker.vue';
 import { PEOPLE_CAP, findsPerson, personOption } from '@/utils/personChoice';
 import { useReviewHighlights } from '@/utils/reviewHighlights';
@@ -99,7 +100,6 @@ let deciding: string | null = null;
 let heldKey: { undo: true } | { status: ApplicationStatus; on: string } | null = null;
 /** Where in the undecided queue the reviewer is. Skipping moves it; a verdict does not. */
 const cursor = ref(0);
-const showDecided = ref(false);
 
 /**
  * Whether the one-by-one review takes the follow-ups too, after the rest (E34/F02/S01). Off by
@@ -115,6 +115,38 @@ const decided = computed(() => reviewed(applications.value));
 const givers = computed(
   () => new Map(decided.value.map((app) => [app.id, verdictGiverLine(app)] as const)),
 );
+
+/** Whether the dialog of the reviewed is open. Closed by default: the queue is for judging. */
+const showingReviewed = ref(false);
+/** The dialog's find field: forgotten on closing, set to an address by a link naming one. */
+const reviewedWords = ref('');
+/** A change of verdict that was not written, said in the dialog: the card behind is out of sight. */
+const reviewedError = ref('');
+const reviewedButton = ref<HTMLButtonElement>();
+const reviewedDialog = ref<InstanceType<typeof AppDialog>>();
+const REVIEWED_NOUN = { one: 'application', many: 'applications' };
+const applicationKey = (app: Application) => app.id;
+
+function findsReviewed(app: Application, words: string): boolean {
+  const asked = words.toLowerCase();
+  return (
+    nameOf(app).toLowerCase().includes(asked) || app.applicantEmail.toLowerCase().includes(asked)
+  );
+}
+
+/**
+ * The words and any failure belong to this opening. A link opened it with no button pressed, so
+ * nothing has been remembered to give focus back to: the button is where it would have started.
+ */
+function stopShowingReviewed() {
+  if (!showingReviewed.value) return;
+  showingReviewed.value = false;
+  reviewedWords.value = '';
+  reviewedError.value = '';
+  void nextTick(() => {
+    if (document.activeElement === document.body) reviewedButton.value?.focus();
+  });
+}
 
 const approvedCount = computed(
   () => applications.value.filter((a) => a.status === ApplicationStatus.ReviewerApproved).length,
@@ -368,7 +400,8 @@ watch(
 
 /**
  * Open at the named application: on the card if it is still to decide - claimed for a reviewer,
- * unless someone else has it - otherwise in the reviewed list, opened, scrolled to and marked.
+ * unless someone else has it - otherwise in the reviewed dialog, found by its address, however far
+ * down the list it lies, and marked.
  */
 async function showNamed() {
   const id = props.named;
@@ -380,11 +413,10 @@ async function showNamed() {
     return;
   }
   if (decides.value) await takeNext(null);
-  if (!decided.value.some((app) => app.id === id)) return;
-  showDecided.value = true;
-  void nextTick(() =>
-    document.querySelector(`[data-application-id="${id}"]`)?.scrollIntoView({ block: 'center' }),
-  );
+  const app = decided.value.find((reviewedApp) => reviewedApp.id === id);
+  if (!app) return;
+  reviewedWords.value = app.applicantEmail;
+  showingReviewed.value = true;
 }
 
 /** Put the next card up: the server's to hand out for a reviewer, the queue's own for a reader. */
@@ -492,15 +524,12 @@ async function refresh() {
 }
 
 /**
- * After a verdict, a follow-up or a refusal: what the card does next. Only the card on screen moves
- * the queue on - correcting a past verdict in the reviewed list leaves the reviewer where they were.
- * Whether it was on the card is read before the verdict is written: the answer leaves the queue,
- * and the card up moves with it.
+ * After a verdict, a follow-up or a refusal on the card: what the card does next.
  *
  * The local list is kept in step with the answer rather than refetched: a refetch per verdict is 232
  * fetches of 232 applications across one review session.
  */
-async function settle(app: Application, outcome: VerdictOutcome, onCard: boolean) {
+async function settle(app: Application, outcome: VerdictOutcome) {
   if (outcome.kind === 'failed') {
     errorMessage.value = outcome.message;
     return;
@@ -512,7 +541,6 @@ async function settle(app: Application, outcome: VerdictOutcome, onCard: boolean
     return;
   }
   refusedOn.value = null;
-  if (!onCard) return;
   if (decides.value) {
     // The verdict let go of it; the next card is the server's to hand out (E34/F03/S02).
     await takeNext(app.id);
@@ -521,26 +549,70 @@ async function settle(app: Application, outcome: VerdictOutcome, onCard: boolean
   }
 }
 
-/** Whether this application is the card on screen, or the one a verdict was refused for. */
-function isUp(app: Application): boolean {
-  return app.id === current.value?.id || app.id === refusedOn.value;
-}
-
 async function decide(app: Application, status: ApplicationStatus) {
   if (!props.market || saving.value) return;
   saving.value = true;
   deciding = app.id;
   errorMessage.value = '';
-  const onCard = isUp(app);
   const before = { ...app };
   try {
     const outcome = await verdicts.give(app, status);
     offerUndo(before, outcome, status);
-    await settle(app, outcome, onCard);
+    await settle(app, outcome);
   } finally {
     deciding = null;
     saving.value = false;
   }
+}
+
+/**
+ * What failed with no dialog left to say it in: beside what the card already says, which on a refused
+ * card is who decided it first, and only once however many times it fails that way.
+ */
+function sayBesideTheCard(words: string) {
+  if (!errorMessage.value.includes(words)) {
+    errorMessage.value = `${errorMessage.value} ${words}`.trim();
+  }
+}
+
+/**
+ * "Approve instead" or "Reject instead" in the dialog (T217). The dialog stays open and the card
+ * behind stays up, its words with it: what was refused is said here, in sight. The one card this
+ * moves is a refused one whose own row was changed, since deciding it again is what it waits for.
+ *
+ * The pressed button goes disabled and then goes for good with the status, and the row itself moves
+ * to the top as the newest verdict, so focus waits on the row and lands on its new button; left
+ * alone it would fall to `<body>`, with Tab starting over from the top of the dialog.
+ */
+async function changeVerdict(app: Application, status: ApplicationStatus, event: Event) {
+  if (!props.market || saving.value) return;
+  const row = (event.currentTarget as HTMLElement).closest<HTMLElement>('li');
+  row?.focus({ preventScroll: true });
+  saving.value = true;
+  deciding = app.id;
+  reviewedError.value = '';
+  const before = { ...app };
+  try {
+    const outcome = await verdicts.give(app, status);
+    offerUndo(before, outcome, status);
+    if (outcome.kind !== 'written') {
+      // Closed with the answer still out: said where the reviewer now is, and which one, since the
+      // card up is another application and its "this application" would read as that one.
+      if (showingReviewed.value) reviewedError.value = outcome.message;
+      else sayBesideTheCard(`${app.applicantEmail} was not changed: ${outcome.message}`);
+    } else if (app.id === refusedOn.value) {
+      errorMessage.value = '';
+      await settle(app, outcome);
+    }
+  } finally {
+    deciding = null;
+    saving.value = false;
+  }
+  await nextTick();
+  if (row?.isConnected) (row.querySelector('button') ?? row).focus();
+  // The answer can take the row from the list, when someone else reopened it meanwhile, and its focus
+  // with it. A row closed away has left focus where the closing gave it, which stays.
+  else if (document.activeElement === document.body) await reviewedDialog.value?.focusInside();
 }
 
 /**
@@ -636,7 +708,9 @@ const followUpOpen = ref(false);
 const followUpError = ref('');
 
 /** A dialog is open over the card: its own controls have the keyboard, and no key reaches the card. */
-const dialogOverCard = computed(() => followUpOpen.value || choosingHighlights.value);
+const dialogOverCard = computed(
+  () => followUpOpen.value || choosingHighlights.value || showingReviewed.value,
+);
 
 async function markFollowUp(choice: { ownerEmail: string; note?: string }) {
   const app = current.value;
@@ -644,7 +718,6 @@ async function markFollowUp(choice: { ownerEmail: string; note?: string }) {
   followUpError.value = '';
   saving.value = true;
   deciding = app.id;
-  const onCard = isUp(app);
   const before = { ...app };
   try {
     const outcome = await verdicts.markFollowUp(
@@ -659,7 +732,7 @@ async function markFollowUp(choice: { ownerEmail: string; note?: string }) {
     }
     followUpOpen.value = false;
     offerUndo(before, outcome, ApplicationStatus.NeedsFollowUp);
-    await settle(app, outcome, onCard);
+    await settle(app, outcome);
   } finally {
     deciding = null;
     saving.value = false;
@@ -734,15 +807,12 @@ watch(
 // The dialog belongs to this view of this market, for someone who may mark: left open, it would
 // come back with the view and hold the keys from a card it no longer lies over.
 watch([() => props.visible, () => props.market?.id, marksHighlights], stopChoosingHighlights);
+watch([() => props.visible, () => props.market?.id], stopShowingReviewed);
 
-// A tick still being written when Done was pressed has no dialog left to say it failed in. Said
-// beside what the card already says, which on a refused card is who decided it first, and only
-// once however many ticks fail that way.
+// A tick still being written when Done was pressed has no dialog left to say it failed in.
 watch(highlightsError, (words) => {
   if (!words || choosingHighlights.value) return;
-  if (!errorMessage.value.includes(words)) {
-    errorMessage.value = `${errorMessage.value} ${words}`.trim();
-  }
+  sayBesideTheCard(words);
   highlightsError.value = '';
 });
 
@@ -788,7 +858,9 @@ function submittedOn(app: Application): string {
       :message="loadError"
       @retry="loadApplications"
     />
-    <p v-if="errorMessage && !refusedOn" class="error-state">{{ errorMessage }}</p>
+    <p v-if="errorMessage && !refusedOn" class="error-state" data-testid="app-monitor-error">
+      <EmailAddress :words="errorMessage" />
+    </p>
 
     <div v-if="loading" class="loading-state" data-testid="app-monitor-loading">
       Loading applications...
@@ -828,19 +900,19 @@ function submittedOn(app: Application): string {
                (E38/F10/S01). -->
           <button
             v-if="decided.length"
-            class="decided-toggle"
-            :aria-expanded="showDecided"
-            aria-controls="app-monitor-decided-list"
-            @click="showDecided = !showDecided"
-            data-testid="app-monitor-decided-toggle"
+            ref="reviewedButton"
+            type="button"
+            class="decided-open"
+            data-testid="app-monitor-decided-open"
+            @click="showingReviewed = true"
           >
-            {{ showDecided ? 'Hide' : 'Show' }} {{ decided.length }} reviewed
+            Show {{ decided.length }} reviewed
           </button>
         </span>
       </div>
 
       <!-- The verdict just given, and its Undo, under the counts and over the next card
-           (E38/F10/S01): over the reviewed list too, so opening the list never pushes it down. -->
+           (E38/F10/S01). -->
       <VerdictUndoLine
         v-if="undoOffered"
         class="monitor-undo"
@@ -851,67 +923,6 @@ function submittedOn(app: Application): string {
         testid="app-monitor-undo"
         @undo="undoLast"
       />
-
-      <!-- Decided applications, newest verdict first, so a verdict can be read back, and changed
-           one at a time by whoever the change row lets change one (E38/F06/S01). -->
-      <div v-if="showDecided && decided.length" class="decided">
-        <p v-if="changeRefusal" class="change-reason" data-testid="app-monitor-decided-reason">
-          {{ changeRefusal }}
-        </p>
-        <ul
-          id="app-monitor-decided-list"
-          class="decided-list"
-          data-testid="app-monitor-decided-list"
-        >
-          <li
-            v-for="app in decided"
-            :key="app.id"
-            :class="{ named: app.id === named }"
-            :data-application-id="app.id"
-            data-testid="app-monitor-decided-row"
-          >
-            <span class="decided-who">
-              <span v-if="nameOf(app)" class="app-name" data-testid="app-monitor-decided-name">
-                {{ nameOf(app) }}
-              </span>
-              <span class="app-email" data-testid="app-monitor-decided-email">
-                {{ app.applicantEmail }}
-              </span>
-            </span>
-            <span :class="statusChip(app.status)" data-testid="app-monitor-decided-status">
-              {{ statusLabel(app.status) }}
-            </span>
-            <span
-              v-if="givers.get(app.id)"
-              class="verdict-giver"
-              data-testid="app-monitor-decided-giver"
-            >
-              {{ givers.get(app.id) }}
-            </span>
-            <!-- The action is a quiet button beside the verdict, never a second verdict. -->
-            <button
-              v-if="changes && app.status === ApplicationStatus.ReviewerRejected"
-              type="button"
-              class="btn btn--secondary btn--compact"
-              :disabled="saving"
-              @click="decide(app, ApplicationStatus.ReviewerApproved)"
-              data-testid="app-monitor-decided-approve-button"
-            >
-              Approve instead
-            </button>
-            <button
-              v-else-if="changes && isDecided(app)"
-              type="button"
-              class="btn btn--secondary btn--compact"
-              :disabled="saving"
-              @click="decide(app, ApplicationStatus.ReviewerRejected)"
-              data-testid="app-monitor-decided-reject-button"
-            >
-              Reject instead
-            </button>
-          </li>
-        </ul>
-      </div>
 
       <p v-if="nothingToJudge" class="advisory" data-testid="app-monitor-advisory">
         This market's form asks only the essential questions, so every application reads alike and
@@ -951,7 +962,8 @@ function submittedOn(app: Application): string {
         </p>
         <!-- Someone decided it first: said here, on what they decided (E34/F03/S01). -->
         <p v-if="refusedOn" class="changed-since" data-testid="app-monitor-changed" role="alert">
-          {{ errorMessage }}
+          <!-- One item of the band's flex: an address's pieces would each be one of their own. -->
+          <span><EmailAddress :words="errorMessage" /></span>
           <span v-if="verdictGiverLine(current)" class="verdict-giver">
             {{ verdictGiverLine(current) }}.
           </span>
@@ -1175,6 +1187,91 @@ function submittedOn(app: Application): string {
         </button>
       </template>
     </AppDialog>
+
+    <!--
+      Decided applications, newest verdict first, so a verdict can be read back, and changed one at
+      a time by whoever the change row lets change one (E38/F06/S01). Beside the card, as the dialog
+      above is. The frame's words stay in this dialog, never in the address, which they would outlive.
+    -->
+    <AppDialog
+      ref="reviewedDialog"
+      :open="showingReviewed"
+      title="Reviewed applications"
+      testid="app-monitor-decided"
+      size="wide"
+      scroll="body"
+      anchored
+      :error="reviewedError"
+      @close="stopShowingReviewed"
+    >
+      <p
+        v-if="changeRefusal"
+        class="change-reason change-reason--list"
+        data-testid="app-monitor-decided-reason"
+      >
+        {{ changeRefusal }}
+      </p>
+      <ListFrame
+        v-model:words="reviewedWords"
+        :items="decided"
+        :finds="findsReviewed"
+        :itemKey="applicationKey"
+        :noun="REVIEWED_NOUN"
+        findLabel="Find by name or address"
+        testid="app-monitor-decided-list"
+      >
+        <template #row="{ item: app }">
+          <div
+            class="decided-row"
+            :class="{ named: app.id === named }"
+            data-testid="app-monitor-decided-row"
+          >
+            <span class="decided-who">
+              <span v-if="nameOf(app)" class="app-name" data-testid="app-monitor-decided-name">
+                {{ nameOf(app) }}
+              </span>
+              <span class="app-email" data-testid="app-monitor-decided-email">
+                <EmailAddress :words="app.applicantEmail" />
+              </span>
+            </span>
+            <span :class="statusChip(app.status)" data-testid="app-monitor-decided-status">
+              {{ statusLabel(app.status) }}
+            </span>
+            <span
+              v-if="givers.get(app.id)"
+              class="verdict-giver"
+              data-testid="app-monitor-decided-giver"
+            >
+              <EmailAddress :words="givers.get(app.id) ?? ''" />
+            </span>
+            <!-- The action is a quiet button beside the verdict, never a second verdict, and never
+                 what the dialog opens on, which one stray Enter would make. -->
+            <button
+              v-if="changes && app.status === ApplicationStatus.ReviewerRejected"
+              type="button"
+              class="btn btn--secondary btn--compact"
+              :disabled="saving"
+              data-dialog-not-first
+              data-testid="app-monitor-decided-approve-button"
+              @click="changeVerdict(app, ApplicationStatus.ReviewerApproved, $event)"
+            >
+              Approve instead
+            </button>
+            <button
+              v-else-if="changes && isDecided(app)"
+              type="button"
+              class="btn btn--secondary btn--compact"
+              :disabled="saving"
+              data-dialog-not-first
+              data-testid="app-monitor-decided-reject-button"
+              @click="changeVerdict(app, ApplicationStatus.ReviewerRejected, $event)"
+            >
+              Reject instead
+            </button>
+          </div>
+        </template>
+      </ListFrame>
+    </AppDialog>
   </div>
 </template>
 
@@ -1212,6 +1309,7 @@ function submittedOn(app: Application): string {
   color: var(--mm-red);
   font-size: var(--text-sm);
   margin-bottom: var(--space-3);
+  overflow-wrap: anywhere;
 }
 
 .progress-row {
@@ -1229,7 +1327,7 @@ function submittedOn(app: Application): string {
   color: var(--mm-black);
 }
 
-/* The counts and the reviewed list's toggle, kept together at the row's end. */
+/* The counts and "Show N reviewed", kept together at the row's end. */
 .counts {
   display: inline-flex;
   align-items: baseline;
@@ -1293,6 +1391,7 @@ function submittedOn(app: Application): string {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  overflow-wrap: anywhere;
   margin: var(--space-2) 0 0;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--mm-yellow);
@@ -1332,6 +1431,10 @@ function submittedOn(app: Application): string {
   margin: var(--space-3) 0 0;
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
+}
+
+.change-reason--list {
+  margin: 0;
 }
 
 .review-card .change-reason {
@@ -1468,10 +1571,6 @@ function submittedOn(app: Application): string {
   margin-left: var(--space-1);
 }
 
-.decided {
-  margin-bottom: var(--space-4);
-}
-
 .monitor-undo {
   margin-bottom: var(--space-3);
 }
@@ -1485,7 +1584,6 @@ function submittedOn(app: Application): string {
 }
 
 .decided-who {
-  flex: 1 1 12rem;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -1493,7 +1591,7 @@ function submittedOn(app: Application): string {
   min-width: 0;
 }
 
-.decided-toggle {
+.decided-open {
   --focus-border-offset: var(--focus-border-width);
   min-height: var(--target-min);
   background: none;
@@ -1505,36 +1603,46 @@ function submittedOn(app: Application): string {
   text-decoration: underline;
 }
 
-.decided-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.decided-list li {
-  display: flex;
+/* Who and the verdict, then who gave it and the change, each change at its row's end. */
+.decided-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
 }
 
 /* The application a link opened the page at. */
-.decided-list li.named {
+.decided-row.named {
   border-color: var(--mm-green);
   outline: 1px solid var(--mm-green);
 }
 
-.decided-list .app-email {
+/* The address breaks before its "@" or a dot (EmailAddress), never mid-word as break-all would. */
+.decided-row .app-email {
   font-size: var(--text-sm);
+  word-break: normal;
 }
 
-.decided .change-reason {
-  margin: 0 0 var(--space-3);
+.decided-row .chip {
+  justify-self: end;
+}
+
+.decided-row .btn {
+  grid-column: 2;
+}
+
+/* A phone gives the giver's line the row's width, and the change a line of its own. */
+@media (width <= 640px) {
+  .decided-row .verdict-giver {
+    grid-column: 1 / -1;
+  }
+
+  .decided-row .btn {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
 }
 </style>

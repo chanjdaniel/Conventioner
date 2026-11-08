@@ -130,7 +130,7 @@ test('the review card reads as one card, and a verdict is not drawn like the act
 
   await monitor.approveButton.click();
   await monitor.rejectButton.click();
-  await monitor.decidedToggle.click();
+  await monitor.openDecided();
   const verdict = (label: string) =>
     monitor.decidedRows.filter({
       has: page.getByTestId('app-monitor-decided-status').getByText(label, { exact: true }),

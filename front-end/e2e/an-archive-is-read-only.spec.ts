@@ -60,7 +60,7 @@ test('an archived market that ran is shown as a record, with nothing to change',
 
   // Verdicts are part of the record.
   await page.goto(oneByOnePath(marketId));
-  await page.getByTestId('app-monitor-decided-toggle').click();
+  await page.getByTestId('app-monitor-decided-open').click();
   await expect(page.getByTestId('app-monitor-decided-row').first()).toBeVisible();
   await expect(page.getByTestId('app-monitor-decided-approve-button')).toHaveCount(0);
   await expect(page.getByTestId('app-monitor-decided-reject-button')).toHaveCount(0);

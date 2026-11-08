@@ -26,16 +26,6 @@ const SRC = resolvePath(process.cwd(), 'src');
 /** The one component that owns a scroller, and the stylesheet holding the one rule on bars. */
 const OWNERS = ['components/ScrollBox.vue', 'assets/base.css'];
 
-/**
- * What is not yet converted, as `<file> <selector>`, and it falls on purpose: a conversion takes its
- * line out, since the last test below fails on a line that no longer holds, and the list ends empty.
- * What must never happen is a line added to it: a new scroller is a `ScrollBox`.
- */
-const NOT_YET_CONVERTED = [
-  // The picker's list, with its role and its active row to keep whole inside a `ScrollBox`.
-  'components/SearchPicker.vue .search-picker-list',
-];
-
 const LETS_IT_SCROLL = /\b(?:auto|scroll)\b/;
 
 /** Whether a declaration lets its box scroll, or speaks of a bar. */
@@ -162,20 +152,11 @@ describe('the guard itself', () => {
 });
 
 describe('every in-app scroller is a ScrollBox', () => {
-  it('has no scroller or rule on a bar outside ScrollBox and base.css, but the named list', () => {
-    const unnamed = everyScroller().filter((found) => !NOT_YET_CONVERTED.includes(found));
+  it('has no scroller or rule on a bar outside ScrollBox and base.css', () => {
     expect(
-      unnamed,
+      everyScroller(),
       'a box that scrolls is a ScrollBox, and the one rule on bars is in base.css ' +
         '(docs/design-system.md#the-primitive-layer)',
-    ).toEqual([]);
-  });
-
-  it('names only what is still to convert, so the list can only fall', () => {
-    const found = everyScroller();
-    expect(
-      NOT_YET_CONVERTED.filter((named) => !found.includes(named)),
-      'converted: take these out of NOT_YET_CONVERTED',
     ).toEqual([]);
   });
 });

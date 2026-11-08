@@ -116,7 +116,7 @@ export function approvedVendorApplication(
 }
 
 /** Write many applications in one call: each `mongoEval` is a round trip into the container. */
-export function insertApplications(applications: { id: string }[]): void {
+export function insertApplications(applications: { id: string; [field: string]: unknown }[]): void {
   if (applications.length === 0) return;
   mongoEval(`db.applications.insertMany(${JSON.stringify(applications)})`);
 }
