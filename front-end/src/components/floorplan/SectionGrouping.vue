@@ -666,7 +666,7 @@ onUnmounted(() => {
 }
 
 .sg-toolbar-btn.is-active:hover {
-  background: color-mix(in srgb, var(--mm-yellow) 85%, black);
+  background: var(--mm-yellow-hover);
 }
 
 .sg-toolbar-btn--sections {
@@ -1003,7 +1003,7 @@ onUnmounted(() => {
 }
 
 .sg-btn--cancel:hover {
-  background: color-mix(in srgb, var(--mm-beige) 85%, black);
+  background: var(--mm-beige-hover);
 }
 
 .sg-btn--confirm {

@@ -353,14 +353,13 @@ function formatDate(dateStr: string): string {
   background: var(--mm-black);
 }
 
-/* Under the pointer the fill darkens, never dims (T229): opacity faded the words with the fill. */
+/* Under the pointer the fill takes its hover token, never dims (T229): opacity faded the words. */
 .tp-btn--save:hover:not(:disabled) {
   background: var(--mm-green-hover);
 }
 
-/* White on it: 12.15. */
 .tp-btn--load:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--mm-black) 92%, white);
+  background: var(--mm-black-hover);
 }
 
 /* ── Feedback toast ────────────────────────────────────────── */

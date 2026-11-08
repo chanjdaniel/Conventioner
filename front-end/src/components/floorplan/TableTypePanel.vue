@@ -742,7 +742,7 @@ function deleteType(tt: TableTypeObject) {
   border-color: var(--mm-border);
 }
 
-/* Under the pointer the fill darkens, never dims (T229): opacity faded the words with the fill. */
+/* Under the pointer the fill takes its hover token, never dims (T229): opacity faded the words. */
 .tt-btn--primary:hover:not(:disabled) {
   background: var(--mm-green-hover);
 }

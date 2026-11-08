@@ -691,7 +691,7 @@ watch(
 }
 
 .toolbar-btn.is-active:hover {
-  background: color-mix(in srgb, var(--mm-yellow) 85%, black);
+  background: var(--mm-yellow-hover);
 }
 
 /* ── Error banner ────────────────────────────────────────────── */

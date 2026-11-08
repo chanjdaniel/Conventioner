@@ -815,8 +815,7 @@ function swapSeats(withEmail: string): void {
 
 /*
  * Under the pointer each pill's fill darkens a step, never dims (T229): opacity 0.9 took the
- * assigned pill's white words to 3.81:1. The partial pill's black reads 6.16 on its hover, the
- * empty pill's 10.49.
+ * assigned pill's white words to 3.81:1. Each hover fill is a token `contrast.test.ts` holds.
  */
 .count-badge--assigned:hover:not(:disabled) {
   background-color: var(--mm-green-hover);
@@ -824,13 +823,13 @@ function swapSeats(withEmail: string): void {
 }
 
 .count-badge--partial:hover:not(:disabled) {
-  background-color: color-mix(in srgb, var(--mm-yellow) 92%, black);
-  border-color: color-mix(in srgb, var(--mm-yellow) 92%, black);
+  background-color: var(--mm-yellow-hover);
+  border-color: var(--mm-yellow-hover);
 }
 
 .count-badge--empty:hover:not(:disabled),
 .count-badge--none:hover:not(:disabled) {
-  background-color: color-mix(in srgb, var(--mm-beige) 92%, black);
+  background-color: var(--mm-beige-hover);
 }
 
 /*

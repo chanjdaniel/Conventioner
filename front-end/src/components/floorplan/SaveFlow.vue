@@ -857,7 +857,7 @@ async function handleSave() {
 }
 
 .save-dialog-btn--cancel:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--mm-beige) 90%, black);
+  background: var(--mm-beige-hover);
 }
 
 .save-dialog-btn--primary {
