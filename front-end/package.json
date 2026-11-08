@@ -47,12 +47,12 @@
     "@vue/test-utils": "^2.5.1",
     "@vue/tsconfig": "^0.9.1",
     "eslint": "^10.13.0",
-    "eslint-plugin-vue": "^10.11.1",
+    "eslint-plugin-vue": "^10.12.0",
     "happy-dom": "^21.0.4",
     "jiti": "^2.4.2",
     "jsqr": "^1.4.0",
     "npm-run-all2": "^9.0.4",
-    "postcss": "^8.5.31",
+    "postcss": "^8.5.32",
     "postcss-html": "^2.0.0",
     "prettier": "^3.9.10",
     "stylelint": "^17.15.0",
@@ -61,6 +61,6 @@
     "vite": "^8.3.5",
     "vite-plugin-vue-devtools": "^8.2.1",
     "vitest": "^5.0.5",
-    "vue-tsc": "^3.3.13"
+    "vue-tsc": "^3.3.14"
   }
 }
