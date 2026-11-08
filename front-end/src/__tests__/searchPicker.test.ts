@@ -245,22 +245,24 @@ describe('brought into view', () => {
     delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
   });
 
-  /** What was moved, by its role, leaving out the active row, which moves when it changes. */
+  /** What was moved, leaving out the active row, which moves when it changes. */
   const moved = () =>
     scrollIntoView.mock.contexts
-      .map((element: Element) => element.getAttribute('role'))
-      .filter((role) => role !== 'option');
+      .filter((element: Element) => element.getAttribute('role') !== 'option')
+      .map((element: Element) =>
+        element.classList.contains('search-picker-list') ? 'list' : element.getAttribute('role'),
+      );
 
   it('its list and then its field, as its list opens, however often, and as words narrow it', async () => {
     const wrapper = picker();
 
     await field(wrapper).trigger('click');
     await flushPromises();
-    expect(moved()).toEqual(['listbox', 'combobox']);
+    expect(moved()).toEqual(['list', 'combobox']);
 
     await field(wrapper).setValue('a');
     await flushPromises();
-    expect(moved()).toEqual(['listbox', 'combobox', 'listbox', 'combobox']);
+    expect(moved()).toEqual(['list', 'combobox', 'list', 'combobox']);
 
     await field(wrapper).trigger('keydown', { key: 'Escape' });
     await flushPromises();
@@ -280,6 +282,70 @@ describe('brought into view', () => {
     await flushPromises();
 
     expect(moved()).toEqual([]);
+    wrapper.unmount();
+  });
+
+  /** The rows the active row was moved to, in order. */
+  const rowsMoved = () =>
+    scrollIntoView.mock.contexts
+      .filter((element: Element) => element.getAttribute('role') === 'option')
+      .map((element: Element) => element.textContent?.trim());
+
+  it('the active row, as the keys move it, and not as the pointer does', async () => {
+    const wrapper = picker();
+    await field(wrapper).trigger('click');
+    await flushPromises();
+    const [first, second] = wrapper.findAll('[role="option"]');
+    scrollIntoView.mockClear();
+
+    await field(wrapper).trigger('keydown', { key: 'ArrowDown' });
+    await flushPromises();
+    const keyed = rowsMoved();
+    expect(keyed).toHaveLength(1);
+
+    // Under the pointer it stays where it stands: moved, it could leave the pointer for the next row.
+    scrollIntoView.mockClear();
+    await first!.trigger('mousemove');
+    await flushPromises();
+    expect(first!.classes()).toContain('search-picker-option--active');
+    expect(rowsMoved()).toEqual([]);
+
+    // A pointer resting on the row it already made active leaves the keys as they were.
+    await first!.trigger('mousemove');
+    await flushPromises();
+    await field(wrapper).trigger('keydown', { key: 'ArrowDown' });
+    await flushPromises();
+    expect(second!.classes()).toContain('search-picker-option--active');
+    expect(rowsMoved()).toHaveLength(1);
+    wrapper.unmount();
+  });
+});
+
+describe('its list is a ScrollBox', () => {
+  it('the scroller is the listbox the field names, with the frame around it', async () => {
+    const wrapper = picker();
+    await field(wrapper).trigger('click');
+
+    const listbox = wrapper.get('[role="listbox"]');
+    expect(listbox.classes()).toContain('scroll-box__scroller');
+    expect(listbox.attributes('id')).toBe(field(wrapper).attributes('aria-controls'));
+    expect(listbox.attributes('data-testid')).toBe('who-list-rows');
+    expect(listbox.attributes('tabindex')).toBe('-1');
+    expect(listbox.element.parentElement!.parentElement!.getAttribute('data-testid')).toBe(
+      'who-list',
+    );
+    expect(listbox.find('[role="option"]').exists()).toBe(true);
+    wrapper.unmount();
+  });
+
+  it('a press anywhere in the frame leaves the focus in the field', async () => {
+    const wrapper = picker();
+    await field(wrapper).trigger('click');
+
+    const press = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    wrapper.get('[role="listbox"]').element.dispatchEvent(press);
+
+    expect(press.defaultPrevented).toBe(true);
     wrapper.unmount();
   });
 });
@@ -355,13 +421,13 @@ describe('a capped match list', () => {
     wrapper.unmount();
   });
 
-  it('keeps the line out of the options, and at the end of the list', async () => {
+  it('keeps the line out of the options, at the foot of the frame and out of what scrolls', async () => {
     const wrapper = capped(7);
     await field(wrapper).trigger('click');
 
-    const list = wrapper.get('[role="listbox"]').element;
+    const list = wrapper.get('.search-picker-list').element;
     expect(list.lastElementChild).toBe(more(wrapper).element);
-    expect(more(wrapper).attributes('role')).toBe('presentation');
+    expect(wrapper.get('[role="listbox"]').element.contains(more(wrapper).element)).toBe(false);
     expect(wrapper.findAll('[role="option"]').map((option) => option.text())).not.toContain(
       '2 more, type to narrow',
     );

@@ -2,13 +2,14 @@
 /**
  * The summaries (T200): what stands in for a list that unfolds above the work. L4's reviewers, one
  * line whose "and 9 more" opens the rest, are on their screen, so the real panel is drawn here; and
- * L3's "Show N reviewed" as a dialog holding the frame over every reviewed application, whose body
- * scrolls and needs nothing else for the frame. The frame keeps no words in the address, since they
- * would outlive the dialog.
+ * L3's "Show N reviewed", as One by one has it, a dialog holding the frame over every reviewed
+ * application, whose body scrolls and needs nothing else for the frame. The frame keeps no words in
+ * the address, since they would outlive the dialog.
  */
 import { ref } from 'vue';
 import { MarketPhase, type Market } from '@/assets/types/datatypes';
 import AppDialog from '@/components/AppDialog.vue';
+import EmailAddress from '@/components/EmailAddress.vue';
 import ListFrame from '@/components/ListFrame.vue';
 import NameList from '@/components/NameList.vue';
 import ReviewersPanel from '@/components/market/ReviewersPanel.vue';
@@ -44,7 +45,7 @@ const teamOf = (count: number, unable: readonly number[] = []) =>
     },
   }) as Market;
 
-/** L3: today's own list, in the order they arrived, since the fixture keeps no verdict's time. */
+/** L3: the reviewed list, in the order they arrived, since the fixture keeps no verdict's time. */
 const reviewedApplications = reviewed(applications);
 const reviewedOpen = ref(false);
 const findsApplication = (item: { name: string; email: string }, words: string) =>
@@ -77,20 +78,20 @@ const presses = ref(0);
 
   <LibrarySection
     title='L3: "Show N reviewed", on Applications One by one'
-    :about="`Every verdict given unfolds above the card today, ${reviewedApplications.length} rows here. In a dialog the card stays where it is, and the frame finds one. L9, the Discord report's &quot;Show who&quot;, opens a dialog too, its vendors in their groups with no frame yet.`"
+    :about="`Every verdict given, ${reviewedApplications.length} rows here, in a dialog: the card stays where it is, and the frame finds one. L9, the Discord report's &quot;Show who&quot;, opens a dialog too, its vendors in their groups with no frame yet.`"
   >
     <LibraryPanel label="The reviewed list in a dialog" class="library-wide">
       <div class="library-demo">
         <button
           type="button"
-          class="library-reviewed-toggle"
+          class="library-reviewed-open"
           data-testid="library-l3-open"
           @click="reviewedOpen = true"
         >
           Show {{ reviewedApplications.length }} reviewed
         </button>
         <p class="library-quiet">
-          Rows as today's, without who gave the verdict, which the fixture does not hold, and
+          Rows as One by one's, without who gave the verdict, which the fixture does not hold, and
           without "Approve instead" and "Reject instead", which only someone who may change a
           verdict sees.
         </p>
@@ -103,6 +104,7 @@ const presses = ref(0);
       testid="library-l3-dialog"
       size="wide"
       scroll="body"
+      anchored
       @close="reviewedOpen = false"
     >
       <ListFrame
@@ -116,8 +118,10 @@ const presses = ref(0);
         <template #row="{ item }">
           <div class="library-reviewed">
             <span class="library-reviewed__who">
-              <span data-testid="library-l3-name">{{ item.name }}</span>
-              <span class="library-reviewed__address">{{ item.email }}</span>
+              <span class="library-reviewed__name" data-testid="library-l3-name">
+                {{ item.name }}
+              </span>
+              <span data-testid="library-l3-email"><EmailAddress :words="item.email" /></span>
             </span>
             <span :class="statusChip(item.status)">{{ statusLabel(item.status) }}</span>
           </div>
@@ -200,8 +204,8 @@ const presses = ref(0);
   color: var(--mm-text-muted);
 }
 
-/* Today's toggle, as `ApplicationMonitor.vue` draws it, opening a dialog here. */
-.library-reviewed-toggle {
+/* The button, as `ApplicationMonitor.vue` draws it. */
+.library-reviewed-open {
   min-height: var(--target-min);
   padding: 0;
   border: none;
@@ -212,12 +216,12 @@ const presses = ref(0);
   cursor: pointer;
 }
 
-/* Today's reviewed row: who, then the verdict, wrapping under on a phone. */
+/* A reviewed row, as `ApplicationMonitor.vue` draws it: the verdict beside who, at every width. */
 .library-reviewed {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-1) var(--space-3);
+  gap: var(--space-2) var(--space-3);
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-sm);
   color: var(--mm-black);
@@ -226,16 +230,19 @@ const presses = ref(0);
 }
 
 .library-reviewed__who {
-  flex: 1 1 12rem;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 0 var(--space-2);
   min-width: 0;
+}
+
+.library-reviewed__name {
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
-.library-reviewed__address {
-  color: var(--mm-text-muted);
+.library-reviewed .chip {
+  justify-self: end;
 }
 </style>

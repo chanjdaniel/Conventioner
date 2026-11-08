@@ -25,7 +25,7 @@ describes:
   - front-end/e2e/helpers/decideReviewSetup.ts
   - front-end/e2e/helpers/seedPeopleAtScale.ts
   - front-end/e2e/helpers/seedMarketAtScale.ts
-verified: 2026-11-05
+verified: 2026-11-06
 sources:
   - E02
   - E11/F01/S01
