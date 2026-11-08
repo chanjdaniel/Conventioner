@@ -2,10 +2,11 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { ManageMarketPage } from './pages/ManageMarketPage';
 import { VendorsPage } from './pages/VendorsPage';
-import { completePlan } from './helpers/seeds';
+import { completePlan, loginViaApi } from './helpers/seeds';
 import { savePlan } from './helpers/savePlan';
 import { approvedVendorApplication, insertApplications } from './helpers/seedApplication';
 import { seedPhaseMarket, transitionMarket } from './helpers/seedPhaseMarket';
+import { uniqueMarketName } from './helpers/uniqueName';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 
 /**
@@ -38,9 +39,21 @@ async function ok(response: Awaited<ReturnType<APIRequestContext['put']>>) {
   expect(response.ok(), await response.text()).toBeTruthy();
 }
 
-/** A market with every kind of change the story names, and its name as it ended. */
+/**
+ * A market with every kind of change the story names, and its name as it ended, in an organization
+ * of its own: Manage market lists the organization's people above the History, so on the seed's
+ * shared organization the box stood wherever an earlier spec on the shard had left its people.
+ */
 async function seedAHistory(request: APIRequestContext) {
-  const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+  await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+  const org = await request.post(`${BACKEND_URL}/organizations`, {
+    data: { name: uniqueMarketName('Example History Org') },
+  });
+  await ok(org);
+  const orgId = (await org.json()).organization_id as string;
+  const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+    orgId,
+  });
   const plan = completePlan();
   await savePlan(request, BACKEND_URL, TEST_USER.email, seed.marketId, {
     ...plan,
