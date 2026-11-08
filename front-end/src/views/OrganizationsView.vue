@@ -279,6 +279,11 @@ function handleManageChanged() {
   box-shadow: var(--shadow-card);
 }
 
+/* Pressed a step past its hover, as a `.btn` is: on a phone it is what shows the tap. */
+.new-button:active {
+  background: var(--mm-green-pressed);
+}
+
 .content-block {
   flex: 1;
   padding-top: var(--space-6);

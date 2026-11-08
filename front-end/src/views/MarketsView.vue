@@ -415,6 +415,11 @@ function handleNewClose() {
   box-shadow: var(--shadow-card);
 }
 
+/* Pressed a step past its hover, as a `.btn` is: on a phone it is what shows the tap. */
+.new-market-button:active {
+  background: var(--mm-green-pressed);
+}
+
 .markets-block {
   padding-top: var(--space-6);
 }
