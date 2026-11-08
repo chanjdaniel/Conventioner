@@ -84,6 +84,7 @@ cd front-end && node scripts/e2e-shards.ts refresh <that dir>
 ```
 
 and commit the rewritten file in its own `ci:` PR.
+The refresh lists the suite and refuses, naming each file, when a spec file it lists is in none of the reports, as when a shard stopped before Playwright wrote its report, so a missing shard never drops its files to the median.
 The first timings came from run 42493172818's list-reporter times, before the reports were uploaded on a passing run.
 
 ## The bundle budget

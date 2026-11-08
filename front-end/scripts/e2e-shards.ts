@@ -21,7 +21,8 @@
  *   gh run download <run id> -R chanjdaniel/Conventioner -p 'e2e-results-shard-*' -D <dir>
  *   node scripts/e2e-shards.ts refresh <dir>
  *
- * and commit the rewritten `scripts/e2e-shard-timings.json`.
+ * and commit the rewritten `scripts/e2e-shard-timings.json`. The refresh refuses when a spec file the
+ * suite lists is in none of the reports, so the reports must be every shard's from one run.
  */
 import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -138,6 +139,27 @@ export function secondsFromReports(reports: readonly Report[]): Record<string, n
   );
 }
 
+/**
+ * The timings a refresh writes: each spec file the suite lists, timed from the reports. A shard
+ * that stopped before Playwright wrote its report uploads none, and its files would then drop out
+ * of the timings and be dealt at the median, a heavy file as a light one, so a listed file in no
+ * report refuses the refresh, naming each. A reported file the suite no longer lists is left out.
+ */
+export function timingsFromReports(
+  listed: readonly string[],
+  reports: readonly Report[],
+): Record<string, number> {
+  const seconds = secondsFromReports(reports);
+  const missing = listed.filter((file) => !(file in seconds));
+  if (missing.length > 0) {
+    throw new Error(
+      `${missing.length} listed spec files are in no report: ${missing.join(', ')}. ` +
+        "Download every shard's report from one run of this suite.",
+    );
+  }
+  return Object.fromEntries([...listed].sort().map((file) => [file, seconds[file]!]));
+}
+
 /** Playwright's list of the suite, or of the files the filters name, as a JSON report. */
 function list(filters: readonly string[] = []): Report {
   const listed = spawnSync('npx', ['playwright', 'test', '--list', '--reporter=json', ...filters], {
@@ -190,15 +212,21 @@ function jsonFiles(dir: string): string[] {
     });
 }
 
-/** Rewrites the timings from the Playwright reports under `dir`. */
+/** Rewrites the timings from the Playwright reports under `dir`, refusing if any file is unmeasured. */
 function refresh(dir: string): number {
   const reports = jsonFiles(dir).map((path) => JSON.parse(readFileSync(path, 'utf8')) as Report);
-  const seconds = secondsFromReports(reports);
-  const files = Object.keys(seconds).length;
-  if (files === 0) {
+  if (reports.length === 0) {
     console.error(`No Playwright JSON report under ${dir}.`);
     return 1;
   }
+  let seconds: Record<string, number>;
+  try {
+    seconds = timingsFromReports(specFiles(list()), reports);
+  } catch (error) {
+    console.error((error as Error).message);
+    return 1;
+  }
+  const files = Object.keys(seconds).length;
   writeFileSync(timingsFile(), `${JSON.stringify(seconds, null, 2)}\n`);
   const minutes = Object.values(seconds).reduce((sum, value) => sum + value, 0) / 60;
   console.log(

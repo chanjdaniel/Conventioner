@@ -14,6 +14,7 @@ import {
   parseShard,
   secondsFromReports,
   specFiles,
+  timingsFromReports,
 } from '../../scripts/e2e-shards';
 
 const FILES = Array.from({ length: 40 }, (_, n) => `spec-${String(n).padStart(2, '0')}.spec.ts`);
@@ -174,5 +175,34 @@ describe('secondsFromReports', () => {
   it('writes the files in alphabetical order, so a refresh diffs line by line', () => {
     const seconds = secondsFromReports([report({ 'z.spec.ts': [[1000]], 'a.spec.ts': [[1000]] })]);
     expect(Object.keys(seconds)).toEqual(['a.spec.ts', 'z.spec.ts']);
+  });
+});
+
+describe('timingsFromReports', () => {
+  const listed = ['a.spec.ts', 'b.spec.ts', 'c.spec.ts'];
+
+  it('times every listed spec file from the reports', () => {
+    const shard1 = report({ 'a.spec.ts': [[1000]], 'b.spec.ts': [[2000]] });
+    const shard2 = report({ 'c.spec.ts': [[3000]] });
+    expect(timingsFromReports(listed, [shard1, shard2])).toEqual({
+      'a.spec.ts': 1,
+      'b.spec.ts': 2,
+      'c.spec.ts': 3,
+    });
+  });
+
+  it("refuses when a shard's report is missing, naming each spec file it would drop", () => {
+    // A shard that stopped before Playwright wrote its report uploads nothing, and its files would
+    // fall back to the median, a heavy one dealt as a light one.
+    const shard1 = report({ 'a.spec.ts': [[1000]] });
+    expect(() => timingsFromReports(listed, [shard1])).toThrow(
+      /2 listed spec files are in no report: b\.spec\.ts, c\.spec\.ts/,
+    );
+  });
+
+  it('leaves out a reported spec file the suite no longer lists', () => {
+    const shard1 = report({ 'a.spec.ts': [[1000]], 'b.spec.ts': [[2000]], 'c.spec.ts': [[1]] });
+    const shard2 = report({ 'deleted.spec.ts': [[5000]] });
+    expect(Object.keys(timingsFromReports(listed, [shard1, shard2]))).toEqual(listed);
   });
 });
