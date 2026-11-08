@@ -18,7 +18,7 @@ import { seedPeopleAtScale, type PeopleAtScaleSeed } from './helpers/seedPeopleA
  * Manage organization's people at 100+ (T204).
  *
  * The organizations read, which the Organizations page and Manage organization make, read every
- * admin and member of every organization the reader is in one database read at a time, and now
+ * admin and member of every organization the reader is in, one database read at a time, and now
  * names them all in one read.
  *
  * Manage organization's Members, all 150 of them, is a list frame: a find field, a count line, 50

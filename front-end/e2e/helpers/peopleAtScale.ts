@@ -153,6 +153,7 @@ export function idsNamed(read: ProfiledRead): { alone: string | null; batch: str
   const batch = (byId as { $in?: unknown } | undefined)?.$in;
   return { alone: null, batch: Array.isArray(batch) ? (batch as string[]) : [] };
 }
+
 /** Nothing scrolls sideways at the window's width, and the detectors find nothing clipped. */
 export async function expectLaidOut(page: Page, what: string): Promise<void> {
   const { width } = page.viewportSize()!;
@@ -171,6 +172,7 @@ export async function expectLaidOut(page: Page, what: string): Promise<void> {
     `${what}: the layout detectors' gating findings`,
   ).toEqual([]);
 }
+
 /** The rows a list frame draws before "Show N more". */
 export const PAGE = 50;
 
