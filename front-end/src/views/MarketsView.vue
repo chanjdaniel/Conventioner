@@ -17,6 +17,7 @@ import {
   marketListQueryToRoute,
   viewMarkets,
 } from '@/utils/marketList';
+import ListFrame, { LIST_FIND_FROM } from '@/components/ListFrame.vue';
 import MarketSummaryCard from '@/components/MarketSummaryCard.vue';
 import PhaseBadge from '@/components/PhaseBadge.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
@@ -154,6 +155,39 @@ const narrowed = computed(
 const marketsWord = computed(() => (markets.value.length === 1 ? 'market' : 'markets'));
 
 /**
+ * The cards are a `ListFrame` with no `finds` (T223, L12): the finder above is the page's own and
+ * stays where it is, so the frame only caps them at 50, and every control that narrows or orders
+ * them goes back to the first page.
+ */
+const MARKET = { one: 'market', many: 'markets' };
+const listFilterKey = computed(() =>
+  JSON.stringify([
+    query.value.search.trim(),
+    query.value.organizationId,
+    query.value.phases,
+    query.value.sort,
+  ]),
+);
+
+/**
+ * The search, drawn as `ListFrame` draws its field: once the account has more than
+ * `LIST_FIND_FROM` markets, while it holds words, which could not be cleared without it, and while
+ * it has the focus, until the markets are next read with the focus elsewhere, so clearing it never
+ * drops the caret and nothing moves under the press that took the focus away.
+ */
+const searchField = ref<HTMLInputElement>();
+const searchKept = ref(false);
+const showsSearch = computed(
+  () => markets.value.length > LIST_FIND_FROM || query.value.search !== '' || searchKept.value,
+);
+watch(
+  () => markets.value.map((m) => m.id).join('\n'),
+  () => {
+    searchKept.value = !!searchField.value && document.activeElement === searchField.value;
+  },
+);
+
+/**
  * A phase as the filter names it. The list holds markets of both paths, and the stage is Review on
  * a Google Form market and Applications on the other (E38/F04/S01), so its toggle names both.
  */
@@ -255,9 +289,10 @@ function handleNewClose() {
       <template v-else-if="markets.length > 0">
         <div class="finder" role="search" aria-label="Find a market" data-testid="markets-finder">
           <div class="finder-row">
-            <label class="finder-search">
+            <label v-if="showsSearch" class="finder-search">
               <span class="field-label">Search</span>
               <input
+                ref="searchField"
                 :value="query.search"
                 type="search"
                 name="search"
@@ -265,6 +300,7 @@ function handleNewClose() {
                 placeholder="Market name"
                 autocomplete="off"
                 data-testid="markets-search-input"
+                @focus="searchKept = true"
                 @input="setQuery({ search: ($event.target as HTMLInputElement).value })"
               />
             </label>
@@ -337,15 +373,28 @@ function handleNewClose() {
             Clear filters
           </button>
         </div>
-        <div v-else class="markets-container">
-          <MarketSummaryCard
-            v-for="market in visibleMarkets"
-            :key="market.id"
-            :market="market"
-            @open="handleOpen(market)"
-            @manage="handleManage(market)"
-          />
-        </div>
+        <ListFrame
+          v-else
+          :items="visibleMarkets"
+          :filter-key="listFilterKey"
+          :item-key="(market) => market.id"
+          :noun="MARKET"
+          testid="markets-list"
+        >
+          <template #rows="{ rows }">
+            <div class="markets-container">
+              <MarketSummaryCard
+                v-for="market in rows"
+                :key="market.id"
+                :market="market"
+                data-list-row
+                tabindex="-1"
+                @open="handleOpen(market)"
+                @manage="handleManage(market)"
+              />
+            </div>
+          </template>
+        </ListFrame>
       </template>
     </div>
 
@@ -514,9 +563,10 @@ function handleNewClose() {
   gap: var(--space-2);
 }
 
+/* The size of a list frame's count line, which stands under it once the cards pass 50 (T223). */
 .result-count {
   margin: var(--space-4) 0 var(--space-3);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--mm-text-muted);
 }
 

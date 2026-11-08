@@ -15,6 +15,12 @@
  * also carries `data-scroll-stop`, which is how a dialog tells it from a control. A `label` makes it
  * a region only while it scrolls or is a stop, so a strip that fits at a desk adds no landmark there.
  *
+ * A text entry (a field, a select, a text area) takes focus but keeps the arrow keys, Page Down and
+ * Space for itself. In a strip of fields that is enough, as Tab brings each field's column into view;
+ * a find field over rows nothing else focuses brings no row into view, so a box that may hold one
+ * says `fieldsLeaveTheStop`, and a text entry inside it leaves the box its stop, one Shift+Tab before
+ * the field. A dialog's scrollers say it (T223).
+ *
  * A combobox's list says `listbox`: its scroller is the listbox its field names, and never a Tab stop,
  * since the field keeps the focus and keys it by `aria-activedescendant`. Its `tabindex="-1"` is what
  * stops a browser making a stop of a scroller by itself, as Chromium does, which took a Tab press
@@ -41,6 +47,8 @@ const props = withDefaults(
     label?: string;
     /** Always a Tab stop, for a panel that puts focus on its body as it opens. */
     focusable?: boolean;
+    /** A text entry inside does not stand in for the stop, as a find field over rows does not. */
+    fieldsLeaveTheStop?: boolean;
     /** The scroller is a combobox's listbox, which its field keys, so it is never a Tab stop. */
     listbox?: { id: string; label: string; multiple?: boolean };
   }>(),
@@ -62,10 +70,20 @@ const isRegion = computed(() => !!props.label && (props.focusable || overflows.v
 const isStop = computed(() => !props.listbox && (props.focusable || needsStop.value));
 const stopIndex = computed(() => (isStop.value ? 0 : props.listbox ? -1 : undefined));
 
-/** Whether something inside can take the keys: a `display: none` control cannot. */
+/** What keeps the scroll keys for itself when focused: a text entry, a select, a radio's arrows. */
+const TEXT_ENTRY =
+  'textarea, select, [contenteditable]:not([contenteditable="false"]), input:not([type=checkbox], ' +
+  '[type=button], [type=submit], [type=reset], [type=image], [type=file], [type=color])';
+
+/**
+ * Whether something inside can take the keys: a `display: none` control cannot, nor, with
+ * `fieldsLeaveTheStop`, a text entry.
+ */
 function holdsFocusable(box: HTMLElement): boolean {
   return [...box.querySelectorAll<HTMLElement>(FOCUSABLE)].some(
-    (element) => element.checkVisibility?.({ checkVisibilityCSS: true }) ?? true,
+    (element) =>
+      !(props.fieldsLeaveTheStop && element.matches(TEXT_ENTRY)) &&
+      (element.checkVisibility?.({ checkVisibilityCSS: true }) ?? true),
   );
 }
 

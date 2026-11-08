@@ -49,11 +49,7 @@ async function openManage(page: Page, name: string): Promise<OrganizationsPage> 
   const orgs = new OrganizationsPage(page);
   await orgs.goto();
   await orgs.waitForLoaded();
-  await page
-    .getByTestId('organization-card')
-    .filter({ hasText: name })
-    .getByTestId('organizations-manage-button')
-    .click();
+  await (await orgs.findCard(name)).getByTestId('organizations-manage-button').click();
   await orgs.waitForManageOverlay();
   return orgs;
 }

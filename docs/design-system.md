@@ -42,8 +42,8 @@ describes:
   - front-end/e2e/a-focused-button-moves-nothing.spec.ts
   - front-end/src/components/ChoiceField.vue
   - front-end/src/components/application/LongQuestion.vue
-  - front-end/src/utils/useGroupFolds.ts
   - front-end/src/components/PagedList.vue
+  - front-end/src/utils/useGroupFolds.ts
 verified: 2026-11-08
 sources:
   - wayfinding/claims-and-room/map
@@ -508,8 +508,12 @@ On a page, `findKey` puts the words in the route's query, written with `router.r
 The shown count goes back to one page only when the words or `filterKey` change, so a read again or a verdict that changes the rows holds the place.
 `state` draws loading and failed (`ReadFailed`, unless the `failed` slot replaces it), the `empty` slot says why there are no `items`, and the count line says when the words find nothing.
 A screen whose own field stands elsewhere gives no `finds`: the frame draws no field, `items` are final, so `filterKey` must carry the screen's words too, and the count line shows only while the cap leaves rows off, "Showing 50 of 120", since the screen's own line counts the rest.
+The screen's own count line takes the frame count line's size, `--text-sm`, since past 50 the two stand one over the other, as Markets' "N markets" stands over the frame's "Showing 50 of N" (T223).
 A list read whole by asking gives `showAll`, its `pageSize` the first page: the button reads "Show all N" and draws every row the words find, handing the focus to the first new one, then "Show fewer", which goes back to one page, keeps the focus and brings itself into view, as `useFold` does; the count line shows only with the field or while rows are cut, since a list that short is read at a glance, often under a heading that counts it.
-Manage market's "Users with access", Manage organization's Admins and Members, Applications All and One by one's reviewed applications are its screens, with Vendors and Payments, whose searches stay pinned in `MarketFrame`, on it with no `finds`, the import's four lists of rows and each question's answers on the proposal on it with `showAll` and a first page of 20, and the library's `list-frame` entry shows it on Applications All, the people with access, the import's refused rows and a search standing elsewhere.
+Manage market's "Users with access", Manage organization's Admins and Members, Applications All, One by one's reviewed applications and Organizations are its screens, and the Discord role report's dialog, which gives `finds` only past 12 vendors, so a short report draws no count line.
+Vendors and Payments, whose searches stay pinned in `MarketFrame`, and [Markets](business/flows/finding-a-market.md#c2-the-markets-list), whose finder stands above its cards and draws its search only past 12 markets or while it holds words, are on it with no `finds`.
+The import's four lists of rows and each question's answers on the proposal are on it with `showAll` and a first page of 20.
+The library's `list-frame` entry shows it on Applications All, the people with access, the import's refused rows and a search standing elsewhere.
 Inside a `scroll="body"` dialog it needs nothing of its own, since the dialog's body scrolls it; the library's `summaries` entry shows it there, with no `findKey`, so the words go with the dialog.
 Enter in its field does nothing, so in a dialog's form it never saves what the person was only looking through.
 
@@ -549,6 +553,7 @@ A rule with `overflow: auto` or `scroll` that never scrolls is deleted rather th
 
 A box that scrolls is [`ScrollBox.vue`](../front-end/src/components/ScrollBox.vue) (T217): `axis` (`y`, `x` or `both`), `tone` (`light`, or `dark` on a dark ground), `testid` (`shadeTestid` for the shades' prefix of its own, as a dialog keeps), and `label`, which names the scroller as a region while it scrolls or is a stop, for a table a keyboard scrolls sideways.
 While it overflows with nothing inside it to take focus it carries `tabindex="0"`, since Safari gives a scroller no Tab stop of its own and the bar is gone; otherwise it carries none, since a focusable child already takes the keys.
+A text entry (a field, a select, a text area) keeps the arrows, Page Down and Space for itself, which a strip of fields can, as Tab brings each field's column into view, but a find field over rows nothing else focuses cannot: so a box that may hold one says `fieldsLeaveTheStop`, and keeps its stop beside a text entry, one Shift+Tab before the field; a dialog's scrollers say it (T223).
 A stop holding focus stays one until focus leaves it, so a control arriving inside it cannot drop that focus to `<body>`, as a browser that gives a scroller no stop of its own may.
 `focusable` keeps that stop whatever it holds, for a panel that puts focus on its body as it opens.
 `listbox` makes the scroller a combobox's listbox, named by its field and never a Tab stop: the field keeps the focus and keys it by `aria-activedescendant`, and its `tabindex="-1"` stops Chromium making a stop of the scroller by itself, which took a Tab press into a list that closes as its field is left and dropped focus to `<body>`.

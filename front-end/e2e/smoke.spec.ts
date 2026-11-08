@@ -1,4 +1,5 @@
 import { test, expect, TEST_USER, LoginPage } from './fixtures';
+import { MarketsPage } from './pages/MarketsPage';
 
 test.describe('Conventioner smoke test', () => {
   test('login and land on Markets', async ({ page }) => {
@@ -15,11 +16,8 @@ test.describe('Conventioner smoke test', () => {
   });
 
   test('navigate to markets and see seeded market', async ({ authenticatedPage: page }) => {
-    await page.goto('/markets');
-    await expect(page.locator('.markets-view')).toBeVisible({ timeout: 10000 });
-
-    await expect(
-      page.getByTestId('market-card').filter({ hasText: 'Seed Market' }).first(),
-    ).toBeVisible({ timeout: 10000 });
+    const markets = new MarketsPage(page);
+    await markets.goto();
+    await markets.narrowTo('Seed Market');
   });
 });

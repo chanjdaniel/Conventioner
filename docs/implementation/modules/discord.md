@@ -15,7 +15,7 @@ describes:
   - scripts/discord_rest_proof.py
   - front-end/src/utils/discordRoles.ts
   - back-end/datatypes.py#DiscordRoleRun
-verified: 2026-11-05
+verified: 2026-11-08
 sources:
   - T92
   - E46
@@ -189,6 +189,9 @@ It confirms first, by the role's name and how many vendors hold a seat on any da
 - **The run updates every vendor's state**, as a check would set it, with the possible matches a check would offer, a vendor given the role then "Has the role" and one who left "Not found", and sets `checkedAt`; a check that wrote while the run asked is overwritten, since the run's grants are newer than what that check read.
 - **The last run's report is kept on the connection** as `roleRun` (`DiscordRoleRun`): `ranAt`, the role's name then, and each assigned vendor's outcome with a failure's reason, by application id; the page counts the groups from them.
   The market read serves it to every reader, so the report stands above the list for anyone who reads the page ([`DiscordRoleReport.vue`](../../../front-end/src/components/DiscordRoleReport.vue)): "Vendor Nov 2026, last run 5 minutes ago", how many in each group, and "Show who" opening a dialog over the page (`vendors-role-report-who`, `size="wide"`, `scroll="body"`, titled with the report's own line) of each group's vendors, a failure's reason, or the reason the rest are not given yet, said once for the vendors it held back, so a list of up to every vendor never pushes the table down.
+  The dialog is a [`ListFrame`](../../design-system.md#the-primitive-layer) over one row per vendor, each knowing its group (`roleRunRows`), with no `findKey`, so its words go with the dialog (T223): past `LIST_FIND_FROM` (12) vendors it opens on "Find by name or address", which finds by the name the page shows, the address and the name on their identification, as the Vendors page's search does, and draws 50 at a time; the `rows` slot puts each group's outcome, whole count, reason and possible-match line over its first drawn row (`roleRunGroupsDrawn`), and a group with no row drawn is not there.
+  A vendor the page no longer lists is a row no words find, drawn with no words typed.
+  At 12 or fewer the frame is given no `finds`, so the dialog has no field and no count line, as before.
   A vendor not found whom the market's `discordVendors` now show as a possible match is counted beside "not found" ("1 not found (1 possible match)"), so the report and their row agree.
   It is about the server and the username question it read against, so connecting to another server, choosing another username question (`CHECK_FIELDS`, on the card or when connecting again chooses afresh) or disconnecting forgets it, as each forgets the check, even when the run finished after the card was read; restating the same question keeps it, and so does a later check, which writes only its own fields.
 

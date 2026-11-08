@@ -134,6 +134,53 @@ export function roleRunGroups(run: DiscordRoleRun | null | undefined): RoleRunGr
   return groups;
 }
 
+/** What tells a group from the report's others: its outcome, and its reason. */
+export function roleRunGroupKey(group: RoleRunGroup): string {
+  return `${group.outcome}:${group.reason}`;
+}
+
+/**
+ * One vendor of the report, knowing its group, so "Show who" can find and draw them a page at a
+ * time (T223). `email` is their address as the page lists them, none for a vendor it no longer does.
+ */
+export interface RoleRunRow {
+  key: string;
+  group: RoleRunGroup;
+  applicationId: string;
+  email: string | undefined;
+}
+
+/** Every vendor of the report, one row each, in the groups' order. */
+export function roleRunRows(
+  groups: readonly RoleRunGroup[],
+  addresses: ReadonlyMap<string, string>,
+): RoleRunRow[] {
+  return groups.flatMap((group) =>
+    group.applicationIds.map((applicationId) => ({
+      key: `${roleRunGroupKey(group)}\n${applicationId}`,
+      group,
+      applicationId,
+      email: addresses.get(applicationId),
+    })),
+  );
+}
+
+/**
+ * The rows drawn, under the group each belongs to, in the order drawn: a group none of whose rows is
+ * drawn is not there, so it is said only over a row of its own.
+ */
+export function roleRunGroupsDrawn(
+  rows: readonly RoleRunRow[],
+): { group: RoleRunGroup; rows: RoleRunRow[] }[] {
+  const drawn: { group: RoleRunGroup; rows: RoleRunRow[] }[] = [];
+  for (const row of rows) {
+    const last = drawn.at(-1);
+    if (last?.group === row.group) last.rows.push(row);
+    else drawn.push({ group: row.group, rows: [row] });
+  }
+  return drawn;
+}
+
 /** How many of the last run's vendors ended in each outcome. */
 export function roleRunCounts(run: DiscordRoleRun | null | undefined): Map<RoleOutcome, number> {
   const counts = new Map(ROLE_OUTCOMES.map((outcome) => [outcome, 0]));

@@ -446,6 +446,7 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
           :run="roleRun"
           :addresses="addressesById"
           :names="vendorNames"
+          :legal-names="legalNames"
           :now="now"
           :offered="offeredMatches"
         />

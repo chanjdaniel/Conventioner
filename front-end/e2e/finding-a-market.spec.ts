@@ -13,7 +13,9 @@ import { MarketsPage } from './pages/MarketsPage';
  * and an order, applied together and held in the page's address.
  *
  * A user of its own, so the list is exactly the markets seeded here rather than whatever the
- * shared test user has gathered from every other spec.
+ * shared test user has gathered from every other spec. Thirteen of them, since the search is drawn
+ * only past 12 (T223): nine spares in an organization of their own, with no dates, so they come
+ * last in the date order and stay out of every narrowed list here.
  */
 
 const RUN = Date.now();
@@ -73,6 +75,9 @@ const TEST_FAIR = `Test Fair ${RUN}`;
 const CAFE = `Café Latest ${RUN}`;
 const WINTER = `Winter Market ${RUN}`;
 const ATTIC = `Attic Sale ${RUN}`;
+const SPARES = Array.from({ length: 9 }, (_, i) => `Spare ${i + 1} ${RUN}`);
+/** Every market, in the date order: the four, then the spares by name. */
+const ALL = [TEST_FAIR, CAFE, WINTER, ATTIC, ...SPARES];
 
 test.describe('Finding a market', () => {
   test.beforeAll(async ({ request }) => {
@@ -81,6 +86,8 @@ test.describe('Finding a market', () => {
     const orgA = await createOrg(request, `Finder North ${RUN}`);
     const orgB = await createOrg(request, `Finder South ${RUN}`);
     await createOrg(request, `Finder Empty ${RUN}`);
+    const spare = await createOrg(request, `Finder Spare ${RUN}`);
+    for (const name of SPARES) await createMarket(request, spare, name, []);
 
     await createMarket(request, orgA, TEST_FAIR, [dayFromToday(10)]);
     const cafe = await createMarket(request, orgA, CAFE, [dayFromToday(40)]);
@@ -105,21 +112,21 @@ test.describe('Finding a market', () => {
     await markets.goto();
 
     // Market date by default: soonest upcoming, then past, then no dates.
-    await markets.expectNames([TEST_FAIR, CAFE, WINTER, ATTIC]);
-    await expect(markets.resultCount).toHaveText('4 markets');
+    await markets.expectNames(ALL);
+    await expect(markets.resultCount).toHaveText('13 markets');
 
     await markets.searchInput.pressSequentially('te');
     await markets.expectNames([TEST_FAIR, CAFE, WINTER]);
     await markets.searchInput.pressSequentially('s');
     await markets.expectNames([TEST_FAIR, CAFE]);
-    await expect(markets.resultCount).toHaveText('2 of 4 markets');
+    await expect(markets.resultCount).toHaveText('2 of 13 markets');
     await expect(page).toHaveURL(/[?&]q=tes(&|$)/);
 
     // Accents and case do not count.
     await markets.searchInput.fill('CAFE');
     await markets.expectNames([CAFE]);
     await markets.searchInput.fill('');
-    await markets.expectNames([TEST_FAIR, CAFE, WINTER, ATTIC]);
+    await markets.expectNames(ALL);
 
     // An organization with no markets is still offered, and says so rather than "No markets found".
     // Clear filters clears all three at once, with text in the box as well as without.
@@ -128,7 +135,7 @@ test.describe('Finding a market', () => {
     await markets.searchInput.fill('fair');
     await expect(markets.noMatch).toContainText('No markets match these filters');
     await markets.clearFiltersButton.click();
-    await markets.expectNames([TEST_FAIR, CAFE, WINTER, ATTIC]);
+    await markets.expectNames(ALL);
     await expect(markets.orgSelect).toHaveValue('');
     await expect(markets.searchInput).toHaveValue('');
     await expect(markets.pressedPhases).toHaveCount(0);
@@ -185,7 +192,7 @@ test.describe('Finding a market', () => {
   test('an address naming what no longer exists opens onto every market', async ({ page }) => {
     const markets = new MarketsPage(page);
     await markets.goto('?org=gone&phase=bogus&sort=sideways&q=');
-    await markets.expectNames([TEST_FAIR, CAFE, WINTER, ATTIC]);
+    await markets.expectNames(ALL);
     await expect(markets.orgSelect).toHaveValue('');
     await expect(markets.sortSelect).toHaveValue('date');
   });
@@ -195,7 +202,7 @@ test.describe('Finding a market', () => {
   test('the phase filter offers only the phases a market can reach', async ({ page }) => {
     const markets = new MarketsPage(page);
     await markets.goto('?phase=offers');
-    await markets.expectNames([TEST_FAIR, CAFE, WINTER, ATTIC]);
+    await markets.expectNames(ALL);
     await expect(markets.pressedPhases).toHaveCount(0);
     await expect(markets.phaseToggle('offers')).toHaveCount(0);
     expect(await markets.offeredPhases()).toEqual([
@@ -236,7 +243,7 @@ test.describe('Finding a market', () => {
     test("the list keeps the phone's width, and its dialogs open inside it", async ({ page }) => {
       const markets = new MarketsPage(page);
       await markets.goto();
-      await markets.expectNames([TEST_FAIR, CAFE, WINTER, ATTIC]);
+      await markets.expectNames(ALL);
       expect(await widths(page)).toEqual({ layout: 390, page: 390, zoom: 1 });
       for (const name of [TEST_FAIR, CAFE, WINTER, ATTIC])
         await expectInside(markets.card(name), `${name}'s card`);

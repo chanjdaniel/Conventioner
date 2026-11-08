@@ -8,6 +8,7 @@ import { UpdateInfoDialog } from './pages/UpdateInfoDialog';
 import { VendorExportDialog } from './pages/VendorExportDialog';
 import { VendorsPage } from './pages/VendorsPage';
 import { sweep } from './helpers/contrastSweep';
+import { connectToFakeDiscord, fakeDiscordId, recordRoleRun } from './helpers/fakeDiscord';
 import {
   detectLayout,
   gates,
@@ -507,6 +508,138 @@ test.describe('Vendors', () => {
         await expect(vendors.detailCloseButton).toBeHidden();
         await expect(page).not.toHaveURL(/vendor=/);
         await expect(vendors.vendorListItems).toHaveCount(50);
+      });
+    });
+  }
+});
+
+test.describe("The role report's dialog", () => {
+  const ROLE_NAME = 'Vendor Aug 2099';
+  const REFUSED =
+    "Conventioner's role is below this one, or may not manage roles. In Discord, open Server " +
+    'Settings, then Roles, and drag the Conventioner role above it.';
+
+  /**
+   * A last run over all 120, written as Give roles leaves it: the first 30 to arrive given, the next
+   * 40 not found and the last 50 refused for one reason, and one vendor since removed.
+   */
+  async function aRunOverEveryone(request: APIRequestContext, seed: MarketAtScaleSeed) {
+    const listed = await request.get(`${BACKEND_URL}/markets/${seed.marketId}/applications`);
+    expect(listed.ok(), await listed.text()).toBeTruthy();
+    const { applications } = (await listed.json()) as {
+      applications: { id: string; applicantEmail: string }[];
+    };
+    const idOf = new Map(applications.map(({ id, applicantEmail }) => [applicantEmail, id]));
+    connectToFakeDiscord(seed.marketId, {
+      guildId: fakeDiscordId(),
+      guildName: 'Example Makers',
+      roleId: fakeDiscordId(),
+      roleName: ROLE_NAME,
+    });
+    recordRoleRun(seed.marketId, ROLE_NAME, [
+      ...seed.applicants.map(({ email }, at) => ({
+        applicationId: idOf.get(email)!,
+        outcome:
+          at < 30 ? ('given' as const) : at < 70 ? ('not_found' as const) : ('failed' as const),
+        reason: at < 70 ? null : REFUSED,
+      })),
+      { applicationId: 'an-application-since-removed', outcome: 'given', reason: null },
+    ]);
+  }
+
+  /** A group's head: its outcome, then its whole count, in two words a gap stands between. */
+  const head = (outcome: string, count: number) => new RegExp(`^${outcome}\\s*${count}$`);
+
+  for (const width of [1280, 390]) {
+    test.describe(`at ${width}`, () => {
+      test.use({ viewport: { width, height: 844 } });
+
+      test('draws 50 of 121 in their groups, finds one by name or address, and forgets the words', async ({
+        authenticatedPage: page,
+        request,
+        expectAccessible,
+      }) => {
+        test.setTimeout(120_000);
+        const seed = await seedMarketAtScale(request);
+        await aRunOverEveryone(request, seed);
+        const vendors = new VendorsPage(page);
+        const whole = seed.counts.applications + 1;
+        const find = page.getByTestId('vendors-role-report-list-find');
+        const count = page.getByTestId('vendors-role-report-list-count');
+        const more = page.getByTestId('vendors-role-report-list-more');
+        const rows = page.getByTestId('vendors-role-report-vendor');
+        const groups = page.getByTestId('vendors-role-report-group');
+        const heads = groups.locator('.role-report-group-head');
+        const title = vendors.roleReportWho.getByRole('heading');
+        const close = page.getByTestId('vendors-role-report-who-close-button');
+
+        await vendors.goto(seed.marketId);
+        await expect(vendors.listCount).toHaveText(`Showing 50 of ${seed.counts.applications}`);
+        await vendors.roleReportOpen.click();
+
+        // The first 50: the given and the vendor since removed, then 19 of the 40 not found, each
+        // group counted whole, and the refused not drawn at all.
+        await expect(find).toBeFocused();
+        await expect(find).toHaveAccessibleName('Find by name or address');
+        await expect(count).toHaveText(`Showing 50 of ${whole}`);
+        await expect(rows).toHaveCount(50);
+        await expect(heads).toHaveText([head('Given', 31), head('Not found', 40)]);
+        await expect(groups.nth(0)).toContainText('A vendor no longer listed');
+        await expect(groups.nth(1).getByTestId('vendors-role-report-vendor')).toHaveCount(19);
+        await expect(more).toHaveText('Show 50 more');
+        await holdsItsLayout(page, width, 'the first 50 of the report');
+        await expectAccessible('the first 50 of the role report');
+        await readsAtAA(page, 'the first 50 of the report');
+
+        // The next 50 take the focus on, inside the dialog, under its title and close.
+        await more.click();
+        await expect(rows).toHaveCount(100);
+        await expect(rows.nth(50)).toBeFocused();
+        await expect(title).toBeInViewport();
+        await expect(close).toBeInViewport();
+        await expect(heads).toHaveText([
+          head('Given', 31),
+          head('Not found', 40),
+          head('Failed', 50),
+        ]);
+        await expect(groups.nth(2).getByTestId('vendors-role-report-reason')).toHaveText(REFUSED);
+        await expect(more).toHaveText('Show 21 more');
+
+        // A name past both pages finds its row under its group's whole count and reason.
+        const far = seed.applicants[110]!;
+        await find.fill(far.fullName);
+        await expect(count).toHaveText(`1 of ${whole} matches "${far.fullName}"`);
+        await expect(rows).toHaveCount(1);
+        await expect(rows.first()).toContainText(far.email);
+        await expect(heads).toHaveText([head('Failed', 50)]);
+        await expect(groups.getByTestId('vendors-role-report-reason')).toHaveText(REFUSED);
+        await holdsItsLayout(page, width, 'a vendor found');
+        await expectAccessible('a vendor found in the role report');
+
+        // By address, and a family's twelve across all three groups.
+        await find.fill(seed.applicants[45]!.email);
+        await expect(heads).toHaveText([head('Not found', 40)]);
+        const family = far.fullName.split(' ')[1]!;
+        await find.fill(family.toUpperCase());
+        await expect(rows).toHaveCount(12);
+        await expect(heads).toHaveText([
+          head('Given', 31),
+          head('Not found', 40),
+          head('Failed', 50),
+        ]);
+
+        // No words find the vendor since removed.
+        await find.fill('no longer listed');
+        await expect(count).toHaveText(`Nothing matches "no longer listed"`);
+        await expect(groups).toHaveCount(0);
+
+        // The words go with the dialog, and the address never held them.
+        await expect(page).not.toHaveURL(/listed/);
+        await close.click();
+        await expect(vendors.roleReportWho).toHaveCount(0);
+        await vendors.roleReportOpen.click();
+        await expect(find).toHaveValue('');
+        await expect(rows).toHaveCount(50);
       });
     });
   }

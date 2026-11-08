@@ -11,6 +11,7 @@ import {
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { SEED_MARKET_DATE, ensureTestOrgAuthenticated } from './helpers/seeds';
+import { MarketsPage } from './pages/MarketsPage';
 
 const SECOND_USER = {
   email: 'e2e-second@example.com',
@@ -46,14 +47,9 @@ test.describe('Tier 2 - Organization CRUD', () => {
     const orgName = `E2E Org ${Date.now()}`;
 
     await orgsPage.createOrg(orgName);
-    await expect(page.getByTestId('organization-card').filter({ hasText: orgName })).toBeVisible({
-      timeout: 10000,
-    });
-
-    const manageButton = page
-      .getByTestId('organization-card')
-      .filter({ hasText: orgName })
-      .getByTestId('organizations-manage-button');
+    const manageButton = (await orgsPage.findCard(orgName)).getByTestId(
+      'organizations-manage-button',
+    );
 
     // ONE session. Every membership change used to close this dialog, so each of these steps
     // needed the dialog reopened first (E20/F01/S02) - which is the defect, written down.
@@ -145,11 +141,10 @@ test.describe('Tier 2 - Market role management', () => {
   test('add user, change role, and remove user from market', async ({
     authenticatedPage: page,
   }) => {
-    await page.goto('/markets');
-    await expect(page.locator('.markets-view')).toBeVisible({ timeout: 10000 });
-
-    const marketCard = page.getByTestId('market-card').filter({ hasText: marketName });
-    await expect(marketCard).toBeVisible({ timeout: 10000 });
+    const markets = new MarketsPage(page);
+    await markets.goto();
+    await markets.narrowTo(marketName);
+    const marketCard = markets.card(marketName);
 
     const manageButton = marketCard.getByTestId('market-card-manage-button');
     await manageButton.click();

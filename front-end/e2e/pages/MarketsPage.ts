@@ -3,6 +3,9 @@ import { expect, type Locator, type Page } from '@playwright/test';
 /**
  * Page object for the Markets list (MarketsView) and its finder: search, organization, phase and
  * sort, all held in the page's address (E25/F01/S01).
+ *
+ * The search is drawn only past 12 markets, or while the address holds words (T223), so a spec
+ * that types into it owns 13 markets, and one that only needs a market's card calls `narrowTo`.
  */
 export class MarketsPage {
   readonly page: Page;
@@ -27,7 +30,18 @@ export class MarketsPage {
 
   async goto(query = ''): Promise<void> {
     await this.page.goto(`/markets${query}`);
-    await expect(this.searchInput).toBeVisible();
+    await expect(this.resultCount).toBeVisible();
+  }
+
+  /**
+   * Narrows the list to a market as a person would: by its search when the page offers one, and
+   * by nothing when it does not, since its 12 or fewer cards are then all on show. Read the card
+   * by `card(name)`, as other markets may stand beside it.
+   */
+  async narrowTo(name: string): Promise<void> {
+    await expect(this.resultCount).toBeVisible();
+    if (await this.searchInput.isVisible()) await this.searchInput.fill(name);
+    await expect(this.card(name).first()).toBeVisible({ timeout: 10000 });
   }
 
   phaseToggle(phase: string): Locator {

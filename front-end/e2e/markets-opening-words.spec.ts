@@ -157,8 +157,14 @@ for (const size of WINDOWS) {
       await page.goto('/markets');
       await expect(line(page)).toBeVisible();
 
-      await page.getByTestId('markets-search-input').fill('nothing is called this');
+      // Two markets have no search of their own (T223), so the filter narrows here, and the
+      // address brings the search with words in it.
+      await page.getByTestId('markets-phase-toggle-archived').click();
+      await expect(page.getByTestId('markets-no-match')).toBeVisible();
+      await expect(line(page)).toBeVisible();
 
+      await page.goto('/markets?q=nothing+is+called+this');
+      await expect(page.getByTestId('markets-search-input')).toHaveValue('nothing is called this');
       await expect(page.getByTestId('markets-no-match')).toBeVisible();
       await expect(line(page)).toBeVisible();
     });

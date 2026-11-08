@@ -4,6 +4,7 @@ import { ensureTestOrg, loginViaApi } from './helpers/seeds';
 import { seedApplicantMarket } from './helpers/seedApplicantMarket';
 import { seedApplication } from './helpers/seedApplication';
 import { mongoEval } from './helpers/mongo';
+import { MarketsPage } from './pages/MarketsPage';
 
 /**
  * A market's records go with it (bug 47).
@@ -84,8 +85,10 @@ test('deleting a market deletes its applications, check-ins and history', async 
   seedRecords(marketId);
   expect(recordsLeft(marketId)).not.toEqual(NOTHING_LEFT);
 
-  await page.goto('/markets');
-  const card = page.getByTestId('market-card').filter({ hasText: marketName });
+  const markets = new MarketsPage(page);
+  await markets.goto();
+  await markets.narrowTo(marketName);
+  const card = markets.card(marketName);
   await card.getByTestId('market-card-manage-button').click();
   const manage = new ManageMarketPage(page);
   await manage.waitForOverlay();
