@@ -339,6 +339,37 @@ describe('the Tab stop', () => {
     expect(stop(scroller)).toBe('0');
   });
 
+  // A find field over rows nothing else focuses brings none of them into view (T223).
+  describe('when its fields leave the stop', () => {
+    it.each([
+      ['a find field over rows', () => [h('input', { type: 'search' }), h('ul', [h('li', 'Row')])]],
+      ['a field', () => h('input')],
+      ['a select', () => h('select')],
+      ['a text area', () => h('textarea')],
+      ['what is edited in place', () => h('div', { contenteditable: 'true' }, 'Row')],
+    ])('is there when all that is inside is %s', async (_what, content) => {
+      const scroller = mountBox({ fieldsLeaveTheStop: true }, content);
+
+      layOut(scroller, TALL);
+      await resized();
+
+      expect(stop(scroller)).toBe('0');
+    });
+
+    it.each([
+      ['a button beside a field', () => [h('input', { type: 'search' }), h('button', 'More')]],
+      ['a tick', () => h('input', { type: 'checkbox' })],
+      ['a link', () => h('a', { href: '#row' }, 'Row')],
+    ])('is not there when %s can take the keys', async (_what, content) => {
+      const scroller = mountBox({ fieldsLeaveTheStop: true }, content);
+
+      layOut(scroller, TALL);
+      await resized();
+
+      expect(stop(scroller)).toBeNull();
+    });
+  });
+
   it('follows what is inside it, with no resize', async () => {
     const withButton = ref(true);
     const Host = defineComponent({

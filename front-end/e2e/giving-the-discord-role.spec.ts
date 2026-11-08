@@ -475,7 +475,7 @@ test.describe('"Show who"', () => {
 
     await expect(vendors.roleReportOpen).toHaveText('Show who');
     await expect(vendors.roleReportOpen).not.toHaveAttribute('aria-expanded');
-    const line = (await page.locator('#role-report-title').textContent())!;
+    const line = (await page.getByTestId('vendors-role-report-title').textContent())!;
     expect(line).toBe(`${ROLE_NAME}, last run 5 minutes ago`);
     const tableBefore = (await vendors.vendorListItems.first().boundingBox())!;
 
@@ -490,14 +490,13 @@ test.describe('"Show who"', () => {
       tableBefore,
     );
 
-    // At most 80% of the window, and it holds nothing to focus, so the keys scroll its body.
+    // At most 80% of the window. Past 12 vendors it opens on its find field (T223), which keeps the
+    // keys, so its body is the stop before it, whose keys scroll it.
     const box = (await vendors.roleReportWho.boundingBox())!;
     expect(box.height).toBeLessThanOrEqual(800 * 0.8 + 1);
+    await expect(page.getByTestId('vendors-role-report-list-find')).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
     await expect(body).toBeFocused();
-    expect(
-      await body.evaluate((scroller) => scroller.matches(':focus-visible')),
-      'a mouse opened it, so no halo',
-    ).toBe(false);
     const titleBefore = (await title.boundingBox())!;
     const close = page.getByTestId('vendors-role-report-who-close-button');
     const closeBefore = (await close.boundingBox())!;

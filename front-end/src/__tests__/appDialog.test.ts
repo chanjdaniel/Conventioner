@@ -510,7 +510,8 @@ describe('a dialog with nothing to focus', () => {
     await openFromTheButton({ scroll: 'body' });
 
     expect(document.activeElement).toBe(byTestId('people-find'));
-    expect(byTestId('people-body')!.hasAttribute('tabindex')).toBe(false);
+    // A field keeps the arrow keys, so the body keeps its stop for them, one Shift+Tab away (T223).
+    expect(byTestId('people-body')!.getAttribute('tabindex')).toBe('0');
   });
 
   it('a footer button wins too, and the body keeps its Tab stop for the keys', async () => {

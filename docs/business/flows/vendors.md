@@ -10,7 +10,7 @@ describes:
   - front-end/src/components/DiscordRoleReport.vue
   - front-end/src/components/ExportVendorsForm.vue
   - front-end/src/components/ColumnChecklist.vue
-verified: 2026-11-05
+verified: 2026-11-08
 sources:
   - wayfinding/claims-and-room/04
   - wayfinding/rejection-visibility/02
@@ -201,6 +201,7 @@ The card points here: its "Giving roles" block says what is still missing, and o
 3. The run reads the server's members as a check does, gives the role to each assigned vendor matched who does not hold it, and updates every vendor's Discord state; "Give roles" reads "Giving roles…" meanwhile, and neither it nor "Check Discord" is offered while the other runs.
    It asks Discord for under a minute: the vendors it had no time for are "Not given yet", and running it again gives them.
 4. Its report ([`DiscordRoleReport.vue`](../../../front-end/src/components/DiscordRoleReport.vue)) stays above the list for everyone who reads the page: "Vendor Nov 2026, last run 5 minutes ago", how many ended in each group ("2 given, 1 already had it, 1 not found, 1 no username"), and "Show who" opens a dialog, titled with that same line, of each group's vendors, a failure's reason, or why the rest are not given yet, said once for the vendors it held back, so a long list never pushes the table down.
+   Past 12 vendors the dialog opens on "Find by name or address" and shows 50 at a time, "Show N more" drawing the next, each group's outcome, whole count and reason standing over its first vendor shown, so the organizer of a market of every vendor finds one in it rather than reading down (T223); at 12 or fewer it reads with no field.
    A vendor the run did not find whom the check now offers a possible match ([J17](#j17-answer-a-possible-discord-match)) is counted beside "not found", as their row says it: "1 not found (1 possible match)", and the group says "1 has a possible match to confirm or decline."
 
 **A run only gives**: a vendor who has lost their seat keeps the role they have (Daniel, T92 Q19).
@@ -209,6 +210,8 @@ Covered by:
 - `back-end/tests/test_discord_connection.py`
 - `giving-the-discord-role.spec.ts` (the report and the rows' Discord states laid out at 390, "Show who" over a table that stays put, its body scrolling under its title, its ways of closing, and it and Give roles inside the window there)
 - `givingTheDiscordRole.test.ts`
+- `lists-at-scale.spec.ts`, "The role report's dialog" (a run over 120 at 1280 and 390: 50 of 121 in their groups, the next 50 taking the focus, a vendor found by name and by address, the words gone with the dialog)
+- `theRoleReportAtScale.test.ts`
 
 ## Superseded
 

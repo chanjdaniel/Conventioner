@@ -8,7 +8,8 @@ import { settle } from './helpers/settle';
  * The component library's `summaries` entry (T200): L4's reviewers, the real panel, whose line's
  * "and 9 more" opens the whole list, the names line at each count, and L3's reviewed list in a
  * dialog, at a desk and on a phone. L3's body scrolls under its pinned title and close with its
- * shades, and a reviewed application is found in the frame.
+ * shades, and a reviewed application is found in the frame. L9's real Discord report finds a vendor
+ * in their group, and at 9 vendors has no field (T223).
  */
 
 /** The fixture's 12 reviewers, by address, as the market keeps them. */
@@ -30,6 +31,15 @@ const addresses = [
 const REVIEWED = 224;
 /** A reviewed application past the first page. */
 const reviewedPastThePage = { name: 'Brandon Lin', email: 'brandon.lin196@example.com' };
+/** L9's run: the fixture's 160 approved vendors, and one since removed. */
+const IN_THE_RUN = 161;
+/** The approved vendors whose Discord state says to check again, whom L9's run had not reached. */
+const NOT_GIVEN_YET = [
+  { name: 'Cecilia Ho', email: 'cecilia.ho112@example.com' },
+  { name: 'Jamie Martinez', email: 'jamie.martinez167@example.com' },
+  { name: 'Jay Alvarez', email: 'jay.alvarez171@example.com' },
+  { name: 'Amy Evans', email: 'amy.evans354@example.com' },
+];
 /** The first people with access, on the names line. */
 const [first, second, third, fourth] = [
   'Daniela Morgan',
@@ -219,5 +229,54 @@ eachWindow('the summaries entry', (size) => {
     await press(opener);
     await expect(find).toHaveValue('');
     await expect(rows).toHaveCount(50);
+  });
+
+  test("L9's dialog finds a vendor in their group, and at 9 reads with no field", async ({
+    page,
+    expectAccessible,
+  }) => {
+    const find = page.getByTestId('vendors-role-report-list-find');
+    const count = page.getByTestId('vendors-role-report-list-count');
+    const rows = page.getByTestId('vendors-role-report-vendor');
+    const heads = page.getByTestId('vendors-role-report-group').locator('.role-report-group-head');
+    const head = (outcome: string, whole: number) => new RegExp(`^${outcome}\\s*${whole}$`);
+    const close = page.getByTestId('vendors-role-report-who-close-button');
+
+    // The fixture's 160 approved and one since removed, each by their Discord state.
+    const whole = panel(page, 'A run over every approved vendor');
+    await press(whole.getByTestId('vendors-role-report-open'));
+    await expect(find).toBeFocused();
+    await expect(count).toHaveText(`Showing 50 of ${IN_THE_RUN}`);
+    await expect(rows).toHaveCount(50);
+    await expect(heads).toHaveText([head('Given', 37), head('Already had it', 85)]);
+    await expect(page.getByTestId('vendors-role-report-group').first()).toContainText(
+      'A vendor no longer listed',
+    );
+    await expectLaidOut(page, size, "L9's dialog");
+    await expectAccessible("L9's dialog");
+
+    const wanted = NOT_GIVEN_YET[0]!;
+    await find.fill(wanted.name);
+    await expect(rows).toHaveCount(1);
+    await expect(rows).toContainText(wanted.email);
+    await expect(heads).toHaveText([head('Not given yet', NOT_GIVEN_YET.length)]);
+    await expect(page.getByTestId('vendors-role-report-reason')).toContainText(
+      'ran out of its time',
+    );
+    await press(close);
+
+    // Nine read at a glance: every group, no field and no count.
+    const short = panel(page, 'A run over 8: no field');
+    await press(short.getByTestId('vendors-role-report-open'));
+    await expect(rows).toHaveCount(9);
+    await expect(heads).toHaveText([
+      head('Given', 2),
+      head('Already had it', 4),
+      head('Not found', 1),
+      head('No username', 2),
+    ]);
+    await expect(find).toHaveCount(0);
+    await expect(count).toHaveCount(0);
+    await expectAccessible("L9's short dialog");
   });
 });

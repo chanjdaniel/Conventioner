@@ -99,11 +99,19 @@ const pinned = computed(() => props.scroll === 'body');
 /** The title and the body with nothing around them, as a pinned dialog has them. */
 const Unwrapped: FunctionalComponent = (_props, { slots }) => slots.default?.();
 
-/** What holds the title and the body: one `ScrollBox` over both, unless only the body scrolls. */
+/**
+ * What holds the title and the body: one `ScrollBox` over both, unless only the body scrolls. A
+ * dialog's field leaves its scroller the stop, since a find field brings none of its rows into view.
+ */
 const whole = computed(() =>
   pinned.value
     ? {}
-    : { class: 'dialog-whole', testid: `${props.testid}-scroll`, shadeTestid: props.testid },
+    : {
+        class: 'dialog-whole',
+        testid: `${props.testid}-scroll`,
+        shadeTestid: props.testid,
+        fieldsLeaveTheStop: true,
+      },
 );
 
 function close() {
@@ -257,6 +265,7 @@ watch(
               class="dialog-body-box"
               :testid="`${testid}-body`"
               :shade-testid="testid"
+              fields-leave-the-stop
             >
               <div class="dialog-scrolled" :data-testid="`${testid}-scrolled`">
                 <slot />
