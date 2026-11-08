@@ -333,13 +333,7 @@ function formatDate(dateStr: string): string {
   border-radius: 5px;
   cursor: pointer;
 
-  transition:
-    opacity 0.15s ease-in-out,
-    background-color 0.15s ease-in-out;
-}
-
-.tp-btn:hover:not(:disabled) {
-  opacity: 0.88;
+  transition: background-color 0.15s ease-in-out;
 }
 
 .tp-btn:disabled {
@@ -357,6 +351,16 @@ function formatDate(dateStr: string): string {
 
 .tp-btn--load {
   background: var(--mm-black);
+}
+
+/* Under the pointer the fill darkens, never dims (T229): opacity faded the words with the fill. */
+.tp-btn--save:hover:not(:disabled) {
+  background: var(--mm-green-hover);
+}
+
+/* White on it: 12.15. */
+.tp-btn--load:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--mm-black) 92%, white);
 }
 
 /* ── Feedback toast ────────────────────────────────────────── */

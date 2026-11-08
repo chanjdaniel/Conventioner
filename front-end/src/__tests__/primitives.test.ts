@@ -159,6 +159,30 @@ describe('the primitives exist and own what tokens cannot', () => {
     );
   });
 
+  it('darkens the fill under the pointer and pressed, and never dims the button (T229)', () => {
+    // `opacity` 0.9 and 0.8 faded the words with the fill: white on green to 3.21:1 pressed. Each
+    // state is a fill of its own, held to its ink by `contrast.test.ts`.
+    const states: Array<[string, string, string]> = [
+      ['.btn--primary', '--mm-green-hover', '--mm-green-pressed'],
+      ['.btn--secondary', '--mm-white-hover', '--mm-white-pressed'],
+      ['.btn--destructive', '--mm-red-hover', '--mm-red-pressed'],
+      ['.btn--secondary.btn--destructive', '--mm-white-hover', '--mm-white-pressed'],
+      [".btn[aria-pressed='true']", '--mm-chip-positive-hover', '--mm-chip-positive-pressed'],
+    ];
+    for (const [button, hover, pressed] of states) {
+      expect(declaration(PRIMITIVES, `${button}:hover:not(:disabled)`, 'background'), button).toBe(
+        `var(${hover})`,
+      );
+      expect(declaration(PRIMITIVES, `${button}:active:not(:disabled)`, 'background'), button).toBe(
+        `var(${pressed})`,
+      );
+    }
+    PRIMITIVES.walkRules((rule) => {
+      if (!rule.selectors.some((s) => s.startsWith('.btn'))) return;
+      expect(ownValue(rule, 'opacity'), rule.selector).toBeNull();
+    });
+  });
+
   it('has one disabled state, and it does not rely on text contrast', () => {
     // The product had four treatments, one of which put white text on `--mm-border` at 1.74:1.
     expect(rulesWith(PRIMITIVES, '.btn:disabled')).toHaveLength(1);

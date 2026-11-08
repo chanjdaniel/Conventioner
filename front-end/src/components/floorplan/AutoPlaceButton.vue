@@ -301,14 +301,11 @@ async function triggerAutoPlace() {
   line-height: 1;
   cursor: pointer;
 
-  transition:
-    opacity 0.15s ease-in-out,
-    background-color 0.15s ease-in-out;
+  transition: background-color 0.15s ease-in-out;
 }
 
 .auto-place-btn:hover:not(:disabled) {
-  opacity: 0.85;
-  background: color-mix(in srgb, var(--mm-green) 85%, black);
+  background: var(--mm-green-hover);
 }
 
 .auto-place-btn:disabled {

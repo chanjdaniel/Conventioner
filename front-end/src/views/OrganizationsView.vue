@@ -273,9 +273,9 @@ function handleManageChanged() {
   min-height: var(--target-min);
 }
 
+/* Darker under the pointer, never dimmed (T229): opacity 0.9 took its white words to 3.81:1. */
 .new-button:hover {
-  background: var(--mm-green);
-  opacity: 0.9;
+  background: var(--mm-green-hover);
   box-shadow: var(--shadow-card);
 }
 

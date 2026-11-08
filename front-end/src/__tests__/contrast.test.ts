@@ -104,6 +104,20 @@ function inkOn(name: string, ground: Rgb): Rgb {
 
 const WHITE: Rgb = [255, 255, 255];
 
+/** Each `.btn` fill at rest, under the pointer and pressed, and the inks `primitives.css` sets on it. */
+const BUTTON_STATES: Array<[string, string, string, string[]]> = [
+  ['--mm-green', '--mm-green-hover', '--mm-green-pressed', ['white']],
+  ['--mm-red', '--mm-red-hover', '--mm-red-pressed', ['white']],
+  // The secondary button, and the row's destructive action on it in red ink.
+  ['white', '--mm-white-hover', '--mm-white-pressed', ['--mm-black', '--mm-red']],
+  [
+    '--mm-chip-positive',
+    '--mm-chip-positive-hover',
+    '--mm-chip-positive-pressed',
+    ['--mm-text-green'],
+  ],
+];
+
 describe('the palette carries a contrast contract', () => {
   const LIGHT_GROUNDS: Array<[string, Rgb]> = [
     ['white', WHITE],
@@ -223,6 +237,31 @@ describe('the palette carries a contrast contract', () => {
     });
   }
 
+  /*
+   * A button under the pointer and pressed (T229): a fill a step darker than its rest, then another,
+   * each opaque and each held to every ink the button sets on it. `opacity` 0.9 and 0.8 faded the
+   * ink with the fill, white on green to 3.81 and 3.21, and nothing measured it, since a state that
+   * is not a token has no name to hold to a contract.
+   */
+  for (const [rest, hover, pressed, inks] of BUTTON_STATES) {
+    const restRgb = rest === 'white' ? WHITE : resolve(rest);
+    for (const state of [hover, pressed]) {
+      for (const ink of inks) {
+        it(`${ink} is legible on the ${state} fill`, () => {
+          expect(alphaOf(tokens[state])).toBe(1);
+          const inkRgb = ink === 'white' ? WHITE : inkOn(ink, resolve(state));
+          expect(contrast(inkRgb, resolve(state))).toBeGreaterThanOrEqual(AA_NORMAL);
+        });
+      }
+    }
+    it(`${hover} is a step darker than ${rest}, and ${pressed} a step past it`, () => {
+      // Each state shows: a hover the same as rest, or a press no further than the hover, would
+      // leave a tap unseen on a touch screen, where the browser's highlight is off.
+      expect(luminance(resolve(hover))).toBeLessThan(luminance(restRgb));
+      expect(luminance(resolve(pressed))).toBeLessThan(luminance(resolve(hover)));
+    });
+  }
+
   it('white is never put on --mm-yellow, which is a black-text fill', () => {
     // Stated as a test so the reason survives: white on this yellow is 2.15, and someone will
     // eventually reach for it because every other fill in the product takes white.
@@ -240,6 +279,7 @@ describe('the palette carries a contrast contract', () => {
       '--color-background',
       ...FILLS.map(([f]) => f),
       ...CHIPS.map(([ground]) => ground),
+      ...BUTTON_STATES.flatMap(([, hover, pressed]) => [hover, pressed]),
       // Lines, hover states and a scroller's edge shades. These never sit under text.
       '--focus-border-on-fill',
       '--mm-border',

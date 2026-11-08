@@ -407,7 +407,6 @@ async function handleSave() {
   cursor: pointer;
 
   transition:
-    opacity 0.15s ease-in-out,
     background-color 0.15s ease-in-out,
     box-shadow 0.15s ease-in-out;
 
@@ -416,14 +415,13 @@ async function handleSave() {
 }
 
 .save-button:hover:not(:disabled) {
-  opacity: 0.9;
-  background: color-mix(in srgb, var(--mm-green) 85%, black);
+  background: var(--mm-green-hover);
   /* stylelint-disable-next-line declaration-property-value-disallowed-list -- --shadow-card would change how far this floorplan beta shadow draws */
   box-shadow: 0 4px 14px rgba(39, 35, 35, 0.22);
 }
 
 .save-button:active:not(:disabled) {
-  opacity: 0.85;
+  background: var(--mm-green-pressed);
   transform: translateY(1px);
 }
 
@@ -842,9 +840,7 @@ async function handleSave() {
   line-height: 1;
   cursor: pointer;
 
-  transition:
-    opacity 0.15s ease-in-out,
-    background-color 0.15s ease-in-out;
+  transition: background-color 0.15s ease-in-out;
 }
 
 .save-dialog-btn:disabled {
@@ -872,8 +868,7 @@ async function handleSave() {
 }
 
 .save-dialog-btn--primary:hover:not(:disabled) {
-  opacity: 0.9;
-  background: color-mix(in srgb, var(--mm-green) 85%, black);
+  background: var(--mm-green-hover);
 }
 
 /* ── Spinner ────────────────────────────────────────────────── */

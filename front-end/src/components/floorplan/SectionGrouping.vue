@@ -652,14 +652,11 @@ onUnmounted(() => {
   cursor: pointer;
   white-space: nowrap;
 
-  transition:
-    opacity 0.15s ease-in-out,
-    background-color 0.15s ease-in-out;
+  transition: background-color 0.15s ease-in-out;
 }
 
 .sg-toolbar-btn:hover {
-  opacity: 0.85;
-  background: color-mix(in srgb, var(--mm-green) 85%, black);
+  background: var(--mm-green-hover);
 }
 
 .sg-toolbar-btn.is-active {
@@ -670,7 +667,6 @@ onUnmounted(() => {
 
 .sg-toolbar-btn.is-active:hover {
   background: color-mix(in srgb, var(--mm-yellow) 85%, black);
-  opacity: 0.9;
 }
 
 .sg-toolbar-btn--sections {
@@ -684,7 +680,6 @@ onUnmounted(() => {
 
 .sg-toolbar-btn--sections:hover {
   background: var(--mm-beige);
-  opacity: 1;
 }
 
 /* ── Hint bar ───────────────────────────────────────────────────── */
@@ -999,9 +994,7 @@ onUnmounted(() => {
   line-height: 1;
   cursor: pointer;
 
-  transition:
-    opacity 0.15s ease-in-out,
-    background-color 0.15s ease-in-out;
+  transition: background-color 0.15s ease-in-out;
 }
 
 .sg-btn--cancel {
@@ -1020,8 +1013,7 @@ onUnmounted(() => {
 }
 
 .sg-btn--confirm:hover:not(:disabled) {
-  opacity: 0.9;
-  background: color-mix(in srgb, var(--mm-green) 85%, black);
+  background: var(--mm-green-hover);
 }
 
 .sg-btn--confirm:disabled {

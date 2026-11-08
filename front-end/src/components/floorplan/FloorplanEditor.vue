@@ -678,14 +678,11 @@ watch(
   line-height: 1;
   cursor: pointer;
 
-  transition:
-    opacity 0.15s ease-in-out,
-    background-color 0.15s ease-in-out;
+  transition: background-color 0.15s ease-in-out;
 }
 
 .toolbar-btn:hover {
-  opacity: 0.85;
-  background: color-mix(in srgb, var(--mm-green) 85%, black);
+  background: var(--mm-green-hover);
 }
 
 .toolbar-btn.is-active {
@@ -695,7 +692,6 @@ watch(
 
 .toolbar-btn.is-active:hover {
   background: color-mix(in srgb, var(--mm-yellow) 85%, black);
-  opacity: 0.9;
 }
 
 /* ── Error banner ────────────────────────────────────────────── */

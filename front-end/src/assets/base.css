@@ -73,6 +73,22 @@
   --mm-red: #c0392b; /* white text on it: 5.44 */
   --mm-blue: #1a6f8b; /* white text on it: 5.69 */
 
+  /* ---- A button under the pointer and pressed (T229): each fill a step darker, then another, so
+     its ink only gains on it. Hover and pressed were `opacity` 0.9 and 0.8, which faded the ink
+     with the fill: white on the green to 3.81 and 3.21, on the red pressed to 3.86, the pressed
+     toggle's green to 4.33 and 3.53. Each fill is opaque, so it reads the same on any ground, and
+     `contrast.test.ts` holds each to its ink and to the step order. ---- */
+  --mm-green-hover: #327866; /* --mm-green and 8% black; white text on it: 5.23 */
+  --mm-green-pressed: #2e6f5e; /* 15% black; white text on it: 5.91 */
+  --mm-red-hover: #b13428; /* --mm-red and 8% black; white text on it: 6.19 */
+  --mm-red-pressed: #a33025; /* 15% black; white text on it: 6.98 */
+  /* The secondary button's white, tinted with --mm-black. The row's red ink on it: 5.03, 4.65. */
+  --mm-white-hover: #f6f6f6; /* white and 4% --mm-black; --mm-black on it: 14.38 */
+  --mm-white-pressed: #eeeded; /* 8%; --mm-black on it: 13.30 */
+  /* A toggle that is on, tinted further with --mm-green. Its --mm-text-green on it: 5.06, 4.79. */
+  --mm-chip-positive-hover: #d7e6e2; /* --mm-chip-positive and 5% --mm-green */
+  --mm-chip-positive-pressed: #cee1dc; /* 10% */
+
   /* ---- A chip's ground: its tone at a light tint, already laid over white, so it is the same
      ground wherever the chip sits (bug 43). The tints were translucent, so a chip measured on
      white took on the beige of the review card beneath it and fell below AA there. Each is

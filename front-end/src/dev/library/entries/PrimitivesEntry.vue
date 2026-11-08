@@ -341,12 +341,36 @@ function toggle(label: string) {
 
 <style scoped>
 /* What `primitives.css` draws on `:hover`, `:active` and `:focus-visible`, held still. */
-.btn.is-hover {
-  opacity: 0.9;
+.btn--primary.is-hover {
+  background: var(--mm-green-hover);
 }
 
-.btn.is-pressed {
-  opacity: 0.8;
+.btn--primary.is-pressed {
+  background: var(--mm-green-pressed);
+}
+
+.btn--secondary.is-hover {
+  background: var(--mm-white-hover);
+}
+
+.btn--secondary.is-pressed {
+  background: var(--mm-white-pressed);
+}
+
+.btn--destructive.is-hover {
+  background: var(--mm-red-hover);
+}
+
+.btn--destructive.is-pressed {
+  background: var(--mm-red-pressed);
+}
+
+.btn--secondary.btn--destructive.is-hover {
+  background: var(--mm-white-hover);
+}
+
+.btn--secondary.btn--destructive.is-pressed {
+  background: var(--mm-white-pressed);
 }
 
 .is-focus {
