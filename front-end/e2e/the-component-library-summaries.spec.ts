@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures';
+import { expectWholeAddress } from './helpers/addressBreaks';
 import { eachWindow, expectLaidOut, openEntry } from './helpers/componentLibrary';
 import { inTheWindow } from './helpers/phoneWindow';
 import { settle } from './helpers/settle';
@@ -8,7 +9,7 @@ import { settle } from './helpers/settle';
  * The component library's `summaries` entry (T200): L4's reviewers, the real panel, whose line's
  * "and 9 more" opens the whole list, the names line at each count, and L3's reviewed list in a
  * dialog, at a desk and on a phone. L3's body scrolls under its pinned title and close with its
- * shades, and a reviewed application is found in the frame.
+ * shades, a reviewed application is found in the frame, and its row reads as One by one's.
  */
 
 /** The fixture's 12 reviewers, by address, as the market keeps them. */
@@ -219,5 +220,32 @@ eachWindow('the summaries entry', (size) => {
     await press(opener);
     await expect(find).toHaveValue('');
     await expect(rows).toHaveCount(50);
+  });
+
+  test("L3's row reads as One by one's: its name's weight, its ink, and an address kept whole", async ({
+    page,
+  }) => {
+    await press(page.getByTestId('library-l3-open'));
+    const wanted = reviewedPastThePage;
+    await page.getByTestId('library-l3-find').pressSequentially(wanted.email);
+    await expect(page.getByTestId('library-l3-row')).toHaveCount(1);
+
+    const name = page.getByTestId('library-l3-name');
+    const email = page.getByTestId('library-l3-email');
+    const ink = await page.evaluate(() => {
+      const probe = document.body.appendChild(document.createElement('span'));
+      probe.style.color = 'var(--mm-black)';
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    });
+    await expect(name).toHaveCSS('font-weight', '600');
+    await expect(name).toHaveCSS('color', ink);
+    await expect(email).toHaveCSS('font-weight', '400');
+    await expect(email).toHaveCSS('color', ink);
+
+    await expect(email).toHaveText(wanted.email);
+    await expectWholeAddress(email, wanted.email);
+    await expectWholeAddress(email, wanted.email, true);
   });
 });

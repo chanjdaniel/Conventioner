@@ -217,7 +217,7 @@ test.describe('The scroller without a shade', () => {
   const TALL = `<div style="height: 400px">More than fits</div>`;
   const NO_BAR = 'scrollbar-width: none';
 
-  /** What the detector reports, which the sweep attaches beside the run and does not fail on. */
+  /** What the detector reports, which the sweep fails on. */
   async function scrollersOn(page: Page, html: string): Promise<Finding[]> {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.setContent(`<!doctype html><html><body style="margin: 0">${html}</body></html>`);
@@ -312,10 +312,10 @@ test.describe('The scroller without a shade', () => {
     expect(found).toEqual([]);
   });
 
-  test('reports and does not gate', () => {
+  test('gates, at a desk and on a phone', () => {
     const finding = { kind: SCROLLER_KIND, el: 'div', detail: 'draws a bar', box: [0, 0, 1, 1] };
-    expect(gates(finding as Finding, 1440)).toBe(false);
-    expect(gates(finding as Finding, 390)).toBe(false);
+    expect(gates(finding as Finding, 1440)).toBe(true);
+    expect(gates(finding as Finding, 390)).toBe(true);
   });
 });
 

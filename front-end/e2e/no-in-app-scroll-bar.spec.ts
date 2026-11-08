@@ -88,6 +88,15 @@ test.describe('on a browser that draws classic scroll bars', () => {
     });
   });
 
+  test("a picker's open list draws no bar", async ({ playwright, baseURL }) => {
+    await withClassicBars({ playwright, baseURL }, { width: 1280, height: 720 }, async (page) => {
+      await openEntry(page, 'combobox');
+      await page.getByTestId('library-c7-input').click();
+
+      await expectNoBarButThePage(page, 'library-c7-list-rows');
+    });
+  });
+
   test('a text field keeps its bar, and the page keeps its bar and its gutter', async ({
     playwright,
     baseURL,

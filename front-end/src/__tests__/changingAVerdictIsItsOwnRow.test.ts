@@ -7,8 +7,8 @@
  * and the verdicts on a card someone else decided first, only to someone the second row lets
  * change it, and says once why not to anyone else.
  */
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { flushPromises, mount } from '@vue/test-utils';
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
+import { DOMWrapper, flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
 import { ApplicationStatus, type Application, type Market } from '@/assets/types/datatypes';
 import { isDecided } from '@/utils/verdicts';
@@ -72,11 +72,23 @@ function market(changes: boolean): Market {
   } as unknown as Market;
 }
 
+let opened: VueWrapper | undefined;
+
+afterEach(() => {
+  opened?.unmount();
+  opened = undefined;
+});
+
+/** The reviewed list opened: its dialog is teleported to `body`, as every modal is. */
 async function reviewedList(changes: boolean) {
-  const wrapper = mount(ApplicationMonitor, { props: { market: market(changes), visible: true } });
+  opened = mount(ApplicationMonitor, {
+    props: { market: market(changes), visible: true },
+    attachTo: document.body,
+  });
   await flushPromises();
-  await wrapper.get('[data-testid="app-monitor-decided-toggle"]').trigger('click');
-  return wrapper;
+  await opened.get('[data-testid="app-monitor-decided-open"]').trigger('click');
+  await flushPromises();
+  return new DOMWrapper(document.body);
 }
 
 describe('isDecided', () => {

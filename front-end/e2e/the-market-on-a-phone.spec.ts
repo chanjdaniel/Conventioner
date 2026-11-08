@@ -608,20 +608,25 @@ for (const size of PHONE_AND_DESK) {
       await press(page.getByTestId('follow-up-cancel-button'));
       await expect(followUp).toHaveCount(0);
 
-      // A verdict: the next card stands in the window, the undo line over it, and the reviewed
-      // list's toggle beside the counts; the list opens inside the window.
+      // A verdict: the next card stands in the window, the undo line over it, and "Show N reviewed"
+      // beside the counts; its dialog opens inside the window.
       const first = await page.getByTestId('app-monitor-email').innerText();
       await press(page.getByTestId('app-monitor-approve-button'));
       await expect(page.getByTestId('app-monitor-email')).not.toHaveText(first);
       await expectCard(card);
       await expectAcross(page.getByTestId('app-monitor-undo'), 'the undo line');
-      const toggle = page.getByTestId('app-monitor-decided-toggle');
-      await expectTargets(toggle, "the reviewed list's toggle");
-      await press(toggle);
+      const reviewedOpen = page.getByTestId('app-monitor-decided-open');
+      await expectTargets(reviewedOpen, '"Show N reviewed"');
+      await press(reviewedOpen);
+      const reviewed = page.getByTestId('app-monitor-decided-window');
+      await expect(reviewed).toBeVisible();
+      await expectInside(reviewed, 'the dialog of the reviewed');
       for (const row of await page.getByTestId('app-monitor-decided-row').all()) {
         await expectAcross(row, 'a reviewed row');
       }
       await expectFits(page, 'One by one, a verdict given');
+      await press(page.getByTestId('app-monitor-decided-close-button'));
+      await expect(reviewed).toHaveCount(0);
 
       // The organizer deals the review to the Editor from the reviewers dialog, the field and every
       // choice a thumb's target.

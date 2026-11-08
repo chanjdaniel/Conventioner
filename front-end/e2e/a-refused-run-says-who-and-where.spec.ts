@@ -53,7 +53,7 @@ test('the refusal names each applicant, and each name opens their application', 
 
   await named.getByRole('link', { name: 'unfinished@example.com' }).click();
   await expect(page).toHaveURL(/\/applications\?application=/);
-  // Opened at that application: the reviewed list is open, and it is the one marked.
+  // Opened at that application: the dialog of the reviewed is open, and it is the one marked.
   const row = page
     .getByTestId('app-monitor-decided-row')
     .filter({ hasText: 'unfinished@example.com' });
