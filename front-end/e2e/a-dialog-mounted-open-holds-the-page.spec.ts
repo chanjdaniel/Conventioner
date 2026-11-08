@@ -58,6 +58,7 @@ async function expectTheDialogHoldsThePage(page: Page, dialog: Locator, windowTe
   // The page behind is out of play: the market bar, the rail and the app's own header.
   await expect.poll(() => heldInert(page.getByTestId('market-frame'))).toBe(true);
   await expect.poll(() => heldInert(page.getByTestId('phase-rail-menu-button'))).toBe(true);
+  await expect.poll(() => heldInert(page.getByTestId('app-bar'))).toBe(true);
   expect(await heldInert(dialog)).toBe(false);
 
   const controls = dialog.locator(
@@ -88,6 +89,7 @@ async function expectTheDialogHoldsThePage(page: Page, dialog: Locator, windowTe
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
   await expect.poll(() => heldInert(page.getByTestId('market-frame'))).toBe(false);
+  await expect.poll(() => heldInert(page.getByTestId('app-bar'))).toBe(false);
 }
 
 for (const size of SIZES) {
