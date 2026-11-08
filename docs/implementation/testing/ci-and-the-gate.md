@@ -12,6 +12,8 @@ describes:
   - front-end/e2e/helpers/stack.ts
   - front-end/e2e/helpers/containerNames.ts
   - front-end/scripts/bundle-budget.ts
+  - front-end/scripts/e2e-shards.ts
+  - front-end/scripts/e2e-shard-timings.json
   - front-end/scripts/no-eval.ts
   - front-end/vite.config.ts#noDevModules
 verified: 2026-11-08
@@ -49,7 +51,7 @@ No `${{ }}` expression is written inside a `run:` script: a value reaches the sh
 | `zizmor` | [zizmor](https://docs.zizmor.sh/) 1.31.1 (checksum-verified) with `--offline` over the repository, which audits the three workflows and `dependabot.yml` without a token; any finding fails the job, and its log names the audit, file and line; an accepted finding is ignored on its own line as `# zizmor: ignore[<audit>] <reason>`, and there is no zizmor config file, so nothing is ignored wholesale |
 | `zizmor-online` | on a pull request only, the same zizmor without `--offline`, given the run's read-only token, so it adds the audits that look actions up on GitHub: an impostor commit, a known-vulnerable action or a confused ref behind a pin; information, not a required check, because it depends on GitHub's API |
 | `docker-build` | `docker compose build` |
-| `e2e-shard` | six runners, each building and starting its own stack, seeding it with `seed_fixture.sh --primary` and running a sixth of the Playwright suite by spec file, with `DISABLE_CAPTCHA`, `DISABLE_EMAIL` and `DISCORD_FAKE` set; it pulls `mongo:7` and `mongo-express:latest` from Docker Hub before the start and retries only that pull a handful of times, because a transient registry 500 once failed a shard outright, so a stack that genuinely fails to start fails the shard at once; it posts a flaky-test summary on every run, and on failure uploads the report |
+| `e2e-shard` | six runners, each building and starting its own stack, seeding it with `seed_fixture.sh --primary` and running the spec files [dealt to it by time](#the-e2e-shards), with `DISABLE_CAPTCHA`, `DISABLE_EMAIL` and `DISCORD_FAKE` set; it pulls `mongo:7` and `mongo-express:latest` from Docker Hub before the start and retries only that pull a handful of times, because a transient registry 500 once failed a shard outright, so a stack that genuinely fails to start fails the shard at once; it posts a flaky-test summary and uploads its JSON report (`e2e-results-shard-<n>`, kept 90 days) on every run, and on failure uploads the whole report |
 | `e2e` | passes only when every shard did |
 
 **Branch protection requires ten checks on `dev` and six on `main`.**
@@ -64,7 +66,25 @@ Both require `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-buil
 **A flaky test fails the build.**
 Under `CI`, Playwright retries twice and sets `failOnFlakyTests` ([`front-end/playwright.config.ts`](../../../front-end/playwright.config.ts)), so a test that passes only on a retry still fails its shard.
 Within a shard the tests share one database (`workers: 1`); never across shards.
-Playwright deals whole spec files to the shards by their test count (`fullyParallel: false`), not by their time, so a spec file far heavier than a shard's share is split by its sections, as the people-at-scale spec was, into three files sharing `front-end/e2e/helpers/peopleAtScale.ts`.
+
+## The e2e shards
+
+Each `e2e-shard` job runs [`front-end/scripts/e2e-shards.ts`](../../../front-end/scripts/e2e-shards.ts) `--shard=<n>/6`, not Playwright's `--shard`.
+Playwright's `--shard` cuts the alphabetical list of spec files into runs of equal test count, whatever the tests cost (with `fullyParallel: false` a spec file is never split), so on the first six-shard run the three people-at-scale files, whose names sort together, all landed on one shard: 24 minutes of tests on it, 6 on another, and 28 minutes for the workflow.
+The script lists the suite with `playwright test --list`, deals the spec files heaviest first, each to the shard with the fewest seconds so far, by the seconds in [`front-end/scripts/e2e-shard-timings.json`](../../../front-end/scripts/e2e-shard-timings.json), and runs its own hand in alphabetical order.
+The hands depend only on the list and the timings, so every runner deals the same ones and each spec file is in exactly one (`src/__tests__/e2eShards.test.ts`); before it runs, the script lists its hand again through the filters it passes and fails the shard if Playwright selects any other set of files.
+A spec file with no timing yet weighs the median of those measured.
+
+The timings are the summed duration of every attempt of every test in a file, from CI's own reports.
+Refresh them when a shard runs well over the others, or after a large spec file lands:
+
+```sh
+gh run download <run id> -R chanjdaniel/Conventioner -p 'e2e-results-shard-*' -D <an empty dir>
+cd front-end && node scripts/e2e-shards.ts refresh <that dir>
+```
+
+and commit the rewritten file in its own `ci:` PR.
+The first timings came from run 42493172818's list-reporter times, before the reports were uploaded on a passing run.
 
 ## The bundle budget
 
