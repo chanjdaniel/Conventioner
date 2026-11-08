@@ -229,16 +229,18 @@ jobs:
           persist-credentials: false
       - run: docker compose build
 
-  # Split by spec file across four runners, each with its own Docker stack, so a hotfix waits
-  # for a quarter of the suite rather than all of it (it took 11-16 minutes on one runner). The
-  # tests share one database WITHIN a runner (`workers: 1`), never across runners.
+  # Split by spec file across six runners, each with its own Docker stack, so a PR waits for a
+  # sixth of the suite rather than all of it (83 runner-minutes of tests on 2026-11-08, about
+  # 4.5 more per runner to set up). The tests share one database WITHIN a runner (`workers: 1`),
+  # never across runners. Playwright deals whole spec files to the shards by their test count,
+  # so keep any one spec file well under a shard's time.
   e2e-shard:
-    name: e2e shard ${{ matrix.shard }}/4
+    name: e2e shard ${{ matrix.shard }}/6
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6]
     env:
       DISABLE_CAPTCHA: "true"
       DISABLE_EMAIL: "true"
@@ -263,8 +265,8 @@ jobs:
         run: npx playwright install chromium --with-deps
       - run: docker compose build
       # Docker Hub's transient 500 on `mongo:7` or `mongo-express:latest` once failed one shard
-      # of four outright. Retry only that pull, so a stack that genuinely fails to start fails
-      # the shard at once.
+      # outright. Retry only that pull, so a stack that genuinely fails to start fails the shard
+      # at once.
       - name: Pull the stack's registry images
         run: |
           for attempt in 1 2 3 4 5 6; do
@@ -279,7 +281,7 @@ jobs:
         working-directory: front-end
         env:
           SHARD: ${{ matrix.shard }}
-        run: npx playwright test "--shard=$SHARD/4"
+        run: npx playwright test "--shard=$SHARD/6"
       - name: Report flaky tests
         if: always()
         working-directory: front-end
@@ -291,7 +293,7 @@ jobs:
             PASSED=$(jq -r '.stats.expected // 0' test-results/results.json)
             FAILED=$(jq -r '.stats.unexpected // 0' test-results/results.json)
             {
-              echo "### E2E Test Results (shard $SHARD/4)"
+              echo "### E2E Test Results (shard $SHARD/6)"
               echo "| Outcome | Count |"
               echo "|---------|-------|"
               echo "| Passed  | $PASSED |"
