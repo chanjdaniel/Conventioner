@@ -514,6 +514,24 @@ describe('a dialog with nothing to focus', () => {
     expect(byTestId('people-body')!.getAttribute('tabindex')).toBe('0');
   });
 
+  it('so does a field in a dialog that scrolls whole, its scroller keeping the stop', async () => {
+    overflowing();
+    wrapper = mount(AppDialog, {
+      attachTo: document.body,
+      props: { open: true, title: 'Who may do what', testid: 'people' },
+      slots: {
+        default: () => [
+          h('input', { 'data-testid': 'people-find', class: 'field' }),
+          h('p', 'A row to read'),
+        ],
+      },
+    });
+    await flushPromises();
+
+    expect(document.activeElement).toBe(byTestId('people-find'));
+    expect(byTestId('people-scroll')!.getAttribute('tabindex')).toBe('0');
+  });
+
   it('a footer button wins too, and the body keeps its Tab stop for the keys', async () => {
     overflowing();
     wrapper = mount(AppDialog, {
