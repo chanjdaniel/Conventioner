@@ -3,7 +3,14 @@
  * rows the automatic rejections will reject - counted as the import's own judging counts them.
  */
 import { describe, expect, it } from 'vitest';
-import { previewHeadline, rejectedRowsWhy, type ImportPreviewCounts } from '@/utils/importPreview';
+import {
+  findsRefusedRow,
+  findsRejectedRow,
+  findsReplacedRow,
+  previewHeadline,
+  rejectedRowsWhy,
+  type ImportPreviewCounts,
+} from '@/utils/importPreview';
 
 function counts(overrides: Partial<ImportPreviewCounts>): ImportPreviewCounts {
   return {
@@ -71,5 +78,50 @@ describe('what the preview says of the rows a rule rejects (E38/F03/S02, E38/F06
     expect(rejectedRowsWhy(null)).toBe(
       'A check that your rules reject who they should. These are imported as rejected, each with its reason.',
     );
+  });
+});
+
+describe('finding a row of the preview, capitals aside', () => {
+  const refused = {
+    row: 31,
+    email: 'lena@fixture.test',
+    error: "'Full name' is required.",
+  };
+
+  it('finds a refused row by its address, its row number and its reason', () => {
+    expect(findsRefusedRow(refused, 'LENA@')).toBe(true);
+    expect(findsRefusedRow(refused, '31')).toBe(true);
+    expect(findsRefusedRow(refused, 'row 31')).toBe(true);
+    expect(findsRefusedRow(refused, 'FULL NAME')).toBe(true);
+    expect(findsRefusedRow(refused, 'row 32')).toBe(false);
+    expect(findsRefusedRow(refused, 'nobody')).toBe(false);
+  });
+
+  it('finds a refused row with no address, as a blank row is', () => {
+    const blank = { row: 5, email: '', error: 'Every column this import reads is empty.' };
+    expect(findsRefusedRow(blank, 'empty')).toBe(true);
+    expect(findsRefusedRow(blank, 'row 5')).toBe(true);
+    expect(findsRefusedRow(blank, 'undefined')).toBe(false);
+  });
+
+  it('finds a replaced row by its address and either row it names', () => {
+    const replaced = { row: 7, email: 'omar@fixture.test', latestRow: 44 };
+    expect(findsReplacedRow(replaced, 'OMAR')).toBe(true);
+    expect(findsReplacedRow(replaced, 'row 7')).toBe(true);
+    expect(findsReplacedRow(replaced, '44')).toBe(true);
+    expect(findsReplacedRow(replaced, 'row 8')).toBe(false);
+  });
+
+  it('finds a rejected row by its name and address, not its number or reason', () => {
+    const rejected = {
+      row: 12,
+      email: 'ines@fixture.test',
+      name: 'Ines Marlow',
+      reason: 'Answered "Half" to "Table choice"',
+    };
+    expect(findsRejectedRow(rejected, 'marlow')).toBe(true);
+    expect(findsRejectedRow(rejected, 'INES@')).toBe(true);
+    expect(findsRejectedRow(rejected, '12')).toBe(false);
+    expect(findsRejectedRow(rejected, 'half')).toBe(false);
   });
 });

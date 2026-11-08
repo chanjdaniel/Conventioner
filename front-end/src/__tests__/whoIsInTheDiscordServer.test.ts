@@ -97,7 +97,10 @@ function market(overrides: Partial<Market> = {}, refusal: string | null = null):
 
 async function mounted(served: Market) {
   serveMarket(api.get, served as unknown as Record<string, unknown>);
-  const wrapper = mount(VendorsView, { shallow: true, global: { stubs: { MarketFrame: false } } });
+  const wrapper = mount(VendorsView, {
+    shallow: true,
+    global: { stubs: { MarketFrame: false, ListFrame: false } },
+  });
   await vi.waitFor(() => {
     expect(wrapper.findAll('[data-testid="vendors-list-item"]')).toHaveLength(5);
   });
@@ -348,7 +351,10 @@ describe('the Vendors page', () => {
 /** The page mounted with a filter set: fewer rows than the market's five. */
 async function mountedFiltered(served: Market) {
   serveMarket(api.get, served as unknown as Record<string, unknown>);
-  const wrapper = mount(VendorsView, { shallow: true, global: { stubs: { MarketFrame: false } } });
+  const wrapper = mount(VendorsView, {
+    shallow: true,
+    global: { stubs: { MarketFrame: false, ListFrame: false } },
+  });
   await vi.waitFor(() => {
     expect(wrapper.find('[data-testid="vendors-list-item"]').exists()).toBe(true);
   });

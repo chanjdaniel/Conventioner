@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
-import { nextTick } from 'vue';
+import { defineComponent, h, nextTick, ref } from 'vue';
 import RowGroup from '@/components/RowGroup.vue';
 
 const seats = (count: number) =>
@@ -121,5 +121,95 @@ describe('RowGroup', () => {
     expect(rows(wrapper)[0]!.element).toBe(first);
     expect(button(wrapper).text()).toBe('Show fewer in North Wing');
     wrapper.unmount();
+  });
+
+  it('draws the heading slot in the heading, and the button still says the heading it was given', () => {
+    const wrapper = mount(RowGroup, {
+      attachTo: document.body,
+      props: {
+        heading: 'North Wing',
+        items: seats(31),
+        itemKey: (item: { id: string }) => item.id,
+        testid: 'group',
+      },
+      slots: { heading: '<span data-testid="name">North Wing</span> <span>Indoors</span>' },
+    });
+    expect(wrapper.get('h3 [data-testid="name"]').text()).toBe('North Wing');
+    expect(wrapper.get('h3').text()).toBe('North Wing Indoors');
+    expect(button(wrapper).text()).toBe('Show all 31 in North Wing');
+    wrapper.unmount();
+  });
+
+  describe('with its fold held by the page', () => {
+    /** A page holding one group's fold, as a page of sections does; the group can come and go. */
+    function mountHeld(count: number) {
+      const unfolded = ref(false);
+      const drawn = ref(true);
+      const wrapper = mount(
+        defineComponent({
+          setup: () => () =>
+            drawn.value
+              ? h(
+                  RowGroup<{ id: string; name: string }>,
+                  {
+                    heading: 'North Wing',
+                    items: seats(count),
+                    itemKey: (item: { id: string }) => item.id,
+                    testid: 'group',
+                    unfolded: unfolded.value,
+                    'onUpdate:unfolded': (value: boolean) => (unfolded.value = value),
+                  },
+                  { row: ({ item }: { item: { name: string } }) => item.name },
+                )
+              : null,
+        }),
+        { attachTo: document.body },
+      );
+      return { wrapper, unfolded, drawn };
+    }
+
+    it('follows the page, handing the focus to no row, since the press was not its own', async () => {
+      const { wrapper, unfolded } = mountHeld(31);
+      expect(wrapper.findAll('[data-testid="group-row"]')).toHaveLength(20);
+
+      unfolded.value = true;
+      await nextTick();
+      expect(wrapper.findAll('[data-testid="group-row"]')).toHaveLength(31);
+      expect(wrapper.get('[data-testid="group-fold"]').text()).toBe('Show fewer in North Wing');
+      expect(document.activeElement).toBe(document.body);
+      expect(scrollIntoView).not.toHaveBeenCalled();
+      wrapper.unmount();
+    });
+
+    it('tells the page of a press, and still moves the focus to the first new row', async () => {
+      const { wrapper, unfolded } = mountHeld(31);
+      await wrapper.get('[data-testid="group-fold"]').trigger('click');
+      await nextTick();
+      expect(unfolded.value).toBe(true);
+      const rows = wrapper.findAll('[data-testid="group-row"]');
+      expect(rows).toHaveLength(31);
+      expect(document.activeElement).toBe(rows[20]!.element);
+
+      const fold = wrapper.get('[data-testid="group-fold"]');
+      await fold.trigger('click');
+      await nextTick();
+      expect(unfolded.value).toBe(false);
+      expect(wrapper.findAll('[data-testid="group-row"]')).toHaveLength(20);
+      expect(scrollIntoView.mock.contexts[0]).toBe(fold.element);
+      wrapper.unmount();
+    });
+
+    it('comes back as the page holds it, when a re-read has unmounted the group', async () => {
+      const { wrapper, unfolded, drawn } = mountHeld(31);
+      unfolded.value = true;
+      await nextTick();
+      drawn.value = false;
+      await nextTick();
+      expect(wrapper.find('[data-testid="group-row"]').exists()).toBe(false);
+      drawn.value = true;
+      await nextTick();
+      expect(wrapper.findAll('[data-testid="group-row"]')).toHaveLength(31);
+      wrapper.unmount();
+    });
   });
 });

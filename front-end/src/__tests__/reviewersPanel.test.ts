@@ -209,6 +209,319 @@ describe('"and N more", for someone who may choose the reviewers', () => {
   });
 });
 
+describe('saving', () => {
+  const submit = () =>
+    byId('reviewers-dialog-window')!
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  const pressEscape = () =>
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+  /** Every way a person closes the dialog, none of which may take it from under a save. */
+  async function tryEveryClose() {
+    pressEscape();
+    byId('reviewers-dialog-close-button')!.click();
+    byId('reviewers-dialog-cancel-button')!.click();
+    byId('reviewers-dialog-background')!.click();
+    await flushPromises();
+  }
+
+  it('holds the dialog through the write, by every close', async () => {
+    mountPanel(team(12), true);
+    await pressMore();
+    let answer!: () => void;
+    api.put.mockImplementation(
+      () => new Promise((resolve) => (answer = () => resolve({ data: { dealt: 0 } }))),
+    );
+    submit();
+    await flushPromises();
+    await tryEveryClose();
+    expect(byId('reviewers-dialog-window')).not.toBeNull();
+
+    answer();
+    await flushPromises();
+    expect(byId('reviewers-dialog-window')).toBeNull();
+  });
+
+  it('holds the dialog through the re-read, by every close, and goes when it lands', async () => {
+    const panel = mountPanel(team(12), true);
+    const saved = () => panel.emitted('saved');
+    await pressMore();
+    let answer!: () => void;
+    api.get.mockImplementation(
+      () => new Promise((resolve) => (answer = () => resolve({ data: { market: {} } }))),
+    );
+    submit();
+    await flushPromises();
+    expect(api.put).toHaveBeenCalledTimes(1);
+    expect(api.get).toHaveBeenCalledTimes(1);
+
+    await tryEveryClose();
+    expect(byId('reviewers-dialog-window')).not.toBeNull();
+    expect(byId('reviewers-dialog-close-button')?.hasAttribute('disabled')).toBe(true);
+    expect(byId('reviewers-dialog-cancel-button')?.hasAttribute('disabled')).toBe(true);
+    expect(byId('reviewers-dialog-submit-button')?.hasAttribute('disabled')).toBe(true);
+    expect(words(byId('reviewers-dialog-submit-button'))).toBe('Saving…');
+    expect(saved()).toBeUndefined();
+
+    answer();
+    await flushPromises();
+    expect(byId('reviewers-dialog-window')).toBeNull();
+    expect(saved()).toHaveLength(1);
+  });
+
+  const chipAddresses = () =>
+    allById('reviewer-picker-chip').map(
+      (chip) => words(chip)?.match(/^person-\d+@example\.com/)?.[0],
+    );
+  /** Take the first of the team off its chips, then save. */
+  async function saveWithoutTheFirst() {
+    allById('reviewer-picker-chip')[0]!.querySelector('button')!.click();
+    await flushPromises();
+    submit();
+    await flushPromises();
+  }
+
+  /** The market as the store holds it, as every screen's is, on a panel of its own. */
+  async function mountHeld(reviewers: ReturnType<typeof team>) {
+    const store = useMarketStore();
+    api.get.mockResolvedValueOnce({ data: { market: market(reviewers, true) } });
+    await store.refresh();
+    wrapper = mount(ReviewersPanel, {
+      props: { market: store.market },
+      attachTo: document.body,
+      global: { stubs: { Teleport: true } },
+    });
+    return store.market!;
+  }
+
+  it('opens on the team saved when the re-read failed, its market the one written over', async () => {
+    await mountHeld(team(12));
+    await pressMore();
+    api.get.mockRejectedValue(new Error('Network Error'));
+    await saveWithoutTheFirst();
+    expect(byId('reviewers-dialog-window')).toBeNull();
+
+    await pressMore();
+    expect(chipAddresses()).toHaveLength(11);
+    expect(chipAddresses()).not.toContain(address(1));
+  });
+
+  it('keeps the team saved through the panel going, as a tab switch takes it', async () => {
+    const held = await mountHeld(team(12));
+    await pressMore();
+    api.get.mockRejectedValue(new Error('Network Error'));
+    await saveWithoutTheFirst();
+    wrapper!.unmount();
+
+    wrapper = mount(ReviewersPanel, {
+      props: { market: held },
+      attachTo: document.body,
+      global: { stubs: { Teleport: true } },
+    });
+    await pressMore();
+    expect(chipAddresses()).toHaveLength(11);
+    expect(chipAddresses()).not.toContain(address(1));
+  });
+
+  describe('a write left unanswered as the panel goes', () => {
+    const remount = (held: Market) => {
+      wrapper = mount(ReviewersPanel, {
+        props: { market: held },
+        attachTo: document.body,
+        global: { stubs: { Teleport: true } },
+      });
+      return wrapper;
+    };
+    /** The store holding the market, as the app's does, with a write of 11 of 12 left unanswered. */
+    async function leftUnanswered() {
+      const store = useMarketStore();
+      api.get.mockResolvedValueOnce({ data: { market: market(team(12), true) } });
+      await store.refresh();
+      remount(store.market!);
+      await pressMore();
+      const answer = Promise.withResolvers<unknown>();
+      api.put.mockReturnValue(answer.promise);
+      await saveWithoutTheFirst();
+      wrapper!.unmount();
+      await flushPromises();
+      return { answer, store };
+    }
+
+    it('a new panel opens the dialog held on it, and goes when it lands', async () => {
+      const { answer, store } = await leftUnanswered();
+      const panel = remount(store.market!);
+      await flushPromises();
+
+      expect(byId('reviewers-dialog-window')).not.toBeNull();
+      expect(chipAddresses()).toHaveLength(11);
+      expect(chipAddresses()).not.toContain(address(1));
+      expect(words(byId('reviewers-dialog-submit-button'))).toBe('Saving…');
+      expect(byId('reviewers-dialog-submit-button')?.hasAttribute('disabled')).toBe(true);
+      await tryEveryClose();
+      expect(byId('reviewers-dialog-window')).not.toBeNull();
+      expect(api.put).toHaveBeenCalledTimes(1);
+
+      answer.resolve({ data: { dealt: 0 } });
+      await flushPromises();
+      expect(byId('reviewers-dialog-window')).toBeNull();
+      expect(panel.emitted('saved')).toHaveLength(1);
+    });
+
+    it('a new panel shows the refusal, and starts from the market after it', async () => {
+      const { answer, store } = await leftUnanswered();
+      remount(store.market!);
+      await flushPromises();
+
+      answer.reject({
+        isAxiosError: true,
+        response: { status: 400, data: { error: 'That person cannot be chosen.' } },
+      });
+      await flushPromises();
+      expect(words(byId('reviewers-dialog-error'))).toBe('That person cannot be chosen.');
+      expect(byId('reviewers-dialog-close-button')?.hasAttribute('disabled')).toBe(false);
+      byId('reviewers-dialog-close-button')!.click();
+      await flushPromises();
+
+      await pressMore();
+      expect(chipAddresses()).toContain(address(1));
+    });
+
+    const refusal = {
+      isAxiosError: true,
+      response: { status: 400, data: { error: 'That person cannot be chosen.' } },
+    };
+
+    it('a close after the refusal sends focus to the button, as nothing here opened the dialog', async () => {
+      const { answer, store } = await leftUnanswered();
+      remount(store.market!);
+      await flushPromises();
+      answer.reject(refusal);
+      await flushPromises();
+
+      byId('reviewers-dialog-close-button')!.click();
+      await flushPromises();
+      expect(byId('reviewers-dialog-window')).toBeNull();
+      expect(document.activeElement).toBe(byId('reviewers-change'));
+    });
+
+    it('a second save after the refusal sends focus to the button when it lands', async () => {
+      const { answer, store } = await leftUnanswered();
+      remount(store.market!);
+      await flushPromises();
+      answer.reject(refusal);
+      await flushPromises();
+
+      api.put.mockResolvedValue({ data: { dealt: 0 } });
+      submit();
+      await flushPromises();
+      expect(byId('reviewers-dialog-window')).toBeNull();
+      expect(document.activeElement).toBe(byId('reviewers-change'));
+    });
+
+    it('a press after a put-back that closed leaves focus to what opened it', async () => {
+      const { answer, store } = await leftUnanswered();
+      remount(store.market!);
+      await flushPromises();
+      answer.resolve({ data: { dealt: 0 } });
+      await flushPromises();
+      expect(byId('reviewers-dialog-window')).toBeNull();
+
+      await pressMore();
+      expect(document.activeElement).not.toBe(more());
+      byId('reviewers-dialog-close-button')!.click();
+      await flushPromises();
+      expect(document.activeElement).toBe(more());
+    });
+
+    it('leaves a market it was not for alone: the one now held opens on its own team', async () => {
+      const { answer, store } = await leftUnanswered();
+      const other = { ...market(team(5), true), id: 'market-2' };
+      api.get.mockResolvedValueOnce({ data: { market: other } });
+      await store.open('market-2');
+      const held = store.market!;
+      expect(held.id).toBe('market-2');
+      api.get.mockRejectedValue(new Error('Network Error'));
+
+      answer.resolve({ data: { dealt: 0 } });
+      await flushPromises();
+      remount(held);
+      await flushPromises();
+      expect(byId('reviewers-dialog-window')).toBeNull();
+      await pressMore();
+      expect(chipAddresses()).toEqual(team(5).map(({ email }) => email));
+    });
+
+    it('remembers over the market held at the answer, not the one the panel was given', async () => {
+      const { answer, store } = await leftUnanswered();
+      // The remount's own read lands a new object from before the write commits.
+      api.get.mockResolvedValueOnce({ data: { market: market(team(12), true) } });
+      await store.refresh();
+      const landed = store.market!;
+      api.get.mockRejectedValue(new Error('Network Error'));
+
+      answer.resolve({ data: { dealt: 0 } });
+      await flushPromises();
+      remount(landed);
+      await pressMore();
+      expect(chipAddresses()).toHaveLength(11);
+      expect(chipAddresses()).not.toContain(address(1));
+    });
+  });
+
+  it('opens on what a read says once one has landed, the team saved forgotten', async () => {
+    await mountHeld(team(12));
+    await pressMore();
+    api.get.mockRejectedValue(new Error('Network Error'));
+    await saveWithoutTheFirst();
+
+    await wrapper!.setProps({ market: market(team(5), true) });
+    await pressMore();
+    expect(chipAddresses()).toEqual(team(5).map(({ email }) => email));
+  });
+
+  it('opens on the market again after a refused save, as nothing was saved', async () => {
+    await mountHeld(team(12));
+    await pressMore();
+    api.put.mockRejectedValue({ isAxiosError: true, response: { status: 400, data: {} } });
+    await saveWithoutTheFirst();
+    byId('reviewers-dialog-close-button')!.click();
+    await flushPromises();
+
+    await pressMore();
+    expect(chipAddresses()).toContain(address(1));
+  });
+
+  it('closes when the re-read fails in transit, as the save has landed', async () => {
+    const panel = mountPanel(team(12), true);
+    await pressMore();
+    api.get.mockRejectedValue(new Error('Network Error'));
+    submit();
+    await flushPromises();
+    expect(byId('reviewers-dialog-window')).toBeNull();
+    expect(panel.emitted('saved')).toHaveLength(1);
+  });
+
+  it('keeps the dialog open with the error when the save is refused, and a close then works', async () => {
+    mountPanel(team(12), true);
+    await pressMore();
+    api.put.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 400, data: { error: 'That person cannot be chosen.' } },
+    });
+    submit();
+    await flushPromises();
+    expect(api.get).not.toHaveBeenCalled();
+    expect(words(byId('reviewers-dialog-error'))).toBe('That person cannot be chosen.');
+    expect(byId('reviewers-dialog-close-button')?.hasAttribute('disabled')).toBe(false);
+    expect(byId('reviewers-dialog-cancel-button')?.hasAttribute('disabled')).toBe(false);
+
+    byId('reviewers-dialog-close-button')!.click();
+    await flushPromises();
+    expect(byId('reviewers-dialog-window')).toBeNull();
+  });
+});
+
 describe('"and N more", for anyone else', () => {
   it('opens a read-only "Reviewers" dialog of every reviewer, unable first, chip and (you)', async () => {
     signedIn.email = address(5);

@@ -38,9 +38,9 @@ sources:
   - E38/F15/S01
   - T181
   - T211
+  - T217
   - T204
   - T224
-  - T217
 ---
 
 # Ending and managing a market
@@ -119,7 +119,7 @@ Covered by:
    Each row's Remove is the destructive intent at secondary weight, red ink on white, not a filled red button on every row ([the design language](../../design-system.md#the-primitive-layer)).
 5. Under the list, when a row comes through the organization: "Organization admins and members are managed in Manage organization.", "Manage organization" a link to `/organizations?manage=<id>`, which opens that organization's dialog, for a reader who belongs to it, and plain words for anyone else.
 6. "Add user", for an Admin or the owner only (bug 37): the email, the role, "Add", and "Cancel" on the same row, or on a phone the email above the rest.
-   An address that already has a role on the market is refused beneath the row, pointing to that person's own row: adding once overwrote any role, the owner's too, around the guards a role change keeps (T15).
+   An address that already has a role on the market is refused beneath the row, brought into view as the row may be the last in the body, pointing to that person's own row: adding once overwrote any role, the owner's too, around the guards a role change keeps (T15).
    On a list with a find field, or words in it, the field then takes the added address, so their row is the one shown and their role reads at once; clearing the field shows the whole list.
 7. A refused change of role closes the confirmation, re-reads the list and is said beneath that person's row, which states the role the server holds, since someone else may have moved it first.
    When that moved the row past those shown, the find field takes their address, so the refusal is still read.

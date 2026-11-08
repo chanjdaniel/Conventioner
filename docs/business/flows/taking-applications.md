@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-11-04
+verified: 2026-11-06
 sources:
   - wayfinding/the-order-of-the-work/11
   - E18/F02/S03
@@ -43,8 +43,10 @@ A verdict can be given from the first application ([review](review.md)); Begin a
 2. For someone who may choose reviewers (an Admin or the owner, by default), it opens a dialog, "Open applications", with a field that finds each person they may choose by typing, the chosen as chips above it, none at first (or the reviewers chosen in draft before), and the hint "Choose no one and everyone reviews first come, first served. You can choose reviewers later from the Applications tab." ([the review is dealt among chosen reviewers](../rules/the-review-is-dealt-among-chosen-reviewers.md)).
    Below the reviewers it names the review setup being opened: "What a reviewer reads first:" and the answers that lead the card, in their order, or "Nothing leads the card"; "Automatic rejections:" and how many rules reject an answer, or "None".
    Its "Change", for someone who may change the form, closes the dialog and opens Review setup.
-   Its "Open applications" saves the reviewers when the choice differs from the ones stored, then makes the move; with no one chosen, now or before, it opens as before, and every application that arrives once reviewers are chosen is dealt to the next in turn.
+   Its "Open applications" saves the reviewers when the choice differs from the ones it opened on, then makes the move; with no one chosen, now or before, it opens as before, and every application that arrives once reviewers are chosen is dealt to the next in turn.
    A save that is refused keeps the dialog open with its error and makes no move; a move refused after the save shows its blockers on the rail, each with its fix, and the reviewers stay chosen.
+   While that save is under way the button says "Saving…", no close takes the dialog, and "Change" steps aside, since the move follows the answer.
+   Opened during a save a previous page left unanswered, it starts from the team being saved, and its "Open applications" waits for that answer, on "Saving…", showing a refusal and making no move.
    Cancel or Escape closes it and saves nothing.
    Anyone else who may move the market gets the move at once, with no dialog.
 3. Expect Applications, landing on the Applications page, which carries the dot; the form is locked from now on ([F4](form-tab.md#f4-the-form-lock)).

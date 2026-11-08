@@ -60,6 +60,13 @@ describe('vendorMatches', () => {
     expect(vendorMatches('marchetti', 'nadia@ember.test', NAMES)).toBe(false);
   });
 
+  it('finds the name on their identification only where the page gives it', () => {
+    const legal = { 'nadia@ember.test': 'Nadia Marchetti' };
+    expect(vendorMatches('marchetti', 'nadia@ember.test', NAMES, legal)).toBe(true);
+    expect(vendorMatches('MARCHETTI', 'nadia@ember.test', NAMES, legal)).toBe(true);
+    expect(vendorMatches('marchetti', 'someone@ember.test', NAMES, legal)).toBe(false);
+  });
+
   it('is case-insensitive on both', () => {
     expect(vendorMatches('NADIA', 'nadia@ember.test', NAMES)).toBe(true);
     expect(vendorMatches('Okonkwo', 'nadia@ember.test', NAMES)).toBe(true);

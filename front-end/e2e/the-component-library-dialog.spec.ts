@@ -1,6 +1,7 @@
 import type { Locator, Page, PlaywrightWorkerArgs } from '@playwright/test';
 import { test, expect } from './fixtures';
 import { barWidth, withClassicBars } from './helpers/classicBars';
+import { disabledWithoutLine } from './helpers/contrastSweep';
 import { eachWindow, expectLaidOut, openEntry } from './helpers/componentLibrary';
 import { inTheWindow, type PhoneOrDesk } from './helpers/phoneWindow';
 
@@ -272,6 +273,26 @@ eachWindow('the dialog entry', (size) => {
       await expect(readOut(page, 'Anchored: its top holds as an error appears')).toHaveText(
         'Last: Added someone.new@example.com',
       );
+
+      // A save in flight: Cancel and the close control are drawn disabled, and no close takes it.
+      window = await openDialog(page, size, 'Name the template', 'in-flight');
+      const save = page.getByTestId('library-in-flight-submit-button');
+      const close = page.getByTestId('library-in-flight-close-button');
+      const closeBox = await close.boundingBox();
+      await press(save);
+      await expect(save).toHaveText('Saving…');
+      await expect(close).toBeDisabled();
+      await expect(page.getByTestId('library-in-flight-cancel-button')).toBeDisabled();
+      expect(await close.boundingBox(), 'its line moves nothing').toEqual(closeBox);
+      expect(await disabledWithoutLine(page)).toEqual([]);
+      await page.keyboard.press('Escape');
+      await page.mouse.click(2, 2);
+      await expect(window).toBeVisible();
+      await press(page.getByTestId('library-in-flight-land'));
+      await expect(window).toBeHidden();
+      await expect(
+        readOut(page, 'A save in flight: nothing closes it until it answers'),
+      ).toHaveText('Last: Saved');
 
       // Several actions and no footer: its own forms act, and nothing closes it but a close.
       window = await openDialog(page, size, 'Manage market', 'several');

@@ -230,7 +230,7 @@ test.describe('the import, on a later file', () => {
     expect(resolutions[key]![found]).toBe(answer);
     expect(resolutions[key]![ignored]).toBeNull();
     await expect(importer.previewCounts).toContainText('rows will be imported');
-    const refusals = await importer.previewFailureRows.allInnerTexts();
+    const refusals = await importer.allPreviewFailures();
     expect(refusals.filter((refusal) => refusal.includes('must be one of'))).toEqual([]);
 
     // Back on the columns they are decisions, each still a field naming what was chosen.
@@ -1180,5 +1180,144 @@ test.describe('an applicant on a question of many options', () => {
     await expect(form.previewField('short_one').locator('select')).toBeDisabled();
     await expect(form.previewField('short_several').getByRole('checkbox')).toHaveCount(12);
     expect((await sweep(page)).failures, 'the preview has text below AA').toEqual([]);
+  });
+});
+
+test.describe('the proposal, on the question of 129 answers', () => {
+  /** The proposal of the five-day export, nothing written: its market and the selling row. */
+  async function proposal(page: Page, request: APIRequestContext) {
+    const { marketId } = await seedDraftMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const flow = new StartFromCsvPage(page);
+    await flow.open(marketId);
+    await flow.chooseFile(join(CORPUS, 'five-day-grid.csv'));
+    await flow.answerYear(UPCOMING_YEAR['five-day-grid']);
+    const row = flow.row(SELLING_ON_FIVE_DAY);
+    return { marketId, flow, row, answers: flow.answers(row) };
+  }
+
+  for (const size of [
+    { width: 1280, height: 800 },
+    { width: PHONE.width, height: PHONE.height },
+  ]) {
+    test(`at ${size.width}, finds an answer by typing and ticks it, with "Keep all" a press away`, async ({
+      authenticatedPage: page,
+      request,
+      expectAccessible,
+    }) => {
+      test.setTimeout(120_000);
+      await page.setViewportSize(size);
+      const { marketId, flow, answers } = await proposal(page, request);
+
+      // The first 20, each a tick with its count, and every one a press away.
+      await expect(answers.options).toHaveCount(20);
+      await expect(answers.count).toHaveText('Showing 20 of 129');
+      await expect(answers.more).toHaveText('Show all 129');
+      await expect(answers.keepAll).toHaveText('Keep all 129');
+
+      // Nothing new is clipped: on the desktop floor at 390 the page scrolls sideways, as it did.
+      for (const box of [answers.find, answers.keepAll, answers.more]) {
+        await box.scrollIntoViewIfNeeded();
+        await expect(box).toBeInViewport({ ratio: 1 });
+      }
+      const overrun = await answers.root.evaluate((frame) => frame.scrollWidth - frame.clientWidth);
+      expect(overrun, 'the frame runs past its column').toBeLessThanOrEqual(0);
+
+      // An answer past the first 20, unticked for being chosen by few.
+      const pastTheFold = await answers.more.click().then(async () => {
+        await expect(answers.options).toHaveCount(129);
+        await expect(answers.options.nth(20)).toBeFocused();
+        return answers.options
+          .last()
+          .locator('.option-text')
+          .evaluate((text) => {
+            return text.firstChild!.textContent!.trim();
+          });
+      });
+      await expect(answers.more).toHaveText('Show fewer');
+      await answers.more.click();
+      await expect(answers.options).toHaveCount(20);
+      await expect(answers.more).toBeFocused();
+      await expect(answers.more).toBeInViewport();
+
+      await answers.find.fill(pastTheFold.toUpperCase());
+      await expect(answers.options).toHaveCount(1);
+      await expect(answers.count).toHaveText(`1 of 129 matches "${pastTheFold.toUpperCase()}"`);
+      const found = answers.option(pastTheFold);
+      await expect(found).toHaveClass(/rare/);
+      await expect(found).toContainText('keep?');
+
+      // Enter does nothing: the rows narrow as it is typed, and nothing confirms the proposal.
+      await answers.find.press('Enter');
+      await expect(flow.ledger).toBeVisible();
+      await expect(answers.find).toBeFocused();
+      const market = await request.get(`${BACKEND_URL}/markets/${marketId}`);
+      const { market: read } = (await market.json()) as {
+        market: { applicationForm: { fields: Array<{ label: string }> } | null };
+      };
+      expect(
+        (read.applicationForm?.fields ?? []).some((f) => f.label.startsWith(SELLING_ON_FIVE_DAY)),
+      ).toBe(false);
+
+      // A press on its words ticks it, and the frame holds its words and its one row.
+      const tick = found.locator('input');
+      await expect(tick).not.toBeChecked();
+      await found.locator('.option-text').click();
+      await expect(tick).toBeChecked();
+      await expect(tick).toBeFocused();
+      await expect(answers.find).toHaveValue(pastTheFold.toUpperCase());
+      await expect(answers.options).toHaveCount(1);
+
+      await expectAccessible(`the proposal's answers, found, at ${size.width}`);
+      await page.mouse.move(0, 0);
+      expect((await sweep(page)).failures, 'the proposal has text below AA').toEqual([]);
+
+      // Words that find nothing say so, and still leave "Keep all" for every answer.
+      await answers.find.fill('no answer says this');
+      await expect(answers.options).toHaveCount(0);
+      await expect(answers.count).toHaveText('Nothing matches "no answer says this"');
+      await answers.keepAll.click();
+      await expect(answers.keepAll).toHaveCount(0);
+      await answers.find.fill('');
+      await expect(answers.options).toHaveCount(20);
+      await expect(answers.count).toHaveText('Showing 20 of 129');
+
+      // Every one of the 129 went to the form, the one found among them.
+      await flow.confirm.click();
+      await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
+      const started = await (await request.get(`${BACKEND_URL}/markets/${marketId}`)).json();
+      const asked = (
+        started.market.applicationForm.fields as Array<{ label: string; options: string[] }>
+      ).find((field) => field.label.startsWith(SELLING_ON_FIVE_DAY))!;
+      expect(asked.options).toHaveLength(129);
+      expect(asked.options).toContain(pastTheFold);
+    });
+  }
+
+  test('a tick past the fold holds "Show all", and another reading goes back to the first 20', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    test.setTimeout(120_000);
+    const { row, answers } = await proposal(page, request);
+    await answers.more.click();
+    await expect(answers.options).toHaveCount(129);
+
+    const late = answers.options.nth(100).locator('input');
+    const was = await late.isChecked();
+    await late.setChecked(!was);
+    await expect(answers.options).toHaveCount(129);
+    await expect(late).toBeChecked({ checked: !was });
+    await expect(answers.more).toHaveText('Show fewer');
+
+    const reading = await row.getByTestId('proposal-row-type').inputValue();
+    const other = reading === 'select' ? 'multi_select' : 'select';
+    await row.getByTestId('proposal-row-type').selectOption(other);
+    await row.getByTestId('proposal-row-type').selectOption(reading);
+    await expect(answers.options).toHaveCount(20);
   });
 });

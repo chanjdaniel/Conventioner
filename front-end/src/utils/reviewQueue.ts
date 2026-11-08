@@ -3,7 +3,12 @@ import {
   type Application,
   type ApplicationForm,
 } from '@/assets/types/datatypes';
-import { applicationAnswerRows, type AnswerRow } from '@/utils/essentialFields';
+import {
+  applicationAnswerRows,
+  FULL_NAME_KEY,
+  PREFERRED_NAME_KEY,
+  type AnswerRow,
+} from '@/utils/essentialFields';
 import { inShareOf } from '@/utils/reviewers';
 import { isDecided } from '@/utils/verdicts';
 
@@ -201,6 +206,24 @@ export function allViewApplications(
   );
 }
 
+/**
+ * Whether the All view's find field finds this application (T223): by its address, or by either of
+ * its names, the legal one as well as the one its row calls them, capitals aside.
+ */
+export function findsApplication(
+  application: Pick<Application, 'applicantEmail' | 'formData'>,
+  words: string,
+): boolean {
+  const needle = words.toLowerCase();
+  const answers = (application.formData ?? {}) as Record<string, unknown>;
+  return [application.applicantEmail, answers[FULL_NAME_KEY], answers[PREFERRED_NAME_KEY]].some(
+    (text) =>
+      String(text ?? '')
+        .toLowerCase()
+        .includes(needle),
+  );
+}
+
 /** Who else has this application open, if anyone but the viewer does: its tick is not theirs. */
 export function heldElsewhere(application: Application, me: string): string | null {
   const holder = application.heldBy?.email;
@@ -208,10 +231,11 @@ export function heldElsewhere(application: Application, me: string): string | nu
 }
 
 /**
- * What Select all ticks (E38/F05/S02): every row shown - the filter and Mine already applied - but
- * those another reviewer has open, and, for someone who may not change a verdict (`changes`), those
- * already approved or rejected (E38/F06/S01); neither can be ticked one by one either. With how
- * many it left for each reason, a row held elsewhere counted as held whatever its verdict.
+ * What Select all ticks (E38/F05/S02): every row on screen - the filter, Mine, the find field's words
+ * and the cap already applied - but those another reviewer has open, and, for someone who may not
+ * change a verdict (`changes`), those already approved or rejected (E38/F06/S01); neither can be
+ * ticked one by one either. With how many it left for each reason, a row held elsewhere counted as
+ * held whatever its verdict.
  */
 export function selectAll(
   shown: Application[],

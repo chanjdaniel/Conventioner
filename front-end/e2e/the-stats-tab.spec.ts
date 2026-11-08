@@ -117,7 +117,7 @@ test('the Stats tab counts who applied as the Applications tab does, for anyone 
     await stats.goto(marketId);
     await stats.status(value).click();
     await expect(page).toHaveURL(new RegExp(`/applications\\?.*status=${value}`));
-    await expect(page.getByTestId('applications-all-count')).toHaveText(`${count} of 7`);
+    await expect(all.count).toHaveText(`${count} of 7 applications`);
     await expect(all.rows).toHaveCount(count);
   }
 

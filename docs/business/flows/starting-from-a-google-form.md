@@ -7,7 +7,7 @@ describes:
   - front-end/src/components/csvProposal/ProposalLedger.vue
   - front-end/src/components/market/DraftedFrom.vue
   - front-end/src/utils/draftedFrom.ts
-verified: 2026-11-04
+verified: 2026-11-05
 sources:
   - wayfinding/the-form-started-from-a-csv/05
   - wayfinding/the-form-started-from-a-csv/map
@@ -25,6 +25,7 @@ sources:
   - E38/F15/S02
   - T205
   - T213
+  - T223
 ---
 
 # Starting from a Google Form's responses
@@ -93,7 +94,8 @@ The review is the import's own ledger, a table of "CSV column", "First answers" 
 4. Rows with a yellow edge are worth a second look, each with its reason ("Could allow several answers", "Read as a column your team added", "Has options few applicants chose", "Couldn't reach TypeSafe" among them); none of them blocks confirm.
    Rare options are unticked by default ("chosen by 2 - keep?").
    Rare means fewer than 3 applicants, or, for a multi-select, under a set share of its answers, so an option chosen by 4 can be unticked too.
-   A question the organizer made required, whose unticked options would leave applicants with no answer, says how many ("N applicants answered only options that are left out, so their applications would not import."); "Show all answers" lists every one and "Keep all" ticks them (bug 4).
+   A question the organizer made required, whose unticked options would leave applicants with no answer, says how many ("N applicants answered only options that are left out, so their applications would not import."), and "Keep all N" ticks every answer, whatever words narrow the list (bug 4).
+   A question's answers stop at the first 20, with "Show all N" and then "Show fewer", and past 12 a "Find an answer" field narrows them as it is typed in, each still a tick with its count; each question's words are its own and last as long as the ledger, a tick holding them and the rows drawn, while another type's reading goes back to the first 20 (T223).
 5. The side panel, "Your proposal" ([`ProposalLedger.vue`](../../../front-end/src/components/csvProposal/ProposalLedger.vue)), sticks beside the ledger and counts "to check", then the rows by what they become (`proposalCounts` and `railLines` in [`csvProposal.ts`](../../../front-end/src/utils/csvProposal.ts)), adding up to the rows under "Every column, in your file's order": "say who applied and when" ("says who applied" when only the address column is there, "says when each applied" when only the timestamp column is), "answer essential questions", "become your questions" and "left out", each worded for one at one ("1 answers an essential question", "1 says who applied"); it says "Nothing is written until you confirm.", and holds "Create the form and plan" and "Cancel".
 
 The ledger is the import's because the later import opens on the same one, so the organizer learns one screen, and file order is how they know their own Google Form; sorting the columns by what they become, or listing only the rows to check, were tried and not taken.

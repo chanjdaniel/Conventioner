@@ -42,25 +42,35 @@ beforeEach(() => {
 describe('the All view, when its list could not be read', () => {
   it('says so, offers Try again and counts nothing', async () => {
     fetchMarketApplications.mockRejectedValueOnce({ isAxiosError: true, request: {} });
-    const wrapper = mount(ApplicationsAll, { props: { market: MARKET }, shallow: true });
+    const wrapper = mount(ApplicationsAll, {
+      props: { market: MARKET },
+      shallow: true,
+      global: { stubs: { ListFrame: false } },
+    });
     await flushPromises();
 
-    expect(wrapper.get('[data-testid="applications-all-count"]').text()).toBe('');
+    expect(wrapper.find('[data-testid="applications-all-list-count"]').exists()).toBe(false);
     expect(wrapper.findComponent({ name: 'ReadFailed' }).props('message')).toBe(
       'You seem to be offline. Check the connection and try again.',
     );
   });
 
-  it('counts the list once Try again reads it', async () => {
+  it('says what the list holds once Try again reads it', async () => {
     fetchMarketApplications.mockRejectedValueOnce({ isAxiosError: true, request: {} });
-    const wrapper = mount(ApplicationsAll, { props: { market: MARKET }, shallow: true });
+    const wrapper = mount(ApplicationsAll, {
+      props: { market: MARKET },
+      shallow: true,
+      global: { stubs: { ListFrame: false } },
+    });
     await flushPromises();
 
     fetchMarketApplications.mockResolvedValueOnce([]);
     wrapper.findComponent({ name: 'ReadFailed' }).vm.$emit('retry');
     await flushPromises();
 
-    expect(wrapper.get('[data-testid="applications-all-count"]').text()).toBe('0 of 0');
+    expect(wrapper.get('[data-testid="applications-all-empty"]').text()).toBe(
+      'No applications received yet.',
+    );
     expect(wrapper.findComponent({ name: 'ReadFailed' }).exists()).toBe(false);
   });
 });

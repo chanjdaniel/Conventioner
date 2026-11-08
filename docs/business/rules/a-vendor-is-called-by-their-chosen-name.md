@@ -6,7 +6,7 @@ describes:
   - back-end/api/applications.py#vendor_names_for_market
   - front-end/src/utils/vendorIdentity.ts
   - front-end/src/components/VendorIdentity.vue
-verified: 2026-10-30
+verified: 2026-11-05
 sources:
   - wayfinding/readable-journey/02
   - wayfinding/the-order-of-the-work/04
@@ -46,6 +46,7 @@ Neither is solver-relevant, so correcting a spelling reopens no review, and the 
 The results download carries both too: the name they chose, then their full name, then the address.
 
 **A search finds a vendor by name or address**: the Vendors page reads "Filter by name or email…", and the search on the results also matches their short text answers.
+The Vendors and Payments pages and the export find them by the name on their identification as well as the one they chose, so someone going by another name can be found by either, and Applications All and the search on the results do too.
 
 ## Where it is kept
 

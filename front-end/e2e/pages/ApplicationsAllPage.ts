@@ -7,8 +7,8 @@ type AllViewFilter =
 type Verdict = 'approve' | 'reject' | 'follow-up';
 
 /**
- * Page object for the All view of a market's applications (E34/F04): every application at once,
- * filtered in the address, a row opening the vendor drawer, and a verdict on a ticked selection.
+ * Page object for the All view of a market's applications (E34/F04): every application in a list
+ * frame (T223), found by name or address and filtered in the address, a row opening the vendor drawer, and a verdict on a ticked selection.
  */
 export class ApplicationsAllPage {
   readonly page: Page;
@@ -42,8 +42,12 @@ export class ApplicationsAllPage {
   readonly assignedTo: PersonChooser;
   /** Every listed row's reviewer line, in the rows' order. */
   readonly rowReviewers: Locator;
-  /** "N of M": how many rows show of every application. */
+  /** The frame's line: how many rows show, of what the filters leave and of every application. */
   readonly count: Locator;
+  /** "Find by name or address", there past 12 applications; its words are the address's `search`. */
+  readonly find: Locator;
+  /** "Show 50 more", while the cap leaves rows off. */
+  readonly more: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -68,7 +72,9 @@ export class ApplicationsAllPage {
     this.confirmDealt = page.getByTestId('applications-all-confirm-dealt');
     this.assignedTo = new PersonChooser(page, 'applications-all-assigned-to');
     this.rowReviewers = this.rows.getByTestId('applications-all-reviewer');
-    this.count = page.getByTestId('applications-all-count');
+    this.count = page.getByTestId('applications-all-list-count');
+    this.find = page.getByTestId('applications-all-list-find');
+    this.more = page.getByTestId('applications-all-list-more');
   }
 
   /**

@@ -791,8 +791,8 @@ test.describe('The template dialogs', () => {
     await page
       .getByTestId('floorplan-template-save-background')
       .click({ position: { x: 8, y: 8 } });
-    await page.getByTestId('floorplan-template-save-close-button').click();
-    await page.getByTestId('floorplan-template-save-cancel-button').click();
+    await expect(page.getByTestId('floorplan-template-save-close-button')).toBeDisabled();
+    await expect(page.getByTestId('floorplan-template-save-cancel-button')).toBeDisabled();
     await expect(floorplan.templateSaveWindow).toBeVisible();
 
     release();

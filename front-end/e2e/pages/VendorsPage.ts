@@ -9,6 +9,11 @@ export class VendorsPage {
 
   readonly searchInput: Locator;
   readonly vendorListItems: Locator;
+  /** The list frame's rows (T223), each holding one `vendorListItems`. */
+  readonly listRows: Locator;
+  /** "Showing 50 of 120": there only while the cap leaves rows off. */
+  readonly listCount: Locator;
+  readonly showMore: Locator;
   readonly detailCloseButton: Locator;
   readonly detailPanel: Locator;
   readonly detailOverlay: Locator;
@@ -43,6 +48,9 @@ export class VendorsPage {
 
     this.searchInput = page.getByTestId('vendors-search-input');
     this.vendorListItems = page.getByTestId('vendors-list-item');
+    this.listRows = page.getByTestId('vendors-list').locator('[data-list-row]');
+    this.listCount = page.getByTestId('vendors-list-count');
+    this.showMore = page.getByTestId('vendors-list-more');
     this.detailCloseButton = page.getByTestId('vendors-detail-close');
     this.detailPanel = page.getByTestId('vendors-detail-panel');
     /** The scrim. Clicking it dismisses the drawer, and it is what holds the mouse out. */

@@ -12,7 +12,7 @@ describes:
   - front-end/src/utils/reviewTeam.ts
   - front-end/src/utils/reviewers.ts
   - front-end/src/components/market/ReviewerName.vue
-verified: 2026-11-05
+verified: 2026-11-06
 sources:
   - E38/F07
   - E38/F07/S01

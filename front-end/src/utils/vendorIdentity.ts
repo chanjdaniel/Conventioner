@@ -35,15 +35,23 @@ export function vendorHeadline(email: string | null | undefined, names: VendorNa
   return vendorName(email, names) || String(email ?? '').trim();
 }
 
-/** Does this vendor answer to what was typed in a search box? Name and address, both. */
+/**
+ * Does this vendor answer to what was typed in a search box? Name and address, both. Vendors and
+ * Payments give `legalNames`, as `useVendorDetails` reads them, so someone going by another name is
+ * also found by the name on their identification, as the export's search finds them (T223).
+ */
 export function vendorMatches(
   query: string,
   email: string | null | undefined,
   names: VendorNames,
+  legalNames: VendorNames = {},
 ): boolean {
   const needle = query.trim().toLowerCase();
   if (!needle) return true;
-  const address = normalized(email);
-  const name = vendorName(email, names).toLowerCase();
-  return address.includes(needle) || name.includes(needle);
+  const found = (text: string) => text.toLowerCase().includes(needle);
+  return (
+    found(normalized(email)) ||
+    found(vendorName(email, names)) ||
+    found(vendorName(email, legalNames))
+  );
 }
