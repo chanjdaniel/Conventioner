@@ -19,6 +19,7 @@ describes:
   - back-end/tests/test_the_remember_cookie.py
   - back-end/tests/test_the_request_origin_check.py
   - back-end/tests/test_security_headers.py
+  - back-end/tests/test_every_route_asks.py
   - front-end/vite.config.ts#assertCaptchaSiteKey
   - front-end/vite.config.ts#deployedHeaders
   - front-end/vercel.json
@@ -234,6 +235,8 @@ A 403 with these words on a deployment means the page's origin is not in `CORS_A
 
 **A value read from a request body reaches a query only as a string**: the rule, its one helper and its test are [a request value is a string](a-request-value-is-a-string.md).
 The checks above make the process boot safe; that one makes safe each lookup a request then asks of it.
+
+**Every route asks for a session unless the walk's public list names it with its reason**: [`test_every_route_asks.py`](../../../back-end/tests/test_every_route_asks.py) walks every registered route-method: one in no class (`PUBLIC`, `CALLERS_OWN`, or scoped by the market, organization, image or template its rule or body names) fails it, every one but `PUBLIC` answers 401 without a session, and a signed-in stranger is refused, 403 or 404, on every scoped one, with nothing written.
 
 **An exception never reaches a client**: a refusal is answered in copy our code wrote, and any other failure is logged and answered a bare `{"error": "Internal server error"}`; the types, the two handlers and their tests are [an exception never reaches a client](an-exception-never-reaches-a-client.md).
 

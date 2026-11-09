@@ -9,10 +9,10 @@ from types import SimpleNamespace
 
 import pytest
 from bson import ObjectId
-from gridfs.errors import NoFile
 from PIL import Image
 
 from conftest import (
+    FakeGridFS,
     FakeMarketsCollection,
     sessions_load_through_get_user,
     skip_without_real_dependencies,
@@ -48,38 +48,6 @@ def _hall_png():
     out = io.BytesIO()
     Image.new("RGB", (400, 300), "white").save(out, format="PNG")
     return out.getvalue()
-
-
-class FakeGridFS:
-    """The floorplan image store, holding each file's bytes, name and metadata as GridFS does."""
-
-    def __init__(self):
-        self.files = {}
-
-    def put(self, data, filename=None, metadata=None):
-        file_id = ObjectId()
-        self.files[file_id] = {"data": data, "filename": filename, "metadata": metadata}
-        return file_id
-
-    def find_one(self, file_filter):
-        stored = self.files.get(file_filter.get("_id"))
-        if stored is None:
-            return None
-        return SimpleNamespace(_id=file_filter["_id"], **stored)
-
-    def get(self, file_id):
-        stored = self.files.get(file_id)
-        if stored is None:
-            raise NoFile(file_id)
-        return SimpleNamespace(read=lambda: stored["data"])
-
-    def delete(self, file_id):
-        if file_id not in self.files:
-            raise NoFile(file_id)
-        del self.files[file_id]
-
-    def metadata_of(self, gridfs_id):
-        return self.files[ObjectId(gridfs_id)]["metadata"]
 
 
 @pytest.fixture

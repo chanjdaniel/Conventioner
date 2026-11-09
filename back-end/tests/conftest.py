@@ -669,6 +669,95 @@ def sign_in_attempts(monkeypatch):
     monkeypatch.setattr(sign_in_limits, "attempts_collection", fake)
     return fake
 
+
+class FakeGridFS:
+    """The floorplan image store, holding each file's bytes, name and metadata as GridFS does."""
+
+    def __init__(self):
+        self.files = {}
+
+    def put(self, data, filename=None, metadata=None):
+        from bson import ObjectId
+
+        file_id = ObjectId()
+        self.files[file_id] = {"data": data, "filename": filename, "metadata": metadata}
+        return file_id
+
+    def find_one(self, file_filter):
+        stored = self.files.get(file_filter.get("_id"))
+        if stored is None:
+            return None
+        return SimpleNamespace(_id=file_filter["_id"], **stored)
+
+    def get(self, file_id):
+        from gridfs.errors import NoFile
+
+        stored = self.files.get(file_id)
+        if stored is None:
+            raise NoFile(file_id)
+        return SimpleNamespace(read=lambda: stored["data"])
+
+    def delete(self, file_id):
+        from gridfs.errors import NoFile
+
+        if file_id not in self.files:
+            raise NoFile(file_id)
+        del self.files[file_id]
+
+    def metadata_of(self, gridfs_id):
+        from bson import ObjectId
+
+        return self.files[ObjectId(gridfs_id)]["metadata"]
+
+
+class FakeTemplates:
+    """The floorplan templates collection, matching a filter's fields by equality."""
+
+    def __init__(self, *docs):
+        self.docs = [dict(doc) for doc in docs]
+
+    def _matches(self, doc, query):
+        return all(doc.get(key) == value for key, value in query.items())
+
+    def find_one(self, query):
+        return next((dict(doc) for doc in self.docs if self._matches(doc, query)), None)
+
+    def find(self, query):
+        return [dict(doc) for doc in self.docs if self._matches(doc, query)]
+
+    def insert_one(self, doc):
+        self.docs.append(dict(doc))
+        return SimpleNamespace(inserted_id="inserted")
+
+    def update_one(self, query, update):
+        for doc in self.docs:
+            if self._matches(doc, query):
+                doc.update(update["$set"])
+                return SimpleNamespace(modified_count=1)
+        return SimpleNamespace(modified_count=0)
+
+    def delete_one(self, query):
+        before = len(self.docs)
+        self.docs = [doc for doc in self.docs if not self._matches(doc, query)]
+        return SimpleNamespace(deleted_count=before - len(self.docs))
+
+
+class FakeOrganizations:
+    """The organizations collection, read only, recording every filter it is asked with."""
+
+    def __init__(self, *docs):
+        self.docs = [dict(doc) for doc in docs]
+        self.queries = []
+
+    def find_one(self, query, projection=None):
+        return next(self.find(query, projection), None)
+
+    def find(self, query, projection=None):
+        self.queries.append(query)
+        return iter([
+            mongo_project(dict(doc), projection) for doc in self.docs if mongo_matches(doc, query)
+        ])
+
 # app.py refuses to boot unless the market-key migration is recorded as applied, and it fails
 # closed when it cannot read the marker at all -- which is exactly what would happen here, since
 # the suite points Mongo at a port nothing listens on. The probe is answered in-process instead,
