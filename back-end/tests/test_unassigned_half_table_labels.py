@@ -5,8 +5,10 @@ from types import SimpleNamespace
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from assignment.assignment import Table, HALF_TABLE_LEFT_LABEL, HALF_TABLE_RIGHT_LABEL
-from datatypes import MarketDateObject, TierObject, LocationObject, SectionObject
+from assignment.assignment import Table
+from datatypes import (
+    HALF_TABLE_LEFT, HALF_TABLE_RIGHT, LocationObject, MarketDateObject, SectionObject, TierObject,
+)
 
 
 def _build_table(table_code: str = "meh18", date: str = "2026-03-17") -> Table:
@@ -28,16 +30,16 @@ def _build_vendor_with_assignment(date: str, table_code: str, table_choice, *, a
 
 def test_available_table_choice_returns_opposite_side_when_left_assigned():
     table = _build_table()
-    vendor = _build_vendor_with_assignment(table.date.date, table.table_code, HALF_TABLE_LEFT_LABEL)
+    vendor = _build_vendor_with_assignment(table.date.date, table.table_code, HALF_TABLE_LEFT)
     table.assign([vendor])
-    assert table.available_table_choice() == HALF_TABLE_RIGHT_LABEL
+    assert table.available_table_choice() == HALF_TABLE_RIGHT
 
 
 def test_available_table_choice_returns_opposite_side_when_right_assigned():
     table = _build_table()
-    vendor = _build_vendor_with_assignment(table.date.date, table.table_code, HALF_TABLE_RIGHT_LABEL)
+    vendor = _build_vendor_with_assignment(table.date.date, table.table_code, HALF_TABLE_RIGHT)
     table.assign([vendor])
-    assert table.available_table_choice() == HALF_TABLE_LEFT_LABEL
+    assert table.available_table_choice() == HALF_TABLE_LEFT
 
 
 def test_available_table_choice_supports_dict_assignment_rows():
@@ -49,7 +51,7 @@ def test_available_table_choice_supports_dict_assignment_rows():
         as_dict=True,
     )
     table.assign([vendor])
-    assert table.available_table_choice() == HALF_TABLE_RIGHT_LABEL
+    assert table.available_table_choice() == HALF_TABLE_RIGHT
 
 
 def test_available_table_choice_falls_back_when_side_unknown():
@@ -70,4 +72,4 @@ def test_available_table_choice_supports_camel_case_dict_rows():
         }
     )
     table.assign([vendor])
-    assert table.available_table_choice() == HALF_TABLE_LEFT_LABEL
+    assert table.available_table_choice() == HALF_TABLE_LEFT

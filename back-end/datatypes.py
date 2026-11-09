@@ -202,6 +202,14 @@ class ThemeObject(BaseModel):
     secondary_color: str
     logo_url: Optional[str] = None
 
+# The three seats a row may be assigned as, in one spelling for the solver, its check and the
+# placement routes. A table holds two seats, and a placement therefore always names a side:
+# "the vendor at Front Row 1" is not an address anyone can stand at.
+FULL_TABLE = "Full Table"
+HALF_TABLE_LEFT = "Half Table (Left)"
+HALF_TABLE_RIGHT = "Half Table (Right)"
+TABLE_CHOICES = (FULL_TABLE, HALF_TABLE_LEFT, HALF_TABLE_RIGHT)
+
 class VendorAssignmentResult(BaseModel):
     """One vendor in one seat on one date - the whole of what a placement is.
 
