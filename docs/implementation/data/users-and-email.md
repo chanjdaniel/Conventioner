@@ -11,6 +11,8 @@ describes:
   - back-end/api/users.py#login
   - back-end/api/users.py#login_with_otp
   - back-end/api/users.py#request_otp
+  - back-end/api/users.py#request_password_reset
+  - back-end/api/users.py#resend_verification_email
   - back-end/api/users.py#_Bounds
   - back-end/api/users.py#_password_matches
   - back-end/api/users.py#get_user_by_login_id
@@ -83,7 +85,7 @@ An account's fifth wrong code discards its code and answers 429 "Too many wrong 
 
 ## The sign-in is bounded
 
-**The organizer's password and code sign-ins are counted as the applicant's is**, in the one list of limits, `LIMITS` in [`back-end/sign_in_limits.py`](../../../back-end/sign_in_limits.py): per address and per caller, in fixed 15-minute windows, in `sign_in_attempts`, whose counters name nobody ([sign-in is bounded](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)).
+**The organizer's password and code sign-ins, and the requests that mail an organizer a code or a link, are counted as the applicant's sign-in is**, in the one list of limits, `LIMITS` in [`back-end/sign_in_limits.py`](../../../back-end/sign_in_limits.py): per address and per caller, in fixed 15-minute windows, in `sign_in_attempts`, whose counters name nobody ([sign-in is bounded](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)).
 
 | Limit | Name | Tries in 15 minutes |
 | --- | --- | --- |
@@ -91,11 +93,21 @@ An account's fifth wrong code discards its code and answers 429 "Too many wrong 
 | `PASSWORD_PER_CALLER` | `password:caller` | 50 from one caller |
 | `ORGANIZER_CODE_PER_ADDRESS` | `organizer-code:address` | 10 for one address |
 | `ORGANIZER_CODE_PER_CALLER` | `organizer-code:caller` | 60 from one caller |
+| `ORGANIZER_CODE_REQUEST_PER_ADDRESS` | `organizer-code-request:address` | 5 `/request-otp` for one address |
+| `ORGANIZER_CODE_REQUEST_PER_CALLER` | `organizer-code-request:caller` | 30 `/request-otp` from one caller |
+| `RESET_LINK_PER_ADDRESS` | `reset-link:address` | 5 `/request-password-reset` for one address |
+| `RESET_LINK_PER_CALLER` | `reset-link:caller` | 30 `/request-password-reset` from one caller |
+| `VERIFICATION_LINK_PER_ADDRESS` | `verification-link:address` | 5 `/resend-verification` for one address |
+| `VERIFICATION_LINK_PER_CALLER` | `verification-link:caller` | 30 `/resend-verification` from one caller |
+| `SIGN_UP_PER_ADDRESS` | `sign-up:address` | 5 `/register` for one address |
+| `SIGN_UP_PER_CALLER` | `sign-up:caller` | 30 `/register` from one caller |
+
+Each request has its own pair, so one request's use holds back no other.
 
 **Every bounded route keeps one order** (`_Bounds` in `users.py`).
 The caller (`sign_in_limits.caller()`, the address `ProxyFix` settled by `TRUSTED_PROXY_HOPS`) is counted before the body is read, so a request that names no address still counts against its caller.
-The address, normalized, is counted next, before any account is looked up, password checked or code compared.
-So a refused request reads no account, and its answer is the same for an address with an account and without, and whether the password or the code was right.
+The address, normalized, is counted next, before any account is looked up, password checked, code compared or captcha checked.
+So a refused request reads no account and sends no mail, a refused sign-up spends no captcha check, and a refusal is the same for an address with an account and without, and whether the password or the code was right.
 
 **A right password or code takes its try back** (`take_back_attempt`), from both counts, in the window it was counted in, whether it signs in or answers `SIGN_IN_VERIFY_FIRST`.
 Only wrong tries pile up, so an organizer who signs in all day is never held back, and the E2E suite's hundreds of fixture sign-ins from one caller cost nothing.
@@ -103,6 +115,11 @@ Only wrong tries pile up, so an organizer who signs in all day is never held bac
 **Past a limit `/login` and `/login-otp` answer 429** with `SIGN_IN_TOO_MANY`, "Too many sign-in attempts. Try again in {wait}, or reset your password.", under `message` on `/login` and `msg` on `/login-otp`, and the seconds left of the window in `Retry-After`.
 `{wait}` is those seconds in whole minutes, rounded up (`wait_in_words`).
 The password form puts "Forgot password?" beside it, as it does beside `SIGN_IN_DOES_NOT_MATCH` (`refusedSignIn` in `front-end/src/utils/signInNotice.ts`); the code form shows it alone.
+
+**The mail requests take nothing back**: every `/request-otp`, `/request-password-reset`, `/resend-verification` and `/register` counts.
+Past a limit each answers 429 with `ASKED_TOO_OFTEN`, "You have asked several times. Try again in {wait}.", under `msg`, with `Retry-After`.
+Below the limits each answers as it did, `/request-otp`'s and `/request-password-reset`'s per-account waits among them, and those answers still differ by account; making them alike is E47/F01/S01's.
+The sign-in page and the verification page say the 429's sentence after "Send the link again" in place of "If that address needs verifying, a new link is on its way.", with nothing beside it (`resentLink`); the reset page and the sign-up form show it as they show any 429's `msg`.
 
 ### A code's tries are counted in one update
 

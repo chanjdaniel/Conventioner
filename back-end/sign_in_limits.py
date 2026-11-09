@@ -1,7 +1,8 @@
 """Single owner of the ``sign_in_attempts`` collection: how often a caller may ask to sign in.
 
 Every sign-in endpoint is public: the applicant's code sign-in, the organizer's password and code
-sign-ins, and the vendor's check-in at the door. A request that sends an email, left unbounded, could flood
+sign-ins and the requests that mail an organizer a code or a link, the sign-up among them, and the
+vendor's check-in at the door. A request that sends an email, left unbounded, could flood
 any address with mail, spending the sender's money and reputation; a sign-in try is a guess at a
 password or a code. Every limit here is counted per address and per caller, small enough to stop
 that and far above what a vendor or an organizer who mistypes or asks again ever reaches. Where a
@@ -81,6 +82,23 @@ ORGANIZER_CODE_PER_ADDRESS = SignInLimit(
     "organizer-code:address", attempts=10, window=timedelta(minutes=15))
 ORGANIZER_CODE_PER_CALLER = SignInLimit(
     "organizer-code:caller", attempts=60, window=timedelta(minutes=15))
+# The organizer's requests that send a mail (``api/users.py``): a sign-in code (``/request-otp``),
+# a reset link, a verification link, and the sign-up's own link. Every request counts and none is
+# taken back: an organizer asks once, perhaps again, so five bound the mail one address is sent,
+# and a caller is allowed thirty for organizers who share a venue's address. Each request has its
+# own pair, so each refusal names its request and one request's use holds back no other.
+ORGANIZER_CODE_REQUEST_PER_ADDRESS = SignInLimit(
+    "organizer-code-request:address", attempts=5, window=timedelta(minutes=15))
+ORGANIZER_CODE_REQUEST_PER_CALLER = SignInLimit(
+    "organizer-code-request:caller", attempts=30, window=timedelta(minutes=15))
+RESET_LINK_PER_ADDRESS = SignInLimit("reset-link:address", attempts=5, window=timedelta(minutes=15))
+RESET_LINK_PER_CALLER = SignInLimit("reset-link:caller", attempts=30, window=timedelta(minutes=15))
+VERIFICATION_LINK_PER_ADDRESS = SignInLimit(
+    "verification-link:address", attempts=5, window=timedelta(minutes=15))
+VERIFICATION_LINK_PER_CALLER = SignInLimit(
+    "verification-link:caller", attempts=30, window=timedelta(minutes=15))
+SIGN_UP_PER_ADDRESS = SignInLimit("sign-up:address", attempts=5, window=timedelta(minutes=15))
+SIGN_UP_PER_CALLER = SignInLimit("sign-up:caller", attempts=30, window=timedelta(minutes=15))
 
 LIMITS = (
     REQUEST_CODE_PER_ADDRESS,
@@ -94,6 +112,14 @@ LIMITS = (
     PASSWORD_PER_CALLER,
     ORGANIZER_CODE_PER_ADDRESS,
     ORGANIZER_CODE_PER_CALLER,
+    ORGANIZER_CODE_REQUEST_PER_ADDRESS,
+    ORGANIZER_CODE_REQUEST_PER_CALLER,
+    RESET_LINK_PER_ADDRESS,
+    RESET_LINK_PER_CALLER,
+    VERIFICATION_LINK_PER_ADDRESS,
+    VERIFICATION_LINK_PER_CALLER,
+    SIGN_UP_PER_ADDRESS,
+    SIGN_UP_PER_CALLER,
 )
 
 

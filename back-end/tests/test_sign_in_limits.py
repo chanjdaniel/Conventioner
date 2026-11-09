@@ -187,6 +187,20 @@ def test_the_organizers_code_sign_in_is_limited_per_address_and_per_caller():
             sign_in_limits.ORGANIZER_CODE_PER_CALLER} <= set(sign_in_limits.LIMITS)
 
 
+@pytest.mark.parametrize("prefix, name", [
+    ("ORGANIZER_CODE_REQUEST", "organizer-code-request"),
+    ("RESET_LINK", "reset-link"),
+    ("VERIFICATION_LINK", "verification-link"),
+    ("SIGN_UP", "sign-up"),
+])
+def test_each_organizer_mail_request_is_limited_per_address_and_per_caller(prefix, name):
+    per_address = getattr(sign_in_limits, f"{prefix}_PER_ADDRESS")
+    per_caller = getattr(sign_in_limits, f"{prefix}_PER_CALLER")
+    assert per_address == SignInLimit(f"{name}:address", attempts=5, window=timedelta(minutes=15))
+    assert per_caller == SignInLimit(f"{name}:caller", attempts=30, window=timedelta(minutes=15))
+    assert {per_address, per_caller} <= set(sign_in_limits.LIMITS)
+
+
 def test_every_limit_has_a_name_of_its_own():
     names = [limit.name for limit in sign_in_limits.LIMITS]
     assert len(names) == len(set(names))

@@ -43,7 +43,10 @@ Steps 1 to 3 walked live as far as reCAPTCHA allows (the slot-1 stack has real k
 4. Open the emailed link, which lands on `/verify-email`; expect confirmation and "Redirecting to sign in…"; three seconds later the page goes to sign in.
 5. Sign in (A2).
 
-Branches: mismatched passwords ("Passwords do not match"), short password, an email already registered, an expired or reused link.
+Branches: mismatched passwords ("Passwords do not match"), short password, an email already registered, an expired or reused link, asking too often.
+
+- Past five sign-ups for one address in 15 minutes, or thirty from one caller, the next says "You have asked several times. Try again in N minutes.", the same for every address, before the reCAPTCHA check ([the sign-in is bounded](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
+
 Depends on: reCAPTCHA (bypassed locally), Resend.
 Covered by:
 - `a-signup-is-sent-once.spec.ts`
@@ -64,9 +67,10 @@ Covered by:
 The page asks for the address on the page itself, in a labelled field.
 "Send the link again" with nothing typed says "Type your email address." under the field and sends nothing; a double click sends one link.
 A server's fault or no answer says so, and keeps the form and the address to try again.
+Past five links asked for one address in 15 minutes, or thirty from one caller, the next says "You have asked several times. Try again in N minutes." in place of a link on its way, the same for every address, and keeps the form and the address.
 "Back to sign in" under it is a link to `/login`.
 
-A sign-in refused because the address is not verified yet offers "Send the link again" too (A2), which says the same sentence (E38/F14/S02).
+A sign-in refused because the address is not verified yet offers "Send the link again" too (A2), which says the same sentences (E38/F14/S02); past the limit it offers the link no more.
 Covered by:
 - `the-sign-in-says-what-to-do-next.spec.ts`
 - `the-verification-page-asks-on-the-page.spec.ts`
@@ -116,6 +120,7 @@ Branches: a wrong code ("That code is not right."), which replaces the line sayi
 
 - The fifth wrong code discards the code and says "Too many wrong codes. You can ask for a new code in N minutes.", and a right code that has expired "That code has expired. You can ask for a new code in N minutes.": a new code can be asked for an hour after the last one expired, and once that wait is over each says "Ask for a new one." instead.
 - Asking for another code before then says "You can ask for a new code in N minutes.".
+- Past five codes asked for one address in 15 minutes, or thirty from one caller, the next says "You have asked several times. Try again in N minutes.", the same for every address.
 - Past ten tries at one address in 15 minutes, or sixty from one caller, the next says "Too many sign-in attempts. Try again in N minutes, or reset your password.", the same for every address; a right code takes its own try back, as a right password does ([the sign-in is bounded](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
 
 Covered by:
@@ -134,10 +139,15 @@ Covered by:
 2. Follow the emailed link to `/reset-password`, set a new password; every browser signed in to the account, remembered or not, is signed out.
 3. Sign in with the new password.
 
+Branches: asking for another link before an hour has passed since the last one expired ("Please wait before requesting another password reset"), asking too often.
+
+- Past five links asked for one address in 15 minutes, or thirty from one caller, the next says "You have asked several times. Try again in N minutes.", the same for every address ([the sign-in is bounded](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
+
 Covered by:
 - `account-links.spec.ts`
 - `auth.spec.ts` ("Password reset")
 - `sign-in-fits-a-phone.spec.ts`
+- `the-sign-in-says-what-to-do-next.spec.ts` ("past its limit, asking for a reset link says how long to wait")
 - `the-way-in-lines-up.spec.ts` ("asking for a reset reads like signing in")
 
 ## A4a. Change a password while signed in

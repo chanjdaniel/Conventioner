@@ -113,6 +113,7 @@ That, the self-signed certificate and the other suite-wide traps are TESTING.md'
 [`global-setup.ts`](../../../front-end/e2e/global-setup.ts) clears the counters at the start of every run; a spec that signs the same address in more than that within one run trips the limit, so a spec that spends a code's five tries uses an address of its own.
 **The organizer's password sign-in is rate limited too** ([the sign-in is bounded](../data/users-and-email.md#the-sign-in-is-bounded)): ten tries per address and fifty per caller per 15 minutes.
 A right password takes its try back, so the suite's hundreds of fixture sign-ins cost nothing; wrong passwords share the caller's fifty across the serial run, so a spec that goes past a limit, or tries many wrong passwords, clears the counters in its `finally` (`db.sign_in_attempts.deleteMany({})`), as `the-sign-in-says-what-to-do-next.spec.ts` does.
+Asking for an organizer's code, a reset link or a verification link, and signing up, take nothing back: five of each per address and thirty per caller per 15 minutes, so a spec that goes past one clears the counters in its `finally` too.
 Every signed-out vendor page, and every vendor request that finds its tab's sign-in ended, also asks to resume a remembered sign-in, 300 per caller per 15 minutes; a refused resume draws the sign-in as no cookie does, so only a spec that needs a resume to pass clears the counters first, as `remember-me-on-the-vendor-page.spec.ts` does.
 
 **A run starts once the host's container network has settled.**

@@ -20,7 +20,8 @@ import { ensureVerifiedUser } from './helpers/verifiedUser';
  *   again" makes a new link and says one is on its way;
  * - a wrong code replaces the "code sent" line: one line at a time;
  * - a few wrong passwords cost nothing, and past the limit the screen says how long to wait, with
- *   "Forgot password?" in it.
+ *   "Forgot password?" in it;
+ * - past its limit, asking for a reset link says how long to wait too.
  *
  * No message says "log in", and none overflows its card.
  */
@@ -33,6 +34,7 @@ const WRONG_CODE = 'That code is not right.';
 const PASSWORD = 'E2eSignInWords123!';
 const TOO_MANY =
   /^Too many sign-in attempts\. Try again in \d+ minutes?, or reset your password\. Forgot password\?$/;
+const ASKED_TOO_OFTEN = /^You have asked several times\. Try again in \d+ minutes?\.$/;
 
 const WIDTHS = [
   { name: 'a phone', viewport: { width: 390, height: 844 } },
@@ -162,6 +164,36 @@ for (const { name, viewport } of WIDTHS) {
       } finally {
         deleteUser(email);
         // The serial run is one caller, and these tries counted against it.
+        mongoEval('db.sign_in_attempts.deleteMany({})');
+      }
+    });
+
+    test('past its limit, asking for a reset link says how long to wait', async ({
+      page,
+      request,
+      expectAccessible,
+    }) => {
+      const email = uniqueEmail();
+      ensureVerifiedUser(email, PASSWORD);
+      try {
+        for (let i = 0; i < 5; i++) {
+          const asked = await request.post('/api/request-password-reset', { data: { email } });
+          expect(asked.status()).toBeLessThan(500);
+        }
+        await page.goto('/reset-password-request');
+
+        await page.getByTestId('password-reset-request-email-input').fill(email);
+        await page.getByTestId('password-reset-request-submit-button').click();
+
+        await expect(page.getByTestId('password-reset-request-error-message')).toHaveText(
+          ASKED_TOO_OFTEN,
+        );
+        await expect(page.getByTestId('password-reset-request-success-message')).toBeHidden();
+        await expectItSaysItWell(page);
+        await expectAccessible('asking for a reset link, past its limit');
+      } finally {
+        deleteUser(email);
+        // The serial run is one caller, and these requests counted against it.
         mongoEval('db.sign_in_attempts.deleteMany({})');
       }
     });

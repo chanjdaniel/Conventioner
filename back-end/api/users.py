@@ -122,6 +122,10 @@ CODE_WAIT = timedelta(hours=1)
 #: limit's window; the password form puts "Forgot password?" beside it.
 SIGN_IN_TOO_MANY = "Too many sign-in attempts. Try again in {wait}, or reset your password."
 
+#: What a request that sends a mail (a code, a reset link, a verification link, a sign-up) says
+#: past its limit, ``{wait}`` being the time left of the limit's window.
+ASKED_TOO_OFTEN = "You have asked several times. Try again in {wait}."
+
 #: The most of a password bcrypt reads, in UTF-8 bytes: bcrypt 5 refuses to hash or check a longer
 #: one, so it is refused at sign-up and answers a sign-in as a password that does not match.
 PASSWORD_MAX_BYTES = 72
@@ -200,6 +204,25 @@ _PASSWORD_SIGN_IN = _Bounds(
 _CODE_SIGN_IN = _Bounds(
     sign_in_limits.ORGANIZER_CODE_PER_CALLER, sign_in_limits.ORGANIZER_CODE_PER_ADDRESS,
     SIGN_IN_TOO_MANY, "msg",
+)
+
+
+_CODE_REQUEST = _Bounds(
+    sign_in_limits.ORGANIZER_CODE_REQUEST_PER_CALLER,
+    sign_in_limits.ORGANIZER_CODE_REQUEST_PER_ADDRESS,
+    ASKED_TOO_OFTEN, "msg",
+)
+_RESET_LINK = _Bounds(
+    sign_in_limits.RESET_LINK_PER_CALLER, sign_in_limits.RESET_LINK_PER_ADDRESS,
+    ASKED_TOO_OFTEN, "msg",
+)
+_VERIFICATION_LINK = _Bounds(
+    sign_in_limits.VERIFICATION_LINK_PER_CALLER, sign_in_limits.VERIFICATION_LINK_PER_ADDRESS,
+    ASKED_TOO_OFTEN, "msg",
+)
+_SIGN_UP = _Bounds(
+    sign_in_limits.SIGN_UP_PER_CALLER, sign_in_limits.SIGN_UP_PER_ADDRESS,
+    ASKED_TOO_OFTEN, "msg",
 )
 
 
@@ -447,7 +470,13 @@ def check_session(current_user):
 
 
 def register_user_with_captcha(bcrypt, request):
-    """Register a new user with CAPTCHA verification."""
+    """Register a new user with CAPTCHA verification, bounded per caller and per address
+    (``_Bounds``) before the captcha is checked, so a refused sign-up spends no check."""
+    now = _limit_clock()
+    refused = _SIGN_UP.caller_refusal(now)
+    if refused:
+        return refused
+
     data = request.json
     email = normalized_email(string_field(data, "email"))
     password = string_field(data, "password")
@@ -458,6 +487,10 @@ def register_user_with_captcha(bcrypt, request):
 
     if not captcha_token:
         return jsonify({"msg": "CAPTCHA verification required"}), 400
+
+    refused = _SIGN_UP.address_refusal(email, now)
+    if refused:
+        return refused
 
     # Verify CAPTCHA
     ip_address = request.remote_addr
@@ -562,12 +595,21 @@ def verify_email(request):
 
 
 def resend_verification_email(request):
-    """Resend verification email to user."""
+    """Resend verification email to user, bounded per caller and per address (``_Bounds``)."""
+    now = _limit_clock()
+    refused = _VERIFICATION_LINK.caller_refusal(now)
+    if refused:
+        return refused
+
     data = request.json
     email = normalized_email(string_field(data, "email"))
 
     if not email:
         return jsonify({"msg": "Email required"}), 400
+
+    refused = _VERIFICATION_LINK.address_refusal(email, now)
+    if refused:
+        return refused
 
     # Find user
     user_doc = users_collection.find_one({"email": email})
@@ -604,12 +646,21 @@ def resend_verification_email(request):
 
 
 def request_password_reset(request):
-    """Request password reset link."""
+    """Request password reset link, bounded per caller and per address (``_Bounds``)."""
+    now = _limit_clock()
+    refused = _RESET_LINK.caller_refusal(now)
+    if refused:
+        return refused
+
     data = request.json
     email = normalized_email(string_field(data, "email"))
 
     if not email:
         return jsonify({"msg": "Email required"}), 400
+
+    refused = _RESET_LINK.address_refusal(email, now)
+    if refused:
+        return refused
 
     # Find user
     user_doc = users_collection.find_one({"email": email})
@@ -700,12 +751,21 @@ def reset_password(bcrypt, request):
 
 
 def request_otp(request):
-    """Request OTP for passwordless login."""
+    """Request OTP for passwordless login, bounded per caller and per address (``_Bounds``)."""
+    now = _limit_clock()
+    refused = _CODE_REQUEST.caller_refusal(now)
+    if refused:
+        return refused
+
     data = request.json
     email = normalized_email(string_field(data, "email"))
 
     if not email:
         return jsonify({"msg": "Email required"}), 400
+
+    refused = _CODE_REQUEST.address_refusal(email, now)
+    if refused:
+        return refused
 
     # Find user
     user_doc = users_collection.find_one({"email": email})
@@ -720,7 +780,7 @@ def request_otp(request):
 
     # One code at a time: refused until an hour after the last code expired, unless it was used,
     # which clears its expiry. A code five wrong tries discarded keeps its wait.
-    wait = _code_wait(user_doc.get("otp_expires"), _limit_clock())
+    wait = _code_wait(user_doc.get("otp_expires"), now)
     if wait is not None:
         return jsonify(
             {"msg": NEXT_CODE_LATER.format(wait=sign_in_limits.wait_in_words(wait))}), 429

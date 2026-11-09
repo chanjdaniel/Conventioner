@@ -5,7 +5,8 @@
  *
  * - a refused password offers "Forgot password?" in the message, and so do too many tries;
  * - an address that needs verifying offers "Send the link again", which asks for the link for the
- *   address that was refused and then says so, whatever the server answered of the address;
+ *   address that was refused and then says so, whatever the server answered of the address, unless
+ *   it was asked for too often, which says how long to wait in place of a link on its way;
  * - a wrong code replaces the "code sent" line, so a red line never sits under a green one.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -29,6 +30,7 @@ const RESENT = 'If that address needs verifying, a new link is on its way.';
 const CODE_SENT = 'If an account exists for that address, a sign-in code has been sent to it.';
 const WRONG_CODE = 'That code is not right.';
 const TOO_MANY = 'Too many sign-in attempts. Try again in 15 minutes, or reset your password.';
+const ASKED_TOO_OFTEN = 'You have asked several times. Try again in 15 minutes.';
 
 const Page = { template: '<div />' };
 
@@ -199,6 +201,20 @@ describe('an address that needs verifying', () => {
     await flushPromises();
 
     expect(byTestId(wrapper, 'login-success-message').text()).toBe(RESENT);
+  });
+
+  it('says how long to wait when the link was asked for too often, and offers it no more', async () => {
+    post.mockRejectedValueOnce(refused(403, { message: VERIFY_FIRST }));
+    const wrapper = await atLogin();
+    await signInByPassword(wrapper);
+
+    post.mockRejectedValueOnce(refused(429, { msg: ASKED_TOO_OFTEN }));
+    await wrapper.get('[data-testid="login-resend-verification-button"]').trigger('click');
+    await flushPromises();
+
+    expect(byTestId(wrapper, 'login-error-message').text()).toBe(ASKED_TOO_OFTEN);
+    expect(shown(wrapper, 'login-success-message')).toBe(false);
+    expect(byTestId(wrapper, 'login-resend-verification-button').exists()).toBe(false);
   });
 
   it('says the link was not sent when no answer came, and offers it again', async () => {

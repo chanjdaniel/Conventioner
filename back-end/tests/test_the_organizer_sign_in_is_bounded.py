@@ -538,3 +538,177 @@ class TestACodesTriesAreCountedInOneUpdate:
 
         assert (asked.status_code, asked.get_json()) == (
             429, {"msg": "You can ask for a new code in 1 minute."})
+
+
+# The requests that send a mail: a code, a reset link, a verification link, and the sign-up.
+
+ASKED_TOO_OFTEN = "You have asked several times. Try again in 15 minutes."
+ASKED_REFUSED = (429, {"msg": ASKED_TOO_OFTEN}, "900")
+
+
+class MailRequest:
+    """One request that sends a mail, its limits, and an address it would send to if let through."""
+
+    def __init__(self, path, per_address, per_caller, sends_to, extra=None):
+        self.path = path
+        self.per_address = per_address
+        self.per_caller = per_caller
+        self.sends_to = sends_to
+        self.extra = extra or {}
+
+    def __repr__(self):
+        return self.path
+
+    def ask(self, client, email, caller=CALLER):
+        return client.post(self.path, json={"email": email, **self.extra},
+                           environ_base={"REMOTE_ADDR": caller})
+
+
+MAIL_REQUESTS = [
+    MailRequest("/request-otp", sign_in_limits.ORGANIZER_CODE_REQUEST_PER_ADDRESS,
+                sign_in_limits.ORGANIZER_CODE_REQUEST_PER_CALLER, ACCOUNT_EMAIL),
+    MailRequest("/request-password-reset", sign_in_limits.RESET_LINK_PER_ADDRESS,
+                sign_in_limits.RESET_LINK_PER_CALLER, ACCOUNT_EMAIL),
+    MailRequest("/resend-verification", sign_in_limits.VERIFICATION_LINK_PER_ADDRESS,
+                sign_in_limits.VERIFICATION_LINK_PER_CALLER, UNVERIFIED_EMAIL),
+    MailRequest("/register", sign_in_limits.SIGN_UP_PER_ADDRESS, sign_in_limits.SIGN_UP_PER_CALLER,
+                NO_ACCOUNT_EMAIL, {"password": PASSWORD, "captcha_token": "fixture-captcha"}),
+]
+
+
+class MailingUsers(Users):
+    """The users collection, which a sign-up also inserts into."""
+
+    def insert_one(self, doc):
+        with self._lock:
+            self.docs.append(dict(doc))
+        return SimpleNamespace(inserted_id=doc["id"])
+
+    def delete_one(self, query):
+        self.docs = [doc for doc in self.docs if not mongo_matches(doc, query)]
+
+
+@pytest.fixture
+def mailing_users(monkeypatch):
+    fake = MailingUsers(_account(ACCOUNT_EMAIL), _account(UNVERIFIED_EMAIL, verified=False))
+    monkeypatch.setattr(UsersApi, "users_collection", fake)
+    return fake
+
+
+@pytest.fixture
+def outbox(monkeypatch):
+    """Every mail sent, by the address it went to."""
+    sent = []
+
+    def sender(to, _secret):
+        sent.append(to)
+        return True
+
+    for name in ("send_otp_email", "send_password_reset_email", "send_verification_email"):
+        monkeypatch.setattr(UsersApi, name, sender)
+    return sent
+
+
+@pytest.fixture
+def captcha_checks(monkeypatch):
+    """Every captcha check a sign-up makes; each passes."""
+    checked = []
+
+    def check(token, _ip_address=None):
+        checked.append(token)
+        return True, 0.9
+
+    monkeypatch.setattr(UsersApi, "verify_recaptcha", check)
+    return checked
+
+
+@pytest.fixture
+def mail(mailing_users, outbox, captcha_checks, clock, monkeypatch):
+    # A sign-up hashes at bcrypt's lowest cost, as the accounts here are hashed.
+    monkeypatch.setattr(app_module.bcrypt, "_log_rounds", FAST_ROUNDS)
+    return SimpleNamespace(users=mailing_users, outbox=outbox, captcha_checks=captcha_checks)
+
+
+@pytest.mark.parametrize("asked", MAIL_REQUESTS, ids=repr)
+class TestTheMailRequestsAreBounded:
+    def test_past_five_at_an_address_the_next_waits_alike_for_every_address(
+        self, client, mail, asked,
+    ):
+        addresses = ((ACCOUNT_EMAIL, "198.51.100.1"), (UNVERIFIED_EMAIL, "198.51.100.2"),
+                     (NO_ACCOUNT_EMAIL, "198.51.100.3"))
+        for email, caller in addresses:
+            answers = [_answer(asked.ask(client, email, caller))
+                       for _ in range(asked.per_address.attempts)]
+            assert ASKED_REFUSED not in answers
+
+        refusals = [_answer(asked.ask(client, email, caller)) for email, caller in addresses]
+        # Another caller asking for the same address is held back too.
+        refusals.append(_answer(asked.ask(client, ACCOUNT_EMAIL, "198.51.100.4")))
+
+        assert refusals == [ASKED_REFUSED] * 4
+
+    def test_past_thirty_from_a_caller_every_address_waits_alike(self, client, mail, asked):
+        # Three requests for each of ten addresses: every address within its own limit.
+        answers = [_answer(asked.ask(client, f"fixture-guess-{n % 10}@example.com"))
+                   for n in range(asked.per_caller.attempts)]
+        assert ASKED_REFUSED not in answers
+
+        assert _answer(asked.ask(client, NO_ACCOUNT_EMAIL)) == ASKED_REFUSED
+        assert _answer(asked.ask(client, ACCOUNT_EMAIL)) == ASKED_REFUSED
+        # Another caller is not held back by this one's requests.
+        assert _answer(asked.ask(client, ACCOUNT_EMAIL, "198.51.100.9")) != ASKED_REFUSED
+
+    def test_a_request_refused_at_its_address_reads_no_account_and_sends_nothing(
+        self, client, mail, asked,
+    ):
+        for n in range(asked.per_address.attempts):
+            asked.ask(client, asked.sends_to, f"198.51.100.{n}")
+        mail.users.reads.clear()
+        mail.outbox.clear()
+        mail.captcha_checks.clear()
+
+        assert _answer(asked.ask(client, asked.sends_to)) == ASKED_REFUSED
+        assert (mail.users.reads, mail.outbox, mail.captcha_checks) == ([], [], [])
+
+    def test_a_request_refused_at_its_caller_reads_no_account_and_sends_nothing(
+        self, client, mail, asked,
+    ):
+        for n in range(asked.per_caller.attempts):
+            asked.ask(client, f"fixture-guess-{n % 10}@example.com")
+        mail.users.reads.clear()
+        mail.outbox.clear()
+        mail.captcha_checks.clear()
+
+        assert _answer(asked.ask(client, asked.sends_to)) == ASKED_REFUSED
+        assert (mail.users.reads, mail.outbox, mail.captcha_checks) == ([], [], [])
+
+    def test_below_the_limits_the_request_sends_its_mail(self, client, mail, asked):
+        assert asked.ask(client, asked.sends_to).status_code in (200, 201)
+        assert mail.outbox == [asked.sends_to]
+
+    def test_a_request_with_no_address_still_counts_against_its_caller(self, client, mail, asked):
+        for _ in range(asked.per_caller.attempts):
+            assert client.post(asked.path, json={},
+                               environ_base={"REMOTE_ADDR": CALLER}).status_code == 400
+
+        assert _answer(asked.ask(client, asked.sends_to)) == ASKED_REFUSED
+
+    def test_the_next_window_starts_from_nothing(self, client, mail, clock, asked):
+        for _ in range(asked.per_address.attempts + 1):
+            asked.ask(client, NO_ACCOUNT_EMAIL, "198.51.100.1")
+
+        clock["at"] = WINDOW_STARTS + timedelta(minutes=15)
+
+        assert _answer(asked.ask(client, NO_ACCOUNT_EMAIL, "198.51.100.1")) != ASKED_REFUSED
+
+    def test_one_requests_use_holds_back_no_other(self, client, mail, asked):
+        for n in range(asked.per_caller.attempts + 1):
+            asked.ask(client, f"fixture-guess-{n % 10}@example.com")
+        for _ in range(asked.per_address.attempts + 1):
+            asked.ask(client, ACCOUNT_EMAIL, "198.51.100.1")
+        assert _answer(asked.ask(client, ACCOUNT_EMAIL)) == ASKED_REFUSED
+
+        others = [_answer(other.ask(client, ACCOUNT_EMAIL))
+                  for other in MAIL_REQUESTS if other is not asked]
+
+        assert ASKED_REFUSED not in others

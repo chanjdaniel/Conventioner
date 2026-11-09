@@ -265,12 +265,13 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
    - Code expires in 5 minutes
    - Its tries are counted in the update that reads it; the fifth wrong code discards it and keeps its wait
    - Rate limited: ten tries per address and sixty per caller in 15 minutes, a try that signs in taken back (429 with the wait); another code is refused (429 with the wait) until an hour after the last one expired, unless it was used
+   - Asking for a code is rate limited too: five requests per address and thirty per caller in 15 minutes (429 with the wait)
 
 ### Password Reset
 1. User requests password reset
 2. Reset token generated and stored
 3. Reset link sent via Resend email
-4. Token expires in 1 hour; another reset is refused (429) until an hour after it expired
+4. Token expires in 1 hour; another reset is refused (429) until an hour after it expired, and past five requests per address or thirty per caller in 15 minutes every request is refused (429 with the wait)
 5. User sets new password
 6. Password hashed and stored
 
@@ -279,7 +280,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 - **Password Hashing**: Bcrypt with secure salt generation
 - **Email Verification**: Required before account activation
 - **CAPTCHA Protection**: reCAPTCHA v3 on registration
-- **Rate Limiting**: the password and code sign-ins, counted per address and per caller in the database (`back-end/sign_in_limits.py`), a try that signs in taken back; OTP and password reset requests, each waiting on the last
+- **Rate Limiting**: every sign-in, code, reset-link, verification-link and sign-up request, counted per address and per caller in the database (`back-end/sign_in_limits.py`), before the account is looked up; a try that signs in is taken back; OTP and password reset requests also wait on the last
 - **Token Expiration**: Time-limited tokens for verification and reset
 - **Secure Sessions**: HTTP-only, `Secure`, `SameSite=None` cookies, signed with a `SECRET_KEY` that has no fallback
 - **CORS Protection**: An explicit origin allowlist (`CORS_ALLOWED_ORIGINS`); `*` is refused, because the session cookie is credentialed

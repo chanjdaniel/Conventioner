@@ -31,10 +31,7 @@ export function refusedSignIn(
   if (status === null || status >= 500) {
     return { tone: 'error', text: getApiErrorMessage(err, fallback) };
   }
-  const data = (err as { response?: { data?: { message?: unknown; msg?: unknown } } }).response
-    ?.data;
-  const sentence = [data?.message, data?.msg].find((s) => typeof s === 'string' && s);
-  const text = (sentence as string | undefined) ?? fallback;
+  const text = serverSentence(err) ?? fallback;
   if (status === 403) return { tone: 'error', text, next: 'resend' };
   if ((status === 401 || status === 429) && offersReset) {
     return { tone: 'error', text, next: 'reset' };
@@ -44,15 +41,29 @@ export function refusedSignIn(
 
 /**
  * What "Send the link again" says of its answer: any refusal is said as a link on its way, since
- * the screen never says whether an address has an account; an answer that never came or a server's
- * fault says so, and offers the link again.
+ * the screen never says whether an address has an account, except a 429, a link asked for too
+ * often, which says the server's sentence with how long to wait and offers nothing beside it; an
+ * answer that never came or a server's fault says so, and offers the link again.
  */
 export function resentLink(err: unknown | null): SignInNotice {
   const status = err === null ? 200 : getApiErrorStatus(err);
+  if (status === 429) {
+    return {
+      tone: 'error',
+      text: serverSentence(err) ?? 'You have asked several times. Try again later.',
+    };
+  }
   if (status !== null && status < 500) return { tone: 'success', text: LINK_RESENT };
   return {
     tone: 'error',
     text: getApiErrorMessage(err, 'The link was not sent. Try again.'),
     next: 'resend',
   };
+}
+
+/** The sentence an account endpoint's refusal says, under `message` or `msg`, if any. */
+function serverSentence(err: unknown): string | undefined {
+  const data = (err as { response?: { data?: { message?: unknown; msg?: unknown } } }).response
+    ?.data;
+  return [data?.message, data?.msg].find((s): s is string => typeof s === 'string' && s !== '');
 }
