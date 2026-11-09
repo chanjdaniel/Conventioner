@@ -18,6 +18,7 @@ not read at all.
 import os
 import sys
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from email.utils import parsedate_to_datetime
 
 import pytest
@@ -59,12 +60,25 @@ class OneAccount:
             return mongo_project(dict(self.doc), projection)
         return None
 
+    def find_one_and_update(self, query, update, return_document=None):
+        if not mongo_matches(self.doc, query):
+            return None
+        self._apply(update)
+        return dict(self.doc)
+
     def update_one(self, query, update):
         if self.before_next_update:
             self.before_next_update, run = None, self.before_next_update
             run()
-        if mongo_matches(self.doc, query):
-            self.doc.update(update["$set"])
+        if not mongo_matches(self.doc, query):
+            return SimpleNamespace(matched_count=0, modified_count=0)
+        self._apply(update)
+        return SimpleNamespace(matched_count=1, modified_count=1)
+
+    def _apply(self, update):
+        self.doc.update(update.get("$set", {}))
+        for field, amount in update.get("$inc", {}).items():
+            self.doc[field] = self.doc.get(field, 0) + amount
 
 
 def _in_an_hour():

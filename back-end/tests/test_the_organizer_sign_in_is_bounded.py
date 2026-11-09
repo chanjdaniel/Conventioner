@@ -8,7 +8,10 @@ the route's other answers use, and ``Retry-After``.
 """
 import os
 import sys
+import threading
+import time
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 
@@ -39,24 +42,54 @@ TOO_MANY_SIGN_INS = "Too many sign-in attempts. Try again in 15 minutes, or rese
 
 
 class Users:
-    """A users collection read and written the way Mongo does, recording every read."""
+    """A users collection read and written the way Mongo does, recording every read.
+
+    A conditional update is applied whole under a lock, as Mongo applies one to a document, and a
+    plain read can be made slow (``slow_reads``), so tries arriving at once are held to a code's
+    five only by a count made in that one update.
+    """
 
     def __init__(self, *docs):
         self.docs = [dict(doc) for doc in docs]
         self.reads = []
+        self.slow_reads = False
+        self.most_code_tries = 0
+        self._lock = threading.Lock()
 
     def find_one(self, query, projection=None):
         self.reads.append(query)
+        if self.slow_reads:
+            time.sleep(0.05)
         for doc in self.docs:
             if mongo_matches(doc, query):
                 return mongo_project(dict(doc), projection)
         return None
 
+    def find_one_and_update(self, query, update, return_document=None):
+        self.reads.append(query)
+        with self._lock:
+            for doc in self.docs:
+                if mongo_matches(doc, query):
+                    self._apply(doc, update)
+                    return dict(doc)
+        return None
+
     def update_one(self, query, update):
-        for doc in self.docs:
-            if mongo_matches(doc, query):
-                doc.update(update.get("$set", {}))
-                return
+        with self._lock:
+            for doc in self.docs:
+                if mongo_matches(doc, query):
+                    self._apply(doc, update)
+                    return SimpleNamespace(matched_count=1, modified_count=1)
+        return SimpleNamespace(matched_count=0, modified_count=0)
+
+    def _apply(self, doc, update):
+        doc.update(update.get("$set", {}))
+        for field, amount in update.get("$inc", {}).items():
+            doc[field] = doc.get(field, 0) + amount
+        self.most_code_tries = max(self.most_code_tries, doc.get("otp_attempts") or 0)
+
+    def account(self, email):
+        return next(doc for doc in self.docs if doc["email"] == email)
 
 
 # Hashed at bcrypt's lowest cost, so the many tries here check quickly; the cost is not what is
@@ -264,3 +297,244 @@ class TestAPasswordLongerThanBcryptReads:
         users.docs.append(_account("fixture-long@example.com", password=password))
 
         assert _sign_in(client, "fixture-long@example.com", password).status_code == 200
+
+
+# The code sign-in.
+
+CODE = "123456"
+WRONG_CODE = "000000"
+WRONG_CODE_SAYS = "That code is not right."
+# A code is issued at the start of the window, lasting five minutes; the next may be asked for an
+# hour after it expires.
+CODE_EXPIRES = WINDOW_STARTS + timedelta(minutes=5)
+NEXT_CODE_AT = CODE_EXPIRES + timedelta(hours=1)
+
+CODE_REFUSED = (429, {"msg": TOO_MANY_SIGN_INS}, "900")
+
+
+def _issue_code(users, email, code=CODE):
+    users.account(email).update(
+        {"otp": code, "otp_expires": CODE_EXPIRES.isoformat(), "otp_attempts": 0})
+
+
+@pytest.fixture
+def coded(users):
+    """The verified and the unverified account, each holding a live code."""
+    _issue_code(users, ACCOUNT_EMAIL)
+    _issue_code(users, UNVERIFIED_EMAIL)
+    return users
+
+
+def _enter_code(client, email, code, caller=CALLER):
+    return client.post(
+        "/login-otp", json={"email": email, "otp": code}, environ_base={"REMOTE_ADDR": caller},
+    )
+
+
+@pytest.fixture
+def code_comparisons(monkeypatch):
+    """Every comparison of a code, as ``api.users`` reaches ``secrets.compare_digest``."""
+    compared = []
+    real = UsersApi.secrets
+
+    def spy(a, b):
+        compared.append((a, b))
+        return real.compare_digest(a, b)
+
+    class Secrets:
+        compare_digest = staticmethod(spy)
+
+        def __getattr__(self, name):
+            return getattr(real, name)
+
+    monkeypatch.setattr(UsersApi, "secrets", Secrets())
+    return compared
+
+
+class TestTheCodeSignInIsBounded:
+    def test_past_ten_tries_at_an_address_the_code_sign_in_waits_alike_for_every_address(
+        self, client, coded, clock,
+    ):
+        for email, caller in ((ACCOUNT_EMAIL, "198.51.100.1"), (NO_ACCOUNT_EMAIL, "198.51.100.2")):
+            for _ in range(sign_in_limits.ORGANIZER_CODE_PER_ADDRESS.attempts):
+                _enter_code(client, email, WRONG_CODE, caller)
+        _issue_code(coded, ACCOUNT_EMAIL)
+
+        refusals = [
+            _answer(_enter_code(client, ACCOUNT_EMAIL, CODE, "198.51.100.1")),
+            _answer(_enter_code(client, ACCOUNT_EMAIL, WRONG_CODE, "198.51.100.3")),
+            _answer(_enter_code(client, NO_ACCOUNT_EMAIL, CODE, "198.51.100.2")),
+            _answer(_enter_code(client, NO_ACCOUNT_EMAIL, WRONG_CODE, "198.51.100.4")),
+        ]
+
+        assert refusals == [CODE_REFUSED] * 4
+
+    def test_past_sixty_tries_from_a_caller_every_address_waits_alike(self, client, coded, clock):
+        # Six tries at each of ten addresses with no account: every address within its own limit.
+        statuses = [_enter_code(client, f"fixture-guess-{n % 10}@example.com", WRONG_CODE)
+                    .status_code for n in range(sign_in_limits.ORGANIZER_CODE_PER_CALLER.attempts)]
+        assert set(statuses) == {401}
+
+        assert _answer(_enter_code(client, NO_ACCOUNT_EMAIL, WRONG_CODE)) == CODE_REFUSED
+        assert _answer(_enter_code(client, ACCOUNT_EMAIL, CODE)) == CODE_REFUSED
+        # Another caller is not held back by this one's tries.
+        assert _enter_code(client, ACCOUNT_EMAIL, CODE, "198.51.100.9").status_code == 200
+
+    def test_a_request_with_no_code_still_counts_against_its_caller(self, client, coded, clock):
+        for _ in range(sign_in_limits.ORGANIZER_CODE_PER_CALLER.attempts):
+            assert client.post("/login-otp", json={"email": ACCOUNT_EMAIL},
+                               environ_base={"REMOTE_ADDR": CALLER}).status_code == 400
+
+        assert _answer(_enter_code(client, ACCOUNT_EMAIL, CODE)) == CODE_REFUSED
+
+    def test_a_refused_code_reads_no_account_and_compares_no_code(
+        self, client, coded, clock, code_comparisons,
+    ):
+        for _ in range(sign_in_limits.ORGANIZER_CODE_PER_ADDRESS.attempts):
+            _enter_code(client, NO_ACCOUNT_EMAIL, WRONG_CODE)
+        coded.reads.clear()
+
+        assert _answer(_enter_code(client, NO_ACCOUNT_EMAIL, CODE)) == CODE_REFUSED
+        assert coded.reads == []
+        assert code_comparisons == []
+
+    def test_the_next_window_starts_from_nothing(self, client, coded, clock):
+        for _ in range(sign_in_limits.ORGANIZER_CODE_PER_ADDRESS.attempts + 1):
+            _enter_code(client, NO_ACCOUNT_EMAIL, WRONG_CODE)
+
+        clock["at"] = WINDOW_STARTS + timedelta(minutes=15)
+
+        assert _enter_code(client, NO_ACCOUNT_EMAIL, WRONG_CODE).status_code == 401
+
+
+class TestARightCodeTakesItsTryBack:
+    def test_twenty_right_codes_from_one_caller_all_sign_in(self, client, coded, clock):
+        statuses = []
+        for _ in range(20):
+            _issue_code(coded, ACCOUNT_EMAIL)
+            statuses.append(_enter_code(client, ACCOUNT_EMAIL, CODE).status_code)
+
+        assert set(statuses) == {200}
+
+    def test_a_right_code_takes_back_only_its_own_try(self, client, coded, clock):
+        # The fifth wrong code discards the code, so a new one is issued for the right try.
+        wrong = [_enter_code(client, ACCOUNT_EMAIL, WRONG_CODE).status_code for _ in range(9)]
+        _issue_code(coded, ACCOUNT_EMAIL)
+        right = _enter_code(client, ACCOUNT_EMAIL, CODE).status_code
+        tenth_wrong = _enter_code(client, ACCOUNT_EMAIL, WRONG_CODE).status_code
+
+        assert (set(wrong), right, tenth_wrong) == ({401, 429}, 200, 401)
+        _issue_code(coded, ACCOUNT_EMAIL)
+        assert _answer(_enter_code(client, ACCOUNT_EMAIL, CODE)) == CODE_REFUSED
+
+    def test_a_right_code_on_an_unverified_account_takes_its_try_back(self, client, coded, clock):
+        wrong = [_enter_code(client, UNVERIFIED_EMAIL, WRONG_CODE).status_code for _ in range(9)]
+        _issue_code(coded, UNVERIFIED_EMAIL)
+        right = _answer(_enter_code(client, UNVERIFIED_EMAIL, CODE))
+        tenth_wrong = _enter_code(client, UNVERIFIED_EMAIL, WRONG_CODE).status_code
+
+        assert (set(wrong), right, tenth_wrong) == (
+            {401, 429}, (403, {"msg": VERIFY_FIRST}, None), 401)
+        assert _answer(_enter_code(client, UNVERIFIED_EMAIL, CODE)) == CODE_REFUSED
+
+    def test_a_right_code_takes_back_the_callers_try_too(self, client, users, clock):
+        organizers = [f"fixture-organizer-{n}@example.com" for n in range(70)]
+        users.docs.extend(_account(email) for email in organizers)
+        for email in organizers:
+            _issue_code(users, email)
+
+        statuses = [_enter_code(client, email, CODE).status_code for email in organizers]
+
+        assert set(statuses) == {200}
+
+
+class TestACodesTriesAreCountedInOneUpdate:
+    """No more than five tries ever reach one code, even when they arrive at once."""
+
+    def test_ten_wrong_codes_at_once_reach_the_code_at_most_five_times(
+        self, coded, clock, code_comparisons,
+    ):
+        coded.slow_reads = True
+        start = threading.Barrier(10)
+        answers = []
+
+        def enter(n):
+            client = app_module.app.test_client()
+            start.wait()
+            answers.append(_enter_code(client, ACCOUNT_EMAIL, f"00000{n}", f"198.51.100.{n}")
+                           .status_code)
+
+        threads = [threading.Thread(target=enter, args=(n,)) for n in range(10)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert len(code_comparisons) <= 5
+        assert coded.most_code_tries <= 5
+        assert sorted(answers) == [401] * 9 + [429]
+        assert coded.account(ACCOUNT_EMAIL)["otp"] is None
+
+    def test_the_fifth_wrong_code_discards_the_code_and_keeps_its_wait(self, client, coded, clock):
+        answers = [_answer(_enter_code(client, ACCOUNT_EMAIL, WRONG_CODE)) for _ in range(5)]
+
+        assert answers == [(401, {"msg": WRONG_CODE_SAYS}, None)] * 4 + [
+            (429, {"msg": "Too many wrong codes. You can ask for a new code in 65 minutes."}, None)]
+        account = coded.account(ACCOUNT_EMAIL)
+        assert (account["otp"], account["otp_attempts"]) == (None, 0)
+        assert account["otp_expires"] == CODE_EXPIRES.isoformat()
+
+        asked = client.post("/request-otp", json={"email": ACCOUNT_EMAIL},
+                            environ_base={"REMOTE_ADDR": CALLER})
+        assert (asked.status_code, asked.get_json()) == (
+            429, {"msg": "You can ask for a new code in 65 minutes."})
+
+    def test_a_right_code_after_the_fifth_wrong_one_does_not_sign_in(self, client, coded, clock):
+        for _ in range(5):
+            _enter_code(client, ACCOUNT_EMAIL, WRONG_CODE)
+
+        assert _answer(_enter_code(client, ACCOUNT_EMAIL, CODE)) == (
+            401, {"msg": WRONG_CODE_SAYS}, None)
+
+    def test_of_two_right_tries_in_turn_only_the_first_signs_in(self, client, coded, clock):
+        first = _enter_code(client, ACCOUNT_EMAIL, CODE).status_code
+        second = _answer(_enter_code(client, ACCOUNT_EMAIL, CODE))
+
+        assert (first, second) == (200, (401, {"msg": WRONG_CODE_SAYS}, None))
+
+    def test_a_right_code_another_try_consumed_first_does_not_sign_in(
+        self, monkeypatch, client, coded, clock,
+    ):
+        # Another right try consumes the code between this one's count and its own consuming.
+        consume = coded.update_one
+
+        def consumed_first(query, update):
+            coded.account(ACCOUNT_EMAIL).update({"otp": None, "otp_expires": None})
+            return consume(query, update)
+
+        monkeypatch.setattr(coded, "update_one", consumed_first)
+
+        assert _answer(_enter_code(client, ACCOUNT_EMAIL, CODE)) == (
+            401, {"msg": WRONG_CODE_SAYS}, None)
+
+    def test_an_expired_right_code_says_when_a_new_one_may_be_asked_for(
+        self, client, coded, clock,
+    ):
+        clock["at"] = CODE_EXPIRES + timedelta(minutes=5)
+
+        assert _answer(_enter_code(client, ACCOUNT_EMAIL, CODE)) == (
+            400, {"msg": "That code has expired. You can ask for a new code in 55 minutes."}, None)
+
+        clock["at"] = NEXT_CODE_AT
+
+        assert _answer(_enter_code(client, ACCOUNT_EMAIL, CODE)) == (
+            400, {"msg": "That code has expired. Ask for a new one."}, None)
+
+    def test_asking_too_soon_for_another_code_says_the_wait(self, client, coded, clock):
+        clock["at"] = NEXT_CODE_AT - timedelta(seconds=30)
+
+        asked = client.post("/request-otp", json={"email": ACCOUNT_EMAIL},
+                            environ_base={"REMOTE_ADDR": CALLER})
+
+        assert (asked.status_code, asked.get_json()) == (
+            429, {"msg": "You can ask for a new code in 1 minute."})

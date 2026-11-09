@@ -12,6 +12,7 @@ never "log in":
 import os
 import sys
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 
@@ -46,9 +47,22 @@ class Accounts:
             return mongo_project(dict(self.doc), projection)
         return None
 
+    def find_one_and_update(self, query, update, return_document=None):
+        if not mongo_matches(self.doc, query):
+            return None
+        self._apply(update)
+        return dict(self.doc)
+
     def update_one(self, query, update):
-        if mongo_matches(self.doc, query):
-            self.doc.update(update["$set"])
+        if not mongo_matches(self.doc, query):
+            return SimpleNamespace(matched_count=0, modified_count=0)
+        self._apply(update)
+        return SimpleNamespace(matched_count=1, modified_count=1)
+
+    def _apply(self, update):
+        self.doc.update(update.get("$set", {}))
+        for field, amount in update.get("$inc", {}).items():
+            self.doc[field] = self.doc.get(field, 0) + amount
 
 
 def _account(verified: bool):
@@ -183,9 +197,9 @@ def _wrong_codes(client, email, tries):
 
 
 def test_the_first_four_wrong_codes_answer_alike_with_an_account_or_without(client, verified):
-    """Alike up to the fifth: an account's fifth wrong code discards its code and says to ask for
-    a new one, which an address with no account has no count for. Counting every address alike is
-    the sign-in limits' (E47/F02/S01)."""
+    """Alike up to the fifth: an account's fifth wrong code discards its code and says when a new
+    one may be asked for, which an address with no account has no code for. The sign-in limits
+    count every address alike (E47/F02/S01); answering the fifth alike is E47/F01/S01's."""
     assert _wrong_codes(client, NO_ACCOUNT_EMAIL, 4) == _wrong_codes(client, FIXTURE_EMAIL, 4)
 
 

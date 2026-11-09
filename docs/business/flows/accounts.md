@@ -112,7 +112,12 @@ Covered by:
 2. Enter the code from the email, tick "Remember me" or leave it, and choose "Sign in"; the choice is the Sign in tab's, kept between the two (A2).
 3. "Use a different email" returns to step 1.
 
-Branches: a wrong code ("That code is not right."), which replaces the line saying the code was sent, and which a code for an address with no account answers too, up to the fifth try; too many wrong codes; an account not yet verified, which says to verify first and offers "Send the link again", as A2 does.
+Branches: a wrong code ("That code is not right."), which replaces the line saying the code was sent, and which a code for an address with no account answers too, up to the fifth try; too many wrong codes; a right code that has expired; too many tries; asking for another code too soon; an account not yet verified, which says to verify first and offers "Send the link again", as A2 does.
+
+- The fifth wrong code discards the code and says "Too many wrong codes. You can ask for a new code in N minutes.", and a right code that has expired "That code has expired. You can ask for a new code in N minutes.": a new code can be asked for an hour after the last one expired, and once that wait is over each says "Ask for a new one." instead.
+- Asking for another code before then says "You can ask for a new code in N minutes.".
+- Past ten tries at one address in 15 minutes, or sixty from one caller, the next says "Too many sign-in attempts. Try again in N minutes, or reset your password.", the same for every address; a right code takes its own try back, as a right password does ([the sign-in is bounded](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
+
 Covered by:
 - `a-failure-says-what-to-do.spec.ts`, which stubs the send and sets the code where the server keeps it, then signs in with it
 - `auth.spec.ts` ("shows error for invalid OTP code"), which stubs the send and walks only a wrong code

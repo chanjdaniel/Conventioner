@@ -1,3 +1,4 @@
+import math
 import secrets
 import time
 import uuid
@@ -15,6 +16,7 @@ from utils.tokens import (
 from utils.email import send_verification_email, send_password_reset_email, send_otp_email
 from utils.captcha import verify_recaptcha
 from datetime import datetime, timedelta, timezone
+from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError, PyMongoError
 from utils.email_address import normalized_email
 from utils.request_body import flag_field, string_field
@@ -97,9 +99,24 @@ SIGN_IN_DOES_NOT_MATCH = "That email and password do not match."
 #: The screen offers "Send the link again" beside it.
 SIGN_IN_VERIFY_FIRST = "Verify your email address first: we sent you a link when you registered."
 #: A code that is not the one sent, and a code for an address with no account, alike up to an
-#: account's fifth wrong code, which discards its code and says to ask for a new one; an address
-#: with no account has no count, which the sign-in limits will keep for every address alike.
+#: account's fifth wrong code, which discards its code and says when a new one may be asked for;
+#: an address with no account has no code to count tries on, though the sign-in limits count its
+#: tries as they count every address's.
 SIGN_IN_WRONG_CODE = "That code is not right."
+
+#: What the fifth wrong code and a right code that has expired say, each followed by when a new
+#: code may be asked for (``_next_code``).
+CODE_TOO_MANY_WRONG = "Too many wrong codes."
+CODE_EXPIRED = "That code has expired."
+#: When a new code may be asked for: ``{wait}`` is what is left of the account's wait, which ends an
+#: hour after its last code expired; with no wait left, at once.
+NEXT_CODE_LATER = "You can ask for a new code in {wait}."
+NEXT_CODE_NOW = "Ask for a new one."
+
+#: How many tries reach one code before it is discarded.
+CODE_TRIES = 5
+#: How long after a code expires the account may ask for the next.
+CODE_WAIT = timedelta(hours=1)
 
 #: What a sign-in past its limit says (``sign_in_limits``), ``{wait}`` being the time left of the
 #: limit's window; the password form puts "Forgot password?" beside it.
@@ -180,9 +197,44 @@ _PASSWORD_SIGN_IN = _Bounds(
 )
 
 
+_CODE_SIGN_IN = _Bounds(
+    sign_in_limits.ORGANIZER_CODE_PER_CALLER, sign_in_limits.ORGANIZER_CODE_PER_ADDRESS,
+    SIGN_IN_TOO_MANY, "msg",
+)
+
+
 def _limit_clock() -> datetime:
     """The moment a bounded request is counted at, which its take-back is counted at too."""
     return datetime.fromtimestamp(_now(), tz=timezone.utc)
+
+
+def _moment(stored: Any) -> Optional[datetime]:
+    """A stored ISO moment (a code's ``otp_expires``), read as UTC; None when there is none."""
+    if not isinstance(stored, str):
+        return None
+    try:
+        moment = datetime.fromisoformat(stored.replace('Z', '+00:00'))
+    except ValueError:
+        return None
+    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+
+def _code_wait(otp_expires: Any, now: datetime) -> Optional[int]:
+    """The whole seconds left until the account may ask for another code, or None when it may now:
+    one code at a time, until an hour after the last one expired (``CODE_WAIT``)."""
+    expired_at = _moment(otp_expires)
+    if expired_at is None:
+        return None
+    left = (expired_at + CODE_WAIT - now).total_seconds()
+    return math.ceil(left) if left > 0 else None
+
+
+def _next_code(otp_expires: Any, now: datetime) -> str:
+    """When a new code may be asked for, in the words a refused code ends with."""
+    wait = _code_wait(otp_expires, now)
+    if wait is None:
+        return NEXT_CODE_NOW
+    return NEXT_CODE_LATER.format(wait=sign_in_limits.wait_in_words(wait))
 
 
 def _sign_in_id(login_id: str, remembered: bool, signed_in_at: float) -> str:
@@ -666,19 +718,12 @@ def request_otp(request):
     if not user_doc.get("email_verified", False):
         return jsonify({"msg": SIGN_IN_VERIFY_FIRST}), 403
 
-    # One code at a time: refused until an hour after the last code expired, unless it was used or
-    # five wrong tries discarded it, either of which clears its expiry.
-    last_otp_time = user_doc.get("otp_expires")
-    if last_otp_time:
-        try:
-            last_otp = datetime.fromisoformat(last_otp_time.replace('Z', '+00:00'))
-            if last_otp.tzinfo is None:
-                last_otp = last_otp.replace(tzinfo=timezone.utc)
-            time_since_last = datetime.now(timezone.utc) - last_otp
-            if time_since_last < timedelta(hours=1):
-                return jsonify({"msg": "Please wait a moment before asking for another code."}), 429
-        except (ValueError, AttributeError):
-            pass
+    # One code at a time: refused until an hour after the last code expired, unless it was used,
+    # which clears its expiry. A code five wrong tries discarded keeps its wait.
+    wait = _code_wait(user_doc.get("otp_expires"), _limit_clock())
+    if wait is not None:
+        return jsonify(
+            {"msg": NEXT_CODE_LATER.format(wait=sign_in_limits.wait_in_words(wait))}), 429
 
     # Generate OTP
     otp = generate_otp()
@@ -705,7 +750,17 @@ def request_otp(request):
 
 
 def login_with_otp(login_user, request):
-    """Login with OTP code."""
+    """The code sign-in, bounded per caller and per address (``_Bounds``) as the password is.
+
+    A try is counted on the code in the same update that reads it, so no more than ``CODE_TRIES``
+    tries ever reach one code, even when they arrive at once; a right code takes its try back,
+    whether it signs in or answers that the address needs verifying first.
+    """
+    now = _limit_clock()
+    refused = _CODE_SIGN_IN.caller_refusal(now)
+    if refused:
+        return refused
+
     data = request.json
     email = normalized_email(string_field(data, "email"))
     otp = string_field(data, "otp")
@@ -713,53 +768,48 @@ def login_with_otp(login_user, request):
     if not email or not otp:
         return jsonify({"msg": "Enter your email address and the code."}), 400
 
-    # Find user
-    user_doc = users_collection.find_one({"email": email})
-    
+    refused = _CODE_SIGN_IN.address_refusal(email, now)
+    if refused:
+        return refused
+
+    # No account, no code, or a code whose tries are all counted: nothing for this try to reach.
+    user_doc = users_collection.find_one_and_update(
+        {"email": email, "otp": {"$ne": None}, "otp_attempts": {"$lt": CODE_TRIES}},
+        {"$inc": {"otp_attempts": 1}},
+        return_document=ReturnDocument.AFTER,
+    )
     if not user_doc:
         return jsonify({"msg": SIGN_IN_WRONG_CODE}), 401
 
-    # Check if OTP exists and matches
-    stored_otp = user_doc.get("otp")
-    if not stored_otp or stored_otp != otp:
-        # Increment attempts
-        attempts = user_doc.get("otp_attempts", 0) + 1
+    stored_otp = user_doc["otp"]
+    if not secrets.compare_digest(stored_otp.encode("utf-8"), otp.encode("utf-8")):
+        if user_doc["otp_attempts"] < CODE_TRIES:
+            return jsonify({"msg": SIGN_IN_WRONG_CODE}), 401
+        # The last try discards the code, and keeps its expiry, which holds back the next code.
         users_collection.update_one(
-            {"email": email},
-            {"$set": {"otp_attempts": attempts}}
+            {"email": email, "otp": stored_otp}, {"$set": {"otp": None, "otp_attempts": 0}}
         )
-        
-        if attempts >= 5:
-            # Clear OTP after max attempts
-            users_collection.update_one(
-                {"email": email},
-                {"$set": {"otp": None, "otp_expires": None, "otp_attempts": 0}}
-            )
-            return jsonify({"msg": "Too many wrong codes. Ask for a new one."}), 429
-        
-        return jsonify({"msg": SIGN_IN_WRONG_CODE}), 401
+        next_code = _next_code(user_doc.get("otp_expires"), now)
+        return jsonify({"msg": f"{CODE_TOO_MANY_WRONG} {next_code}"}), 429
 
-    # Check if OTP has expired
-    expires_at = user_doc.get("otp_expires")
-    if not verify_token_expiry(expires_at):
-        return jsonify({"msg": "That code has expired. Ask for a new one."}), 400
+    expires_at = _moment(user_doc.get("otp_expires"))
+    if expires_at is None or expires_at <= now:
+        next_code = _next_code(user_doc.get("otp_expires"), now)
+        return jsonify({"msg": f"{CODE_EXPIRED} {next_code}"}), 400
 
-    # Check if email is verified
     if not user_doc.get("email_verified", False):
+        _CODE_SIGN_IN.take_back(email, now)
         return jsonify({"msg": SIGN_IN_VERIFY_FIRST}), 403
 
-    # Clear OTP and attempts
-    users_collection.update_one(
-        {"email": email},
-        {
-            "$set": {
-                "otp": None,
-                "otp_expires": None,
-                "otp_attempts": 0
-            }
-        }
+    # Consumed only if it is still this code: of two right tries, one signs in.
+    consumed = users_collection.update_one(
+        {"email": email, "otp": stored_otp},
+        {"$set": {"otp": None, "otp_expires": None, "otp_attempts": 0}},
     )
+    if consumed.modified_count != 1:
+        return jsonify({"msg": SIGN_IN_WRONG_CODE}), 401
 
+    _CODE_SIGN_IN.take_back(email, now)
     return _sign_in(login_user, user_doc, flag_field(data, "remember"))
 
 

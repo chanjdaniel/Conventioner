@@ -9,6 +9,8 @@ describes:
   - back-end/api/users.py#register_user
   - back-end/api/users.py#register_user_with_captcha
   - back-end/api/users.py#login
+  - back-end/api/users.py#login_with_otp
+  - back-end/api/users.py#request_otp
   - back-end/api/users.py#_Bounds
   - back-end/api/users.py#_password_matches
   - back-end/api/users.py#get_user_by_login_id
@@ -52,7 +54,7 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 | `email_verified` | false until the emailed link is followed; an unverified account cannot sign in |
 | `verification_token`, `verification_token_expires` | the email-verification link, valid an hour |
 | `password_reset_token`, `password_reset_token_expires` | the password-reset link, valid an hour |
-| `otp`, `otp_expires`, `otp_attempts` | a sign-in code, valid five minutes, cleared by the fifth wrong attempt |
+| `otp`, `otp_expires`, `otp_attempts` | a sign-in code, valid five minutes; its tries are counted in the update that reads it, and the fifth wrong one discards the code and keeps `otp_expires`, which holds back the next code until an hour after it |
 | `login_id` | the account a session or remember-me cookie names, in its sign-in id: a random value, made at the first sign-in and replaced by a password reset |
 
 ## The session names the account by its login id
@@ -75,29 +77,45 @@ A route test that signs in by writing the session with an address points the use
 `SIGN_IN_DOES_NOT_MATCH` answers a wrong password and an address with no account alike, the same status and body, and the password is checked either way: against one stand-in hash, made once at the app's cost factor, when the address has no account (`_password_matches`).
 A password longer than bcrypt reads answers it too, checked against nothing ([the sign-in is bounded](#the-sign-in-is-bounded)).
 `SIGN_IN_VERIFY_FIRST` answers a right password, a right code or a code asked for on an account not yet verified.
-`SIGN_IN_WRONG_CODE` answers a wrong code and a code for an address with no account alike for each of the first four tries; an account's fifth wrong code discards its code and answers 429 "Too many wrong codes. Ask for a new one.", which an address with no account, having no count, never answers, until the sign-in limits count every address alike (E47/F02/S01).
+`SIGN_IN_WRONG_CODE` answers a wrong code and a code for an address with no account alike for each of the first four tries.
+An account's fifth wrong code discards its code and answers 429 "Too many wrong codes. You can ask for a new code in {wait}." ([a code's tries](#a-codes-tries-are-counted-in-one-update)), which an address with no account, having no code, never answers; the sign-in limits count both alike, and answering the fifth alike too is E47/F01/S01's.
 [`back-end/tests/test_the_sign_in_answers.py`](../../../back-end/tests/test_the_sign_in_answers.py) holds each, and that none says "log in".
 
 ## The sign-in is bounded
 
-**The organizer's password sign-in is counted as the applicant's is**, in the one list of limits, `LIMITS` in [`back-end/sign_in_limits.py`](../../../back-end/sign_in_limits.py): per address and per caller, in fixed 15-minute windows, in `sign_in_attempts`, whose counters name nobody ([sign-in is bounded](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)).
+**The organizer's password and code sign-ins are counted as the applicant's is**, in the one list of limits, `LIMITS` in [`back-end/sign_in_limits.py`](../../../back-end/sign_in_limits.py): per address and per caller, in fixed 15-minute windows, in `sign_in_attempts`, whose counters name nobody ([sign-in is bounded](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)).
 
 | Limit | Name | Tries in 15 minutes |
 | --- | --- | --- |
 | `PASSWORD_PER_ADDRESS` | `password:address` | 10 for one address |
 | `PASSWORD_PER_CALLER` | `password:caller` | 50 from one caller |
+| `ORGANIZER_CODE_PER_ADDRESS` | `organizer-code:address` | 10 for one address |
+| `ORGANIZER_CODE_PER_CALLER` | `organizer-code:caller` | 60 from one caller |
 
 **Every bounded route keeps one order** (`_Bounds` in `users.py`).
 The caller (`sign_in_limits.caller()`, the address `ProxyFix` settled by `TRUSTED_PROXY_HOPS`) is counted before the body is read, so a request that names no address still counts against its caller.
-The address, normalized, is counted next, before any account is looked up or password checked.
-So a refused request reads no account, and its answer is the same for an address with an account and without, and whether the password was right.
+The address, normalized, is counted next, before any account is looked up, password checked or code compared.
+So a refused request reads no account, and its answer is the same for an address with an account and without, and whether the password or the code was right.
 
-**A right password takes its try back** (`take_back_attempt`), from both counts, in the window it was counted in, whether it signs in or answers `SIGN_IN_VERIFY_FIRST`.
-Only wrong passwords pile up, so an organizer who signs in all day is never held back, and the E2E suite's hundreds of fixture sign-ins from one caller cost nothing.
+**A right password or code takes its try back** (`take_back_attempt`), from both counts, in the window it was counted in, whether it signs in or answers `SIGN_IN_VERIFY_FIRST`.
+Only wrong tries pile up, so an organizer who signs in all day is never held back, and the E2E suite's hundreds of fixture sign-ins from one caller cost nothing.
 
-**Past a limit `/login` answers 429** with `SIGN_IN_TOO_MANY`, "Too many sign-in attempts. Try again in {wait}, or reset your password.", under `message`, and the seconds left of the window in `Retry-After`.
+**Past a limit `/login` and `/login-otp` answer 429** with `SIGN_IN_TOO_MANY`, "Too many sign-in attempts. Try again in {wait}, or reset your password.", under `message` on `/login` and `msg` on `/login-otp`, and the seconds left of the window in `Retry-After`.
 `{wait}` is those seconds in whole minutes, rounded up (`wait_in_words`).
-The password form puts "Forgot password?" beside it, as it does beside `SIGN_IN_DOES_NOT_MATCH` (`refusedSignIn` in `front-end/src/utils/signInNotice.ts`).
+The password form puts "Forgot password?" beside it, as it does beside `SIGN_IN_DOES_NOT_MATCH` (`refusedSignIn` in `front-end/src/utils/signInNotice.ts`); the code form shows it alone.
+
+### A code's tries are counted in one update
+
+**`/login-otp` counts a try on the code in the same update that reads it**: one `find_one_and_update` on `{email, otp: {$ne: None}, otp_attempts: {$lt: 5}}` adding one to `otp_attempts`, with no plain read of the account before it.
+So no more than five tries ever reach one code, even when they arrive at once; a try that finds nothing to match (no account, no code, or its five tries counted) answers `SIGN_IN_WRONG_CODE`.
+The code is compared with `secrets.compare_digest`.
+
+- The fifth wrong code discards the code, by an update conditional on the stored code, and keeps `otp_expires`, so `/request-otp` keeps its wait; it answers 429 "Too many wrong codes. You can ask for a new code in {wait}.".
+- A right code that has expired answers 400 "That code has expired. You can ask for a new code in {wait}.", and is left as it is.
+- A right code on an account not yet verified answers `SIGN_IN_VERIFY_FIRST` and is left as it is.
+- A right code otherwise is consumed by an update conditional on the stored code; of two right tries only the one whose update changed the account signs in, and the other answers `SIGN_IN_WRONG_CODE`.
+
+`{wait}` in these and in `/request-otp`'s refusal, "You can ask for a new code in {wait}.", is what is left of the account's wait, which ends an hour after its code's `otp_expires` (`_code_wait`); once it is over, the code sentences end "Ask for a new one." instead, and `/request-otp` sends a code.
 
 **A password longer than 72 bytes** in UTF-8 (`PASSWORD_MAX_BYTES`), which bcrypt refuses to check, matches no account: `_password_matches` answers false without a bcrypt check, so `/login` answers `SIGN_IN_DOES_NOT_MATCH`, never the server's fault.
 

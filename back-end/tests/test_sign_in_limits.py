@@ -178,6 +178,15 @@ def test_the_organizers_password_sign_in_is_limited_per_address_and_per_caller()
         sign_in_limits.LIMITS)
 
 
+def test_the_organizers_code_sign_in_is_limited_per_address_and_per_caller():
+    assert sign_in_limits.ORGANIZER_CODE_PER_ADDRESS == SignInLimit(
+        "organizer-code:address", attempts=10, window=timedelta(minutes=15))
+    assert sign_in_limits.ORGANIZER_CODE_PER_CALLER == SignInLimit(
+        "organizer-code:caller", attempts=60, window=timedelta(minutes=15))
+    assert {sign_in_limits.ORGANIZER_CODE_PER_ADDRESS,
+            sign_in_limits.ORGANIZER_CODE_PER_CALLER} <= set(sign_in_limits.LIMITS)
+
+
 def test_every_limit_has_a_name_of_its_own():
     names = [limit.name for limit in sign_in_limits.LIMITS]
     assert len(names) == len(set(names))

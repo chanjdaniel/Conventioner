@@ -1,7 +1,7 @@
 """Single owner of the ``sign_in_attempts`` collection: how often a caller may ask to sign in.
 
-Every sign-in endpoint is public: the applicant's code sign-in, the organizer's password sign-in,
-and the vendor's check-in at the door. A request that sends an email, left unbounded, could flood
+Every sign-in endpoint is public: the applicant's code sign-in, the organizer's password and code
+sign-ins, and the vendor's check-in at the door. A request that sends an email, left unbounded, could flood
 any address with mail, spending the sender's money and reputation; a sign-in try is a guess at a
 password or a code. Every limit here is counted per address and per caller, small enough to stop
 that and far above what a vendor or an organizer who mistypes or asks again ever reaches. Where a
@@ -74,6 +74,13 @@ CHECK_IN_PER_CALLER = SignInLimit("check-in:caller", attempts=60, window=timedel
 # far above what a few of them mistyping reach.
 PASSWORD_PER_ADDRESS = SignInLimit("password:address", attempts=10, window=timedelta(minutes=15))
 PASSWORD_PER_CALLER = SignInLimit("password:caller", attempts=50, window=timedelta(minutes=15))
+# An organizer's code sign-in (``/login-otp``) is bounded as the password is, with a right code
+# taken back; its numbers are the applicant's verify-code's, with the caller's set as the door's.
+# A code's own five tries are counted on the account, which this limit does not replace.
+ORGANIZER_CODE_PER_ADDRESS = SignInLimit(
+    "organizer-code:address", attempts=10, window=timedelta(minutes=15))
+ORGANIZER_CODE_PER_CALLER = SignInLimit(
+    "organizer-code:caller", attempts=60, window=timedelta(minutes=15))
 
 LIMITS = (
     REQUEST_CODE_PER_ADDRESS,
@@ -85,6 +92,8 @@ LIMITS = (
     CHECK_IN_PER_CALLER,
     PASSWORD_PER_ADDRESS,
     PASSWORD_PER_CALLER,
+    ORGANIZER_CODE_PER_ADDRESS,
+    ORGANIZER_CODE_PER_CALLER,
 )
 
 
