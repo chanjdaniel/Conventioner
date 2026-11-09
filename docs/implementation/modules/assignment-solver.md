@@ -5,7 +5,7 @@ describes:
   - back-end/assignment/assignment.py
   - back-end/assignment/vendor_input.py
   - back-end/assignment/csv_output.py
-verified: 2026-10-31
+verified: 2026-11-09
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/02
@@ -19,6 +19,7 @@ sources:
   - T77
   - E41/F01/S02
   - T139
+  - T253
 ---
 
 # The assignment solver
@@ -64,6 +65,7 @@ Which questions count as asked is `asked_essential_keys()` in [essential fields]
 `assign()` walks the dates in the plan's stored order ([dates fill one at a time, in the plan's order](../../business/rules/dates-fill-in-calendar-order.md)); on each date it sorts the vendors ([priority and tie-breaks](../../business/rules/priority-and-tie-breaks.md)) and gives each, in turn, the best table still open to them (`best_table_for`).
 It was table-driven: each table asked which vendor it should take, which made a vendor's own section ranking unable to influence anything, and stopped a date at the first table nobody could fill ([tier filters, section prefers](../../business/rules/tier-filters-section-prefers.md)).
 Who fills the other half of a table is `get_valid_vendors`: a whole-table vendor takes both halves, a table-share partner takes the other ([table-share pairing](../../business/rules/table-share-pairing.md)), an Either chooser takes a whole table once the section's half-table share is reached ([the half-table share](../../business/rules/half-table-share.md)), and otherwise the next vendor who accepts a half.
+A vendor nobody may share with holds the whole table, both seats, as a Full chooser does, so nobody is put on its other half (`assign_table`).
 A vendor stops being offered dates at the lower of the market's ceiling and their own answer ([the ceiling on dates per vendor](../../business/rules/max-assignments-ceiling.md)).
 
 **A placement is dated by the market date itself**, the string on `MarketDateObject.date`, and the solver keys its per-date state by that same string.

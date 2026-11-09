@@ -4,10 +4,11 @@ kind: testing
 describes:
   - back-end/tests/test_assignment_behaviour.py
   - back-end/tests/test_solver_vendor_input.py
-verified: 2026-10-22
+verified: 2026-11-09
 sources:
   - wayfinding/november-2026-dry-run/07
   - E02/F01/S02
+  - T253
 ---
 
 # The assignment behaviour suite
@@ -23,12 +24,14 @@ The glossary concepts: [Assignment](../../business/concepts/assignment.md) and [
 
 - `VendorWant` describes one vendor in the domain's terms (dates they can attend, tiers they accept, flat or per date, table choice, partner, a personal limit, a section ranking) and becomes a `SolverVendor`; no application, no database.
 - `market_for` builds the plan (two dates, a Gold and a Silver section of two tables each, a ceiling of four, a half-table share of 100% unless a case says otherwise), and `assign(wants, pins=, held=, ...)` runs `assign_market` over it.
-- `pin` writes a hand-placed row, which is all a pin is; `placements`, `seat_of` and `dates_for` read the result.
+- `pin` writes a hand-placed row, which is all a pin is; `placements`, `seat_of` and `dates_for` read the result, and `seats_held_twice` names every seat two vendors hold, a "Full Table" counting as both seats.
 - A case about the market's own applications appends documents to the `applications` fixture of `tests/conftest.py`, the fake collection every back-end test runs on, rather than reaching Mongo.
 
 ## What it pins
 
 Each class is one rule, named as a sentence: a vendor gets only what they asked for; tier is a filter only when asked; the ceiling on dates, the organizer's and the vendor's own, and no personal limit; how a table is occupied; table-share requests; capacity; the statistics and the satisfaction score; assigning from the market's own approved applications, a placement dated by the market date; no vendor stranded behind a table they could not take; an incomplete application stops the run; the organizer's priority rules, first come first served, most constrained first among equals, ordering by magnitude; section preference; the same market assigns the same way twice; the solver works around pins; a seat held by hand; describing what is stored.
+
+How a table is occupied also pins that a vendor given a whole table holds both seats, so a Half chooser nobody may share with sits alone and no stranger is put on the other half.
 
 The rules these cases keep: [priority and tie-breaks](../../business/rules/priority-and-tie-breaks.md), [tier filters, section prefers](../../business/rules/tier-filters-section-prefers.md), [table-share pairing](../../business/rules/table-share-pairing.md), [the half-table share](../../business/rules/half-table-share.md), [the ceiling on dates per vendor](../../business/rules/max-assignments-ceiling.md), [an incomplete application refuses the run](../../business/rules/an-incomplete-application-refuses-the-run.md), [what an import may leave unasked](../../business/rules/what-an-import-may-leave-unasked.md), and [dates fill one at a time, in the plan's order](../../business/rules/dates-fill-in-calendar-order.md).
 Together they keep what a real market's result is judged by, the five criteria of [what a correct assignment is](../../business/rules/what-a-correct-assignment-is.md): no vendor's answers broken, pairs together, and the market's order respected are the solver's, and are pinned here.

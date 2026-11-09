@@ -619,9 +619,11 @@ class MarketAssignment:
     def get_valid_vendors(self, market_date: MarketDateObject, table, next_vendor):
         """Who occupies ``table``, given that ``next_vendor`` is being placed at it.
 
-        Returns ``[v, v]`` for one vendor holding a whole table, or ``[a, b]`` for two halves.
-        The lead vendor is passed in rather than looked up: they were chosen by priority, and
-        the table was then chosen to suit THEM. Picking the lead here, from the table, is what
+        Returns ``[v, v]`` for one vendor holding a whole table, ``[a, b]`` for two halves, and
+        ``[v]`` either for the open half of a table someone already holds or, at an empty table,
+        for a vendor nobody can share with, whom ``assign_table`` gives the whole table, both
+        seats. The lead vendor is passed in rather than looked up: they were chosen by priority,
+        and the table was then chosen to suit THEM. Picking the lead here, from the table, is what
         made a vendor's own section ranking unable to influence anything.
         """
         # The open half of a table someone already holds takes exactly one vendor: who they
@@ -713,8 +715,12 @@ class MarketAssignment:
             table.assign(list(table.assignment) + [vendor])
             return
 
-        # full table assignment
+        # full table assignment. The vendor holds both seats, however they came to the whole
+        # table: a Half chooser nobody may share with arrives here alone, and recording them in
+        # one seat left the table reading as having a free half, which a later vendor was then
+        # put on, beside a vendor holding the whole table (T253).
         if len(vendor_list) < 2 or self.vendor_email(vendor_list[0]) == self.vendor_email(vendor_list[1]):
+            vendor_list = [vendor_list[0], vendor_list[0]]
             assignment = VendorAssignmentResult(
                 email=self.vendor_email(vendor_list[0]),
                 date=market_date.date,

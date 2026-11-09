@@ -346,11 +346,8 @@ class TestHowATableIsOccupied:
             for i in range(8)
         ])
 
-        seats = {}
         assert placements(market)
-        for email, date, code, _, _, _ in placements(market):
-            seats.setdefault((date, code), []).append(email)
-        assert all(len(occupants) <= 2 for occupants in seats.values())
+        assert seats_held_twice(market) == []
 
 
 class TestATableShareRequest:
