@@ -102,6 +102,7 @@ sources:
   - T161
   - T181
   - T224
+  - T254
 ---
 
 # An exception never reaches a client
@@ -207,7 +208,7 @@ A status a request names is read by `_named_status`, which names none for anythi
 A follow-up owner the market does not offer answers its `BadRequestError`, 400; `confirm` in [`back-end/csv_start.py`](../../../back-end/csv_start.py) lets a `ConfirmRefused`, a locked form and a refused plan or form reach the handler as raised; a door write on a market that does not exist, is archived or cannot be read answers what the change loader raises.
 Two lines these routes reach are kept free of an applicant's address for the 500 log: an application that keeps losing its upsert race (`find_or_create_application` in [`back-end/api/applications.py`](../../../back-end/api/applications.py)) is named by its market, and an application document that cannot be parsed (`list_market_applications` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py)) logs `parse_failure_detail`, never its answers.
 
-No route in `app.py` answers what it caught: `healthz` alone catches, to answer `{"status": "unavailable"}`, 503, when the database does not answer, and the floorplan blueprints keep their own catches, which answer the generic 500 and log, until they are rewritten.
+No route in `app.py` answers what it caught: `healthz` alone catches, to answer 503 with `"status": "unavailable"` and its build's commit, when the database does not answer, and the floorplan blueprints keep their own catches, which answer the generic 500 and log, until they are rewritten.
 
 **A body that is not an object is refused in words.**
 Every route in `app.py` that reads its body in the view reads it with `json_object` in [`back-end/utils/request_body.py`](../../../back-end/utils/request_body.py), and no view there reads `request` for a body another way.

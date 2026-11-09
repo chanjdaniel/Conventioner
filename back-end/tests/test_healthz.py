@@ -1,4 +1,4 @@
-"""The health check the post-deploy smoke test and the uptime check read."""
+"""The health check the Deploy workflow, the post-deploy smoke test and the uptime check read."""
 
 import pytest
 
@@ -8,6 +8,8 @@ skip_without_real_dependencies()
 
 import app as app_module
 from api import markets as MarketsApi
+
+A_COMMIT = "0123456789abcdef0123456789abcdef01234567"
 
 
 class _Database:
@@ -30,21 +32,80 @@ def client():
     return app_module.app.test_client()
 
 
-def test_a_deployment_whose_database_answers_is_healthy(client, monkeypatch):
+@pytest.fixture
+def database_answers(monkeypatch):
     monkeypatch.setattr(MarketsApi, "markets_collection", _Collection(_Database()))
 
-    response = client.get("/healthz")
 
-    assert response.status_code == 200
-    assert response.get_json() == {"status": "ok"}
-
-
-def test_a_deployment_whose_database_does_not_answer_is_unavailable(client, monkeypatch):
+@pytest.fixture
+def database_does_not_answer(monkeypatch):
     monkeypatch.setattr(
         MarketsApi, "markets_collection", _Collection(_Database(TimeoutError("no server")))
     )
 
+
+def test_a_deployment_whose_database_answers_is_healthy(client, monkeypatch, database_answers):
+    monkeypatch.setenv("BUILD_COMMIT", A_COMMIT)
+
+    response = client.get("/healthz")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"status": "ok", "commit": A_COMMIT}
+
+
+def test_a_deployment_whose_database_does_not_answer_is_unavailable(
+    client, monkeypatch, database_does_not_answer
+):
+    monkeypatch.setenv("BUILD_COMMIT", A_COMMIT)
+
     response = client.get("/healthz")
 
     assert response.status_code == 503
-    assert response.get_json() == {"status": "unavailable"}
+    assert response.get_json() == {"status": "unavailable", "commit": A_COMMIT}
+
+
+def test_a_build_with_no_commit_says_null(client, monkeypatch, database_answers):
+    monkeypatch.delenv("BUILD_COMMIT", raising=False)
+
+    response = client.get("/healthz")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"status": "ok", "commit": None}
+
+
+def test_an_unavailable_build_with_no_commit_says_null(
+    client, monkeypatch, database_does_not_answer
+):
+    monkeypatch.delenv("BUILD_COMMIT", raising=False)
+
+    response = client.get("/healthz")
+
+    assert response.status_code == 503
+    assert response.get_json() == {"status": "unavailable", "commit": None}
+
+
+@pytest.mark.parametrize("blank", ["", "   ", "\t\n"])
+def test_a_blank_commit_says_null(client, monkeypatch, database_answers, blank):
+    monkeypatch.setenv("BUILD_COMMIT", blank)
+
+    response = client.get("/healthz")
+
+    assert response.get_json() == {"status": "ok", "commit": None}
+
+
+def test_a_commit_is_reported_exactly_as_given(client, monkeypatch, database_answers):
+    monkeypatch.setenv("BUILD_COMMIT", " not-a-sha ")
+
+    response = client.get("/healthz")
+
+    assert response.get_json() == {"status": "ok", "commit": " not-a-sha "}
+
+
+def test_the_commit_is_read_at_each_answer(client, monkeypatch, database_answers):
+    monkeypatch.setenv("BUILD_COMMIT", A_COMMIT)
+    client.get("/healthz")
+    monkeypatch.setenv("BUILD_COMMIT", "fedcba9876543210fedcba9876543210fedcba98")
+
+    response = client.get("/healthz")
+
+    assert response.get_json()["commit"] == "fedcba9876543210fedcba9876543210fedcba98"
