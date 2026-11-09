@@ -322,4 +322,5 @@ The check fails closed on anything short of confirmed markers - an unknown migra
 | [`.release-please-manifest.json`](../.release-please-manifest.json) | Tracks the current version per package, auto-updated by release-please |
 | [`.github/workflows/release-please.yml`](../.github/workflows/release-please.yml) | GitHub Actions workflow that runs release-please on pushes to `main` |
 | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | GitHub Actions workflow, started by hand, that deploys `main` |
+| [`scripts/deploy_proof.py`](../scripts/deploy_proof.py) | Every check the Deploy workflow makes: the Test run on `main`, and each build's commit, headers and deep link ([how a deploy proves itself](#how-a-deploy-proves-itself)) |
 | `CHANGELOG.md` | Auto-generated changelog, written by release-please and never by hand |
