@@ -117,7 +117,7 @@ The password form puts "Forgot password?" beside it, as it does beside `SIGN_IN_
 
 **The mail requests take nothing back**: every `/request-otp`, `/request-password-reset`, `/resend-verification` and `/register` counts.
 Past a limit each answers 429 with `ASKED_TOO_OFTEN`, "You have asked several times. Try again in {wait}.", under `msg`, with `Retry-After`.
-Below the limits each answers as it did, `/request-otp`'s and `/request-password-reset`'s per-account waits among them, and those answers still differ by account; making them alike is E47/F01/S01's.
+Below the limits each answers as it did, `/request-otp`'s and `/request-password-reset`'s per-account waits among them.
 The sign-in page and the verification page say the 429's sentence after "Send the link again" in place of "If that address needs verifying, a new link is on its way.", with nothing beside it (`resentLink`); the reset page and the sign-up form show it as they show any 429's `msg`.
 
 ### A code's tries are counted in one update
