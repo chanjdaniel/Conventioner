@@ -62,8 +62,10 @@ async function failOnce(page: Page, url: RegExp, kind: Kind, method = 'GET'): Pr
 }
 
 /**
- * Every `GET` to `url` fails as `kind` does until the test unroutes it. A screen may read again on
- * its own, and that second read answering would clear the failure before the test looks.
+ * Every `GET` to `url` fails as `kind` does until the test unroutes it. A read the page before the
+ * `goto` started can still be unsent when the route goes in, since axios reads the XSRF cookie from
+ * the Cookie Store before it sends: failing only the first would fail that read and let the
+ * screen's own through.
  */
 async function failUntilCleared(page: Page, url: RegExp, kind: Kind): Promise<void> {
   await page.route(url, async (route) => {
