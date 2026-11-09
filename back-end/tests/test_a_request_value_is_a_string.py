@@ -194,12 +194,8 @@ class TestVerifyEmail:
 class TestLogin:
     @pytest.mark.parametrize("field", ["email", "password"])
     @pytest.mark.parametrize("value", NOT_STRINGS)
-    def test_a_credential_that_is_not_a_string_is_refused(
-        self, client, users, monkeypatch, field, value,
-    ):
-        collection = users()
-        monkeypatch.setattr(UsersApi, "verify_recaptcha", lambda *_a: (True, 0.9))
-        monkeypatch.setattr(UsersApi, "send_verification_email", lambda *_a: True)
+    def test_a_credential_that_is_not_a_string_is_refused(self, client, users, field, value):
+        users()
         body = {"email": FIXTURE_EMAIL, "password": FIXTURE_PASSWORD, field: value}
 
         response = client.post("/login", json=body)

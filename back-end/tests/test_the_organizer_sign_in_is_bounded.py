@@ -268,13 +268,30 @@ class TestARightPasswordTakesItsTryBack:
 
         assert answers == {VERIFY_FIRST}
 
-    def test_a_right_password_takes_back_the_callers_try_too(self, client, users, clock):
+    def test_a_sign_in_is_not_counted_against_the_caller(self, client, users, clock):
         organizers = [f"fixture-organizer-{n}@example.com" for n in range(60)]
         users.docs.extend(_account(email) for email in organizers)
 
         statuses = [_sign_in(client, email, PASSWORD).status_code for email in organizers]
 
         assert set(statuses) == {200}
+
+    def test_a_sign_in_gives_the_caller_no_more_wrong_tries(self, client, users, clock):
+        # Rounds of 49 wrong passwords over five addresses with no account, each within its own
+        # ten, then a right password for an account of the caller's own: the caller's fifty count
+        # every wrong try, whatever right ones come between them.
+        guesses = [f"fixture-guess-{n}@example.com" for n in range(15)]
+        rounds = []
+        for round_ in range(3):
+            wrong = [_answer(_sign_in(client, guesses[round_ * 5 + n % 5], WRONG_PASSWORD))
+                     for n in range(sign_in_limits.PASSWORD_PER_CALLER.attempts - 1)]
+            _sign_in(client, UNVERIFIED_EMAIL, PASSWORD)
+            rounds.append(wrong)
+
+        assert {status for status, _, _ in rounds[0]} == {401}
+        # The fiftieth wrong try is the last one let through.
+        assert rounds[1][1:] == [REFUSED] * (sign_in_limits.PASSWORD_PER_CALLER.attempts - 2)
+        assert rounds[2] == [REFUSED] * (sign_in_limits.PASSWORD_PER_CALLER.attempts - 1)
 
 
 class TestAPasswordLongerThanBcryptReads:
@@ -437,7 +454,7 @@ class TestARightCodeTakesItsTryBack:
             {401, 429}, (403, {"msg": VERIFY_FIRST}, None), 401)
         assert _answer(_enter_code(client, UNVERIFIED_EMAIL, CODE)) == CODE_REFUSED
 
-    def test_a_right_code_takes_back_the_callers_try_too(self, client, users, clock):
+    def test_a_sign_in_is_not_counted_against_the_caller(self, client, users, clock):
         organizers = [f"fixture-organizer-{n}@example.com" for n in range(70)]
         users.docs.extend(_account(email) for email in organizers)
         for email in organizers:
@@ -446,6 +463,24 @@ class TestARightCodeTakesItsTryBack:
         statuses = [_enter_code(client, email, CODE).status_code for email in organizers]
 
         assert set(statuses) == {200}
+
+    def test_a_sign_in_gives_the_caller_no_more_wrong_tries(self, client, coded, clock):
+        # Rounds of 59 wrong codes over six addresses with no account, each within its own ten,
+        # then a right code for an account of the caller's own: the caller's sixty count every
+        # wrong try, whatever right ones come between them.
+        guesses = [f"fixture-guess-{n}@example.com" for n in range(18)]
+        rounds = []
+        for round_ in range(3):
+            wrong = [_answer(_enter_code(client, guesses[round_ * 6 + n % 6], WRONG_CODE))
+                     for n in range(sign_in_limits.ORGANIZER_CODE_PER_CALLER.attempts - 1)]
+            _issue_code(coded, UNVERIFIED_EMAIL)
+            _enter_code(client, UNVERIFIED_EMAIL, CODE)
+            rounds.append(wrong)
+
+        assert {status for status, _, _ in rounds[0]} == {401}
+        # The sixtieth wrong try is the last one let through.
+        assert rounds[1][1:] == [CODE_REFUSED] * (sign_in_limits.ORGANIZER_CODE_PER_CALLER.attempts - 2)
+        assert rounds[2] == [CODE_REFUSED] * (sign_in_limits.ORGANIZER_CODE_PER_CALLER.attempts - 1)
 
 
 class TestACodesTriesAreCountedInOneUpdate:
