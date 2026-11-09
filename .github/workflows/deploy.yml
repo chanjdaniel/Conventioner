@@ -10,6 +10,12 @@ name: Deploy
 # Ubuntu runner could carry Python wheels for a newer glibc than Vercel's runtime has, which is how
 # every production build failed from June to October 2026.
 #
+# Each build is staged first as a production deployment that takes no domain (`--prod
+# --skip-domain`), proven on its own address, and only then promoted. A plain `vercel deploy` would
+# make a Preview deployment, built with Preview's variables, and promoting one rebuilds it, so the
+# build checked would not be the build shipped; a `--skip-domain` one is promoted as it was built.
+# deploy_proof.py holds every check made after a deploy; docs/RELEASING.md says how it proves itself.
+#
 # No database backup is taken here. This repository is public, so a dump uploaded as an artifact
 # could expose applicants' data; the production cluster's own daily snapshots are the backup.
 
@@ -23,8 +29,11 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read # the Test check reads the Test runs
 
-# VERCEL_TOKEN is not here: only the two steps that deploy hold it, in their own `env`.
+# VERCEL_TOKEN is not here: only the steps that run the Vercel CLI hold it, in their own `env` (the
+# two stage steps, the two own-address proofs and the two promotions). The Test check and the two
+# domain proofs never hold it.
 env:
   VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
   VERCEL_CLI: vercel@64.5.0
@@ -55,61 +64,104 @@ jobs:
             echo "::error::VERCEL_BACKEND_PROJECT_ID and VERCEL_FRONTEND_PROJECT_ID must be set"; exit 1
           fi
 
+      # Before anything is built, so a refusal spends no Vercel deployment.
+      - name: Test passed on main at this commit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/deploy_proof.py green --commit "$GITHUB_SHA"
+
       # The deploy restores and saves no GitHub Actions cache, so no cached file reaches it.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
 
-      # The back end first: a front end that calls an endpoint the old back end lacks would break
-      # every organizer for as long as the two deploys are apart, the reverse breaks nothing.
-      - name: Deploy the back end
+      # The CLI prints its logs on stderr and the deployment's own address as its last stdout line.
+      # `--env` reaches the back end's runtime, where /healthz reads BUILD_COMMIT.
+      - name: Stage the back end
+        id: stage-backend
         env:
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_BACKEND_PROJECT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: npx --yes "$VERCEL_CLI" deploy --prod --yes --token "$VERCEL_TOKEN"
-
-      - name: The back end serves
         run: |
-          for attempt in 1 2 3 4 5 6; do
-            body=$(curl -fsS --max-time 20 https://api.conventioner.io/healthz) && break
-            sleep 10
-          done
-          echo "$body"
-          test "$body" = '{"status":"ok"}'
+          printed=$(npx --yes "$VERCEL_CLI" deploy --prod --skip-domain --yes --token "$VERCEL_TOKEN" --env "BUILD_COMMIT=$GITHUB_SHA")
+          url=$(printf '%s\n' "$printed" | tail -n 1)
+          if ! [[ "$url" =~ ^https://[a-z0-9-]+\.vercel\.app$ ]]; then
+            echo "::error::vercel deploy printed no deployment address"; exit 1
+          fi
+          echo "Staged at $url"
+          echo "url=$url" >>"$GITHUB_OUTPUT"
 
-      # The headers back-end/utils/security_headers.py adds to every answer.
-      - name: The back end sends its security headers
-        run: |
-          headers=$(curl -fsS --max-time 20 -o /dev/null -D - https://api.conventioner.io/healthz)
-          for name in x-content-type-options referrer-policy; do
-            grep -Eqi "^$name:" <<<"$headers" || { echo "::error::api.conventioner.io sends no $name"; exit 1; }
-          done
+      - name: The staged back end is this commit
+        env:
+          STAGED_URL: ${{ steps.stage-backend.outputs.url }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_BACKEND_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: python3 scripts/deploy_proof.py prove --project backend --own --url "$STAGED_URL" --commit "$GITHUB_SHA"
 
-      - name: Deploy the front end
+      # `--build-env` reaches the front end's build, where vite.config.ts writes /version.json.
+      - name: Stage the front end
+        id: stage-frontend
         env:
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_FRONTEND_PROJECT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: npx --yes "$VERCEL_CLI" deploy --prod --yes --token "$VERCEL_TOKEN"
-
-      - name: The front end serves a deep link
         run: |
-          curl -fsS --max-time 20 https://conventioner.io/markets | grep -q '<div id="app">'
+          printed=$(npx --yes "$VERCEL_CLI" deploy --prod --skip-domain --yes --token "$VERCEL_TOKEN" --build-env "BUILD_COMMIT=$GITHUB_SHA")
+          url=$(printf '%s\n' "$printed" | tail -n 1)
+          if ! [[ "$url" =~ ^https://[a-z0-9-]+\.vercel\.app$ ]]; then
+            echo "::error::vercel deploy printed no deployment address"; exit 1
+          fi
+          echo "Staged at $url"
+          echo "url=$url" >>"$GITHUB_OUTPUT"
 
-      # The headers front-end/vercel.json declares; the policy may be report-only or enforcing.
-      - name: The front end sends its security headers
-        run: |
-          headers=$(curl -fsS --max-time 20 -o /dev/null -D - https://conventioner.io/markets)
-          for name in 'content-security-policy(-report-only)?' x-content-type-options \
-            referrer-policy x-frame-options strict-transport-security; do
-            grep -Eqi "^$name:" <<<"$headers" || { echo "::error::conventioner.io sends no $name"; exit 1; }
-          done
+      - name: The staged front end is this commit
+        env:
+          STAGED_URL: ${{ steps.stage-frontend.outputs.url }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_FRONTEND_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: python3 scripts/deploy_proof.py prove --project frontend --own --url "$STAGED_URL" --commit "$GITHUB_SHA"
 
-      - name: Say how to roll back
+      # The back end first, and seen on its domain before the front end moves: a front end that
+      # calls an endpoint the old back end lacks would break every organizer for as long as the two
+      # are apart, the reverse breaks nothing.
+      - name: Promote the back end
+        id: promote-backend
+        env:
+          STAGED_URL: ${{ steps.stage-backend.outputs.url }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_BACKEND_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes "$VERCEL_CLI" promote "$STAGED_URL" --yes --token "$VERCEL_TOKEN"
+
+      - name: api.conventioner.io serves this commit
+        run: python3 scripts/deploy_proof.py prove --project backend --domain --url https://api.conventioner.io --commit "$GITHUB_SHA"
+
+      - name: Promote the front end
+        id: promote-frontend
+        env:
+          STAGED_URL: ${{ steps.stage-frontend.outputs.url }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_FRONTEND_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes "$VERCEL_CLI" promote "$STAGED_URL" --yes --token "$VERCEL_TOKEN"
+
+      - name: conventioner.io serves this commit
+        run: python3 scripts/deploy_proof.py prove --project frontend --domain --url https://conventioner.io --commit "$GITHUB_SHA"
+
+      - name: Say what production serves
         if: failure()
+        env:
+          BACKEND_PROMOTION: ${{ steps.promote-backend.outcome }}
+          FRONTEND_PROMOTION: ${{ steps.promote-frontend.outcome }}
         run: |
           {
-            echo "### Production deploy failed"
-            echo "Roll back each project in Vercel (Deployments, Instant Rollback), then revert on dev."
-            echo "See docs/RELEASING.md#rolling-back."
-          } >> "$GITHUB_STEP_SUMMARY"
+            if [ "$FRONTEND_PROMOTION" = success ]; then
+              echo "### Production deploy failed after promotion"
+              echo "Both projects were promoted, but a domain did not report this commit in time or failed a check. Read the failed step's log, then roll back each project if the build is wrong (Vercel, Deployments, Instant Rollback)."
+            elif [ "$BACKEND_PROMOTION" = success ]; then
+              echo "### Production deploy stopped halfway"
+              echo "The back end was promoted and the front end was not: api.conventioner.io serves this commit and conventioner.io the build before it. Fix the cause and run Deploy again, or roll the back end back (Vercel, Deployments, Instant Rollback)."
+            else
+              echo "### Production deploy refused"
+              echo "Nothing was promoted: both domains still serve the build they served before this run. The failed step's log says why."
+            fi
+            echo "See docs/RELEASING.md#when-a-deploy-refuses-or-times-out."
+          } >>"$GITHUB_STEP_SUMMARY"

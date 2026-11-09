@@ -7,9 +7,13 @@ describes:
   - release-please-config.json
   - back-end/app.py#check_public_endpoint_defenses
   - front-end/vite.config.ts#assertCaptchaSiteKey
-verified: 2026-10-28
+  - back-end/app.py#healthz
+  - front-end/vite.config.ts#buildCommit
+  - scripts/deploy_proof.py
+verified: 2026-11-09
 sources:
   - T74
+  - T254
 ---
 
 # Release Process
@@ -75,11 +79,13 @@ No checkout in them keeps git credentials (`persist-credentials: false`).
    Nothing else deploys: no push, merge or PR, to any branch, creates or cancels a Vercel deployment, because each project's `vercel.json` switches Vercel's Git integration off for every branch (`git.deploymentEnabled: false`).
    Even a deployment the Ignored Build Step cancelled counted against the Hobby plan's daily deployment quota, which is why Git builds are off rather than cancelled.
    `scripts/tests/test_deploys_by_hand.py` fails if either `vercel.json` loses that setting.
-   The workflow deploys the back end (`makers-market-management-back-end`, `api.conventioner.io`) first, then checks `/healthz` and its security headers, then deploys the front end (`makers-market-management-front-end`, `conventioner.io`) and checks a deep link and its [security headers](implementation/conventions/security-invariants.md#security-headers).
+   The workflow first refuses a commit whose Test run on `main` has not passed.
+   It then builds the back end (`makers-market-management-back-end`, `api.conventioner.io`) and the front end (`makers-market-management-front-end`, `conventioner.io`) as production deployments that take no domain, and checks each on its own address.
+   Only when both have proven themselves does it promote the back end, wait for `api.conventioner.io` to serve the new commit, promote the front end and wait for `conventioner.io`, checking each domain's [security headers](implementation/conventions/security-invariants.md#security-headers) and the front end's deep link once it serves the commit; [how a deploy proves itself](#how-a-deploy-proves-itself) has the details.
    It deploys whatever `main` points at when it starts, and a run started from any other branch deploys nothing.
    It needs the `VERCEL_TOKEN` secret in the `production` environment and the `VERCEL_ORG_ID`, `VERCEL_BACKEND_PROJECT_ID` and `VERCEL_FRONTEND_PROJECT_ID` variables; without them the run refuses at "Refuse to run half-configured", before it installs or deploys anything.
-   The token is in the `env` of "Deploy the back end" and "Deploy the front end" only; the refusal sees only whether it is set, and no other step holds it.
-   The workflow's own GitHub token can only read the repository (`permissions: contents: read`).
+   The token is in the `env` of the steps that run the Vercel CLI only: the two "Stage" steps, the two "The staged ... is this commit" proofs and the two "Promote" steps; the refusal sees only whether it is set, and the Test check and the two domain waits never hold it.
+   The workflow's own GitHub token can read the repository and its workflow runs, nothing more (`permissions: contents: read, actions: read`).
    The same run redeploys a commit after an environment variable changes.
 4. **release-please detects the new commits on `main`** and automatically opens (or updates) a **Release PR** targeting `main`.
    This PR contains:
@@ -95,11 +101,44 @@ No checkout in them keeps git credentials (`persist-credentials: false`).
 6. **Merge `main` back into `dev`**: open a PR from `main` to `dev` and merge it once green.
    The release commit exists only on `main`; until `dev` has it, the next promotion is not a fast-forward and is refused.
 
+### How a deploy proves itself
+
+Every check the Deploy workflow makes after it builds lives in [`scripts/deploy_proof.py`](../scripts/deploy_proof.py), header lists included; [`scripts/tests/test_deploy_proof.py`](../scripts/tests/test_deploy_proof.py) runs it against a stub server as the workflow's dry run, and pins the workflow's step order.
+
+1. **"Test passed on main at this commit"** reads the Test workflow's runs on a push to `main` at the commit being deployed, and the newest one decides.
+   It refuses, before anything is built, when that run is still running, did not pass, or there is none, with a link to the run when there is one; every check `main` requires is a job of the Test workflow, so a Test run that passed has passed them all.
+   It fails closed, with no retry, when GitHub cannot be read.
+2. **"Stage the back end" and "Stage the front end"** run `vercel deploy --prod --skip-domain`: a production deployment, built with production's variables, that takes no domain until it is promoted, and is promoted as it was built.
+   A plain `vercel deploy` would make a Preview deployment, built with Preview's variables, and promoting one rebuilds it, so the build checked would not be the build shipped.
+   Each build is stamped with the commit it was built from, in `BUILD_COMMIT`: the back end's at run time (`--env`), where `/healthz` reports it as `commit`, and the front end's at build time (`--build-env`), where its Vite build writes `/version.json`, `{"commit":"<sha>"}`.
+   A build made without it, a local or CI one, reports `null`.
+3. **"The staged back end is this commit" and "The staged front end is this commit"** read each deployment's own `*.vercel.app` address.
+   The address must report exactly this commit, else the run refuses at once; a back end still starting, answering 503 or `unavailable`, is retried every 10 seconds for up to 120.
+   Then the back end's answer must carry `x-content-type-options` and `referrer-policy`, and the front end must serve its app at `/markets` with its five security headers.
+   They read the address through the pinned Vercel CLI's `vercel curl`, which sends Vercel's Protection Bypass for Automation for the deployment's project, so the check works whether or not Deployment Protection is on.
+   When a project has no automation bypass secret, `vercel curl` creates one on the first run, a setting the workflow adds by itself; it is in the project's Settings, Deployment Protection.
+4. **"Promote the back end"** gives the staged back end `api.conventioner.io` (`vercel promote`), and **"api.conventioner.io serves this commit"** waits, every 5 seconds for up to 300, until the domain reports the new commit, then checks its headers.
+5. **"Promote the front end"** and **"conventioner.io serves this commit"** do the same for the front end, whose checks are the deep link and the five headers.
+
+Neither project is promoted until both builds have proven themselves, so a broken front-end build leaves production as it was; and the front end is promoted only once `api.conventioner.io` serves the new commit, so the back end is never older than the front end.
+A failed run's summary, "Say what production serves", says whether nothing, only the back end, or both were promoted.
+
+### When a deploy refuses or times out
+
+The failed step's log says why, in one `::error::` line; the run's summary says what production serves now.
+
+- **"Test passed on main at this commit"**: Test is still running (wait and run Deploy again), failed (fix it on `dev` and promote again), or never ran on that commit (deploy only a commit on `main`). Nothing was built.
+- **A staged build reports another commit, or `null`**: the build did not get `BUILD_COMMIT`; read the stage step's log. Nothing was promoted.
+- **A staged back end never serves**: it refused to boot or its database did not answer; read the deployment's log in Vercel, as for [a back end that refuses to boot](OPERATIONS.md#when-the-back-end-refuses-to-boot). Nothing was promoted.
+- **A staged address answers 401 or 403**: the Protection Bypass for Automation did not apply; check it in the project's Settings, Deployment Protection, and run again. Nothing was promoted.
+- **A domain times out still on the old commit**: run `vercel inspect <domain>` to see which deployment it points at, `vercel promote` the staged deployment the run printed, and look again with `curl` (below).
+- **A check fails after promotion** (a header, or the deep link): the build is live without it; [roll back](#rolling-back) each promoted project, then fix it on `dev`.
+
 ### After every deploy
 
 Check, in this order:
 
-1. `curl https://api.conventioner.io/healthz` answers `{"status":"ok"}` (the back end booted, which proves its configuration and migration markers, and its database answers).
+1. `curl https://api.conventioner.io/healthz` answers `"status": "ok"` with the released commit as `commit` (the back end booted, which proves its configuration and migration markers, and its database answers), and `curl https://conventioner.io/version.json` names the same commit.
 2. `https://conventioner.io/markets` opens when loaded directly, not only when navigated to (the SPA fallback in `front-end/vercel.json`).
 3. Sign in as an organizer.
 
@@ -118,7 +157,8 @@ Vercel keeps every production deployment.
 Roll back by promoting the previous one, in the dashboard (Deployments, then "Instant Rollback") or with `vercel rollback <deployment-url>`, **for each project separately**: the front end and the back end deploy independently.
 A rollback does not move `main`, so revert the bad commit on `dev` and promote it before the next deploy brings it back.
 **An Instant Rollback stops Vercel giving new production builds the domain** until a deployment is promoted again (`vercel promote <deployment>`, or Promote in the dashboard).
-That is how `api.conventioner.io` served an April build until 2026-10-18 while every later deploy went live nowhere; promote the fixed build once it is out, or the next deploy will not reach the domain either.
+That is how `api.conventioner.io` served an April build until 2026-10-18 while every later deploy went live nowhere.
+The Deploy workflow promotes explicitly, so its next run puts a project out of the rolled-back state by itself; a by-hand `vercel promote` is needed only when no deploy follows.
 A rollback cannot undo a migration, which is forward-only.
 
 ### Bootstrapping Note

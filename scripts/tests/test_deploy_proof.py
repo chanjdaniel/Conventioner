@@ -8,6 +8,7 @@ does, `curl --url <address> --header <bypass> <the flags after -->`.
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -654,3 +655,361 @@ def test_the_whole_dry_run_takes_fractions_of_a_second_per_wait(stub, env):
 
     assert code == 1
     assert time.monotonic() - started < 5
+
+
+# The Deploy workflow, read as text: the job that runs this file has no YAML library.
+
+WORKFLOW = Path(__file__).resolve().parents[2] / ".github" / "workflows" / "deploy.yml"
+
+ORDER = [
+    "actions/checkout",
+    "Refuse to run half-configured",
+    "Test passed on main at this commit",
+    "actions/setup-node",
+    "Stage the back end",
+    "The staged back end is this commit",
+    "Stage the front end",
+    "The staged front end is this commit",
+    "Promote the back end",
+    "api.conventioner.io serves this commit",
+    "Promote the front end",
+    "conventioner.io serves this commit",
+    "Say what production serves",
+]
+
+PROJECT_IDS = {
+    "${{ vars.VERCEL_BACKEND_PROJECT_ID }}": "backend",
+    "${{ vars.VERCEL_FRONTEND_PROJECT_ID }}": "frontend",
+}
+DOMAINS = {"backend": "https://api.conventioner.io", "frontend": "https://conventioner.io"}
+
+
+def mapping(lines, indent):
+    """The `key: value` pairs written at exactly `indent` spaces."""
+    pairs = {}
+    for line in lines:
+        if line.startswith(" " * indent) and not line[indent:].startswith((" ", "#")) and ":" in line:
+            key, _, value = line[indent:].partition(":")
+            pairs[key] = value.split(" # ")[0].strip()
+    return pairs
+
+
+def block(lines, start, indent):
+    """The lines after `start` indented deeper than `indent`, up to the first one that is not."""
+    out = []
+    for line in lines[start + 1:]:
+        if line.strip() and len(line) - len(line.lstrip()) <= indent:
+            break
+        out.append(line)
+    return out
+
+
+def workflow():
+    lines = WORKFLOW.read_text().splitlines()
+    top = {line.split(":")[0]: i for i, line in enumerate(lines) if line and not line[0].isspace() and ":" in line}
+    starts = [i for i, line in enumerate(lines) if line.startswith("      - ")]
+    steps = []
+    for n, start in enumerate(starts):
+        end = starts[n + 1] if n + 1 < len(starts) else len(lines)
+        body = ["        " + lines[start][8:]] + lines[start + 1:end]
+        keys = mapping(body, 8)
+        step = {"name": keys.get("name"), "id": keys.get("id"), "if": keys.get("if"), "env": {}, "run": ""}
+        if "uses" in keys:
+            step["title"] = keys["uses"].split("@")[0]
+        else:
+            step["title"] = step["name"]
+        for i, line in enumerate(body):
+            if line == "        env:":
+                step["env"] = mapping(block(body, i, 8), 10)
+            if line.startswith("        run:"):
+                inline = line[len("        run:"):].strip()
+                if inline == "|":
+                    step["run"] = "\n".join(l[10:] for l in block(body, i, 8)).strip() + "\n"
+                else:
+                    step["run"] = inline + "\n"
+        steps.append(step)
+    return {
+        "permissions": mapping(block(lines, top["permissions"], 0), 2),
+        "env": mapping(block(lines, top["env"], 0), 2),
+        "steps": steps,
+    }
+
+
+def step_named(name):
+    return next(step for step in workflow()["steps"] if step["name"] == name)
+
+
+def where(predicate):
+    return [i for i, step in enumerate(workflow()["steps"]) if predicate(step)]
+
+
+def is_stage(step):
+    return '"$VERCEL_CLI" deploy' in step["run"]
+
+
+def is_promote(step):
+    return '"$VERCEL_CLI" promote' in step["run"]
+
+
+def is_proof(step, mode):
+    return "deploy_proof.py prove" in step["run"] and f"--{mode}" in step["run"]
+
+
+def project_of(step):
+    if "deploy_proof.py" in step["run"]:
+        return step["run"].split("--project ")[1].split()[0]
+    return PROJECT_IDS[step["env"]["VERCEL_PROJECT_ID"]]
+
+
+def test_the_deploy_runs_its_steps_in_order():
+    assert [step["title"] for step in workflow()["steps"]] == ORDER
+
+
+def test_the_steps_others_read_have_their_ids():
+    ids = {step["name"]: step["id"] for step in workflow()["steps"] if step["id"]}
+
+    assert ids == {
+        "Stage the back end": "stage-backend",
+        "Stage the front end": "stage-frontend",
+        "Promote the back end": "promote-backend",
+        "Promote the front end": "promote-frontend",
+    }
+
+
+def test_the_workflow_may_read_the_code_and_the_test_runs_and_nothing_more():
+    assert workflow()["permissions"] == {"contents": "read", "actions": "read"}
+
+
+def test_the_test_run_is_checked_before_anything_is_built():
+    step = step_named("Test passed on main at this commit")
+    steps = workflow()["steps"]
+
+    assert step["run"] == 'python3 scripts/deploy_proof.py green --commit "$GITHUB_SHA"\n'
+    assert step["env"] == {"GITHUB_TOKEN": "${{ github.token }}"}
+    assert steps.index(step) < min(where(is_stage))
+
+
+def test_every_deploy_is_a_production_deployment_that_takes_no_domain():
+    stages = [step for step in workflow()["steps"] if is_stage(step)]
+    text = WORKFLOW.read_text()
+
+    assert len(stages) == 2
+    for step in workflow()["steps"]:
+        commands = re.sub(r'"::error::[^"]*"', '""', step["run"])
+        for flags in re.findall(r'(?:"\$VERCEL_CLI"|\bvercel(?:@[\w.]+)?) deploy\b(.*)', commands):
+            assert flags.startswith(" --prod --skip-domain "), step["title"]
+    assert "deploy --prod --yes" not in text
+    assert "Deploy the back end" not in text
+    assert "Deploy the front end" not in text
+
+
+def test_each_build_is_stamped_with_its_commit_where_it_reads_it():
+    backend = step_named("Stage the back end")
+    frontend = step_named("Stage the front end")
+
+    assert project_of(backend) == "backend"
+    assert '--env "BUILD_COMMIT=$GITHUB_SHA"' in backend["run"]
+    assert "--build-env" not in backend["run"]
+    assert project_of(frontend) == "frontend"
+    assert '--build-env "BUILD_COMMIT=$GITHUB_SHA"' in frontend["run"]
+    assert "--env " not in frontend["run"]
+
+
+def test_nothing_is_promoted_before_both_builds_have_proven_themselves():
+    steps = workflow()["steps"]
+    at = {}
+    for kind, test in (
+        ("stage", is_stage),
+        ("own", lambda s: is_proof(s, "own")),
+        ("promote", is_promote),
+        ("domain", lambda s: is_proof(s, "domain")),
+    ):
+        for i in where(test):
+            at[(kind, project_of(steps[i]))] = i
+
+    assert len(at) == 8
+    assert max(at[("own", p)] for p in DOMAINS) < min(at[("promote", p)] for p in DOMAINS)
+    for p in DOMAINS:
+        assert at[("stage", p)] < at[("own", p)] < at[("promote", p)] < at[("domain", p)]
+    assert at[("domain", "backend")] < at[("promote", "frontend")]
+
+
+def test_each_proof_and_promotion_reads_its_own_projects_staged_address():
+    steps = [step for step in workflow()["steps"] if is_proof(step, "own") or is_promote(step)]
+
+    assert len(steps) == 4
+    for step in steps:
+        assert step["env"]["STAGED_URL"] == f"${{{{ steps.stage-{project_of(step)}.outputs.url }}}}"
+        assert '"$STAGED_URL"' in step["run"]
+        assert PROJECT_IDS[step["env"]["VERCEL_PROJECT_ID"]] == project_of(step)
+
+
+def test_each_domain_is_waited_for_on_its_own_address():
+    steps = [step for step in workflow()["steps"] if is_proof(step, "domain")]
+
+    assert sorted(project_of(step) for step in steps) == ["backend", "frontend"]
+    for step in steps:
+        assert f"--url {DOMAINS[project_of(step)]} " in step["run"]
+        assert '--commit "$GITHUB_SHA"' in step["run"]
+
+
+def test_the_token_is_held_only_by_the_steps_that_run_the_vercel_cli():
+    flow = workflow()
+
+    assert "VERCEL_TOKEN" not in flow["env"]
+    for step in flow["steps"]:
+        runs_the_cli = "$VERCEL_CLI" in step["run"] or is_proof(step, "own")
+        assert ("VERCEL_TOKEN" in step["env"]) == runs_the_cli, step["title"]
+        if runs_the_cli:
+            assert step["env"]["VERCEL_TOKEN"] == "${{ secrets.VERCEL_TOKEN }}"
+    assert "VERCEL_TOKEN" not in step_named("Test passed on main at this commit")["env"]
+    for i in where(lambda s: is_proof(s, "domain")):
+        assert "VERCEL_TOKEN" not in flow["steps"][i]["env"]
+
+
+def test_no_run_script_holds_an_expression():
+    for step in workflow()["steps"]:
+        assert "${{" not in step["run"], step["title"]
+
+
+# The workflow's own shell, run as the runner runs it (`bash -e`), with a fake npx.
+
+FAKE_DEPLOY = """#!/bin/sh
+printf '%s\\n' "$@" > "$FAKE_NPX_LOG"
+echo "Vercel CLI 64.5.0" >&2
+echo "Building..." >&2
+printf '%b' "$FAKE_STDOUT"
+exit "${FAKE_EXIT:-0}"
+"""
+
+
+def run_step(tmp_path, step, **extra):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    npx = bin_dir / "npx"
+    npx.write_text(FAKE_DEPLOY)
+    npx.chmod(0o755)
+    script = tmp_path / "step.sh"
+    script.write_text(step["run"])
+    outputs = tmp_path / "outputs"
+    outputs.write_text("")
+    summary = tmp_path / "summary"
+    summary.write_text("")
+    env = {
+        "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+        "HOME": str(tmp_path),
+        "FAKE_NPX_LOG": str(tmp_path / "npx.log"),
+        "VERCEL_CLI": "vercel@64.5.0",
+        "VERCEL_TOKEN": TOKEN,
+        "GITHUB_SHA": SHA,
+        "GITHUB_OUTPUT": str(outputs),
+        "GITHUB_STEP_SUMMARY": str(summary),
+        **extra,
+    }
+    result = subprocess.run(["bash", "-e", str(script)], env=env, capture_output=True, text=True, timeout=30)
+    return result.returncode, result.stdout + result.stderr, outputs.read_text(), summary.read_text()
+
+
+@pytest.mark.parametrize(
+    "name,stamp",
+    [("Stage the back end", "--env"), ("Stage the front end", "--build-env")],
+)
+def test_a_stage_step_hands_on_the_address_vercel_printed(tmp_path, name, stamp):
+    code, output, outputs, _ = run_step(tmp_path, step_named(name), FAKE_STDOUT=f"{STAGED}")
+
+    assert code == 0
+    assert outputs == f"url={STAGED}\n"
+    assert errors(output) == []
+    assert (tmp_path / "npx.log").read_text().split("\n")[:-1] == [
+        "--yes", "vercel@64.5.0", "deploy", "--prod", "--skip-domain", "--yes", "--token", TOKEN,
+        stamp, f"BUILD_COMMIT={SHA}",
+    ]
+
+
+@pytest.mark.parametrize(
+    "stdout",
+    [
+        "",
+        "\\n",
+        f"{STAGED}\\nhttps://conventioner.io",
+        "https://conventioner.io",
+        f"{STAGED}/markets",
+        "http://conventioner-api-abc123-team.vercel.app",
+    ],
+)
+@pytest.mark.parametrize("name", ["Stage the back end", "Stage the front end"])
+def test_a_stage_step_refuses_without_a_deployment_address(tmp_path, name, stdout):
+    code, output, outputs, _ = run_step(tmp_path, step_named(name), FAKE_STDOUT=stdout)
+
+    assert code == 1
+    assert errors(output) == ["::error::vercel deploy printed no deployment address"]
+    assert outputs == ""
+
+
+def test_a_stage_step_takes_the_last_line_vercel_printed(tmp_path):
+    code, _, outputs, _ = run_step(
+        tmp_path, step_named("Stage the back end"), FAKE_STDOUT=f"something else\\n{STAGED}\\n"
+    )
+
+    assert code == 0
+    assert outputs == f"url={STAGED}\n"
+
+
+def test_a_failed_deploy_fails_its_stage_step(tmp_path):
+    code, _, outputs, _ = run_step(tmp_path, step_named("Stage the back end"), FAKE_STDOUT=STAGED, FAKE_EXIT="1")
+
+    assert code != 0
+    assert outputs == ""
+
+
+NOTHING = [
+    "### Production deploy refused",
+    "Nothing was promoted: both domains still serve the build they served before this run. "
+    "The failed step's log says why.",
+    "See docs/RELEASING.md#when-a-deploy-refuses-or-times-out.",
+]
+HALFWAY = [
+    "### Production deploy stopped halfway",
+    "The back end was promoted and the front end was not: api.conventioner.io serves this commit "
+    "and conventioner.io the build before it. Fix the cause and run Deploy again, or roll the back "
+    "end back (Vercel, Deployments, Instant Rollback).",
+    "See docs/RELEASING.md#when-a-deploy-refuses-or-times-out.",
+]
+BOTH = [
+    "### Production deploy failed after promotion",
+    "Both projects were promoted, but a domain did not report this commit in time or failed a "
+    "check. Read the failed step's log, then roll back each project if the build is wrong (Vercel, "
+    "Deployments, Instant Rollback).",
+    "See docs/RELEASING.md#when-a-deploy-refuses-or-times-out.",
+]
+
+
+def test_the_summary_runs_only_on_failure_and_reads_both_promotions():
+    step = step_named("Say what production serves")
+
+    assert step["if"] == "failure()"
+    assert sorted(step["env"].values()) == [
+        "${{ steps.promote-backend.outcome }}",
+        "${{ steps.promote-frontend.outcome }}",
+    ]
+
+
+@pytest.mark.parametrize(
+    "backend,frontend,text",
+    [
+        ("skipped", "skipped", NOTHING),
+        ("failure", "skipped", NOTHING),
+        ("success", "skipped", HALFWAY),
+        ("success", "failure", HALFWAY),
+        ("success", "success", BOTH),
+    ],
+)
+def test_the_summary_says_what_production_serves(tmp_path, backend, frontend, text):
+    step = step_named("Say what production serves")
+    outcomes = {"${{ steps.promote-backend.outcome }}": backend, "${{ steps.promote-frontend.outcome }}": frontend}
+    env = {key: outcomes[value] for key, value in step["env"].items()}
+
+    code, _, _, summary = run_step(tmp_path, step, **env)
+
+    assert code == 0
+    assert summary.splitlines() == text

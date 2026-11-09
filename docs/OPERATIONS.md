@@ -10,7 +10,7 @@ describes:
   - back-end/migrations/create_applications_collection.py
   - back-end/migrations/migrate_placement_history.py
   - back-end/api/applicant_auth.py#ensure_applicant_login_indexes
-verified: 2026-10-27
+verified: 2026-11-09
 sources:
   - E32/F03/S03
   - T15
@@ -18,6 +18,7 @@ sources:
   - T74
   - decision/2026-10-20
   - E40/F01/S01
+  - T254
 ---
 
 # Operations
@@ -46,7 +47,8 @@ The domains are DNS records at a third-party registrar pointing at Vercel.
 ## Health at a glance
 
 ```bash
-curl https://api.conventioner.io/healthz        # {"status":"ok"}: booted, configured, migrated, database answers
+curl https://api.conventioner.io/healthz        # {"commit":"<sha>","status":"ok"}: booted, configured, migrated, database answers
+curl https://conventioner.io/version.json       # {"commit":"<sha>"}: the commit the front end was built from
 curl -o /dev/null -w '%{http_code}\n' https://conventioner.io/markets   # 200: the front end and its deep links
 ```
 
@@ -80,7 +82,7 @@ After changing one, redeploy without a code change: GitHub, Actions, **Deploy**,
 
 Rotating `SECRET_KEY` signs every organizer out once; that is expected.
 Rotating the database password means updating `MONGODB_URI` and redeploying, in that order, or the back end cannot boot.
-When `VERCEL_TOKEN` expires, the Deploy workflow fails at "Deploy the back end" with an authentication error; create a new token and set the secret again.
+When `VERCEL_TOKEN` expires, the Deploy workflow fails at "Stage the back end" with an authentication error; create a new token and set the secret again.
 
 ## Accounts and access
 
@@ -238,9 +240,9 @@ In short (the detail is [RELEASING.md](RELEASING.md)):
 
 - Changes reach `dev` by PR; `dev` requires ten checks, `CodeQL` among them, and `main` six ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)).
 - Promote a commit whose `dev` CI is green: `git fetch origin && git push origin <sha>:main`.
-  The Test workflow runs on `main`; once it is green, start the Deploy workflow by hand (Actions, Deploy, Run workflow, from `main`, or `gh workflow run deploy.yml --ref main`), which deploys the back end, checks `/healthz` and its security headers, deploys the front end, and checks a deep link and its security headers.
+  The Test workflow runs on `main`; once it is green, start the Deploy workflow by hand (Actions, Deploy, Run workflow, from `main`, or `gh workflow run deploy.yml --ref main`), which refuses a commit whose Test run has not passed, builds both projects without giving them a domain and proves each serves this commit, then promotes the back end, waits until `api.conventioner.io` serves the commit, promotes the front end and waits for `conventioner.io` ([how a deploy proves itself](RELEASING.md#how-a-deploy-proves-itself)).
   Nothing deploys by itself: no push, merge or PR reaches Vercel.
-  Watch it under Actions; a failed run says how to roll back in its summary.
+  Watch it under Actions; a failed run's summary says what production serves now and what to do.
 - After release-please's Release PR is merged, merge `main` back into `dev` (a PR from `main` to `dev`), or the next promotion is not a fast-forward.
 - A hotfix goes through `dev` when nothing unreleased is waiting there, and otherwise through a `hotfix/` branch from `main` ([RELEASING.md](RELEASING.md#hotfixes)).
 
@@ -250,7 +252,7 @@ In short (the detail is [RELEASING.md](RELEASING.md)):
 | --- | --- |
 | Is it up | `curl https://api.conventioner.io/healthz` |
 | Back-end errors and logs | Vercel, the back-end project, Logs; or `vercel logs --deployment <id>` (Vercel CLI, logged in to the team) |
-| Which build a domain serves | `vercel inspect https://api.conventioner.io` (and `https://conventioner.io`) |
+| Which build a domain serves | `curl https://api.conventioner.io/healthz` and `curl https://conventioner.io/version.json` (the commit each was built from); `vercel inspect https://api.conventioner.io` (and `https://conventioner.io`) for the deployment |
 | Deploys and their checks | GitHub, Actions, Deploy |
 | Email delivery | Resend dashboard, Emails (each send, bounce and complaint) |
 | Database load and connections | Atlas, the cluster's Metrics |
@@ -262,11 +264,12 @@ Vercel's Hobby plan keeps runtime logs for about an hour, so read them while the
 | Symptom | Likely cause | What to do |
 | --- | --- | --- |
 | Every API call answers 500 `FUNCTION_INVOCATION_FAILED` | The back end refused to boot | Read the back end's log: it names every missing or refused variable, or an unreachable database, or a missing migration marker. Fix the variable or the database, then redeploy (Deploy, Run workflow). |
-| A deploy succeeded but the domain still serves an old build | The project is in Vercel's rolled-back state, which stops new production builds receiving the domain | `vercel promote <deployment>` (or Promote in the dashboard) for the build that should be live. This kept `api.conventioner.io` on an April build until 2026-10-18. |
-| A deploy broke something | | Roll back each affected project in Vercel (Deployments, Instant Rollback), then revert on `dev`, promote the revert, and promote the fixed build so later deploys reach the domain again. See [RELEASING.md](RELEASING.md#rolling-back). |
+| Deploy fails at "Test passed on main at this commit" | Test is still running on that commit, failed, or never ran on `main` | Nothing was built. Wait for Test, or fix it on `dev` and promote again, then run Deploy again ([when a deploy refuses or times out](RELEASING.md#when-a-deploy-refuses-or-times-out)). |
+| Deploy fails at "api.conventioner.io serves this commit" or "conventioner.io serves this commit" | The domain still serves the build before, or does not answer, after the promotion | The error names the commit it still serves. `vercel inspect <domain>` shows the deployment it points at; `vercel promote` the staged one, and look again with `curl` ([when a deploy refuses or times out](RELEASING.md#when-a-deploy-refuses-or-times-out)). |
+| A deploy broke something | | Roll back each affected project in Vercel (Deployments, Instant Rollback), then revert on `dev` and promote the revert; the next Deploy run promotes its build by itself. See [RELEASING.md](RELEASING.md#rolling-back). |
 | Organizers cannot sign up (400) | The captcha site key and secret are from different properties, or `conventioner.io` is not on the property's domain list | Check both keys in the reCAPTCHA console; a changed site key needs a front-end rebuild. Meanwhile, make the account by hand. |
 | No verification, reset or sign-in email arrives | Resend refused or the domain lost verification | Resend dashboard, Emails and Domains. Meanwhile, `create_account.py verify` the account. |
 | The browser reports a CORS error | The page's origin is not in `CORS_ALLOWED_ORIGINS` | It must be exactly `https://conventioner.io`, no trailing slash; a new front-end domain must be added. |
 | A write answers 403 `Request origin not allowed` | The page's origin is not in `CORS_ALLOWED_ORIGINS`, which also decides which origins a browser's write is taken from ([where a write comes from](implementation/conventions/security-invariants.md#where-a-write-comes-from)) | The same fix as the CORS error: list the page's origin exactly. This refusal names only a write; CORS still blocks that page's reads, so one listed origin fixes both. |
-| The Deploy workflow fails at "Refuse to run half-configured" or "Deploy the back end" | A GitHub variable is missing, or `VERCEL_TOKEN` expired | Set it again (see [Configuration](#configuration-and-secrets)) and re-run. |
+| The Deploy workflow fails at "Refuse to run half-configured" or "Stage the back end" | A GitHub variable is missing, or `VERCEL_TOKEN` expired | Set it again (see [Configuration](#configuration-and-secrets)) and re-run. |
 | Vendors cannot check in | The market is not published (`market_days`), they signed in with another address, or the poster is of an old door code | A vendor checks in on their vendor page, signed in with the address they applied with (a Google Form market: the one its form response gave), with the live door code; an editor can check them in from Attendance. |
