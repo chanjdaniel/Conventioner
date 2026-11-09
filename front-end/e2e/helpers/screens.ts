@@ -1727,9 +1727,15 @@ export function walkTheScreens(
   return { seed: () => seed };
 }
 
-/** Opens a screen and lets it come to rest: its fonts loaded and its transitions run. */
+/**
+ * Opens a screen and lets it come to rest: its requests answered, its fonts loaded and its
+ * transitions run. A row can draw before its name arrives on a second request (a payments row's
+ * name and address come from the market's tables), so a sweep that measured it then would hold the
+ * one-line box and judge the two-line box that follows as focus resizing it.
+ */
 export async function openScreen(page: Page, s: Screen, seed: TheScreensSeed): Promise<void> {
   await s.open(page, seed);
+  await page.waitForLoadState('networkidle');
   await page.evaluate(() => document.fonts.ready);
   await settle(page);
 }
