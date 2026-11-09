@@ -244,7 +244,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 ### User Registration
 1. User submits registration form with CAPTCHA verification
 2. Backend validates CAPTCHA token
-3. Password is hashed with bcrypt
+3. Password is hashed with bcrypt; one longer than 72 bytes, which bcrypt does not read, is refused (400) and makes no account
 4. User account created with `email_verified: false`
 5. Verification token generated and stored; it expires in 1 hour
 6. Verification email sent via Resend
@@ -273,7 +273,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 3. Reset link sent via Resend email
 4. Token expires in 1 hour; another reset is refused (429) until an hour after it expired, and past five requests per address or thirty per caller in 15 minutes every request is refused (429 with the wait)
 5. User sets new password
-6. Password hashed and stored
+6. Password hashed and stored; one longer than 72 bytes is refused (400) as at registration
 
 ## Security Features
 

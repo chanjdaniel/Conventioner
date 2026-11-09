@@ -43,7 +43,9 @@ Steps 1 to 3 walked live as far as reCAPTCHA allows (the slot-1 stack has real k
 4. Open the emailed link, which lands on `/verify-email`; expect confirmation and "Redirecting to sign in…"; three seconds later the page goes to sign in.
 5. Sign in (A2).
 
-Branches: mismatched passwords ("Passwords do not match"), short password, an email already registered, an expired or reused link, asking too often.
+Branches: mismatched passwords ("Passwords do not match"), short password, a password too long, an email already registered, an expired or reused link, asking too often.
+
+- A password longer than 72 bytes, which may be fewer than 72 characters since an accented letter or an emoji takes more than one, says "That password is too long. Use 72 characters or fewer; an accented letter or an emoji counts as more than one." and makes no account ([a password longer than 72 bytes](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
 
 - Past five sign-ups for one address in 15 minutes, or thirty from one caller, the next says "You have asked several times. Try again in N minutes.", the same for every address, before the reCAPTCHA check ([the sign-in is bounded](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
 
@@ -139,7 +141,9 @@ Covered by:
 2. Follow the emailed link to `/reset-password`, set a new password; every browser signed in to the account, remembered or not, is signed out.
 3. Sign in with the new password.
 
-Branches: asking for another link before an hour has passed since the last one expired ("Please wait before requesting another password reset"), asking too often.
+Branches: asking for another link before an hour has passed since the last one expired ("Please wait before requesting another password reset"), asking too often, a new password too short or too long.
+
+- A new password longer than 72 bytes says "That password is too long. Use 72 characters or fewer; an accented letter or an emoji counts as more than one.", as at sign-up (A1), and leaves the password and the link as they were.
 
 - Past five links asked for one address in 15 minutes, or thirty from one caller, the next says "You have asked several times. Try again in N minutes.", the same for every address ([the sign-in is bounded](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
 

@@ -134,7 +134,8 @@ The code is compared with `secrets.compare_digest`.
 
 `{wait}` in these and in `/request-otp`'s refusal, "You can ask for a new code in {wait}.", is what is left of the account's wait, which ends an hour after its code's `otp_expires` (`_code_wait`); once it is over, the code sentences end "Ask for a new one." instead, and `/request-otp` sends a code.
 
-**A password longer than 72 bytes** in UTF-8 (`PASSWORD_MAX_BYTES`), which bcrypt refuses to check, matches no account: `_password_matches` answers false without a bcrypt check, so `/login` answers `SIGN_IN_DOES_NOT_MATCH`, never the server's fault.
+**A password longer than 72 bytes** in UTF-8 (`PASSWORD_MAX_BYTES`), which bcrypt refuses to hash or check, matches no account: `_password_matches` answers false without a bcrypt check, so `/login` answers `SIGN_IN_DOES_NOT_MATCH`, never the server's fault.
+`/register` and `/reset-password` refuse one before hashing, after the 8-character minimum, with 400 `PASSWORD_TOO_LONG` under `msg`, "That password is too long. Use 72 characters or fewer; an accented letter or an emoji counts as more than one.", and store nothing; the register form and the reset page show it as the server says it.
 
 [`back-end/tests/test_the_organizer_sign_in_is_bounded.py`](../../../back-end/tests/test_the_organizer_sign_in_is_bounded.py) holds each; [`back-end/tests/test_sign_in_limits.py`](../../../back-end/tests/test_sign_in_limits.py) holds the counters.
 

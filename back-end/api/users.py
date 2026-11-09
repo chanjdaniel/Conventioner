@@ -127,8 +127,13 @@ SIGN_IN_TOO_MANY = "Too many sign-in attempts. Try again in {wait}, or reset you
 ASKED_TOO_OFTEN = "You have asked several times. Try again in {wait}."
 
 #: The most of a password bcrypt reads, in UTF-8 bytes: bcrypt 5 refuses to hash or check a longer
-#: one, so it is refused at sign-up and answers a sign-in as a password that does not match.
+#: one, so it is refused at sign-up and at a reset and answers a sign-in as a password that does
+#: not match.
 PASSWORD_MAX_BYTES = 72
+
+#: What a sign-up or a reset with a password longer than ``PASSWORD_MAX_BYTES`` says.
+PASSWORD_TOO_LONG = ("That password is too long. Use 72 characters or fewer; an accented letter or "
+                     "an emoji counts as more than one.")
 
 #: What a password for an address with no account is checked against, made once at the app's cost
 #: factor, so that a sign-in takes as long with an account as without one.
@@ -507,9 +512,11 @@ def register_user_with_captcha(bcrypt, request):
     if "@" not in email or "." not in email.split("@")[1]:
         return jsonify({"msg": "Invalid email format"}), 400
 
-    # Validate password strength (minimum 8 characters)
+    # The password: at least 8 characters, and no longer than bcrypt reads
     if len(password) < 8:
         return jsonify({"msg": "Password must be at least 8 characters long"}), 400
+    if _longer_than_bcrypt_reads(password):
+        return jsonify({"msg": PASSWORD_TOO_LONG}), 400
 
     # Generate verification token
     verification_token = generate_verification_token()
@@ -715,9 +722,11 @@ def reset_password(bcrypt, request):
     if not token or not new_password:
         return jsonify({"msg": "Token and new password required"}), 400
 
-    # Validate password strength
+    # The password: at least 8 characters, and no longer than bcrypt reads
     if len(new_password) < 8:
         return jsonify({"msg": "Password must be at least 8 characters long"}), 400
+    if _longer_than_bcrypt_reads(new_password):
+        return jsonify({"msg": PASSWORD_TOO_LONG}), 400
 
     # Find user with matching token
     user_doc = users_collection.find_one({"password_reset_token": token})

@@ -712,3 +712,97 @@ class TestTheMailRequestsAreBounded:
                   for other in MAIL_REQUESTS if other is not asked]
 
         assert ASKED_REFUSED not in others
+
+
+# A password longer than bcrypt reads, at sign-up and at a reset.
+TOO_LONG = ("That password is too long. Use 72 characters or fewer; an accented letter or an emoji "
+            "counts as more than one.")
+TOO_SHORT = "Password must be at least 8 characters long"
+LONG_PASSWORDS = pytest.mark.parametrize(
+    "password", ["p" * 73, "é" * 37], ids=["73 ASCII", "37 accented"])
+PASSWORDS_OF_72_BYTES = pytest.mark.parametrize(
+    "password", ["p" * 72, "é" * 36], ids=["72 ASCII", "36 accented"])
+SIGN_UP_EMAIL = "fixture-new@example.com"
+RESET_TOKEN = "fixture-reset-token"
+
+
+@pytest.fixture
+def hashes_made(monkeypatch):
+    """Every password the app hashes."""
+    hashed = []
+    generate = app_module.bcrypt.generate_password_hash
+
+    def spy(password, rounds=None):
+        hashed.append(password)
+        return generate(password, rounds=FAST_ROUNDS)
+
+    monkeypatch.setattr(app_module.bcrypt, "generate_password_hash", spy)
+    return hashed
+
+
+@pytest.fixture
+def resettable(mail):
+    """The account, with a reset link sent an hour from expiring."""
+    account = mail.users.account(ACCOUNT_EMAIL)
+    account["password_reset_token"] = RESET_TOKEN
+    account["password_reset_token_expires"] = (
+        datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    return account
+
+
+def _sign_up(client, password):
+    return client.post("/register", json={
+        "email": SIGN_UP_EMAIL, "password": password, "captcha_token": "fixture-captcha"})
+
+
+def _reset(client, password):
+    return client.post("/reset-password", json={"token": RESET_TOKEN, "new_password": password})
+
+
+class TestAPasswordLongerThanBcryptReadsIsRefused:
+    """A sign-up or a reset with a password longer than 72 UTF-8 bytes says so, and stores nothing."""
+
+    @LONG_PASSWORDS
+    def test_a_sign_up_says_the_password_is_too_long_and_stores_nothing(
+        self, client, mail, hashes_made, password,
+    ):
+        assert len(password.encode("utf-8")) > 72
+        accounts_before = [dict(doc) for doc in mail.users.docs]
+
+        response = _sign_up(client, password)
+
+        assert (response.status_code, response.get_json()) == (400, {"msg": TOO_LONG})
+        assert mail.users.docs == accounts_before
+        assert (hashes_made, mail.outbox) == ([], [])
+
+    @LONG_PASSWORDS
+    def test_a_reset_says_the_password_is_too_long_and_stores_nothing(
+        self, client, resettable, hashes_made, password,
+    ):
+        account_before = dict(resettable)
+
+        response = _reset(client, password)
+
+        assert (response.status_code, response.get_json()) == (400, {"msg": TOO_LONG})
+        assert resettable == account_before
+        assert hashes_made == []
+
+    @PASSWORDS_OF_72_BYTES
+    def test_a_password_of_72_bytes_signs_up(self, client, mail, clock, password):
+        assert _sign_up(client, password).status_code == 201
+
+        mail.users.account(SIGN_UP_EMAIL)["email_verified"] = True
+        assert _sign_in(client, SIGN_UP_EMAIL, password).status_code == 200
+
+    @PASSWORDS_OF_72_BYTES
+    def test_a_password_of_72_bytes_resets(self, client, resettable, clock, password):
+        assert _reset(client, password).status_code == 200
+
+        assert resettable["password_reset_token"] is None
+        assert _sign_in(client, ACCOUNT_EMAIL, password).status_code == 200
+
+    @pytest.mark.parametrize("ask", [_sign_up, _reset], ids=["sign-up", "reset"])
+    def test_a_short_password_is_still_refused_as_too_short(self, client, resettable, ask):
+        response = ask(client, "short")
+
+        assert (response.status_code, response.get_json()) == (400, {"msg": TOO_SHORT})
