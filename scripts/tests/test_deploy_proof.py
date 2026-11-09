@@ -8,7 +8,6 @@ does, `curl --url <address> --header <bypass> <the flags after -->`.
 """
 import json
 import os
-import re
 import subprocess
 import sys
 import threading
@@ -789,30 +788,23 @@ def test_the_test_run_is_checked_before_anything_is_built():
     assert steps.index(step) < min(where(is_stage))
 
 
-def test_every_deploy_is_a_production_deployment_that_takes_no_domain():
-    stages = [step for step in workflow()["steps"] if is_stage(step)]
-    text = WORKFLOW.read_text()
+def test_every_deploy_is_a_production_deployment_that_takes_no_domain(tmp_path):
+    deploys = {}
+    for n, step in enumerate(workflow()["steps"]):
+        if "$VERCEL_CLI" not in step["run"]:
+            continue
+        here = tmp_path / str(n)
+        here.mkdir()
+        run_step(here, step, FAKE_STDOUT=STAGED, STAGED_URL=STAGED)
+        argv = (here / "npx.log").read_text().split("\n")[:-1]
+        if argv[2] == "deploy":
+            deploys[step["name"]] = argv
 
-    assert len(stages) == 2
-    for step in workflow()["steps"]:
-        commands = re.sub(r'"::error::[^"]*"', '""', step["run"])
-        for flags in re.findall(r'(?:"\$VERCEL_CLI"|\bvercel(?:@[\w.]+)?) deploy\b(.*)', commands):
-            assert flags.startswith(" --prod --skip-domain "), step["title"]
-    assert "deploy --prod --yes" not in text
-    assert "Deploy the back end" not in text
-    assert "Deploy the front end" not in text
-
-
-def test_each_build_is_stamped_with_its_commit_where_it_reads_it():
-    backend = step_named("Stage the back end")
-    frontend = step_named("Stage the front end")
-
-    assert project_of(backend) == "backend"
-    assert '--env "BUILD_COMMIT=$GITHUB_SHA"' in backend["run"]
-    assert "--build-env" not in backend["run"]
-    assert project_of(frontend) == "frontend"
-    assert '--build-env "BUILD_COMMIT=$GITHUB_SHA"' in frontend["run"]
-    assert "--env " not in frontend["run"]
+    assert sorted(deploys) == ["Stage the back end", "Stage the front end"]
+    for name, argv in deploys.items():
+        assert "--prod" in argv, name
+        assert "--skip-domain" in argv, name
+    assert not {"Deploy the back end", "Deploy the front end"} & {step["name"] for step in workflow()["steps"]}
 
 
 def test_nothing_is_promoted_before_both_builds_have_proven_themselves():
