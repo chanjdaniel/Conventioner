@@ -146,6 +146,9 @@ jobs:
       - name: conventioner.io serves this commit
         run: python3 scripts/deploy_proof.py prove --project frontend --domain --url https://conventioner.io --commit "$GITHUB_SHA"
 
+      # Each promote step is `success` (promoted), `skipped` (never tried, so not promoted) or
+      # `failure` (tried, result unknown: Vercel can take a promotion and the CLI still exit non-zero
+      # once its wait times out). The summary claims only what the run proved.
       - name: Say what production serves
         if: failure()
         env:
@@ -153,15 +156,22 @@ jobs:
           FRONTEND_PROMOTION: ${{ steps.promote-frontend.outcome }}
         run: |
           {
-            if [ "$FRONTEND_PROMOTION" = success ]; then
-              echo "### Production deploy failed after promotion"
-              echo "Both projects were promoted, but a domain did not report this commit in time or failed a check. Read the failed step's log, then roll back each project if the build is wrong (Vercel, Deployments, Instant Rollback)."
-            elif [ "$BACKEND_PROMOTION" = success ]; then
-              echo "### Production deploy stopped halfway"
-              echo "The back end was promoted and the front end was not: api.conventioner.io serves this commit and conventioner.io the build before it. Fix the cause and run Deploy again, or roll the back end back (Vercel, Deployments, Instant Rollback)."
-            else
+            if [ "$BACKEND_PROMOTION" = failure ]; then
+              echo "### Production deploy failed while promoting the back end"
+              echo "The promotion of the back end failed partway, so api.conventioner.io may serve this commit or the build before it. The front end was not promoted, so conventioner.io serves the build before this run. The failed step's log says why."
+            elif [ "$BACKEND_PROMOTION" != success ]; then
               echo "### Production deploy refused"
               echo "Nothing was promoted: both domains still serve the build they served before this run. The failed step's log says why."
+            elif [ "$FRONTEND_PROMOTION" = failure ]; then
+              echo "### Production deploy failed while promoting the front end"
+              echo "The back end was promoted and api.conventioner.io served this commit. The promotion of the front end failed partway, so conventioner.io may serve this commit or the build before it. The failed step's log says why."
+            elif [ "$FRONTEND_PROMOTION" = success ]; then
+              echo "### Production deploy failed after promotion"
+              echo "Both projects were promoted, but a domain did not report this commit in time or failed a check. Read the failed step's log, then roll back each project if the build is wrong (Vercel, Deployments, Instant Rollback)."
+            else
+              echo "### Production deploy stopped halfway"
+              echo "The back end was promoted and the front end was not, so conventioner.io serves the build before this run; the failed step's log says what api.conventioner.io served last. Fix the cause and run Deploy again, or roll the back end back (Vercel, Deployments, Instant Rollback)."
             fi
+            echo "Look at what each domain serves: \`curl https://api.conventioner.io/healthz\` and \`curl https://conventioner.io/version.json\`."
             echo "See docs/RELEASING.md#when-a-deploy-refuses-or-times-out."
           } >>"$GITHUB_STEP_SUMMARY"

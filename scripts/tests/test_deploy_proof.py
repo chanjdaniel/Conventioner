@@ -962,25 +962,45 @@ def test_a_failed_deploy_fails_its_stage_step(tmp_path):
     assert outputs == ""
 
 
+# Every summary ends with the two commands that say what each domain serves, then the runbook.
+ENDING = [
+    "Look at what each domain serves: `curl https://api.conventioner.io/healthz` and "
+    "`curl https://conventioner.io/version.json`.",
+    "See docs/RELEASING.md#when-a-deploy-refuses-or-times-out.",
+]
 NOTHING = [
     "### Production deploy refused",
     "Nothing was promoted: both domains still serve the build they served before this run. "
     "The failed step's log says why.",
-    "See docs/RELEASING.md#when-a-deploy-refuses-or-times-out.",
+    *ENDING,
+]
+BACKEND_PROMOTION_FAILED = [
+    "### Production deploy failed while promoting the back end",
+    "The promotion of the back end failed partway, so api.conventioner.io may serve this commit or "
+    "the build before it. The front end was not promoted, so conventioner.io serves the build before "
+    "this run. The failed step's log says why.",
+    *ENDING,
 ]
 HALFWAY = [
     "### Production deploy stopped halfway",
-    "The back end was promoted and the front end was not: api.conventioner.io serves this commit "
-    "and conventioner.io the build before it. Fix the cause and run Deploy again, or roll the back "
-    "end back (Vercel, Deployments, Instant Rollback).",
-    "See docs/RELEASING.md#when-a-deploy-refuses-or-times-out.",
+    "The back end was promoted and the front end was not, so conventioner.io serves the build before "
+    "this run; the failed step's log says what api.conventioner.io served last. Fix the cause and run "
+    "Deploy again, or roll the back end back (Vercel, Deployments, Instant Rollback).",
+    *ENDING,
+]
+FRONTEND_PROMOTION_FAILED = [
+    "### Production deploy failed while promoting the front end",
+    "The back end was promoted and api.conventioner.io served this commit. The promotion of the "
+    "front end failed partway, so conventioner.io may serve this commit or the build before it. "
+    "The failed step's log says why.",
+    *ENDING,
 ]
 BOTH = [
     "### Production deploy failed after promotion",
     "Both projects were promoted, but a domain did not report this commit in time or failed a "
     "check. Read the failed step's log, then roll back each project if the build is wrong (Vercel, "
     "Deployments, Instant Rollback).",
-    "See docs/RELEASING.md#when-a-deploy-refuses-or-times-out.",
+    *ENDING,
 ]
 
 
@@ -998,9 +1018,12 @@ def test_the_summary_runs_only_on_failure_and_reads_both_promotions():
     "backend,frontend,text",
     [
         ("skipped", "skipped", NOTHING),
-        ("failure", "skipped", NOTHING),
+        # A promote step that failed may have moved its domain: Vercel can take the promotion and
+        # the CLI still exit non-zero, its wait timed out.
+        ("failure", "skipped", BACKEND_PROMOTION_FAILED),
+        # The back end's domain proof failed after a good promote, so the front end was never tried.
         ("success", "skipped", HALFWAY),
-        ("success", "failure", HALFWAY),
+        ("success", "failure", FRONTEND_PROMOTION_FAILED),
         ("success", "success", BOTH),
     ],
 )
@@ -1013,3 +1036,27 @@ def test_the_summary_says_what_production_serves(tmp_path, backend, frontend, te
 
     assert code == 0
     assert summary.splitlines() == text
+
+
+def summary_for(tmp_path, backend, frontend):
+    step = step_named("Say what production serves")
+    names = {value: key for key, value in step["env"].items()}
+    env = {
+        names["${{ steps.promote-backend.outcome }}"]: backend,
+        names["${{ steps.promote-frontend.outcome }}"]: frontend,
+    }
+    return run_step(tmp_path, step, **env)[3]
+
+
+def test_a_failed_promotion_is_not_read_as_nothing_promoted(tmp_path):
+    summary = summary_for(tmp_path, "failure", "skipped")
+
+    assert "Nothing was promoted" not in summary
+    assert "api.conventioner.io may serve this commit or the build before it" in summary
+
+
+def test_a_failed_back_end_domain_proof_claims_nothing_of_what_the_api_serves(tmp_path):
+    summary = summary_for(tmp_path, "success", "skipped")
+
+    assert "api.conventioner.io serves" not in summary
+    assert "api.conventioner.io served this commit" not in summary
