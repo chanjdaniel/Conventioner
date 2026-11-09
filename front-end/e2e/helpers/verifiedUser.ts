@@ -11,11 +11,12 @@ const ALREADY_EXISTS_MARKER = 'already exists';
 /**
  * Create a verified test user, idempotently.
  *
- * `/register-user` does NOT set `email_verified`, so a user created through it cannot log
- * in. `back-end/create_test_user.py` is the one place that creates a login-ready user, and
- * it is what `scripts/seed_fixture.sh` already runs for the fixture users; a spec that needs
- * its own users runs the same script rather than re-deriving the document shape. The script
- * is a no-op when the email already exists, so this is safe to call from every `beforeAll`.
+ * The sign-up, `/register`, leaves an account unverified until its emailed link is opened, so an
+ * account made through it cannot log in. `back-end/create_test_user.py` is the one place that
+ * creates a login-ready user, and it is what `scripts/seed_fixture.sh` already runs for the
+ * fixture users; a spec that needs its own users runs the same script rather than re-deriving
+ * the document shape. The script is a no-op when the email already exists, so this is safe to
+ * call from every `beforeAll`.
  *
  * A seeding failure has to surface here, at the `beforeAll` that caused it, rather than much
  * later as an opaque login timeout, so the script's output is checked for one of the two

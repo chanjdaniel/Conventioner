@@ -20,7 +20,7 @@ describes:
   - front-end/src/components/vendorPage/VendorCheckIn.vue
   - front-end/src/App.vue#fitsAPhone
   - front-end/src/utils/fitsAPhone.ts
-verified: 2026-11-04
+verified: 2026-11-09
 sources:
   - wayfinding/real-market-readiness/map
   - wayfinding/claims-and-room/map
@@ -39,6 +39,7 @@ sources:
   - T148
   - E38/F15/S04
   - T202
+  - T251
 ---
 
 # Attendance and the door

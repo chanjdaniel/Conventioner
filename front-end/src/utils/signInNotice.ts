@@ -15,7 +15,8 @@ export const LINK_RESENT = 'If that address needs verifying, a new link is on it
 
 /**
  * A refused sign-in, said in the server's words, with what to do next: a 403 is an address that
- * needs verifying, and a 401 on the password sign-in an email and password that do not match.
+ * needs verifying, and on the password sign-in a 401 is an email and password that do not match
+ * and a 429 too many tries, both of which offer the reset.
  *
  * An answer that never came and a server's fault say what `api.ts` says of every request. The
  * account endpoints word a refusal as `message` or `msg`, which `api.ts` does not read, so a
@@ -24,32 +25,45 @@ export const LINK_RESENT = 'If that address needs verifying, a new link is on it
 export function refusedSignIn(
   err: unknown,
   fallback: string,
-  { mismatchOffersReset = false } = {},
+  { offersReset = false } = {},
 ): SignInNotice {
   const status = getApiErrorStatus(err);
   if (status === null || status >= 500) {
     return { tone: 'error', text: getApiErrorMessage(err, fallback) };
   }
-  const data = (err as { response?: { data?: { message?: unknown; msg?: unknown } } }).response
-    ?.data;
-  const sentence = [data?.message, data?.msg].find((s) => typeof s === 'string' && s);
-  const text = (sentence as string | undefined) ?? fallback;
+  const text = serverSentence(err) ?? fallback;
   if (status === 403) return { tone: 'error', text, next: 'resend' };
-  if (status === 401 && mismatchOffersReset) return { tone: 'error', text, next: 'reset' };
+  if ((status === 401 || status === 429) && offersReset) {
+    return { tone: 'error', text, next: 'reset' };
+  }
   return { tone: 'error', text };
 }
 
 /**
  * What "Send the link again" says of its answer: any refusal is said as a link on its way, since
- * the screen never says whether an address has an account; an answer that never came or a server's
- * fault says so, and offers the link again.
+ * the screen never says whether an address has an account, except a 429, a link asked for too
+ * often, which says the server's sentence with how long to wait and offers nothing beside it; an
+ * answer that never came or a server's fault says so, and offers the link again.
  */
 export function resentLink(err: unknown | null): SignInNotice {
   const status = err === null ? 200 : getApiErrorStatus(err);
+  if (status === 429) {
+    return {
+      tone: 'error',
+      text: serverSentence(err) ?? 'You have asked several times. Try again later.',
+    };
+  }
   if (status !== null && status < 500) return { tone: 'success', text: LINK_RESENT };
   return {
     tone: 'error',
     text: getApiErrorMessage(err, 'The link was not sent. Try again.'),
     next: 'resend',
   };
+}
+
+/** The sentence an account endpoint's refusal says, under `message` or `msg`, if any. */
+function serverSentence(err: unknown): string | undefined {
+  const data = (err as { response?: { data?: { message?: unknown; msg?: unknown } } }).response
+    ?.data;
+  return [data?.message, data?.msg].find((s): s is string => typeof s === 'string' && s !== '');
 }

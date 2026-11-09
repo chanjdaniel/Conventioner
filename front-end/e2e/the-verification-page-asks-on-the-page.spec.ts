@@ -83,11 +83,12 @@ for (const { name, viewport } of WIDTHS) {
       request,
     }) => {
       const email = uniqueEmail();
-      // `/register-user` leaves the account unverified and makes no link of its own.
-      const created = await request.post('/api/register-user', {
-        data: { email, password: PASSWORD },
+      // The sign-up leaves the account unverified and makes a link of its own, read below
+      // before the resend so the resend's new link tells from it.
+      const created = await request.post('/api/register', {
+        data: { email, password: PASSWORD, captcha_token: 'e2e' },
       });
-      expect(created.ok()).toBeTruthy();
+      expect(created.status(), await created.text()).toBe(201);
       try {
         const verification = await onTheVerificationPage(page);
         await verification.goto('a-token-from-an-email');

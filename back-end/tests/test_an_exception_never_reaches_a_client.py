@@ -1399,7 +1399,6 @@ READS_NO_BODY = [
 # account API in api/users.py, or the applicant sign-in in api/applicant_auth.py reads it for its
 # uniform answers. Each with the module and function its view hands the request to.
 BODY_READ_ELSEWHERE = [
-    ("post", "/register-user", UsersApi, "register_user"),
     ("post", "/login", UsersApi, "login"),
     ("post", "/register", UsersApi, "register_user_with_captcha"),
     ("post", "/verify-email", UsersApi, "verify_email"),

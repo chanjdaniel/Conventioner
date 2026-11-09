@@ -5,7 +5,7 @@
  *
  * - "Send the link again" sends one link for a double click;
  * - any refusal under 500 reads as a link on its way, since the page never says whether an address
- *   has an account;
+ *   has an account, but asking too often, which says how long to wait and keeps the form;
  * - a server's fault or no answer keeps the form, with the address typed, and says so;
  * - an empty address is refused under the field, and nothing is sent;
  * - "Redirecting to sign in…" follows only a verification, which then goes to `/login`.
@@ -27,6 +27,7 @@ import { OFFLINE_MESSAGE } from '@/utils/api';
 
 const ADDRESS = 'organizer@example.com';
 const INVALID = 'Invalid verification token';
+const ASKED_TOO_OFTEN = 'You have asked several times. Try again in 15 minutes.';
 
 const Page = { template: '<div />' };
 
@@ -164,21 +165,29 @@ describe('"Send the link again"', () => {
     expect(document.activeElement).toBe(byTestId(wrapper, 'email-verification-back-link').element);
   });
 
-  it.each([
-    ['a 400', refused(400, { msg: 'Email already verified' })],
-    ['a 429', refused(429, { msg: 'Too many requests' })],
-  ])(
-    'says a link is on its way after %s, whatever the server said of the address',
-    async (_n, err) => {
-      const { wrapper } = await aFailedLink();
+  it('says a link is on its way after a 400, whatever the server said of the address', async () => {
+    const { wrapper } = await aFailedLink();
 
-      post.mockRejectedValueOnce(err);
-      await sendTheLinkAgain(wrapper);
+    post.mockRejectedValueOnce(refused(400, { msg: 'Email already verified' }));
+    await sendTheLinkAgain(wrapper);
 
-      expect(byTestId(wrapper, 'email-verification-resent-message').text()).toBe(LINK_RESENT);
-      expect(shown(wrapper, 'email-verification-error-message')).toBe(false);
-    },
-  );
+    expect(byTestId(wrapper, 'email-verification-resent-message').text()).toBe(LINK_RESENT);
+    expect(shown(wrapper, 'email-verification-error-message')).toBe(false);
+  });
+
+  it('says how long to wait after asking too often, and keeps the form and the focus in it', async () => {
+    const { wrapper } = await aFailedLink();
+
+    post.mockRejectedValueOnce(refused(429, { msg: ASKED_TOO_OFTEN }));
+    const input = wrapper.get('[data-testid="email-verification-email-input"]');
+    (input.element as HTMLInputElement).focus();
+    await sendTheLinkAgain(wrapper);
+
+    expect(byTestId(wrapper, 'email-verification-error-message').text()).toBe(ASKED_TOO_OFTEN);
+    expect(shown(wrapper, 'email-verification-resent-message')).toBe(false);
+    expect((input.element as HTMLInputElement).value).toBe(ADDRESS);
+    expect(document.activeElement).toBe(input.element);
+  });
 
   it("keeps the form with the address on a server's fault, and says what the sign-in page says", async () => {
     const { wrapper } = await aFailedLink();

@@ -9,13 +9,14 @@ describes:
   - back-end/api/applicant_auth.py#sign_out
   - back-end/api/applicants.py#save_applicant_application
   - back-end/sign_in_limits.py
-verified: 2026-11-03
+verified: 2026-11-09
 sources:
   - E26/F07/S01
   - E32/F03/S02
   - bug/6
   - E38/F07/S03
   - T202
+  - T251
 ---
 
 # A vendor signs in before they have applied
@@ -83,5 +84,5 @@ A vendor's check-in with the door code is bounded differently: 10 tries per sign
   A limit is the same for every address, applicant or not, so it is not the attempt counter the login ruling forbids: that one existed only for addresses that had applied, and so answered whether they had.
   The caller is `request.remote_addr` as [`TRUSTED_PROXY_HOPS`](../../implementation/conventions/security-invariants.md#the-boot-check) resolves it.
 - **Past a limit the answer is a 429** with `Retry-After` and "Too many sign-in attempts. Please try again in N minutes.", which the sign-in screen shows as it stands, the code field left as it was; nothing is stored, sent or counted against the code.
-- Organizer sign-in has its own, older checks in `api/users.py`.
+- The organizer's password and code sign-ins, and the requests that mail an organizer a code or a link, the sign-up among them, are bounded in the same list, by limits of their own; a sign-in takes back a try that signs in, and a request that sends a mail takes nothing back ([the sign-in is bounded](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
 - The E2E suite clears the counters at the start of every run ([E2E patterns](../../implementation/testing/e2e-patterns.md#sharp-edges)).

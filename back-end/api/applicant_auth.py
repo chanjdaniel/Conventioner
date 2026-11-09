@@ -213,7 +213,7 @@ def _caller_refusal(limit: sign_in_limits.SignInLimit):
     Asked on every request before the body or the slug is read, so the caller is counted alike
     whatever it sends, and a refusal is the same for every address and every market, real or not.
     """
-    return _too_many(sign_in_limits.count_attempt(limit, request.remote_addr or "unknown"))
+    return _too_many(sign_in_limits.count_attempt(limit, sign_in_limits.caller()))
 
 
 def _address_refusal(limit: sign_in_limits.SignInLimit, email: Optional[str]):
@@ -228,7 +228,8 @@ def _address_refusal(limit: sign_in_limits.SignInLimit, email: Optional[str]):
 
 def _too_many(retry_after: Optional[int]):
     """The sign-in's refusal for a limit that says to wait, or None (``sign_in_limits.too_many``)."""
-    return sign_in_limits.too_many(retry_after, "sign-in")
+    return sign_in_limits.too_many(
+        retry_after, "Too many sign-in attempts. Please try again in {wait}.")
 
 
 def _email_from(data) -> Optional[str]:

@@ -11,6 +11,7 @@ import {
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { SEED_MARKET_DATE, ensureTestOrgAuthenticated } from './helpers/seeds';
+import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { MarketsPage } from './pages/MarketsPage';
 
 const SECOND_USER = {
@@ -24,18 +25,9 @@ const THIRD_USER = {
 };
 
 test.describe('Tier 2 - Organization CRUD', () => {
-  test.beforeAll(async ({ request }) => {
+  test.beforeAll(() => {
     for (const user of [SECOND_USER, THIRD_USER]) {
-      const res = await request.post(`${BACKEND_URL}/register-user`, {
-        data: { email: user.email, password: user.password },
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (!res.ok()) {
-        const body = await res.text();
-        if (res.status() !== 409 && !body.includes('already exists')) {
-          throw new Error(`Failed to create user ${user.email}: ${res.status()} ${body}`);
-        }
-      }
+      ensureVerifiedUser(user.email, user.password);
     }
   });
 
@@ -98,16 +90,7 @@ test.describe('Tier 2 - Market role management', () => {
   let marketName: string;
 
   test.beforeAll(async ({ request }) => {
-    const userRes = await request.post(`${BACKEND_URL}/register-user`, {
-      data: { email: SECOND_USER.email, password: SECOND_USER.password },
-      headers: { 'Content-Type': 'application/json' },
-    });
-    if (!userRes.ok()) {
-      const body = await userRes.text();
-      if (userRes.status() !== 409 && !body.includes('already exists')) {
-        throw new Error(`Failed to create second user: ${userRes.status()} ${body}`);
-      }
-    }
+    ensureVerifiedUser(SECOND_USER.email, SECOND_USER.password);
 
     const loginRes = await request.post(`${BACKEND_URL}/login`, {
       data: { email: TEST_USER.email, password: TEST_USER.password },
