@@ -789,7 +789,14 @@ def test_the_test_run_is_checked_before_anything_is_built():
     assert steps.index(step) < min(where(is_stage))
 
 
-DEPLOYS = re.compile(r'(?:"\$VERCEL_CLI"|\bvercel(?:@[\w.-]+)?)\s+deploy\b')
+# A step runs the Vercel CLI when a command word of its `run:` is `npx` or `vercel`. Which of its
+# calls deploy is read from what the fake CLI received, never from the step's text.
+RUNS_THE_CLI = re.compile(r"(?:^|[\s;&|(])(?:npx|vercel)\s", re.MULTILINE)
+# The Vercel CLI's global options that take a value, so the value is not read as its command.
+VALUE_OPTIONS = {"--token", "-t", "--scope", "-S", "--team", "-T", "--cwd", "--local-config", "-A", "--global-config", "-Q"}
+# The commands the workflow runs that do not deploy. Any other command, or none (the CLI's default
+# command deploys), counts as a deploy, so a spelling nobody foresaw is held to the rule.
+NOT_A_DEPLOY = {"promote", "curl", "inspect"}
 
 
 def cli_calls(log):
@@ -803,24 +810,81 @@ def cli_calls(log):
     return calls
 
 
-def test_every_deploy_is_a_production_deployment_that_takes_no_domain(tmp_path):
-    deploys = {}
-    for n, step in enumerate(workflow()["steps"]):
-        if not DEPLOYS.search(step["run"]):
+def command_of(args):
+    """The Vercel CLI command a call runs, or None for its default command."""
+    rest = iter(args)
+    for arg in rest:
+        if arg == "--":
+            return None
+        if arg in VALUE_OPTIONS:
+            next(rest, None)
+        elif not arg.startswith("-"):
+            return arg
+    return None
+
+
+def deploy_problems(tmp_path, steps):
+    """Run every step that runs the Vercel CLI under the fakes, and say what breaks the rule.
+
+    Returns the names of the steps that deploy, and each problem: a step whose call never reached
+    a fake, or a deploy without `--prod` and `--skip-domain`.
+    """
+    deploying, problems = [], []
+    for n, step in enumerate(steps):
+        if not RUNS_THE_CLI.search(step["run"]):
             continue
         here = tmp_path / str(n)
         here.mkdir()
         run_step(here, step, FAKE_STDOUT=STAGED, STAGED_URL=STAGED)
-        calls = [args for args in cli_calls(here / "calls.log") if "deploy" in args]
-        assert calls, step["title"]
-        deploys[step["name"]] = calls
+        calls = cli_calls(here / "calls.log")
+        if not calls:
+            problems.append(f"{step['title']}: its call never reached the fake CLI")
+        deploys = [args for args in calls if command_of(args) not in NOT_A_DEPLOY]
+        if deploys:
+            deploying.append(step["name"])
+        for args in deploys:
+            if "--prod" not in args or "--skip-domain" not in args:
+                problems.append(f"{step['title']}: deploys without --prod --skip-domain")
+    return deploying, problems
 
-    assert sorted(deploys) == ["Stage the back end", "Stage the front end"]
-    for name, calls in deploys.items():
-        for args in calls:
-            assert "--prod" in args, name
-            assert "--skip-domain" in args, name
-    assert not {"Deploy the back end", "Deploy the front end"} & {step["name"] for step in workflow()["steps"]}
+
+def test_every_deploy_is_a_production_deployment_that_takes_no_domain(tmp_path):
+    steps = workflow()["steps"]
+
+    deploying, problems = deploy_problems(tmp_path, steps)
+
+    assert problems == []
+    assert deploying == ["Stage the back end", "Stage the front end"]
+    assert not {"Deploy the back end", "Deploy the front end"} & {step["name"] for step in steps}
+
+
+@pytest.mark.parametrize(
+    "run",
+    [
+        # The CLI's default command deploys with no `deploy` word.
+        'npx --yes "$VERCEL_CLI" --yes --token "$VERCEL_TOKEN"',
+        'npx --yes "${VERCEL_CLI}" deploy --yes',
+        'npx --yes $VERCEL_CLI deploy --yes',
+        'npx --yes "$VERCEL_CLI" --token "$VERCEL_TOKEN" deploy --prod --yes',
+        "vercel deploy --prod --yes",
+        'url=$(npx --yes vercel@64.5.0 --prod)',
+    ],
+)
+def test_a_deploy_that_would_take_the_domain_is_caught_however_it_is_spelled(tmp_path, run):
+    sneaked = {"name": "Sneak", "title": "Sneak", "id": None, "if": None, "env": {}, "run": run + "\n"}
+
+    deploying, problems = deploy_problems(tmp_path, workflow()["steps"] + [sneaked])
+
+    assert "Sneak" in deploying
+    assert problems == ["Sneak: deploys without --prod --skip-domain"]
+
+
+def test_a_step_whose_cli_call_never_reaches_the_fake_is_a_problem(tmp_path):
+    sneaked = {"name": "Sneak", "title": "Sneak", "id": None, "if": None, "env": {}, "run": "true || npx --yes x\n"}
+
+    _, problems = deploy_problems(tmp_path, [sneaked])
+
+    assert problems == ["Sneak: its call never reached the fake CLI"]
 
 
 def test_nothing_is_promoted_before_both_builds_have_proven_themselves():
@@ -880,7 +944,7 @@ def test_no_run_script_holds_an_expression():
         assert "${{" not in step["run"], step["title"]
 
 
-# The workflow's own shell, run as the runner runs it (`bash -e`), with a fake npx.
+# The workflow's own shell, run as the runner runs it (`bash -e`), with a fake npx and a fake vercel.
 
 FAKE_DEPLOY = """#!/bin/sh
 printf '%s\\n' "$@" > "$FAKE_NPX_LOG"
