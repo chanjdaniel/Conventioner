@@ -290,6 +290,7 @@ class TestARightPasswordTakesItsTryBack:
 
         assert {status for status, _, _ in rounds[0]} == {401}
         # The fiftieth wrong try is the last one let through.
+        assert rounds[1][0] == (401, {"message": DO_NOT_MATCH}, None)
         assert rounds[1][1:] == [REFUSED] * (sign_in_limits.PASSWORD_PER_CALLER.attempts - 2)
         assert rounds[2] == [REFUSED] * (sign_in_limits.PASSWORD_PER_CALLER.attempts - 1)
 
@@ -479,6 +480,7 @@ class TestARightCodeTakesItsTryBack:
 
         assert {status for status, _, _ in rounds[0]} == {401}
         # The sixtieth wrong try is the last one let through.
+        assert rounds[1][0] == (401, {"msg": WRONG_CODE_SAYS}, None)
         assert rounds[1][1:] == [CODE_REFUSED] * (sign_in_limits.ORGANIZER_CODE_PER_CALLER.attempts - 2)
         assert rounds[2] == [CODE_REFUSED] * (sign_in_limits.ORGANIZER_CODE_PER_CALLER.attempts - 1)
 
