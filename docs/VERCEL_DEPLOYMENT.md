@@ -4,7 +4,9 @@ kind: runbook
 describes:
   - back-end/vercel.json
   - front-end/vercel.json
-verified: 2026-10-28
+verified: 2026-11-09
+sources:
+  - T254
 ---
 
 # Building Production on Vercel
@@ -93,8 +95,8 @@ The back end no longer waves that through - it has a real secret now, and Google
 
 1. In GitHub, create the environment `production` and in it the secret `VERCEL_TOKEN` (a Vercel token scoped to the team); add the repository variables `VERCEL_ORG_ID`, `VERCEL_BACKEND_PROJECT_ID` and `VERCEL_FRONTEND_PROJECT_ID`.
 2. Run the **Deploy** workflow from `main` (Actions, Deploy, Run workflow, or `gh workflow run deploy.yml --ref main`); it is the only way production moves (see [RELEASING.md](RELEASING.md#how-a-release-happens)).
-   It deploys the back end, waits for `/healthz` and checks its security headers, then deploys the front end and checks a deep link and its security headers.
-3. If a domain still serves an older build afterwards, the project is in Vercel's rolled-back state: promote the new deployment once (`vercel promote <deployment>`), and later deploys reach the domain again.
+   It refuses a commit whose Test run on `main` has not passed, builds both projects as production deployments that take no domain and proves each on its own address, then promotes the back end, waits until `api.conventioner.io` serves the new commit, promotes the front end and waits for `conventioner.io`, checking each domain's security headers and the front end's deep link.
+3. The deploy promotes each build itself, so a project left in Vercel's rolled-back state is put back on the new build by the run; when a run refuses or a domain does not move, [when a deploy refuses or times out](RELEASING.md#when-a-deploy-refuses-or-times-out) says what to do.
 
 ## Troubleshooting a back end that will not boot
 

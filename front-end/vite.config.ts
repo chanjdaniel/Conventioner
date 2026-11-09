@@ -121,6 +121,33 @@ export function noDevModules(): Plugin {
   };
 }
 
+/**
+ * Every build says which commit it was built from (T254): it emits `version.json` at the root of
+ * its output, `{"commit":"<sha>"}`, or `{"commit":null}` for a build made without one (CI's, the
+ * gate's, a local one), so it is never mistaken for a released commit.
+ *
+ * The Deploy workflow reads it, on the staged deployment and then on `conventioner.io`, to prove
+ * the domain serves the commit it released; a person reads it with
+ * `curl https://conventioner.io/version.json` to learn which build is live. The workflow sets
+ * `BUILD_COMMIT` with `vercel deploy --build-env`, and this reads it from the build's process
+ * environment. It is not a `VITE_` variable, and not read through `loadEnv`, so it is never inlined
+ * into the bundle, a new commit leaves every chunk's hash as it was, and no `.env` file can set it.
+ */
+export function buildCommit(): Plugin {
+  return {
+    name: 'conventioner:build-commit',
+    apply: 'build',
+    generateBundle() {
+      const commit = process.env.BUILD_COMMIT;
+      this.emitFile({
+        type: 'asset',
+        fileName: 'version.json',
+        source: JSON.stringify({ commit: commit?.trim() ? commit : null }),
+      });
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, fileURLToPath(new URL('.', import.meta.url)), 'VITE_');
@@ -130,7 +157,7 @@ export default defineConfig(({ command, mode }) => {
   }
 
   return {
-    plugins: [vue(), vueJsx(), vueDevTools(), noDevModules()],
+    plugins: [vue(), vueJsx(), vueDevTools(), noDevModules(), buildCommit()],
     resolve: {
       alias: [
         { find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url)) },

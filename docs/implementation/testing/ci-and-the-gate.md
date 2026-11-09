@@ -16,7 +16,7 @@ describes:
   - front-end/scripts/e2e-shard-timings.json
   - front-end/scripts/no-eval.ts
   - front-end/vite.config.ts#noDevModules
-verified: 2026-11-08
+verified: 2026-11-09
 sources:
   - T47
   - T53
@@ -26,6 +26,7 @@ sources:
   - T200
   - T221
   - T234
+  - T254
 ---
 
 # CI and the gate

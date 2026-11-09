@@ -11,6 +11,7 @@ describes:
   - front-end/vite.config.ts
 verified: 2026-11-09
 sources:
+  - T254
   - T251
 ---
 # Technology Stack
@@ -309,12 +310,14 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 - `MONGODB_AUTH_DB` - The database the user authenticates against (default: `admin`)
 - `GEMINI_API_KEY`, `OPENAI_API_KEY` - Only for the floorplan vision endpoint, which the wizard does not call
 - `SESSION_TYPE` - Where the organizer's session is kept: `filesystem` (on local disk: a container or VM) or `null` (in the signed cookie only: a serverless deployment, which has no disk that outlives a request). **Required**: there is deliberately no default, because neither value is right for both hosts, and the app refuses to boot without it
+- `BUILD_COMMIT` - The commit the deployment was built from, which `/healthz` reports as `commit` (`null` when unset or blank). Set by the Deploy workflow on each deployment (`vercel deploy --env`), never by hand ([how a deploy proves itself](RELEASING.md#how-a-deploy-proves-itself))
 
 ### Frontend
 - `VITE_FLASK_HOST` - API base path (`/api` in the template and the compose file; no default)
 - `VITE_BACKEND_URL` - Backend URL for Vite proxy (default: `https://127.0.0.1:5001`; the compose file sets `https://backend:5001`)
 - `VITE_RECAPTCHA_SITE_KEY` - Google reCAPTCHA v3 site key, from the same reCAPTCHA property as the back end's `RECAPTCHA_SECRET_KEY`. **Required to build**: it is baked into the bundle, and without it the front end sends a placeholder token that the back end hands to Google, who never issued it - so every organizer signup is rejected. `vite build` refuses without it
 - `VITE_ALLOW_INSECURE_LOCAL_DEV` - the only thing that lets a bundle be built with no site key above (local development and E2E, where the back end runs with `DISABLE_CAPTCHA`, and the bundle budget's build in CI and `nm-test.sh`, which is measured and never deployed). Opt-in, warns on every build it allows, and must never be set on a deployed build
+- `BUILD_COMMIT` - The commit the build was made from, which the build writes to `/version.json` (`null` when unset or blank). Read from the build's process environment, not through `loadEnv` and not a `VITE_` variable, so no `.env` file sets it and the bundle never holds it. Set by the Deploy workflow (`vercel deploy --build-env`), never by hand
 
 ## Project Structure
 

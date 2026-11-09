@@ -441,18 +441,25 @@ app.register_blueprint(floorplans_save_bp, url_prefix="/floorplans")
 
 @app.route('/healthz', methods=['GET'])
 def healthz() -> Response:
-    """Whether this deployment can serve a request: it booted, and its database answers.
+    """Whether this deployment can serve a request, and which commit it was deployed from.
 
     Booting already proves the configuration and the migration markers (both refuse at import),
-    so the one thing left that can fail after a good deploy is the database. The post-deploy smoke
-    test and the uptime check read this; it says nothing about any market, so it needs no login.
+    so the one thing left that can fail after a good deploy is the database. The Deploy workflow
+    and the uptime check read this; it says nothing about any market, so it needs no login.
+
+    `commit` is the deployment's `BUILD_COMMIT`, which the Deploy workflow sets on each deployment
+    and compares with the commit it released, so a domain still on an older build cannot pass for
+    the new one. A build with no `BUILD_COMMIT`, or a blank one, says `null`; any other value is
+    reported as given. It is public on purpose: every released commit is on the public `main`.
     """
+    commit = os.environ.get("BUILD_COMMIT", "")
+    commit = commit if commit.strip() else None
     try:
         MarketsApi.markets_collection.database.command("ping")
     except Exception:
         logger.exception("Health check: the database did not answer")
-        return jsonify({"status": "unavailable"}), 503
-    return jsonify({"status": "ok"}), 200
+        return jsonify({"status": "unavailable", "commit": commit}), 503
+    return jsonify({"status": "ok", "commit": commit}), 200
 
 
 # users
