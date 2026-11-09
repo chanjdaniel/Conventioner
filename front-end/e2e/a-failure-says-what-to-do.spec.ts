@@ -1,4 +1,4 @@
-import type { APIRequestContext, Page, Request } from '@playwright/test';
+import type { APIRequestContext, Page, Request, Route } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { marketScreenPath, marketSetupPath, oneByOnePath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
@@ -38,21 +38,37 @@ const KINDS: { kind: Kind; says: string }[] = [
 const isApiCall = (request: Request, method: string) =>
   request.method() === method && ['xhr', 'fetch'].includes(request.resourceType());
 
+/** A request of `kind` fails as the back end's generic 500 body, or with no answer at all. */
+function failAs(route: Route, kind: Kind) {
+  if (kind === 'offline') return route.abort('internetdisconnected');
+  return route.fulfill({
+    status: 500,
+    contentType: 'application/json',
+    body: JSON.stringify({ error: 'Internal server error' }),
+  });
+}
+
 /**
- * The next `method` request to `url` fails as `kind` does - the back end's generic 500 body, or no
- * answer at all - and every one after it reaches the server.
+ * The next `method` request to `url` fails as `kind` does, and every one after it reaches the
+ * server.
  */
 async function failOnce(page: Page, url: RegExp, kind: Kind, method = 'GET'): Promise<void> {
   let failed = false;
   await page.route(url, async (route) => {
     if (failed || !isApiCall(route.request(), method)) return route.continue();
     failed = true;
-    if (kind === 'offline') return route.abort('internetdisconnected');
-    return route.fulfill({
-      status: 500,
-      contentType: 'application/json',
-      body: JSON.stringify({ error: 'Internal server error' }),
-    });
+    return failAs(route, kind);
+  });
+}
+
+/**
+ * Every `GET` to `url` fails as `kind` does until the test unroutes it. A screen may read again on
+ * its own, and that second read answering would clear the failure before the test looks.
+ */
+async function failUntilCleared(page: Page, url: RegExp, kind: Kind): Promise<void> {
+  await page.route(url, async (route) => {
+    if (!isApiCall(route.request(), 'GET')) return route.continue();
+    return failAs(route, kind);
   });
 }
 
@@ -131,16 +147,16 @@ test.describe('a failed read', () => {
     for (const { screen, at, url, name } of reads(reviewing, published)) {
       for (const { kind, says } of KINDS) {
         await test.step(`${screen}, ${kind}`, async () => {
-          await failOnce(page, url, kind);
+          await failUntilCleared(page, url, kind);
           await page.goto(at);
 
           const failed = page.getByTestId(`${name}-read-failed`);
           await expect(failed).toContainText(says);
           await expect(page.getByText('Internal server error')).toHaveCount(0);
 
+          await page.unroute(url);
           await page.getByTestId(`${name}-retry`).click();
           await expect(failed).toHaveCount(0);
-          await page.unroute(url);
         });
       }
     }
