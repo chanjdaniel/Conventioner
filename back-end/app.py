@@ -463,13 +463,6 @@ def get_user(sign_in: str) -> Any:
 
 
 
-# curl -k -X POST https://127.0.0.1:5001/register-user \
-#   -H "Content-Type: application/json" \
-#   -d '{"email": "testemail@example.com", "password": "testpassword"}'
-@app.route("/register-user", methods=["POST"])
-def register_user() -> Response:
-    return UsersApi.register_user(bcrypt, request)
-
 @app.route('/login', methods=['POST'])
 def login() -> Response:
     return UsersApi.login(bcrypt, login_user, request)

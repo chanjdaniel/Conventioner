@@ -5,12 +5,13 @@ describes:
   - back-end/utils/request_body.py
   - back-end/tests/test_a_request_value_is_a_string.py
   - back-end/tests/test_a_body_sets_only_its_fields.py
-verified: 2026-11-01
+verified: 2026-11-09
 sources:
   - T66
   - T74
   - T85
   - T169
+  - T251
 ---
 
 # A request value is a string before it reaches a query

@@ -401,39 +401,6 @@ def _insert_unless_taken(user_doc: dict):
         return None
 
 
-# curl -k -X POST https://127.0.0.1:5001/register-user \
-#      -H "Content-Type: application/json" \
-#      -d '{"email": "USERNAME", "password": "pswrdpswrd!!!"}'
-def register_user(bcrypt, request):
-    data = request.json
-    email = normalized_email(string_field(data, "email"))
-    password = string_field(data, "password")
-
-    if not email or not password:
-        return jsonify({"msg": "Email and password required"}), 400
-
-    # Check if user already exists in MongoDB
-    existing_user = users_collection.find_one({"email": email})
-    if existing_user:
-        return _already_exists()
-
-    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-    user_doc = {
-        "id": str(uuid.uuid4()),
-        "email": email,
-        "password": hashed_password,
-        "organizations": []
-    }
-    
-    result = _insert_unless_taken(user_doc)
-    if result is None:
-        return _already_exists()
-    
-    if result.inserted_id:
-        return jsonify({"msg": "User registered successfully"}), 201
-    else:
-        return jsonify({"msg": "Failed to register user"}), 500
-
 def login(bcrypt, login_user, request):
     """The password sign-in, bounded per caller and per address (``_Bounds``).
 

@@ -194,8 +194,12 @@ class TestVerifyEmail:
 class TestLogin:
     @pytest.mark.parametrize("field", ["email", "password"])
     @pytest.mark.parametrize("value", NOT_STRINGS)
-    def test_a_credential_that_is_not_a_string_is_refused(self, client, users, field, value):
-        users()
+    def test_a_credential_that_is_not_a_string_is_refused(
+        self, client, users, monkeypatch, field, value,
+    ):
+        collection = users()
+        monkeypatch.setattr(UsersApi, "verify_recaptcha", lambda *_a: (True, 0.9))
+        monkeypatch.setattr(UsersApi, "send_verification_email", lambda *_a: True)
         body = {"email": FIXTURE_EMAIL, "password": FIXTURE_PASSWORD, field: value}
 
         response = client.post("/login", json=body)
@@ -328,19 +332,25 @@ class TestNamingSomeoneForARole:
 
 
 class TestRegistration:
-    @pytest.mark.parametrize("path", ["/register-user", "/register"])
     @pytest.mark.parametrize("field", ["email", "password"])
     @pytest.mark.parametrize("value", NOT_STRINGS)
-    def test_a_credential_that_is_not_a_string_is_refused(self, client, users, path, field, value):
-        users()
+    def test_a_credential_that_is_not_a_string_is_refused(
+        self, client, users, monkeypatch, field, value,
+    ):
+        collection = users()
+        monkeypatch.setattr(UsersApi, "verify_recaptcha", lambda *_a: (True, 0.9))
+        monkeypatch.setattr(UsersApi, "send_verification_email", lambda *_a: True)
         body = {
             "email": "someone-new@example.com", "password": NEW_PASSWORD,
             "captcha_token": "a-captcha-token", field: value,
         }
 
-        response = client.post(path, json=body)
+        response = client.post("/register", json=body)
 
-        assert response.status_code == 400
+        assert (response.status_code, response.get_json()) == (
+            400, {"msg": "Email and password required"},
+        )
+        assert [doc["email"] for doc in collection.docs] == [FIXTURE_EMAIL]
 
 
 class TestApplicantSignIn:
