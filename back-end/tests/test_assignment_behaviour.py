@@ -153,6 +153,29 @@ def dates_for(market, email):
     return sorted(p[1] for p in placements(market) if p[0] == email)
 
 
+SEATS_TAKEN = {
+    "Full Table": ("left", "right"),
+    "Half Table (Left)": ("left",),
+    "Half Table (Right)": ("right",),
+}
+
+
+def seats_held_twice(market):
+    """Every seat held by more than one vendor, as ``(date, table_code, seat, [emails])``.
+
+    A whole table holds both of its seats, so a "Full Table" beside a half is a seat held twice.
+    """
+    holders = {}
+    for p in market.assignment_object.vendor_assignments or []:
+        for seat in SEATS_TAKEN[p.table_choice]:
+            holders.setdefault((p.date, p.table_code, seat), []).append(p.email)
+    return sorted(
+        (date, code, seat, emails)
+        for (date, code, seat), emails in holders.items()
+        if len(emails) > 1
+    )
+
+
 class TestAVendorOnlyGetsWhatTheyAskedFor:
     def test_a_vendor_is_never_placed_on_a_date_they_are_unavailable(self):
         market = assign([
@@ -278,6 +301,43 @@ class TestHowATableIsOccupied:
 
         by_email = {p[0]: p[2] for p in placements(market) if p[1] == DATES[0]}
         assert by_email["asker@example.com"] == by_email["partner@example.com"]
+
+    def test_a_vendor_given_a_whole_table_holds_both_seats(self):
+        """A Half chooser nobody may share with is given the whole table, and sits there alone.
+
+        Ana comes first and finds nobody free to share with, since Ben is promised to Cal, so she
+        is given the one table whole. That table used to be recorded as holding one vendor, so its
+        "free" half went to Ben, beside a vendor holding the whole table, and Ben's pair with Cal
+        was split (T253). Ben and Cal are now left unassigned together.
+        """
+        wants = [
+            VendorWant("ana@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half"),
+            VendorWant("ben@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half", share_with="cal@example.com"),
+            VendorWant("cal@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half"),
+        ]
+        plan = {"section_counts": ((GOLD, 1),), "dates": [DATES[0]]}
+
+        market = assign(wants, **plan)
+
+        assert placements(market) == [
+            ("ana@example.com", DATES[0], f"Section {GOLD} 1", "Full Table", f"Section {GOLD}", GOLD),
+        ]
+        assert seats_held_twice(market) == []
+        statistics = market.assignment_object.assignment_statistics
+        assert sorted(statistics.unassigned_vendors) == ["ben@example.com", "cal@example.com"]
+
+        stored = market_for(wants, **plan)
+        stored.assignment_object = AssignmentObject(
+            vendor_assignments=list(market.assignment_object.vendor_assignments)
+        )
+        described = describe_stored_assignment(
+            stored, [want.as_solver_vendor() for want in wants]
+        )
+        assert placements(described) == placements(market)
+        assert described.assignment_object.assignment_statistics == statistics
 
     def test_no_table_holds_more_than_two_vendors(self):
         market = assign([
