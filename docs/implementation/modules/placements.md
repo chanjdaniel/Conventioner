@@ -20,7 +20,7 @@ describes:
   - back-end/api/markets.py#assignment_to_show
   - back-end/api/markets.py#derive_unassigned_tables_from_rows
   - back-end/assignment/assignment.py#vendors_to_show
-verified: 2026-11-05
+verified: 2026-11-09
 sources:
   - wayfinding/readable-journey/08
   - wayfinding/claims-and-room/map
@@ -45,6 +45,7 @@ sources:
   - T208
   - T213
   - T224
+  - T253
 ---
 
 # Placements
@@ -62,6 +63,9 @@ Its routes are in [`back-end/app.py`](../../../back-end/app.py).
 | `PUT /markets/:id/placements` | `write_placement` | places one vendor in one seat on one date, replacing whatever they held that date, so it is also the move to an empty seat, from either end of the dialog: the vendor's seat or the empty one (T208); the day forgets that vendor's freed line, and the $0 a free's deduction set on it ([payments](../data/payments.md)) |
 | `DELETE /markets/:id/placements` | `remove_placement` | frees the seat one vendor holds on one date, first keeping the seat's line of what they owe for it, which freeing never changes ([payments](../data/payments.md)), unless `deductOwed` asks that it owe $0, which asks the row "Change the amount owed" too, before anything is freed; freeing a seat nobody holds is not an error |
 | `POST /markets/:id/placements/swap` | `swap_placements` | trades two vendors' seats on one date in one document update: both change or neither does |
+
+**A run whose allocation breaks the solver's rules is refused before the store.**
+`assign_market` raises `BrokenAllocationError` before `run_assignment` stores anything ([the assignment solver](assignment-solver.md#sharp-edges)), so nothing is written, no history entry is recorded and no payment changes; the organizer reads the generic failure line.
 
 **All four ask the table's Assignment row** ([the market's actions](market-actions.md)), whose default is EDITOR, the bar every other market write sets, and deliberately not stricter: an EDITOR already owns the tiers, sections and table counts the whole assignment is computed from, so withholding "move one vendor between two seats" protects nothing.
 Each loads its market through `_load_market_to_change`, so an archived market is refused.
