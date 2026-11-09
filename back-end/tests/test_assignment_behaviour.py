@@ -14,6 +14,7 @@ the commit message makes.
 import pytest
 
 from assignment.assignment import assign_market, describe_stored_assignment
+from assignment.invariants import PIN_NOT_KEPT, BrokenAllocationError
 from assignment.vendor_input import SolverVendor
 from datatypes import (
     AssignmentObject,
@@ -1833,6 +1834,23 @@ class TestTheSolverWorksAroundPins:
             f"Section {GOLD} 1",
             "Full Table",
         )
+
+    def test_two_pins_for_one_vendor_on_one_date_refuse_the_run(self):
+        """The one contradiction among pins the run refuses (T253): a vendor holds one seat a
+        date, so the solver keeps one of the two pins and the check finds the other lost. No
+        placement write makes such a pair, since a second placement on a date moves the
+        vendor; before the check, the first pin vanished in silence."""
+        with pytest.raises(BrokenAllocationError) as refused:
+            assign(
+                [VendorWant("pinned@example.com", available=[DATES[0]], tiers=[GOLD])],
+                pins=[
+                    pin("pinned@example.com", DATES[0], f"Section {GOLD} 1"),
+                    pin("pinned@example.com", DATES[0], f"Section {GOLD} 2"),
+                ],
+                section_counts=((GOLD, 2),),
+            )
+
+        assert [breach.rule for breach in refused.value.breaches] == [PIN_NOT_KEPT]
 
 
 class TestASeatHeldByHand:

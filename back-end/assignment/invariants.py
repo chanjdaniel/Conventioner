@@ -13,9 +13,12 @@ Pure on purpose: no database, no Flask, nothing from ``api/``. Everything it nee
 What it judges is what the solver produced, never the organizer's own decisions. Pins among
 themselves, and a pin against its vendor's answers, are the organizer's: the placement write
 refuses a second pin on a taken seat, and a pin that overrides an answer stands and is marked,
-so refusing the run for them would block the organizer on what they chose and already see. An
-orphaned pin is not seated by the solver, so it holds no seat here either: the solver may give
-that seat to someone else, as it always has.
+so refusing the run for them would block the organizer on what they chose and already see. One
+contradiction among pins still refuses the run: two pins for one vendor on one date. The solver
+keeps one row per vendor per date, so it seats one of them and drops the other, which this
+check reports as "a pin was not kept"; no placement write makes such a pair, since a second
+placement on a date moves the vendor. An orphaned pin is not seated by the solver, so it holds
+no seat here either: the solver may give that seat to someone else, as it always has.
 
 The soft rules (pairs together, the half-table share, the priority order, section ranking) are
 kept where the greedy solver can keep them, not guaranteed, so they are pinned by the behaviour

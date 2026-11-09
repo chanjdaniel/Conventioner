@@ -93,6 +93,7 @@ The rules, in the order the breaches are reported:
 13. "a seat taken twice": "Full Table" holds both seats and a half one, and no seat is held twice where one holder is a solver row, an orphaned pin holding no seat.
 
 It does not judge the organizer's own decisions: pins among themselves, or a pin against its vendor's answers, since the placement write refuses a pin on a taken seat and [a pin that overrides an answer stands, and is marked](placements.md#pins).
+One contradiction among pins still refuses the run: two pins for one vendor on one date, since the solver keeps one row per vendor per date and drops the other pin, which the check reports as "a pin was not kept"; no placement write makes such a pair, since a second placement on a date moves the vendor.
 An orphaned pin holds no seat, so the solver may give that seat to someone else, as it always has.
 Nor does it judge the soft rules (pairs together, the half-table share, the priority order, section ranking), which the greedy solver keeps where it can; the behaviour suite's cases pin them.
 A breaking allocation is a solver defect, so the error is a builtin that escapes as the generic 500 ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md#the-types)); its message names each breach by rule, table, date and application ids, the first 10 then "and N more", and never an address, a row for someone outside the run reading "outside the run".
