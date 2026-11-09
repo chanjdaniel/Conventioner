@@ -1,5 +1,6 @@
 import { test, expect, BACKEND_URL, LoginPage, PasswordResetPage, TEST_USER } from './fixtures';
 import { deleteUser } from './helpers/deleteUser';
+import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { marketSetupPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
@@ -31,10 +32,7 @@ test.describe('Account links, opened signed out', () => {
     request,
   }) => {
     const email = uniqueEmail();
-    const created = await request.post('/api/register-user', {
-      data: { email, password: PASSWORD },
-    });
-    expect(created.ok()).toBeTruthy();
+    ensureVerifiedUser(email, PASSWORD);
     try {
       expect((await request.post('/api/request-password-reset', { data: { email } })).ok()).toBe(
         true,
@@ -52,10 +50,6 @@ test.describe('Account links, opened signed out', () => {
       await reset.resetPassword(NEW_PASSWORD);
       await expect(reset.resetSuccessMessage).toBeVisible();
 
-      // `/register-user` leaves the account unverified; verify it so the new password can sign in.
-      mongoEval(
-        `db.users.updateOne({email: ${JSON.stringify(email)}}, {$set: {email_verified: true}})`,
-      );
       await page.goto('/login');
       await new LoginPage(page).login(email, NEW_PASSWORD);
       await expect(page).toHaveURL(/\/markets$/);
@@ -100,18 +94,11 @@ test.describe('Account links, opened signed out', () => {
 test.describe('Changing a password, signed in', () => {
   test('the whole way from the account menu, in one browser, and the new password signs in', async ({
     page,
-    request,
   }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     const email = uniqueEmail();
-    const created = await request.post('/api/register-user', {
-      data: { email, password: PASSWORD },
-    });
-    expect(created.ok()).toBeTruthy();
+    ensureVerifiedUser(email, PASSWORD);
     try {
-      mongoEval(
-        `db.users.updateOne({email: ${JSON.stringify(email)}}, {$set: {email_verified: true}})`,
-      );
       const signIn = new LoginPage(page);
       const account = page.getByTestId('app-bar-account-button');
       await signIn.login(email, PASSWORD);
@@ -174,10 +161,7 @@ test.describe('Changing a password, signed in', () => {
       TEST_USER.password,
     );
     const email = uniqueEmail();
-    const created = await request.post('/api/register-user', {
-      data: { email, password: PASSWORD },
-    });
-    expect(created.ok()).toBeTruthy();
+    ensureVerifiedUser(email, PASSWORD);
     try {
       await page.goto(marketSetupPath(marketId));
       const day = page.locator('[data-testid^="setup-dates-day-"]').first();

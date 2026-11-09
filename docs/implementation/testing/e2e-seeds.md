@@ -47,6 +47,7 @@ sources:
   - T204
   - T223
   - T234
+  - T251
 ---
 
 # E2E seeds
@@ -57,13 +58,14 @@ They live in `front-end/e2e/helpers/`; how a spec is written around them is [E2E
 ## Users
 
 **Every seed needs a verified user, and only `back-end/create_test_user.py` makes one.**
-`/register-user` does not set `email_verified`, so a user it makes cannot log in; do not switch to it, and do not hand-roll the user document.
+The sign-up, `/register`, leaves its account unverified until the emailed link is opened, so a user it makes cannot log in; do not hand-roll the user document.
 [`scripts/seed_fixture.sh`](../../../scripts/seed_fixture.sh) runs the script for two users: `TEST_EMAIL` (`e2e@example.com`, owner of `Seed Test Org`) and `NO_ORG_EMAIL` (`e2e-noorg@example.com`), deliberately in no organization so `new-market-org.spec.ts` can exercise the zero-organization fallback.
 A spec needing more users calls `ensureVerifiedUser(email, password)` ([`helpers/verifiedUser.ts`](../../../front-end/e2e/helpers/verifiedUser.ts)) in `beforeAll`: it runs [`create_test_user.py`](../../../back-end/create_test_user.py) inside the back-end container ([`helpers/backendScript.ts`](../../../front-end/e2e/helpers/backendScript.ts); `E2E_BACKEND_CONTAINER` overrides the name) and is idempotent.
 The script exits 0 whether it created the user, found one, or failed to insert (it refuses outright, exiting non-zero, when neither `MONGODB_HOST` nor `MONGODB_URI` names a database or they name the primary checkout's MongoDB from the host, but every stack's back-end container sets `MONGODB_HOST=mongodb`), so the helper reads its output for one of the two outcomes that leave a usable user and throws otherwise: a seeding failure surfaces at the `beforeAll` that caused it, not later as a login timeout.
 A seed of many people makes them with one run of its bulk form, `create_test_user.py --bulk <password> <email>...`: each address made as the one-address form makes it, in one process with the password hashed once, an address already made left as it is.
 It prints one line per address, `created <email> <id>` or `exists <email> <id>`, and never the password, so the seed reads every account's id from it.
 An operator never uses that script for a real account: it prints the password ([OPERATIONS.md](../../OPERATIONS.md#making-an-account)).
+A spec that needs an account not yet verified signs up through the real route, `POST /api/register` with `captcha_token: 'e2e'`, which the stack's captcha bypass passes ([bypassing CAPTCHA and email](../../TESTING.md#bypassing-captcha-and-email-in-tests)), expects 201, and reads the link's token from the database; `deleteUser` ([`helpers/deleteUser.ts`](../../../front-end/e2e/helpers/deleteUser.ts)) removes the account in its `finally`, since an unverified account has no session to delete itself with.
 
 ## Markets require an organization
 

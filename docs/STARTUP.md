@@ -6,6 +6,8 @@ describes:
   - back-end/.env.example
   - front-end/.env.example
 verified: 2026-11-02
+sources:
+  - T251
 ---
 
 # Conventioner - Development Startup Guide
@@ -310,10 +312,8 @@ when email is disabled - create a pre-verified user directly:
 docker compose exec backend python create_test_user.py test@example.com testpassword
 ```
 
-**Do not create a test user by posting to `/register-user`.**
-That endpoint does not set `email_verified`, so the account it creates can never log in, and the
-login failure does not say why.
-`create_test_user.py` sets it, which is why every test fixture goes through that script.
+An account made by the sign-up stays unverified, and cannot log in, until its emailed link is opened.
+`create_test_user.py` sets `email_verified`, which is why every test fixture goes through that script.
 
 Easier still, `./scripts/seed_fixture.sh --primary` from the repository root creates two verified users, an
 organization and a market in one command.
