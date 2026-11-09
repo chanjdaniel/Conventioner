@@ -1033,6 +1033,44 @@ class TestTheOrganizersCapOnAssignmentsPerVendor:
         assert len(dates_for(market, "twelve@example.com")) == 6
 
 
+class TestFewestDatesSoFarGoFirst:
+    """The dates are shared out before anyone gets a second one, above the organizer's own rules.
+
+    The solver's first ordering key: a vendor with fewer dates so far is placed first, so the
+    organizer's rule decides who is placed first among vendors with the same number of dates, and
+    never gives one vendor every date while another has none.
+    """
+
+    def test_a_second_date_goes_to_whoever_has_none_yet(self):
+        from datatypes import PriorityObject
+
+        wants = [
+            VendorWant("returning@example.com", available=DATES, tiers=[GOLD]),
+            VendorWant("newcomer@example.com", available=DATES, tiers=[GOLD]),
+        ]
+        answers = {"returning@example.com": "yes", "newcomer@example.com": "no"}
+        market = market_for(wants, section_counts=((GOLD, 1),))
+        market.setup_object.priority = [
+            PriorityObject(id=1, target="returning_vendor", ordering=["yes", "no"]),
+        ]
+        vendors = []
+        for want in wants:
+            vendor = want.as_solver_vendor()
+            vendors.append(
+                type(vendor)(
+                    **{
+                        **vendor.__dict__,
+                        "custom_answers": {"returning_vendor": answers[want.email]},
+                    }
+                )
+            )
+
+        market = assign_market(market, vendors)
+
+        assert dates_for(market, "returning@example.com") == [DATES[0]]
+        assert dates_for(market, "newcomer@example.com") == [DATES[1]]
+
+
 class TestTheOrganizersPriorityRules:
     """A rule an organizer configures actually changes who is placed first.
 

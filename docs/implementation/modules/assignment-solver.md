@@ -97,6 +97,7 @@ An orphaned pin holds no seat, so the solver may give that seat to someone else,
 Nor does it judge the soft rules (pairs together, the half-table share, the priority order, section ranking), which the greedy solver keeps where it can; the behaviour suite's cases pin them.
 A breaking allocation is a solver defect, so the error is a builtin that escapes as the generic 500 ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md#the-types)); its message names each breach by rule, table, date and application ids, the first 10 then "and N more", and never an address, a row for someone outside the run reading "outside the run".
 Every test that runs the real solver is held to the same check, since it runs inside `assign_market`, and [`tests/test_assignment_invariants.py`](../../../back-end/tests/test_assignment_invariants.py) tests each rule on hand-built rows.
+Its seeded random markets hold the solver to the same check over 1,000 generated markets, each run again around hand-placed assignments, some of them held by an applicant outside the run or past what the plan can hold ([the assignment behaviour suite](../testing/assignment-behaviour-suite.md#beside-it)).
 
 **A placement is dated by the market date itself**, the string on `MarketDateObject.date`, and the solver keys its per-date state by that same string.
 It used to be dated by the spreadsheet column heading, which is why check-in, the table rows and the statistics each built a map from headings back to dates; those maps are gone, and none is to be reintroduced.

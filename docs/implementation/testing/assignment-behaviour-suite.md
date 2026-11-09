@@ -4,6 +4,7 @@ kind: testing
 describes:
   - back-end/tests/test_assignment_behaviour.py
   - back-end/tests/test_solver_vendor_input.py
+  - back-end/tests/test_assignment_invariants.py
 verified: 2026-11-09
 sources:
   - wayfinding/november-2026-dry-run/07
@@ -33,12 +34,17 @@ Each class is one rule, named as a sentence: a vendor gets only what they asked 
 
 How a table is occupied also pins that a vendor given a whole table holds both seats, so a Half chooser nobody may share with sits alone and no stranger is put on the other half.
 
+Fewest dates so far go first pins the first key of the order of turns: with one table and two vendors who can both come both days, the second date goes to the vendor who has none yet, though the organizer's rule ranks the other first.
+
 The rules these cases keep: [priority and tie-breaks](../../business/rules/priority-and-tie-breaks.md), [tier filters, section prefers](../../business/rules/tier-filters-section-prefers.md), [table-share pairing](../../business/rules/table-share-pairing.md), [the half-table share](../../business/rules/half-table-share.md), [the ceiling on dates per vendor](../../business/rules/max-assignments-ceiling.md), [an incomplete application refuses the run](../../business/rules/an-incomplete-application-refuses-the-run.md), [what an import may leave unasked](../../business/rules/what-an-import-may-leave-unasked.md), and [dates fill one at a time, in the plan's order](../../business/rules/dates-fill-in-calendar-order.md).
 Together they keep what a real market's result is judged by, the five criteria of [what a correct assignment is](../../business/rules/what-a-correct-assignment-is.md): no vendor's answers broken, pairs together, and the market's order respected are the solver's, and are pinned here.
 
 ## Beside it
 
 - [`back-end/tests/test_solver_vendor_input.py`](../../../back-end/tests/test_solver_vendor_input.py) proves the seam, an application translated into a `SolverVendor`, with no `MarketAssignment` and no database.
+- [`back-end/tests/test_assignment_invariants.py`](../../../back-end/tests/test_assignment_invariants.py) tests the solver's own check ([the assignment solver](../modules/assignment-solver.md#sharp-edges)): each of its rules on hand-built rows with no solver run, and `TestEveryRandomMarket`, which runs `assign_market` over 1,000 markets built from `random.Random(seed)` alone, seeds 0 to 999, and fails naming each seed whose run the check refused.
+  Each market is run from an empty allocation, then again with every 4th row of the first result pinned; every 5th market adds a pin for an applicant outside the run on a table the first result left empty, and every 7th a pin past the first section's count, which the solver orphans.
+  It draws only from lists, never a set, and reads no clock, so a seed builds the same market on every machine and under every `PYTHONHASHSEED`; it runs in under two seconds.
 - `test_table_share_notice.py` pins the review screen's side of table sharing; `test_the_result_knows_what_it_was_made_from.py` the fingerprints ([made from](../modules/made-from.md)); `test_essential_fields.py` the contract ([essential fields](../modules/essential-fields.md)).
 
 ## Sharp edges

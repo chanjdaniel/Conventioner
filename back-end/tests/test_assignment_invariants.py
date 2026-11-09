@@ -4,8 +4,11 @@
 rows, with no solver run: after the double-seat fix no real market breaks a rule, and every rule
 still needs a case that breaks it.
 """
+import random
+
 import pytest
 
+from assignment.assignment import assign_market
 from assignment.invariants import (
     DATE_NOT_RUN,
     DAY_THEY_CANNOT_COME,
@@ -27,13 +30,21 @@ from assignment.invariants import (
 )
 from assignment.vendor_input import SolverVendor
 from datatypes import (
+    ALL_OTHERS,
+    SUBMITTED_AT_RULE_TARGET,
+    AssignmentObject,
     AssignmentOptionObject,
     LocationObject,
+    Market,
     MarketDateObject,
+    MarketRole,
+    PriorityDirection,
+    PriorityObject,
     SectionObject,
     SetupObject,
     TierObject,
     VendorAssignmentResult,
+    table_code_for,
 )
 
 DATE = "2026-08-01"
@@ -336,3 +347,188 @@ class TestTheRefusal:
     def test_it_is_a_builtin_no_except_value_error_catches(self):
         assert issubclass(BrokenAllocationError, RuntimeError)
         assert not issubclass(BrokenAllocationError, ValueError)
+
+
+# The seeded random markets. Everything a market is made of comes from its own
+# ``random.Random(seed)``: no global ``random``, no clock, and every draw is from a list, never a
+# set, so a seed builds the same market on every machine and under every ``PYTHONHASHSEED``.
+RANDOM_SEEDS = range(1000)
+RANDOM_TIERS = ("Gold", "Silver", "Bronze")
+RANDOM_LOCATION = "Hall"
+
+
+def random_market(rng) -> Market:
+    """1 to 3 dates; sections ``S0`` to ``S2`` of 1 to 8 tables, each Gold, Silver, Bronze or
+    untiered (about 1 in 6); a half-table share of 0, 30, 100 or unset; a ceiling of unset, 1 or 2;
+    in half the markets a rule on a ``club`` answer, then first come."""
+    tiers = {name: TierObject(id=n, name=name) for n, name in enumerate(RANDOM_TIERS)}
+    hall = LocationObject(name=RANDOM_LOCATION)
+    sections = [
+        SectionObject(
+            name=f"S{n}",
+            location=hall,
+            tier=tiers.get(rng.choices(RANDOM_TIERS + (None,), weights=(5, 5, 5, 3))[0]),
+            count=rng.randint(1, 8),
+        )
+        for n in range(rng.randint(1, 3))
+    ]
+    dates = [f"2099-08-{day:02d}" for day in range(1, rng.randint(1, 3) + 1)]
+    share = rng.choice([0, 30, 100, None])
+    ceiling = rng.choice([None, 1, 2])
+    rules = [
+        PriorityObject(id=1, target="club", ordering=["Club A", ALL_OTHERS]),
+        PriorityObject(
+            id=2, target=SUBMITTED_AT_RULE_TARGET, direction=PriorityDirection.ASCENDING),
+    ] if rng.random() < 0.5 else []
+    used = {section.tier.name for section in sections if section.tier}
+    setup = SetupObject(
+        priority=rules,
+        market_dates=[MarketDateObject(date=date) for date in dates],
+        tiers=[tiers[name] for name in RANDOM_TIERS if name in used],
+        locations=[hall],
+        sections=sections,
+        assignment_options=AssignmentOptionObject(
+            max_assignments_per_vendor=ceiling, max_half_table_proportion_per_section=share),
+    )
+    return Market(
+        id="random-market",
+        name="Random Market",
+        creation_date="2099-01-01",
+        roles={"organizer": MarketRole.OWNER},
+        modification_list=[],
+        assignment_object=AssignmentObject(),
+        setup_object=setup,
+    )
+
+
+def random_vendors(rng, market) -> list:
+    """1 to 40 vendors ``v00000@example.com`` upward, as ``app-<n>``, each answering at random:
+    a non-empty subset of the dates, a non-empty subset of the plan's tiers on each, full, half or
+    either at 5:2:3, a partner for 30% of the non-full ones, a section ranking for half, no limit
+    for 30% (else 1 to the date count), a ``club`` answer, and an arrival in January 2099."""
+    dates = [market_date.date for market_date in market.setup_object.market_dates]
+    tiers = [tier.name for tier in market.setup_object.tiers]
+    sections = [section.name for section in market.setup_object.sections]
+    emails = [f"v{n:05d}@example.com" for n in range(rng.randint(1, 40))]
+    vendors = []
+    for n, email in enumerate(emails):
+        available = sorted(rng.sample(dates, rng.randint(1, len(dates))))
+        accepted = {
+            date: frozenset(rng.sample(tiers, rng.randint(1, len(tiers))) if tiers else ())
+            for date in available
+        }
+        choice = rng.choices(["full", "half", "either"], weights=[5, 2, 3])[0]
+        partner = rng.choice(emails) if choice != "full" and rng.random() < 0.3 else None
+        ranking = tuple(rng.sample(sections, len(sections))) if rng.random() < 0.5 else ()
+        limit = None if rng.random() < 0.3 else rng.randint(1, len(dates))
+        vendors.append(SolverVendor(
+            application_id=f"app-{n}",
+            email=email,
+            available_dates=frozenset(available),
+            max_dates=limit,
+            accepted_tiers_by_date=accepted,
+            table_choice=choice,
+            table_share_email=partner,
+            section_ranking=ranking,
+            table_type_ranking=(),
+            custom_answers={"club": rng.choice(["Club A", "Club B", ""])},
+            submitted_at=f"2099-01-{rng.randint(1, 28):02d}T{rng.randint(0, 23):02d}:"
+                         f"{rng.randint(0, 59):02d}:00+00:00",
+        ))
+    return vendors
+
+
+def described(section, table_code, date, email, hand_placed=True) -> VendorAssignmentResult:
+    """A whole table at ``table_code``, describing its section as the plan does."""
+    return VendorAssignmentResult(
+        email=email,
+        date=date,
+        table_code=table_code,
+        table_choice=FULL,
+        section=section.name,
+        tier=section.tier.name if section.tier else "",
+        location=section.location.name if section.location else "",
+        hand_placed=hand_placed,
+    )
+
+
+def a_held_vendor(seed, date, section) -> SolverVendor:
+    """An applicant outside the run, who holds a pin and nothing else."""
+    tiers = frozenset({section.tier.name}) if section.tier else frozenset()
+    return SolverVendor(
+        application_id=f"held-{seed}",
+        email=f"held-{seed}@example.com",
+        available_dates=frozenset({date}),
+        max_dates=None,
+        accepted_tiers_by_date={date: tiers},
+        table_choice="full",
+        table_share_email=None,
+        section_ranking=(),
+        table_type_ranking=(),
+    )
+
+
+def run(market, vendors, pins=(), held=()):
+    """``assign_market`` from a stored allocation of ``pins`` alone; its rows."""
+    fresh = market.model_copy(deep=True)
+    fresh.assignment_object = AssignmentObject(vendor_assignments=list(pins))
+    return assign_market(fresh, vendors, held=list(held)).assignment_object.vendor_assignments
+
+
+def second_run(seed, market, vendors, first):
+    """The same market again, around every 4th row of the first result kept by hand; in every
+    5th market a pin for an applicant outside the run, on a table the first result left empty;
+    in every 7th a pin on a table past ``S0``'s count, which the solver cannot seat."""
+    setup = market.setup_object
+    first_date = setup.market_dates[0].date
+    pins = [row.model_copy(update={"hand_placed": True}) for n, row in enumerate(first)
+            if n % 4 == 0]
+    held = []
+    if seed % 5 == 0:
+        taken = {row.table_code for row in first if row.date == first_date}
+        empty = next(
+            ((section, table_code_for(section.name, n))
+             for section in setup.sections for n in range(1, section.count + 1)
+             if table_code_for(section.name, n) not in taken),
+            None,
+        )
+        if empty is not None:
+            section, table_code = empty
+            held = [a_held_vendor(seed, first_date, section)]
+            pins.append(described(section, table_code, first_date, held[0].email))
+    if seed % 7 == 0:
+        pinned_that_day = {pin.email for pin in pins if pin.date == first_date}
+        unpinned = sorted(v.email for v in vendors if v.email not in pinned_that_day)
+        if unpinned:
+            s0 = setup.sections[0]
+            pins.append(
+                described(s0, table_code_for(s0.name, s0.count + 1), first_date, unpinned[0]))
+    run(market, vendors, pins, held)
+
+
+class TestEveryRandomMarket:
+    """The solver over 1,000 seeded markets, each run again around hand-placed assignments.
+
+    ``assign_market`` checks every allocation it produces, with the orphaned pins only it holds,
+    so a run that breaks one of the solver's rules raises ``BrokenAllocationError`` here, and the
+    failure names the seed to run again.
+    """
+
+    def test_no_seeded_market_breaks_the_solvers_rules(self):
+        refused = []
+        for seed in RANDOM_SEEDS:
+            rng = random.Random(seed)
+            market = random_market(rng)
+            vendors = random_vendors(rng, market)
+            try:
+                first = run(market, vendors)
+            except BrokenAllocationError as error:
+                refused.append(f"seed {seed}, from an empty allocation: {error}")
+                continue
+            try:
+                second_run(seed, market, vendors, first)
+            except BrokenAllocationError as error:
+                refused.append(f"seed {seed}, around its pins: {error}")
+
+        assert not refused, f"{len(refused)} of {len(RANDOM_SEEDS)} markets refused:\n" + (
+            "\n".join(refused))
