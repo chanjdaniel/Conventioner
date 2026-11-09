@@ -130,7 +130,9 @@ The failed step's log says why, in one `::error::` line; the run's summary says 
 
 - **"Test passed on main at this commit"**: Test is still running (wait and run Deploy again), failed (fix it on `dev` and promote again), or never ran on that commit (deploy only a commit on `main`). Nothing was built.
 - **"Stage the back end" or "Stage the front end" fails**: the Vercel build failed, or `VERCEL_TOKEN` expired; read the step's log, then the deployment's build log in Vercel. Nothing was promoted.
-- **A staged build reports another commit, or `null`**: the build did not get `BUILD_COMMIT`; read the stage step's log. Nothing was promoted.
+- **A staged build reports another commit, or `null`**: the build did not get `BUILD_COMMIT`.
+  The log of "The staged back end is this commit" or "The staged front end is this commit" names what it reported.
+  Nothing was promoted.
 - **A staged back end never serves**: it refused to boot or its database did not answer; read the deployment's log in Vercel, as for [a back end that refuses to boot](OPERATIONS.md#when-the-back-end-refuses-to-boot). Nothing was promoted.
 - **A staged address answers 401 or 403**: the Protection Bypass for Automation did not apply; check it in the project's Settings, Deployment Protection, and run again. Nothing was promoted.
 - **"Promote the back end" or "Promote the front end" fails**: the promotion may or may not have taken. Look with `curl https://api.conventioner.io/healthz` and `curl https://conventioner.io/version.json`, then run Deploy again, or `vercel promote` the staged deployment the run printed by hand.
