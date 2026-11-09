@@ -8,6 +8,7 @@ does, `curl --url <address> --header <bypass> <the flags after -->`.
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -788,22 +789,37 @@ def test_the_test_run_is_checked_before_anything_is_built():
     assert steps.index(step) < min(where(is_stage))
 
 
+DEPLOYS = re.compile(r'(?:"\$VERCEL_CLI"|\bvercel(?:@[\w.-]+)?)\s+deploy\b')
+
+
+def cli_calls(log):
+    """Each call the fake CLI received, as the Vercel CLI's own arguments."""
+    calls = []
+    for line in (log.read_text() if log.exists() else "").splitlines():
+        program, *args = line.split("\x1f")[:-1]
+        if os.path.basename(program) == "npx":
+            args = args[next(i for i, a in enumerate(args) if not a.startswith("-")) + 1:]
+        calls.append(args)
+    return calls
+
+
 def test_every_deploy_is_a_production_deployment_that_takes_no_domain(tmp_path):
     deploys = {}
     for n, step in enumerate(workflow()["steps"]):
-        if "$VERCEL_CLI" not in step["run"]:
+        if not DEPLOYS.search(step["run"]):
             continue
         here = tmp_path / str(n)
         here.mkdir()
         run_step(here, step, FAKE_STDOUT=STAGED, STAGED_URL=STAGED)
-        argv = (here / "npx.log").read_text().split("\n")[:-1]
-        if argv[2] == "deploy":
-            deploys[step["name"]] = argv
+        calls = [args for args in cli_calls(here / "calls.log") if "deploy" in args]
+        assert calls, step["title"]
+        deploys[step["name"]] = calls
 
     assert sorted(deploys) == ["Stage the back end", "Stage the front end"]
-    for name, argv in deploys.items():
-        assert "--prod" in argv, name
-        assert "--skip-domain" in argv, name
+    for name, calls in deploys.items():
+        for args in calls:
+            assert "--prod" in args, name
+            assert "--skip-domain" in args, name
     assert not {"Deploy the back end", "Deploy the front end"} & {step["name"] for step in workflow()["steps"]}
 
 
@@ -868,6 +884,8 @@ def test_no_run_script_holds_an_expression():
 
 FAKE_DEPLOY = """#!/bin/sh
 printf '%s\\n' "$@" > "$FAKE_NPX_LOG"
+printf '%s\\037' "$0" "$@" >> "$FAKE_CALLS_LOG"
+printf '\\n' >> "$FAKE_CALLS_LOG"
 echo "Vercel CLI 64.5.0" >&2
 echo "Building..." >&2
 printf '%b' "$FAKE_STDOUT"
@@ -878,9 +896,10 @@ exit "${FAKE_EXIT:-0}"
 def run_step(tmp_path, step, **extra):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir(exist_ok=True)
-    npx = bin_dir / "npx"
-    npx.write_text(FAKE_DEPLOY)
-    npx.chmod(0o755)
+    for name in ("npx", "vercel"):
+        fake = bin_dir / name
+        fake.write_text(FAKE_DEPLOY)
+        fake.chmod(0o755)
     script = tmp_path / "step.sh"
     script.write_text(step["run"])
     outputs = tmp_path / "outputs"
@@ -891,6 +910,7 @@ def run_step(tmp_path, step, **extra):
         "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
         "HOME": str(tmp_path),
         "FAKE_NPX_LOG": str(tmp_path / "npx.log"),
+        "FAKE_CALLS_LOG": str(tmp_path / "calls.log"),
         "VERCEL_CLI": "vercel@64.5.0",
         "VERCEL_TOKEN": TOKEN,
         "GITHUB_SHA": SHA,
