@@ -26,6 +26,8 @@ from assignment.assignment import (
 )
 from assignment.utils import convert_keys_to_camel_case
 from datatypes import (
+    FULL_TABLE,
+    TABLE_CHOICES,
     Market,
     MarketPhase,
     SectionObject,
@@ -41,13 +43,6 @@ import assignment.made_from as MadeFrom
 from client_errors import BadRequestError, ConflictError, ForbiddenError
 import history as History
 from utils.email_address import normalized_email
-
-# The three seats a table holds. A table holds two, and a placement therefore always names a
-# side: "the vendor at Front Row 1" is not an address anyone can stand at.
-FULL_TABLE = "Full Table"
-HALF_TABLE_LEFT = "Half Table (Left)"
-HALF_TABLE_RIGHT = "Half Table (Right)"
-TABLE_CHOICES = (FULL_TABLE, HALF_TABLE_LEFT, HALF_TABLE_RIGHT)
 
 
 class PlacementError(BadRequestError):

@@ -4,7 +4,8 @@ from datatypes import (
     Market, SetupObject, MarketDateObject, TierObject, SectionObject,
     ALL_OTHERS, APPLICATION_TYPE_RULE_TARGET, BUILT_IN_TARGET_PREFIX, SUBMITTED_AT_RULE_TARGET,
     AssignmentObject, AssignmentStatistics, VendorAssignmentResult, PriorityDirection,
-    PriorityObject, LocationObject, table_code_for
+    PriorityObject, LocationObject, table_code_for,
+    FULL_TABLE, HALF_TABLE_LEFT, HALF_TABLE_RIGHT,
 )
 from essential_fields import (
     TABLE_CHOICE_EITHER,
@@ -71,9 +72,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # temporary constants
-FULL_TABLE_LABEL = "Full Table"
-HALF_TABLE_LEFT_LABEL = "Half Table (Left)"
-HALF_TABLE_RIGHT_LABEL = "Half Table (Right)"
 MAX_HALF_TABLES_PER_SECTION = 0.3
 
 class Vendor:
@@ -183,13 +181,13 @@ class Table:
             # Accept common variants like:
             # "half table left", "half table (left)", "half table - left"
             if "half table" in normalized and "left" in normalized:
-                return HALF_TABLE_LEFT_LABEL
+                return HALF_TABLE_LEFT
             if "half table" in normalized and "right" in normalized:
-                return HALF_TABLE_RIGHT_LABEL
+                return HALF_TABLE_RIGHT
             return ""
 
         if len(self.assignment) == 0:
-            return FULL_TABLE_LABEL
+            return FULL_TABLE
         if len(self.assignment) == 1:
             assigned_vendor = self.assignment[0]
             choice = ""
@@ -204,10 +202,10 @@ class Table:
                     choice = _extract_assignment_field(assigned_row, "table_choice")
 
             normalized_choice = _normalize_half_side_label(choice)
-            if normalized_choice == HALF_TABLE_LEFT_LABEL:
-                return HALF_TABLE_RIGHT_LABEL
-            if normalized_choice == HALF_TABLE_RIGHT_LABEL:
-                return HALF_TABLE_LEFT_LABEL
+            if normalized_choice == HALF_TABLE_LEFT:
+                return HALF_TABLE_RIGHT
+            if normalized_choice == HALF_TABLE_RIGHT:
+                return HALF_TABLE_LEFT
             return "Half Table"
         return "Unavailable"
 
@@ -293,7 +291,7 @@ class MarketAssignment:
             )
             # A whole table needs both seats; a half needs one. Checked rather than assumed,
             # because seating a full-table pin over a half-table occupant would evict them.
-            seats_needed = 2 if pin.table_choice == FULL_TABLE_LABEL else 1
+            seats_needed = 2 if pin.table_choice == FULL_TABLE else 1
             if vendor is None or table is None or table.availability() < seats_needed:
                 self.orphaned_pins.append(pin)
                 # The vendor keeps the date the pin claimed, seated nowhere. Placing them
@@ -305,7 +303,7 @@ class MarketAssignment:
                 continue
 
             vendor.assign(date_assignment.market_date, pin)
-            if pin.table_choice == FULL_TABLE_LABEL:
+            if pin.table_choice == FULL_TABLE:
                 table.assign([vendor, vendor])
             else:
                 table.assign(list(table.assignment) + [vendor])
@@ -699,8 +697,8 @@ class MarketAssignment:
         if table.assignment:
             vendor = vendor_list[0]
             free_side = table.available_table_choice()
-            if free_side not in (HALF_TABLE_LEFT_LABEL, HALF_TABLE_RIGHT_LABEL):
-                free_side = HALF_TABLE_RIGHT_LABEL
+            if free_side not in (HALF_TABLE_LEFT, HALF_TABLE_RIGHT):
+                free_side = HALF_TABLE_RIGHT
             vendor.assign(market_date, VendorAssignmentResult(
                 email=self.vendor_email(vendor),
                 date=market_date.date,
@@ -726,7 +724,7 @@ class MarketAssignment:
                 email=self.vendor_email(vendor_list[0]),
                 date=market_date.date,
                 table_code=table.table_code,
-                table_choice=FULL_TABLE_LABEL,
+                table_choice=FULL_TABLE,
                 section=table.section.name,
                 tier=table.tier_name,
                 location=table.location_name
@@ -735,7 +733,7 @@ class MarketAssignment:
         else:
             # half table assignment
             for i, vendor in enumerate(vendor_list):
-                table_choice = HALF_TABLE_LEFT_LABEL if i == 0 else HALF_TABLE_RIGHT_LABEL
+                table_choice = HALF_TABLE_LEFT if i == 0 else HALF_TABLE_RIGHT
                 assignment = VendorAssignmentResult(
                     email=self.vendor_email(vendor),
                     date=market_date.date,

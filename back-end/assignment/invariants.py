@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from datatypes import (
+    FULL_TABLE, HALF_TABLE_LEFT, HALF_TABLE_RIGHT,
     SectionObject, SetupObject, VendorAssignmentResult, table_code_for, table_code_sort_key,
 )
 from essential_fields import TABLE_CHOICE_FULL
@@ -66,10 +67,7 @@ RULES = (
     SEAT_TAKEN_TWICE,
 )
 
-# How a row is assigned, in the solver's own spelling, and the seats each way holds.
-FULL_TABLE = "Full Table"
-HALF_TABLE_LEFT = "Half Table (Left)"
-HALF_TABLE_RIGHT = "Half Table (Right)"
+# The seats each way a row may be assigned as holds.
 SEATS_HELD: Dict[str, Tuple[str, ...]] = {
     FULL_TABLE: ("left", "right"),
     HALF_TABLE_LEFT: ("left",),
