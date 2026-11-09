@@ -102,6 +102,7 @@ sources:
   - T161
   - T181
   - T224
+  - T253
 ---
 
 # An exception never reaches a client
@@ -166,6 +167,7 @@ Its own types are client errors too: `MarketNotFoundError` 404, `MarketArchivedE
   The card's `save` logs a refusal's words before raising it on, since the handler logs no `ClientError` and the access line does not say which it was; those words hold nothing sent.
 
 What stays a builtin is a bug if it escapes: the room with neither walls nor a size (the route refuses that first), `normalized_submitted_at`'s refusal (every caller catches it), and the applications API's verdict without a giver, its index error and its upsert that keeps losing a race.
+`BrokenAllocationError`, the solver's own check of an allocation it produced ([the assignment solver](../modules/assignment-solver.md#sharp-edges)), stays a `RuntimeError` and answers the generic 500 from the run and the preview; its message names application ids, never an address.
 
 ## The two handlers
 

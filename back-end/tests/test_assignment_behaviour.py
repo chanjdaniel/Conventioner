@@ -14,6 +14,7 @@ the commit message makes.
 import pytest
 
 from assignment.assignment import assign_market, describe_stored_assignment
+from assignment.invariants import PIN_NOT_KEPT, BrokenAllocationError
 from assignment.vendor_input import SolverVendor
 from datatypes import (
     AssignmentObject,
@@ -153,6 +154,29 @@ def dates_for(market, email):
     return sorted(p[1] for p in placements(market) if p[0] == email)
 
 
+SEATS_TAKEN = {
+    "Full Table": ("left", "right"),
+    "Half Table (Left)": ("left",),
+    "Half Table (Right)": ("right",),
+}
+
+
+def seats_held_twice(market):
+    """Every seat held by more than one vendor, as ``(date, table_code, seat, [emails])``.
+
+    A whole table holds both of its seats, so a "Full Table" beside a half is a seat held twice.
+    """
+    holders = {}
+    for p in market.assignment_object.vendor_assignments or []:
+        for seat in SEATS_TAKEN[p.table_choice]:
+            holders.setdefault((p.date, p.table_code, seat), []).append(p.email)
+    return sorted(
+        (date, code, seat, emails)
+        for (date, code, seat), emails in holders.items()
+        if len(emails) > 1
+    )
+
+
 class TestAVendorOnlyGetsWhatTheyAskedFor:
     def test_a_vendor_is_never_placed_on_a_date_they_are_unavailable(self):
         market = assign([
@@ -279,6 +303,43 @@ class TestHowATableIsOccupied:
         by_email = {p[0]: p[2] for p in placements(market) if p[1] == DATES[0]}
         assert by_email["asker@example.com"] == by_email["partner@example.com"]
 
+    def test_a_vendor_given_a_whole_table_holds_both_seats(self):
+        """A Half chooser nobody may share with is given the whole table, and sits there alone.
+
+        Ana comes first and finds nobody free to share with, since Ben is promised to Cal, so she
+        is given the one table whole. That table used to be recorded as holding one vendor, so its
+        "free" half went to Ben, beside a vendor holding the whole table, and Ben's pair with Cal
+        was split (T253). Ben and Cal are now left unassigned together.
+        """
+        wants = [
+            VendorWant("ana@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half"),
+            VendorWant("ben@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half", share_with="cal@example.com"),
+            VendorWant("cal@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half"),
+        ]
+        plan = {"section_counts": ((GOLD, 1),), "dates": [DATES[0]]}
+
+        market = assign(wants, **plan)
+
+        assert placements(market) == [
+            ("ana@example.com", DATES[0], f"Section {GOLD} 1", "Full Table", f"Section {GOLD}", GOLD),
+        ]
+        assert seats_held_twice(market) == []
+        statistics = market.assignment_object.assignment_statistics
+        assert sorted(statistics.unassigned_vendors) == ["ben@example.com", "cal@example.com"]
+
+        stored = market_for(wants, **plan)
+        stored.assignment_object = AssignmentObject(
+            vendor_assignments=list(market.assignment_object.vendor_assignments)
+        )
+        described = describe_stored_assignment(
+            stored, [want.as_solver_vendor() for want in wants]
+        )
+        assert placements(described) == placements(market)
+        assert described.assignment_object.assignment_statistics == statistics
+
     def test_no_table_holds_more_than_two_vendors(self):
         market = assign([
             VendorWant(f"v{i}@example.com", available=DATES, tiers=[GOLD, SILVER],
@@ -286,11 +347,8 @@ class TestHowATableIsOccupied:
             for i in range(8)
         ])
 
-        seats = {}
         assert placements(market)
-        for email, date, code, _, _, _ in placements(market):
-            seats.setdefault((date, code), []).append(email)
-        assert all(len(occupants) <= 2 for occupants in seats.values())
+        assert seats_held_twice(market) == []
 
 
 class TestATableShareRequest:
@@ -974,6 +1032,44 @@ class TestTheOrganizersCapOnAssignmentsPerVendor:
         )
 
         assert len(dates_for(market, "twelve@example.com")) == 6
+
+
+class TestFewestDatesSoFarGoFirst:
+    """The dates are shared out before anyone gets a second one, above the organizer's own rules.
+
+    The solver's first ordering key: a vendor with fewer dates so far is placed first, so the
+    organizer's rule decides who is placed first among vendors with the same number of dates, and
+    never gives one vendor every date while another has none.
+    """
+
+    def test_a_second_date_goes_to_whoever_has_none_yet(self):
+        from datatypes import PriorityObject
+
+        wants = [
+            VendorWant("returning@example.com", available=DATES, tiers=[GOLD]),
+            VendorWant("newcomer@example.com", available=DATES, tiers=[GOLD]),
+        ]
+        answers = {"returning@example.com": "yes", "newcomer@example.com": "no"}
+        market = market_for(wants, section_counts=((GOLD, 1),))
+        market.setup_object.priority = [
+            PriorityObject(id=1, target="returning_vendor", ordering=["yes", "no"]),
+        ]
+        vendors = []
+        for want in wants:
+            vendor = want.as_solver_vendor()
+            vendors.append(
+                type(vendor)(
+                    **{
+                        **vendor.__dict__,
+                        "custom_answers": {"returning_vendor": answers[want.email]},
+                    }
+                )
+            )
+
+        market = assign_market(market, vendors)
+
+        assert dates_for(market, "returning@example.com") == [DATES[0]]
+        assert dates_for(market, "newcomer@example.com") == [DATES[1]]
 
 
 class TestTheOrganizersPriorityRules:
@@ -1738,6 +1834,23 @@ class TestTheSolverWorksAroundPins:
             f"Section {GOLD} 1",
             "Full Table",
         )
+
+    def test_two_pins_for_one_vendor_on_one_date_refuse_the_run(self):
+        """The one contradiction among pins the run refuses (T253): a vendor holds one seat a
+        date, so the solver keeps one of the two pins and the check finds the other lost. No
+        placement write makes such a pair, since a second placement on a date moves the
+        vendor; before the check, the first pin vanished in silence."""
+        with pytest.raises(BrokenAllocationError) as refused:
+            assign(
+                [VendorWant("pinned@example.com", available=[DATES[0]], tiers=[GOLD])],
+                pins=[
+                    pin("pinned@example.com", DATES[0], f"Section {GOLD} 1"),
+                    pin("pinned@example.com", DATES[0], f"Section {GOLD} 2"),
+                ],
+                section_counts=((GOLD, 2),),
+            )
+
+        assert [breach.rule for breach in refused.value.breaches] == [PIN_NOT_KEPT]
 
 
 class TestASeatHeldByHand:
