@@ -9,7 +9,7 @@ describes:
   - back-end/tests/fixtures/component_library_fixture.py
   - back-end/tests/test_component_library_fixture.py
   - front-end/e2e/helpers/componentLibrary.ts
-verified: 2026-11-08
+verified: 2026-11-09
 sources:
   - T200
   - T191
@@ -19,6 +19,7 @@ sources:
   - T223
   - T217
   - T224
+  - T254
 ---
 
 # The component library

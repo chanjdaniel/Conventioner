@@ -444,8 +444,8 @@ def healthz() -> Response:
     """Whether this deployment can serve a request, and which commit it was deployed from.
 
     Booting already proves the configuration and the migration markers (both refuse at import),
-    so the one thing left that can fail after a good deploy is the database. The post-deploy smoke
-    test and the uptime check read this; it says nothing about any market, so it needs no login.
+    so the one thing left that can fail after a good deploy is the database. The Deploy workflow
+    and the uptime check read this; it says nothing about any market, so it needs no login.
 
     `commit` is the deployment's `BUILD_COMMIT`, which the Deploy workflow sets on each deployment
     and compares with the commit it released, so a domain still on an older build cannot pass for

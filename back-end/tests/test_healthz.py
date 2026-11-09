@@ -1,4 +1,4 @@
-"""The health check the Deploy workflow, the post-deploy smoke test and the uptime check read."""
+"""The health check the Deploy workflow and the uptime check read."""
 
 import pytest
 

@@ -121,17 +121,21 @@ Every check the Deploy workflow makes after it builds lives in [`scripts/deploy_
 5. **"Promote the front end"** and **"conventioner.io serves this commit"** do the same for the front end, whose checks are the deep link and the five headers.
 
 Neither project is promoted until both builds have proven themselves, so a broken front-end build leaves production as it was; and the front end is promoted only once `api.conventioner.io` serves the new commit, so the back end is never older than the front end.
-A failed run's summary, "Say what production serves", says whether nothing, only the back end, or both were promoted.
+A failed run's summary, "Say what production serves", says what each domain serves now, claiming only what the run proved: nothing promoted, only the back end, or both; a promote step that failed says its domain may serve this commit or the build before it, since Vercel can take a promotion and the CLI still fail once its wait times out.
+It ends with the two `curl` commands that settle what each domain serves.
 
 ### When a deploy refuses or times out
 
 The failed step's log says why, in one `::error::` line; the run's summary says what production serves now.
 
 - **"Test passed on main at this commit"**: Test is still running (wait and run Deploy again), failed (fix it on `dev` and promote again), or never ran on that commit (deploy only a commit on `main`). Nothing was built.
+- **"Stage the back end" or "Stage the front end" fails**: the Vercel build failed, or `VERCEL_TOKEN` expired; read the step's log, then the deployment's build log in Vercel. Nothing was promoted.
 - **A staged build reports another commit, or `null`**: the build did not get `BUILD_COMMIT`; read the stage step's log. Nothing was promoted.
 - **A staged back end never serves**: it refused to boot or its database did not answer; read the deployment's log in Vercel, as for [a back end that refuses to boot](OPERATIONS.md#when-the-back-end-refuses-to-boot). Nothing was promoted.
 - **A staged address answers 401 or 403**: the Protection Bypass for Automation did not apply; check it in the project's Settings, Deployment Protection, and run again. Nothing was promoted.
+- **"Promote the back end" or "Promote the front end" fails**: the promotion may or may not have taken. Look with `curl https://api.conventioner.io/healthz` and `curl https://conventioner.io/version.json`, then run Deploy again, or `vercel promote` the staged deployment the run printed by hand.
 - **A domain times out still on the old commit**: run `vercel inspect <domain>` to see which deployment it points at, `vercel promote` the staged deployment the run printed, and look again with `curl` (below).
+  When it was `api.conventioner.io`'s wait, the front end was never promoted: once the back end serves the commit, run Deploy again, or `vercel promote` the staged front end and look at `conventioner.io` the same way.
 - **A check fails after promotion** (a header, or the deep link): the build is live without it; [roll back](#rolling-back) each promoted project, then fix it on `dev`.
 
 ### After every deploy
