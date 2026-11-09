@@ -18,6 +18,7 @@ from assignment.vendor_input import (
     held_solver_vendors,
 )
 import table_share as TableShare
+from assignment.invariants import require_sound_allocation
 
 
 # Deliberately not including "1" and "0": those are numbers, and a numeric target whose answer
@@ -1072,6 +1073,12 @@ def assign_market(
     vendor_assignments.extend(
         orphan for orphan in market_assignment.orphaned_pins
         if orphan not in vendor_assignments
+    )
+
+    # Checked before it replaces anything: an allocation that breaks one of the solver's own
+    # rules is a solver defect, and it must never reach the store, the door or the vendors (T253).
+    require_sound_allocation(
+        market.setup_object, vendors, pinned, market_assignment.orphaned_pins, vendor_assignments
     )
 
     # Create assignment object with results

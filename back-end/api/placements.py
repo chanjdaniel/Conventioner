@@ -316,6 +316,8 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
     # Read before the run, which replaces the market's assignment with the one it produced.
     read_revision = market.assignment_object.revision
     market.assignment_object.assignment_statistics = None
+    # Raises ``BrokenAllocationError`` on an allocation that breaks the solver's own rules (T253),
+    # so nothing below it runs then: no store, no history entry, no payment change.
     assigned_market = assign_market(market, vendors)
     assignment = assigned_market.assignment_object
 

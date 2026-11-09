@@ -42,6 +42,7 @@ sources:
   - E38/F15/S04
   - T221
   - T224
+  - T253
 ---
 
 # The assignment and its result
@@ -98,6 +99,7 @@ Covered by:
 **Status:** Works (re-walked live on 2026-10-03, with and without tiers; bug 23).
 "Allocate tables" lands on Assignments.
 Dates fill one at a time, in the order the plan holds them, so later days can end up nearly empty; that is known behaviour, kept as it is (bug 39, [dates fill one at a time, in the plan's order](../rules/dates-fill-in-calendar-order.md)).
+An allocation that would break a vendor's answers or seat two vendors at one seat is never kept: the run is refused with the generic failure line, "Something went wrong on our side. Try again in a moment.", and the stored assignments stay as they were ([what a correct assignment is](../rules/what-a-correct-assignment-is.md#where-it-is-kept)).
 Covered by:
 - `market-pipeline.spec.ts`
 - `the-result-page.spec.ts`

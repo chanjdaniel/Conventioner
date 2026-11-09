@@ -5,6 +5,7 @@ describes:
   - back-end/assignment/assignment.py
   - back-end/assignment/vendor_input.py
   - back-end/assignment/csv_output.py
+  - back-end/assignment/invariants.py
 verified: 2026-11-09
 sources:
   - wayfinding/v0-1-0/map
@@ -31,11 +32,15 @@ Storing a run, and every hand edit to one, is [placements](placements.md); what 
 ## Its interface
 
 - `assign_market(market, vendors=None, held=None)`: runs the solver over the market's own approved applications and returns the market with its `assignmentObject` filled; it stores nothing.
+  It refuses an allocation that breaks one of the solver's rules: it raises `BrokenAllocationError` before it replaces the market's assignment ([every table allocation is checked](#sharp-edges), below).
   A caller may pass the vendors in (the behavioural suite does, to describe a scenario with no database), but no caller has to fetch anything first.
 - `solver_vendors_for(market)`: the vendors the approved applications describe, or `IncompleteApplicationsError` naming every applicant whose answers are missing ([an incomplete application refuses the run](../../business/rules/an-incomplete-application-refuses-the-run.md)).
 - `vendors_to_show(market)`: the same vendors for a read of the stored assignment, each approved application read as it stands, so a missing answer refuses nothing (`approved_solver_vendors(..., lenient=True)`).
 - `describe_stored_assignment(market, vendors=None)`: seats the stored rows and derives statistics without running `assign()`, over `vendors_to_show` when no vendors are passed; every read-only view goes through it ([placements](placements.md#what-a-read-shows)).
 - `SolverVendor` (`vendor_input.py`): one vendor as the solver sees them, a frozen dataclass of what they asked for; `Vendor` (`assignment.py`) wraps it with one run's working state.
+- `allocation_breaches(setup, vendors, pins, orphaned_pins, assignments)` ([`invariants.py`](../../../back-end/assignment/invariants.py)): every way an allocation breaks one of the solver's rules, as `Breach`es (the rule, the date, the table code and the application ids), ordered by rule, date, table and ids; empty when it is sound.
+  It is pure: it reads the plan, the vendors and the rows it is given, and imports no database, no Flask and nothing from `api/`.
+- `require_sound_allocation(...)`, with the same arguments: raises `BrokenAllocationError` (a `RuntimeError`) holding the breaches when there are any.
 
 ## Sharp edges
 
@@ -68,6 +73,31 @@ Who fills the other half of a table is `get_valid_vendors`: a whole-table vendor
 A vendor nobody may share with holds the whole table, both seats, as a Full chooser does, so nobody is put on its other half (`assign_table`).
 A vendor stops being offered dates at the lower of the market's ceiling and their own answer ([the ceiling on dates per vendor](../../business/rules/max-assignments-ceiling.md)).
 
+**Every table allocation is checked before it is returned.**
+`assign_market` calls `require_sound_allocation` with the run's plan, vendors, the pins it started from and the pins it orphaned, so an allocation that breaks a rule is never stored, never shown and never published (T253).
+A solver row is one the run made; a pin is a row with `hand_placed` true.
+The rules, in the order the breaches are reported:
+
+1. "a pin was not kept": every pin the run started from is among the rows, unchanged.
+2. "a hand-placed row nobody placed": every row marked hand-placed is one of those pins.
+3. "an assignment for someone outside the run": every solver row is for a run vendor; a held vendor holds pins only, and such a row is judged no further.
+4. "a date the market does not run": every solver row's date is one of the plan's.
+5. "a table the plan does not have": every solver row's table code is one the plan's sections make.
+6. "an assignment that misdescribes its table": a solver row's section, tier and location are the plan's for its table, `""` where the section has none.
+7. "a seat the table does not have": a solver row is assigned as "Full Table", "Half Table (Left)" or "Half Table (Right)".
+8. "a day they cannot come": a solver row's date is one the vendor can attend.
+9. "a tier they did not choose that day": the vendor accepts the table's tier on that date.
+10. "a half for a vendor who asked for a whole table": a Full chooser's solver rows are all "Full Table".
+11. "two assignments for one vendor on one day": no vendor holds two rows on one date where one is a solver row.
+12. "more days than their limit": a vendor with a solver row holds no more of the plan's dates, pins and orphaned pins counted as the solver counts them, than the lower of the market's ceiling and their own answer.
+13. "a seat taken twice": "Full Table" holds both seats and a half one, and no seat is held twice where one holder is a solver row, an orphaned pin holding no seat.
+
+It does not judge the organizer's own decisions: pins among themselves, or a pin against its vendor's answers, since the placement write refuses a pin on a taken seat and [a pin that overrides an answer stands, and is marked](placements.md#pins).
+An orphaned pin holds no seat, so the solver may give that seat to someone else, as it always has.
+Nor does it judge the soft rules (pairs together, the half-table share, the priority order, section ranking), which the greedy solver keeps where it can; the behaviour suite's cases pin them.
+A breaking allocation is a solver defect, so the error is a builtin that escapes as the generic 500 ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md#the-types)); its message names each breach by rule, table, date and application ids, the first 10 then "and N more", and never an address, a row for someone outside the run reading "outside the run".
+Every test that runs the real solver is held to the same check, since it runs inside `assign_market`, and [`tests/test_assignment_invariants.py`](../../../back-end/tests/test_assignment_invariants.py) tests each rule on hand-built rows.
+
 **A placement is dated by the market date itself**, the string on `MarketDateObject.date`, and the solver keys its per-date state by that same string.
 It used to be dated by the spreadsheet column heading, which is why check-in, the table rows and the statistics each built a map from headings back to dates; those maps are gone, and none is to be reintroduced.
 `SolverVendor.available_dates` holds the plan's own spelling of each date for the same reason: parsing it would make a second representation of one identity.
@@ -89,6 +119,7 @@ It used to be dated by the spreadsheet column heading, which is why check-in, th
 - [The ceiling on dates per vendor](../../business/rules/max-assignments-ceiling.md).
 - [An incomplete application refuses the run](../../business/rules/an-incomplete-application-refuses-the-run.md), and [what an import may leave unasked](../../business/rules/what-an-import-may-leave-unasked.md).
 - [Dates fill one at a time, in the plan's order](../../business/rules/dates-fill-in-calendar-order.md).
+- [What a correct assignment is](../../business/rules/what-a-correct-assignment-is.md): a run breaking its second criterion, or seating two vendors at one seat, is refused by the check.
 
 The organizer sets the rules and runs it in [the assignment and its result](../../business/flows/assignment-and-result.md).
 

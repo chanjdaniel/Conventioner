@@ -1,10 +1,11 @@
 ---
 layer: business
 kind: rule
-verified: 2026-10-22
+verified: 2026-11-09
 sources:
   - wayfinding/november-2026-dry-run/07
   - wayfinding/november-2026-dry-run/map
+  - T253
 ---
 
 # What a correct assignment is
@@ -33,6 +34,7 @@ Each criterion is pinned where its rule is:
 - 3: [why a vendor was not placed](why-a-vendor-was-not-placed.md); `back-end/tests/test_placement_reasons.py`.
 - 4: [table-share pairing](table-share-pairing.md) and [the half-table share](half-table-share.md), which never splits a pair.
 - 5: [priority and tie-breaks](priority-and-tie-breaks.md).
+- 2, and one holder per seat, are also checked on every run before the allocation is kept, so a result breaking them is refused ([the assignment solver](../../implementation/modules/assignment-solver.md#sharp-edges)).
 
 The solver's side of 2, 4 and 5 is [the assignment behaviour suite](../../implementation/testing/assignment-behaviour-suite.md), whose cases state each in a vendor's terms; a change to placement that would break one of the five changes a case there first.
 
