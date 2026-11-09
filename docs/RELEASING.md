@@ -7,9 +7,10 @@ describes:
   - release-please-config.json
   - back-end/app.py#check_public_endpoint_defenses
   - front-end/vite.config.ts#assertCaptchaSiteKey
-verified: 2026-10-28
+verified: 2026-11-09
 sources:
   - T74
+  - T251
 ---
 
 # Release Process
@@ -182,7 +183,7 @@ It must never be set on a deployed environment.
 
 `TRUSTED_PROXY_HOPS` decides which address the back end takes for the caller's, and two things read that address.
 Organizer signup passes it to reCAPTCHA as the `remoteip` hint, which only started mattering when `RECAPTCHA_SECRET_KEY` became a boot requirement: before, a deployment without a secret took the dev-bypass path and no token ever reached Google.
-The applicant sign-in rate limits (`back-end/sign_in_limits.py`) count each caller by it, so a wrong hop count would put every applicant behind one caller's limit.
+The applicant's and the organizer's sign-in rate limits (`back-end/sign_in_limits.py`) count each caller by it, so a wrong hop count would put every applicant, and every organizer, behind one caller's limit.
 
 ### The front end has one requirement too, and it is the other half of the reCAPTCHA pair
 

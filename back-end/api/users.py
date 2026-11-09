@@ -1,7 +1,8 @@
 import secrets
 import time
 import uuid
-from typing import Dict, Iterable, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, Iterable, Optional, Tuple
 from flask import current_app, request, jsonify, session
 from flask_login import UserMixin
 from flask_login.config import COOKIE_NAME
@@ -17,6 +18,7 @@ from datetime import datetime, timedelta, timezone
 from pymongo.errors import DuplicateKeyError, PyMongoError
 from utils.email_address import normalized_email
 from utils.request_body import flag_field, string_field
+import sign_in_limits
 
 db = get_database()
 users_collection = db["users"]
@@ -99,14 +101,32 @@ SIGN_IN_VERIFY_FIRST = "Verify your email address first: we sent you a link when
 #: with no account has no count, which the sign-in limits will keep for every address alike.
 SIGN_IN_WRONG_CODE = "That code is not right."
 
+#: What a sign-in past its limit says (``sign_in_limits``), ``{wait}`` being the time left of the
+#: limit's window; the password form puts "Forgot password?" beside it.
+SIGN_IN_TOO_MANY = "Too many sign-in attempts. Try again in {wait}, or reset your password."
+
+#: The most of a password bcrypt reads, in UTF-8 bytes: bcrypt 5 refuses to hash or check a longer
+#: one, so it is refused at sign-up and answers a sign-in as a password that does not match.
+PASSWORD_MAX_BYTES = 72
+
 #: What a password for an address with no account is checked against, made once at the app's cost
 #: factor, so that a sign-in takes as long with an account as without one.
 _no_account_hash: Optional[str] = None
 
 
+def _longer_than_bcrypt_reads(password: str) -> bool:
+    return len(password.encode("utf-8")) > PASSWORD_MAX_BYTES
+
+
 def _password_matches(bcrypt, user_doc, password: str) -> bool:
-    """Whether the password is the account's, checked whether or not there is an account."""
+    """Whether the password is the account's, checked whether or not there is an account.
+
+    A password longer than bcrypt reads matches no account, and is checked against nothing: no
+    stored hash was made from one.
+    """
     global _no_account_hash
+    if _longer_than_bcrypt_reads(password):
+        return False
     if user_doc:
         return bcrypt.check_password_hash(user_doc["password"], password)
     if _no_account_hash is None:
@@ -118,6 +138,51 @@ def _password_matches(bcrypt, user_doc, password: str) -> bool:
 def _now() -> float:
     """The server's clock, in seconds since the epoch."""
     return time.time()
+
+
+@dataclass(frozen=True)
+class _Bounds:
+    """How one sign-in route is bounded (``sign_in_limits``): a limit per caller and per address,
+    and the sentence its refusal says under the key the route's other answers use.
+
+    Every bounded route keeps one order: the caller is counted before the body is read, and the
+    normalized address before any account is looked up, so a refusal is the same for every address
+    and never depends on whether a password or a code was right. A route whose try signed in takes
+    both counts back with the ``now`` it counted them with.
+    """
+
+    per_caller: sign_in_limits.SignInLimit
+    per_address: sign_in_limits.SignInLimit
+    sentence: str
+    key: str
+
+    def caller_refusal(self, now: datetime) -> Optional[Tuple[Any, int]]:
+        """The 429 when this caller is past its limit, else None; counts the try either way."""
+        return self._refusal(self.per_caller, sign_in_limits.caller(), now)
+
+    def address_refusal(self, email: str, now: datetime) -> Optional[Tuple[Any, int]]:
+        """The 429 when this address is past its limit, else None; counts the try either way."""
+        return self._refusal(self.per_address, email, now)
+
+    def take_back(self, email: str, now: datetime) -> None:
+        """Take back a try that signed in, from the caller's count and the address's."""
+        sign_in_limits.take_back_attempt(self.per_caller, sign_in_limits.caller(), now)
+        sign_in_limits.take_back_attempt(self.per_address, email, now)
+
+    def _refusal(self, limit, subject: str, now: datetime):
+        retry_after = sign_in_limits.count_attempt(limit, subject, now)
+        return sign_in_limits.too_many(retry_after, self.sentence, key=self.key)
+
+
+_PASSWORD_SIGN_IN = _Bounds(
+    sign_in_limits.PASSWORD_PER_CALLER, sign_in_limits.PASSWORD_PER_ADDRESS,
+    SIGN_IN_TOO_MANY, "message",
+)
+
+
+def _limit_clock() -> datetime:
+    """The moment a bounded request is counted at, which its take-back is counted at too."""
+    return datetime.fromtimestamp(_now(), tz=timezone.utc)
 
 
 def _sign_in_id(login_id: str, remembered: bool, signed_in_at: float) -> str:
@@ -290,6 +355,16 @@ def register_user(bcrypt, request):
         return jsonify({"msg": "Failed to register user"}), 500
 
 def login(bcrypt, login_user, request):
+    """The password sign-in, bounded per caller and per address (``_Bounds``).
+
+    A right password takes its try back, whether it signs in or answers that the address needs
+    verifying first, so only wrong passwords pile up.
+    """
+    now = _limit_clock()
+    refused = _PASSWORD_SIGN_IN.caller_refusal(now)
+    if refused:
+        return refused
+
     data = request.json
     email = normalized_email(string_field(data, "email"))
     password = string_field(data, "password")
@@ -297,10 +372,13 @@ def login(bcrypt, login_user, request):
     if not email or not password:
         return jsonify({"message": "Email and password required"}), 400
 
-    # Find user in MongoDB
+    refused = _PASSWORD_SIGN_IN.address_refusal(email, now)
+    if refused:
+        return refused
+
     user_doc = users_collection.find_one({"email": email})
     if _password_matches(bcrypt, user_doc, password):
-        # Check if email is verified
+        _PASSWORD_SIGN_IN.take_back(email, now)
         if not user_doc.get("email_verified", False):
             return jsonify({"message": SIGN_IN_VERIFY_FIRST}), 403
 

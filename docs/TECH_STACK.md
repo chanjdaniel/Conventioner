@@ -10,6 +10,8 @@ describes:
   - docker-compose.yml
   - front-end/vite.config.ts
 verified: 2026-11-09
+sources:
+  - T251
 ---
 # Technology Stack
 
@@ -254,6 +256,8 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
    - Email and password authentication
    - Requires email verification
    - Session-based authentication
+   - Rate limited: ten tries per address and fifty per caller in 15 minutes, a try that signs in taken back (429 with the wait)
+   - A password longer than 72 bytes, which bcrypt does not read, does not match
 
 2. **Passwordless Login (OTP)**
    - User requests OTP via email
@@ -275,7 +279,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 - **Password Hashing**: Bcrypt with secure salt generation
 - **Email Verification**: Required before account activation
 - **CAPTCHA Protection**: reCAPTCHA v3 on registration
-- **Rate Limiting**: OTP and password reset requests
+- **Rate Limiting**: the password sign-in, counted per address and per caller in the database (`back-end/sign_in_limits.py`), a try that signs in taken back; OTP and password reset requests, each waiting on the last
 - **Token Expiration**: Time-limited tokens for verification and reset
 - **Secure Sessions**: HTTP-only, `Secure`, `SameSite=None` cookies, signed with a `SECRET_KEY` that has no fallback
 - **CORS Protection**: An explicit origin allowlist (`CORS_ALLOWED_ORIGINS`); `*` is refused, because the session cookie is credentialed

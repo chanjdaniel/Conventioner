@@ -1,10 +1,11 @@
 """Single owner of the ``sign_in_attempts`` collection: how often a caller may ask to sign in.
 
-The applicant sign-in endpoints are public. Each code request sends an email, so a caller left
-unbounded could use this product to flood any address with mail, spending the sender's money and
-reputation; each verify attempt is a guess at a six-digit code. Every limit here is counted per
-address and per caller, small enough to stop that and far above what a vendor who mistypes or asks
-again ever reaches.
+Every sign-in endpoint is public: the applicant's code sign-in, the organizer's password sign-in,
+and the vendor's check-in at the door. A request that sends an email, left unbounded, could flood
+any address with mail, spending the sender's money and reputation; a sign-in try is a guess at a
+password or a code. Every limit here is counted per address and per caller, small enough to stop
+that and far above what a vendor or an organizer who mistypes or asks again ever reaches. Where a
+try that signs in is taken back (``take_back_attempt``), only wrong tries pile up.
 
 **The counters live in the database, never in a process.** A serverless deployment runs many
 processes and freezes or discards each at will, so a counter held in memory bounds nothing. Each
@@ -16,10 +17,11 @@ again.
 **A counter names nobody.** Its key is a hash of the limit, the subject and the window: the
 collection holds how many times someone knocked in the last quarter of an hour, not who.
 
-**A limit is the same for every address**, applicant or not, and the caller is counted before the
-market is looked up, so a refusal says nothing about who has applied or which markets exist (the
-applicant login ruling, ``api/applicant_auth.py``). It is also not the attempt counter that ruling
-forbids: that one existed only for addresses that had applied, and so answered whether they had.
+**A limit is the same for every address**, with an account or an application or neither, and it
+is counted before the account or the market is looked up, so a refusal says nothing about who has
+an account, who has applied or which markets exist (the applicant login ruling,
+``api/applicant_auth.py``). It is also not the attempt counter that ruling forbids: that one
+existed only for addresses that had applied, and so answered whether they had.
 """
 import hashlib
 import math
@@ -27,7 +29,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional, Tuple
 
-from flask import jsonify
+from flask import jsonify, request
 from pymongo import ReturnDocument
 
 from db_config import get_database
@@ -65,6 +67,13 @@ RESUME_PER_CALLER = SignInLimit("resume:caller", attempts=300, window=timedelta(
 # every vendor in.
 CHECK_IN_PER_ADDRESS = SignInLimit("check-in:address", attempts=10, window=timedelta(minutes=15))
 CHECK_IN_PER_CALLER = SignInLimit("check-in:caller", attempts=60, window=timedelta(minutes=15))
+# An organizer's password sign-in (``api/users.py``, ``/login``): every try is counted before the
+# account is looked up, and a try that signs in, or proves the password of an account not yet
+# verified, is taken back, so an organizer who signs in all day is never held back and only wrong
+# passwords pile up. Organizers on a venue's shared address share the caller's count, so it is
+# far above what a few of them mistyping reach.
+PASSWORD_PER_ADDRESS = SignInLimit("password:address", attempts=10, window=timedelta(minutes=15))
+PASSWORD_PER_CALLER = SignInLimit("password:caller", attempts=50, window=timedelta(minutes=15))
 
 LIMITS = (
     REQUEST_CODE_PER_ADDRESS,
@@ -74,7 +83,15 @@ LIMITS = (
     RESUME_PER_CALLER,
     CHECK_IN_PER_ADDRESS,
     CHECK_IN_PER_CALLER,
+    PASSWORD_PER_ADDRESS,
+    PASSWORD_PER_CALLER,
 )
+
+
+def caller() -> str:
+    """Who is asking: the address the request came from, as ``ProxyFix`` settled it by
+    ``TRUSTED_PROXY_HOPS``. Every per-caller limit names its caller this one way."""
+    return request.remote_addr or "unknown"
 
 
 def ensure_expiry_index() -> None:
@@ -133,20 +150,34 @@ def count_attempt(limit: SignInLimit, subject: str, now: Optional[datetime] = No
     return max(1, math.ceil((window_ends - now).total_seconds()))
 
 
+def take_back_attempt(limit: SignInLimit, subject: str, now: datetime) -> None:
+    """Take back one attempt ``count_attempt`` counted, for a try that signed in.
+
+    ``now`` is the one the attempt was counted with, so the try leaves the window it was counted
+    in. The count never goes below zero, and a counter already removed is left removed.
+    """
+    key, _ = _window(limit, subject, now)
+    attempts_collection.update_one({"_id": key, COUNT_FIELD: {"$gt": 0}}, {"$inc": {COUNT_FIELD: -1}})
+
+
+def wait_in_words(seconds: int) -> str:
+    """A wait as a person reads it: whole minutes, rounded up."""
+    minutes = math.ceil(seconds / 60)
+    return "1 minute" if minutes == 1 else f"{minutes} minutes"
+
+
 def too_many(
-    retry_after: Optional[int], attempts_of: str, key: str = "message",
+    retry_after: Optional[int], sentence: str, key: str = "message",
 ) -> Optional[Tuple[Any, int]]:
     """The 429 for a limit ``count_attempt`` refused, or None when it did not refuse.
 
-    It says plainly how long to wait, in whole minutes rounded up, under ``key``, the one each
-    caller's screen reads its refusals from (the sign-in reads ``message``, the check-in ``error``),
-    with the seconds in ``Retry-After``. One refusal for every limit, so the sign-in's and the
-    check-in's never drift apart.
+    ``sentence`` says plainly how long to wait, with ``{wait}`` where the wait goes
+    (``wait_in_words``), under ``key``, the one each caller's screen reads its refusals from (the
+    sign-in reads ``message``, the check-in ``error``), with the seconds in ``Retry-After``. One
+    refusal for every limit, so the sign-ins' and the check-in's never drift apart.
     """
     if retry_after is None:
         return None
-    minutes = math.ceil(retry_after / 60)
-    wait = "1 minute" if minutes == 1 else f"{minutes} minutes"
-    response = jsonify({key: f"Too many {attempts_of} attempts. Please try again in {wait}."})
+    response = jsonify({key: sentence.format(wait=wait_in_words(retry_after))})
     response.headers["Retry-After"] = str(retry_after)
     return response, 429

@@ -622,7 +622,8 @@ def market_records(monkeypatch):
     return fakes
 
 class FakeAttemptsCollection:
-    """The ``sign_in_attempts`` collection: an ``$inc`` upsert by ``_id``, and its index."""
+    """The ``sign_in_attempts`` collection: an ``$inc`` upsert by ``_id``, a conditional ``$inc``,
+    and its index."""
 
     def __init__(self):
         self.docs = {}
@@ -648,10 +649,18 @@ class FakeAttemptsCollection:
             doc[field] = doc.get(field, 0) + amount
         return dict(doc)
 
+    def update_one(self, query, update):
+        doc = self.docs.get(query["_id"])
+        if doc is None or not mongo_matches(doc, query):
+            return SimpleNamespace(matched_count=0, modified_count=0)
+        for field, amount in update.get("$inc", {}).items():
+            doc[field] = doc.get(field, 0) + amount
+        return SimpleNamespace(matched_count=1, modified_count=1)
+
 
 @pytest.fixture(autouse=True)
 def sign_in_attempts(monkeypatch):
-    """The applicant sign-in rate limit counters, fresh for every test (T12)."""
+    """Every sign-in's rate limit counters, fresh for every test (T12)."""
     if STUBBED_MODULES:
         return None
     import sign_in_limits

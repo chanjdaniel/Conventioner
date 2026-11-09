@@ -163,7 +163,7 @@ const submitLogin = async () => {
     }
   } catch (err: unknown) {
     loginNotice.value = noticeOf(
-      refusedSignIn(err, 'That email and password do not match.', { mismatchOffersReset: true }),
+      refusedSignIn(err, 'That email and password do not match.', { offersReset: true }),
       address,
     );
   }

@@ -3,7 +3,7 @@
  * The sign-in screen's messages say what happened and what to do next (E38/F14/S02), one at a time
  * on each form, the newer replacing the older:
  *
- * - a refused password offers "Forgot password?" in the message;
+ * - a refused password offers "Forgot password?" in the message, and so do too many tries;
  * - an address that needs verifying offers "Send the link again", which asks for the link for the
  *   address that was refused and then says so, whatever the server answered of the address;
  * - a wrong code replaces the "code sent" line, so a red line never sits under a green one.
@@ -28,6 +28,7 @@ const VERIFY_FIRST = 'Verify your email address first: we sent you a link when y
 const RESENT = 'If that address needs verifying, a new link is on its way.';
 const CODE_SENT = 'If an account exists for that address, a sign-in code has been sent to it.';
 const WRONG_CODE = 'That code is not right.';
+const TOO_MANY = 'Too many sign-in attempts. Try again in 15 minutes, or reset your password.';
 
 const Page = { template: '<div />' };
 
@@ -113,6 +114,21 @@ describe('a refused password', () => {
     const forgot = message.find('[data-testid="login-error-forgot-password-link"]');
     expect(forgot.text()).toBe('Forgot password?');
     expect(forgot.attributes('href')).toBe('/reset-password-request');
+  });
+
+  it('says to wait after too many tries, with "Forgot password?" in the message', async () => {
+    post.mockRejectedValueOnce(refused(429, { message: TOO_MANY }));
+    const wrapper = await atLogin();
+
+    await signInByPassword(wrapper);
+
+    const message = byTestId(wrapper, 'login-error-message');
+    expect(shown(wrapper, 'login-error-message')).toBe(true);
+    expect(message.text()).toContain(TOO_MANY);
+    const forgot = message.find('[data-testid="login-error-forgot-password-link"]');
+    expect(forgot.text()).toBe('Forgot password?');
+    expect(forgot.attributes('href')).toBe('/reset-password-request');
+    expect(byTestId(wrapper, 'login-resend-verification-button').exists()).toBe(false);
   });
 
   it('says the server is unreachable when no answer came, offering nothing', async () => {
@@ -245,6 +261,19 @@ describe('the code sign-in', () => {
     expect(shown(wrapper, 'login-otp-error-message')).toBe(true);
     expect(byTestId(wrapper, 'login-otp-error-message').text()).toBe(WRONG_CODE);
     expect(shown(wrapper, 'login-otp-success-message')).toBe(false);
+    expect(byTestId(wrapper, 'login-otp-resend-verification-button').exists()).toBe(false);
+  });
+
+  it('says to wait after too many tries, offering nothing beside it', async () => {
+    post.mockResolvedValueOnce({ status: 200, data: { msg: CODE_SENT } });
+    const wrapper = await atLogin();
+    await askForACode(wrapper);
+
+    post.mockRejectedValueOnce(refused(429, { msg: TOO_MANY }));
+    await sendACode(wrapper, '000000');
+
+    expect(byTestId(wrapper, 'login-otp-error-message').text()).toBe(TOO_MANY);
+    expect(byTestId(wrapper, 'login-otp-error-forgot-password-link').exists()).toBe(false);
     expect(byTestId(wrapper, 'login-otp-resend-verification-button').exists()).toBe(false);
   });
 

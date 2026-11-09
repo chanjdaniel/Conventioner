@@ -8,6 +8,9 @@ describes:
   - back-end/api/users.py#AuthUser
   - back-end/api/users.py#register_user
   - back-end/api/users.py#register_user_with_captcha
+  - back-end/api/users.py#login
+  - back-end/api/users.py#_Bounds
+  - back-end/api/users.py#_password_matches
   - back-end/api/users.py#get_user_by_login_id
   - back-end/api/users.py#signed_in_account
   - back-end/api/users.py#get_users_by_ids
@@ -16,7 +19,8 @@ describes:
   - back-end/app.py#verify_user_indexes
   - back-end/migrations/migrate_user_emails.py
   - back-end/tests/test_the_remember_cookie.py
-verified: 2026-11-03
+  - back-end/tests/test_the_organizer_sign_in_is_bounded.py
+verified: 2026-11-09
 sources:
   - E32/F03/S04
   - T85
@@ -25,6 +29,8 @@ sources:
   - E38/F14/S02
   - T176
   - T204
+  - T251
+  - E47/F02/S01
 ---
 
 # Users, and the one spelling of an address
@@ -67,9 +73,35 @@ A route test that signs in by writing the session with an address points the use
 
 **A refused sign-in says what to do next, in three named sentences in `users.py`** (E38/F14/S02, [the sign-in's messages](../../business/flows/accounts.md#a2-sign-in-and-sign-out)).
 `SIGN_IN_DOES_NOT_MATCH` answers a wrong password and an address with no account alike, the same status and body, and the password is checked either way: against one stand-in hash, made once at the app's cost factor, when the address has no account (`_password_matches`).
+A password longer than bcrypt reads answers it too, checked against nothing ([the sign-in is bounded](#the-sign-in-is-bounded)).
 `SIGN_IN_VERIFY_FIRST` answers a right password, a right code or a code asked for on an account not yet verified.
 `SIGN_IN_WRONG_CODE` answers a wrong code and a code for an address with no account alike for each of the first four tries; an account's fifth wrong code discards its code and answers 429 "Too many wrong codes. Ask for a new one.", which an address with no account, having no count, never answers, until the sign-in limits count every address alike (E47/F02/S01).
 [`back-end/tests/test_the_sign_in_answers.py`](../../../back-end/tests/test_the_sign_in_answers.py) holds each, and that none says "log in".
+
+## The sign-in is bounded
+
+**The organizer's password sign-in is counted as the applicant's is**, in the one list of limits, `LIMITS` in [`back-end/sign_in_limits.py`](../../../back-end/sign_in_limits.py): per address and per caller, in fixed 15-minute windows, in `sign_in_attempts`, whose counters name nobody ([sign-in is bounded](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)).
+
+| Limit | Name | Tries in 15 minutes |
+| --- | --- | --- |
+| `PASSWORD_PER_ADDRESS` | `password:address` | 10 for one address |
+| `PASSWORD_PER_CALLER` | `password:caller` | 50 from one caller |
+
+**Every bounded route keeps one order** (`_Bounds` in `users.py`).
+The caller (`sign_in_limits.caller()`, the address `ProxyFix` settled by `TRUSTED_PROXY_HOPS`) is counted before the body is read, so a request that names no address still counts against its caller.
+The address, normalized, is counted next, before any account is looked up or password checked.
+So a refused request reads no account, and its answer is the same for an address with an account and without, and whether the password was right.
+
+**A right password takes its try back** (`take_back_attempt`), from both counts, in the window it was counted in, whether it signs in or answers `SIGN_IN_VERIFY_FIRST`.
+Only wrong passwords pile up, so an organizer who signs in all day is never held back, and the E2E suite's hundreds of fixture sign-ins from one caller cost nothing.
+
+**Past a limit `/login` answers 429** with `SIGN_IN_TOO_MANY`, "Too many sign-in attempts. Try again in {wait}, or reset your password.", under `message`, and the seconds left of the window in `Retry-After`.
+`{wait}` is those seconds in whole minutes, rounded up (`wait_in_words`).
+The password form puts "Forgot password?" beside it, as it does beside `SIGN_IN_DOES_NOT_MATCH` (`refusedSignIn` in `front-end/src/utils/signInNotice.ts`).
+
+**A password longer than 72 bytes** in UTF-8 (`PASSWORD_MAX_BYTES`), which bcrypt refuses to check, matches no account: `_password_matches` answers false without a bcrypt check, so `/login` answers `SIGN_IN_DOES_NOT_MATCH`, never the server's fault.
+
+[`back-end/tests/test_the_organizer_sign_in_is_bounded.py`](../../../back-end/tests/test_the_organizer_sign_in_is_bounded.py) holds each; [`back-end/tests/test_sign_in_limits.py`](../../../back-end/tests/test_sign_in_limits.py) holds the counters.
 
 ## Lookups
 

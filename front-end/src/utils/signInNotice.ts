@@ -15,7 +15,8 @@ export const LINK_RESENT = 'If that address needs verifying, a new link is on it
 
 /**
  * A refused sign-in, said in the server's words, with what to do next: a 403 is an address that
- * needs verifying, and a 401 on the password sign-in an email and password that do not match.
+ * needs verifying, and on the password sign-in a 401 is an email and password that do not match
+ * and a 429 too many tries, both of which offer the reset.
  *
  * An answer that never came and a server's fault say what `api.ts` says of every request. The
  * account endpoints word a refusal as `message` or `msg`, which `api.ts` does not read, so a
@@ -24,7 +25,7 @@ export const LINK_RESENT = 'If that address needs verifying, a new link is on it
 export function refusedSignIn(
   err: unknown,
   fallback: string,
-  { mismatchOffersReset = false } = {},
+  { offersReset = false } = {},
 ): SignInNotice {
   const status = getApiErrorStatus(err);
   if (status === null || status >= 500) {
@@ -35,7 +36,9 @@ export function refusedSignIn(
   const sentence = [data?.message, data?.msg].find((s) => typeof s === 'string' && s);
   const text = (sentence as string | undefined) ?? fallback;
   if (status === 403) return { tone: 'error', text, next: 'resend' };
-  if (status === 401 && mismatchOffersReset) return { tone: 'error', text, next: 'reset' };
+  if ((status === 401 || status === 429) && offersReset) {
+    return { tone: 'error', text, next: 'reset' };
+  }
   return { tone: 'error', text };
 }
 

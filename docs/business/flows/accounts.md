@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-11-04
+verified: 2026-11-09
 sources:
   - E26/F01/S01
   - E32/F03/S04
@@ -18,6 +18,8 @@ sources:
   - T181
   - T209
   - T211
+  - T251
+  - E47/F02/S01
 ---
 
 # Accounts
@@ -80,14 +82,16 @@ Covered by:
 2. Expect the Markets list (`/markets`), or the page the address carried in `next` (E38/F11/S01).
 3. Choose "Sign out" in the app bar ([C4](finding-a-market.md#c4-the-navigation-menu)); expect `/login`.
 
-Branches: wrong password, unverified account, "Show" password toggle, visiting an organizer URL while signed out (redirects to `/login`, which returns there after signing in), visiting `/login` while signed in (redirects to that `next`, else the Markets list).
+Branches: wrong password, unverified account, too many tries, "Show" password toggle, visiting an organizer URL while signed out (redirects to `/login`, which returns there after signing in), visiting `/login` while signed in (redirects to that `next`, else the Markets list).
 A market link opened while signed out returns there after sign-in, by password or by code, rather than to the Markets list.
 A session that ends mid-work lands on sign-in saying "Your session has ended. Sign in again.", and signing in returns to the page it was on.
 A browser closed and reopened is signed out unless "Remember me" was ticked.
 
 Each form says one line at a time, the newer replacing the older, and says what to do next (E38/F14/S02):
 
-- A wrong password and an address with no account say the same, "That email and password do not match.", with "Forgot password?" in it (A4).
+- A wrong password and an address with no account say the same, "That email and password do not match.", with "Forgot password?" in it (A4); so does a password longer than 72 bytes.
+- Past ten tries at one address in 15 minutes, or fifty from one caller, the next says "Too many sign-in attempts. Try again in N minutes, or reset your password.", with "Forgot password?" in it, the same for every address.
+  A right password takes its own try back, so only wrong ones count, and a few mistyped passwords cost nothing ([the sign-in is bounded](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
 - A right password on an account not yet verified says "Verify your email address first: we sent you a link when you registered.", with "Send the link again" (A1a).
 
 Covered by:

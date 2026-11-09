@@ -9,6 +9,7 @@ import {
   TYPE_SCALE,
 } from './helpers/layoutDetectors';
 import { mongoEval } from './helpers/mongo';
+import { ensureVerifiedUser } from './helpers/verifiedUser';
 
 /**
  * The sign-in screen's messages say what happened and what to do next (E38/F14/S02), on a phone
@@ -17,7 +18,9 @@ import { mongoEval } from './helpers/mongo';
  * - a wrong password and an address with no account say the same, with "Forgot password?" in it;
  * - a right password on an account not yet verified says to verify first, and "Send the link
  *   again" makes a new link and says one is on its way;
- * - a wrong code replaces the "code sent" line: one line at a time.
+ * - a wrong code replaces the "code sent" line: one line at a time;
+ * - a few wrong passwords cost nothing, and past the limit the screen says how long to wait, with
+ *   "Forgot password?" in it.
  *
  * No message says "log in", and none overflows its card.
  */
@@ -28,6 +31,8 @@ const RESENT = 'If that address needs verifying, a new link is on its way.';
 const CODE_SENT = 'If an account exists for that address, a sign-in code has been sent to it.';
 const WRONG_CODE = 'That code is not right.';
 const PASSWORD = 'E2eSignInWords123!';
+const TOO_MANY =
+  /^Too many sign-in attempts\. Try again in \d+ minutes?, or reset your password\. Forgot password\?$/;
 
 const WIDTHS = [
   { name: 'a phone', viewport: { width: 390, height: 844 } },
@@ -107,6 +112,57 @@ for (const { name, viewport } of WIDTHS) {
         await expectItSaysItWell(page);
       } finally {
         deleteUser(email);
+      }
+    });
+
+    test('a few wrong passwords cost nothing: the right one signs in', async ({ page }) => {
+      const email = uniqueEmail();
+      ensureVerifiedUser(email, PASSWORD);
+      try {
+        const login = new LoginPage(page);
+        for (let i = 0; i < 3; i++) {
+          await login.login(email, `not-the-password-${i}`);
+          await expect(login.errorMessage).toHaveText(`${DO_NOT_MATCH} Forgot password?`);
+        }
+
+        await login.login(email, PASSWORD);
+
+        await login.waitForMarkets();
+      } finally {
+        deleteUser(email);
+        // The serial run is one caller, and these tries counted against it.
+        mongoEval('db.sign_in_attempts.deleteMany({})');
+      }
+    });
+
+    test('past the limit the screen says how long to wait, and offers a reset', async ({
+      page,
+      request,
+      expectAccessible,
+    }) => {
+      const email = uniqueEmail();
+      ensureVerifiedUser(email, PASSWORD);
+      try {
+        for (let i = 0; i < 10; i++) {
+          const wrong = await request.post('/api/login', {
+            data: { email, password: `not-the-password-${i}` },
+          });
+          expect(wrong.status()).toBe(401);
+        }
+        const login = new LoginPage(page);
+
+        await login.login(email, PASSWORD);
+
+        await expect(login.errorMessage).toHaveText(TOO_MANY);
+        await expect(login.errorForgotPasswordLink).toHaveText('Forgot password?');
+        await expectItSaysItWell(page);
+        await expectAccessible('the sign-in, past its limit');
+        await login.errorForgotPasswordLink.click();
+        await expect(page).toHaveURL(/\/reset-password-request$/);
+      } finally {
+        deleteUser(email);
+        // The serial run is one caller, and these tries counted against it.
+        mongoEval('db.sign_in_attempts.deleteMany({})');
       }
     });
 
