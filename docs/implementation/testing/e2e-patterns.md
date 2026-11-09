@@ -16,7 +16,7 @@ describes:
   - front-end/e2e/helpers/settle.ts
   - front-end/src/utils/utils.ts#getFormattedDate
   - front-end/e2e/helpers/phoneWindow.ts#inTheWindow
-verified: 2026-11-08
+verified: 2026-11-09
 sources:
   - E21/F02/S02
   - E22/F04/S02
@@ -138,6 +138,10 @@ Likewise `selectOption` leaves the focus where it was, so focus a select first w
 **`waitForURL` returns when the route changes, not when the new page has loaded.**
 An element assertion made straight after it spends its budget on the page's own fetch, which under a full suite's contention sometimes takes longer: the applicant form's spec failed one full run in two this way, on "Loading application form...", while passing alone every time.
 Wait for the page to have finished loading, either way, then assert what it shows ([`essential-fields.spec.ts`](../../../front-end/e2e/essential-fields.spec.ts) waits for the signed-in vendor page or its load-failed state, `vendor-page-signed-in-as` or `vendor-page-load-failed`, and takes the retry the page offers).
+
+**An app request reaches the network a little after the code that made it**, since axios (1.21 on) awaits the XSRF cookie from the browser's Cookie Store before it sends each same-origin XHR, where the browser has one (Chromium does), and a stack's API is same-origin, through the front end's `/api` proxy.
+So a `page.route` set just before a `goto`, or a `waitForResponse` set just after a click, can catch a request the page before, or the action before, had made and not yet sent.
+A route that must fail the screen's own read fails every matching request until the test unroutes it, as [`a-failure-says-what-to-do.spec.ts`](../../../front-end/e2e/a-failure-says-what-to-do.spec.ts)'s `failUntilCleared` does, and a response wait matches what the request carries, as [`automatic-rejections.spec.ts`](../../../front-end/e2e/automatic-rejections.spec.ts)'s `addRule` matches the PUT that ticks the answer.
 
 **A spec that waits on a file chooser listens for it from before the page loads.**
 `page.waitForEvent('filechooser')` turns on Playwright's catching of choosers as it is called, without waiting for the browser to agree, so a chooser opened by the very next key press can slip past it and the wait times out with focus still on the input: [`the-upload-steps-are-one.spec.ts`](../../../front-end/e2e/the-upload-steps-are-one.spec.ts) missed its first Enter in 4 runs of 20 this way.

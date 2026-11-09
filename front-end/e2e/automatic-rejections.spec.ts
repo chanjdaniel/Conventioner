@@ -55,8 +55,14 @@ async function openReviewSetup(page: Page, marketId: string) {
 async function addRule(page: Page, key: string, answer: string) {
   await page.getByTestId('rejection-rule-question').selectOption(key);
   await page.getByTestId('rejection-rule-add').click();
+  // The add itself saves a rule with no answer yet, a PUT of its own: wait for the one that ticks.
   const saved = page.waitForResponse(
-    (r) => r.url().endsWith('/rejection-rules') && r.request().method() === 'PUT',
+    (r) =>
+      r.url().endsWith('/rejection-rules') &&
+      r.request().method() === 'PUT' &&
+      (r.request().postDataJSON().rules as { key: string; answers: string[] }[]).some(
+        (rule) => rule.key === key && rule.answers.includes(answer),
+      ),
   );
   await page.getByTestId(`rejection-answer-${key}-${answer}`).locator('input').check();
   expect((await saved).ok()).toBeTruthy();

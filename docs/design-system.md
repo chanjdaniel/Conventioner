@@ -44,7 +44,7 @@ describes:
   - front-end/src/components/application/LongQuestion.vue
   - front-end/src/components/PagedList.vue
   - front-end/src/utils/useGroupFolds.ts
-verified: 2026-11-08
+verified: 2026-11-09
 sources:
   - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01
