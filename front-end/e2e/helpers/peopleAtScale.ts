@@ -1,4 +1,4 @@
-import { type APIRequestContext, type Page } from '@playwright/test';
+import { type APIRequestContext, type Page, type Request } from '@playwright/test';
 import { BACKEND_URL, TEST_USER, expect } from '../fixtures';
 import { ManageMarketPage } from '../pages/ManageMarketPage';
 import { OrganizationsPage } from '../pages/OrganizationsPage';
@@ -48,18 +48,29 @@ export async function openManage(page: Page): Promise<ManageMarketPage> {
   return manage;
 }
 
-/** Until no request has been in flight for a moment, so a request made late is still counted. */
-async function quiet(inFlight: () => number): Promise<void> {
+/**
+ * Until no request has been in flight for a moment, so a request made late is still counted. `out`
+ * holds each API request still out with the time it was sent, so a wait that times out names each
+ * one and how long it has been out, the stall's cause (T263).
+ */
+async function quiet(out: Map<Request, number>): Promise<void> {
   let stillSince = Date.now();
   await expect
     .poll(
       () => {
-        if (inFlight() > 0) stillSince = Date.now();
-        return Date.now() - stillSince >= 750;
+        const now = Date.now();
+        if (out.size > 0) stillSince = now;
+        if (now - stillSince >= 750) return 'quiet';
+        if (!out.size) return `the last request ended ${now - stillSince}ms ago`;
+        const named = [...out].map(([request, sent]) => {
+          const { pathname, search } = new URL(request.url());
+          return `${request.method()} ${pathname}${search} for ${now - sent}ms`;
+        });
+        return `still open: ${named.join('; ')}`;
       },
-      { intervals: [100], timeout: 15_000 },
+      { message: 'the API went quiet', intervals: [100], timeout: 15_000 },
     )
-    .toBe(true);
+    .toBe('quiet');
 }
 
 /**
@@ -72,24 +83,24 @@ export async function requestsWhile(
   open: () => Promise<void>,
 ): Promise<string[]> {
   const made: string[] = [];
-  let inFlight = 0;
-  const sent = (request: { url(): string; method(): string }) => {
+  const out = new Map<Request, number>();
+  const sent = (request: Request) => {
     const url = new URL(request.url());
     if (!url.pathname.startsWith('/api/')) return;
-    inFlight += 1;
+    out.set(request, Date.now());
     let path = url.pathname;
     for (const [name, id] of Object.entries(ids)) path = path.replaceAll(id, `<${name}>`);
     made.push(`${request.method()} ${path}`);
   };
-  const done = (request: { url(): string }) => {
-    if (new URL(request.url()).pathname.startsWith('/api/')) inFlight -= 1;
+  const done = (request: Request) => {
+    out.delete(request);
   };
   page.on('request', sent);
   page.on('requestfinished', done);
   page.on('requestfailed', done);
   try {
     await open();
-    await quiet(() => inFlight);
+    await quiet(out);
   } finally {
     page.off('request', sent);
     page.off('requestfinished', done);
