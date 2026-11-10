@@ -29,6 +29,7 @@ sources:
   - E43/F01/S02
   - T205
   - T217
+  - T271
 ---
 
 # Planning the market
@@ -41,14 +42,16 @@ Market Setup is one scrolling page of cards that saves itself: Market Dates, Tie
 The cards run in the order the work depends on, the plan before the form built from it, and the page says that order by position rather than enforcing it: every card is reachable at once, so the page can be left and resumed, and changing one value never means walking through the rest.
 It is deliberately not a wizard; the floorplan flow ([E6](#e6-sections-from-a-floorplan)) is the product's one wizard.
 A draft opens on Market Setup, and an address naming a tab opens that tab, so a shared link keeps working.
-"Plan saved" appears after each edit (debounced about 0.6 s); a failed save says "Could not save the plan. Retry in a moment."
+"Plan saved" appears after each edit (debounced about 0.6 s), once the server holds the last edit; a failed save says "Could not save the plan. Retry in a moment."
 One edit is one save, and another tab's edits survive it (bug 25, `plan-saves-once.spec.ts`).
+The saves go one at a time, so a slow save never stores an older plan over a later edit (T271); how the page saves itself is [the plan's autosave](../../implementation/modules/plan-autosave.md).
 Any pending edit is saved before a phase move, so the guards judge what the organizer sees.
 The cards share rows by the design language's one rule ([a screen of cards is a two-track grid](../../design-system.md#layout)): Market Dates, Section Setup and Pricing are wide, Tier Setup sits beside Location Setup, and How vendors apply beside Application form, at every width with room for two.
 The plan is the market's setup, and it settles when the market leaves Draft ([E7](#e7-edit-the-plan-after-draft)); leaving Draft asks for dates none of which has passed, a location, tables at every tier, and Review setup's two decisions ([the lifecycle](lifecycle.md#what-refuses-a-move), [review waits on the review setup](../rules/review-waits-on-the-review-setup.md)).
 Covered by:
 
 - `plan-saves-once.spec.ts`
+- `the-plan-saves-one-at-a-time.spec.ts`
 
 **Task for the section:** "Your market runs on two Saturdays in October in Pier Hall, with 4 premium tables in the North Row and 6 standard tables in the South Row. Set that up."
 

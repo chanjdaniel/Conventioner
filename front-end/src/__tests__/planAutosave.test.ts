@@ -175,6 +175,65 @@ describe('the plan saves itself', () => {
     expect(api.put).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps the last edit when a slow first save answers after the one sent behind it', async () => {
+    // Answers are not promised in order. The page used to send a save at every pause whether or
+    // not one was still out, so a slow first save reaching the server last stored the older plan,
+    // and the re-read after it put that plan back on screen beside "Plan saved" (T271).
+    let stored: Record<string, unknown> = PLAN;
+    const out: { body: Record<string, unknown>; answer: () => void }[] = [];
+    api.put.mockImplementation(
+      (_url: string, body: { setupObject: Record<string, unknown> }) =>
+        new Promise((resolve) => {
+          const copy = JSON.parse(JSON.stringify(body.setupObject));
+          out.push({
+            body: copy,
+            answer: () => {
+              stored = copy;
+              resolve({ data: {} });
+            },
+          });
+        }),
+    );
+    api.get.mockImplementation(() =>
+      Promise.resolve({
+        data: {
+          market: {
+            id: 'market-1',
+            name: 'Riverside',
+            phase: 'draft',
+            setupObject: stored,
+            actionRefusals: answersRefusing(),
+          },
+        },
+      }),
+    );
+    const wrapper = await mountPlan();
+    const first = { ...PLAN, marketDates: [{ date: '2026-08-01' }, { date: '2026-08-08' }] };
+    const last = {
+      ...PLAN,
+      marketDates: [{ date: '2026-08-01' }, { date: '2026-08-08' }, { date: '2026-08-15' }],
+    };
+
+    await edit(wrapper, first);
+    await vi.advanceTimersByTimeAsync(600);
+    await edit(wrapper, last);
+    await vi.advanceTimersByTimeAsync(600);
+    // Every save out answers newest first, the slow first one last, until none is left.
+    while (out.length) {
+      out.pop()!.answer();
+      await vi.advanceTimersByTimeAsync(0);
+    }
+
+    expect(wrapper.find('[data-testid="market-setup-plan-saved"]').exists()).toBe(true);
+    expect(stored.marketDates).toEqual(last.marketDates);
+    const shown = wrapper.findComponent(ElementMarketDates).props('setupObject');
+    expect(shown.marketDates).toEqual(last.marketDates);
+    // Nothing is left to send.
+    const sent = api.put.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(api.put).toHaveBeenCalledTimes(sent);
+  });
+
   it('sends a pending edit when the organizer leaves before it fires', async () => {
     const wrapper = await mountPlan();
 

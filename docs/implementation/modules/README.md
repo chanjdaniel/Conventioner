@@ -28,6 +28,7 @@ One line per node, sorted by file name.
 - [The market frame](market-frame.md) - `MarketFrame` and `MarketBar`: the bar and tabs, the sticky top, the arrival states, the one width
 - [The market guide](market-guide.md) - `marketGuide.ts`, the one table of what each screen says per phase and path
 - [The market store](market-store.md) - `stores/market.ts`, `refresh()`, `useOpenMarket` and the `lastMarketId` pointer
+- [The plan's autosave](plan-autosave.md) - `useAutosave` and Market Setup on it: one save out at a time, the newest copy when it answers, "Plan saved" only once the server holds the last edit, the hold, the flush
 - [The phase rail](phase-rail.md) - the lifecycle band: no before the click, the derived spine, the menu, where a move lands
 - [The phase record](phase-record.md) - `phaseHistory`: every phase a market entered, `phases_reached()`, and what an older market can prove
 - [Placements](placements.md) - the one writer of `assignmentObject`: four EDITOR doors, pins, the held seat, orphans, what a read shows

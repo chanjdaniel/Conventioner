@@ -12,6 +12,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 
 import MarketSetupView from '@/views/MarketSetupView.vue';
+import MarketAssignmentTab from '@/components/market/MarketAssignmentTab.vue';
 import { MarketAction } from '@/utils/marketActions';
 import { marketRoute, marketRouter, serveMarket } from './support/marketScreen';
 import { answersRefusing } from './support/servedAnswers';
@@ -47,7 +48,7 @@ function serveTheMarket(refused: MarketAction[]) {
   });
 }
 
-async function pressAllocate() {
+async function pressAllocate(options: { editFirst?: boolean } = {}) {
   const wrapper = mount(MarketSetupView, {
     shallow: true,
     global: {
@@ -61,6 +62,14 @@ async function pressAllocate() {
     },
   });
   await flushPromises();
+  if (options.editFirst) {
+    // A rule changed a moment ago, still inside the autosave's pause.
+    wrapper.findComponent(MarketAssignmentTab).vm.$emit('update:setupObject', {
+      ...PLAN,
+      assignmentOptions: { maxHalfTableProportionPerSection: 40 },
+    });
+    await flushPromises();
+  }
   await wrapper.get('[data-testid="market-setup-assign-button"]').trigger('click');
   await flushPromises();
   return wrapper;
@@ -84,13 +93,23 @@ describe('Allocate tables', () => {
     expect(wrapper.find('[data-testid="market-setup-assign-error"]').exists()).toBe(false);
   });
 
-  it('saves the plan first for someone who may change it, then runs', async () => {
+  it('saves an unsaved edit of the plan first for someone who may change it, then runs', async () => {
+    serveTheMarket([]);
+
+    await pressAllocate({ editFirst: true });
+
+    expect(api.put).toHaveBeenCalledTimes(1);
+    expect(api.put).toHaveBeenCalledWith('/markets/market-1/plan', expect.anything());
+    expect(api.post).toHaveBeenCalledWith('/markets/market-1/assignment');
+    expect(api.put.mock.invocationCallOrder[0]).toBeLessThan(api.post.mock.invocationCallOrder[0]);
+  });
+
+  it('runs without sending the plan again when the server already holds it (T271)', async () => {
     serveTheMarket([]);
 
     await pressAllocate();
 
-    expect(api.put).toHaveBeenCalledWith('/markets/market-1/plan', expect.anything());
+    expect(api.put).not.toHaveBeenCalled();
     expect(api.post).toHaveBeenCalledWith('/markets/market-1/assignment');
-    expect(api.put.mock.invocationCallOrder[0]).toBeLessThan(api.post.mock.invocationCallOrder[0]);
   });
 });
