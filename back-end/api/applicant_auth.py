@@ -64,6 +64,7 @@ from pymongo.errors import PyMongoError
 
 import remembered_sign_ins as RememberedSignIns
 import sign_in_limits
+from client_errors import traceback_without_messages
 from db_config import get_database
 from market_documents import market_dates_of, market_id_at_slug, vendor_page_market_by_slug
 from utils.email import frontend_url, one_line, send_mail
@@ -447,8 +448,12 @@ def request_login_code(market_slug: str) -> tuple:
     # every address has already closed. A failed send is logged and answered as a sent one.
     try:
         delivered = _send_code_email(email, code, market_name, market_slug, sequence)
-    except Exception:
-        logger.exception("Applicant sign-in code for market %s could not be sent", market_slug)
+    except Exception as error:
+        # By its type and frames: a mail library's message can quote the address it was given.
+        logger.error(
+            "Applicant sign-in code for market %s could not be sent\n%s",
+            market_slug, traceback_without_messages(error),
+        )
     else:
         if not delivered:
             logger.error("Applicant sign-in code for market %s was not sent", market_slug)

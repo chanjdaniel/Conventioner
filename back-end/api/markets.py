@@ -12,6 +12,7 @@ from client_errors import (
     NotFoundError,
     field_named_copy,
     parse_failure_detail,
+    traceback_without_messages,
 )
 from datatypes import (
     FORM_FIELD_KEY_PATTERN,
@@ -2164,12 +2165,13 @@ def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -
                 swept["swept"],
                 market_id,
             )
-        except Exception:
+        except Exception as error:
+            # By its type and frames: a database error's message can quote a document it touched.
             logger.error(
                 "Phase advanced to market_days for market %s but the "
-                "assignment_sent -> vendor_refused sweep failed",
+                "assignment_sent -> vendor_refused sweep failed\n%s",
                 market_id,
-                exc_info=True,
+                traceback_without_messages(error),
             )
     # After the sweep, so the move's entry counts the offers it turned to refusals: no entry of
     # their own says who refused those vendors.
