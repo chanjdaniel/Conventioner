@@ -13,6 +13,7 @@ from datatypes import Application, ApplicationStatus, ApplicationType, MarketPer
 import api.applicant_auth as ApplicantAuth
 import api.applications as ApplicationsApi
 import sign_in_limits
+from real_mongo import harness
 
 APPLICANT = "racing-applicant@example.com"
 RIGHT_CODE = "246810"
@@ -25,13 +26,6 @@ def _application(market_id: str, email: str = APPLICANT, **fields) -> Applicatio
         status=ApplicationStatus.OPEN, **fields)
 
 
-def _warm(race, collection, n: int) -> None:
-    """Open ``n`` pooled connections first. On a cold pool each thread opens and authenticates
-    its own connection, which spreads the threads out until their writes no longer meet: the
-    first race of a run then passed even with the unique index taken away."""
-    race(n, lambda _i: collection.find_one({}))
-
-
 def _reviewer(n: int) -> MarketPerson:
     return MarketPerson(user_id=f"reviewer-{n}", email=f"reviewer-{n}@example.com")
 
@@ -41,7 +35,7 @@ class TestOneApplicantIsOneApplication:
             self, boot_indexes, applications, race):
         """The create is an upsert on a public endpoint: twenty requests for one new address at
         once all read nothing, and only the unique identity index stops the second document."""
-        _warm(race, applications, 20)
+        harness.warm(applications, 20)
         answered = race(20, lambda _i: ApplicationsApi.find_or_create_application(
             _application("market-race")))
 
@@ -58,7 +52,7 @@ class TestOneApplicantIsOneApplication:
             return ApplicationsApi.find_or_create_application(
                 _application("market-race", application_type=kind))
 
-        _warm(race, applications, 20)
+        harness.warm(applications, 20)
         answered = race(20, create)
 
         assert [a for a in answered if isinstance(a, BaseException)] == []
@@ -81,7 +75,7 @@ class TestTwoReviewersAreHandedDifferentCards:
 
     def test_ten_reviewers_asking_at_once_are_handed_ten_different_cards(
             self, ten_open, applications, race):
-        _warm(race, applications, 10)
+        harness.warm(applications, 10)
         handed = race(10, lambda i: ApplicationsApi.claim_next_for_review(
             "market-review", _reviewer(i), after=None, include_follow_ups=False))
 
@@ -143,7 +137,7 @@ class TestASignInCodeIsTriedAtMostFiveTimesAndSignsInOnce:
 
         url = f"/public/markets/{market['slug']}/applicant-login/verify-code"
         clients = [app_module.app.test_client() for _ in codes]
-        _warm(race, ApplicantAuth.challenges_collection, len(codes))
+        harness.warm(ApplicantAuth.challenges_collection, len(codes))
 
         def attempt(i):
             response = clients[i].post(url, json={"email": APPLICANT, "code": codes[i]})
@@ -208,7 +202,7 @@ class TestTheRateLimitCountsEveryAttempt:
         """The counter is one ``$inc`` upsert; twenty at once on a new window make one document
         counting twenty, and exactly the limit's five are let through."""
         limit = sign_in_limits.REQUEST_CODE_PER_ADDRESS
-        _warm(race, sign_in_attempts, 20)
+        harness.warm(sign_in_attempts, 20)
         now = datetime.now(timezone.utc)  # one window for every thread
 
         answered = race(20, lambda _i: sign_in_limits.count_attempt(limit, APPLICANT, now=now))

@@ -8,6 +8,7 @@ describes:
   - back-end/tests/test_the_shared_matcher.py
   - back-end/tests/test_the_shared_applications_fake.py
   - back-end/tests/test_the_shared_markets_fakes.py
+  - back-end/tests/test_every_order_of_a_deal.py
   - back-end/tests/conftest.py#mongo_matches
   - back-end/tests/conftest.py#mongo_update
   - back-end/tests/conftest.py#mongo_project
@@ -120,7 +121,24 @@ Each test's name says what it proves.
 
 A sign-in code allows five tries, so "one right try among nine wrong ones" cannot promise a sign-in: the right try may come sixth, or land after a fifth wrong try spent the code.
 What it promises, at most one sign-in and at most five tries counted, is its test; the exact counts are the other three's.
-Each race opens its connections first (`_warm`): on a cold pool each thread opens and authenticates its own, which spreads the threads out until their writes no longer meet, and the first race of a run once passed with the unique index taken away.
+Each race opens its connections first (`harness.warm(collection, n)`, `n` reads at once): on a cold pool each thread opens and authenticates its own, which spreads the threads out until their writes no longer meet, and the first race of a run once passed with the unique index taken away.
+
+## The market side's guarantees
+
+Each guarantee the market side rests on the server for is a write conditional on what its request read, and is run here with its losing branch, on real threads, in [`real_mongo/test_the_market_side_races.py`](../../../back-end/tests/real_mongo/test_the_market_side_races.py).
+Every racing thread stands on the same read of the market, so their writes meet on the server however the threads are scheduled.
+Each test's name says what it proves.
+
+| Guarantee                                                   | Tests                                                                                                                                                                                                                                                                                                                                                              |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Two phase moves from one phase land one                     | two `apply_phase_transition` calls from one read, the same move out of Draft twice or two moves out of Applications: one lands, the other raises `PhaseChangedUnderRequest` naming the phase the winner moved to, and the phase history gains one entry, the winner's                                                                                              |
+| Back to review and Publish results are never both taken     | Back to review and `publish_results` from one read, at once ten times over, and once with each writing first: one is refused (`MoveBlockedUnderRequest` with the `results_not_published` blocker, or Publish's 409), and the market never stands in Applications with its results published                                                                        |
+| Two assignment writes from one revision land one            | two `_store_vendor_assignments` calls from one revision, on a counted revision, on revision 0 and on an assignment with no revision yet: one lands with the revision counted up once, the other raises `AssignmentChangedUnderRequest`, and the stored rows and date are the winner's                                                                              |
+| The dealing lease is held by one deal at a time, and lapses | 10 `_hold` calls at once, on a market with a team and on one that never had one, leave one holding it; a held lease refuses 10 deals a second before it lapses, and one of 10 takes it a second after; `_let_go` by a deal whose lease lapsed and was taken leaves the market unchanged, and so does `_let_go` on a market nobody holds, with a team and with none |
+
+The lease tests set `review_team`'s clock rather than wait for a lease to run out.
+[`real_mongo/test_every_order_of_a_deal_on_the_server.py`](../../../back-end/tests/real_mongo/test_every_order_of_a_deal_on_the_server.py) imports the cases of [`test_every_order_of_a_deal.py`](../../../back-end/tests/test_every_order_of_a_deal.py) ([ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)), every order of a change of reviewers against an arrival and of two arrivals, and runs them over a world whose markets, applications and history are the real collections, so its `Counted` wrapper steps over the server's own calls.
+Those cases read and write their world through collection calls alone (`find_one`, `find`, `insert_one`, `update_one`, `delete_many`), which is what lets one set of cases run over the fakes and over the server.
 
 ## MongoDB 8.0
 

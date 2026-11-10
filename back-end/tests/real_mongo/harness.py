@@ -306,3 +306,16 @@ def race(n: int, fn: Callable[[int], Any]) -> List[Any]:
     if alive:
         raise AssertionError(f"race: threads {alive} still running after {RACE_TIMEOUT_SECONDS}s")
     return results
+
+
+def warm(collection, n: int) -> None:
+    """Open ``n`` pooled connections to the server before a race of ``n`` threads, by ``n`` reads
+    of ``collection`` at once; a read that fails is raised.
+
+    On a cold pool each racing thread opens and authenticates its own connection first, which
+    spreads the threads out until their writes no longer meet: a create race then passed with the
+    unique index taken away, until the pool was warmed.
+    """
+    for result in race(n, lambda _i: collection.find_one({})):
+        if isinstance(result, BaseException):
+            raise result

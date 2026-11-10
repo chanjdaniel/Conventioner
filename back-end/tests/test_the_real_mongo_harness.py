@@ -338,3 +338,29 @@ class TestRace:
 
         assert results[:2] == [0, 1] and results[3] == 3
         assert isinstance(results[2], ValueError) and str(results[2]) == "two"
+
+
+class TestWarm:
+    def test_it_reads_on_n_threads_at_once_so_the_pool_holds_n_connections(self):
+        n = 6
+        all_inside = threading.Barrier(n, timeout=10)
+        readers = []
+
+        class Collection:
+            def find_one(self, query):
+                # Passes only when all n read at once: one at a time, the first waits alone.
+                all_inside.wait()
+                readers.append((threading.get_ident(), query))
+
+        harness.warm(Collection(), n)
+
+        assert len({ident for ident, _query in readers}) == n
+        assert [query for _ident, query in readers] == [{}] * n
+
+    def test_a_failed_read_is_raised(self):
+        class Collection:
+            def find_one(self, query):
+                raise RuntimeError("the server went away")
+
+        with pytest.raises(RuntimeError, match="the server went away"):
+            harness.warm(Collection(), 3)
