@@ -10,7 +10,7 @@ describes:
   - front-end/src/components/market/ReviewerName.vue
   - front-end/src/components/application/VerdictUndoLine.vue
   - front-end/src/utils/verdictUndo.ts
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/08
@@ -92,15 +92,17 @@ The queue is triage: one application at a time, carrying every answer it holds, 
 1. "1 of N to review", a tally ("N reviewed · A approved · R rejected") with "Show N reviewed" beside it ([I2](#i2-change-a-decision)), and one card at a time, in the order the applications arrived.
    A chosen reviewer is handed their own share first, counted as "1 of N in your share" ([dividing the review](#dividing-the-review)).
 2. A card's top line names the applicant (the name they chose, else the one on their identification) then their email, its status and submitted date; under it the highlighted answers first, then "N more answers" (or "This application carries no answers."); a web address in an answer is a link that opens in a new tab.
+   The card's address breaks, on a narrow screen, only before its "@" or a dot.
    A table-share request that needs attention shows above the answers, so it is never inside the "N more answers" disclosure, and the vendor's notes below them.
    The name, else the email, is the card's heading, so a screen reader's outline files the notes under the applicant, as it does in the vendor drawer.
    With reviewers chosen, "Reviewer: <email>" (or "Reviewer: you") under the status says whose share it is ([dividing the review](#dividing-the-review)).
    An answer an organizer updated reads as updated, with "Updated by <address>, <when>; they wrote <their answer>" under it ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
 3. "Reject" (R), "Needs follow-up" (S), "Next" (N), "Approve" (A); the keyboard letters work.
    The next card shows as a verdict is answered, a moment before the server hands it over, and the buttons wait for that.
-   A verdict key or Z pressed in that moment waits too: a verdict lands on the card it was pressed on once that card is handed over, and Z undoes once the hand-out answers.
+   A verdict key or Z pressed in that moment waits too: a verdict lands on the card it was pressed on once the newest hand-out hands that card over, and Z undoes once the hand-out answers.
+   A verdict key pressed while a newer hand-out is still out, after the verdict has answered, waits the same way.
    N pressed after either lets it go with no word: no verdict is written, nothing is undone, and the undo stays on offer on its line.
-   If another card comes up, or a newer hand-out overtakes it, or the hand-out fails, nothing is decided and the screen says "That key did not count. Press it again on this card.", or "That key did not count." alone with no card up; a failed hand-out's own words stand before it.
+   If another card comes up, or the hand-out fails, nothing is decided and the screen says "That key did not count. Press it again on this card.", or "That key did not count." alone with no card up; a failed hand-out's own words stand before it.
    A key held down counts as one press, for A, R and Z.
    After a verdict or a follow-up on an open application or a follow-up, a line under the counts and above the next card says what was decided, "Rejected Jane Doe (jane@example.com).", "Approved …" or "Marked … for follow-up.", with "Undo" (Z), for 2 minutes or until the next verdict ([undoing a verdict just given](#undoing-a-verdict-just-given)).
    Above them, on an open application or a follow-up dealt to another reviewer and not in the reader's share, so never on a follow-up the reader owns ([a follow-up is in its owner's share too](../rules/the-review-is-dealt-among-chosen-reviewers.md#why)), someone who may decide it reads "This application is dealt to <email>. If you decide it, its history will say you decided it for them."
@@ -113,6 +115,7 @@ The queue is triage: one application at a time, carrying every answer it holds, 
 
 Two reviewers at once are never handed the same card: the card a reviewer has open is held for them while they work on it, until they have been idle for five minutes and its lease runs out, and another reviewer reads "<email> is looking at this." on it; when every card left is open with someone else, "Every application left is open with another reviewer: …" with "Look again".
 A verdict on a card someone else changed since it was opened is refused on the card, naming them: "<email> approved this application since you opened it.", with "Back to the queue" ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)).
+Beside it is what they decided, "Approved by <email>, <when>.", and the market is read again, so the rail's count already holds their verdict.
 If they approved or rejected it, the card offers a verdict only to someone who may change one (below), and tells a reviewer it refuses the row's sentence instead.
 A verdict on the card hands out the one after it in arrival order, even when Next had moved the reviewer ahead.
 Someone who gives no verdicts walks the queue with Next and holds nothing, and is told when the card on screen is open with someone else.
@@ -166,7 +169,7 @@ A verdict changed in the dialog leaves it open, with the rows shown as they were
 The order holds while the dialog is open: a changed row goes to the head of the list, as the newest verdict, at the next opening, and a row a re-read brings while it is open goes first.
 What the server refuses is said in the dialog, and the card and the Undo line behind stay as they are.
 Closed with the answer still out, the refusal is said on the card's error line instead, naming the application ("jane@example.com was not changed: ..."), beside what the card already says, and the next opening starts clean.
-An address on that line, or in the refusal on the card that names who changed it, breaks the same way.
+An address on that line, or in the refusal on the card that names who changed it and beside it what they decided, breaks the same way.
 A change that is written takes the undo on offer away ([undoing a verdict just given](#undoing-a-verdict-just-given)), and lets go a refused card only when it is that card's own application; any other card stays as it is.
 While the dialog is open A, R, S, N and Z do nothing, it closes when the view stops being visible or another market opens, and closing gives focus back to "Show N reviewed" with the same application up.
 A link naming a reviewed application, as a refused assignment's does, opens the dialog with the words set to its address and its row marked, however far down the list it lies; closing clears the words.
