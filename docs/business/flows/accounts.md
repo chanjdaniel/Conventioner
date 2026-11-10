@@ -77,6 +77,7 @@ Past five links asked for one address in 15 minutes, or thirty from one caller, 
 "Back to sign in" under it is a link to `/login`.
 
 A sign-in refused because the address is not verified yet offers "Send the link again" too (A2), which says the same sentences (E38/F14/S02); past the limit it offers the link no more.
+When the button goes with the newer line, the focus moves to that line, so a keyboard is not left on the page itself; a link not sent for want of an answer offers the button again, and the focus stays on it.
 Covered by:
 
 - `the-sign-in-says-what-to-do-next.spec.ts`
@@ -122,7 +123,7 @@ Covered by:
 
 1. At `/login`, choose the "Sign-in code" tab, enter email, choose "Send code".
 2. Enter the code from the email, tick "Remember me" or leave it, and choose "Sign in"; the choice is the Sign in tab's, kept between the two (A2).
-3. "Use a different email" returns to step 1.
+3. "Use a different email", a button, returns to step 1 with the focus in the Email field.
 
 Branches: a wrong code ("That code is not right."), which replaces the line saying the code was sent, and which a code for an address with no account answers too, at every try; a right code that has expired; too many tries; asking for another code too soon; an account not yet verified, which says to verify first and offers "Send the link again", as A2 does.
 

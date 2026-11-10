@@ -37,9 +37,4 @@ const id = useId();
   margin: 0;
   padding-left: var(--space-4);
 }
-
-/* Weight does not inherit here, and the reset takes it off a strong too. */
-.choices-for-you__list :deep(strong) {
-  font-weight: 600;
-}
 </style>

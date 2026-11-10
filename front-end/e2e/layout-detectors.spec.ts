@@ -150,6 +150,18 @@ test.describe('The layout detectors', () => {
     expect(await findingsOn(page, html, 1440)).toEqual([]);
   });
 
+  test("a details' summary is a tap target, as a button is", async ({ page }) => {
+    // A summary opens and folds its details on a tap, so it takes a thumb's 44px on a phone too
+    // (the Notes toggle and "N more answers", T263).
+    const html = `<details>
+       <summary data-testid="more" style="width: 200px; height: 22px">3 more answers</summary>
+       <p>Hidden</p></details>`;
+    expect(
+      (await findingsOn(page, html, 390)).map((f) => `${f.kind} ${f.el}: ${f.detail}`),
+    ).toEqual(['small-target details > summary[more]: 200x22px, under 44px']);
+    expect(await findingsOn(page, html, 1440)).toEqual([]);
+  });
+
   test("a control's label counts toward its target", async ({ page }) => {
     const found = await findingsOn(
       page,

@@ -102,7 +102,8 @@ describe('a value to fix', () => {
     const input = wrapper.get('[data-testid="import-fix-Platinum-input"]');
     await input.trigger('click');
     const rows = wrapper.findAll('[data-testid="import-fix-Platinum-option"]');
-    expect(rows).toHaveLength(50);
+    // "Ignore this value" leads outside the cap: it and 50 of the answers.
+    expect(rows).toHaveLength(51);
     expect(rows[0]!.text()).toBe('Ignore this value');
     expect(rows[0]!.attributes('data-value')).toBe(IGNORE_VALUE);
 
@@ -116,7 +117,12 @@ describe('a value to fix', () => {
     const wrapper = fixes({ entries: [entry('Platinum', offering(129))] });
     const input = wrapper.get('[data-testid="import-fix-Platinum-input"]');
     await input.setValue('Hand-poured soap');
-    expect(wrapper.findAll('[data-testid="import-fix-Platinum-option"]')).toHaveLength(0);
+    // Only "Ignore this value", which is drawn whatever the words.
+    const rows = wrapper.findAll('[data-testid="import-fix-Platinum-option"]');
+    expect(rows.map((row) => row.attributes('data-value'))).toEqual([IGNORE_VALUE]);
+    expect(wrapper.get('[data-testid="import-fix-Platinum-none"]').text()).toBe(
+      'Nothing matches "Hand-poured soap".',
+    );
     expect(wrapper.text()).not.toContain('Use "');
 
     await input.trigger('blur');

@@ -12,7 +12,7 @@ describes:
   - front-end/src/components/ValueFixes.vue
   - front-end/src/components/csvImport/ImportRefusedRows.vue
   - front-end/src/views/CsvImportView.vue#mapsTo
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/map
@@ -102,7 +102,7 @@ A target another row holds is disabled with `Mapped from "<heading>"`, cut to tw
 Surrounding space and capitals match silently; anything else is shown once per distinct value and settled by hand, and those settlements (`resolutions`) are saved with the mapping.
 One question may be one column or, for a Google Forms checkbox grid, one column per option; both import to the same stored answer.
 Values are offered and compared in the organizer's words, never the stored ones: a date reads as a date, and a table choice as its label rather than its code.
-Each value is settled in [`ValueFixes.vue`](../../../front-end/src/components/ValueFixes.vue), one [`ChoiceField`](../../design-system.md#the-primitive-layer) per value: a select for a question of 12 answers or fewer, past that a field that finds an answer by typing, with "Ignore this value" first on either, so the cap never hides it.
+Each value is settled in [`ValueFixes.vue`](../../../front-end/src/components/ValueFixes.vue), one [`ChoiceField`](../../design-system.md#the-primitive-layer) per value: a select for a question of 12 answers or fewer, past that a field that finds an answer by typing, with "Ignore this value" first on either, passed as `ChoiceField`'s `leads`, so neither the cap nor words that find nothing else hide it (T263).
 **A fix can only name an answer the question offers**: the import stores what a fix names, and `application_write.py` refuses a select's answer that is no option ("must be one of"), so words typed and not chosen clear on leaving the field, and no typed fix is offered.
 The rows offered one set of answers share one list of choices, keyed by the target and the answers, since a tier grid's target offers two sets: the dates to its day headings and the tiers to its cells.
 Every value still waiting is drawn; those already decided stop at 6 and "Show all".

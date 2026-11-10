@@ -242,12 +242,30 @@ eachWindow('the combobox entry', (size) => {
     await expect(under.more).toHaveCount(0);
   });
 
-  test('a choice past the cap is kept by Enter', async ({ page }) => {
+  test('"Assigned to" draws a reviewer\'s address as the product\'s filter does', async ({
+    page,
+  }) => {
+    // `assignedToOptions` marks a reviewer's row an address, so it breaks only before the @.
+    const under = picker(page, 'library-under-cap');
+    await under.field.click();
+    await expect(
+      under.options.nth(2).locator('.search-picker-option-label .email-address'),
+    ).toHaveCount(2);
+    await expect(under.options.first().locator('.email-address')).toHaveCount(0);
+  });
+
+  test('a choice past the cap is drawn first, active, and kept by Enter', async ({ page }) => {
     const past = picker(page, 'library-past-cap');
     await expect(past.field).toHaveValue('Lily Chang');
     await past.field.click();
 
     await expect(past.options).toHaveCount(50);
+    await expect(past.options.first()).toContainText('Lily Chang');
+    await expect(past.options.first()).toHaveAttribute('aria-selected', 'true');
+    await expect(past.field).toHaveAttribute(
+      'aria-activedescendant',
+      (await past.options.first().getAttribute('id'))!,
+    );
     await past.field.press('Enter');
     await expect(past.field).toHaveValue('Lily Chang');
     await expect(readOutOf(page, 'library-past-cap')).toHaveText('Chosen: Lily Chang');
@@ -452,6 +470,9 @@ eachWindow('the combobox entry', (size) => {
 
     await c10.field.fill('no answer says this');
     await expect(c10.none).toHaveText('Nothing matches "no answer says this".');
+    // The line stands beside the list, not in it: a listbox holds options and groups only.
+    await expect(c10.list.getByRole('listbox')).not.toContainText('Nothing matches');
+    await expectAccessible('C10 open, nothing matches');
     await c10.field.blur();
     await expect(c10.field).toHaveValue('');
     await expect(c10.chips).toHaveCount(2);
@@ -582,7 +603,8 @@ eachWindow('the combobox entry', (size) => {
   }) => {
     await expect(page.getByTestId('library-c1-field')).toContainText('did not match');
     await picker(page, 'library-c1-fix-0').field.click();
-    await expect(picker(page, 'library-c1-fix-0').options).toHaveCount(50);
+    // "Ignore this value" and 50 answers: it leads outside the cap.
+    await expect(picker(page, 'library-c1-fix-0').options).toHaveCount(51);
     const { failures, checked } = await sweep(page);
     expect(checked).toBeGreaterThan(0);
     expect(failures).toEqual([]);
@@ -598,28 +620,31 @@ eachWindow('the combobox entry', (size) => {
     await expect(readOut(0)).toHaveText('Fix: nothing');
     await expect(fixed).toHaveText('Fixed: 0 of 7');
 
-    // By the keys: the first match is the row the keys start on.
+    // By the keys: the first match is the row the keys start on, past "Ignore this value", which
+    // leads whatever the words.
     await fix(0).field.fill('sticker');
-    const match = (await fix(0).options.first().textContent())!.trim();
+    await expect(fix(0).options.first()).toHaveText('Ignore this value');
+    const match = (await fix(0).options.nth(1).textContent())!.trim();
     await fix(0).field.press('Enter');
     await expect(fix(0).field).toHaveValue(match);
     await expect(readOut(0)).toHaveText(`Fix: ${match}`);
 
     // By a click, with the row's whole list capped until the words narrow it.
     await fix(1).field.click();
-    await expect(fix(1).options).toHaveCount(50);
-    await expect(fix(1).more).toHaveText('179 more, type to narrow');
+    await expect(fix(1).options).toHaveCount(51);
+    await expect(fix(1).more).toHaveText('178 more, type to narrow');
     await expectLaidOut(page, size, 'a value fix open');
     await expectAccessible('a value fix open, capped');
     await fix(1).field.fill('Keychains');
-    await expect(fix(1).options.first()).toHaveText('Keychains');
-    await fix(1).options.first().click();
+    await expect(fix(1).options.nth(1)).toHaveText('Keychains');
+    await fix(1).options.nth(1).click();
     await expect(fix(1).field).toHaveValue('Keychains');
     await expect(readOut(1)).toHaveText('Fix: Keychains');
 
-    // Words that are no answer offer no row of their own, and go on leaving the field.
+    // Words that are no answer offer no row of their own, only "Ignore this value", which is drawn
+    // whatever the words, and go on leaving the field.
     await fix(2).field.fill('Hand-poured soap');
-    await expect(fix(2).options).toHaveCount(0);
+    await expect(fix(2).options).toHaveText(['Ignore this value']);
     await expect(fix(2).none).toHaveText('Nothing matches "Hand-poured soap".');
     await fix(2).field.press('Tab');
     await expect(fix(2).field).toHaveValue('');
@@ -722,6 +747,19 @@ eachWindow('the combobox entry', (size) => {
     await fix.field.press('Enter');
     await expect(fix.field).toHaveValue('Ignore this value');
     await expect(readOutOf(page, 'library-c1-fix-3')).toHaveText('Fix: Ignore this value');
+  });
+
+  test('C1 keeps "Ignore this value" in reach of words that find nothing, by the keys', async ({
+    page,
+  }) => {
+    const fix = picker(page, 'library-c1-fix-4');
+    await fix.field.fill('Hand-poured soap');
+    await expect(fix.options).toHaveText(['Ignore this value']);
+    await expect(fix.none).toHaveText('Nothing matches "Hand-poured soap".');
+    await fix.field.press('ArrowDown');
+    await fix.field.press('Enter');
+    await expect(fix.field).toHaveValue('Ignore this value');
+    await expect(readOutOf(page, 'library-c1-fix-4')).toHaveText('Fix: Ignore this value');
   });
 
   test('C1 shows every waiting value, and 6 decided then "Show all 36", fixes kept', async ({

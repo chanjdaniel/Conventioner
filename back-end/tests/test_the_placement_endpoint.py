@@ -395,9 +395,24 @@ class TestASecondPinToAnOccupiedSeat:
                 "market-123", placement(email="ben@example.com"), "user-1"
             )
 
-        assert "ana@example.com" in str(refusal.value)
-        assert "Hall A 1" in str(refusal.value)
+        assert str(refusal.value) == (
+            "ana@example.com already holds Hall A 1 (Full Table) on Aug 1, 2026. "
+            "Choose another seat, or swap the two vendors."
+        )
         assert collection.last_update is None
+
+    def test_the_refusal_says_a_date_that_is_no_calendar_day_as_stored(self, collection):
+        collection.doc["setupObject"] = {
+            **collection.doc["setupObject"], "marketDates": [{"date": "Saturday"}],
+        }
+        already_placed(collection, ("ana@example.com", "Saturday", "Hall A 1"))
+
+        with pytest.raises(PlacementsApi.SeatTakenError) as refusal:
+            PlacementsApi.write_placement(
+                "market-123", placement(email="ben@example.com", date="Saturday"), "user-1"
+            )
+
+        assert "on Saturday. Choose another seat" in str(refusal.value)
 
     def test_the_vendor_already_there_may_still_be_moved_within_their_own_seat(self, collection):
         """Their own row is replaced, not collided with."""

@@ -193,6 +193,14 @@ const canSwap = computed(() => Boolean(swapWith.value) && !props.busy);
 
 /** The empty seat chosen to move the occupant to. */
 const moveTarget = computed(() => props.emptySeats.find((seat) => seat.tableCode === moveTo.value));
+// A move refused for a seat taken meanwhile leaves the dialog open while the page reads the tables
+// again; the seat chosen is then no longer empty, so it stops being the choice as it leaves the list.
+watch(
+  () => props.emptySeats,
+  (seats) => {
+    if (moveTo.value && !seats.some((seat) => seat.tableCode === moveTo.value)) moveTo.value = '';
+  },
+);
 // A seat chosen starts at its free side, or at the shape the occupant holds now (T208).
 watch(moveTarget, (target) => {
   if (target) moveSeat.value = seatAMoveKeeps(props.seat ?? FULL_TABLE, target.seat);

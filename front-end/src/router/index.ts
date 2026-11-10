@@ -6,6 +6,7 @@ import {
 } from 'vue-router';
 import { marketPath } from '@/utils/market';
 import { loginAddress, safeNext } from '@/utils/signInNext';
+import { signedInEmail } from '@/utils/signedIn';
 import { SETUP_VIEW_PAGES } from '@/utils/marketPage';
 import LoginView from '@/views/LoginView.vue';
 import EmailVerificationView from '@/views/EmailVerificationView.vue';
@@ -231,9 +232,13 @@ if (import.meta.env.DEV) {
  * (`App.vue`) reads `meta.public` to decide whether to probe the organizer's session. The two
  * disagreed, so a signed-out person opening a password-reset or verification link was let in by
  * this guard and then sent to `/login` by the shell's failed probe before the page could be used.
+ *
+ * Who is signed in is read by `signedInEmail()`, as everywhere else: a stored value that is not an
+ * address is nobody, never a navigation that throws. It only chooses the page; the server judges
+ * every request on the session.
  */
 export const requireSignIn: NavigationGuard = (to) => {
-  const user = JSON.parse(localStorage.getItem('user') || 'null');
+  const user = signedInEmail();
 
   // Before the public check, or it can never fire: `/login` is public. A stale `user` costs one
   // hop, since the shell's session probe clears it and comes back here. The page it carries is

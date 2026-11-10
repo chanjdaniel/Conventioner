@@ -51,7 +51,7 @@ Covered by:
 5. Saved, the form closes on "Your answers" with "Edit", and the page reads "Submitted" (H3c).
 
 A save the server refuses says why above "Save application", and every answer typed stays; a required answer left blank is named under its question before anything is sent.
-A one-choice answer the form no longer offers counts as blank there, since its control shows nothing chosen.
+A one-choice answer the form no longer offers counts as blank there, since its control shows nothing chosen: a required one is named, and an optional one is sent unanswered (`answersToSend` in [`applicationForm.ts`](../../../front-end/src/utils/applicationForm.ts)), so the server does not refuse it with a list of every option.
 A question of more than 12 options is a field they type in to find an answer, one choice or several as chips; words they typed and did not choose clear when they leave the field ([the design language](../../design-system.md)).
 The vendor page reads the form and the saved application together before it draws; when either does not load within 15 seconds, or the request fails, it says "This page could not be loaded" with "Try again", never that the market is not open and never an endless "Loading..." (E06/F01/S01).
 Covered by:

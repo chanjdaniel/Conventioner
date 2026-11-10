@@ -3,15 +3,14 @@
  * The applicant's editable rendering of a market's application form: every field type the builder
  * can produce, with no per-field special-casing.
  *
- * It is one component because both applicant surfaces - the public application page and the edit
- * mode of the applicant dashboard - render the same form, and two copies of a type switch drift:
- * a field type only one copy knows renders there as an input and here as a bare label, and if it
- * is required the applicant is blocked from saving by an error they have no control to clear. A
- * field type added to the builder must reach the applicant everywhere at once, so it is added
- * here, once.
+ * It is one component because every surface that asks a market's questions renders the same form:
+ * the vendor page's application form, and the organizer's Add vendor and Update info dialogs. Two
+ * copies of a type switch drift: a field type only one copy knows renders there as an input and
+ * here as a bare label, and if it is required the person is blocked from saving by an error they
+ * have no control to clear. A field type added to the builder must reach every one of them at
+ * once, so it is added here, once.
  *
- * Updating a vendor's info asks the same questions (E43/F01/S03): `locked` shows the answers this
- * person may not update, read-only.
+ * Update info shows the answers this person may not update read-only, by `locked` (E43/F01/S03).
  *
  * A question of more than 12 options is a field to type in rather than a select or a wall of
  * checkboxes (`LongQuestion`). Its words stand here, as every question's do, and it takes those words
@@ -83,9 +82,11 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
     class="form-field"
     :data-testid="`${prefix}-field-${field.key}`"
   >
-    <!-- A long question's words name no control: its field takes them as its name (`LongQuestion`). -->
+    <!-- A long question's words name no control: its field takes them as its name (`LongQuestion`).
+         A short multi_select's words name its group of checkboxes by `aria-labelledby`, and no
+         label's `for` can point to a group, so neither is a label. -->
     <component
-      :is="isLongQuestion(field) ? 'span' : 'label'"
+      :is="isLongQuestion(field) || field.type === 'multi_select' ? 'span' : 'label'"
       :id="`${prefix}-${field.key}-label`"
       class="form-label"
       :for="field.type === 'multi_select' || isLongQuestion(field) ? undefined : controlId(field)"

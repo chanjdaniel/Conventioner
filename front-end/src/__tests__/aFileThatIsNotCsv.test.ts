@@ -171,6 +171,8 @@ describe('the import', () => {
     await choose(wrapper, 'import-file-input', fileOf(generatedBinary()));
 
     expect(wrapper.get('[data-testid="import-error"]').text()).toBe(NOT_A_CSV_EXPORT);
+    // Announced as it appears, as the start's and the reviewers' lines are.
+    expect(wrapper.get('[data-testid="import-error"]').attributes('role')).toBe('alert');
     expect(wrapper.find('[data-testid="import-upload"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="import-map"]').exists()).toBe(false);
     expect(api.post).not.toHaveBeenCalled();

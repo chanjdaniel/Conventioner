@@ -68,6 +68,16 @@ describe('the card', () => {
     ]);
   });
 
+  it('is described by its caption, drawn above the scroller so it stays in view (T217)', () => {
+    const wrapper = card(plan());
+
+    const id = wrapper.get('[data-testid="pricing-table"]').attributes('aria-describedby')!;
+    const caption = document.getElementById(id);
+    expect(caption?.textContent?.trim()).toBe('A full table for one market day, in CAD');
+    expect(caption?.closest('[data-testid="pricing-frame"]')).toBeNull();
+    wrapper.unmount();
+  });
+
   it('says to add a tier when the plan has none', () => {
     const wrapper = card(plan(null, []));
 
@@ -633,7 +643,7 @@ describe('price groups (E43/F01/S02)', () => {
     ]);
   });
 
-  it('settled, a condition on a question of 13 answers reads as chips and takes nothing', () => {
+  it('settled, a condition on a question of 13 answers reads as chips alone, with no field', () => {
     const answers = Array.from({ length: 13 }, (_, at) => ({
       value: `Answer ${at + 1}`,
       label: `Answer ${at + 1}`,
@@ -650,9 +660,12 @@ describe('price groups (E43/F01/S02)', () => {
     expect(wrapper.get('[data-testid="pricing-group-0-answers-selling-chip"]').text()).toContain(
       'Answer 2',
     );
+    expect(wrapper.find('[data-testid="pricing-group-0-answers-selling-input"]').exists()).toBe(
+      false,
+    );
     expect(
-      wrapper.get('[data-testid="pricing-group-0-answers-selling-input"]').attributes(),
-    ).toHaveProperty('disabled');
+      wrapper.find('[data-testid="pricing-group-0-answers-selling-chip-remove"]').exists(),
+    ).toBe(false);
   });
 
   it('an answer the form no longer offers, on a question of 13, holds the group broken until its chip goes', () => {
