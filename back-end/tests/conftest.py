@@ -447,15 +447,20 @@ def _refuse(what: str):
 def mongo_matches(doc: dict, query: dict) -> bool:
     """Evaluate a Mongo filter as MongoDB does, or refuse it with ``UnmodelledQuery``.
 
-    The applications fake, the markets fakes and the organizations fake find documents through
-    this, since a fake that ignores its filter passes a document the server would never have
-    handed back; the attempts, templates and GridFS fakes look a document up by its key or by
-    plain equality, and the tables do not check them. It models ``$eq``, ``$ne``,
-    ``$gt``, ``$gte``, ``$lt``, ``$lte``, ``$in``, ``$nin``, ``$exists``, ``$size``,
-    ``$type: "object"``, ``$and``, ``$or`` and ``$nor``; dotted paths through sub-documents and
-    through lists, to any element and by a numeric index; a value, ``$in``, ``$ne`` and ``$nin``
-    against a list field by its elements; null as matching a missing field; a whole sub-document
-    equal only in the same field order; and a range across two BSON types as matching nothing.
+    Fakes filter through this, since a fake that ignores its filter passes a document the server
+    would never have handed back: in this file the applications, markets and organizations fakes
+    find documents through it, the attempts fake's ``update_one`` finds its document by ``_id``
+    and then holds its ``$inc`` on the whole filter through it, and the GridFS fake's ``find``
+    filters every stored file through it; many fakes of a single test file use it too. The
+    templates fake matches by plain equality, and the attempts and GridFS fakes' ``find_one`` by
+    key alone.
+
+    It models ``$eq``, ``$ne``, ``$gt``, ``$gte``, ``$lt``, ``$lte``, ``$in``, ``$nin``,
+    ``$exists``, ``$size``, ``$type: "object"``, ``$and``, ``$or`` and ``$nor``; dotted paths
+    through sub-documents and through lists, to any element and by a numeric index; a value,
+    ``$in``, ``$ne`` and ``$nin`` against a list field by its elements; null as matching a missing
+    field; a whole sub-document equal only in the same field order; and a range across two BSON
+    types as matching nothing.
     Anything else (``$regex``, ``$elemMatch``, ``$not``, any other ``$type``, an operator it does
     not know) raises ``UnmodelledQuery`` naming it, and so does a malformed filter the server
     refuses. Every operator of the filter is read, so an unmodelled one is refused even where an

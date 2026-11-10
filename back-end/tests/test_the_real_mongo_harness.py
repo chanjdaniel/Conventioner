@@ -4,7 +4,6 @@ Which server it runs on and which it refuses, before any connection; the walk th
 back-end handle to a test's database; the boot's index list against ``app.py``'s boot; and the two
 ways it makes requests meet.
 """
-import functools
 import os
 import runpy
 import subprocess
@@ -234,40 +233,60 @@ class TestTheHandleWalk:
                                  modules=[module])
 
 
-def _ensures_the_boot_calls(monkeypatch):
-    """Every ``ensure_*`` function ``app.py``'s boot calls itself, as ``(module, function)`` of its
-    definition: ``app.py`` run afresh, on the suite's fakes, with every back-end module's
-    ``ensure_*`` wrapped to record a call no other recorded call made."""
+def _ensures_the_boot_calls(boot=os.path.join(BACK_END_DIR, "app.py")):
+    """Every back-end ``ensure_*`` function ``app.py``'s boot calls itself, as ``(module, function)``
+    of its definition (``app`` for one ``app.py`` defines): ``app.py`` run afresh, on the suite's
+    fakes, under a profile hook that records each call of a back-end ``ensure_*`` no other one
+    made, so one the boot reaches through a helper or defines itself is seen too, and an installed
+    package's ``ensure_*`` is not."""
     import app  # noqa: F401
 
-    called, depth = set(), []
+    run_name = "app_boot_probe"
+    called, within = set(), []
 
-    def recorder(function):
-        @functools.wraps(function)
-        def recorded(*args, **kwargs):
-            if not depth:
-                called.add((function.__module__, function.__name__))
-            depth.append(function)
-            try:
-                return function(*args, **kwargs)
-            finally:
-                depth.pop()
-        return recorded
+    def profile(frame, event, _arg):
+        code = frame.f_code
+        if event == "call" and code.co_name.startswith("ensure_") and (
+                code.co_filename == boot or harness.is_back_end_file(code.co_filename)):
+            if not within:
+                module = frame.f_globals.get("__name__")
+                called.add(("app" if module == run_name else module, code.co_qualname))
+            within.append(frame)
+        elif event == "return" and within and within[-1] is frame:
+            within.pop()
 
-    recorders = {}
-    for module in harness.back_end_modules():
-        for attribute, value in list(vars(module).items()):
-            if attribute.startswith("ensure_") and isinstance(value, types.FunctionType):
-                if value not in recorders:
-                    recorders[value] = recorder(value)
-                monkeypatch.setattr(module, attribute, recorders[value])
-    runpy.run_path(os.path.join(BACK_END_DIR, "app.py"), run_name="app_boot_probe")
+    earlier = sys.getprofile()
+    sys.setprofile(profile)
+    try:
+        runpy.run_path(boot, run_name=run_name)
+    finally:
+        sys.setprofile(earlier)
     return called
 
 
 class TestTheBootsIndexes:
-    def test_the_list_holds_every_ensure_the_boot_calls(self, monkeypatch):
-        calls = _ensures_the_boot_calls(monkeypatch)
+    def test_an_ensure_the_boot_defines_and_calls_is_seen(self, tmp_path):
+        boot = tmp_path / "app.py"
+        boot.write_text(
+            "from lookup_indexes import ensure_lookup_indexes\n"
+            "\n"
+            "def ensure_own_indexes():\n"
+            "    ensure_nested_indexes()\n"
+            "\n"
+            "def ensure_nested_indexes():\n"
+            "    pass\n"
+            "\n"
+            "def build():\n"
+            "    ensure_own_indexes()\n"
+            "\n"
+            "build()\n"
+            "ensure_lookup_indexes()\n")
+
+        assert _ensures_the_boot_calls(str(boot)) == {
+            ("app", "ensure_own_indexes"), ("lookup_indexes", "ensure_lookup_indexes")}
+
+    def test_the_list_holds_every_ensure_the_boot_calls(self):
+        calls = _ensures_the_boot_calls()
         assert calls, "app.py's boot called no ensure_* function, so this test saw nothing"
         assert calls <= set(harness.BOOT_INDEX_BUILDS), (
             f"app.py's boot calls {sorted(calls - set(harness.BOOT_INDEX_BUILDS))}, which "

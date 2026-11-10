@@ -101,22 +101,19 @@ class fresh_database:
 # --- Binding every handle ------------------------------------------------------------------------
 
 
-def back_end_modules() -> List[Any]:
-    """Every loaded module of the back end: its file under ``back-end/``, not a test's, not a
+def is_back_end_file(path: str) -> bool:
+    """Whether ``path`` is a file of the back end's own: under ``back-end/``, not a test's, not a
     migration's, and not an installed package's (a virtual environment kept under ``back-end/``)."""
-    modules = []
-    for module in list(sys.modules.values()):
-        path = getattr(module, "__file__", None)
-        if not path:
-            continue
-        relative = os.path.relpath(os.path.abspath(path), BACK_END_DIR)
-        parts = relative.split(os.sep)
-        if parts[0] in ("..", "tests", "migrations") or parts[0].startswith("."):
-            continue
-        if "site-packages" in parts:
-            continue
-        modules.append(module)
-    return modules
+    parts = os.path.relpath(os.path.abspath(path), BACK_END_DIR).split(os.sep)
+    if parts[0] in ("..", "tests", "migrations") or parts[0].startswith("."):
+        return False
+    return "site-packages" not in parts
+
+
+def back_end_modules() -> List[Any]:
+    """Every loaded module of the back end, each one whose file ``is_back_end_file``."""
+    return [module for module in list(sys.modules.values())
+            if getattr(module, "__file__", None) and is_back_end_file(module.__file__)]
 
 
 def _handle_types():

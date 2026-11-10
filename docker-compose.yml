@@ -5,8 +5,10 @@ services:
   mongodb:
     # Production runs MongoDB 8.0, but mongod 8.0 refuses to start on Linux kernel 6.19 and newer
     # (MongoDB SERVER-121912), which GitHub's ubuntu-latest and ubuntu-24.04 runners now boot, so
-    # this and CI's real-MongoDB service stay on 7 until MongoDB fixes it. Moving to 8.0 is this
-    # line and the service's image in .github/workflows/test.yml.
+    # this and CI's real-MongoDB service stay on 7 until MongoDB fixes it. Moving to 8.0 changes
+    # this line, the service's image in .github/workflows/test.yml, the image
+    # scripts/tests/test_compose_overlay.py expects, and the docs naming the version, all listed
+    # in docs/implementation/testing/real-mongo-suite.md#the-mongodb-version.
     image: mongo:7
     restart: unless-stopped
     command: ["mongod", "--quiet", "--logpath", "/var/log/mongodb/mongod.log"]
