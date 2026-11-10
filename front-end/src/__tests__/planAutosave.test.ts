@@ -367,6 +367,34 @@ describe('a save that did not land', () => {
     expect(shownDates(wrapper)).toEqual(moved.marketDates);
   });
 
+  // An edit a failed save left behind has no pause and no wanted save to send it, so the drop above
+  // never reached it: the screen took the server's plan beside the failed line and Retry, and the
+  // browser asked at every reload for an edit that could never be sent (T271 re-review).
+  it('drops an edit a failed save left once the organizer may no longer save it', async () => {
+    api.put.mockRejectedValue(noAnswer);
+    const wrapper = await mountPlan();
+    await edit(wrapper, ADDED);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(wrapper.find('[data-testid="market-setup-plan-save-error"]').text()).toBe(OFFLINE);
+
+    // A return to the tab re-reads the market as another person left it.
+    serveMarket(api.get, {
+      id: 'market-1',
+      name: 'Riverside',
+      phase: 'draft',
+      setupObject: PLAN,
+      actionRefusals: answersRefusing(MarketAction.ChangeSetup),
+    });
+    await useMarketStore().refresh();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(asksBeforeUnload()).toBe(false);
+    expect(shownDates(wrapper)).toEqual(PLAN.marketDates);
+    expect(wrapper.find('[data-testid="market-setup-plan-save-error"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="market-setup-plan-retry-button"]').exists()).toBe(false);
+    expect(api.put).toHaveBeenCalledTimes(1);
+  });
+
   it('lets later re-reads reach the screen after a refusal', async () => {
     api.put.mockRejectedValue(answered(400, 'The setup is settled.'));
     const wrapper = await mountPlan();

@@ -291,6 +291,82 @@ describe('the autosave queue', () => {
     expect(writes.send).not.toHaveBeenCalled();
     expect(autosave.unsaved.value).toBe(false);
   });
+
+  // An edit with no pause and no wanted save behind it (left by a failed save, or held) was never
+  // reached by a send, so it stayed unsaved for good, its failed line and Retry beside the plan the
+  // screen took back (T271 re-review).
+  it('drops an edit a failed save left, and its failed line, when the screen says the person may no longer write', async () => {
+    let may = true;
+    const { writes, edit, autosave } = setUp({ may: () => may });
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    await writes.fail(noAnswer);
+    expect(autosave.status.value).toBe('failed');
+    may = false;
+    autosave.forgetUnsendable();
+
+    expect(autosave.unsaved.value).toBe(false);
+    expect(autosave.status.value).toBe('idle');
+    expect(autosave.message.value).toBe('');
+    expect(writes.send).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops a held edit when the screen says the person may no longer write', async () => {
+    let may = true;
+    const { writes, edit, autosave } = setUp({ may: () => may });
+
+    autosave.hold(true);
+    edit('2026-08-01');
+    may = false;
+    autosave.forgetUnsendable();
+    expect(autosave.unsaved.value).toBe(false);
+
+    autosave.hold(false);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(writes.send).not.toHaveBeenCalled();
+  });
+
+  it('keeps what the person may still write when the screen asks', async () => {
+    const { edit, autosave } = setUp();
+
+    edit('2026-08-01');
+    autosave.forgetUnsendable();
+
+    expect(autosave.unsaved.value).toBe(true);
+  });
+
+  it('leaves a save out to answer, and drops what it did not carry when it fails', async () => {
+    let may = true;
+    const { writes, edit, autosave } = setUp({ may: () => may });
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    may = false;
+    autosave.forgetUnsendable();
+    expect(autosave.unsaved.value).toBe(true);
+
+    await writes.fail(noAnswer);
+    expect(autosave.unsaved.value).toBe(false);
+    expect(autosave.status.value).toBe('idle');
+  });
+
+  it('drops what a save out did not carry when it lands after the person may no longer write', async () => {
+    let may = true;
+    const { writes, edit, autosave } = setUp({ may: () => may });
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    autosave.hold(true);
+    edit('2026-08-02');
+    may = false;
+    await writes.answer();
+
+    expect(autosave.unsaved.value).toBe(false);
+    autosave.hold(false);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(writes.send).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('a refusal and a failure', () => {

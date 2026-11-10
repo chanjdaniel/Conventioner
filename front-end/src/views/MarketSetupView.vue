@@ -223,6 +223,7 @@ const {
   hold: holdPlan,
   flush: flushPlan,
   retry: retryPlan,
+  forgetUnsendable: forgetUnsendablePlan,
 } = useAutosave({
   send: async () => {
     await api.put(`/markets/${encodeURIComponent(planMarket!.id)}/plan`, {
@@ -288,9 +289,13 @@ watch(
     const arrived = fresh.id !== planMarket?.id;
     planMarket = fresh;
     // An unsaved edit keeps the working copy, unless the organizer may no longer save it (another
-    // person archived the market or took their role): the autosave drops it then, and the screen
-    // shows the plan as the server holds it.
-    if (!arrived && planUnsaved.value && mayTake(fresh, MarketAction.ChangeSetup)) return;
+    // person archived the market or took their role): the autosave drops it then, even one no send
+    // is coming for (a failed save's, or one held), and the screen shows the plan as the server
+    // holds it.
+    if (!arrived && planUnsaved.value) {
+      if (mayTake(fresh, MarketAction.ChangeSetup)) return;
+      forgetUnsendablePlan();
+    }
     adoptPlan(fresh);
   },
   { immediate: true },

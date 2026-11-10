@@ -118,6 +118,9 @@ export function useAutosave(options: AutosaveOptions) {
       async () => {
         out.value = null;
         stored.value = carrying;
+        // An edit made after this save went, which the person may no longer write, is dropped here
+        // whether or not a pause or a wanted save is behind it: a held one has neither.
+        if (!options.may()) dropUnsendable();
         const next = sendWanted();
         if (!next) {
           if (edits.value === stored.value) showSaved();
@@ -139,7 +142,9 @@ export function useAutosave(options: AutosaveOptions) {
         }
         status.value = 'failed';
         message.value = sentence;
-        sendWanted();
+        // Retry could never send it, so neither the edits nor the failed line are kept for it.
+        if (!options.may()) dropUnsendable();
+        else sendWanted();
         return sentence;
       },
     );
@@ -177,6 +182,10 @@ export function useAutosave(options: AutosaveOptions) {
    * change): nothing made so far can ever be sent, so it is dropped as a refusal drops it, rather
    * than left unsaved for good, which kept the screen off every later re-read and had the browser
    * ask at every reload. The screen takes the server's copy back by its re-read.
+   *
+   * A send finds it (a pause's save, a wanted save, a save's answer, a flush), and so does the
+   * screen, by `forgetUnsendable`, for an edit no send is coming for: one a failed save left, whose
+   * failed line and Retry would stand beside the server's copy, or one held.
    */
   function dropUnsendable() {
     dropEdits();
@@ -184,6 +193,15 @@ export function useAutosave(options: AutosaveOptions) {
       status.value = 'idle';
       message.value = '';
     }
+  }
+
+  /**
+   * The screen read that the person may no longer write: drop what can never be sent now, rather
+   * than at a send that may never come. A save out is left to answer, and its answer drops what is
+   * still unsaved, since a drop before it would be undone when it moves `stored`.
+   */
+  function forgetUnsendable() {
+    if (!options.may() && !out.value) dropUnsendable();
   }
 
   function showSaved() {
@@ -231,7 +249,7 @@ export function useAutosave(options: AutosaveOptions) {
    */
   async function flush(): Promise<string | null> {
     if (!options.may()) {
-      if (!out.value) dropUnsendable();
+      forgetUnsendable();
       return null;
     }
     stopPause();
@@ -287,5 +305,6 @@ export function useAutosave(options: AutosaveOptions) {
     hold,
     flush,
     retry,
+    forgetUnsendable,
   };
 }

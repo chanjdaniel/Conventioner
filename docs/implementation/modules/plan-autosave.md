@@ -4,7 +4,7 @@ kind: module
 describes:
   - front-end/src/utils/useAutosave.ts
   - front-end/src/views/MarketSetupView.vue
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - T271
   - T244
@@ -50,6 +50,7 @@ A 401 also ends the session through the app's interceptor.
 **A person who may not write sends nothing, and their edits are not counted**, so nothing stays unsaved for them and the server's re-reads still reach their screen (bug 30: a plan that cannot change is never sent).
 An edit counted while they could write, which comes to be sent after a re-read says they no longer can (another person archived the market or took their role), is dropped as a refusal drops it, by the pause, the answer of the save out or a flush, and a failed line goes with it.
 The view's market watch takes such a re-read even with the edit unsaved, so the screen shows the plan as the server holds it; the edit used to stay unsaved for good, the page skipping every later re-read and the browser asking at every reload (T271 review).
+That watch also calls `forgetUnsendable`, for an edit no send is coming for: one a failed save left, whose failed line and Retry stood beside the server's plan, or one the hold keeps; with a save out it waits, and that save's answer drops what is still unsaved (T271 re-review).
 
 **The hold** (`hold`): the Pricing card holds the autosave while a price or the half table's share shows text that is not a value, or a group's name is missing or another's ([a price follows the table](../../business/rules/a-price-follows-the-table.md), E43/F01/S01), so "Plan saved" never stands beside text that was not kept.
 While held no pause runs; an edit made meanwhile, or a save wanted when an answer finds the plan held, waits, and is sent a pause after the hold ends.
