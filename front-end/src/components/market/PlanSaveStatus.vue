@@ -59,8 +59,9 @@ defineEmits<{ retry: [] }>();
   color: var(--mm-green);
 }
 
+/* A save that did not land reads in red, as every refusal does (the design language's Colour). */
 .plan-save-status--failed {
-  color: var(--mm-text-yellow);
+  color: var(--mm-red);
 }
 
 .plan-save-status--refused {
