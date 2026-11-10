@@ -13,8 +13,6 @@ PyJWT>=2.8.0
 cryptography>=41.0.0
 resend>=2.0.0
 requests>=2.31.0
-google-genai
-openai
 pypdfium2
 Pillow
 # Floorplan geometry. Named here because the code imports them; they used to arrive only

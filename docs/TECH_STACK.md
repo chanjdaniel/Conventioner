@@ -101,7 +101,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 
 - **Shapely 2** and **NumPy** - The geometry of table auto-placement
 - **pyckingsolver** - The packing solver, in `back-end/requirements-floorplan-solver.txt` (Docker, CI and local development) because it has no wheel for production's glibc; production places tables on a grid instead
-- **google-genai**, **openai** and **Pillow** - The vision endpoint `POST /floorplans/analyze` and PDF uploads; the wizard calls no model
+- **Pillow** - PDF uploads and image sizes; the floorplan beta calls no model
 - **pypdfium2** - Draws a PDF floorplan's pages; its `manylinux_2_17` wheel carries PDFium, so it needs no system package, as production's Vercel function requires ([floorplan placement](implementation/modules/floorplan-placement.md))
 
 ### Session Management
@@ -342,7 +342,6 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 - `MONGODB_USER` - MongoDB username (default: `admin`)
 - `MONGODB_PASSWORD` - MongoDB password (default: `secret`)
 - `MONGODB_AUTH_DB` - The database the user authenticates against (default: `admin`)
-- `GEMINI_API_KEY`, `OPENAI_API_KEY` - Only for the floorplan vision endpoint, which the wizard does not call
 - `SESSION_TYPE` - Where the organizer's session is kept: `filesystem` (on local disk: a container or VM) or `null` (in the signed cookie only: a serverless deployment, which has no disk that outlives a request). **Required**: there is deliberately no default, because neither value is right for both hosts, and the app refuses to boot without it
 - `BUILD_COMMIT` - The commit the deployment was built from, which `/healthz` reports as `commit` (`null` when unset or blank). Set by the Deploy workflow on each deployment (`vercel deploy --env`), never by hand ([how a deploy proves itself](RELEASING.md#how-a-deploy-proves-itself))
 
