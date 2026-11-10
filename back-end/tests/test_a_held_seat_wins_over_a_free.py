@@ -13,9 +13,10 @@ assignment forgets the freed records of the days it touched; and the history say
 back" only for a day that read as freed.
 """
 import pytest
-from pymongo.errors import AutoReconnect
+from pymongo.errors import AutoReconnect, DuplicateKeyError
 
 import api.payments as PaymentsApi
+from client_errors import ConflictError
 import api.placements as PlacementsApi
 import history as History
 import payments as Payments
@@ -311,6 +312,85 @@ class TestAFreeLeavesTheRightAmount:
 
         [kept] = [doc for doc in stores.owed.documents if doc["date"] == SUN]
         assert kept["freed"] is not None
+
+
+class TestAnAmountSetAsTheFreeWrites:
+    """An Admin's amount set between the free's read of the day and its write is the one the
+    free's $0 keeps as ``replaced``, so seating the day again puts it back, not an older one."""
+
+    @staticmethod
+    def an_admin_sets_it_after_the_read(monkeypatch, owed, cents):
+        """The next read of the day's record answers as it was, then an Admin sets ``cents``."""
+        read = owed.find_one
+
+        def read_then_set(query, *args, **kwargs):
+            monkeypatch.setattr(owed, "find_one", read)
+            found = read(query, *args, **kwargs)
+            PaymentsApi.set_amount_owed(MARKET, ANA, SUN, {"cents": cents}, ADMIN)
+            return found
+
+        monkeypatch.setattr(owed, "find_one", read_then_set, raising=False)
+
+    @staticmethod
+    def the_index_refuses_a_second_record(monkeypatch, owed):
+        """An upsert that matches nothing on a day that has a record inserts a second one, which
+        the unique index refuses, as MongoDB does; the fake holds no index."""
+        write = owed.find_one_and_update
+
+        def refused(query, update, upsert=False, **kwargs):
+            day = {key: query[key] for key in ("market_id", "vendor_email", "date")}
+            if upsert and owed._find(query) is None and owed._find(day) is not None:
+                raise DuplicateKeyError("E11000 duplicate key error", code=11000)
+            return write(query, update, upsert=upsert, **kwargs)
+
+        monkeypatch.setattr(owed, "find_one_and_update", refused, raising=False)
+
+    def test_an_amount_changed_after_the_frees_read_is_the_one_kept(
+            self, admin, stores, monkeypatch):  # noqa: F811
+        PaymentsApi.set_amount_owed(MARKET, ANA, SUN, {"cents": 4000}, ADMIN)
+        self.an_admin_sets_it_after_the_read(monkeypatch, stores.owed, 5000)
+
+        PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR, deduct_owed=True)
+
+        [record] = [doc for doc in stores.owed.documents if doc["date"] == SUN]
+        assert record["set_by_hand"]["replaced"]["cents"] == 5000
+        PlacementsApi.write_placement(MARKET, seat(SUN), ADMIN)
+        assert (line(SUN)["owedCents"], line(SUN)["owedSetBy"]) == (5000, ADMIN)
+
+    def test_an_amount_first_set_after_the_frees_read_is_kept(
+            self, admin, stores, monkeypatch):  # noqa: F811
+        self.the_index_refuses_a_second_record(monkeypatch, stores.owed)
+        self.an_admin_sets_it_after_the_read(monkeypatch, stores.owed, 5000)
+
+        PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR, deduct_owed=True)
+
+        [record] = [doc for doc in stores.owed.documents if doc["date"] == SUN]
+        assert record["set_by_hand"]["replaced"]["cents"] == 5000
+        assert line(SUN)["owedCents"] == 0
+        PlacementsApi.write_placement(MARKET, seat(SUN), ADMIN)
+        assert (line(SUN)["owedCents"], line(SUN)["owedSetBy"]) == (5000, ADMIN)
+
+
+    def test_an_amount_that_keeps_changing_frees_nothing_and_says_so(
+            self, admin, stores, monkeypatch):  # noqa: F811
+        PaymentsApi.set_amount_owed(MARKET, ANA, SUN, {"cents": 4000}, ADMIN)
+        read = stores.owed.find_one
+        amounts = iter(range(4100, 9999, 100))
+
+        def read_then_set(query, *args, **kwargs):
+            found = read(query, *args, **kwargs)
+            Payments.set_amount_owed(MARKET, ANA, SUN, next(amounts), ADMIN)
+            return found
+
+        monkeypatch.setattr(stores.owed, "find_one", read_then_set, raising=False)
+
+        with pytest.raises(ConflictError) as refused:
+            PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR, deduct_owed=True)
+
+        assert refused.value.message == PaymentsApi.OWED_CHANGED_UNDER_FREE
+        monkeypatch.setattr(stores.owed, "find_one", read)
+        sunday = line(SUN)
+        assert (sunday["freed"], sunday["owedSetBy"], sunday["owedByFree"]) == (False, ADMIN, False)
 
 
 class TestEveryWriteForgetsTheStaleFreedRecordsOfItsDays:

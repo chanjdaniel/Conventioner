@@ -35,6 +35,8 @@ MOST_OWED_CENTS = 10_000_000
 NO_LINE = "That vendor holds no table that day, so nothing is owed for it."
 NO_ENTRY = "This market has no such payment standing."
 NOT_A_REQUEST_KEY = "A payment's request key must be a UUID."
+OWED_CHANGED_UNDER_FREE = ("What this vendor owes for that day changed as the seat was freed, so "
+                           "nothing was freed. Try again.")
 #: What a second press of one opening of the Record dialog is told when it differs from the entry
 #: the first press recorded, by the kind it asked.
 ALREADY_RECORDED = {
@@ -365,7 +367,11 @@ def keep_freed_line(
     if seat is None:
         return KeptLine(lambda: None, lambda: None)
     owed = _line(market, address, date) if deduct else None
-    before, written = Payments.keep_freed_line(market.id, address, date, seat, by, deduct=deduct)
+    try:
+        before, written = Payments.keep_freed_line(market.id, address, date, seat, by,
+                                                   deduct=deduct)
+    except Payments.OwedChangedUnderFree:
+        raise ConflictError(OWED_CHANGED_UNDER_FREE) from None
 
     def record_deduction() -> None:
         if owed is not None:
