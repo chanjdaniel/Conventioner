@@ -21,6 +21,7 @@ from conftest import (  # noqa: E402
 skip_without_real_dependencies()
 
 import api.markets as MarketsApi  # noqa: E402
+import market_write as MarketWrite  # noqa: E402
 import api.users as UsersApi  # noqa: E402
 import app as app_module  # noqa: E402
 import db_config  # noqa: E402
@@ -128,6 +129,7 @@ def world(monkeypatch, applications):
     def install(doc):
         markets = Markets(doc)
         monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+        monkeypatch.setattr(MarketWrite, "markets_collection", MarketsApi.markets_collection)
 
         class _Db(dict):
             def __getitem__(self, name):

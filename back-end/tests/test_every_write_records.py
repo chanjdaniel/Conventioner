@@ -31,6 +31,7 @@ import api.floorplans_access as FloorplansAccess  # noqa: E402
 import api.floorplans_save as FloorplansSave  # noqa: E402
 import api.market_actions as Actions  # noqa: E402
 import api.markets as MarketsApi  # noqa: E402
+import market_write as MarketWrite  # noqa: E402
 import api.permissions as PermissionsApi  # noqa: E402
 import api.placements as PlacementsApi  # noqa: E402
 import api.users as UsersApi  # noqa: E402
@@ -151,6 +152,14 @@ class LiveMarkets:
                 held.append(value)
         return SimpleNamespace(matched_count=1, modified_count=1, upserted_id=None)
 
+    def find_one_and_update(self, query, update, projection=None, return_document=False):
+        """``update_one``, answering the market before it, or after it when ``return_document`` is
+        the driver's ``ReturnDocument.AFTER`` (``True``), as ``market_write`` asks."""
+        before = copy.deepcopy(self.doc)
+        if not self.update_one(query, update).matched_count:
+            return None
+        return mongo_project(copy.deepcopy(self.doc if return_document else before), projection)
+
 
 class Attendance(FakeApplicationsCollection):
     """The check-ins, written by an upsert keyed by vendor and date."""
@@ -173,7 +182,7 @@ def _account(email: str) -> SimpleNamespace:
 @pytest.fixture
 def world(monkeypatch, applications, market_records):
     markets = LiveMarkets()
-    for module in (MarketsApi, AttendanceApi, FloorplansSave, ReviewTeam):
+    for module in (MarketsApi, MarketWrite, AttendanceApi, FloorplansSave, ReviewTeam):
         monkeypatch.setattr(module, "markets_collection", markets)
     monkeypatch.setattr(db_config, "get_database", lambda *_a, **_k: {"markets": markets})
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)

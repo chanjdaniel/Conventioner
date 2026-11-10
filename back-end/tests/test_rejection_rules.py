@@ -115,8 +115,8 @@ class TestTheWrite:
         writes = []
         monkeypatch.setattr(MarketsApi, "_load_market_to_change",
                             lambda market_id, user, action: self.market)
-        monkeypatch.setattr(MarketsApi.markets_collection, "update_one",
-                            lambda query, update: writes.append((query, update)))
+        monkeypatch.setattr(MarketsApi, "write_market",
+                            lambda as_read, update, **holds: writes.append((as_read, update, holds)))
         return writes
 
     def test_it_writes_the_rules_on_a_locked_form(self, saved):
@@ -128,8 +128,9 @@ class TestTheWrite:
 
         rules = [{"key": "no_shows", "answers": [Rules.NOT_TICKED]}]
         assert stored == {"rejectionRules": rules, "noAutomaticRejections": False}
-        assert saved == [({"id": "market-123"}, {"$set": {
-            "rejectionRules": rules, "noAutomaticRejections": False}})]
+        # Written over the market as read, holding its phase and nothing more.
+        assert saved == [(self.market, {"$set": {
+            "rejectionRules": rules, "noAutomaticRejections": False}}, {})]
 
     def test_it_is_refused_from_assignment_on(self, saved):
         self.market = _market(phase=MarketPhase.ASSIGNMENT)

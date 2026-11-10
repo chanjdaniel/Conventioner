@@ -8,6 +8,7 @@ import App from './App.vue';
 import router from './router';
 import { routerSettled } from '@/utils/routerReady';
 import { installSessionEnded } from '@/utils/sessionEnded';
+import { installMarketChanged } from '@/stores/market';
 import { PAGE_FAILED, watchPageFailed } from '@/utils/pageFailed';
 
 const app = createApp(App);
@@ -20,6 +21,9 @@ app.use(router);
 
 // A 401 mid-work takes the organizer to sign in again, and back to the page (E38/F11/S01).
 installSessionEnded(router);
+// A write refused because the market changed under it re-reads the open market, so every screen
+// shows it as it now stands (ADR 0024).
+installMarketChanged();
 
 // Defer mount until the first navigation settles. The session probe in
 // App.vue and every public-page check both read route metadata, so neither

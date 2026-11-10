@@ -10,6 +10,7 @@ import pytest
 from conftest import FakeSlugMarketsCollection, stored_market
 
 import api.markets as MarketsApi
+import market_write as MarketWrite
 import api.permissions as PermissionsApi
 from client_errors import BadRequestError
 from datatypes import MarketPhase, MarketRole
@@ -31,6 +32,7 @@ def market(monkeypatch):
             ]
         )
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(MarketWrite, "markets_collection", MarketsApi.markets_collection)
         return fake
 
     monkeypatch.setattr(PermissionsApi, "user_has_permission", permission)

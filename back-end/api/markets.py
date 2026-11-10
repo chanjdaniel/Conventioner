@@ -65,6 +65,7 @@ from market_documents import (
     market_from_document,
     leave_out_what_no_read_serves,
 )
+from market_write import MarketNotFoundError, write_market
 import api.market_actions as Actions
 import api.permissions as PermissionsApi
 import market_deletion as MarketDeletion
@@ -99,10 +100,6 @@ markets_collection = db["markets"]
 
 VALID_FORM_FIELD_TYPES = {"text", "number", "select", "multi_select", "checkbox", "date", "email"}
 
-
-
-class MarketNotFoundError(NotFoundError):
-    """No market exists with the requested id: a 404."""
 
 
 class ApplicationFormLockedError(ConflictError):
@@ -2577,10 +2574,10 @@ def rename_market(market_id: str, name: str, requesting_user: str) -> None:
         raise BadRequestError(refusal)
 
     try:
-        markets_collection.update_one(
-            market_doc_filter("id", market_id),
-            {"$set": {market_doc_key("name"): name, market_doc_key("slug"): market_name_slug(name)}},
-        )
+        # Held at the phase it was judged on: a rename landing after the market left draft would
+        # move the public address it handed out (``MarketChanged``).
+        write_market(market, {"$set": {
+            market_doc_key("name"): name, market_doc_key("slug"): market_name_slug(name)}})
     except DuplicateKeyError as e:
         # A rename that raced another write to the same address, refused by the unique index.
         raise BadRequestError(_address_taken(name)) from e
@@ -2748,7 +2745,7 @@ def save_review_highlights(
     if nothing_leads_the_card and seen:
         raise BadRequestError(NOTHING_LEADS_BESIDE_A_MARK)
 
-    markets_collection.update_one({"id": market_id}, {"$set": {
+    write_market(market, {"$set": {
         market_doc_key("review_highlights"): seen,
         market_doc_key("nothing_leads_the_card"): nothing_leads_the_card,
     }})
@@ -2866,7 +2863,8 @@ def save_rejection_rules(
     prepared = RejectionRules.Rulebook(market).prepared(rules)
     if no_automatic_rejections and prepared:
         raise BadRequestError(NO_REJECTIONS_BESIDE_A_RULE)
-    markets_collection.update_one({"id": market_id}, {"$set": {
+    # Held at the phase the lock was judged on, so rules never land after the review closed.
+    write_market(market, {"$set": {
         market_doc_key("rejection_rules"): prepared,
         market_doc_key("no_automatic_rejections"): no_automatic_rejections,
     }})

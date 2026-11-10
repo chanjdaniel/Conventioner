@@ -1,5 +1,5 @@
 import { ref, watch, type Ref } from 'vue';
-import { getApiErrorMessage } from '@/utils/api';
+import { getApiErrorMessage, isMarketChanged } from '@/utils/api';
 import { useMarketStore } from '@/stores/market';
 import type { Market } from '@/assets/types/datatypes';
 
@@ -18,6 +18,11 @@ import type { Market } from '@/assets/types/datatypes';
  * So is a re-read of the market that lands while a write is in flight: it was asked for before the
  * click being written, and putting it on screen un-ticked what was just ticked. The write's own
  * answer, and the re-read after it, bring the list up to date.
+ *
+ * A write the server refused because the market changed under it (ADR 0024) puts back the list
+ * the market holds, not the one before the click: the store re-reads the market on that refusal
+ * (`installMarketChanged`), and what the screen held is older than the server's. Taken here when
+ * the re-read landed first, and by the watch below when it lands after.
  *
  * A list that a draft must decide before Review (T206) also carries the organizer's choice of none,
  * as the market holds it (`storedNone`) and as the write answers it.
@@ -72,8 +77,9 @@ export function useSavedOnTheMarket<T>(
     } catch (err: unknown) {
       writing -= 1;
       if (thisSave !== latestSave) return;
-      value.value = previous.list;
-      none.value = previous.none;
+      const held = isMarketChanged(err) ? market.value : null;
+      value.value = held ? [...(stored(held) ?? [])] : previous.list;
+      none.value = held ? storedNone(held) : previous.none;
       error.value = getApiErrorMessage(err, failure);
     }
   }

@@ -4,7 +4,9 @@ import unicodedata
 import uuid
 from enum import Enum
 from typing import List, Literal, Optional, Union, Dict, Any, Tuple
-from pydantic import BaseModel, Field, ConfigDict, computed_field, field_validator, model_validator
+from pydantic import (
+    BaseModel, ConfigDict, Field, PrivateAttr, computed_field, field_validator, model_validator,
+)
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -674,6 +676,10 @@ class Market(BaseModel):
     # The Discord server it is connected to (E46/F01/S02). Server-owned: only the Discord card's
     # routes write it. Absent is not connected.
     discord: Optional["DiscordConnection"] = None
+    # The stored document this market was parsed from, as it was read: what a write judged on this
+    # market holds (``market_write.write_market``). Set only by ``market_from_document``, carried by
+    # ``model_copy``, never served or dumped; None on a market built in code rather than read.
+    _stored_document: Optional[Dict[str, Any]] = PrivateAttr(default=None)
 
     @field_validator("permissions", mode="before")
     @classmethod

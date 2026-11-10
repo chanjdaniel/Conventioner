@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import api.applicants as ApplicantsApi  # noqa: E402
 import api.market_actions as Actions  # noqa: E402
 import api.markets as MarketsApi  # noqa: E402
+import market_write as MarketWrite  # noqa: E402
 import api.permissions as PermissionsApi  # noqa: E402
 import api.users as UsersApi  # noqa: E402
 import rejection_rules as Rules  # noqa: E402
@@ -91,6 +92,7 @@ def client(monkeypatch, applications, market_document):
             return dict(market_document) if query.get("id") in (None, "market-1") else None
 
     monkeypatch.setattr(MarketsApi, "markets_collection", Markets())
+    monkeypatch.setattr(MarketWrite, "markets_collection", MarketsApi.markets_collection)
     applications.documents = [
         _application("open", OPEN),
         _application("follow-up", FOLLOW_UP),
@@ -390,6 +392,8 @@ class TestAWriteThatJudgesAgain:
         monkeypatch.setattr(MarketsApi, "_load_market_to_change",
                             lambda *_a: _rules_market(NO_SHOW_RULE))
         monkeypatch.setattr(MarketsApi.markets_collection, "update_one", lambda *_a: None)
+        # The rules' own write: a market built here has no stored document to hold.
+        monkeypatch.setattr(MarketsApi, "write_market", lambda *_a, **_k: None)
 
     @pytest.mark.parametrize("role,status", [
         (MarketRole.EDITOR, REJECTED), (MarketRole.ADMIN, OPEN), (MarketRole.OWNER, OPEN)])

@@ -182,7 +182,7 @@ class TestTheyApplyWhen:
 
         stored.append(_app("a", affiliation=OUTSIDER))
         monkeypatch.setattr(MarketsApi, "_load_market_to_change", lambda *_a: _market())
-        monkeypatch.setattr(MarketsApi.markets_collection, "update_one", lambda *_a: None)
+        monkeypatch.setattr(MarketsApi, "write_market", lambda *_a, **_k: None)
 
         MarketsApi.save_rejection_rules(
             "market-123", [{"key": "affiliation", "answers": [OUTSIDER]}], "owner@x.test")
