@@ -132,7 +132,9 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
          ``sections`` and ``locations`` the floorplan's and the floorplan in ``floorplans`` in the
          place of the one of its id, or added. Everything else is as stored.
       5. Write it through ``MarketsApi.prepared_plan``, the plan write's own judge, so what is
-         stored is a plan that reads, held to every rule a plan write is.
+         stored is a plan that reads, held to every rule a plan write is: among them the
+         floorplan's bounds (``floorplan_limits``) and its image, which must be one uploaded for
+         this market (400 with the sentence for each).
 
     **Returns**::
 

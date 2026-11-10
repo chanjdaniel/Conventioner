@@ -7,6 +7,8 @@ describes:
   - back-end/requirements-floorplan-solver.in
   - back-end/requirements-floorplan-solver.txt
   - back-end/api/floorplans_save.py
+  - back-end/floorplan_limits.py
+  - back-end/api/markets.py#_floorplans_refusal
   - back-end/api/floorplans_calibrate.py
   - back-end/api/floorplans_export.py
   - back-end/api/floorplans.py
@@ -120,6 +122,13 @@ Pass a canvas colour through `canvasColor()` ([`front-end/src/utils/canvasColor.
 It builds the plan from the stored one, or from the empty plan Market Setup starts from when the market has none (empty dates, tiers, priority, locations and sections, both assignment options null, no pricing), with `sections` and `locations` the floorplan's and the floorplan in `floorplans` in the place of the stored one of its id, or added after them, so saving again replaces it; then `prepared_plan` in [`back-end/api/markets.py`](../../../back-end/api/markets.py) judges it as it judges a plan write, and the route writes the whole `setupObject` that returns.
 It used to write the three fields by hand, which on a market whose plan was never saved left a plan of those three alone, and with one wrong field a floorplan that did not parse: either way the market then answered as missing to every reader and refused every write, its Delete included (T272, [`a-floorplan-save-keeps-the-market-readable.spec.ts`](../../../front-end/e2e/a-floorplan-save-keeps-the-market-readable.spec.ts), [`test_a_floorplan_save_keeps_the_market_readable.py`](../../../back-end/tests/test_a_floorplan_save_keeps_the_market_readable.py)).
 The route has no blanket `except`, so a refusal `prepared_plan` raises answers its own status and sentence.
+**A floorplan is held to its bounds wherever it is written.**
+[`back-end/floorplan_limits.py`](../../../back-end/floorplan_limits.py) is the one statement of them, and `prepared_plan` asks it, so the wizard's save and a plan write (`PUT /markets/:id/plan`, which carries the stored floorplans back as Market Setup read them) are refused alike, with 400 and one sentence: more than 20 floorplans on a market, more than 100 walls, 100 no-go zones, 100 points in a no-go zone, 50 table types, 1,000 tables, 200 sections or 1,000 tables in a section, a string over 200 characters, or a number that is not finite or past 10,000,000 by absolute value ("A floorplan's measurements must be finite numbers no larger than 10,000,000.").
+`floorplan_refusal()` finds the strings and numbers by walking the floorplan's model dump, so a field added to `FloorplanObject` later is bounded with no new line; the list bounds are named one by one.
+`NaN` and `Infinity` pass Flask's JSON reader and a float field alike, and a market holding one is echoed back by the market read as bare tokens that are not JSON, so the browser could not read the market at all (Market Setup said "This market could not be loaded.").
+**The bounds are the request's, never the stored model's**: `datatypes.py` gains no constraint, since one there would make a market already holding a larger floorplan fail to read.
+So a floorplan restated unchanged (equal, as a model, to one the market holds) is not judged again, the same "restating is not a change" rule as [the setup lock](../../business/rules/the-setup-settles-on-leaving-draft.md), and the count refuses only a list longer than both 20 and the stored one, since the save once added a copy on every save; a stored floorplan holding `NaN` never equals itself, so it is always judged.
+**A floorplan names only an image uploaded for its market**: each changed floorplan's `image_gridfs_id` must be one `get_image_market_id()` answers this market for, else 400 "The floorplan's image was not uploaded for this market.", which covers another market's image, an image stored without a market and an id naming no image.
 
 **The editor keeps the tables it is handed.**
 [`FloorplanEditor.vue`](../../../front-end/src/components/floorplan/FloorplanEditor.vue)'s `loadBackgroundImage()` calls `store.initFloorplan()` only when no floorplan exists yet, spreading the store's `placedTables`, `tableTypes`, `sections`, `walls`, `obstacles` and scale into it, so moving forward through the wizard keeps the auto-placed tables; when a floorplan exists it only refreshes the background image's fields.

@@ -69,6 +69,7 @@ import api.market_actions as Actions
 import api.permissions as PermissionsApi
 import market_deletion as MarketDeletion
 import history as History
+import floorplan_limits as FloorplanLimits
 import pricing as Pricing
 import phase_record as PhaseRecord
 import api.attendance as AttendanceApi
@@ -89,6 +90,7 @@ import vendor_notes as VendorNotes
 from assignment.made_from import assignment_rules, changed_since_run
 from placement_reasons import orphaned_pins, overridden_placements, unplaced_dates
 from db_config import get_database
+import services.gridfs_service as GridfsService
 from utils.email_address import normalized_email
 
 logging.basicConfig(level=logging.INFO)
@@ -2653,6 +2655,29 @@ def _record_plan(
                        assignment_rules(market.setup_object), assignment_rules(plan)))
 
 
+#: Why a floorplan naming an image another market, no market or nothing holds is refused (T272).
+UNTIED_FLOORPLAN_IMAGE = "The floorplan's image was not uploaded for this market."
+
+
+def _floorplans_refusal(market: Market, plan: SetupObject) -> Optional[str]:
+    """Why a plan's floorplans may not be written, or None: their bounds (``floorplan_limits``),
+    and each changed floorplan's image, which must be one uploaded for this market.
+
+    A floorplan the market already holds, restated unchanged, is judged by neither: restating is
+    not a change, so a market stored before the bounds keeps saving its plan.
+    """
+    proposed = plan.floorplans or []
+    stored = (market.setup_object.floorplans if market.setup_object else None) or []
+    refused = FloorplanLimits.floorplans_refusal(proposed, stored)
+    if refused:
+        return refused
+    for floorplan in FloorplanLimits.changed_floorplans(proposed, stored):
+        image = floorplan.image_gridfs_id
+        if image is not None and GridfsService.get_image_market_id(image) != market.id:
+            return UNTIED_FLOORPLAN_IMAGE
+    return None
+
+
 class PreparedPlan(NamedTuple):
     """A plan write judged and not yet written: the plan as parsed, and the ``$set`` that writes it."""
     plan: SetupObject
@@ -2680,6 +2705,9 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> PreparedPlan:
     priced = Pricing.pricing_refusal(plan)
     if priced:
         raise BadRequestError(priced)
+    floorplan_refused = _floorplans_refusal(market, plan)
+    if floorplan_refused:
+        raise BadRequestError(floorplan_refused)
     update: Dict[str, Any] = {market_doc_key("setup_object"): convert_keys_to_camel_case(plan.model_dump())}
 
     if body.get("intakeMode") is not None:

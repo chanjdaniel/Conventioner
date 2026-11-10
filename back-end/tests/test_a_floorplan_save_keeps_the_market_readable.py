@@ -366,3 +366,295 @@ class TestTheAnswersBeforeTheParseKeepTheirOrder:
         assert response.status_code == 409
         assert "settled" in response.get_json()["error"]
         assert market.last_update is None
+
+
+# ── The bounds (ticket 03) ────────────────────────────────────────────────────
+
+OVER = "over"
+AT = "at"
+
+
+def _walls(n):
+    return [{"id": f"w-{i}", "start": [0, i], "end": [10, i], "thicknessMm": 100} for i in range(n)]
+
+
+def _zones(n, points=3):
+    return [{"id": f"z-{i}", "type": "pillar",
+             "polygon": [[p, p] for p in range(points)]} for i in range(n)]
+
+
+def _types(n):
+    return [{"id": f"tt-{i}", "name": f"Type {i}", "widthMm": 1800, "heightMm": 900,
+             "maxCapacity": 2} for i in range(n)]
+
+
+def _tables(n):
+    return [{"id": f"t-{i}", "tableTypeId": "tt-1", "x": i, "y": 0, "widthMm": 1800,
+             "heightMm": 900} for i in range(n)]
+
+
+def _sections(n, tables=0):
+    return [{"id": f"s-{i}", "name": f"Row {i}", "locationName": "Main Hall",
+             "tableIds": [f"t-{t}" for t in range(tables)]} for i in range(n)]
+
+
+#: Each list bound: the overrides holding ``n`` of the thing, the bound, and its sentence.
+LIST_BOUNDS = [
+    (lambda n: {"walls": _walls(n)}, 100, "A floorplan holds at most 100 walls."),
+    (lambda n: {"obstacles": _zones(n)}, 100, "A floorplan holds at most 100 no-go zones."),
+    (lambda n: {"obstacles": _zones(1, points=n)}, 100,
+     "A floorplan holds at most 100 points in a no-go zone."),
+    (lambda n: {"tableTypes": _types(n)}, 50, "A floorplan holds at most 50 table types."),
+    (lambda n: {"placedTables": _tables(n)}, 1000, "A floorplan holds at most 1,000 tables."),
+    (lambda n: {"sections": _sections(n)}, 200, "A floorplan holds at most 200 sections."),
+    (lambda n: {"sections": _sections(1, tables=n)}, 1000,
+     "A floorplan holds at most 1,000 tables in a section."),
+]
+LIST_BOUND_IDS = ["walls", "zones", "points", "table-types", "tables", "sections",
+                  "section-tables"]
+
+MEASUREMENT = "A floorplan's measurements must be finite numbers no larger than 10,000,000."
+TEXT = "A floorplan's names and ids are at most 200 characters."
+UNTIED = "The floorplan's image was not uploaded for this market."
+
+
+def _save_raw(client, text):
+    """A save sent as the text given, since a JSON library will not write ``NaN``."""
+    return client.post("/floorplans/save-to-market", data=text,
+                       headers={"Content-Type": "application/json"})
+
+
+def _with_token(floorplan, token):
+    """The save body as JSON text, with every ``"@@"`` in ``floorplan`` written as ``token``."""
+    return json.dumps({"market_id": MARKET_ID, "floorplan": floorplan}).replace('"@@"', token)
+
+
+def _refused_and_unwritten(response, sentence, market, market_records):
+    assert response.status_code == 400, response.get_json()
+    assert response.get_json() == {"error": sentence}
+    assert market.last_update is None
+    assert _floorplan_entries(market_records) == []
+
+
+class TestAFloorplanIsHeldToItsListBounds:
+
+    @pytest.mark.parametrize("build,bound,sentence", LIST_BOUNDS, ids=LIST_BOUND_IDS)
+    def test_one_over_the_bound_is_refused_and_writes_nothing(
+        self, client, market, market_records, build, bound, sentence,
+    ):
+        response = _save(client, _floorplan(**build(bound + 1)))
+
+        _refused_and_unwritten(response, sentence, market, market_records)
+
+    @pytest.mark.parametrize("build,bound,sentence", LIST_BOUNDS, ids=LIST_BOUND_IDS)
+    def test_exactly_at_the_bound_saves(self, client, market, build, bound, sentence):
+        response = _save(client, _floorplan(**build(bound)))
+
+        assert response.status_code == 200, response.get_json()
+        assert _saved_plan(market).floorplans[0].id == "fp-1"
+
+
+class TestAFloorplansTextIsBounded:
+
+    @pytest.mark.parametrize("place", ["id", "scaleUnit", "section-name", "table-type-color",
+                                       "table-code"])
+    def test_a_string_over_200_characters_anywhere_is_refused(
+        self, client, market, market_records, place,
+    ):
+        long = "a" * 201
+        floorplan = _floorplan()
+        if place == "section-name":
+            floorplan["sections"][0]["name"] = long
+        elif place == "table-type-color":
+            floorplan["tableTypes"][0]["color"] = long
+        elif place == "table-code":
+            floorplan["placedTables"][0]["tableCode"] = long
+        else:
+            floorplan[place] = long
+
+        _refused_and_unwritten(_save(client, floorplan), TEXT, market, market_records)
+
+    def test_a_string_of_200_characters_saves(self, client, market):
+        floorplan = _floorplan(floorplan_id="a" * 200)
+        floorplan["sections"][0]["name"] = "b" * 200
+
+        response = _save(client, floorplan)
+
+        assert response.status_code == 200, response.get_json()
+
+
+class TestAFloorplansMeasurementsAreFinite:
+
+    @pytest.mark.parametrize("token", ["NaN", "Infinity", "-Infinity"])
+    @pytest.mark.parametrize("place", ["scalePxPerUnit", "wall-start", "table-x", "zone-point",
+                                       "reference-line"])
+    def test_a_number_that_is_not_finite_is_refused_and_the_market_still_reads(
+        self, client, market, market_records, token, place,
+    ):
+        floorplan = _floorplan(obstacles=_zones(1))
+        if place == "wall-start":
+            floorplan["walls"][0]["start"] = ["@@", 0]
+        elif place == "table-x":
+            floorplan["placedTables"][0]["x"] = "@@"
+        elif place == "zone-point":
+            floorplan["obstacles"][0]["polygon"][1] = [0, "@@"]
+        elif place == "reference-line":
+            floorplan["referenceLineEnd"] = [10, "@@"]
+        else:
+            floorplan[place] = "@@"
+
+        response = _save_raw(client, _with_token(floorplan, token))
+
+        _refused_and_unwritten(response, MEASUREMENT, market, market_records)
+
+    @pytest.mark.parametrize("value", [10_000_001, -10_000_001, 1e300])
+    def test_a_number_past_ten_million_is_refused(self, client, market, market_records, value):
+        floorplan = _floorplan()
+        floorplan["tableTypes"][0]["widthMm"] = value
+
+        _refused_and_unwritten(_save(client, floorplan), MEASUREMENT, market, market_records)
+
+    def test_ten_million_saves(self, client, market):
+        floorplan = _floorplan(imageWidth=10_000_000)
+        floorplan["placedTables"][0]["y"] = -10_000_000
+
+        response = _save(client, floorplan)
+
+        assert response.status_code == 200, response.get_json()
+
+
+class TestAFloorplanNamesOnlyItsMarketsImage:
+
+    def test_its_own_markets_image_saves(self, client, market, market_records):
+        gridfs_id = str(market_records.images.put(b"png", metadata={"marketId": MARKET_ID}))
+
+        response = _save(client, _floorplan(imageGridfsId=gridfs_id))
+
+        assert response.status_code == 200, response.get_json()
+        assert _saved_plan(market).floorplans[0].image_gridfs_id == gridfs_id
+
+    @pytest.mark.parametrize("image", ["another-market", "no-market", "unknown", "not-an-id"])
+    def test_any_other_image_is_refused(self, client, market, market_records, image):
+        from bson import ObjectId
+
+        if image == "another-market":
+            gridfs_id = str(market_records.images.put(b"png", metadata={"marketId": "market-9"}))
+        elif image == "no-market":
+            gridfs_id = str(market_records.images.put(b"png", metadata=None))
+        elif image == "unknown":
+            gridfs_id = str(ObjectId())
+        else:
+            gridfs_id = "not-an-id"
+
+        response = _save(client, _floorplan(imageGridfsId=gridfs_id))
+
+        _refused_and_unwritten(response, UNTIED, market, market_records)
+
+
+class TestAMarketKeepsAtMostTwentyFloorplans:
+
+    def test_a_twenty_first_is_refused(self, client, market, market_records):
+        market.doc["setupObject"] = {**copy.deepcopy(FULL_PLAN), "floorplans": [
+            _floorplan(f"fp-{i}") for i in range(20)]}
+
+        response = _save(client, _floorplan("fp-new"))
+
+        _refused_and_unwritten(response, "A market keeps at most 20 floorplans.", market,
+                               market_records)
+
+    def test_replacing_one_of_twenty_saves(self, client, market):
+        market.doc["setupObject"] = {**copy.deepcopy(FULL_PLAN), "floorplans": [
+            _floorplan(f"fp-{i}") for i in range(20)]}
+
+        response = _save(client, _floorplan("fp-7", section="Replaced"))
+
+        assert response.status_code == 200, response.get_json()
+        floorplans = _saved_plan(market).floorplans
+        assert len(floorplans) == 20
+        assert floorplans[7].sections[0].name == "Replaced"
+
+    def test_a_market_already_over_twenty_may_still_replace_its_own(self, client, market):
+        """The save once added a copy on every save, so a market may hold more than 20 already;
+        the count refuses only a list that grows past the bound."""
+        market.doc["setupObject"] = {**copy.deepcopy(FULL_PLAN), "floorplans": [
+            _floorplan(f"fp-{i}") for i in range(23)]}
+
+        assert _save(client, _floorplan("fp-3", section="Replaced")).status_code == 200
+        assert _save(client, _floorplan("fp-new")).get_json() == {
+            "error": "A market keeps at most 20 floorplans."}
+
+
+class TestThePlanWriteHoldsFloorplansToTheSameBounds:
+    """``PUT /markets/:id/plan`` carries the stored floorplans back, as Market Setup read them."""
+
+    def _put_plan(self, client, floorplans):
+        return client.put(f"/markets/{MARKET_ID}/plan",
+                          json={"setupObject": {**copy.deepcopy(FULL_PLAN),
+                                                "floorplans": floorplans}})
+
+    def test_a_changed_floorplan_over_a_bound_is_refused(self, client, market):
+        market.doc["setupObject"] = {**copy.deepcopy(FULL_PLAN), "floorplans": [_floorplan()]}
+
+        response = self._put_plan(client, [_floorplan(walls=_walls(101))])
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "A floorplan holds at most 100 walls."}
+        assert market.last_update is None
+
+    def test_a_changed_floorplan_holding_nan_is_refused(self, client, market):
+        market.doc["setupObject"] = copy.deepcopy(FULL_PLAN)
+        body = {"setupObject": {**copy.deepcopy(FULL_PLAN),
+                                "floorplans": [_floorplan(scalePxPerUnit="@@")]}}
+
+        response = client.put(f"/markets/{MARKET_ID}/plan",
+                              data=json.dumps(body).replace('"@@"', "NaN"),
+                              headers={"Content-Type": "application/json"})
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": MEASUREMENT}
+        assert market.last_update is None
+
+    def test_a_changed_floorplan_naming_another_markets_image_is_refused(
+        self, client, market, market_records,
+    ):
+        market.doc["setupObject"] = copy.deepcopy(FULL_PLAN)
+        gridfs_id = str(market_records.images.put(b"png", metadata={"marketId": "market-9"}))
+
+        response = self._put_plan(client, [_floorplan(imageGridfsId=gridfs_id)])
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": UNTIED}
+        assert market.last_update is None
+
+    def test_stored_floorplans_restated_unchanged_save_even_over_the_bounds(self, client, market):
+        """A market stored before the bounds keeps saving its plan: restating is not a change."""
+        over = [_floorplan(f"fp-{i}", walls=_walls(150), imageGridfsId="old-image")
+                for i in range(22)]
+        market.doc["setupObject"] = {**copy.deepcopy(FULL_PLAN), "floorplans": over}
+
+        response = self._put_plan(client, copy.deepcopy(over))
+
+        assert response.status_code == 200, response.get_json()
+        assert len(_saved_plan(market).floorplans) == 22
+
+
+class TestTheBoundsModule:
+    """The one statement of the bounds, at the values the spec gives (T257 extends it)."""
+
+    def test_the_bounds(self):
+        import floorplan_limits as Limits
+
+        assert (Limits.MAX_FLOORPLANS_PER_MARKET, Limits.MAX_WALLS, Limits.MAX_OBSTACLES,
+                Limits.MAX_POLYGON_POINTS, Limits.MAX_TABLE_TYPES, Limits.MAX_PLACED_TABLES,
+                Limits.MAX_SECTIONS, Limits.MAX_TABLES_PER_SECTION, Limits.MAX_TEXT_LENGTH,
+                Limits.MAX_MAGNITUDE) == (20, 100, 100, 100, 50, 1000, 200, 1000, 200, 10_000_000)
+
+    def test_a_floorplan_within_every_bound_is_not_refused(self):
+        import floorplan_limits as Limits
+        from assignment.utils import convert_keys_to_snake_case
+        from datatypes import FloorplanObject
+
+        floorplan = FloorplanObject.model_validate(convert_keys_to_snake_case(_floorplan()))
+
+        assert Limits.floorplan_refusal(floorplan) is None
+        assert Limits.floorplans_refusal([floorplan], []) is None
