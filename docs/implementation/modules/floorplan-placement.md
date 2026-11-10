@@ -44,7 +44,7 @@ No step scrolls by itself: the market's frame gives the wizard no height to outg
 
 **The floorplan beta makes no LLM or vision call.**
 Auto-Place (`POST /floorplans/place-tables`, [`back-end/api/floorplans_placement.py`](../../../back-end/api/floorplans_placement.py)) is a pure geometry solver in [`back-end/services/placement_service.py`](../../../back-end/services/placement_service.py): Shapely for the room and the zone, `pyckingsolver` for the packing.
-Walls are drawn by hand, and no route sends a floorplan image to a hosted model: the vision endpoint that did, which no screen called, was removed with its two AI packages.
+Walls are drawn by hand, and no route sends a floorplan image to a hosted model.
 So the flow can be exercised end to end in CI with no API keys and no stubbing ([floorplan E2E](../testing/floorplan-e2e.md)).
 
 ## Interface
