@@ -1370,14 +1370,15 @@ def market_name_refusal(name: str) -> Optional[str]:
     mail, so it is something, at most ``MARKET_NAME_MAX`` characters (code points, as ``len``
     counts; a browser's ``maxlength`` counts UTF-16 units, so it is never looser), and on one line.
     Blank and the length are judged with the ends trimmed, as a rename stores it; a control
-    character (a line break, a tab) is refused anywhere in the name as sent, since a create stores
-    the name as given. Asked only by a create and a rename: a name stored before the rule still
-    loads, lists and is mailed, escaped and on one line (``utils.email.one_line``).
+    character (a line break, a tab) or a line or paragraph separator (U+2028, U+2029) is refused
+    anywhere in the name as sent, since a create stores the name as given. Asked only by a create
+    and a rename: a name stored before the rule still loads, lists and is mailed, escaped and on
+    one line (``utils.email.one_line``).
     """
     trimmed = (name or "").strip()
     if not trimmed:
         return "A market needs a name."
-    if any(unicodedata.category(character) == "Cc" for character in name):
+    if any(unicodedata.category(character) in ("Cc", "Zl", "Zp") for character in name):
         return "A market's name must be on one line."
     if len(trimmed) > MARKET_NAME_MAX:
         return f"A market's name can be at most {MARKET_NAME_MAX} characters."

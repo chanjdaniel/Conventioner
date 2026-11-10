@@ -68,6 +68,8 @@ REFUSED = [
     pytest.param("Spring\tFair", NOT_ONE_LINE, id="a tab"),
     pytest.param("Spring Fair\n", NOT_ONE_LINE, id="a line break at the end"),
     pytest.param("Spring\x00Fair", NOT_ONE_LINE, id="a NUL"),
+    pytest.param("Spring\u2028Fair", NOT_ONE_LINE, id="a line separator"),
+    pytest.param("Spring\u2029Fair", NOT_ONE_LINE, id="a paragraph separator"),
     pytest.param("", BLANK, id="empty"),
     pytest.param("   ", BLANK, id="blank"),
 ]

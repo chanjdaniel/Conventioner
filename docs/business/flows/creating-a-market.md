@@ -85,7 +85,7 @@ Covered by:
 
 **Status:** Works (T273; walked on a worktree stack).
 "Market name" takes at most 100 characters: typing past them adds nothing.
-The server holds the same rule whatever a client sends, counting the name without the spaces at its ends, and answers in the dialog under the name: "A market's name can be at most 100 characters.", "A market's name must be on one line." for a line break, a tab or any other control character, and "A market needs a name." for a blank one.
+The server holds the same rule whatever a client sends, counting the name without the spaces at its ends, and answers in the dialog under the name: "A market's name can be at most 100 characters.", "A market's name must be on one line." for a line break, a tab, any other control character or a Unicode line or paragraph separator, and "A market needs a name." for a blank one.
 The name is stored as typed.
 The rule is asked before the address rule (D5); a market named before it, longer or on two lines, still opens and lists, its card ending the name in an ellipsis.
 Covered by:
