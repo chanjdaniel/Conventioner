@@ -121,9 +121,10 @@ Covered by:
 2. Enter the code from the email, tick "Remember me" or leave it, and choose "Sign in"; the choice is the Sign in tab's, kept between the two (A2).
 3. "Use a different email" returns to step 1.
 
-Branches: a wrong code ("That code is not right."), which replaces the line saying the code was sent, and which a code for an address with no account answers too, up to the fifth try; too many wrong codes; a right code that has expired; too many tries; asking for another code too soon; an account not yet verified, which says to verify first and offers "Send the link again", as A2 does.
+Branches: a wrong code ("That code is not right."), which replaces the line saying the code was sent, and which a code for an address with no account answers too, at every try; a right code that has expired; too many tries; asking for another code too soon; an account not yet verified, which says to verify first and offers "Send the link again", as A2 does.
 
-- The fifth wrong code discards the code and says "Too many wrong codes. You can ask for a new code in N minutes.", and a right code that has expired "That code has expired. You can ask for a new code in N minutes.": a new code can be asked for an hour after the last one expired, and once that wait is over each says "Ask for a new one." instead.
+- The fifth wrong code discards the code and says "That code is not right." as the others do, so the right code after it is refused alike.
+- A right code that has expired says "That code has expired. You can ask for a new code in N minutes.": a new code can be asked for an hour after the last one expired, whether it expired or five wrong tries discarded it, and once that wait is over it says "Ask for a new one." instead.
 - Asking for another code before then says "You can ask for a new code in N minutes.".
 - Past five codes asked for one address in 15 minutes, or thirty from one caller, the next says "You have asked several times. Try again in N minutes.", the same for every address.
 - Past ten tries at one address in 15 minutes, or sixty from one caller, the next says "Too many sign-in attempts. Try again in N minutes, or reset your password.", the same for every address; a right code takes its own try back, as a right password does ([the sign-in is bounded](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).

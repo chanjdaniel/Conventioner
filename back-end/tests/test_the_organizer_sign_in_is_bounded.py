@@ -441,7 +441,7 @@ class TestARightCodeTakesItsTryBack:
         right = _enter_code(client, ACCOUNT_EMAIL, CODE).status_code
         tenth_wrong = _enter_code(client, ACCOUNT_EMAIL, WRONG_CODE).status_code
 
-        assert (set(wrong), right, tenth_wrong) == ({401, 429}, 200, 401)
+        assert (set(wrong), right, tenth_wrong) == ({401}, 200, 401)
         _issue_code(coded, ACCOUNT_EMAIL)
         assert _answer(_enter_code(client, ACCOUNT_EMAIL, CODE)) == CODE_REFUSED
 
@@ -452,7 +452,7 @@ class TestARightCodeTakesItsTryBack:
         tenth_wrong = _enter_code(client, UNVERIFIED_EMAIL, WRONG_CODE).status_code
 
         assert (set(wrong), right, tenth_wrong) == (
-            {401, 429}, (403, {"msg": VERIFY_FIRST}, None), 401)
+            {401}, (403, {"msg": VERIFY_FIRST}, None), 401)
         assert _answer(_enter_code(client, UNVERIFIED_EMAIL, CODE)) == CODE_REFUSED
 
     def test_a_sign_in_is_not_counted_against_the_caller(self, client, users, clock):
@@ -509,14 +509,15 @@ class TestACodesTriesAreCountedInOneUpdate:
 
         assert len(code_comparisons) <= 5
         assert coded.most_code_tries <= 5
-        assert sorted(answers) == [401] * 9 + [429]
+        assert answers == [401] * 10
         assert coded.account(ACCOUNT_EMAIL)["otp"] is None
 
-    def test_the_fifth_wrong_code_discards_the_code_and_keeps_its_wait(self, client, coded, clock):
+    def test_the_fifth_wrong_code_answers_as_the_others_and_discards_the_code_in_silence(
+        self, client, coded, clock,
+    ):
         answers = [_answer(_enter_code(client, ACCOUNT_EMAIL, WRONG_CODE)) for _ in range(5)]
 
-        assert answers == [(401, {"msg": WRONG_CODE_SAYS}, None)] * 4 + [
-            (429, {"msg": "Too many wrong codes. You can ask for a new code in 65 minutes."}, None)]
+        assert answers == [(401, {"msg": WRONG_CODE_SAYS}, None)] * 5
         account = coded.account(ACCOUNT_EMAIL)
         assert (account["otp"], account["otp_attempts"]) == (None, 0)
         assert account["otp_expires"] == CODE_EXPIRES.isoformat()

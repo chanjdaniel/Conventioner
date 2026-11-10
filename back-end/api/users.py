@@ -100,15 +100,13 @@ _LIFETIMES = {"s": SIGN_IN_LIFETIME, "r": REMEMBERED_SIGN_IN_LIFETIME}
 SIGN_IN_DOES_NOT_MATCH = "That email and password do not match."
 #: The screen offers "Send the link again" beside it.
 SIGN_IN_VERIFY_FIRST = "Verify your email address first: we sent you a link when you registered."
-#: A code that is not the one sent, and a code for an address with no account, alike up to an
-#: account's fifth wrong code, which discards its code and says when a new one may be asked for;
-#: an address with no account has no code to count tries on, though the sign-in limits count its
-#: tries as they count every address's.
+#: A code that is not the one sent, and a code for an address with no account, alike at every try:
+#: an account's fifth wrong code discards its code without saying so, and the sign-in limits count
+#: every address's tries alike.
 SIGN_IN_WRONG_CODE = "That code is not right."
 
-#: What the fifth wrong code and a right code that has expired say, each followed by when a new
-#: code may be asked for (``_next_code``).
-CODE_TOO_MANY_WRONG = "Too many wrong codes."
+#: What a right code that has expired says, followed by when a new code may be asked for
+#: (``_next_code``).
 CODE_EXPIRED = "That code has expired."
 #: When a new code may be asked for: ``{wait}`` is what is left of the account's wait, which ends an
 #: hour after its last code expired; with no wait left, at once.
@@ -842,14 +840,13 @@ def login_with_otp(login_user):
 
     stored_otp = user_doc["otp"]
     if not secrets.compare_digest(stored_otp.encode("utf-8"), otp.encode("utf-8")):
-        if user_doc["otp_attempts"] < CODE_TRIES:
-            return jsonify({"msg": SIGN_IN_WRONG_CODE}), 401
-        # The last try discards the code, and keeps its expiry, which holds back the next code.
-        users_collection.update_one(
-            {"email": email, "otp": stored_otp}, {"$set": {"otp": None, "otp_attempts": 0}}
-        )
-        next_code = _next_code(user_doc.get("otp_expires"), now)
-        return jsonify({"msg": f"{CODE_TOO_MANY_WRONG} {next_code}"}), 429
+        if user_doc["otp_attempts"] >= CODE_TRIES:
+            # The last try discards the code, and keeps its expiry, which holds back the next
+            # code. It answers as every wrong code does, with an account or without.
+            users_collection.update_one(
+                {"email": email, "otp": stored_otp}, {"$set": {"otp": None, "otp_attempts": 0}}
+            )
+        return jsonify({"msg": SIGN_IN_WRONG_CODE}), 401
 
     expires_at = _moment(user_doc.get("otp_expires"))
     if expires_at is None or expires_at <= now:

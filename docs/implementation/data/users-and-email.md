@@ -81,8 +81,7 @@ A route test that signs in by writing the session with an address points the use
 `SIGN_IN_DOES_NOT_MATCH` answers a wrong password and an address with no account alike, the same status and body, and the password is checked either way: against one stand-in hash, made once at the app's cost factor, when the address has no account (`_password_matches`).
 A password longer than bcrypt reads answers it too, checked against nothing ([the sign-in is bounded](#the-sign-in-is-bounded)).
 `SIGN_IN_VERIFY_FIRST` answers a right password, a right code or a code asked for on an account not yet verified.
-`SIGN_IN_WRONG_CODE` answers a wrong code and a code for an address with no account alike for each of the first four tries.
-An account's fifth wrong code discards its code and answers 429 "Too many wrong codes. You can ask for a new code in {wait}." ([a code's tries](#a-codes-tries-are-counted-in-one-update)), which an address with no account, having no code, never answers; the sign-in limits count both alike, and answering the fifth alike too is E47/F01/S01's.
+`SIGN_IN_WRONG_CODE` answers a wrong code and a code for an address with no account alike at every try, an account's fifth wrong code included, which discards its code without saying so ([a code's tries](#a-codes-tries-are-counted-in-one-update)); the sign-in limits count both alike.
 [`back-end/tests/test_the_sign_in_answers.py`](../../../back-end/tests/test_the_sign_in_answers.py) holds each, and that none says "log in".
 
 ## A sign-up answers alike
@@ -146,12 +145,12 @@ The sign-in page and the verification page say the 429's sentence after "Send th
 So no more than five tries ever reach one code, even when they arrive at once; a try that finds nothing to match (no account, no code, or its five tries counted) answers `SIGN_IN_WRONG_CODE`.
 The code is compared with `secrets.compare_digest`.
 
-- The fifth wrong code discards the code, by an update conditional on the stored code, and keeps `otp_expires`, so `/request-otp` keeps its wait; it answers 429 "Too many wrong codes. You can ask for a new code in {wait}.".
+- The fifth wrong code discards the code, by an update conditional on the stored code, and keeps `otp_expires`, so `/request-otp` keeps its wait; it answers 401 `SIGN_IN_WRONG_CODE`, as every wrong code does.
 - A right code that has expired answers 400 "That code has expired. You can ask for a new code in {wait}.", and is left as it is.
 - A right code on an account not yet verified answers `SIGN_IN_VERIFY_FIRST` and is left as it is.
 - A right code otherwise is consumed by an update conditional on the stored code; of two right tries only the one whose update changed the account signs in, and the other answers `SIGN_IN_WRONG_CODE`.
 
-`{wait}` in these and in `/request-otp`'s refusal, "You can ask for a new code in {wait}.", is what is left of the account's wait, which ends an hour after its code's `otp_expires` (`_code_wait`); once it is over, the code sentences end "Ask for a new one." instead, and `/request-otp` sends a code.
+`{wait}` in the expired code's sentence and in `/request-otp`'s refusal, "You can ask for a new code in {wait}.", is what is left of the account's wait, which ends an hour after its code's `otp_expires` (`_code_wait`); once it is over, the expired code's sentence ends "Ask for a new one." instead, and `/request-otp` sends a code.
 
 **A password longer than 72 bytes** in UTF-8 (`PASSWORD_MAX_BYTES`), which bcrypt refuses to hash or check, matches no account: `_password_matches` answers false without a bcrypt check, so `/login` answers `SIGN_IN_DOES_NOT_MATCH`, never the server's fault.
 `/register` and `/reset-password` refuse one before hashing, after the 8-character minimum, with 400 `PASSWORD_TOO_LONG` under `msg`, "That password is too long. Use 72 characters or fewer; an accented letter or an emoji counts as more than one.", and store nothing; the register form and the reset page show it as the server says it.
