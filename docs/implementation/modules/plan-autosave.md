@@ -55,6 +55,7 @@ While held no pause runs; an edit made meanwhile, or a save wanted when an answe
 It answers null once the server holds the last edit, or the sentence of the failure or refusal that stopped it, a save out it waited for included (a refusal's own sentence, without "The plan is back as it was last saved."); with nothing unsaved it answers null at once, sending nothing.
 Market Setup flushes before a phase move (the frame's `beforeTransition`), before Allocate tables and before the start from a CSV, and each stops on a sentence:
 the move posts nothing and the [phase rail](phase-rail.md) says "The market did not move, because the plan did not save. " and the sentence; [Allocate tables](../../business/flows/assignment-and-result.md#j3-allocate-tables) posts no run and shows the sentence as its error; the start from a CSV stays on the plan, whose status line says why.
+Before the flush, a phase move refuses while the form tab reports questions not yet saved, and sends nothing of the plan ([building the application form](../../business/flows/form-tab.md#leaving-with-questions-not-yet-saved)).
 The intake mode is saved at once, an edit and a flush, so it goes through the same queue.
 Allocate tables sends the plan only when an edit is unsaved: the server already holds the working copy otherwise.
 

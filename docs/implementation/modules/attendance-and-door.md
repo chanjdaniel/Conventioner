@@ -20,7 +20,7 @@ describes:
   - front-end/src/components/vendorPage/VendorCheckIn.vue
   - front-end/src/App.vue#fitsAPhone
   - front-end/src/utils/fitsAPhone.ts
-verified: 2026-11-09
+verified: 2026-11-10
 sources:
   - wayfinding/real-market-readiness/map
   - wayfinding/claims-and-room/map

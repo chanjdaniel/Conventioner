@@ -308,13 +308,22 @@ function handleUpdateIntakeMode(mode: IntakeMode) {
   void flushPlan();
 }
 
+/** Whether the form tab holds questions not yet saved, as it reports (T271). */
+const formUnsaved = ref(false);
+
 /**
  * Every phase guard reads the market as the server holds it, so a transition fired while an edit
  * is still sitting in the pause would be judged against a plan the organizer has already changed -
  * refused by their own unsaved work. So the plan's edits land first, and a plan that did not land
  * stops the move, which would otherwise go ahead over a plan the organizer did not mean (T271).
+ *
+ * Unsaved questions stop it before that: "Open applications" over them opened the form as last
+ * saved, so applicants got a form without its last questions (T271).
  */
 async function beforeTransition(): Promise<string | null> {
+  if (formUnsaved.value) {
+    return 'The market did not move: the form has changes that are not saved. Save Form first.';
+  }
   const why = await flushPlan();
   return why === null ? null : `The market did not move, because the plan did not save. ${why}`;
 }
@@ -437,7 +446,12 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
         />
 
         <!-- Application Form Tab -->
-        <MarketFormTab v-if="activeTab === 'form'" :market="market" :setupObject="setupObject" />
+        <MarketFormTab
+          v-if="activeTab === 'form'"
+          :market="market"
+          :setupObject="setupObject"
+          @unsaved="(now: boolean) => (formUnsaved = now)"
+        />
 
         <MarketPlanTab
           v-if="activeTab === 'setup'"
