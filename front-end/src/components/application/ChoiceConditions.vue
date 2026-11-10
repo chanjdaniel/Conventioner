@@ -72,12 +72,15 @@ const answerGroups = computed(
   () => new Map(props.questions.map((q) => [q.key, [{ options: q.answers }]])),
 );
 const isLong = (condition: AnswerCondition) => questionOf(condition).answers.length > COMBOBOX_PAST;
-/** What a long condition's chips say, in the order chosen: an answer's label, or a gone one's words. */
-function chipWords(condition: AnswerCondition): string[] {
+/**
+ * A long condition's chips, in the order chosen: each answer's value, which keys it, and its words,
+ * an answer's label or a gone one's own. Two chosen answers can read alike; no two share a value.
+ */
+function chipsOf(condition: AnswerCondition): { value: string; words: string }[] {
   const labels = new Map(
     questionOf(condition).answers.map((answer) => [answer.value, answer.label]),
   );
-  return condition.answers.map((value) => labels.get(value) ?? value);
+  return condition.answers.map((value) => ({ value, words: labels.get(value) ?? value }));
 }
 /** A long condition's picker, and its fixed chips: one name for both. */
 const answersLabel = (condition: AnswerCondition) =>
@@ -162,12 +165,12 @@ function toggle(condition: AnswerCondition, answer: string, meets: boolean) {
           :data-testid="`${testid}-answers-${condition.key}-chips`"
         >
           <li
-            v-for="words in chipWords(condition)"
-            :key="words"
+            v-for="chip in chipsOf(condition)"
+            :key="chip.value"
             class="chip chip--neutral condition-chip"
             :data-testid="`${testid}-answers-${condition.key}-chip`"
           >
-            {{ words }}
+            {{ chip.words }}
           </li>
         </ul>
         <p v-else class="conditions-empty" :data-testid="`${testid}-answers-${condition.key}-none`">

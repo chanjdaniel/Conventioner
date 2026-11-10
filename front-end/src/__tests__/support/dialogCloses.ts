@@ -1,6 +1,7 @@
 /**
  * Every way a person closes an `AppDialog`, tried in turn: its close control, Cancel, the scrim and
- * Escape, each of which must be drawn. A dialog holding through a save (`close-disabled`) emits `close` for none of them.
+ * Escape, each of which must be drawn. A dialog holding through a save (`close-disabled`) emits
+ * `close` for none of them.
  */
 import { flushPromises } from '@vue/test-utils';
 
