@@ -20,9 +20,12 @@ arrival never waits for the market: it marks its application as arriving
 (``ApplicationsApi.mark_arriving``) and deals every application so marked if it can hold the
 market; if it cannot, the deal holding it deals them when it lets go (``_settle``), since an
 application is marked before its arrival tries to hold, and every holder looks for marked ones
-after letting go. Every write a deal makes to the market names its lease and reads whether it
-matched: one that did not finds another deal holding the market, its own lease lapsed, so a change
-of reviewers is refused (``DEALING_BUSY``) and a deal of arrivals says so in the log.
+after letting go. A holder the host ended never lets go: its lease runs out, and the next deal
+deals what it left, which a reviewer's next card starts (``deal_waiting``), so a quiet spell after
+it leaves no reviewer's share short. Every write a deal makes to the market names its lease and
+reads whether it matched: one that did not finds another deal holding the market, its own lease
+lapsed, so a change of reviewers is refused (``DEALING_BUSY``) and a deal of arrivals says so in
+the log.
 """
 import logging
 import time
@@ -36,7 +39,9 @@ import api.organizations as OrgsApi
 import history as History
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from client_errors import ConflictError
-from datatypes import ApplicationStatus, Market, MarketPerson, Organization, ReviewTeam
+from datatypes import (
+    ApplicationStatus, Market, MarketPerson, MarketPhase, Organization, ReviewTeam,
+)
 from db_config import get_database
 from market_documents import market_doc_field, market_doc_key, market_from_document
 from utils.email_address import normalized_email
@@ -288,6 +293,21 @@ def deal_arrivals(
     else:
         ApplicationsApi.mark_all_arriving(market.id, actor, action_id)
     return _settle(market, _organization(market))
+
+
+def deal_waiting(market: Market, organization: Optional[Organization]) -> int:
+    """Deal every application left waiting as it arrived, holding the market, as the next card a
+    reviewer asks for does: a deal the host ended while it held the market never let go, so the
+    arrivals that found it holding wait for whichever deal comes next, and a quiet spell brings
+    none. Each is recorded under the write it arrived by, never the one asking. While a live deal
+    holds the market it answers at once, and that deal deals them as it lets go. With no reviewers
+    chosen, or on an archived market, it reads and writes nothing. Answers how many it dealt.
+
+    Only a write calls it: ``utils/request_origin.py`` lets a ``GET`` through on the promise that
+    it changes nothing, so no read deals."""
+    if not team_of(market).reviewers or market.phase is MarketPhase.ARCHIVED:
+        return 0
+    return _settle(market, organization)
 
 
 def _settle(market: Market, organization: Optional[Organization], again: bool = True) -> int:

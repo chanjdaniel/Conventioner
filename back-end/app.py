@@ -1798,6 +1798,9 @@ def next_for_review(market_id: str) -> Response:
     if refused:
         return refused
     data = json_object(required=False)
+    # Applications a deal the host ended left waiting are dealt first, so a chosen reviewer's
+    # share holds them; each deal is recorded under the write it arrived by.
+    ReviewTeam.deal_waiting(context.market, context.organization)
     doc = ApplicationsApi.claim_next_for_review(
         market_id, person, data.get('after'), bool(data.get('includeFollowUps')),
         want=data.get('want'), chosen=Actions.is_chosen(person.email, context.market),

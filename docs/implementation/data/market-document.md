@@ -103,6 +103,7 @@ What they mean and how an assignment is priced is [a price follows the table](..
 **A change of reviewers is unfinished while `reviewTeam.unfinishedChoice` stands** (T270): its team write sets it to `{removed: [address]}`, the reviewers the change removed, and its last write, the turn's, unsets it, so the same choice again finishes a change that stopped between them and hands on those reviewers' follow-ups too ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)).
 Like `dealing`, it is beside the team on the document and not on the `ReviewTeam` model, and the read never serves it.
 Every write a deal makes to the market under `dealing` names the lease and reads whether it matched, so one whose lease ran out is refused or logged, never written as if it held the market ([ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)).
+A lease nobody let go, from a deal the host ended, runs out on its own, and the applications still marked `arriving` are dealt by the next deal, which a reviewer's next card starts (`deal_waiting`).
 
 <a id="the-discord-connection-is-discord"></a>
 **The Discord connection is `discord`**; absent is not connected.
