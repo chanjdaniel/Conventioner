@@ -189,8 +189,11 @@ docker run -d \
   -p 27017:27017 \
   -e MONGO_INITDB_ROOT_USERNAME=admin \
   -e MONGO_INITDB_ROOT_PASSWORD=secret \
-  mongo:latest
+  --ulimit nofile=64000:64000 \
+  mongo:8.0
 ```
+
+`mongo:8.0` is the major version production, the local stack and CI run, and the open-file limit is the one [the real-MongoDB suite](implementation/testing/real-mongo-suite.md#mongodb-80) needs.
 
 ## Step 2: Backend Setup
 
