@@ -6,6 +6,8 @@ describes:
   - front-end/src/components/UnsavedWorkDialog.vue
   - front-end/src/__tests__/useUnsavedWork.test.ts
   - front-end/e2e/unsaved-questions-ask-first.spec.ts
+  - front-end/src/__tests__/theImportAsksBeforeItDropsAMapping.test.ts
+  - front-end/e2e/the-import-asks-before-it-drops-a-mapping.spec.ts
 verified: 2026-11-10
 sources:
   - T271
@@ -38,13 +40,17 @@ Focus, the page held inert and focus given back to the control that started the 
 
 ## Each screen using it
 
-| Screen                                                                                               | `unsaved`                                                                      | `inApp` | Sentence                                                                  |
-| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------------- |
-| The form builder ([`MarketFormTab.vue`](../../../front-end/src/components/market/MarketFormTab.vue)) | the working copy's fields differ from the fields as last taken from the server | true    | "Your changes to the form's questions are not saved. Leaving drops them." |
-| Market Setup's plan ([`MarketSetupView.vue`](../../../front-end/src/views/MarketSetupView.vue))      | the plan's autosave holds an edit the server does not, or a save is out        | false   | none: the browser asks in its own words                                   |
+| Screen                                                                                               | `unsaved`                                                                      | `inApp` | Sentence                                                                                                |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------- |
+| The form builder ([`MarketFormTab.vue`](../../../front-end/src/components/market/MarketFormTab.vue)) | the working copy's fields differ from the fields as last taken from the server | true    | "Your changes to the form's questions are not saved. Leaving drops them."                               |
+| Market Setup's plan ([`MarketSetupView.vue`](../../../front-end/src/views/MarketSetupView.vue))      | the plan's autosave holds an edit the server does not, or a save is out        | false   | none: the browser asks in its own words                                                                 |
+| The CSV import ([`CsvImportView.vue`](../../../front-end/src/views/CsvImportView.vue))               | the step is Map columns, or Preview with no import running                     | true    | "Nothing from this file is imported yet. Leaving drops the column mapping and every value you settled." |
 
 The form builder's rule is its own ([building the application form](../../business/flows/form-tab.md#leaving-with-questions-not-yet-saved)): only the fields count, since "Ask this" saves itself as it is ticked and the key flags are intent, never sent; opening a step without an edit, or a form just saved, is not unsaved.
 It also reports the flag to Market Setup, whose phase move refuses while it holds.
+
+The CSV import's rule is its own ([importing a Google Form's responses](../../business/flows/import.md#h2a-first-import-everything-maps)): a file read and nothing of it written; Upload holds no file, the done step has written it, and an import running is not stopped by leaving, so none of those asks.
+"Cancel import" leaves by the router, so it asks through the same guard.
 
 Market Setup's plan asks on unload alone ([the plan's autosave](../modules/plan-autosave.md#the-queue)): an in-app move unmounts the view, whose flush sends the edit, and nothing cancels it.
 
@@ -52,6 +58,8 @@ Market Setup's plan asks on unload alone ([the plan's autosave](../modules/plan-
 
 - [`useUnsavedWork.test.ts`](../../../front-end/src/__tests__/useUnsavedWork.test.ts) drives the guards through a real router and `RouterView` with the dialog beside it: the question on a move to another route and to another path of the same route, Stay, Escape, the close and the scrim staying, Leave going, no question on a query or hash change, a move to `login`, nothing unsaved or `inApp: false`; `beforeunload` prevented only while unsaved and never once the screen is gone; and one question at a time.
 - [`planAutosave.test.ts`](../../../front-end/src/__tests__/planAutosave.test.ts) holds Market Setup's `beforeunload` prevented only while an edit is unsaved, a failed save included, and [`the-plan-saves-one-at-a-time.spec.ts`](../../../front-end/e2e/the-plan-saves-one-at-a-time.spec.ts) the browser's question on a reload inside the pause.
+- [`theImportAsksBeforeItDropsAMapping.test.ts`](../../../front-end/src/__tests__/theImportAsksBeforeItDropsAMapping.test.ts) reads the import's guards and `beforeunload` at each step: none on Upload, on the done step, while an import runs or after the import's own Back; the question on Map columns, on Preview, after a failed import and on a jump to another market's import; none on a move to `login`.
+  [`the-import-asks-before-it-drops-a-mapping.spec.ts`](../../../front-end/e2e/the-import-asks-before-it-drops-a-mapping.spec.ts) walks it in a browser: a tab, "Cancel import", Back and the app bar asking, Stay keeping the mapping and the values settled, Leave going and writing nothing, the browser's question on a reload, and Upload, an import running and the done step leaving without a question.
 - [`unsaved-questions-ask-first.spec.ts`](../../../front-end/e2e/unsaved-questions-ask-first.spec.ts) walks the form builder in a browser: the question on a tab with focus on Stay and `expectAccessible`, each way of staying and Leave, the steps and a saved form asking nothing, Back asking, the browser's own question on a reload, Sign out never stopping on it, the move refused, and "Ask this" saving only its choice.
 
 ## What breaks it
