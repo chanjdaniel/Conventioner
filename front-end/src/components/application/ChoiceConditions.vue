@@ -10,7 +10,9 @@
  * The answers of a question of 12 or fewer are checkboxes, each one press and always in view. Past
  * 12 (T223) they are a capped `SearchPicker` of several, found by typing, the chosen as chips, so a
  * question of 228 answers is not a wall of boxes. It compares the answers the question offers, so a
- * choice never turns the one into the other.
+ * choice never turns the one into the other. Shown fixed, such a condition is only its answers, as
+ * chips in the picker's look with nothing to remove them, or "No answer chosen": a field there would
+ * be an empty box that takes nothing.
  *
  * A condition on a question the form no longer asks, or on an answer it no longer offers, is drawn
  * broken, with what is missing, so it can be changed or removed: the server leaves what a rule names
@@ -70,6 +72,16 @@ const answerGroups = computed(
   () => new Map(props.questions.map((q) => [q.key, [{ options: q.answers }]])),
 );
 const isLong = (condition: AnswerCondition) => questionOf(condition).answers.length > COMBOBOX_PAST;
+/** What a long condition's chips say, in the order chosen: an answer's label, or a gone one's words. */
+function chipWords(condition: AnswerCondition): string[] {
+  const labels = new Map(
+    questionOf(condition).answers.map((answer) => [answer.value, answer.label]),
+  );
+  return condition.answers.map((value) => labels.get(value) ?? value);
+}
+/** A long condition's picker, and its fixed chips: one name for both. */
+const answersLabel = (condition: AnswerCondition) =>
+  `Answers to ${questionOf(condition).label}${props.owner ? ` ${props.owner}` : ''}`;
 /** What a broken condition's line says past 12, where the chips alone do not show which it is. */
 function goneLine(condition: AnswerCondition): string {
   const gone = goneAnswers(props.questions, condition);
@@ -138,19 +150,40 @@ function toggle(condition: AnswerCondition, answer: string, meets: boolean) {
           >
         </button>
       </div>
+      <div
+        v-if="isLong(condition) && fixed"
+        class="condition-fixed"
+        :data-testid="`${testid}-answers-${condition.key}`"
+      >
+        <ul
+          v-if="condition.answers.length"
+          class="condition-chips"
+          :aria-label="`${answersLabel(condition)}, chosen`"
+          :data-testid="`${testid}-answers-${condition.key}-chips`"
+        >
+          <li
+            v-for="words in chipWords(condition)"
+            :key="words"
+            class="chip chip--neutral condition-chip"
+            :data-testid="`${testid}-answers-${condition.key}-chip`"
+          >
+            {{ words }}
+          </li>
+        </ul>
+        <p v-else class="conditions-empty" :data-testid="`${testid}-answers-${condition.key}-none`">
+          No answer chosen
+        </p>
+      </div>
       <SearchPicker
-        v-if="isLong(condition)"
+        v-else-if="isLong(condition)"
         multiple
         hide-label
         :model-value="condition.answers"
         :groups="answerGroups.get(condition.key) ?? []"
         :finds="labelHolds"
         :cap="COMBOBOX_CAP"
-        :disabled="fixed"
-        :label="`Answers to ${questionOf(condition).label}${owner ? ` ${owner}` : ''}`"
-        :placeholder="
-          !fixed ? 'Find an answer' : condition.answers.length ? undefined : 'No answer chosen'
-        "
+        :label="answersLabel(condition)"
+        placeholder="Find an answer"
         :testid="`${testid}-answers-${condition.key}`"
         none-word="Nothing"
         @update:model-value="setAnswers(condition.key, $event as string[])"
@@ -265,6 +298,23 @@ function toggle(condition: AnswerCondition, answer: string, meets: boolean) {
 
 .condition-head .btn {
   margin-left: auto;
+}
+
+/* The picker's chips, with no remove button: they wrap, and a long answer wraps inside its chip. */
+.condition-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.condition-chip {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .condition-answers {

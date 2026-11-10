@@ -209,27 +209,35 @@ describe('a rule on a question of many answers', () => {
     expect(lastWrite(wrapper)).toEqual([other, { key: 'selling', answers: [] }]);
   });
 
-  it('shown fixed, its chips still read and nothing can be taken', () => {
+  it('shown fixed, its answers read as chips with nothing to remove them and no field', () => {
     const wrapper = mountLong(
-      [{ key: 'selling', answers: ['Answer 3'] }],
+      [{ key: 'selling', answers: ['Answer 3', 'Answer 13'] }],
       'The automatic rejections closed when results were published.',
     );
 
-    expect(picked(wrapper)[0]).toContain('Answer 3');
-    expect(wrapper.get(`${PICKER} input`).attributes()).toHaveProperty('disabled');
+    expect(picked(wrapper)).toEqual(['Answer 3', 'Answer 13']);
     expect(
-      wrapper.get('[data-testid="rejection-answers-selling-chip-remove"]').attributes(),
-    ).toHaveProperty('disabled');
+      wrapper.get('[data-testid="rejection-answers-selling-chips"]').attributes('aria-label'),
+    ).toBe('Answers to What you sell, chosen');
+    expect(wrapper.find(`${PICKER} input`).exists()).toBe(false);
+    expect(wrapper.find(`${PICKER} button`).exists()).toBe(false);
+    expect(wrapper.find('[data-testid="rejection-answers-selling-chip-remove"]').exists()).toBe(
+      false,
+    );
     expect(wrapper.find('.conditions-empty').exists()).toBe(false);
   });
 
-  it('fixed with no answer chosen, its field says so rather than offering to find one', () => {
+  it('fixed with no answer chosen, says so in words and draws no field', () => {
     const wrapper = mountLong(
       [{ key: 'selling', answers: [] }],
       'The automatic rejections closed when results were published.',
     );
 
-    expect(wrapper.get(`${PICKER} input`).attributes('placeholder')).toBe('No answer chosen');
+    expect(wrapper.get('[data-testid="rejection-answers-selling-none"]').text()).toBe(
+      'No answer chosen',
+    );
+    expect(wrapper.find(`${PICKER} input`).exists()).toBe(false);
+    expect(picked(wrapper)).toEqual([]);
   });
 
   it('an answer the form no longer offers is a chip of its own words, and the line names it', async () => {

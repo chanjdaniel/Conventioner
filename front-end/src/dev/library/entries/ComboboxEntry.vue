@@ -136,12 +136,11 @@ const longestAnswers = [...question.options]
 const longAnswers = ref([...longestAnswers]);
 
 const IGNORE_LABEL = 'Ignore this value';
-/** A value's fix is one of the question's answers, or ignoring it, which the cap must not hide. */
-const fixGroups: PickerGroup[] = [
-  {
-    options: [{ value: IGNORE_VALUE, label: IGNORE_LABEL }, ...optionGroups[0]!.options],
-  },
-];
+/**
+ * A value's fix is one of the question's answers, or ignoring it, which `leads` keeps drawn first
+ * whatever the words, outside the cap.
+ */
+const fixLeads: PickerOption[] = [{ value: IGNORE_VALUE, label: IGNORE_LABEL }];
 const offeredAnswers = question.options.map(({ label }) => label);
 
 /** The real row, at each side of the threshold: the question's first answers, as many as that. */
@@ -316,7 +315,7 @@ const writtenAnswer = ref('');
       </div>
     </LibraryPanel>
 
-    <LibraryPanel label="A choice past the cap: the field names it, Enter keeps it">
+    <LibraryPanel label="A choice past the cap: drawn first, Enter keeps it">
       <div class="library-demo">
         <SearchPicker
           v-model="pastTheCap"
@@ -549,7 +548,8 @@ const writtenAnswer = ref('');
             <code :id="`library-c1-value-${at}`" class="library-fix-value">{{ value }}</code>
             <ChoiceField
               :model-value="fixes[value] ?? ''"
-              :groups="fixGroups"
+              :groups="optionGroups"
+              :leads="fixLeads"
               :label="`What ${value} means`"
               :name="`library-c1-fix-${at}`"
               :testid="`library-c1-fix-${at}`"

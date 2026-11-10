@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/CsvImportView.vue
-verified: 2026-11-06
+verified: 2026-11-10
 sources:
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/04
@@ -116,7 +116,7 @@ For a market started from a Google Form, step 2 opens "Mapped when your form was
 Answers are split only where the comma is not inside an option, so "Monday, November 20th" arrives whole and reads as that market date (bug 27).
 "N values did not match …" lists each unmatched answer with "Choose…" to match it to an option, or "Ignore this value"; "Re-check values" re-runs the check.
 A question of 12 answers or fewer keeps a select; past that the organizer finds the answer by typing in a field on the value's row, its list lying over the rows below so none moves, and 142 values among 129 answers read 142 fields (T223).
-Words typed and not chosen clear on leaving the field, since a fix can only name an answer the question offers; once a value is fixed past 12, another answer or "Ignore this value" replaces the fix, as the field has no empty row.
+Words typed and not chosen clear on leaving the field, since a fix can only name an answer the question offers, and "Ignore this value" stays the list's first row whatever is typed (T263); once a value is fixed past 12, another answer or "Ignore this value" replaces the fix, as the field has no empty row.
 Values already decided, including those a Google Form start saved, are listed as "N values already decided - change any that are wrong" and can be changed (bug 28).
 "N values still need a match." blocks the preview until each is settled.
 
