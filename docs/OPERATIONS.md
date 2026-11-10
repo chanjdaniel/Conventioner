@@ -10,7 +10,9 @@ describes:
   - back-end/migrations/create_applications_collection.py
   - back-end/migrations/migrate_placement_history.py
   - back-end/api/applicant_auth.py#ensure_applicant_login_indexes
-verified: 2026-11-09
+  - back-end/api/attendance.py#ensure_attendance_indexes
+  - back-end/migrations/check_vendor_day_duplicates.py
+verified: 2026-11-10
 sources:
   - E32/F03/S03
   - T15
@@ -20,6 +22,7 @@ sources:
   - E40/F01/S01
   - T254
   - T263
+  - T270
 ---
 
 # Operations
@@ -179,11 +182,11 @@ Until it runs, that release reads the old `placement_history` collection beside 
 
 ### When the back end refuses to boot
 
-The back end checks the database as it starts and refuses to serve one it cannot trust: the migration markers ([`market_documents.py`](../back-end/market_documents.py)) and these unique indexes:
+The back end checks the database as it starts and refuses to serve one it cannot trust: the migration markers ([`market_documents.py`](../back-end/market_documents.py)) and these unique indexes, in the order the boot builds them:
 
-- one account per address, `user_email` ([`api/users.py`](../back-end/api/users.py));
 - one application per applicant, `market_applicant_type_unique` ([`api/applications.py`](../back-end/api/applications.py));
 - one sign-in code per applicant, `market_email_unique` ([`api/applicant_auth.py`](../back-end/api/applicant_auth.py));
+- one account per address, `user_email` ([`api/users.py`](../back-end/api/users.py));
 - one attendance record per vendor's day, `attendance_vendor_day_unique` ([`api/attendance.py`](../back-end/api/attendance.py), through [`unique_indexes.py`](../back-end/unique_indexes.py)).
 
 Every request then answers 500 `FUNCTION_INVOCATION_FAILED`, and the log says which check refused and what to run (Vercel, the back-end project, Logs).
@@ -229,7 +232,8 @@ Which document is the applicant's is the organizer's call: merge each pair by ha
 Two check-ins of one vendor's day stored two records, which two at the same moment could before the index existed ([attendance and the door](implementation/modules/attendance-and-door.md#one-vendors-day-is-one-record-by-the-database)).
 The refusal names each group by market id, date and record id, never the vendor's address, and Mongo's error by its type and code only.
 `MONGODB_URI='<URI>' .venv/bin/python migrations/check_vendor_day_duplicates.py` ([`check_vendor_day_duplicates.py`](../back-end/migrations/check_vendor_day_duplicates.py)) lists the same groups and writes nothing; from an ops session without the checkout, `db.attendance.aggregate([{$group: {_id: {m: "$market_id", v: "$vendor_email", d: "$date"}, n: {$sum: 1}, ids: {$push: "$_id"}}}, {$match: {n: {$gt: 1}}}, {$project: {"_id.v": 0}}])` in `mongosh` does.
-Take a `mongodump` first, then in each group keep the record with the earliest `checked_in_at` and delete the others by `_id` (`db.attendance.deleteOne({_id: ObjectId('<id>')})`): the history already holds each arrival, so nothing is lost.
+Take a `mongodump` first, then in each group keep the record with the earliest `checked_in_at` and delete the others by `_id` (`db.attendance.deleteOne({_id: ObjectId('<id>')})`).
+The history already holds each arrival, with who made it and how; the kept record then names the first check-in's organizer or door code, not a later one's.
 Then redeploy, or restart the local back end.
 When it says "none found", the build failed on something other than duplicates: code 85 or 86 is an index of that name with other options or keys, to drop (`db.attendance.dropIndex('attendance_vendor_day_unique')`) before redeploying.
 

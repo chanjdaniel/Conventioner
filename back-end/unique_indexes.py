@@ -22,7 +22,8 @@ from pymongo.errors import PyMongoError
 VENDOR_DAY_FIELDS = ("market_id", "vendor_email", "date")
 #: What a refusal or the duplicate check may print of a vendor's day: never the address.
 VENDOR_DAY_SHOWN = ("market_id", "date")
-#: The collections holding one record per vendor's day, each with the name of its unique index.
+#: The collections holding one record per vendor's day, each with the name of its unique index,
+#: which the collection's owner builds at boot through ``ensure_vendor_day_index``.
 #: ``migrations/check_vendor_day_duplicates.py`` reads every one before a release is promoted.
 VENDOR_DAY_INDEXES: Dict[str, str] = {
     "attendance": "attendance_vendor_day_unique",
@@ -39,14 +40,15 @@ def duplicate_groups(
     """The records sharing one key, a group per key: the ``shown`` fields' values and the ``_id``
     of every record in it, and nothing else of the key.
 
-    One aggregation, so the database does the grouping and only the groups come back.
+    One aggregation, so the database does the grouping and only the groups come back. A missing
+    field is grouped as null, as the unique index keys it.
     """
     hidden = [field for field in shown if field not in fields]
     if hidden:
         raise ValueError(f"A shown field must be one of the key's fields: {', '.join(hidden)}")
     return list(collection.aggregate([
         {"$group": {
-            "_id": {field: f"${field}" for field in fields},
+            "_id": {field: {"$ifNull": [f"${field}", None]} for field in fields},
             "n": {"$sum": 1},
             "ids": {"$push": "$_id"},
         }},

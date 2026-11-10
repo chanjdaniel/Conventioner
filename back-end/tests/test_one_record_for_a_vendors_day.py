@@ -13,7 +13,7 @@ import os
 import sys
 
 import pytest
-from pymongo.errors import OperationFailure, PyMongoError
+from pymongo.errors import DuplicateKeyError, PyMongoError
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                 "migrations"))
@@ -49,7 +49,7 @@ class VendorDays:
     def create_index(self, keys, **options):
         if self.build_fails:
             # As MongoDB words it: the duplicate key quotes the vendor's address.
-            raise OperationFailure(
+            raise DuplicateKeyError(
                 f'E11000 duplicate key error dup key: {{ vendor_email: "{ANA}" }}', code=11000)
         self.indexes[options["name"]] = {"key": list(keys), **options}
         self.built.append((list(keys), options))
@@ -60,7 +60,8 @@ class VendorDays:
         if self.read_fails:
             raise PyMongoError("the read failed")
         group, match, project = (stage for stage in pipeline)
-        key_of = {name: ref[1:] for name, ref in group["$group"]["_id"].items()}
+        # Each key field as {"$ifNull": ["$<field>", None]}: a missing field groups as null.
+        key_of = {name: ref["$ifNull"][0][1:] for name, ref in group["$group"]["_id"].items()}
         groups = {}
         for doc in self.docs:
             key = tuple((name, doc.get(field)) for name, field in key_of.items())
@@ -87,6 +88,19 @@ def _record(record_id, email, market=MARKET, date=DAY):
 
 TWICE = [_record("rec-1", ANA), _record("rec-2", ANA), _record("rec-3", BEN),
          _record("rec-4", BEN, date="2099-08-02")]
+
+
+def test_a_missing_field_groups_as_null_as_the_index_keys_it():
+    """The unique index keys a missing field as null, so the two records below block it; the
+    groups must say so, or the refusal would read "none found"."""
+    missing = {"_id": "rec-5", "market_id": MARKET, "date": DAY}
+    null = {"_id": "rec-6", "market_id": MARKET, "vendor_email": None, "date": DAY}
+
+    groups = UniqueIndexes.duplicate_groups(
+        VendorDays(docs=[missing, null]), UniqueIndexes.VENDOR_DAY_FIELDS,
+        UniqueIndexes.VENDOR_DAY_SHOWN)
+
+    assert groups == [{"ids": ["rec-5", "rec-6"], "market_id": MARKET, "date": DAY}]
 
 
 class TestTheUniqueIndexHelper:
@@ -127,7 +141,7 @@ class TestTheUniqueIndexHelper:
         message = str(refused.value)
         assert message == (
             "The unique index attendance_vendor_day_unique on attendance (market_id, vendor_email, "
-            "date) could not be built (OperationFailure, code 11000), so nothing stops two records "
+            "date) could not be built (DuplicateKeyError, code 11000), so nothing stops two records "
             "for one vendor's day. Records sharing one vendor's day, by market_id, date and record "
             f"id: market_id {MARKET}, date {DAY}: rec-1, rec-2. Keep one of each "
             "(docs/OPERATIONS.md, When the back end refuses to boot), then restart."

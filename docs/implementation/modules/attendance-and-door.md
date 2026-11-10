@@ -61,8 +61,7 @@ The collection goes with the market when it is deleted.
 ### One vendor's day is one record, by the database
 
 The one document per vendor's day is the database's to hold, not the upsert's (T270).
-An upsert with no unique index behind it inserts twice when two land at once: 16 at once, sent straight to a stack's MongoDB, stored duplicates for 264 of 400 keys.
-So two organizers at the door, or an organizer's tap and the vendor's own door-code check-in, could leave two records, and then one Undo took one away and the vendor still read as here, and the history held two arrivals.
+An upsert with no unique index behind it can insert twice when two land at once, so without the index two organizers at the door, or an organizer's tap and the vendor's own door-code check-in, could leave two records: one Undo would take one away and leave the vendor reading as here, and the history would hold two arrivals.
 
 - `ensure_attendance_indexes` builds `attendance_vendor_day_unique`, unique on `(market_id, vendor_email, date)`, through [`unique_indexes.py`](../../../back-end/unique_indexes.py), and `app.py`'s `verify_attendance_indexes` refuses to boot without it, naming any duplicates by market id, date and record id, never by address ([OPERATIONS.md](../../OPERATIONS.md#when-the-back-end-refuses-to-boot)).
 - `record_attendance` runs its upsert once more on a `DuplicateKeyError`, which then lands on the winner's record; a second refusal goes on as the error it is.
