@@ -35,7 +35,6 @@ updates:
       # to stay on 6.0 (https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/).
       # Retry once TypeScript 7.1 ships its API and both support it:
       # typescript-eslint/typescript-eslint#10940, vuejs/language-tools#5381 and #6167.
-      # 6.0 still arrives as its own PR.
       - dependency-name: "typescript"
         versions: [">=7.0.0"]
       # Held 2026-10-26: @types/node describes one Node major, and .nvmrc pins Node 24, which every

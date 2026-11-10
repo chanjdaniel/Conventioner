@@ -10,9 +10,12 @@ permissions:
   contents: read
 
 # The one place zizmor's version and checksum live, for both zizmor jobs: a bump moves them together.
+# actionlint's sit beside them, so a bump of either is one place too.
 env:
   ZIZMOR_VERSION: 1.31.1
   ZIZMOR_SHA256: d185f726bdaf92df78273217dfdd24ebcd6b0ef48cf3ce776ff5762b6e138c99
+  ACTIONLINT_VERSION: 1.7.12
+  ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
 
 jobs:
   backend:
@@ -111,7 +114,8 @@ jobs:
           "$RUNNER_TEMP/gitleaks" git --redact=100 --no-banner --verbose --log-opts="origin/$BASE_REF..$HEAD_SHA" .
 
   # The repository's workflows and Dependabot config, offline, so it needs no token. Every finding
-  # fails the job; an accepted one is ignored on its own line with its audit and reason.
+  # fails the job; an accepted one is ignored on the line zizmor reports, with its audit and the
+  # reason after it.
   zizmor:
     runs-on: ubuntu-latest
     steps:
@@ -152,6 +156,25 @@ jobs:
       - env:
           GH_TOKEN: ${{ github.token }}
         run: zizmor .
+
+  # The workflows' syntax, expressions, job references and action inputs, and each `run:` script
+  # through the shellcheck the runner has: what zizmor, which audits for security, does not read.
+  # Every finding fails the job.
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install actionlint ${{ env.ACTIONLINT_VERSION }}
+        run: |
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSLO "https://github.com/rhysd/actionlint/releases/download/v$ACTIONLINT_VERSION/$archive"
+          echo "$ACTIONLINT_SHA256  $archive" | sha256sum -c -
+          mkdir actionlint-bin
+          tar -xzf "$archive" -C actionlint-bin actionlint
+          echo "$PWD/actionlint-bin" >>"$GITHUB_PATH"
+      - run: actionlint .github/workflows/*.yml
 
   frontend-unit:
     runs-on: ubuntu-latest

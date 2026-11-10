@@ -16,7 +16,7 @@ describes:
   - front-end/scripts/e2e-shard-timings.json
   - front-end/scripts/no-eval.ts
   - front-end/vite.config.ts#noDevModules
-verified: 2026-11-09
+verified: 2026-11-10
 sources:
   - T47
   - T53
@@ -27,6 +27,7 @@ sources:
   - T221
   - T234
   - T254
+  - T263
 ---
 
 # CI and the gate
@@ -49,8 +50,9 @@ No `${{ }}` expression is written inside a `run:` script: a value reaches the sh
 | `knowledge-graph` | pytest from `back-end/requirements-dev.txt`, the scripts' tests (on the Node `.nvmrc` pins, since the pre-warm's tests run its npm) and `knowledge_graph.py check` |
 | `knowledge-graph-drift` | on a pull request only, `knowledge_graph.py drift` against the base branch; it clones the full history for that |
 | `real-data` | on a pull request only, [`real_data_check.py`](../../../scripts/real_data_check.py) on the PR's commits since the base branch and then on every file of the merge it checks out (`tree`), then gitleaks 8.28.0 (checksum-verified, fully redacted) on the same commits; the backstop to the git hooks and the gate, which run the checker before anything is pushed ([real data never leaves the PC](../conventions/security-invariants.md#real-data-never-leaves-the-pc)) |
-| `zizmor` | [zizmor](https://docs.zizmor.sh/) 1.31.1 (checksum-verified) with `--offline` over the repository, which audits the three workflows and `dependabot.yml` without a token; any finding fails the job, and its log names the audit, file and line; an accepted finding is ignored on its own line as `# zizmor: ignore[<audit>] <reason>`, and there is no zizmor config file, so nothing is ignored wholesale |
+| `zizmor` | [zizmor](https://docs.zizmor.sh/) 1.31.1 (checksum-verified) with `--offline` over the repository, which audits the three workflows and `dependabot.yml` without a token; any finding fails the job, and its log names the audit, file and line; an accepted finding is ignored on the line zizmor reports, with its audit and the reason after it (`# zizmor: ignore[<audit>] <reason>`), and there is no zizmor config file, so nothing is ignored wholesale |
 | `zizmor-online` | on a pull request only, the same zizmor without `--offline`, given the run's read-only token, so it adds the audits that look actions up on GitHub: an impostor commit, a known-vulnerable action or a confused ref behind a pin; information, not a required check, because it depends on GitHub's API |
+| `actionlint` | [actionlint](https://github.com/rhysd/actionlint) 1.7.12 (checksum-verified) over the three workflows: their syntax, expressions, job references and action inputs, and each `run:` script through the runner's shellcheck, which zizmor's security audits do not read; any finding fails the job, and its log names the file, line and rule; not a required check |
 | `docker-build` | `docker compose build` |
 | `e2e-shard` | six runners, each building and starting its own stack, seeding it with `seed_fixture.sh --primary` and running the spec files [dealt to it by time](#the-e2e-shards), with `DISABLE_CAPTCHA`, `DISABLE_EMAIL` and `DISCORD_FAKE` set; it pulls `mongo:7` and `mongo-express:latest` from Docker Hub before the start and retries only that pull a handful of times, because a transient registry 500 once failed a shard outright, so a stack that genuinely fails to start fails the shard at once; it posts a flaky-test summary and uploads its JSON report (`e2e-results-shard-<n>`, kept 90 days) on every run, and on failure uploads the whole report |
 | `e2e` | passes only when every shard did |
@@ -95,7 +97,7 @@ The entry JavaScript is what a first visit downloads before any page paints: the
 [`front-end/scripts/bundle-budget.ts`](../../../front-end/scripts/bundle-budget.ts) (`npm run bundle-budget`, after `npm run build-only`) gzips each at level 9, prints every chunk's size and the total against the limit on every run, and exits non-zero above it.
 It runs in the required `frontend-lint-and-types` job and in `nm-test.sh`, both on a build made with `VITE_ALLOW_INSECURE_LOCAL_DEV=true`, since the bundle is measured and never deployed.
 
-The limit is `LIMIT_GZIP_BYTES` in that script, set a few KB above the total measured when it landed (102220 B against 105000 B, T76), lowered when the total fell (85740 B against 89000 B, T84, when vuedraggable stopped bringing a second Vue), and raised when growth was meant (89427 B against 92000 B, T161, the request's failure kinds, the 401 interceptor, the sign-in guard's `next` and the shell's notice for a page that could not be opened, which run before any route renders; 92032 B against 95000 B, T200, `AppDialog`'s widths, scrolling body, edge shades and tray).
+The limit is `LIMIT_GZIP_BYTES` in that script, set a few KB above the total measured when it landed (101831 B against 105000 B, T76), lowered when the total fell (85740 B against 89000 B, T84, when vuedraggable stopped bringing a second Vue), and raised when growth was meant (89427 B against 92000 B, T161, the request's failure kinds, the 401 interceptor, the sign-in guard's `next` and the shell's notice for a page that could not be opened, which run before any route renders; 92032 B against 95000 B, T200, `AppDialog`'s widths, scrolling body, edge shades and tray).
 It landed because nothing noticed `main.ts` installing vue-konva for the whole app, which put the floorplan canvas library on every page, `/login` included, for about 60 KB gzipped.
 **Raise the limit only on purpose**: in the same pull request as the code that needs it, saying there what the extra bytes buy, and still a few KB above the new total so the next unplanned growth fails.
 The first fix to try is a lazily loaded route or component, which keeps the code out of the entry.
