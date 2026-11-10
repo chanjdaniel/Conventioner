@@ -486,9 +486,9 @@ def _sections(n, tables=0):
 #: Each list bound: the overrides holding ``n`` of the thing, the bound, and its sentence.
 LIST_BOUNDS = [
     (lambda n: {"walls": _walls(n)}, 100, "A floorplan holds at most 100 walls."),
-    (lambda n: {"obstacles": _zones(n)}, 100, "A floorplan holds at most 100 no-go zones."),
+    (lambda n: {"obstacles": _zones(n)}, 100, "A floorplan holds at most 100 obstacle zones."),
     (lambda n: {"obstacles": _zones(1, points=n)}, 100,
-     "A floorplan holds at most 100 points in a no-go zone."),
+     "A floorplan holds at most 100 points in an obstacle zone."),
     (lambda n: {"tableTypes": _types(n)}, 50, "A floorplan holds at most 50 table types."),
     (lambda n: {"placedTables": _tables(n)}, 1000, "A floorplan holds at most 1,000 tables."),
     (lambda n: {"sections": _sections(n)}, 200, "A floorplan holds at most 200 sections."),

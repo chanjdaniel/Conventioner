@@ -50,7 +50,7 @@ const SETUP_FIELDS: Record<string, string> = {
 const FLOORPLAN_COUNTS: Record<string, string> = {
   tables: 'Tables',
   walls: 'Walls',
-  no_go_zones: 'No-go zones',
+  no_go_zones: 'Obstacle zones',
   table_types: 'Table types',
 };
 

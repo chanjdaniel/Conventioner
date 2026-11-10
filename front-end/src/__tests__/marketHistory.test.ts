@@ -2042,7 +2042,7 @@ describe('a floorplan save opens to what its floorplan holds, and whether its la
     ).toEqual([
       { field: 'Tables', before: '2', after: '3' },
       { field: 'Walls', before: '1', after: '4' },
-      { field: 'No-go zones', before: '0', after: '2' },
+      { field: 'Obstacle zones', before: '0', after: '2' },
       { field: 'Table types', before: '1', after: '2' },
       { field: 'Layout', before: 'as saved before', after: 'changed' },
     ]);

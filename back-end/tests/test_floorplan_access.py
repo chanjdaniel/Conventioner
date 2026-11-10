@@ -579,7 +579,7 @@ TOO_MANY_TABLES = "Auto-Place places up to 500 tables at a time."
 TABLE_SIDES = "A table type's width and height must be between 100 mm and 20,000 mm."
 ROOM_TOO_LARGE = "The room must be at most 500 m on each side."
 AISLES = "The wall buffer and table spacing must be between 0 and 10,000 mm."
-TOO_MUCH_GEOMETRY = "Auto-Place takes up to 100 walls, 100 no-go zones and 100 points in each."
+TOO_MUCH_GEOMETRY = "Auto-Place takes up to 100 walls, 100 obstacle zones and 100 points in each."
 UNBOUNDED = "A floorplan's measurements must be finite numbers no larger than 10,000,000."
 
 

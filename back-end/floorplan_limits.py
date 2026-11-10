@@ -55,7 +55,7 @@ AISLES_OUT_OF_RANGE = (
     f"The wall buffer and table spacing must be between 0 and {MAX_AISLE_MM:,} mm."
 )
 TOO_MUCH_GEOMETRY_TO_PLACE = (
-    f"Auto-Place takes up to {MAX_WALLS:,} walls, {MAX_OBSTACLES:,} no-go zones and "
+    f"Auto-Place takes up to {MAX_WALLS:,} walls, {MAX_OBSTACLES:,} obstacle zones and "
     f"{MAX_POLYGON_POINTS:,} points in each."
 )
 
@@ -98,9 +98,9 @@ def floorplan_refusal(floorplan: FloorplanObject) -> Optional[str]:
     """The sentence a floorplan over a bound is refused with, or None when it is within all."""
     counts = (
         (len(floorplan.walls), MAX_WALLS, "walls"),
-        (len(floorplan.obstacles), MAX_OBSTACLES, "no-go zones"),
+        (len(floorplan.obstacles), MAX_OBSTACLES, "obstacle zones"),
         (max((len(zone.polygon) for zone in floorplan.obstacles), default=0),
-         MAX_POLYGON_POINTS, "points in a no-go zone"),
+         MAX_POLYGON_POINTS, "points in an obstacle zone"),
         (len(floorplan.table_types), MAX_TABLE_TYPES, "table types"),
         (len(floorplan.placed_tables), MAX_PLACED_TABLES, "tables"),
         (len(floorplan.sections), MAX_SECTIONS, "sections"),
