@@ -196,7 +196,8 @@ class TestWhatMayBeUpdated:
 
     def test_an_application_of_another_market_is_not_found(self, market):
         applications = market()
-        applications.insert_one({**_stored(applications), "id": "app-2", "market_id": "other"})
+        other = {key: value for key, value in _stored(applications).items() if key != "_id"}
+        applications.insert_one({**other, "id": "app-2", "market_id": "other"})
 
         with pytest.raises(NotFoundError):
             _update({"shop": "Ember Ceramics"}, application_id="app-2")

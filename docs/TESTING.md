@@ -146,8 +146,9 @@ Requirements: `pytest` (listed in `requirements-dev.txt`), no database connectio
 (tests use in-memory fakes), except by the real-MongoDB suite below.
 The shared fakes read a filter with `mongo_matches`, which answers as MongoDB 8.0 does for every case in `back-end/tests/mongo_cases.py` and raises `UnmodelledQuery` on an operator it does not model, so a test of a filter it cannot read fails instead of passing.
 `test_the_shared_matcher.py` checks it against that table on every run, and the real-MongoDB suite checks the table against the server.
-They read a projection (`mongo_project`) as Mongo does too, so a read that fetches too
-little fails here rather than in production. Shared module stubs live in `back-end/tests/conftest.py`, which
+`FakeApplicationsCollection`, which stands in for applications and every record beside a market, writes with `mongo_update`, sorts and limits, and projects with `mongo_project` as the server does, and answers the server's matched and modified counts; it refuses an update operator, sort or projection it does not model the same way, and `test_the_shared_applications_fake.py` checks it against the same module's update, read and projection tables.
+So a read that fetches too little, or a write the server would apply otherwise, fails here rather than in production.
+Shared module stubs live in `back-end/tests/conftest.py`, which
 also points the `.env` loader at a path that does not exist - the suite reads no `.env`, so a
 stale one on your machine cannot change its result.
 

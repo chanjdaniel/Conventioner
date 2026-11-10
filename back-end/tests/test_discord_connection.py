@@ -7,6 +7,7 @@ replaced by fakes of ``discord_client``'s three calls.
 """
 import copy
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
@@ -37,6 +38,7 @@ ROLE_GRANTS = Discord.RoleGrants
 
 MARKET = "market-123"
 ADMIN = "admin@example.com"
+FIRST_SUBMITTED = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
 GUILD = "2909267986263572999"
 OTHER_GUILD = "2909267986263573111"
 VENDOR_TEST = Discord.Role("r-vendor", "Vendor Test", below_bot=True)
@@ -111,10 +113,13 @@ def world(monkeypatch, market_records, applications):
         """A vendor's application, its username written as the form's text question took it, and
         an organizer's update of it beside."""
         app_id = f"app-{email.split('@')[0]}"
+        # Applications are read newest first, so each one made is submitted a second before the
+        # one made before it: they are read, and so checked and given, in the order made.
+        submitted = FIRST_SUBMITTED - timedelta(seconds=len(applications.documents))
         applications.insert_one({
             "id": app_id, "market_id": MARKET, "applicant_email": email,
             "application_type": application_type, "status": "reviewer_approved",
-            "submitted_at": f"2026-10-01T00:00:{len(applications.documents):02d}+00:00",
+            "submitted_at": submitted.isoformat(),
             "form_data": {} if username is None else {"discord_username": username},
             **({"answer_updates": {"discord_username": {
                 "value": updated, "by": ADMIN, "at": "2026-10-02T00:00:00+00:00",
