@@ -1,12 +1,16 @@
 """The health check the Deploy workflow and the uptime check read."""
 
+import time
+
 import pytest
+from pymongo import _csot
 
 from conftest import skip_without_real_dependencies
 
 skip_without_real_dependencies()
 
 import app as app_module
+import db_config
 from api import markets as MarketsApi
 from utils.deployment import INSECURE_LOCAL_DEV_VAR, PLATFORM_SIGNALS
 
@@ -16,8 +20,10 @@ A_COMMIT = "0123456789abcdef0123456789abcdef01234567"
 class _Database:
     def __init__(self, error=None):
         self.error = error
+        self.deadlines = []
 
     def command(self, name):
+        self.deadlines.append(_csot.get_timeout())
         if self.error:
             raise self.error
         return {"ok": 1}
@@ -152,3 +158,36 @@ def test_a_blank_platform_variable_is_not_deployed(client, monkeypatch, database
     monkeypatch.setenv("VERCEL", "  ")
 
     assert client.get("/healthz").get_json()["deployed"] is False
+
+
+def test_the_ping_is_bounded_at_five_seconds(client, database_answers):
+    """A server that is found but does not answer still fails the check within about 5 seconds,
+    read as the driver's own deadline while the ping runs."""
+    client.get("/healthz")
+
+    deadlines = MarketsApi.markets_collection.database.deadlines
+    assert len(deadlines) == 1
+    assert deadlines[0] is not None and 4 < deadlines[0] <= 5
+
+
+@pytest.fixture
+def a_database_at_a_closed_port(monkeypatch):
+    """The real driver, as the app builds it, pointed at a loopback port nothing listens on."""
+    monkeypatch.setenv("MONGODB_URI", "mongodb://127.0.0.1:1/")
+    real = db_config.get_mongodb_client()
+    monkeypatch.setattr(MarketsApi, "markets_collection", real["conventioner"]["markets"])
+    yield
+    real.close()
+
+
+def test_a_database_that_is_not_there_is_unavailable_within_seconds(
+    client, monkeypatch, a_database_at_a_closed_port
+):
+    monkeypatch.setenv("BUILD_COMMIT", A_COMMIT)
+
+    started = time.monotonic()
+    response = client.get("/healthz")
+
+    assert time.monotonic() - started < 8
+    assert response.status_code == 503
+    assert response.get_json() == _local({"status": "unavailable", "commit": A_COMMIT})

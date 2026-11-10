@@ -3,18 +3,51 @@ import os
 import threading
 from pymongo import MongoClient
 
-# The startup migration check runs at import, before the app can serve anything, so it must
-# never inherit pymongo's 30 second default server selection timeout: a database blip during a
-# serverless cold start would otherwise block boot for half a minute.
+# Every client's bounds, passed as keywords, which PyMongo lets win over the same option in
+# MONGODB_URI, so these lines are the one place they are set. Why each value:
+# - SERVER_SELECTION_TIMEOUT_MS: 5 seconds finds a healthy Atlas server many times over and fails a
+#   blip fast, where the driver's default would hold a request half a minute on a database that is
+#   not there.
+# - CONNECT_TIMEOUT_MS: a new connection's handshake gets the same 5 seconds, not the default 20.
+# - SOCKET_TIMEOUT_MS: 30 seconds bounds any one wait on the server's reply (a find, a batch of an
+#   import's bulk write, an index build at boot) far above what any takes on today's sizes and far
+#   below the host's 300-second limit, so a long request is long by its number of round trips,
+#   never by one hung one. A whole operation of several round trips has no overall deadline.
+#   It is not the client-wide `timeoutMS`: in PyMongo 4.18 that operation timeout replaces
+#   serverSelectionTimeoutMS, so server selection waits out the rest of its 30 seconds (measured:
+#   a find at a closed port failed after 30.1 seconds, and the boot probe too, not after 5 and 3).
+#   So `timeoutMS` is passed as None, which also turns off one a MONGODB_URI carries; a caller
+#   wanting a deadline over a few operations uses `pymongo.timeout`, as /healthz does.
+# - MAX_POOL_SIZE: 20 connections is well above one instance's concurrent use, and bounds the cluster's
+#   500 connections at about 19 saturated instances rather than the default 100's five.
+# - MAX_IDLE_TIME_MS: a connection idle for a minute is closed, so an instance a burst grew gives
+#   its connections back.
+SERVER_SELECTION_TIMEOUT_MS = 5000
+CONNECT_TIMEOUT_MS = 5000
+SOCKET_TIMEOUT_MS = 30000
+MAX_POOL_SIZE = 20
+MAX_IDLE_TIME_MS = 60000
+
+# The startup migration check runs at import, before the app can serve anything, so its client
+# finds a server within 3 seconds: a database blip during a serverless cold start must not hold
+# the boot even for the 5 every other client waits.
 MIGRATION_PROBE_TIMEOUT_MS = 3000
 
 def get_mongodb_client(server_selection_timeout_ms=None):
-    """Get MongoDB client using environment variables or defaults.
+    """Get MongoDB client using environment variables or defaults, with every client's bounds.
 
     Supports both MongoDB Atlas connection strings (MONGODB_URI) and
-    traditional connection parameters (MONGODB_HOST, etc.).
+    traditional connection parameters (MONGODB_HOST, etc.). A caller's
+    ``server_selection_timeout_ms`` replaces the 5-second selection timeout (the boot probe's 3).
     """
-    options = {}
+    options = {
+        "serverSelectionTimeoutMS": SERVER_SELECTION_TIMEOUT_MS,
+        "connectTimeoutMS": CONNECT_TIMEOUT_MS,
+        "socketTimeoutMS": SOCKET_TIMEOUT_MS,
+        "timeoutMS": None,
+        "maxPoolSize": MAX_POOL_SIZE,
+        "maxIdleTimeMS": MAX_IDLE_TIME_MS,
+    }
     if server_selection_timeout_ms is not None:
         options["serverSelectionTimeoutMS"] = server_selection_timeout_ms
 

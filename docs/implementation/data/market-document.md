@@ -23,6 +23,8 @@ describes:
   - back-end/migrations/migrate_is_draft_consistency.py
   - back-end/migrations/migrate_publishing_to_market_days.py
   - docs/schema.d.ts
+  - back-end/db_config.py#get_mongodb_client
+  - back-end/tests/test_db_config.py
 verified: 2026-11-03
 sources:
   - E02
@@ -207,7 +209,7 @@ The intake mode reads only `intakeMode`, absent or unrecognized meaning `csv`.
 ## The boot refusal and the migration
 
 **The back end refuses to boot** unless [`back-end/migrations/migrate_market_keys.py`](../../../back-end/migrations/migrate_market_keys.py) has recorded every marker in `MARKET_MIGRATION_IDS` (`market_document_keys`, `market_slugs`, `market_slugs_unique`) in the `schema_migrations` collection (`assert_market_key_migration_recorded`, run from `app.py` at import).
-Each marker is one document read by `_id`, with an `appliedAt` time, through a connection whose server selection gives up after three seconds (`MIGRATION_PROBE_TIMEOUT_MS` in [`back-end/db_config.py`](../../../back-end/db_config.py)), so a database blip cannot hang the boot.
+Each marker is one document read by `_id`, with an `appliedAt` time, through a connection whose server selection gives up after three seconds (`MIGRATION_PROBE_TIMEOUT_MS` in [`back-end/db_config.py`](../../../back-end/db_config.py)), so a database blip cannot hang the boot; it keeps every other bound below.
 The migration establishes a market document's canonical form: camelCase keys (no legacy snake_case, the camelCase value winning where a document has both), a stored slug derived from the name, and a UNIQUE slug index.
 There are several markers because the canonical form grew; one run records them all, and the refusal names every missing one at once, so the operator never discovers them one restart at a time.
 A database migrated by an older build carries only the earlier markers, which is the state the check exists to catch.
@@ -228,6 +230,28 @@ The other market migrations carry no boot marker, because what they repair fails
   Every repair is a conditioned `$set` whose filter Mongo re-checks as it writes, so a market the live app moves mid-run is not written back to its old state.
 - [`migrate_publishing_to_market_days.py`](../../../back-end/migrations/migrate_publishing_to_market_days.py) moves markets published by the old `draft -> archived` path on to `market_days`, telling published from abandoned by whether an assignment is stored; run it after `migrate_phase.py`.
 - `migrate_table_code_separator.py`, `migrate_roles.py` and `migrate_to_uuid.py` brought older documents to today's table codes, roles map and UUID ids.
+
+## The database client's bounds
+
+Every client the back end builds, through `get_mongodb_client` in [`back-end/db_config.py`](../../../back-end/db_config.py), carries five bounds, module constants with one comment saying why each value:
+
+| Option                     | Value                          | Why                                                                                                                                                                                         |
+| -------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `serverSelectionTimeoutMS` | 5 seconds (the boot probe's 3) | finds a healthy Atlas server many times over and fails a blip fast, where the driver's default held a request 30 seconds on a database that is not there                                    |
+| `connectTimeoutMS`         | 5 seconds                      | a new connection's handshake, not the driver's default 20                                                                                                                                   |
+| `socketTimeoutMS`          | 30 seconds                     | any one wait on the server's reply (a find, a batch of an import's bulk write, an index build at boot), far above what any takes on today's sizes and far below the host's 300-second limit |
+| `maxPoolSize`              | 20                             | well above one instance's concurrent use, and bounds the Flex cluster's 500 connections at about 19 saturated instances rather than the default 100's five                                  |
+| `maxIdleTimeMS`            | 60 seconds                     | an instance a burst grew gives its connections back                                                                                                                                         |
+
+They are passed as keywords, which PyMongo lets win over the same option in `MONGODB_URI`, so the code is the one place they are set: a URI carrying `maxPoolSize=100` still gets 20.
+
+**There is no client-wide `timeoutMS`, and `None` is passed for it, turning off one a URI carries.**
+In PyMongo 4.18 that operation timeout replaces `serverSelectionTimeoutMS`, so server selection waits out whatever is left of it: with `timeoutMS=30000`, a find at a closed port failed after 30.1 seconds, and the boot probe too, rather than after 5 and 3 (T273).
+So a hung reply fails after 30 seconds, but a whole operation of several round trips has no overall deadline.
+A caller that needs one wraps its operations in `pymongo.timeout`, as `/healthz` does: its ping runs inside `pymongo.timeout(5)`, so a server that is found but does not answer fails the check within about 5 seconds too.
+A timed-out operation raises a `PyMongoError`, which a route answers as any other failure ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
+
+[`test_db_config.py`](../../../back-end/tests/test_db_config.py) reads the bounds from the real driver's `options` and times a find at a closed loopback port; [`test_healthz.py`](../../../back-end/tests/test_healthz.py) times `/healthz` there and reads the ping's deadline.
 
 ## The schema contract
 

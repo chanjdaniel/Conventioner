@@ -56,6 +56,7 @@ from market_documents import (
     assert_market_key_migration_recorded,
 )
 import db_config
+import pymongo
 from lookup_indexes import ensure_lookup_indexes
 import json
 import os
@@ -467,6 +468,10 @@ app.register_blueprint(floorplans_export_bp, url_prefix="/floorplans")
 app.register_blueprint(floorplans_save_bp, url_prefix="/floorplans")
 
 
+# The health check's own bound on its ping, the same as every client's server selection.
+HEALTH_CHECK_TIMEOUT_SECONDS = 5
+
+
 @app.route('/healthz', methods=['GET'])
 def healthz() -> Response:
     """Whether this deployment can serve a request, and which commit it was deployed from.
@@ -489,7 +494,10 @@ def healthz() -> Response:
     commit = commit if commit.strip() else None
     seen = {"commit": commit, "deployed": deployed_host() is not None, "localDev": insecure_local_dev()}
     try:
-        MarketsApi.markets_collection.database.command("ping")
+        # Bounded on its own, so a server that is found but does not answer fails the check
+        # within about 5 seconds too, not after the client's 30-second wait for a reply.
+        with pymongo.timeout(HEALTH_CHECK_TIMEOUT_SECONDS):
+            MarketsApi.markets_collection.database.command("ping")
     except Exception:
         logger.exception("Health check: the database did not answer")
         return jsonify({"status": "unavailable", **seen}), 503

@@ -159,6 +159,8 @@ Network access is open to `0.0.0.0/0`, because Vercel's functions have no fixed 
 That user currently has the `atlasAdmin` role, which is more than the app needs: a least-privilege user (`readWrite` on `conventioner`, which also covers the collections and indexes `init_database.py` creates) would limit what a leaked URI could do.
 Recommended: create one, move `MONGODB_URI` to it, redeploy, and keep the admin user for operators only.
 
+The client's timeouts and pool size are set in code and win over the same option in `MONGODB_URI`, so changing them means changing [`db_config.py`](../back-end/db_config.py), not the URI ([the database client's bounds](implementation/data/market-document.md#the-database-clients-bounds)).
+
 ### Backups and restoring
 
 Atlas snapshots the Flex cluster **once a day and keeps the last 8**; restore one from the cluster's Backup page in Atlas.
