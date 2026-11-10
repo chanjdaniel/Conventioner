@@ -11,6 +11,8 @@ outside the app, by e-transfer or cash (Q7), and an organizer records each payme
 - **Freeing a table never changes either amount by itself** (Q26: after the cancellation deadline
   "the amount owed and amount paid dont change even though the table did"): the seat's line is kept
   as it stood when it was freed (``keep_freed_line``), still owed, until someone sets the amount.
+  A free that asks "Also remove its $35.00 from what they owe?" sets the day's $0 in that same
+  write, marked as the free's; a seat held on the day always wins over it (``lines``, T270).
 - **The amount paid is the sum of the vendor's entries still standing**, each with who recorded it
   and when (Q15): a payment, or a refund an Admin records as a negative entry once it is given back
   (Q26). An edit or a removal keeps what the entry read before in its own ``changes``, and a removed
@@ -232,41 +234,62 @@ def _upsert_owed(
         return amounts_owed_collection.find_one_and_update(key, update, upsert=True)
 
 
-def keep_freed_line(
-    market_id: str, vendor_email: str, date: str, seat: Seat, by: str,
-) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
-    """Keep the line of a seat being freed, as it stood: its table and what it cost that day.
+def _free_deduction(by: str) -> Dict[str, Any]:
+    """The $0 a free's deduction sets, marked as the free's: seating the day again takes it back."""
+    return {"cents": 0, "by": by, "at": _now(), "by_free": True}
 
-    Returns the freed record the line held before, if any, and the one written, so a free that is
-    then refused can put the line back (``restore_freed_line``).
+
+def keep_freed_line(
+    market_id: str, vendor_email: str, date: str, seat: Seat, by: str, deduct: bool = False,
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Keep the line of a seat being freed, as it stood: its table and what it cost that day, and
+    with ``deduct`` the free's $0 too, in one write before the seat goes (T270).
+
+    One write, so no stop between the seat and the deduction leaves the seat free and its full
+    amount owed. Returns what the record held of each field written before, and what was written,
+    so a free whose seat could not be freed puts both back (``restore_freed_line``).
     """
-    written = {**asdict(seat), "by": by, "at": _now()}
-    before = _upsert_owed(market_id, vendor_email, date, {"$set": {"freed": written}})
-    return (before or {}).get("freed"), written
+    written: Dict[str, Any] = {"freed": {**asdict(seat), "by": by, "at": _now()}}
+    if deduct:
+        written["set_by_hand"] = _free_deduction(by)
+    before = _upsert_owed(market_id, vendor_email, date, {"$set": written}) or {}
+    return {field: before.get(field) for field in written}, written
 
 
 def restore_freed_line(
     market_id: str, vendor_email: str, date: str,
-    written: Dict[str, Any], before: Optional[Dict[str, Any]],
+    written: Dict[str, Any], before: Dict[str, Any],
 ) -> None:
-    """Put a line back as it held before ``keep_freed_line`` wrote ``written``, for a free that was
-    then refused, and only while the line still holds ``written``: a free of the same seat that
-    landed meanwhile kept its own record over it, and that record is the line's now."""
+    """Put a record back as it held before ``keep_freed_line`` wrote ``written``, for a free whose
+    seat was not freed, and only while it still holds all of ``written``: a free of the same seat
+    that landed meanwhile kept its own record over it, and that record is the line's now."""
     amounts_owed_collection.update_one(
-        {**_owed_key(market_id, vendor_email, date), "freed": written},
-        {"$set": {"freed": before}},
+        {**_owed_key(market_id, vendor_email, date), **written}, {"$set": before},
     )
+
+
+def deduct_freed_day(market_id: str, vendor_email: str, date: str, by: str) -> bool:
+    """Set the free's $0 on a day whose line is freed and holds no amount set by hand at all, and
+    say whether it did: a free from before T270 set it after the seat, so a stop between left the
+    day freed and owing its full amount, and pressing Free again finishes it."""
+    return bool(amounts_owed_collection.update_one(
+        {**_owed_key(market_id, vendor_email, date), "freed": {"$type": "object"},
+         "set_by_hand": None},
+        {"$set": {"set_by_hand": _free_deduction(by)}},
+    ).matched_count)
 
 
 def clear_freed_lines(
     market_id: str, seated: Iterable[Tuple[str, str]],
 ) -> List[Tuple[str, str, int]]:
-    """Forget the freed line of each ``(vendor, date)`` seated again: the line reads the new seat,
-    and a freed record left behind would come back as the line if that seat went some other way
-    than a free. A $0 the free's deduction set goes with it, since it was about the freed table;
-    an amount an Admin set by hand stays, as it holds whatever the seat does.
+    """Forget the freed record of each ``(vendor, date)`` a write of the assignment touched: a day
+    seated again reads its new seat, and a freed record left behind would come back as the line
+    if that seat went some other way than a free. A $0 the free's deduction set goes with it,
+    since it was about the freed table; an amount an Admin set by hand stays, as it holds whatever
+    the seat does.
 
-    Returns each deduction taken back, ``(vendor, date, cents)``, for the history to record.
+    Returns each deduction cleared, ``(vendor, date, cents)``, for the history to record where the
+    day really read as freed (``api.payments.seated_again``).
     """
     wanted = {(normalized_email(email), date) for email, date in seated}
     taken_back: List[Tuple[str, str, int]] = []
@@ -285,14 +308,9 @@ def clear_freed_lines(
     return taken_back
 
 
-def set_amount_owed(
-    market_id: str, vendor_email: str, date: str, cents: int, by: str, by_free: bool = False,
-) -> None:
-    """Set what a vendor owes for one table-day by hand, over what the pricing calculates.
-    ``by_free`` marks the $0 a free's deduction sets, which seating the day again takes back."""
+def set_amount_owed(market_id: str, vendor_email: str, date: str, cents: int, by: str) -> None:
+    """Set what a vendor owes for one table-day by hand, over what the pricing calculates."""
     set_by_hand: Dict[str, Any] = {"cents": cents, "by": by, "at": _now()}
-    if by_free:
-        set_by_hand["by_free"] = True
     _upsert_owed(market_id, vendor_email, date, {"$set": {"set_by_hand": set_by_hand}})
 
 
@@ -326,7 +344,11 @@ def lines(
 
     A day they hold a seat on reads that seat and its price; a day whose seat was freed reads the
     seat as it was freed, with who freed it and when, so the line says where its number came from.
-    Either way an amount set by hand is what they owe.
+    Either way an amount an Admin set by hand is what they owe.
+
+    A held seat always wins over a free (T270): on a day held, a freed record and a free's $0 are
+    what a free left that the seat since outlived, a seating again that stopped before it forgot
+    them, or a free that stopped before its seat went, so the day owes its seat's price.
     """
     found = []
     for date in sorted({*seats, *(day for day, doc in kept.items() if doc.get("freed"))}):
@@ -335,6 +357,8 @@ def lines(
         seat = held or Seat(**{key: freed.get(key)
                                for key in ("table_code", "tier", "table_choice", "cents", "group")})
         by_hand = (kept.get(date) or {}).get("set_by_hand")
+        if held and by_hand and by_hand.get("by_free"):
+            by_hand = None
         found.append({
             "date": date,
             "tableCode": seat.table_code,

@@ -845,28 +845,36 @@ class TestTwoChangesAtOnce:
         assert (email, date, by) == ("ana@example.com", "2026-08-01", "user-2")
         assert bool(set_by_hand and set_by_hand.get("by_free")) == deduct_owed
 
+    @pytest.mark.parametrize("deducted_by", ["the other", "this one"])
     def test_a_free_that_landed_before_this_one_kept_its_line_gets_it_back(
-            self, applied, market_records, monkeypatch):
+            self, applied, market_records, monkeypatch, deducted_by):
         """The other order: the free that lands does all of it before this one keeps its line, so
-        this one writes over that line, and puts it back once refused."""
+        this one writes over that line, and its $0 when it asked one, and puts both back once
+        refused, as the free that landed left them."""
         import payments as Payments
 
         kept_by_both = Payments.keep_freed_line
 
-        def the_other_free_first(*args):
+        def the_other_free_first(*args, **kwargs):
             monkeypatch.setattr(Payments, "keep_freed_line", kept_by_both)
             PlacementsApi.remove_placement(
-                "market-123", "ana@example.com", "2026-08-01", "user-2", deduct_owed=True)
-            return kept_by_both(*args)
+                "market-123", "ana@example.com", "2026-08-01", "user-2",
+                deduct_owed=deducted_by == "the other")
+            return kept_by_both(*args, **kwargs)
 
         monkeypatch.setattr(Payments, "keep_freed_line", the_other_free_first)
 
         with pytest.raises(ConflictError):
-            PlacementsApi.remove_placement("market-123", "ana@example.com", "2026-08-01", "user-1")
+            PlacementsApi.remove_placement("market-123", "ana@example.com", "2026-08-01", "user-1",
+                                           deduct_owed=deducted_by == "this one")
 
         assert self.seats(applied) == {"ben@example.com": "Hall A 2"}
         [(email, _date, by, set_by_hand)] = self.freed_lines(market_records)
-        assert (email, by, set_by_hand["by_free"]) == ("ana@example.com", "user-2", True)
+        assert (email, by) == ("ana@example.com", "user-2")
+        if deducted_by == "the other":
+            assert (set_by_hand["by"], set_by_hand["by_free"]) == ("user-2", True)
+        else:
+            assert set_by_hand is None
 
     def test_a_swap_and_a_placement_at_once_lose_neither(self, applied):
         applied.between = lambda: PlacementsApi.write_placement(

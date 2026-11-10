@@ -47,6 +47,7 @@ sources:
   - T224
   - T253
   - T263
+  - T270
 ---
 
 # Placements
@@ -58,15 +59,29 @@ Its routes are in [`back-end/app.py`](../../../back-end/app.py).
 
 ## The four doors
 
-| Route                               | Function           | Does                                                                                                                                                                                                                                                                                                                               |
-| ----------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /markets/:id/assignment`      | `run_assignment`   | runs the solver over the approved applications and stores what it produced, with [what it was made from](made-from.md), the review the verdicts were given in among it; a day it seats forgets that vendor's freed line, and the $0 a free's deduction set on it ([payments](../data/payments.md))                                 |
-| `PUT /markets/:id/placements`       | `write_placement`  | places one vendor in one seat on one date, replacing whatever they held that date, so it is also the move to an empty seat, from either end of the dialog: the vendor's seat or the empty one (T208); the day forgets that vendor's freed line, and the $0 a free's deduction set on it ([payments](../data/payments.md))          |
-| `DELETE /markets/:id/placements`    | `remove_placement` | frees the seat one vendor holds on one date, first keeping the seat's line of what they owe for it, which freeing never changes ([payments](../data/payments.md)), unless `deductOwed` asks that it owe $0, which asks the row "Change the amount owed" too, before anything is freed; freeing a seat nobody holds is not an error |
-| `POST /markets/:id/placements/swap` | `swap_placements`  | trades two vendors' seats on one date in one document update: both change or neither does                                                                                                                                                                                                                                          |
+| Route                               | Function           | Does                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ----------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /markets/:id/assignment`      | `run_assignment`   | runs the solver over the approved applications and stores what it produced, with [what it was made from](made-from.md), the review the verdicts were given in among it; every day held before the run or after it forgets that vendor's freed record, and the $0 a free's deduction set on it ([payments](../data/payments.md))                                                                                      |
+| `PUT /markets/:id/placements`       | `write_placement`  | places one vendor in one seat on one date, replacing whatever they held that date, so it is also the move to an empty seat, from either end of the dialog: the vendor's seat or the empty one (T208); the day forgets that vendor's freed record, and the $0 a free's deduction set on it ([payments](../data/payments.md))                                                                                          |
+| `DELETE /markets/:id/placements`    | `remove_placement` | frees the seat one vendor holds on one date, first keeping the seat's line of what they owe for it, which freeing never changes ([payments](../data/payments.md)), unless `deductOwed` asks that it owe $0, which asks the row "Change the amount owed" too, before anything is freed; freeing a seat nobody holds is not an error, and with `deductOwed` sets that $0 on a freed line holding no amount set by hand |
+| `POST /markets/:id/placements/swap` | `swap_placements`  | trades two vendors' seats on one date in one document update: both change or neither does; both days forget any freed record a stopped free left on them                                                                                                                                                                                                                                                             |
 
 **A run whose allocation breaks the solver's rules is refused before the store.**
 `assign_market` raises `BrokenAllocationError` before `run_assignment` stores anything ([the assignment solver](assignment-solver.md#sharp-edges)), so nothing is written, no history entry is recorded and no payment changes; the organizer reads the generic failure line.
+
+**A free writes what the vendor owes before the seat, in one write.**
+`remove_placement`, for a seat held, writes in this order ([payments](../data/payments.md#the-amount-owed-per-table-day)):
+
+1. One upsert on the day's owed record keeps the freed line and, when `deductOwed` asked it, the free's $0 (`PaymentsApi.keep_freed_line`).
+2. The seat is freed (`_store_vendor_assignments`).
+3. When step 2 raises anything, the revision conflict or not, the record goes back as it held before, only while it still holds what step 1 wrote, and the error goes on.
+4. The freed entry is recorded, and with the deduction an "owed set" entry from what the line owed as the request read it, while the seat was held, to 0.
+
+So no stop after the seat leaves it free and its full amount owed, and no failed seat write leaves a freed record behind.
+
+**Every write of the assignment hands `seated_again` the days it touched, after its store.**
+A placement hands its vendor's day, a swap its two vendors' day, and a run every day held in the assignment it read and every day held in the one it wrote.
+Each also hands the days held in the assignment it read: a freed record on such a day is one a stopped free left, cleared with no history entry, and only a day not held there, which really read as freed, records "owed taken back".
 
 **All four ask the table's Assignment row** ([the market's actions](market-actions.md)), whose default is EDITOR, the bar every other market write sets, and deliberately not stricter: an EDITOR already owns the tiers, sections and table counts the whole assignment is computed from, so withholding "move one vendor between two seats" protects nothing.
 Each loads its market through `_load_market_to_change`, so an archived market is refused.
@@ -88,7 +103,7 @@ A swap is atomic because three separate operations invite a half-finished state,
 Each of the four reads the whole assignment and writes it back whole (`_store_vendor_assignments`), so two changes at once would each store the assignment as it was before the other, and one would be lost without a word: two organizers moving two vendors into one empty seat both got a 200, and only one was seated, while the history recorded both moves.
 So the write lands only while `assignmentObject.revision` is still the one the change read, and counts it one more; otherwise it is refused, `AssignmentChangedUnderRequest` (409), "Someone else changed this market's tables while this change was being saved, so it was not saved. Reload the tables and try again.", before any history or payments line is recorded.
 An assignment stored before the count existed has none, and reads as 0.
-A free refused this way puts back the line it kept for the seat, unless a free of the same seat landed meanwhile and kept its own ([payments](../data/payments.md)).
+A free refused this way puts back what it kept for the seat, its line and any $0 it set, unless a free of the same seat landed meanwhile and kept its own ([payments](../data/payments.md)).
 
 **A seat goes only to an applicant.**
 `write_placement` writes the applicant's normalised address, and a placement or a swap naming someone the market has no application for is refused (`has_applied`, `_applicant_address`): [a seat only for an applicant](../../business/rules/a-seat-only-for-an-applicant.md).
