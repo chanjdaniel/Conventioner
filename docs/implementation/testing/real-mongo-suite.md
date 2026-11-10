@@ -104,8 +104,30 @@ So a market write that holds what it read, the phase move's stored phase or Publ
 A write that lands replaces the stored market with a new dict, so the document a test built a fake from is not the store, and reads hand back copies; `last_update` keeps the update document sent, matched or not, for a test asserting what was written.
 They make no upsert, which no market write asks for.
 
+## The applicant side's guarantees
+
+Each guarantee the applicant side rests on the server for is run here with its losing branch, on real threads (`race`), in [`real_mongo/test_the_applicant_side_races.py`](../../../back-end/tests/real_mongo/test_the_applicant_side_races.py) and [`real_mongo/test_the_boot_indexes_on_the_server.py`](../../../back-end/tests/real_mongo/test_the_boot_indexes_on_the_server.py).
+Each test's name says what it proves.
+
+| Guarantee                                                     | Tests                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| One applicant is one application                              | 20 `find_or_create_application` calls at once for one address leave one document, and each is answered it; 20 split between a main and a waitlist application leave one of each                                                                                                                                                                                          |
+| Two reviewers are handed different cards                      | 10 `claim_next_for_review` calls at once, by 10 reviewers over 10 open applications, hand 10 different cards; `renew_claim` by anyone but the holder changes nothing; `release_claim` by another does nothing, and by the holder frees the card for the next reviewer                                                                                                    |
+| A sign-in code is tried at most five times, and signs in once | through `POST /public/markets/<slug>/applicant-login/verify-code`: 5 right tries at once sign in once; 10 wrong tries at once count exactly 5 and spend the code; a right try among 3 wrong ones signs in, and the count holds every wrong try answered "try again"; a right try among 9 wrong ones signs in at most once, and never counts past 5                       |
+| The rate limit counts every attempt                           | 20 `count_attempt` calls at once for one key make one counter counting 20, and let exactly the limit's 5 through                                                                                                                                                                                                                                                         |
+| Every boot index builds over an existing database             | the boot's builds run twice over one database change no index, and the second makes no lookup index                                                                                                                                                                                                                                                                      |
+| Each unique boot index refuses over duplicates                | the boot's unique indexes are exactly the three with a case (`market_applicant_type_unique`, `market_email_unique`, `user_email`); over two planted duplicates, each one's boot check (`verify_application_indexes`, `verify_applicant_login_indexes`, `verify_user_indexes`) raises its error, logs "Refusing to start", builds no index, and never repeats the address |
+
+A sign-in code allows five tries, so "one right try among nine wrong ones" cannot promise a sign-in: the right try may come sixth, or land after a fifth wrong try spent the code.
+What it promises, at most one sign-in and at most five tries counted, is its test; the exact counts are the other three's.
+Each race opens its connections first (`_warm`): on a cold pool each thread opens and authenticates its own, which spreads the threads out until their writes no longer meet, and the first race of a run once passed with the unique index taken away.
+
 ## MongoDB 8.0
 
 CI's service and the local stack's `mongodb` service ([`docker-compose.yml`](../../../docker-compose.yml)) run `mongo:8.0`, the major version production's Atlas cluster runs ([`OPERATIONS.md`](../../OPERATIONS.md)).
 A stack volume MongoDB 7 wrote opens on 8.0 unchanged: its feature compatibility version stays `7.0`, so no volume is deleted.
 On 2026-11-10 a worktree stack seeded on `mongo:7` came up healthy on 8.0.34 with its data and feature compatibility version `7.0`, and its E2E seed ran.
+
+Both allow `mongod` 64000 open files, the number MongoDB asks for, where Docker's default soft limit is 1024.
+WiredTiger keeps a dropped collection's files open until its next checkpoint, a minute apart, and each test using `boot_indexes` makes 13 collections and about 40 indexes, a file each, so at 1024 the second of two back-to-back runs of the applicant side's two files above took `mongod` down with "Too many open files".
+A stack started before the limit was set takes it when it is next brought up, which recreates its `mongodb` container.
