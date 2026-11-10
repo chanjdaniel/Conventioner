@@ -120,6 +120,50 @@ class TestAHeldSeatOwesItsPrice:
         assert record["freed"] is None
         assert taken_back(stores) == []
 
+    def test_a_re_seat_after_a_deducted_free_puts_back_the_admins_amount(
+            self, admin, stores):  # noqa: F811
+        PaymentsApi.set_amount_owed(MARKET, ANA, SUN, {"cents": 5000}, ADMIN)
+        set_at = line(SUN)["owedSetAt"]
+        PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR, deduct_owed=True)
+        assert line(SUN)["owedCents"] == 0
+
+        PlacementsApi.write_placement(MARKET, seat(SUN), ADMIN)
+
+        sunday = line(SUN)
+        assert (sunday["freed"], sunday["owedCents"], sunday["owedByFree"]) == (False, 5000, False)
+        assert (sunday["owedSetBy"], sunday["owedSetAt"]) == (ADMIN, set_at)
+        [entry] = taken_back(stores)
+        assert entry["detail"] == {"before": {"owed_cents": 0}, "after": {"owed_cents": 5000}}
+
+    def test_a_re_seat_stopped_before_it_forgot_the_free_keeps_the_admins_amount(
+            self, admin, stores, monkeypatch):  # noqa: F811
+        PaymentsApi.set_amount_owed(MARKET, ANA, SUN, {"cents": 5000}, ADMIN)
+        PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR, deduct_owed=True)
+        stop_once(monkeypatch, PaymentsApi, "seated_again")
+
+        with pytest.raises(Stopped):
+            PlacementsApi.write_placement(MARKET, seat(SUN), ADMIN)
+
+        sunday = line(SUN)
+        assert (sunday["freed"], sunday["owedCents"], sunday["owedSetBy"]) == (False, 5000, ADMIN)
+
+        PlacementsApi.write_placement(MARKET, seat(SUN), ADMIN)
+
+        sunday = line(SUN)
+        assert (sunday["freed"], sunday["owedCents"], sunday["owedSetBy"]) == (False, 5000, ADMIN)
+        assert sunday["owedByFree"] is False
+        [record] = [doc for doc in stores.owed.documents if doc["date"] == SUN]
+        assert record["freed"] is None
+
+    def test_a_move_of_the_seat_with_no_free_keeps_the_admins_amount(self, admin):
+        PaymentsApi.set_amount_owed(MARKET, ANA, SUN, {"cents": 5000}, ADMIN)
+
+        PlacementsApi.write_placement(MARKET, seat(SUN, "Landing 2"), ADMIN)
+
+        sunday = line(SUN)
+        assert (sunday["tableCode"], sunday["owedCents"], sunday["owedSetBy"]) == (
+            "Landing 2", 5000, ADMIN)
+
     def test_a_freed_day_still_reads_the_frees_zero(self, admin):
         PlacementsApi.remove_placement(MARKET, ANA, SUN, ADMIN, deduct_owed=True)
 

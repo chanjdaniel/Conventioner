@@ -293,20 +293,19 @@ def deduct_freed_day(market_id: str, vendor_email: str, date: str, by: str) -> b
 
 
 def clear_freed_lines(
-    market_id: str, seated: Iterable[Tuple[str, str]], held_before: Iterable[Tuple[str, str]],
+    market_id: str, seated: Iterable[Tuple[str, str]],
 ) -> List[Tuple[str, str, int]]:
     """Forget the freed record of each ``(vendor, date)`` a write of the assignment touched: a day
     seated again reads its new seat, and a freed record left behind would come back as the line
     if that seat went some other way than a free. A $0 the free's deduction set goes with it,
-    since it was about the freed table; an amount an Admin set by hand stays, as it holds whatever
-    the seat does. On a day in ``held_before`` the free never landed, so an amount its $0
-    replaced is set by hand again.
+    since it was about the freed table, and stands only while the table is freed; an amount an
+    Admin set by hand belongs to the day, not the table, so it stays, and one the $0 replaced is
+    set by hand again.
 
     Returns each deduction cleared, ``(vendor, date, cents)``, for the history to record where the
     day really read as freed (``api.payments.seated_again``).
     """
     wanted = {(normalized_email(email), date) for email, date in seated}
-    held = {(normalized_email(email), date) for email, date in held_before}
     taken_back: List[Tuple[str, str, int]] = []
     if not wanted:
         return taken_back
@@ -317,7 +316,7 @@ def clear_freed_lines(
             cleared: Dict[str, Any] = {"freed": None}
             deduction = doc.get("set_by_hand") or {}
             if deduction.get("by_free"):
-                cleared["set_by_hand"] = deduction.get("replaced") if key in held else None
+                cleared["set_by_hand"] = deduction.get("replaced")
                 taken_back.append((key[0], key[1], deduction.get("cents") or 0))
             amounts_owed_collection.update_one(_owed_key(market_id, *key), {"$set": cleared})
     return taken_back
