@@ -45,7 +45,7 @@ describes:
   - front-end/src/components/PagedList.vue
   - front-end/src/utils/useGroupFolds.ts
   - front-end/src/components/AuthCard.vue
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01
