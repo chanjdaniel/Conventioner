@@ -667,6 +667,22 @@ describe("a Google Form market's page (ADR 0022)", () => {
   });
 });
 
+/** "Your session has expired" as a save that met it says, the answers kept to be sent. */
+const AFTER_SIGN_IN = 'Your session has expired. Sign in again, and your answers will be saved.';
+
+/** Sign in on the page that is open, through its steps, with a code the mocks pass. */
+async function signInWithACode(
+  wrapper: Awaited<ReturnType<typeof mountPage>>,
+  email = 'vendor@example.com',
+) {
+  await wrapper.get('[data-testid="vendor-sign-in-email-input"]').setValue(email);
+  await wrapper.get('[data-testid="vendor-sign-in-email-step"]').trigger('submit');
+  await flushPromises();
+  await wrapper.get('[data-testid="vendor-sign-in-code-input"]').setValue('123456');
+  await wrapper.get('[data-testid="vendor-sign-in-code-step"]').trigger('submit');
+  await flushPromises();
+}
+
 describe('applying and editing on the page', () => {
   beforeEach(signIn);
 
@@ -822,10 +838,21 @@ describe('applying and editing on the page', () => {
     );
   });
 
-  it('asks for sign-in again when the sign-in ended before the save', async () => {
+  it('asks for sign-in again when the sign-in ended before the save, and sends it after', async () => {
     fetchVendorPage.mockResolvedValue(pageOf());
     fetchApplicantApplication.mockResolvedValue(null);
-    saveApplicantApplication.mockRejectedValue(refusal(401, ''));
+    saveApplicantApplication.mockRejectedValueOnce(refusal(401, ''));
+    saveApplicantApplication.mockImplementation(
+      async (_slug: string, _token: string, formData: Record<string, unknown>) =>
+        application({ formData, vendorName: 'Ada Newcomer' }),
+    );
+    requestLoginCode.mockResolvedValue({ message: "We've sent a code to this address." });
+    verifyLoginCode.mockResolvedValue({
+      success: true,
+      marketId: 'market-1',
+      applicantEmail: 'vendor@example.com',
+      token: 'a-new-token',
+    });
     const wrapper = await mountPage();
 
     await wrapper.get('[data-testid="vendor-page-apply-btn"]').trigger('click');
@@ -835,7 +862,23 @@ describe('applying and editing on the page', () => {
     await flushPromises();
 
     expect(has(wrapper, 'vendor-sign-in-email-input')).toBe(true);
-    expect(wrapper.get('[data-testid="vendor-sign-in-error"]').text()).toContain('expired');
+    expect(wrapper.get('[data-testid="vendor-sign-in-error"]').text()).toBe(AFTER_SIGN_IN);
+
+    await signInWithACode(wrapper);
+
+    // The answers come back and are sent once, with the new sign-in and no second press.
+    expect(saveApplicantApplication).toHaveBeenCalledTimes(2);
+    expect(saveApplicantApplication).toHaveBeenLastCalledWith(
+      'spring-market',
+      'a-new-token',
+      expect.objectContaining({
+        essential_full_name: 'Ada Newcomer',
+        business_name: 'Newcomer Prints',
+      }),
+    );
+    expect(has(wrapper, 'apply-form')).toBe(false);
+    expect(wrapper.get('[data-testid="vendor-page-answers"]').text()).toContain('Newcomer Prints');
+    expect(keptDraft()).toBeNull();
   });
 
   it('says so when the market asks nothing yet', async () => {
@@ -871,11 +914,15 @@ function keptDraft(): Record<string, unknown> | null {
 
 function keepDraftFor(
   formData: Record<string, unknown>,
-  { marketSlug = 'spring-market', applicantEmail = 'vendor@example.com' } = {},
+  {
+    marketSlug = 'spring-market',
+    applicantEmail = 'vendor@example.com',
+    saveAfterSignIn = false,
+  } = {},
 ) {
   sessionStorage.setItem(
     DRAFT_KEY,
-    JSON.stringify({ marketSlug, applicantEmail, formData, saveAfterSignIn: false }),
+    JSON.stringify({ marketSlug, applicantEmail, formData, saveAfterSignIn }),
   );
 }
 
@@ -1135,6 +1182,175 @@ describe('answers typed and not saved survive a reload (T271)', () => {
     } finally {
       setItem.mockRestore();
     }
+  });
+});
+
+describe('a save that met an ended sign-in is sent after the next sign-in (T271)', () => {
+  beforeEach(signIn);
+
+  const ANSWERS = { essential_full_name: 'Ada Newcomer', business_name: 'Newcomer Prints' };
+
+  it('keeps the answers to send, and clears the sign-in, when the device cannot renew it', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(null);
+    saveApplicantApplication.mockRejectedValue(refusal(401, ''));
+    keepDraftFor(ANSWERS);
+    const wrapper = await mountPage();
+
+    await wrapper.get('[data-testid="apply-form"]').trigger('submit');
+    await flushPromises();
+
+    expect(resumeSignIn).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem(SESSION_KEY)).toBeNull();
+    expect(keptDraft()).toEqual({
+      marketSlug: 'spring-market',
+      applicantEmail: 'vendor@example.com',
+      formData: expect.objectContaining(ANSWERS),
+      saveAfterSignIn: true,
+    });
+    expect(wrapper.get('[data-testid="vendor-sign-in-error"]').text()).toBe(AFTER_SIGN_IN);
+  });
+
+  it('keeps the answers sent even when none were kept, as an Edit saved unchanged is', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(application({ formData: ANSWERS }));
+    saveApplicantApplication.mockRejectedValue(refusal(401, ''));
+    const wrapper = await mountPage();
+
+    await wrapper.get('[data-testid="vendor-page-edit-btn"]').trigger('click');
+    expect(keptDraft()).toBeNull();
+    await wrapper.get('[data-testid="apply-form"]').trigger('submit');
+    await flushPromises();
+
+    expect(keptDraft()).toMatchObject({ formData: ANSWERS, saveAfterSignIn: true });
+  });
+
+  it('sends nothing more after a save a remembered device renewed', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(null);
+    resumeSignIn.mockResolvedValue({
+      success: true,
+      marketId: 'market-1',
+      applicantEmail: 'vendor@example.com',
+      token: 'a-renewed-token',
+    });
+    saveApplicantApplication.mockRejectedValueOnce(refusal(401, ''));
+    saveApplicantApplication.mockImplementation(
+      async (_slug: string, _token: string, formData: Record<string, unknown>) =>
+        application({ formData }),
+    );
+    keepDraftFor(ANSWERS);
+    const wrapper = await mountPage();
+
+    await wrapper.get('[data-testid="apply-form"]').trigger('submit');
+    await flushPromises();
+
+    expect(saveApplicantApplication).toHaveBeenCalledTimes(2);
+    expect(saveApplicantApplication).toHaveBeenLastCalledWith(
+      'spring-market',
+      'a-renewed-token',
+      expect.objectContaining(ANSWERS),
+    );
+    expect(has(wrapper, 'apply-form')).toBe(false);
+    expect(keptDraft()).toBeNull();
+  });
+
+  it('opens the form on them after the sign-in and sends the save once by itself', async () => {
+    sessionStorage.removeItem(SESSION_KEY);
+    keepDraftFor(ANSWERS, { saveAfterSignIn: true });
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(null);
+    saveApplicantApplication.mockImplementation(
+      async (_slug: string, _token: string, formData: Record<string, unknown>) =>
+        application({ formData }),
+    );
+    requestLoginCode.mockResolvedValue({ message: "We've sent a code to this address." });
+    verifyLoginCode.mockResolvedValue({
+      success: true,
+      marketId: 'market-1',
+      applicantEmail: 'vendor@example.com',
+      token: 'a-token',
+    });
+    const wrapper = await mountPage();
+    expect(saveApplicantApplication).not.toHaveBeenCalled();
+
+    await signInWithACode(wrapper);
+
+    expect(saveApplicantApplication).toHaveBeenCalledTimes(1);
+    expect(saveApplicantApplication).toHaveBeenCalledWith(
+      'spring-market',
+      'a-token',
+      expect.objectContaining(ANSWERS),
+    );
+    expect(has(wrapper, 'apply-form')).toBe(false);
+    expect(wrapper.get('[data-testid="vendor-page-answers"]').text()).toContain('Newcomer Prints');
+    expect(keptDraft()).toBeNull();
+  });
+
+  it('shows a refusal in the form, every answer kept, and never sends it again', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(null);
+    // The flag is cleared before the save is out, so a reload while it waits never sends twice.
+    let keptAtRequest: Record<string, unknown> | null = null;
+    saveApplicantApplication.mockImplementation(async () => {
+      keptAtRequest = keptDraft();
+      throw refusal(409, 'Applications are closed for this market.');
+    });
+    keepDraftFor(ANSWERS, { saveAfterSignIn: true });
+    const wrapper = await mountPage();
+
+    expect(saveApplicantApplication).toHaveBeenCalledTimes(1);
+    expect(keptAtRequest).toMatchObject({ formData: ANSWERS, saveAfterSignIn: false });
+    expect(wrapper.get('[data-testid="apply-error"]').text()).toBe(
+      'Applications are closed for this market.',
+    );
+    expect(valueOf(wrapper, 'apply-essential-full-name-input')).toBe('Ada Newcomer');
+    expect(valueOf(wrapper, 'apply-input-business_name')).toBe('Newcomer Prints');
+    expect(keptDraft()).toMatchObject({ formData: ANSWERS, saveAfterSignIn: false });
+
+    // A reload opens the form on them again, and sends nothing until they press Save.
+    wrapper.unmount();
+    const again = await mountPage();
+    expect(has(again, 'apply-form')).toBe(true);
+    expect(valueOf(again, 'apply-input-business_name')).toBe('Newcomer Prints');
+    expect(saveApplicantApplication).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a question left unanswered under it, and sends nothing', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(null);
+    keepDraftFor({ essential_full_name: 'Ada Newcomer' }, { saveAfterSignIn: true });
+    const wrapper = await mountPage();
+
+    expect(saveApplicantApplication).not.toHaveBeenCalled();
+    expect(has(wrapper, 'apply-form')).toBe(true);
+    expect(wrapper.get('[data-testid="apply-error-business_name"]').text()).not.toBe('');
+    expect(valueOf(wrapper, 'apply-essential-full-name-input')).toBe('Ada Newcomer');
+    expect(keptDraft()).toMatchObject({ saveAfterSignIn: false });
+  });
+
+  it('never sends them for another address signing in on the tab, and drops them', async () => {
+    sessionStorage.removeItem(SESSION_KEY);
+    keepDraftFor(ANSWERS, { saveAfterSignIn: true });
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(null);
+    requestLoginCode.mockResolvedValue({ message: "We've sent a code to this address." });
+    verifyLoginCode.mockResolvedValue({
+      success: true,
+      marketId: 'market-1',
+      applicantEmail: 'other@example.com',
+      token: 'a-token',
+    });
+    const wrapper = await mountPage();
+
+    await signInWithACode(wrapper, 'other@example.com');
+
+    expect(saveApplicantApplication).not.toHaveBeenCalled();
+    expect(keptDraft()).toBeNull();
+    expect(has(wrapper, 'apply-form')).toBe(false);
+    expect(wrapper.get('[data-testid="vendor-page-info"]').text()).toContain(
+      'You have not applied to this market yet.',
+    );
   });
 });
 
@@ -1605,6 +1821,9 @@ describe('a remembered device whose sign-in in this tab has ended (ADR 0022)', (
 
     expect(resumeSignIn).toHaveBeenCalledTimes(1);
     expect(has(wrapper, 'vendor-sign-in-email-input')).toBe(true);
-    expect(wrapper.get('[data-testid="vendor-sign-in-error"]').text()).toContain('expired');
+    // Not a save: nothing was kept to send, so the sentence promises nothing.
+    expect(wrapper.get('[data-testid="vendor-sign-in-error"]').text()).toBe(
+      'Your session has expired. Please sign in again.',
+    );
   });
 });

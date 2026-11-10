@@ -126,8 +126,13 @@ function keepDoorCode(held: HeldDoorCode | null): void {
  *
  * It is kept for one market and one address, and opens only for them (`draftFor`). It goes when
  * the answers are saved, on Cancel, on Sign out, when this tab signs in to its market as another
- * address, and once the market no longer takes applications (`VendorApplication`). Every read and write is guarded, as the sign-in's are: with storage unavailable
- * the answers last as long as the page, as they always did.
+ * address, and once the market no longer takes applications (`VendorApplication`). Every read and
+ * write is guarded, as the sign-in's are: with storage unavailable the answers last as long as the
+ * page, as they always did.
+ *
+ * A save that meets an ended sign-in the device cannot renew keeps the answers it sent, marked
+ * `saveAfterSignIn`, and the form sends them once by itself after the vendor signs in again as the
+ * same address (`takeSaveAfterSignIn`).
  */
 const DRAFT_KEY = 'conventioner.applicationDraft';
 
@@ -221,6 +226,18 @@ export const useApplicationStore = defineStore('application', () => {
   function dropDraft(): void {
     draft.value = null;
     keepDraft(null);
+  }
+
+  /**
+   * Whether the signed-in vendor's kept answers wait to be sent after this sign-in, taken: the mark
+   * is cleared here, before the save is out, so a save that fails is never sent again by itself.
+   */
+  function takeSaveAfterSignIn(): boolean {
+    const held = marketSlug.value ? draftFor(marketSlug.value, applicantEmail.value) : null;
+    if (!held?.saveAfterSignIn) return false;
+    draft.value = { ...held, saveAfterSignIn: false };
+    keepDraft(draft.value);
+    return true;
   }
 
   function isAuthenticatedFor(slug: string): boolean {
@@ -388,6 +405,8 @@ export const useApplicationStore = defineStore('application', () => {
 
   async function saveApplication(formData: Record<string, unknown>): Promise<Application | null> {
     if (!token.value || !marketSlug.value) return null;
+    const slug = marketSlug.value;
+    const email = applicantEmail.value;
     loading.value = true;
     error.value = null;
     try {
@@ -398,8 +417,21 @@ export const useApplicationStore = defineStore('application', () => {
       return app;
     } catch (err: unknown) {
       if ((err as { response?: { status?: number } })?.response?.status === 401) {
+        // An ended sign-in the device could not renew (`withRenewal`): the answers are kept, to be
+        // sent once the vendor signs in again, and the sentence says so.
+        if (email) {
+          draft.value = {
+            marketSlug: slug,
+            applicantEmail: email,
+            formData: JSON.parse(JSON.stringify(formData)) as Record<string, unknown>,
+            saveAfterSignIn: true,
+          };
+          keepDraft(draft.value);
+        }
         clearSession();
-        error.value = 'Your session has expired. Please sign in again.';
+        error.value = email
+          ? 'Your session has expired. Sign in again, and your answers will be saved.'
+          : 'Your session has expired. Please sign in again.';
       } else {
         error.value = saveErrorFrom(err);
       }
@@ -517,6 +549,7 @@ export const useApplicationStore = defineStore('application', () => {
     draftFor,
     holdDraft,
     dropDraft,
+    takeSaveAfterSignIn,
     isAuthenticatedFor,
     loadPage,
     loadVendorRead,

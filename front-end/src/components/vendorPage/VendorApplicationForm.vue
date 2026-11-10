@@ -12,8 +12,13 @@
  * Every answer typed is kept in this tab as it changes, while the answers differ from what the
  * form opened on (T271), so a reload, or a phone discarding the tab, reopens it on them, saying
  * they are back and not yet sent. A save the server takes and Cancel drop them.
+ *
+ * A save that meets an ended sign-in (a 401 the device could not renew) keeps the answers it sent
+ * in the tab too, and the page asks for sign-in again, saying they will be saved. Signed in again
+ * as the same address, the form opens on them and sends the save once by itself; a refusal then
+ * says why here, as any refused save does, with every answer kept.
  */
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import type { FormField } from '@/assets/types/datatypes';
 import ApplicationFormFields from '@/components/application/ApplicationFormFields.vue';
 import EssentialApplicationFields from '@/components/application/EssentialApplicationFields.vue';
@@ -64,10 +69,15 @@ let opened: string | null = null;
 
 /** Apply or Edit, the button pressed, is gone with the form open: focus lands on its heading. */
 const heading = ref<HTMLElement | null>(null);
-onMounted(() => {
+onMounted(async () => {
   opened = answersKey(formData.value);
   if (restored) formData.value = { ...formData.value, ...restored.formData };
   heading.value?.focus();
+  // The save that met an ended sign-in, sent now that they are signed in again, once.
+  if (store.takeSaveAfterSignIn()) {
+    await nextTick();
+    await submitForm();
+  }
 });
 
 /** Keep the answers in the tab while they differ from what the form opened on, and not after. */

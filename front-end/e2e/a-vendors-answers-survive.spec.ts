@@ -139,3 +139,78 @@ test('Sign out drops the kept answers, so the next sign-in on the tab opens on n
   await expect(vendor.info).toContainText('You have not applied to this market yet.');
   await expect(vendor.form).toHaveCount(0);
 });
+
+test('a save that met an ended sign-in is kept, and sent by itself after the next sign-in', async ({
+  page,
+  request,
+}) => {
+  const market = await seedApplicantMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { setupObject: planSetupObject([DATE]) },
+  );
+  const email = 'answers-survive-expired@example.com';
+  const vendor = new VendorPage(page);
+  await vendor.goto(market.marketSlug);
+  // Not remembered: the device cannot renew the sign-in, so a new code is the only way back.
+  await signInOnThePage(vendor, market.marketId, email);
+
+  await vendor.applyButton.click();
+  await expect(vendor.form).toBeVisible({ timeout: 30000 });
+  await vendor.fullNameInput.fill('Ada Expired');
+  await vendor.fillField('business_name', 'Expired Prints');
+  await vendor.tierCheckbox(DATE, 'Gold').check();
+  await vendor.maxDatesInput.fill('1');
+  await vendor.tableChoiceRadio('full').check();
+  await vendor.fillField('product_type', 'Letterpress cards');
+
+  // The 30-minute sign-in ended while they typed: the server answers the save 401, as it answers
+  // an ended token (`verify_application_token`). Only this one save; the next goes through.
+  const saved = `**/public/markets/${market.marketSlug}/applicant/application`;
+  await page.route(
+    saved,
+    (route) =>
+      route.request().method() === 'PUT'
+        ? route.fulfill({ status: 401, json: { message: 'Sign in again.' } })
+        : route.fallback(),
+    { times: 1 },
+  );
+  await vendor.submit();
+
+  await expect(vendor.emailInput).toBeVisible({ timeout: 10000 });
+  await expect(vendor.error).toHaveText(
+    'Your session has expired. Sign in again, and your answers will be saved.',
+  );
+
+  // A new code, and the save is sent with no second press: the form closes on the answers.
+  await signInOnThePage(vendor, market.marketId, email);
+  await expect(vendor.form).toHaveCount(0, { timeout: 10000 });
+  await expect(vendor.answers).toContainText('Expired Prints');
+  expect(await keptAnswers(page)).toBeNull();
+
+  // What the market holds, read back as the vendor: every answer typed.
+  const token = await page.evaluate(
+    () =>
+      (
+        JSON.parse(sessionStorage.getItem('conventioner.applicantSession') ?? '{}') as {
+          token: string;
+        }
+      ).token,
+  );
+  const read = await request.get(
+    `${BACKEND_URL}/public/markets/${market.marketSlug}/applicant/application`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  expect(read.ok()).toBe(true);
+  const { application } = (await read.json()) as {
+    application: { formData: Record<string, unknown> } | null;
+  };
+  expect(application?.formData).toMatchObject({
+    essential_full_name: 'Ada Expired',
+    business_name: 'Expired Prints',
+    product_type: 'Letterpress cards',
+    essential_max_dates: 1,
+  });
+});
