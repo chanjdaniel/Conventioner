@@ -13,6 +13,7 @@ to what it claims. ``utils.secret_key`` and ``utils.captcha`` read on call for t
 
 import os
 import logging
+import unicodedata
 from urllib.parse import urlsplit
 
 import resend
@@ -37,6 +38,25 @@ DEFAULT_FRONTEND_URL = "http://127.0.0.1:5173"
 #: Resend's shared sender, which delivers only to the Resend account's own address.
 SHARED_SENDER = "onboarding@resend.dev"
 DEFAULT_FROM_EMAIL = SHARED_SENDER
+
+#: How long a send waits on Resend before it gives up and counts as failed. The library's own
+#: client waits 30 seconds, which held a request, and a vendor or organizer behind it, that long.
+MAIL_TIMEOUT_SECONDS = 10
+
+# Resend 2.50.0 sends through the client in ``resend.default_http_client``; this one is the
+# library's own ``requests`` client with the shorter timeout. It depends on no variable, so it is
+# set once, here.
+resend.default_http_client = resend.RequestsClient(timeout=MAIL_TIMEOUT_SECONDS)
+
+
+def one_line(text: str) -> str:
+    """``text`` on one line: every run of whitespace or control characters is one space, ends trimmed.
+
+    For a value someone else typed that goes into a mail's subject or text part, where a line break
+    could start a header line or a paragraph in their words.
+    """
+    spaced = "".join(" " if unicodedata.category(c) == "Cc" else c for c in text)
+    return " ".join(spaced.split())
 
 
 def configured_value() -> str:
@@ -237,8 +257,12 @@ def _email_disabled() -> bool:
     return switch_on("DISABLE_EMAIL")
 
 
-def _send(kind: str, email: str, subject: str, html: str, text: str) -> bool:
-    """Send one account email; True when the provider accepted it (or email is disabled in dev).
+def send_mail(kind: str, email: str, subject: str, html: str, text: str) -> bool:
+    """Send one email; True when the provider accepted it (or email is disabled in dev).
+
+    Every mail this product sends goes through here, so the disabled path, the missing key, the log
+    and the timeout are one code path. A send that gives up after ``MAIL_TIMEOUT_SECONDS`` reaches
+    here as a ``ResendError`` and returns False like any other failure.
 
     The log names the email's ``kind`` and never the address, nor an exception's text or the
     provider's response body, which can each carry the address back: a failed send logs the
@@ -320,7 +344,7 @@ def send_verification_email(email: str, token: str) -> bool:
     If you didn't create an account, please ignore this email.
     """
     
-    return _send("verification", email, "Verify your email address", html_content, text_content)
+    return send_mail("verification", email, "Verify your email address", html_content, text_content)
 
 
 def send_account_exists_email(email: str) -> bool:
@@ -373,7 +397,7 @@ def send_account_exists_email(email: str) -> bool:
     If this wasn't you, you can ignore this email: nothing about your account has changed.
     """
 
-    return _send("existing account", email, subject, html_content, text_content)
+    return send_mail("existing account", email, subject, html_content, text_content)
 
 
 def send_password_reset_email(email: str, token: str) -> bool:
@@ -422,7 +446,7 @@ def send_password_reset_email(email: str, token: str) -> bool:
     If you didn't request a password reset, please ignore this email.
     """
     
-    return _send("password reset", email, "Reset your password", html_content, text_content)
+    return send_mail("password reset", email, "Reset your password", html_content, text_content)
 
 
 def send_otp_email(email: str, otp: str) -> bool:
@@ -467,4 +491,4 @@ def send_otp_email(email: str, otp: str) -> bool:
     If you didn't request this code, please ignore this email.
     """
     
-    return _send("sign-in code", email, "Your sign-in code", html_content, text_content)
+    return send_mail("sign-in code", email, "Your sign-in code", html_content, text_content)
