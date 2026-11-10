@@ -4,6 +4,9 @@ kind: testing
 describes:
   - back-end/tests/real_mongo/
   - back-end/tests/test_the_real_mongo_harness.py
+  - back-end/tests/mongo_cases.py
+  - back-end/tests/test_the_shared_matcher.py
+  - back-end/tests/conftest.py#mongo_matches
   - back-end/db_config.py#uri_targets
 verified: 2026-11-10
 sources:
@@ -66,6 +69,20 @@ The server is `REAL_MONGODB_URI`, a full connection string.
 | `race(n, fn)`                   | `fn(i)` on `n` threads released together by a barrier, each result or the exception it raised returned in order; a thread that makes a request makes its own test client                                                                                                                                                                                                                |
 
 `interleave` replaces one attribute, so name the one the reader calls through: a module that imported the function by name holds its own reference, and the wrap does not reach it.
+
+## The differential cases
+
+[`back-end/tests/mongo_cases.py`](../../../back-end/tests/mongo_cases.py) holds the cases that check the shared fakes of [`tests/conftest.py`](../../../back-end/tests/conftest.py) against the server: each a document, an operation and the answer MongoDB 8.0 gives, written in the table.
+Two tests read it.
+[`test_the_shared_matcher.py`](../../../back-end/tests/test_the_shared_matcher.py) runs every case through the fake on every run, without a server, so the gate checks the fake; [`real_mongo/test_the_filter_cases_on_the_server.py`](../../../back-end/tests/real_mongo/test_the_filter_cases_on_the_server.py) runs every case through the server, so CI checks the table.
+A case the fake does not model names the operator it refuses (`fake_refuses`); the hermetic test asserts that refusal and the server test still asserts the server's answer.
+
+| Table          | What it checks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FILTER_CASES` | `mongo_matches`, the filter every shared fake finds documents by: equality by BSON type (`true` is not `1`, `1` is `1.0`), null against missing, a value, `$in`, `$ne` and `$nin` against a list field, a whole sub-document in and out of field order, dotted paths through sub-documents and through lists (any element, a numeric index, and what reads as missing there), `$exists`, the four ranges (across two types, on dates, on strings, over list elements), `$size`, `$type: "object"`, `$and`, `$or` and `$nor`, the shapes production's filters send, and what the matcher refuses: `$regex`, `$elemMatch`, `$not`, any other `$type`, `$all`, `$mod`, `$expr`, an unknown operator and a malformed condition |
+
+`mongo_matches` raises `UnmodelledQuery`, a subclass of `AssertionError`, naming what it does not model, so a test of a filter it cannot read fails instead of passing on every document.
+A new operator is modelled there with its cases in the table, or its test runs here, on the server.
 
 ## MongoDB 8.0
 

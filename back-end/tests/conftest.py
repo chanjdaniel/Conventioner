@@ -13,8 +13,10 @@ reading or writing a developer's live local database.
 """
 import importlib.util
 import os
+import re
 import sys
 import types
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -323,58 +325,213 @@ class FakeSlugMarketsCollection:
         return SimpleNamespace(inserted_id="fake-id")
 
 
-def mongo_matches(doc: dict, query: dict) -> bool:
-    """Evaluate a Mongo filter the way the server does.
+class UnmodelledQuery(AssertionError):
+    """A filter the shared fakes do not model, refused rather than answered.
 
-    The fakes that stand in for the markets collection share this, because a fake that ignores the
-    filter is a fake that passes a document Mongo would never have handed back - which is exactly
-    how a lookup querying a field no document carries would go unnoticed here and 404 in
-    production. ``$ne``, ``$exists``, ``$in`` and ``$nor`` are modelled because the public slug
-    lookup is built out of them, ``$gt`` because a deal's lease is, ``$lt`` because a sign-in
-    code's tries are, ``$type: object`` because the applications waiting to be dealt are read by
-    it, and a value matching a list that holds it because a vendor's history is. A dotted key
-    reaches into sub-documents, as an assignment's revision is read by every write of it.
+    A fake that reads an operator it does not know as met hands back every document, so a test of
+    a new filter through it is green whatever the filter says. Refusing it fails that test at once,
+    naming the operator, and the author either models it here, with its cases in
+    ``tests/mongo_cases.py``, or tests the filter against the real server (``tests/real_mongo/``).
+    A subclass of ``AssertionError``, so pytest reports a failed test, not an error in the code.
     """
-    for key, condition in (query or {}).items():
-        if key == "$nor":
-            if any(mongo_matches(doc, clause) for clause in condition):
-                return False
+
+
+#: A path that reaches no value, as distinct from a value that is null.
+_MISSING = object()
+
+_LOGICAL_OPERATORS = ("$and", "$or", "$nor")
+_RANGE_OPERATORS = {
+    "$gt": lambda value, bound: value > bound,
+    "$gte": lambda value, bound: value >= bound,
+    "$lt": lambda value, bound: value < bound,
+    "$lte": lambda value, bound: value <= bound,
+}
+
+
+def _refuse(what: str):
+    raise UnmodelledQuery(f"the shared matcher does not model {what}")
+
+
+def mongo_matches(doc: dict, query: dict) -> bool:
+    """Evaluate a Mongo filter as MongoDB 8.0 does, or refuse it with ``UnmodelledQuery``.
+
+    Every shared fake of this file finds documents through this, since a fake that ignores its
+    filter passes a document the server would never have handed back. It models ``$eq``, ``$ne``,
+    ``$gt``, ``$gte``, ``$lt``, ``$lte``, ``$in``, ``$nin``, ``$exists``, ``$size``,
+    ``$type: "object"``, ``$and``, ``$or`` and ``$nor``; dotted paths through sub-documents and
+    through lists, to any element and by a numeric index; a value, ``$in``, ``$ne`` and ``$nin``
+    against a list field by its elements; null as matching a missing field; a whole sub-document
+    equal only in the same field order; and a range across two BSON types as matching nothing.
+    Anything else (``$regex``, ``$elemMatch``, ``$not``, any other ``$type``, an operator it does
+    not know) raises ``UnmodelledQuery`` naming it, and so does a malformed filter the server
+    refuses. Every operator of the filter is read, so an unmodelled one is refused even where an
+    earlier term already decided the answer.
+
+    ``tests/mongo_cases.py`` holds the cases it is checked by: ``tests/test_the_shared_matcher.py``
+    runs them through this on every run, and ``tests/real_mongo/`` runs them through a real server.
+    A change here comes with its cases there.
+    """
+    if not isinstance(query, dict):
+        _refuse(f"a filter that is not a document: {query!r}")
+    answers = [_holds(doc, key, condition) for key, condition in query.items()]
+    return all(answers)
+
+
+def _holds(doc: dict, key: str, condition) -> bool:
+    if key in _LOGICAL_OPERATORS:
+        if not isinstance(condition, list) or not condition:
+            _refuse(f"{key!r} over anything but a non-empty list of filters")
+        answers = [mongo_matches(doc, clause) for clause in condition]
+        if key == "$and":
+            return all(answers)
+        if key == "$or":
+            return any(answers)
+        return not any(answers)
+    if key.startswith("$"):
+        _refuse(f"the query operator {key!r}")
+    leaves = _leaves(doc, key.split("."))
+    # A condition is operators when its first key is one, as the server reads it; any other
+    # document is a value to equal whole (a claim's holder, E34/F03/S02).
+    if isinstance(condition, dict) and condition and next(iter(condition)).startswith("$"):
+        answers = [_meets(leaves, operator, operand) for operator, operand in condition.items()]
+        return all(answers)
+    return _equals_any(leaves, condition)
+
+
+def _leaves(value, parts: list) -> list:
+    """What a dotted path reaches in ``value``: each value it lands on, or ``_MISSING`` where it
+    reads as absent.
+
+    Through a list it reaches every sub-document element and, for a numeric part, the element at
+    that index; a scalar element or a nested list is not followed by name, and an index past the
+    end reaches nothing, all as the server does.
+    """
+    if not parts:
+        return [value]
+    head, rest = parts[0], parts[1:]
+    if isinstance(value, dict):
+        return _leaves(value[head], rest) if head in value else [_MISSING]
+    if isinstance(value, list):
+        found = []
+        if head.isascii() and head.isdigit() and int(head) < len(value):
+            element = value[int(head)]
+            # An indexed scalar with more path to go reaches nothing, not a missing field.
+            if not rest or isinstance(element, (dict, list)):
+                found += _leaves(element, rest)
+        for element in value:
+            if isinstance(element, dict):
+                found += _leaves(element, parts)
+        return found
+    return [_MISSING]
+
+
+def _candidates(leaves: list):
+    """The values a condition is tried against: each leaf, and each element of a leaf that is a
+    list (not deeper)."""
+    for leaf in leaves:
+        if leaf is _MISSING:
             continue
-        if "." in key:
-            head, _, rest = key.partition(".")
-            inner = doc.get(head)
-            if not mongo_matches(inner if isinstance(inner, dict) else {}, {rest: condition}):
-                return False
-            continue
-        present = key in doc
-        # Operators only when every key is one, as Mongo reads it; any other dict is a value to
-        # equal, a whole sub-document (a claim's holder, E34/F03/S02).
-        if isinstance(condition, dict) and condition and all(k.startswith("$") for k in condition):
-            if "$exists" in condition and present != condition["$exists"]:
-                return False
-            if "$ne" in condition and doc.get(key) == condition["$ne"]:
-                return False
-            if "$in" in condition and doc.get(key) not in condition["$in"]:
-                return False
-            if "$type" in condition and not (
-                    condition["$type"] == "object" and isinstance(doc.get(key), dict)):
-                return False
-            # Mongo compares a missing or null field as matching no range (a lease's end, say).
-            if "$gt" in condition and (doc.get(key) is None or not doc[key] > condition["$gt"]):
-                return False
-            if "$lt" in condition and (doc.get(key) is None or not doc[key] < condition["$lt"]):
-                return False
-        elif condition is None:
-            # A null matches a field that is null or absent.
-            if doc.get(key) is not None:
-                return False
-        elif present and isinstance(doc[key], list) and not isinstance(condition, list):
-            # A value matches a list holding it, as a vendor's entries are found by ``vendors``.
-            if condition not in doc[key]:
-                return False
-        elif not present or doc[key] != condition:
-            return False
-    return True
+        yield leaf
+        if isinstance(leaf, list):
+            yield from leaf
+
+
+def _meets(leaves: list, operator: str, operand) -> bool:
+    if operator == "$eq":
+        return _equals_any(leaves, operand)
+    if operator == "$ne":
+        return not _equals_any(leaves, operand)
+    if operator in ("$in", "$nin"):
+        if not isinstance(operand, list):
+            _refuse(f"{operator!r} over anything but a list")
+        answers = [_equals_any(leaves, value) for value in operand]
+        return any(answers) if operator == "$in" else not any(answers)
+    if operator == "$exists":
+        return bool(operand) == any(leaf is not _MISSING for leaf in leaves)
+    if operator == "$size":
+        if not _is_number(operand) or operand != int(operand):
+            _refuse(f"'$size' of {operand!r}")
+        return any(isinstance(leaf, list) and len(leaf) == operand for leaf in leaves)
+    if operator == "$type":
+        if operand != "object":
+            _refuse(f"'$type' other than \"object\": {operand!r}")
+        return any(isinstance(value, dict) for value in _candidates(leaves))
+    if operator in _RANGE_OPERATORS:
+        if operand is None:
+            # Null is its own type: $gte and $lte of it are equality with null, $gt and $lt nothing.
+            return operator in ("$gte", "$lte") and _equals_any(leaves, None)
+        bound_type = _comparable_type(operand)
+        if bound_type is None:
+            _refuse(f"{operator!r} of {operand!r}")
+        compare = _RANGE_OPERATORS[operator]
+        return any(_comparable_type(value) == bound_type
+                   and compare(_comparable(value), _comparable(operand))
+                   for value in _candidates(leaves))
+    if not operator.startswith("$"):
+        _refuse(f"the field {operator!r} beside operators in one condition (the server refuses it)")
+    _refuse(f"the query operator {operator!r}")
+
+
+def _equals_any(leaves: list, value) -> bool:
+    _refuse_unmodelled_value(value)
+    if value is None:
+        return any(leaf is _MISSING for leaf in leaves) or any(
+            candidate is None for candidate in _candidates(leaves))
+    return any(_bson_equal(candidate, value) for candidate in _candidates(leaves))
+
+
+def _refuse_unmodelled_value(value):
+    if isinstance(value, re.Pattern) or type(value).__name__ == "Regex":
+        _refuse(f"a regular expression as a value: {value!r}")
+
+
+def _is_number(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _utc(moment: datetime) -> datetime:
+    # The server keeps a date as UTC and hands it back naive, so a naive date is a UTC one.
+    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+
+def _bson_equal(stored, value) -> bool:
+    """Equality as the server compares two values: by type first (``True`` is not ``1``), numbers
+    across int and float, sub-documents field by field in order, lists element by element."""
+    if isinstance(stored, bool) or isinstance(value, bool):
+        return isinstance(stored, bool) and isinstance(value, bool) and stored == value
+    if _is_number(stored) and _is_number(value):
+        return stored == value
+    if isinstance(stored, dict) or isinstance(value, dict):
+        return (isinstance(stored, dict) and isinstance(value, dict)
+                and list(stored) == list(value)
+                and all(_bson_equal(stored[key], value[key]) for key in stored))
+    if isinstance(stored, list) or isinstance(value, list):
+        return (isinstance(stored, list) and isinstance(value, list) and len(stored) == len(value)
+                and all(_bson_equal(a, b) for a, b in zip(stored, value)))
+    if isinstance(stored, datetime) and isinstance(value, datetime):
+        return _utc(stored) == _utc(value)
+    if stored is None or value is None:
+        return stored is None and value is None
+    return stored == value
+
+
+def _comparable_type(value):
+    """The type a range compares within, or ``None`` for a value no modelled range compares."""
+    if isinstance(value, bool):
+        return bool
+    if _is_number(value):
+        return float
+    if isinstance(value, str):
+        return str
+    if isinstance(value, datetime):
+        return datetime
+    if type(value).__name__ == "ObjectId":
+        return "ObjectId"
+    return None
+
+
+def _comparable(value):
+    return _utc(value) if isinstance(value, datetime) else value
 
 
 # A plan complete enough to leave draft (E31/F01/S01): a date still to come, a location, and tables

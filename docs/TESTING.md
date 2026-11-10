@@ -143,8 +143,10 @@ configured secret) and `test_env_file.py` (the `.env` loader, and that the real 
 wins over the file).
 
 Requirements: `pytest` (listed in `requirements-dev.txt`), no database connection needed
-(tests use in-memory fakes), except by the real-MongoDB suite below. The fakes read a filter (`mongo_matches`) and a projection
-(`mongo_project`) as Mongo does, a sub-document compared whole and a dotted key reaching into one, so a read that fetches too
+(tests use in-memory fakes), except by the real-MongoDB suite below.
+The shared fakes read a filter with `mongo_matches`, which answers as MongoDB 8.0 does for every case in `back-end/tests/mongo_cases.py` and raises `UnmodelledQuery` on an operator it does not model, so a test of a filter it cannot read fails instead of passing.
+`test_the_shared_matcher.py` checks it against that table on every run, and the real-MongoDB suite checks the table against the server.
+They read a projection (`mongo_project`) as Mongo does too, so a read that fetches too
 little fails here rather than in production. Shared module stubs live in `back-end/tests/conftest.py`, which
 also points the `.env` loader at a path that does not exist - the suite reads no `.env`, so a
 stale one on your machine cannot change its result.
