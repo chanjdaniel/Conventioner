@@ -877,6 +877,27 @@ class TestTheCodeIsSentWithinTheRequest:
         assert (failed_body.get_json(), failed_status) == (sent_body.get_json(), sent_status)
         assert "sign-in code" in caplog.text and "test-market" in caplog.text
 
+    def test_a_failed_send_leaves_no_code_armed(
+        self, applicant_auth_module, test_db, monkeypatch
+    ):
+        """A code whose mail was not sent is spent at once, so none is armed for the address."""
+        armed = test_db["applicant_login_challenges"]
+        monkeypatch.setattr(applicant_auth_module, "_send_code_email", lambda *args: False)
+        self._request(applicant_auth_module)
+
+        assert armed.find_one({"email": "applicant@example.com", "consumed": False}) is None
+
+    def test_a_send_that_raises_leaves_no_code_armed(
+        self, applicant_auth_module, test_db, monkeypatch
+    ):
+        def boom(*_args):
+            raise RuntimeError("provider down")
+        monkeypatch.setattr(applicant_auth_module, "_send_code_email", boom)
+        self._request(applicant_auth_module)
+
+        armed = test_db["applicant_login_challenges"]
+        assert armed.find_one({"email": "applicant@example.com", "consumed": False}) is None
+
     def test_a_send_that_raises_still_answers_alike(
         self, applicant_auth_module, test_db, monkeypatch, caplog
     ):
