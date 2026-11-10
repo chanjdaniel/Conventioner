@@ -55,9 +55,6 @@ export interface PublishedSeedResult extends SeedResult {
 }
 
 /**
- * Replicate the front-end marketNameToKebabSlug logic for URL-safe slugs.
- */
-/**
  * Publish a market's results, as its owner, in Assignment with a current run stored. Every market
  * publishes them before it may enter `market_days`, on either path (E36/F04/S02, ADR 0022), and
  * after it the run is refused, so a spec publishes only once it has the run it wants.
@@ -76,6 +73,7 @@ export async function publishResults(
   }
 }
 
+/** Replicates the front end's `marketNameToKebabSlug`: a market's URL-safe slug. */
 export function marketNameToSlug(name: string): string {
   return name
     .trim()

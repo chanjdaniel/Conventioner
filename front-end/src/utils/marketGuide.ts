@@ -163,6 +163,64 @@ export function blockersFor(market: Market, toPhase: string | null): Preconditio
   return market.transitionBlockers?.[toPhase] ?? [];
 }
 
+/** Review setup's two decisions (T206), which the move out of draft alone waits on. */
+const REVIEW_SETUP: ReadonlySet<string> = new Set([
+  'review_highlights_decided',
+  'rejection_rules_decided',
+]);
+
+/**
+ * Whether the organizer has drafted the form past its essential questions: it asks one of their
+ * own, or the start from a Google Form's responses has run, which keeps what it read of the file
+ * (`exampleColumns`, absent on a market never started so) even when the organizer left every column
+ * of their own out, and so may leave the form with essential questions alone.
+ */
+function theFormIsDrafted(market: Market): boolean {
+  return (market.applicationForm?.fields?.length ?? 0) > 0 || Array.isArray(market.exampleColumns);
+}
+
+/**
+ * The first thing in a move's way, in the order the organizer works through it: the first blocker
+ * served, except that the form comes before Review setup (T260).
+ *
+ * Once the plan gives the form its essential questions the server's form guard passes, so a draft
+ * whose organizer had not yet drafted from their Google Form, or added a question of their own, was
+ * told to decide what reviewers read first, before there was anything of theirs to decide on. While
+ * the form is not drafted and Review setup is next, the step is the form: the start from a Google
+ * Form's responses on that path, for someone who may take it, else Your questions. Nothing is
+ * refused for it: a form of essential questions alone still opens once Review setup is decided,
+ * and the server's blockers are what the moves are judged by.
+ */
+export function firstInTheWay(market: Market, toPhase: string | null): PreconditionResult | null {
+  const [blocker] = blockersFor(market, toPhase);
+  if (!blocker || !REVIEW_SETUP.has(blocker.id)) return blocker ?? null;
+  if (theFormIsDrafted(market)) return blocker;
+  // The decision still open, as the end of a sentence: "then decide what reviewers read first".
+  const label = blocker.resolutionLabel ?? 'Decide Review setup';
+  const then = `then ${label.charAt(0).toLowerCase()}${label.slice(1)}`;
+  const fromTheirGoogleForm =
+    intakeModeOf(market) === IntakeMode.Csv &&
+    !market.csvStartRefusal &&
+    mayTake(market, MarketAction.ImportApplications);
+  return fromTheirGoogleForm
+    ? {
+        id: 'form_first',
+        passed: false,
+        message: `Your form asks only the essential questions so far. Draft the rest from your Google Form's responses, ${then} on Review setup.`,
+        resolutionLink: 'start-from-csv',
+        resolutionLabel: 'Draft from your Google Form',
+        resolutionAction: MarketAction.ImportApplications,
+      }
+    : {
+        id: 'form_first',
+        passed: false,
+        message: `Your form asks only the essential questions so far. Add any of your own on Your questions, ${then} on Review setup.`,
+        resolutionLink: 'form?step=questions',
+        resolutionLabel: 'Add your questions',
+        resolutionAction: MarketAction.ChangeForm,
+      };
+}
+
 export interface NextStep {
   /** What the rail says. */
   text: string;
@@ -422,7 +480,7 @@ export function nextStep(market: Market, today: string = calendarToday()): NextS
   const path = intakeModeOf(market);
   const assigned = hasAssignment(market);
   const forward = forwardFrom(market, today);
-  const [blocker] = blockersFor(market, forward);
+  const blocker = firstInTheWay(market, forward);
   const stopped = Boolean(market.applicationsStopped);
   const row = rowFor(phase, {
     path,

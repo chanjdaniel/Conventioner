@@ -1,10 +1,17 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Page } from '@playwright/test';
 import { test, expect, TEST_USER, APP_API, CsvImportPage } from './fixtures';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
 import { savePlan } from './helpers/savePlan';
 import { completePlan } from './helpers/seeds';
-import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMarket';
+import {
+  APPLICATION_FIELDS,
+  seedApplicantMarket,
+  planSetupObject,
+} from './helpers/seedApplicantMarket';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { MarketSetupPage } from './pages/MarketSetupPage';
 import { OpenApplicationsDialog } from './pages/OpenApplicationsDialog';
@@ -19,6 +26,16 @@ import { OpenApplicationsDialog } from './pages/OpenApplicationsDialog';
  * reached Review before the fix, with neither decided, is refused nothing new; and a move refused
  * with several things open lists both decisions among the rest, each with its fix.
  */
+
+const EXAMPLE_COLUMNS = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  'back-end',
+  'tests',
+  'test_data',
+  'example_columns.csv',
+);
 
 const HIGHLIGHTS_OPEN =
   'Nothing says what a reviewer reads first. On Review setup, tick the answers that lead the card, or choose Nothing leads the card.';
@@ -105,6 +122,101 @@ test.describe('Review waits on the review setup', () => {
     await expect(opening.dialog).toBeHidden();
     await expect(setup.currentPhase).toHaveText('Applications', { timeout: 10000 });
     await expect(page).toHaveURL(/\/applications$/);
+  });
+
+  // The form comes before Review setup (T260): once the plan gives the form its essential
+  // questions, a draft with none of the organizer's own was told to decide what reviewers read
+  // first.
+  for (const { path, label, lands, move } of [
+    {
+      path: 'form' as const,
+      label: 'Add your questions',
+      lands: /\/form\?step=questions$/,
+      move: 'To open applications',
+    },
+    {
+      path: 'csv' as const,
+      label: 'Draft from your Google Form',
+      lands: /\/start-from-csv$/,
+      move: 'To begin review',
+    },
+  ]) {
+    test(`a ${path} draft with no questions of its own is led to its form before Review setup`, async ({
+      authenticatedPage: page,
+    }) => {
+      const market = await seedApplicantMarket(
+        page.request,
+        APP_API,
+        TEST_USER.email,
+        TEST_USER.password,
+        { draft: true, intakeMode: path, fields: [], reviewSetupUndecided: true },
+      );
+      const fix = page.getByTestId('phase-rail-fix');
+      const next = page.getByTestId('phase-rail-next');
+
+      await page.goto(marketScreenPath(market.marketId, 'setup'));
+      await expect(fix).toHaveText(label, { timeout: 15000 });
+      await expect(next).toContainText(
+        `${move}: Your form asks only the essential questions so far.`,
+      );
+      await expect(next).toContainText('then decide what reviewers read first on Review setup.');
+      await fix.click();
+      await expect(page).toHaveURL(lands);
+
+      // With a question of the organizer's own, Review setup is next.
+      const form = await page.request.put(
+        `${APP_API}/markets/${market.marketId}/application-form`,
+        {
+          data: { fields: APPLICATION_FIELDS },
+        },
+      );
+      expect(form.ok(), await form.text()).toBeTruthy();
+      await page.goto(marketScreenPath(market.marketId, 'setup'));
+      await expect(fix).toHaveText('Decide what reviewers read first', { timeout: 15000 });
+    });
+  }
+
+  // A start from the Google Form's responses can leave the form with none of the organizer's own
+  // questions, every column answering an essential question or left out, and nothing then refuses
+  // another start. Once the start has run the form is drafted, so Review setup is next (T260).
+  test('a Google Form draft started with every column left out moves on to Review setup', async ({
+    authenticatedPage: page,
+  }) => {
+    const market = await seedApplicantMarket(
+      page.request,
+      APP_API,
+      TEST_USER.email,
+      TEST_USER.password,
+      { draft: true, intakeMode: 'csv', fields: [], reviewSetupUndecided: true },
+    );
+    const csvContent = readFileSync(EXAMPLE_COLUMNS, 'utf8');
+    const proposed = await page.request.post(`${APP_API}/markets/${market.marketId}/csv-proposal`, {
+      data: { csvContent },
+    });
+    expect(proposed.ok(), await proposed.text()).toBeTruthy();
+    const { columns } = (await proposed.json()) as {
+      columns: { index: number; fate: string }[];
+    };
+    const ownQuestions = columns.filter((column) => column.fate === 'custom');
+    expect(ownQuestions.length).toBeGreaterThan(0);
+    const started = await page.request.post(
+      `${APP_API}/markets/${market.marketId}/csv-proposal/confirm`,
+      {
+        data: {
+          csvContent,
+          rows: ownQuestions.map(({ index }) => ({ column: index, fate: 'left_out' })),
+        },
+      },
+    );
+    expect(started.ok(), await started.text()).toBeTruthy();
+    const read = await page.request.get(`${APP_API}/markets/${market.marketId}`);
+    expect((await read.json()).market.applicationForm.fields).toEqual([]);
+
+    await page.goto(marketScreenPath(market.marketId, 'setup'));
+    const fix = page.getByTestId('phase-rail-fix');
+    await expect(fix).toHaveText('Decide what reviewers read first', { timeout: 15000 });
+    await fix.click();
+    await expect(page).toHaveURL(/\/form\?step=review$/);
   });
 
   test("a Google Form draft's first import waits on both, then takes it into Review", async ({

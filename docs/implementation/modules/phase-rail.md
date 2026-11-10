@@ -5,7 +5,7 @@ describes:
   - front-end/src/components/PhaseRail.vue
   - front-end/src/components/market/OpenApplicationsDialog.vue
   - front-end/src/utils/phase.ts
-verified: 2026-11-06
+verified: 2026-11-10
 sources:
   - wayfinding/claims-and-room/07
   - wayfinding/readable-journey/01
@@ -35,6 +35,7 @@ sources:
   - T206
   - T217
   - T214
+  - T260
 ---
 
 # The phase rail
@@ -50,6 +51,7 @@ What it says comes from [the market guide](market-guide.md); which moves exist a
 `GET /markets/:id` serves `transitionBlockers`: every move open from the market's phase, each judged by the same guards the move runs (`transition_verdicts` in [`back-end/guards.py`](../../../back-end/guards.py)).
 A refused move is drawn disabled, with its first blocker as its reason: in the menu beside it, and for the forward step as the rail's sentence, to someone who may take the blocker's remedy (the guide's `nextStep`); when that blocker names a page that resolves it, the rail's main button becomes the fix ("Add a location") and leads there, with the move beside it as the step after.
 The fix is the move's own first blocker, the one its disabled state is read from, named by the guard that refuses it (`resolutionLabel`), so before a run Publish market offers "Allocate tables"; on the page that resolves it no fix is drawn, since the work is already in front of the organizer, and the move stays disabled with its reason.
+The one exception is the form before Review setup (T260): the fix and the sentence read the guide's `firstInTheWay`, which, while a draft's form has none of the organizer's own questions and was not started from a Google Form's responses, and Review setup's decision is the first blocker, offers the form instead ([the market guide](market-guide.md)), with the move still disabled for Review setup.
 That page is the link's path and every query value it names (`isHere` in [`market.ts`](../../../front-end/src/utils/market.ts), T206): a fix leading to `form?step=review` is drawn from Your questions and not on Review setup, and one leading to `applications` is not drawn on `applications?view=one`.
 The 409 from `POST /markets/:id/transition` stays for races and renders its blockers under the rail, and the rail reads the market again, since it may have changed since it was read: a fix in that panel then leads to a page that shows the market as the server judged it, Review setup asking again for a decision another organizer undid (T206).
 Never decide a move's verdict on the front end.
@@ -107,6 +109,7 @@ Without a complete record (`phaseRecordComplete: false`) the rail says only what
 
 **The addresses give way, and the rail's end travels as one piece.**
 On a desk an address chip is the one flexible part of the row: it drops the scheme every address shares and ellipses the rest, so the part naming the market shows, while the link, its hover text and Copy keep the whole address.
+Copy stands at the chip's end at every width (`margin-left: auto`), so a chip wider than its words, an 18rem floor round a short address or a phone's half row, leaves its room between the address and Copy; with a short address it stood mid-chip (T260), which `the-rail-addresses.spec.ts` holds at 1280 and 390.
 The addresses and the moves are one item of the row; where the row cannot hold them beside the spine, they take a second row together, addresses at its start and moves at its end, rather than leaving one button alone beside an empty band.
 When the address shows is [a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md) for the vendor page ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)).
 
