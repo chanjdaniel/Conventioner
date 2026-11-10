@@ -333,13 +333,13 @@ const progress = computed(() => {
   const card = current.value;
   if (!undecided.value.length) return null;
   if (!card && mineOnly.value && share.value.length) return `${share.value.length} in your share`;
-  if (!card) return `${undecided.value.length} to review`;
+  if (!card) return `${undecided.value.length} open`;
   const inShare = share.value.findIndex((app) => app.id === card.id);
   if (inShare >= 0) return `${inShare + 1} of ${share.value.length} in your share`;
   const inRest = others.value.findIndex((app) => app.id === card.id);
   return inRest >= 0
-    ? `${inRest + 1} of ${others.value.length} to review`
-    : `${cursor.value + 1} of ${undecided.value.length} to review`;
+    ? `${inRest + 1} of ${others.value.length} open`
+    : `${cursor.value + 1} of ${undecided.value.length} open`;
 });
 
 /**

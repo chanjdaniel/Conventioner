@@ -159,7 +159,7 @@ describe('a fix that names a step of a page', () => {
     const UNREVIEWED: PreconditionResult = {
       id: 'all_applications_reviewed',
       passed: false,
-      message: '2 applications are still awaiting review.',
+      message: '2 applications are still open.',
       resolutionLink: 'applications',
       resolutionLabel: 'Finish deciding',
       resolutionAction: MarketAction.GiveVerdicts,

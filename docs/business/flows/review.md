@@ -89,7 +89,7 @@ Every verdict records who gave it and when, and the review shows it: "Approved b
 
 The queue is triage: one application at a time, carrying every answer it holds, decided from the keyboard, with progress counted, so each verdict is given on a person rather than on a population.
 
-1. "1 of N to review", a tally ("N reviewed · A approved · R rejected") with "Show N reviewed" beside it ([I2](#i2-change-a-decision)), and one card at a time, in the order the applications arrived.
+1. "1 of N open" (with no card up, "N open"), a tally ("N reviewed · A approved · R rejected") with "Show N reviewed" beside it ([I2](#i2-change-a-decision)), and one card at a time, in the order the applications arrived.
    A chosen reviewer is handed their own share first, counted as "1 of N in your share" ([dividing the review](#dividing-the-review)).
 2. A card's top line names the applicant (the name they chose, else the one on their identification) then their email, its status and submitted date; under it the highlighted answers first, then "N more answers" (or "This application carries no answers."); a web address in an answer is a link that opens in a new tab.
    The card's address breaks, on a narrow screen, only before its "@" or a dot.
@@ -110,7 +110,7 @@ The queue is triage: one application at a time, carrying every answer it holds, 
    A chosen Viewer, who writes no notes, marks the follow-up without that box.
    A follow-up waits out of the queue, and "Include the N follow-ups" brings them back; on its card "Followed up by" hands it to someone else.
 5. When the queue is empty: "All N reviewed", "Nothing left to review." (or "Nothing else to review; N need a follow-up.").
-6. When a chosen reviewer's share is empty and others' are not: "Your share is done.", "N applications are left outside your share. You can help with them; each one's history will say you decided it." ("1 application is left outside your share. You can help with it; its history will say you decided it.") and "Help with the others", which goes on through the rest of the queue, "1 of N to review", each card dealt to another reviewer carrying the warning; an application dealt to them meanwhile is still handed to them first.
+6. When a chosen reviewer's share is empty and others' are not: "Your share is done.", "N applications are left outside your share. You can help with them; each one's history will say you decided it." ("1 application is left outside your share. You can help with it; its history will say you decided it.") and "Help with the others", which goes on through the rest of the queue, "1 of N open", each card dealt to another reviewer carrying the warning; an application dealt to them meanwhile is still handed to them first.
    N counts every application the queue holds outside their share, which is what "Help with the others" walks: those dealt to others, the follow-ups others own once the follow-ups are taken in, and any dealt to nobody.
 
 Two reviewers at once are never handed the same card: the card a reviewer has open is held for them while they work on it, until they have been idle for five minutes and its lease runs out, and another reviewer reads "<email> is looking at this." on it; when every card left is open with someone else, "Every application left is open with another reviewer: …" with "Look again".
@@ -270,7 +270,7 @@ Covered by:
 **Status:** Works (walked live; the follow-up blocker read from the code as of E34/F02/S01).
 From Review or Applications, "Begin assignment", disabled before the click with the rail naming the first blocker:
 
-- any application undecided or needing a follow-up: "N applications are still awaiting review and N applications need a follow-up. Every application must be approved or rejected before the market can enter Assignment.", with "Finish deciding" leading back to the review;
+- any application undecided or needing a follow-up: "N applications are still open and N applications need a follow-up. Every application must be approved or rejected before the market can enter Assignment.", with "Finish deciding" leading back to the review;
 - none at all: "There are no applications for this market. …";
 - an approved applicant named a tier with no tables, naming the tier and the applicants;
 - a hand placement names a seat the plan no longer has ([J10](placing-by-hand.md#j10-a-pin-the-plan-no-longer-holds)).

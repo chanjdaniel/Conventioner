@@ -212,12 +212,12 @@ describe('a chosen reviewer', () => {
 
     expect(lastAsk()).not.toHaveProperty('mineOnly');
     expect(shown(wrapper)).toBe('ben@vendor.test');
-    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 3 to review');
+    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 3 open');
     expect(text(wrapper, 'app-monitor-dealt-warning')).toContain(`dealt to ${SAM}`);
 
     await approve(wrapper);
     expect(shown(wrapper)).toBe('dot@vendor.test');
-    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 2 to review');
+    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 2 open');
   });
 
   it('is still handed a new arrival dealt to them first while helping', async () => {
@@ -313,11 +313,23 @@ describe('anyone else', () => {
     const wrapper = await monitor();
 
     expect(shown(wrapper)).toBe('amy@vendor.test');
-    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 5 to review');
+    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 5 open');
     await wrapper.get('[data-testid="app-monitor-next-button"]').trigger('click');
     await flushPromises();
     expect(shown(wrapper)).toBe('ben@vendor.test');
-    expect(text(wrapper, 'app-monitor-progress')).toBe('2 of 5 to review');
+    expect(text(wrapper, 'app-monitor-progress')).toBe('2 of 5 open');
+  });
+
+  it('counts what is left open when every one is open with another reviewer (T263)', async () => {
+    team = [];
+    stored.forEach((app) => (app.heldBy = { userId: SAM, email: SAM }));
+    const wrapper = await monitor();
+
+    expect(wrapper.find('[data-testid="app-monitor-card"]').exists()).toBe(false);
+    expect(text(wrapper, 'app-monitor-all-held')).toContain(
+      `Every application left is open with another reviewer: ${SAM}.`,
+    );
+    expect(text(wrapper, 'app-monitor-progress')).toBe('5 open');
   });
 
   it('walks the whole queue with nobody chosen', async () => {
@@ -325,7 +337,7 @@ describe('anyone else', () => {
     const wrapper = await monitor();
 
     expect(lastAsk()).not.toHaveProperty('mineOnly');
-    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 5 to review');
+    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 5 open');
     await approve(wrapper);
     await approve(wrapper);
     expect(shown(wrapper)).toBe('cal@vendor.test');

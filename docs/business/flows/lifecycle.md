@@ -28,6 +28,7 @@ sources:
   - E38/F15/S04
   - T207
   - T260
+  - T263
 ---
 
 # The market lifecycle at a glance
@@ -128,7 +129,7 @@ Each refusal is a blocker line under the rail and beside the move, before the cl
 | Leaving Draft, on the Google Form path              | Nothing has been imported: the first import, written, is the way in                                                                        | "Nothing has been imported yet. Import your Google Form's responses first."                                                                                           |
 | The stage → Draft                                   | Any application exists, imported or applied                                                                                                | "N applications are already in, so this market cannot return to draft. …"                                                                                             |
 | Assignment → the stage (Back to review)             | Results are published                                                                                                                      | "Results are published: applicants have read whether they have a table, so the review cannot reopen. To change who has a table, place or free a seat on Assignments." |
-| The stage → Assignment                              | Any application still Open, Under review or needing a follow-up; or none at all                                                            | "N applications are still awaiting review…" / "N applications need a follow-up…" / "There are no applications for this market. …"                                     |
+| The stage → Assignment                              | Any application still Open, Under review or needing a follow-up; or none at all                                                            | "N applications are still open…" / "N applications need a follow-up…" / "There are no applications for this market. …"                                                |
 | The stage → Assignment                              | An approved applicant named a tier that has no tables                                                                                      | Names the tier and the applicants                                                                                                                                     |
 | The stage → Assignment, and into Market Days        | A hand placement names a seat the plan no longer has                                                                                       | Names the vendor, table and date                                                                                                                                      |
 | Assignment → Offers                                 | Any application is still Approved (always true today: M1)                                                                                  | "N applications are still approved but not yet assigned or unassigned. …"                                                                                             |

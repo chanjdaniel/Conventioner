@@ -167,7 +167,7 @@ export class ApplicationMonitorPage {
    */
   async remaining(): Promise<number> {
     const text = (await this.progress.textContent()) ?? '';
-    return Number(text.match(/of (\d+) (?:to review|in your share)/)?.[1] ?? 0);
+    return Number(text.match(/of (\d+) (?:open|in your share)/)?.[1] ?? 0);
   }
 
   /**
@@ -239,7 +239,7 @@ export class ApplicationMonitorPage {
   ): Promise<void> {
     if (before > 1) {
       await expect(this.progress).toContainText(
-        new RegExp(`of ${before - 1} (?:to review|in your share)`),
+        new RegExp(`of ${before - 1} (?:open|in your share)`),
       );
     } else {
       // The last of the queue, or of a chosen reviewer's share while others' are left.
