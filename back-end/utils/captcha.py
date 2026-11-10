@@ -124,7 +124,9 @@ def verify_recaptcha(token: str, ip_address: Optional[str] = None) -> Tuple[bool
         if not insecure_local_dev():
             # Unreachable through app.py, which refuses to boot in this state. Reached only by an
             # entrypoint that skipped that check, and an unverifiable token is not a verified one.
-            logger.error("%s is not a usable secret, refusing the request", RECAPTCHA_SECRET_KEY_VAR)
+            # The variable's name is written into the words, never passed as an argument: CodeQL
+            # reads an argument named for a secret as the secret itself.
+            logger.error("RECAPTCHA_SECRET_KEY is not a usable secret, refusing the request")
             return False, 0.0
         warn_insecure_local_dev("reCAPTCHA verification (no secret configured)")
         return True, 1.0
