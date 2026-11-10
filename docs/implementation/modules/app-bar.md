@@ -60,7 +60,7 @@ So a Viewer's bar is an Owner's, an organizer with no organization has Organizat
 It is the vendors' page, so an organizer who opens their own market's page reads it as a vendor would, with neither the places nor the account menu.
 The route says so with `meta.vendorFacing`, which [`isVendorFacing`](../../../front-end/src/utils/currentPlace.ts) reads, and [`theBarsCurrentPlace.test.ts`](../../../front-end/src/__tests__/theBarsCurrentPlace.test.ts) holds that the vendor page is the only route that sets it.
 That route also answers "Page not found" itself, for a one-segment address naming no market and for a gated market's page, a draft's even to its own organizer ([a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md)).
-That is no vendor's page, so [`VendorPage`](../../../front-end/src/views/VendorPage.vue) tells the bar its slug answered absent (`vendorPageAnswered`), and [`standsApart`](../../../front-end/src/utils/currentPlace.ts), which the bar reads, then gives the organizer the full bar there as at any deeper unknown address.
+That is no vendor's page, so [`VendorPage`](../../../front-end/src/views/VendorPage.vue) tells the bar its slug answered absent (`vendorPageAnswered`) and, when the page goes, takes that back for the slug it answered for, since by then the route is already the next page's; and [`standsApart`](../../../front-end/src/utils/currentPlace.ts), which the bar reads, then gives the organizer the full bar there as at any deeper unknown address.
 While the page is still reading its market, and when the read failed, the bar stands apart.
 
 **The bar's reading of who is signed in is one, the shell's.**

@@ -43,8 +43,14 @@ type State = 'loading' | 'not-found' | 'failed' | 'ready';
 const state = ref<State>('loading');
 
 // A "Page not found" here is no vendor's page, so the app bar keeps an organizer's way about on it.
-watch(state, (now) => vendorPageAnswered(marketSlug.value, now === 'not-found'));
-onUnmounted(() => vendorPageAnswered(marketSlug.value, false));
+// The bar is told by the slug the page answered for, kept here: by the page's unmount the route is
+// already the next page's, and the answer must be taken back for the slug it was given for.
+let answeredFor = marketSlug.value;
+watch(state, (now) => {
+  answeredFor = marketSlug.value;
+  vendorPageAnswered(answeredFor, now === 'not-found');
+});
+onUnmounted(() => vendorPageAnswered(answeredFor, false));
 
 const signedIn = computed(() => store.isAuthenticatedFor(marketSlug.value));
 const vendorName = computed(() => store.application?.vendorName || '');
