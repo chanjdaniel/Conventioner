@@ -67,8 +67,11 @@ const props = defineProps<{
    * debounce (E10/F02/S01), so an organizer who types a date and immediately presses Open
    * Applications would be refused by `FormHasFieldsGuard` reading a plan that has not landed yet
    * - blocked by their own unsaved work.
+   *
+   * A sentence answered stops the move: it is shown as the rail's error and nothing is posted, so
+   * the market never moves over work the screen could not save (T271).
    */
-  beforeTransition?: () => Promise<void> | void;
+  beforeTransition?: () => Promise<string | null | void> | string | null | void;
 }>();
 
 const marketStore = useMarketStore();
@@ -393,7 +396,11 @@ async function doTransition(toPhase: string): Promise<boolean> {
   transitionBlockers.value = [];
 
   try {
-    await props.beforeTransition?.();
+    const refusal = await props.beforeTransition?.();
+    if (typeof refusal === 'string') {
+      transitionError.value = refusal;
+      return false;
+    }
     await api.post(`/markets/${encodeURIComponent(props.market.id)}/transition`, { toPhase });
     // A transition is a write, so the one store re-reads the market (E21/F02). The rail used to
     // fetch its own copy, write it into `localStorage` and hand it to the screen to splice in;

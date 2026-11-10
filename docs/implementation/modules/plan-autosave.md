@@ -34,8 +34,17 @@ The plan used to send a save at every pause whether or not one was out, and answ
 The status is `saving` while a save is out, and `saved` ("Plan saved") only when an answer leaves no edit unsaved, for 2 s; the next edit hides it.
 A wanted save is sent before the re-read of the answer that freed it, so that re-read lands while an edit is unsaved, and the view ignores it.
 
-**A failure keeps the edits unsaved** and shows its sentence (`market-setup-plan-save-error`, "Could not save the plan. Retry in a moment." when the failure has none of its own).
-Nothing retries on a timer; the next edit, or a flush, sends the whole working copy again.
+**A refusal and a failure are told apart** by the answer's status, in one function, `isRefusal`: an answer from 400 to 499 other than 401, 408 and 429 is the server saying no, and anything else (no answer, a 401, 408, 429 or 5xx) is the save not getting through.
+The plan's write refuses with a 400 (an invalid plan, a price, the intake mode after draft, the setup settled on leaving draft, the rules settled) or a 403 (archived, the person's role); a stale-write 409 would read as a refusal too.
+
+**A refusal drops every edit made so far** and takes the server's plan back: the plan is written whole, so every later edit builds on the refused one, and none of them is kept.
+The status is `refused`, and the line (`market-setup-plan-refused`, in the error's red, with no Retry) says the server's sentence and then "The plan is back as it was last saved."
+The view's `afterRefusal` re-reads the market and then adopts it itself, so the server's plan comes back even when the re-read failed or handed back the market the page already had, which leaves the market watch silent.
+Nothing is unsaved after it, so later re-reads reach the screen again; until T271 a refused save left the page skipping every re-read, the refused plan on screen until a reload.
+
+**A failure keeps the edits unsaved** and shows its sentence (`market-setup-plan-save-error`): the app's offline sentence for no answer, the server-fault sentence for a 5xx, and "The plan was not saved." for a failure with no sentence of its own.
+A "Retry" button beside it (`market-setup-plan-retry-button`, `retry`) sends the whole working copy again; so do the next edit and a flush, and nothing retries on a timer.
+A 401 also ends the session through the app's interceptor.
 
 **A person who may not write sends nothing, and their edits are not counted**, so nothing stays unsaved for them and the server's re-reads still reach their screen (bug 30: a plan that cannot change is never sent).
 
@@ -43,14 +52,18 @@ Nothing retries on a timer; the next edit, or a flush, sends the whole working c
 While held no pause runs; an edit made meanwhile, or a save wanted when an answer finds the plan held, waits, and is sent a pause after the hold ends.
 
 **The flush** (`flush`) stops the pause, waits for a save out, and sends while anything is unsaved, a held edit as kept: the working copy holds the value from before the text that is not one.
-It answers null once the server holds the last edit, or the sentence of the failure that stopped it; with nothing unsaved it answers null at once, sending nothing.
-Market Setup flushes before a phase move (the frame's `beforeTransition`), before Allocate tables and before the start from a CSV; none of them reads the answer.
+It answers null once the server holds the last edit, or the sentence of the failure or refusal that stopped it, a save out it waited for included (a refusal's own sentence, without "The plan is back as it was last saved."); with nothing unsaved it answers null at once, sending nothing.
+Market Setup flushes before a phase move (the frame's `beforeTransition`), before Allocate tables and before the start from a CSV, and each stops on a sentence:
+the move posts nothing and the [phase rail](phase-rail.md) says "The market did not move, because the plan did not save. " and the sentence; [Allocate tables](../../business/flows/assignment-and-result.md#j3-allocate-tables) posts no run and shows the sentence as its error; the start from a CSV stays on the plan, whose status line says why.
 The intake mode is saved at once, an edit and a flush, so it goes through the same queue.
 Allocate tables sends the plan only when an edit is unsaved: the server already holds the working copy otherwise.
 
-**Leaving the page flushes without waiting**, on the view's unmount, and a save out when it unmounts still sends a later edit once it answers.
+**Leaving the page flushes without waiting**, on the view's unmount, and a save out when it unmounts still sends a later edit once it answers; when that save fails or is refused, the flush stops there and the later edit is not sent.
 
 ## The view's side
+
+**The status line** is [`PlanSaveStatus.vue`](../../../front-end/src/components/market/PlanSaveStatus.vue), at the foot of the plan tab: "Saving…", "Plan saved", the failed line with Retry, or the refused line.
+On Settings, where the assignment rules ride in the plan, the failed and refused lines show too, through `MarketAssignmentTab`'s `planStatus` slot, above the allocation's own error, and in a row of their own when there is no allocation to offer.
 
 **The working copy** is `setupObject` and `planIntakeMode`, taken from the market when it arrives and again whenever a re-read lands while nothing is `unsaved` (`adoptPlan`).
 

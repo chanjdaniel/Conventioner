@@ -7,6 +7,7 @@ import { useRoute, useRouter } from 'vue-router';
 import ChoosePathOverlay from '@/components/floorplan/ChoosePathOverlay.vue';
 import DraftedFrom from '@/components/market/DraftedFrom.vue';
 import MarketPlanTab from '@/components/market/MarketPlanTab.vue';
+import PlanSaveStatus from '@/components/market/PlanSaveStatus.vue';
 import {
   type SetupObject,
   type FormField,
@@ -201,14 +202,20 @@ function workingPlan(): string {
  * else; it used to PUT the whole market, which is a client claiming its copy is the truth. A plan
  * that cannot change is never sent (bug 30): its controls are disabled, and this is the one door
  * every edit reaches the server through, so nothing slips past them.
+ *
+ * A save the server refuses (the market left draft under the organizer, the rules settled, a role
+ * lost) puts the plan back as the server holds it and says why; one that failed on the way keeps
+ * the edit and offers Retry (T271). Either stops a move, an allocation or a start from a CSV that
+ * would read the plan.
  */
 const {
   status: planSaveStatus,
-  message: planSaveError,
+  message: planSaveMessage,
   unsaved: planUnsaved,
   edited: planEdited,
   hold: holdPlan,
   flush: flushPlan,
+  retry: retryPlan,
 } = useAutosave({
   send: async () => {
     await api.put(`/markets/${encodeURIComponent(planMarket!.id)}/plan`, {
@@ -217,9 +224,20 @@ const {
     });
   },
   afterSave: () => refreshMarket(),
+  afterRefusal: async () => {
+    await refreshMarket();
+    // Taken back here as well as by the watch: a re-read that failed, or handed back the market
+    // the page already had, leaves the watch silent and the refused plan on screen.
+    if (market.value && market.value.id === planMarket?.id) adoptPlan(market.value);
+  },
   may: () => Boolean(planMarket?.id) && mayTake(planMarket, MarketAction.ChangeSetup),
-  failure: 'Could not save the plan. Retry in a moment.',
+  failure: 'The plan was not saved.',
 });
+
+/** The status line's failed and refused sentences also show on Settings, whose rules ride in the plan. */
+const planSaveDidNotLand = computed(
+  () => planSaveStatus.value === 'failed' || planSaveStatus.value === 'refused',
+);
 
 /** Take the market's plan as the working copy. */
 function adoptPlan(fresh: Market) {
@@ -293,15 +311,20 @@ function handleUpdateIntakeMode(mode: IntakeMode) {
 /**
  * Every phase guard reads the market as the server holds it, so a transition fired while an edit
  * is still sitting in the pause would be judged against a plan the organizer has already changed -
- * refused by their own unsaved work. So the plan's edits land first.
+ * refused by their own unsaved work. So the plan's edits land first, and a plan that did not land
+ * stops the move, which would otherwise go ahead over a plan the organizer did not mean (T271).
  */
-async function beforeTransition(): Promise<void> {
-  await flushPlan();
+async function beforeTransition(): Promise<string | null> {
+  const why = await flushPlan();
+  return why === null ? null : `The market did not move, because the plan did not save. ${why}`;
 }
 
-/** The plan's pending edits land first: the proposal reads the plan's dates and tiers. */
+/**
+ * The plan's pending edits land first: the proposal reads the plan's dates and tiers. One that did
+ * not land keeps the organizer here, where the status line says why.
+ */
 async function startFromCsv(): Promise<void> {
-  await flushPlan();
+  if ((await flushPlan()) !== null) return;
   void router.push(marketPath(marketId.value, 'start-from-csv'));
 }
 
@@ -347,8 +370,15 @@ const handleAssign = async () => {
     // someone who may change the plan. Allocating asks the Assignment row alone, and a market's
     // owner may set it apart from Change Market Setup (E39/F01/S03): to anyone that row refuses,
     // the rules are read only, there is nothing of theirs to save, and the plan's write would
-    // refuse the allocation they may make.
-    if (mayTake(market.value, MarketAction.ChangeSetup)) await flushPlan();
+    // refuse the allocation they may make. A plan that did not land stops the run, which would
+    // otherwise read an older plan.
+    if (mayTake(market.value, MarketAction.ChangeSetup)) {
+      const why = await flushPlan();
+      if (why !== null) {
+        assignError.value = why;
+        return;
+      }
+    }
 
     // POST, not GET-then-PUT. `assignmentObject` is server-owned (E11/F01/S01), so a market PUT
     // no longer stores an assignment the browser was handed - and never should have: a stale
@@ -458,33 +488,21 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :handPlacements="handPlacements"
           @update:setupObject="handleUpdateSetupObject"
           @assign="handleAssign"
-        />
+        >
+          <template v-if="planSaveDidNotLand" #planStatus>
+            <PlanSaveStatus
+              :status="planSaveStatus"
+              :message="planSaveMessage"
+              @retry="retryPlan"
+            />
+          </template>
+        </MarketAssignmentTab>
 
         <!-- Whether what the organizer just typed is on the server. Nothing else on this page
              says so now that Next is gone. At the foot of the card, which it belongs to: it sat
              below it, on the page. -->
         <div v-if="activeTab === 'setup'" class="plan-actions">
-          <span
-            v-if="planSaveStatus === 'saving'"
-            class="plan-save-status"
-            data-testid="market-setup-plan-saving"
-          >
-            Saving…
-          </span>
-          <span
-            v-else-if="planSaveStatus === 'saved'"
-            class="plan-save-status plan-save-status--saved"
-            data-testid="market-setup-plan-saved"
-          >
-            Plan saved
-          </span>
-          <span
-            v-else-if="planSaveStatus === 'failed'"
-            class="plan-save-status plan-save-status--error"
-            data-testid="market-setup-plan-save-error"
-          >
-            {{ planSaveError }}
-          </span>
+          <PlanSaveStatus :status="planSaveStatus" :message="planSaveMessage" @retry="retryPlan" />
         </div>
       </template>
     </MarketFrame>
@@ -506,19 +524,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
 /* In the tab's own gutter, as the read-only note is, so it lines up with the steps under it. */
 .market-setup-drafted-from {
   margin: var(--space-6) var(--space-6) 0;
-}
-
-.plan-save-status {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-}
-
-.plan-save-status--saved {
-  color: var(--mm-green);
-}
-
-.plan-save-status--error {
-  color: var(--mm-text-yellow);
 }
 
 .settings-body-stacked {

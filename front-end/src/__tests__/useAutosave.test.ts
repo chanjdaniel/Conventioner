@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { defineComponent, h } from 'vue';
 import { mount } from '@vue/test-utils';
 
-import { useAutosave } from '@/utils/useAutosave';
+import { isRefusal, useAutosave } from '@/utils/useAutosave';
 
 /** A write whose answers the test gives one at a time, recording what each one carried. */
 function heldWrites(copy: () => unknown) {
@@ -52,13 +52,23 @@ function heldWrites(copy: () => unknown) {
   };
 }
 
+/** A request the server answered with `status`, as axios rejects it. */
+function answered(status: number, error?: string) {
+  return { isAxiosError: true, response: { status, data: error ? { error } : {} } };
+}
+
+/** A request that never reached the server. */
+const noAnswer = { isAxiosError: true, response: undefined };
+
 function setUp(options: { may?: () => boolean } = {}) {
   const copy = { dates: [] as string[] };
   const writes = heldWrites(() => copy);
   const afterSave = vi.fn();
+  const afterRefusal = vi.fn();
   const autosave = useAutosave({
     send: writes.send,
     afterSave,
+    afterRefusal,
     may: options.may ?? (() => true),
     failure: 'The plan was not saved.',
   });
@@ -66,7 +76,7 @@ function setUp(options: { may?: () => boolean } = {}) {
     copy.dates.push(date);
     autosave.edited();
   }
-  return { copy, writes, afterSave, autosave, edit };
+  return { copy, writes, afterSave, afterRefusal, autosave, edit };
 }
 
 beforeEach(() => {
@@ -240,6 +250,132 @@ describe('the autosave queue', () => {
   });
 });
 
+describe('a refusal and a failure', () => {
+  it.each([
+    [400, true],
+    [403, true],
+    [404, true],
+    [409, true],
+    [401, false],
+    [408, false],
+    [429, false],
+    [500, false],
+    [502, false],
+  ])('reads a %i as a refusal: %s', (status, refusal) => {
+    expect(isRefusal(answered(status))).toBe(refusal);
+  });
+
+  it('reads no answer, and anything that is not a request, as a failure', () => {
+    expect(isRefusal(noAnswer)).toBe(false);
+    expect(isRefusal(new Error('offline'))).toBe(false);
+  });
+
+  it.each([400, 403])(
+    "drops every edit on a %i, says the server's sentence, and takes the server's copy back",
+    async (status) => {
+      const { writes, edit, autosave, afterRefusal, afterSave } = setUp();
+
+      edit('2026-08-01');
+      await vi.advanceTimersByTimeAsync(600);
+      // An edit made while the refused save was out builds on it, so it goes too.
+      edit('2026-08-02');
+      await vi.advanceTimersByTimeAsync(600);
+      await writes.fail(answered(status, 'The setup is settled.'));
+
+      expect(autosave.status.value).toBe('refused');
+      expect(autosave.message.value).toBe(
+        'The setup is settled. The plan is back as it was last saved.',
+      );
+      expect(autosave.unsaved.value).toBe(false);
+      expect(afterRefusal).toHaveBeenCalledWith('The setup is settled.');
+      expect(afterSave).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(writes.send).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('words a refusal with no sentence of its own by the failure sentence', async () => {
+    const { writes, edit, autosave, afterRefusal } = setUp();
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    await writes.fail(answered(400));
+
+    expect(autosave.message.value).toBe(
+      'The plan was not saved. The plan is back as it was last saved.',
+    );
+    expect(afterRefusal).toHaveBeenCalledWith('The plan was not saved.');
+  });
+
+  it.each([
+    ['a 401', answered(401), 'Your session has ended. Sign in again.'],
+    ['a 408', answered(408), 'The plan was not saved.'],
+    ['a 429', answered(429), 'The plan was not saved.'],
+    ['a 500', answered(500), 'Something went wrong on our side. Try again in a moment.'],
+    ['no answer', noAnswer, 'You seem to be offline. Check the connection and try again.'],
+  ])('keeps the edits unsaved on %s, and says so', async (_kind, err, sentence) => {
+    const { writes, edit, autosave, afterRefusal } = setUp();
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    await writes.fail(err);
+
+    expect(autosave.status.value).toBe('failed');
+    expect(autosave.message.value).toBe(sentence);
+    expect(autosave.unsaved.value).toBe(true);
+    expect(afterRefusal).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(writes.send).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets the next edit after a refusal start from the copy the server holds', async () => {
+    const { writes, edit, autosave } = setUp();
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    await writes.fail(answered(400, 'No.'));
+    edit('2026-08-02');
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(writes.send).toHaveBeenCalledTimes(2);
+    expect(autosave.status.value).toBe('saving');
+    await writes.answer();
+    expect(autosave.status.value).toBe('saved');
+  });
+});
+
+describe('Retry', () => {
+  it('sends the whole copy again after a failure, and says saved when it lands', async () => {
+    const { writes, edit, autosave } = setUp();
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    edit('2026-08-02');
+    await vi.advanceTimersByTimeAsync(600);
+    await writes.fail(noAnswer);
+    // The edit wanted while the failed save was out went at its answer, and failed too.
+    await writes.fail(noAnswer);
+    expect(writes.send).toHaveBeenCalledTimes(2);
+
+    autosave.retry();
+    expect(writes.send).toHaveBeenCalledTimes(3);
+    expect(writes.sent[2]).toEqual({ dates: ['2026-08-01', '2026-08-02'] });
+    await writes.answer();
+
+    expect(autosave.status.value).toBe('saved');
+    expect(autosave.unsaved.value).toBe(false);
+  });
+
+  it('sends nothing when nothing is unsaved', async () => {
+    const { writes, autosave } = setUp();
+
+    autosave.retry();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(writes.send).not.toHaveBeenCalled();
+  });
+});
+
 describe('the hold', () => {
   it('keeps the pause from sending, and sends the held edit after the pause once let go', async () => {
     const { writes, edit, autosave } = setUp();
@@ -353,6 +489,65 @@ describe('the flush', () => {
 
     expect(await flushed).toBe('The plan was not saved.');
   });
+
+  it('answers a refusal by its own sentence, without the line about the plan coming back', async () => {
+    const { writes, edit, autosave } = setUp();
+
+    edit('2026-08-01');
+    const flushed = autosave.flush();
+    await writes.fail(answered(400, 'The setup is settled.'));
+
+    expect(await flushed).toBe('The setup is settled.');
+  });
+
+  it('answers the refusal of the save it waited for, rather than null', async () => {
+    const { writes, edit, autosave } = setUp();
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    const flushed = autosave.flush();
+    await writes.fail(answered(403, 'Archived.'));
+
+    expect(await flushed).toBe('Archived.');
+    expect(writes.send).toHaveBeenCalledTimes(1);
+  });
+
+  it('answers the failure of the save it waited for', async () => {
+    const { writes, edit, autosave } = setUp();
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    const flushed = autosave.flush();
+    await writes.fail(noAnswer);
+
+    expect(await flushed).toBe('You seem to be offline. Check the connection and try again.');
+    expect(writes.send).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends the copy again after an earlier failure, and answers null once it lands', async () => {
+    const { writes, edit, autosave } = setUp();
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    await writes.fail(noAnswer);
+
+    const flushed = autosave.flush();
+    expect(writes.send).toHaveBeenCalledTimes(2);
+    await writes.answer();
+
+    expect(await flushed).toBeNull();
+  });
+
+  it('answers null after a refusal has put the copy back, sending nothing', async () => {
+    const { writes, edit, autosave } = setUp();
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    await writes.fail(answered(400, 'No.'));
+
+    expect(await autosave.flush()).toBeNull();
+    expect(writes.send).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('leaving the view', () => {
@@ -369,7 +564,16 @@ describe('leaving the view', () => {
     const send = vi.fn(() => Promise.resolve());
     const held: { edit?: () => void } = {};
     const wrapper = mount(
-      Host({ send, afterSave: () => {}, may: () => true, failure: 'Not saved.' }, held),
+      Host(
+        {
+          send,
+          afterSave: () => {},
+          afterRefusal: () => {},
+          may: () => true,
+          failure: 'Not saved.',
+        },
+        held,
+      ),
     );
 
     held.edit!();
@@ -385,7 +589,13 @@ describe('leaving the view', () => {
     const held: { edit?: () => void } = {};
     const wrapper = mount(
       Host(
-        { send: writes.send, afterSave: () => {}, may: () => true, failure: 'Not saved.' },
+        {
+          send: writes.send,
+          afterSave: () => {},
+          afterRefusal: () => {},
+          may: () => true,
+          failure: 'Not saved.',
+        },
         held,
       ),
     );
@@ -407,7 +617,16 @@ describe('leaving the view', () => {
   it('sends nothing when nothing is unsaved', () => {
     const send = vi.fn(() => Promise.resolve());
     const wrapper = mount(
-      Host({ send, afterSave: () => {}, may: () => true, failure: 'Not saved.' }, {}),
+      Host(
+        {
+          send,
+          afterSave: () => {},
+          afterRefusal: () => {},
+          may: () => true,
+          failure: 'Not saved.',
+        },
+        {},
+      ),
     );
 
     wrapper.unmount();

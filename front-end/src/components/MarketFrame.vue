@@ -39,8 +39,11 @@ import { MARKET_PAGES, pageOfRoute, tabOf, type MarketPage } from '@/utils/marke
 
 const props = defineProps<{
   market: Market | null;
-  /** Awaited before any transition is posted: the plan flushes its pending edits here. */
-  beforeTransition?: () => Promise<void> | void;
+  /**
+   * Awaited before any transition is posted: the plan flushes its pending edits here, and a
+   * sentence answered stops the move (`PhaseRail`'s prop of the same name).
+   */
+  beforeTransition?: () => Promise<string | null | void> | string | null | void;
 }>();
 
 /** After the market is asked for again: a screen that loads data of its own asks for that too. */

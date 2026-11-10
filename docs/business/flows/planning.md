@@ -42,10 +42,11 @@ Market Setup is one scrolling page of cards that saves itself: Market Dates, Tie
 The cards run in the order the work depends on, the plan before the form built from it, and the page says that order by position rather than enforcing it: every card is reachable at once, so the page can be left and resumed, and changing one value never means walking through the rest.
 It is deliberately not a wizard; the floorplan flow ([E6](#e6-sections-from-a-floorplan)) is the product's one wizard.
 A draft opens on Market Setup, and an address naming a tab opens that tab, so a shared link keeps working.
-"Plan saved" appears after each edit (debounced about 0.6 s), once the server holds the last edit; a failed save says "Could not save the plan. Retry in a moment."
+"Plan saved" appears after each edit (debounced about 0.6 s), once the server holds the last edit.
+A save that failed on the way keeps the edit on screen, says why ("You seem to be offline. Check the connection and try again.", say), and offers Retry; one the server refused puts the plan back as the server holds it, and says the server's sentence and "The plan is back as it was last saved."
 One edit is one save, and another tab's edits survive it (bug 25, `plan-saves-once.spec.ts`).
 The saves go one at a time, so a slow save never stores an older plan over a later edit (T271); how the page saves itself is [the plan's autosave](../../implementation/modules/plan-autosave.md).
-Any pending edit is saved before a phase move, so the guards judge what the organizer sees.
+Any pending edit is saved before a phase move, so the guards judge what the organizer sees; a plan that did not save stops the move, Allocate tables and the start from a CSV, each saying why.
 The cards share rows by the design language's one rule ([a screen of cards is a two-track grid](../../design-system.md#layout)): Market Dates, Section Setup and Pricing are wide, Tier Setup sits beside Location Setup, and How vendors apply beside Application form, at every width with room for two.
 The plan is the market's setup, and it settles when the market leaves Draft ([E7](#e7-edit-the-plan-after-draft)); leaving Draft asks for dates none of which has passed, a location, tables at every tier, and Review setup's two decisions ([the lifecycle](lifecycle.md#what-refuses-a-move), [review waits on the review setup](../rules/review-waits-on-the-review-setup.md)).
 Covered by:

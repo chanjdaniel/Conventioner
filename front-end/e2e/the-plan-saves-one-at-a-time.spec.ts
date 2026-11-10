@@ -1,6 +1,7 @@
 import type { Page, Request } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL, MarketSetupPage } from './fixtures';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
+import { planSetupObject, seedApplicantMarket } from './helpers/seedApplicantMarket';
 import { marketSetupPath } from './helpers/marketScreens';
 import { upcomingSaturday } from './helpers/upcoming';
 
@@ -95,5 +96,116 @@ test.describe('The plan saves one at a time', () => {
       'true',
     );
     expect(writes.mostAtOnce()).toBe(1);
+  });
+
+  test('a refused save puts the plan back as the server holds it, and says why', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const held = upcomingSaturday(0);
+    const refused = upcomingSaturday(1);
+    const { marketId } = await seedApplicantMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { draft: true, setupObject: planSetupObject([held]) },
+    );
+
+    await page.goto(marketSetupPath(marketId));
+    const setup = new MarketSetupPage(page);
+    await expect(page.getByTestId(`setup-dates-day-${held}`)).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    // Another tab of theirs opens applications, which settles the setup; this tab has not heard.
+    const opened = await request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
+      headers: { 'Content-Type': 'application/json' },
+      data: { toPhase: 'applications' },
+    });
+    expect(opened.ok()).toBe(true);
+
+    const refusal = page.waitForResponse((res) => isPlanWrite(res.request()));
+    await setup.addMarketDate(refused);
+    expect((await refusal).status()).toBe(400);
+
+    const line = page.getByTestId('market-setup-plan-refused');
+    await expect(line).toContainText('The setup is settled');
+    await expect(line).toContainText('The plan is back as it was last saved.');
+    await expect(page.getByTestId('market-setup-plan-retry-button')).toHaveCount(0);
+    // The refused date is off the screen, which shows the plan the server holds.
+    await expect(page.getByTestId(`setup-dates-day-${refused}`)).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    expect(await storedDates(request, marketId)).toEqual([held]);
+
+    // A later re-read reaches the screen: coming back to the tab reads the market again.
+    const reread = page.waitForResponse(
+      (res) => res.request().method() === 'GET' && res.url().endsWith(`/markets/${marketId}`),
+    );
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await reread;
+    await expect(page.getByTestId('phase-rail-current')).toHaveText(/Applications/);
+    await expect(page.getByTestId(`setup-dates-day-${refused}`)).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
+  test('a failed save offers Retry, and a move over it stops and says why', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const held = upcomingSaturday(0);
+    const added = upcomingSaturday(1);
+    const { marketId } = await seedApplicantMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { draft: true, setupObject: planSetupObject([held]) },
+    );
+    const moves: string[] = [];
+    page.on('request', (req) => {
+      if (req.method() === 'POST' && req.url().endsWith(`/markets/${marketId}/transition`)) {
+        moves.push(req.url());
+      }
+    });
+
+    await page.goto(marketSetupPath(marketId));
+    const setup = new MarketSetupPage(page);
+    // The connection drops: every plan write fails on the wire.
+    await page.route(PLAN_WRITE, (route) =>
+      route.request().method() === 'PUT' ? route.abort('internetdisconnected') : route.continue(),
+    );
+    await setup.addMarketDate(added);
+
+    await expect(page.getByTestId('market-setup-plan-save-error')).toHaveText(
+      'You seem to be offline. Check the connection and try again.',
+    );
+    await expect(page.getByTestId('market-setup-plan-retry-button')).toBeVisible();
+    // The edit stays on screen: it is the organizer's, only not stored yet.
+    await expect(page.getByTestId(`setup-dates-day-${added}`)).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    // Opening applications now would open them over a plan the server does not hold.
+    await setup.clickTransition('applications');
+    await page.getByTestId('open-applications-submit-button').click();
+    await expect(page.getByTestId('phase-rail-error')).toHaveText(
+      'The market did not move, because the plan did not save. ' +
+        'You seem to be offline. Check the connection and try again.',
+    );
+    await expect(page.getByTestId('phase-rail-current')).toHaveText(/Draft/);
+    expect(moves).toEqual([]);
+
+    // The connection is back, and Retry sends the whole plan.
+    await page.unroute(PLAN_WRITE);
+    await page.getByTestId('market-setup-plan-retry-button').click();
+    await expect(page.getByTestId('market-setup-plan-saved')).toBeVisible();
+    expect(await storedDates(request, marketId)).toEqual([held, added]);
   });
 });

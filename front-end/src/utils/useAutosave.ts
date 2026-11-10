@@ -1,13 +1,30 @@
 import { computed, getCurrentInstance, onUnmounted, readonly, ref } from 'vue';
-import { getApiErrorMessage } from '@/utils/api';
+import { getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 
-export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'failed';
+export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'failed' | 'refused';
+
+/** Said after a refusal's own sentence: what the screen did about it. */
+const TAKEN_BACK = ' The plan is back as it was last saved.';
+
+/**
+ * Whether a failed save was the server saying no (400 to 499) rather than the save not getting
+ * through: no answer, a 5xx, a 401 (the session ended, which the app's interceptor answers), a 408
+ * (the request timed out) or a 429 (too many requests). A refusal will be refused again, so what it
+ * carried is dropped; a failure may go through next time, so it is kept and sent again.
+ */
+export function isRefusal(err: unknown): boolean {
+  const status = getApiErrorStatus(err);
+  if (status === null || status < 400 || status > 499) return false;
+  return status !== 401 && status !== 408 && status !== 429;
+}
 
 export interface AutosaveOptions {
   /** Write the working copy as it stands at the call. */
   send: () => Promise<void>;
   /** After a save the server took: the re-read. */
   afterSave: () => Promise<void> | void;
+  /** After a refusal: take the server's copy back. Called with the refusal's sentence. */
+  afterRefusal: (sentence: string) => Promise<void> | void;
   /** Whether this person may write at all; false sends nothing and counts no edit. */
   may: () => boolean;
   /** The sentence for a failure with no sentence of its own. */
@@ -28,6 +45,11 @@ export interface AutosaveOptions {
  * with the working copy as it then stands; an edit whose pause is still running when the answer
  * comes is sent by its pause. Edits are counted, and an answered save marks stored only the edits
  * it carried, so `unsaved` holds until the server has the last one.
+ *
+ * A save the server refuses drops every edit made so far, since the copy is written whole and every
+ * later edit builds on the refused one, and the screen takes the server's copy back and says why.
+ * A save that fails on the way (no answer, a 401, 408, 429 or 5xx) keeps the edits unsaved and
+ * says so; nothing retries on a timer, and the next edit, `retry` or a flush sends the copy again.
  *
  * It knows nothing of markets: the screen gives it the write, the re-read and who may write.
  */
@@ -88,13 +110,20 @@ export function useAutosave(options: AutosaveOptions) {
         await options.afterSave();
         return null;
       },
-      (err: unknown) => {
+      async (err: unknown) => {
         out.value = null;
+        const sentence = getApiErrorMessage(err, options.failure);
+        if (isRefusal(err)) {
+          dropEdits();
+          status.value = 'refused';
+          message.value = sentence + TAKEN_BACK;
+          await options.afterRefusal(sentence);
+          return sentence;
+        }
         status.value = 'failed';
-        message.value = getApiErrorMessage(err, options.failure);
-        const failed = message.value;
+        message.value = sentence;
         sendWanted();
-        return failed;
+        return sentence;
       },
     );
     out.value = answered;
@@ -112,6 +141,14 @@ export function useAutosave(options: AutosaveOptions) {
     }
     void save();
     return true;
+  }
+
+  /** A refusal: nothing made so far is to be sent, by a pause, a hold or a wanted save. */
+  function dropEdits() {
+    stored.value = edits.value;
+    stopPause();
+    wanted = false;
+    heldEdit = false;
   }
 
   function showSaved() {
@@ -154,8 +191,8 @@ export function useAutosave(options: AutosaveOptions) {
 
   /**
    * Send what is not stored and wait: null once the server holds the last edit, else the sentence
-   * of the failure that stopped it. A held edit is sent as kept: the working copy holds the value
-   * from before the text that is not one.
+   * of the failure or refusal that stopped it, a save out it waited for included. A held edit is
+   * sent as kept: the working copy holds the value from before the text that is not one.
    */
   async function flush(): Promise<string | null> {
     if (!options.may()) return null;
@@ -164,13 +201,19 @@ export function useAutosave(options: AutosaveOptions) {
     wanted = false;
     for (;;) {
       if (out.value) {
-        await out.value;
+        const stopped = await out.value;
+        if (stopped !== null) return stopped;
         continue;
       }
       if (edits.value === stored.value || !options.may()) return null;
       const failed = await save();
       if (failed !== null) return failed;
     }
+  }
+
+  /** Send what is not stored again, after a failure: the button beside it. */
+  function retry() {
+    void flush();
   }
 
   // Leaving the page must not lose an edit, so what is unsaved is sent without waiting.
@@ -183,5 +226,6 @@ export function useAutosave(options: AutosaveOptions) {
     edited,
     hold,
     flush,
+    retry,
   };
 }
