@@ -4,6 +4,8 @@ kind: testing
 describes:
   - front-end/e2e/pages/
   - front-end/e2e/fixtures.ts
+  - front-end/e2e/helpers/browserSaid.ts
+  - front-end/e2e/helpers/withUser.ts
   - front-end/e2e/helpers/mongo.ts
   - front-end/e2e/helpers/marketScreens.ts
   - front-end/e2e/helpers/upcoming.ts
@@ -72,9 +74,11 @@ A spec opens the step it asserts on, with `ApplicationFormPage.openStep(step)`, 
 [`front-end/e2e/fixtures.ts`](../../../front-end/e2e/fixtures.ts) is what a spec imports `test` and `expect` from.
 It provides `TEST_USER` (`e2e@example.com`) and `NO_ORG_USER` (`e2e-noorg@example.com`, in no organization), the `authenticatedPage` fixture (signed in through the login page before the test), `BACKEND_URL` (the `BACKEND_URL` variable, else `stack().backendURL`) for direct API calls from a request context of their own, `APP_API` (`/api`, the address the app's pages call the API at) for calls made with a page's cookies (`page.request`), and re-exports of the page objects.
 A spec that needs several people at once drives each in a browser context of its own with `withUser()` ([`front-end/e2e/helpers/withUser.ts`](../../../front-end/e2e/helpers/withUser.ts)), so no two share a session cookie.
-Every `page` is wrapped so that a failing test carries what the browser said (console errors, page errors, crashes, failed requests other than a navigation's aborts), since the suite has failed on pages that never painted with nothing in the stack's logs to say why.
+Every `page`, and the page `withUser()` opens, is watched by [`helpers/browserSaid.ts`](../../../front-end/e2e/helpers/browserSaid.ts) so that a failing test carries what the browser said (console errors, page errors, crashes, failed requests other than a navigation's aborts), since the suite has failed on pages that never painted with nothing in the stack's logs to say why.
+The fixture's page attaches it when the test fails, and a `withUser()` page when its sign-in or body throws, headed with whose page it was; [`a-stalled-helper-says-why.spec.ts`](../../../front-end/e2e/a-stalled-helper-says-why.spec.ts) shows both that and the people-at-scale wait for quiet naming each API request still open and its age.
 `expectAccessible(state)` runs axe over the page as it stands and fails on any WCAG A or AA violation, one line per element as `rule (impact) target`; its configuration and why `color-contrast` is off are [the design language's](../../design-system.md#what-keeps-this-true).
 `settle(page)` ([`helpers/settle.ts`](../../../front-end/e2e/helpers/settle.ts)) waits, bounded, for CSS transitions to end, since a control mid-transition reports its passing paint rather than its own; every sweep calls it before it looks.
+A sweep's tests are registered by `walkTheScreens()`, so Playwright reports each under [`helpers/screens.ts`](../../../front-end/e2e/helpers/screens.ts), the line of its `test()` call, never the sweep's spec file; the describe title names the sweep, and `npx playwright test e2e/<sweep>.spec.ts` still runs that sweep alone.
 So does `expectInside`, the window check of the phone journeys ([`helpers/phoneWindow.ts`](../../../front-end/e2e/helpers/phoneWindow.ts)), since a box read in a slide's last frames stands a fraction of a thousandth of a pixel past where it rests, enough to fail an exact comparison with the window's edge.
 The same fixture hides the Vue DevTools floating panel (`#__vue-devtools-container__`) that the dev server injects, in every tab of its context: it overlays the app and intercepts clicks aimed at it, so a test failed on a click that hit that button instead of its own target.
 A context a test opens itself with `browser.newContext()` is outside the fixture, so it calls [`hideDevToolsPanel`](../../../front-end/e2e/helpers/hideDevToolsPanel.ts), as `withUser()` does: a click there may otherwise wait on the panel until the test times out, as the vendor's Send code did on the Google Form market's page.
