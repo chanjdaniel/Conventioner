@@ -15,6 +15,7 @@ import {
   AVAILABLE_DATES_KEY,
   SECTION_RANKING_KEY,
   TABLE_CHOICE_KEY,
+  TABLE_TYPE_RANKING_KEY,
   TIER_PREFERENCE_KEY,
 } from '@/utils/essentialFields';
 import type { EssentialFormOptions } from '@/assets/types/datatypes';
@@ -87,6 +88,31 @@ describe('a locked essential answer in Update info', () => {
     for (const row of rows) expect(lockedLook(row), row.text()).toBe(true);
   });
 
+  it('says nothing of arrows on a locked ranking, which draws none', () => {
+    const options = { ...OPTIONS, tableTypes: ['Standard', 'Corner'] };
+    const answers = { ...ANSWERS, [TABLE_TYPE_RANKING_KEY]: ['Corner', 'Standard'] };
+    const rendered = (locked: string[]) =>
+      mount(EssentialApplicationFields, {
+        props: { options, modelValue: answers, prefix: 'update-info', locked },
+      });
+    const rankings = [
+      ['section-ranking', SECTION_RANKING_KEY, 'Use the arrows to order the sections'],
+      ['table-type-ranking', TABLE_TYPE_RANKING_KEY, 'Use the arrows to order the table types'],
+    ];
+
+    for (const [question, key, help] of rankings) {
+      const ranking = (wrapper: VueWrapper) =>
+        wrapper.get(`[data-testid="update-info-essential-${question}"]`);
+      const locked = rendered([key]);
+      expect(ranking(locked).find('button').exists(), question).toBe(false);
+      expect(ranking(locked).text(), question).not.toContain('arrows');
+
+      const open = rendered([TIER_PREFERENCE_KEY]);
+      expect(ranking(open).find('button').exists(), question).toBe(true);
+      expect(ranking(open).text(), question).toContain(`${help}, first choice on top.`);
+    }
+  });
+
   it("keeps the applicant's look on a question the lock does not name", () => {
     const wrapper = render({ locked: [TIER_PREFERENCE_KEY] });
     for (const row of choiceRows(wrapper, 'table-choice')) {
@@ -110,5 +136,9 @@ describe('the Form preview, disabled and locking nothing', () => {
     }
     expect(wrapper.find('.essential-choice-list.locked').exists()).toBe(false);
     for (const row of rankedRows(wrapper)) expect(lockedLook(row), row.text()).toBe(false);
+    // What a vendor reads above the ranking, though the preview takes its arrows away.
+    expect(wrapper.get('[data-testid="update-info-essential-section-ranking"]').text()).toContain(
+      'Use the arrows to order the sections',
+    );
   });
 });

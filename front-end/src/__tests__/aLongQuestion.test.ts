@@ -18,7 +18,7 @@ import {
   type ApplicationForm,
   type FormField,
 } from '@/assets/types/datatypes';
-import { formValidationErrors } from '@/utils/applicationForm';
+import { answersToSend, formValidationErrors } from '@/utils/applicationForm';
 
 const sent: { url: string; body: unknown }[] = [];
 
@@ -320,12 +320,14 @@ describe('an answer no option offers', () => {
     });
   }
 
-  it('leaves an optional question to the server, as it was', () => {
-    expect(
-      formValidationErrors([question('select', 60, { required: false })], {
-        selling: 'Gone by now',
-      }),
-    ).toEqual({});
+  it('refuses nothing on an optional question, and goes as unanswered', () => {
+    const optional = [question('select', 60, { required: false })];
+    expect(formValidationErrors(optional, { selling: 'Gone by now' })).toEqual({});
+    expect(answersToSend(optional, { selling: 'Gone by now', other: 'kept' })).toEqual({
+      selling: '',
+      other: 'kept',
+    });
+    expect(answersToSend(optional, { selling: 'Answer 007' })).toEqual({ selling: 'Answer 007' });
   });
 
   it('takes an offered answer as an answer', () => {

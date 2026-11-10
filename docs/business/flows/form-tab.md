@@ -77,11 +77,11 @@ Covered by:
 
 **Status:** Works (walked live).
 
-1. On "Your questions", "Add Field"; set Label (the Key is derived), Type (Text, Number, Select, Multi-Select, Checkbox, Date, Email), Required, Options for Select and Multi-Select ("Add option"), Help text.
+1. On "Your questions", "Add field"; set Label (the Key is derived), Type (Text, Number, Select, Multi-Select, Checkbox, Date, Email), Required, Options for Select and Multi-Select ("Add option"), Help text.
 2. Drag to reorder; "Remove" deletes.
 3. "Save Form"; expect "Saved".
 
-"Add Discord username", beside "Add Field" ([`FormBuilder.vue`](../../../front-end/src/components/application/FormBuilder.vue)), adds an optional Text question "Discord username" in one click, for a market that gives its vendors a role on Discord; the Discord card picks it up as the question that holds each vendor's username when the market connects ([the Discord connection](../../implementation/modules/discord.md#the-discord-card)).
+"Add Discord username", beside "Add field" ([`FormBuilder.vue`](../../../front-end/src/components/application/FormBuilder.vue)), adds an optional Text question "Discord username" in one click, for a market that gives its vendors a role on Discord; the Discord card picks it up as the question that holds each vendor's username when the market connects ([the Discord connection](../../implementation/modules/discord.md#the-discord-card)).
 It is not offered once the form has a Text question whose label names Discord.
 Covered by:
 
@@ -90,6 +90,8 @@ Covered by:
 
 A question with more than 20 options shows its first 20 and "Show all 230 options", which unfolds the rest in place and becomes "Show fewer", so one question does not fill the step; it folds on a locked form too.
 "Add option" on a folded question unfolds it and brings the new row into view; removing an option leaves the fold as it is.
+A fold stays with its question when another question is removed or dragged past it.
+When "Save Form" is refused for a blank option behind a question's fold, that question unfolds, so the blank row shows; a fold the organizer makes after that stays.
 A fold changes what is drawn and nothing the question holds, so "Save Form" and "Use the answers in your file" reach the options behind it.
 Covered by:
 
@@ -97,7 +99,7 @@ Covered by:
 - `the-questions-come-from-the-file.spec.ts`
 
 "Save Form" is disabled and says why while a field is invalid ('Field "Product category" is a select and needs at least one option.'); keys may not start with `essential_`, may not be one the import reads as something else (`applicant_email`, `submitted_at`, `sheet_note`), and must be unique.
-A form with no questions of its own says "No questions of your own yet. Add Field adds one."
+A form with no questions of its own says "No questions of your own yet. Add field adds one."
 Covered by:
 
 - `application-form.spec.ts`
