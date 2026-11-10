@@ -31,6 +31,7 @@ from utils.configured_secret import configured_secret, is_published
 from utils.deployment import (
     INSECURE_LOCAL_DEV_VAR,
     insecure_local_dev,
+    switch_on,
     warn_insecure_local_dev,
 )
 
@@ -111,7 +112,7 @@ def verify_recaptcha(token: str, ip_address: Optional[str] = None) -> Tuple[bool
     # Explicit test-mode bypass: DISABLE_CAPTCHA env var skips verification. Honored only by a
     # process that has opted in to being a local development one, so it cannot be a live bypass on
     # a deployment that merely forgot to unset it.
-    if insecure_local_dev() and os.getenv("DISABLE_CAPTCHA", "").lower() in ("true", "1"):
+    if insecure_local_dev() and switch_on("DISABLE_CAPTCHA"):
         warn_insecure_local_dev("reCAPTCHA verification (DISABLE_CAPTCHA)")
         return True, 1.0
 

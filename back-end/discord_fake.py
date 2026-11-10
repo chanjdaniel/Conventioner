@@ -27,12 +27,11 @@ skips Discord's approval screen: the address the card opens is the market's own 
 with a code naming the first fake server, which the code exchange answers with that server.
 """
 import logging
-import os
 import re
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlencode, urlparse
 
-from utils.deployment import insecure_local_dev, warn_insecure_local_dev
+from utils.deployment import insecure_local_dev, switch_on, warn_insecure_local_dev
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +46,6 @@ BOT_TOKEN = "fake-discord-bot-token"
 #: The code a fake approval sends back: the server it names is the one connected.
 CODE_PREFIX = "fake-discord-server-"
 
-_TRUTHY = ("true", "1")
 _API_PATH = re.compile(r"^/api/v\d+(?P<route>/.*)$")
 _TOKEN_PATH = "/api/oauth2/token"
 _GRANT_PATH = re.compile(r"^/members/(?P<member>[^/]+)/roles/(?P<role>[^/]+)$")
@@ -55,7 +53,7 @@ _GRANT_PATH = re.compile(r"^/members/(?P<member>[^/]+)/roles/(?P<role>[^/]+)$")
 
 def on() -> bool:
     """Whether Discord's API is answered by this fake: ``DISCORD_FAKE`` under the hatch only."""
-    if os.getenv(FAKE_VAR, "").strip().lower() not in _TRUTHY:
+    if not switch_on(FAKE_VAR):
         return False
     if not insecure_local_dev():
         return False

@@ -74,9 +74,19 @@ from utils.cors import (
     describe_origins,
     install_cors,
 )
+from utils.deployment import (
+    LocalSwitchOnDeployedHostError,
+    assert_no_local_switch_on_deployed_host,
+    deployed_host,
+    insecure_local_dev,
+)
 from utils.email import (
+    MailLinksNotConfiguredError,
     MailerNotConfiguredError,
+    SenderNotConfiguredError,
+    assert_mail_links_configured,
     assert_mailer_configured,
+    assert_sender_configured,
 )
 from utils.proxy import (
     TrustedProxyConfigError,
@@ -232,20 +242,21 @@ def check_public_endpoint_defenses() -> PublicEndpointDefenses:
     the database, and they send mail from this domain. What keeps a script off them is a reCAPTCHA
     secret; what makes the session cookie they hand back mean anything is a signing secret; what
     decides which websites may spend that cookie against the organizer API is the browser origin
-    list; what carries the verification link, the reset link, and the login code - the only ways an
-    organizer account is ever reached - is a mail key; what says where that session is kept at all,
+    list; what carries every mail by which an organizer account is ever reached is a mail key, sent
+    from ``FROM_EMAIL`` with links to ``FRONTEND_URL``; what says where that session is kept at all,
     which has no answer that is right for both a container and a serverless function, is
     ``SESSION_TYPE``; and what decides whose address the captcha is actually scored against, when
     something the deployment owns sits in front of Flask, is ``TRUSTED_PROXY_HOPS``.
 
-    Three of the six fail *silently* when unset: the captcha passes everybody, a session cookie
+    Three of the eight fail *silently* when unset: the captcha passes everybody, a session cookie
     signed with a key the repository publishes is a session anyone can forge, and a credentialed
     CORS policy with no origin list hands the organizer API to every website an organizer visits.
-    The mail key and the session backend are here for the mirror-image reason - unset, the first
-    fails *every* registration, reset and OTP with a 500 that names nothing, and the second sends a
-    serverless deployment looking for a disk it does not have, failing at import and naming nothing
-    either - and a variable whose absence has to be diagnosed one broken deployment at a time
-    belongs in the same refusal as the ones whose absence is never diagnosed at all. The hop count
+    The mail key, the two mail addresses and the session backend are here for the mirror-image
+    reason - unset, the key fails *every* registration, reset and OTP with a 500 that names nothing,
+    the addresses mail links to a laptop from a sender that delivers to nobody, and the session
+    backend sends a serverless deployment looking for a disk it does not have, failing at import and
+    naming nothing either - and a variable whose absence has to be diagnosed one broken deployment
+    at a time belongs in the same refusal as the ones whose absence is never diagnosed at all. The hop count
     is the quietest of all: unset behind a proxy, every signup in the world is reported to Google
     as coming from one address, and a reCAPTCHA score is the only place it ever shows. As with the
     market-key migration above, an unknown state is never taken for a safe one: it fails at boot,
@@ -265,7 +276,8 @@ def check_public_endpoint_defenses() -> PublicEndpointDefenses:
     ``FLASK_ENV=development`` and nothing overrode it, so the deployments that most needed the
     check were exactly the ones exempt from it. The escape hatch is opt-in and it is loud - see
     ``utils.deployment`` - so a development machine can still boot unconfigured while a deployment
-    that forgets cannot.
+    that forgets cannot. And the hatch, with the test switches it unlocks, is refused first on a
+    host the platform says is deployed, since there it would pass every other check by itself.
 
     Raises:
         PublicEndpointDefenseError: naming every variable that is missing, all at once.
@@ -277,6 +289,11 @@ def check_public_endpoint_defenses() -> PublicEndpointDefenses:
     hops = 0
 
     try:
+        assert_no_local_switch_on_deployed_host()
+    except LocalSwitchOnDeployedHostError as e:
+        problems.append(str(e))
+
+    try:
         assert_captcha_configured()
     except CaptchaNotConfiguredError as e:
         problems.append(str(e))
@@ -284,6 +301,16 @@ def check_public_endpoint_defenses() -> PublicEndpointDefenses:
     try:
         assert_mailer_configured()
     except MailerNotConfiguredError as e:
+        problems.append(str(e))
+
+    try:
+        assert_mail_links_configured()
+    except MailLinksNotConfiguredError as e:
+        problems.append(str(e))
+
+    try:
+        assert_sender_configured()
+    except SenderNotConfiguredError as e:
         problems.append(str(e))
 
     try:
@@ -309,11 +336,12 @@ def check_public_endpoint_defenses() -> PublicEndpointDefenses:
     if problems:
         message = "\n\n".join([
             f"Refusing to start: {len(problems)} of the things this app's public surface rests on "
-            f"are not configured, and not one of them announces itself when unset - each is either "
-            f"a defense that quietly stops defending, the mail without which no organizer account "
-            f"can be reached at all, the store the session itself is kept in, or the address a "
-            f"caller is taken to be at. All of them are named below. See the required production "
-            f"environment in docs/RELEASING.md before promoting.",
+            f"are not as a deployment needs them, and not one of them announces itself - each is a "
+            f"defense that quietly stops defending, the mail without which no organizer account "
+            f"can be reached, the store the session is kept in, the address a caller is taken to "
+            f"be at, or a local-development switch left on where the platform says this is "
+            f"deployed. All of them are named below. See the required production environment in "
+            f"docs/RELEASING.md before promoting.",
             *problems,
         ])
         logger.critical("%s", message)
@@ -451,15 +479,21 @@ def healthz() -> Response:
     and compares with the commit it released, so a domain still on an older build cannot pass for
     the new one. A build with no `BUILD_COMMIT`, or a blank one, says `null`; any other value is
     reported as given. It is public on purpose: every released commit is on the public `main`.
+
+    `deployed` says whether a platform variable says this host is deployed, and `localDev` whether
+    `ALLOW_INSECURE_LOCAL_DEV` is on (`utils.deployment`). The Deploy workflow refuses a build that
+    does not answer `true` and `false`, so the boot's refusal of local switches is proven armed on
+    every release. Neither is secret: production answers `true` and `false`.
     """
     commit = os.environ.get("BUILD_COMMIT", "")
     commit = commit if commit.strip() else None
+    seen = {"commit": commit, "deployed": deployed_host() is not None, "localDev": insecure_local_dev()}
     try:
         MarketsApi.markets_collection.database.command("ping")
     except Exception:
         logger.exception("Health check: the database did not answer")
-        return jsonify({"status": "unavailable", "commit": commit}), 503
-    return jsonify({"status": "ok", "commit": commit}), 200
+        return jsonify({"status": "unavailable", **seen}), 503
+    return jsonify({"status": "ok", **seen}), 200
 
 
 # users

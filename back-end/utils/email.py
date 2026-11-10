@@ -1,6 +1,6 @@
 """
-Email service integration using Resend for sending verification emails, the email telling an
-account's owner that someone signed up with its address, password reset emails, and OTP emails.
+Email service integration using Resend for every mail this product sends; what each is, and so what
+``RESEND_API_KEY`` delivers, is listed in ``docs/RELEASING.md``'s required environment.
 
 Every value this module needs is read from the environment when it is used, never captured into a
 module global on the way up. The key used to be read at import and the client initialized there, and
@@ -13,6 +13,8 @@ to what it claims. ``utils.secret_key`` and ``utils.captcha`` read on call for t
 
 import os
 import logging
+from urllib.parse import urlsplit
+
 import resend
 from resend.exceptions import ResendError
 
@@ -20,6 +22,7 @@ from utils.configured_secret import configured_secret, is_published
 from utils.deployment import (
     INSECURE_LOCAL_DEV_VAR,
     insecure_local_dev,
+    switch_on,
     warn_insecure_local_dev,
 )
 
@@ -27,9 +30,13 @@ from utils.deployment import (
 logger = logging.getLogger(__name__)
 
 RESEND_API_KEY_VAR = "RESEND_API_KEY"
+FRONTEND_URL_VAR = "FRONTEND_URL"
+FROM_EMAIL_VAR = "FROM_EMAIL"
 
 DEFAULT_FRONTEND_URL = "http://127.0.0.1:5173"
-DEFAULT_FROM_EMAIL = "onboarding@resend.dev"  # Default Resend email
+#: Resend's shared sender, which delivers only to the Resend account's own address.
+SHARED_SENDER = "onboarding@resend.dev"
+DEFAULT_FROM_EMAIL = SHARED_SENDER
 
 
 def configured_value() -> str:
@@ -50,13 +57,108 @@ def sendable_key() -> str:
 
 
 def frontend_url() -> str:
-    """The origin the verification and reset links this module sends point back at."""
-    return os.getenv("FRONTEND_URL") or DEFAULT_FRONTEND_URL
+    """The origin every link this product mails points back at, with no trailing ``/``.
+
+    One trailing ``/`` is dropped, so ``https://conventioner.io/`` makes no ``//verify-email``.
+    """
+    url = os.getenv(FRONTEND_URL_VAR, "").strip() or DEFAULT_FRONTEND_URL
+    return url[:-1] if url.endswith("/") else url
 
 
 def from_email() -> str:
     """The address this product's mail is sent from."""
-    return os.getenv("FROM_EMAIL") or DEFAULT_FROM_EMAIL
+    return os.getenv(FROM_EMAIL_VAR, "").strip() or DEFAULT_FROM_EMAIL
+
+
+class MailLinksNotConfiguredError(RuntimeError):
+    """``FRONTEND_URL`` is unset or not an https origin, so every mailed link points elsewhere."""
+
+
+class SenderNotConfiguredError(RuntimeError):
+    """``FROM_EMAIL`` is unset or Resend's shared sender, so no mail reaches anybody."""
+
+
+def _an_https_origin(url: str) -> bool:
+    try:
+        parts = urlsplit(url)
+        host = parts.hostname
+    except ValueError:
+        return False
+    return (
+        parts.scheme == "https"
+        and bool(host)
+        and parts.path in ("", "/")
+        and not parts.query
+        and not parts.fragment
+    )
+
+
+def assert_mail_links_configured() -> None:
+    """Refuse a deployment whose mailed links would point at a laptop, or at no origin at all.
+
+    Under the hatch an unset one keeps ``DEFAULT_FRONTEND_URL`` with a warning, and a set one is
+    used as given, ``http://`` included.
+
+    Raises:
+        MailLinksNotConfiguredError: outside the hatch, when it is blank or not an ``https://``
+            address with a host and no path past ``/``.
+    """
+    value = os.getenv(FRONTEND_URL_VAR, "").strip()
+    if insecure_local_dev():
+        if not value:
+            warn_insecure_local_dev(
+                f"a configured address for mailed links ({FRONTEND_URL_VAR}: they point at "
+                f"{DEFAULT_FRONTEND_URL})"
+            )
+        return
+    if not value:
+        raise MailLinksNotConfiguredError(
+            f"{FRONTEND_URL_VAR} is not set. It is where every link this product mails points - "
+            f"the verification link, the reset link, the vendor's page, the door's link - and "
+            f"Discord's redirect after connecting a server. Unset, each points at "
+            f"{DEFAULT_FRONTEND_URL}. Set it to the address organizers sign in at "
+            f"(https://conventioner.io in production), or set {INSECURE_LOCAL_DEV_VAR}=true if "
+            f"this really is a local development machine."
+        )
+    if not _an_https_origin(value):
+        raise MailLinksNotConfiguredError(
+            f"{FRONTEND_URL_VAR} is {value!r}, which is not an https:// address with no path. "
+            f"Every mailed link is this address plus a path, so it must be the origin organizers "
+            f"sign in at, such as https://conventioner.io."
+        )
+
+
+def assert_sender_configured() -> None:
+    """Refuse a deployment whose mail would go from an address that delivers to nobody.
+
+    A display-name form such as ``Conventioner <registration@conventioner.io>`` passes. Under the
+    hatch an unset one keeps ``DEFAULT_FROM_EMAIL`` with a warning, and a set one is used as given.
+
+    Raises:
+        SenderNotConfiguredError: outside the hatch, when it is blank, holds no ``@``, or holds
+            Resend's shared sender.
+    """
+    value = os.getenv(FROM_EMAIL_VAR, "").strip()
+    if insecure_local_dev():
+        if not value:
+            warn_insecure_local_dev(
+                f"a configured sender ({FROM_EMAIL_VAR}: mail goes from {DEFAULT_FROM_EMAIL})"
+            )
+        return
+    if "@" not in value:
+        raise SenderNotConfiguredError(
+            f"{FROM_EMAIL_VAR} is not set. It is the address every mail this product sends is "
+            f"from. Unset, mail goes from Resend's shared {SHARED_SENDER}, which delivers only to "
+            f"the Resend account's own address. Set it to an address on the domain verified in "
+            f"Resend (registration@conventioner.io in production), or set "
+            f"{INSECURE_LOCAL_DEV_VAR}=true if this really is a local development machine."
+        )
+    if SHARED_SENDER in value.lower():
+        raise SenderNotConfiguredError(
+            f"{FROM_EMAIL_VAR} is Resend's shared {SHARED_SENDER}, which delivers only to the "
+            f"Resend account's own address, so no organizer or vendor would receive a mail. Set it "
+            f"to an address on the domain verified in Resend."
+        )
 
 
 def ready_mailer() -> bool:
@@ -79,11 +181,12 @@ class MailerNotConfiguredError(RuntimeError):
 def assert_mailer_configured() -> None:
     """Refuse to serve endpoints whose whole purpose is the mail they cannot send.
 
-    Every route into an organizer account runs through this key. Registration rolls the new user
-    back and answers 500 when the verification mail does not go out; an account that is never
-    verified cannot log in; and the password-reset and OTP endpoints answer 500 as well. So a
-    deployment that forgot this variable does not degrade - it cannot onboard a single organizer,
-    and it says so one failed signup at a time, in a 500 that names nothing.
+    Every route into an organizer account runs through this key (what it delivers is listed in
+    ``docs/RELEASING.md``). Registration rolls the new user back and answers 500 when the
+    verification mail does not go out; an account that is never verified cannot log in; and the
+    password-reset and OTP endpoints answer 500 as well. So a deployment that forgot this variable
+    does not degrade - it cannot onboard a single organizer, and it says so one failed signup at a
+    time, in a 500 that names nothing.
 
     That is the mirror image of the three defenses beside it, whose absence is never reported at
     all, and it wants the same answer: name the variable once, at boot, where an operator is
@@ -113,9 +216,8 @@ def assert_mailer_configured() -> None:
         warn_insecure_local_dev(f"outbound email ({RESEND_API_KEY_VAR})")
         return
     raise MailerNotConfiguredError(
-        f"{RESEND_API_KEY_VAR} is not set. It delivers the email-verification link, the "
-        f"password-reset link, and the OTP login code - every route by which an organizer account "
-        f"is reached. Without it, registration fails and rolls the account back, an unverified "
+        f"{RESEND_API_KEY_VAR} is not set. It delivers every mail this product sends, and so every "
+        f"route by which an organizer account is reached (docs/RELEASING.md lists them). Without it, registration fails and rolls the account back, an unverified "
         f"organizer can never log in, and reset and OTP answer 500: not a degraded deployment, one "
         f"that cannot onboard anybody. Set {RESEND_API_KEY_VAR} (https://resend.com/api-keys), or "
         f"set {INSECURE_LOCAL_DEV_VAR}=true if this really is a local development machine."
@@ -132,7 +234,7 @@ def _email_disabled() -> bool:
     """
     if not insecure_local_dev():
         return False
-    return os.getenv("DISABLE_EMAIL", "").lower() in ("true", "1")
+    return switch_on("DISABLE_EMAIL")
 
 
 def _send(kind: str, email: str, subject: str, html: str, text: str) -> bool:
