@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Dict, List, Optional, Tuple
+import time
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 import numpy as np
-from shapely import affinity
-from shapely.geometry import Polygon, box, Point
-from shapely.ops import unary_union
+from shapely.geometry import Polygon, box
+from shapely.prepared import prep
 
 from client_errors import BadRequestError
 from floorplan_limits import MAX_ROOM_SIDE_MM, ROOM_TOO_LARGE
@@ -292,18 +292,34 @@ def _pyckingsolver_place(
 
 # ── grid-based greedy fallback ─────────────────────────────────────────────────
 
+#: How long the grid may search, in seconds; it stops there and answers what it has placed. With the
+#: solver's own 10 s the two sum to 20 s, under the browser's 30 s, for when the solver runs out its
+#: time and then fails. In production the solver's import fails at once, and the grid has all 10 s.
+#: The grid had no deadline: 200 tables took 49 s to 85 s and ran on after the browser gave up (T272).
+GRID_TIME_LIMIT_S = 10.0
+
+
 def _grid_place(
     zone: Polygon,
     tables: List[TableTypeObject],
     counts: Dict[str, int],
     spacing_mm: float,
-) -> List[Dict]:
+    time_limit_s: float = GRID_TIME_LIMIT_S,
+) -> Tuple[List[Dict], bool]:
     """Grid-based greedy placement: discretize the zone and place largest-first.
 
-    Used as a fallback when pyckingsolver is unavailable or times out.
+    Used as a fallback when pyckingsolver is unavailable or fails, which is always in production.
+    Each table takes the first position that fits: columns left to right, rows top to bottom within
+    a column, unrotated before rotated. A position fits when the table is inside the zone and more
+    than *spacing_mm* from every table placed, which is the same rule as two tables' buffers by half
+    the spacing not touching, without building a buffer's polygon for each position.
+
+    Returns the placed tables and whether it stopped at *time_limit_s* before trying them all.
     """
     if zone.is_empty or zone.area <= 0:
-        return []
+        return [], False
+
+    deadline = time.monotonic() + time_limit_s
 
     # Build flat list of table instances sorted by area (largest first)
     table_entries: List[TableTypeObject] = []
@@ -314,7 +330,7 @@ def _grid_place(
     table_entries.sort(key=lambda t: -(t.width_mm * t.height_mm))
 
     if not table_entries:
-        return []
+        return [], False
 
     # Grid step: half of the smallest table dimension (ensures decent coverage)
     min_dim = min(
@@ -323,12 +339,18 @@ def _grid_place(
     grid_step = max(min_dim / 2, 50.0)  # at least 50 mm
 
     minx, miny, maxx, maxy = zone.bounds
+    inside = prep(zone)
 
     placed: List[Dict] = []
-    placed_polys: List[Polygon] = []  # buffered placed shapes for overlap checks
-    half_spacing = spacing_mm / 2.0
+    # The placed tables' rectangles, one row of (min x, min y, max x, max y) each: they are
+    # axis-aligned, so a position's distance to all of them is a few array operations.
+    placed_bounds = np.empty((0, 4))
+    timed_out = False
 
     for tt in table_entries:
+        if time.monotonic() >= deadline:
+            timed_out = True
+            break
         best_pos: Optional[Tuple[float, float]] = None
         best_rot: bool = False  # True = 90° rotated
 
@@ -336,18 +358,28 @@ def _grid_place(
             cw = tt.height_mm if rotated else tt.width_mm
             ch = tt.width_mm if rotated else tt.height_mm
 
-            # Build list of candidate (x, y) positions
             for x in np.arange(minx, maxx - cw + grid_step, grid_step):
+                if time.monotonic() >= deadline:
+                    timed_out = True
+                    break
+                # Only the tables beside this column can be too close to a position in it.
+                gap_x = np.maximum(
+                    np.maximum(placed_bounds[:, 0] - (x + cw), x - placed_bounds[:, 2]), 0.0,
+                )
+                near = gap_x <= spacing_mm
+                near_bounds, near_gap_x = placed_bounds[near], gap_x[near]
+
                 for y in np.arange(miny, maxy - ch + grid_step, grid_step):
-                    rect = box(x, y, x + cw, y + ch)
+                    # Must be more than the spacing from every placed table: the cheap test first.
+                    if len(near_bounds):
+                        gap_y = np.maximum(
+                            np.maximum(near_bounds[:, 1] - (y + ch), y - near_bounds[:, 3]), 0.0,
+                        )
+                        if np.any(np.hypot(near_gap_x, gap_y) <= spacing_mm):
+                            continue
 
                     # Must be fully inside the placement zone
-                    if not zone.contains(rect):
-                        continue
-
-                    # Must not overlap with already-placed tables (plus spacing)
-                    buffered = rect.buffer(half_spacing)
-                    if any(buffered.intersects(p) for p in placed_polys):
+                    if not inside.contains(box(x, y, x + cw, y + ch)):
                         continue
 
                     best_pos = (x, y)
@@ -355,34 +387,47 @@ def _grid_place(
                     break  # first valid spot wins for this rotation
                 if best_pos:
                     break
-            if best_pos:
+            if best_pos or timed_out:
                 break
+        if timed_out:
+            break
 
         if best_pos is None:
             continue  # couldn't place this table
 
-        x, y = best_pos
+        x, y = float(best_pos[0]), float(best_pos[1])
         cw = tt.height_mm if best_rot else tt.width_mm
         ch = tt.width_mm if best_rot else tt.height_mm
 
-        placed_rect = box(x, y, x + cw, y + ch)
-        placed_polys.append(placed_rect.buffer(half_spacing))
-
-        centroid = placed_rect.centroid
+        placed_bounds = np.vstack([placed_bounds, [x, y, x + cw, y + ch]])
         placed.append({
-            "x_mm": round(centroid.x, 2),
-            "y_mm": round(centroid.y, 2),
+            "x_mm": round(x + cw / 2, 2),
+            "y_mm": round(y + ch / 2, 2),
             "rotation": 90.0 if best_rot else 0.0,
             "width_mm": tt.width_mm,
             "height_mm": tt.height_mm,
             "table_type_id": tt.id,
         })
 
-    logger.info("Grid fallback placed %d / %d tables", len(placed), len(table_entries))
-    return placed
+    logger.info(
+        "Grid fallback placed %d / %d tables%s", len(placed), len(table_entries),
+        " before its time ran out" if timed_out else "",
+    )
+    return placed, timed_out
 
 
 # ── public entry point ─────────────────────────────────────────────────────────
+
+class PlacementResult(NamedTuple):
+    """What Auto-Place placed, and whether it stopped for time before placing the rest."""
+
+    #: The placed tables, each a dict of ``x_mm``, ``y_mm`` (its centre), ``rotation``,
+    #: ``width_mm``, ``height_mm`` and ``table_type_id``.
+    placed: List[Dict]
+    #: True only when the grid stopped at its deadline. The solver's anytime answer is its best
+    #: packing and does not say whether it stopped for time, so it is never reported as timed out.
+    timed_out: bool
+
 
 def auto_place_tables(
     walls: List[Dict],
@@ -392,7 +437,7 @@ def auto_place_tables(
     scale_px_per_mm: float,
     aisle_config: Optional[Dict] = None,
     room_mm: Optional[Dict[str, float]] = None,
-) -> List[Dict]:
+) -> PlacementResult:
     """Auto-place rectangular tables inside the room boundary.
 
     Parameters
@@ -412,7 +457,7 @@ def auto_place_tables(
         Pixel-to-mm conversion factor (unused by the engine; kept for API
         consistency, all geometry is in mm).
     aisle_config:
-        Optional dict with ``wallBufferMm`` and ``tableSpacingMm`` keys
+        Optional dict with ``wall_buffer_mm`` and ``table_spacing_mm`` keys
         (see :class:`AisleConfigObject`).  Defaults to 1500 mm wall buffer
         and 1200 mm table spacing.
     room_mm:
@@ -421,9 +466,9 @@ def auto_place_tables(
 
     Returns
     -------
-    List of placed-table dicts, each with:
-        ``x_mm``, ``y_mm``, ``rotation``, ``width_mm``, ``height_mm``,
-        ``table_type_id``.
+    A :class:`PlacementResult`: the placed-table dicts, each with ``x_mm``, ``y_mm``,
+    ``rotation``, ``width_mm``, ``height_mm`` and ``table_type_id``, and ``timed_out``, true when
+    the grid stopped at ``GRID_TIME_LIMIT_S`` before trying every table.
     """
     # ── build domain objects ──────────────────────────────────────────────
     wall_objects = [WallSegment(**w) for w in walls]
@@ -449,17 +494,23 @@ def auto_place_tables(
 
     if zone.is_empty or zone.area <= 0:
         logger.warning("Placement zone is empty - returning 0 placed tables")
-        return []
+        return PlacementResult(placed=[], timed_out=False)
 
     # ── primary: pyckingsolver ────────────────────────────────────────────
     try:
-        return _pyckingsolver_place(zone, table_objects, counts, table_spacing)
+        return PlacementResult(
+            placed=_pyckingsolver_place(zone, table_objects, counts, table_spacing),
+            timed_out=False,
+        )
     except Exception as exc:
         logger.warning("pyckingsolver failed (%s), falling back to grid placement", exc)
 
     # ── fallback: grid-based greedy ───────────────────────────────────────
     try:
-        return _grid_place(zone, table_objects, counts, table_spacing)
+        placed, timed_out = _grid_place(
+            zone, table_objects, counts, table_spacing, time_limit_s=GRID_TIME_LIMIT_S,
+        )
     except Exception as exc:
         logger.error("Grid fallback also failed: %s", exc)
-        return []
+        return PlacementResult(placed=[], timed_out=False)
+    return PlacementResult(placed=placed, timed_out=timed_out)

@@ -3,7 +3,7 @@ Floorplan table auto-placement endpoint.
 
 Receives the market it places for, room geometry (walls, obstacles), table
 specifications, and aisle-configuration; returns a list of placed-table positions with x, y,
-rotation in millimetre coordinates.
+rotation in millimetre coordinates, and whether the placement ran out of time before the rest.
 
 The body is parsed into ``PlaceTablesRequest`` and held to ``floorplan_limits``' bounds before the
 placement runs, so a malformed field or a request too large to place in time is refused with its
@@ -117,8 +117,11 @@ def place_tables():
                     "height_mm": 900,
                     "table_type_id": "type_6ft"
                 }
-            ]
+            ],
+            "timed_out": false
         }
+
+    ``timed_out`` is true when the grid placement stopped at its deadline before placing them all.
     """
     data = request.get_json(silent=True)
     if not data:
@@ -145,7 +148,7 @@ def place_tables():
 
     # The service takes the stored types' dumps: snake case, so the organizer's aisle values are
     # the ones it reads (it read the wizard's camel-cased keys as unknown, and kept its defaults).
-    placed = auto_place_tables(
+    result = auto_place_tables(
         walls=[wall.model_dump() for wall in asked.walls],
         obstacles=[zone.model_dump() for zone in asked.obstacles],
         table_types=[table_type.model_dump() for table_type in asked.table_types],
@@ -155,4 +158,4 @@ def place_tables():
         room_mm=asked.room_mm.model_dump() if asked.room_mm else None,
     )
 
-    return jsonify({"placed_tables": placed}), 200
+    return jsonify({"placed_tables": result.placed, "timed_out": result.timed_out}), 200

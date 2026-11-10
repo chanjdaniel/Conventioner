@@ -30,6 +30,7 @@ import api.market_actions as Actions
 import api.markets as MarketsApi
 import api.users as UsersApi
 import services.gridfs_service as GridfsService
+import services.placement_service as Placement
 from datatypes import MarketPhase
 
 MARKET_ID = "market-123"
@@ -426,10 +427,10 @@ def placements(monkeypatch):
 
     def placed(**geometry):
         calls.append(geometry)
-        return [{
+        return Placement.PlacementResult(placed=[{
             "x_mm": 1500.0, "y_mm": 1500.0, "rotation": 0.0, "width_mm": 1800, "height_mm": 900,
             "table_type_id": "type_6ft",
-        }]
+        }], timed_out=False)
 
     monkeypatch.setattr(FloorplansPlacementApi, "auto_place_tables", placed)
     return calls
@@ -461,7 +462,18 @@ class TestPlacingTables:
 
         assert response.status_code == 200
         assert [t["table_type_id"] for t in response.get_json()["placed_tables"]] == ["type_6ft"]
+        assert response.get_json()["timed_out"] is False
         assert len(placements) == 1
+
+    def test_the_answer_says_when_the_grid_ran_out_of_time(self, sign_in, market, monkeypatch):
+        """On production's path, with no time to place anything, it answers so rather than blame the room."""
+        monkeypatch.setitem(sys.modules, "pyckingsolver", None)
+        monkeypatch.setattr(Placement, "GRID_TIME_LIMIT_S", 0.0)
+
+        response = _place(sign_in("owner@example.com"))
+
+        assert response.status_code == 200
+        assert response.get_json() == {"placed_tables": [], "timed_out": True}
 
     @pytest.mark.parametrize("email", ["outsider@example.com", "viewer@example.com"])
     def test_anyone_but_an_editor_is_refused(self, sign_in, market, placements, email):

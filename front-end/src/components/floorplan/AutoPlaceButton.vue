@@ -150,10 +150,16 @@ async function triggerAutoPlace() {
     const placed = mapResponseToPlacedTables(data.placed_tables ?? []);
     store.setPlacedTables(placed);
     const noun = asked === 1 ? 'table' : 'tables';
+    // The server's grid stops at its own deadline, under this request's 30 s, and says so: a slow
+    // room is told apart from a full one (T272).
+    const why =
+      data.timed_out === true
+        ? 'Auto-Place ran out of time before the rest.'
+        : 'there was no room for the rest.';
     result.value =
       placed.length >= asked
         ? `Placed ${placed.length} ${noun}.`
-        : `Placed ${placed.length} of ${asked} ${noun} - there was no room for the rest.`;
+        : `Placed ${placed.length} of ${asked} ${noun} - ${why}`;
     emit('placed', placed.length);
   } catch (_e: unknown) {
     const err = _e as { name?: string; code?: string };

@@ -47,8 +47,8 @@ So the flow can be exercised end to end in CI with no API keys and no stubbing (
 
 ## Interface
 
-`auto_place_tables(walls, obstacles, table_types, counts, scale_px_per_mm, aisle_config, room_mm)` returns placed tables in millimetres (`x_mm`, `y_mm`, `rotation`, `width_mm`, `height_mm`, `table_type_id`).
-The organizer asks for a count per table type ([`AutoPlaceButton.vue`](../../../front-end/src/components/floorplan/AutoPlaceButton.vue)), and the wizard reports how many it placed.
+`auto_place_tables(walls, obstacles, table_types, counts, scale_px_per_mm, aisle_config, room_mm)` returns a `PlacementResult`: `placed`, the placed tables in millimetres (`x_mm`, `y_mm`, `rotation`, `width_mm`, `height_mm`, `table_type_id`), and `timed_out`, true only when the grid placement stopped at its deadline; the route answers them as `{"placed_tables": [...], "timed_out": ...}`.
+The organizer asks for a count per table type ([`AutoPlaceButton.vue`](../../../front-end/src/components/floorplan/AutoPlaceButton.vue)), and the wizard reports how many it placed, and when it placed fewer than asked, why: "Placed {n} of {asked} tables - there was no room for the rest.", or with `timed_out` "Placed {n} of {asked} tables - Auto-Place ran out of time before the rest.".
 While it cannot place, with no table type, scale, count asked or room yet, or a placement running, the button is disabled, and like the wizard's Next it takes the design language's [one disabled state](../../design-system.md#the-primitive-layer), never opacity.
 `POST /floorplans/place-tables` takes the `market_id` the wizard is open on beside the geometry, read with `string_field()`, and places only for an editor of that market on a market that is not archived; `AutoPlaceButton.vue` sends the `marketId` [`FloorplanWorkflow.vue`](../../../front-end/src/components/floorplan/FloorplanWorkflow.vue) gives it.
 The zone is the room less a wall buffer (1500 mm unless configured) and the obstacles; tables keep a spacing between them (1200 mm unless configured).
@@ -115,10 +115,17 @@ Walls that enclose nothing fall back to the image's extent when it is known, and
 **The solver is bounded by its own `time_limit`** (`SOLVER_TIME_LIMIT_S`, 10 seconds): it is an anytime solver, returning the best packing found by then.
 A thread timeout wrapped around the call bounded nothing: it raised in the caller while the solver ran on to its own 60-second default, and the request waited for it.
 When the solver fails or finds no packing, a grid-based greedy placement runs instead.
+**The grid has its own deadline too** (`GRID_TIME_LIMIT_S`, 10 seconds, T272): it reads the clock before each table and each column of positions, and at the limit stops and answers what it has placed, with `timed_out`.
+The two limits sum to 20 seconds, under the browser's 30, for when the solver runs out its time and then fails; in production the solver's import fails at once and the grid has the whole 10.
+The solver's answer is never `timed_out`, since it does not say whether it stopped for time and its answer is its best packing.
+The grid tries positions in one order, largest table first, columns left to right, rows top to bottom in a column, unrotated before rotated, and takes the first that fits.
+A position fits when it is more than the spacing from every placed table, measured at once against the placed tables' rectangles beside its column, and then inside the zone, tested on a prepared geometry; it used to buffer every candidate and test it against every placed table's buffer, the same rule much more slowly.
+Six-foot tables (1800 by 750 mm) on one machine: 59 in a 40 m by 30 m hall in 0.44 s (3.05 s before), 100 in 55 m by 41 m in 1.39 s (9.62 s), 200 in 55 m by 41 m in 6.06 s (48.76 s), and the review's run took 84.6 s for 200, past the browser's 30.
 
 **Production has no `pyckingsolver`.**
 It ships only `manylinux_2_35` wheels and Vercel builds on Amazon Linux 2023 (glibc 2.34), so it lives in [`back-end/requirements-floorplan-solver.in`](../../../back-end/requirements-floorplan-solver.in) and its lock [`requirements-floorplan-solver.txt`](../../../back-end/requirements-floorplan-solver.txt), which Docker, CI and local development install; the service imports it lazily, and production's Auto-Place runs the grid.
 So [`back-end/tests/test_auto_place_tables.py`](../../../back-end/tests/test_auto_place_tables.py) runs each placement case twice, on the solver and on the grid with `pyckingsolver`'s import blocked, which is production's state, and the solver's case fails rather than falling back to the grid.
+On the grid alone it also places a real hall's 59 tables in time, keeps the spacing between every two tables, and stops at a deadline set to half a second with `timed_out`.
 **Any dependency added to `requirements.in` must install on glibc 2.34**: this one failed every production build from June to October 2026.
 
 **Konva cannot read a CSS variable.**
