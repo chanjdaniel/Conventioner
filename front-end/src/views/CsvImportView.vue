@@ -206,8 +206,8 @@ const reviewersError = ref('');
 const step = ref<Step>('upload');
 /**
  * The page says it is refused instead of offering a file: then it has no steps to take and nothing
- * to cancel, so it draws neither the stepper nor Cancel import, and "Back to the market" is the way
- * out.
+ * to cancel, so it draws neither the stepper nor the actions' footer with Cancel import, and "Back
+ * to the market" is the way out.
  */
 const refused = computed(
   () => step.value === 'upload' && Boolean(marketId.value) && !takingApplications.value,
@@ -1565,13 +1565,13 @@ watch(marketId, () => {
         </div>
       </section>
 
-      <footer class="import-actions">
+      <footer v-if="!refused" class="import-actions">
         <!-- The way out. Upload, Map columns, Preview and the value reconciliation had none at all -
            no Cancel, no breadcrumb - so an organizer who opened this by mistake, or hit a file the
            product could not read, had the browser's back button and nothing else. Nothing is
            written until the final confirm, so leaving costs only the mapping. -->
         <button
-          v-if="step !== 'done' && !refused"
+          v-if="step !== 'done'"
           class="button-secondary"
           data-testid="import-leave-button"
           @click="leaveImport"

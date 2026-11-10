@@ -118,6 +118,8 @@ describe("the first import's refusal", () => {
     expect(wrapper.find('[data-testid="import-wrong-phase"]').exists()).toBe(true);
     expect(wrapper.find('.import-steps').exists()).toBe(false);
     expect(wrapper.find('[data-testid="import-leave-button"]').exists()).toBe(false);
+    // Nor the actions' footer, which would stand empty under its rule.
+    expect(wrapper.find('.import-actions').exists()).toBe(false);
   });
 
   it('draws the stepper and Cancel import beside the upload step', async () => {
