@@ -129,7 +129,8 @@ export function useAutosave(options: AutosaveOptions) {
         if (isRefusal(err)) {
           dropEdits();
           status.value = 'refused';
-          message.value = sentence + TAKEN_BACK;
+          // Some refusals carry no full stop ("Market not found"), so the line after it would run on.
+          message.value = (/[.!?…]$/.test(sentence) ? sentence : `${sentence}.`) + TAKEN_BACK;
           await options.afterRefusal(sentence);
           return sentence;
         }

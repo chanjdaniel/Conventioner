@@ -295,6 +295,18 @@ describe('a refusal and a failure', () => {
     },
   );
 
+  it('ends a refusal sentence the server left without a full stop before the line after it', async () => {
+    const { writes, edit, autosave, afterRefusal } = setUp();
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    // The market was deleted in another tab: the server's sentence has no full stop of its own.
+    await writes.fail(answered(404, 'Market not found'));
+
+    expect(autosave.message.value).toBe('Market not found. The plan is back as it was last saved.');
+    expect(afterRefusal).toHaveBeenCalledWith('Market not found');
+  });
+
   it('words a refusal with no sentence of its own by the failure sentence', async () => {
     const { writes, edit, autosave, afterRefusal } = setUp();
 

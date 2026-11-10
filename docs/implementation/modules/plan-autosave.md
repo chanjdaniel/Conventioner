@@ -39,6 +39,7 @@ The plan's write refuses with a 400 (an invalid plan, a price, the intake mode a
 
 **A refusal drops every edit made so far** and takes the server's plan back: the plan is written whole, so every later edit builds on the refused one, and none of them is kept.
 The status is `refused`, and the line (`market-setup-plan-refused`, in the error's red, with no Retry) says the server's sentence and then "The plan is back as it was last saved."
+A sentence the server left without a full stop ("Market not found", from a market deleted in another tab) is given one, so the two read as two sentences.
 The view's `afterRefusal` re-reads the market and then adopts it itself, so the server's plan comes back even when the re-read failed or handed back the market the page already had, which leaves the market watch silent.
 Nothing is unsaved after it, so later re-reads reach the screen again; until T271 a refused save left the page skipping every re-read, the refused plan on screen until a reload.
 
