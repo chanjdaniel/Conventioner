@@ -42,6 +42,8 @@ export class VendorsPage {
   readonly roleReport: Locator;
   readonly roleReportOpen: Locator;
   readonly roleReportWho: Locator;
+  /** The drawer's line under its name: who gave the verdict, or who added the vendor. */
+  readonly detailGiver: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -60,6 +62,7 @@ export class VendorsPage {
       .getByTestId('vendor-drawer-panel-history')
       .getByTestId('market-history-sentence');
     this.detailContent = page.getByTestId('vendors-detail-content');
+    this.detailGiver = page.getByTestId('vendors-detail-giver');
     this.dateFilter = page.getByTestId('vendors-filter-date');
     this.choiceFilter = page.getByTestId('vendors-filter-choice');
     this.dateFilterChip = page.getByTestId('vendors-filter-chip-date');

@@ -119,8 +119,11 @@ test('the All view\'s giver, "Followed up by" and "is looking at this" lines bre
   }
 
   await all.open(approved);
-  await expectWholeAddress(all.drawerGiver, reviewer);
-  await expectWholeAddress(all.drawerGiver, reviewer, true);
+  // The drawer says who gave the verdict twice: under the vendor's name, and in the verdict's line.
+  for (const line of [new VendorsPage(page).detailGiver, all.drawerGiver]) {
+    await expectWholeAddress(line, reviewer);
+    await expectWholeAddress(line, reviewer, true);
+  }
   await all.closeDrawer();
   await all.open(followedUp);
   await expectWholeAddress(all.drawerHolder, reviewer);

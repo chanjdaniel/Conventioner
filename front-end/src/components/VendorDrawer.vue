@@ -31,6 +31,7 @@ import { useFocusGoesBack } from '@/utils/useFocusGoesBack';
 import { useInertBehind } from '@/utils/useInertBehind';
 import AnswerUpdateNote from '@/components/AnswerUpdateNote.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
+import EmailAddress from '@/components/EmailAddress.vue';
 import MarketHistory from '@/components/MarketHistory.vue';
 import ScrollBox from '@/components/ScrollBox.vue';
 import TableShareNotice from '@/components/TableShareNotice.vue';
@@ -260,7 +261,7 @@ watch(
             {{ vendor?.displayEmail ?? email }}
           </p>
           <p v-if="vendor?.verdict" class="detail-subtitle" data-testid="vendors-detail-giver">
-            {{ vendor.verdict }}
+            <EmailAddress :words="vendor.verdict" />
           </p>
         </div>
         <button
