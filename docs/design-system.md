@@ -335,7 +335,8 @@ One elevation shadow, extracted from the newer screens, where it is already used
 
 ```css
 --shadow-card:
-  0 0 0 1px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.07), 0 6px 14px rgba(0, 0, 0, 0.08);
+  0 0 0 1px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.07),
+  0 6px 14px rgba(0, 0, 0, 0.08);
 ```
 
 **The legacy halo is retired**: `0 0 4px 5px rgba(0,0,0,.25)` and its inset twin. A shadow with no offset has no light source, and a spread larger than its blur is a ring, not a shadow - which is why the older cards read as outlined in grey fog. The inset variant is what makes the setup fields look pressed and skeuomorphic. That rule is elevation's; the focus halo below is a focus indicator, deliberately a flat ring that hugs the control.
@@ -446,6 +447,7 @@ They and `AppDialog` are the app's components: it installs no component library,
 The searchable picker is the app's own, and the ADR records why that combobox did not take a headless one.
 Two smaller controls had no owner either, each re-decided per file, and are primitives of their own: `.add-row`, the button that adds a row to a plan card (it was an icon with a click handler, unreachable from a keyboard), and `.drag-handle`, the control that reorders a row (E17/F01).
 A link on a line of its own is `.link-alone`, a target `--target-min` tall in the link ink, underlined under the pointer: "Forgot password?" under sign-in and "Back to sign in" under the password and verification pages, which each carried a copy of the rule as their own `.link` (T181).
+A control that changes the form and goes nowhere is a button, even in that look: "Use a different email" under the code sign-in is a `.link-alone` button with its own ground, border and padding taken off (T263).
 A link inside a sentence is not one, since it sits on the sentence's line.
 A choice among many, found by typing, is [`SearchPicker.vue`](../front-end/src/components/SearchPicker.vue) (E38/F08/S03): a field over a grouped list that it narrows as it is typed in, worked by the arrow keys, Enter and Escape, its list opening in the flow under the field so a dialog's scroller cannot clip it; it narrows a group and never hides one, a named group with nothing matching saying so and one with no name drawing nothing, unless the caller gives `hidesEmptiedGroups`, as `ChoiceField` does, and then a group the words emptied is not drawn and words that find nothing say so once, in a line under the listbox and outside it, since a listbox holds options and groups only; the caller says what the words find.
 In a short scroller that list can lie past the foot, so opening it and typing bring the list and the field into view, the field first where both do not fit, unless the caller gives `listOver`.

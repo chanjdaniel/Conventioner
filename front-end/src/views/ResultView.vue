@@ -14,6 +14,7 @@ import { useRoute } from 'vue-router';
 
 import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
+import { signedInEmail } from '@/utils/signedIn';
 import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 import { formatPrice } from '@/utils/pricing';
 import { loadAccount } from '@/utils/payments';
@@ -222,8 +223,7 @@ async function loadTables(): Promise<void> {
     errorMessage.value = 'Missing market id.';
     return;
   }
-  const userEmail = JSON.parse(localStorage.getItem('user') || 'null');
-  if (!userEmail) {
+  if (!signedInEmail()) {
     errorMessage.value = 'You must be signed in to view tables.';
     return;
   }

@@ -46,7 +46,7 @@ export class LoginPage {
   readonly otpSuccessMessage: Locator;
   readonly otpResendVerificationButton: Locator;
   readonly otpSubmitButton: Locator;
-  readonly otpDifferentEmailLink: Locator;
+  readonly otpDifferentEmailButton: Locator;
   readonly otpRememberMe: Locator;
 
   constructor(page: Page) {
@@ -86,7 +86,7 @@ export class LoginPage {
     this.otpSuccessMessage = page.getByTestId('login-otp-success-message');
     this.otpResendVerificationButton = page.getByTestId('login-otp-resend-verification-button');
     this.otpSubmitButton = page.getByTestId('login-otp-submit-button');
-    this.otpDifferentEmailLink = page.getByTestId('login-otp-different-email-link');
+    this.otpDifferentEmailButton = page.getByTestId('login-otp-different-email-button');
     this.otpRememberMe = page.getByTestId('login-otp-remember-me');
   }
 

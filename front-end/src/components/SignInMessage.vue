@@ -5,11 +5,13 @@
  *
  * One line at a time: the form holds one notice, and a newer one replaces it, so a red line never
  * sits under a green one. Both lines stay in the page, hidden when empty, so that a screen reader
- * announces each as it changes.
+ * announces each as it changes. Each takes `tabindex="-1"`, so the focus can move to it once a
+ * send takes the button away, and Tab never stops on it.
  */
+import { nextTick, ref, watch } from 'vue';
 import type { SignInNotice } from '@/utils/signInNotice';
 
-defineProps<{
+const props = defineProps<{
   notice: SignInNotice | null;
   /** The form's test ids start with it: `login`, `login-otp`. */
   testidPrefix: string;
@@ -17,13 +19,45 @@ defineProps<{
   sending?: boolean;
 }>();
 
-defineEmits<{ resend: [] }>();
+const emit = defineEmits<{ resend: [] }>();
+
+const errorLine = ref<HTMLElement | null>(null);
+const successLine = ref<HTMLElement | null>(null);
+
+/**
+ * This form asked for the link: the two forms share one `sending`, so only the one asked moves the
+ * focus when it ends.
+ */
+let asked = false;
+
+function resend() {
+  asked = true;
+  emit('resend');
+}
+
+/*
+ * Once the send ends, the newer line has replaced the one the button answered. When the button went
+ * with it ("a new link is on its way", or "try again in 15 minutes"), the focus on it would fall to
+ * the page, so it moves to the line that says what happened; offered again, it keeps the focus.
+ */
+watch(
+  () => props.sending,
+  async (sending, wasSending) => {
+    if (sending || !wasSending || !asked) return;
+    asked = false;
+    await nextTick();
+    if (props.notice?.next === 'resend') return;
+    (props.notice?.tone === 'success' ? successLine : errorLine).value?.focus();
+  },
+);
 </script>
 
 <template>
   <p
+    ref="errorLine"
     class="sign-in-notice sign-in-notice--error"
     role="alert"
+    tabindex="-1"
     v-show="notice?.tone === 'error'"
     :data-testid="`${testidPrefix}-error-message`"
   >
@@ -44,13 +78,15 @@ defineEmits<{ resend: [] }>();
     class="btn btn--secondary btn--compact sign-in-notice__resend"
     :disabled="sending"
     :data-testid="`${testidPrefix}-resend-verification-button`"
-    @click="$emit('resend')"
+    @click="resend"
   >
     Send the link again
   </button>
   <p
+    ref="successLine"
     class="sign-in-notice sign-in-notice--success"
     role="status"
+    tabindex="-1"
     v-show="notice?.tone === 'success'"
     :data-testid="`${testidPrefix}-success-message`"
   >
