@@ -54,6 +54,7 @@ Branches: mismatched passwords ("Passwords do not match"), short password, a pas
 
 Depends on: reCAPTCHA (bypassed locally), Resend.
 Covered by:
+
 - `a-signup-is-sent-once.spec.ts`
 - `account-links.spec.ts`
 - `auth.spec.ts` ("Register new user")
@@ -77,6 +78,7 @@ Past five links asked for one address in 15 minutes, or thirty from one caller, 
 
 A sign-in refused because the address is not verified yet offers "Send the link again" too (A2), which says the same sentences (E38/F14/S02); past the limit it offers the link no more.
 Covered by:
+
 - `the-sign-in-says-what-to-do-next.spec.ts`
 - `the-verification-page-asks-on-the-page.spec.ts`
 
@@ -104,6 +106,7 @@ Each form says one line at a time, the newer replacing the older, and says what 
 - A right password on an account not yet verified says "Verify your email address first: we sent you a link when you registered.", with "Send the link again" (A1a).
 
 Covered by:
+
 - `a-failure-says-what-to-do.spec.ts`
 - `auth.spec.ts`
 - `remember-me.spec.ts`
@@ -130,6 +133,7 @@ Branches: a wrong code ("That code is not right."), which replaces the line sayi
 - Past ten tries at one address in 15 minutes, or sixty from one caller, the next says "Too many sign-in attempts. Try again in N minutes, or reset your password.", the same for every address; a right code takes its own try back, as a right password does ([the sign-in is bounded](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
 
 Covered by:
+
 - `a-failure-says-what-to-do.spec.ts`, which stubs the send and sets the code where the server keeps it, then signs in with it
 - `auth.spec.ts` ("shows error for invalid OTP code"), which stubs the send and walks only a wrong code
 - `remember-me.spec.ts`, which stubs the send and sets the code where the server keeps it, then signs in with it
@@ -152,6 +156,7 @@ Branches: asking for another link before an hour has passed since the last one e
 - Past five links asked for one address in 15 minutes, or thirty from one caller, the next says "You have asked several times. Try again in N minutes.", the same for every address ([the sign-in is bounded](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
 
 Covered by:
+
 - `account-links.spec.ts`
 - `auth.spec.ts` ("Password reset")
 - `sign-in-fits-a-phone.spec.ts`
@@ -172,6 +177,7 @@ Covered by:
 A link that is refused, as expired or already used, changes nothing, and the person stays signed in.
 How the bar and the two password pages do this is in [the app bar](../../implementation/modules/app-bar.md#change-password).
 Covered by:
+
 - `account-links.spec.ts`
 - `the-app-bar.spec.ts` ("Change password, at a desk" and "on a phone")
 

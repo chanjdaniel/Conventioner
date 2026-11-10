@@ -59,16 +59,16 @@ The roles are [what each role may do](../../business/rules/what-each-role-may-do
 They answer in save's order: no market named 400, unknown market 404, unreadable market data 400, a person the row refuses 403 with its sentence, and, for a route that changes the floorplan (`edits`), an archived market 403.
 A route checks access right after it has read the id it is checked by, before the rest of its body, its key check or its image read.
 
-| Route | Needs | Archived market |
-| --- | --- | --- |
-| `POST /floorplans/upload` | Change Market Setup (EDITOR) on the `market_id` sent | refused |
-| `POST /floorplans/place-tables` | Change Market Setup (EDITOR) on the `market_id` sent | refused |
-| `DELETE /floorplans/<id>` | Change Market Setup (EDITOR) on the image's market | refused |
-| `POST /floorplans/analyze` | Change Market Setup (EDITOR) on the image's market | refused |
-| `POST /floorplans/calibrate` ([`floorplans_calibrate.py`](../../../back-end/api/floorplans_calibrate.py)) | Change Market Setup (EDITOR) on the image's market | refused |
-| `POST /floorplans/export` ([`floorplans_export.py`](../../../back-end/api/floorplans_export.py)) | the Read row (any role) on the image's market, signed in | allowed |
-| `GET /floorplans/<id>` | nothing: public by opaque id | allowed |
-| `POST /floorplans/save-to-market` | Change Market Setup (EDITOR), and a setup that has not settled (409) | refused |
+| Route                                                                                                     | Needs                                                                | Archived market |
+| --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------- |
+| `POST /floorplans/upload`                                                                                 | Change Market Setup (EDITOR) on the `market_id` sent                 | refused         |
+| `POST /floorplans/place-tables`                                                                           | Change Market Setup (EDITOR) on the `market_id` sent                 | refused         |
+| `DELETE /floorplans/<id>`                                                                                 | Change Market Setup (EDITOR) on the image's market                   | refused         |
+| `POST /floorplans/analyze`                                                                                | Change Market Setup (EDITOR) on the image's market                   | refused         |
+| `POST /floorplans/calibrate` ([`floorplans_calibrate.py`](../../../back-end/api/floorplans_calibrate.py)) | Change Market Setup (EDITOR) on the image's market                   | refused         |
+| `POST /floorplans/export` ([`floorplans_export.py`](../../../back-end/api/floorplans_export.py))          | the Read row (any role) on the image's market, signed in             | allowed         |
+| `GET /floorplans/<id>`                                                                                    | nothing: public by opaque id                                         | allowed         |
+| `POST /floorplans/save-to-market`                                                                         | Change Market Setup (EDITOR), and a setup that has not settled (409) | refused         |
 
 The wizard's steps are an editor's work on a market that can still change, which is when the front end offers the wizard at all.
 **The export's audience is the people on the market**: it is a read of the plan, a rendering of the hall with its table codes, so it needs a sign-in and any role, and an archived market still exports.

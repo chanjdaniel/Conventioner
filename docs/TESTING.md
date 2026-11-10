@@ -126,7 +126,7 @@ The market phase lifecycle adds seven suites:
   where a document carries both, the slug is backfilled from the name and repaired
   when it disagrees, the index is built, and it is idempotent.
 - `test_migrate_is_draft_consistency.py` - the `isDraft`/`phase` reconciliation migration:
-  a market the old build published (`phase: "draft"` + `isDraft: false`) has its *phase*
+  a market the old build published (`phase: "draft"` + `isDraft: false`) has its _phase_
   advanced to `archived` rather than being confirmed as a draft, a stale `isDraft` on an
   already-advanced market is recomputed from the phase instead, a document with no `phase`
   is left untouched (it is `migrate_phase.py`'s to backfill, and flipping `isDraft` would
@@ -378,12 +378,12 @@ Each limit sits well above that service's peak in a full `scripts/nm-test.sh` ru
 
 Measured on 2026-10-23 on a 12-core, 31 GiB Linux machine (Compose 5.6.1), one gate run at a time, `docker stats` read about twice a second per service over the stack's whole life (22.6 minutes, 375 E2E tests); CPU is in cores, as `docker stats` gives it (100% is one core):
 
-| Service | Limit: memory / CPUs / PIDs | Peak memory | Peak CPU | Peak PIDs |
-| - | - | - | - | - |
-| mongodb | 1g / 2 / 512 | 479 MiB (47%) | 119% (59%) | 62 (12%) |
-| backend | 768m / 1 / 256 | 134 MiB (17%) | 59% (59%) | 19 (7%) |
-| frontend | 1g / 2 / 256 | 471 MiB (46%) | 151% (75%) | 38 (15%) |
-| mongo-express | 256m / 0.5 / 64 | not started by an `nm-test.sh` run | | |
+| Service       | Limit: memory / CPUs / PIDs | Peak memory                        | Peak CPU   | Peak PIDs |
+| ------------- | --------------------------- | ---------------------------------- | ---------- | --------- |
+| mongodb       | 1g / 2 / 512                | 479 MiB (47%)                      | 119% (59%) | 62 (12%)  |
+| backend       | 768m / 1 / 256              | 134 MiB (17%)                      | 59% (59%)  | 19 (7%)   |
+| frontend      | 1g / 2 / 256                | 471 MiB (46%)                      | 151% (75%) | 38 (15%)  |
+| mongo-express | 256m / 0.5 / 64             | not started by an `nm-test.sh` run |            |           |
 
 MongoDB started at 768m and 1 CPU: the first run took it to 630 MiB (82%) and 101% of its one core, so it was raised and the run repeated.
 Neither run had a container killed for memory (`docker events --filter event=oom` over each run).
@@ -409,7 +409,7 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
 - **The Google Forms fixture**: `back-end/tests/test_data/google_forms/five-day-grid.csv` is a
   synthetic response export in a Google Form's shape, written by
   `back-end/tests/fixtures/synthetic_form_exports.py`.
-  It exists because three MVP blockers came from the *shape* of a real export and every CSV test
+  It exists because three MVP blockers came from the _shape_ of a real export and every CSV test
   before it wrote its own short single-line headers.
   `back-end/tests/test_data/README.md` lists the six properties it must preserve;
   `test_form_export_shapes.py` asserts them, but for the duplicate and organizer columns, which the

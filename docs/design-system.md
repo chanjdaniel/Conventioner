@@ -121,7 +121,7 @@ Do not add a 72nd set of local decisions: reach for the tokens and the primitive
 Two halves, decided differently, and it matters which is which.
 
 - **The card idiom was extracted, not invented.** The screens `E09` through `E13` built had already converged on something coherent - 6px controls, 10px cards, a three-layer shadow, 12px gaps. That is written down below as it was found.
-- **The type and spacing scales were authored.** There was nothing to extract: 24 font sizes using essentially every integer from 11px to 20px, and 32 spacing values, means no file ever chose a *step* - they each chose a pixel.
+- **The type and spacing scales were authored.** There was nothing to extract: 24 font sizes using essentially every integer from 11px to 20px, and 32 spacing values, means no file ever chose a _step_ - they each chose a pixel.
 
 That distinction matters when something looks off: a screen that disagrees with the card idiom is a bug, while one that disagrees with a scale is code not yet migrated.
 
@@ -132,14 +132,14 @@ None is left.
 
 Two families, and only two.
 
-| Role | Family | Notes |
-| --- | --- | --- |
-| Headings | `Merge One` | Deep descenders; never give it a tight line box. |
-| Everything else | `Outfit` | The product's real UI face. |
+| Role            | Family      | Notes                                            |
+| --------------- | ----------- | ------------------------------------------------ |
+| Headings        | `Merge One` | Deep descenders; never give it a tight line box. |
+| Everything else | `Outfit`    | The product's real UI face.                      |
 
 Both ship as WOFF2 from `front-end/public/fonts/`, converted losslessly from Google Fonts' TTFs with the variable `wght` axis kept; a new face ships as WOFF2 too.
 
-**The family is `Outfit`, not `Outfit Regular`.** The old name put a *weight* in the *family* slot, which is why nobody added the other weights: static Medium, SemiBold and Bold files shipped alongside the variable Outfit, which covers the whole axis, and none of them were ever declared. The variable face (`public/fonts/Outfit-VariableFont_wght.woff2`) is the only Outfit that ships now; the unused statics are gone. 65 declarations asked for 500, 600 or bold and got a browser-synthesised smear of the regular.
+**The family is `Outfit`, not `Outfit Regular`.** The old name put a _weight_ in the _family_ slot, which is why nobody added the other weights: static Medium, SemiBold and Bold files shipped alongside the variable Outfit, which covers the whole axis, and none of them were ever declared. The variable face (`public/fonts/Outfit-VariableFont_wght.woff2`) is the only Outfit that ships now; the unused statics are gone. 65 declarations asked for 500, 600 or bold and got a browser-synthesised smear of the regular.
 
 `Inter` is retired. `body` declared it while 354 component rules named a face of their own - 274 Outfit, 80 Merge One - so Inter survived in 2 rules and in the one place nothing overrode it: form controls, which do not inherit `font-family` and fell through to the user agent's Arial instead.
 
@@ -153,13 +153,13 @@ Of those 274 Outfit declarations, 273 only restated what `body` now says and are
 
 Six steps. Adjacent 1px steps are not distinguishable, so they carry no meaning - they only let two screens disagree.
 
-| Step | Size | Use |
-| --- | --- | --- |
-| `--text-xs` | 12px | Captions, metadata, table labels, chips |
-| `--text-sm` | 14px | Body, form fields, buttons, list rows |
-| `--text-md` | 16px | Lead paragraphs, emphasis within body |
-| `--text-lg` | 20px | Section headings, card titles |
-| `--text-xl` | 26px | Page and screen titles |
+| Step         | Size | Use                                                |
+| ------------ | ---- | -------------------------------------------------- |
+| `--text-xs`  | 12px | Captions, metadata, table labels, chips            |
+| `--text-sm`  | 14px | Body, form fields, buttons, list rows              |
+| `--text-md`  | 16px | Lead paragraphs, emphasis within body              |
+| `--text-lg`  | 20px | Section headings, card titles                      |
+| `--text-xl`  | 26px | Page and screen titles                             |
 | `--text-2xl` | 32px | Display figures - the assignment summary's numbers |
 
 Nothing below 12px, which is the readable minimum.
@@ -176,15 +176,15 @@ The global reset in `base.css` gives every element `font-weight: 400`, so a span
 
 A 4px grid, seven steps, plus one exception.
 
-| Token | Value |
-| --- | --- |
-| `--space-1` | 4px |
-| `--space-2` | 8px |
-| `--space-3` | 12px |
-| `--space-4` | 16px |
-| `--space-6` | 24px |
-| `--space-8` | 32px |
-| `--space-12` | 48px |
+| Token        | Value |
+| ------------ | ----- |
+| `--space-1`  | 4px   |
+| `--space-2`  | 8px   |
+| `--space-3`  | 12px  |
+| `--space-4`  | 16px  |
+| `--space-6`  | 24px  |
+| `--space-8`  | 32px  |
+| `--space-12` | 48px  |
 
 **The one exception is a 2px hairline**, for gaps between an icon and its label or between two lines of the same field. It is not a step and nothing should be laid out on it.
 
@@ -252,10 +252,10 @@ Payments on a phone narrows its gutter to 16px too: the search takes its row wit
 Stats on a phone narrows its gutter to 16px too: its headlines stand one to a line, each a 44px row and each link a 44px target, the money set apart from the placements by a rule above it rather than beside it; the answer groups' switch's buttons are never narrower than the target's minimum, at every width, so 44px wide at least on a phone, and the cards stand one to a row, narrower than their 18rem where the window is, as on a 320px phone.
 [Organizations](business/flows/organizations.md) on a phone narrows its gutter to 16px, as `/markets` does, and "New organization" keeps one line, wrapping under the title only when the two cannot share the row; in Manage organization each person's address takes a line of its own with the role and Remove beneath it, and an add row's email field takes the row with Add and Cancel beneath it.
 
-| Token | Value | Screens |
-| --- | --- | --- |
+| Token             | Value  | Screens                                                                   |
+| ----------------- | ------ | ------------------------------------------------------------------------- |
 | `--workspace-max` | 1440px | Every market page and flow: Market Setup to Attendance, Import, Floorplan |
-| `--list-max` | 1100px | Markets, Organizations |
+| `--list-max`      | 1100px | Markets, Organizations                                                    |
 
 The applicant's own pages are a reading column, not a screen of cards: `--applicant-max` (640px), the vendor page, its application form included.
 The form tab's preview is drawn at the same width, so it is the form as an applicant sees it (E33/F01/S01).
@@ -320,11 +320,11 @@ The next such section takes the side of what it does.
 
 Extracted from the newer screens. Three values.
 
-| Token | Value | Use |
-| --- | --- | --- |
-| `--radius-control` | 6px | Buttons, inputs, selects, small chips |
-| `--radius-card` | 10px | Cards, panels, dialogs |
-| `--radius-pill` | 999px | Pills and fully-rounded badges |
+| Token              | Value | Use                                   |
+| ------------------ | ----- | ------------------------------------- |
+| `--radius-control` | 6px   | Buttons, inputs, selects, small chips |
+| `--radius-card`    | 10px  | Cards, panels, dialogs                |
+| `--radius-pill`    | 999px | Pills and fully-rounded badges        |
 
 "Fully rounded" has one spelling, `--radius-pill`.
 It was spelled four ways (`999px`, `100px`, `30px`, `20px`); none is left, the floorplan beta's last `20px` having moved to `--radius-pill`.
@@ -335,9 +335,7 @@ One elevation shadow, extracted from the newer screens, where it is already used
 
 ```css
 --shadow-card:
-  0 0 0 1px rgba(0, 0, 0, 0.07),
-  0 2px 4px rgba(0, 0, 0, 0.07),
-  0 6px 14px rgba(0, 0, 0, 0.08);
+  0 0 0 1px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.07), 0 6px 14px rgba(0, 0, 0, 0.08);
 ```
 
 **The legacy halo is retired**: `0 0 4px 5px rgba(0,0,0,.25)` and its inset twin. A shadow with no offset has no light source, and a spread larger than its blur is a ring, not a shadow - which is why the older cards read as outlined in grey fog. The inset variant is what makes the setup fields look pressed and skeuomorphic. That rule is elevation's; the focus halo below is a focus indicator, deliberately a flat ring that hugs the control.
@@ -381,10 +379,10 @@ The deep focus border reads less on a darker fill: 3.17:1 on `--mm-green-hover`,
 
 Both are desaturated, which is what lets them sit beside `--mm-green`. Every saturated candidate (the Material reds, the two badge blues) looks borrowed next to it.
 
-| Token | Value | White text on it | Replaces |
-| --- | --- | --- | --- |
-| `--mm-red` | `#c0392b` | 5.44:1 | nine hardcoded reds, 77 occurrences |
-| `--mm-blue` | `#1a6f8b` | 5.69:1 | two badge blues; same hue as `--mm-text-link` |
+| Token       | Value     | White text on it | Replaces                                      |
+| ----------- | --------- | ---------------- | --------------------------------------------- |
+| `--mm-red`  | `#c0392b` | 5.44:1           | nine hardcoded reds, 77 occurrences           |
+| `--mm-blue` | `#1a6f8b` | 5.69:1           | two badge blues; same hue as `--mm-text-link` |
 
 `--mm-red` and `--mm-text-red` were both **referenced but never defined** - see `E16/F01`. `var(--mm-red, #cc0000)` carried 24 usages on its fallback, which is how `#cc0000` became the most-used red in the product without anyone choosing it.
 
@@ -406,12 +404,12 @@ Translucent tints took on the beige review card beneath them and fell below AA t
 
 The brand has one folder, [`front-end/src/assets/brand/`](../front-end/src/assets/brand/):
 
-| File | What it is for |
-| --- | --- |
-| `conventioner-logo.svg` | The full logo, mark and wordmark; [the app bar](implementation/modules/app-bar.md) draws it. |
-| `conventioner-mark.svg` | The mark alone, in its colour, for wherever the logo does not fit. |
-| `conventioner-mark-currentcolor.svg` | The mark in `currentColor`, for a dark ground or a coloured control. |
-| `conventioner-wordmark.svg` | The wordmark alone. |
+| File                                 | What it is for                                                                               |
+| ------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `conventioner-logo.svg`              | The full logo, mark and wordmark; [the app bar](implementation/modules/app-bar.md) draws it. |
+| `conventioner-mark.svg`              | The mark alone, in its colour, for wherever the logo does not fit.                           |
+| `conventioner-mark-currentcolor.svg` | The mark in `currentColor`, for a dark ground or a coloured control.                         |
+| `conventioner-wordmark.svg`          | The wordmark alone.                                                                          |
 
 The mark is `#36826F`, which is `--mm-green`, and the wordmark is black.
 An `<img>` does not inherit colour, so the `currentColor` copy only takes the colour around it when it is inlined.
@@ -419,13 +417,13 @@ The mark and the wordmark are the logo's own two paths, unchanged, and [`theBran
 
 The favicon set in [`front-end/public/`](../front-end/public/) is generated from the mark, and [`front-end/index.html`](../front-end/index.html) links it:
 
-| File | Size | Ground | For |
-| --- | --- | --- | --- |
-| `favicon.svg` | vector | transparent | Every browser that takes an SVG favicon; a byte-for-byte copy of the mark. |
-| `favicon.ico` | 16, 32, 48 | transparent | A browser that does not. |
-| `apple-touch-icon.png` | 180 | white, the mark at 140 | iOS, which fills transparency with black. |
-| `icon-192.png`, `icon-512.png` | 192, 512 | transparent | The manifest's `any` icons. |
-| `icon-maskable-512.png` | 512 | white, the mark at 384 | The manifest's `maskable` icon: a launcher crops it to its own shape, and the mark stays inside the central 409px circle. |
+| File                           | Size       | Ground                 | For                                                                                                                       |
+| ------------------------------ | ---------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `favicon.svg`                  | vector     | transparent            | Every browser that takes an SVG favicon; a byte-for-byte copy of the mark.                                                |
+| `favicon.ico`                  | 16, 32, 48 | transparent            | A browser that does not.                                                                                                  |
+| `apple-touch-icon.png`         | 180        | white, the mark at 140 | iOS, which fills transparency with black.                                                                                 |
+| `icon-192.png`, `icon-512.png` | 192, 512   | transparent            | The manifest's `any` icons.                                                                                               |
+| `icon-maskable-512.png`        | 512        | white, the mark at 384 | The manifest's `maskable` icon: a launcher crops it to its own shape, and the mark stays inside the central 409px circle. |
 
 When the mark changes, run `npm run brand-icons` in `front-end/` and commit what it writes.
 [`scripts/brand-icons.ts`](../front-end/scripts/brand-icons.ts) renders with the Chromium `@playwright/test` installs and writes the ICO itself, so it adds no dependency, and neither CI nor the build runs it.
@@ -580,13 +578,13 @@ Busy, while its caller reads or uploads a file, it takes no file and mutes its m
 It judges no file: it hands the one chosen or dropped to its caller, which checks it and says any error.
 The import and the start from a Google Form take their CSV on it, and the floorplan wizard its plan image or PDF.
 
-| | Variants | Notes |
-| --- | --- | --- |
-| `.btn` | `--primary`, `--secondary`, `--destructive`, `--compact` | One standard height (36px) and one compact (28px), and no third, both 44px on a phone. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. `--secondary` with `--destructive` is a row's destructive action, below. |
-| `.field` | `--select`, `--textarea` | Left-aligned always - 18 of 27 controls on Market Setup were centred - but for the sign-in code's field above. `--select` carries `min-width: 0`: a select fills its column and never pushes past it, in Firefox as in Chromium. A column that must fit a select's options sizes its own track. `--select` also draws the one chevron, 13px from the right edge as its text is from the left, with room so a long option ends in an ellipsis before it, muted when disabled: two files, `public/icons/select-chevron.svg` and `select-chevron-disabled.svg`, never a `data:` URI, which the Content-Security-Policy's `img-src 'self' blob:` would refuse once it enforces. Under forced colours it keeps the browser's own arrow. A select's own class may size or place it and never sets `padding`, `background` or `appearance`. `every-select-draws-one-chevron.spec.ts` holds the look on the library's primitives entry and on the screens whose selects once drew their own, and `everySelectWearsThePrimitive.test.ts` holds, from the source, that every `<select>` wears it and that no class of its own draws it, nor any rule of its file that reaches it by `select` or `.field--select`. |
-| `.chip` | `--neutral`, `--positive`, `--attention`, `--informational`, `--destructive`; `--small` | One shape, one size, sentence case. Tint with coloured ink rather than a solid fill: a list of six solid pills competes with the content it labels. The tint is an opaque `--mm-chip-*` ground, so a chip reads the same on beige as on white. A status is a chip; the action beside it is a button. `--small` is a proposal (T200), a size step rather than a tone: the type is already the scale's floor, so it takes the padding in and takes `--radius-control`, and no screen wears it yet. |
-| `.data-table` | `--one-line` | A proposal (T200) for the six tables that each draw their own, and only Export vendors' preview wears it yet: a muted header, a rule between rows and the cells' padding, in a `<table>` whose columns are the screen's own. In a `ScrollBox` with `axis="x"`, a `label` naming the region and `.data-table-scroll` on its root, it scrolls sideways alone and never moves the page: the root keeps the border, the radius and the corners, and the box is a Tab stop while the table scrolls. A cell wraps; `--one-line` keeps each on one line, for a table read across, and on paper lets them wrap to the page, with each word whole and sizing its column, so a table whose longest words outgrow the paper runs off it. An address drawn by `EmailAddress` stays in its pieces there too. |
-| `.link-alone` | none | A link on a line of its own is a target: a line box `--target-min` tall, 44px on a phone, with no padding, so it still sits on its text. |
+|               | Variants                                                                                | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.btn`        | `--primary`, `--secondary`, `--destructive`, `--compact`                                | One standard height (36px) and one compact (28px), and no third, both 44px on a phone. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. `--secondary` with `--destructive` is a row's destructive action, below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `.field`      | `--select`, `--textarea`                                                                | Left-aligned always - 18 of 27 controls on Market Setup were centred - but for the sign-in code's field above. `--select` carries `min-width: 0`: a select fills its column and never pushes past it, in Firefox as in Chromium. A column that must fit a select's options sizes its own track. `--select` also draws the one chevron, 13px from the right edge as its text is from the left, with room so a long option ends in an ellipsis before it, muted when disabled: two files, `public/icons/select-chevron.svg` and `select-chevron-disabled.svg`, never a `data:` URI, which the Content-Security-Policy's `img-src 'self' blob:` would refuse once it enforces. Under forced colours it keeps the browser's own arrow. A select's own class may size or place it and never sets `padding`, `background` or `appearance`. `every-select-draws-one-chevron.spec.ts` holds the look on the library's primitives entry and on the screens whose selects once drew their own, and `everySelectWearsThePrimitive.test.ts` holds, from the source, that every `<select>` wears it and that no class of its own draws it, nor any rule of its file that reaches it by `select` or `.field--select`. |
+| `.chip`       | `--neutral`, `--positive`, `--attention`, `--informational`, `--destructive`; `--small` | One shape, one size, sentence case. Tint with coloured ink rather than a solid fill: a list of six solid pills competes with the content it labels. The tint is an opaque `--mm-chip-*` ground, so a chip reads the same on beige as on white. A status is a chip; the action beside it is a button. `--small` is a proposal (T200), a size step rather than a tone: the type is already the scale's floor, so it takes the padding in and takes `--radius-control`, and no screen wears it yet.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `.data-table` | `--one-line`                                                                            | A proposal (T200) for the six tables that each draw their own, and only Export vendors' preview wears it yet: a muted header, a rule between rows and the cells' padding, in a `<table>` whose columns are the screen's own. In a `ScrollBox` with `axis="x"`, a `label` naming the region and `.data-table-scroll` on its root, it scrolls sideways alone and never moves the page: the root keeps the border, the radius and the corners, and the box is a Tab stop while the table scrolls. A cell wraps; `--one-line` keeps each on one line, for a table read across, and on paper lets them wrap to the page, with each word whole and sizing its column, so a table whose longest words outgrow the paper runs off it. An address drawn by `EmailAddress` stays in its pieces there too.                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `.link-alone` | none                                                                                    | A link on a line of its own is a target: a line box `--target-min` tall, 44px on a phone, with no padding, so it still sits on its text.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 **A button or a menu item names its action in sentence case**, as a chip names its status (T181): the phase rail's moves ("Open applications", "Begin assignment", "Publish market"), its More… menu ("Reopen for editing", "Archive market"), "Publish results", and the titles and buttons of the confirmations they open.
 A proper name keeps its capitals: "Connect Discord", "Back to Market Setup", where Market Setup is the tab's name.

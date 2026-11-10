@@ -74,13 +74,16 @@ The easiest way to get started is using Docker Compose:
    To reach it from another device, such as a phone, publish the port you need in an override
    file of your own, for example a `docker-compose.override.yml` beside `docker-compose.yml`
    (git-ignored; plain `docker compose` reads it):
+
    ```yaml
    services:
      frontend:
        ports: !override
-         - "5173:5173"
+         - '5173:5173'
    ```
+
    The front end proxies `/api` to the back end inside Docker, so the front end's port is enough.
+
 3. **Stop all services**:
    ```bash
    docker compose down
@@ -403,7 +406,7 @@ docker compose up
 **Backend crash-loops with "`SECRET_KEY` / `RESEND_API_KEY` / `RECAPTCHA_SECRET_KEY` is set to a placeholder this repository has printed"**:
 
 An `.env` you already have was copied from an older template that printed `SECRET_KEY=your-secret-key-here-change-in-production`, `RESEND_API_KEY=re_xxxxxxxx...` and `RECAPTCHA_SECRET_KEY=6Lcxxxxx...` as if they were fill-in values.
-They never worked - Resend rejects that key, Google never issued that secret, and the signing key is one `git log` away from anybody - but they are *truthy*, so the app took them for configured secrets and the failure landed at request time (a 500 per signup, a captcha verified against a key that cannot verify anything) or, for the signing key, never at all.
+They never worked - Resend rejects that key, Google never issued that secret, and the signing key is one `git log` away from anybody - but they are _truthy_, so the app took them for configured secrets and the failure landed at request time (a 500 per signup, a captcha verified against a key that cannot verify anything) or, for the signing key, never at all.
 They are refused by name at boot now, on a laptop as on a deployment, escape hatch or not, so the failure lands where it can be read.
 
 **Two files can carry them, and the message does not say which one it read.** Check both:
@@ -552,7 +555,7 @@ The `docker-compose.yml` defines four services:
    - Port: `8081`, basic auth `admin` / `admin`
    - Convenient for reading market and application documents by hand
    - A worktree's stack starts without it: `scripts/th-compose.sh --profile tools up -d mongo-express`
-    ([the treehouse runbook](../scripts/README-treehouse.md))
+     ([the treehouse runbook](../scripts/README-treehouse.md))
 
 Each service publishes its port on `127.0.0.1` only.
 

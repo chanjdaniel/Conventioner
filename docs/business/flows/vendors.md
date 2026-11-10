@@ -75,6 +75,7 @@ When the server cannot say where vendors sit, the page shows its reason above th
 
 Before a run the page lists the vendors and says nothing is assigned yet.
 Covered by:
+
 - `lists-at-scale.spec.ts`, 120 vendors at 1280 and 390
 - `placing-someone-not-approved.spec.ts`
 - `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`, the refused read
@@ -87,6 +88,7 @@ Covered by:
 From Assignment on, "Add a vendor" opens "Add a vendor": "For someone who never applied. They are added as approved, and you assign them on the Assignments page.", with Name and Email, each marked required; on a market whose price groups read questions of its own form, "Their price is set by these answers." and each of those questions, required, a checkbox's unticked state its answer; "Add vendor", offered once each is answered.
 They are listed as "Added" and Unassigned until seated, offered under "Added by hand" in the place dialog ([J6](placing-by-hand.md#j6-place-a-vendor-in-an-empty-seat)), and never placed by a run ([adding a vendor who never applied](../rules/adding-a-vendor-who-never-applied.md)).
 Covered by:
+
 - `adding-a-vendor.spec.ts`
 - `an-added-vendor-is-unassigned.spec.ts`
 - `the-price-answers.spec.ts`
@@ -97,6 +99,7 @@ Covered by:
 On the drawer's Assignments tab each date the vendor did not get states why, in words: "Not available on this date", "Already has as many dates as they asked for", "Already has as many dates as the market allows per vendor", "No table at a tier they accept", "Every table they accept is taken", or "A table is free - they could be assigned".
 Only the last offers "Assign them", which opens the Assignments page on that date, searched for them; a date stopped by a limit offers no placing.
 Covered by:
+
 - `vendors-and-limits.spec.ts`
 - `vendors.spec.ts` ("an unplaced vendor is opened from the payoff screen and told why")
 
@@ -138,6 +141,7 @@ An amount is the server's own, written from whole cents, so it is left as it is:
 Where a minus would lead a currency's letters, as "-A$15.00", "-US$15.00" or "-NZ$15.00" would, each a minus and a cell reference that Excel evaluates, the amount is written with the minus sign "−" (U+2212) instead, which no spreadsheet reads as a formula.
 No column set is saved between exports yet.
 Covered by:
+
 - `back-end/tests/test_exporting_vendors.py`
 - `back-end/tests/test_the_exports_money_columns.py`
 - `exporting-a-payment-reminder.spec.ts` ("Owes" gives exactly the vendors whose Payment tab reads "Owes", with what it says they owe, and the Payments page's "Owes" list)
@@ -167,6 +171,7 @@ Each row's columns keep their place down the list at every width: the Discord st
 
 A check that cannot run says why on a row of its own under the actions: the market lost its username question ("Choose the username question again"), Discord cannot be reached, Discord took too long to list the server's members ("Check Discord again"), or the bot is no longer in the server.
 Covered by:
+
 - `back-end/tests/test_discord_connection.py`
 - `giving-the-discord-role.spec.ts` (where the row's filter, actions and error stand at 1280, 390 and 320)
 - `who-is-in-the-discord-server.spec.ts`
@@ -186,6 +191,7 @@ For such a vendor it offers the members whose username, display name or server n
 Someone either row refuses reads the members offered with no control.
 Both are in [the market's history](reading-the-markets-history.md) and the vendor's own: the update as every update is, and "said the Discord member @<username> is not <vendor>".
 Covered by:
+
 - `back-end/tests/test_discord_connection.py` (`TestPossibleMatches`, `TestWhatThePageShows`)
 - `possible-discord-matches.spec.ts`
 - `possibleDiscordMatches.test.ts`
@@ -208,6 +214,7 @@ The card points here: its "Giving roles" block says what is still missing, and o
 **A run only gives**: a vendor who has lost their seat keeps the role they have (Daniel, T92 Q19).
 A run that cannot start says why in the dialog: no role chosen, the username question gone, Discord out of reach, or the bot no longer in the server.
 Covered by:
+
 - `back-end/tests/test_discord_connection.py`
 - `giving-the-discord-role.spec.ts` (the report and the rows' Discord states laid out at 390, "Show who" over a table that stays put, its body scrolling under its title, a report of 12 opened by a mouse on its body with no halo, its ways of closing, and it and Give roles inside the window there)
 - `givingTheDiscordRole.test.ts`

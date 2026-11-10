@@ -215,13 +215,13 @@ It is honoured only under `ALLOW_INSECURE_LOCAL_DEV` ([security invariants](../c
 **Everything the bot does is a plain HTTPS request; no gateway connection is ever opened**, since the serverless back end cannot hold one.
 The calls the Discord stories need, each from [Discord's guild resource](https://docs.discord.com/developers/resources/guild):
 
-| Call | What it needs | Used by |
-| --- | --- | --- |
-| Get Current User, `GET /users/@me` | the bot's token | the bot's own id, for its roles |
-| Get Guild Member, `GET /guilds/{guild.id}/members/{user.id}` | the bot in the server | the bot's roles, to mark each role above its highest (`below_bot`) |
-| Get Guild Roles, `GET /guilds/{guild.id}/roles` | the bot in the server | the card's roles |
-| List Guild Members, `GET /guilds/{guild.id}/members` | the `GUILD_MEMBERS` privileged intent | who is in the server (E46/F01/S03) |
-| Add Guild Member Role, `PUT /guilds/{guild.id}/members/{user.id}/roles/{role.id}` | `MANAGE_ROLES`, and a role below the bot's | giving the role (E46/F01/S04) |
+| Call                                                                              | What it needs                              | Used by                                                            |
+| --------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------ |
+| Get Current User, `GET /users/@me`                                                | the bot's token                            | the bot's own id, for its roles                                    |
+| Get Guild Member, `GET /guilds/{guild.id}/members/{user.id}`                      | the bot in the server                      | the bot's roles, to mark each role above its highest (`below_bot`) |
+| Get Guild Roles, `GET /guilds/{guild.id}/roles`                                   | the bot in the server                      | the card's roles                                                   |
+| List Guild Members, `GET /guilds/{guild.id}/members`                              | the `GUILD_MEMBERS` privileged intent      | who is in the server (E46/F01/S03)                                 |
+| Add Guild Member Role, `PUT /guilds/{guild.id}/members/{user.id}/roles/{role.id}` | `MANAGE_ROLES`, and a role below the bot's | giving the role (E46/F01/S04)                                      |
 
 The intent is a switch in the Developer Portal, not something a connection asks for: "privileged intents also affect the HTTP API endpoints your app is permitted to call", and "HTTP API restrictions are independent of Gateway restrictions", "unaffected by which intents your app passes in the `intents` parameter" ([Gateway, privileged intents](https://docs.discord.com/developers/events/gateway)).
 None of these endpoints says a gateway connection is required.

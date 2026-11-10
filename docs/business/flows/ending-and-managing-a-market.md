@@ -59,14 +59,15 @@ The "Add user" row does the same: its email field takes the row, with the role a
 
 ## P6. Ending early, or not at all
 
-| Situation | Flows |
-| --- | --- |
-| Abandon a market before it runs | [L2](#l2-abandon-a-market-early) |
-| Remove a market entirely | [L5](#l5-delete-a-market) |
-| Wind up an organization and every market in it | [B5a to B5c](organizations.md#b5-delete-an-organization) |
-| Return a market to draft to fix its form before anyone applies | [F5](form-tab.md#f5-reopen-the-market-to-fix-the-form) |
+| Situation                                                      | Flows                                                    |
+| -------------------------------------------------------------- | -------------------------------------------------------- |
+| Abandon a market before it runs                                | [L2](#l2-abandon-a-market-early)                         |
+| Remove a market entirely                                       | [L5](#l5-delete-a-market)                                |
+| Wind up an organization and every market in it                 | [B5a to B5c](organizations.md#b5-delete-an-organization) |
+| Return a market to draft to fix its form before anyone applies | [F5](form-tab.md#f5-reopen-the-market-to-fix-the-form)   |
 
 Covered by:
+
 - `org-deletion.spec.ts`
 
 ## L1. Archive after market days
@@ -79,6 +80,7 @@ Covered by:
 4. The vendor page stays up as a record: each vendor, signed in, reads "Where you sat", "This market has ended.", each date "Checked in at <time>" or "Not checked in", and no check-in (bug 9).
 
 Covered by:
+
 - `an-archive-is-read-only.spec.ts`
 - `an-archive-keeps-its-vendor-page.spec.ts`
 - `phase-state-machine.spec.ts`
@@ -91,6 +93,7 @@ It is read only, lands on Assignments if it was assigned and on Market Setup if 
 The rail's note says how far it got: "It was abandoned before it opened applications.", "It opened applications but never allocated tables." or "Its tables were allocated but it was never published, so it never ran its market days."; a market older than the phase record says only what it can prove ("It opened applications.", "Its tables were allocated.").
 Its Attendance tab says "This market was archived without being published, so nobody checked in."
 Covered by:
+
 - `an-archive-is-read-only.spec.ts` ("an archived market that never ran says it has no attendance")
 - `an-archive-keeps-its-vendor-page.spec.ts`
 - `market-remembers-phases.spec.ts`
@@ -128,6 +131,7 @@ Covered by:
 
 The organization line says "Belongs to <organization>. Its admins run it; its members can view it."
 Covered by:
+
 - `*-sweep.spec.ts`, the sweeps' states "the manage-market dialog, an organization's people", "the manage-market dialog, removing a market role" and "the manage-market dialog, changing a market role"
 - `access-control.spec.ts`
 - [`an-address-breaks-only-before-its-at.spec.ts`](../../../front-end/e2e/an-address-breaks-only-before-its-at.spec.ts) (its rows)
@@ -162,6 +166,7 @@ Beneath Permissions, "History", closed until opened, lists every change on the m
 A change reaches every screen at its next read of the market: the dialog and the section's line show the table the write answers, and the market open in the store, when it is this one, is re-read, as a rename re-reads it.
 The section and its dialog are [`MarketPermissions.vue`](../../../front-end/src/components/MarketPermissions.vue), its rows and its changes the shared [`PermissionRows.vue`](../../../front-end/src/components/PermissionRows.vue) and [`PermissionChanges.vue`](../../../front-end/src/components/PermissionChanges.vue) that Manage organization's default permissions show too, the dialog and its three confirmations teleported beside Manage market as a dialog opened from a dialog is ([dialogs](../../implementation/conventions/dialogs.md)); the words are [`front-end/src/utils/permissionTable.ts`](../../../front-end/src/utils/permissionTable.ts)'s, and the server keeps the table and its changes structured.
 Covered by:
+
 - `*-sweep.spec.ts`, which walk the dialog open
 - `every-control-is-named.spec.ts`, which walks the dialog open
 - `manageIsOfferedToWhoeverReads.test.ts`
@@ -176,6 +181,7 @@ Covered by:
 **Status:** Works (walked live in Draft).
 "Rename market", with the name and "Save", in Draft only; afterwards "This market's public web address comes from its name, and it has already been shared, so its name can no longer change.", and an archived market says it is archived.
 Covered by:
+
 - `public-address.spec.ts`
 
 ## L5. Delete a market
@@ -184,6 +190,7 @@ Covered by:
 Owner only, in any phase: "Delete market" opens "Delete <market>?", which names what goes ("This deletes the market with its applications, its assignments, its check-in records and the record of who changed what. It cannot be undone."), adds "Its vendor page will stop working for anyone who has the link." while its vendor page answers (a form market after draft, a Google Form market once its results are published or it reached its market days), and opens on Cancel (bug 43).
 Everything the market kept beside itself is deleted with it (bug 47).
 Covered by:
+
 - `market-records-go-with-it.spec.ts`
 - `the-manage-market-dialog-holds-together.spec.ts`
 - `tier2.spec.ts`

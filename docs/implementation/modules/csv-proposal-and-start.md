@@ -37,10 +37,10 @@ A draft can be started from its Google Form's responses (E24).
 
 Three endpoints in [`back-end/app.py`](../../../back-end/app.py), the two that touch a market asking the import's row (Admin by default, through `_importing_market_document`) and refusing an archived one, as the import they prepare does; confirm asks the Assign row too when its plan changes the market's assignment rules, as the plan write does:
 
-| Endpoint | What it does |
-| --- | --- |
-| `GET /csv-proposal/typesafe` | whether hosted TypeSafe is configured, so the upload step can say so before anything is sent |
-| `POST /markets/:id/csv-proposal` | the proposal for this market and this file (`propose`), or why there is none; writes nothing and keeps nothing |
+| Endpoint                                 | What it does                                                                                                                                      |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /csv-proposal/typesafe`             | whether hosted TypeSafe is configured, so the upload step can say so before anything is sent                                                      |
+| `POST /markets/:id/csv-proposal`         | the proposal for this market and this file (`propose`), or why there is none; writes nothing and keeps nothing                                    |
 | `POST /markets/:id/csv-proposal/confirm` | the organizer's choices written: the plan facts, the form, the ceiling, the import mapping and the example file's columns (`confirm`), or nothing |
 
 The proposal says, for each column in the file's order, its fate (who applied, when, an essential question, a question of the organizer's own with its type, options, label, help text and key, or left out, and why) and what is worth a second look; and for the plan, the file's dates and the year they fit, its tiers best first, the ceiling on days per vendor a heading states, and where those disagree with a plan already there.

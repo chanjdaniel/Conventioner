@@ -56,6 +56,7 @@ A verdict can be given from the first application ([review](review.md)); Begin a
 5. The rail says "Applications are open on your vendor page: review them as they arrive. Every application is decided: Begin assignment.", or, while one is undecided, "… Finish deciding: …".
 
 Covered by:
+
 - `every-move-lands.spec.ts`
 - `market-journey.spec.ts`
 - `open-applications-offers-the-reviewers.spec.ts`
@@ -71,6 +72,7 @@ Covered by:
 The guard still stands on the move out of Draft: with no custom field, and a plan offering no dates, no tiers and fewer than 2 sections, the move is refused with "The application form asks nothing. …".
 Leaving Draft now needs market dates first, and a plan with dates always asks the available-dates question, so a plan that offers nothing is refused by the setup's first blocker instead: the rail reads "To open applications: This market has no market dates. Pick them on Market Setup's calendar."
 Covered by:
+
 - `phase-state-machine.spec.ts` ("a market whose plan offers nothing is blocked, and told to add dates")
 
 ## H4. Stop taking applications
@@ -81,6 +83,7 @@ The vendor page refuses a new application, or a change to one, in the words a cl
 The rail says "Your vendor page is not taking applications. …", and the page "This market is not taking applications. No new ones will arrive."
 The stop is recorded in [the market's history](../../implementation/data/history.md) under the organizer who made it, as taking applications again is.
 Covered by:
+
 - `returning-vendors-edit-their-answers.spec.ts`
 - `taking-applications-stops-and-resumes.spec.ts`
 - `vendors-see-their-application-after-close.spec.ts`
@@ -93,6 +96,7 @@ Begin assignment closes the form whether or not it was stopped.
 Back to review, from Assignment until results are published, returns the market to Applications with the form stopped, so it takes no application until the organizer chooses "Take applications again" ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)).
 A stop belongs to its stay in Applications: Reopen for editing clears it, so Open applications afterwards opens the form.
 Covered by:
+
 - `back-to-review.spec.ts`
 - `taking-applications-stops-and-resumes.spec.ts`
 

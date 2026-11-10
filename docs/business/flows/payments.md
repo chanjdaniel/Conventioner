@@ -47,6 +47,7 @@ The page fits a phone, so who still owes is read at the door on market day (T180
 
 A market that sets no prices says "Pricing is off for this market, so nobody owes anything for a table." with a link to Market Setup, whose Pricing card sets them ([a price follows the table](../rules/a-price-follows-the-table.md)); its vendors are still listed, with what they owe and what they paid.
 There a table owes nothing but an amount someone set by hand, so the reading follows each vendor's account, not the market (T153 review findings 8, 10 and 14):
+
 - a vendor owing nothing is in no payment state, and a payment of theirs is never "more than owed": its Difference reads what was paid, "Paid $35.00", untoned, as their Payment tab does;
 - a vendor owing an amount set by hand reads, tones and filters as on a priced market: "Owes $10.00", or "Paid $15.00 more than owed", a refund to issue;
 - a vendor owing nothing who was refunded beyond what they paid (a $10 payment and a $25 refund) owes the difference back to the market, so reads, tones and filters as owing: "Owes $15.00".
@@ -59,6 +60,7 @@ The vendor export does the same: its "Payment" filter is offered only where the 
 Before a run, with nobody seated and nothing paid, the page says nothing is assigned yet, as the Vendors page does.
 
 Covered by:
+
 - `back-end/tests/test_the_payments_page.py` (the sums, the sharing by tier and by date, a refund beyond what was paid owed back, and who may read it)
 - `exporting-a-payment-reminder.spec.ts` (the page's "Owes" against the export's)
 - `front-end/src/__tests__/paymentsPage.test.ts` (the filters, the sort, the search and when the caption is drawn)

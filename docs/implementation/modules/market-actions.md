@@ -108,6 +108,7 @@ One block per row, in the `ACTIONS` order: a new action is a block in its place 
 Default: Viewer, fixed.
 
 Asked by:
+
 - `GET /markets/:id` (`get_market_for_user`)
 - the applications list
 - the assignment
@@ -126,6 +127,7 @@ Asked by:
 Default: Viewer.
 
 Asked by:
+
 - `GET /markets/:id/history` (Manage market's History section, a vendor's drawer's History tab with `?vendor=`, and Assignment history with `?group=Assignment`)
 - `GET /markets/:id/permission-history` (the changes to the market's table)
 
@@ -134,6 +136,7 @@ Asked by:
 Default: Viewer.
 
 Asked by:
+
 - `GET /markets/:id/assignment-csv`
 - `POST /markets/:id/vendor-export` and its `/preview`
 
@@ -142,6 +145,7 @@ Asked by:
 Default: Editor.
 
 Asked by:
+
 - `PUT /markets/:id/name`
 - `PUT /markets/:id/plan`
 - `POST /floorplans/upload`
@@ -156,6 +160,7 @@ Asked by:
 Default: Editor.
 
 Asked by:
+
 - `PUT /markets/:id/application-form`
 - `PUT /markets/:id/rejection-rules`
 - `PUT /markets/:id/review-highlights`
@@ -165,6 +170,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - the three `/markets/:id/applications/import` routes (`_importing_market_document`)
 - the two `/markets/:id/csv-proposal` routes (`_importing_market_document`)
 
@@ -173,6 +179,7 @@ Asked by:
 Default: Editor, or a chosen reviewer [`review-when-chosen`](#be-chosen-as-a-reviewer-and-then-give-verdicts-and-follow-ups-review-when-chosen) lets be chosen.
 
 Asked by:
+
 - every review write through `_reviewer_on` (`verdict_refusal`):
   - a verdict
   - a selection's verdicts
@@ -188,6 +195,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - on top of the row above, `PUT .../review` and `POST .../verdicts` of each application already approved or rejected (`_change_refused`, then `review_application` and `review_selection`)
 - whether a write that judges the automatic rejections again returns a rule's rejection to open (`may_overturn`: the rules save, the form save, updating a vendor's info, an import)
 - on screen, One by one's "Approve instead" and "Reject instead" and a decided card's verdicts, and the All view's tick, Select all and drawer verdicts on a decided row, show by its answer
@@ -198,6 +206,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - `PUT /markets/:id/reviewers` (`choose_reviewers`, E38/F07/S02)
 - whom the market read offers as `reviewerCandidates` while the review is open
 - on screen, the Reviewers panel's Choose or Change reviewers shows by its answer ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md))
@@ -207,6 +216,7 @@ Asked by:
 Default: Viewer.
 
 Asked by:
+
 - under the giving row's checks, for a chosen reviewer (`refusal`, `role_refusal`)
 - `may_be_chosen`:
   - whom `PUT /markets/:id/reviewers` takes and the market read offers as `reviewerCandidates`
@@ -219,6 +229,7 @@ Nothing is recorded under it, so the history's kind filter leaves it out (`histo
 Default: Admin.
 
 Asked by:
+
 - `POST /markets/:id/transition`
 - the seeder's move
 
@@ -227,6 +238,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - `POST /markets/:id/applications-stopped` (E38/F04/S02)
 
 ### Publish results (`publish-results`)
@@ -234,6 +246,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - `POST /markets/:id/publish-results`
 - on screen, the Applications page draws Publish results by its answer
 
@@ -242,6 +255,7 @@ Asked by:
 Default: Editor.
 
 Asked by:
+
 - `POST /markets/:id/vendors`
 
 ### Write vendor notes (`write-vendor-notes`)
@@ -249,6 +263,7 @@ Asked by:
 Default: Editor.
 
 Asked by:
+
 - `PUT /markets/:id/vendor-notes/<email>` and its `request-handled`
 
 ### Update a vendor's info (`update-vendor-info`)
@@ -256,6 +271,7 @@ Asked by:
 Default: Editor.
 
 Asked by:
+
 - `PUT /markets/:id/applications/:app_id/answers` ([`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py)), in any phase
 - declining a possible Discord match, `POST /markets/:id/discord/possible-matches/:application_id/declined` (E46/F01/S05)
 
@@ -264,6 +280,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - the same write, asked after `update-vendor-info` when an answer it updates is one the solver reads (`SOLVER_RELEVANT_KEYS`) or one of the form's own questions a price group reads (`Groups.keys` in `back-end/pricing.py`, served as `priceReads`), before the answer is judged
 - on screen, the Update info dialog shows those answers read-only to whoever it refuses, with its sentence
 
@@ -274,6 +291,7 @@ It records no entry of its own, the write's is `update-vendor-info`'s.
 Default: Editor.
 
 Asked by:
+
 - `POST /markets/:id/assignment`
 - the three `/markets/:id/placements` writes
 - a plan write that changes the assignment rules
@@ -284,6 +302,7 @@ Asked by:
 Default: Editor.
 
 Asked by:
+
 - `POST /markets/:id/payments/<email>` ([payments](../data/payments.md))
 
 ### Change the amount owed (`change-owed`)
@@ -291,6 +310,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - `PUT` and `DELETE /markets/:id/payments/<email>/owed/<date>`
 - a free that takes the seat off what the vendor owes (`DELETE /markets/:id/placements` with `deductOwed`, which asks the Assignment row too)
 
@@ -299,6 +319,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - `POST /markets/:id/payments/<email>/refunds`
 - `PUT` and `DELETE /markets/:id/payment-entries/<id>`
 
@@ -307,6 +328,7 @@ Asked by:
 Default: Editor.
 
 Asked by:
+
 - `POST` and `DELETE /markets/:id/attendance`
 
 ### Connect Discord and give roles (`connect-discord`)
@@ -314,6 +336,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - the Discord card's routes ([the Discord connection](discord.md)):
   - `POST /markets/:id/discord/authorization`
   - `POST` and `DELETE /markets/:id/discord/connection`
@@ -327,6 +350,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - `/markets/:id/roles` writes on an Editor or a Viewer
 - taking any role, an Admin's or the owner's too, first, beside the Admin row
 - whom the market read names the organization's people to in `peopleWithAccess`, beside the organization's own people (E38/F12/S01)
@@ -336,6 +360,7 @@ Asked by:
 Default: Owner, fixed.
 
 Asked by:
+
 - `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given)
 - taking any role, an Editor's or a Viewer's too, first, beside the Editor-and-Viewer row
 
@@ -344,6 +369,7 @@ Asked by:
 Default: Owner, fixed.
 
 Asked by:
+
 - `DELETE /markets/:id`
 
 ### Change this table (`change-the-table`)
@@ -351,6 +377,7 @@ Asked by:
 Default: Owner, fixed.
 
 Asked by:
+
 - `PUT` and `DELETE /markets/:id/permissions/<action>` (`set_permission`, `reset_permission`)
 - `DELETE /markets/:id/permissions` (`reset_permissions`)
 

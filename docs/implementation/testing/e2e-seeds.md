@@ -85,12 +85,14 @@ Every helper works over the API through Playwright's `APIRequestContext`, whose 
 Each helper is one block, what it leaves and its notes, one note a line; a new helper is a block beside the helper it builds on, and a new item in its lists is one line beside the item it is most like, not at the list's end ([two features never share a line](../conventions/two-features-never-share-a-line.md)):
 
 **`seedDraftMarket()`** ([file](../../../front-end/e2e/helpers/seedDraftMarket.ts))
+
 - Leaves: a draft with no plan and no form
 - Notes:
   - what an organizer has the moment the new-market dialog closes
   - its review setup undecided, as a new market's is
 
 **`seedPhaseMarket()`, `seedFormlessPhaseMarket()`** ([file](../../../front-end/e2e/helpers/seedPhaseMarket.ts))
+
 - Leaves: a draft that may open applications: a complete plan, and a two-field form or none
 - Notes:
   - does not move the phase
@@ -99,6 +101,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - `transitionMarket()` and `seedApplicationWithStatus()` beside them
 
 **`decideReviewSetup()`** ([file](../../../front-end/e2e/helpers/decideReviewSetup.ts))
+
 - Leaves: a market's review setup decided through its own writes: nothing leads the card, and no automatic rejections (T206)
 - Notes:
   - every seed here that leaves a draft ready for Review calls it, `seedDraftMarket()` alone excepted
@@ -106,6 +109,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - a spec about the decisions asks its seed for `reviewSetupUndecided: true` instead
 
 **`seedMarketAtScale()`** ([file](../../../front-end/e2e/helpers/seedMarketAtScale.ts))
+
 - Leaves: a `csv` market of a real size, for the specs of long lists, `lists-at-scale.spec.ts` (T223), its 120 applications read in through the real import at `market-at-scale.test`, ten families of twelve so words find a family across pages, and every tenth with a preferred name:
   - the last 10 rejected through the endpoint a selection's verdict uses
   - by default the other 110 approved, the market in `assignment`, and an assignment by the real solver over "Example Gold Hall" of 31 tables and "Example Silver Hall" of 28, on one date, so 51 go unplaced
@@ -116,6 +120,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - it sets prices only with `pays`
 
 **`seedPeopleAtScale()`** ([file](../../../front-end/e2e/helpers/seedPeopleAtScale.ts))
+
 - Leaves: a `form` market in `applications` whose organization has 150 people, the case every people list and chooser must hold (T204):
   - 153 accounts, `person-001@people-at-scale.test` to `person-153@people-at-scale.test`, made by one `create_test_user.py --bulk`
   - an organization of its own, "Example People Org" and a unique number, owned by the seed owner, persons 001 to 003 its admins and 004 to 153 its members, added one at a time through its endpoints as Manage organization adds them
@@ -128,6 +133,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - makes a new organization and market on every call, some 180 requests, so a spec seeds it only in a test that needs it
 
 **`seedMarketWithVendors()`**
+
 - Leaves: a draft with a complete plan, a one-field form and two approved vendors
 - Notes:
   - the vendors are written into Mongo
@@ -136,6 +142,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - a CSV market unless `intakeMode` says `form`
 
 **`seedAssignedMarket()`** ([file](../../../front-end/e2e/helpers/seedAssignedMarket.ts))
+
 - Leaves: the above, walked to `assignment` and assigned
 - Notes:
   - `run: false` stops before the run
@@ -144,6 +151,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - `intakeMode: 'form'` makes its vendors apply on its page, so it has results to publish
 
 **`seedPublishedMarketWithAssignments()`**
+
 - Leaves: the above, in `market_days`, with its slug
 - Notes:
   - a `form` market publishes its results first
@@ -152,6 +160,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - `namePrefix` starts its name, and so its addresses, with a long one
 
 **`seedApplicantMarket()`** ([file](../../../front-end/e2e/helpers/seedApplicantMarket.ts))
+
 - Leaves, one of:
   - a `form` market in `applications`
   - a `csv` one left a draft for its first import
@@ -163,6 +172,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - `seedApplicationDoc()` and `createApplicantLoginChallenge()` write one and a known sign-in code into Mongo, the code planted after the request it stands in for, with none of its five tries used unless `attempts` says how many
 
 **`seedExampleMarket()`** ([file](../../../front-end/e2e/helpers/exampleCollegeMarket.ts))
+
 - Leaves: a draft on the vendors' own page, with two dates, Gold and Silver, and the Example College form's two choice questions
 - Notes:
   - the Example College fixture both `price-groups.spec.ts` and `the-price-answers.spec.ts` share
@@ -170,10 +180,12 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - `EXAMPLE_PRICING` and `EXAMPLE_GROUPS` give its three groups and "Everyone else", and it writes no prices itself
 
 **`seedApplication()`, `seedApprovedVendor()`** ([file](../../../front-end/e2e/helpers/seedApplication.ts))
+
 - Leaves: one application, written into Mongo
 - Notes: see below
 
 **`seedTheScreens()`** ([file](../../../front-end/e2e/helpers/seedTheScreens.ts))
+
 - Leaves: the stress markets the sweeps walk:
   - one in every phase
   - every market's review setup decided as it is made
@@ -198,6 +210,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - its applications go in with one `insertApplications()` per market
 
 **`seedFloorplanTemplate()`** ([file](../../../front-end/e2e/helpers/seedFloorplanTemplate.ts))
+
 - Leaves: a floorplan template of the given table types, saved by the signed-in user
 - Notes: a seeded template is the user's and outlives every market, so a spec finds its own by the unique name returned
 

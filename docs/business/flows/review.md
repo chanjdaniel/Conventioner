@@ -119,6 +119,7 @@ The card on screen is always the one the newest Next, verdict, refresh or load h
 Taking the follow-ups in or out while a hand-out is on its way asks again of the walk as it is now, so a card marked for follow-up and taken straight back in comes up again, not "Every application left is open with another reviewer." (T151).
 An advisory appears when the form asks only the essential questions, since every card then reads alike.
 Covered by:
+
 - `a-chosen-reviewer-decides.spec.ts`
 - `a-reviewer-holds-what-they-look-at.spec.ts`
 - `a-verdict-says-who.spec.ts`
@@ -169,6 +170,7 @@ A change that is written takes the undo on offer away ([undoing a verdict just g
 While the dialog is open A, R, S, N and Z do nothing, it closes when the view stops being visible or another market opens, and closing gives focus back to "Show N reviewed" with the same application up.
 A link naming a reviewed application, as a refused assignment's does, opens the dialog with the words set to its address and its row marked, however far down the list it lies; closing clears the words.
 Covered by:
+
 - `automatic-rejections.spec.ts` ("the preview lists the rows a rule will reject, an import rejects them, and a reviewer overturns one")
 - `changing-a-verdict-is-its-own-row.spec.ts`
 - `the-all-view.spec.ts` ("a verdict changes while the review is open, then the drawer only shows it")
@@ -243,6 +245,7 @@ Done, the close, Escape and the backdrop each close the dialog, with focus back 
 With the dialog open, A, R, S, N and Z do nothing to the card, and a key held for a card still arriving does not play behind it: a verdict says it did not count, and a Z leaves the undo on offer.
 The dialog closes when the view stops showing, when another market opens, and when the person may no longer change the form.
 Covered by:
+
 - `choosingWhatLeadsTheCard.test.ts`
 - `review-highlights.spec.ts`
 - `the-market-on-a-phone.spec.ts`
@@ -252,6 +255,7 @@ Covered by:
 **Status:** Works (read from the code as of E38/F04/S01 and E38/F07/S02: `market-journey.spec.ts`, `every-move-lands.spec.ts`, `open-applications-offers-the-reviewers.spec.ts`, `the-first-import-offers-the-reviewers.spec.ts`).
 An own-form market enters by "Open applications", which offers someone who may choose reviewers the choice in the same step, so the review is divided from the first application ([taking applications](taking-applications.md#h1-open-applications)); a Google Form market by its first import, confirmed and written, whose preview step offers the same choice of reviewers ([the import](import.md#h2a-first-import-everything-maps)), and which takes the move itself, so the import's done step reads "This market is now in Review: …" and leads to the review with "Go to the review" ([review needs an import](../rules/review-needs-an-import.md)).
 Covered by:
+
 - `every-move-lands.spec.ts`
 - `market-journey.spec.ts`
 - `open-applications-offers-the-reviewers.spec.ts`
@@ -269,6 +273,7 @@ From Review or Applications, "Begin assignment", disabled before the click with 
 
 It lands on the Assignment tab's Settings page, and the verdicts settle there; an own-form market's application page closes with it.
 Covered by:
+
 - `needs-a-follow-up.spec.ts`
 - `phase-state-machine.spec.ts`
 - `placement-pins.spec.ts`
@@ -278,6 +283,7 @@ Covered by:
 **Status:** Works (read from the code as of E38/F04/S03: `a-late-export.spec.ts`).
 On the Google Form path, More…, "Redo import": the import reads the whole responses file again, and the market stays in Review ([H2j](import.md#h2j-import-after-review-has-begun)).
 Covered by:
+
 - `a-late-export.spec.ts`
 
 Publishing the results, I7, is a step of the assignment: [the assignment and its result](assignment-and-result.md#i7-publish-results).

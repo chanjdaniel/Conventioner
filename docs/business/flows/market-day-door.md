@@ -50,6 +50,7 @@ Disabled before the click, with the rail naming the first blocker:
 
 The Attendance tab is on the bar in every phase; before publishing it says "Opens when the market is published."
 Covered by:
+
 - `phase-rail.spec.ts`
 - `phase-state-machine.spec.ts`
 - `results-wait-for-the-allocation.spec.ts`
@@ -70,6 +71,7 @@ A scanned code is used once: the page reloaded checks nobody in again.
 The seats shown are the stored assignment, so a vendor placed, swapped or freed by hand is sent where they were put (bug 1).
 It works alike on a Google Form market, whose vendor page opens once its results are published ([the Google Form path](the-google-form-path.md)).
 Covered by:
+
 - `checkin.spec.ts`
 
 ## K3. Type the door code
@@ -84,6 +86,7 @@ Covered by:
 A wrong code says "That isn't this market's door code. Check it, or ask at the door.", and so does a code the organizer has replaced (K5's "New code"); a scanned old poster says the same.
 Only today's seat offers a check-in; nothing invites a vendor to check in for another day, since a check-in is how the organizer knows a vendor is there on the day.
 Covered by:
+
 - `checkin.spec.ts`
 
 ## K4. Undo a check-in
@@ -91,6 +94,7 @@ Covered by:
 **Status:** Works (read from the code as of T202).
 "Undo" beside "Checked in at <time>" takes it back, with no door code, and offers "Check in" again, on the day itself only, so a vendor never erases a past day's attendance; the organizer can undo one at the door too (K5).
 Covered by:
+
 - `checkin.spec.ts`
 - `the-door-on-market-day.spec.ts`
 
@@ -112,6 +116,7 @@ Covered by:
 It lists everyone expected on the day, so it shows who is missing; "Nobody is assigned on this date." on a date with nobody.
 It works at a phone's width, as only the other organizer screens that fit a phone do ([attendance and the door](../../implementation/modules/attendance-and-door.md#sharp-edges)), and there its rows keep a gutter at both sides rather than running to the card's edges (T15).
 Covered by:
+
 - `a-seat-and-an-entry-open-the-drawer.spec.ts`
 - `a-viewer-at-the-door-reads-why.spec.ts`
 - `checkin.spec.ts`

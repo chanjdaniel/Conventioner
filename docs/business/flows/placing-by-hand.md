@@ -71,6 +71,7 @@ Every change goes through [the one writer of placements](../../implementation/mo
 A seat already taken is refused, naming its holder: "<email> already holds <table> (<size>) on <date>. Free that seat first, or swap the two vendors." (bug 32).
 A seat held by someone not approved is marked "Not approved" on the Assignments page and in the drawer, and the next run keeps them there.
 Covered by:
+
 - `adding-a-vendor.spec.ts`
 - `override-warnings.spec.ts`
 - `placement-edit.spec.ts`
@@ -85,6 +86,7 @@ Swapping: "Swap them with" ("Search by name, business, email or table…") any o
 "Nobody else holds a table on this date, so there is nobody to trade with." when nobody else is seated.
 The same warnings as J6 apply to both vendors, including a change of table size (bugs 18 and 32).
 Covered by:
+
 - `a-searchable-vendor-picker.spec.ts`
 - `a-seat-and-an-entry-open-the-drawer.spec.ts`
 - `override-warnings.spec.ts`
@@ -117,6 +119,7 @@ A seat taken by someone else meanwhile is refused with the server's reason in th
 Any change to the tables, a placement, a move, a swap, a free or a run, that lands while someone else's change to them is being saved is refused, and none of it is saved: "Someone else changed this market's tables while this change was being saved, so it was not saved. Reload the tables and try again." ([placements](../../implementation/modules/placements.md)).
 The page does not read the tables again by itself, so reloading shows what the other change did.
 Covered by:
+
 - `moving-a-vendor-to-an-empty-seat.spec.ts`
 - `placement-edit.spec.ts`
 
@@ -127,6 +130,7 @@ In the same dialog, "Free this seat" ("Freeing this seat leaves them with no tab
 Freeing never changes what they owe by itself: the day keeps its line on their [Payment tab](vendor-drawer.md), still owed.
 Whoever may change the amount owed is also asked, naming what the day's line owes, "Also remove its $15.00 from what Alice owes? (Cancelled before the deadline: a refund may be due.)", unticked, and not asked where it owes nothing; ticked, the day owes $0 once freed, so a vendor who paid reads paid more than owed (E44/F01/S02).
 Covered by:
+
 - `changing-owed-and-paid.spec.ts`
 - `placement-edit.spec.ts`
 
@@ -135,6 +139,7 @@ Covered by:
 **Status:** Works (walked live).
 Every hand assignment is a pin; on the Settings page, "Allocate tables again" says "Keeps your N hand assignments; allocates tables for everyone else again." (or "Allocates tables for everyone again." with none) and seats pins first.
 Covered by:
+
 - `placement-pins.spec.ts`
 - `placing-someone-not-approved.spec.ts`
 
@@ -146,6 +151,7 @@ The setup settles on leaving Draft ([the setup settles on leaving draft](../rule
 It blocks Begin assignment ([I5](review.md#i5-begin-assignment)) until moved or freed.
 In Assignment its table is marked "No longer in the plan - move or free this vendor", the vendor's drawer says "This table is no longer in the plan. Move them or free the seat before publishing.", and Publish market is refused until it is re-placed or freed.
 Covered by:
+
 - `orphaned-pin-in-assignment.spec.ts`
 - `placement-pins.spec.ts`
 
@@ -164,6 +170,7 @@ A vendor's drawer holds their placements on its History tab, among everything el
 Each entry leads with the market day it is about, "Every market day" on a run and on the rules, then says who made the change and what changed, naming each vendor by name with their email beside, and when: "e2e@example.com assigned <vendor> at Front 10 (Full Table)" (the table alone where no table choice was recorded), "e2e@example.com moved <vendor> from Back 1 to Front 10 (Full Table)" when they had a table that day, "e2e@example.com swapped <vendor> and <vendor> - now at Front 10 and Back 1", "e2e@example.com freed Back 1, leaving <vendor> with no table"; a solver run is one entry, "e2e@example.com allocated tables: N assignments written, M pins preserved", and names nobody, so it is in no vendor's tab.
 A move recorded before the history kept the table left reads as an assignment.
 Covered by:
+
 - `the-assignment-history.spec.ts`
 - `the-vendors-history.spec.ts`
 

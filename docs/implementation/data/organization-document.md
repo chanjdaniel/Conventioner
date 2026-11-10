@@ -62,15 +62,15 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 
 ## The organization
 
-| Field | What it is |
-| --- | --- |
-| `id` | a UUID, the primary key; the name is a display field |
-| `name` | unique among organizations: creating a second of one name is refused |
-| `owner` | the user id of its one owner |
-| `admins`, `members` | user ids; the owner is in neither (`validate_owner_not_in_other_roles`); an admin cannot be added as a member, but a member made an admin stays in `members` too |
-| `markets` | the ids of its markets, added when a market is created and pulled when one is deleted |
-| `theme` | carried, never applied |
-| `default_permissions` | the rows of the table it sets for the markets it will hold: row id to `{role}`, absent when it sets none ([its default table](#its-default-table)) |
+| Field                 | What it is                                                                                                                                                       |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                  | a UUID, the primary key; the name is a display field                                                                                                             |
+| `name`                | unique among organizations: creating a second of one name is refused                                                                                             |
+| `owner`               | the user id of its one owner                                                                                                                                     |
+| `admins`, `members`   | user ids; the owner is in neither (`validate_owner_not_in_other_roles`); an admin cannot be added as a member, but a member made an admin stays in `members` too |
+| `markets`             | the ids of its markets, added when a market is created and pulled when one is deleted                                                                            |
+| `theme`               | carried, never applied                                                                                                                                           |
+| `default_permissions` | the rows of the table it sets for the markets it will hold: row id to `{role}`, absent when it sets none ([its default table](#its-default-table))               |
 
 Every key is one word but `default_permissions`, which no other spelling of has ever been written, so the spelling question the market document has does not arise.
 Membership is recorded on both sides: each user's `organizations` lists the ids of the organizations they are in, kept in step by every membership write ([users and email](users-and-email.md)).

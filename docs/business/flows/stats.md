@@ -41,6 +41,7 @@ The page fits a phone, so how the day stands is read at the market (T180): its h
 3. A zero whose filter would list nothing, "0 table-days free", "0 vendors unassigned" or "$0.00 still owed", is told but not linked, as the Assignments page's counts cannot be chosen at zero.
 
 Covered by:
+
 - `test_the_stats_headlines.py`
 - `the-market-on-a-phone.spec.ts` ("Stats", on a phone and at a desk: the headlines, the switch and the cards inside the window, a headline's link landing on Payments at the window's width, and a Viewer's page; "Stats keeps its headlines and cards inside the frame at 320")
 - `the-stats-headlines.spec.ts` ("each headline is the figure of the page it links to, opened on its filter", "placements are told once an assignment is stored, and money only with prices")
@@ -56,6 +57,7 @@ Covered by:
    The server keeps no time zone for a market, so it sends only the time each applied, never who, and the page makes the days.
 
 Covered by:
+
 - `the-stats-tab.spec.ts` ("the Stats tab counts who applied as the Applications tab does")
 
 ## N3. See what they answered
@@ -74,6 +76,7 @@ Covered by:
 A row leads nowhere: the All view filters by status, not by an answer.
 The counts come in the page's one answer, read by [`answerCounts.ts`](../../../front-end/src/utils/answerCounts.ts); they read the answers as the organizer does, an organizer's [update of an answer](../rules/an-update-is-kept-beside-the-vendors-answer.md) counted in its place.
 Covered by:
+
 - `test_the_stats_tab.py`
 - `the-stats-tab.spec.ts` ("a chart per choice question counts each option, groups "Other", and narrows to the approved and the assigned")
 

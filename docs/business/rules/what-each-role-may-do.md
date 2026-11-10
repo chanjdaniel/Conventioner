@@ -149,13 +149,13 @@ See [the organization document](../../implementation/data/organization-document.
 
 ## Who signs in, and how
 
-| Person | Signs in how | What they do |
-| --- | --- | --- |
-| Organizer | Email and password, or an emailed sign-in code | Runs markets, by the role each market gives them |
-| Organization owner or admin | As an organizer | Runs every market of their organization as its Admin |
-| Organization member | As an organizer | Sees every market of their organization as a Viewer |
-| Vendor applying online | A 6-digit code emailed per market; no account | Applies to a market whose vendors apply on its own page, and reads their application ([a vendor signs in before they have applied](a-vendor-signs-in-before-applying.md)) |
-| Vendor on market day | Nothing: types the address they applied with | Looks up their table and checks in |
+| Person                      | Signs in how                                   | What they do                                                                                                                                                              |
+| --------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Organizer                   | Email and password, or an emailed sign-in code | Runs markets, by the role each market gives them                                                                                                                          |
+| Organization owner or admin | As an organizer                                | Runs every market of their organization as its Admin                                                                                                                      |
+| Organization member         | As an organizer                                | Sees every market of their organization as a Viewer                                                                                                                       |
+| Vendor applying online      | A 6-digit code emailed per market; no account  | Applies to a market whose vendors apply on its own page, and reads their application ([a vendor signs in before they have applied](a-vendor-signs-in-before-applying.md)) |
+| Vendor on market day        | Nothing: types the address they applied with   | Looks up their table and checks in                                                                                                                                        |
 
 ## Where it is kept
 

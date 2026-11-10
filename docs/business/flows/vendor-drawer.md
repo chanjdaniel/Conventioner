@@ -86,6 +86,7 @@ On Attendance, opening the drawer never checks anyone in, and a first note added
 A market's vendors are read once, for the Vendors list and the drawer alike (`useVendorDetails` in [`front-end/src/utils/vendorDetails.ts`](../../../front-end/src/utils/vendorDetails.ts)): every application, decided or not, with its seats, reasons and overrides; a placement changed on the Assignments page reads them again.
 The applications stand on their own read: when the server cannot say where vendors sit, the drawer still shows the answers, says why in red on every tab (a refusal's own sentence, or which kind of failure it was), and offers no date cards, and the Vendors list says nothing of who is placed ([J11](vendors.md#j11-browse-by-vendor)); every vendor keeps their name, read from their application (T123).
 Covered by:
+
 - `a-seat-and-an-entry-open-the-drawer.spec.ts`
 - `a-stored-assignment-reads-with-an-answer-missing.spec.ts`
 - `back-closes-the-drawer.spec.ts`

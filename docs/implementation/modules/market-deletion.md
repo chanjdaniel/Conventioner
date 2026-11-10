@@ -26,11 +26,11 @@ sources:
 
 ## Its interface
 
-| Name | What it does |
-| --- | --- |
-| `delete_market_and_records(markets, market_id)` | deletes the market's applications, check-ins, applicant sign-in codes and remembered sign-ins, history, vendor notes, its vendors' payments and amounts owed, and its floorplan images, then the market; returns the market's `DeleteResult` |
-| `record_organization_deletion(organization, markets, actor_email)` | writes one `organization_deleted` entry to `deletion_trail`, and raises rather than swallow a failure |
-| `entries_for_organization(org_id)` | every entry naming an organization; read-only, and nothing removes one; no caller yet |
+| Name                                                               | What it does                                                                                                                                                                                                                                 |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `delete_market_and_records(markets, market_id)`                    | deletes the market's applications, check-ins, applicant sign-in codes and remembered sign-ins, history, vendor notes, its vendors' payments and amounts owed, and its floorplan images, then the market; returns the market's `DeleteResult` |
+| `record_organization_deletion(organization, markets, actor_email)` | writes one `organization_deleted` entry to `deletion_trail`, and raises rather than swallow a failure                                                                                                                                        |
+| `entries_for_organization(org_id)`                                 | every entry naming an organization; read-only, and nothing removes one; no caller yet                                                                                                                                                        |
 
 ## Sharp edges
 
@@ -40,16 +40,16 @@ Deleting the market document alone once left every vendor's name, email and answ
 **A new collection keyed by `market_id` belongs here**: one line in one place, rather than a third door that forgets it.
 A record keyed by the market another way belongs here too, as the floorplan images are, by their metadata.
 
-| Record | Collection | Deleted by |
-| --- | --- | --- |
-| applications | `applications` | `delete_applications_for_market` ([the application document](../data/application-document.md)) |
-| check-ins | `attendance` | `delete_attendance_for_market` ([attendance and the door](attendance-and-door.md)) |
-| applicant sign-in codes | `applicant_login_challenges` | `delete_challenges_for_market` ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md)) |
-| vendors' remembered sign-ins | `vendor_remembered_sign_ins` | `delete_for_market` in `back-end/remembered_sign_ins.py` ([the cookies](../conventions/security-invariants.md#the-cookies)) |
-| its history, the placement trail among it | `history` | `delete_for_market` in [`back-end/history.py`](../../../back-end/history.py) ([the market's history](../data/history.md)) |
-| the organizer's vendor notes | `vendor_notes` | `delete_for_market` in `back-end/vendor_notes.py` |
-| its vendors' payments and amounts owed | `payments`, `amounts_owed` | `delete_for_market` in `back-end/payments.py` ([payments](../data/payments.md)) |
-| its floorplan images | the GridFS bucket `floorplan_images`: each file naming the market in `metadata.marketId`, and its chunks | `delete_images_for_market` in [`back-end/services/gridfs_service.py`](../../../back-end/services/gridfs_service.py) ([floorplan placement](floorplan-placement.md)) |
+| Record                                    | Collection                                                                                               | Deleted by                                                                                                                                                          |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| applications                              | `applications`                                                                                           | `delete_applications_for_market` ([the application document](../data/application-document.md))                                                                      |
+| check-ins                                 | `attendance`                                                                                             | `delete_attendance_for_market` ([attendance and the door](attendance-and-door.md))                                                                                  |
+| applicant sign-in codes                   | `applicant_login_challenges`                                                                             | `delete_challenges_for_market` ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md))                                     |
+| vendors' remembered sign-ins              | `vendor_remembered_sign_ins`                                                                             | `delete_for_market` in `back-end/remembered_sign_ins.py` ([the cookies](../conventions/security-invariants.md#the-cookies))                                         |
+| its history, the placement trail among it | `history`                                                                                                | `delete_for_market` in [`back-end/history.py`](../../../back-end/history.py) ([the market's history](../data/history.md))                                           |
+| the organizer's vendor notes              | `vendor_notes`                                                                                           | `delete_for_market` in `back-end/vendor_notes.py`                                                                                                                   |
+| its vendors' payments and amounts owed    | `payments`, `amounts_owed`                                                                               | `delete_for_market` in `back-end/payments.py` ([payments](../data/payments.md))                                                                                     |
+| its floorplan images                      | the GridFS bucket `floorplan_images`: each file naming the market in `metadata.marketId`, and its chunks | `delete_images_for_market` in [`back-end/services/gridfs_service.py`](../../../back-end/services/gridfs_service.py) ([floorplan placement](floorplan-placement.md)) |
 
 **The records go first and the market last**, so a failure part-way leaves the market there to delete again, rather than records that nothing reaches.
 

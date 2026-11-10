@@ -23,13 +23,13 @@ The vendor's request itself is not here: it is their answer on the application, 
 
 ## Its interface
 
-| Function | What it does |
-| --- | --- |
-| `write_note(market_id, vendor_email, text, by)` | replaces the organizer's note, stamping who and when, and returns the note as it was and as it is |
-| `mark_request_handled(market_id, vendor_email, handled, by)` | sets the mark, or clears it, and returns whether it was set |
-| `replace_sheet_notes(market_id, by_vendor)` | the import's write: every vendor's "From your sheet" line replaced, and a vendor the file no longer has a line for loses theirs |
-| `notes_for_market(market_id)` | every vendor's entry on one market, by lowercased address, camelCased for the wire |
-| `delete_for_market(market_id)` | the market's notes, taken with the market ([market deletion](market-deletion.md)) |
+| Function                                                     | What it does                                                                                                                    |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `write_note(market_id, vendor_email, text, by)`              | replaces the organizer's note, stamping who and when, and returns the note as it was and as it is                               |
+| `mark_request_handled(market_id, vendor_email, handled, by)` | sets the mark, or clears it, and returns whether it was set                                                                     |
+| `replace_sheet_notes(market_id, by_vendor)`                  | the import's write: every vendor's "From your sheet" line replaced, and a vendor the file no longer has a line for loses theirs |
+| `notes_for_market(market_id)`                                | every vendor's entry on one market, by lowercased address, camelCased for the wire                                              |
+| `delete_for_market(market_id)`                               | the market's notes, taken with the market ([market deletion](market-deletion.md))                                               |
 
 Three routes in [`back-end/app.py`](../../../back-end/app.py) serve it: `GET /markets/:id/vendor-notes` (VIEWER), `PUT /markets/:id/vendor-notes/:email` with `{note}` and `PUT .../request-handled` with `{handled}` (both EDITOR, through the change loader, so an archived market refuses them).
 The read joins each vendor's request in from their application, so the screens get both kinds by address, each under its own key.

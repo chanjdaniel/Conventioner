@@ -18,16 +18,16 @@ Every flow carries one status, and says whether it was walked live or read from 
 "Walked live" means on the 2026-09-30 usage run, unless the re-walk of 2026-10-03 is named; a status a later epic changed is read from the code and names the code and specs it was read from.
 A bug the status once named is cited where its fix changed what a step says.
 
-| Status | Meaning |
-| --- | --- |
-| **Works** | Does what it should. |
-| **Works, with bug N** | Completes, but part of the result is wrong. |
-| **Blocked by bug N** | Intended and built, but a bug stops it; the flow describes the intended behaviour and then what happens. |
-| **Beta** | Reachable and labelled experimental. |
-| **No screen** | Built in the back end, reachable only through the API or a URL nobody links to. |
-| **Stubbed** | Deliberately switched off until something else exists. |
-| **Not offered** | Refused by a product rule, which the flow names. |
-| **Planned** | Intended, not built; the backlog item is named. |
+| Status                | Meaning                                                                                                  |
+| --------------------- | -------------------------------------------------------------------------------------------------------- |
+| **Works**             | Does what it should.                                                                                     |
+| **Works, with bug N** | Completes, but part of the result is wrong.                                                              |
+| **Blocked by bug N**  | Intended and built, but a bug stops it; the flow describes the intended behaviour and then what happens. |
+| **Beta**              | Reachable and labelled experimental.                                                                     |
+| **No screen**         | Built in the back end, reachable only through the API or a URL nobody links to.                          |
+| **Stubbed**           | Deliberately switched off until something else exists.                                                   |
+| **Not offered**       | Refused by a product rule, which the flow names.                                                         |
+| **Planned**           | Intended, not built; the backlog item is named.                                                          |
 
 ## Index
 
@@ -65,13 +65,13 @@ A bug the status once named is cited where its fix changed what a step says.
 "MVP ends at 'assignment computed'; the organizer communicates results themselves."
 The Send offers button already exists and is always refused ([M1](#m1-the-solver-records-who-was-assigned)).
 
-| Step | Flows |
-| --- | --- |
-| As P3 through assignment | P3 |
-| The solver records each approved application as assigned or unassigned | M1 |
-| Send offers | M2 |
-| Vendors are told and accept or refuse | M3, M4 |
-| Publish, market day, end | K, L |
+| Step                                                                   | Flows  |
+| ---------------------------------------------------------------------- | ------ |
+| As P3 through assignment                                               | P3     |
+| The solver records each approved application as assigned or unassigned | M1     |
+| Send offers                                                            | M2     |
+| Vendors are told and accept or refuse                                  | M3, M4 |
+| Publish, market day, end                                               | K, L   |
 
 ### K6. Send offers instead of publishing
 
@@ -115,14 +115,14 @@ Before any is sent, E05 requires a decision on imported addresses, which nobody 
 Everything intended or built that an organizer or vendor cannot complete through the product today.
 No bug blocks a flow any more: the fourteen rows that once stood here for bugs were cleared by E26.
 
-| Flow | Kind | Why | What reaching it takes |
-| --- | --- | --- | --- |
-| [A5](business/flows/accounts.md#a5-delete-my-account) Delete my account | No screen | API only | A screen |
-| [B6](business/flows/organizations.md#b6-transfer-ownership) Transfer an organization | No screen | API only | A screen |
-| [F6](business/flows/form-tab.md#f6-table-type-preference) Table type preference | Stubbed | One table type in MVP | Assignment that uses several table types |
-| [E6](business/flows/planning.md#e6-sections-from-a-floorplan) Floorplan sections | Beta | Experimental | Real-gesture test coverage; several table types in assignment |
-| M1 to M4 Offers and outcome mail | Planned | E05 | The epic |
-| M5 Public market page | Stubbed | E05 | The epic |
+| Flow                                                                                 | Kind      | Why                   | What reaching it takes                                        |
+| ------------------------------------------------------------------------------------ | --------- | --------------------- | ------------------------------------------------------------- |
+| [A5](business/flows/accounts.md#a5-delete-my-account) Delete my account              | No screen | API only              | A screen                                                      |
+| [B6](business/flows/organizations.md#b6-transfer-ownership) Transfer an organization | No screen | API only              | A screen                                                      |
+| [F6](business/flows/form-tab.md#f6-table-type-preference) Table type preference      | Stubbed   | One table type in MVP | Assignment that uses several table types                      |
+| [E6](business/flows/planning.md#e6-sections-from-a-floorplan) Floorplan sections     | Beta      | Experimental          | Real-gesture test coverage; several table types in assignment |
+| M1 to M4 Offers and outcome mail                                                     | Planned   | E05                   | The epic                                                      |
+| M5 Public market page                                                                | Stubbed   | E05                   | The epic                                                      |
 
 ## Bugs found while exploring
 

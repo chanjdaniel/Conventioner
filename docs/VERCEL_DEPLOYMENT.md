@@ -40,13 +40,13 @@ MongoDB Atlas is not in Vercel's Marketplace; it is set up in Atlas directly.
 
 Both import this repository from GitHub, each with its own root directory:
 
-| | Front end | Back end |
-| --- | --- | --- |
-| Root directory | `front-end` | `back-end` |
-| Framework preset | Vite (build `npm run build`, output `dist`) | Python (install `pip install -r requirements.txt`) |
-| Runtime | Node 24.x (build only), from `front-end/package.json`'s `engines` | Python 3.12, from `back-end/.python-version` |
+|                    | Front end                                                                                                                                                                                                                                     | Back end                                                                                                                                                                                                                                 |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Root directory     | `front-end`                                                                                                                                                                                                                                   | `back-end`                                                                                                                                                                                                                               |
+| Framework preset   | Vite (build `npm run build`, output `dist`)                                                                                                                                                                                                   | Python (install `pip install -r requirements.txt`)                                                                                                                                                                                       |
+| Runtime            | Node 24.x (build only), from `front-end/package.json`'s `engines`                                                                                                                                                                             | Python 3.12, from `back-end/.python-version`                                                                                                                                                                                             |
 | Config in the repo | [`front-end/vercel.json`](../front-end/vercel.json): every path that is not a file serves `index.html`, so deep links work, and every path carries the [security headers](implementation/conventions/security-invariants.md#security-headers) | [`back-end/vercel.json`](../back-end/vercel.json): Fluid compute on, so a request may run for 300 seconds, the Hobby plan's default and maximum, which a ["Give roles" run](implementation/modules/discord.md#giving-the-role) relies on |
-| Custom domain | `conventioner.io` | `api.conventioner.io` |
+| Custom domain      | `conventioner.io`                                                                                                                                                                                                                             | `api.conventioner.io`                                                                                                                                                                                                                    |
 
 The back end's Functions settings keep the Default Max Duration at its 300 seconds: `back-end/vercel.json` sets no `maxDuration`, so a lower default there would end a "Give roles" run, which asks Discord for up to 50 seconds, before it writes what it did.
 
@@ -72,7 +72,7 @@ That address is what organizer signup reports to Google as reCAPTCHA's `remoteip
 Do not raise it above the number of proxies you actually own: `X-Forwarded-For` is written by the caller, and a hop you do not own is a hop the caller fills in.
 
 The three secrets above are written as `<...>` on purpose, and pasting one of those brackets in verbatim is refused: **every value this repository has printed where a secret goes is rejected by name**, along with anything shaped like a placeholder (a run of x's, a `your-` prefix).
-This guide used to print `RESEND_API_KEY=your-resend-api-key` and `RECAPTCHA_SECRET_KEY=6Lcxxxxx...` as if they were fill-in values, and a placeholder is *truthy* - so a deployment that copied one passed the boot check with a secret that cannot do its job, and the failure landed later, as a 500 that named nothing.
+This guide used to print `RESEND_API_KEY=your-resend-api-key` and `RECAPTCHA_SECRET_KEY=6Lcxxxxx...` as if they were fill-in values, and a placeholder is _truthy_ - so a deployment that copied one passed the boot check with a secret that cannot do its job, and the failure landed later, as a 500 that named nothing.
 
 `SECRET_KEY` must be **generated**, not typed: it refuses the old `TEMP_KEY_CHANGE_IN_PRODUCTION` fallback and every placeholder this repo has published, because each is readable by anyone who can read it.
 It also refuses anything under 32 characters.

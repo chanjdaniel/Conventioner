@@ -17,13 +17,13 @@ sources:
 
 ## Its interface
 
-| Name | What it is |
-| --- | --- |
-| `PhaseEntry` ([`back-end/datatypes.py`](../../../back-end/datatypes.py)) | one entry, `{phase, enteredAt, by}`: the phase entered, when, and who moved it there |
-| `phase_entry(phase, by)` | a new entry, dated now |
-| `push_entries(document, to_phase, by)` | the `$push` that records a move |
-| `phases_reached(document, checked_in)` | `PhasesReached`: the phases the market is known to have entered, and `complete`, whether that is the whole story |
-| `PhasesReached.ran` | whether it reached `market_days`, the phase vendors check in in, on their vendor page |
+| Name                                                                     | What it is                                                                                                       |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `PhaseEntry` ([`back-end/datatypes.py`](../../../back-end/datatypes.py)) | one entry, `{phase, enteredAt, by}`: the phase entered, when, and who moved it there                             |
+| `phase_entry(phase, by)`                                                 | a new entry, dated now                                                                                           |
+| `push_entries(document, to_phase, by)`                                   | the `$push` that records a move                                                                                  |
+| `phases_reached(document, checked_in)`                                   | `PhasesReached`: the phases the market is known to have entered, and `complete`, whether that is the whole story |
+| `PhasesReached.ran`                                                      | whether it reached `market_days`, the phase vendors check in in, on their vendor page                            |
 
 `GET /markets/:id` serves the answer as `phasesReached` and `phaseRecordComplete`.
 

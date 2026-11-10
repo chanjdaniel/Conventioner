@@ -72,6 +72,7 @@ Its cost is that a first import is the least guided of the three.
 **Status:** Works (re-walked live on 2026-10-03; where it is offered read from the code as of E31/F03/S04 and E38/F04: `back-end/csv_import.py`, `front-end/src/utils/importPhase.ts`, `a-late-export.spec.ts`).
 Each case below is one of its branches.
 Covered by:
+
 - `a-late-export.spec.ts`
 - `automatic-rejections.spec.ts`
 - `csv-import.spec.ts`
@@ -143,6 +144,7 @@ Refused when it would leave the form asking nothing, which could not enter Revie
 Once anything is imported the questions are fixed, and the dead end says so in the lock's own words ("The questions are fixed: …") instead of offering the dialog.
 How it works is [the form amendment](../../implementation/modules/form-amendment.md).
 Covered by:
+
 - `form-amendment.spec.ts`
 
 ### H2f. Stop asking a preference the form never asked

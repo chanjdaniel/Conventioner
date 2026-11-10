@@ -51,14 +51,14 @@ The secure state is the one a forgetful operator gets; anything less secure has 
 
 The back end refuses to boot without six things, all checked by [`check_public_endpoint_defenses()`](../../../back-end/app.py) and named together in one refusal, so an operator does not meet them one redeploy at a time:
 
-| Variable | Read by | Defends |
-| --- | --- | --- |
-| `SECRET_KEY` | `utils/secret_key.py` | the session cookie: without it any organizer's session can be forged |
-| `RECAPTCHA_SECRET_KEY` | [`utils/captcha.py`](../../../back-end/utils/captcha.py) | `POST /register`, the public signup |
-| `CORS_ALLOWED_ORIGINS` | [`utils/cors.py`](../../../back-end/utils/cors.py) | which websites may spend the organizer's `SameSite=None` cookie, and which origins a browser's write is taken from ([where a write comes from](#where-a-write-comes-from)); `*` is refused, and so is an entry that is not an origin |
-| `RESEND_API_KEY` | [`utils/email.py`](../../../back-end/utils/email.py) | the mail that carries every verification link, reset link and sign-in code |
-| `SESSION_TYPE` | [`utils/session_storage.py`](../../../back-end/utils/session_storage.py) | where the session is kept: `null` (the signed cookie, a serverless host) or `filesystem` (a container or VM), with no default |
-| `TRUSTED_PROXY_HOPS` | [`utils/proxy.py`](../../../back-end/utils/proxy.py) | the address reCAPTCHA scores a signup on, and the caller the applicant's and the organizer's sign-in limits count |
+| Variable               | Read by                                                                  | Defends                                                                                                                                                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SECRET_KEY`           | `utils/secret_key.py`                                                    | the session cookie: without it any organizer's session can be forged                                                                                                                                                                 |
+| `RECAPTCHA_SECRET_KEY` | [`utils/captcha.py`](../../../back-end/utils/captcha.py)                 | `POST /register`, the public signup                                                                                                                                                                                                  |
+| `CORS_ALLOWED_ORIGINS` | [`utils/cors.py`](../../../back-end/utils/cors.py)                       | which websites may spend the organizer's `SameSite=None` cookie, and which origins a browser's write is taken from ([where a write comes from](#where-a-write-comes-from)); `*` is refused, and so is an entry that is not an origin |
+| `RESEND_API_KEY`       | [`utils/email.py`](../../../back-end/utils/email.py)                     | the mail that carries every verification link, reset link and sign-in code                                                                                                                                                           |
+| `SESSION_TYPE`         | [`utils/session_storage.py`](../../../back-end/utils/session_storage.py) | where the session is kept: `null` (the signed cookie, a serverless host) or `filesystem` (a container or VM), with no default                                                                                                        |
+| `TRUSTED_PROXY_HOPS`   | [`utils/proxy.py`](../../../back-end/utils/proxy.py)                     | the address reCAPTCHA scores a signup on, and the caller the applicant's and the organizer's sign-in limits count                                                                                                                    |
 
 Three fail silently when unset (the captcha passes everybody, a forgeable session, a credentialed policy for every origin); the mail key and the session store fail loudly but name nothing; the hop count fails more quietly than any, showing only in a reCAPTCHA score.
 What each one is, and what an unset one would do, is the deployment's checklist in [RELEASING.md](../../RELEASING.md#pre-deploy-required-production-environment); **keep that table in step with the check**, because a deploy doc that is wrong is worse than one that is missing: it will be trusted.
@@ -127,12 +127,12 @@ Vite's `loadEnv` reads `front-end/.env` and never `.env.example`, so `cp .env.ex
 Conventioner's repository is public, so a branch is published the moment it is pushed: a check on GitHub can stop a merge, never the exposure, and taking applicants' details back out once took a rewrite of the whole history.
 So the check runs on the PC, before anything leaves it, and CI is only the backstop.
 
-| Where | What it reads |
-| --- | --- |
-| [`.githooks/pre-commit`](../../../.githooks/pre-commit) | the staged lines, so an ignored export added with `git add -f`, or its rows pasted next to a tracked file, is refused |
-| [`.githooks/pre-push`](../../../.githooks/pre-push) | each commit the push sends that no remote-tracking branch already has, its lines and its message: the second net, for a commit made with the hooks skipped |
-| the gate's [`nm-test.sh`](../../../scripts/nm-test.sh) | each commit since `origin/dev`, then every file of the tree at `HEAD`, before any suite, since the gate pushes the branch |
-| CI's `real-data` job | the pull request's commits, then every file of the merge it checks out, plus gitleaks for secrets; a branch-protection setting can make it block a merge, and it is not the protection |
+| Where                                                   | What it reads                                                                                                                                                                          |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`.githooks/pre-commit`](../../../.githooks/pre-commit) | the staged lines, so an ignored export added with `git add -f`, or its rows pasted next to a tracked file, is refused                                                                  |
+| [`.githooks/pre-push`](../../../.githooks/pre-push)     | each commit the push sends that no remote-tracking branch already has, its lines and its message: the second net, for a commit made with the hooks skipped                             |
+| the gate's [`nm-test.sh`](../../../scripts/nm-test.sh)  | each commit since `origin/dev`, then every file of the tree at `HEAD`, before any suite, since the gate pushes the branch                                                              |
+| CI's `real-data` job                                    | the pull request's commits, then every file of the merge it checks out, plus gitleaks for secrets; a branch-protection setting can make it block a merge, and it is not the protection |
 
 **The gate's own commits are CI's to check.**
 Its document, lint and CI-fix steps commit after its test step has run `nm-test.sh`, and the gate pushes them from its own repository under `~/.no-mistakes/`, where `core.hooksPath` is not set, so neither the hooks nor `nm-test.sh` read them: CI's `real-data` job on the pull request is the only check they get.

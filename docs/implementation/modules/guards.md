@@ -39,16 +39,16 @@ A market is moved by [`take_move`](../../../back-end/api/markets.py) (judge, the
 
 ## Its interface
 
-| Name | What it is |
-| --- | --- |
-| `VALID_TRANSITIONS` | every edge `(from, to)` of the machine; a move not in it answers 400 |
-| `TRANSITION_GUARDS` | the guards on each edge, keyed by edge because a precondition can belong to one route |
-| `PHASE_ENTRY_INVARIANTS` | the guards every edge into a phase must carry, whatever route reaches it |
-| `PreconditionResult` | the wire shape: `id`, `passed`, `message`, and an optional `resolutionLink` (a page of the market, never a redirect) with its `resolutionLabel` and its `resolutionAction` (the row of [the market's actions](market-actions.md) table the remedy takes), all three or none |
-| `route_between(a, b)` | the shortest route between two phases, archiving excluded, by a breadth-first walk of the table |
-| `moves_from(phase)` | every move open from a phase: one edge of the table each |
-| `evaluate_transition(market, to, db, leaving_out)` | every guard on the move's edge, less any the caller satisfies itself; failures only |
-| `transition_verdicts(market, db)` | every move open from the market's phase, with its blockers; served on the market read as `transitionBlockers` |
+| Name                                               | What it is                                                                                                                                                                                                                                                                  |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VALID_TRANSITIONS`                                | every edge `(from, to)` of the machine; a move not in it answers 400                                                                                                                                                                                                        |
+| `TRANSITION_GUARDS`                                | the guards on each edge, keyed by edge because a precondition can belong to one route                                                                                                                                                                                       |
+| `PHASE_ENTRY_INVARIANTS`                           | the guards every edge into a phase must carry, whatever route reaches it                                                                                                                                                                                                    |
+| `PreconditionResult`                               | the wire shape: `id`, `passed`, `message`, and an optional `resolutionLink` (a page of the market, never a redirect) with its `resolutionLabel` and its `resolutionAction` (the row of [the market's actions](market-actions.md) table the remedy takes), all three or none |
+| `route_between(a, b)`                              | the shortest route between two phases, archiving excluded, by a breadth-first walk of the table                                                                                                                                                                             |
+| `moves_from(phase)`                                | every move open from a phase: one edge of the table each                                                                                                                                                                                                                    |
+| `evaluate_transition(market, to, db, leaving_out)` | every guard on the move's edge, less any the caller satisfies itself; failures only                                                                                                                                                                                         |
+| `transition_verdicts(market, db)`                  | every move open from the market's phase, with its blockers; served on the market read as `transitionBlockers`                                                                                                                                                               |
 
 ## Sharp edges
 
@@ -61,15 +61,15 @@ The panel is headed "Cannot proceed:" unless its caller gives a heading: the imp
 **Every remedy names the action it takes.**
 A guard that sets a `resolution_link` sets the `resolution_action` its remedy takes, so [the phase rail](phase-rail.md) and its panel offer the remedy only to whoever the table's answer for that row lets take it ([what each role may do](../../business/rules/what-each-role-may-do.md)):
 
-| Remedy | Page | Action |
-| - | - | - |
-| Pick market dates, Change the dates, Add a location, Add tables, Give every tier tables, Fix the price groups | `setup` | `change-setup` |
-| Allocate tables (`AssignmentComputedGuard`, `AssignmentNotBeforeReviewGuard`, `NoApprovedApplicationsGuard`) | `settings` | `assign` |
-| Publish results | `applications` | `publish-results` |
-| Finish deciding | `applications` | `give-verdicts` |
-| Import responses | `import` | `import-applications` |
-| Decide what reviewers read first | `form?step=review` | `change-form` |
-| Decide the automatic rejections | `form?step=review` | `change-form` |
+| Remedy                                                                                                        | Page               | Action                |
+| ------------------------------------------------------------------------------------------------------------- | ------------------ | --------------------- |
+| Pick market dates, Change the dates, Add a location, Add tables, Give every tier tables, Fix the price groups | `setup`            | `change-setup`        |
+| Allocate tables (`AssignmentComputedGuard`, `AssignmentNotBeforeReviewGuard`, `NoApprovedApplicationsGuard`)  | `settings`         | `assign`              |
+| Publish results                                                                                               | `applications`     | `publish-results`     |
+| Finish deciding                                                                                               | `applications`     | `give-verdicts`       |
+| Import responses                                                                                              | `import`           | `import-applications` |
+| Decide what reviewers read first                                                                              | `form?step=review` | `change-form`         |
+| Decide the automatic rejections                                                                               | `form?step=review` | `change-form`         |
 
 A link without an action, or an action without a link, is refused at construction.
 That the action is a row of the table is held by `TestEveryRemedyNamesTheActionItTakes` in [`back-end/tests/test_guards.py`](../../../back-end/tests/test_guards.py), not at construction, so a renamed row fails the build rather than answering the organizer with a 500.
