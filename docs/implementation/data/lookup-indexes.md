@@ -4,7 +4,8 @@ kind: data
 describes:
   - back-end/lookup_indexes.py
   - back-end/app.py#build_lookup_indexes
-verified: 2026-11-05
+  - back-end/unique_indexes.py
+verified: 2026-11-10
 sources:
   - E32/F03/S04
   - E40/F01/S03
@@ -12,6 +13,7 @@ sources:
   - E44/F01/S01
   - T204
   - T224
+  - T270
 ---
 
 # Lookup indexes
@@ -32,7 +34,6 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 | `organizations`            | `id`; `owner`; `admins`; `members`                                                                                                                                                                                                                                                                                                                         |
 | `users`                    | `id`; `verification_token`; `password_reset_token`; `login_id` (each signed-in request loads the account by it: [users and email](users-and-email.md#the-session-names-the-account-by-its-login-id))                                                                                                                                                       |
 | `applications`             | `id`; `market_id, arriving`, the applications waiting to be dealt as they arrived, read while a deal holds the market by `arriving` being an object (`$type: object`), which the index bounds tightly where `$exists` cannot, since a regular index stores a missing field as null ([ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)) |
-| `attendance`               | `market_id, vendor_email`                                                                                                                                                                                                                                                                                                                                  |
 | `history`                  | `market_id`; `market_id, at, id`, the order its pages are read in ([the market's history](history.md#reading-it)); `organization_id, at, id`, an organization's own history, read and deleted by it ([what an organization records](history.md#what-an-organization-records))                                                                              |
 | `vendor_notes`             | `market_id, vendor_email`                                                                                                                                                                                                                                                                                                                                  |
 | `payments`, `amounts_owed` | `market_id, vendor_email` ([payments](payments.md))                                                                                                                                                                                                                                                                                                        |
@@ -58,8 +59,15 @@ Where a collection's correctness rests on a UNIQUE index, the module that relies
 | `applicant_login_challenges`: `market_email_unique` on `market_id, email`, and the TTL index `challenge_ttl` on `expires_at` | `ensure_applicant_login_indexes` in [`api/applicant_auth.py`](../../../back-end/api/applicant_auth.py)                                    | an applicant's sign-in code is one per address per market, and expires by itself                                                                                    |
 | `sign_in_attempts`: the TTL index `sign_in_attempt_ttl` on `expires_at`                                                      | `ensure_expiry_index` in [`sign_in_limits.py`](../../../back-end/sign_in_limits.py), called by `ensure_applicant_login_indexes`           | a sign-in rate-limit counter expires once its window has ended ([sign-in is bounded](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)) |
 | `vendor_remembered_sign_ins`: the TTL index `remembered_sign_in_ttl` on `expires_at`                                         | `ensure_expiry_index` in [`remembered_sign_ins.py`](../../../back-end/remembered_sign_ins.py), called by `ensure_applicant_login_indexes` | a vendor's remembered sign-in is removed once it has ended ([the cookies](../conventions/security-invariants.md#the-cookies))                                       |
+| `attendance.attendance_vendor_day_unique` on `market_id, vendor_email, date`                                                 | `ensure_attendance_indexes` in [`api/attendance.py`](../../../back-end/api/attendance.py), through `unique_indexes`                       | [attendance and the door](../modules/attendance-and-door.md#one-vendors-day-is-one-record-by-the-database)                                                          |
+
+**A new unique index is built through [`back-end/unique_indexes.py`](../../../back-end/unique_indexes.py)** (T270), beside the owners above, which stay as they are.
+`ensure_unique_index` returns at once when an index of its name stands unique, since a boot on the serverless host is every cold start; otherwise it builds it, and on any `PyMongoError` raises `UniqueIndexError`, naming the duplicates that `duplicate_groups` finds by one aggregation: by the fields an operator may read and each record's `_id`, never by an address, and Mongo's error by its type and code only, with no cause kept.
+Its caller in `app.py` logs "Refusing to start: ..." and re-raises, as `verify_user_indexes` does.
+`VENDOR_DAY_INDEXES` lists each collection kept one record per vendor's day, which [`migrations/check_vendor_day_duplicates.py`](../../../back-end/migrations/check_vendor_day_duplicates.py) reads before a release is promoted ([RELEASING.md](../../RELEASING.md#pre-deploy-database-migrations)).
 
 The users' email index is deliberately not in `LOOKUP_INDEXES`: `ensure_user_indexes` is its one owner, and replaces a plain index on the same key with the unique one.
+Nor is a lookup on `attendance`: the unique index's prefix `market_id, vendor_email` serves a vendor's check-ins and a market's.
 An index already present on the same fields is left alone by `ensure_lookup_indexes`, whatever its name or options: databases migrated by `migrate_to_uuid.py` hold unique id indexes under the default names, and asking for a plain one beside them would be refused as a conflict.
 
 Every refusal and its fix is in [Operations](../../OPERATIONS.md#when-the-back-end-refuses-to-boot).

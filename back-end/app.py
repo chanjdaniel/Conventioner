@@ -57,6 +57,7 @@ from market_documents import (
 )
 import db_config
 from lookup_indexes import ensure_lookup_indexes
+from unique_indexes import UniqueIndexError
 import json
 import os
 import glob
@@ -200,10 +201,28 @@ def verify_user_indexes() -> None:
 verify_user_indexes()
 
 
+def verify_attendance_indexes() -> None:
+    """Refuse to boot unless one vendor's day can be only one attendance record (T270).
+
+    A check-in is an upsert by market, vendor and date, and two at once could store two records,
+    so one Undo left the vendor reading as here. The unique index is the referee, built here; a
+    process that cannot hold it - the collection already holding such duplicates - says so, naming
+    them by market, date and record id, before it takes a request (``unique_indexes``).
+    """
+    try:
+        AttendanceApi.ensure_attendance_indexes()
+    except UniqueIndexError as e:
+        logger.critical("Refusing to start: %s", e)
+        raise
+
+
+verify_attendance_indexes()
+
+
 def build_lookup_indexes() -> None:
     """Index every field a document is looked up by (``lookup_indexes``), once, at boot.
 
-    Not a refusal like the two above: these carry no guarantee, only speed. A database that cannot
+    Not a refusal like the ones above: these carry no guarantee, only speed. A database that cannot
     build one cannot serve a request either, so its error is left to stop the boot as it is.
     """
     ensure_lookup_indexes()

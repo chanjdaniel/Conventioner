@@ -855,6 +855,13 @@ if not STUBBED_MODULES:
     _users_fake.index_information = lambda: {}
     _users_module.users_collection = _users_fake
 
+    # And the check-ins, whose unique vendor-day index the boot builds (T270).
+    import api.attendance as _attendance_module
+
+    _attendance_fake = FakeApplicationsCollection()
+    _attendance_fake.index_information = lambda: {}
+    _attendance_module.attendance_collection = _attendance_fake
+
 
 def a_solver_vendor(application_id: str = "app-1", **overrides):
     """One vendor as the solver reads them, for a test that stubs the solver's input.

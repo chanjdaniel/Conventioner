@@ -179,7 +179,13 @@ Until it runs, that release reads the old `placement_history` collection beside 
 
 ### When the back end refuses to boot
 
-The back end checks the database as it starts and refuses to serve one it cannot trust: the migration markers ([`market_documents.py`](../back-end/market_documents.py)) and three unique indexes ([`api/users.py`](../back-end/api/users.py), [`api/applications.py`](../back-end/api/applications.py), [`api/applicant_auth.py`](../back-end/api/applicant_auth.py)).
+The back end checks the database as it starts and refuses to serve one it cannot trust: the migration markers ([`market_documents.py`](../back-end/market_documents.py)) and these unique indexes:
+
+- one account per address, `user_email` ([`api/users.py`](../back-end/api/users.py));
+- one application per applicant, `market_applicant_type_unique` ([`api/applications.py`](../back-end/api/applications.py));
+- one sign-in code per applicant, `market_email_unique` ([`api/applicant_auth.py`](../back-end/api/applicant_auth.py));
+- one attendance record per vendor's day, `attendance_vendor_day_unique` ([`api/attendance.py`](../back-end/api/attendance.py), through [`unique_indexes.py`](../back-end/unique_indexes.py)).
+
 Every request then answers 500 `FUNCTION_INVOCATION_FAILED`, and the log says which check refused and what to run (Vercel, the back-end project, Logs).
 Each refusal below names its fix; take a `mongodump` first (above) when the fix writes.
 On a local stack the same refusals appear in `docker compose logs backend`, and the commands run as `docker compose run --rm backend python <script>` - `run`, not `exec`, because the back-end container is crash-looping and there is nothing to attach to ([STARTUP.md](STARTUP.md#troubleshooting)).
@@ -218,6 +224,14 @@ Some applicant holds two applications of one type at one market, which the index
 The refusal names each such group by application id, and names Mongo's error by its type and code only, since Mongo's own words quote the address.
 `MONGODB_URI='<URI>' .venv/bin/python migrations/create_applications_collection.py --dry-run` ([`create_applications_collection.py`](../back-end/migrations/create_applications_collection.py)) lists each such applicant with their application ids; it prints their addresses, so keep its output off anything shared.
 Which document is the applicant's is the organizer's call: merge each pair by hand in `mongosh`, then redeploy.
+
+**"The unique index attendance_vendor_day_unique on attendance ... could not be built ... Records sharing one vendor's day, by market_id, date and record id: ..."**.
+Two check-ins of one vendor's day stored two records, which two at the same moment could before the index existed ([attendance and the door](implementation/modules/attendance-and-door.md#one-vendors-day-is-one-record-by-the-database)).
+The refusal names each group by market id, date and record id, never the vendor's address, and Mongo's error by its type and code only.
+`MONGODB_URI='<URI>' .venv/bin/python migrations/check_vendor_day_duplicates.py` ([`check_vendor_day_duplicates.py`](../back-end/migrations/check_vendor_day_duplicates.py)) lists the same groups and writes nothing; from an ops session without the checkout, `db.attendance.aggregate([{$group: {_id: {m: "$market_id", v: "$vendor_email", d: "$date"}, n: {$sum: 1}, ids: {$push: "$_id"}}}, {$match: {n: {$gt: 1}}}, {$project: {"_id.v": 0}}])` in `mongosh` does.
+Take a `mongodump` first, then in each group keep the record with the earliest `checked_in_at` and delete the others by `_id` (`db.attendance.deleteOne({_id: ObjectId('<id>')})`): the history already holds each arrival, so nothing is lost.
+Then redeploy, or restart the local back end.
+When it says "none found", the build failed on something other than duplicates: code 85 or 86 is an index of that name with other options or keys, to drop (`db.attendance.dropIndex('attendance_vendor_day_unique')`) before redeploying.
 
 **"The indexes on applicant_login_challenges, sign_in_attempts and vendor_remembered_sign_ins could not be built"**.
 The log names Mongo's error by its type and code only, never its words, since a duplicate key error quotes a vendor's address: code 11000 is duplicate challenges, and 85 or 86 an index of the same name with other options or keys.

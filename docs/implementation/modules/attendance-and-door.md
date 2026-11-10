@@ -3,6 +3,8 @@ layer: implementation
 kind: module
 describes:
   - back-end/api/attendance.py
+  - back-end/app.py#verify_attendance_indexes
+  - front-end/e2e/one-record-for-a-vendors-day.spec.ts
   - back-end/api/door.py
   - back-end/api/vendor_check_in.py
   - back-end/app.py#vendor_check_in
@@ -20,7 +22,7 @@ describes:
   - front-end/src/components/vendorPage/VendorCheckIn.vue
   - front-end/src/App.vue#fitsAPhone
   - front-end/src/utils/fitsAPhone.ts
-verified: 2026-11-09
+verified: 2026-11-10
 sources:
   - wayfinding/real-market-readiness/map
   - wayfinding/claims-and-room/map
@@ -40,6 +42,7 @@ sources:
   - E38/F15/S04
   - T202
   - T251
+  - T270
 ---
 
 # Attendance and the door
@@ -53,7 +56,20 @@ One document per `(market_id, vendor_email, date)`, stored snake_case, upserted 
 A check-in made on the public check-in page before it was removed has `checked_in_by` None and no `checked_in_via`.
 The vendor's address is normalised (`utils/email_address.normalized_email`) on every write and lookup.
 Undoing a check-in deletes its document: nothing else was changed by it.
-The `(market_id, vendor_email)` index is in [the lookup indexes](../data/lookup-indexes.md), and the collection goes with the market when it is deleted.
+The collection goes with the market when it is deleted.
+
+### One vendor's day is one record, by the database
+
+The one document per vendor's day is the database's to hold, not the upsert's (T270).
+An upsert with no unique index behind it inserts twice when two land at once: 16 at once, sent straight to a stack's MongoDB, stored duplicates for 264 of 400 keys.
+So two organizers at the door, or an organizer's tap and the vendor's own door-code check-in, could leave two records, and then one Undo took one away and the vendor still read as here, and the history held two arrivals.
+
+- `ensure_attendance_indexes` builds `attendance_vendor_day_unique`, unique on `(market_id, vendor_email, date)`, through [`unique_indexes.py`](../../../back-end/unique_indexes.py), and `app.py`'s `verify_attendance_indexes` refuses to boot without it, naming any duplicates by market id, date and record id, never by address ([OPERATIONS.md](../../OPERATIONS.md#when-the-back-end-refuses-to-boot)).
+- `record_attendance` runs its upsert once more on a `DuplicateKeyError`, which then lands on the winner's record; a second refusal goes on as the error it is.
+  MongoDB itself retries such an upsert when its query is equality on the unique index's fields, so the retry is the fallback when the server does not.
+- Only the call whose upsert inserted the record writes the "checked in" entry, so two racing check-ins write one.
+- The index's prefix serves a vendor's check-ins, so `attendance` has no lookup index of its own in [the lookup indexes](../data/lookup-indexes.md); a database that already held the old `(market_id, vendor_email)` one keeps it, which is harmless.
+- [`one-record-for-a-vendors-day.spec.ts`](../../../front-end/e2e/one-record-for-a-vendors-day.spec.ts) proves the refusal and 16 check-ins at once on the stack's real MongoDB; the back end's suite runs on fakes, which hold no index.
 
 ## The routes
 

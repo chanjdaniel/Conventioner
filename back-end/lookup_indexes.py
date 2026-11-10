@@ -9,9 +9,9 @@ holding 25,000 applications, a 314-row import scanned them all twice per row and
 
 Declared here once, and built at boot. These are lookups only. Where a collection's correctness
 rests on a UNIQUE index, the module that relies on it builds that index and refuses to serve
-without it (``api.applications``, ``market_documents``, ``api.applicant_auth``): a unique index
-that will not build is a decision about data, and it belongs with the guarantee, not with a
-speed-up.
+without it (``api.applications``, ``market_documents``, ``api.applicant_auth``, and each new one
+through ``unique_indexes``, as ``api.attendance`` does): a unique index that will not build is a
+decision about data, and it belongs with the guarantee, not with a speed-up.
 """
 import logging
 from typing import Any, Dict, List, Optional, Tuple
@@ -28,7 +28,6 @@ logger = logging.getLogger(__name__)
 
 ORGANIZATIONS_COLLECTION = "organizations"
 USERS_COLLECTION = "users"
-ATTENDANCE_COLLECTION = "attendance"
 
 # Each entry is the fields one index covers, in order. A collection read by a field that is not
 # here is read by scanning it, so a new lookup belongs here when it is written.
@@ -62,9 +61,8 @@ LOOKUP_INDEXES: Dict[str, List[Tuple[str, ...]]] = {
         # The applications waiting to be dealt as they arrived, read while a deal holds the market.
         ("market_id", "arriving"),
     ],
-    ATTENDANCE_COLLECTION: [
-        ("market_id", "vendor_email"),
-    ],
+    # The check-ins are not here: `api.attendance.ensure_attendance_indexes` builds
+    # (market_id, vendor_email, date) UNIQUE (T270), and its prefix serves a vendor's check-ins.
     # A market's history, deleted with the market; and read a page at a time, newest first,
     # wherever a list of it stands (`history.entries_page`). An organization's
     # own history is read the same way in Manage organization, and deleted with it by its prefix.
