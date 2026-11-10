@@ -3,13 +3,14 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/NewMarketOverlay.vue
-verified: 2026-11-01
+verified: 2026-11-10
 sources:
   - E24/F03
   - E26/F08
   - E31/F03/S01
   - bug/42
   - bug/46
+  - T263
 ---
 
 # Creating a market
@@ -57,10 +58,12 @@ Covered by:
 
 **Status:** Works (walked live).
 With more than one organization the Organization field is a dropdown starting on "Select organization", and "Create market" stays disabled until one is chosen; with exactly one it is plain text.
+"Organization" names the dropdown by `aria-labelledby` and is no `label`, since with one organization there is no control for a label to point to (T263).
 Covered by:
 
 - `dialog-idiom.spec.ts` ("with exactly one organization")
 - `new-market-org.spec.ts`
+- `newMarketNamesItsOrganization.test.ts`: every `label[for]` in the dialog points at an element, with one organization and with several
 
 ## D4. Create a market with no organization yet
 

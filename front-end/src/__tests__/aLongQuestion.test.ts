@@ -113,6 +113,24 @@ describe('the question against the threshold', () => {
     wrapper.unmount();
   });
 
+  /** A group of checkboxes is no control a label can point to, so its words are no label. */
+  it("names the checkboxes' group by its words, with no label tied to nothing", () => {
+    const { wrapper } = form(question('multi_select', 12), []);
+
+    const words = wrapper.get('#apply-selling-label');
+    expect(words.element.tagName).toBe('SPAN');
+    expect(words.text()).toBe('What do you sell? *');
+    expect(words.attributes('aria-hidden')).toBeUndefined();
+    expect(wrapper.findAll('label.form-label')).toHaveLength(0);
+    // Each checkbox's own label wraps it; no other label stands without a `for`.
+    const loose = wrapper
+      .findAll('label')
+      .filter((label) => !label.attributes('for') && !label.find('input').exists());
+    expect(loose).toHaveLength(0);
+    expect(wrapper.get('[role="group"]').attributes('aria-labelledby')).toBe('apply-selling-label');
+    wrapper.unmount();
+  });
+
   it('is a field past 12, one choice, drawing 50 of what it finds', async () => {
     const { wrapper, answers } = form(question('select', 60), '');
 

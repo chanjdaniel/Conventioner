@@ -6,7 +6,7 @@ describes:
   - front-end/src/components/AssignmentHistoryDialog.vue
   - front-end/src/utils/personChoice.ts
   - front-end/src/components/SearchPicker.vue
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - brain-dump/2026-10-19#30
   - wayfinding/claims-and-room/05
@@ -32,6 +32,7 @@ sources:
   - T208
   - T223
   - T224
+  - T263
 ---
 
 # Placing by hand

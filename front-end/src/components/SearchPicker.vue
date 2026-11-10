@@ -315,6 +315,8 @@ const shownGroups = computed(() => {
   ];
 });
 const shownOptions = computed(() => shownGroups.value.flatMap((group) => group.shown));
+/** Nothing to choose, and no group to say so in: the list says it under its rows. */
+const nothingShown = computed(() => !shownOptions.value.length && cappedGroups.value.length <= 1);
 /** How many matches the cap leaves undrawn. */
 const moreCount = computed(
   () =>
@@ -654,7 +656,10 @@ function onFocus(): void {
         :shade-testid="`${testid}-list`"
         :listbox="{ id: listId, label, multiple }"
       >
-        <div class="search-picker-rows" :class="{ 'search-picker-rows--capped': moreCount > 0 }">
+        <div
+          class="search-picker-rows"
+          :class="{ 'search-picker-rows--line-under': moreCount > 0 || nothingShown }"
+        >
           <div
             v-for="(group, g) in shownGroups"
             :key="group.label ?? g"
@@ -705,15 +710,12 @@ function onFocus(): void {
               None match "{{ words }}".
             </p>
           </div>
-          <p
-            v-if="!shownOptions.length && cappedGroups.length <= 1"
-            class="search-picker-none"
-            :data-testid="`${testid}-none`"
-          >
-            {{ noneWord ?? 'Nobody' }} matches "{{ words }}".
-          </p>
         </div>
       </ScrollBox>
+      <!-- Beside the listbox, not in it: a listbox holds options and groups only. -->
+      <p v-if="nothingShown" class="search-picker-none" :data-testid="`${testid}-none`">
+        {{ noneWord ?? 'Nobody' }} matches "{{ words }}".
+      </p>
       <p
         v-if="moreCount > 0"
         :id="moreId"
@@ -819,7 +821,8 @@ function onFocus(): void {
   padding: var(--space-1) 0;
 }
 
-.search-picker-rows--capped {
+/* A line stands under the rows, "N more" or "Nothing matches", and keeps their bottom space. */
+.search-picker-rows--line-under {
   padding-bottom: 0;
 }
 
@@ -892,6 +895,13 @@ function onFocus(): void {
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
+
+/* Under the rows, which keep no space under them for it: it takes their bottom space as its own. */
+.search-picker-list > .search-picker-none {
+  flex: none;
+  padding-bottom: var(--space-3);
+}
+
 .search-picker-more {
   display: flex;
   flex: none;

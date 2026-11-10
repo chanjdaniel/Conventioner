@@ -452,6 +452,9 @@ eachWindow('the combobox entry', (size) => {
 
     await c10.field.fill('no answer says this');
     await expect(c10.none).toHaveText('Nothing matches "no answer says this".');
+    // The line stands beside the list, not in it: a listbox holds options and groups only.
+    await expect(c10.list.getByRole('listbox')).not.toContainText('Nothing matches');
+    await expectAccessible('C10 open, nothing matches');
     await c10.field.blur();
     await expect(c10.field).toHaveValue('');
     await expect(c10.chips).toHaveCount(2);
