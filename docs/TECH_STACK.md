@@ -13,6 +13,7 @@ verified: 2026-11-09
 sources:
   - T254
   - T251
+  - T263
 ---
 # Technology Stack
 
@@ -128,6 +129,7 @@ How each part of the code works is in the implementation layer of the [knowledge
   - CI holds the entry JavaScript of a build to a gzipped limit, the [bundle budget](implementation/testing/ci-and-the-gate.md#the-bundle-budget), and fails a build that calls `eval` or `Function`, which the [Content-Security-Policy](implementation/conventions/security-invariants.md#security-headers) refuses ([the eval check](implementation/testing/ci-and-the-gate.md#no-string-evaluated-as-script)), and the build itself fails when it holds any module of the development-only [component library](implementation/modules/component-library.md) ([no development page in the build](implementation/testing/ci-and-the-gate.md#no-development-page-in-the-build))
   - `vite preview` serves `front-end/vercel.json`'s security headers, so a production build runs locally under the policy production sends
   - Minifying keeps legal comments (`/*!` and `@license`, in [`vite.config.ts`](../front-end/vite.config.ts)), so the licence notices of copied icons and bundled libraries reach the shipped bundle ([ADR 0015](adr/0015-the-app-owns-its-components.md))
+  - Vue, its router, Pinia and the helper the Vue plugin adds to every single-file component build into one chunk named `vue` (`codeSplitting` in [`vite.config.ts`](../front-end/vite.config.ts)), so the bundle budget's list names the runtime it loads
   - Fast development server with HMR
   - Production build optimization
   - Proxy configuration for API requests
