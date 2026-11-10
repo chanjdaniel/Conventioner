@@ -57,7 +57,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 
 - **MongoDB 8.0 in production, 7 locally and in CI** - NoSQL document database
   - Primary data storage
-  - Production's Atlas cluster runs 8.0; the local stack and CI's real-MongoDB service run `mongo:7`, since mongod 8.0 refuses to start on Linux kernel 6.19 and newer (MongoDB SERVER-121912), which GitHub's runners now boot ([the MongoDB version](implementation/testing/real-mongo-suite.md#the-mongodb-version))
+  - The local stack and CI run `mongo:7` while production runs 8.0, for the reason in [the MongoDB version](implementation/testing/real-mongo-suite.md#the-mongodb-version)
   - Collections: `users`, `organizations`, `markets`, `applications`, `attendance`, `history`, `vendor_notes`, `deletion_trail`, `applicant_login_challenges`, `vendor_remembered_sign_ins`, `floorplan_templates`, `schema_migrations`, and the GridFS bucket `floorplan_images` for floorplan uploads
   - Connection via PyMongo 4.18, to `MONGODB_URI` when it is set (production's Atlas cluster), otherwise to `MONGODB_HOST` and its siblings
   - Database name: `conventioner`
@@ -452,7 +452,7 @@ Conventioner/
 
 - **Python**: 3.12 (`back-end/.python-version`; Docker, CI and Vercel all run it)
 - **Node.js**: 24.22.1, with npm 11.19.1 (`.nvmrc`; machines, CI and the front-end Dockerfile all run it, and Vercel the latest 24.x: [Node and npm are pinned](#node-and-npm-are-pinned))
-- **MongoDB**: 8.0 in production; 7 locally and in CI until mongod 8.0 starts on Linux kernel 6.19 and newer ([the MongoDB version](implementation/testing/real-mongo-suite.md#the-mongodb-version))
+- **MongoDB**: 8.0 in production; 7 locally and in CI ([the MongoDB version](implementation/testing/real-mongo-suite.md#the-mongodb-version))
 - **Docker**: Latest stable version
 
 ## Additional Resources
