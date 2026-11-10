@@ -38,7 +38,9 @@ jobs:
         image: mongo:8.0
         ports:
           - 27117:27017
+        # The open-file limit is the compose file's, which says why.
         options: >-
+          --ulimit nofile=64000:64000
           --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
           --health-interval 5s
           --health-timeout 5s

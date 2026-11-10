@@ -6,6 +6,13 @@ services:
     image: mongo:8.0
     restart: unless-stopped
     command: ["mongod", "--quiet", "--logpath", "/var/log/mongodb/mongod.log"]
+    # MongoDB asks for 64000 open files. Docker's default soft limit is 1024, and WiredTiger keeps
+    # a dropped collection's files open until its next checkpoint, so the real-MongoDB tests, each
+    # building the boot's indexes in a database of its own, ran it out in seconds and it aborted.
+    ulimits:
+      nofile:
+        soft: 64000
+        hard: 64000
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: secret
