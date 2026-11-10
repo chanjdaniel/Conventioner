@@ -374,10 +374,12 @@ jobs:
           retention-days: 7
 
   # The one check to require: it passes only when every shard did, so branch protection names a
-  # single job whatever the shard count becomes.
+  # single job whatever the shard count becomes. It runs whatever the shards' result, so a failed
+  # shard fails it, but not on a run that was cancelled, which would post a red check on the head
+  # a later push made moot.
   e2e:
     name: e2e
-    if: always()
+    if: ${{ !cancelled() }}
     needs: e2e-shard
     runs-on: ubuntu-latest
     steps:

@@ -64,6 +64,7 @@ Both require `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-buil
 `dev` also requires `knowledge-graph`, `real-data`, [`CodeQL`](#codeql) and `agent-review`, a commit status the agent team's reviewer sets on a pull request's head rather than a CI job.
 `dev`'s protection binds admins too (`enforce_admins`), so nothing merges into it, the merge of `main` back into `dev` included, without all ten, short of changing the protection itself; `main`'s does not, which is how the Release PR merges with `--admin` ([RELEASING.md](../../RELEASING.md#how-a-release-happens)).
 `e2e` is a job of its own so protection names one check whatever the shard count becomes.
+It runs whatever the shards' result, so a failed shard fails it, but not on a cancelled run (`if: ${{ !cancelled() }}`), which would post a red `e2e` on the head a later push made moot.
 `knowledge-graph-drift` is its own job and not required, for the next 10 PRs from 2026-10-22, then re-judged with the close-out's replay.
 `zizmor-online` is never required: a rate limit or outage of GitHub's API would otherwise block a merge, and `zizmor` already holds the workflows to the offline audits.
 `real-data` is the only real-data check the gate's own commits get: the document, lint and CI-fix steps commit after `nm-test.sh` has run, and the gate pushes them from its repository, which has no hooks installed ([real data never leaves the PC](../conventions/security-invariants.md#real-data-never-leaves-the-pc)).
