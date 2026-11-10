@@ -1,4 +1,4 @@
-import { computed, getCurrentInstance, onUnmounted, readonly, ref } from 'vue';
+import { computed, getCurrentInstance, onMounted, onUnmounted, readonly, ref } from 'vue';
 import { getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 
 export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'failed' | 'refused';
@@ -21,6 +21,11 @@ export function isRefusal(err: unknown): boolean {
 export interface AutosaveOptions {
   /** Write the working copy as it stands at the call. */
   send: () => Promise<void>;
+  /**
+   * The last try on the way out of the page: start a write that outlives it (a keepalive request),
+   * true when one started. Its answer is never read: the page is going.
+   */
+  sendOnUnload: () => boolean;
   /** After a save the server took: the re-read. */
   afterSave: () => Promise<void> | void;
   /** After a refusal: take the server's copy back. Called with the refusal's sentence. */
@@ -51,6 +56,11 @@ export interface AutosaveOptions {
  * A save that fails on the way (no answer, a 401, 408, 429 or 5xx) keeps the edits unsaved and
  * says so; nothing retries on a timer, and the next edit, `retry` or a flush sends the copy again.
  *
+ * A reload or a closed tab never unmounts the view, so an edit still waiting then (in its pause,
+ * held, or after a failure) used to be lost. On `pagehide` the screen's `sendOnUnload` starts one
+ * last write that outlives the page; the screen's browser question (`useUnsavedWork`) is the
+ * guard, and this is a best effort.
+ *
  * It knows nothing of markets: the screen gives it the write, the re-read and who may write.
  */
 export function useAutosave(options: AutosaveOptions) {
@@ -62,6 +72,8 @@ export function useAutosave(options: AutosaveOptions) {
   const stored = ref(0);
   /** The save out, settled once its answer is handled; null while none is out. */
   const out = ref<Promise<string | null> | null>(null);
+  /** The edits the save out carries. */
+  let outCarrying = 0;
 
   let pause: ReturnType<typeof setTimeout> | null = null;
   let savedShown: ReturnType<typeof setTimeout> | null = null;
@@ -94,6 +106,7 @@ export function useAutosave(options: AutosaveOptions) {
     wanted = false;
     if (!options.may()) return Promise.resolve(null);
     const carrying = edits.value;
+    outCarrying = carrying;
     if (savedShown !== null) clearTimeout(savedShown);
     savedShown = null;
     status.value = 'saving';
@@ -216,8 +229,26 @@ export function useAutosave(options: AutosaveOptions) {
     void flush();
   }
 
-  // Leaving the page must not lose an edit, so what is unsaved is sent without waiting.
-  if (getCurrentInstance()) onUnmounted(() => void flush());
+  /**
+   * The page is going (a reload, a closed tab, a link out of the app): an edit the server does not
+   * have and no save out carries is sent one last time. A save out carrying every edit is left to
+   * land; one with a later edit behind it most likely lands first, since it was sent first, and
+   * waiting for it would lose the later edit for sure.
+   */
+  function onPageHide() {
+    if (!options.may()) return;
+    const behind = out.value ? edits.value !== outCarrying : edits.value !== stored.value;
+    if (behind) options.sendOnUnload();
+  }
+
+  if (getCurrentInstance()) {
+    onMounted(() => window.addEventListener('pagehide', onPageHide));
+    // Leaving the view must not lose an edit, so what is unsaved is sent without waiting.
+    onUnmounted(() => {
+      window.removeEventListener('pagehide', onPageHide);
+      void flush();
+    });
+  }
 
   return {
     status: readonly(status),

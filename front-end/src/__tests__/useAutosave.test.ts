@@ -67,6 +67,7 @@ function setUp(options: { may?: () => boolean } = {}) {
   const afterRefusal = vi.fn();
   const autosave = useAutosave({
     send: writes.send,
+    sendOnUnload: () => false,
     afterSave,
     afterRefusal,
     may: options.may ?? (() => true),
@@ -567,6 +568,7 @@ describe('leaving the view', () => {
       Host(
         {
           send,
+          sendOnUnload: () => false,
           afterSave: () => {},
           afterRefusal: () => {},
           may: () => true,
@@ -591,6 +593,7 @@ describe('leaving the view', () => {
       Host(
         {
           send: writes.send,
+          sendOnUnload: () => false,
           afterSave: () => {},
           afterRefusal: () => {},
           may: () => true,
@@ -620,6 +623,7 @@ describe('leaving the view', () => {
       Host(
         {
           send,
+          sendOnUnload: () => false,
           afterSave: () => {},
           afterRefusal: () => {},
           may: () => true,
@@ -632,5 +636,108 @@ describe('leaving the view', () => {
     wrapper.unmount();
 
     expect(send).not.toHaveBeenCalled();
+  });
+});
+
+describe('the unload try', () => {
+  /** A view on the autosave, with the page's `pagehide` to fire and the keepalive try recorded. */
+  function mountHost(options: { held?: boolean } = {}) {
+    const copy = { dates: [] as string[] };
+    const writes = heldWrites(() => copy);
+    const sendOnUnload = vi.fn(() => true);
+    const held: { autosave?: ReturnType<typeof useAutosave> } = {};
+    const wrapper = mount(
+      defineComponent({
+        setup() {
+          held.autosave = useAutosave({
+            send: writes.send,
+            sendOnUnload,
+            afterSave: () => {},
+            afterRefusal: () => {},
+            may: () => true,
+            failure: 'Not saved.',
+          });
+          if (options.held) held.autosave.hold(true);
+          return () => h('div');
+        },
+      }),
+    );
+    function edit(date: string) {
+      copy.dates.push(date);
+      held.autosave!.edited();
+    }
+    const leave = () => window.dispatchEvent(new Event('pagehide'));
+    return { writes, sendOnUnload, autosave: held.autosave!, wrapper, edit, leave };
+  }
+
+  it('tries when an edit is waiting for its pause and no save is out', async () => {
+    const { writes, sendOnUnload, wrapper, edit, leave } = mountHost();
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(100);
+    leave();
+
+    expect(sendOnUnload).toHaveBeenCalledTimes(1);
+    expect(writes.send).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it('tries when a save is out and a later edit is not in it', async () => {
+    const { writes, sendOnUnload, wrapper, edit, leave } = mountHost();
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    expect(writes.send).toHaveBeenCalledTimes(1);
+    edit('2026-08-02');
+    leave();
+
+    expect(sendOnUnload).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+  });
+
+  it('does not try when a save is out and nothing later is unsaved', async () => {
+    const { writes, sendOnUnload, wrapper, edit, leave } = mountHost();
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    expect(writes.send).toHaveBeenCalledTimes(1);
+    leave();
+
+    expect(sendOnUnload).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it('tries after a save that failed, and after an edit the hold keeps', async () => {
+    const failed = mountHost();
+    failed.edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    await failed.writes.fail(noAnswer);
+    failed.leave();
+    expect(failed.sendOnUnload).toHaveBeenCalledTimes(1);
+    failed.wrapper.unmount();
+
+    const kept = mountHost({ held: true });
+    kept.edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    expect(kept.writes.send).not.toHaveBeenCalled();
+    kept.leave();
+    expect(kept.sendOnUnload).toHaveBeenCalledTimes(1);
+    kept.wrapper.unmount();
+  });
+
+  it('does not try with nothing unsaved, or once the view is gone', async () => {
+    const { writes, sendOnUnload, wrapper, edit, leave } = mountHost();
+
+    leave();
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    await writes.answer();
+    leave();
+    expect(sendOnUnload).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+    edit('2026-08-02');
+    leave();
+    expect(sendOnUnload).not.toHaveBeenCalled();
   });
 });

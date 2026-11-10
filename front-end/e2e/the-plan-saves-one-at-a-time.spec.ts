@@ -209,3 +209,61 @@ test.describe('The plan saves one at a time', () => {
     expect(await storedDates(request, marketId)).toEqual([held, added]);
   });
 });
+
+test.describe('The plan on the way out of the page', () => {
+  // The browser's own User-Agent, not the Desktop Chrome device's. Playwright sets the device's
+  // through DevTools, which does not reach a request a page sends from `pagehide`, so that request
+  // goes as the browser and the back end's "strong" session protection, which holds a session to
+  // the browser that signed in, refuses it with a 401. A person's browser sends one User-Agent.
+  test.use({
+    userAgent: async ({ browser }, use) => {
+      const cdp = await browser.newBrowserCDPSession();
+      const { userAgent } = await cdp.send('Browser.getVersion');
+      await cdp.detach();
+      await use(userAgent);
+    },
+  });
+
+  test('a reload inside the pause is asked by the browser, and sends the edit on the way out', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { marketId } = await seedDraftMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const added = upcomingSaturday(0);
+
+    await page.goto(marketSetupPath(marketId));
+    const setup = new MarketSetupPage(page);
+    await expect(page.getByTestId('setup-dates-month')).toBeVisible();
+
+    const asked: string[] = [];
+    page.on('dialog', (dialog) => {
+      asked.push(dialog.type());
+      void dialog.accept();
+    });
+    // The page's own saves; the one sent on the way out is the browser's, and not reported here.
+    const writes = watchPlanWrites(page);
+
+    // The organizer adds a date and reloads at once, inside the 600 ms pause.
+    await setup.addMarketDate(added);
+    expect(writes.mostAtOnce()).toBe(0);
+    await page.reload();
+    await expect(page.getByTestId('setup-dates-month')).toBeVisible();
+
+    // The browser asked first, they went, and the edit was sent as the page left.
+    expect(asked).toEqual(['beforeunload']);
+    await expect.poll(() => storedDates(request, marketId)).toEqual([added]);
+
+    // Nothing unsaved: the browser does not ask, and the plan reads back with the date.
+    await page.reload();
+    await expect(page.getByTestId(`setup-dates-day-${added}`)).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(asked).toEqual(['beforeunload']);
+  });
+});

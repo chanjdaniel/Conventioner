@@ -19,7 +19,7 @@ sources:
 
 Market Setup's plan saves itself as it is edited ([planning the market](../../business/flows/planning.md)).
 [`front-end/src/utils/useAutosave.ts`](../../../front-end/src/utils/useAutosave.ts) owns the order of the saves of one working copy, and knows nothing of markets.
-[`front-end/src/views/MarketSetupView.vue`](../../../front-end/src/views/MarketSetupView.vue) gives it the write (`PUT /markets/<id>/plan` with `setupObject` and `intakeMode`), the re-read after it (the [market store](market-store.md)'s `refresh`), and who may write (`mayTake(market, MarketAction.ChangeSetup)`).
+[`front-end/src/views/MarketSetupView.vue`](../../../front-end/src/views/MarketSetupView.vue) gives it the write (`PUT /markets/<id>/plan` with `setupObject` and `intakeMode`), the same write as a keepalive request for the way out of the page, the re-read after it (the [market store](market-store.md)'s `refresh`), and who may write (`mayTake(market, MarketAction.ChangeSetup)`).
 
 ## The queue
 
@@ -59,7 +59,18 @@ Before the flush, a phase move refuses while the form tab reports questions not 
 The intake mode is saved at once, an edit and a flush, so it goes through the same queue.
 Allocate tables sends the plan only when an edit is unsaved: the server already holds the working copy otherwise.
 
-**Leaving the page flushes without waiting**, on the view's unmount, and a save out when it unmounts still sends a later edit once it answers; when that save fails or is refused, the flush stops there and the later edit is not sent.
+**Leaving the view flushes without waiting**, on the view's unmount, and a save out when it unmounts still sends a later edit once it answers; when that save fails or is refused, the flush stops there and the later edit is not sent.
+
+**Leaving the page tries once more, on `pagehide`** (a reload, a closed tab, a link out of the app), since none of these unmounts the view and an edit still in its pause was lost (T271).
+It calls the view's `sendOnUnload` when an edit is unsaved and no save is out (in its pause, held by the Pricing card, or after a failure), and when a save is out and a later edit is not in it: the save out was sent first and most likely lands first, and waiting would lose the later edit for sure.
+With a save out carrying every edit it sends nothing, and leaves that save to land.
+`sendOnUnload` is a `fetch` `PUT` of the plan with `keepalive: true` and `credentials: 'include'`, since axios's browser adapter is XHR, which has no `keepalive`; it answers false when `fetch` throws (a body over the browser's 64 KiB keepalive limit does), and its answer is never read.
+The try changes nothing of the autosave's own state: a page the browser keeps and shows again (its back-forward cache) still counts the edit unsaved, and sends it as it would have.
+
+**The try is a best effort, and the browser's question is the guard.**
+The view calls [`useUnsavedWork`](../conventions/unsaved-work-asks-before-it-is-dropped.md) with `inApp: false`, so a reload or a close asks in the browser's words while `unsaved` is true, and an in-app move asks nothing, since the unmount's flush sends the edit and an in-app move does not cancel it.
+On a stack the keepalive write reaches the back end through the front end's `/api` proxy, on the page's own origin, which is where it is proven (`the-plan-saves-one-at-a-time.spec.ts`).
+Production calls `https://api.conventioner.io` from `https://conventioner.io`, so the `PUT` needs a CORS preflight, and whether every browser sends a keepalive request that needs one is not settled by any source found: that path is unproven.
 
 ## The view's side
 

@@ -17,14 +17,20 @@
 import { onMounted, onUnmounted, shallowReadonly, shallowRef } from 'vue';
 import { onBeforeRouteLeave, onBeforeRouteUpdate, type RouteLocationNormalized } from 'vue-router';
 
-export interface UnsavedWorkOptions {
-  /** Read when someone tries to leave: whether leaving now drops work. */
-  unsaved: () => boolean;
-  /** What the leave question says is lost, one or two sentences. */
-  sentence: string;
-  /** Ask on an in-app move that unmounts the work, as well as on unload. Default true. */
-  inApp?: boolean;
-}
+/**
+ * A screen whose work an in-app move never drops (Market Setup's plan, which its unmount sends)
+ * asks on unload alone, in the browser's words, so it has no sentence of its own.
+ */
+export type UnsavedWorkOptions =
+  | {
+      /** Read when someone tries to leave: whether leaving now drops work. */
+      unsaved: () => boolean;
+      /** What the leave question says is lost, one or two sentences. */
+      sentence: string;
+      /** Ask on an in-app move that unmounts the work, as well as on unload. Default true. */
+      inApp?: true;
+    }
+  | { unsaved: () => boolean; inApp: false };
 
 /** The leave question on show: its sentence, and how it is answered. */
 interface LeaveQuestion {
@@ -68,7 +74,7 @@ function leavesTheWork(to: RouteLocationNormalized, from: RouteLocationNormalize
 }
 
 export function useUnsavedWork(options: UnsavedWorkOptions): void {
-  const { unsaved, sentence, inApp = true } = options;
+  const { unsaved } = options;
 
   function onBeforeUnload(event: BeforeUnloadEvent) {
     if (!unsaved()) return;
@@ -79,7 +85,8 @@ export function useUnsavedWork(options: UnsavedWorkOptions): void {
   onMounted(() => window.addEventListener('beforeunload', onBeforeUnload));
   onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload));
 
-  if (!inApp) return;
+  if (options.inApp === false) return;
+  const { sentence } = options;
   const guard = async (to: RouteLocationNormalized, from: RouteLocationNormalized) => {
     if (!leavesTheWork(to, from) || !unsaved()) return true;
     return askToLeave(sentence);

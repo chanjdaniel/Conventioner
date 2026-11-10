@@ -31,6 +31,7 @@ import { useOpenMarket } from '@/utils/openMarket';
 import { fitsAPhone } from '@/utils/fitsAPhone';
 import { takeDraftedFrom } from '@/utils/draftedFrom';
 import { useAutosave } from '@/utils/useAutosave';
+import { useUnsavedWork } from '@/utils/useUnsavedWork';
 
 const router = useRouter();
 
@@ -207,6 +208,12 @@ function workingPlan(): string {
  * lost) puts the plan back as the server holds it and says why; one that failed on the way keeps
  * the edit and offers Retry (T271). Either stops a move, an allocation or a start from a CSV that
  * would read the plan.
+ *
+ * A reload or a closed tab never unmounts the page, so an edit still waiting then was lost (T271).
+ * The browser asks first, and if the organizer goes, the plan is sent one last time with a
+ * keepalive write, which may outlive the page. That write is a best effort, unproven where the back
+ * end is another origin (production's), so the browser's question is the guard. A move inside the
+ * app asks nothing: the page's unmount sends the edit, and an in-app move does not cancel it.
  */
 const {
   status: planSaveStatus,
@@ -223,6 +230,25 @@ const {
       intakeMode: planIntakeMode.value,
     });
   },
+  sendOnUnload: () => {
+    // `fetch`, not the app's axios: axios's browser adapter is XHR, which has no `keepalive`.
+    try {
+      void fetch(
+        `${import.meta.env.VITE_FLASK_HOST}/markets/${encodeURIComponent(planMarket!.id)}/plan`,
+        {
+          method: 'PUT',
+          keepalive: true,
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ setupObject, intakeMode: planIntakeMode.value }),
+        },
+      ).catch(() => {});
+      return true;
+    } catch {
+      // A body over the browser's 64 KiB keepalive limit throws at the call.
+      return false;
+    }
+  },
   afterSave: () => refreshMarket(),
   afterRefusal: async () => {
     await refreshMarket();
@@ -233,6 +259,8 @@ const {
   may: () => Boolean(planMarket?.id) && mayTake(planMarket, MarketAction.ChangeSetup),
   failure: 'The plan was not saved.',
 });
+
+useUnsavedWork({ unsaved: () => planUnsaved.value, inApp: false });
 
 /** The status line's failed and refused sentences also show on Settings, whose rules ride in the plan. */
 const planSaveDidNotLand = computed(

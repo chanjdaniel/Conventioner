@@ -8,7 +8,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { reactive } from 'vue';
-import { mount } from '@vue/test-utils';
+import { enableAutoUnmount, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 
 import MarketSetupView from '@/views/MarketSetupView.vue';
@@ -84,7 +84,12 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
+
+// The page's own listeners (`beforeunload`, `pagehide`) live on the window, so a view left mounted
+// would answer the next test's events.
+enableAutoUnmount(afterEach);
 
 /** A request the server answered with `status`, as axios rejects it. */
 function answered(status: number, error?: string) {
@@ -422,5 +427,92 @@ describe('a save that did not land', () => {
     expect((routing.router as ReturnType<typeof marketRouter>).push).toHaveBeenCalledWith(
       '/markets/market-1/start-from-csv',
     );
+  });
+});
+
+describe('leaving the page', () => {
+  const ADDED = { ...PLAN, marketDates: [{ date: '2026-08-01' }, { date: '2026-08-08' }] };
+
+  /** Whether the browser would ask before a reload or a close, as the page answers it. */
+  function asksBeforeUnload(): boolean {
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  }
+
+  it('has the browser ask while an edit is unsaved, and not before or once it saved', async () => {
+    const wrapper = await mountPlan();
+    expect(asksBeforeUnload()).toBe(false);
+
+    await edit(wrapper, ADDED);
+    expect(asksBeforeUnload()).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(api.put).toHaveBeenCalledTimes(1);
+    expect(asksBeforeUnload()).toBe(false);
+  });
+
+  it('has the browser ask after a save that failed', async () => {
+    api.put.mockRejectedValue(noAnswer);
+    const wrapper = await mountPlan();
+
+    await edit(wrapper, ADDED);
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(wrapper.find('[data-testid="market-setup-plan-save-error"]').exists()).toBe(true);
+    expect(asksBeforeUnload()).toBe(true);
+  });
+
+  it('sends an edit still in its pause with a keepalive write as the page goes', async () => {
+    const fetch = vi.fn(() => Promise.resolve(new Response(null, { status: 200 })));
+    vi.stubGlobal('fetch', fetch);
+    const wrapper = await mountPlan();
+
+    await edit(wrapper, ADDED);
+    window.dispatchEvent(new Event('pagehide'));
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(`${import.meta.env.VITE_FLASK_HOST}/markets/market-1/plan`);
+    expect(init).toMatchObject({
+      method: 'PUT',
+      keepalive: true,
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const body = JSON.parse(init.body as string);
+    // The plan's own write, as the axios one is; this market has no intake mode to carry.
+    expect(Object.keys(body)).toEqual(['setupObject']);
+    expect(body.setupObject.marketDates).toEqual(ADDED.marketDates);
+    // The axios write is the pause's, and the page is going before it ends.
+    expect(api.put).not.toHaveBeenCalled();
+  });
+
+  it('sends nothing as the page goes with nothing unsaved', async () => {
+    const fetch = vi.fn(() => Promise.resolve(new Response(null, { status: 200 })));
+    vi.stubGlobal('fetch', fetch);
+    await mountPlan();
+
+    window.dispatchEvent(new Event('pagehide'));
+
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('lets a keepalive write the browser refuses go quietly', async () => {
+    // A body over the browser's 64 KiB keepalive limit makes `fetch` throw at the call.
+    const fetch = vi.fn(() => {
+      throw new TypeError('Failed to fetch');
+    });
+    vi.stubGlobal('fetch', fetch);
+    const reported = vi.fn();
+    window.addEventListener('error', reported);
+    const wrapper = await mountPlan();
+
+    await edit(wrapper, ADDED);
+    expect(() => window.dispatchEvent(new Event('pagehide'))).not.toThrow();
+
+    window.removeEventListener('error', reported);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(reported).not.toHaveBeenCalled();
   });
 });

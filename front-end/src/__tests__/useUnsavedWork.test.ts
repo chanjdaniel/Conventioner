@@ -21,7 +21,11 @@ let inApp: boolean | undefined;
 
 const Work = defineComponent({
   setup() {
-    useUnsavedWork({ unsaved: () => unsaved.value, sentence: SENTENCE, inApp });
+    useUnsavedWork(
+      inApp === false
+        ? { unsaved: () => unsaved.value, inApp }
+        : { unsaved: () => unsaved.value, sentence: SENTENCE, inApp },
+    );
     return () => h('div', { 'data-testid': 'work' });
   },
 });
