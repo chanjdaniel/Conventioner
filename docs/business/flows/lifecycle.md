@@ -89,7 +89,7 @@ The review stays closed while the market sits in Assignment ([verdicts settle on
 
 One sentence per phase and path names the one next step and, for someone who may take its action, links to the page where it is done ([the market guide](../../implementation/modules/market-guide.md), [what each role may do](../rules/what-each-role-may-do.md)).
 When the server would refuse that step, the sentence is its first blocker for someone who may put it right, or for everyone when it is a plain fact, such as "There are no applications for this market.", so the organizer reads what is wrong before trying.
-In Draft the form comes before Review setup: while the form has none of the organizer's own questions and Review setup's decision is what the step waits on, the sentence says "Your form asks only the essential questions so far." and leads to drafting from the Google Form's responses or to Your questions, then names the open decision (T260).
+In Draft the form comes before Review setup: while the form has none of the organizer's own questions, it was not started from a Google Form's responses, and Review setup's decision is what the step waits on, the sentence says "Your form asks only the essential questions so far." and leads to drafting from the Google Form's responses or to Your questions, then names the open decision (T260).
 
 | Phase | Online path | Google Form path |
 | --- | --- | --- |

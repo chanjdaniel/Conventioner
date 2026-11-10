@@ -180,8 +180,8 @@ export class MarketSetupPage {
   /**
    * Decide Review setup for a form of essential questions alone (T260). While the form has none of
    * the organizer's own questions the rail offers the form first, named `formFirst` ("Add your
-   * questions", or "Draft from your Google Form"); an organizer who asks nothing of their own passes
-   * it by, opening Review setup as the form tab's last step, and decides there.
+   * questions", or "Draft from your Google Form"); an organizer who asks nothing of their own
+   * passes it by, opening Review setup as the form tab's last step, and decides there.
    */
   async decideOnReviewSetupAskingNothingOfTheirOwn(formFirst: string): Promise<void> {
     await this.page.getByTestId('phase-rail-fix').filter({ hasText: formFirst }).waitFor();

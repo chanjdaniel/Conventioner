@@ -170,21 +170,31 @@ const REVIEW_SETUP: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Whether the organizer has drafted the form past its essential questions: it asks one of their
+ * own, or the start from a Google Form's responses has run, which keeps what it read of the file
+ * (`exampleColumns`, absent on a market never started so) even when the organizer left every column
+ * of their own out, and so may leave the form with essential questions alone.
+ */
+function theFormIsDrafted(market: Market): boolean {
+  return (market.applicationForm?.fields?.length ?? 0) > 0 || Array.isArray(market.exampleColumns);
+}
+
+/**
  * The first thing in a move's way, in the order the organizer works through it: the first blocker
  * served, except that the form comes before Review setup (T260).
  *
  * Once the plan gives the form its essential questions the server's form guard passes, so a draft
  * whose organizer had not yet drafted from their Google Form, or added a question of their own, was
  * told to decide what reviewers read first, before there was anything of theirs to decide on. While
- * the form has none of the organizer's own questions and Review setup is next, the step is the form:
- * the start from a Google Form's responses on that path, for someone who may take it, else Your
- * questions. Nothing is refused for it: a form of essential questions alone still opens once Review
- * setup is decided, and the server's blockers are what the moves are judged by.
+ * the form is not drafted and Review setup is next, the step is the form: the start from a Google
+ * Form's responses on that path, for someone who may take it, else Your questions. Nothing is
+ * refused for it: a form of essential questions alone still opens once Review setup is decided,
+ * and the server's blockers are what the moves are judged by.
  */
 export function firstInTheWay(market: Market, toPhase: string | null): PreconditionResult | null {
   const [blocker] = blockersFor(market, toPhase);
   if (!blocker || !REVIEW_SETUP.has(blocker.id)) return blocker ?? null;
-  if ((market.applicationForm?.fields?.length ?? 0) > 0) return blocker;
+  if (theFormIsDrafted(market)) return blocker;
   // The decision still open, as the end of a sentence: "then decide what reviewers read first".
   const label = blocker.resolutionLabel ?? 'Decide Review setup';
   const then = `then ${label.charAt(0).toLowerCase()}${label.slice(1)}`;

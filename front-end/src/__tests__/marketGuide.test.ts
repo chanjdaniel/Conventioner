@@ -834,10 +834,11 @@ describe('what the stage offers beside its moves (E38/F04/S02, S03)', () => {
 });
 
 /*
- * The form comes before Review setup (T260). Once the plan asks the essential questions the server's
- * form guard passes, so a draft whose organizer had not drafted from their Google Form, or added a
- * question of their own, was told to decide what reviewers read first. The step names the form
- * first while it has none of the organizer's own questions; the server's refusal is unchanged.
+ * The form comes before Review setup (T260). Once the plan asks the essential questions the
+ * server's form guard passes, so a draft whose organizer had not drafted from their Google Form, or
+ * added a question of their own, was told to decide what reviewers read first. The step names the
+ * form first while it is not drafted, with none of the organizer's own questions and no start from
+ * a Google Form's responses run; the server's refusal is unchanged.
  */
 describe('the form comes before Review setup', () => {
   const HIGHLIGHTS = {
@@ -924,6 +925,18 @@ describe('the form comes before Review setup', () => {
 
     expect(step.blocker).toEqual(HIGHLIGHTS);
     expect(step.page).toBe('form?step=review');
+  });
+
+  it("is Review setup once the start from a Google Form's responses has run, whatever it kept", () => {
+    for (const exampleColumns of [[], [{ key: 'shop', label: 'Shop', question: false }]]) {
+      const started = draft({
+        intakeMode: IntakeMode.Csv,
+        applicationForm: { fields: [] },
+        exampleColumns,
+      } as Partial<Market>);
+
+      expect(nextStep(started, TODAY).blocker).toEqual(HIGHLIGHTS);
+    }
   });
 
   it("leaves the plan's own blockers first, and every blocker the server served as it was", () => {
