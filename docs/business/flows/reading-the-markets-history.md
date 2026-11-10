@@ -15,7 +15,7 @@ describes:
   - front-end/e2e/an-address-breaks-only-before-its-at.spec.ts
   - front-end/src/utils/historyReaders/
   - front-end/src/utils/personChoice.ts
-verified: 2026-11-08
+verified: 2026-11-10
 sources:
   - E40/F01/S03
   - E40/F01/S04
@@ -56,6 +56,7 @@ An organizer reads it to investigate a problem or a mistake, which is why it liv
    An address in it, who made the change, a vendor's beside their name or whose share a verdict was, breaks as an address in the table does (step 4).
    Its examples are one kind a line, in the order of the blocks of [what each write records](../../implementation/data/history.md#what-each-write-records), so a new kind's example is one line in its block's place ([two features never share a line](../../implementation/conventions/two-features-never-share-a-line.md#reading-the-markets-history)):
    - "e2e@example.com changed Market Setup: sections"
+   - "e2e@example.com saved a floorplan to the market", opening to the plan's fields it changed, then the floorplan's counts (Tables, Walls, No-go zones, Table types) and whether its layout moved ("Layout: drawn", "changed" or "none")
    - "e2e@example.com changed the prices: price groups" (a change of the Pricing card, naming what on it changed in the card's order, and opening to each field in the card's words and the market's money, "Gold $36.00, Silver $30.00", a row for each price group that changed (one added reads "not on the card" before it, one taken away "removed" after it): its prices, then each condition on its own line in the card's words, its question's label and the answers ticked quoted as the automatic rejections' reasons quote them (“Table choice” includes “Half a table, shared”), read from the market's own questions, and its stored key and value only for what the form no longer has, a wrapped condition hanging under its own line; each group's row headed by its name in the same quotes (Group “Example College student only”); where the groups stand in another order than they did, a row "Order of the groups" gives their names in each order (a group added last, or standing in a removed one's place, as a group renamed where it stands does, has not moved), beside any group that changed in the same write, so a move or a group added between others says where it went, since the card's order decides which group a price names when two price a vendor alike; a value keeps its line breaks, so a vendor note or an Update info answer of several lines reads as the drawer shows it)
    - "e2e@example.com set Ana Rivera to Approved"
    - "e2e@example.com undid their verdict on Ana Rivera: Rejected back to Open" (its giver taking it back within the window, an entry after the verdict's, E38/F10/S01)
