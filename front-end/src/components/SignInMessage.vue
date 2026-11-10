@@ -37,7 +37,7 @@ function resend() {
 
 /*
  * Once the send ends, the newer line has replaced the one the button answered. When the button went
- * with it ("a new link is on its way", or "try again in 15 minutes"), the focus on it would fall to
+ * with it (a link on its way, or the wait past the limit), the focus on it would fall to
  * the page, so it moves to the line that says what happened; offered again, it keeps the focus.
  */
 watch(
