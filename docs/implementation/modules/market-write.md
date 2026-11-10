@@ -7,10 +7,21 @@ describes:
   - back-end/api/markets.py#rename_market
   - back-end/api/markets.py#save_review_highlights
   - back-end/api/markets.py#save_rejection_rules
+  - back-end/api/markets.py#set_permission
+  - back-end/api/markets.py#reset_permission
+  - back-end/api/markets.py#reset_permissions
+  - back-end/api/markets.py#copy_organization_default
+  - back-end/api/applicants.py#publish_results
+  - back-end/api/applicants.py#set_applications_stopped
+  - back-end/api/door.py#make_door_code
+  - back-end/api/discord_connection.py#RolesGivenOnAChangedMarket
+  - back-end/csv_import.py#save_mapping
+  - back-end/csv_start.py#confirm
   - back-end/tests/test_every_market_write_holds_what_it_read.py
   - back-end/tests/test_the_market_write.py
   - back-end/tests/real_mongo/test_the_market_write.py
   - back-end/tests/real_mongo/test_a_judged_write_lands_only_on_the_market_it_judged.py
+  - back-end/tests/real_mongo/test_every_held_write_is_refused_on_a_changed_market.py
   - front-end/src/utils/api.ts#isMarketChanged
   - front-end/src/utils/api.ts#onMarketChanged
   - front-end/src/stores/market.ts#installMarketChanged
@@ -70,6 +81,7 @@ A refused write stores nothing and records no history entry, since each writer c
 
 `market_from_document` ([`back-end/market_documents.py`](../../../back-end/market_documents.py)) keeps the stored document it parsed on the `Market`, as the private attribute `_stored_document`, which `model_copy` carries and no dump serves ([the market document](../data/market-document.md#parsing-a-stored-market)).
 It is the document itself, not a copy, so a caller must never change a document a loader handed it.
+`document_as_read(as_read)` hands it back, for a writer that decides what it holds by what was stored: the permission rows ask it whether the stored rows are a map.
 A `Market` built in code has none, and `write_market` given one raises `RuntimeError`, which answers 500 and is logged: it is a programming error, never a client's.
 
 A hermetic test that replaces `api.markets.markets_collection` with a fake replaces `market_write.markets_collection` too, since the helper holds its own handle.
@@ -84,6 +96,18 @@ In [`back-end/api/markets.py`](../../../back-end/api/markets.py):
   The unique slug index still settles two renames to one address, answered as the address clash.
 - The review highlights (`save_review_highlights`) and the automatic rejections (`save_rejection_rules`), holding the phase alone, since the review's open state is the phase.
   A rules save refused stores no rules and judges no application again.
+- The four writes to the market's permission table (`set_permission`, `reset_permission`, `reset_permissions`, `copy_organization_default`), each holding every row it changes, `permissions.<row id>`, as read, so a row the owner changed in another tab meanwhile is not overwritten and the history's "before" is the row that stood.
+  Where the stored `permissions` is not a map (null, a string), a set or a copy replaces it whole, so it is held whole; the market as read answers which, with no read of its own.
+
+Elsewhere:
+
+- Publish results (`publish_results` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py)), holding `resultsPublished` and `assignmentObject.revision`: an allocation stored after Publish judged the one it read current refuses the publish, and Back to review, which moves the phase, never crosses it ([Publish results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md)).
+- Stop or take applications (`set_applications_stopped`), holding `intakeMode`.
+- The door code (`make_door_code` in [`back-end/api/door.py`](../../../back-end/api/door.py)), holding the phase alone, so a market archived since it was loaded gets no code.
+- The Discord connection ([`back-end/api/discord_connection.py`](../../../back-end/api/discord_connection.py), [the Discord connection](discord.md)): the check and the run hold the server, the role and the username question they read the members against (the check its `checkedAt` too), declining a possible match holds the server, and the card's save and a connection hold each field they change, or `discord` whole on a market never connected.
+  The run gives its roles in Discord before it writes, so its refusal, `RolesGivenOnAChangedMarket`, is a `MarketChanged` in its own words: "The Discord card changed while roles were being given. The roles given are in the market's history; check Discord again."
+- The import's saved mapping (`save_mapping` in [`back-end/csv_import.py`](../../../back-end/csv_import.py)), holding `importMapping`, written before any row, so an import meeting a market that moved, or another import's mapping saved since, writes no application ([the CSV import](csv-import.md)).
+- The start from a CSV (`confirm` in [`back-end/csv_start.py`](../../../back-end/csv_start.py)), holding `applicationForm` as read, which the start judged had no questions of its own ([the CSV proposal and start](csv-proposal-and-start.md)).
 
 Every other write to the markets collection is listed in the guard below, each either a permanent exception with its reason or "moves in ticket NN", a later ticket of the task that moves it onto `write_market`.
 
@@ -119,6 +143,7 @@ A list saved on the market a click at a time (`useSavedOnTheMarket` in [`front-e
 
 - [`tests/real_mongo/test_the_market_write.py`](../../../back-end/tests/real_mongo/test_the_market_write.py), on the server: the phase held always, a key held at its value, absent or null, a held sub-document and a dotted part of one, a revision held at 0 on a market with none and at a stored one, counts, and a market deleted in between.
 - [`tests/real_mongo/test_a_judged_write_lands_only_on_the_market_it_judged.py`](../../../back-end/tests/real_mongo/test_a_judged_write_lands_only_on_the_market_it_judged.py), through the routes on the server: a rename crossing Open applications, a rules save crossing the review's close and a highlights save crossing an archive, each landed between the read and the write by `interleave`, answer the 409 with the sentence, store nothing and record nothing.
+- [`tests/real_mongo/test_every_held_write_is_refused_on_a_changed_market.py`](../../../back-end/tests/real_mongo/test_every_held_write_is_refused_on_a_changed_market.py), the same way for Publish results crossing a new allocation, Stop and the door code crossing an archive, each Discord write, the import crossing another import, the start crossing another start, and each permission-row write crossing the same row set in another tab: each refused write leaves the market as the other change left it, with only that change's history; a card save and a row set beside another field or row changed meanwhile still land.
 - [`tests/test_the_market_write.py`](../../../back-end/tests/test_the_market_write.py), without a server: the stored document a `Market` keeps and `model_copy` carries, the `RuntimeError`s, and the 409's body.
 - [`src/__tests__/aMarketThatChangedUnderAWrite.test.ts`](../../../front-end/src/__tests__/aMarketThatChangedUnderAWrite.test.ts): `isMarketChanged`, the interceptor, the store's re-read, and a refused rules save putting the server's rules on screen with the sentence, the re-read landing before the refusal and after it.
 

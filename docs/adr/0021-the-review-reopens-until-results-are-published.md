@@ -10,10 +10,11 @@ describes:
   - back-end/api/markets.py#apply_phase_transition
   - back-end/api/applicants.py#publish_results
   - front-end/src/components/PhaseRail.vue
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - T191
   - T207
+  - T274
 status: accepted
 ---
 
@@ -34,7 +35,7 @@ What made a way back unsafe in ADR 0013 is what an applicant has been told, and 
 It carries the stage's entry invariants, which pass on any market past draft, and one guard of its own, `ResultsNotPublishedGuard` in [`back-end/guards.py`](../../back-end/guards.py): it refuses once `results_published` is set, reading the flag, never the phase, and names no remedy, since no page reopens the review.
 A Google Form market publishes results too since [ADR 0022](0022-the-vendor-page-is-signed-in.md), so its way back closes with them as well.
 Who may take it is the table's Move the phase row, as for every move.
-The move and Publish results each check the other's fact before they write, so each write holds that fact too: the move's update asks that `resultsPublished` is still not set (`_what_the_move_stood_on`, a `MoveBlockedUnderRequest` 409 with the guard's blocker when it is), and Publish results' update in [`back-end/api/applicants.py`](../../back-end/api/applicants.py) asks for the phase it read and no results published yet (409 when it moved).
+The move and Publish results each check the other's fact before they write, so each write holds that fact too: the move's update asks that `resultsPublished` is still not set (`_what_the_move_stood_on`, a `MoveBlockedUnderRequest` 409 with the guard's blocker when it is), and Publish results' update in [`back-end/api/applicants.py`](../../back-end/api/applicants.py) holds the phase and `resultsPublished` as it read them ([ADR 0024](0024-a-market-write-holds-what-it-read.md): the one 409 when either moved).
 So two requests in flight together, two organizers or a stale tab, never leave a market in the review with its results published.
 
 **The review stays closed in Assignment.**

@@ -15,7 +15,7 @@ describes:
   - scripts/discord_rest_proof.py
   - front-end/src/utils/discordRoles.ts
   - back-end/datatypes.py#DiscordRoleRun
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - T92
   - E46
@@ -30,6 +30,7 @@ sources:
   - T217
   - T223
   - T263
+  - T274
 ---
 
 # The Discord connection
@@ -96,6 +97,8 @@ The Tools tab fits a phone, and the card's choices stand one under another there
 **Who may change it is the table's "Connect Discord and give roles" row** (`connect-discord`, Admin by default; Q19: "admins only"), [the market's actions](market-actions.md).
 Anyone the row refuses reads the card: the server, the role's name, the question's label and the link, with no control, no call to Discord, and no word of when it may be changed.
 Every write loads through `_load_market_to_change`, so an archived market refuses it.
+Every write goes through [the market write](market-write.md), holding the phase it was loaded in, so a market archived or moved while a write was in flight is not written, and answers the one 409, "This market changed while you were working on it, so your change was not saved. Reload to see the latest, then make your change again."; the run says it in its own words (below).
+A save of the card, a connection and a disconnection hold each field they change as it was loaded, so a choice saved meanwhile in another tab to the same field is kept and this one refused, while one saved to another field stands beside it; on a market never connected, whose `discord` is null, the first connection writes the whole sub-document, holding `discord` as it read it.
 
 ## Connecting
 
@@ -134,7 +137,7 @@ The check reads every member of the server, a page of 1000 at a time after the l
 A read that runs out writes and records nothing and answers "Discord was slow to list the server's members. Check Discord again." (a 502, `CHECK_TOO_SLOW`).
 
 **What it found is kept on the market's connection**: `checkedAt`, and `vendorStates`, each `applicationId` with its `state`, the `answer` it was read for (the username answer as the organizer read it, untidied, left out when there was none) and, for a vendor not found, the `possibleMatches` offered and how many more looked alike (`moreMatches`, left out when none), written whole by each check; a vendor who applied since has no state until the next.
-**The check writes those two fields only, and only while the card still names the server, the role and the username question it read against** (`CHECKED_AGAINST`): the members take up to `MEMBERS_READ_SECONDS` to read, so a card saved meanwhile is kept, and a check whose server, role or question changed under it answers 409, "The Discord card changed, or roles were given, while Discord was being checked. Check Discord again.", and records nothing; an invite link saved meanwhile is kept and the check stands.
+**The check writes those two fields only, and only while the card still names the server, the role and the username question it read against** (`CHECKED_AGAINST`): the members take up to `MEMBERS_READ_SECONDS` to read, so a card saved meanwhile is kept, and a check whose server, role or question changed under it answers the one 409 and records nothing; an invite link saved meanwhile is kept and the check stands.
 **It writes them only while `checkedAt` is what it read, too**: a "Give roles" run, or another check, that wrote since read the members later, and a run's grants are newer than any list read before them, so the check's states never put "In the server" back over a vendor the run just gave the role; it answers the same 409.
 The page offers neither the check nor "Give roles" while the other runs.
 **The card's writes set only their own fields too**: saving a choice, and connecting to the same server, `$set` only the fields they change, so a check finishing meanwhile is not undone, and their history still records the card's fields before and after as it always did.
@@ -161,7 +164,7 @@ In the vendor's drawer ([`VendorDiscordOffer.vue`](../../../front-end/src/compon
 
 - **"Confirm…"** opens a dialog of what the vendor wrote and the member's username, and "Save update" sends it as the ordinary update of the vendor's answer, `PUT /markets/:id/applications/:applicationId/answers` ([the application document](../data/application-document.md#an-organizers-update-of-an-answer)): who, when, and their own answer kept beside it, recorded as every update is; the row is "Update a vendor's info" (Editor by default), and "Update info the assignment or price reads" too where a price group reads the username question, as for any update.
   The vendor's state then reads "Check again", and the next check reads the update, so it matches them.
-- **"Not them"** declines the member, `POST /markets/:id/discord/possible-matches/:applicationId/declined` with the `username` (`decline_match`): the member's username joins that vendor's list in `declinedMatches` (`$addToSet`, written only while the market is still connected to the server it was loaded with, else 409), which a check never writes and reads to leave the member out of that vendor's offers; the vendor stays "Not found".
+- **"Not them"** declines the member, `POST /markets/:id/discord/possible-matches/:applicationId/declined` with the `username` (`decline_match`): the member's username joins that vendor's list in `declinedMatches` (`$addToSet`, written only while the market is still connected to the server it was loaded with, else the one 409), which a check never writes and reads to leave the member out of that vendor's offers; the vendor stays "Not found".
   It asks the rows confirming asks (`assert_may_update_what_the_assignment_or_prices_read`, shared with the update), the price-read row too where a price group reads the username question, since answering an offer is about the vendor's info, not the check; only a member the last check offered that vendor may be declined, else it answers 400; an archived market refuses it.
   A price group reads only a choice question and the username question is a text one, so that row is asked only once the question stopped being text.
   It records one entry (`discord_match_declined`, under `update-vendor-info`), naming the vendor, with the member's username and names and the answer it was offered for.
@@ -196,7 +199,7 @@ It confirms first, by the role's name and how many vendors hold a seat on any da
   A vendor not found whom the market's `discordVendors` now show as a possible match is counted beside "not found" ("1 not found (1 possible match)"), so the report and their row agree.
   It is about the server and the username question it read against, so connecting to another server, choosing another username question (`CHECK_FIELDS`, on the card or when connecting again chooses afresh) or disconnecting forgets it, as each forgets the check, even when the run finished after the card was read; restating the same question keeps it, and so does a later check, which writes only its own fields.
 
-**The run writes its report, the states and `checkedAt` only while the card still names the server, the role and the username question it read against**, as a check does; but the roles are already given in Discord by then, so a card changed meanwhile is kept, the run is still recorded in the history with the roles it gave, and the answer is a 409, "The Discord card changed while roles were being given. The roles given are in the market's history; check Discord again."
+**The run writes its report, the states and `checkedAt` only while the card still names the server, the role and the username question it read against**, as a check does; but the roles are already given in Discord by then, so a card changed meanwhile is kept and a market archived meanwhile is not written, the run is still recorded in the history with the roles it gave, and the answer is a 409 that is not the one sentence, since the roles it gave stay given: `RolesGivenOnAChangedMarket`, with the body's `code` `market_changed`, so the page re-reads the market as after any refused write, and the error "The Discord card changed while roles were being given. The roles given are in the market's history; check Discord again."
 
 ## The values, and a deployment without them
 

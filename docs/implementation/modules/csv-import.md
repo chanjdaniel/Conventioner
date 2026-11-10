@@ -12,7 +12,7 @@ describes:
   - front-end/src/components/ValueFixes.vue
   - front-end/src/components/csvImport/ImportRefusedRows.vue
   - front-end/src/views/CsvImportView.vue#mapsTo
-verified: 2026-11-05
+verified: 2026-11-11
 sources:
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/map
@@ -36,6 +36,7 @@ sources:
   - T205
   - T223
   - T263
+  - T274
 ---
 
 # The CSV import
@@ -120,7 +121,7 @@ What no reader can settle is an option made of others ("Prints, Cards" offered b
 It warns and does not refuse: any value still unmatched must be settled by hand before the preview, so nothing wrong is imported either way, and refusing would strand an organizer whose only copy of the answers is that file; their real fixes are a grid, or renamed options.
 
 **There is one mapping format**, `mapping_payload`: targets by header TEXT, never position, with the file's headers, the resolutions, when, and who made it (`madeBy`: the import, or the start from a CSV).
-The import saves it on the market's `importMapping` after every import (`save_mapping`), and the next `inspect` restores it with `restore_mapping`; a target whose headers are not all present is reported as missing rather than half-restored, because a partly mapped grid looks answered.
+The import saves it on the market's `importMapping` on every import (`save_mapping`), once every refusal is decided and before any row is written, through [the market write](market-write.md): it holds the market's phase and its `importMapping` as the import read them, so an import meeting a market that moved, or another import's mapping saved since, answers the one 409, "This market changed while you were working on it, so your change was not saved. Reload to see the latest, then make your change again.", and writes no application; the next `inspect` restores it with `restore_mapping`; a target whose headers are not all present is reported as missing rather than half-restored, because a partly mapped grid looks answered.
 A saved target the form lacks is skipped, which is how the start's left-out columns wait under their would-be keys ([the CSV proposal and start](csv-proposal-and-start.md)); the targets that are not questions (`RESERVED_TARGETS`: who applied, when, the sheet's note) are never a question's key: the start's `key_for` passes over them and the form's save refuses them.
 The start from a CSV writes the same format, so the first import of a later export opens with every column restored and every value matched ([the CSV proposal and start](csv-proposal-and-start.md)); do not give anything a mapping shape of its own.
 
