@@ -257,6 +257,8 @@ def send_account_exists_email(email: str) -> bool:
     </html>
     """
 
+    # The bare links below have no full stop after them on purpose: a mail client can read a full
+    # stop as part of the link.
     text_content = f"""
     {subject}
 
