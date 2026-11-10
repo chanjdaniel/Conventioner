@@ -23,7 +23,7 @@ describes:
   - back-end/migrations/migrate_is_draft_consistency.py
   - back-end/migrations/migrate_publishing_to_market_days.py
   - docs/schema.d.ts
-verified: 2026-11-03
+verified: 2026-11-11
 sources:
   - E02
   - E03/F03
@@ -43,6 +43,7 @@ sources:
   - T206
   - T213
   - T263
+  - T274
 ---
 
 # The market document
@@ -202,6 +203,10 @@ For one release it also reads the three phases E38/F04 folded into `applications
 Pydantic validates an enum on construction, before any later assignment can degrade it, so a stored value this build does not recognize used to raise, taking down every list that included that one market.
 Do not "simplify" this by letting the model parse either field.
 The intake mode reads only `intakeMode`, absent or unrecognized meaning `csv`.
+
+**`market_from_document()` keeps the document it parsed on the `Market`**, as the private attribute `_stored_document`, which `model_copy` carries and no dump serves.
+It is what a write judged on that market holds: `write_market` holds the stored `phase` and whatever else its rule read, and a write over a market that changed since stores nothing and raises `MarketChanged`, a 409 ([the market write](../modules/market-write.md)).
+It is the document itself, not a copy, so a caller never changes a document a loader handed it.
 
 ## The boot refusal and the migration
 

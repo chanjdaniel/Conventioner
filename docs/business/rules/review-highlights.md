@@ -7,7 +7,7 @@ describes:
   - front-end/src/utils/reviewHighlights.ts
   - front-end/src/utils/reviewQueue.ts#reviewAnswers
   - front-end/src/components/application/ReviewHighlights.vue
-verified: 2026-11-05
+verified: 2026-11-11
 sources:
   - wayfinding/the-order-of-the-work/05
   - E19/F03/S01
@@ -16,6 +16,7 @@ sources:
   - E38/F03/S01
   - T206
   - T217
+  - T274
 ---
 
 # Review highlights
@@ -63,5 +64,6 @@ An Editor or above changes them; nobody changes an archived market's ([what each
 - [`front-end/src/utils/reviewHighlights.ts`](../../../front-end/src/utils/reviewHighlights.ts) is the one list both screens change, and [`ReviewHighlights.vue`](../../../front-end/src/components/application/ReviewHighlights.vue) the control on both, which also offers a mark the current offering no longer asks, so it can always be taken off.
 - `reviewAnswers` in [`front-end/src/utils/reviewQueue.ts`](../../../front-end/src/utils/reviewQueue.ts) splits a card into the marked answers, in their order, and the rest, in the card's own order; the review card, the All view and the import preview's rows read it, the card and the preview through one layout of the answers (`ApplicationAnswers.vue`).
 - `back-end/tests/test_review_highlights.py`, `front-end/src/__tests__/reviewQueue.test.ts` and `front-end/e2e/review-highlights.spec.ts` pin it, and `back-end/tests/test_the_review_setup_decisions.py` its "none"; the composable's `chooseNone` writes it, through `useSavedOnTheMarket` (`front-end/src/utils/savedOnTheMarket.ts`), which holds a list's "none" beside it.
+- The write holds the phase it was judged on ([the market write](../../implementation/modules/market-write.md)): a save that lands after the market was archived is refused with the one sentence a changed market answers, stores nothing and records nothing, and the screen shows the highlights the market holds.
 - The screens are [what a reviewer reads first](../flows/form-tab.md#f3-what-a-reviewer-reads-first) and [choose what leads the card](../flows/review.md#i3-choose-what-leads-the-card).
 - Each change of the highlights is recorded in [the market's history](../../implementation/data/history.md) (`review_highlights`), as they were and as they are, with `nothing_leads_the_card` when it changed; the history says "decided nothing leads the card" when it turned true, and "changed the review highlights" otherwise.
