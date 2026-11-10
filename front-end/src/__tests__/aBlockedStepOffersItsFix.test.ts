@@ -11,7 +11,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { mount, RouterLinkStub } from '@vue/test-utils';
 
 import PhaseRail from '@/components/PhaseRail.vue';
-import { MarketPhase, type Market, type PreconditionResult } from '@/assets/types/datatypes';
+import {
+  IntakeMode,
+  MarketPhase,
+  type Market,
+  type PreconditionResult,
+} from '@/assets/types/datatypes';
 import {
   ADMIN_ANSWERS,
   answersRefusing,
@@ -113,6 +118,11 @@ describe('a refused move offers its fix', () => {
  * A fix may name a step of a page in its query (T206): Review setup is `form?step=review`, and the
  * Application Form tab is one page whatever step it shows. The link is here only on that step.
  */
+/** A form with a question of the organizer's own, so Review setup, not the form, is next (T260). */
+const A_QUESTION = {
+  applicationForm: { fields: [{ key: 'shop', label: 'Shop', type: 'text' }] },
+} as unknown as Partial<Market>;
+
 describe('a fix that names a step of a page', () => {
   const UNDECIDED: PreconditionResult = {
     id: 'review_highlights_decided',
@@ -124,7 +134,7 @@ describe('a fix that names a step of a page', () => {
   };
 
   it('leads there from another step of the same page', () => {
-    const rail = railFor([UNDECIDED], {}, '/markets/market-1/form?step=questions');
+    const rail = railFor([UNDECIDED], A_QUESTION, '/markets/market-1/form?step=questions');
 
     expect(rail.get(fix).getComponent(RouterLinkStub).props('to')).toBe(
       '/markets/market-1/form?step=review',
@@ -133,14 +143,14 @@ describe('a fix that names a step of a page', () => {
 
   it('leads there from the page with no step named, and from another page', () => {
     for (const at of ['/markets/market-1/form', '/markets/market-1/setup']) {
-      const rail = railFor([UNDECIDED], {}, at);
+      const rail = railFor([UNDECIDED], A_QUESTION, at);
 
       expect(rail.get(fix).text()).toBe('Decide what reviewers read first');
     }
   });
 
   it('is not offered on the step itself', () => {
-    const rail = railFor([UNDECIDED], {}, '/markets/market-1/form?step=review');
+    const rail = railFor([UNDECIDED], A_QUESTION, '/markets/market-1/form?step=review');
 
     expect(rail.find(fix).exists()).toBe(false);
   });
@@ -155,6 +165,52 @@ describe('a fix that names a step of a page', () => {
       resolutionAction: MarketAction.GiveVerdicts,
     };
     const rail = railFor([UNREVIEWED], {}, '/markets/market-1/applications?view=one');
+
+    expect(rail.find(fix).exists()).toBe(false);
+  });
+});
+
+/*
+ * The form comes before Review setup (T260): while a draft's form has none of the organizer's own
+ * questions, the main button is the form, and the move waits on Review setup as the server says.
+ */
+describe('the form before Review setup', () => {
+  const UNDECIDED: PreconditionResult = {
+    id: 'review_highlights_decided',
+    passed: false,
+    message: 'Nothing says what a reviewer reads first.',
+    resolutionLink: 'form?step=review',
+    resolutionLabel: 'Decide what reviewers read first',
+    resolutionAction: MarketAction.ChangeForm,
+  };
+
+  it('leads to Your questions, with the move waiting disabled beside it', () => {
+    const rail = railFor([UNDECIDED], { intakeMode: IntakeMode.Form }, '/markets/market-1/setup');
+
+    const button = rail.get(fix);
+    expect(button.text()).toBe('Add your questions');
+    expect(button.getComponent(RouterLinkStub).props('to')).toBe(
+      '/markets/market-1/form?step=questions',
+    );
+    expect(rail.get(move).attributes('disabled')).toBeDefined();
+  });
+
+  it('leads a Google Form market to the start from its responses', () => {
+    const rail = railFor([UNDECIDED], { intakeMode: IntakeMode.Csv }, '/markets/market-1/setup');
+
+    const button = rail.get(fix);
+    expect(button.text()).toBe('Draft from your Google Form');
+    expect(button.getComponent(RouterLinkStub).props('to')).toBe(
+      '/markets/market-1/start-from-csv',
+    );
+  });
+
+  it('is not offered on Your questions itself', () => {
+    const rail = railFor(
+      [UNDECIDED],
+      { intakeMode: IntakeMode.Form },
+      '/markets/market-1/form?step=questions',
+    );
 
     expect(rail.find(fix).exists()).toBe(false);
   });

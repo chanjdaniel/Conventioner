@@ -43,6 +43,7 @@ import OpenApplicationsDialog from '@/components/market/OpenApplicationsDialog.v
 import { isHere, marketPath, resolutionPath } from '@/utils/market';
 import {
   blockersFor,
+  firstInTheWay,
   forwardFrom,
   intakeModeOf,
   landingPage,
@@ -264,9 +265,9 @@ const forwardTransition = computed(() => {
  * sentence says it.
  */
 const fix = computed(() => {
-  // The move's own first blocker, the one its disabled state is read from - not the sentence's,
-  // which before a run says "run the assignment" in its own words and names no blocker.
-  const blocker = forwardTransition.value ? firstBlocker(forwardTransition.value) : null;
+  // The move's own first blocker - not the sentence's, which before a run says "run the assignment"
+  // in its own words and names no blocker - with the form before Review setup (T260).
+  const blocker = props.market ? firstInTheWay(props.market, forwardTransition.value) : null;
   const to = mayTake(props.market, blocker?.resolutionAction)
     ? elsewhere(blocker?.resolutionLink)
     : null;
@@ -1004,7 +1005,6 @@ function cancelPending() {
      the row beneath). */
   .url-chip {
     flex: 1 0 calc(50% + var(--space-2));
-    justify-content: space-between;
     min-width: min-content;
     align-self: center;
   }
@@ -1041,8 +1041,11 @@ function cancelPending() {
   white-space: nowrap;
 }
 
+/* At the chip's end at every width, so a chip wider than its words, an 18rem floor round a short
+   address or a phone's half row, leaves its room before Copy rather than after it (T260). */
 .url-chip-copy {
   flex: none;
+  margin-left: auto;
   min-width: var(--target-min);
   min-height: var(--target-min);
   border: 1px solid var(--mm-border);

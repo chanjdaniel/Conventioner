@@ -12,7 +12,9 @@ import { movesServedFrom } from './support/servedMoves';
 import { answersRefusing, EDITOR_ANSWERS, VIEWER_ANSWERS } from './support/servedAnswers';
 import { MarketAction } from '@/utils/marketActions';
 import {
+  blockersFor,
   currentPage,
+  firstInTheWay,
   forwardFrom,
   landingPage,
   spineFor,
@@ -828,5 +830,122 @@ describe('what the stage offers beside its moves (E38/F04/S02, S03)', () => {
     expect(
       stageActions(market(MarketPhase.Applications, { applicationsStopReason: 'Not now.' })),
     ).toEqual([]);
+  });
+});
+
+/*
+ * The form comes before Review setup (T260). Once the plan asks the essential questions the
+ * server's form guard passes, so a draft whose organizer had not drafted from their Google Form, or
+ * added a question of their own, was told to decide what reviewers read first. The step names the
+ * form first while it is not drafted, with none of the organizer's own questions and no start from
+ * a Google Form's responses run; the server's refusal is unchanged.
+ */
+describe('the form comes before Review setup', () => {
+  const HIGHLIGHTS = {
+    id: 'review_highlights_decided',
+    passed: false,
+    message: 'Nothing says what a reviewer reads first.',
+    resolutionLink: 'form?step=review',
+    resolutionLabel: 'Decide what reviewers read first',
+    resolutionAction: MarketAction.ChangeForm,
+  };
+  const REJECTIONS = {
+    id: 'rejection_rules_decided',
+    passed: false,
+    message: 'The automatic rejections are not decided.',
+    resolutionLink: 'form?step=review',
+    resolutionLabel: 'Decide the automatic rejections',
+    resolutionAction: MarketAction.ChangeForm,
+  };
+  const NO_LOCATION = {
+    id: 'setup_has_a_location',
+    passed: false,
+    message: 'This market has no location. Add one on Market Setup.',
+    resolutionLink: 'setup',
+    resolutionLabel: 'Add a location',
+    resolutionAction: MarketAction.ChangeSetup,
+  };
+  const A_QUESTION = { fields: [{ key: 'shop', label: 'Shop', type: 'text' }] };
+  const draft = (overrides: Partial<Market> = {}, blockers = [HIGHLIGHTS, REJECTIONS]) =>
+    market(MarketPhase.Draft, {
+      transitionBlockers: { applications: blockers, archived: [] },
+      ...overrides,
+    } as Partial<Market>);
+
+  it('leads to Your questions on a market whose vendors apply on its page', () => {
+    for (const applicationForm of [undefined, null, { fields: [] }]) {
+      const step = nextStep(draft({ applicationForm } as Partial<Market>), TODAY);
+
+      expect(step.blocker).toMatchObject({
+        resolutionLabel: 'Add your questions',
+        resolutionLink: 'form?step=questions',
+        resolutionAction: MarketAction.ChangeForm,
+      });
+      expect(step.page).toBe('form?step=questions');
+      expect(step.text).toBe(
+        'To open applications: Your form asks only the essential questions so far. Add any of ' +
+          'your own on Your questions, then decide what reviewers read first on Review setup.',
+      );
+    }
+  });
+
+  it("leads to the start from a Google Form's responses on a Google Form market", () => {
+    const step = nextStep(draft({ intakeMode: IntakeMode.Csv }), TODAY);
+
+    expect(step.blocker).toMatchObject({
+      resolutionLabel: 'Draft from your Google Form',
+      resolutionLink: 'start-from-csv',
+      resolutionAction: MarketAction.ImportApplications,
+    });
+    expect(step.text).toBe(
+      "To begin review: Your form asks only the essential questions so far. Draft the rest from your Google Form's responses, then decide what reviewers read first on Review setup.",
+    );
+  });
+
+  it('leads a Google Form market to Your questions where the start is refused, or not theirs', () => {
+    for (const overrides of [
+      { csvStartRefusal: 'This market has applications already.' },
+      { actionRefusals: EDITOR_ANSWERS },
+    ]) {
+      const step = nextStep(draft({ intakeMode: IntakeMode.Csv, ...overrides }), TODAY);
+
+      expect(step.blocker?.resolutionLink).toBe('form?step=questions');
+      expect(step.action).toBe(MarketAction.ChangeForm);
+    }
+  });
+
+  it('names whichever Review setup decision is still open after the form', () => {
+    const step = nextStep(draft({}, [REJECTIONS]), TODAY);
+
+    expect(step.text).toContain('then decide the automatic rejections on Review setup.');
+  });
+
+  it('is Review setup once the form has a question of its own', () => {
+    const step = nextStep(draft({ applicationForm: A_QUESTION } as Partial<Market>), TODAY);
+
+    expect(step.blocker).toEqual(HIGHLIGHTS);
+    expect(step.page).toBe('form?step=review');
+  });
+
+  it("is Review setup once the start from a Google Form's responses has run, whatever it kept", () => {
+    for (const exampleColumns of [[], [{ key: 'shop', label: 'Shop', question: false }]]) {
+      const started = draft({
+        intakeMode: IntakeMode.Csv,
+        applicationForm: { fields: [] },
+        exampleColumns,
+      } as Partial<Market>);
+
+      expect(nextStep(started, TODAY).blocker).toEqual(HIGHLIGHTS);
+    }
+  });
+
+  it("leaves the plan's own blockers first, and every blocker the server served as it was", () => {
+    const planFirst = draft({}, [NO_LOCATION, HIGHLIGHTS]);
+
+    expect(nextStep(planFirst, TODAY).blocker).toEqual(NO_LOCATION);
+    expect(firstInTheWay(planFirst, MarketPhase.Applications)).toEqual(NO_LOCATION);
+    const formFirst = draft();
+    expect(firstInTheWay(formFirst, MarketPhase.Applications)?.id).toBe('form_first');
+    expect(blockersFor(formFirst, MarketPhase.Applications)).toEqual([HIGHLIGHTS, REJECTIONS]);
   });
 });

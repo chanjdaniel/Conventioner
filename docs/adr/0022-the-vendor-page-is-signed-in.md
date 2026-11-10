@@ -6,7 +6,7 @@ describes:
   - back-end/api/applicants.py#get_vendor_page
   - back-end/remembered_sign_ins.py
   - front-end/src/views/VendorPage.vue
-verified: 2026-11-04
+verified: 2026-11-10
 sources:
   - T202
   - T191

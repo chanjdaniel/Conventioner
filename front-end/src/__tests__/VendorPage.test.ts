@@ -25,6 +25,7 @@ import {
 import { EMPTY_ESSENTIAL_OPTIONS } from '@/utils/essentialFields';
 import { calendarToday } from '@/utils/marketGuide';
 import { normalizedDoorCode } from '@/utils/doorCode';
+import { standsApart } from '@/utils/currentPlace';
 
 const fetchVendorPage = vi.fn<(slug: string) => Promise<VendorPageRead>>();
 vi.mock('@/utils/vendorPage', async (importOriginal) => ({
@@ -62,21 +63,27 @@ const routing = vi.hoisted(() => {
   const at = { query: {} as Record<string, string> };
   return {
     at,
+    /** The route the page reads, reactive as the router's is; set by the mock below. */
+    route: null as unknown as { params: Record<string, string> },
     replace: vi.fn((to: { query: Record<string, string> }) => {
       at.query = to.query;
     }),
   };
 });
-vi.mock('vue-router', () => ({
-  useRoute: () => ({
-    params: { marketSlug: 'spring-market' },
+vi.mock('vue-router', async () => {
+  const { reactive } = await import('vue');
+  routing.route = reactive({
+    params: { marketSlug: 'spring-market' } as Record<string, string>,
     get query() {
       return routing.at.query;
     },
     hash: '',
-  }),
-  useRouter: () => ({ push: vi.fn(), replace: routing.replace }),
-}));
+  });
+  return {
+    useRoute: () => routing.route,
+    useRouter: () => ({ push: vi.fn(), replace: routing.replace }),
+  };
+});
 
 const SESSION_KEY = 'conventioner.applicantSession';
 
@@ -166,6 +173,7 @@ const has = (wrapper: Awaited<ReturnType<typeof mountPage>>, testid: string) =>
 beforeEach(() => {
   sessionStorage.clear();
   routing.at.query = {};
+  routing.route.params = { marketSlug: 'spring-market' };
   routing.replace.mockClear();
   checkInWithDoorCode.mockReset();
   undoOwnCheckIn.mockReset();
@@ -304,6 +312,37 @@ describe('the page, signed out', () => {
 
     expect(fetchVendorPage).toHaveBeenCalledTimes(2);
     expect(has(wrapper, 'vendor-sign-in-email-input')).toBe(true);
+  });
+});
+
+/**
+ * The page tells the app bar when its slug answered "Page not found" (T260), and takes that back
+ * when it goes: by the slug it answered for, since by its unmount the route is already the next.
+ */
+describe('what the page tells the app bar', () => {
+  const vendorPage = (marketSlug: string) =>
+    standsApart({
+      matched: [{ meta: { vendorFacing: true } }],
+      params: { marketSlug },
+    } as unknown as Parameters<typeof standsApart>[0]);
+
+  it('says its slug answered "Page not found"', async () => {
+    fetchVendorPage.mockResolvedValue(NOT_FOUND);
+    const wrapper = await mountPage();
+
+    expect(vendorPage('spring-market')).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('takes it back when it goes to another page, so that slug reads as a vendor page again', async () => {
+    fetchVendorPage.mockResolvedValue(NOT_FOUND);
+    const wrapper = await mountPage();
+
+    // Its own Markets button: the route is /markets before the page unmounts.
+    routing.route.params = {};
+    wrapper.unmount();
+
+    expect(vendorPage('spring-market')).toBe(true);
   });
 });
 

@@ -40,6 +40,7 @@ sources:
   - T205
   - T223
   - T251
+  - T260
 ---
 
 # E2E patterns
@@ -59,6 +60,7 @@ A new page follows the existing ones (`LoginPage`, `MarketsPage`, `NewMarketPage
 `MarketSetupPage` holds more than the plan: the market's tabs and the phase rail are there too, because every market page stands in the same frame, and `publishResults`, which a walk into market days takes on either path.
 `VendorPage` is the one object for a market's vendor page, signed out and in, the application form on it included.
 Its `decideOnReviewSetup` follows the rail's "Decide what reviewers read first" to Review setup and chooses "Nothing leads the card" and "No automatic rejections", so a walk that opens Review through the screens decides as an organizer does ([review waits on the review setup](../../business/rules/review-waits-on-the-review-setup.md)).
+On a form of essential questions alone the rail offers the form first (T260), so `decideOnReviewSetupAskingNothingOfTheirOwn` waits for that offer by its name, opens Review setup as the form tab's last step and decides the same way.
 A dialog that more than one screen opens has an object of its own (`FollowUpDialog`, opened from One by one's card and from the All view's drawer), so a test id renamed in it is one line to change for every spec that drives the dialog through the object.
 
 **The Application Form tab is a sequence of steps** (E33/F01): the builder, the preview and the highlights are never all on screen.
