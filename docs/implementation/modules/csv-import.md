@@ -35,6 +35,7 @@ sources:
   - E38/F15/S02
   - T205
   - T223
+  - T263
 ---
 
 # The CSV import
@@ -70,6 +71,7 @@ In a draft it also refuses with every one of `first_import_blockers`, the move i
 **The first import takes the market into Review** once its rows are written: `enter_review` moves it through `take_move` under the importer, and the result says the phase it is in (`phase`).
 A first import that wrote nothing, or a move refused by a setup changed under it, leaves the market a draft.
 `_import_context` asks it on every endpoint, so a hidden button is never the rule; `_importing_market_document` asks the row Import applications, and start a market from a CSV ([the market's actions](market-actions.md)) then refuses an archived market whoever may.
+It returns the stored document beside the organization that check read (`ImportingMarket`), so the start from a CSV asks the Assign row of the same organization when its plan changes the assignment rules ([the CSV proposal and start](csv-proposal-and-start.md#sharp-edges)).
 The three endpoints catch nothing: their refusals are the literal answers above, and anything else is the generic 500 ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
 
 **Every row goes through `record_application_answers(imported=True)`**, the applicant's own write ([`back-end/application_write.py`](../../../back-end/application_write.py)), so an imported application and a submitted one are the same kind of thing by construction; `imported=True` is the import's only difference ([what an import may leave unasked](../../business/rules/what-an-import-may-leave-unasked.md)).
