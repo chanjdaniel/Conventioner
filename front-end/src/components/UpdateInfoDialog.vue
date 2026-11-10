@@ -274,6 +274,7 @@ async function save(): Promise<void> {
     scroll="body"
     :confirm-label="busy ? 'Saving…' : 'Save'"
     :confirm-disabled="busy || !Object.keys(sent).length"
+    :close-disabled="busy"
     :error="error"
     @close="emit('close')"
     @submit="save"

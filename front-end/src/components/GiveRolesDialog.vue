@@ -57,6 +57,7 @@ async function give(): Promise<void> {
     testid="give-roles"
     :confirm-label="busy ? 'Giving roles…' : 'Give roles'"
     :confirm-disabled="busy"
+    :close-disabled="busy"
     :error="error"
     @close="emit('close')"
     @submit="give"

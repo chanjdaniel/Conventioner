@@ -35,8 +35,11 @@ import {
   TABLE_SHARE_EMAIL_KEY,
   TIER_PREFERENCE_KEY,
 } from '@/utils/essentialFields';
+import { tryEveryClose } from './support/dialogCloses';
 
 const sent: { url: string; body: unknown }[] = [];
+/** A write still out, when a test holds one; otherwise the server answers at once. */
+let held: Promise<unknown> | null = null;
 
 vi.mock('@/utils/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/api')>();
@@ -45,6 +48,7 @@ vi.mock('@/utils/api', async (importOriginal) => {
     api: {
       put: (url: string, body: { answers: Record<string, unknown> }) => {
         sent.push({ url, body });
+        if (held) return held;
         return Promise.resolve({ data: { application: application() } });
       },
     },
@@ -53,6 +57,7 @@ vi.mock('@/utils/api', async (importOriginal) => {
 
 afterEach(() => {
   sent.length = 0;
+  held = null;
 });
 
 const FORM: ApplicationForm = {
@@ -261,6 +266,25 @@ describe('the Update info dialog', () => {
 
     expect(wrapper.emitted('close')).toHaveLength(1);
     expect(sent).toEqual([]);
+    wrapper.unmount();
+  });
+
+  it('closes by no way while Save is out, so its refusal is never hidden', async () => {
+    let refuse!: (reason: unknown) => void;
+    held = new Promise((_resolve, reject) => (refuse = reject));
+    const wrapper = dialog();
+    await wrapper.get(testid('update-info-input-shop')).setValue('Ember Ceramics');
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+
+    await tryEveryClose('update-info');
+    expect(wrapper.emitted('close')).toBeUndefined();
+
+    refuse(new Error('Network Error'));
+    await flushPromises();
+    expect(wrapper.get(testid('update-info-error')).text()).toBe('The update could not be saved.');
+    await tryEveryClose('update-info');
+    expect(wrapper.emitted('close')).toHaveLength(4);
     wrapper.unmount();
   });
 
