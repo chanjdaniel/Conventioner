@@ -5,7 +5,7 @@ describes:
   - front-end/playwright.config.ts
   - scripts/seed_fixture.sh
   - scripts/nm-test.sh
-verified: 2026-11-03
+verified: 2026-11-10
 sources:
   - E34/F03/S02
   - E35/F02/S01
@@ -14,6 +14,7 @@ sources:
   - E41/F01/S01
   - T200
   - T205
+  - T263
 ---
 
 # Testing Conventioner
@@ -101,7 +102,7 @@ decides whether a market's public check-in URL is live: it serves a market past 
 and refuses a draft, on both a document that stores a `phase` and one written before the
 field existed (where the phase is derived from `isDraft`).
 
-The market phase lifecycle adds six suites:
+The market phase lifecycle adds seven suites:
 
 - `test_guards.py` - the guard registry (`back-end/guards.py`) in isolation: which edges
   are valid, the `form_has_fields` guard passing and failing, and the import-time
@@ -402,8 +403,7 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   own browser owned (E07/F01/S02).
   Do not reintroduce it, and do not add another header like it - `test_session_is_the_identity.py`
   fails the build if one appears in `app.py` or any blueprint under `api/`.
-  Several e2e specs still pass the header on their own request contexts; it is inert, and those
-  helpers authenticate properly by logging in.
+  The e2e helpers authenticate by logging in, and no spec or seed sends an identity header.
 - **Email verification**: The seed fixture creates users with `email_verified=true`
   via `back-end/create_test_user.py` so they can log in immediately.
 - **The Google Forms fixture**: `back-end/tests/test_data/google_forms/five-day-grid.csv` is a

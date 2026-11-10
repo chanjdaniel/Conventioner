@@ -16,7 +16,7 @@ describes:
   - front-end/e2e/helpers/settle.ts
   - front-end/src/utils/utils.ts#getFormattedDate
   - front-end/e2e/helpers/phoneWindow.ts#inTheWindow
-verified: 2026-11-09
+verified: 2026-11-10
 sources:
   - E21/F02/S02
   - E22/F04/S02
@@ -41,6 +41,7 @@ sources:
   - T223
   - T251
   - T260
+  - T263
 ---
 
 # E2E patterns
@@ -108,7 +109,7 @@ A `csv` market enters `applications` only holding an application, so a spec that
 
 ## Sharp edges
 
-**Several specs and seeds still send an `X-Owner-Email` header, and it is inert**: identity comes from the session cookie alone, and the helpers authenticate by logging in.
+**Identity comes from the session cookie alone**: the helpers authenticate by logging in, and no spec or seed sends an identity header.
 That, the self-signed certificate and the other suite-wide traps are TESTING.md's [testing gotchas](../../TESTING.md#testing-gotchas).
 
 **Applicant sign-in is rate limited** ([sign-in is bounded](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)): an address is sent at most five codes per 15 minutes and may try ten, and a caller 300 of each, which the whole serial run shares.
