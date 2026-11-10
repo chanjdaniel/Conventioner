@@ -3,11 +3,12 @@
 to boot on one (T270).
 
 Each collection in ``unique_indexes.VENDOR_DAY_INDEXES`` has its owner build a unique index per
-vendor's day at boot (``api.attendance.ensure_attendance_indexes``), and the back end refuses to
-start when it cannot, which a duplicate already stored would cause. Run this against production
-first: it reads, groups by market, vendor and date, and prints each duplicate by market id, date
-and record id, never by address. It writes nothing. Resolving one is in docs/OPERATIONS.md, "When the back end refuses to
-boot".
+vendor's day at boot (``api.attendance.ensure_attendance_indexes`` for ``attendance``,
+``payments.ensure_payment_indexes`` for ``amounts_owed``), and the back end refuses to start when
+it cannot, which a duplicate already stored would cause. Run this against production first: it
+reads, groups by market, vendor and date, and prints each duplicate by market id, date and record
+id, never by address. It writes nothing. Resolving one is in docs/OPERATIONS.md, "When the back
+end refuses to boot".
 
 Exits 0 when no vendor's day has more than one record, and 1 when any has.
 

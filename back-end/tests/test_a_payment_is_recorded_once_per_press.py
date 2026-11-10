@@ -262,5 +262,6 @@ class TestTheIndex:
         with pytest.raises(UniqueIndexes.UniqueIndexError) as refused:
             app_module.verify_payment_indexes()
 
-        assert f"by market_id and record id: market_id {MARKET}: pay-1, pay-2." in str(refused.value)
+        named = f"by market_id and record id: market_id {MARKET}: pay-1, pay-2."
+        assert named in str(refused.value)
         assert KEY not in str(refused.value)

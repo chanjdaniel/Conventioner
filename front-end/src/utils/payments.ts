@@ -6,8 +6,7 @@
  * line of a freed table, and adds up both totals (`back-end/payments.py`). This only reads, words
  * and records.
  */
-import axios from 'axios';
-import { api } from '@/utils/api';
+import { api, getApiErrorStatus } from '@/utils/api';
 import { formatPrice } from '@/utils/pricing';
 import { getFormattedDate, getTimestampDate } from '@/utils/utils';
 
@@ -242,8 +241,9 @@ export async function recordRefund(
 /** The account a refused repeat of a press of Record carries: a 409 saying the entry was already
  * recorded as first sent, and the account as it stands, which shows that entry. Null otherwise. */
 export function alreadyRecordedAccount(err: unknown): VendorAccount | null {
-  if (!axios.isAxiosError(err) || err.response?.status !== 409) return null;
-  const account = (err.response.data as { account?: unknown } | undefined)?.account;
+  if (getApiErrorStatus(err) !== 409) return null;
+  const answer = (err as { response?: { data?: { account?: unknown } } }).response?.data;
+  const account = answer?.account;
   return account && typeof account === 'object' ? (account as VendorAccount) : null;
 }
 

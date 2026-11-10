@@ -245,7 +245,8 @@ def _finish(market_id: str, deal: str, turn: int) -> None:
 def _write_holding(market_id: str, deal: str, update: Dict[str, Any]) -> None:
     """A change's write to the market under its lease; refused with ``ConflictError`` when another
     deal holds the market now, as one does once this one's lease lapsed."""
-    if markets_collection.update_one({"id": market_id, _DEALING_BY: deal}, update).matched_count == 0:
+    written = markets_collection.update_one({"id": market_id, _DEALING_BY: deal}, update)
+    if written.matched_count == 0:
         raise ConflictError(DEALING_BUSY)
 
 
