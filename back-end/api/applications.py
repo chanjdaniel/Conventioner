@@ -827,17 +827,34 @@ def is_judgeable(application: Dict[str, Any]) -> bool:
 
 def update_application_form_data(
     app_id: str, form_data: Dict[str, Any], submitted_at: str, updated_at: str,
+    *, held: Optional[Dict[str, Any]] = None, back_to_review: bool = False,
 ) -> bool:
-    """Write form answers and timestamps for an application."""
+    """Write form answers and timestamps for an application. Returns whether it matched.
+
+    ``held`` is the application as the caller read it: the write lands only while its status and
+    its verdict's time are still those (null and absent alike), so answers are never stored under a
+    verdict given after the caller decided what to write (a re-import, T270).
+
+    ``back_to_review`` returns it to open in the same update, clearing what
+    ``update_application_status`` clears for a status without a giver: the verdict's giver, time
+    and reason, the follow-up's owner, the claim and ``undo_to``. One update, so no stop between
+    the answers and the status can leave a vendor approved on answers nobody saw.
+    """
     ensure_application_indexes()
-    result = applications_collection.update_one(
-        {"id": app_id},
-        {"$set": {
-            "form_data": form_data,
-            "submitted_at": submitted_at,
-            "updated_at": updated_at,
-        }},
-    )
+    query: Dict[str, Any] = {"id": app_id}
+    if held is not None:
+        query["status"] = held.get("status")
+        query["verdict_at"] = held.get("verdict_at") or {"$in": [None]}
+    update: Dict[str, Any] = {"$set": {
+        "form_data": form_data,
+        "submitted_at": submitted_at,
+        "updated_at": updated_at,
+    }}
+    if back_to_review:
+        update["$set"]["status"] = ApplicationStatus.OPEN.value
+        update["$unset"] = {"verdict_by": "", "verdict_at": "", "verdict_reason": "",
+                            "follow_up_owner": "", "undo_to": "", **_CLAIM_UNSET}
+    result = applications_collection.update_one(query, update)
     return result.matched_count > 0
 
 

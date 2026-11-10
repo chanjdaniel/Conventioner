@@ -11,7 +11,7 @@ describes:
   - back-end/datatypes.py#AnswerUpdate
   - back-end/migrations/create_applications_collection.py
   - back-end/migrations/migrate_submitted_at_to_iso.py
-verified: 2026-11-01
+verified: 2026-11-10
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/real-market-readiness/01
@@ -28,6 +28,7 @@ sources:
   - E41/F01/S02
   - E46/F01/S05
   - T263
+  - T270
 ---
 
 # The application document
@@ -109,6 +110,7 @@ The applicant never reads a status: their page reads "Submitted" until results a
 `update_application_status` refuses a verdict or follow-up without a giver, and clears the giver, the reason, the follow-up owner and any reviewer's hold with every other status.
 Verdicts are given while the market can still reach review, and settle when it enters assignment ([verdicts settle on entering assignment](../../business/rules/verdicts-settle-on-entering-assignment.md)).
 Given the application as the caller read it (`if_unchanged_since`), it writes only if the status, the verdict's time and `updated_at` are still those, so neither another reviewer's verdict nor a re-import's new answers are written over ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)).
+An import's write of a row's answers is held too (`update_application_form_data` with `held`): it lands only while the status and the verdict's time are still those it read, so its answers never land under a verdict given after it decided the row, and a row that sends an approval back to review sets `open` and clears the verdict's giver, time and reason, the follow-up's owner, the claim and `undo_to` in that same update (`back_to_review`, T270), so no stop between the two leaves the vendor approved on answers nobody saw ([the CSV import](../modules/csv-import.md)).
 A person's verdict or follow-up on an application awaiting one keeps what it found as `undo_to` (`kept_for_undo`, made by `undo_to_of`), and lands only while the status, the verdict's time and the follow-up's owner are still those, so what is kept is what was there; any other status written, a verdict that changed one included, clears it.
 An undo of a verdict just given (E38/F10/S01), `restore_before_verdict`, writes `undo_to` back whole and clears it, conditioned on the status and the verdict's time the undoer saw, and only by the person `verdict_by` names within `UNDO_WINDOW` of `verdict_at` while `undo_to` is there (`undoable_by`): an open application comes back with no giver, and a follow-up marked and owned as it was, so a request never names what it returns to ([what each role may do](../../business/rules/what-each-role-may-do.md#where-it-is-kept)).
 
