@@ -93,7 +93,10 @@ describes:
   - front-end/e2e/a-failure-says-what-to-do.spec.ts
   - back-end/app.py#vendor_check_in
   - back-end/app.py#vendor_undo_check_in
-verified: 2026-11-09
+  - back-end/api/applicant_auth.py#_send_code_email
+  - back-end/utils/email.py#_send
+  - back-end/tests/test_account_emails_log_no_address.py
+verified: 2026-11-10
 sources:
   - T74
   - E41/F01/S01
@@ -105,6 +108,7 @@ sources:
   - T253
   - T254
   - T251
+  - T263
 ---
 
 # An exception never reaches a client
@@ -176,11 +180,13 @@ What stays a builtin is a bug if it escapes: the room with neither walls nor a s
 `install_error_answers(app)`, called once in [`back-end/app.py`](../../../back-end/app.py) right after the public endpoint defenses are configured, registers both on the app, so every blueprint is covered too.
 
 - A `ClientError` is answered `jsonify(error.body())` with `error.status`, and is not logged: it is an answer, not a failure.
-- Any other `Exception` is logged once with `logger.exception` and answered `{"error": "Internal server error"}`, 500.
+- Any other `Exception` is logged once with `logger.error`, with no `exc_info`, and answered `{"error": "Internal server error"}`, 500.
   A Werkzeug `HTTPException` is an `Exception` too, so this handler returns one unchanged: Flask's 404 and 405, an `abort()`, the 413 of an oversized upload and Flask-Login's 401 answer as Flask writes them.
 - The handler is on `Exception`, not `InternalServerError`, because under `TESTING` or debug Flask propagates an unhandled exception instead of calling a 500 handler; registered on `Exception`, the suite exercises it the way production runs it.
 
-**The log line** names the method, `request.endpoint`, and the view argument `market_id`, `market_slug` or `org_id` when the route has one, with the traceback.
+**The log line** names the method, `request.endpoint`, and the view argument `market_id`, `market_slug` or `org_id` when the route has one, then the traceback as `traceback_without_messages(error)` writes it.
+That is Python's own traceback, each chained cause or context first under Python's own linking line, with every exception's qualified type (`module.Name`, a builtin by its name) and its stack frames (file, line, function and source line), and never an exception's message, its notes or its `args`, since a library's message can quote what it was given, an applicant's address among it.
+A context suppressed by `raise ... from None` is left out, as Python leaves it out.
 It never names the path, the query string, the body or the view argument `vendor_email`, since each can hold an applicant's address.
 
 The assignment reads (`get_assigned_market`, `get_assignment_statistics`, `get_assignment_csv` and `get_market_tables`, in `app.py` and in `api/markets.py`) answer this way: an `IncompleteApplicationsError` is still the preview's (`get_assigned_market`) 400 with its own message, the other three never raise it ([placements](../modules/placements.md#what-a-read-shows)), and anything else reaches the handler.
@@ -210,6 +216,8 @@ None catches anything, and each keeps its literal answers: the applicant's expir
 A status a request names is read by `_named_status`, which names none for anything but a status's own string, as `_named_phase` does for a phase.
 A follow-up owner the market does not offer answers its `BadRequestError`, 400; `confirm` in [`back-end/csv_start.py`](../../../back-end/csv_start.py) lets a `ConfirmRefused`, a locked form and a refused plan or form reach the handler as raised; a door write on a market that does not exist, is archived or cannot be read answers what the change loader raises.
 Two lines these routes reach are kept free of an applicant's address for the 500 log: an application that keeps losing its upsert race (`find_or_create_application` in [`back-end/api/applications.py`](../../../back-end/api/applications.py)) is named by its market, and an application document that cannot be parsed (`list_market_applications` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py)) logs `parse_failure_detail`, never its answers.
+A mail that carries a sign-in or an account link is logged by what it is, never by whom it went to: the applicant sign-in code (`_send_code_email` in [`back-end/api/applicant_auth.py`](../../../back-end/api/applicant_auth.py)) names the market's slug, and the verification, existing account, password reset and sign-in code emails (`_send` in [`back-end/utils/email.py`](../../../back-end/utils/email.py)) name their kind.
+A failed send logs the exception's type and never its text, and an account email adds the provider's status code but never its response body, since each can carry the address back.
 
 No route in `app.py` answers what it caught: `healthz` alone catches, to answer 503 with `"status": "unavailable"` and its build's commit, when the database does not answer, and the floorplan blueprints keep their own catches, which answer the generic 500 and log, until they are rewritten.
 
@@ -219,7 +227,9 @@ A body that is not JSON is no body, rather than Werkzeug's HTML 415.
 JSON that is not an object (a list, a string, a number, a boolean) raises a `BadRequestError`, `A JSON object is required`, 400, rather than the generic 500 of an `AttributeError` or a model's own words.
 A required body that is missing or an empty object raises `No data provided`, 400; an optional one reads none as `{}`, and the route answers what is then missing in its own words (`csvContent is required`, a swap that names no vendors).
 The body is required for the organization and market role writes, creating a market, the plan, the application form, a phase move, adding a vendor, writing a placement, an applicant's save, a verdict on one application and the CSV start's confirm; every other body route reads it as optional.
-Two groups of routes have a body another module reads: the account routes, whose views hand `request` to [`back-end/api/users.py`](../../../back-end/api/users.py), not yet on this reader, and the applicant sign-in's code request and verify, read in [`back-end/api/applicant_auth.py`](../../../back-end/api/applicant_auth.py) for answers that say nothing of who applied: one for every code request, and for a code that cannot pass, one "spent" body beside a wrong try's "retry".
+Two groups of routes have a body another module reads.
+The account routes' views hand on to [`back-end/api/users.py`](../../../back-end/api/users.py), which reads each body with `json_object` as optional, so no body, a body that is not JSON and broken JSON read as none, and each route answers its own missing-field 400.
+The applicant sign-in's code request and verify read theirs in [`back-end/api/applicant_auth.py`](../../../back-end/api/applicant_auth.py), for answers that say nothing of who applied: one for every code request, and for a code that cannot pass, one "spent" body beside a wrong try's "retry".
 A value of the wrong type inside is read as a missing one ([a request value is a string](a-request-value-is-a-string.md)): a market name that is not a string is no name, review highlights that are not a list of strings are no keys, and a ticked review entry that is not an object names no application and is skipped as not one here.
 
 The operator's seeder (`main` in [`back-end/seed_test_markets.py`](../../../back-end/seed_test_markets.py)) catches only its own refusals and client errors, saying each as `Not done: <its copy>`, and lets anything else raise with its traceback, which is what the operator needs for a bug.
@@ -228,21 +238,23 @@ Before that it refuses a database the environment does not name, or the primary 
 ## How it is enforced
 
 - [`test_an_exception_never_reaches_a_client.py`](../../../back-end/tests/test_an_exception_never_reaches_a_client.py) calls the real routes through the test client.
-  A client error answers its status and body, a structured `body()` is answered as given, and an injected exception carrying a secret-shaped string answers exactly the generic 500 on each assignment read, with the string nowhere in the response and one log record holding the traceback and the market id but no email.
+  A client error answers its status and body, a structured `body()` is answered as given, and an injected exception carrying a secret-shaped string answers exactly the generic 500 on each assignment read, with the string nowhere in the response and one log record holding the exception's type, the frame that raised it and the market id, with no `exc_info`, and neither the string nor an email.
+  An exception chained from a library's failure, itself raised while handling another, with an applicant's address in all three messages, is logged as three blocks with each type and raising frame in Python's order and the address nowhere in the log; so is a note added to an exception, and a cause never raised is named by its type alone.
   A vendor-note write that fails logs neither the vendor's address, the path nor the body.
   Each organization and market role route answers a refusal with its status and copy, an organization or market that does not exist with 404, and an injected exception with exactly the generic 500, logged with the organization or market id and no address.
-  So does each market setup route, and creating a market answers its one-owner invariant with the generic 500 too, logged with its traceback.
+  So does each market setup route, and creating a market answers its one-owner invariant with the generic 500 too, logged by its type and frames without the invariant's words.
   So does each application form and phase route, and a phase that is not a name is unknown.
   So does each assignment and placement route; a run over incomplete answers names them, and a body that is not an object is refused in words.
   So does each applicant, review, import and door route; on a public route the failure is logged with the market's slug and never the vendor's address in the path, an applicant whose session expired is asked to sign in again, and an application that cannot be parsed is logged without its answers.
   A stored market that cannot be read refuses the vendor notes, whose route catches no `ValueError`, with `Invalid market data`, 400.
   `TestABodyThatIsNotAnObject` reads `app.url_map` and classifies every POST, PUT or DELETE route whose view is defined in `app.py` as one of a required body or an optional body read in the view, no body, or a body another module reads, each route in exactly one of those lists.
-  Each route that takes no body runs to its success answer, and each whose body another module reads has that module's function stubbed out, while every way to read the body (`get_json` and `request.json`, `get_data` and `request.data`, the form parser) records the read and raises: none is read in the view.
-  Each route the required and optional lists hold answers JSON that is not an object `A JSON object is required`; each required one answers no body, `null`, `{}`, a body that is not JSON and broken JSON `No data provided`; each optional one reads no body as empty; and a market name, review highlights or a ticked entry of the wrong type is read as a missing one.
+  Each route that takes no body runs to its success answer, and each whose body another module reads has that module's function stubbed out, while every way to read the body (`get_json` and `request.json`, `get_data` and `request.data`, the form parser and `request.form`, `.values` and `.files`, and `request.stream`) records the read and raises: none is read in the view on its way to its success answer, which is the one path each runs.
+  Each route the required and optional lists hold answers JSON that is not an object `A JSON object is required`; each required one answers no body, `null`, `{}`, a body that is not JSON and broken JSON `No data provided`; each optional one reads no body as empty; each account route answers no body, a body that is not JSON and broken JSON with a 400 in JSON; and a market name, review highlights or a ticked entry of the wrong type is read as a missing one.
   No client error, nor any refusal built on one, is a `ValueError` or a `PermissionError`, and the seeder says each as `Not done` while a library's `ValueError` escapes it.
   Each refusal of the modules above, raised for real where a route reaches it and spied on as it passes, is answered with exactly its own status and `body()`.
   Each refused parse above answers its own copy with nothing of the parser's message or the input in it, and its log holds the field but not the input; so does a stored organization that cannot be read.
   An unknown URL, a wrong method and a signed-out call still answer Flask's 404, 405 and Flask-Login's 401.
+- `test_a_code_send_logs_the_market_and_never_the_address` in [`test_applicant_auth.py`](../../../back-end/tests/test_applicant_auth.py) and [`test_account_emails_log_no_address.py`](../../../back-end/tests/test_account_emails_log_no_address.py) send each mail with email disabled, accepted, answered with no message id and refused by an error whose message holds the address, and find the address, the error's text and the provider's response body in no log record.
 - CodeQL's `py/stack-trace-exposure` is the automated backstop: it is in the default suite GitHub's default setup runs on every pull request and weekly on `dev` ([CI and the gate](../testing/ci-and-the-gate.md#codeql)), and it flags a route that catches an exception and answers its text.
   It stops following a flow at a `raise`, so the client copy rule and these route tests hold the rest: a library's message carried into a client error's copy is invisible to it.
 

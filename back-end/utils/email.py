@@ -1,5 +1,6 @@
 """
-Email service integration using Resend for sending verification emails, password reset emails, and OTP emails.
+Email service integration using Resend for sending verification emails, the email telling an
+account's owner that someone signed up with its address, password reset emails, and OTP emails.
 
 Every value this module needs is read from the environment when it is used, never captured into a
 module global on the way up. The key used to be read at import and the client initialized there, and
@@ -13,6 +14,7 @@ to what it claims. ``utils.secret_key`` and ``utils.captcha`` read on call for t
 import os
 import logging
 import resend
+from resend.exceptions import ResendError
 
 from utils.configured_secret import configured_secret, is_published
 from utils.deployment import (
@@ -133,6 +135,43 @@ def _email_disabled() -> bool:
     return os.getenv("DISABLE_EMAIL", "").lower() in ("true", "1")
 
 
+def _send(kind: str, email: str, subject: str, html: str, text: str) -> bool:
+    """Send one account email; True when the provider accepted it (or email is disabled in dev).
+
+    The log names the email's ``kind`` and never the address, nor an exception's text or the
+    provider's response body, which can each carry the address back: a failed send logs the
+    exception's type and, for the provider's own refusal, its status code.
+    """
+    if _email_disabled():
+        logger.info("DISABLE_EMAIL is enabled - skipping %s email", kind)
+        return True
+
+    if not ready_mailer():
+        logger.error("Cannot send %s email: RESEND_API_KEY not set", kind)
+        return False
+
+    try:
+        response = resend.Emails.send({
+            "from": from_email(),
+            "to": [email],
+            "subject": subject,
+            "html": html,
+            "text": text,
+        })
+    except ResendError as e:
+        logger.error("Error sending %s email: %s, status %s", kind, type(e).__name__, e.code)
+        return False
+    except Exception as e:
+        logger.error("Error sending %s email: %s", kind, type(e).__name__)
+        return False
+
+    if response and hasattr(response, "id"):
+        logger.info("Sent the %s email, Resend ID: %s", kind, response.id)
+        return True
+    logger.error("The %s email send returned no message id (%s)", kind, type(response).__name__)
+    return False
+
+
 def send_verification_email(email: str, token: str) -> bool:
     """Send email verification link to user.
     
@@ -179,46 +218,60 @@ def send_verification_email(email: str, token: str) -> bool:
     If you didn't create an account, please ignore this email.
     """
     
-    if _email_disabled():
-        logger.info("DISABLE_EMAIL is enabled - skipping verification email")
-        return True
+    return _send("verification", email, "Verify your email address", html_content, text_content)
 
-    if not ready_mailer():
-        logger.error("Cannot send verification email: RESEND_API_KEY not set")
-        return False
 
-    try:
-        response = resend.Emails.send({
-            "from": from_email(),
-            "to": [email],
-            "subject": "Verify your email address",
-            "html": html_content,
-            "text": text_content,
-        })
-        
-        if response and hasattr(response, 'id'):
-            logger.info(f"Verification email sent successfully to {email}, Resend ID: {response.id}")
-            return True
-        else:
-            logger.error(f"Verification email send returned unexpected response: {response}")
-            return False
-            
-    except Exception as e:
-        error_type = type(e).__name__
-        error_msg = str(e)
-        logger.error(f"Error sending verification email to {email}: {error_type} - {error_msg}")
-        
-        # Log additional details if available
-        if hasattr(e, 'response'):
-            logger.error(f"API response: {e.response}")
-        if hasattr(e, 'status_code'):
-            logger.error(f"HTTP status code: {e.status_code}")
-        if hasattr(e, 'message'):
-            logger.error(f"Error message: {e.message}")
-            
-        # Log full exception traceback for debugging
-        logger.debug(f"Full exception details:", exc_info=True)
-        return False
+def send_account_exists_email(email: str) -> bool:
+    """Tell an account's owner that someone signed up with its address, and how to get back in.
+
+    A sign-up for an address that has an account sends this in place of a verification link, and
+    answers as a new address's sign-up does, so the answer says nothing of which addresses have an
+    account. It carries no token: the links are the sign-in page and the page that asks for a reset
+    link, and nothing about the account changes.
+
+    Args:
+        email: The account's address
+
+    Returns:
+        True if email sent successfully, False otherwise
+    """
+    sign_in_url = f"{frontend_url()}/login"
+    reset_url = f"{frontend_url()}/reset-password-request"
+    subject = "You already have a Conventioner account"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{subject}</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #36826f;">{subject}</h1>
+        <p>Someone, maybe you, tried to create a Conventioner account with this email address. You already have one.</p>
+        <p>Sign in: <a href="{sign_in_url}" style="color: #36826f; word-break: break-all;">{sign_in_url}</a></p>
+        <p>Forgot your password? Reset it: <a href="{reset_url}" style="color: #36826f; word-break: break-all;">{reset_url}</a></p>
+        <p style="color: #777474; font-size: 12px; margin-top: 30px;">If this wasn't you, you can ignore this email: nothing about your account has changed.</p>
+    </body>
+    </html>
+    """
+
+    # The bare links below have no full stop after them on purpose: a mail client can read a full
+    # stop as part of the link.
+    text_content = f"""
+    {subject}
+
+    Someone, maybe you, tried to create a Conventioner account with this email address. You already have one.
+
+    Sign in: {sign_in_url}
+
+    Forgot your password? Reset it: {reset_url}
+
+    If this wasn't you, you can ignore this email: nothing about your account has changed.
+    """
+
+    return _send("existing account", email, subject, html_content, text_content)
 
 
 def send_password_reset_email(email: str, token: str) -> bool:
@@ -267,46 +320,7 @@ def send_password_reset_email(email: str, token: str) -> bool:
     If you didn't request a password reset, please ignore this email.
     """
     
-    if _email_disabled():
-        logger.info("DISABLE_EMAIL is enabled - skipping password reset email")
-        return True
-
-    if not ready_mailer():
-        logger.error("Cannot send password reset email: RESEND_API_KEY not set")
-        return False
-
-    try:
-        response = resend.Emails.send({
-            "from": from_email(),
-            "to": [email],
-            "subject": "Reset your password",
-            "html": html_content,
-            "text": text_content,
-        })
-        
-        if response and hasattr(response, 'id'):
-            logger.info(f"Password reset email sent successfully to {email}, Resend ID: {response.id}")
-            return True
-        else:
-            logger.error(f"Password reset email send returned unexpected response: {response}")
-            return False
-            
-    except Exception as e:
-        error_type = type(e).__name__
-        error_msg = str(e)
-        logger.error(f"Error sending password reset email to {email}: {error_type} - {error_msg}")
-        
-        # Log additional details if available
-        if hasattr(e, 'response'):
-            logger.error(f"API response: {e.response}")
-        if hasattr(e, 'status_code'):
-            logger.error(f"HTTP status code: {e.status_code}")
-        if hasattr(e, 'message'):
-            logger.error(f"Error message: {e.message}")
-            
-        # Log full exception traceback for debugging
-        logger.debug(f"Full exception details:", exc_info=True)
-        return False
+    return _send("password reset", email, "Reset your password", html_content, text_content)
 
 
 def send_otp_email(email: str, otp: str) -> bool:
@@ -351,43 +365,4 @@ def send_otp_email(email: str, otp: str) -> bool:
     If you didn't request this code, please ignore this email.
     """
     
-    if _email_disabled():
-        logger.info("DISABLE_EMAIL is enabled - skipping OTP email")
-        return True
-
-    if not ready_mailer():
-        logger.error("Cannot send OTP email: RESEND_API_KEY not set")
-        return False
-
-    try:
-        response = resend.Emails.send({
-            "from": from_email(),
-            "to": [email],
-            "subject": "Your sign-in code",
-            "html": html_content,
-            "text": text_content,
-        })
-        
-        if response and hasattr(response, 'id'):
-            logger.info(f"OTP email sent successfully to {email}, Resend ID: {response.id}")
-            return True
-        else:
-            logger.error(f"OTP email send returned unexpected response: {response}")
-            return False
-            
-    except Exception as e:
-        error_type = type(e).__name__
-        error_msg = str(e)
-        logger.error(f"Error sending OTP email to {email}: {error_type} - {error_msg}")
-        
-        # Log additional details if available
-        if hasattr(e, 'response'):
-            logger.error(f"API response: {e.response}")
-        if hasattr(e, 'status_code'):
-            logger.error(f"HTTP status code: {e.status_code}")
-        if hasattr(e, 'message'):
-            logger.error(f"Error message: {e.message}")
-            
-        # Log full exception traceback for debugging
-        logger.debug(f"Full exception details:", exc_info=True)
-        return False
+    return _send("sign-in code", email, "Your sign-in code", html_content, text_content)

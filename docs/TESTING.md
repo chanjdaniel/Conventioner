@@ -341,9 +341,9 @@ token when `VITE_RECAPTCHA_SITE_KEY` is unset (as in test/dev builds), so the fl
 still reaches the back-end where the `DISABLE_CAPTCHA` bypass applies.
 
 Similarly, set `DISABLE_EMAIL=true` (or `1`) so the Resend-backed
-`send_verification_email`, `send_password_reset_email`, and `send_otp_email`
-helpers skip the actual send and report success. This is also honored only under
-`ALLOW_INSECURE_LOCAL_DEV`, defaults OFF in the back end, and is forwarded by
+`send_verification_email`, `send_account_exists_email`, `send_password_reset_email`,
+and `send_otp_email` helpers skip the actual send and report success. This is also
+honored only under `ALLOW_INSECURE_LOCAL_DEV`, defaults OFF in the back end, and is forwarded by
 `docker-compose.yml`; the CI e2e job and `scripts/nm-test.sh` set it, and a worktree's
 stack (`scripts/th-compose.sh`) defaults it to `true` (pass `DISABLE_EMAIL=false` to send).
 The primary checkout's plain `docker compose up` does not, so export it in the shell that

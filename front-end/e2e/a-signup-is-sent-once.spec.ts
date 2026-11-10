@@ -63,6 +63,7 @@ test('two registrations racing for one address make one account', async ({ reque
 
   const answers = await Promise.all([register(email), register(email.toUpperCase())]);
 
-  expect(answers.map((answer) => answer.status()).sort()).toEqual([201, 400]);
+  // The loser answers as the winner does: a sign-up says nothing of whether the address was taken.
+  expect(answers.map((answer) => answer.status())).toEqual([201, 201]);
   expect(accountsFor(email)).toBe(1);
 });

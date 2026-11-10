@@ -132,15 +132,19 @@ def ensure_applicant_login_indexes() -> None:
         sign_in_limits.ensure_expiry_index()
         RememberedSignIns.ensure_expiry_index()
     except PyMongoError as exc:
+        # The driver's message is not repeated, nor kept as the cause: a duplicate key error on
+        # the challenges quotes the vendor's address.
         message = (
             f"The indexes on {APPLICANT_LOGIN_CHALLENGES_COLLECTION}, "
             f"{sign_in_limits.SIGN_IN_ATTEMPTS_COLLECTION} and "
-            f"{RememberedSignIns.REMEMBERED_SIGN_INS_COLLECTION} could not be built, so nothing "
-            f"is keeping one code per address or cleaning up expired challenges, rate limit "
-            f"counters and remembered sign-ins: {exc}"
+            f"{RememberedSignIns.REMEMBERED_SIGN_INS_COLLECTION} could not be built "
+            f"({type(exc).__name__}, code {getattr(exc, 'code', None)}), so nothing is keeping "
+            f"one code per address or cleaning up expired challenges, rate limit counters and "
+            f"remembered sign-ins. Duplicate challenges, which a duplicate key error means, can be "
+            f"deleted: each expires within {CODE_EXPIRY_MINUTES} minutes anyway."
         )
         logger.critical("%s", message)
-        raise ApplicantLoginIndexError(message) from exc
+        raise ApplicantLoginIndexError(message) from None
     _indexes_ready = True
 
 
@@ -254,7 +258,10 @@ def _send_code_email(
     False when it was not.
     """
     if _email_disabled():
-        logger.info("DISABLE_EMAIL is enabled - skipping applicant login code email to %s", email)
+        logger.info(
+            "DISABLE_EMAIL is enabled - skipping applicant login code email for market %s",
+            market_slug,
+        )
         return True
 
     if not ready_mailer():
@@ -310,12 +317,17 @@ def _send_code_email(
             "text": text_content,
         })
         if response and hasattr(response, "id"):
-            logger.info("Applicant login code sent to %s for market %s", email, market_slug)
+            logger.info("Applicant login code sent for market %s", market_slug)
             return True
-        logger.error("Applicant login code send returned unexpected response: %s", response)
+        logger.error(
+            "Applicant login code send for market %s returned no message id (%s)",
+            market_slug, type(response).__name__,
+        )
         return False
     except Exception as e:
-        logger.error("Error sending applicant login code to %s: %s - %s", email, type(e).__name__, e)
+        logger.error(
+            "Error sending applicant login code for market %s: %s", market_slug, type(e).__name__
+        )
         return False
 
 

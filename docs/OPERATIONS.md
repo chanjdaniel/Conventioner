@@ -19,6 +19,7 @@ sources:
   - decision/2026-10-20
   - E40/F01/S01
   - T254
+  - T263
 ---
 
 # Operations
@@ -212,13 +213,14 @@ When it names accounts that would share an address, it writes nothing: decide wi
 **"Could not build the unique index 'user_email' on users.email ... Accounts sharing an address: ..."**.
 Two accounts already hold one address; keep one per address as above, then redeploy.
 
-**"The unique index market_applicant_type_unique ... could not be built"**.
+**"The unique index market_applicant_type_unique ... could not be built ... Applications sharing an identity: ..."**.
 Some applicant holds two applications of one type at one market, which the index exists to forbid ([the application document](implementation/data/application-document.md#indexes)).
+The refusal names each such group by application id, and names Mongo's error by its type and code only, since Mongo's own words quote the address.
 `MONGODB_URI='<URI>' .venv/bin/python migrations/create_applications_collection.py --dry-run` ([`create_applications_collection.py`](../back-end/migrations/create_applications_collection.py)) lists each such applicant with their application ids; it prints their addresses, so keep its output off anything shared.
 Which document is the applicant's is the organizer's call: merge each pair by hand in `mongosh`, then redeploy.
 
 **"The indexes on applicant_login_challenges, sign_in_attempts and vendor_remembered_sign_ins could not be built"**.
-The log quotes Mongo's reason.
+The log names Mongo's error by its type and code only, never its words, since a duplicate key error quotes a vendor's address: code 11000 is duplicate challenges, and 85 or 86 an index of the same name with other options or keys.
 These are applicants' sign-in codes, used once and expiring within ten minutes, and the sign-in rate-limit counters, which last fifteen, so nothing lasting is lost by clearing them: drop a conflicting index of the same name (`db.applicant_login_challenges.dropIndex('<name>')`, `db.sign_in_attempts.dropIndex('<name>')`), or remove duplicate challenges (`db.applicant_login_challenges.deleteMany({})`), then redeploy.
 The third holds vendors' remembered sign-ins ("Remember me" on the vendor page); its one index is the TTL index `remembered_sign_in_ttl`, so drop a conflicting index of that name (`db.vendor_remembered_sign_ins.dropIndex('<name>')`) and keep the documents, whose loss only makes each remembered vendor enter a code once more.
 

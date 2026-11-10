@@ -7,7 +7,7 @@ never "log in":
   from the other; the sign-in screen puts "Forgot password?" beside it.
 - A right password on an account not yet verified answers that the address needs verifying first;
   the screen offers to send the link again. The code sign-in and asking for a code answer the same.
-- A code for an address with no account answers as a wrong code does.
+- A code for an address with no account answers as a wrong code does, at every try.
 """
 import os
 import sys
@@ -24,6 +24,7 @@ skip_without_real_dependencies()
 
 import app as app_module
 import api.users as UsersApi
+import sign_in_limits
 
 
 FIXTURE_EMAIL = "fixture-user@example.com"
@@ -196,11 +197,12 @@ def _wrong_codes(client, email, tries):
             for _ in range(tries)]
 
 
-def test_the_first_four_wrong_codes_answer_alike_with_an_account_or_without(client, verified):
-    """Alike up to the fifth: an account's fifth wrong code discards its code and says when a new
-    one may be asked for, which an address with no account has no code for. The sign-in limits
-    count every address alike (E47/F02/S01); answering the fifth alike is E47/F01/S01's."""
-    assert _wrong_codes(client, NO_ACCOUNT_EMAIL, 4) == _wrong_codes(client, FIXTURE_EMAIL, 4)
+def test_every_wrong_code_answers_alike_with_an_account_or_without(client, verified):
+    """Alike at every try the sign-in limits let through: an account's fifth wrong code discards
+    its code in silence, so it and the tries after it answer as an address with no code does."""
+    tries = sign_in_limits.ORGANIZER_CODE_PER_ADDRESS.attempts
+    assert _wrong_codes(client, NO_ACCOUNT_EMAIL, tries) == _wrong_codes(client, FIXTURE_EMAIL, tries)
+    assert verified.doc["otp"] is None
 
 
 # The password is checked whether or not the address has an account.
