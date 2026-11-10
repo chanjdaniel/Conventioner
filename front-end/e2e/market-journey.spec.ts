@@ -135,10 +135,11 @@ test.describe('The MVP journey', () => {
     // The Google Form path reads Draft, Review (E38/F04/S01): this organizer already holds the
     // responses, so the rail's step out of draft is the import, and Begin review waits on it. This
     // market asks no custom question - only the essential ones the plan above defines. Review waits
-    // on Review setup first (T206), so the rail leads there before it offers the import.
+    // on Review setup first (T206); the rail offers the form before it (T260), which this organizer
+    // passes by, deciding on Review setup before the rail offers the import.
     await expect(page.getByTestId('phase-transition-applications')).toBeDisabled();
-    await setup.decideOnReviewSetup();
-    await expect(page).toHaveURL(/\/form\?step=review$/);
+    await setup.decideOnReviewSetupAskingNothingOfTheirOwn('Draft from your Google Form');
+    await expect(page).toHaveURL(/\/form(\?step=review)?$/);
     await expect(page.getByTestId('phase-rail-fix')).toHaveText('Import responses');
     await page.getByTestId('phase-rail-fix').click();
     await expect(page).toHaveURL(/\/import$/);
@@ -252,8 +253,9 @@ test.describe('The MVP journey', () => {
     await setup.addSection(SECTIONS[0], LOCATION, TIER, 2, 0);
 
     // --- 2. Open applications ---------------------------------------------------------------
-    // Opening waits on Review setup (T206): the rail leads there, and one click decides it.
-    await setup.decideOnReviewSetup();
+    // Opening waits on Review setup (T206), which this form of essential questions alone reaches
+    // past the rail's offer of the form (T260); one click decides it.
+    await setup.decideOnReviewSetupAskingNothingOfTheirOwn('Add your questions');
     await setup.advancePhaseTo('applications', 'Applications');
     await expect(page).toHaveURL(/\/applications$/);
     await expect(page.getByTestId('market-setup-import-button')).toHaveCount(0);

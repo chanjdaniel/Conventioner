@@ -3,7 +3,7 @@ layer: implementation
 kind: module
 describes:
   - front-end/src/utils/marketGuide.ts
-verified: 2026-11-03
+verified: 2026-11-10
 sources:
   - wayfinding/what-to-show-and-when/02
   - wayfinding/what-to-show-and-when/map
@@ -18,6 +18,7 @@ sources:
   - T142
   - E38/F15/S04
   - T207
+  - T260
 ---
 
 # The market guide
@@ -35,6 +36,10 @@ A CSV market's vendors apply on the organizer's own Google Form, so nothing it s
 - **The page a tab opens** (`pageForTab`): the one carrying the dot when the tab holds it, else its first.
 - **The rail's sentence** (`nextStep`): one sentence naming the one next step, linking to where it is done.
   When the server would refuse that step, the sentence is its first blocker from `transitionBlockers` instead, for someone who may take the blocker's remedy, except before an assignment is run, when running it is the step.
+- **The first thing in a move's way** (`firstInTheWay`), which the sentence and the rail's main button read: the first blocker served, except that the form comes before Review setup (T260).
+  The plan gives the form its essential questions, so the server's form guard passes before the organizer has drafted from their Google Form or added a question of their own, and Review setup's decision was offered first, with nothing of theirs to decide on.
+  While the form has none of the organizer's own questions (`applicationForm.fields` empty or absent) and `review_highlights_decided` or `rejection_rules_decided` is the first blocker, the step is the form, with the open decision after it: on a Google Form market, for someone who may take the start (`import-applications`) while the server does not refuse it (`csvStartRefusal`), "Draft from your Google Form" to `start-from-csv`, "Your form asks only the essential questions so far. Draft the rest from your Google Form's responses, then decide what reviewers read first on Review setup."; otherwise "Add your questions" to `form?step=questions` on the `change-form` row, "... Add any of your own on Your questions, then ...".
+  It refuses nothing: a form of essential questions alone still opens once Review setup is decided, and the moves are still judged by the served blockers, so the move's disabled reason stays Review setup's.
 - **The action a step takes** (`NextStep.action`): the row of [the market's actions](market-actions.md) table the step's work takes, so [the phase rail](phase-rail.md) links the sentence only for someone who may take it ([what each role may do](../../business/rules/what-each-role-may-do.md)).
   A step read off a blocker takes the blocker's `resolutionAction`, served by [the guards](guards.md); a step read off the guide's row takes the row's `action`:
 

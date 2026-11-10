@@ -43,6 +43,7 @@ import OpenApplicationsDialog from '@/components/market/OpenApplicationsDialog.v
 import { isHere, marketPath, resolutionPath } from '@/utils/market';
 import {
   blockersFor,
+  firstInTheWay,
   forwardFrom,
   intakeModeOf,
   landingPage,
@@ -264,9 +265,9 @@ const forwardTransition = computed(() => {
  * sentence says it.
  */
 const fix = computed(() => {
-  // The move's own first blocker, the one its disabled state is read from - not the sentence's,
-  // which before a run says "run the assignment" in its own words and names no blocker.
-  const blocker = forwardTransition.value ? firstBlocker(forwardTransition.value) : null;
+  // The move's own first blocker - not the sentence's, which before a run says "run the assignment"
+  // in its own words and names no blocker - with the form before Review setup (T260).
+  const blocker = props.market ? firstInTheWay(props.market, forwardTransition.value) : null;
   const to = mayTake(props.market, blocker?.resolutionAction)
     ? elsewhere(blocker?.resolutionLink)
     : null;

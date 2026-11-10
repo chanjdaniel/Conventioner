@@ -4,7 +4,11 @@ import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
 import { savePlan } from './helpers/savePlan';
 import { completePlan } from './helpers/seeds';
-import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMarket';
+import {
+  APPLICATION_FIELDS,
+  seedApplicantMarket,
+  planSetupObject,
+} from './helpers/seedApplicantMarket';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { MarketSetupPage } from './pages/MarketSetupPage';
 import { OpenApplicationsDialog } from './pages/OpenApplicationsDialog';
@@ -106,6 +110,57 @@ test.describe('Review waits on the review setup', () => {
     await expect(setup.currentPhase).toHaveText('Applications', { timeout: 10000 });
     await expect(page).toHaveURL(/\/applications$/);
   });
+
+  // The form comes before Review setup (T260): once the plan gives the form its essential questions,
+  // a draft with none of the organizer's own was told to decide what reviewers read first.
+  for (const { path, label, lands, move } of [
+    {
+      path: 'form' as const,
+      label: 'Add your questions',
+      lands: /\/form\?step=questions$/,
+      move: 'To open applications',
+    },
+    {
+      path: 'csv' as const,
+      label: 'Draft from your Google Form',
+      lands: /\/start-from-csv$/,
+      move: 'To begin review',
+    },
+  ]) {
+    test(`a ${path} draft with no questions of its own is led to its form before Review setup`, async ({
+      authenticatedPage: page,
+    }) => {
+      const market = await seedApplicantMarket(
+        page.request,
+        APP_API,
+        TEST_USER.email,
+        TEST_USER.password,
+        { draft: true, intakeMode: path, fields: [], reviewSetupUndecided: true },
+      );
+      const fix = page.getByTestId('phase-rail-fix');
+      const next = page.getByTestId('phase-rail-next');
+
+      await page.goto(marketScreenPath(market.marketId, 'setup'));
+      await expect(fix).toHaveText(label, { timeout: 15000 });
+      await expect(next).toContainText(
+        `${move}: Your form asks only the essential questions so far.`,
+      );
+      await expect(next).toContainText('then decide what reviewers read first on Review setup.');
+      await fix.click();
+      await expect(page).toHaveURL(lands);
+
+      // With a question of the organizer's own, Review setup is next.
+      const form = await page.request.put(
+        `${APP_API}/markets/${market.marketId}/application-form`,
+        {
+          data: { fields: APPLICATION_FIELDS },
+        },
+      );
+      expect(form.ok(), await form.text()).toBeTruthy();
+      await page.goto(marketScreenPath(market.marketId, 'setup'));
+      await expect(fix).toHaveText('Decide what reviewers read first', { timeout: 15000 });
+    });
+  }
 
   test("a Google Form draft's first import waits on both, then takes it into Review", async ({
     authenticatedPage: page,

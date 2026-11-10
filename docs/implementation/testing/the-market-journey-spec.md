@@ -13,6 +13,7 @@ sources:
   - E38/F04/S01
   - E38/F05/S01
   - T206
+  - T260
 ---
 
 # The market journey spec
@@ -29,7 +30,7 @@ The glossary concept: [Market](../../business/concepts/market.md).
 
 1. Create a market whose vendors apply on the organizer's own Google Form, and leave its upload step for Market Setup.
 2. Plan it on the one page: two dates still to come, a tier, two sections, a location.
-3. Decide Review setup: the rail's main button "Decide what reviewers read first" opens Review setup, where "Nothing leads the card" and "No automatic rejections" decide it, one click each ([review waits on the review setup](../../business/rules/review-waits-on-the-review-setup.md)).
+3. Decide Review setup: the form has none of the organizer's own questions, so the rail's main button offers "Draft from your Google Form" first (T260); this organizer asks nothing of their own, so opens Review setup as the form tab's last step, where "Nothing leads the card" and "No automatic rejections" decide it, one click each ([review waits on the review setup](../../business/rules/review-waits-on-the-review-setup.md)).
 4. Leave draft by importing: on the CSV path the rail reads Draft, Review ([the phase rail](../modules/phase-rail.md)), and its main button, now "Import responses", opens the import, with Begin review disabled beside it.
 5. Import a Google Forms export that asks only the essential questions, which is the ordinary case: an organizer who never built a custom form.
 6. The written import takes the market into Review; "Go to the review", switch from the All view the page opens on to One by one, and approve two applicants and reject one in the review queue, checking that the card carries the answers a verdict rests on.

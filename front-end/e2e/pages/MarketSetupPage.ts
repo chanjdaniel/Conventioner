@@ -1,5 +1,6 @@
 import { type Locator, type Page } from '@playwright/test';
 import { marketSetupPath } from '../helpers/marketScreens';
+import { ApplicationFormPage } from './ApplicationFormPage';
 
 const MONTH_NAMES = [
   'January',
@@ -173,6 +174,25 @@ export class MarketSetupPage {
       .getByTestId('phase-rail-fix')
       .filter({ hasText: 'Decide what reviewers read first' })
       .click();
+    await this.decideNothingOnReviewSetup();
+  }
+
+  /**
+   * Decide Review setup for a form of essential questions alone (T260). While the form has none of
+   * the organizer's own questions the rail offers the form first, named `formFirst` ("Add your
+   * questions", or "Draft from your Google Form"); an organizer who asks nothing of their own passes
+   * it by, opening Review setup as the form tab's last step, and decides there.
+   */
+  async decideOnReviewSetupAskingNothingOfTheirOwn(formFirst: string): Promise<void> {
+    await this.page.getByTestId('phase-rail-fix').filter({ hasText: formFirst }).waitFor();
+    const form = new ApplicationFormPage(this.page);
+    await form.openFormTab();
+    await form.openStep('review');
+    await this.decideNothingOnReviewSetup();
+  }
+
+  /** On Review setup: "Nothing leads the card" and "No automatic rejections", one click each. */
+  private async decideNothingOnReviewSetup(): Promise<void> {
     // Its write landed before anything goes on: a navigation may cancel a request in flight.
     await Promise.all([
       this.page.waitForResponse(

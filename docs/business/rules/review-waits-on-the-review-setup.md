@@ -12,6 +12,7 @@ sources:
   - T206
   - T191
   - T205
+  - T260
 ---
 
 # Review waits on the review setup
@@ -21,6 +22,7 @@ A draft does not enter Review until its organizer has taken Review setup's two d
 - the automatic rejections: added a rule that rejects at least one answer, or chosen "No automatic rejections".
 
 Until both are taken the move out of draft is refused, "Decide what reviewers read first" and "Decide the automatic rejections" lead to Review setup, and a Google Form market's first import is refused too, its list naming each open decision beside whatever else the move still waits on.
+The form comes first, though: while it has none of the organizer's own questions the rail's main button leads to the form, "Draft from your Google Form" on a Google Form market or "Add your questions", and names the open decision as the step after it (T260); a form of essential questions alone may still open once both are decided.
 Once both are taken, "Open applications" names them before the move, so the organizer confirms the review they open: the answers that lead the card or "Nothing leads the card", and how many rules reject an answer or "None", with a "Change" back to Review setup.
 
 **Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md) and [The market's phase says what to do next](../intents/the-markets-phase-says-what-to-do-next.md).
