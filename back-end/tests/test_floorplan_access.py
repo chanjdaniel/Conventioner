@@ -23,7 +23,6 @@ skip_without_real_dependencies()
 
 import app as app_module
 import api.floorplans as FloorplansApi
-import api.floorplans_analysis as FloorplansAnalysisApi
 import api.floorplans_placement as FloorplansPlacementApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
@@ -250,27 +249,8 @@ def hall(images):
     return str(images.put(_hall_png(), filename="hall.png", metadata={"marketId": MARKET_ID}))
 
 
-@pytest.fixture
-def model_calls(monkeypatch):
-    """The analysis model's calls, faked, with a placeholder key so the route reaches the model."""
-    calls = []
-    monkeypatch.setenv("GEMINI_API_KEY", "placeholder-key")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-
-    def analysed(image_bytes):
-        calls.append(image_bytes)
-        return {"walls": [], "obstacles": [], "rooms": []}
-
-    monkeypatch.setattr(FloorplansAnalysisApi, "_call_gemini", analysed)
-    return calls
-
-
 def _delete(client, gridfs_id):
     return client.delete(f"/floorplans/{gridfs_id}")
-
-
-def _analyze(client, gridfs_id):
-    return client.post("/floorplans/analyze", json={"gridfs_id": gridfs_id})
 
 
 def _calibrate(client, gridfs_id):
@@ -292,25 +272,18 @@ def _export(client, gridfs_id):
     })
 
 
-EDITING_ROUTES = {"delete": _delete, "analyze": _analyze, "calibrate": _calibrate}
+EDITING_ROUTES = {"delete": _delete, "calibrate": _calibrate}
 EVERY_ROUTE = {**EDITING_ROUTES, "export": _export}
 
 
 class TestTheRoutesThatTakeAnImage:
-    """Delete, analyze and calibrate are an editor's work; export is open to anyone on the market."""
+    """Delete and calibrate are an editor's work; export is open to anyone on the market."""
 
     def test_the_organizer_deletes_the_image(self, sign_in, market, hall, images):
         response = _delete(sign_in("owner@example.com"), hall)
 
         assert response.status_code == 200
         assert images.files == {}
-
-    def test_the_organizer_analyzes_the_image(self, sign_in, market, hall, model_calls):
-        response = _analyze(sign_in("owner@example.com"), hall)
-
-        assert response.status_code == 200
-        assert response.get_json() == {"walls": [], "obstacles": [], "rooms": []}
-        assert len(model_calls) == 1
 
     def test_the_organizer_calibrates_the_image(self, sign_in, market, hall):
         response = _calibrate(sign_in("owner@example.com"), hall)
@@ -329,13 +302,13 @@ class TestTheRoutesThatTakeAnImage:
 
     @pytest.mark.parametrize("route", EDITING_ROUTES.values(), ids=EDITING_ROUTES.keys())
     def test_an_editor_may_use_the_editing_routes(
-        self, sign_in, market, hall, model_calls, route,
+        self, sign_in, market, hall, route,
     ):
         assert route(sign_in("editor@example.com"), hall).status_code == 200
 
     @pytest.mark.parametrize("route", EVERY_ROUTE.values(), ids=EVERY_ROUTE.keys())
     def test_an_account_with_no_role_on_the_market_is_refused(
-        self, sign_in, market, hall, images, model_calls, route,
+        self, sign_in, market, hall, images, route,
     ):
         response = route(sign_in("outsider@example.com"), hall)
 
@@ -344,22 +317,20 @@ class TestTheRoutesThatTakeAnImage:
             Actions.refusal_sentence(Actions.READ), Actions.refusal_sentence(Actions.CHANGE_SETUP),
         }
         assert list(images.files) == [ObjectId(hall)]
-        assert model_calls == []
 
     @pytest.mark.parametrize("route", EDITING_ROUTES.values(), ids=EDITING_ROUTES.keys())
     def test_a_viewer_is_refused_the_editing_routes(
-        self, sign_in, market, hall, images, model_calls, route,
+        self, sign_in, market, hall, images, route,
     ):
         response = route(sign_in("viewer@example.com"), hall)
 
         assert response.status_code == 403
         assert response.get_json() == {"error": Actions.refusal_sentence(Actions.CHANGE_SETUP)}
         assert list(images.files) == [ObjectId(hall)]
-        assert model_calls == []
 
     @pytest.mark.parametrize("route", EDITING_ROUTES.values(), ids=EDITING_ROUTES.keys())
     def test_an_archived_market_refuses_the_editing_routes(
-        self, sign_in, market, hall, images, model_calls, route,
+        self, sign_in, market, hall, images, route,
     ):
         market.doc = stored_market(MarketPhase.ARCHIVED, roles=dict(ROLES))
 
@@ -368,7 +339,6 @@ class TestTheRoutesThatTakeAnImage:
         assert response.status_code == 403
         assert response.get_json() == {"error": MarketsApi.ARCHIVED_REFUSAL}
         assert list(images.files) == [ObjectId(hall)]
-        assert model_calls == []
 
     def test_an_archived_market_still_exports(self, sign_in, market, hall):
         market.doc = stored_market(MarketPhase.ARCHIVED, roles=dict(ROLES))
@@ -381,7 +351,7 @@ class TestTheRoutesThatTakeAnImage:
     @pytest.mark.parametrize("metadata", [None, {}])
     @pytest.mark.parametrize("route", EVERY_ROUTE.values(), ids=EVERY_ROUTE.keys())
     def test_an_image_that_names_no_market_is_not_found(
-        self, sign_in, market, images, model_calls, route, metadata,
+        self, sign_in, market, images, route, metadata,
     ):
         unowned = images.put(_hall_png(), filename="hall.png", metadata=metadata)
 
@@ -390,10 +360,9 @@ class TestTheRoutesThatTakeAnImage:
         assert response.status_code == 404
         assert response.get_json() == {"error": "Image not found"}
         assert list(images.files) == [unowned]
-        assert model_calls == []
 
     @pytest.mark.parametrize("route", EVERY_ROUTE.values(), ids=EVERY_ROUTE.keys())
-    def test_an_unknown_image_is_not_found(self, sign_in, market, images, model_calls, route):
+    def test_an_unknown_image_is_not_found(self, sign_in, market, images, route):
         response = route(sign_in("owner@example.com"), str(ObjectId()))
 
         assert response.status_code == 404
@@ -416,19 +385,33 @@ class TestTheRoutesThatTakeAnImage:
 
     @pytest.mark.parametrize("route", EVERY_ROUTE.values(), ids=EVERY_ROUTE.keys())
     def test_a_route_without_a_session_is_asked_to_sign_in(
-        self, market, hall, images, model_calls, route,
+        self, market, hall, images, route,
     ):
         response = route(app_module.app.test_client(), hall)
 
         assert response.status_code == 401
         assert list(images.files) == [ObjectId(hall)]
-        assert model_calls == []
 
     def test_the_image_itself_is_read_without_a_session(self, hall):
         response = app_module.app.test_client().get(f"/floorplans/{hall}")
 
         assert response.status_code == 200
         assert response.data == _hall_png()
+
+
+class TestNoModelReadsAFloorplan:
+    """The vision endpoint, which sent a floorplan image to a hosted model, is gone: no screen called it."""
+
+    def test_an_editors_analysis_request_is_not_served(self, sign_in, market, hall):
+        """The address now reads as an image id, whose route takes no POST, so it answers 405."""
+        response = sign_in("editor@example.com").post(
+            "/floorplans/analyze", json={"gridfs_id": hall},
+        )
+
+        assert response.status_code == 405
+
+    def test_no_analysis_blueprint_is_registered(self):
+        assert "floorplans_analysis" not in app_module.app.blueprints
 
 
 # ── Auto-Place, which names its market ───────────────────────────────────────
@@ -530,8 +513,8 @@ class TestPlacingTables:
 # ── Every floorplan route but the image read needs a sign-in ─────────────────
 
 FLOORPLAN_BLUEPRINTS = {
-    "floorplans", "floorplans_placement", "floorplans_templates", "floorplans_analysis",
-    "floorplans_calibrate", "floorplans_export", "floorplans_save",
+    "floorplans", "floorplans_placement", "floorplans_templates", "floorplans_calibrate",
+    "floorplans_export", "floorplans_save",
 }
 PUBLIC_ROUTES = {("GET", "/floorplans/<gridfs_id>")}
 

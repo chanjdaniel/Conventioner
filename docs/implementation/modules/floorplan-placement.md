@@ -7,7 +7,6 @@ describes:
   - back-end/requirements-floorplan-solver.in
   - back-end/requirements-floorplan-solver.txt
   - back-end/api/floorplans_save.py
-  - back-end/api/floorplans_analysis.py
   - back-end/api/floorplans_calibrate.py
   - back-end/api/floorplans_export.py
   - back-end/api/floorplans.py
@@ -20,7 +19,7 @@ describes:
   - front-end/src/utils/canvasColor.ts
   - front-end/src/components/floorplan/AutoPlaceButton.vue
   - front-end/src/components/floorplan/FloorplanEditor.vue#loadBackgroundImage
-verified: 2026-11-08
+verified: 2026-11-10
 sources:
   - bug/38
   - E26/F09/S01
@@ -29,6 +28,7 @@ sources:
   - T221
   - T217
   - T263
+  - T272
 ---
 
 # Floorplan placement
@@ -38,9 +38,9 @@ The wizard is five steps (Upload, Calibrate, Place Tables, Edit Layout, Save) an
 Each component that draws imports the vue-konva components it renders (`Stage as VStage`, `Layer as VLayer` and so on) rather than the app installing vue-konva for every page, so Konva rides only in the floorplan route's lazily loaded chunk, and [the bundle budget](../testing/ci-and-the-gate.md#the-bundle-budget) fails a pull request that brings it back to every page.
 No step scrolls by itself: the market's frame gives the wizard no height to outgrow, so a step grows with what it holds and the page scrolls, in any window; what scrolls inside the wizard is the Sections panel, the save dialog's body and the section dialog, each in a [`ScrollBox`](../../design-system.md#the-primitive-layer).
 
-**Despite the "Floorplan AI" name, the wizard makes no LLM or vision call.**
+**The floorplan beta makes no LLM or vision call.**
 Auto-Place (`POST /floorplans/place-tables`, [`back-end/api/floorplans_placement.py`](../../../back-end/api/floorplans_placement.py)) is a pure geometry solver in [`back-end/services/placement_service.py`](../../../back-end/services/placement_service.py): Shapely for the room and the zone, `pyckingsolver` for the packing.
-The Gemini or OpenAI vision endpoint, `POST /floorplans/analyze` ([`back-end/api/floorplans_analysis.py`](../../../back-end/api/floorplans_analysis.py)), exists and nothing in the front end calls it: walls are drawn by hand.
+Walls are drawn by hand, and no route sends a floorplan image to a hosted model: the vision endpoint that did, which no screen called, was removed with its two AI packages.
 So the flow can be exercised end to end in CI with no API keys and no stubbing ([floorplan E2E](../testing/floorplan-e2e.md)).
 
 ## Interface
@@ -57,14 +57,13 @@ Every floorplan action asks its row of the table ([the market's actions](market-
 The roles are [what each role may do](../../business/rules/what-each-role-may-do.md) says, and a route that changes the floorplan keeps [an archived market is read-only](../../business/rules/an-archived-market-is-read-only.md).
 [`back-end/api/floorplans_access.py`](../../../back-end/api/floorplans_access.py) is the one place a floorplan route decides it: `market_refusal(market_id, action, edits=...)` asks on a market the request names, `image_refusal(gridfs_id, action, edits=...)` asks on the market an image was uploaded for, and each answers None or the refusal the route returns.
 They answer in save's order: no market named 400, unknown market 404, unreadable market data 400, a person the row refuses 403 with its sentence, and, for a route that changes the floorplan (`edits`), an archived market 403.
-A route checks access right after it has read the id it is checked by, before the rest of its body, its key check or its image read.
+A route checks access right after it has read the id it is checked by, before the rest of its body or its image read.
 
 | Route                                                                                                     | Needs                                                                | Archived market |
 | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------- |
 | `POST /floorplans/upload`                                                                                 | Change Market Setup (EDITOR) on the `market_id` sent                 | refused         |
 | `POST /floorplans/place-tables`                                                                           | Change Market Setup (EDITOR) on the `market_id` sent                 | refused         |
 | `DELETE /floorplans/<id>`                                                                                 | Change Market Setup (EDITOR) on the image's market                   | refused         |
-| `POST /floorplans/analyze`                                                                                | Change Market Setup (EDITOR) on the image's market                   | refused         |
 | `POST /floorplans/calibrate` ([`floorplans_calibrate.py`](../../../back-end/api/floorplans_calibrate.py)) | Change Market Setup (EDITOR) on the image's market                   | refused         |
 | `POST /floorplans/export` ([`floorplans_export.py`](../../../back-end/api/floorplans_export.py))          | the Read row (any role) on the image's market, signed in             | allowed         |
 | `GET /floorplans/<id>`                                                                                    | nothing: public by opaque id                                         | allowed         |

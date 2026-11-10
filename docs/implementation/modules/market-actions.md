@@ -150,7 +150,6 @@ Asked by:
 - `PUT /markets/:id/plan`
 - `POST /floorplans/upload`
 - `DELETE /floorplans/<id>`
-- `POST /floorplans/analyze`
 - `POST /floorplans/calibrate`
 - `POST /floorplans/save-to-market`
 - `POST /floorplans/place-tables`
