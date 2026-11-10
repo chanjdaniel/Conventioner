@@ -602,6 +602,7 @@ def market_records(monkeypatch):
     import history as History
     import payments as Payments
     import remembered_sign_ins as RememberedSignIns
+    import services.gridfs_service as GridfsService
     import vendor_notes as VendorNotes
 
     fakes = SimpleNamespace(
@@ -609,8 +610,9 @@ def market_records(monkeypatch):
         remembered=FakeApplicationsCollection(),
         history=FakeApplicationsCollection(), notes=FakeApplicationsCollection(),
         placement_history=FakeApplicationsCollection(), payments=FakeApplicationsCollection(),
-        amounts_owed=FakeApplicationsCollection(),
+        amounts_owed=FakeApplicationsCollection(), images=FakeGridFS(),
     )
+    monkeypatch.setattr(GridfsService, "_fs", fakes.images)
     monkeypatch.setattr(Payments, "payments_collection", fakes.payments)
     monkeypatch.setattr(Payments, "amounts_owed_collection", fakes.amounts_owed)
     monkeypatch.setattr(VendorNotes, "vendor_notes_collection", fakes.notes)
@@ -688,6 +690,13 @@ class FakeGridFS:
         if stored is None:
             return None
         return SimpleNamespace(_id=file_filter["_id"], **stored)
+
+    def find(self, file_filter):
+        """Every stored file the filter matches, as GridFS's cursor yields them."""
+        return iter([
+            SimpleNamespace(_id=file_id, **stored) for file_id, stored in list(self.files.items())
+            if mongo_matches({"_id": file_id, **stored}, file_filter)
+        ])
 
     def get(self, file_id):
         from gridfs.errors import NoFile

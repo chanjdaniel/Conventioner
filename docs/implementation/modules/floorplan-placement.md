@@ -28,6 +28,7 @@ sources:
   - T205
   - T221
   - T217
+  - T263
 ---
 
 # Floorplan placement
@@ -85,6 +86,7 @@ An image previews as the file chosen; a PDF previews as the page the server drew
 When that first page cannot be fetched, the zone comes back with "The floorplan was uploaded, but its page could not be shown. Choose the file again.", and any upload that does not end on a shown PDF page forgets the earlier PDF's pages, so no picker offers them under an image.
 The server draws each page at 200 dpi with pypdfium2 ([`pdf_converter.py`](../../../back-end/utils/pdf_converter.py)), whose `manylinux_2_17` wheel carries PDFium, so it needs no system package on Vercel, Docker or CI (T205).
 Images uploaded before images named a market have no `marketId`; the wizard never reopens a saved floorplan's image, so they are read only by the public `GET /floorplans/<id>`, and no migration gives them one.
+Deleting a market deletes every image whose `metadata.marketId` names it, with its other records ([market deletion](market-deletion.md)); an image with no `marketId` names no market, so no deletion takes it.
 
 **A template is its creator's, and one filed under an organization is filed by someone in it.**
 [`back-end/api/floorplans_templates.py`](../../../back-end/api/floorplans_templates.py) reads a create's or an update's `organizationId` with `string_field()`: null or absent files it under none, another type answers 400, an organization nobody has 404, and one the caller is not in (as owner, admin or member) 403, the test listing an organization's templates applies.

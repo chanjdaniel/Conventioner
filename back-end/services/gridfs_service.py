@@ -95,3 +95,16 @@ def delete_image(gridfs_id: str) -> bool:
         return True
     except NoFile:
         return False
+
+
+def delete_images_for_market(market_id: str) -> int:
+    """Delete every image uploaded for a market, as the market is deleted.
+
+    Each image names its market in ``metadata.marketId`` and nothing outside the market points at
+    one, so an image left behind is a file nobody can reach. Returns how many were deleted.
+    """
+    deleted = 0
+    for grid_out in _fs.find({"metadata.marketId": market_id}):
+        _fs.delete(grid_out._id)
+        deleted += 1
+    return deleted
