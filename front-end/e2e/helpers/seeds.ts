@@ -256,7 +256,7 @@ export async function ensureTestOrg(
 
 /**
  * Minimal application form with a single "business_name" text field.
- * Used by seeds so the form-fields guard is satisfied before the market leaves draft.
+ * Used by seeds so the form-fields guard is satisfied before opening applications.
  */
 const MINIMAL_APPLICATION_FORM = {
   fields: [

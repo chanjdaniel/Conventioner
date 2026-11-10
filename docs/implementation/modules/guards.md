@@ -10,7 +10,7 @@ describes:
   - back-end/app.py#transition_market
   - front-end/src/components/BlockerPanel.vue
   - front-end/src/utils/blockerLink.ts
-verified: 2026-11-04
+verified: 2026-11-10
 sources:
   - wayfinding/readable-journey/01
   - E03/F03
@@ -29,6 +29,7 @@ sources:
   - T207
   - T205
   - T206
+  - T263
 ---
 
 # The guards and the phase move
@@ -47,7 +48,7 @@ A market is moved by [`take_move`](../../../back-end/api/markets.py) (judge, the
 | `route_between(a, b)` | the shortest route between two phases, archiving excluded, by a breadth-first walk of the table |
 | `moves_from(phase)` | every move open from a phase: one edge of the table each |
 | `evaluate_transition(market, to, db, leaving_out)` | every guard on the move's edge, less any the caller satisfies itself; failures only |
-| `transition_verdicts(market)` | every move open from the market's phase, with its blockers; served on the market read as `transitionBlockers` |
+| `transition_verdicts(market, db)` | every move open from the market's phase, with its blockers; served on the market read as `transitionBlockers` |
 
 ## Sharp edges
 
@@ -122,7 +123,7 @@ Do not add a second copy of that write: the endpoint carried one until E26, whic
 `assignment -> offers` waits on `NoApprovedApplicationsGuard`, and nothing writes the statuses that would clear it; it is a post-MVP phase off the rail's spine, and `market_days` is reached from `assignment` directly.
 Its entry invariant is the warning `AssignmentComputedGuard` heeds: a guard must wait on something the product actually writes.
 
-**`take_move` records the move in [the market's history](../data/history.md)** once it is taken (`move-phase`, the phase before and after, by whoever made it); the phase history stays the state the guards read, and an amendment's walk is recorded as the amendment.
+**`take_move` records the move in [the market's history](../data/history.md)** once it is taken (`move-phase`, the phase before and after, by whoever made it); the phase history stays the state the guards read.
 
 ## Why
 

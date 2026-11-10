@@ -18,6 +18,7 @@ sources:
   - E31/F01/S01
   - E41/F01/S02
   - bug/33
+  - T263
 ---
 
 # Why a vendor was not placed
@@ -50,7 +51,7 @@ Their answer as the organizer reads it (an update included) is named when it is 
 **Only "free" is something to do.**
 It offers "Assign them", which opens the Assignments page on that date searched for the vendor; every other reason is a report whose answer is in the plan or in their answers as the organizer reads them.
 
-**One card says what happened to a vendor on a date**, in one of three states: placed, placed against their own answer (a hand placement at a tier, date or table size they did not ask for, or for someone not approved), or not placed and why.
+**One card says what happened to a vendor on a date**, in one of three states: placed, placed against their answer as the organizer reads it (a hand placement at a tier, date or table size they did not ask for, or for someone not approved), or not placed and why.
 The mark on a placement that overrides an answer is that card's second state, not a feature of its own; it is in [placements](../../implementation/modules/placements.md#pins).
 
 **A tier with no tables never reaches the run.**

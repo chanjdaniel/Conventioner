@@ -20,7 +20,7 @@ describes:
   - back-end/api/markets.py#assignment_to_show
   - back-end/api/markets.py#derive_unassigned_tables_from_rows
   - back-end/assignment/assignment.py#vendors_to_show
-verified: 2026-11-09
+verified: 2026-11-10
 sources:
   - wayfinding/readable-journey/08
   - wayfinding/claims-and-room/map
@@ -46,6 +46,7 @@ sources:
   - T213
   - T224
   - T253
+  - T263
 ---
 
 # Placements
@@ -76,7 +77,7 @@ Each reads its body with `json_object` ([a body that is not an object is refused
 
 **There is no other door.**
 The whole-market PUT that once let a stale client copy move vendors on market day is deleted ([ADR 0008](../../adr/0008-each-write-names-what-it-changes.md)).
-Seeds and specs store an assignment through `POST /markets/:id/assignment` too, after walking the market to `assignment` ([assign runs only in assignment](../../business/rules/assign-runs-only-in-assignment.md)).
+`seedAssignedMarket` stores an assignment through `POST /markets/:id/assignment` too, after walking the market to `assignment` ([assign runs only in assignment](../../business/rules/assign-runs-only-in-assignment.md)); only `seedStoredAssignment`, for the phase machine's specs, writes rows straight into Mongo, since those specs are about the phase machine rather than placement.
 
 **No change displaces an occupant.**
 A move into an empty seat displaces nobody, so it is allowed, as one write: `write_placement` replaces the seat the vendor held that date, and its history entry names the table left.
