@@ -42,6 +42,7 @@ sources:
   - T181
   - T206
   - T213
+  - T263
 ---
 
 # The market document
@@ -230,6 +231,7 @@ The other market migrations carry no boot marker, because what they repair fails
 ## The schema contract
 
 [`docs/schema.d.ts`](../../schema.d.ts) is the market as the front end receives it, as TypeScript, generated from `MarketSchemaContract` in `datatypes.py`.
+It has no `userRole`: the read names no role, and a screen reads what the person may do from `actionRefusals` ([what the screens read](../modules/market-actions.md#what-the-screens-read)).
 After changing a contract model, regenerate it from `back-end/` with `python generate_market_schema.py --output ../docs/schema.d.ts` ([`back-end/generate_market_schema.py`](../../../back-end/generate_market_schema.py)); `tests/test_generate_market_schema.py` fails while the checked-in file differs.
 Do not pass `--input`: that infers the declaration from the sample markets in [`docs/market-schema-input.example.json`](../../market-schema-input.example.json), which still carry the removed spreadsheet fields, and produces a different file.
 The front end's own types are [`front-end/src/assets/types/datatypes.ts`](../../../front-end/src/assets/types/datatypes.ts).
