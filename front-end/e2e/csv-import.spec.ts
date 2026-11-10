@@ -204,6 +204,9 @@ test.describe('CSV vendor import', () => {
     // Applications. The first import took the market into Review (E38/F04/S01), so it leads there.
     const finish = page.getByTestId('import-finish-button');
     await expect(finish).toHaveText('Go to the review');
+    // The market has been read in Review by now, and the done step still names what this import
+    // was: the first, not a redo, since it redid nothing.
+    await expect(importPage.heading).toHaveText('Import responses');
     await finish.click();
     await expect(page).toHaveURL(/\/applications$/);
   });

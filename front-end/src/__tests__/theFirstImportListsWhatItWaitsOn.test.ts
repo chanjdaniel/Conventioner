@@ -101,6 +101,32 @@ beforeEach(() => {
 });
 
 describe("the first import's refusal", () => {
+  // A refused import has no steps to take and nothing to cancel: "Back to the market" is its one way
+  // out, so the page says only what can happen.
+  it.each([
+    ['the plan waits on something', market([NO_DATES, NOTHING_IMPORTED])],
+    [
+      'the reader may not import',
+      market([NOTHING_IMPORTED], {
+        actionRefusals: answersRefusing(MarketAction.ImportApplications),
+      }),
+    ],
+    ['the market is past Review', market([], { phase: MarketPhase.Assignment })],
+  ])('draws no stepper and no Cancel import when %s', async (_why, shown) => {
+    const wrapper = await openImport(shown);
+
+    expect(wrapper.find('[data-testid="import-wrong-phase"]').exists()).toBe(true);
+    expect(wrapper.find('.import-steps').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="import-leave-button"]').exists()).toBe(false);
+  });
+
+  it('draws the stepper and Cancel import beside the upload step', async () => {
+    const wrapper = await openImport(market([NOTHING_IMPORTED]));
+
+    expect(wrapper.find('.import-steps').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="import-leave-button"]').exists()).toBe(true);
+  });
+
   it('lists every missing thing at once, each linked to Market Setup', async () => {
     const wrapper = await openImport(market([NO_DATES, NO_LOCATION, NO_TABLES, NOTHING_IMPORTED]));
 

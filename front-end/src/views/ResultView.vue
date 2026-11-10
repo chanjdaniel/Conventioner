@@ -12,7 +12,7 @@ import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
-import { api, getApiErrorMessage } from '@/utils/api';
+import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
 import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 import { formatPrice } from '@/utils/pricing';
@@ -375,6 +375,10 @@ async function runPlacementChange(change: () => Promise<unknown>): Promise<void>
     ]);
   } catch (err: unknown) {
     placementError.value = getApiErrorMessage(err, 'That change could not be saved.');
+    // A conflict says the page held tables the server no longer does: a seat taken meanwhile, or a
+    // change landed over this one. The dialog stays open on its refusal, and the tables and the
+    // market are read again, so it offers only the seats that are free now.
+    if (getApiErrorStatus(err) === 409) await Promise.all([loadTables(), refreshMarket()]);
   } finally {
     placementBusy.value = false;
   }

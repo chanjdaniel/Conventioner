@@ -69,7 +69,7 @@ Every change goes through [the one writer of placements](../../implementation/mo
 4. Warnings name what the placement overrides: not available that date, asked for a whole table, a tier they did not accept ("…which sets their price."), their own date limit or the market's, and "Not approved: rejected." for someone not approved.
 5. "Assign them here", which reads "Move them here" for someone chosen from "Seated elsewhere today".
 
-A seat already taken is refused, naming its holder: "<email> already holds <table> (<size>) on <date>. Free that seat first, or swap the two vendors." (bug 32).
+A seat already taken is refused, naming its holder: "<email> already holds <table> (<size>) on <day>. Choose another seat, or swap the two vendors.", the day as the screens say it, "May 1, 2099" (bug 32).
 A seat held by someone not approved is marked "Not approved" on the Assignments page and in the drawer, and the next run keeps them there.
 Covered by:
 
@@ -116,9 +116,9 @@ From the empty seat:
 3. "Move them here", where any other choice reads "Assign them here".
 
 The vendor sits at the new table and their old seat is free, through the one write that places a vendor on a date ([placements](../../implementation/modules/placements.md)); the history records it as one entry, "Moved <vendor> from North Wing 1 to Landing 2 (Full Table)" ([J13](#j13-assignment-history)), and the day's line of what they owe follows the new table's price, unless an Admin set the amount by hand ([a price follows the table](../rules/a-price-follows-the-table.md)).
-A seat taken by someone else meanwhile is refused with the server's reason in the dialog, which stays open to choose again.
+A seat taken by someone else meanwhile is refused with the server's reason in the dialog, which stays open to choose again: the page reads the tables again, so the refused seat leaves "Move them to" and is no longer chosen.
 Any change to the tables, a placement, a move, a swap, a free or a run, that lands while someone else's change to them is being saved is refused, and none of it is saved: "Someone else changed this market's tables while this change was being saved, so it was not saved. Reload the tables and try again." ([placements](../../implementation/modules/placements.md)).
-The page does not read the tables again by itself, so reloading shows what the other change did.
+After either refusal the page reads the tables and the market again, so it shows what the other change did.
 Covered by:
 
 - `moving-a-vendor-to-an-empty-seat.spec.ts`

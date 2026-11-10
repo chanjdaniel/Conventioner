@@ -170,15 +170,29 @@ test('a move to a seat taken meanwhile is refused in the dialog, which stays ope
     tableChoice: 'Full Table',
   });
 
-  // Refused for that reason, in the server's words, and nobody moves.
+  // Refused for that reason, in the server's words, the day as the screens say it, and nobody moves.
   await tables.moveButton.click();
-  await expect(tables.dialogError).toContainText(`${BOB} already holds Landing 1`);
+  await expect(tables.dialogError).toHaveText(
+    `${BOB} already holds Landing 1 (Full Table) on May 1, 2099. Choose another seat, or swap the two vendors.`,
+  );
   await expect(tables.dialog).toBeVisible();
-  await tables.cancel();
-  // Read again, as the page does not after a refusal: Bob keeps the seat and Alice hers.
-  await tables.goto(marketId);
-  await expect(tables.seatIn('Landing 1', BOB)).toBeVisible({ timeout: 15000 });
+
+  // The page reads the tables again, so the dialog, still open, offers only the seats still empty,
+  // and nothing is left chosen to move to.
+  await expect(tables.seatIn('Landing 1', BOB)).toBeVisible();
   await expect(tables.seatIn('North Wing 1', ALICE)).toBeVisible();
+  await expect(tables.pickerField('move-target')).toHaveValue('');
+  await expect(tables.moveButton).toBeDisabled();
+  await tables.openPicker('move-target');
+  await expect(tables.pickerOptions('move-target')).toHaveCount(2);
+  expect(await tables.moveOptionCodes()).toEqual(['North Wing 2', 'Landing 2']);
+  await expect(tables.dialogError).toBeVisible();
+
+  // And another seat can be taken from there.
+  await tables.moveTo('Landing 2');
+  await expect(tables.dialog).toBeHidden();
+  await expect(tables.seatIn('Landing 2', ALICE)).toBeVisible();
+  await expect(tables.seatIn('Landing 1', BOB)).toBeVisible();
 });
 
 test('an empty seat takes a vendor seated elsewhere that day, moving them in one change', async ({
