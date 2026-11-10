@@ -242,6 +242,35 @@ class TestAFreeLeavesTheRightAmount:
         assert line(SUN)["owedCents"] == 3500
         assert entries(stores, "change-owed") == []
 
+    def test_a_free_unticked_over_a_stopped_frees_zero_keeps_the_admins_amount(
+            self, admin, stores):  # noqa: F811
+        """A deducted free that stopped before its seat went left its $0 holding the Admin's
+        amount as ``replaced``; a free that then asks nothing must not leave that $0 standing."""
+        PaymentsApi.set_amount_owed(MARKET, ANA, SUN, {"cents": 5000}, ADMIN)
+        set_at = line(SUN)["owedSetAt"]
+        a_stale_freed_record(SUN)
+        recorded = entries(stores, "change-owed")
+
+        PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR)
+
+        sunday = line(SUN)
+        assert (sunday["freed"], sunday["owedCents"], sunday["owedByFree"]) == (True, 5000, False)
+        assert (sunday["owedSetBy"], sunday["owedSetAt"]) == (ADMIN, set_at)
+        assert entries(stores, "change-owed") == recorded
+
+    def test_a_free_unticked_over_a_stopped_frees_zero_owes_the_seats_price(
+            self, admin, stores):  # noqa: F811
+        a_stale_freed_record(SUN)
+
+        PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR)
+
+        sunday = line(SUN)
+        assert (sunday["freed"], sunday["owedCents"], sunday["owedByFree"]) == (True, 3500, False)
+        assert sunday["owedSetBy"] is None
+        [record] = [doc for doc in stores.owed.documents if doc["date"] == SUN]
+        assert record["set_by_hand"] is None
+        assert entries(stores, "change-owed") == []
+
     @pytest.mark.parametrize("deduct_owed", [False, True])
     def test_a_free_whose_seat_write_fails_leaves_nothing_a_run_could_surface(
             self, admin, stores, market, monkeypatch, deduct_owed):  # noqa: F811
@@ -272,7 +301,6 @@ class TestAFreeLeavesTheRightAmount:
         sunday = line(SUN)
         assert (sunday["freed"], sunday["owedCents"], sunday["owedSetBy"]) == (False, 1000, ADMIN)
         assert sunday["owedByFree"] is False
-
 
     @pytest.mark.parametrize("deduct_owed, owed", [(False, 3500), (True, 0)])
     def test_a_seat_write_that_landed_and_then_raised_keeps_the_days_line(
@@ -370,10 +398,10 @@ class TestAnAmountSetAsTheFreeWrites:
         PlacementsApi.write_placement(MARKET, seat(SUN), ADMIN)
         assert (line(SUN)["owedCents"], line(SUN)["owedSetBy"]) == (5000, ADMIN)
 
-
     def test_an_amount_that_keeps_changing_frees_nothing_and_says_so(
             self, admin, stores, monkeypatch):  # noqa: F811
         PaymentsApi.set_amount_owed(MARKET, ANA, SUN, {"cents": 4000}, ADMIN)
+        recorded = entries(stores, "change-owed")
         read = stores.owed.find_one
         amounts = iter(range(4100, 9999, 100))
 
@@ -389,8 +417,19 @@ class TestAnAmountSetAsTheFreeWrites:
 
         assert refused.value.message == PaymentsApi.OWED_CHANGED_UNDER_FREE
         monkeypatch.setattr(stores.owed, "find_one", read)
-        sunday = line(SUN)
-        assert (sunday["freed"], sunday["owedSetBy"], sunday["owedByFree"]) == (False, ADMIN, False)
+        # Nothing freed: the stored day holds neither a freed record nor a $0, only the last
+        # amount the Admin set, the seat is still Ana's, and nothing was recorded but the sets.
+        [record] = [doc for doc in stores.owed.documents if doc["date"] == SUN]
+        assert record.get("freed") is None
+        assert record["set_by_hand"]["cents"] == 4100 + 100 * (Payments._FREE_TRIES - 1)
+        assert not record["set_by_hand"].get("by_free")
+        held = PaymentsApi.seats_by_vendor(
+            PlacementsApi.MarketsApi.market_from_document(
+                PlacementsApi.MarketsApi.markets_collection.doc))[ANA]
+        assert SUN in held
+        assert [entry for entry in stores.history.documents if entry["kind"] in (
+            History.FREED, History.OWED_TAKEN_BACK)] == []
+        assert entries(stores, "change-owed") == recorded
 
 
 class TestEveryWriteForgetsTheStaleFreedRecordsOfItsDays:

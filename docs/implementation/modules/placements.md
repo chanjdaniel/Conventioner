@@ -72,7 +72,8 @@ Its routes are in [`back-end/app.py`](../../../back-end/app.py).
 **A free writes what the vendor owes before the seat, in one write.**
 `remove_placement`, for a seat held, writes in this order ([payments](../data/payments.md#the-amount-owed-per-table-day)):
 
-1. One upsert on the day's owed record keeps the freed line and, when `deductOwed` asked it, the free's $0 (`PaymentsApi.keep_freed_line`).
+1. One write on the day's owed record, landing only while its amount by hand is the one read, keeps the freed line and, when `deductOwed` asked it, the free's $0 (`PaymentsApi.keep_freed_line`); unasked, it puts back the amount a stopped free's $0 replaced, or none.
+   An amount that keeps changing under it is refused, 409, with nothing written.
 2. The seat is freed (`_store_vendor_assignments`).
 3. When step 2 is refused by the revision, the record goes back as it held before, only while it still holds what step 1 wrote, and the error goes on.
    When it raises anything else, which may come after the store reached the database, the record goes back that way only while the stored assignment still seats the vendor that day; when that cannot be read, the line stays, since a held seat reads its own price over it.

@@ -247,12 +247,12 @@ def _hand_amount(doc: Optional[Mapping[str, Any]]) -> Optional[Dict[str, Any]]:
     return by_hand.get("replaced") if by_hand.get("by_free") else by_hand
 
 
-#: How many times a free's deduction reads the day again when its amount by hand moved under it.
-_DEDUCT_TRIES = 3
+#: How many times a free reads the day again when its amount by hand moved under it.
+_FREE_TRIES = 3
 
 
 class OwedChangedUnderFree(Exception):
-    """The day's amount by hand kept changing while a free was writing its deduction."""
+    """The day's amount by hand kept changing while a free was writing its line."""
 
 
 def keep_freed_line(
@@ -264,30 +264,41 @@ def keep_freed_line(
     One write, so no stop between the seat and the deduction leaves the seat free and its full
     amount owed. The $0 keeps an amount an Admin set by hand as ``replaced``: while the seat is
     held, a free that stopped before its seat went leaves that amount what the day owes, and
-    seating the day again puts it back. Returns what the record held of each field written
-    before, and what was written, so a free whose seat could not be freed puts both back
-    (``restore_freed_line``).
+    seating the day again puts it back. The seat is held as this runs, so a free's $0 found on
+    the day is such a stopped free's, and a free without ``deduct`` puts its ``replaced`` back
+    (or nothing, with none), since freeing a table changes no amount (Q26).
+
+    The write lands only while the amount by hand is still the one read, so an Admin's amount set
+    in between is never written over unkept: the free reads the day again, and after
+    ``_FREE_TRIES`` raises ``OwedChangedUnderFree`` having written nothing. Returns what the
+    record held of each field written before, and what was written, so a free whose seat could
+    not be freed puts both back (``restore_freed_line``).
     """
     freed = {"freed": {**asdict(seat), "by": by, "at": _now()}}
-    if not deduct:
-        before = _upsert_owed(market_id, vendor_email, date, {"$set": freed}) or {}
-        return {field: before.get(field) for field in freed}, freed
     key = _owed_key(market_id, vendor_email, date)
-    for _ in range(_DEDUCT_TRIES):
-        # The write lands only while the amount by hand is still the one read, so an Admin's
-        # amount set in between is never written over unkept: the free reads the day again.
+    refused = False
+    for _ in range(_FREE_TRIES):
         found = amounts_owed_collection.find_one(key)
-        deduction = _free_deduction(by)
-        replaced = _hand_amount(found)
-        if replaced:
-            deduction["replaced"] = replaced
-        written = {**freed, "set_by_hand": deduction}
         standing = (found or {}).get("set_by_hand")
+        written = dict(freed)
+        if deduct:
+            deduction = _free_deduction(by)
+            replaced = _hand_amount(found)
+            if replaced:
+                deduction["replaced"] = replaced
+            written["set_by_hand"] = deduction
+        elif standing and standing.get("by_free"):
+            written["set_by_hand"] = standing.get("replaced")
         try:
             # With no record read, an upsert; one created since is refused by the unique index.
             before = amounts_owed_collection.find_one_and_update(
                 {**key, "set_by_hand": standing}, {"$set": written}, upsert=found is None)
         except DuplicateKeyError:
+            # Only an upsert races a record created since, and only once: any other refusal is
+            # not this race, and goes on as the error it is.
+            if found is not None or refused:
+                raise
+            refused = True
             continue
         if found is None or before is not None:
             before = before or {}
