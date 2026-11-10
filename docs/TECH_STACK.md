@@ -181,8 +181,8 @@ How each part of the code works is in the implementation layer of the [knowledge
   - Code quality enforcement
   - Vue-specific linting rules from `eslint-plugin-vue` 10 (its `flat/essential` set, plus `vue/no-v-html` as an error, so no template renders raw HTML)
 - **Prettier 3.9.10** - Code formatter, configured in `front-end/.prettierrc.json` (semicolons, single quotes, a 100-character line, trailing commas everywhere)
-  - `npm run format` fixes and `npm run format:check` verifies; CI runs the check in `frontend-lint-and-types`, so unformatted front-end code fails the build: run `npm run format` before committing
-  - The one-time reformat commit is listed in `.git-blame-ignore-revs`, which `git blame` skips once `git config blame.ignoreRevsFile .git-blame-ignore-revs` is set
+  - `npm run format` fixes and `npm run format:check` verifies; both cover `front-end/` and `docs/` with that config, leaving out the generated `docs/schema.d.ts`, which its test compares byte for byte (`front-end/.prettierignore`); CI runs the check in `frontend-lint-and-types`, so unformatted front-end code or docs fail the build: run `npm run format` before committing
+  - The one-time reformat commits, of the front end and of `docs/`, are listed in `.git-blame-ignore-revs`, which `git blame` skips once `git config blame.ignoreRevsFile .git-blame-ignore-revs` is set
 - **Stylelint 17** - The design language's gate (`npm run lint:css`, which refuses a warning as it does an error), configured in `stylelint.config.js`
 - **Vue TSC 3.3.14** - TypeScript type checker for Vue
   - Type checking for Vue components
