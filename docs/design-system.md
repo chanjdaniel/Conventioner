@@ -287,10 +287,12 @@ Two other rules were prototyped and rejected: two columns by purpose truncated t
 
 **A market screen's frame stays put** (E21/F04, from the-market-frame ticket 01).
 `MarketFrame` pins the screen's bar and the whole phase rail directly under [the app bar](implementation/modules/app-bar.md), at `top: var(--banner-h)`, while the page scrolls; whatever the rail grows is pinned with it.
-On a phone (640px and below) it pins the bar alone, and the rail scrolls away with the page, since the whole block took half a phone's window ([the market frame](implementation/modules/market-frame.md#sharp-edges), T142).
+Up to 1023px only the market bar pins; from 1024px the whole frame does.
+Up to that break, a phone or a portrait tablet, the rail scrolls away with the page, since the whole block took half a phone's window, and with Payments' toolbar 459px of a 720x900 tablet's ([the market frame](implementation/modules/market-frame.md#sharp-edges), T142, T263).
+It is the frame's own break, beside the app's phone break at 640px, which every other phone rule keeps.
 `--banner-h` (`44px`, at every window size) is the app bar's height as a token, so nothing measures the bar at run time.
 What the frame pins is the one thing that is measured: on a desk it grows with whatever the rail shows, so no token could state it.
-`MarketFrame` measures it, the bar alone on a phone, and publishes `--market-frame-h` on its card (declared as `0px` in `base.css`, which is what it is outside a frame), and a screen's own sticky column - the proposal ledger's rail - sits at `top: calc(var(--banner-h) + var(--market-frame-h))`.
+`MarketFrame` measures it, the bar alone up to 1023px, and publishes `--market-frame-h` on its card (declared as `0px` in `base.css`, which is what it is outside a frame), and a screen's own sticky column - the proposal ledger's rail - sits at `top: calc(var(--banner-h) + var(--market-frame-h))`.
 A frame screen never scrolls inside its card: a sticky element inside an `overflow` ancestor stops sticking.
 
 **The frame places itself** (E26/F10/S01).
@@ -599,7 +601,7 @@ It keeps the `btn--destructive` class, so [a dialog](implementation/conventions/
 
 **On a phone every target is 44px**, the size a thumb wants (T82).
 The heights are tokens in `base.css`: `--control-height` (36px) for `.btn`, `.field` and `.add-row`, `--control-height-compact` (28px) for `.btn--compact`, and `--target-min` (24px, WCAG 2.5.8's floor), the least any other target may be: a tab, a link on its own line, a Show toggle, a Copy button, a choice's label.
-At `width <= 640px`, the market frame's phone break, all three are 44px, the app bar's own height, so a control that takes its height from a token is a thumb's size there with nothing of its own; a bespoke control takes `min-height: var(--target-min)` (and `min-width` where it is narrow) rather than a phone rule of its own.
+At `width <= 640px`, the app's phone break, all three are 44px, the app bar's own height, so a control that takes its height from a token is a thumb's size there with nothing of its own; a bespoke control takes `min-height: var(--target-min)` (and `min-width` where it is narrow) rather than a phone rule of its own.
 Three exceptions take their minimum in a phone rule, since on a desk a 24px box would move the rows: `.answer-link--alone`, an answer that is only a link, its height, since on a desk the same link sits in a review card's line; the All view's row tick (`.all-tick`), its width, since on a desk a 24px square would push every row 11px right; and One by one's "Choose what leads the card" (`.choose-highlights-open`), its height, since on a desk it would push the card's verdicts 9px down.
 A desk keeps its denser 36px and 28px.
 
