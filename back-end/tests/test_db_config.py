@@ -121,8 +121,8 @@ class TestAFixtureScriptReachesOnlyTheDatabaseItIsTold:
 @pytest.mark.skipif("pymongo" in STUBBED_MODULES, reason="reads the real driver's options")
 class TestEveryClientHasBounds:
     """``get_mongodb_client``: every client finds a server within 5 seconds, gives up on any one
-    wait for the server's reply after 30, keeps at most 20 connections and closes one idle for a minute, whatever
-    ``MONGODB_URI`` says; the boot probe's client finds a server within 3.
+    wait for the server's reply after 30, keeps at most 20 connections and closes one idle for a
+    minute, whatever ``MONGODB_URI`` says; the boot probe's client finds a server within 3.
 
     Read from the real driver's own ``options``, against a closed loopback port, so no test here
     reaches a database. Each client a test builds is closed."""

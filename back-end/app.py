@@ -257,11 +257,11 @@ def check_public_endpoint_defenses() -> PublicEndpointDefenses:
     the addresses mail links to a laptop from a sender that delivers to nobody, and the session
     backend sends a serverless deployment looking for a disk it does not have, failing at import and
     naming nothing either - and a variable whose absence has to be diagnosed one broken deployment
-    at a time belongs in the same refusal as the ones whose absence is never diagnosed at all. The hop count
-    is the quietest of all: unset behind a proxy, every signup in the world is reported to Google
-    as coming from one address, and a reCAPTCHA score is the only place it ever shows. As with the
-    market-key migration above, an unknown state is never taken for a safe one: it fails at boot,
-    naming the variables, rather than in production, naming nothing.
+    at a time belongs in the same refusal as the ones whose absence is never diagnosed at all. The
+    hop count is the quietest of all: unset behind a proxy, every signup in the world is reported to
+    Google as coming from one address, and a reCAPTCHA score is the only place it ever shows. As with
+    the market-key migration above, an unknown state is never taken for a safe one: it fails at
+    boot, naming the variables, rather than in production, naming nothing.
 
     This is a *check*: it reads configuration and nothing else, so asking whether this deployment is
     configured cannot change it. Installing what it found is ``configure_public_endpoint_defenses``.

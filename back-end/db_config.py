@@ -18,8 +18,8 @@ from pymongo import MongoClient
 #   a find at a closed port failed after 30.1 seconds, and the boot probe too, not after 5 and 3).
 #   So `timeoutMS` is passed as None, which also turns off one a MONGODB_URI carries; a caller
 #   wanting a deadline over a few operations uses `pymongo.timeout`, as /healthz does.
-# - MAX_POOL_SIZE: 20 connections is well above one instance's concurrent use, and bounds the cluster's
-#   500 connections at about 19 saturated instances rather than the default 100's five.
+# - MAX_POOL_SIZE: 20 connections is well above one instance's concurrent use, and bounds the
+#   cluster's 500 connections at about 19 saturated instances rather than the default 100's five.
 # - MAX_IDLE_TIME_MS: a connection idle for a minute is closed, so an instance a burst grew gives
 #   its connections back.
 SERVER_SELECTION_TIMEOUT_MS = 5000
