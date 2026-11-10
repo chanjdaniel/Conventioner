@@ -242,6 +242,18 @@ eachWindow('the combobox entry', (size) => {
     await expect(under.more).toHaveCount(0);
   });
 
+  test('"Assigned to" draws a reviewer\'s address as the product\'s filter does', async ({
+    page,
+  }) => {
+    // `assignedToOptions` marks a reviewer's row an address, so it breaks only before the @.
+    const under = picker(page, 'library-under-cap');
+    await under.field.click();
+    await expect(
+      under.options.nth(2).locator('.search-picker-option-label .email-address'),
+    ).toHaveCount(2);
+    await expect(under.options.first().locator('.email-address')).toHaveCount(0);
+  });
+
   test('a choice past the cap is drawn first, active, and kept by Enter', async ({ page }) => {
     const past = picker(page, 'library-past-cap');
     await expect(past.field).toHaveValue('Lily Chang');

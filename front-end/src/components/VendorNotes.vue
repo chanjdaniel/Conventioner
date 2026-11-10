@@ -173,6 +173,8 @@ const noteId = computed(() => `${props.testid}-note-${props.email}`);
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+  /* A tap target, a thumb's 44px on a phone. */
+  min-height: var(--target-min);
   cursor: pointer;
   color: var(--mm-text-link);
   font-weight: 600;

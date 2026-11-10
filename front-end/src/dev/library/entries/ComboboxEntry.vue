@@ -66,7 +66,8 @@ const columnLabel = computed(
   () => offered.columns.find(({ id }) => id === column.value)?.label ?? '',
 );
 
-/** C6's shape: Me, Anyone and every chosen reviewer, which the cap leaves whole. */
+/** C6's shape: Me, Anyone and every chosen reviewer, which the cap leaves whole, each reviewer an
+ * address as `assignedToOptions` makes them. */
 const assigneeGroups: PickerGroup[] = [
   {
     options: [
@@ -78,7 +79,7 @@ const assigneeGroups: PickerGroup[] = [
     label: 'Reviewers',
     options: reviewers.map((id) => {
       const { email } = people.find((candidate) => candidate.id === id)!;
-      return { value: email, label: email };
+      return { value: email, label: email, address: true };
     }),
   },
 ];

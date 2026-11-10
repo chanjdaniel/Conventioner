@@ -119,6 +119,8 @@ defineSlots<{
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  /* A tap target, a thumb's 44px on a phone. */
+  min-height: var(--target-min);
   /* As wide as its words, so its focus border hugs them rather than the card. */
   width: fit-content;
 }

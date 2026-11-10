@@ -32,8 +32,9 @@ const user = inject<Ref<string | null>>('user', ref(null));
 </template>
 
 <style scoped>
+/* The app bar's own inset, so the words stand on its logo at every width. */
 .not-found {
-  padding: var(--space-12) var(--space-8);
+  padding: var(--space-12) var(--space-4);
   color: var(--mm-black);
 }
 
@@ -47,12 +48,5 @@ p {
   margin: 0 0 var(--space-6);
   color: var(--mm-text-muted);
   font-size: var(--text-sm);
-}
-
-/* The phone's gutter, so the words stand on the app bar's logo. */
-@media (width <= 640px) {
-  .not-found {
-    padding-inline: var(--space-4);
-  }
 }
 </style>
