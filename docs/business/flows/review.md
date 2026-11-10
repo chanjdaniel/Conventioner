@@ -10,7 +10,7 @@ describes:
   - front-end/src/components/market/ReviewerName.vue
   - front-end/src/components/application/VerdictUndoLine.vue
   - front-end/src/utils/verdictUndo.ts
-verified: 2026-11-06
+verified: 2026-11-10
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/08
@@ -56,6 +56,7 @@ sources:
   - T181
   - T204
   - T217
+  - T262
 ---
 
 # Reviewing applications
@@ -150,16 +151,17 @@ The story asked the line and the reviewed list to name the applicant's business 
 
 ## I2. Change a decision
 
-**Status:** Works (walked live; the giver read from the code as of E34/F01/S01; who may change one as of E38/F06/S01: `changing-a-verdict-is-its-own-row.spec.ts`; the list's order and rows as of E38/F10/S01: `undoing-a-verdict.spec.ts`; the dialog as of T217: `the-reviewed-list-opens-as-a-dialog.spec.ts`).
+**Status:** Works (walked live; the giver read from the code as of E34/F01/S01; who may change one as of E38/F06/S01: `changing-a-verdict-is-its-own-row.spec.ts`; the list's order and rows as of E38/F10/S01: `undoing-a-verdict.spec.ts`; the dialog as of T217 and its held order as of T262: `the-reviewed-list-opens-as-a-dialog.spec.ts`).
 "Show N reviewed", beside the tally above the card, opens the "Reviewed applications" dialog over the card, which does not move.
-It lists the decided applications, newest verdict first (those with no verdict time last, in arrival order), each by name then email with its verdict and who gave it, either address breaking as the history's addresses do ([reading the market's history](reading-the-markets-history.md#l6-read-the-markets-history)), and "Approve instead" on a rejection or "Reject instead" on an approval.
+It lists the decided applications, newest verdict first as it opens (those with no verdict time last, in arrival order), each by name then email with its verdict and who gave it, either address breaking as the history's addresses do ([reading the market's history](reading-the-markets-history.md#l6-read-the-markets-history)), and "Approve instead" on a rejection or "Reject instead" on an approval.
 It shows 50 rows and "Show N more", and past 12 rows a field finds one by name or address, the dialog's top holding as the rows go; the words go when it closes.
 **Changing a verdict is its own row of the table**, "Change a verdict, or overturn an automatic rejection" (default Admin), on top of giving one ([what each role may do](../rules/what-each-role-may-do.md)): "Approve instead" and "Reject instead", an automatic rejection's included, are offered only to someone it lets change one, and a reviewer it refuses reads its sentence once, above the list in the dialog: "Only an Admin or the owner may change a verdict or overturn an automatic rejection on this market."
 A verdict is approved or rejected: deciding a follow-up is giving one, while sending an approved or rejected application back to needs follow-up is changing one, so the change row asks it too (E38/F06/S01).
 A follow-up is not listed here: it is decided from its own card, or from All.
 From Assignment on the list only reads.
 
-A verdict changed in the dialog leaves it open, with the rows shown as they were and focus on that row's new button, the row itself going to the head of the list as the newest verdict.
+A verdict changed in the dialog leaves it open, with the rows shown as they were and focus on that row's new button, the row keeping its place so the reviewer keeps theirs.
+The order holds while the dialog is open: a changed row goes to the head of the list, as the newest verdict, at the next opening, and a row a re-read brings while it is open goes first.
 What the server refuses is said in the dialog, and the card and the Undo line behind stay as they are.
 Closed with the answer still out, the refusal is said on the card's error line instead, naming the application ("jane@example.com was not changed: ..."), beside what the card already says, and the next opening starts clean.
 An address on that line, or in the refusal on the card that names who changed it, breaks the same way.

@@ -212,6 +212,51 @@ describe('Show N reviewed', () => {
       expect(rowEmails()).toEqual(['vendor-002@example.com', 'vendor-001@example.com']);
     });
 
+    it('holds its order while open: a changed row stays, and leads at the next opening', async () => {
+      await monitor();
+      await open();
+      await rowOf('vendor-001')
+        .get('[data-testid="app-monitor-decided-reject-button"]')
+        .trigger('click');
+      await flushPromises();
+
+      expect(rowOf('vendor-001').get('[data-testid="app-monitor-decided-status"]').text()).toBe(
+        'Rejected',
+      );
+      expect(rowEmails()).toEqual(['vendor-002@example.com', 'vendor-001@example.com']);
+
+      await press('Escape');
+      await open();
+      expect(rowEmails()).toEqual(['vendor-001@example.com', 'vendor-002@example.com']);
+    });
+
+    it('puts a row a re-read brings while it is open first, the others where they were', async () => {
+      const wrapper = await monitor();
+      await open();
+      await rowOf('vendor-001')
+        .get('[data-testid="app-monitor-decided-reject-button"]')
+        .trigger('click');
+      await flushPromises();
+      list = list.map((app) =>
+        app.id === 'jane'
+          ? {
+              ...app,
+              status: ApplicationStatus.ReviewerApproved,
+              verdictAt: '2026-10-01T09:00:00Z',
+            }
+          : app,
+      );
+
+      await wrapper.setProps({ dealt: 1 });
+      await flushPromises();
+
+      expect(rowEmails()).toEqual([
+        'jane@example.com',
+        'vendor-002@example.com',
+        'vendor-001@example.com',
+      ]);
+    });
+
     it('never opens on a change of verdict, which one stray Enter would make', async () => {
       await monitor();
       await open();
@@ -332,13 +377,14 @@ describe('Show N reviewed', () => {
       expect(handOut.mock.calls.length).toBe(handOuts);
     });
 
-    it('puts focus on the new button of that row, which leads the list now', async () => {
+    it('puts focus on the new button of that row, which keeps its place', async () => {
       await aLongListOpen();
+      const at = rowEmails().indexOf('vendor-080@example.com');
 
       await changeOn('vendor-080');
       await flushPromises();
 
-      expect(rowEmails()[0]).toBe('vendor-080@example.com');
+      expect(rowEmails().indexOf('vendor-080@example.com')).toBe(at);
       expect(focused().textContent).toContain('Reject instead');
       expect(rowOf('vendor-080').element.contains(focused())).toBe(true);
     });
