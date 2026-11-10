@@ -173,6 +173,22 @@ class TestAMarketWithNoPlan:
         assert set(market.last_update["$set"]) == {"setupObject"}
 
 
+class TestASectionsTypedTier:
+
+    @pytest.mark.parametrize("tier_id", ["front_row", "vip_gold", "tier_"])
+    def test_a_tier_not_numbered_after_its_underscore_saves_as_tier_0_by_its_text(
+        self, client, market, tier_id,
+    ):
+        floorplan = _floorplan()
+        floorplan["sections"][0]["tierId"] = tier_id
+
+        response = _save(client, floorplan)
+
+        assert response.status_code == 200, response.get_json()
+        (section,) = _saved_plan(market).sections
+        assert (section.tier.id, section.tier.name) == (0, tier_id)
+
+
 class TestAMarketWithAPlan:
 
     def test_only_sections_locations_and_floorplans_change(self, client, market):

@@ -74,11 +74,12 @@ def _sections_and_locations(
         location_name = fp_section.location_name
         locations.setdefault(location_name, LocationObject(name=location_name))
         tier_id = fp_section.tier_id
+        tier_suffix = tier_id.split("_")[1] if tier_id and "_" in tier_id else ""
         sections.append(SectionObject(
             name=fp_section.name,
             location=LocationObject(name=location_name) if location_name else None,
             tier=TierObject(
-                id=int(tier_id.split("_")[1]) if "_" in tier_id else 0, name=tier_id,
+                id=int(tier_suffix) if tier_suffix.isdigit() else 0, name=tier_id,
             ) if tier_id else None,
             count=len(fp_section.table_ids),
         ))
