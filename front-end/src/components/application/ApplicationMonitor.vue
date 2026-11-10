@@ -19,7 +19,8 @@
  * is offered the rest (E38/F07/S04).
  * After a verdict, the line above the next card says what was decided and offers its giver Undo, by
  * click or Z, until their next verdict or the window ends (E38/F10/S01); "Show N reviewed" sits
- * beside the counts and opens the reviewed list in a dialog, newest verdict first (T217).
+ * beside the counts and opens the reviewed list in a dialog, newest verdict first, an order that
+ * holds while it is open, so a row changed there keeps its place until the next opening (T217, T262).
  */
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
@@ -125,6 +126,27 @@ const reviewedError = ref('');
 const reviewedButton = ref<HTMLButtonElement>();
 const reviewedDialog = ref<InstanceType<typeof AppDialog>>();
 const REVIEWED_NOUN = { one: 'application', many: 'applications' };
+/**
+ * The dialog's order, taken as it opens: each row's place, by id, until it closes (T262). A verdict
+ * changed in it is the newest, and would take its row to the head, the reviewer losing their place
+ * and the row they were on; it stays where it was, and leads the list at the next opening. A row new
+ * to the list while it is open, a re-read's, has no place: it goes first, as the newest verdict.
+ */
+const reviewedPlaces = shallowRef<Map<string, number> | null>(null);
+watch(
+  showingReviewed,
+  (open) => {
+    reviewedPlaces.value = open ? new Map(decided.value.map((app, at) => [app.id, at])) : null;
+  },
+  { flush: 'sync' },
+);
+/** The rows the dialog lists, in the order it opened on. */
+const reviewedRows = computed(() => {
+  const places = reviewedPlaces.value;
+  if (!places) return decided.value;
+  const placeOf = (app: Application) => places.get(app.id) ?? -1;
+  return [...decided.value].sort((x, y) => placeOf(x) - placeOf(y));
+});
 const applicationKey = (app: Application) => app.id;
 
 function findsReviewed(app: Application, words: string): boolean {
@@ -580,9 +602,9 @@ function sayBesideTheCard(words: string) {
  * behind stays up, its words with it: what was refused is said here, in sight. The one card this
  * moves is a refused one whose own row was changed, since deciding it again is what it waits for.
  *
- * The pressed button goes disabled and then goes for good with the status, and the row itself moves
- * to the top as the newest verdict, so focus waits on the row and lands on its new button; left
- * alone it would fall to `<body>`, with Tab starting over from the top of the dialog.
+ * The pressed button goes disabled and then goes for good with the status, the row keeping its place
+ * (`reviewedPlaces`), so focus waits on the row and lands on its new button; left alone it would fall
+ * to `<body>`, with Tab starting over from the top of the dialog.
  */
 async function changeVerdict(app: Application, status: ApplicationStatus, event: Event) {
   if (!props.market || saving.value) return;
@@ -1189,9 +1211,10 @@ function submittedOn(app: Application): string {
     </AppDialog>
 
     <!--
-      Decided applications, newest verdict first, so a verdict can be read back, and changed one at
-      a time by whoever the change row lets change one (E38/F06/S01). Beside the card, as the dialog
-      above is. The frame's words stay in this dialog, never in the address, which they would outlive.
+      Decided applications, newest verdict first as it opens, so a verdict can be read back, and
+      changed one at a time by whoever the change row lets change one (E38/F06/S01), the changed row
+      keeping its place while it is open (T262). Beside the card, as the dialog above is. The
+      frame's words stay in this dialog, never in the address, which they would outlive.
     -->
     <AppDialog
       ref="reviewedDialog"
@@ -1213,7 +1236,7 @@ function submittedOn(app: Application): string {
       </p>
       <ListFrame
         v-model:words="reviewedWords"
-        :items="decided"
+        :items="reviewedRows"
         :finds="findsReviewed"
         :itemKey="applicationKey"
         :noun="REVIEWED_NOUN"
