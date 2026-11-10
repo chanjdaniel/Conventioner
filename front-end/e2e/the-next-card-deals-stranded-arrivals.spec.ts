@@ -1,3 +1,4 @@
+import type { APIRequestContext } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import {
   seedApplicationWithStatus,
@@ -18,17 +19,20 @@ import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
  * ends it, its lease runs out, and nobody applies after. Planted as that leaves them: both open,
  * undealt and marked, and the lease run out. Ben, on his share alone, is handed the second, his
  * turn's, rather than told his share is done; the first is Ana's, and the deal is recorded as
- * each vendor's own arrival.
+ * each vendor's own arrival. With Ben alone chosen, both are his, and the share he reads counts
+ * both, since One by one reads its list again after a card whose deal dealt more than the card.
  */
 const PASSWORD = 'e2epassword123';
 const ANA = 'e2e-stranded-ana@example.com';
 const BEN = 'e2e-stranded-ben@example.com';
 const [FIRST, SECOND] = [1, 2].map((n) => `stranded-${n}@moss.test`);
 
-test("a chosen reviewer's next card deals the applications a dead deal left waiting", async ({
-  browser,
-  request,
-}) => {
+/**
+ * Ana and Ben made Viewers, `reviewers` chosen over no applications, then the two vendors' open
+ * applications planted as a deal the host ended leaves them: marked as arriving, and its lease run
+ * out. Answers the market's id.
+ */
+async function stranded(request: APIRequestContext, reviewers: string[]): Promise<string> {
   for (const email of [ANA, BEN]) ensureVerifiedUser(email, PASSWORD);
   const { marketId } = await seedPhaseMarket(
     request,
@@ -43,7 +47,7 @@ test("a chosen reviewer's next card deals the applications a dead deal left wait
     const res = await request.post(`${api}/roles`, { data: { user_email: email, role: 'viewer' } });
     expect(res.ok(), await res.text()).toBeTruthy();
   }
-  const chosen = await request.put(`${api}/reviewers`, { data: { reviewers: [ANA, BEN] } });
+  const chosen = await request.put(`${api}/reviewers`, { data: { reviewers } });
   expect(chosen.ok(), await chosen.text()).toBeTruthy();
 
   // Seeded one after another, so they arrived in this order.
@@ -62,6 +66,14 @@ test("a chosen reviewer's next card deals the applications a dead deal left wait
     `db.markets.updateOne({id: ${JSON.stringify(marketId)}}, ` +
       `{$set: {"reviewTeam.dealing": {by: "a-deal-the-host-ended", until: "${ranOut}"}}})`,
   );
+  return marketId;
+}
+
+test("a chosen reviewer's next card deals the applications a dead deal left waiting", async ({
+  browser,
+  request,
+}) => {
+  const marketId = await stranded(request, [ANA, BEN]);
 
   await withUser(browser, BEN, PASSWORD, async (page) => {
     const monitor = new ApplicationMonitorPage(page);
@@ -95,4 +107,22 @@ test("a chosen reviewer's next card deals the applications a dead deal left wait
     { actor: FIRST, action: 'apply' },
     { actor: SECOND, action: 'apply' },
   ]);
+});
+
+test('the share counts every application the next card dealt, not only the card', async ({
+  browser,
+  request,
+}) => {
+  const marketId = await stranded(request, [BEN]);
+
+  await withUser(browser, BEN, PASSWORD, async (page) => {
+    const monitor = new ApplicationMonitorPage(page);
+    await page.goto(oneByOnePath(marketId));
+    await monitor.waitForLoaded();
+
+    // Both are his, the only one chosen: the list is read again after the deal, so the second
+    // reads as his share too, not as dealt to nobody.
+    await expect(monitor.email).toHaveText(FIRST);
+    await expect(monitor.progress).toHaveText('1 of 2 in your share');
+  });
 });

@@ -359,10 +359,18 @@ const followedUpBy = computed(() => {
 });
 
 /**
+ * A hand-out's deal dealt applications since the list was read (T270): the list is read again once
+ * the card is up, so a second arrival dealt to this reviewer, or to another, reads as dealt.
+ */
+let dealtSinceRead = false;
+/**
  * The card a reviewer holds (E34/F03/S02): handed out by the server, so two reviewers walk different
  * cards. Someone who may only read walks the queue here, as before, holding nothing.
  */
-const claims = useReviewClaims(computed(() => props.market?.id ?? ''));
+const claims = useReviewClaims(
+  computed(() => props.market?.id ?? ''),
+  { onDealt: () => (dealtSinceRead = true) },
+);
 /** Every card left - of their share, while on it - is open with another reviewer. */
 const allHeldElsewhere = computed(
   () => handedNothing.value && !shareDone.value && walked.value.length > 0,
@@ -456,6 +464,8 @@ async function takeNext(after: string | null, want: string | null = null) {
     if (app) adopt(app);
     // Nothing handed out: read who holds what now, to say so.
     else await read();
+    // Its deal dealt others too: read them as dealt. A failed read leaves the list as it was.
+    if (app && dealtSinceRead) await read().catch(() => null);
     if (mine !== handing) return;
     handedNothing.value = !app;
     cursor.value = app
@@ -484,6 +494,7 @@ function helpOthers() {
  */
 async function read(): Promise<string | null> {
   if (!props.market) return null;
+  dealtSinceRead = false;
   const fresh = await fetchMarketApplications(props.market.id);
   const up = current.value?.id ?? null;
   applications.value = fresh;

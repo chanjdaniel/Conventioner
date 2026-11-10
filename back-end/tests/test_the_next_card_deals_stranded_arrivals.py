@@ -90,6 +90,14 @@ class TestAChosenReviewersNextCard:
         assert "dealing" not in stranded.markets.doc["reviewTeam"]
         assert _next(CAT) == "y"
 
+    def test_the_card_says_how_many_its_deal_dealt(self, stranded):
+        response = _client(BEN).post(f"/markets/{MARKET}/review/next", json={"mineOnly": True})
+
+        # x to Ben and y to Cat: the screen reads its list again to show Cat's.
+        assert response.get_json()["dealt"] == 2
+        again = _client(CAT).post(f"/markets/{MARKET}/review/next", json={"mineOnly": True})
+        assert again.get_json()["dealt"] == 0
+
     def test_the_deal_is_recorded_as_each_arrivals_own_write(self, stranded):
         _next(ANA)
 

@@ -47,6 +47,7 @@ The turn carries on from the last deal, so after seven applications among three 
 An applicant's own save deals their application and nobody else's, so the history never names a vendor as dealing another's.
 **A reviewer's next card deals what a stopped deal left waiting** (T270): an application that arrived while another deal held the market waits for that deal to deal it as it lets go, and a deal the host ended never lets go, so every card One by one asks for, whoever asks, first deals each application so left, and a chosen reviewer on their share alone is handed the last arrivals before a quiet spell.
 Each is recorded as dealt by the write it arrived by, never by the reviewer who asked; while a live deal holds the market, the card is handed out at once and that deal deals them; the All view's list deals nothing, since a read changes nothing.
+The card's answer says how many the deal dealt, and when it dealt any, One by one reads its list again once the card is up, so an application dealt beside the card reads as dealt, and a share holding two counts both.
 
 **Any change of reviewers deals every open application again**, so a newcomer gets an even share and nothing is stranded with someone removed.
 A decided application stays with whoever had it, as the record of whose share it was, and so does a follow-up, unless its owner is a reviewer removed by the change.

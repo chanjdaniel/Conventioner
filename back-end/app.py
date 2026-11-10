@@ -1792,7 +1792,8 @@ def next_for_review(market_id: str) -> Response:
     A chosen reviewer is handed their own share first, and with ``mineOnly`` nothing else
     (E38/F07/S04); for anyone else ``mineOnly`` is ignored.
     Answers { "application": ... } or { "application": null } when every one left is held by
-    someone else, or under ``mineOnly`` when their share has nothing left to hand out.
+    someone else, or under ``mineOnly`` when their share has nothing left to hand out, with
+    ``dealt``, how many applications the deal before it dealt, so a screen reads its list again.
     """
     person, context, refused = _reviewer_on(market_id)
     if refused:
@@ -1800,12 +1801,13 @@ def next_for_review(market_id: str) -> Response:
     data = json_object(required=False)
     # Applications a deal the host ended left waiting are dealt first, so a chosen reviewer's
     # share holds them; each deal is recorded under the write it arrived by.
-    ReviewTeam.deal_waiting(context.market, context.organization)
+    dealt = ReviewTeam.deal_waiting(context.market, context.organization)
     doc = ApplicationsApi.claim_next_for_review(
         market_id, person, data.get('after'), bool(data.get('includeFollowUps')),
         want=data.get('want'), chosen=Actions.is_chosen(person.email, context.market),
         mine_only=data.get('mineOnly') is True)
-    return jsonify({"application": ApplicantsApi.organizer_view(doc) if doc else None}), 200
+    return jsonify({"application": ApplicantsApi.organizer_view(doc) if doc else None,
+                    "dealt": dealt}), 200
 
 
 @app.route('/markets/<market_id>/applications/<application_id>/claim', methods=['PUT', 'DELETE'])
