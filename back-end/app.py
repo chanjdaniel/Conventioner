@@ -49,7 +49,7 @@ from flask_login import (
     user_loaded_from_cookie,
 )
 from flask_bcrypt import Bcrypt
-from datatypes import ApplicationStatus, Market, MarketPerson, MarketPhase, MarketRole, VerdictGiver
+from datatypes import ApplicationStatus, Market, MarketPerson, MarketPhase, MarketRole, Organization, VerdictGiver
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from market_documents import (
     MarketKeyMigrationError,
@@ -1819,12 +1819,19 @@ def update_vendor_info(market_id: str, application_id: str) -> Response:
     return jsonify(result), status_code
 
 
+class ImportingMarket(NamedTuple):
+    """The stored market an import or a start reads, and the organization its check read."""
+    document: Dict[str, Any]
+    organization: Optional[Organization]
+
+
 def _importing_market_document(market_id: str, requesting_user: str):
     """The stored market document, once the asker may import applications or start the market
     from a CSV - the table's one row for both (E39/F01/S01).
 
-    Returns ``(market_doc, error_response, status)``; the document is the raw stored one, because
-    that is what the essential-offering derivation and the shared write path both read.
+    Returns ``(ImportingMarket, error_response, status)``; the document is the raw stored one,
+    because that is what the essential-offering derivation and the shared write path both read, and
+    the organization is the one the check read, for a write that asks another row of it.
 
     ``requesting_user`` is the session's identity, so it is always present - every caller passes
     ``authenticated_email()`` from behind ``@login_required``.
@@ -1846,15 +1853,16 @@ def _importing_market_document(market_id: str, requesting_user: str):
     market_doc = MarketsApi.markets_collection.find_one({"id": market_id})
     if not market_doc:
         return None, {"error": "Market not found"}, 404
-    return market_doc, None, 200
+    return ImportingMarket(market_doc, context.organization), None, 200
 
 
 def _import_context(market_id: str, requesting_user: str):
     """Load the market and ask ``Actions.IMPORT_APPLICATIONS`` and the phase for the import
     endpoints."""
-    market_doc, error, status = _importing_market_document(market_id, requesting_user)
+    importing, error, status = _importing_market_document(market_id, requesting_user)
     if error:
         return None, error, status
+    market_doc = importing.document
 
     # Enforced here rather than by hiding the entry point: a hidden button is not a rule, and all
     # three import endpoints are reachable directly.
@@ -1877,7 +1885,7 @@ def propose_from_csv(market_id: str) -> Response:
     """What a Google Form's responses CSV proposes this draft becomes. Writes nothing and keeps
     nothing: the file is read and let go. Asks ``Actions.IMPORT_APPLICATIONS``, as the import it
     prepares does."""
-    market_doc, error, status_code = _importing_market_document(
+    importing, error, status_code = _importing_market_document(
         market_id, authenticated_email())
     if error:
         return jsonify(error), status_code
@@ -1886,7 +1894,7 @@ def propose_from_csv(market_id: str) -> Response:
     if not isinstance(data.get('csvContent'), str):
         return jsonify({"error": "csvContent is required"}), 400
 
-    result, status_code = CsvProposal.propose(market_doc, data['csvContent'])
+    result, status_code = CsvProposal.propose(importing.document, data['csvContent'])
     return jsonify(result), status_code
 
 
@@ -1895,14 +1903,16 @@ def propose_from_csv(market_id: str) -> Response:
 def confirm_csv_proposal(market_id: str) -> Response:
     """Write the reviewed proposal: plan facts, form, ceiling and import mapping, in one update,
     or nothing. The file is sent again and not kept. Asks ``Actions.IMPORT_APPLICATIONS``, as the
-    proposal does."""
-    market_doc, error, status_code = _importing_market_document(
+    proposal does, and ``Actions.ASSIGN`` too when the plan changes the assignment rules, as the
+    plan write does."""
+    importing, error, status_code = _importing_market_document(
         market_id, authenticated_email())
     if error:
         return jsonify(error), status_code
 
     data = json_object(required=True)
-    result, status_code = CsvStart.confirm(market_doc, data, authenticated_email())
+    result, status_code = CsvStart.confirm(
+        importing.document, data, authenticated_email(), importing.organization)
     return jsonify(result), status_code
 
 

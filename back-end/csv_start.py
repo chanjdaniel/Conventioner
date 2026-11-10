@@ -17,8 +17,10 @@ update of the market document, everything the ledger holds:
   readings (``csv_proposal.every_reading``), so an option can offer them (ADR 0023).
 
 It writes through the same judgements as the plan's and the form's own writes
-(``prepared_plan``, ``prepared_application_form``) - the form lock above all - and then as one
-``$set``, conditioned on the market still being a draft whose form has no questions of its own, so a
+(``prepared_plan``, ``prepared_application_form``) - the form lock above all - and asks the rows
+the plan write does: the import's row lets the start in, and a plan whose assignment rules differ
+from the market's asks the Assign row too (``Actions.ask_assign_if_the_rules_change``). It then
+writes as one ``$set``, conditioned on the market still being a draft whose form has no questions of its own, so a
 confirm either writes all of it or none of it.
 
 The file is sent again rather than kept between the proposal and the confirm: the server never
@@ -36,7 +38,7 @@ import csv_proposal as CsvProposal
 import essential_fields as EssentialFields
 import history as History
 from client_errors import ConflictError
-from datatypes import MappingAuthor
+from datatypes import Market, MappingAuthor, Organization, SetupObject
 from market_documents import (
     market_doc_field, market_doc_filter, market_doc_key, market_from_document,
 )
@@ -257,11 +259,13 @@ def _day(value: str, days: Dict[str, Dict[str, Any]], year: Optional[int],
 
 
 class Confirmed(NamedTuple):
-    """The one ``$set`` a confirm writes, and what it was made from and made, for its history
-    entry."""
+    """The one ``$set`` a confirm writes, and what it was made from and made: the market as read
+    and the plan as parsed, for the rows the confirm asks, and the counts, for its history entry."""
 
     update: Dict[str, Any]
     counts: Dict[str, int]
+    market: Market
+    plan: SetupObject
 
 
 def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
@@ -299,7 +303,7 @@ def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
 
     market = market_from_document(market_doc)
     setup = _plan(market_doc, proposal, year, ceiling)
-    plan_update = MarketsApi.prepared_plan(market, {"setupObject": setup}).update
+    prepared = MarketsApi.prepared_plan(market, {"setupObject": setup})
     form = MarketsApi.prepared_application_form(market, _form(proposal, choices))
 
     by_row = {c["index"]: c for c in proposal["columns"]}
@@ -325,7 +329,7 @@ def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
             mapping[field["key"]] = ledger[first]
     return Confirmed(
         update={
-            **plan_update,
+            **prepared.update,
             market_doc_key("application_form"): form,
             market_doc_key("import_mapping"): CsvImport.mapping_payload(headers, mapping, resolutions, made_by=MappingAuthor.START),
             market_doc_key("example_columns"): _example_columns(proposal, choices, form),
@@ -335,6 +339,8 @@ def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
             "column_count": len(headers),
             "question_count": len(form.get("fields") or []),
         },
+        market=market,
+        plan=prepared.plan,
     )
 
 
@@ -355,15 +361,19 @@ def still_startable(market_doc: Dict[str, Any]) -> Dict[str, Any]:
 
 def confirm(
     market_doc: Dict[str, Any], body: Dict[str, Any], by: str,
+    organization: Optional[Organization],
 ) -> Tuple[Dict[str, Any], int]:
-    """Write everything the ledger holds, or nothing, and say which; ``by`` is who started it.
+    """Write everything the ledger holds, or nothing, and say which; ``by`` is who started it, let
+    in by the import's row, and ``organization`` the market's, as that check read it.
 
     What ``confirmed_update`` refuses it raises as a client error, answered as raised: a
-    ``ConfirmRefused`` or a locked form 409, a plan or a form the writers refuse 400.
+    ``ConfirmRefused`` or a locked form 409, a plan or a form the writers refuse 400; and a plan
+    changing the assignment rules of someone the Assign row refuses, 403.
     """
     if not isinstance(body.get("csvContent"), str):
         return {"error": "csvContent is required"}, 400
     confirmed = confirmed_update(market_doc, body["csvContent"], body)
+    Actions.ask_assign_if_the_rules_change(confirmed.market, confirmed.plan, by, organization)
 
     result = MarketsApi.markets_collection.update_one(still_startable(market_doc),
                                                       {"$set": confirmed.update})

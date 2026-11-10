@@ -2605,7 +2605,8 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
     phase and says which mode it holds. The assignment rules close the same way once the market can
     no longer run its assignment (``assignment_rules_lock_reason``), and restating them is likewise
     not a change. Asks ``Actions.CHANGE_SETUP``, and ``Actions.ASSIGN`` too when it changes the
-    assignment rules, which are that row's though they ride in the plan (E39/F01/S01).
+    assignment rules, which are that row's though they ride in the plan (E39/F01/S01,
+    ``Actions.ask_assign_if_the_rules_change``).
     """
     extra = sorted(set(body) - set(PLAN_WRITE_FIELDS))
     if extra:
@@ -2616,10 +2617,7 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
     market, organization = _load_market_and_organization_to_change(
         market_id, requesting_user, Actions.CHANGE_SETUP)
     plan, update = prepared_plan(market, body)
-    if assignment_rules(plan) != assignment_rules(market.setup_object):
-        refused = Actions.refusal(Actions.ASSIGN, requesting_user, market, organization)
-        if refused:
-            raise ForbiddenError(refused)
+    Actions.ask_assign_if_the_rules_change(market, plan, requesting_user, organization)
     markets_collection.update_one(market_doc_filter("id", market_id), {"$set": update})
     _record_plan(market, plan, update, requesting_user)
 

@@ -95,9 +95,11 @@ Each check keeps the order it had, so every route answers each person as it did 
 
 **Taking a role asks both roles rows first**: `DELETE /markets/:id/roles/<user_id>` (`remove_market_role`) asks the Editor-and-Viewer row and the Admin row before it looks at the person, so someone both refuse reads the Editor-and-Viewer row's refusal whoever the person is; then it answers someone holding no role as gone, refuses taking the only owner, and asks the row of the role taken.
 
-**The plan write asks two rows**: Market Setup always, and the Assignment row too when the body changes the assignment rules, which ride in the plan; restating them asks only Market Setup.
-A market with no setup yet holds the rules a new plan starts with (`assignment_rules` in [what an assignment was made from](made-from.md)), so a first plan that keeps them asks only Market Setup.
-`save_plan` asks the Assignment row of the organization its load read to ask Market Setup (`_load_market_and_organization_to_change`), and of the plan `prepared_plan` parsed.
+**A write of the plan asks two rows**: its own row always, and the Assignment row too when the plan changes the assignment rules, which ride in it; restating them asks only its own row.
+The plan write's own row is Market Setup, and the start from a CSV's is the import's.
+A market with no setup yet holds the rules a new plan starts with (`assignment_rules` in [what an assignment was made from](made-from.md)), so a first plan that keeps them asks only the write's own row.
+Both ask the Assignment row through one function, `ask_assign_if_the_rules_change`, which takes the market, the plan `prepared_plan` parsed, the requester and the organization, and raises the row's refusal as a 403.
+`save_plan` passes the organization its load read to ask Market Setup (`_load_market_and_organization_to_change`), and the start's confirm the one `_importing_market_document` read to ask the import's row ([the CSV proposal and start](csv-proposal-and-start.md#sharp-edges)).
 
 One block per row, in the `ACTIONS` order: a new action is a block in its place in that order, and a new route or caller one line in its action's "Asked by" list ([two features never share a line](../conventions/two-features-never-share-a-line.md#the-markets-actions)).
 
@@ -275,6 +277,7 @@ Asked by:
 - `POST /markets/:id/assignment`
 - the three `/markets/:id/placements` writes
 - a plan write that changes the assignment rules
+- a start from a CSV whose plan changes the assignment rules (`POST /markets/:id/csv-proposal/confirm`)
 
 ### Record a payment (`record-payment`)
 
