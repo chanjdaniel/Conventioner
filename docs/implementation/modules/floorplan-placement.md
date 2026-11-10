@@ -29,6 +29,7 @@ sources:
   - T221
   - T217
   - T263
+  - T271
 ---
 
 # Floorplan placement
@@ -114,6 +115,12 @@ It ships only `manylinux_2_35` wheels and Vercel builds on Amazon Linux 2023 (gl
 **Konva cannot read a CSS variable.**
 Handed `var(--mm-red)`, a canvas keeps painting with whatever colour it last had, silently.
 Pass a canvas colour through `canvasColor()` ([`front-end/src/utils/canvasColor.ts`](../../../front-end/src/utils/canvasColor.ts)), which resolves a `var(--name)` to the stylesheet's value at the moment of drawing and passes anything else, or a token the stylesheet lacks, through unchanged.
+
+**Nothing of the wizard reaches the market until the save, so leaving before it asks** (T271).
+The upload, the scale, the table types, the tables and the sections live in the page and the floorplan store until "Save & Continue", so a link, a market tab, Back or a reload dropped all of it with no word.
+[`FloorplanWorkflow.vue`](../../../front-end/src/components/floorplan/FloorplanWorkflow.vue)'s `holdsAFloorplan` is true from an upload in this visit of the wizard until the floorplan is saved to the market, and is handed to `useUnsavedWork` ([unsaved work asks before it is dropped](../conventions/unsaved-work-asks-before-it-is-dropped.md)), so a move off the wizard asks "Leave without saving?" and a reload is asked by the browser.
+The wizard sets `savedToMarket` before it emits `saved`, so the move back to Market Setup that follows never asks.
+The rule is the wizard's, not the store's: the store keeps its data across a visit, but a new visit opens on Upload with nothing uploaded, so it asks nothing until a new upload; the store had an `isDirty` flag, set on every change and read by nothing, and it is gone.
 
 **Saving writes the plan's sections and locations, so it is a draft's only** ([the setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md)).
 `POST /floorplans/save-to-market` ([`back-end/api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)) refuses a body that is not a JSON object (400), needs EDITOR, refuses an archived market (403) and a settled setup (409), then replaces `setupObject.sections` and `.locations` with the floorplan's and appends the floorplan to `setupObject.floorplans`.

@@ -130,12 +130,14 @@ Offered as "Set up sections from a floorplan instead" on Section Setup while the
    4. **Edit Layout:** draw walls and no-go zones with the "Wall Editor" toggle, move tables, "Group Sections" by lasso and "Assign Section" (name, location, optional tier), "Export PNG" with or without table codes and sections; "Next" stays disabled until sections are grouped.
    5. **Save:** "Review & Save Floorplan" lists totals, sections and locations with editable names; "Save & Continue" writes the sections to the plan.
 
+Nothing of the wizard reaches the market until "Save & Continue" (the image is uploaded, but nothing reads it until then): from the upload on, a link, a market tab or Back asks "Leave without saving?" first ("This floorplan is not saved to the market yet. Leaving drops the upload, the scale, the tables and the sections."), with Stay and Leave, and a reload or closing the tab is asked by the browser; the save's own move back to Market Setup never asks.
 The wizard makes no AI calls; placement is a geometry solver ([floorplan placement](../../implementation/modules/floorplan-placement.md)).
 Only one table type is used by assignment in this release ([F6](form-tab.md#f6-table-type-preference)), and the path's card says so.
 Past Draft the flow says the setup is settled and offers nothing to draw (`what-to-show-and-when.spec.ts`).
 Covered by:
 
 - `floorplan.spec.ts` (grouping and editing are driven through store state, not real gestures)
+- `the-floorplan-asks-before-it-drops-a-drawing.spec.ts`
 - `the-floorplan-beta-places-tables.spec.ts`
 
 ## E7. Edit the plan after Draft
