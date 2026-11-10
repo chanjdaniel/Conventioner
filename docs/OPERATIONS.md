@@ -13,7 +13,7 @@ describes:
   - back-end/api/attendance.py#ensure_attendance_indexes
   - back-end/payments.py#ensure_payment_indexes
   - back-end/migrations/check_vendor_day_duplicates.py
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - E32/F03/S03
   - T15

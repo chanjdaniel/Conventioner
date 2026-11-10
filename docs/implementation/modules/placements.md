@@ -20,7 +20,7 @@ describes:
   - back-end/api/markets.py#assignment_to_show
   - back-end/api/markets.py#derive_unassigned_tables_from_rows
   - back-end/assignment/assignment.py#vendors_to_show
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - wayfinding/readable-journey/08
   - wayfinding/claims-and-room/map

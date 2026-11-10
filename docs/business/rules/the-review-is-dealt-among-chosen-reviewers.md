@@ -13,7 +13,7 @@ describes:
   - front-end/src/utils/reviewTeam.ts
   - front-end/src/utils/reviewers.ts
   - front-end/src/components/market/ReviewerName.vue
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - E38/F07
   - E38/F07/S01
@@ -52,8 +52,9 @@ Each is recorded as dealt by the write it arrived by, never by the reviewer who 
 A decided application stays with whoever had it, as the record of whose share it was, and so does a follow-up, unless its owner is a reviewer removed by the change.
 **A removed reviewer's follow-ups go back into the pool**, dealt in arrival order with the open applications: each keeps its status and is handed to the reviewer it is dealt to, as its owner and its reviewer, so someone still reaches out, and the history says who held it before.
 A follow-up handed to someone who was never a reviewer stays theirs.
-Saving the same people again changes nothing and records nothing; choosing no one returns every open application to first come, first served, and leaves every follow-up with its owner.
+Saving the same people again, once the last change finished, changes nothing and records nothing; choosing no one returns every open application to first come, first served, and leaves every follow-up with its owner.
 **Saving the same people again finishes a change that stopped half way** (T270): a change whose request failed or was ended while it dealt has stored its reviewers and dealt part of the pool, so the same choice deals what it left, the follow-ups of the reviewers it removed included, records that deal, and records no second change of reviewers.
+Choosing different people over a change that stopped is a change of its own, and it hands on the follow-ups of the reviewers the stopped change removed too, unless they are chosen again.
 A change that finds another deal holding the market at its first or last write, as one whose hold ran out does, is refused with "The reviewers are being dealt applications right now. Try again in a moment."; refused at its first write it deals nothing, and refused at its last, the same choice again finishes it.
 
 **A chosen reviewer who no longer holds a role on the market can no longer review here**: their role taken in Manage market, or their place in the organization gone, or their role one the table's row "Be chosen as a reviewer, and then give verdicts and follow-ups" no longer reaches.

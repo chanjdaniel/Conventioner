@@ -5,7 +5,7 @@ describes:
   - back-end/lookup_indexes.py
   - back-end/app.py#build_lookup_indexes
   - back-end/unique_indexes.py
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - E32/F03/S04
   - E40/F01/S03

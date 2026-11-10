@@ -21,7 +21,7 @@ describes:
   - back-end/app.py#remove_payment
   - back-end/app.py#get_market_payments
   - back-end/app.py#verify_payment_indexes
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - T92
   - E44/F01/S01
@@ -85,10 +85,41 @@ A removed entry is changed no more.
 
 Two collections, each snake_case with the market foreign key `market_id` and the vendor's address lowercased (`vendor_email`), like `vendor_notes`:
 
-| Collection     | One document per                          | Fields                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| -------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `payments`     | payment or refund                         | `id`, `market_id`, `vendor_email`, `kind` (`payment` or `refund`; none on an entry before refunds, which reads as a payment), `cents` (negative for a refund), `method` (`e-transfer` or `cash`), `paid_on` (`YYYY-MM-DD`), `note` (blank for none), `recorded_by`, `recorded_at`; `request_key`, the press of Record it was recorded by (none on an entry before T270, or from an older tab); `changes`: each edit or removal, `{by, at, what, before}`; `removed_by`, `removed_at` |
-| `amounts_owed` | vendor per table-day that holds something | `market_id`, `vendor_email`, `date`; `freed`: the seat as it was freed (`table_code`, `tier`, `table_choice`, `cents`, null where unpriced, `group`, `by`, `at`); `set_by_hand`: `cents`, `by`, `at`, and `by_free` on the $0 a free's deduction set                                                                                                                                                                                                                                 |
+**`payments`**, one document per payment or refund:
+
+- `id`
+- `market_id`
+- `vendor_email`
+- `kind`: `payment` or `refund`; none on an entry before refunds, which reads as a payment
+- `cents`: negative for a refund
+- `method`: `e-transfer` or `cash`
+- `paid_on`: `YYYY-MM-DD`
+- `note`: blank for none
+- `recorded_by`
+- `recorded_at`
+- `request_key`: the press of Record it was recorded by; none on an entry before T270, or from an older tab
+- `changes`: each edit or removal, `{by, at, what, before}`
+- `removed_by`
+- `removed_at`
+
+**`amounts_owed`**, one document per vendor per table-day that holds something:
+
+- `market_id`
+- `vendor_email`
+- `date`
+- `freed`: the seat as it was freed:
+  - `table_code`
+  - `tier`
+  - `table_choice`
+  - `cents`, null where unpriced
+  - `group`
+  - `by`
+  - `at`
+- `set_by_hand`: an amount set by hand:
+  - `cents`
+  - `by`
+  - `at`
+  - `by_free`, on the $0 a free's deduction set
 
 A payment's or a refund's body is `PaymentEntry` in [`back-end/datatypes.py`](../../../back-end/datatypes.py), strict, so an amount sent as text or with a fraction of a cent is refused rather than read: from 1 cent to $100,000, the most a price cell holds; a date that is a calendar day; a note of at most 500 characters.
 `payments` is indexed on `market_id, vendor_email` ([lookup indexes](lookup-indexes.md)) and unique on `market_id, request_key` where the key is a string (below), `amounts_owed` is unique on `market_id, vendor_email, date` (below), and both are deleted with the market (`delete_for_market`, called by [market deletion](../modules/market-deletion.md)).
