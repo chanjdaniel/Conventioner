@@ -2009,3 +2009,67 @@ describe('the Discord card and its check, in words (E46/F01/S02, S03)', () => {
     });
   });
 });
+
+describe('a floorplan save opens to what its floorplan holds, and whether its layout moved (T272)', () => {
+  /** A floorplan save's entry as the back end records it: the plan's fields that changed, and the
+   * saved floorplan's counts and layout digest, never the floorplan itself. */
+  const saved = (before: Record<string, unknown>, after: Record<string, unknown>) =>
+    entryChanges(
+      entry({
+        action: 'change-setup',
+        kind: 'floorplan',
+        vendors: [],
+        subject: { floorplan_id: '6f1c2d4e-8a9b-4c3d-9e2f-1a2b3c4d5e6f' },
+        detail: { before, after },
+      }),
+    );
+
+  it('says the layout changed when only a table moved', () => {
+    expect(
+      saved({ layout_digest: '3f9a0c41d2b7e655' }, { layout_digest: '8be17d0a5c2f9e31' }),
+    ).toEqual({
+      changed: [{ field: 'Layout', before: 'as saved before', after: 'changed' }],
+      recorded: [],
+    });
+  });
+
+  it('counts what the floorplan holds on each side, in the wizard’s words', () => {
+    expect(
+      saved(
+        { tables: 2, walls: 1, no_go_zones: 0, table_types: 1, layout_digest: '3f9a0c41d2b7e655' },
+        { tables: 3, walls: 4, no_go_zones: 2, table_types: 2, layout_digest: '8be17d0a5c2f9e31' },
+      ).changed,
+    ).toEqual([
+      { field: 'Tables', before: '2', after: '3' },
+      { field: 'Walls', before: '1', after: '4' },
+      { field: 'No-go zones', before: '0', after: '2' },
+      { field: 'Table types', before: '1', after: '2' },
+      { field: 'Layout', before: 'as saved before', after: 'changed' },
+    ]);
+  });
+
+  it('reads a floorplan saved for the first time as drawn, beside the plan’s own rows', () => {
+    const { changed } = saved(
+      {
+        floorplan_ids: [],
+        tables: null,
+        walls: null,
+        no_go_zones: null,
+        table_types: null,
+        layout_digest: null,
+      },
+      {
+        floorplan_ids: ['6f1c2d4e-8a9b-4c3d-9e2f-1a2b3c4d5e6f'],
+        tables: 4,
+        walls: 0,
+        no_go_zones: 0,
+        table_types: 1,
+        layout_digest: '8be17d0a5c2f9e31',
+      },
+    );
+    expect(changed).toContainEqual({ field: 'Tables', before: 'none', after: '4' });
+    expect(changed).toContainEqual({ field: 'Layout', before: 'none', after: 'drawn' });
+    expect(changed.map((row) => row.field)).toContain('Floorplan ids');
+    expect(changed.every((row) => row.before !== row.after)).toBe(true);
+  });
+});

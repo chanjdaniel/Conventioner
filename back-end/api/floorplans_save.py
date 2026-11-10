@@ -8,6 +8,8 @@ POST /api/floorplans/save-to-market
   ``setupObject.floorplans``, and writes it through the plan's own writer.
 """
 
+import hashlib
+import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -106,21 +108,43 @@ def _with_floorplan(
     return kept + [floorplan]
 
 
+#: A floorplan's parts that are its layout, which ``layout_digest`` stands for: all but its id and
+#: its sections, which the plan's own sections and locations record.
+_NOT_LAYOUT = {"id", "sections"}
+
+
+def _floorplan_summary(floorplan: Optional[FloorplanObject]) -> Dict[str, Any]:
+    """A floorplan as its history entry records it: what it holds, counted, and a digest of its
+    layout, which differs whenever a table, a wall, a zone, a type, the scale or the image does.
+    Never the floorplan itself, which an entry fetched with the market's history would carry whole
+    (up to 1,000 tables) on every save."""
+    if floorplan is None:
+        return {"tables": None, "walls": None, "no_go_zones": None, "table_types": None,
+                "layout_digest": None}
+    layout = json.dumps(floorplan.model_dump(exclude=_NOT_LAYOUT), sort_keys=True, default=str)
+    return {
+        "tables": len(floorplan.placed_tables),
+        "walls": len(floorplan.walls),
+        "no_go_zones": len(floorplan.obstacles),
+        "table_types": len(floorplan.table_types),
+        "layout_digest": hashlib.sha256(layout.encode()).hexdigest()[:16],
+    }
+
+
 def _floorplan_change(plan: Optional[SetupObject], floorplan_id: str) -> Dict[str, Any]:
     """What a floorplan save changes of a plan, as its history entry records it: the plan's
-    sections, locations and floorplan ids, and the floorplan of the saved id, so a save that
-    replaced it with only its layout changed is recorded too."""
+    sections, locations and floorplan ids, and the summary of the floorplan of the saved id, so a
+    save that replaced it with only its layout changed is recorded too."""
+    floorplans = (plan.floorplans if plan else None) or []
+    saved = next((floorplan for floorplan in floorplans if floorplan.id == floorplan_id), None)
     if plan is None:
-        return {"sections": None, "locations": None, "floorplan_ids": [], "floorplan": None}
-    floorplans = plan.floorplans or []
+        return {"sections": None, "locations": None, "floorplan_ids": [],
+                **_floorplan_summary(None)}
     return {
         "sections": [section.model_dump() for section in plan.sections],
         "locations": [location.model_dump() for location in plan.locations],
         "floorplan_ids": [floorplan.id for floorplan in floorplans],
-        "floorplan": next(
-            (floorplan.model_dump() for floorplan in floorplans if floorplan.id == floorplan_id),
-            None,
-        ),
+        **_floorplan_summary(saved),
     }
 
 

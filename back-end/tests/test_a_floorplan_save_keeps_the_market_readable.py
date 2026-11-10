@@ -282,8 +282,44 @@ class TestTheSaveIsRecorded:
         assert response.status_code == 200, response.get_json()
         (entry,) = _floorplan_entries(market_records)
         assert entry["subject"] == {"floorplan_id": "fp-1"}
-        assert entry["detail"]["before"]["floorplan"]["placed_tables"][0]["x"] == 40
-        assert entry["detail"]["after"]["floorplan"]["placed_tables"][0]["x"] == 300
+        # The same counts on both sides, so only the layout's digest says what changed.
+        assert set(entry["detail"]["after"]) == {"layout_digest"}
+        assert entry["detail"]["before"]["layout_digest"] != entry["detail"]["after"]["layout_digest"]
+
+    def test_the_entry_summarises_the_floorplan_and_never_carries_it_whole(
+        self, client, market, market_records,
+    ):
+        """An entry is fetched with the market's history, so it records the floorplan's counts and
+        a digest of its layout, never its tables, walls and zones themselves."""
+        market.doc["setupObject"] = copy.deepcopy(FULL_PLAN)
+        _save(client, _floorplan("fp-1"))
+        market.doc = _applied(market.doc, market.last_update)
+        market_records.history.documents.clear()
+        grown = _floorplan("fp-1", walls=_walls(3))
+        grown["placedTables"].append(
+            {"id": "t-3", "tableTypeId": "tt-1", "x": 120, "y": 40, "widthMm": 1800, "heightMm": 900})
+
+        _save(client, grown)
+
+        (entry,) = _floorplan_entries(market_records)
+        before, after = entry["detail"]["before"], entry["detail"]["after"]
+        assert (before["tables"], after["tables"]) == (2, 3)
+        assert (before["walls"], after["walls"]) == (1, 3)
+        assert "no_go_zones" not in after and "table_types" not in after
+        assert before["layout_digest"] != after["layout_digest"]
+        assert "t-3" not in json.dumps(entry["detail"])
+
+    def test_a_new_floorplan_is_summarised_from_none(self, client, market, market_records):
+        market.doc["setupObject"] = copy.deepcopy(FULL_PLAN)
+
+        _save(client, _floorplan("fp-1"))
+
+        (entry,) = _floorplan_entries(market_records)
+        before, after = entry["detail"]["before"], entry["detail"]["after"]
+        assert (before["tables"], before["walls"], before["layout_digest"]) == (None, None, None)
+        assert (after["tables"], after["walls"], after["no_go_zones"], after["table_types"]) == (
+            2, 1, 0, 1)
+        assert after["layout_digest"]
 
     def test_a_floorplan_restated_unchanged_records_nothing(self, client, market, market_records):
         market.doc["setupObject"] = copy.deepcopy(FULL_PLAN)
