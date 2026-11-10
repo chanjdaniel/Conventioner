@@ -182,10 +182,9 @@ test.describe('Every organizer screen sizes itself the same way', () => {
           measure.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
           const label = select.options[select.selectedIndex]?.text ?? '';
           const needed = measure.measureText(label).width;
-          const box = select.getBoundingClientRect();
-          // 18px for the native arrow.
+          // The room for the value: the box less its padding, which holds the chevron's room too.
           const room =
-            box.width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - 18;
+            select.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
           return needed > room
             ? `"${label}" needs ${Math.round(needed)}px, has ${Math.round(room)}px`
             : '';

@@ -72,9 +72,8 @@ test('a follow-up is marked, waits out of the queue, holds the market, and is ha
 
   // S, as Skip was: the dialog asks who will follow up, the reviewer by default, and what for.
   await page.keyboard.press('s');
-  const dialog = page.getByTestId('follow-up-window');
-  await expect(dialog).toBeVisible();
   const followUp = new FollowUpDialog(page);
+  await expect(followUp.dialog).toBeVisible();
   await expect(followUp.owner).toHaveValue(TEST_USER.email);
   expect(await namelessControls(page), 'the follow-up dialog').toEqual([]);
   // The field is where the dialog opens, its address selected: what is typed searches.
@@ -86,11 +85,10 @@ test('a follow-up is marked, waits out of the queue, holds the market, and is ha
   await followUp.chooser.choose(TEST_USER.email);
   await expect(followUp.submit).toBeEnabled();
   // The box opens on the note already there, so adding to it never writes over it unseen.
-  const box = page.getByTestId('follow-up-note');
-  await expect(box).toHaveValue('Met at the spring fair');
-  await box.fill('Met at the spring fair. Ask for a portfolio link');
-  await page.getByTestId('follow-up-submit-button').click();
-  await expect(dialog).toBeHidden();
+  await expect(followUp.note).toHaveValue('Met at the spring fair');
+  await followUp.note.fill('Met at the spring fair. Ask for a portfolio link');
+  await followUp.submit.click();
+  await expect(followUp.dialog).toBeHidden();
 
   // Out of the walk: Theo is next, and the follow-up is counted beside the queue.
   await expect(monitor.email).toHaveText('theo@thistle.test');
@@ -158,14 +156,13 @@ test('an organization admin with no role on the market marks a follow-up and own
 
     // The admin is offered beside the market's owner, and is the owner by default.
     await page.keyboard.press('s');
-    const dialog = page.getByTestId('follow-up-window');
-    await expect(dialog).toBeVisible();
     const followUp = new FollowUpDialog(page);
+    await expect(followUp.dialog).toBeVisible();
     await expect(followUp.owner).toHaveValue(ORG_ADMIN.email);
     await followUp.owner.click();
     await expect(followUp.chooser.option(TEST_USER.email)).toHaveCount(1);
     await followUp.submit.click();
-    await expect(dialog).toBeHidden();
+    await expect(followUp.dialog).toBeHidden();
 
     // Asked for, the follow-up names them its owner.
     await page.getByTestId('app-monitor-include-follow-ups').check();
@@ -216,9 +213,10 @@ test('taking the follow-ups in while the next card is on its way puts the follow
 
   // Enter in the field, its list closed, submits the dialog.
   await page.keyboard.press('s');
-  await expect(new FollowUpDialog(page).owner).toBeFocused();
+  const followUp = new FollowUpDialog(page);
+  await expect(followUp.owner).toBeFocused();
   await page.keyboard.press('Enter');
-  await expect(page.getByTestId('follow-up-window')).toBeHidden();
+  await expect(followUp.dialog).toBeHidden();
   await expect.poll(() => heldBack).toBe(true);
   // Taken in, the walk is asked again with the follow-ups in; the held answer is then old news.
   const askedAgain = page.waitForResponse(
@@ -280,17 +278,17 @@ test('an editor from outside the organization is offered only the people on the 
     await expect(monitor.email).toHaveText('nadia@ember.test');
 
     await page.keyboard.press('s');
-    await expect(page.getByTestId('follow-up-window')).toBeVisible();
     const followUp = new FollowUpDialog(page);
+    await expect(followUp.dialog).toBeVisible();
     await expect(followUp.owner).toHaveValue(EDITOR.email);
     await followUp.owner.click();
     expect(await followUp.chooser.offered()).toEqual([EDITOR.email, TEST_USER.email].sort());
     // Its list first, then the dialog.
     await page.keyboard.press('Escape');
     await expect(followUp.chooser.list).toBeHidden();
-    await expect(page.getByTestId('follow-up-window')).toBeVisible();
+    await expect(followUp.dialog).toBeVisible();
     await page.keyboard.press('Escape');
-    await expect(page.getByTestId('follow-up-window')).toBeHidden();
+    await expect(followUp.dialog).toBeHidden();
 
     // The organization admin's follow-up names them, and goes on only to the market's people.
     await page.getByTestId('app-monitor-include-follow-ups').check();
