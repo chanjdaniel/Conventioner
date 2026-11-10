@@ -143,6 +143,9 @@ Those cases read and write their world through collection calls alone (`find_one
 ## MongoDB 8.0
 
 CI's service and the local stack's `mongodb` service ([`docker-compose.yml`](../../../docker-compose.yml)) run `mongo:8.0`, the major version production's Atlas cluster runs ([`OPERATIONS.md`](../../OPERATIONS.md)).
+mongod 8.0 refuses to start on Linux kernel 6.19 and newer (MongoDB SERVER-121912).
+So CI's `backend` job and `e2e` shards run on `ubuntu-24.04` until MongoDB fixes it.
+A local stack on a machine with kernel 6.19 or newer fails the same way, its `mongodb` container never becoming healthy, until the fix ships.
 A stack volume MongoDB 7 wrote opens on 8.0 unchanged: its feature compatibility version stays `7.0`, so no volume is deleted.
 On 2026-11-10 a worktree stack seeded on `mongo:7` came up healthy on 8.0.34 with its data and feature compatibility version `7.0`, and its E2E seed ran.
 The other way does not hold: a volume 8.0 makes has feature compatibility version `8.0`, and MongoDB 7 refuses to start on one, as MongoDB allows a binary downgrade only once the version has been set back.

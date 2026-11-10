@@ -452,7 +452,7 @@ Conventioner/
 
 - **Python**: 3.12 (`back-end/.python-version`; Docker, CI and Vercel all run it)
 - **Node.js**: 24.22.1, with npm 11.19.1 (`.nvmrc`; machines, CI and the front-end Dockerfile all run it, and Vercel the latest 24.x: [Node and npm are pinned](#node-and-npm-are-pinned))
-- **MongoDB**: 8.0
+- **MongoDB**: 8.0 (mongod 8.0 refuses to start on Linux kernel 6.19 and newer, so CI's `backend` job and `e2e` shards run on `ubuntu-24.04`; [the real-MongoDB suite](implementation/testing/real-mongo-suite.md#mongodb-80))
 - **Docker**: Latest stable version
 
 ## Additional Resources

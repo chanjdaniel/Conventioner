@@ -29,7 +29,9 @@ env:
 jobs:
   backend:
     name: backend
-    runs-on: ubuntu-latest
+    # Pinned to ubuntu-24.04: mongod 8.0 refuses to start on Linux kernel 6.19 and newer (MongoDB SERVER-121912), which ubuntu-latest (ubuntu-26.04) runs.
+    # Remove this pin and return to ubuntu-latest once MongoDB 8.0 has a fix for kernel 6.19+.
+    runs-on: ubuntu-24.04
     # The real-MongoDB tests (back-end/tests/real_mongo/) run on this server, the major version
     # production runs. REAL_MONGODB_REQUIRED makes each of them fail, not skip, when the server's
     # URI is missing, so this job can never skip them in silence.
@@ -297,7 +299,9 @@ jobs:
   # alphabetical list by test count and once left one shard at 24 minutes and another at 6.
   e2e-shard:
     name: e2e shard ${{ matrix.shard }}/6
-    runs-on: ubuntu-latest
+    # Pinned to ubuntu-24.04: mongod 8.0 refuses to start on Linux kernel 6.19 and newer (MongoDB SERVER-121912), which ubuntu-latest (ubuntu-26.04) runs.
+    # Remove this pin and return to ubuntu-latest once MongoDB 8.0 has a fix for kernel 6.19+.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
