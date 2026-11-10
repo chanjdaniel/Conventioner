@@ -1382,4 +1382,3 @@ class MarketSchemaContract(ContractModel):
     roles: Dict[str, str]
     permissions: Optional[Dict[str, MarketPermission]] = None
     setup_object: Optional[SetupObjectContract]
-    user_role: Optional[str] = None

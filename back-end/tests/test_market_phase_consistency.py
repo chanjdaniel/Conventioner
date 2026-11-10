@@ -67,7 +67,7 @@ def collection(monkeypatch):
     monkeypatch.setattr(
         UsersApi, "get_user_by_id", lambda _uid: SimpleNamespace(id=USER_ID, email=USER_EMAIL)
     )
-    monkeypatch.setattr(OrgsApi, "get_organizations_for_user", lambda _email: [])
+    monkeypatch.setattr(OrgsApi, "organization_documents_of", lambda _user_id: [])
     monkeypatch.setattr(OrgsApi, "get_organization", lambda _oid: None)
     monkeypatch.setattr(
         PermissionsApi, "get_user_market_role", lambda *_args, **_kwargs: MarketRole.OWNER

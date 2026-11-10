@@ -6,6 +6,7 @@ describes:
   - back-end/datatypes.py#OrganizationRole
   - back-end/datatypes.py#MarketRole
   - back-end/api/organizations.py#create_organization
+  - back-end/api/organizations.py#organization_documents_of
   - back-end/api/organizations.py#get_organizations_for_user
   - back-end/api/organizations.py#update_organization
   - back-end/api/organizations.py#add_org_admin
@@ -73,8 +74,8 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 
 Every key is one word but `default_permissions`, which no other spelling of has ever been written, so the spelling question the market document has does not arise.
 Membership is recorded on both sides: each user's `organizations` lists the ids of the organizations they are in, kept in step by every membership write ([users and email](users-and-email.md)).
-`get_organizations_for_user` finds a person's organizations with an `$or` over `owner`, `admins` and `members`, each a [lookup index](lookup-indexes.md).
-It then reads every owner, admin and member of all of them in one `get_users_by_ids` ([users and email](users-and-email.md#lookups)), never one account at a time, so an organization of 150 members costs the Organizations page and Manage organization one read of them (T204).
+`organization_documents_of` finds a person's organizations with an `$or` over `owner`, `admins` and `members`, each a [lookup index](lookup-indexes.md), and answers the stored documents; the Markets list reads them so, since it needs no person's address and no count of what removing someone takes (`get_markets_for_user` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)), and `test_the_list_reads_its_readers_organizations_without_their_people_or_removals` in [`back-end/tests/test_the_market_list_shows_what_the_read_serves.py`](../../../back-end/tests/test_the_market_list_shows_what_the_read_serves.py) fails when it reads either.
+`get_organizations_for_user` makes the same find, then reads every owner, admin and member of all of them in one `get_users_by_ids` ([users and email](users-and-email.md#lookups)), never one account at a time, so an organization of 150 members costs the Organizations page and Manage organization one read of them (T204).
 It serves each organization's admins and members as `{userId, email}` pairs, `adminPeople` and `memberPeople`, in the stored order, an account that is gone left out, and the owner's address as `ownerEmail`.
 Manage organization draws its rows from the pairs, each section a [list frame](../../design-system.md) over them, and each row keyed and removed by its own `userId`: it paired the address list with `admins` by position, so one deleted account shifted every later row onto the next person's id, and Remove could name one person and remove another.
 `adminEmails` and `memberEmails`, with their snake-case twins, are the same people by address alone, deprecated and kept only for a tab still on the old bundle; the next release removes them.

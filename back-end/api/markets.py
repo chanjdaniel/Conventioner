@@ -258,27 +258,6 @@ def role_action_refusals(
     return _answers(phase, lambda row: Actions.role_refusal(row, role, rows, chosen))
 
 
-def deprecated_screen_reasons(
-    refusals: Dict[str, Optional[str]], verdicts_settled: Optional[str],
-    adding_vendors: Optional[str], publish_waits: Optional[str],
-) -> Dict[str, Optional[str]]:
-    """Deprecated: the reasons the screens read before each asked its row (E39/F01/S02), each now
-    its row's answer and the rule of the market's life it carried.
-
-    The back end deploys before the front end, and a tab keeps its bundle until it reloads; an old
-    bundle reads a missing reason as "allowed" and offers what the server refuses. Served for one
-    more release so it keeps refusing; the next release removes them, and the read's ``user_role``.
-    """
-    return {
-        # The old bundle says these words only on the import screens, and asks the rest only
-        # whether it is null: the import row's answer is the move row's yes and no in its words.
-        'adminActionsReason': refusals[Actions.IMPORT_APPLICATIONS.id],
-        'verdictLockReason': refusals[Actions.GIVE_VERDICTS.id] or verdicts_settled,
-        'addVendorReason': refusals[Actions.ADD_VENDOR.id] or adding_vendors,
-        'publishResultsReason': refusals[Actions.PUBLISH_RESULTS.id] or publish_waits,
-    }
-
-
 def read_only_reason(market: Market, refusals: Dict[str, Optional[str]]) -> Optional[str]:
     """Why this person may change nothing on this market, or None while they may change something
     (E26/F08/S01, E39/F01/S02): the archived rule, then whether any of the table's changing rows
@@ -969,9 +948,6 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
 
     market_dict['_id'] = str(market_dict['_id'])
     leave_out_what_no_read_serves(market_dict)
-    # Deprecated: no screen reads the role since each asks the table (E39/F01/S02); an old bundle's
-    # Manage market does, and the next release removes it with ``deprecated_screen_reasons``.
-    market_dict['user_role'] = user_role.value
     _stamp_effective_market_state(market_dict, market.phase)
     # The form lock rides on the market every screen reads (E21/F02/S03): it depends on whether an
     # application exists, which only the server knows, and the store re-reads the market after every
@@ -1048,9 +1024,6 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # answer, so the rail offers the action exactly when the endpoint would take it.
     market_dict['applicationsStopped'] = market.applications_stopped
     market_dict['applicationsStopReason'] = ApplicantsApi.applications_stop_refusal(market)
-    # Deprecated, for a tab still on the old bundle; the next release removes them.
-    market_dict.update(deprecated_screen_reasons(
-        refusals, verdicts_settled, adding_vendors, publish_waits))
     # What would refuse each move open from this phase (E31/F02/S01), judged as the transition
     # endpoint judges it, so the rail can disable a move and name why before anyone clicks it.
     market_dict['transitionBlockers'] = {
@@ -1214,8 +1187,6 @@ def _decorate_market_summary(
     leave_out_what_is_not_served(market)
     # Every answer a market keeps, which would grow the list by every market it names (ADR 0023).
     leave_out_every_answer(market)
-    # Deprecated, as the market read's: an old bundle's card offers Manage on it.
-    market['user_role'] = user_role.value if user_role else None
     phase = phase_from_market_document(market)
     _stamp_effective_market_state(market, phase)
     # The table's answers for the role the entry names, asked of the market's rows as the read
@@ -1260,7 +1231,7 @@ def _listed(
 def get_markets_for_user(user_email: str) -> List[Dict[str, Any]]:
     """
     Get all markets a user has access to (via explicit role or organization): exactly those the
-    market read serves them, each with their effective role included.
+    market read serves them, each entry with the table's answers the read gives this reader.
     """
     user = UsersApi.get_user(user_email)
     if not user:
@@ -1270,7 +1241,7 @@ def get_markets_for_user(user_email: str) -> List[Dict[str, Any]]:
     seen_ids = set()
     result = []
 
-    user_orgs = OrgsApi.get_organizations_for_user(user_email)
+    user_orgs = OrgsApi.organization_documents_of(user_id)
     lookups = _SummaryLookups(user_orgs)
 
     # A role is a key of the market's roles map, so "has one" is that key existing - which the

@@ -16,6 +16,7 @@ import api.markets as MarketsApi
 import api.organizations as OrgsApi
 import api.permissions as PermissionsApi
 import api.users as UsersApi
+from datatypes import MarketPhase, MarketRole
 
 ORG_ID = "org-1"
 BROKEN_ORG_ID = "org-broken"
@@ -83,6 +84,20 @@ class FakeMarkets:
         return iter([dict(doc) for doc in self.docs if self._matches(doc, query)])
 
 
+class FakeOrganizations:
+    """The organizations collection: ``find`` over a membership ``$or``, as a reader's are asked."""
+
+    def __init__(self, docs):
+        self.docs = docs
+
+    def find(self, query, projection=None):
+        (clauses,) = query.values()
+        return iter([
+            dict(doc) for doc in self.docs.values()
+            if any(mongo_matches(doc, clause) for clause in clauses)
+        ])
+
+
 @pytest.fixture
 def world(monkeypatch):
     organizations = {
@@ -90,6 +105,7 @@ def world(monkeypatch):
         BROKEN_ORG_ID: organization_document(BROKEN_ORG_ID, owner=MEMBER, members=[MEMBER]),
     }
     organization_reads = []
+    people_reads = []
     markets = FakeMarkets(market_documents())
     accounts = {
         email: SimpleNamespace(
@@ -99,19 +115,19 @@ def world(monkeypatch):
         for who, email in READER_EMAILS.items()
     }
 
-    def organizations_of(email):
-        user = accounts.get(email)
-        return [
-            dict(org) for org in organizations.values()
-            if user and user.id in (org["owner"], *org["admins"], *org["members"])
-        ]
-
     def organization(org_id):
         organization_reads.append(org_id)
         return dict(organizations[org_id]) if org_id in organizations else None
 
+    def people(user_ids):
+        user_ids = list(user_ids)
+        people_reads.append(user_ids)
+        return {a.id: a for a in accounts.values() if a.id in user_ids}
+
     monkeypatch.setattr(MarketsApi, "markets_collection", markets)
-    monkeypatch.setattr(OrgsApi, "get_organizations_for_user", organizations_of)
+    monkeypatch.setattr(OrgsApi, "markets_collection", markets)
+    monkeypatch.setattr(OrgsApi, "organizations_collection", FakeOrganizations(organizations))
+    monkeypatch.setattr(UsersApi, "get_users_by_ids", people)
     monkeypatch.setattr(OrgsApi, "get_organization", organization)
     monkeypatch.setattr(PermissionsApi, "organizations_collection", SimpleNamespace(
         find_one=lambda query: organization(query["id"]),
@@ -123,7 +139,8 @@ def world(monkeypatch):
     )
     monkeypatch.setattr(app_module.login_manager, "session_protection", None)
     sessions_load_through_get_user(monkeypatch)
-    return SimpleNamespace(markets=markets, organization_reads=organization_reads)
+    return SimpleNamespace(
+        markets=markets, organization_reads=organization_reads, people_reads=people_reads)
 
 
 def signed_in(who):
@@ -175,8 +192,20 @@ def test_a_readable_market_is_listed_with_the_role_the_read_serves(world, market
     entry = listed(client)[market_id]
     served = client.get(f"/markets/{market_id}").get_json()["market"]
 
-    assert entry["user_role"] == served["user_role"] == role
-    assert entry["actionRefusals"] == served["actionRefusals"]
+    assert entry["actionRefusals"] == served["actionRefusals"] == MarketsApi.role_action_refusals(
+        MarketRole(role), MarketPhase(served["phase"]), {})
+
+
+def test_neither_the_list_nor_the_read_names_the_role(world):
+    """Every screen asks the table's rows, so neither serves the role beside them: 1.1.0 served it
+    one more release for a tab still on an old bundle, and the release after left it out."""
+    client = signed_in(MEMBER)
+
+    entries = listed(client)
+    served = client.get(f"/markets/{READABLE_BY_ROLE}").get_json()["market"]
+
+    assert [m for m, entry in entries.items() if "user_role" in entry] == []
+    assert "user_role" not in served
 
 
 def test_an_unreadable_document_is_logged_once_and_the_others_still_listed(world, caplog):
@@ -197,8 +226,16 @@ def test_the_list_reads_no_organization_its_reader_is_already_in(world):
     """``_SummaryLookups`` serves the reader's own organizations; only another one costs a read."""
     listed(signed_in(MEMBER))
 
-    assert world.markets.finds == 2
     assert world.organization_reads == []
+
+
+def test_the_list_reads_its_readers_organizations_without_their_people_or_removals(world):
+    """The list uses an organization's stored document alone, so it reads none of its people's
+    accounts and counts none of what removing them would take: two market finds, and no more."""
+    listed(signed_in(MEMBER))
+
+    assert world.people_reads == []
+    assert world.markets.finds == 2
 
 
 def test_a_chosen_reviewer_is_told_of_the_verdicts_on_the_list_as_on_the_read(world):
@@ -215,6 +252,5 @@ def test_a_chosen_reviewer_is_told_of_the_verdicts_on_the_list_as_on_the_read(wo
     entry = listed(client)[chosen]
     served = client.get(f"/markets/{chosen}").get_json()["market"]
 
-    assert entry["user_role"] == served["user_role"] == "viewer"
     assert entry["actionRefusals"]["give-verdicts"] is served["actionRefusals"]["give-verdicts"] is None
     assert entry["actionRefusals"] == served["actionRefusals"]

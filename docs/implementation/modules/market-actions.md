@@ -8,7 +8,6 @@ describes:
   - back-end/tests/test_every_check_names_an_action.py
   - back-end/api/markets.py#role_action_refusals
   - back-end/api/markets.py#ARCHIVED_STILL_TAKES
-  - back-end/api/markets.py#deprecated_screen_reasons
   - back-end/tests/test_every_screen_asks_the_table.py
   - back-end/api/markets.py#set_permission
   - back-end/api/markets.py#reset_permission
@@ -20,7 +19,7 @@ describes:
   - back-end/api/permissions.py#market_role_of
   - back-end/tests/test_a_chosen_reviewer_decides.py
   - back-end/api/markets.py#read_refused
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - E39
   - E39/F01/S01
@@ -393,13 +392,13 @@ It sets and unsets exactly the rows that change, so a row this build cannot read
 `get_market_for_user` resolves the person's role once, as `refusal` resolves it, and asks each row `role_refusal` of it, so the answer is the writes' and the role is resolved once rather than once per row; where the archived rule refuses the row's writes its words come first, as the screens always said them, so the yes and no are the writes' and only who is told which reason first differs.
 `ARCHIVED_STILL_TAKES` lists the rows an archived market still takes: reading it and its history and exporting it, giving and taking roles, and deleting it; every other row, one added later included, is refused on an archived market.
 `TestEveryRowOfTheTable` in [`back-end/tests/test_an_archive_is_read_only.py`](../../../back-end/tests/test_an_archive_is_read_only.py) sends one write of every row to an archived market, and fails when a row outside the set is not refused in the archived rule's words or a row inside it is; the phase move is refused there by the transition table, since no move leaves `archived`.
-The markets list serves the same answers, through the same function, for each entry's role, so a card offers Manage to whoever may read the market, where everyone reads the table (E39/F01/S04); it does not ask whether the person is a chosen reviewer, so a chosen Viewer's card says the giving row refuses them, which no card reads.
+The markets list serves the same answers, through the same function, for each entry's role and whether the reader is chosen, so a card offers Manage to whoever may read the market, where everyone reads the table (E39/F01/S04), and answers the giving row as the market's page does.
 
 **`readOnlyReason` is set when the market is archived, or none of the table's changing rows is the person's** (`read_only_reason`; reading, reading the history and exporting change nothing, `READING_ROWS`, and neither does `review-when-chosen` by itself, `CHANGING_NOTHING`; a chosen reviewer's giving row does), in the words "You can view this market but not change it."; [the market frame](market-frame.md) says it once on every page.
 
 **The rules of a market's life the rows carried are served on their own**: `verdictsSettledReason` (why the review has closed, and what to do instead), `addingVendorsReason` (a vendor is added from the assignment on) and `publishWaitsReason` (results wait for the allocation); a screen offers the action when neither its row nor its rule refuses.
-The role-shaped reasons the screens read before (`adminActionsReason`, `verdictLockReason`, `addVendorReason`, `publishResultsReason`) and the person's `user_role` are deprecated: no screen reads them, but the back end deploys before the front end and a tab keeps its bundle until it reloads, and an old bundle takes a missing reason for "allowed".
-So the read serves them for one more release, each its row's answer and then the rule it carried (`deprecated_screen_reasons`; `adminActionsReason` is the Import applications row's, since the old bundle says its words only on the import screens), and the next release removes them; `change_refusal`, `admin_actions_refusal` and `add_vendor_refusal` are gone.
+The role-shaped reasons the screens read before (`adminActionsReason`, `verdictLockReason`, `addVendorReason`, `publishResultsReason`) and the person's `user_role` are gone from the read and the markets list: release 1.1.0 served them for a tab still on an older bundle, which took a missing reason for "allowed", and the release after it serves none of them; `change_refusal`, `admin_actions_refusal` and `add_vendor_refusal` are gone too.
+`test_the_read_serves_no_old_reason_and_no_role` in [`back-end/tests/test_every_screen_asks_the_table.py`](../../../back-end/tests/test_every_screen_asks_the_table.py) fails when the read serves one again.
 `role_emails`, the addresses of the market's own roles, is deprecated the same way: no screen reads it now, but an old bundle's Manage market lists the market's roles by it, so the read serves it one more release and the next removes it (E38/F12/S01).
 
 **A screen asks through [`front-end/src/utils/marketActions.ts`](../../../front-end/src/utils/marketActions.ts)**: `MarketAction` names every row by its id, `actionRefusal(market, action)` is the answer and `mayTake(market, action)` the same as a bool, and a missing answer refuses, so a read that predates a row offers nothing.

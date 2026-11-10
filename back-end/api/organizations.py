@@ -105,6 +105,24 @@ def _people(user_ids: List[str], accounts: Dict[str, Any]) -> List[Dict[str, str
     ]
 
 
+def organization_documents_of(user_id: str) -> List[Dict[str, Any]]:
+    """The organizations this account owns, administers or belongs to, as stored, ``_id`` a string.
+
+    The Markets list reads these alone: it needs an organization's id, name, people and rows, never
+    the people's addresses or what removing them takes, which ``get_organizations_for_user`` adds.
+    """
+    orgs = list(organizations_collection.find({
+        "$or": [
+            {"owner": user_id},
+            {"admins": user_id},
+            {"members": user_id}
+        ]
+    }))
+    for org in orgs:
+        org['_id'] = str(org['_id'])
+    return orgs
+
+
 def get_organizations_for_user(user_email: str) -> List[Dict[str, Any]]:
     """Get all organizations where user is owner, admin, or member.
 
@@ -115,13 +133,7 @@ def get_organizations_for_user(user_email: str) -> List[Dict[str, Any]]:
     if not user:
         return []
     user_id = user.id
-    orgs = list(organizations_collection.find({
-        "$or": [
-            {"owner": user_id},
-            {"admins": user_id},
-            {"members": user_id}
-        ]
-    }))
+    orgs = organization_documents_of(user_id)
     accounts = UsersApi.get_users_by_ids(
         person_id
         for org in orgs
@@ -131,7 +143,6 @@ def get_organizations_for_user(user_email: str) -> List[Dict[str, Any]]:
 
     result = []
     for org in orgs:
-        org['_id'] = str(org['_id'])
         owner = accounts.get(org.get("owner"))
         if owner:
             org["ownerEmail"] = owner.email
