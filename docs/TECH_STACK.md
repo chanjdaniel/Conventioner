@@ -9,7 +9,7 @@ describes:
   - .nvmrc
   - docker-compose.yml
   - front-end/vite.config.ts
-verified: 2026-11-09
+verified: 2026-11-10
 sources:
   - T254
   - T251
@@ -55,8 +55,9 @@ How each part of the code works is in the implementation layer of the [knowledge
 
 ### Database
 
-- **MongoDB 7** - NoSQL document database
+- **MongoDB 8.0** - NoSQL document database
   - Primary data storage
+  - Production's Atlas cluster, the local stack (`mongo:8.0`) and CI's real-MongoDB service all run 8.0 ([the real-MongoDB suite](implementation/testing/real-mongo-suite.md#mongodb-80))
   - Collections: `users`, `organizations`, `markets`, `applications`, `attendance`, `history`, `vendor_notes`, `deletion_trail`, `applicant_login_challenges`, `vendor_remembered_sign_ins`, `floorplan_templates`, `schema_migrations`, and the GridFS bucket `floorplan_images` for floorplan uploads
   - Connection via PyMongo 4.18, to `MONGODB_URI` when it is set (production's Atlas cluster), otherwise to `MONGODB_HOST` and its siblings
   - Database name: `conventioner`
@@ -115,7 +116,8 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **pytest 9.1** - Python test framework
   - Runs the back-end test suite (`python -m pytest tests/`), from `back-end/requirements-dev.txt`
   - Configured via `back-end/pytest.ini`
-  - `tests/conftest.py` replaces PyMongo with an in-memory fake, so no database connection is required
+  - `tests/conftest.py` points PyMongo at a port nothing listens on and the tests use in-memory fakes, so no database connection is required
+  - The exception is [the real-MongoDB suite](implementation/testing/real-mongo-suite.md), `tests/real_mongo/`, which runs on a MongoDB 8.0 server in CI's `backend` job and skips where `REAL_MONGODB_URI` is unset
 
 ## Frontend
 
@@ -240,7 +242,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 `--profile tools` ([the treehouse runbook](../scripts/README-treehouse.md)).
 
 1. **MongoDB** - Database service
-   - `mongo:7`, port 27017
+   - `mongo:8.0`, port 27017
    - Persistent data volumes
    - Health checks configured
 
@@ -450,7 +452,7 @@ Conventioner/
 
 - **Python**: 3.12 (`back-end/.python-version`; Docker, CI and Vercel all run it)
 - **Node.js**: 24.22.1, with npm 11.19.1 (`.nvmrc`; machines, CI and the front-end Dockerfile all run it, and Vercel the latest 24.x: [Node and npm are pinned](#node-and-npm-are-pinned))
-- **MongoDB**: 7
+- **MongoDB**: 8.0
 - **Docker**: Latest stable version
 
 ## Additional Resources

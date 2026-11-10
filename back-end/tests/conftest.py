@@ -816,9 +816,21 @@ class _IndexOnlyDatabase(dict):
         return self[name]
 
 
+# What this file puts in place of a back-end module's attribute at import, for every test, with the
+# attribute's own value: the real-MongoDB suite (``tests/real_mongo/``) puts each back before it binds
+# the handles to its database.
+IMPORT_TIME_STAND_INS: dict = {}
+
+
+def _stand_in(module, attribute: str, stand_in) -> None:
+    """Put ``stand_in`` where ``module.attribute`` is, keeping the value it replaces."""
+    IMPORT_TIME_STAND_INS.setdefault((module.__name__, attribute), getattr(module, attribute))
+    setattr(module, attribute, stand_in)
+
+
 import lookup_indexes
 
-lookup_indexes._boot_database = _IndexOnlyDatabase
+_stand_in(lookup_indexes, "_boot_database", _IndexOnlyDatabase)
 
 # app.py also refuses to boot unless it can build the unique index the application endpoint
 # rests on, and it builds it for real, against the collection the module holds. Here that
@@ -829,31 +841,31 @@ lookup_indexes._boot_database = _IndexOnlyDatabase
 if not STUBBED_MODULES:
     import api.applications as _applications_module
 
-    _applications_module.applications_collection = FakeApplicationsCollection()
+    _stand_in(_applications_module, "applications_collection", FakeApplicationsCollection())
 
     # The applicant login challenge module also has a collection that the boot
     # check builds indexes against. Same treatment as applications above: install
     # a fake so the boot check passes without reaching a real database.
     import api.applicant_auth as _applicant_auth_module
 
-    _applicant_auth_module.challenges_collection = FakeApplicationsCollection()
+    _stand_in(_applicant_auth_module, "challenges_collection", FakeApplicationsCollection())
 
     # The sign-in rate limit counters, whose expiry index the same boot check builds (T12).
     import sign_in_limits as _sign_in_limits_module
 
-    _sign_in_limits_module.attempts_collection = FakeAttemptsCollection()
+    _stand_in(_sign_in_limits_module, "attempts_collection", FakeAttemptsCollection())
 
     # And the vendors' remembered sign-ins, whose expiry index the same boot check builds (T202).
     import remembered_sign_ins as _remembered_sign_ins_module
 
-    _remembered_sign_ins_module.remembered_collection = FakeApplicationsCollection()
+    _stand_in(_remembered_sign_ins_module, "remembered_collection", FakeApplicationsCollection())
 
     # And the users collection, whose unique address index the boot builds (E32/F03/S04).
     import api.users as _users_module
 
     _users_fake = FakeApplicationsCollection()
     _users_fake.index_information = lambda: {}
-    _users_module.users_collection = _users_fake
+    _stand_in(_users_module, "users_collection", _users_fake)
 
 
 def a_solver_vendor(application_id: str = "app-1", **overrides):

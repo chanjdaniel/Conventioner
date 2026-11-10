@@ -21,7 +21,7 @@ sources:
 
 How to run each suite, and what each covers.
 The testing nodes of the [knowledge graph](implementation/testing/README.md) hold the sharp edges of each; the [Google Form corpus](../back-end/tests/test_data/README.md) is the suite's realistic data.
-The sharp edges are in the testing nodes: [E2E patterns](implementation/testing/e2e-patterns.md), [E2E seeds](implementation/testing/e2e-seeds.md), [the market journey spec](implementation/testing/the-market-journey-spec.md), [floorplan E2E](implementation/testing/floorplan-e2e.md), [CI and the gate](implementation/testing/ci-and-the-gate.md) and [the assignment behaviour suite](implementation/testing/assignment-behaviour-suite.md).
+The sharp edges are in the testing nodes: [E2E patterns](implementation/testing/e2e-patterns.md), [E2E seeds](implementation/testing/e2e-seeds.md), [the market journey spec](implementation/testing/the-market-journey-spec.md), [floorplan E2E](implementation/testing/floorplan-e2e.md), [CI and the gate](implementation/testing/ci-and-the-gate.md), [the assignment behaviour suite](implementation/testing/assignment-behaviour-suite.md) and [the real-MongoDB suite](implementation/testing/real-mongo-suite.md).
 The stack is seeded by [`scripts/seed_fixture.sh`](../scripts/seed_fixture.sh), Playwright is configured in [`front-end/playwright.config.ts`](../front-end/playwright.config.ts), and the no-mistakes gate runs every suite but Playwright through [`scripts/nm-test.sh --skip-e2e`](../scripts/nm-test.sh).
 Before a merge, Playwright runs only in CI's required `e2e` shards: on the laptop it was most of every gate run and the heaviest load the machine saw, and CI ran it again anyway ([CI and the gate](implementation/testing/ci-and-the-gate.md#the-no-mistakes-gate)).
 
@@ -143,11 +143,25 @@ configured secret) and `test_env_file.py` (the `.env` loader, and that the real 
 wins over the file).
 
 Requirements: `pytest` (listed in `requirements-dev.txt`), no database connection needed
-(tests use in-memory fakes). The fakes read a filter (`mongo_matches`) and a projection
+(tests use in-memory fakes), except by the real-MongoDB suite below. The fakes read a filter (`mongo_matches`) and a projection
 (`mongo_project`) as Mongo does, a sub-document compared whole and a dotted key reaching into one, so a read that fetches too
 little fails here rather than in production. Shared module stubs live in `back-end/tests/conftest.py`, which
 also points the `.env` loader at a path that does not exist - the suite reads no `.env`, so a
 stale one on your machine cannot change its result.
+
+### The real-MongoDB suite
+
+`back-end/tests/real_mongo/` runs against a real MongoDB server, named by `REAL_MONGODB_URI`, each test on a database of its own that it drops.
+Unset, every test there skips, so the gate's run stays hermetic; CI's `backend` job runs it on a `mongo:8.0` service, the version production runs, and sets `REAL_MONGODB_REQUIRED=true` so it can never skip.
+It refuses a `mongodb+srv://` URI, a host that is not loopback and the primary checkout's port 27017.
+Run it against a worktree stack's MongoDB, its port from `scripts/th-compose.sh ports`:
+
+```bash
+cd back-end
+REAL_MONGODB_URI="mongodb://admin:secret@127.0.0.1:<port>/?authSource=admin" python -m pytest tests/real_mongo
+```
+
+[The real-MongoDB suite](implementation/testing/real-mongo-suite.md) says how each test's database is made and bound, and what its fixtures give.
 
 ## Front-End Unit Tests
 

@@ -58,7 +58,8 @@ PRIMARY_STACK_PORT = 27017
 _TRUTHY = ("true", "1")
 
 
-def _is_loopback(host):
+def is_loopback(host):
+    """Whether ``host`` is this machine: ``localhost``, a loopback address or the unspecified one."""
     if host.lower() == "localhost":
         return True
     try:
@@ -80,14 +81,24 @@ def _host_and_port(address, default_port):
     return host, int(port) if port.isdigit() else default_port
 
 
+def uri_targets(uri):
+    """Every (host, port) a ``mongodb://`` connection string names, a missing port as the default.
+
+    A ``mongodb+srv://`` string names a hosted cluster by DNS, so it names no host here: ``[]``.
+    The real-MongoDB tests' server check reads a URI with this too, so one parser decides what the
+    primary checkout's stack is.
+    """
+    if not uri.startswith("mongodb://"):
+        return []
+    hosts = uri[len("mongodb://"):].split("/", 1)[0].split("?", 1)[0].rpartition("@")[2]
+    return [_host_and_port(h, PRIMARY_STACK_PORT) for h in hosts.split(",") if h]
+
+
 def _targets():
     """Every (host, port) the environment points the client at."""
     uri = os.getenv('MONGODB_URI')
     if uri:
-        if not uri.startswith("mongodb://"):
-            return []  # mongodb+srv:// names a hosted cluster by DNS
-        hosts = uri[len("mongodb://"):].split("/", 1)[0].split("?", 1)[0].rpartition("@")[2]
-        return [_host_and_port(h, PRIMARY_STACK_PORT) for h in hosts.split(",") if h]
+        return uri_targets(uri)
     port = os.getenv('MONGODB_PORT', '')
     return [(os.environ['MONGODB_HOST'], int(port) if port.isdigit() else PRIMARY_STACK_PORT)]
 
@@ -108,7 +119,7 @@ def require_named_database():
     if os.getenv('ALLOW_PRIMARY_STACK', '').strip().lower() in _TRUTHY:
         return
     for host, port in _targets():
-        if _is_loopback(host) and port == PRIMARY_STACK_PORT:
+        if is_loopback(host) and port == PRIMARY_STACK_PORT:
             raise SystemExit(PRIMARY_STACK_REFUSAL.format(target=f"{host}:{port}"))
 
 
