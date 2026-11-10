@@ -450,12 +450,21 @@ def remove_placement(
         try:
             _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date,
                                       market.assignment_object.revision)
-        except BaseException:
-            # Not freed, whatever stopped it, so the record goes back as it was: while the seat is
-            # still held, a freed record left behind would come back as the line once that seat
-            # went some other way than a free. Unless a free of the same seat landed meanwhile and
-            # kept its own record over this one: that record, and any $0 it set, are the line's.
+        except AssignmentChangedUnderRequest:
+            # Not freed: the record goes back as it was, since while the seat is still held a
+            # freed record left behind would come back as the line once that seat went some
+            # other way than a free. Unless a free of the same seat landed meanwhile and kept its
+            # own record over this one: that record, and any $0 it set, are the line's.
             kept_line.undo()
+            raise
+        except BaseException:
+            # Anything else may come after the store reached the database (a network error on
+            # the way back), and then the seat is free and the line kept for it is the day's. So
+            # the record goes back only while the stored assignment still seats them; when it
+            # cannot be read, it stays, since a held seat reads its own price over a freed record
+            # and the next write of the day forgets it.
+            if _still_holds(market_id, email, date):
+                kept_line.undo()
             raise
         for placement in freed:
             History.record_freed(
@@ -468,6 +477,18 @@ def remove_placement(
         PaymentsApi.deduct_freed_day(market, email, date, requesting_user)
 
     return {"removed": len(freed)}, 200
+
+
+def _still_holds(market_id: str, email: str, date: str) -> bool:
+    """Whether the stored assignment still seats ``email`` on ``date``; False when it cannot be
+    read, which leaves a free's kept line in place rather than risk taking a freed day's line."""
+    try:
+        stored = MarketsApi.markets_collection.find_one(
+            {"id": market_id}, {"assignmentObject.vendorAssignments": 1})
+    except Exception:  # noqa: BLE001 - the free's own error is the one that goes on
+        return False
+    rows = ((stored or {}).get("assignmentObject") or {}).get("vendorAssignments") or []
+    return any(row.get("email") == email and row.get("date") == date for row in rows)
 
 
 def swap_placements(

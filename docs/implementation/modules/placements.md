@@ -74,10 +74,11 @@ Its routes are in [`back-end/app.py`](../../../back-end/app.py).
 
 1. One upsert on the day's owed record keeps the freed line and, when `deductOwed` asked it, the free's $0 (`PaymentsApi.keep_freed_line`).
 2. The seat is freed (`_store_vendor_assignments`).
-3. When step 2 raises anything, the revision conflict or not, the record goes back as it held before, only while it still holds what step 1 wrote, and the error goes on.
+3. When step 2 is refused by the revision, the record goes back as it held before, only while it still holds what step 1 wrote, and the error goes on.
+   When it raises anything else, which may come after the store reached the database, the record goes back that way only while the stored assignment still seats the vendor that day; when that cannot be read, the line stays, since a held seat reads its own price over it.
 4. The freed entry is recorded, and with the deduction an "owed set" entry from what the line owed as the request read it, while the seat was held, to 0.
 
-So no stop after the seat leaves it free and its full amount owed, and no failed seat write leaves a freed record behind.
+So no stop after the seat leaves it free and its full amount owed, no seat write that landed before its error loses the day's line, and no seat write refused or failed with the seat still held leaves a freed record behind.
 
 **Every write of the assignment hands `seated_again` the days it touched, after its store.**
 A placement hands its vendor's day, a swap its two vendors' day, and a run every day held in the assignment it read and every day held in the one it wrote.

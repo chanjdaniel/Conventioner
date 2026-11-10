@@ -13,6 +13,7 @@ assignment forgets the freed records of the days it touched; and the history say
 back" only for a day that read as freed.
 """
 import pytest
+from pymongo.errors import AutoReconnect
 
 import api.payments as PaymentsApi
 import api.placements as PlacementsApi
@@ -207,6 +208,46 @@ class TestAFreeLeavesTheRightAmount:
         sunday = line(SUN)
         assert (sunday["freed"], sunday["owedCents"], sunday["owedSetBy"]) == (False, 1000, ADMIN)
         assert sunday["owedByFree"] is False
+
+
+    @pytest.mark.parametrize("deduct_owed, owed", [(False, 3500), (True, 0)])
+    def test_a_seat_write_that_landed_and_then_raised_keeps_the_days_line(
+            self, admin, monkeypatch, deduct_owed, owed):  # noqa: F811
+        """A store can reach the database and the answer be lost on the way back: the seat is
+        free then, so the line kept for it is the day's, and putting it back would leave the day
+        owing nothing for a table the vendor gave back, with no freed line to retry from."""
+        stored = PlacementsApi._store_vendor_assignments
+
+        def landed_then_lost(*args, **kwargs):
+            stored(*args, **kwargs)
+            raise AutoReconnect("the answer never came back")
+
+        monkeypatch.setattr(PlacementsApi, "_store_vendor_assignments", landed_then_lost)
+
+        with pytest.raises(AutoReconnect):
+            PlacementsApi.remove_placement(MARKET, ANA, SUN, ADMIN, deduct_owed=deduct_owed)
+
+        sunday = line(SUN)
+        assert (sunday["freed"], sunday["owedCents"], sunday["owedByFree"]) == (
+            True, owed, deduct_owed)
+
+    def test_a_seat_write_that_failed_when_the_seat_cannot_be_read_again_keeps_the_line(
+            self, admin, stores, monkeypatch):  # noqa: F811
+        """Not knowing whether the seat went, the line stays: while the seat is held it reads
+        the seat's price, and the next write of the day forgets it."""
+        markets = PlacementsApi.MarketsApi.markets_collection
+
+        def lost_with_the_database(*_args, **_kwargs):
+            monkeypatch.setattr(markets, "find_one", stop)
+            raise Stopped()
+
+        monkeypatch.setattr(PlacementsApi, "_store_vendor_assignments", lost_with_the_database)
+
+        with pytest.raises(Stopped):
+            PlacementsApi.remove_placement(MARKET, ANA, SUN, ADMIN, deduct_owed=True)
+
+        [kept] = [doc for doc in stores.owed.documents if doc["date"] == SUN]
+        assert kept["freed"] is not None
 
 
 class TestEveryWriteForgetsTheStaleFreedRecordsOfItsDays:
