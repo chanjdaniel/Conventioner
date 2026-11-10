@@ -132,15 +132,19 @@ def ensure_applicant_login_indexes() -> None:
         sign_in_limits.ensure_expiry_index()
         RememberedSignIns.ensure_expiry_index()
     except PyMongoError as exc:
+        # The driver's message is not repeated, nor kept as the cause: a duplicate key error on
+        # the challenges quotes the vendor's address.
         message = (
             f"The indexes on {APPLICANT_LOGIN_CHALLENGES_COLLECTION}, "
             f"{sign_in_limits.SIGN_IN_ATTEMPTS_COLLECTION} and "
-            f"{RememberedSignIns.REMEMBERED_SIGN_INS_COLLECTION} could not be built, so nothing "
-            f"is keeping one code per address or cleaning up expired challenges, rate limit "
-            f"counters and remembered sign-ins: {exc}"
+            f"{RememberedSignIns.REMEMBERED_SIGN_INS_COLLECTION} could not be built "
+            f"({type(exc).__name__}, code {getattr(exc, 'code', None)}), so nothing is keeping "
+            f"one code per address or cleaning up expired challenges, rate limit counters and "
+            f"remembered sign-ins. Duplicate challenges, which a duplicate key error means, can be "
+            f"deleted: each expires within {CODE_EXPIRY_MINUTES} minutes anyway."
         )
         logger.critical("%s", message)
-        raise ApplicantLoginIndexError(message) from exc
+        raise ApplicantLoginIndexError(message) from None
     _indexes_ready = True
 
 

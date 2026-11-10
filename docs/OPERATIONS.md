@@ -220,7 +220,7 @@ The refusal names each such group by application id, and names Mongo's error by 
 Which document is the applicant's is the organizer's call: merge each pair by hand in `mongosh`, then redeploy.
 
 **"The indexes on applicant_login_challenges, sign_in_attempts and vendor_remembered_sign_ins could not be built"**.
-The log quotes Mongo's reason.
+The log names Mongo's error by its type and code only, never its words, since a duplicate key error quotes a vendor's address: code 11000 is duplicate challenges, and 85 or 86 an index of the same name with other options or keys.
 These are applicants' sign-in codes, used once and expiring within ten minutes, and the sign-in rate-limit counters, which last fifteen, so nothing lasting is lost by clearing them: drop a conflicting index of the same name (`db.applicant_login_challenges.dropIndex('<name>')`, `db.sign_in_attempts.dropIndex('<name>')`), or remove duplicate challenges (`db.applicant_login_challenges.deleteMany({})`), then redeploy.
 The third holds vendors' remembered sign-ins ("Remember me" on the vendor page); its one index is the TTL index `remembered_sign_in_ttl`, so drop a conflicting index of that name (`db.vendor_remembered_sign_ins.dropIndex('<name>')`) and keep the documents, whose loss only makes each remembered vendor enter a code once more.
 
