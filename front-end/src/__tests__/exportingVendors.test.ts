@@ -24,6 +24,7 @@ import {
   tickedColumn,
   vendorsPageSeed,
   type ExportFilters,
+  type ExportOffered,
   type ExportPreview,
 } from '@/utils/vendorExport';
 import { getFormattedDate } from '@/utils/utils';
@@ -180,7 +181,7 @@ describe('the seed the Applications tab’s All view gives the export', () => {
 });
 
 describe('the columns', () => {
-  const offered = {
+  const offered: Pick<ExportOffered, 'columns' | 'groups' | 'defaultColumns'> = {
     columns: [
       { id: 'name', label: 'Name', group: 'vendor' },
       { id: 'email', label: 'Email', group: 'vendor' },

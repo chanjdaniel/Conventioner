@@ -99,7 +99,7 @@ function windowMarkup(): string {
   const comments: Node[] = [];
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_COMMENT);
   while (walker.nextNode()) comments.push(walker.currentNode);
-  comments.forEach((comment) => comment.remove());
+  comments.forEach((comment) => comment.parentNode?.removeChild(comment));
   [root, ...root.querySelectorAll('*')].forEach((element) => {
     for (const attribute of [...element.attributes]) {
       if (/^data-v-[0-9a-f]+$/.test(attribute.name)) element.removeAttribute(attribute.name);
@@ -131,7 +131,7 @@ describe('a dialog that asks for none of the new props scrolls whole, in a Scrol
     );
   });
 
-  it.each(['window', 'body'])(
+  it.each(['window', 'body'] as const)(
     "several actions, scroll %s: an inner form's submit is its own, and the dialog emits none",
     async (scroll) => {
       wrapper = mount(AppDialog, {
@@ -390,7 +390,7 @@ describe('its footer', () => {
     expect(byTestId('people-cancel-button')).toBeNull();
   });
 
-  it.each(['window', 'body'])(
+  it.each(['window', 'body'] as const)(
     'with the slot alone, scroll %s, it draws and the body is no form',
     async (scroll) => {
       await openFromTheButton({ scroll, confirmLabel: undefined }, false, true);

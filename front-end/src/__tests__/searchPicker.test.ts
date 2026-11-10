@@ -23,6 +23,18 @@ const GROUPS: PickerGroup[] = [
   },
 ];
 
+/** A one-choice picker's write: always one value, never a list. */
+function one(value: string | string[]): string {
+  if (Array.isArray(value)) throw new Error(`A one-choice picker wrote a list: ${value}`);
+  return value;
+}
+
+/** A several-choice picker's write: always a list. */
+function list(value: string | string[]): string[] {
+  if (!Array.isArray(value)) throw new Error(`A several-choice picker wrote one value: ${value}`);
+  return value;
+}
+
 const finds = (option: PickerOption, words: string) =>
   option.label.toLowerCase().includes(words.toLowerCase());
 
@@ -35,7 +47,8 @@ function picker(modelValue = '', groups = GROUPS) {
       label: 'Who sits here',
       placeholder: 'Type a name…',
       testid: 'who',
-      'onUpdate:modelValue': (value: string) => wrapper.setProps({ modelValue: value }),
+      'onUpdate:modelValue': (value: string | string[]): Promise<void> =>
+        wrapper.setProps({ modelValue: one(value) }),
     },
     attachTo: document.body,
   });
@@ -234,7 +247,7 @@ describe('the searchable picker', () => {
 });
 
 describe('brought into view', () => {
-  const scrollIntoView = vi.fn();
+  const scrollIntoView = vi.fn<(this: Element, arg?: boolean | ScrollIntoViewOptions) => void>();
 
   beforeEach(() => {
     scrollIntoView.mockClear();
@@ -397,7 +410,8 @@ describe('a capped match list', () => {
         cap,
         label: 'Who sits here',
         testid: 'who',
-        'onUpdate:modelValue': (value: string) => wrapper.setProps({ modelValue: value }),
+        'onUpdate:modelValue': (value: string | string[]): Promise<void> =>
+          wrapper.setProps({ modelValue: one(value) }),
       },
       attachTo: document.body,
     });
@@ -604,8 +618,8 @@ describe('several choices', () => {
         finds,
         label: 'Who reviews',
         testid: 'who',
-        'onUpdate:modelValue': (value: string | string[]) =>
-          wrapper.setProps({ modelValue: value }),
+        'onUpdate:modelValue': (value: string | string[]): Promise<void> =>
+          wrapper.setProps({ modelValue: list(value) }),
         ...extra,
       },
       attachTo: document.body,
@@ -1940,7 +1954,8 @@ describe('words that are the value', () => {
         finds,
         label: 'Option 1',
         testid: 'who',
-        'onUpdate:modelValue': (value: string) => wrapper.setProps({ modelValue: value }),
+        'onUpdate:modelValue': (value: string | string[]): Promise<void> =>
+          wrapper.setProps({ modelValue: one(value) }),
         ...props,
       } as never,
       attachTo: document.body,
@@ -2342,7 +2357,8 @@ describe('what ChoiceField asks of the picker', () => {
         finds,
         label: 'Maps to',
         testid: 'who',
-        'onUpdate:modelValue': (value: string) => wrapper.setProps({ modelValue: value }),
+        'onUpdate:modelValue': (value: string | string[]): Promise<void> =>
+          wrapper.setProps({ modelValue: one(value) }),
         ...props,
       },
       attachTo: document.body,

@@ -5,6 +5,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import MarketFrame from '@/components/MarketFrame.vue';
 import MarketAssignmentTab from '@/components/market/MarketAssignmentTab.vue';
 import MarketPlanTab from '@/components/market/MarketPlanTab.vue';
+import ElementAssignmentPriority from '@/components/elements/ElementAssignmentPriority.vue';
 import { IntakeMode, MarketPhase, type Market, type SetupObject } from '@/assets/types/datatypes';
 
 /**
@@ -189,26 +190,26 @@ describe('each page says only its own lock, and still offers a Viewer nothing', 
 
     expect(wrapper.find('[data-testid="assignment-rules-settled"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="market-setup-assign-button"]').exists()).toBe(false);
-    expect(wrapper.getComponent('[data-testid="rules"]').props('readonly')).toBe(true);
+    expect(wrapper.getComponent(ElementAssignmentPriority).props('readonly')).toBe(true);
   });
 
   it('the rules: an editor may run them while they are open', () => {
     const wrapper = mountAssignment(false, null);
 
     expect(wrapper.find('[data-testid="market-setup-assign-button"]').exists()).toBe(true);
-    expect(wrapper.getComponent('[data-testid="rules"]').props('readonly')).toBe(false);
+    expect(wrapper.getComponent(ElementAssignmentPriority).props('readonly')).toBe(false);
   });
 
   it('the rules: Allocate tables follows the Assignment row alone, apart from the rules (E39/F01/S03)', () => {
     const mayAllocateOnly = mountAssignment(true, null, true);
 
     expect(mayAllocateOnly.find('[data-testid="market-setup-assign-button"]').exists()).toBe(true);
-    expect(mayAllocateOnly.getComponent('[data-testid="rules"]').props('readonly')).toBe(true);
+    expect(mayAllocateOnly.getComponent(ElementAssignmentPriority).props('readonly')).toBe(true);
 
     const mayChangeOnly = mountAssignment(false, null, false);
 
     expect(mayChangeOnly.find('[data-testid="market-setup-assign-button"]').exists()).toBe(false);
-    expect(mayChangeOnly.getComponent('[data-testid="rules"]').props('readonly')).toBe(false);
+    expect(mayChangeOnly.getComponent(ElementAssignmentPriority).props('readonly')).toBe(false);
   });
 
   it('the rules: nothing is allocated once they are settled, whoever may allocate', () => {

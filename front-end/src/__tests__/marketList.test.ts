@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { parseQuery, stringifyQuery } from 'vue-router';
 import { type Market, MarketPhase } from '@/assets/types/datatypes';
 import {
   DEFAULT_MARKET_LIST_QUERY,
@@ -212,7 +213,9 @@ describe('the address', () => {
       phases: [MarketPhase.Applications, MarketPhase.Assignment],
       sort: 'name',
     });
-    expect(marketListQueryFromRoute(marketListQueryToRoute(q), orgIds)).toEqual(q);
+    // Through the address and back, as the router carries it.
+    const carried = parseQuery(stringifyQuery(marketListQueryToRoute(q)));
+    expect(marketListQueryFromRoute(carried, orgIds)).toEqual(q);
   });
 
   it('writes phases in lifecycle order, whatever order they were chosen in', () => {

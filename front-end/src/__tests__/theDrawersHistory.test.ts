@@ -238,7 +238,7 @@ describe('the drawer’s History tab', () => {
     ]);
     // A link to the History tab opens on the Application tab rather than on a refusal.
     expect(drawer.find('[data-testid="vendor-drawer-panel-history"]').exists()).toBe(false);
-    expect(drawer.get('[data-testid="vendor-drawer-panel-application"]').exists()).toBe(true);
+    expect(drawer.find('[data-testid="vendor-drawer-panel-application"]').exists()).toBe(true);
     expect(
       drawer.get('[data-testid="vendor-drawer-tab-application"]').attributes('aria-selected'),
     ).toBe('true');

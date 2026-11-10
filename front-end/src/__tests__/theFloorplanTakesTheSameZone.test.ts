@@ -142,7 +142,7 @@ describe('the floorplan uploader', () => {
   });
 
   it('keeps a PDF preview on the page last chosen when an earlier page answers late', async () => {
-    const held: Record<string, (value: unknown) => void> = {};
+    const held: Record<string, () => void> = {};
     const urls = new Map<Blob, string>();
     api.get.mockImplementation((path: string) => {
       const blob = new Blob([path], { type: 'image/png' });

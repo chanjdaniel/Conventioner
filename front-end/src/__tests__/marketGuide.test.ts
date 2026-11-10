@@ -6,9 +6,17 @@
  * path's words for steps no vendor ever sees.
  */
 import { describe, expect, it } from 'vitest';
-import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
+import {
+  IntakeMode,
+  MarketPhase,
+  type ApplicationForm,
+  type ExampleColumn,
+  type Market,
+  type PreconditionResult,
+} from '@/assets/types/datatypes';
 import { phaseSpine } from '@/utils/phase';
 import { movesServedFrom } from './support/servedMoves';
+import { assignmentPlacing } from './support/assignment';
 import { answersRefusing, EDITOR_ANSWERS, VIEWER_ANSWERS } from './support/servedAnswers';
 import { MarketAction } from '@/utils/marketActions';
 import {
@@ -29,6 +37,11 @@ import {
 import { TAB_LABELS } from '@/utils/marketPage';
 
 const TODAY = '2099-05-10';
+
+/** A market whose assignment placed one vendor. */
+const ASSIGNED: Pick<Market, 'assignmentObject'> = {
+  assignmentObject: assignmentPlacing('a@example.com'),
+};
 
 function market(phase: MarketPhase, overrides: Partial<Market> = {}): Market {
   return {
@@ -237,7 +250,6 @@ describe('the next step', () => {
  * not, which the frame says once.
  */
 describe('what the rail tells someone the step is not theirs', () => {
-  const ASSIGNED = { assignmentObject: { vendorAssignments: [{ email: 'a@example.com' }] } };
   const viewer = (phase: MarketPhase, overrides: Partial<Market> = {}) =>
     market(phase, { actionRefusals: VIEWER_ANSWERS, ...overrides });
 
@@ -258,7 +270,7 @@ describe('what the rail tells someone the step is not theirs', () => {
     ],
     [
       'applications, stopped',
-      viewer(MarketPhase.Applications, { applicationsStopped: true } as Partial<Market>),
+      viewer(MarketPhase.Applications, { applicationsStopped: true }),
       TODAY,
       'The vendor page is not taking applications. Read where each application stands.',
       'applications',
@@ -279,14 +291,14 @@ describe('what the rail tells someone the step is not theirs', () => {
     ],
     [
       'assignment, assigned',
-      viewer(MarketPhase.Assignment, ASSIGNED as Partial<Market>),
+      viewer(MarketPhase.Assignment, ASSIGNED),
       TODAY,
       'Tables are allocated, and the market is not published yet. Read the assignments.',
       'assignments',
     ],
     [
       'assignment, results published',
-      viewer(MarketPhase.Assignment, { ...ASSIGNED, resultsPublished: true } as Partial<Market>),
+      viewer(MarketPhase.Assignment, { ...ASSIGNED, resultsPublished: true }),
       TODAY,
       'Results are published, so the assignments are settled. Check-in with the door code opens when the market is published.',
       'assignments',
@@ -332,7 +344,7 @@ describe('what the rail tells someone the step is not theirs', () => {
     resolutionLabel: 'Finish deciding',
     resolutionAction: MarketAction.GiveVerdicts,
   };
-  const UNPUBLISHED_BLOCKER = {
+  const UNPUBLISHED_BLOCKER: PreconditionResult = {
     id: 'results_published',
     passed: false,
     message:
@@ -396,7 +408,7 @@ describe('what the rail tells someone the step is not theirs', () => {
     const unpublished = viewer(MarketPhase.Assignment, {
       ...ASSIGNED,
       transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER], applications: [] },
-    } as Partial<Market>);
+    });
     const said = nextStep(unpublished, TODAY);
     expect(said.text).not.toMatch(NOT_THEIRS);
     expect(said).toMatchObject({
@@ -412,7 +424,7 @@ describe('what the rail tells someone the step is not theirs', () => {
       ...ASSIGNED,
       intakeMode: IntakeMode.Csv,
       transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER], applications: [] },
-    } as Partial<Market>);
+    });
     expect(nextStep(csv, TODAY)).toMatchObject({
       text: 'Tables are allocated, and the market is not published yet. Read the assignments.',
       page: 'assignments',
@@ -425,7 +437,7 @@ describe('what the rail tells someone the step is not theirs', () => {
       ...ASSIGNED,
       intakeMode: IntakeMode.Csv,
       transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER], applications: [] },
-    } as Partial<Market>);
+    });
     expect(nextStep(csv, TODAY)).toMatchObject({
       text: `To publish market: ${UNPUBLISHED_BLOCKER.message}`,
       page: 'applications',
@@ -446,7 +458,7 @@ describe('what the rail tells someone the step is not theirs', () => {
     const unpublished = market(MarketPhase.Assignment, {
       ...ASSIGNED,
       transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER], applications: [] },
-    } as Partial<Market>);
+    });
     expect(nextStep(unpublished, TODAY)).toMatchObject({
       text: `To publish market: ${UNPUBLISHED_BLOCKER.message}`,
       blocker: { id: 'results_published' },
@@ -528,7 +540,7 @@ describe('what the rail tells someone the step is not theirs', () => {
       ...ASSIGNED,
       actionRefusals: EDITOR_ANSWERS,
       transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER], applications: [] },
-    } as Partial<Market>);
+    });
     expect(nextStep(unpublished, TODAY)).toMatchObject({
       text: 'Check the assignments; the results are published by whoever may publish them.',
       page: 'assignments',
@@ -541,7 +553,7 @@ describe('what the rail tells someone the step is not theirs', () => {
       intakeMode: IntakeMode.Csv,
       actionRefusals: EDITOR_ANSWERS,
       transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER], applications: [] },
-    } as Partial<Market>);
+    });
     expect(nextStep(csv, TODAY)).toMatchObject({
       text: 'Check the assignments; the results are published by whoever may publish them.',
       page: 'assignments',
@@ -553,7 +565,7 @@ describe('what the rail tells someone the step is not theirs', () => {
         viewer(MarketPhase.Assignment, {
           ...ASSIGNED,
           transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER], applications: [] },
-        } as Partial<Market>),
+        }),
         TODAY,
       ).text,
     ).toBe('Tables are allocated, and the market is not published yet. Read the assignments.');
@@ -578,7 +590,7 @@ describe('what the rail tells someone the step is not theirs', () => {
     const left = viewer(MarketPhase.Offers, {
       ...ASSIGNED,
       transitionBlockers: { market_days: [UNPUBLISHED_BLOCKER] },
-    } as Partial<Market>);
+    });
     const said = nextStep(left, TODAY);
     expect(said.text).not.toMatch(/Publish the results/);
     expect(said).toMatchObject({
@@ -609,8 +621,6 @@ describe('what the rail tells someone the step is not theirs', () => {
 });
 
 describe('the action a step takes (T142)', () => {
-  const ASSIGNED = { assignmentObject: { vendorAssignments: [{ email: 'a@example.com' }] } };
-
   it("names the table's row for each phase's step, so the rail offers it only to whom it may", () => {
     const steps: [string, Market, string, MarketAction | null][] = [
       ['draft', market(MarketPhase.Draft), TODAY, MarketAction.ChangeSetup],
@@ -624,23 +634,18 @@ describe('the action a step takes (T142)', () => {
       ['assignment, not assigned', market(MarketPhase.Assignment), TODAY, MarketAction.Assign],
       [
         'assignment, assigned',
-        market(MarketPhase.Assignment, ASSIGNED as Partial<Market>),
+        market(MarketPhase.Assignment, ASSIGNED),
         TODAY,
         MarketAction.Assign,
       ],
       [
         'assignment, results published',
-        market(MarketPhase.Assignment, { ...ASSIGNED, resultsPublished: true } as Partial<Market>),
+        market(MarketPhase.Assignment, { ...ASSIGNED, resultsPublished: true }),
         TODAY,
         MarketAction.MovePhase,
       ],
       ['offers, not assigned', market(MarketPhase.Offers), TODAY, MarketAction.Assign],
-      [
-        'offers, assigned',
-        market(MarketPhase.Offers, ASSIGNED as Partial<Market>),
-        TODAY,
-        MarketAction.Assign,
-      ],
+      ['offers, assigned', market(MarketPhase.Offers, ASSIGNED), TODAY, MarketAction.Assign],
       ['market days, a date to come', market(MarketPhase.MarketDays), TODAY, MarketAction.CheckIn],
       [
         'market days, every date over',
@@ -841,7 +846,7 @@ describe('what the stage offers beside its moves (E38/F04/S02, S03)', () => {
  * a Google Form's responses run; the server's refusal is unchanged.
  */
 describe('the form comes before Review setup', () => {
-  const HIGHLIGHTS = {
+  const HIGHLIGHTS: PreconditionResult = {
     id: 'review_highlights_decided',
     passed: false,
     message: 'Nothing says what a reviewer reads first.',
@@ -849,7 +854,7 @@ describe('the form comes before Review setup', () => {
     resolutionLabel: 'Decide what reviewers read first',
     resolutionAction: MarketAction.ChangeForm,
   };
-  const REJECTIONS = {
+  const REJECTIONS: PreconditionResult = {
     id: 'rejection_rules_decided',
     passed: false,
     message: 'The automatic rejections are not decided.',
@@ -857,7 +862,7 @@ describe('the form comes before Review setup', () => {
     resolutionLabel: 'Decide the automatic rejections',
     resolutionAction: MarketAction.ChangeForm,
   };
-  const NO_LOCATION = {
+  const NO_LOCATION: PreconditionResult = {
     id: 'setup_has_a_location',
     passed: false,
     message: 'This market has no location. Add one on Market Setup.',
@@ -865,12 +870,14 @@ describe('the form comes before Review setup', () => {
     resolutionLabel: 'Add a location',
     resolutionAction: MarketAction.ChangeSetup,
   };
-  const A_QUESTION = { fields: [{ key: 'shop', label: 'Shop', type: 'text' }] };
+  const A_QUESTION: ApplicationForm = {
+    fields: [{ key: 'shop', label: 'Shop', type: 'text', required: false, options: [], order: 0 }],
+  };
   const draft = (overrides: Partial<Market> = {}, blockers = [HIGHLIGHTS, REJECTIONS]) =>
     market(MarketPhase.Draft, {
       transitionBlockers: { applications: blockers, archived: [] },
       ...overrides,
-    } as Partial<Market>);
+    });
 
   it('leads to Your questions on a market whose vendors apply on its page', () => {
     for (const applicationForm of [undefined, null, { fields: [] }]) {
@@ -921,19 +928,27 @@ describe('the form comes before Review setup', () => {
   });
 
   it('is Review setup once the form has a question of its own', () => {
-    const step = nextStep(draft({ applicationForm: A_QUESTION } as Partial<Market>), TODAY);
+    const step = nextStep(draft({ applicationForm: A_QUESTION }), TODAY);
 
     expect(step.blocker).toEqual(HIGHLIGHTS);
     expect(step.page).toBe('form?step=review');
   });
 
   it("is Review setup once the start from a Google Form's responses has run, whatever it kept", () => {
-    for (const exampleColumns of [[], [{ key: 'shop', label: 'Shop', question: false }]]) {
+    const shop: ExampleColumn = {
+      headers: ['Shop'],
+      key: 'shop',
+      label: 'Shop',
+      type: 'text',
+      question: false,
+      options: { select: [], multiSelect: [] },
+    };
+    for (const exampleColumns of [[], [shop]]) {
       const started = draft({
         intakeMode: IntakeMode.Csv,
         applicationForm: { fields: [] },
         exampleColumns,
-      } as Partial<Market>);
+      });
 
       expect(nextStep(started, TODAY).blocker).toEqual(HIGHLIGHTS);
     }

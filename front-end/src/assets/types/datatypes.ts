@@ -293,7 +293,8 @@ export interface Market {
   setupObject: SetupObject | null;
   modificationList: ModificationObject[];
   assignmentObject: AssignmentObject;
-  applicationForm?: ApplicationForm;
+  /** Null on a market made with no form: `create_market` stores it so. */
+  applicationForm?: ApplicationForm | null;
   /** Who reviews this market's applications (E38/F07/S02), in the order they are dealt to, each
    *  with whether they may still review here; none chosen is an empty list. Served to every
    *  reader. */

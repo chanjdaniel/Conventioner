@@ -11,6 +11,7 @@ import {
 } from '@/utils/marketPage';
 import { currentPage, pageForTab } from '@/utils/marketGuide';
 import { MarketPhase } from '@/assets/types/datatypes';
+import { assignmentPlacing } from './support/assignment';
 
 /**
  * How a market's pages are reached (E22/F04/S02, from the-assignment-tab ticket 02).
@@ -141,11 +142,8 @@ describe('the page a route is', () => {
 describe('whether a market has an assignment', () => {
   it('is whether any placement is stored', () => {
     expect(hasAssignment(null)).toBe(false);
-    expect(hasAssignment({ assignmentObject: undefined })).toBe(false);
-    expect(hasAssignment({ assignmentObject: { vendorAssignments: [] } })).toBe(false);
-    expect(hasAssignment({ assignmentObject: { vendorAssignments: [{ email: 'a@b.c' }] } })).toBe(
-      true,
-    );
+    expect(hasAssignment({ assignmentObject: assignmentPlacing() })).toBe(false);
+    expect(hasAssignment({ assignmentObject: assignmentPlacing('a@example.com') })).toBe(true);
   });
 });
 

@@ -116,7 +116,8 @@ How each part of the code works is in the implementation layer of the [knowledge
   - `front-end/Dockerfile` installs with `npm ci --engine-strict`, which refuses a Node outside `24.x` or an npm other than `11.19.1`, so a base image that drifts from the pin and so bundles another npm fails the build
   - The treehouse pre-warm installs with `npm ci`, which never writes the lockfile, and warns when the machine's Node is not the pin ([the treehouse runbook](../scripts/README-treehouse.md))
 - `@types/node` follows the same Node major (`^24`), so a type check never accepts an API the running Node lacks; Dependabot holds its later majors ([Dependabot](implementation/testing/ci-and-the-gate.md#dependabot))
-- To move the pin, change `.nvmrc`, the Dockerfile's `FROM` and `engines` together, with `@types/node`'s major when the Node major moves, and regenerate the lockfile with the new npm as its own commit
+- `front-end/tsconfig.node.json` and `front-end/tsconfig.e2e.json` extend `@tsconfig/node24`, the base for the same Node major
+- To move the pin, change `.nvmrc`, the Dockerfile's `FROM` and `engines` together, with `@types/node`'s and `@tsconfig/node24`'s majors when the Node major moves, and regenerate the lockfile with the new npm as its own commit
 
 ### Core Framework
 - **Vue 3.5.44** - Progressive JavaScript framework

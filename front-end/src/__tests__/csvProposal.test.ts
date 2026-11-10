@@ -19,6 +19,7 @@ import {
   weekdayNote,
   type Proposal,
   type ProposedColumn,
+  type ProposedDate,
   type ProposedField,
 } from '@/utils/csvProposal';
 
@@ -190,7 +191,7 @@ describe('railLines (E38/F15/S02)', () => {
 });
 
 describe('the year', () => {
-  const dates = [
+  const dates: ProposedDate[] = [
     { text: 'Monday, November 17', month: 11, day: 17, weekday: 0, from: 'header', matches: null },
   ];
 

@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { mount } from '@vue/test-utils';
-import ImportRowList from '@/components/csvImport/ImportRowList.vue';
+import ImportRowList, { type ImportRow } from '@/components/csvImport/ImportRowList.vue';
 import type { AnswerRow } from '@/utils/essentialFields';
 
 function answer(key: string, label: string, value: string): AnswerRow {
@@ -30,7 +30,7 @@ const THEO = {
   rest: [answer('business_name', 'Business name', 'Thorn & Thistle')],
 };
 
-function list(props: Record<string, unknown>) {
+function list(props: { rows: ImportRow[]; openFirst?: boolean; rowTestid?: string }) {
   return mount(ImportRowList, { props: { rowTestid: 'import-sample-row', ...props } });
 }
 

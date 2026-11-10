@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { RouteLocationNormalizedLoaded, RouteRecordNormalized } from 'vue-router';
 import router from '@/router';
 import { fitsAPhone } from '@/utils/fitsAPhone';
+import { loadedRoute } from './support/loadedRoute';
 
 /**
  * Which organizer places lay out on a phone (`meta.fitsAPhone`), read off the app's own routes: the
@@ -9,7 +10,7 @@ import { fitsAPhone } from '@/utils/fitsAPhone';
  * built at a desk before it (`docs/design-system.md`, Layout).
  */
 
-const fits = (path: string) => fitsAPhone(router.resolve(path));
+const fits = (path: string) => fitsAPhone(loadedRoute(router, path));
 const MARKET = '/markets/m1';
 
 describe('the places that fit a phone', () => {

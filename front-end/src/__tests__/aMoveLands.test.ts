@@ -14,6 +14,7 @@ import PhaseRail from '@/components/PhaseRail.vue';
 import { MarketPhase, type Market } from '@/assets/types/datatypes';
 import { movesServedFrom } from './support/servedMoves';
 import { answersRefusing } from './support/servedAnswers';
+import { assignmentPlacing } from './support/assignment';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 const router = vi.hoisted(() => ({ push: vi.fn() }));
@@ -27,7 +28,7 @@ vi.mock('@/utils/api', async (importOriginal) => {
   return { ...actual, api };
 });
 
-const ASSIGNED = { vendorAssignments: [{ vendorEmail: 'nadia@ember.test' }] };
+const ASSIGNED = assignmentPlacing('nadia@ember.test');
 
 beforeEach(() => {
   setActivePinia(createPinia());
@@ -79,7 +80,7 @@ describe('a move lands on the page for the phase it enters', () => {
 
   it('Publish lands at the door', async () => {
     await move(
-      { phase: MarketPhase.Assignment, assignmentObject: ASSIGNED } as Partial<Market>,
+      { phase: MarketPhase.Assignment, assignmentObject: ASSIGNED },
       MarketPhase.MarketDays,
     );
 
