@@ -986,7 +986,8 @@ def record_payment(market_id: str, vendor_email: str) -> Response:
     """Record one payment a vendor made, and answer their account. Asks
     ``Actions.RECORD_PAYMENT``.
 
-    Body: { "cents": 3500, "method": "e-transfer", "paidOn": "2026-11-01", "note": "" }
+    Body: { "cents": 3500, "method": "e-transfer", "paidOn": "2026-11-01", "note": "",
+    "requestKey": "<the press's UUID>" }; a repeat of the key records nothing new (T270).
     """
     data = json_object(required=True)
     return jsonify(PaymentsApi.record_payment(

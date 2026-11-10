@@ -6,6 +6,7 @@
  * line of a freed table, and adds up both totals (`back-end/payments.py`). This only reads, words
  * and records.
  */
+import axios from 'axios';
 import { api } from '@/utils/api';
 import { formatPrice } from '@/utils/pricing';
 import { getFormattedDate, getTimestampDate } from '@/utils/utils';
@@ -204,22 +205,46 @@ export async function loadAccount(marketId: string, email: string): Promise<Vend
   return (await api.get<VendorAccount>(accountPath(marketId, email))).data;
 }
 
-/** Record one payment; answers the account as it now reads. */
+/**
+ * Record one payment; answers the account as it now reads.
+ *
+ * `requestKey` is the one press of Record it is (T270): the dialog makes it when it opens and
+ * sends it on every press of that opening, so a press repeated after its answer was lost records
+ * nothing new. A repeat that differs from the entry first recorded is refused 409, with the
+ * account as it stands (`alreadyRecordedAccount`).
+ */
 export async function recordPayment(
   marketId: string,
   email: string,
   payment: NewPayment,
+  requestKey: string,
 ): Promise<VendorAccount> {
-  return (await api.post<VendorAccount>(accountPath(marketId, email), payment)).data;
+  return (await api.post<VendorAccount>(accountPath(marketId, email), { ...payment, requestKey }))
+    .data;
 }
 
-/** Record money given back, the same fields as a payment (an Admin's, E44/F01/S02). */
+/** Record money given back, the same fields as a payment (an Admin's, E44/F01/S02), once per
+ * `requestKey` as a payment is. */
 export async function recordRefund(
   marketId: string,
   email: string,
   refund: NewPayment,
+  requestKey: string,
 ): Promise<VendorAccount> {
-  return (await api.post<VendorAccount>(`${accountPath(marketId, email)}/refunds`, refund)).data;
+  return (
+    await api.post<VendorAccount>(`${accountPath(marketId, email)}/refunds`, {
+      ...refund,
+      requestKey,
+    })
+  ).data;
+}
+
+/** The account a refused repeat of a press of Record carries: a 409 saying the entry was already
+ * recorded as first sent, and the account as it stands, which shows that entry. Null otherwise. */
+export function alreadyRecordedAccount(err: unknown): VendorAccount | null {
+  if (!axios.isAxiosError(err) || err.response?.status !== 409) return null;
+  const account = (err.response.data as { account?: unknown } | undefined)?.account;
+  return account && typeof account === 'object' ? (account as VendorAccount) : null;
 }
 
 function entryPath(marketId: string, paymentId: string): string {

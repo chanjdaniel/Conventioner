@@ -2,6 +2,7 @@ import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { mongoEval } from './helpers/mongo';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
+import { marketScreenPath } from './helpers/marketScreens';
 
 /**
  * One vendor's day is one record, and the database holds it so (T270).
@@ -15,6 +16,10 @@ import { ensureVerifiedUser } from './helpers/verifiedUser';
  * whichever the server found first won, so the amount set did not stick or the freed line was
  * lost. A unique index on each now refuses the second record, and the write that loses the race
  * lands on the winner's.
+ *
+ * A payment is recorded once per press the same way: the dialog sends a key it made when it opened,
+ * a unique index on it refuses a second entry, and a repeat of the key answers what was recorded.
+ * Pressing Record payment again after the first answer was lost had recorded the payment twice.
  *
  * Proved here because the stack's MongoDB is the one real database CI runs; the back end's own
  * suite runs on fakes, which hold no index.
@@ -191,5 +196,110 @@ test.describe("One record for a vendor's day", () => {
       (each: { date: string }) => each.date === ON_THE_DAY,
     );
     expect(line).toMatchObject({ freed: true, owedCents: 1000, owedSetBy: TEST_USER.email });
+  });
+
+  test('a payment pressed again after its answer was lost is recorded once', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { marketDate: ON_THE_DAY },
+    );
+    const recordPath = `/markets/${seed.marketId}/payments/${encodeURIComponent('alice@example.com')}`;
+    // The first press reaches the server and is recorded, and its answer never comes back.
+    let dropped = 0;
+    await page.route(
+      (url) => url.pathname.endsWith(recordPath),
+      async (route) => {
+        if (route.request().method() !== 'POST' || dropped > 0) return route.fallback();
+        dropped += 1;
+        await route.fetch();
+        await route.abort('connectionreset');
+      },
+    );
+
+    const query = new URLSearchParams({ vendor: 'alice@example.com', vendorTab: 'payment' });
+    await page.goto(`${marketScreenPath(seed.marketId, 'vendors')}?${query.toString()}`);
+    const tab = page.getByTestId('payment-tab');
+    await expect(tab).toBeVisible({ timeout: 15000 });
+    await tab.getByTestId('payment-record').click();
+    const dialog = page.getByTestId('record-payment-window');
+    await dialog.getByTestId('record-payment-amount').fill('35');
+    await dialog.getByRole('button', { name: 'Record payment' }).click();
+    await expect(dialog).toContainText('You seem to be offline');
+    expect(dropped).toBe(1);
+
+    await dialog.getByRole('button', { name: 'Record payment' }).click();
+    await expect(dialog).toBeHidden();
+
+    await expect(tab.getByTestId('payment-entry')).toHaveCount(1);
+    await expect(tab.getByTestId('payment-paid')).toHaveText('$35.00');
+    expect(count('payments', { market_id: seed.marketId, vendor_email: 'alice@example.com' })).toBe(
+      1,
+    );
+    expect(count('history', { market_id: seed.marketId, action: 'record-payment' })).toBe(1);
+
+    // The database itself refuses a second entry with the press's key.
+    const answer = mongoEval(`
+      const first = db.payments.findOne({ market_id: ${JSON.stringify(seed.marketId)} });
+      const { _id, ...copy } = first;
+      try { db.payments.insertOne({ ...copy, id: 'a-second-entry' }); print('stored twice'); }
+      catch (e) { print(e.code); }
+    `);
+    expect(answer).toBe('11000');
+  });
+
+  test('a second press that differs from the payment its first recorded is refused, and the entry shows behind it', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { marketDate: ON_THE_DAY },
+    );
+    const recordPath = `/markets/${seed.marketId}/payments/${encodeURIComponent('alice@example.com')}`;
+    let dropped = 0;
+    await page.route(
+      (url) => url.pathname.endsWith(recordPath),
+      async (route) => {
+        if (route.request().method() !== 'POST' || dropped > 0) return route.fallback();
+        dropped += 1;
+        await route.fetch();
+        await route.abort('connectionreset');
+      },
+    );
+
+    const query = new URLSearchParams({ vendor: 'alice@example.com', vendorTab: 'payment' });
+    await page.goto(`${marketScreenPath(seed.marketId, 'vendors')}?${query.toString()}`);
+    const tab = page.getByTestId('payment-tab');
+    await expect(tab).toBeVisible({ timeout: 15000 });
+    await tab.getByTestId('payment-record').click();
+    const dialog = page.getByTestId('record-payment-window');
+    await dialog.getByTestId('record-payment-amount').fill('35');
+    await dialog.getByRole('button', { name: 'Record payment' }).click();
+    await expect(dialog).toContainText('You seem to be offline');
+    await expect(tab.getByTestId('payment-entry')).toHaveCount(0);
+
+    // Focused, the field gives "35.00" with the caret at its end; a fill then replaces it whole.
+    const amount = dialog.getByTestId('record-payment-amount');
+    await amount.focus();
+    await amount.fill('30');
+    await dialog.getByRole('button', { name: 'Record payment' }).click();
+
+    await expect(dialog.getByTestId('record-payment-error')).toHaveText(
+      'This payment was already recorded, as it was first sent. Close this and edit it if it should read differently.',
+    );
+    await expect(tab.getByTestId('payment-entry')).toHaveCount(1);
+    await expect(tab.getByTestId('payment-paid')).toHaveText('$35.00');
+    expect(count('payments', { market_id: seed.marketId, vendor_email: 'alice@example.com' })).toBe(
+      1,
+    );
   });
 });

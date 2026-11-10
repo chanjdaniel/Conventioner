@@ -862,12 +862,16 @@ if not STUBBED_MODULES:
     _attendance_fake.index_information = lambda: {}
     _attendance_module.attendance_collection = _attendance_fake
 
-    # And what vendors owe, whose unique vendor-day index the boot builds (T270).
+    # And what vendors owe and paid, whose unique vendor-day and request-key indexes the boot
+    # builds (T270).
     import payments as _payments_module
 
     _amounts_owed_fake = FakeApplicationsCollection()
     _amounts_owed_fake.index_information = lambda: {}
     _payments_module.amounts_owed_collection = _amounts_owed_fake
+    _payments_fake = FakeApplicationsCollection()
+    _payments_fake.index_information = lambda: {}
+    _payments_module.payments_collection = _payments_fake
 
 
 def a_solver_vendor(application_id: str = "app-1", **overrides):

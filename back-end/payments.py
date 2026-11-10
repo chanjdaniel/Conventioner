@@ -15,6 +15,8 @@ outside the app, by e-transfer or cash (Q7), and an organizer records each payme
   and when (Q15): a payment, or a refund an Admin records as a negative entry once it is given back
   (Q26). An edit or a removal keeps what the entry read before in its own ``changes``, and a removed
   entry is kept, marked, rather than deleted.
+- **An entry is recorded once per press of Record** (T270): it keeps the ``request_key`` the dialog
+  sent, unique on the market, so a press repeated after its answer was lost records nothing new.
 
 Two collections, each a record kind keyed by market: ``payments``, one document per payment, and
 ``amounts_owed``, one document per vendor per table-day that holds something the seat cannot say -
@@ -35,13 +37,16 @@ from pymongo.errors import DuplicateKeyError
 
 from datatypes import PaymentEntry
 from db_config import get_database
-from unique_indexes import ensure_vendor_day_index
+from unique_indexes import ensure_unique_index, ensure_vendor_day_index
 from utils.email_address import normalized_email
 
 PAYMENTS_COLLECTION = "payments"
 AMOUNTS_OWED_COLLECTION = "amounts_owed"
 MARKET_ID_FIELD = "market_id"
 VENDOR_EMAIL_FIELD = "vendor_email"
+#: The key the Record payment dialog made when it opened, sent on each press of that opening.
+REQUEST_KEY_FIELD = "request_key"
+REQUEST_KEY_INDEX = "payments_request_key_unique"
 
 db = get_database()
 payments_collection = db[PAYMENTS_COLLECTION]
@@ -49,7 +54,8 @@ amounts_owed_collection = db[AMOUNTS_OWED_COLLECTION]
 
 
 def ensure_payment_indexes() -> None:
-    """One owed record per vendor's day, held by the database (T270).
+    """One owed record per vendor's day, and one entry per request key, held by the database
+    (T270).
 
     The freed line and an amount set by hand are each written by an upsert by market, vendor and
     date, and two that land at once - an Admin setting the amount as an Editor frees the seat -
@@ -58,6 +64,14 @@ def ensure_payment_indexes() -> None:
     lost. ``app.py`` builds it at boot and refuses to start without it (``unique_indexes``).
     """
     ensure_vendor_day_index(amounts_owed_collection, AMOUNTS_OWED_COLLECTION)
+    # One entry per press of Record payment: pressing it again after the first answer never came
+    # back recorded the payment twice. Partial to string keys, since an entry recorded before the
+    # key, or by a tab on an older bundle, has none.
+    ensure_unique_index(
+        payments_collection, (MARKET_ID_FIELD, REQUEST_KEY_FIELD), REQUEST_KEY_INDEX,
+        shown=(MARKET_ID_FIELD,), one="one request key",
+        partial={REQUEST_KEY_FIELD: {"$type": "string"}},
+    )
 
 
 @dataclass(frozen=True)
@@ -101,8 +115,13 @@ def _signed(entry: PaymentEntry, kind: str) -> Dict[str, Any]:
 
 def record_payment(
     market_id: str, vendor_email: str, entry: PaymentEntry, by: str, kind: str = PAYMENT,
+    request_key: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Keep one payment, or a refund, with who recorded it and when. Returns it as stored."""
+    """Keep one payment, or a refund, with who recorded it and when. Returns it as stored.
+
+    With a ``request_key``, the market's unique index refuses a second entry with that key by
+    raising ``DuplicateKeyError``; the caller looks the first up (``entry_with_request_key``).
+    """
     stored = {
         "id": str(uuid.uuid4()),
         **_vendor(market_id, vendor_email),
@@ -111,8 +130,24 @@ def record_payment(
         "recorded_by": by,
         "recorded_at": _now(),
     }
+    if request_key is not None:
+        stored[REQUEST_KEY_FIELD] = request_key
     payments_collection.insert_one(dict(stored))
     return stored
+
+
+def entry_with_request_key(market_id: str, request_key: str) -> Optional[Dict[str, Any]]:
+    """The entry this market recorded with ``request_key``, removed or not, or None."""
+    return payments_collection.find_one({MARKET_ID_FIELD: market_id,
+                                         REQUEST_KEY_FIELD: request_key})
+
+
+def same_entry(doc: Mapping[str, Any], vendor_email: str, entry: PaymentEntry, kind: str) -> bool:
+    """Whether a stored entry is the one ``entry`` would record: the same vendor, kind and
+    fields."""
+    return (doc.get(VENDOR_EMAIL_FIELD) == normalized_email(vendor_email)
+            and (doc.get("kind") or PAYMENT) == kind
+            and {key: doc.get(key) for key in ENTRY_FIELDS} == _signed(entry, kind))
 
 
 def payment(market_id: str, payment_id: str) -> Optional[Dict[str, Any]]:

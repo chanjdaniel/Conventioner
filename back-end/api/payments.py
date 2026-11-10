@@ -11,26 +11,52 @@ changing a table-day's amount owed asks ``Actions.CHANGE_OWED``, and recording a
 or removing an entry ``Actions.ADJUST_PAID``, each an Admin's by default (Q26, E44/F01/S02). An
 archived market refuses every write.
 """
+import uuid
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from pydantic import ValidationError
+from pymongo.errors import DuplicateKeyError
 
 import api.applications as ApplicationsApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
 from assignment.utils import convert_keys_to_snake_case
-from client_errors import BadRequestError, NotFoundError, field_named_copy
+from client_errors import BadRequestError, ConflictError, NotFoundError, field_named_copy
 from datatypes import Market, PaymentEntry
 import history as History
 import payments as Payments
 import pricing as Pricing
 from utils.email_address import normalized_email
+from utils.request_body import string_field
 
 #: The most a table-day may be set to owe: what a price cell may hold, $100,000.00.
 MOST_OWED_CENTS = 10_000_000
 
 NO_LINE = "That vendor holds no table that day, so nothing is owed for it."
 NO_ENTRY = "This market has no such payment standing."
+NOT_A_REQUEST_KEY = "A payment's request key must be a UUID."
+#: What a second press of one opening of the Record dialog is told when it differs from the entry
+#: the first press recorded, by the kind it asked.
+ALREADY_RECORDED = {
+    kind: f"This {kind} was already recorded, as it was first sent. Close this and edit it if it "
+          f"should read differently."
+    for kind in (Payments.PAYMENT, Payments.REFUND)
+}
+#: The request body's key for the one press of Record it carries (``RecordPaymentDialog``).
+REQUEST_KEY = "requestKey"
+
+
+class AlreadyRecorded(ConflictError):
+    """A press of Record whose key the market already holds, with fields that differ from the
+    entry recorded with it: a 409, with the vendor's account as it stands, so the dialog shows
+    the entry already recorded behind it."""
+
+    def __init__(self, kind: str, account: Dict[str, Any]):
+        super().__init__(ALREADY_RECORDED[kind])
+        self.account = account
+
+    def body(self) -> Dict[str, Any]:
+        return {"error": self.message, "account": self.account}
 
 
 def seats_by_vendor(market: Market) -> Dict[str, Dict[str, Payments.Seat]]:
@@ -127,14 +153,55 @@ def _fields(doc: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return {key: (doc or {}).get(key) or None for key in Payments.ENTRY_FIELDS}
 
 
+def _request_key(body: Any) -> Tuple[Optional[str], Any]:
+    """The press's request key, in the one lowercase spelling of its UUID, and the body without it,
+    for the entry's model, which forbids any other field. No key, or a null one, is None: a tab on
+    an older bundle sends none, and records as it did."""
+    if not isinstance(body, dict):
+        return None, body
+    rest = {key: value for key, value in body.items() if key != REQUEST_KEY}
+    if body.get(REQUEST_KEY) is None:
+        return None, rest
+    sent = string_field(body, REQUEST_KEY) or ""
+    try:
+        spelled = str(uuid.UUID(sent))
+    except ValueError:
+        raise BadRequestError(NOT_A_REQUEST_KEY) from None
+    if spelled != sent.lower():
+        # A UUID in braces or as a URN reads as one, but is no spelling a dialog sends.
+        raise BadRequestError(NOT_A_REQUEST_KEY)
+    return spelled, rest
+
+
+def _first_recorded(market_id: str, request_key: Optional[str]) -> Optional[Dict[str, Any]]:
+    """The entry the market recorded with this press's key, or None."""
+    return Payments.entry_with_request_key(market_id, request_key) if request_key else None
+
+
 def _record_entry(
     market_id: str, vendor_email: str, body: Any, requesting_user: str, kind: str,
 ) -> Dict[str, Any]:
+    """Record one entry, once per request key: a repeat of the key records nothing, and answers
+    the account when it is the entry first recorded, or ``AlreadyRecorded`` when it differs."""
     row = Actions.RECORD_PAYMENT if kind == Payments.PAYMENT else Actions.ADJUST_PAID
     market = MarketsApi._load_market_to_change(market_id, requesting_user, row)
     address = _applicant(market_id, vendor_email)
-    entry = _entry(body, kind)
-    stored = Payments.record_payment(market_id, address, entry, requesting_user, kind)
+    request_key, fields = _request_key(body)
+    entry = _entry(fields, kind)
+    first = _first_recorded(market_id, request_key)
+    if first is None:
+        try:
+            stored = Payments.record_payment(
+                market_id, address, entry, requesting_user, kind, request_key)
+        except DuplicateKeyError:
+            # Two presses at once: both found no entry, and the other's insert landed first.
+            first = _first_recorded(market_id, request_key)
+            if first is None:
+                raise
+    if first is not None:
+        if not Payments.same_entry(first, address, entry, kind):
+            raise AlreadyRecorded(kind, _account(market, address))
+        return _account(market, address)
     History.record(
         market_id, requesting_user, row,
         kind=None if kind == Payments.PAYMENT else History.REFUND_RECORDED, vendors=[address],
@@ -147,9 +214,9 @@ def _record_entry(
 def record_payment(
     market_id: str, vendor_email: str, body: Any, requesting_user: str,
 ) -> Dict[str, Any]:
-    """Record one payment a vendor made, ``{cents, method, paidOn, note}``, and answer their
-    account as it now reads. Asks ``Actions.RECORD_PAYMENT``; an archived market refuses it, and
-    so does a vendor it has no application from."""
+    """Record one payment a vendor made, ``{cents, method, paidOn, note}``, once per the press's
+    ``requestKey``, and answer their account as it now reads. Asks ``Actions.RECORD_PAYMENT``; an
+    archived market refuses it, and so does a vendor it has no application from."""
     return _record_entry(market_id, vendor_email, body, requesting_user, Payments.PAYMENT)
 
 

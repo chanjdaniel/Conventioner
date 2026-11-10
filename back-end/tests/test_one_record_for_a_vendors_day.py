@@ -184,6 +184,12 @@ BOOTED = [
 
 
 class TestTheBoot:
+    @pytest.fixture(autouse=True)
+    def payments(self, monkeypatch):
+        """The payments' own request-key index, which the same boot step builds, stands."""
+        monkeypatch.setattr(Payments, "payments_collection", VendorDays(name="payments", indexes={
+            "payments_request_key_unique": {"unique": True}}))
+
     @pytest.mark.parametrize("owner, attribute, name, boot, index", BOOTED)
     def test_the_boot_builds_the_index(self, monkeypatch, owner, attribute, name, boot, index):
         collection = VendorDays(name=name)

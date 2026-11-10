@@ -189,7 +189,8 @@ The back end checks the database as it starts and refuses to serve one it cannot
 - one sign-in code per applicant, `market_email_unique` ([`api/applicant_auth.py`](../back-end/api/applicant_auth.py));
 - one account per address, `user_email` ([`api/users.py`](../back-end/api/users.py));
 - one attendance record per vendor's day, `attendance_vendor_day_unique` ([`api/attendance.py`](../back-end/api/attendance.py), through [`unique_indexes.py`](../back-end/unique_indexes.py));
-- one owed record per vendor's day, `amounts_owed_vendor_day_unique` ([`payments.py`](../back-end/payments.py), through [`unique_indexes.py`](../back-end/unique_indexes.py)).
+- one owed record per vendor's day, `amounts_owed_vendor_day_unique` ([`payments.py`](../back-end/payments.py), through [`unique_indexes.py`](../back-end/unique_indexes.py));
+- one payment per press of Record, `payments_request_key_unique` ([`payments.py`](../back-end/payments.py), through [`unique_indexes.py`](../back-end/unique_indexes.py)).
 
 Every request then answers 500 `FUNCTION_INVOCATION_FAILED`, and the log says which check refused and what to run (Vercel, the back-end project, Logs).
 Each refusal below names its fix; take a `mongodump` first (above) when the fix writes.
@@ -246,6 +247,11 @@ Each record may hold a freed line (`freed`) and an amount set by hand (`set_by_h
 Take a `mongodump` first, then in each group keep one record, holding the `freed` with the latest `freed.at` and the `set_by_hand` with the latest `set_by_hand.at` among the group's (`db.amounts_owed.updateOne({_id: ObjectId('<kept id>')}, {$set: {freed: <latest freed>, set_by_hand: <latest set_by_hand>}})`), and delete the others by `_id` (`db.amounts_owed.deleteOne({_id: ObjectId('<id>')})`).
 Then redeploy, or restart the local back end, and read the vendor's Payment tab for that day.
 "None found" reads as for attendance, the index to drop being `db.amounts_owed.dropIndex('amounts_owed_vendor_day_unique')`.
+
+**"The unique index payments_request_key_unique on payments ... could not be built ... Records sharing one request key, by market_id and record id: ..."**.
+This is not duplicates: the request key is the press of Record payment an entry was recorded by ([payments](implementation/data/payments.md#a-payment-is-recorded-once-per-press)), and no entry recorded before the index has one, so the refusal reads "none found".
+Read the database's answer in the refusal, its type and code: code 85 or 86 is an index of that name with other options or keys, to drop (`db.payments.dropIndex('payments_request_key_unique')`) before redeploying; anything else is the database's own trouble (reachability, the user's rights, Atlas's status).
+The index only stops an entry recorded twice by one press, so dropping it loses nothing, and the next boot builds it again.
 
 **"The indexes on applicant_login_challenges, sign_in_attempts and vendor_remembered_sign_ins could not be built"**.
 The log names Mongo's error by its type and code only, never its words, since a duplicate key error quotes a vendor's address: code 11000 is duplicate challenges, and 85 or 86 an index of the same name with other options or keys.
