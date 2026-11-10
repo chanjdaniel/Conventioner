@@ -505,3 +505,62 @@ describe('a choice that adds', () => {
     expect(input(wrapper).element).toBe(words.element);
   });
 });
+
+describe('choices always in reach (T263)', () => {
+  const IGNORE = [{ value: 'ignore', label: 'Ignore this value' }];
+
+  it('at 12 or fewer, are the first rows after the empty one, counting toward no threshold', () => {
+    const wrapper = field({ groups: choices(12), leads: IGNORE, placeholder: 'Choose…' });
+
+    expect(select(wrapper).exists()).toBe(true);
+    expect(wrapper.findAll('option').map((option) => option.attributes('value'))).toEqual([
+      '',
+      'ignore',
+      ...Array.from({ length: 12 }, (_, at) => `v${at}`),
+    ]);
+  });
+
+  it('past 12, lead the list whatever the words, outside the cap', async () => {
+    const wrapper = field({ groups: choices(60), leads: IGNORE });
+    await input(wrapper).trigger('click');
+    const rows = () =>
+      wrapper.findAll('[role="option"]').map((row) => row.attributes('data-value'));
+    expect(rows()).toHaveLength(51);
+    expect(rows()[0]).toBe('ignore');
+
+    await input(wrapper).setValue('nothing like it');
+    expect(rows()).toEqual(['ignore']);
+    expect(wrapper.get('[data-testid="fix-none"]').text()).toBe(
+      'Nothing matches "nothing like it".',
+    );
+  });
+});
+
+describe('a way back to none, among the leads (T263)', () => {
+  it('past 12, stands above a choice held past the cap, and above the leads given', async () => {
+    const wrapper = field({
+      groups: choices(60),
+      modelValue: 'v55',
+      writes: true,
+      noneRow: 'No choice',
+      leads: [{ value: 'ignore', label: 'Ignore this value' }],
+    });
+    await input(wrapper).trigger('click');
+    const rows = wrapper.findAll('[role="option"]').map((row) => row.attributes('data-value'));
+
+    expect(rows.slice(0, 3)).toEqual(['', 'ignore', 'v55']);
+  });
+
+  it('past 12, is drawn whatever the words', async () => {
+    const wrapper = field({
+      groups: choices(13),
+      modelValue: 'v1',
+      writes: true,
+      noneRow: 'No role',
+    });
+    await input(wrapper).trigger('click');
+    await input(wrapper).setValue('green');
+
+    expect(wrapper.findAll('[role="option"]').map((row) => row.text())).toEqual(['No role']);
+  });
+});

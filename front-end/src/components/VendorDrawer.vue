@@ -31,6 +31,7 @@ import { useFocusGoesBack } from '@/utils/useFocusGoesBack';
 import { useInertBehind } from '@/utils/useInertBehind';
 import AnswerUpdateNote from '@/components/AnswerUpdateNote.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
+import EmailAddress from '@/components/EmailAddress.vue';
 import MarketHistory from '@/components/MarketHistory.vue';
 import ScrollBox from '@/components/ScrollBox.vue';
 import TableShareNotice from '@/components/TableShareNotice.vue';
@@ -189,11 +190,7 @@ function onTabKey(event: KeyboardEvent) {
   void nextTick(() => tabButtons.value[held.indexOf(next)]?.focus());
 }
 
-// While "Update info" is open, Escape is the dialog's: one press closes one thing.
-useEscapeToClose(
-  () => open.value && !updating.value,
-  () => emit('close'),
-);
+useEscapeToClose(open, () => emit('close'));
 
 /**
  * The drawer is modal, so the rest of the page is out of play while it is open - to the keyboard as
@@ -265,7 +262,7 @@ watch(
             {{ vendor?.displayEmail ?? email }}
           </p>
           <p v-if="vendor?.verdict" class="detail-subtitle" data-testid="vendors-detail-giver">
-            {{ vendor.verdict }}
+            <EmailAddress :words="vendor.verdict" />
           </p>
         </div>
         <button
@@ -474,7 +471,10 @@ watch(
   position: fixed;
   top: 0;
   right: 0;
+  /* `dvh`, since a phone's browser bar would otherwise cover the panel's foot; `vh` first for a
+     browser that has no `dvh`. */
   height: 100vh;
+  height: 100dvh;
   width: min(480px, 92vw);
   background: white;
   box-shadow: var(--shadow-card);

@@ -251,7 +251,8 @@ class TestWhatMayBeUpdated:
 
     def test_an_application_of_another_market_is_not_found(self, market):
         applications = market()
-        applications.insert_one({**_stored(applications), "id": "app-2", "market_id": "other"})
+        other = {key: value for key, value in _stored(applications).items() if key != "_id"}
+        applications.insert_one({**other, "id": "app-2", "market_id": "other"})
 
         with pytest.raises(NotFoundError):
             _update({"shop": "Ember Ceramics"}, application_id="app-2")
@@ -488,6 +489,16 @@ class TestKeepingAnUpdateTheirAnswerChangedUnder:
         assert entry["vendors"] == [VENDOR]
         assert entry["detail"]["kept"] == {"shop": "Ember Ceramics"}
         assert "before" not in entry["detail"]
+
+    def test_a_kept_entry_says_what_they_wrote_that_it_was_kept_over(self, market, market_records):
+        """Beside the update, in a map of its own, so an entry from before it still reads."""
+        self._changed_under(market)
+
+        _update({"shop": "Ember Ceramics"})
+
+        entry = market_records.history.documents[-1]
+        assert entry["detail"]["kept"] == {"shop": "Ember Ceramics"}
+        assert entry["detail"]["kept_over"] == {"shop": "Ember Pottery"}
 
     def test_kept_beside_another_change_is_one_entry_saying_both(self, market, market_records):
         self._changed_under(market)

@@ -492,19 +492,27 @@ test.describe('The applications surface says where the market stands', () => {
    * (E38/F04/S01), and it SAYS where the market stands: taking applications on its page, not
    * taking them, or a Google Form market's imported responses. It offers no import on either path
    * (E38/F04/S03): a surface whose only difference is a missing control teaches an organizer that
-   * the states are arbitrary.
+   * the states are arbitrary. The rail's sentence above the page reads with it; on a Google Form
+   * market it says alone what the page holds, and the page repeats nothing (T96).
    */
   test('an organizer can tell them apart by reading, and is offered no import', async ({
     authenticatedPage: page,
     request,
   }) => {
-    const conditionOf = async (marketId: string) => {
+    /** What the rail's sentence and the page's own line say, the line where the page has one. */
+    const conditionOf = async (marketId: string, pageSays = true) => {
       await setUserInPage(page);
       await page.goto(marketSetupPath(marketId, 'applications'));
-      const line = page.getByTestId('market-setup-applications-condition');
-      await expect(line).toBeVisible({ timeout: 15000 });
+      const rail = page.getByTestId('phase-rail-next');
+      await expect(rail).toBeVisible({ timeout: 15000 });
       await expect(page.getByTestId('market-setup-import-button')).toHaveCount(0);
-      return (await line.innerText()).trim();
+      const line = page.getByTestId('market-setup-applications-condition');
+      if (!pageSays) {
+        await expect(line).toHaveCount(0);
+        return (await rail.innerText()).trim();
+      }
+      await expect(line).toBeVisible();
+      return `${(await rail.innerText()).trim()} / ${(await line.innerText()).trim()}`;
     };
 
     const form = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
@@ -523,7 +531,8 @@ test.describe('The applications surface says where the market stands', () => {
     const csv = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
     seedApplicationWithStatus(csv.marketId, 'open', 'imported@example.com');
     await transitionViaPage(page, csv.marketId, 'applications');
-    const imported = await conditionOf(csv.marketId);
+    const imported = await conditionOf(csv.marketId, false);
+    expect(imported).toContain('Every imported response is here.');
 
     expect(
       new Set([taking, notTaking, imported]).size,

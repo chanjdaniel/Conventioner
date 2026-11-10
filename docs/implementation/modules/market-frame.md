@@ -9,7 +9,7 @@ describes:
   - front-end/src/utils/marketPage.ts
   - front-end/src/views/ToolsView.vue
   - front-end/src/views/PaymentsView.vue
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - T209
   - wayfinding/the-market-frame/map
@@ -35,11 +35,12 @@ sources:
   - T180
   - T181
   - T217
+  - T263
 ---
 
 # The market frame
 
-Every market screen stands in [`MarketFrame`](../../../front-end/src/components/MarketFrame.vue): a card whose top, the market's bar and the whole [phase rail](phase-rail.md), sticks under the app bar while the page scrolls on a desk; on a phone only the bar does.
+Every market screen stands in [`MarketFrame`](../../../front-end/src/components/MarketFrame.vue): a card whose top, the market's bar and the whole [phase rail](phase-rail.md), sticks under the app bar while the page scrolls from 1024px; up to 1023px, a phone or a portrait tablet, only the bar does.
 On a desk three layers are pinned, [the app bar](app-bar.md), the market bar and the rail, 182px on a draft market with its line of blockers, at 1280x800 and 1920x1080 alike, a cost accepted for always seeing where the market is; and every screen that carries the rail carries the frame, since a frame pinned on one market screen and scrolling away on the next is the inconsistency it exists to remove.
 The import, floorplan and start-from-CSV flows stand in it too.
 A screen hands it the market from [the market store](market-store.md) and renders its own content in the frame's slot.
@@ -52,7 +53,7 @@ A screen hands it the market from [the market store](market-store.md) and render
   A CSV market's form tab is called "Questions".
 - **The rail**, under the bar, once the market is in hand.
 - **The page row**, [`MarketPages`](../../../front-end/src/components/MarketPages.vue), only for a tab with more than one page: the Assignment tab's Settings, Assignments, Vendors and Payments ([`PaymentsView.vue`](../../../front-end/src/views/PaymentsView.vue), [payments](../../business/flows/payments.md)).
-- **A `pinned` slot** for a screen's own control that must stay in view with the frame on a desk, such as the vendor search.
+- **A `pinned` slot** for a screen's own control that must stay in view with the frame from 1024px, such as the vendor search; below that it scrolls away with the rail.
 - **The tab's note in place of the page** while the tab is out of its phase (`tabNote` in [the market guide](market-guide.md)), or **the screen's content**.
   The note stands in for a tab's pages only, never for a flow the tab holds: a Google Form market's first import is the work its draft Applications tab is waiting on (E38/F04/S01).
 - **Why the person looking may change nothing**, the market read's `readOnlyReason`, once, under the rail and above the page, on every page of the market ([what each role may do](../../business/rules/what-each-role-may-do.md)).
@@ -81,16 +82,18 @@ A screen that pads itself or renders its own arrival is how one market's pages c
 A page inside the card insets its content `--space-6`, the rail's inset, so what the frame says above a page (`market-read-only`) lines up with it; Market Setup's tabs were 40px in until T15, and [the import](../../business/flows/import.md) 32px until T181.
 
 **Sticky, never a scroller.**
-On a desk the bar, the rail and everything the rail grows (a refused move's blockers, an error, the archived note) stick together at `top: var(--banner-h)`, the app bar's height as a token, a fixed 44px.
+From 1024px the bar, the rail and everything the rail grows (a refused move's blockers, an error, the archived note) stick together at `top: var(--banner-h)`, the app bar's height as a token, a fixed 44px.
 Never give a frame screen an `overflow` scroller of its own: a sticky element inside an `overflow` ancestor silently stops sticking.
-The height of what is pinned under the app bar is measured (a `ResizeObserver`) and published as `--market-frame-h` on the card, so a screen's own sticky column sits at `top: calc(var(--banner-h) + var(--market-frame-h))`: the frame's block on a desk, the bar on a phone.
+The height of what is pinned under the app bar is measured (a `ResizeObserver`) and published as `--market-frame-h` on the card, so a screen's own sticky column sits at `top: calc(var(--banner-h) + var(--market-frame-h))`: the frame's block from 1024px, the bar up to 1023px.
 
-**On a phone only the bar pins.**
-At 640px and below the frame's wrapper gives up its box (`display: contents`) and the bar takes `position: sticky` at `top: var(--banner-h)` itself, since a sticky element sticks only inside its parent and the bar must stick against the card.
+**Up to 1023px only the bar pins, as on a phone.**
+At 1023px and below the frame's wrapper gives up its box (`display: contents`) and the bar takes `position: sticky` at `top: var(--banner-h)` itself, since a sticky element sticks only inside its parent and the bar must stick against the card.
 The rail, the page row and the `pinned` slot are then the card's own children, in the page's flow, and scroll away with it; what the rail grows grows in that flow, under the rail.
-The observer cannot measure a box-less element, so on a phone it measures the bar.
+The observer cannot measure a box-less element, so there it measures the bar.
 The layout sweep fails on any phone market screen whose app bar and pinned bar reach lower than 150px of the window ([the design language](../../design-system.md#what-keeps-this-true)); at 390x844 the two end at 138px, against 409 at the door when the whole block pinned.
-Above 640px, a tablet included, the frame is the desk's.
+The break is the frame's own, not the app's phone break at 640px: between them the frame's gutters and every phone rule at 640px stay off, and only the pinning is the phone's.
+At 720x900 the whole block and Payments' toolbar pinned 459px, half a portrait tablet's window (T180's check, T263).
+`the-payments-page.spec.ts` ("up to 1023px only the market bar pins ...") scrolls Payments at 390, 720, 1023, 1024 and 1280: up to 1023 the rail and the toolbar move with the page and what is pinned, and `--market-frame-h`, end at the bar; from 1024 the rail and the toolbar stay and the pinned block ends under the toolbar.
 
 **The phone's gutter follows the screen's layout, not the window.**
 A screen that keeps the 1000px desktop floor (every market screen but those [the design language](../../design-system.md#layout) lists as fitting a phone) is a desk's layout scrolled sideways in a phone's window, so its page keeps the desk's 24px inset there.
@@ -127,7 +130,7 @@ A focused tab wears the white halo for the dark bar, drawn inside the tab there,
 The bar and the whole rail pin as one block on a desk, whatever the rail grows, because the two alternatives prototyped each lost something the frame exists for: condensing on scroll hid every stage but the current one, which is the rail's reason to exist, and made the frame jump as it changed size; pinning one line and letting the blockers float laid "add market dates" over the very Dates card it asked the organizer to fix.
 
 On a phone the same block cost half the screen: at 390x844 the app bar and the pinned frame took 409px at the door and on Tools in market days, 442 with an application page on the rail and 280 in draft, so the check-in list scrolled in the lower half of the window (T142).
-Pinning the rail costs a desk 150px for always seeing where the market is; a phone keeps that through the bar's dot, which says where the market is worked on, and the rail is one scroll up.
+Pinning the rail costs a desk 150px for always seeing where the market is; a phone, and a portrait tablet since T263, keeps that through the bar's dot, which says where the market is worked on, and the rail is one scroll up.
 Letting the rail scroll away loses neither of what the condensed rails lost, the spine or a still frame: it only moves the rail into the page.
 
 Four tabs, with the Assignment tab's pages in a row under the rail, won over two other navigations prototyped on every market screen: a flat bar of six tabs put Vendors and Attendance on it with nothing to show before an assignment, and only just fit beside a long name at 1280; the market's screens listed down the frame's left side cost 200px of every market screen and looked like nothing else in the product.

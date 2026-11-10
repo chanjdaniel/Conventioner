@@ -158,6 +158,7 @@ Its gaps worth a spec are in [walking the flows](../../implementation/testing/wa
 5. A change made in the dialog while the History is open (a person added or removed, a rename, a change to the default permissions) shows at its top as it lands, without reopening the dialog.
 
 With nothing yet it says "Nothing has changed on this organization yet."
+A first page that fails says so in its place, with "Try again", which reads it again, as Manage market's does.
 What is recorded, and why a member may read it: [the organization document](../../implementation/data/organization-document.md#the-organizations-history).
 Covered by:
 

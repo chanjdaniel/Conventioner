@@ -5,7 +5,10 @@ import { type Organization } from '@/assets/types/datatypes';
 import { getApiErrorMessage } from '@/utils/api';
 import { fetchOrganizations } from '@/utils/organizations';
 
-const props = defineProps<{ id?: string }>();
+const props = defineProps<{
+  /** The id of the words that name the select; with one organization there is no select. */
+  labelledby?: string;
+}>();
 const model = defineModel<string>({ required: true });
 
 const organizations = ref<Organization[]>([]);
@@ -53,7 +56,7 @@ onMounted(() => {
     </p>
     <select
       v-else
-      :id="props.id"
+      :aria-labelledby="props.labelledby"
       v-model="model"
       class="field field--select"
       :disabled="loading || organizations.length === 0"

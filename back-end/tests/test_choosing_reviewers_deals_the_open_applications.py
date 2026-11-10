@@ -141,20 +141,31 @@ def _account(email):
     )
 
 
+def the_market(phase=MarketPhase.APPLICATIONS, **overrides):
+    """The market every test here deals on, as stored."""
+    return stored_market(
+        phase, id=MARKET, _id="mongo-1", organizationId=None, roles=dict(ROLES), **overrides)
+
+
+def the_people_sign_in(monkeypatch):
+    """Each of ``PEOPLE`` signs in by a session naming their address, and is found by address and
+    by id, with no users collection."""
+    sessions_load_through_get_user(monkeypatch)
+    monkeypatch.setattr(app_module.login_manager, "session_protection", None)
+    monkeypatch.setattr(UsersApi, "get_user", lambda email: _account(email) if email in PEOPLE else None)
+    accounts_by_id(monkeypatch, lambda uid: _account(EMAILS[uid]) if uid in EMAILS else None)
+
+
 @pytest.fixture
 def world(monkeypatch, applications, market_records):
     def market(phase=MarketPhase.APPLICATIONS, **overrides):
-        markets = Markets(stored_market(
-            phase, id=MARKET, _id="mongo-1", organizationId=None, roles=dict(ROLES), **overrides))
+        markets = Markets(the_market(phase, **overrides))
         monkeypatch.setattr(MarketsApi, "markets_collection", markets)
         monkeypatch.setattr(ReviewTeam, "markets_collection", markets)
         world.markets = markets
         return markets
 
-    sessions_load_through_get_user(monkeypatch)
-    monkeypatch.setattr(app_module.login_manager, "session_protection", None)
-    monkeypatch.setattr(UsersApi, "get_user", lambda email: _account(email) if email in PEOPLE else None)
-    accounts_by_id(monkeypatch, lambda uid: _account(EMAILS[uid]) if uid in EMAILS else None)
+    the_people_sign_in(monkeypatch)
     # Stored out of arrival order, so the deal is seen to sort them.
     applications.documents = [
         _application("v5", 5), _application("v1", 1), _application("v7", 7),

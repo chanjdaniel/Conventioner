@@ -24,6 +24,7 @@ import {
   type Application,
   type Market,
 } from '@/assets/types/datatypes';
+import { tryEveryClose } from './support/dialogCloses';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() }));
 const refresh = vi.hoisted(() => vi.fn(() => Promise.resolve()));
@@ -252,6 +253,27 @@ describe('the drawer’s offer', () => {
 
     expect(api.put).not.toHaveBeenCalled();
     expect(wrapper.emitted('confirmed')).toBeUndefined();
+  });
+
+  it('closes by no way while the update is out, so its refusal is never hidden', async () => {
+    let refuse!: (reason: unknown) => void;
+    api.put.mockReturnValue(new Promise((_resolve, reject) => (refuse = reject)));
+    const wrapper = offer();
+
+    await wrapper.find(testid('vendors-detail-discord-confirm')).trigger('click');
+    (document.querySelector(testid('discord-match-confirm-submit-button')) as HTMLElement).click();
+    await flushPromises();
+
+    await tryEveryClose('discord-match-confirm');
+    expect(document.querySelector(testid('discord-match-confirm-window'))).not.toBeNull();
+
+    refuse(new Error('Network Error'));
+    await flushPromises();
+    expect(document.querySelector(testid('discord-match-confirm-error'))?.textContent).toContain(
+      'The update could not be saved. Try again.',
+    );
+    await tryEveryClose('discord-match-confirm');
+    expect(document.querySelector(testid('discord-match-confirm-window'))).toBeNull();
   });
 
   it('says why a confirmation was refused, in the server’s words', async () => {

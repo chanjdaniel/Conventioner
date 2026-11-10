@@ -8,8 +8,8 @@
  * The current reviewers are offered and chosen even when the reader is not offered them, so saving
  * without touching one keeps them. Nothing is chosen by default otherwise. An address compares
  * case-folded: a chosen one is shown and offered in the one spelling the choices hold, so one person
- * never stands twice. A place that knows who can no longer review here passes them, so their chip
- * and their row say so: the one who must remove them can tell which they are.
+ * never stands twice. Every place passes who can no longer review here (`unableReviewers`), so their
+ * chip and their row say so: the one who must remove them can tell which they are.
  */
 import { computed, useId } from 'vue';
 import SearchPicker from '@/components/SearchPicker.vue';

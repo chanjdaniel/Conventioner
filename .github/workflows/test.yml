@@ -30,6 +30,25 @@ jobs:
   backend:
     name: backend
     runs-on: ubuntu-latest
+    # The real-MongoDB tests (back-end/tests/real_mongo/) run on this server, the compose file's
+    # MongoDB, whose comment says why it is 7 while production runs 8.0. REAL_MONGODB_REQUIRED
+    # makes each of them fail, not skip, when the server's URI is missing, so this job can never
+    # skip them in silence.
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27117:27017
+        # The open-file limit is the compose file's, which says why.
+        options: >-
+          --ulimit nofile=64000:64000
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      REAL_MONGODB_URI: mongodb://127.0.0.1:27117/?serverSelectionTimeoutMS=5000
+      REAL_MONGODB_REQUIRED: "true"
     defaults:
       run:
         working-directory: back-end
@@ -307,7 +326,7 @@ jobs:
         working-directory: front-end
         run: npx playwright install chromium --with-deps
       - run: docker compose build
-      # Docker Hub's transient 500 on `mongo:7` or `mongo-express:latest` once failed one shard
+      # A transient Docker Hub 500 on one of the stack's registry images once failed one shard
       # outright. Retry only that pull, so a stack that genuinely fails to start fails the shard
       # at once.
       - name: Pull the stack's registry images

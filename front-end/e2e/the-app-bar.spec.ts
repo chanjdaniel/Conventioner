@@ -268,6 +268,17 @@ test.describe('the bar on a desk', () => {
     await page.emulateMedia({ media: 'screen' });
     await expect(bar(page)).toBeVisible();
   });
+
+  test("Page not found's words stand on the logo's left edge", async ({
+    authenticatedPage: page,
+  }) => {
+    await page.goto('/no/such/page');
+    const heading = page.getByRole('heading', { name: 'Page not found' });
+    await expect(heading).toBeVisible();
+
+    const logo = await page.getByAltText('Conventioner, Markets').boundingBox();
+    expect((await heading.boundingBox())?.x).toBe(logo!.x);
+  });
 });
 
 test.describe('the bar on a phone', () => {

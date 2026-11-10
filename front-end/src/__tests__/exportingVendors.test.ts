@@ -32,6 +32,7 @@ import { filenameFrom } from '@/utils/download';
 import type { DiscordShown } from '@/utils/discordCheck';
 import type { ResultFilters } from '@/utils/resultFilters';
 import { ApplicationStatus } from '@/assets/types/datatypes';
+import { tryEveryClose } from './support/dialogCloses';
 
 const posted: { url: string; body: unknown }[] = [];
 let answer: (body: { columns?: string[] }) => ExportPreview;
@@ -1317,6 +1318,18 @@ describe('the form, drawn from what it is given', () => {
     const button = wrapper.get('[data-testid="vendor-export-submit-button"]');
     expect(button.text()).toBe('Downloading…');
     expect((button.element as HTMLButtonElement).disabled).toBe(true);
+    wrapper.unmount();
+  });
+
+  it('closes by no way while busy, so a refusal is never hidden, and by every way after', async () => {
+    const wrapper = form({ busy: true });
+
+    await tryEveryClose('vendor-export');
+    expect(wrapper.emitted('close')).toBeUndefined();
+
+    await wrapper.setProps({ busy: false, error: 'The export could not be downloaded.' });
+    await tryEveryClose('vendor-export');
+    expect(wrapper.emitted('close')).toHaveLength(4);
     wrapper.unmount();
   });
 

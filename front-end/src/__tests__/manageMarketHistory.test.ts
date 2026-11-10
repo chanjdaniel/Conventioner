@@ -248,6 +248,33 @@ describe('the History section', () => {
     expect(wrapper.findAll('[data-testid="market-history-entry"]')).toHaveLength(2);
   });
 
+  it('says so when the first page fails, and Try again reads it again', async () => {
+    let fails = true;
+    const asked: string[] = [];
+    api.get.mockImplementation(async (url: string) => {
+      asked.push(url);
+      if (fails) throw new Error('offline');
+      return {
+        data: { entries: [assigned('e1', 1)], next: null, vendorNames: {}, actors: [], groups: [] },
+      };
+    });
+    const wrapper = mountHistory();
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="market-history-read-failed"]').text()).toContain(
+      'The history could not be loaded.',
+    );
+    expect(wrapper.findAll('[data-testid="market-history-entry"]')).toHaveLength(0);
+
+    fails = false;
+    await wrapper.get('[data-testid="market-history-retry"]').trigger('click');
+    await flushPromises();
+
+    expect(asked).toEqual(['/markets/market-1/history', '/markets/market-1/history']);
+    expect(wrapper.find('[data-testid="market-history-read-failed"]').exists()).toBe(false);
+    expect(wrapper.findAll('[data-testid="market-history-entry"]')).toHaveLength(1);
+  });
+
   it('asks nothing beyond the first page with no observer firing', async () => {
     const asked = serve({ entries: [assigned('e2', 2)], next: 'cursor-2' });
     mountHistory();
@@ -552,6 +579,40 @@ describe('the History section', () => {
       '-m',
     ]);
     expect(field.find('wbr').exists()).toBe(false);
+  });
+
+  it('breaks an address an entry recorded only before its "@" or a dot, as the table does', async () => {
+    // A selection's `dealt_to` reads as each vendor and their reviewer (T181).
+    serve({
+      entries: [
+        {
+          ...assigned('e1', 1),
+          action: 'give-verdicts',
+          kind: 'verdicts',
+          vendors: ['ana@ember.test'],
+          subject: { application_ids: ['app-ana'] },
+          detail: {
+            before: { 'app-ana': { status: 'open' } },
+            after: { 'app-ana': { status: 'reviewer_rejected' } },
+            dealt_to: { 'app-ana': 'rv-sam-lee@ember.test' },
+          },
+        },
+      ],
+      next: null,
+    });
+    const wrapper = mountHistory();
+    await flushPromises();
+    await wrapper.get('[data-testid="market-history-toggle"]').trigger('click');
+
+    const value = wrapper.get('[data-testid="market-history-changes"] .history-recorded dd');
+    expect(value.text()).toBe('ana@ember.test: rv-sam-lee@ember.test');
+    expect(value.findAll('.email-address').map((part) => part.text())).toEqual([
+      'ana',
+      '@ember.test',
+      'rv-sam-lee',
+      '@ember.test',
+    ]);
+    expect(value.findAll('.email-address-held').map((run) => run.text())).toEqual(['-s', '-l']);
   });
 
   it('breaks an address in an entry’s sentence only before its "@" or a dot, as the table does', async () => {

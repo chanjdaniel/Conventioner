@@ -261,24 +261,37 @@ function tableShareAnswer(snapshot: Detail): unknown {
   return typeof words === 'string' && words.trim() ? words : snapshot[TABLE_SHARE_EMAIL_KEY];
 }
 
-/** Each update an organizer kept over what the vendor wrote since, under its question, the
- * table-share question's storage keys as one answer in the vendor's words. */
-function keptFields(kept: Detail, path: IntakeMode, said: string): RecordedField[] {
-  return changedFields(kept, kept, path, true).map((row) => ({
-    field: `${said}: ${row.field}`,
-    value: row.after,
-  }));
+/** Each update an organizer kept over what the vendor wrote since, or now matching it, under its
+ * question as the form asks it and in the form's order, each answer as the Application tab reads
+ * it, the table-share question's storage keys as one answer in the vendor's words, as
+ * `vendorAnswers` reads the answers an update changed. Where the entry says what the vendor wrote
+ * that each was kept over (`over`, the entry's `kept_over`), a row under it says so; an entry from
+ * before `kept_over` has the kept rows alone. */
+function keptFields(
+  kept: Detail,
+  over: Detail | null,
+  fields: readonly FormField[],
+  said: string,
+): RecordedField[] {
+  const rows: RecordedField[] = [];
+  let wroteTableShare = false;
+  for (const key of inFormOrder(Object.keys(kept), fields)) {
+    const share = TABLE_SHARE_KEYS.includes(key);
+    if (share && wroteTableShare) continue;
+    wroteTableShare ||= share;
+    const asked = share ? TABLE_SHARE_EMAIL_KEY : key;
+    const reading = (snapshot: Detail) =>
+      essentialAnswerText(asked, share ? tableShareAnswer(snapshot) : snapshot[key]).trim();
+    const label = answerLabel(asked, fields);
+    rows.push({ field: `${said}: ${label}`, value: reading(kept) || 'none' });
+    if (over) rows.push({ field: `They wrote: ${label}`, value: reading(over) || 'left it blank' });
+  }
+  return rows;
 }
 
 /** The fields a before/after detail set, each as it was and as it is, the table-share question's
- * three storage keys collapsed into one row in the vendor's words; `listing` keeps a row that reads
- * the same on both sides, for a list of answers kept as they stood. */
-export function changedFields(
-  before: Detail,
-  after: Detail,
-  path: IntakeMode,
-  listing = false,
-): ChangedField[] {
+ * three storage keys collapsed into one row in the vendor's words. */
+export function changedFields(before: Detail, after: Detail, path: IntakeMode): ChangedField[] {
   const rows: ChangedField[] = [];
   let wroteTableShare = false;
   for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
@@ -291,9 +304,8 @@ export function changedFields(
         after: fieldValue(TABLE_SHARE_EMAIL_KEY, tableShareAnswer(after), path),
       };
       // The further addresses are read out of the words, so they never change alone; a row that
-      // reads the same before and after says nothing, unless it is a list of answers kept as they
-      // stood.
-      if (listing || row.before !== row.after) rows.push(row);
+      // reads the same before and after says nothing.
+      if (row.before !== row.after) rows.push(row);
       continue;
     }
     rows.push({
@@ -306,16 +318,23 @@ export function changedFields(
 }
 
 /** One thing an entry recorded beside its before and after, as rows: an update kept over what the
- * vendor wrote since, or now matching it, as each answer under its question; a selection's
- * `dealt_to` as each vendor's reviewer; a date as a day; anything else as `valueText` draws it. */
+ * vendor wrote since, or now matching it, as each answer under its question, with what they wrote
+ * under each kept one (`keptFields`); a selection's `dealt_to` as each vendor's reviewer; a date as
+ * a day; anything else as `valueText` draws it. */
 function recordedField(
   entry: MarketHistoryEntry,
+  detail: Detail,
   key: string,
   value: unknown,
-  path: IntakeMode,
+  context: ReaderContext,
 ): RecordedField[] {
-  if ((key === 'kept' || key === 'matched') && value && typeof value === 'object')
-    return keptFields(value as Detail, path, key === 'kept' ? 'Kept' : 'Their answer now matches');
+  if ((key === 'kept' || key === 'matched') && value && typeof value === 'object') {
+    const over = key === 'kept' && detail.kept_over ? asDetail(detail.kept_over) : null;
+    const said = key === 'kept' ? 'Kept' : 'Their answer now matches';
+    return keptFields(value as Detail, over, context.fields, said);
+  }
+  // Drawn under each kept answer (`keptFields`).
+  if (key === 'kept_over') return [];
   if (key === 'dealt_to' && value && typeof value === 'object')
     return [{ field: fieldName(key), value: eachDealtTo(entry, asDetail(value)) }];
   return [{ field: fieldName(key), value: key === 'date' ? day(value) : valueText(value) }];
@@ -326,12 +345,12 @@ function recordedField(
 export function recordedFields(
   entry: MarketHistoryEntry,
   detail: Detail,
-  path: IntakeMode,
+  context: ReaderContext,
   beside: boolean,
 ): RecordedField[] {
   return Object.entries(detail)
     .filter(([key]) => !beside || (key !== 'before' && key !== 'after'))
-    .flatMap(([key, value]) => recordedField(entry, key, value, path));
+    .flatMap(([key, value]) => recordedField(entry, detail, key, value, context));
 }
 
 /** A selection's `dealt_to`, by application id, as each vendor's address and whose share it was. */
@@ -351,7 +370,7 @@ function eachDealtTo(entry: MarketHistoryEntry, dealt: Detail): string {
  * JSON (E38/F07/S02, E41/F01/S02). An answer that reads the same on both sides is no change.
  */
 export function vendorAnswers(entry: MarketHistoryEntry, context: ReaderContext): EntryChanges {
-  const { path, fields } = context;
+  const { fields } = context;
   const detail = asDetail(entry.detail);
   const before = asDetail(detail.before);
   const after = asDetail(detail.after);
@@ -378,5 +397,5 @@ export function vendorAnswers(entry: MarketHistoryEntry, context: ReaderContext)
         };
     if (row.before !== row.after) changed.push(row);
   }
-  return { changed, recorded: recordedFields(entry, detail, path, true) };
+  return { changed, recorded: recordedFields(entry, detail, context, true) };
 }

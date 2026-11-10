@@ -6,13 +6,13 @@ describes:
   - back-end/api/markets.py#choose_reviewers
   - back-end/api/markets.py#reviewer_candidate_ids
   - back-end/review_team.py#deal_arrivals
-  - back-end/review_team.py#deal_waiting
   - front-end/src/components/market/ReviewersPanel.vue
   - front-end/src/components/market/ReviewerPicker.vue
   - front-end/src/utils/personChoice.ts
   - front-end/src/utils/reviewTeam.ts
   - front-end/src/utils/reviewers.ts
   - front-end/src/components/market/ReviewerName.vue
+  - back-end/review_team.py#deal_waiting
 verified: 2026-11-11
 sources:
   - E38/F07
@@ -23,6 +23,7 @@ sources:
   - T181
   - T204
   - T270
+  - T263
 ---
 
 # The review is dealt among chosen reviewers
@@ -59,7 +60,7 @@ Choosing different people over a change that stopped is a change of its own, and
 A change that finds another deal holding the market at its first or last write, as one whose hold ran out does, is refused with "The reviewers are being dealt applications right now. Try again in a moment."; refused at its first write it deals nothing, and refused at its last, the same choice again finishes it.
 
 **A chosen reviewer who no longer holds a role on the market can no longer review here**: their role taken in Manage market, or their place in the organization gone, or their role one the table's row "Be chosen as a reviewer, and then give verdicts and follow-ups" no longer reaches.
-Every deal skips them, the panel marks them "Can no longer review here" and never folds them out of sight, naming them first in its one line and saying how many more of them are folded, the dialog that changes the reviewers marks them on their chips, and their share stays theirs until an Admin removes them, which deals it again as any removal does; nothing removes them silently.
+Every deal skips them, the panel marks them "Can no longer review here" and never folds them out of sight, naming them first in its one line and saying how many more of them are folded, the dialog that changes the reviewers marks them on their chips, as Open applications and the first import do (`unableReviewers`), and their share stays theirs until an Admin removes them, which deals it again as any removal does; nothing removes them silently.
 With nobody able, nothing is dealt.
 
 **Being dealt an application is never a lock**: the hold of [ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md) is who is looking at a card now, the reviewer is whose share it is, and a deal never moves a hold.

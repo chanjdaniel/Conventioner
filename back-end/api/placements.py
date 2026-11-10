@@ -16,6 +16,7 @@ the tiers, sections and table counts the whole assignment is computed from, so w
 one vendor between two seats" protects nothing.
 """
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from assignment.assignment import (
@@ -350,6 +351,16 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
     return payload, 200
 
 
+def _said_day(date: str) -> str:
+    """A market date as the screens say it, "May 1, 2099"; one that is not a calendar day as
+    stored."""
+    try:
+        day = datetime.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        return date
+    return f"{day:%b} {day.day}, {day.year}"
+
+
 def write_placement(
     market_id: str, placement_data: Dict[str, Any], requesting_user: str
 ) -> Tuple[Dict[str, Any], int]:
@@ -378,8 +389,8 @@ def write_placement(
     if occupant is not None:
         raise SeatTakenError(
             f"{occupant.email} already holds {placement.table_code} "
-            f"({occupant.table_choice}) on {placement.date}. "
-            "Free that seat first, or swap the two vendors."
+            f"({occupant.table_choice}) on {_said_day(placement.date)}. "
+            "Choose another seat, or swap the two vendors."
         )
 
     stored = market.assignment_object.vendor_assignments

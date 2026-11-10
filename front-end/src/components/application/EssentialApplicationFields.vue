@@ -563,7 +563,11 @@ function errorFor(key: string): string {
         {{ SECTION_RANKING_LABEL }}
         <span class="essential-required">*</span>
       </span>
-      <p class="essential-help">Use the arrows to order the sections, first choice on top.</p>
+      <!-- A locked ranking draws no arrows, so it says nothing of them. The preview's `disabled`
+           keeps the line: it is what a vendor reads. -->
+      <p v-if="!looksLocked(SECTION_RANKING_KEY)" class="essential-help">
+        Use the arrows to order the sections, first choice on top.
+      </p>
       <RankedChoiceInput
         :modelValue="sectionRanking"
         :testid="`${prefix}-essential-section-rank`"
@@ -584,7 +588,9 @@ function errorFor(key: string): string {
         {{ TABLE_TYPE_RANKING_LABEL }}
         <span class="essential-required">*</span>
       </span>
-      <p class="essential-help">Use the arrows to order the table types, first choice on top.</p>
+      <p v-if="!looksLocked(TABLE_TYPE_RANKING_KEY)" class="essential-help">
+        Use the arrows to order the table types, first choice on top.
+      </p>
       <RankedChoiceInput
         :modelValue="tableTypeRanking"
         :testid="`${prefix}-essential-table-type-rank`"
