@@ -379,7 +379,8 @@ class TestEveryCheckReadsTheMarketsRows:
         def entry(market_id):
             document = copy.deepcopy(world.markets.doc(market_id))
             return MarketsApi._decorate_market_summary(
-                document, MarketsApi.market_from_document(document), MarketRole.EDITOR, lookups)
+                document, MarketsApi.market_from_document(document), MarketRole.EDITOR, lookups,
+                chosen=False)
 
         changed = entry("market-123")
         other = entry("market-456")

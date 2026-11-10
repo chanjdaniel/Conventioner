@@ -22,7 +22,9 @@ from dataclasses import asdict
 from typing import Any, Dict, List, Optional
 
 from assignment.vendor_input import SolverVendor, approved_solver_vendors
-from datatypes import LEGACY_STAGE_PHASES, Market, MarketPhase, PhaseEntry, SetupObject
+from datatypes import (
+    LEGACY_STAGE_PHASES, AssignmentOptionObject, Market, MarketPhase, PhaseEntry, SetupObject,
+)
 from essential_fields import effective_essential_options_for_market
 
 GROUPS = ("rules", "plan", "applications", "review")
@@ -31,11 +33,12 @@ GROUPS = ("rules", "plan", "applications", "review")
 def assignment_rules(plan: Optional[SetupObject]) -> Dict[str, Any]:
     """The part of a plan that is the assignment rules, in one comparable shape.
 
-    Also what the plan write compares to decide whether a settled market's rules were changed or
-    merely restated (``api.markets.save_plan``).
+    Also what the plan write compares to decide whether a market's rules were changed or merely
+    restated (``api.markets.save_plan``). A market with no plan yet holds the rules a new plan
+    starts with, no priority and no option set, so a first plan that keeps them changes no rule.
     """
     if plan is None:
-        return {"priority": [], "assignment_options": None}
+        return {"priority": [], "assignment_options": AssignmentOptionObject().model_dump()}
     return {
         "priority": [rule.model_dump() for rule in plan.priority],
         "assignment_options": plan.assignment_options.model_dump(),

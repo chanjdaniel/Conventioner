@@ -299,7 +299,7 @@ def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
 
     market = market_from_document(market_doc)
     setup = _plan(market_doc, proposal, year, ceiling)
-    plan_update = MarketsApi.prepared_plan(market, {"setupObject": setup})
+    plan_update = MarketsApi.prepared_plan(market, {"setupObject": setup}).update
     form = MarketsApi.prepared_application_form(market, _form(proposal, choices))
 
     by_row = {c["index"]: c for c in proposal["columns"]}

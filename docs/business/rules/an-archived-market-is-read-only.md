@@ -5,6 +5,7 @@ describes:
   - back-end/api/markets.py#archived_refusal
   - back-end/api/markets.py#MarketArchivedError
   - back-end/api/markets.py#_load_market_to_change
+  - back-end/api/markets.py#_load_market_and_organization_to_change
   - back-end/tests/test_an_archive_is_read_only.py
 verified: 2026-10-31
 sources:
@@ -14,6 +15,7 @@ sources:
   - E39/F01/S03
   - E40/F01/S03
   - E44/F01/S01
+  - T263
 ---
 
 # An archived market is read-only
@@ -40,6 +42,7 @@ Its table of who may do what is part of the record too, and its owner no longer 
 - **A market write loads through `_load_market_to_change()`** in [`back-end/api/markets.py`](../../../back-end/api/markets.py), which refuses an archived market with `MarketArchivedError`.
   It is a `ForbiddenError` ([an exception never reaches a client](../../implementation/conventions/an-exception-never-reaches-a-client.md)), so it answers a 403 carrying its words wherever it is raised; a refusal that needed a new branch per route would be one forgotten branch from a 500.
   A new write loads through it, never through `_load_market_for`, so it cannot forget the rule.
+  A write that asks a second row loads through `_load_market_and_organization_to_change()`, which `_load_market_to_change()` is, with the organization it read beside the market.
   The loader asks the write's row of the table first ([the market's actions](../../implementation/modules/market-actions.md)), and this rule refuses whoever that row lets through.
 - A route that loads its own market asks `archived_refusal()`: the floorplan save and every floorplan action but the export ([floorplan placement](../../implementation/modules/floorplan-placement.md#who-may-use-the-floorplan-routes)), publishing results, the import and the CSV start (`_importing_market_document` in `back-end/app.py`), and every review write through `verdict_refusal`.
   The phase cannot move either: no edge leaves `archived` ([the guards](../../implementation/modules/guards.md)).

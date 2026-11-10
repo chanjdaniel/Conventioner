@@ -258,9 +258,8 @@ class TestThePlanWrite:
     def asked(self, monkeypatch):
         rows = []
         stored = stored_market(MarketPhase.DRAFT, setupObject=COMPLETE_PLAN)
-        monkeypatch.setattr(MarketsApi, "_load_market_to_change", lambda *_a: (
-            MarketsApi.market_from_document(stored)))
-        monkeypatch.setattr(MarketsApi, "_load_organization", lambda _org_id: None)
+        monkeypatch.setattr(MarketsApi, "_load_market_and_organization_to_change", lambda *_a: (
+            MarketsApi.LoadedMarket(MarketsApi.market_from_document(stored), None)))
         monkeypatch.setattr(
             MarketsApi, "markets_collection", SimpleNamespace(update_one=lambda *_a, **_k: None))
         monkeypatch.setattr(Actions, "refusal", lambda action, *_a: rows.append(action))

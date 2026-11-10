@@ -199,3 +199,22 @@ def test_the_list_reads_no_organization_its_reader_is_already_in(world):
 
     assert world.markets.finds == 2
     assert world.organization_reads == []
+
+
+def test_a_chosen_reviewer_is_told_of_the_verdicts_on_the_list_as_on_the_read(world):
+    """Being chosen lets a Viewer give verdicts while their role reaches the chosen row (ADR 0020),
+    so the list's card answers the giving row as the market's page does, by the reader's address."""
+    chosen = "chosen-by-organization"
+    world.markets.docs.append({
+        **stored_market(id=chosen, organizationId=ORG_ID, reviewTeam={
+            "reviewers": [{"userId": MEMBER, "email": READER_EMAILS[MEMBER].upper()}], "turn": 0}),
+        "_id": f"mongo-{chosen}",
+    })
+    client = signed_in(MEMBER)
+
+    entry = listed(client)[chosen]
+    served = client.get(f"/markets/{chosen}").get_json()["market"]
+
+    assert entry["user_role"] == served["user_role"] == "viewer"
+    assert entry["actionRefusals"]["give-verdicts"] is served["actionRefusals"]["give-verdicts"] is None
+    assert entry["actionRefusals"] == served["actionRefusals"]

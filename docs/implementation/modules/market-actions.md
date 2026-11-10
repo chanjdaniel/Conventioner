@@ -47,6 +47,7 @@ sources:
   - T181
   - T224
   - T217
+  - T263
 ---
 
 # The market's actions
@@ -69,7 +70,7 @@ The person's role is the one `get_user_market_role` resolves (the market's own a
 Both ask the read row the same way, through `read_refused` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), so the list leaves out every market the read answers as absent ([the organization document](../data/organization-document.md#what-a-person-may-do-on-a-market)).
 
 **Being chosen as a reviewer passes the giving row** (E38/F07/S03, [ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)): `refusal` and `role_refusal` answer None for `give-verdicts` to someone its role refuses when they are a chosen reviewer and their role reaches `review-when-chosen`.
-`refusal` reads it off the market's team by address (`is_chosen`); `role_refusal` takes it as `chosen`, which the market read passes once (the markets list passes none, since no card asks the giving row).
+`refusal` reads it off the market's team by address (`is_chosen`); `role_refusal` takes it as `chosen`, which the market read passes once and the markets list once for each entry (`_listed`), both from the reader's address, so a card answers the giving row as the market's page does.
 A row on top of the giving row asks it with the same `chosen`, so a chosen Viewer is refused a change of verdict in the change row's own words.
 [`back-end/tests/test_a_chosen_reviewer_decides.py`](../../../back-end/tests/test_a_chosen_reviewer_decides.py) pins every review write for each role, chosen and not, and the row raised.
 `may_be_chosen(user_id, market, organization)` asks `review-when-chosen` of someone known by id, their role resolved by `market_role_of` in [`back-end/api/permissions.py`](../../../back-end/api/permissions.py) with the organization already loaded: whom the chooser is offered (`reviewer_candidate_ids`, `reviewerCandidates`) and which chosen reviewers are still able (`review_team.eligible`).
@@ -96,6 +97,8 @@ Each check keeps the order it had, so every route answers each person as it did 
 **Taking a role asks both roles rows first**: `DELETE /markets/:id/roles/<user_id>` (`remove_market_role`) asks the Editor-and-Viewer row and the Admin row before it looks at the person, so someone both refuse reads the Editor-and-Viewer row's refusal whoever the person is; then it answers someone holding no role as gone, refuses taking the only owner, and asks the row of the role taken.
 
 **The plan write asks two rows**: Market Setup always, and the Assignment row too when the body changes the assignment rules, which ride in the plan; restating them asks only Market Setup.
+A market with no setup yet holds the rules a new plan starts with (`assignment_rules` in [what an assignment was made from](made-from.md)), so a first plan that keeps them asks only Market Setup.
+`save_plan` asks the Assignment row of the organization its load read to ask Market Setup (`_load_market_and_organization_to_change`), and of the plan `prepared_plan` parsed.
 
 One block per row, in the `ACTIONS` order: a new action is a block in its place in that order, and a new route or caller one line in its action's "Asked by" list ([two features never share a line](../conventions/two-features-never-share-a-line.md#the-markets-actions)).
 
