@@ -1,8 +1,8 @@
 """The real-MongoDB suite's harness, without a server (``tests/real_mongo/harness.py``).
 
 Which server it runs on and which it refuses, before any connection; the walk that binds every
-back-end handle to a test's database; the boot's index list against ``app.py``'s boot; and the two ways
-it makes requests meet.
+back-end handle to a test's database; the boot's index list against ``app.py``'s boot; and the two
+ways it makes requests meet.
 """
 import functools
 import os
