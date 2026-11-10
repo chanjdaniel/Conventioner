@@ -798,8 +798,8 @@ async function decideSelection() {
                   v-if="verdictGiverLine(app)"
                   class="all-meta"
                   data-testid="applications-all-giver"
-                  >{{ verdictGiverLine(app) }}</span
-                >
+                  ><EmailAddress :words="verdictGiverLine(app) ?? ''"
+                /></span>
                 <span
                   v-if="reviewerOf(app)"
                   class="all-meta"
@@ -807,11 +807,11 @@ async function decideSelection() {
                   ><EmailAddress :words="reviewerOf(app) ?? []"
                 /></span>
                 <span v-if="app.followUpOwner" class="all-meta" data-testid="applications-all-owner"
-                  >Followed up by {{ app.followUpOwner.email }}</span
-                >
-                <span v-if="holderOf(app)" class="all-meta" data-testid="applications-all-holder">{{
-                  holderOf(app)
-                }}</span>
+                  >Followed up by <EmailAddress :words="app.followUpOwner.email"
+                /></span>
+                <span v-if="holderOf(app)" class="all-meta" data-testid="applications-all-holder"
+                  ><EmailAddress :words="holderOf(app) ?? ''"
+                /></span>
               </span>
             </button>
           </li>
@@ -833,9 +833,12 @@ async function decideSelection() {
         <div class="drawer-verdict" data-testid="applications-all-drawer-verdict">
           <p class="drawer-status">
             <span :class="statusChip(opened.status)">{{ statusLabel(opened.status) }}</span>
-            <span v-if="verdictGiverLine(opened)" class="all-meta">{{
-              verdictGiverLine(opened)
-            }}</span>
+            <span
+              v-if="verdictGiverLine(opened)"
+              class="all-meta"
+              data-testid="applications-all-drawer-giver"
+              ><EmailAddress :words="verdictGiverLine(opened) ?? ''"
+            /></span>
             <span
               v-if="reviewerOf(opened)"
               class="all-meta"
@@ -846,8 +849,8 @@ async function decideSelection() {
               v-if="holderOf(opened)"
               class="all-meta"
               data-testid="applications-all-drawer-holder"
-              >{{ holderOf(opened) }}</span
-            >
+              ><EmailAddress :words="holderOf(opened) ?? ''"
+            /></span>
           </p>
           <p
             v-if="verdictMessage"

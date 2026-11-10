@@ -4,13 +4,14 @@ import { getFormattedTimestamp } from '@/utils/utils';
 /** An application's status in the organizer's words: the one map the review reads. */
 const STATUS_LABELS: Record<ApplicationStatus, string> = {
   [ApplicationStatus.Open]: 'Open',
-  [ApplicationStatus.UnderReview]: 'Under Review',
+  // Read as undecided and never written now: the Open filter lists it, so it reads as Open does.
+  [ApplicationStatus.UnderReview]: 'Open',
   [ApplicationStatus.ReviewerApproved]: 'Approved',
   [ApplicationStatus.ReviewerRejected]: 'Rejected',
   [ApplicationStatus.NeedsFollowUp]: 'Needs follow-up',
   [ApplicationStatus.Unassigned]: 'Unassigned',
   [ApplicationStatus.Assigned]: 'Assigned',
-  [ApplicationStatus.AssignmentSent]: 'Assignment Sent',
+  [ApplicationStatus.AssignmentSent]: 'Assignment sent',
   [ApplicationStatus.VendorAccepted]: 'Accepted',
   [ApplicationStatus.VendorRefused]: 'Refused',
   [ApplicationStatus.Cancelled]: 'Cancelled',
@@ -27,7 +28,7 @@ export function statusLabel(status: string): string {
  */
 const STATUS_TONES: Record<ApplicationStatus, string> = {
   [ApplicationStatus.Open]: 'informational',
-  [ApplicationStatus.UnderReview]: 'attention',
+  [ApplicationStatus.UnderReview]: 'informational',
   [ApplicationStatus.ReviewerApproved]: 'positive',
   [ApplicationStatus.ReviewerRejected]: 'destructive',
   [ApplicationStatus.NeedsFollowUp]: 'attention',
