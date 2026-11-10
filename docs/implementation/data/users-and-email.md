@@ -168,7 +168,7 @@ So the next request works at once, with no code or reset wait armed by a mail th
 The put-back is one `update_one` whose filter is the address and the code or link the request wrote, setting each field it wrote (`otp`, `otp_expires`, `otp_attempts`; `password_reset_token`, `password_reset_token_expires`; `verification_token`, `verification_token_expires`) to what the account held when the request read it, an absent field read as None.
 So a newer code or link another request stored meanwhile matches nothing and is left.
 The counts are not taken back: a failed send still counts against the caller and the address, so a sixth request in a quarter hour answers `ASKED_TOO_OFTEN` whether or not any mail went, and a failing provider cannot be asked without bound.
-The vendor's code is spent rather than put back: the challenge its request stored is marked consumed, filtered on its sequence so a newer code another request stored meanwhile stays armed, and its failed send is answered as a sent one, with no wait armed ([where it is kept](../../business/rules/a-vendor-signs-in-before-applying.md#where-it-is-kept)).
+The vendor's code is not put back: its challenge arms no wait, and its failed send is answered as a sent one ([where it is kept](../../business/rules/a-vendor-signs-in-before-applying.md#where-it-is-kept)).
 [`back-end/tests/test_a_failed_mail_leaves_no_wait_armed.py`](../../../back-end/tests/test_a_failed_mail_leaves_no_wait_armed.py) holds each, and the reset link's wait.
 
 ## Lookups

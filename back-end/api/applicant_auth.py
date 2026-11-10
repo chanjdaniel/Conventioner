@@ -341,18 +341,6 @@ def _store_challenge(market_id: str, email: str, code: str, expires_at: datetime
     return challenge[SEQUENCE_FIELD]
 
 
-def _spend_unsent_challenge(market_id: str, email: str, sequence: int) -> None:
-    """Mark the challenge this request stored consumed, because its code was never sent.
-
-    Filtered on the sequence the request was numbered, so a newer code another request stored
-    meanwhile (a higher sequence) is left armed.
-    """
-    challenges_collection.update_one(
-        {MARKET_ID_FIELD: market_id, EMAIL_FIELD: email, SEQUENCE_FIELD: sequence},
-        {"$set": {CONSUMED_FIELD: True}},
-    )
-
-
 class _Verified(Enum):
     """What a try at a code came to."""
 
@@ -466,13 +454,9 @@ def request_login_code(market_slug: str) -> tuple:
             "Applicant sign-in code for market %s could not be sent\n%s",
             market_slug, traceback_without_messages(error),
         )
-        delivered = False
     else:
         if not delivered:
             logger.error("Applicant sign-in code for market %s was not sent", market_slug)
-    if not delivered:
-        # A code nobody received is not left armed: the address may ask for another at once.
-        _spend_unsent_challenge(market_id, email, sequence)
 
     return jsonify(_REQUEST_CODE_BODY), _REQUEST_CODE_STATUS
 

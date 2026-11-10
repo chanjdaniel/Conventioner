@@ -40,7 +40,7 @@ Telling the person who just read the code whether they have applied leaks nothin
 
 - **The sign-in is the vendor page's**, at the market's own address `/<slug>`, and the code email links there, calling it "your page for <market>" ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)).
 - **Requesting a code** (`request_login_code` in [`back-end/api/applicant_auth.py`](../../../back-end/api/applicant_auth.py)) stores a challenge for every address at a market whose vendor page [the gate](a-gated-market-answers-as-absent.md) serves (`vendor_page_market_by_slug`) and sends it before the response goes out (E32/F03/S02): on serverless hosting a process may be frozen the moment its response is out, and no code sent from a thread afterwards was ever seen to arrive.
-  A failed send, a send Resend has not answered within 10 seconds among them, is logged and answered as a sent one, and the code it stored is spent: a code nobody received never works.
+  A failed send, a send Resend has not answered within 10 seconds among them, is logged and answered as a sent one.
   The code is six digits, kept hashed in `applicant_login_challenges` keyed by market and address, and lasts ten minutes.
   Asking again replaces it, so only the newest code works, and its count of tries starts again.
 - **Each code email's subject carries its own number**, "Your sign-in code for <market> (#<n>)", and never the code; its body says only the newest code works.
