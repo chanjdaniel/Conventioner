@@ -7,7 +7,7 @@ import { hideDevToolsPanel } from './hideDevToolsPanel';
  * Log a user in inside their own browser context, so no two users in a test ever share a
  * session cookie or the persisted `user` in localStorage. The context is closed afterwards.
  * `options` are the context's own, a phone's emulation say. When the sign-in or `body` throws, the
- * test gains what this page's browser said, as the fixture's own page does (T263).
+ * test gains what this page's browser said, if it said anything, as the fixture's page does (T263).
  */
 export async function withUser<T>(
   browser: Browser,
