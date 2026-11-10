@@ -125,12 +125,14 @@ Offered as "Set up sections from a floorplan instead" on Section Setup while the
    3. **Place Tables:** define "Table Types" (name, width, height, unit, max capacity), optionally "Save as Template" / "Load Template", then "Auto-Place Tables", which asks how many of each type to place and says how many fitted.
    4. **Edit Layout:** draw walls and no-go zones with the "Wall Editor" toggle, move tables, "Group Sections" by lasso and "Assign Section" (name, location, optional tier), "Export PNG" with or without table codes and sections; "Next" stays disabled until sections are grouped.
    5. **Save:** "Review & Save Floorplan" lists totals, sections and locations with editable names; "Save & Continue" writes the sections to the plan.
+      The market opens afterwards with the floorplan's sections and locations and the rest of its plan as it was, or an empty plan when none had been saved, and saving again replaces the floorplan rather than adding a copy.
 
 The wizard makes no AI calls; placement is a geometry solver ([floorplan placement](../../implementation/modules/floorplan-placement.md)).
 Only one table type is used by assignment in this release ([F6](form-tab.md#f6-table-type-preference)), and the path's card says so.
 Past Draft the flow says the setup is settled and offers nothing to draw (`what-to-show-and-when.spec.ts`).
 Covered by:
 
+- `a-floorplan-save-keeps-the-market-readable.spec.ts`
 - `floorplan.spec.ts` (grouping and editing are driven through store state, not real gestures)
 - `the-floorplan-beta-places-tables.spec.ts`
 

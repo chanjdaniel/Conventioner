@@ -34,7 +34,6 @@ from conftest import (
 skip_without_real_dependencies()
 
 import app as app_module
-import api.floorplans_save as FloorplansSaveApi
 import api.floorplans_templates as TemplatesApi
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
@@ -328,7 +327,6 @@ def walked(monkeypatch):
         MarketPhase.APPLICATIONS, roles={"user-owner": "owner", "user-viewer": "viewer"},
         organizationId=ORG_ID))
     monkeypatch.setattr(MarketsApi, "markets_collection", markets)
-    monkeypatch.setattr(FloorplansSaveApi, "markets_collection", markets)
 
     organizations = FakeOrganizations({
         "_id": "mongo-org-1", "id": ORG_ID, "name": "Org", "owner": "user-owner", "admins": [],
