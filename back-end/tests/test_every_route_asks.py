@@ -61,7 +61,6 @@ PUBLIC = {
     ("POST", "/request-otp"): "asks for a sign-in code",
     ("POST", "/request-password-reset"): "asks for a reset link",
     ("POST", "/resend-verification"): "asks for the verification link again",
-    ("GET", "/floorplans/<gridfs_id>"): "the floorplan image, read by its opaque id",
     ("GET", "/public/markets/<market_slug>/vendor-page"): APPLICANT_SURFACE,
     ("GET", "/public/markets/<market_slug>/application-form"): APPLICANT_SURFACE,
     ("POST", "/public/markets/<market_slug>/applicant-login/request-code"): APPLICANT_SURFACE,
@@ -183,10 +182,10 @@ def _names(route_methods):
 
 def _classes(method, rule):
     """The classes a route-method is in: each list that names it, and scoped by its rule when the
-    rule names what it acts on (the public image read is exempt, since ``PUBLIC`` says why)."""
+    rule names what it acts on."""
     classes = [name for name, entries in LISTS.items() if (method, rule.rule) in entries]
     named = sorted(SCOPING_ARGUMENTS & set(rule.arguments))
-    if named and "PUBLIC" not in classes:
+    if named:
         classes.append(f"scoped by its rule's {', '.join(named)}")
     return classes
 

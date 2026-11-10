@@ -395,11 +395,61 @@ class TestTheRoutesThatTakeAnImage:
         assert response.status_code == 401
         assert list(images.files) == [ObjectId(hall)]
 
-    def test_the_image_itself_is_read_without_a_session(self, hall):
-        response = app_module.app.test_client().get(f"/floorplans/{hall}")
+
+def _read(client, gridfs_id):
+    return client.get(f"/floorplans/{gridfs_id}")
+
+
+class TestReadingTheImage:
+    """The image is read on the market it was uploaded for: anyone with a role on it reads the
+    bytes, an archived market's too, and to anyone else the image is not there."""
+
+    @pytest.mark.parametrize("email", [
+        "owner@example.com", "editor@example.com", "viewer@example.com",
+    ])
+    def test_anyone_on_the_market_reads_the_image(self, sign_in, market, hall, email):
+        response = _read(sign_in(email), hall)
+
+        assert response.status_code == 200
+        assert response.mimetype == "image/png"
+        assert response.data == _hall_png()
+
+    def test_an_archived_markets_image_is_still_read(self, sign_in, market, hall):
+        market.doc = stored_market(MarketPhase.ARCHIVED, roles=dict(ROLES))
+
+        response = _read(sign_in("viewer@example.com"), hall)
 
         assert response.status_code == 200
         assert response.data == _hall_png()
+
+    def test_a_read_without_a_session_is_asked_to_sign_in(self, market, hall):
+        response = _read(app_module.app.test_client(), hall)
+
+        assert response.status_code == 401
+        assert response.data != _hall_png()
+
+    def test_an_account_with_no_role_on_the_market_finds_no_image(self, sign_in, market, hall):
+        response = _read(sign_in("outsider@example.com"), hall)
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Image not found"}
+
+    @pytest.mark.parametrize("metadata", [None, {}])
+    def test_an_image_that_names_no_market_is_not_found(self, sign_in, market, images, metadata):
+        unowned = images.put(_hall_png(), filename="hall.png", metadata=metadata)
+
+        response = _read(sign_in("owner@example.com"), str(unowned))
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Image not found"}
+
+    @pytest.mark.parametrize("gridfs_id", [str(ObjectId()), "not-an-object-id"],
+                             ids=["unknown", "malformed"])
+    def test_an_unknown_image_is_not_found(self, sign_in, market, images, gridfs_id):
+        response = _read(sign_in("owner@example.com"), gridfs_id)
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Image not found"}
 
 
 class TestNoModelReadsAFloorplan:
@@ -788,13 +838,12 @@ class TestAPlacementRequestIsBounded:
             assert 5000 - 1 <= table["y_mm"] - half_h and table["y_mm"] + half_h <= 15000 + 1
 
 
-# ── Every floorplan route but the image read needs a sign-in ─────────────────
+# ── Every floorplan route needs a sign-in ────────────────────────────────────
 
 FLOORPLAN_BLUEPRINTS = {
     "floorplans", "floorplans_placement", "floorplans_templates", "floorplans_calibrate",
     "floorplans_export", "floorplans_save",
 }
-PUBLIC_ROUTES = {("GET", "/floorplans/<gridfs_id>")}
 
 
 def _floorplan_routes():
@@ -819,12 +868,10 @@ class TestEveryFloorplanRouteNeedsASignIn:
 
         assert FLOORPLAN_BLUEPRINTS <= registered
 
-    def test_every_route_but_the_image_read_asks_for_a_sign_in(self, market, images):
+    def test_every_route_asks_for_a_sign_in(self, market, images):
         client = app_module.app.test_client()
         open_routes = []
         for method, rule in _floorplan_routes():
-            if (method, rule.rule) in PUBLIC_ROUTES:
-                continue
             values = {arg: str(ObjectId()) for arg in rule.arguments}
             path = rule.build(values, append_unknown=False)[1]
             if client.open(path, method=method, json={}).status_code != 401:
@@ -834,9 +881,3 @@ class TestEveryFloorplanRouteNeedsASignIn:
             f"These floorplan routes answer without a sign-in: {', '.join(open_routes)}. "
             "Give each @login_required, under its @route."
         )
-
-    def test_the_public_image_read_is_still_served(self):
-        """The exemption names a route that exists, so it cannot outlive the route it excused."""
-        served = {(method, rule.rule) for method, rule in _floorplan_routes()}
-
-        assert PUBLIC_ROUTES <= served

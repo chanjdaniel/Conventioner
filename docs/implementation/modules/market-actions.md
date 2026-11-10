@@ -121,6 +121,7 @@ Asked by:
 - the Payments page (`GET /markets/:id/payments`, `get_market_payments`)
 - a vendor's payments (`GET /markets/:id/payments/<email>`)
 - `POST /floorplans/export`
+- `GET /floorplans/<id>`
 
 ### Read the market's history (`read-history`)
 
