@@ -15,7 +15,7 @@ const SCREENSHOT_DIR = 'e2e-screenshots/phase-state-machine';
 
 async function transitionViaPage(page: Page, marketId: string, toPhase: string): Promise<void> {
   const res = await page.request.post(`${APP_API}/markets/${marketId}/transition`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+    headers: { 'Content-Type': 'application/json' },
     data: { toPhase },
   });
   if (!res.ok()) {
@@ -25,9 +25,7 @@ async function transitionViaPage(page: Page, marketId: string, toPhase: string):
 }
 
 async function loadMarket(page: Page, marketId: string): Promise<Record<string, unknown>> {
-  const res = await page.request.get(`${APP_API}/markets/${encodeURIComponent(marketId)}`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
+  const res = await page.request.get(`${APP_API}/markets/${encodeURIComponent(marketId)}`);
   const json = await res.json();
   return json.market as Record<string, unknown>;
 }
@@ -57,12 +55,12 @@ async function setupMarketToOffers(request: APIRequestContext): Promise<PhaseMar
   );
 
   await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+    headers: { 'Content-Type': 'application/json' },
     data: { toPhase: 'applications' },
   });
 
   await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+    headers: { 'Content-Type': 'application/json' },
     data: { toPhase: 'assignment' },
   });
 
@@ -72,7 +70,7 @@ async function setupMarketToOffers(request: APIRequestContext): Promise<PhaseMar
   );
 
   await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+    headers: { 'Content-Type': 'application/json' },
     data: { toPhase: 'offers' },
   });
 
@@ -256,7 +254,7 @@ test.describe('Phase state machine - guard: offers blocked by leftover approved'
     await page.getByTestId('phase-rail-menu-button').click();
     await expect(page.getByTestId('phase-transition-offers')).toHaveCount(0);
     const refused = await page.request.post(`${APP_API}/markets/${seed.marketId}/transition`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: { toPhase: 'offers' },
     });
     expect(refused.status()).toBe(409);
@@ -558,7 +556,7 @@ test.describe('Where the workspace opens', () => {
     await expect(page.getByTestId('market-bar-tab-setup')).toHaveClass(/active/);
 
     const opened = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: { toPhase: 'applications' },
     });
     expect(opened.ok()).toBe(true);

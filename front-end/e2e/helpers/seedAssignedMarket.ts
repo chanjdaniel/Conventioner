@@ -77,7 +77,7 @@ export async function seedAssignedMarket(
     const res = await request.post(
       `${baseURL}/markets/${encodeURIComponent(seed.marketId)}/transition`,
       {
-        headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+        headers: { 'Content-Type': 'application/json' },
         data: { toPhase },
       },
     );
@@ -95,9 +95,6 @@ export async function seedAssignedMarket(
   // assignment and then throw it away.
   const assignRes = await request.post(
     `${baseURL}/markets/${encodeURIComponent(seed.marketId)}/assignment`,
-    {
-      headers: { 'X-Owner-Email': email },
-    },
   );
   if (!assignRes.ok()) {
     throw new Error(`Assignment run failed: ${assignRes.status()} ${await assignRes.text()}`);

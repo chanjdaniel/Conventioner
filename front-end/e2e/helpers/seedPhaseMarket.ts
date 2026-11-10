@@ -34,11 +34,11 @@ export async function seedPhaseMarket(
   options: { intakeMode?: 'csv' | 'form'; orgId?: string; reviewSetupUndecided?: boolean } = {},
 ): Promise<PhaseMarketSeed> {
   const userId = await loginViaApi(request, baseURL, email, password);
-  const orgId = options.orgId ?? (await ensureTestOrgAuthenticated(request, baseURL, email));
+  const orgId = options.orgId ?? (await ensureTestOrgAuthenticated(request, baseURL));
 
   const marketName = uniqueMarketName('E2E Phase');
   const createRes = await request.post(`${baseURL}/markets`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+    headers: { 'Content-Type': 'application/json' },
     data: {
       name: marketName,
       creationDate: new Date().toISOString(),
@@ -56,7 +56,7 @@ export async function seedPhaseMarket(
   const { market_id: marketId } = (await createRes.json()) as { market_id: string };
 
   const formRes = await request.put(`${baseURL}/markets/${marketId}/application-form`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+    headers: { 'Content-Type': 'application/json' },
     data: { fields: TWO_FIELDS },
   });
   if (!formRes.ok()) {
@@ -78,7 +78,7 @@ export async function transitionMarket(
   toPhase: string,
 ): Promise<void> {
   const res = await request.post(`${baseURL}/markets/${marketId}/transition`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+    headers: { 'Content-Type': 'application/json' },
     data: { toPhase },
   });
   if (!res.ok()) {
@@ -130,11 +130,11 @@ export async function seedFormlessPhaseMarket(
   options: { intakeMode?: 'csv' | 'form'; reviewSetupUndecided?: boolean } = {},
 ): Promise<PhaseMarketSeed> {
   const userId = await loginViaApi(request, baseURL, email, password);
-  const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
+  const orgId = await ensureTestOrgAuthenticated(request, baseURL);
 
   const marketName = `E2E Formless ${randomUUID().slice(0, 8)}`;
   const createRes = await request.post(`${baseURL}/markets`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+    headers: { 'Content-Type': 'application/json' },
     data: {
       name: marketName,
       creationDate: new Date().toISOString(),

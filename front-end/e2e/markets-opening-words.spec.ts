@@ -53,7 +53,7 @@ async function organizerWith(page: Page, request: APIRequestContext, names: stri
   ensureVerifiedUser(email, PASSWORD);
   await loginViaApi(request, BACKEND_URL, email, PASSWORD);
   const res = await request.post(`${BACKEND_URL}/organizations`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+    headers: { 'Content-Type': 'application/json' },
     data: { name: `Org ${run}` },
   });
   expect(res.ok(), await res.text()).toBe(true);

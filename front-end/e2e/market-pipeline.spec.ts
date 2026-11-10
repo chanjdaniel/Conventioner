@@ -39,9 +39,7 @@ test.describe('Market pipeline E2E', () => {
     // Phase 1: Create the market via API instead of CSV upload.
     const ctx = page.request;
     await loginViaApi(ctx, APP_API, TEST_USER.email, TEST_USER.password);
-    const orgsRes = await ctx.get(`${APP_API}/organizations`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const orgsRes = await ctx.get(`${APP_API}/organizations`);
     const orgs = (await orgsRes.json()).organizations as { id: string }[];
     const orgId = orgs[0]?.id;
     if (!orgId) throw new Error('No organization found');
@@ -49,7 +47,6 @@ test.describe('Market pipeline E2E', () => {
     const createRes = await ctx.post(`${APP_API}/markets`, {
       headers: {
         'Content-Type': 'application/json',
-        'X-Owner-Email': TEST_USER.email,
       },
       data: {
         name: marketName,
@@ -217,9 +214,7 @@ test.describe('Market pipeline E2E', () => {
     });
 
     // The server advanced the phase, and reports isDraft derived from it.
-    const storedRes = await page.request.get(`${APP_API}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const storedRes = await page.request.get(`${APP_API}/markets/${marketId}`);
     expect(storedRes.ok()).toBe(true);
     const { market: storedMarket } = (await storedRes.json()) as {
       market: { phase: string; isDraft: boolean };

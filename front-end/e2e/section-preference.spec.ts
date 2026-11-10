@@ -27,7 +27,7 @@ test.describe('Section preference', () => {
 
     const marketName = `Section Preference ${Date.now()}`;
     const createRes = await ctx.post(`${APP_API}/markets`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: {
         name: marketName,
         creationDate: new Date().toISOString(),
@@ -70,9 +70,7 @@ test.describe('Section preference', () => {
 
     await savePlan(ctx, APP_API, TEST_USER.email, marketId, setupObject);
 
-    const assignmentRes = await ctx.get(`${APP_API}/markets/${marketId}/assignment`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const assignmentRes = await ctx.get(`${APP_API}/markets/${marketId}/assignment`);
     expect(assignmentRes.ok(), await assignmentRes.text()).toBeTruthy();
     const assigned = (await assignmentRes.json()) as Record<string, unknown>;
 

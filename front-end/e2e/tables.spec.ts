@@ -209,7 +209,7 @@ test.describe('Table browsing and filtering', () => {
     // One side of a table nobody else is on: one occupant, not a full-table booking, which is what
     // `rowStatus` counts as partial.
     const placed = await request.put(`${BACKEND_URL}/markets/${seed.marketId}/placements`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: {
         email: 'alice@example.com',
         date: SEED_MARKET_DATE,

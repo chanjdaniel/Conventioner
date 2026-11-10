@@ -43,7 +43,7 @@ async function setPlan(
 
 function place(request: APIRequestContext, marketId: string, body: Record<string, unknown>) {
   return request.put(`${BACKEND_URL}/markets/${marketId}/placements`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+    headers: { 'Content-Type': 'application/json' },
     data: body,
   });
 }
@@ -53,7 +53,7 @@ test.describe('Placement pins', () => {
 
   test.beforeAll(async ({ request }) => {
     await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-    await ensureTestOrgAuthenticated(request, BACKEND_URL, TEST_USER.email);
+    await ensureTestOrgAuthenticated(request, BACKEND_URL);
     seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
     await setPlan(request, seed, 3);
     // Before Review, which a CSV market enters holding its imported responses (E38/F04/S01).
@@ -107,7 +107,7 @@ test.describe('Placement pins', () => {
     changeASettledPlan(seed.marketId, { ...PLAN, sections: [{ ...PLAN.sections[0], count: 1 }] });
 
     const blocked = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: { toPhase: 'assignment' },
     });
     expect(blocked.ok()).toBeFalsy();
@@ -116,9 +116,7 @@ test.describe('Placement pins', () => {
     expect(refusal).toContain('Front 3');
 
     // The pin survived the plan edit rather than being deleted by it.
-    const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`);
     const { market } = (await marketRes.json()) as {
       market: { assignmentObject?: { vendorAssignments?: Array<{ tableCode: string }> } };
     };
@@ -136,7 +134,7 @@ test.describe('Placement pins', () => {
     expect(rePlaced.ok(), await rePlaced.text()).toBeTruthy();
 
     const allowed = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: { toPhase: 'assignment' },
     });
     expect(allowed.ok(), await allowed.text()).toBeTruthy();

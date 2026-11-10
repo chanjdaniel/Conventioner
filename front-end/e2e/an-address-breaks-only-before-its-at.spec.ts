@@ -180,9 +180,7 @@ test('"Who sits here" and "Swap them with" break an address only before its "@" 
     tiers: ['Gold'],
     fullName: 'Sam Seated',
   });
-  const run = await request.post(`${BACKEND_URL}/markets/${marketId}/assignment`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
+  const run = await request.post(`${BACKEND_URL}/markets/${marketId}/assignment`);
   expect(run.ok()).toBe(true);
   // Applied after the run, so the seat's list has someone with no table to offer.
   seedApprovedVendor(marketId, waiting, {

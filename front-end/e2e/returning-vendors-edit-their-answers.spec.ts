@@ -83,7 +83,7 @@ test('a returning vendor sees their answers, changes one, and stays signed in th
   const closed = await request.post(
     `${BACKEND_URL}/markets/${market.marketId}/applications-stopped`,
     {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: { stopped: true },
     },
   );

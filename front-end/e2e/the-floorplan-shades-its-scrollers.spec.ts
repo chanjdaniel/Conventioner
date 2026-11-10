@@ -68,7 +68,7 @@ test('the floorplan shades what scrolls, and its steps leave scrolling to the pa
   test.setTimeout(120_000);
   const orgId = await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
   const created = await request.post(`${BACKEND_URL}/markets`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+    headers: { 'Content-Type': 'application/json' },
     data: {
       name: `Floorplan Scrollers ${Date.now()}`,
       creationDate: new Date().toISOString(),

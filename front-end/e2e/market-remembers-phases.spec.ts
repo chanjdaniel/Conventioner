@@ -14,7 +14,7 @@ import { seedPhaseMarket } from './helpers/seedPhaseMarket';
  */
 async function transition(request: APIRequestContext, marketId: string, toPhase: string) {
   const res = await request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+    headers: { 'Content-Type': 'application/json' },
     data: { toPhase },
   });
   expect(res.ok(), `to ${toPhase}: ${await res.text()}`).toBeTruthy();

@@ -22,13 +22,11 @@ import { decideReviewSetup } from './helpers/decideReviewSetup';
 
 async function makeOrg(request: APIRequestContext, name: string): Promise<string> {
   const res = await request.post(`${BACKEND_URL}/organizations`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+    headers: { 'Content-Type': 'application/json' },
     data: { name },
   });
   expect(res.ok(), await res.text()).toBeTruthy();
-  const listed = await request.get(`${BACKEND_URL}/organizations`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
+  const listed = await request.get(`${BACKEND_URL}/organizations`);
   const orgs = ((await listed.json()) as { organizations: Array<{ id: string; name: string }> })
     .organizations;
   return orgs.find((o) => o.name === name)!.id;
@@ -41,7 +39,7 @@ async function makeMarket(
   intakeMode: 'csv' | 'form' = 'csv',
 ): Promise<string> {
   const res = await request.post(`${BACKEND_URL}/markets`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+    headers: { 'Content-Type': 'application/json' },
     data: {
       name,
       creationDate: new Date().toISOString(),
@@ -58,7 +56,6 @@ async function makeMarket(
 
 async function transition(request: APIRequestContext, marketId: string, toPhase: string) {
   const res = await request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
     data: { toPhase },
   });
   expect(res.ok(), `transition to ${toPhase}: ${await res.text()}`).toBeTruthy();
@@ -71,7 +68,7 @@ async function transition(request: APIRequestContext, marketId: string, toPhase:
  */
 async function runThenArchive(request: APIRequestContext, marketId: string) {
   await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+    headers: { 'Content-Type': 'application/json' },
     data: { fields: [{ key: 'business_name', label: 'Business name', type: 'text', order: 0 }] },
   });
   seedApprovedVendor(marketId, 'ran-vendor@example.com', {
@@ -92,9 +89,7 @@ async function runThenArchive(request: APIRequestContext, marketId: string) {
   for (const toPhase of ['applications', 'assignment']) {
     await transition(request, marketId, toPhase);
   }
-  const run = await request.post(`${BACKEND_URL}/markets/${marketId}/assignment`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
+  const run = await request.post(`${BACKEND_URL}/markets/${marketId}/assignment`);
   expect(run.ok(), await run.text()).toBeTruthy();
   await publishResults(request, BACKEND_URL, TEST_USER.email, marketId);
   await transition(request, marketId, 'market_days');
@@ -117,7 +112,7 @@ test.describe('Deleting an organization', () => {
     const live = await makeMarket(request, orgId, liveName, 'form');
     // A form of essential questions alone is a form, so a plan with dates opens applications.
     await request.put(`${BACKEND_URL}/markets/${live}/application-form`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: { fields: [{ key: 'business_name', label: 'Business name', type: 'text', order: 0 }] },
     });
     await savePlan(request, BACKEND_URL, TEST_USER.email, live, completePlan());
@@ -139,16 +134,12 @@ test.describe('Deleting an organization', () => {
     await expect(orgs.deleteConfirmButton).toBeDisabled();
 
     // Server-side too, not merely a disabled button.
-    const direct = await request.delete(`${BACKEND_URL}/organizations/${orgId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const direct = await request.delete(`${BACKEND_URL}/organizations/${orgId}`);
     expect(direct.status()).toBe(409);
     expect((await direct.json()).error).toBe('organization_has_live_markets');
 
     // And nothing was destroyed on the way to refusing.
-    const stillThere = await request.get(`${BACKEND_URL}/markets/${live}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const stillThere = await request.get(`${BACKEND_URL}/markets/${live}`);
     expect(stillThere.status()).toBe(200);
   });
 
@@ -201,9 +192,7 @@ test.describe('Deleting an organization', () => {
 
     // Every market went with it - not detached, gone.
     for (const marketId of [draft, archived, abandoned]) {
-      const gone = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
-        headers: { 'X-Owner-Email': TEST_USER.email },
-      });
+      const gone = await request.get(`${BACKEND_URL}/markets/${marketId}`);
       expect(gone.status(), 'a market was left belonging to nothing').toBe(404);
     }
   });

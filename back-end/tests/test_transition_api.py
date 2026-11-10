@@ -382,7 +382,6 @@ class TestTransitionRejected:
             "/markets/market-1/transition",
             data="toPhase=applications",
             content_type="text/plain",
-            headers={"X-Owner-Email": OWNER_EMAIL},
         )
 
         assert response.status_code == 400

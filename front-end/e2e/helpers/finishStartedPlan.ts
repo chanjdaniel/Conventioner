@@ -13,9 +13,7 @@ export async function finishStartedPlan(
   email: string,
   marketId: string,
 ): Promise<void> {
-  const res = await request.get(`${baseURL}/markets/${marketId}`, {
-    headers: { 'X-Owner-Email': email },
-  });
+  const res = await request.get(`${baseURL}/markets/${marketId}`);
   const { market } = (await res.json()) as {
     market: {
       setupObject: { tiers: Array<{ id: number; name: string }> } & Record<string, unknown>;

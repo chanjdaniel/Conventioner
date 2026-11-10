@@ -115,11 +115,11 @@ export async function seedApplicantMarket(
   } = {},
 ): Promise<ApplicantMarketSeed> {
   const userId = await loginViaApi(request, baseURL, email, password);
-  const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
+  const orgId = await ensureTestOrgAuthenticated(request, baseURL);
 
   const marketName = options.name ?? uniqueMarketName('E2E Applicant');
   const createRes = await request.post(`${baseURL}/markets`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+    headers: { 'Content-Type': 'application/json' },
     data: {
       name: marketName,
       creationDate: new Date().toISOString(),
@@ -143,7 +143,7 @@ export async function seedApplicantMarket(
   // Write the application form - this is what the guards check before
   // accepting a transition into `applications`.
   const formRes = await request.put(`${baseURL}/markets/${marketId}/application-form`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+    headers: { 'Content-Type': 'application/json' },
     data: { fields: options.fields ?? APPLICATION_FIELDS },
   });
   if (!formRes.ok()) {
@@ -159,7 +159,7 @@ export async function seedApplicantMarket(
 
   // Transition to applications - the guards require the form to exist.
   const transitionRes = await request.post(`${baseURL}/markets/${marketId}/transition`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+    headers: { 'Content-Type': 'application/json' },
     data: { toPhase: 'applications' },
   });
   if (!transitionRes.ok()) {
