@@ -5,6 +5,8 @@ editor of it on a market that can still change, and the stored image remembers t
 GridFS metadata, so every later action on the image can be checked against that market.
 """
 import io
+import json
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -508,6 +510,270 @@ class TestPlacingTables:
 
         assert response.status_code == 401
         assert placements == []
+
+
+SIX_FOOT = {"id": "type_6ft", "name": "6ft Table", "width_mm": 1800, "height_mm": 900, "max_capacity": 2}
+TOO_MANY_TABLES = "Auto-Place places up to 500 tables at a time."
+TABLE_SIDES = "A table type's width and height must be between 100 mm and 20,000 mm."
+ROOM_TOO_LARGE = "The room must be at most 500 m on each side."
+AISLES = "The wall buffer and table spacing must be between 0 and 10,000 mm."
+TOO_MUCH_GEOMETRY = "Auto-Place takes up to 100 walls, 100 no-go zones and 100 points in each."
+UNBOUNDED = "A floorplan's measurements must be finite numbers no larger than 10,000,000."
+
+
+def _placement_body(**changes):
+    body = {
+        "market_id": MARKET_ID,
+        "walls": [],
+        "obstacles": [],
+        "table_types": [dict(SIX_FOOT)],
+        "counts": {"type_6ft": 1},
+        "scale_px_per_mm": 0.05,
+        "room_mm": {"width_mm": 8000, "height_mm": 6000},
+        "aisle_config": {"wallBufferMm": 1500, "tableSpacingMm": 1200},
+    }
+    body.update(changes)
+    return body
+
+
+def _place_body(client, body):
+    return client.post("/floorplans/place-tables", json=body)
+
+
+def _place_raw(client, text):
+    """Send a body as text, since no JSON library writes ``NaN`` or ``Infinity``, though Flask reads them."""
+    return client.post("/floorplans/place-tables", data=text, content_type="application/json")
+
+
+def _wall(n):
+    return {"start": [n * 10, 0], "end": [n * 10 + 10, 0], "thickness_mm": 200, "is_exterior": True}
+
+
+def _square_walls(side_mm):
+    corners = [(0, 0), (side_mm, 0), (side_mm, side_mm), (0, side_mm)]
+    return [
+        {"start": list(corners[i]), "end": list(corners[(i + 1) % 4]), "thickness_mm": 200}
+        for i in range(4)
+    ]
+
+
+def _zone(points):
+    return {"polygon": [[i, i % 2] for i in range(points)], "type": "pillar"}
+
+
+class TestAPlacementRequestIsBounded:
+    """Auto-Place parses its body and holds it to ``floorplan_limits``' bounds before it places (T272).
+
+    It read the body field by field and handed it to the service, so a wall missing its thickness or
+    walls enclosing nothing answered "Internal server error", and any number of tables in any size of
+    room held an instance for as long as the grid took.
+    """
+
+    @pytest.mark.parametrize("changes, sentence", [
+        ({"counts": {"type_6ft": 501}}, TOO_MANY_TABLES),
+        ({"table_types": [dict(SIX_FOOT), dict(SIX_FOOT, id="type_8ft")],
+          "counts": {"type_6ft": 300, "type_8ft": 201}}, TOO_MANY_TABLES),
+        ({"table_types": [dict(SIX_FOOT, width_mm=99.9)]}, TABLE_SIDES),
+        ({"table_types": [dict(SIX_FOOT, height_mm=99)]}, TABLE_SIDES),
+        ({"table_types": [dict(SIX_FOOT, width_mm=20001)]}, TABLE_SIDES),
+        ({"table_types": [dict(SIX_FOOT, height_mm=20000.5)]}, TABLE_SIDES),
+        ({"room_mm": {"width_mm": 500001, "height_mm": 6000}}, ROOM_TOO_LARGE),
+        ({"room_mm": {"width_mm": 8000, "height_mm": 500001}}, ROOM_TOO_LARGE),
+        ({"aisle_config": {"wallBufferMm": -1, "tableSpacingMm": 1200}}, AISLES),
+        ({"aisle_config": {"wallBufferMm": 10001, "tableSpacingMm": 1200}}, AISLES),
+        ({"aisle_config": {"wallBufferMm": 1500, "tableSpacingMm": -0.5}}, AISLES),
+        ({"aisle_config": {"wallBufferMm": 1500, "tableSpacingMm": 10001}}, AISLES),
+        ({"walls": [_wall(n) for n in range(101)]}, TOO_MUCH_GEOMETRY),
+        ({"obstacles": [_zone(3) for _ in range(101)]}, TOO_MUCH_GEOMETRY),
+        ({"obstacles": [_zone(3), _zone(101)]}, TOO_MUCH_GEOMETRY),
+    ])
+    def test_a_request_one_over_a_bound_is_refused_with_its_sentence(
+        self, sign_in, market, placements, changes, sentence,
+    ):
+        response = _place_body(sign_in("owner@example.com"), _placement_body(**changes))
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": sentence}
+        assert placements == []
+
+    @pytest.mark.parametrize("changes", [
+        {"counts": {"type_6ft": 500}},
+        {"table_types": [dict(SIX_FOOT, width_mm=100, height_mm=20000)]},
+        {"room_mm": {"width_mm": 500000, "height_mm": 500000}},
+        {"aisle_config": {"wallBufferMm": 0, "tableSpacingMm": 10000}},
+        {"aisle_config": {"wallBufferMm": 10000, "tableSpacingMm": 0}},
+        {"walls": [_wall(n) for n in range(100)]},
+        {"obstacles": [_zone(100) for _ in range(100)]},
+    ])
+    def test_a_request_at_every_bound_places(self, sign_in, market, placements, changes):
+        response = _place_body(sign_in("owner@example.com"), _placement_body(**changes))
+
+        assert response.status_code == 200
+        assert len(placements) == 1
+
+    def test_a_table_type_left_out_of_the_counts_is_one_table_toward_the_bound(
+        self, sign_in, market, placements,
+    ):
+        """The service places one of a type the counts do not name, so the bound counts it too."""
+        body = _placement_body(
+            table_types=[dict(SIX_FOOT), dict(SIX_FOOT, id="type_8ft")], counts={"type_6ft": 500},
+        )
+
+        response = _place_body(sign_in("owner@example.com"), body)
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": TOO_MANY_TABLES}
+
+    @pytest.mark.parametrize("changes, named", [
+        ({"walls": [{"start": [0, 0], "end": [9000, 0], "is_exterior": True}]},
+         "walls.0.thickness_mm: Field required"),
+        ({"walls": "not a list"}, "walls: Input should be a valid list"),
+        ({"obstacles": [{"polygon": [[0, 0], [1, 1], [0, 1]]}]}, "obstacles.0.type: Field required"),
+        ({"table_types": [{"id": "type_6ft", "width_mm": 1800, "height_mm": 900,
+                           "max_capacity": 2}]}, "table_types.0.name: Field required"),
+        ({"counts": {"type_6ft": -1}}, "counts.type_6ft: Input should be greater than or equal to 0"),
+        ({"counts": {"type_6ft": 1.5}}, "counts.type_6ft: Input should be a valid integer"),
+        ({"counts": {"type_6ft": True}}, "counts.type_6ft: Input should be a valid integer"),
+        ({"counts": {"type_6ft": "3"}}, "counts.type_6ft: Input should be a valid integer"),
+        ({"counts": [1]}, "counts: Input should be a valid dictionary"),
+        ({"scale_px_per_mm": "wide"}, "scale_px_per_mm: Input should be a valid number"),
+        ({"room_mm": {"width_mm": 0, "height_mm": 6000}},
+         "room_mm.width_mm: Input should be greater than 0"),
+        ({"room_mm": {"width_mm": 8000}}, "room_mm.height_mm: Field required"),
+        ({"aisle_config": {"wallBufferMm": "wide"}},
+         "aisle_config.wallBufferMm: Input should be a valid number, unable to parse string as a "
+         "number"),
+    ])
+    def test_a_malformed_field_is_refused_by_name(
+        self, sign_in, market, placements, changes, named,
+    ):
+        response = _place_body(sign_in("owner@example.com"), _placement_body(**changes))
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": f"Invalid placement request: {named}"}
+        assert placements == []
+
+    @pytest.mark.parametrize("field", ["walls", "obstacles", "table_types", "counts",
+                                       "scale_px_per_mm"])
+    def test_a_missing_field_is_refused_by_name(self, sign_in, market, placements, field):
+        body = _placement_body()
+        del body[field]
+
+        response = _place_body(sign_in("owner@example.com"), body)
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": f"Invalid placement request: {field}: Field required"}
+
+    @pytest.mark.parametrize("token", ["NaN", "Infinity", "-Infinity"])
+    @pytest.mark.parametrize("changes", [
+        {"walls": [{"start": ["@@", 0], "end": [9000, 0], "thickness_mm": 200}]},
+        {"walls": [{"start": [0, 0], "end": [9000, 0], "thickness_mm": "@@"}]},
+        {"obstacles": [{"polygon": [[0, 0], [1, "@@"], [0, 1]], "type": "pillar"}]},
+        {"table_types": [dict(SIX_FOOT, width_mm="@@")]},
+        {"aisle_config": {"wallBufferMm": 1500, "tableSpacingMm": "@@"}},
+    ])
+    def test_a_number_that_is_not_finite_in_the_geometry_is_refused(
+        self, sign_in, market, placements, token, changes,
+    ):
+        text = json.dumps(_placement_body(**changes)).replace('"@@"', token)
+
+        response = _place_raw(sign_in("owner@example.com"), text)
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": UNBOUNDED}
+        assert placements == []
+
+    @pytest.mark.parametrize("token", ["NaN", "Infinity"])
+    @pytest.mark.parametrize("changes, named", [
+        ({"scale_px_per_mm": "@@"}, "scale_px_per_mm"),
+        ({"room_mm": {"width_mm": "@@", "height_mm": 6000}}, "room_mm.width_mm"),
+    ])
+    def test_a_number_that_is_not_finite_in_the_request_is_refused_by_name(
+        self, sign_in, market, placements, token, changes, named,
+    ):
+        text = json.dumps(_placement_body(**changes)).replace('"@@"', token)
+
+        response = _place_raw(sign_in("owner@example.com"), text)
+
+        assert response.status_code == 400
+        assert response.get_json()["error"].startswith(f"Invalid placement request: {named}: ")
+        assert placements == []
+
+    def test_a_number_too_large_in_the_geometry_is_refused(self, sign_in, market, placements):
+        body = _placement_body(walls=[{"start": [0, 0], "end": [10_000_001, 0], "thickness_mm": 200}])
+
+        response = _place_body(sign_in("owner@example.com"), body)
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": UNBOUNDED}
+
+    def test_a_request_with_neither_walls_nor_a_size_is_asked_to_calibrate(
+        self, sign_in, market, placements,
+    ):
+        response = _place_body(sign_in("owner@example.com"), _placement_body(room_mm=None))
+
+        assert response.status_code == 400
+        assert response.get_json() == {
+            "error": "The floor plan's size is needed to place tables: calibrate it first, "
+                     "or draw its walls.",
+        }
+
+    def test_a_body_that_is_not_an_object_is_refused(self, sign_in, market, placements):
+        response = _place_raw(sign_in("owner@example.com"), "[1, 2]")
+
+        assert response.status_code == 400
+        assert placements == []
+
+    # The real service from here: what it refuses reaches the organizer as its sentence.
+
+    def test_walls_that_enclose_nothing_say_so(self, sign_in, market):
+        walls = [
+            {"start": [0, 0], "end": [10000, 0], "thickness_mm": 200},
+            {"start": [10000, 0], "end": [20000, 0], "thickness_mm": 200},
+        ]
+
+        response = _place_body(sign_in("owner@example.com"), _placement_body(walls=walls, room_mm=None))
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "The walls drawn do not enclose a room."}
+
+    def test_walls_drawn_more_than_500_m_apart_are_refused(self, sign_in, market):
+        response = _place_body(
+            sign_in("owner@example.com"), _placement_body(walls=_square_walls(500_001), room_mm=None),
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": ROOM_TOO_LARGE}
+
+    def test_walls_500_m_apart_are_a_room(self, sign_in, market, monkeypatch):
+        monkeypatch.setitem(sys.modules, "pyckingsolver", None)
+
+        response = _place_body(
+            sign_in("owner@example.com"), _placement_body(walls=_square_walls(500_000), room_mm=None),
+        )
+
+        assert response.status_code == 200
+        assert len(response.get_json()["placed_tables"]) == 1
+
+    def test_the_organizers_wall_buffer_is_the_one_kept(self, sign_in, market, monkeypatch):
+        """The wizard sends the aisle values camel-cased, and the service reads them, not its defaults."""
+        monkeypatch.setitem(sys.modules, "pyckingsolver", None)
+        body = _placement_body(
+            room_mm={"width_mm": 20000, "height_mm": 20000}, counts={"type_6ft": 3},
+            aisle_config={"wallBufferMm": 5000, "tableSpacingMm": 1200},
+        )
+
+        response = _place_body(sign_in("owner@example.com"), body)
+
+        assert response.status_code == 200
+        placed = response.get_json()["placed_tables"]
+        assert len(placed) == 3
+        for table in placed:
+            half_w, half_h = table["width_mm"] / 2, table["height_mm"] / 2
+            if table["rotation"] == 90:
+                half_w, half_h = half_h, half_w
+            assert 5000 - 1 <= table["x_mm"] - half_w and table["x_mm"] + half_w <= 15000 + 1
+            assert 5000 - 1 <= table["y_mm"] - half_h and table["y_mm"] + half_h <= 15000 + 1
 
 
 # ── Every floorplan route but the image read needs a sign-in ─────────────────

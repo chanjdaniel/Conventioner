@@ -17,6 +17,7 @@ from shapely.geometry import Polygon, box, Point
 from shapely.ops import unary_union
 
 from client_errors import BadRequestError
+from floorplan_limits import MAX_ROOM_SIDE_MM, ROOM_TOO_LARGE
 from datatypes import (
     WallSegment,
     ObstacleZone,
@@ -440,6 +441,10 @@ def auto_place_tables(
 
     # ── geometry prep ─────────────────────────────────────────────────────
     room = _build_room_polygon(wall_objects, room_mm)
+    minx, miny, maxx, maxy = room.bounds
+    if max(maxx - minx, maxy - miny) > MAX_ROOM_SIDE_MM:
+        # The request's own room size is bounded before this; walls drawn far apart are bounded here.
+        raise BadRequestError(ROOM_TOO_LARGE)
     zone = _compute_placement_zone(room, obstacle_objects, wall_buffer)
 
     if zone.is_empty or zone.area <= 0:
