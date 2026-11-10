@@ -71,3 +71,40 @@ test('a floorplan saved to a market with no plan leaves the market opening', asy
   expect(plan.sections[0].count).toBeGreaterThan(0);
   expect(plan.floorplans).toHaveLength(1);
 });
+
+test('the wizard run again after a reload replaces the floorplan it saved', async ({
+  authenticatedPage: page,
+}) => {
+  // Each visit's wizard used to start a floorplan of a new id, so every visit added one, until
+  // the 21st save was refused for good. Opened on a market that stores a floorplan, it now takes
+  // that floorplan's id, so a later visit replaces it.
+  const { marketId } = await seedDraftMarket(
+    page.request,
+    APP_API,
+    TEST_USER.email,
+    TEST_USER.password,
+  );
+  const storedFloorplans = async () => {
+    const read = await page.request.get(`${APP_API}/markets/${marketId}`);
+    expect(read.status(), await read.text()).toBe(200);
+    return ((await read.json()) as { market: { setupObject: SavedPlan } }).market.setupObject
+      .floorplans;
+  };
+  const floorplan = new FloorplanWorkflowPage(page);
+
+  await floorplan.goto(marketId);
+  await floorplan.completeFloorplanWorkflow(FLOORPLAN_PATH, '6ft Table', '1800', '900', 'Main');
+  await expect(page).toHaveURL(MARKET_SETUP_URL);
+  const first = await storedFloorplans();
+  expect(first).toHaveLength(1);
+
+  await page.reload();
+  await new MarketSetupPage(page).waitForWizard();
+  await floorplan.goto(marketId);
+  await floorplan.completeFloorplanWorkflow(FLOORPLAN_PATH, '6ft Table', '1800', '900', 'Front');
+  await expect(page).toHaveURL(MARKET_SETUP_URL);
+
+  const second = await storedFloorplans();
+  expect(second).toHaveLength(1);
+  expect(second?.[0].id).toBe(first?.[0].id);
+});

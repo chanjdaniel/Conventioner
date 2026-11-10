@@ -97,14 +97,21 @@ def _with_floorplan(
     return kept + [floorplan]
 
 
-def _floorplan_change(plan: Optional[SetupObject]) -> Dict[str, Any]:
-    """What a floorplan save changes of a plan, as its history entry records it."""
+def _floorplan_change(plan: Optional[SetupObject], floorplan_id: str) -> Dict[str, Any]:
+    """What a floorplan save changes of a plan, as its history entry records it: the plan's
+    sections, locations and floorplan ids, and the floorplan of the saved id, so a save that
+    replaced it with only its layout changed is recorded too."""
     if plan is None:
-        return {"sections": None, "locations": None, "floorplan_ids": []}
+        return {"sections": None, "locations": None, "floorplan_ids": [], "floorplan": None}
+    floorplans = plan.floorplans or []
     return {
         "sections": [section.model_dump() for section in plan.sections],
         "locations": [location.model_dump() for location in plan.locations],
-        "floorplan_ids": [floorplan.id for floorplan in plan.floorplans or []],
+        "floorplan_ids": [floorplan.id for floorplan in floorplans],
+        "floorplan": next(
+            (floorplan.model_dump() for floorplan in floorplans if floorplan.id == floorplan_id),
+            None,
+        ),
     }
 
 
@@ -198,7 +205,8 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
     History.record(
         market_id, user_email, Actions.CHANGE_SETUP, kind=History.FLOORPLAN,
         subject={"floorplan_id": floorplan.id},
-        detail=lambda: History.changes(_floorplan_change(stored), _floorplan_change(plan)),
+        detail=lambda: History.changes(
+            _floorplan_change(stored, floorplan.id), _floorplan_change(plan, floorplan.id)),
     )
 
     return jsonify({

@@ -97,7 +97,7 @@ One block per action, in the order of [the actions table](../modules/market-acti
   - Detail: whichever of `currency`, `half_table_percent`, `groups` (each `{name, conditions, prices}`, the whole list) and `everyone_else` (each tier's `{tier, cents}`) changed; a market never priced is the card's defaults before (CAD, 50, no group, no price), so its first price records only the prices typed
 - `floorplan`: saving a floorplan to the market
   - Subject: `floorplan_id`
-  - Detail: whichever of `sections`, `locations` and `floorplan_ids` changed
+  - Detail: whichever of `sections`, `locations`, `floorplan_ids` and `floorplan` (the floorplan of the saved id, null on the side where the market held none) changed
 - `floorplan_image_deleted`: deleting a floorplan image
   - Subject: `image_id`
   - Detail: `image_id`, then null

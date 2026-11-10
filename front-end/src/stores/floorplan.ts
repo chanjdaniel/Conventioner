@@ -72,10 +72,22 @@ export const useFloorplanStore = defineStore('floorplan', () => {
 
   // ── Floorplan lifecycle ────────────────────────────────────────────
 
+  /**
+   * The id of the floorplan the market already stores, which the wizard's floorplan takes, so a
+   * later visit's save replaces that floorplan rather than adding one (T272); null for a new id.
+   */
+  const storedFloorplanId = ref<string | null>(null);
+
+  /** The wizard opens on a market: its floorplan takes the id of the one the market stores. */
+  function openOnMarket(storedId: string | null) {
+    storedFloorplanId.value = storedId;
+    if (storedId && floorplan.value) floorplan.value.id = storedId;
+  }
+
   /** Create a brand-new floorplan from a partial definition. */
   function initFloorplan(data: Partial<FloorplanObject>) {
     floorplan.value = {
-      id: crypto.randomUUID(),
+      id: storedFloorplanId.value ?? crypto.randomUUID(),
       scaleUnit: 'mm',
       tableTypes: [],
       walls: [],
@@ -258,6 +270,7 @@ export const useFloorplanStore = defineStore('floorplan', () => {
     currentFloorplan,
 
     // actions – lifecycle
+    openOnMarket,
     initFloorplan,
     setFloorplan,
     setImageSize,

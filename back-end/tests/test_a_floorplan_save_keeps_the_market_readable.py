@@ -247,6 +247,37 @@ class TestTheSaveIsRecorded:
         assert entry["detail"]["after"]["locations"] == [{"name": "Main Hall"}]
         assert not [e for e in market_records.history.documents if e.get("kind") == History.PLAN]
 
+    def test_a_floorplan_saved_again_with_only_its_layout_changed_is_recorded(
+        self, client, market, market_records,
+    ):
+        """Saving again replaces the floorplan of its id, so a save that moved a table, and kept
+        the sections, locations and ids, still changed the market, and its history says so."""
+        market.doc["setupObject"] = copy.deepcopy(FULL_PLAN)
+        _save(client, _floorplan("fp-1"))
+        market.doc = _applied(market.doc, market.last_update)
+        market_records.history.documents.clear()
+        moved = _floorplan("fp-1")
+        moved["placedTables"][0]["x"] = 300
+
+        response = _save(client, moved)
+
+        assert response.status_code == 200, response.get_json()
+        (entry,) = _floorplan_entries(market_records)
+        assert entry["subject"] == {"floorplan_id": "fp-1"}
+        assert entry["detail"]["before"]["floorplan"]["placed_tables"][0]["x"] == 40
+        assert entry["detail"]["after"]["floorplan"]["placed_tables"][0]["x"] == 300
+
+    def test_a_floorplan_restated_unchanged_records_nothing(self, client, market, market_records):
+        market.doc["setupObject"] = copy.deepcopy(FULL_PLAN)
+        _save(client, _floorplan("fp-1"))
+        market.doc = _applied(market.doc, market.last_update)
+        market_records.history.documents.clear()
+
+        response = _save(client, _floorplan("fp-1"))
+
+        assert response.status_code == 200, response.get_json()
+        assert _floorplan_entries(market_records) == []
+
 
 class TestAFloorplanThatDoesNotParse:
 
