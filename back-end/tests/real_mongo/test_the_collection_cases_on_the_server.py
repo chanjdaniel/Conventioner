@@ -11,28 +11,13 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
 from mongo_cases import (
-    PROJECTION_CASES, READ_CASES, SERVER_REFUSES, UPDATE_CASES, as_stored,
+    PROJECTION_CASES, READ_CASES, SERVER_REFUSES, UPDATE_CASES, as_stored, assert_holds,
 )
 
 
 def _stored(collection, case):
     if case.document is not None:
         collection.insert_one(copy.deepcopy(case.document))
-
-
-def _assert_holds(collection, case):
-    """The collection holds the case's document after, and only it."""
-    held = list(collection.find({}))
-    if case.after is SERVER_REFUSES:
-        assert as_stored(held) == as_stored([case.document] if case.document else [])
-        return
-    assert len(held) == 1
-    [document] = held
-    if "_id" not in case.after:
-        made = document.pop("_id")
-        assert isinstance(made, ObjectId)
-    ordered = not case.upserted
-    assert as_stored(document, ordered) == as_stored(case.after, ordered)
 
 
 @pytest.mark.parametrize("case", UPDATE_CASES, ids=[case.name for case in UPDATE_CASES])
@@ -43,13 +28,13 @@ def test_update_one_answers_as_the_table(case, real_db):
     if case.after is SERVER_REFUSES:
         with pytest.raises(OperationFailure):
             collection.update_one(case.the_filter, case.update, upsert=case.upsert)
-        _assert_holds(collection, case)
+        assert_holds(collection, case)
         return
     result = collection.update_one(case.the_filter, case.update, upsert=case.upsert)
 
     assert (result.matched_count, result.modified_count) == (case.matched, case.modified)
     assert (result.upserted_id is not None) == case.upserted
-    _assert_holds(collection, case)
+    assert_holds(collection, case)
 
 
 @pytest.mark.parametrize("case", UPDATE_CASES, ids=[case.name for case in UPDATE_CASES])
@@ -60,12 +45,12 @@ def test_find_one_and_update_answers_as_the_table(case, real_db):
     if case.after is SERVER_REFUSES:
         with pytest.raises(OperationFailure):
             collection.find_one_and_update(case.the_filter, case.update, upsert=case.upsert)
-        _assert_holds(collection, case)
+        assert_holds(collection, case)
         return
     before = collection.find_one_and_update(case.the_filter, case.update, upsert=case.upsert)
 
     assert as_stored(before) == as_stored(case.document if case.matched else None)
-    _assert_holds(collection, case)
+    assert_holds(collection, case)
 
     collection.delete_many({})
     _stored(collection, case)
@@ -74,7 +59,7 @@ def test_find_one_and_update_answers_as_the_table(case, real_db):
 
     assert as_stored(returned) == as_stored(
         collection.find_one({}) if case.matched or case.upserted else None)
-    _assert_holds(collection, case)
+    assert_holds(collection, case)
 
 
 @pytest.mark.parametrize("case", READ_CASES, ids=[case.name for case in READ_CASES])

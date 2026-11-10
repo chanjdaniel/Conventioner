@@ -12,8 +12,8 @@ import uuid
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple
 
 import db_config
+from conftest import BACK_END_DIR
 
-BACK_END_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TESTS_DIR = os.path.join(BACK_END_DIR, "tests")
 
 URI_VARIABLE = "REAL_MONGODB_URI"
@@ -25,9 +25,6 @@ REQUIRED_BUT_NOT_SET = "REAL_MONGODB_REQUIRED is set but REAL_MONGODB_URI is not
 #: Every database a test makes is named this and 12 hex characters, and only such a database it made
 #: is ever written or dropped.
 DATABASE_PREFIX = "real_mongo_"
-
-_TRUTHY = ("true", "1")
-
 
 class Server(NamedTuple):
     """What the environment asks of the suite: ``uri`` to run on, else why it skips or fails."""
@@ -69,7 +66,7 @@ def the_server(environ=None) -> Server:
     environ = os.environ if environ is None else environ
     uri = (environ.get(URI_VARIABLE) or "").strip()
     if not uri:
-        if (environ.get(REQUIRED_VARIABLE) or "").strip().lower() in _TRUTHY:
+        if (environ.get(REQUIRED_VARIABLE) or "").strip().lower() in db_config._TRUTHY:
             return Server(fail=REQUIRED_BUT_NOT_SET)
         return Server(skip=NOT_SET)
     refusal = server_refusal(uri)
@@ -187,14 +184,13 @@ def stray_handles(db, modules=None) -> List[str]:
 
 
 def bind_handles(db, monkeypatch, stand_ins: Optional[Dict[Tuple[str, str], Any]] = None,
-                 modules=None) -> int:
+                 modules=None) -> None:
     """Bind every handle of every loaded back-end module to ``db``, through ``monkeypatch``.
 
     ``stand_ins`` maps ``(module, attribute)`` to the value a fake replaced at import (the shared
     conftest's ``IMPORT_TIME_STAND_INS``): each is put back first, so it is bound like any other.
     Every binding is a ``monkeypatch.setattr``, so each attribute returns to its import-time value
-    after the test. Raises when a handle or a test's stand-in is left over. Returns how many
-    attributes it bound.
+    after the test. Raises when a handle or a test's stand-in is left over.
     """
     for (module_name, attribute), original in (stand_ins or {}).items():
         monkeypatch.setattr(sys.modules[module_name], attribute, original)
@@ -202,17 +198,14 @@ def bind_handles(db, monkeypatch, stand_ins: Optional[Dict[Tuple[str, str], Any]
     # The walk replaces ``db_config.get_database`` itself, so it is compared against the one read
     # before any module is walked.
     get_database = db_config.get_database
-    bound = 0
     for module in modules:
         for attribute, value in list(vars(module).items()):
             is_handle, replacement = bound_value(value, db, get_database)
             if is_handle:
                 monkeypatch.setattr(module, attribute, replacement)
-                bound += 1
     stray = stray_handles(db, modules)
     if stray:
         raise AssertionError(f"Left unbound to {db.name}: {', '.join(stray)}")
-    return bound
 
 
 # --- The boot's indexes --------------------------------------------------------------------------

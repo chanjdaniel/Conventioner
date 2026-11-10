@@ -447,8 +447,10 @@ def _refuse(what: str):
 def mongo_matches(doc: dict, query: dict) -> bool:
     """Evaluate a Mongo filter as MongoDB 8.0 does, or refuse it with ``UnmodelledQuery``.
 
-    Every shared fake of this file finds documents through this, since a fake that ignores its
-    filter passes a document the server would never have handed back. It models ``$eq``, ``$ne``,
+    The applications fake, the markets fakes and the organizations fake find documents through
+    this, since a fake that ignores its filter passes a document the server would never have
+    handed back; the attempts, templates and GridFS fakes look a document up by its key or by
+    plain equality, and the tables do not check them. It models ``$eq``, ``$ne``,
     ``$gt``, ``$gte``, ``$lt``, ``$lte``, ``$in``, ``$nin``, ``$exists``, ``$size``,
     ``$type: "object"``, ``$and``, ``$or`` and ``$nor``; dotted paths through sub-documents and
     through lists, to any element and by a numeric index; a value, ``$in``, ``$ne`` and ``$nin``
@@ -541,7 +543,7 @@ def _meets(leaves: list, operator: str, operand) -> bool:
     if operator == "$exists":
         return bool(operand) == any(leaf is not _MISSING for leaf in leaves)
     if operator == "$size":
-        if not _is_number(operand) or operand != int(operand):
+        if not _is_number(operand) or operand != int(operand) or operand < 0:
             _refuse(f"'$size' of {operand!r}")
         return any(isinstance(leaf, list) and len(leaf) == operand for leaf in leaves)
     if operator == "$type":
@@ -668,9 +670,10 @@ def mongo_update(doc: dict, update: dict, inserting: bool = False) -> dict:
     ``$push``'s ``$slice`` and ``$position``, ``$pull`` of an operator condition) is refused,
     naming it.
 
-    Every shared fake that writes goes through this, so a fake's update is the one checked by
-    ``tests/mongo_cases.py``'s ``UPDATE_CASES``, hermetically and against the server; a change
-    here comes with its cases there.
+    The applications fake and the markets fakes write through this, so their update is the one
+    checked by ``tests/mongo_cases.py``'s ``UPDATE_CASES``, hermetically and against the server; a
+    change here comes with its cases there. The attempts and templates fakes apply their ``$inc``
+    or ``$set`` by hand, and the table does not check them.
     """
     reject_malformed_update(update)
     if not any(key.startswith("$") for key in update):

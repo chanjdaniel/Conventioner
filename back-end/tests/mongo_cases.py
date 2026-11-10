@@ -1,13 +1,19 @@
 """The cases that check the shared fakes against MongoDB: each a document, an operation, and the
 answer MongoDB 8.0 gives, written down here.
 
-Two tests read this table. ``tests/test_the_shared_matcher.py`` runs every case through the fakes
-of ``tests/conftest.py`` on every run, hermetically, so the gate checks the fakes; and
-``tests/real_mongo/test_the_filter_cases_on_the_server.py`` runs every case through a real server,
-so CI checks the table itself. A case the fakes do not model says which operator they refuse, and
-the hermetic test asserts that refusal; the server test still asserts the server's answer.
+Four tables: ``FILTER_CASES`` (``mongo_matches``), ``UPDATE_CASES`` (``mongo_update``, through
+the fakes' writes), ``READ_CASES`` (``find`` with ``sort`` and ``limit``) and ``PROJECTION_CASES``
+(``mongo_project``). Each is read twice. Hermetically, on every run, so the gate checks the fakes
+of ``tests/conftest.py``: ``tests/test_the_shared_matcher.py`` runs the filters,
+``tests/test_the_shared_applications_fake.py`` the updates, reads and projections through the
+applications fake, and ``tests/test_the_shared_markets_fakes.py`` the updates through the markets
+fakes. Against a real server, so CI checks the tables themselves:
+``tests/real_mongo/test_the_filter_cases_on_the_server.py`` runs the filters and
+``tests/real_mongo/test_the_collection_cases_on_the_server.py`` the other three. A case the fakes
+do not model says what they refuse, and the hermetic tests assert that refusal; the server tests
+still assert the server's answer.
 
-Kept apart from ``conftest.py`` because both tests import it and neither owns it.
+Kept apart from ``conftest.py`` because all five tests import it and none owns it.
 """
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -247,6 +253,10 @@ FILTER_CASES = (
     FilterCase("$size of a sub-document", {"a": {"b": 1}}, {"a": {"$size": 1}}, False),
     FilterCase("$size counts the outer list only", {"a": [[1, 2]]}, {"a": {"$size": 2}}, False),
     FilterCase("$size takes a whole float", {"a": [1, 2]}, {"a": {"$size": 2.0}}, True),
+    FilterCase("$size of a negative", {"a": []}, {"a": {"$size": -1}}, SERVER_REFUSES,
+               fake_refuses="$size"),
+    FilterCase("$size of a fraction", {"a": [1, 2]}, {"a": {"$size": 1.5}}, SERVER_REFUSES,
+               fake_refuses="$size"),
 
     # $type "object".
     FilterCase("$type object finds a sub-document", {"a": {"b": 1}}, {"a": {"$type": "object"}},
@@ -364,6 +374,29 @@ class UpdateCase:
     @property
     def upserted(self) -> bool:
         return self.upsert and self.matched == 0 and self.after is not SERVER_REFUSES
+
+
+def assert_holds(collection, case: UpdateCase):
+    """``collection``, holding ``case``'s document before the update was sent, now holds its
+    document after, and only it; one made by an upsert with the ``ObjectId`` it was given.
+    After an update the server refuses, it still holds the document before.
+
+    The hermetic tests read the fakes through this and the server test reads the server, so the
+    two sides cannot drift in what they assert.
+    """
+    from bson import ObjectId
+
+    held = list(collection.find({}))
+    if case.after is SERVER_REFUSES:
+        assert as_stored(held) == as_stored([case.document] if case.document else [])
+        return
+    assert len(held) == 1
+    [document] = held
+    if "_id" not in case.after:
+        made = document.pop("_id")
+        assert isinstance(made, ObjectId)
+    ordered = not case.upserted
+    assert as_stored(document, ordered) == as_stored(case.after, ordered)
 
 
 def _update(name, document, update, after, modified=1, **rest) -> UpdateCase:

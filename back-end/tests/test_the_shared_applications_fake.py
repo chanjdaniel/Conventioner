@@ -17,7 +17,7 @@ from pymongo.errors import DuplicateKeyError
 
 from conftest import FakeApplicationsCollection, UnmodelledQuery, mongo_project
 from mongo_cases import (
-    PROJECTION_CASES, READ_CASES, SERVER_REFUSES, UPDATE_CASES, as_stored,
+    PROJECTION_CASES, READ_CASES, SERVER_REFUSES, UPDATE_CASES, as_stored, assert_holds,
 )
 
 ANSWERED_UPDATES = [case for case in UPDATE_CASES if case.fake_refuses is None]
@@ -39,18 +39,6 @@ def _holding(case) -> FakeApplicationsCollection:
     return collection
 
 
-def _assert_holds(collection, case):
-    """The fake holds the case's document after, and only it."""
-    held = list(collection.find({}))
-    assert len(held) == 1
-    [document] = held
-    if "_id" not in case.after:
-        made = document.pop("_id")
-        assert isinstance(made, ObjectId)
-    ordered = not case.upserted
-    assert as_stored(document, ordered) == as_stored(case.after, ordered)
-
-
 @pytest.mark.parametrize("case", ANSWERED_UPDATES, ids=_ids(ANSWERED_UPDATES))
 def test_update_one_answers_as_the_server(case):
     assert case.after is not SERVER_REFUSES, "an update the server refuses must be refused here"
@@ -60,7 +48,7 @@ def test_update_one_answers_as_the_server(case):
 
     assert (result.matched_count, result.modified_count) == (case.matched, case.modified)
     assert (result.upserted_id is not None) == case.upserted
-    _assert_holds(collection, case)
+    assert_holds(collection, case)
 
 
 @pytest.mark.parametrize("case", ANSWERED_UPDATES, ids=_ids(ANSWERED_UPDATES))
@@ -70,7 +58,7 @@ def test_find_one_and_update_answers_as_the_server(case):
     before = collection.find_one_and_update(case.the_filter, case.update, upsert=case.upsert)
 
     assert as_stored(before) == as_stored(case.document if case.matched else None)
-    _assert_holds(collection, case)
+    assert_holds(collection, case)
 
     collection = _holding(case)
     returned = collection.find_one_and_update(
@@ -78,7 +66,7 @@ def test_find_one_and_update_answers_as_the_server(case):
 
     assert as_stored(returned) == as_stored(
         collection.find_one({}) if case.matched or case.upserted else None)
-    _assert_holds(collection, case)
+    assert_holds(collection, case)
 
 
 @pytest.mark.parametrize("case", REFUSED_UPDATES, ids=_ids(REFUSED_UPDATES))

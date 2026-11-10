@@ -186,7 +186,9 @@ class TestASignInCodeIsTriedAtMostFiveTimesAndSignsInOnce:
             self, code_sent, race):
         """Ten tries at once, one of them right. Whether the right one is among the five counted,
         and whether it lands before a fifth wrong try spends the code, is the race's to decide; what
-        holds either way is at most one sign-in, at most five tries counted, and a spent code."""
+        holds either way is at most one sign-in, at most five tries counted, and a spent code. With
+        no sign-in, five tries were counted: the right one was never counted, or it was and lost to
+        the fifth wrong one, so a count that stopped early fails here."""
         answered = self._tries(code_sent, [RIGHT_CODE] + [WRONG_CODE] * 9, race)
 
         assert answered.count("signed in") <= 1
@@ -194,6 +196,8 @@ class TestASignInCodeIsTriedAtMostFiveTimesAndSignsInOnce:
         challenge = self._challenge(code_sent)
         assert answered.count("retry") + answered.count("signed in") <= challenge["attempts"]
         assert challenge["attempts"] <= ApplicantAuth.MAX_CODE_ATTEMPTS
+        if "signed in" not in answered:
+            assert challenge["attempts"] == ApplicantAuth.MAX_CODE_ATTEMPTS
         assert challenge["consumed"] is True
 
 
