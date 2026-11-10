@@ -35,7 +35,7 @@ The vendor's request itself is not here: it is their answer on the application, 
 Three routes in [`back-end/app.py`](../../../back-end/app.py) serve it: `GET /markets/:id/vendor-notes` (VIEWER), `PUT /markets/:id/vendor-notes/:email` with `{note}` and `PUT .../request-handled` with `{handled}` (both EDITOR, through the change loader, so an archived market refuses them).
 The read joins each vendor's request in from their application, so the screens get both kinds by address, each under its own key.
 
-On the front end, [`front-end/src/utils/vendorNotes.ts`](../../../front-end/src/utils/vendorNotes.ts) reads a market's notes once per page and re-reads after every write, never patching, as every market write does; [`front-end/src/components/VendorNotes.vue`](../../../front-end/src/components/VendorNotes.vue) is the one disclosure every page draws, its summary marked when anything is inside and at least `--target-min` tall, a thumb's 44px on a phone.
+On the front end, [`front-end/src/utils/vendorNotes.ts`](../../../front-end/src/utils/vendorNotes.ts) reads a market's notes once per page and re-reads after every write, never patching, as every market write does; [`front-end/src/components/VendorNotes.vue`](../../../front-end/src/components/VendorNotes.vue) is the one disclosure every page draws, its summary marked when anything is inside and at least `--target-min` each way, a thumb's 44px on a phone.
 
 ## Sharp edges
 
