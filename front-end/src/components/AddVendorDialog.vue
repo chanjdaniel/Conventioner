@@ -95,6 +95,7 @@ async function add(): Promise<void> {
     testid="add-vendor"
     :confirm-label="busy ? 'Adding…' : 'Add vendor'"
     :confirm-disabled="busy || !ready"
+    :close-disabled="busy"
     :error="error"
     @close="emit('close')"
     @submit="add"

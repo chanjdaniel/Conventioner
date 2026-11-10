@@ -62,12 +62,13 @@ const csvMarket = computed(() => intakeModeOf(props.market) === IntakeMode.Csv);
  */
 const condition = computed(() => {
   switch (props.market?.phase) {
-    // What arrives here, and how: only a form market's applications arrive by themselves; a CSV
-    // market's come in by import (bug 16), and nothing on it suggests vendors apply here. How many
-    // are left to decide is the rail's to say, with the step they hold.
+    // What arrives here, and how: only a form market's applications arrive by themselves. A CSV
+    // market's come in by import (bug 16), which the rail's sentence just above already says
+    // ("Every imported response is here."), so the page says nothing more (T96). How many are left
+    // to decide is the rail's to say, with the step they hold.
     case MarketPhase.Applications:
       return csvMarket.value
-        ? 'Every response you imported from your Google Form is here.'
+        ? ''
         : props.market?.applicationsStopped
           ? 'This market is not taking applications. No new ones will arrive.'
           : 'This market is open for applications. New ones keep arriving here.';

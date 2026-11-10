@@ -11,8 +11,11 @@
  */
 import { computed, ref } from 'vue';
 import ChoiceField from '@/components/ChoiceField.vue';
-import type { PickerGroup } from '@/components/SearchPicker.vue';
+import type { PickerGroup, PickerOption } from '@/components/SearchPicker.vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
+
+/** Always in reach, whatever the words typed: a value can always be set aside (T263). */
+const IGNORE: PickerOption[] = [{ value: IGNORE_VALUE, label: 'Ignore this value' }];
 
 export interface ValueFix {
   target: string;
@@ -91,12 +94,7 @@ function choicesFor({ target, offered }: ValueFix): PickerGroup[] {
   let choices = choiceLists.get(key);
   if (!choices) {
     choices = [
-      {
-        options: [
-          { value: IGNORE_VALUE, label: 'Ignore this value' },
-          ...offered.map((value) => ({ value, label: props.labelFor(target, value) })),
-        ],
-      },
+      { options: offered.map((value) => ({ value, label: props.labelFor(target, value) })) },
     ];
     choiceLists.set(key, choices);
   }
@@ -129,6 +127,7 @@ function choicesFor({ target, offered }: ValueFix): PickerGroup[] {
       <ChoiceField
         :model-value="props.resolutionFor(entry.target, entry.value)"
         :groups="choicesFor(entry)"
+        :leads="IGNORE"
         :whole-count="entry.offered.length"
         :label="`What ${entry.value} means`"
         :name="`${testid}-fix-${entry.target}-${entry.value}`"

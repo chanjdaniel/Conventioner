@@ -125,8 +125,9 @@ const handleSubmit = async () => {
     @submit="handleSubmit"
   >
     <div class="dialog-field">
-      <label class="field-label" for="new-market-org">Organization</label>
-      <ElementOrgSelect id="new-market-org" v-model="selectedOrgId" />
+      <!-- Not a label: with one organization there is no control to tie it to, only its name. -->
+      <span id="new-market-org-label" class="field-label">Organization</span>
+      <ElementOrgSelect labelledby="new-market-org-label" v-model="selectedOrgId" />
     </div>
 
     <div class="dialog-field">

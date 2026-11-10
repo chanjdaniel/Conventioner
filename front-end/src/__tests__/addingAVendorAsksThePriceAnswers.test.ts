@@ -7,8 +7,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import AddVendorDialog from '@/components/AddVendorDialog.vue';
 import type { ApplicationForm } from '@/assets/types/datatypes';
+import { tryEveryClose } from './support/dialogCloses';
 
 const sent: { url: string; body: unknown }[] = [];
+/** A write still out, when a test holds one; otherwise the server answers at once. */
+let held: Promise<unknown> | null = null;
 
 vi.mock('@/utils/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/api')>();
@@ -17,6 +20,7 @@ vi.mock('@/utils/api', async (importOriginal) => {
     api: {
       post: (url: string, body: unknown) => {
         sent.push({ url, body });
+        if (held) return held;
         return Promise.resolve({
           data: { application: { applicantEmail: 'walk.in@example.com' } },
         });
@@ -27,6 +31,7 @@ vi.mock('@/utils/api', async (importOriginal) => {
 
 afterEach(() => {
   sent.length = 0;
+  held = null;
 });
 
 const STUDENT = 'Current Example College student';
@@ -150,6 +155,30 @@ describe('adding a vendor on a market with price groups', () => {
       email: 'walk.in@example.com',
       answers: {},
     });
+    wrapper.unmount();
+  });
+});
+
+describe('adding a vendor, while the write is out', () => {
+  it('nothing closes it, so its refusal is never hidden', async () => {
+    let refuse!: (reason: unknown) => void;
+    held = new Promise((_resolve, reject) => (refuse = reject));
+    const wrapper = dialog([]);
+    await nameAndAddress(wrapper);
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+
+    await tryEveryClose('add-vendor');
+    expect(wrapper.emitted('close')).toBeUndefined();
+
+    refuse(new Error('Network Error'));
+    await flushPromises();
+    // Each of the four closes works again, under the refusal.
+    expect(wrapper.get('[data-testid="add-vendor-error"]').text()).toBe(
+      'The vendor could not be added.',
+    );
+    await tryEveryClose('add-vendor');
+    expect(wrapper.emitted('close')).toHaveLength(4);
     wrapper.unmount();
   });
 });

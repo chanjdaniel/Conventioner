@@ -15,14 +15,11 @@ describes:
   - back-end/utils/proxy.py
   - back-end/utils/captcha.py
   - back-end/utils/email.py
-  - back-end/api/applicant_auth.py#_send_code_email
-  - back-end/tests/test_the_code_mail_carries_only_words.py
   - back-end/tests/test_public_endpoint_defenses.py
   - back-end/tests/test_the_remember_cookie.py
   - back-end/tests/test_the_request_origin_check.py
   - back-end/tests/test_security_headers.py
   - front-end/vite.config.ts#assertCaptchaSiteKey
-  - front-end/vite.config.ts#assertNoLocalHatchOnVercel
   - front-end/vite.config.ts#deployedHeaders
   - front-end/vercel.json
   - front-end/src/__tests__/securityHeaders.test.ts
@@ -32,7 +29,10 @@ describes:
   - scripts/real_data_terms.txt
   - .githooks/
   - back-end/tests/test_every_route_asks.py
-verified: 2026-11-10
+  - back-end/api/applicant_auth.py#_send_code_email
+  - back-end/tests/test_the_code_mail_carries_only_words.py
+  - front-end/vite.config.ts#assertNoLocalHatchOnVercel
+verified: 2026-11-11
 sources:
   - T74
   - T109

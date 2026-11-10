@@ -531,24 +531,12 @@ describe('a capped match list', () => {
       input.focus();
       await field(wrapper).trigger('click');
 
-      expect(shown(wrapper)).toEqual(['a1', 'a2', 'a3']);
+      expect(shown(wrapper)).toEqual(['b4', 'a1', 'a2']);
       expect([input.selectionStart, input.selectionEnd]).toEqual([0, input.value.length]);
       wrapper.unmount();
     });
 
-    it('makes no row active, so Enter keeps the choice rather than taking the first', async () => {
-      const wrapper = capped(3, 'b4');
-      await field(wrapper).trigger('click');
-      expect(field(wrapper).attributes('aria-activedescendant')).toBeUndefined();
-
-      await field(wrapper).trigger('keydown', { key: 'Enter' });
-      expect(wrapper.emitted('update:modelValue')).toBeUndefined();
-      expect(field(wrapper).attributes('aria-expanded')).toBe('false');
-      expect((field(wrapper).element as HTMLInputElement).value).toBe('Birch 4');
-      wrapper.unmount();
-    });
-
-    it('starts the keys at the first row', async () => {
+    it('moves the keys on from it to the first match', async () => {
       const wrapper = capped(3, 'b4');
       await field(wrapper).trigger('click');
       await field(wrapper).trigger('keydown', { key: 'ArrowDown' });
@@ -1487,11 +1475,11 @@ describe("Daniel's choices (T204)", () => {
       wrapper.unmount();
     });
 
-    it('leaves one choice past the cap undrawn: the field names it', async () => {
+    it('draws one choice past the cap first too, as several are', async () => {
       const wrapper = chooser({ modelValue: 'fay', cap: 2 });
       await input(wrapper).trigger('click');
 
-      expect(rows(wrapper)).toEqual(['ana', 'ben']);
+      expect(rows(wrapper)).toEqual(['fay', 'ana']);
       wrapper.unmount();
     });
 
@@ -2675,5 +2663,239 @@ describe('what ChoiceField asks of the picker', () => {
         wrapper.unmount();
       }
     });
+  });
+});
+
+describe('rows that lead whatever the words (T263)', () => {
+  /** Five in the first group and four in the second, and a way out that leads them all. */
+  const GROUPED: PickerGroup[] = [
+    {
+      label: 'Fits this seat',
+      testid: 'fits',
+      options: [1, 2, 3, 4, 5].map((n) => ({ value: `a${n}`, label: `Aster ${n}` })),
+    },
+    {
+      label: 'Added by hand',
+      testid: 'added',
+      options: [1, 2, 3, 4].map((n) => ({ value: `b${n}`, label: `Birch ${n}` })),
+    },
+  ];
+  const IGNORE: PickerOption[] = [{ value: 'ignore', label: 'Ignore this value' }];
+
+  const leading = (props: Record<string, unknown> = {}) => {
+    const wrapper = mount(SearchPicker, {
+      props: {
+        modelValue: '',
+        groups: GROUPED,
+        leads: IGNORE,
+        finds,
+        label: 'What it means',
+        testid: 'who',
+        'onUpdate:modelValue': (value: string | string[]): Promise<void> =>
+          wrapper.setProps({ modelValue: one(value) }),
+        ...props,
+      },
+      attachTo: document.body,
+    });
+    return wrapper;
+  };
+  type Leading = ReturnType<typeof leading>;
+  const input = (wrapper: Leading) => wrapper.get('[data-testid="who-input"]');
+  const activeRow = (wrapper: Leading) => {
+    const id = input(wrapper).attributes('aria-activedescendant');
+    return id ? wrapper.get(`[id="${id}"]`).attributes('data-value') : undefined;
+  };
+  const more = (wrapper: Leading) => wrapper.find('[data-testid="who-more"]');
+
+  it('draws them first, outside the cap and its count', async () => {
+    const wrapper = leading({ cap: 3 });
+    await input(wrapper).trigger('click');
+
+    expect(shown(wrapper)).toEqual(['ignore', 'a1', 'a2', 'a3']);
+    expect(more(wrapper).text()).toBe('6 more, type to narrow');
+    expect(wrapper.get('[data-testid="who-leads"]').text()).toBe('Ignore this value');
+    wrapper.unmount();
+  });
+
+  it('draws them for any words, ahead of what the words find', async () => {
+    const wrapper = leading({ cap: 3 });
+    await input(wrapper).setValue('birch');
+
+    expect(shown(wrapper)).toEqual(['ignore', 'b1', 'b2', 'b3']);
+    expect(more(wrapper).text()).toBe('1 more, type to narrow');
+    wrapper.unmount();
+  });
+
+  it('draws them for words that find nothing else, and the list still says so', async () => {
+    for (const hidesEmptiedGroups of [false, true]) {
+      const wrapper = leading({ groups: [GROUPED[0]!], hidesEmptiedGroups, noneWord: 'Nothing' });
+      await input(wrapper).setValue('zzz');
+
+      expect(shown(wrapper)).toEqual(['ignore']);
+      expect(wrapper.get('[data-testid="who-none"]').text()).toBe('Nothing matches "zzz".');
+      wrapper.unmount();
+    }
+  });
+
+  it('says nothing of a match while no words are typed', async () => {
+    const wrapper = leading({ groups: [GROUPED[0]!] });
+    await input(wrapper).trigger('click');
+
+    expect(wrapper.find('[data-testid="who-none"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('draws them before the words offered as a choice of their own', async () => {
+    const wrapper = leading({ acceptsTyped: true });
+    await input(wrapper).setValue('Cedar');
+
+    expect(shown(wrapper)).toEqual(['ignore', 'Cedar']);
+    expect(wrapper.findAll('[role="option"]').map((row) => row.text())).toEqual([
+      'Ignore this value',
+      'Use "Cedar"',
+    ]);
+    expect(activeRow(wrapper)).toBe('Cedar');
+    wrapper.unmount();
+  });
+
+  it('opened with no words, the keys start on the first of them', async () => {
+    const wrapper = leading();
+    await input(wrapper).trigger('click');
+    expect(activeRow(wrapper)).toBe('ignore');
+
+    await input(wrapper).trigger('keydown', { key: 'Enter' });
+    expect(chosen(wrapper)).toBe('ignore');
+    expect((input(wrapper).element as HTMLInputElement).value).toBe('Ignore this value');
+    wrapper.unmount();
+  });
+
+  it('words start the keys on what they find, so Enter takes that, not a row that leads', async () => {
+    const wrapper = leading({ cap: 3 });
+    await input(wrapper).setValue('birch');
+    expect(activeRow(wrapper)).toBe('b1');
+
+    await input(wrapper).trigger('keydown', { key: 'Enter' });
+    expect(chosen(wrapper)).toBe('b1');
+    wrapper.unmount();
+  });
+
+  it('words that find nothing else make no row active, so Enter takes nothing', async () => {
+    const wrapper = leading();
+    await input(wrapper).setValue('zzz');
+    expect(activeRow(wrapper)).toBeUndefined();
+
+    await input(wrapper).trigger('keydown', { key: 'Enter' });
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).not.toEqual(['ignore']);
+    expect(input(wrapper).attributes('aria-expanded')).toBe('false');
+
+    // The keys still reach it.
+    await input(wrapper).setValue('zzzz');
+    await input(wrapper).trigger('keydown', { key: 'ArrowDown' });
+    expect(activeRow(wrapper)).toBe('ignore');
+    wrapper.unmount();
+  });
+
+  it('words that find a row that leads start the keys on it', async () => {
+    const wrapper = leading();
+    await input(wrapper).setValue('ignore');
+
+    expect(shown(wrapper)).toEqual(['ignore']);
+    expect(activeRow(wrapper)).toBe('ignore');
+    wrapper.unmount();
+  });
+
+  it('held as the choice, the field names it, and reopened it is ticked and active', async () => {
+    const wrapper = leading({ modelValue: 'ignore', holdsChoice: true, cap: 3 });
+    expect((input(wrapper).element as HTMLInputElement).value).toBe('Ignore this value');
+
+    await input(wrapper).trigger('click');
+    expect(wrapper.get('[aria-selected="true"]').attributes('data-value')).toBe('ignore');
+    expect(activeRow(wrapper)).toBe('ignore');
+    wrapper.unmount();
+  });
+
+  it('opens with them alone, when no group has a choice', async () => {
+    const wrapper = leading({ groups: [] });
+    await input(wrapper).trigger('click');
+
+    expect(shown(wrapper)).toEqual(['ignore']);
+    wrapper.unmount();
+  });
+});
+
+describe('one choice held past the cap (T263)', () => {
+  const CAPPED: PickerGroup[] = [
+    {
+      label: 'Fits this seat',
+      testid: 'fits',
+      options: [1, 2, 3, 4, 5].map((n) => ({ value: `a${n}`, label: `Aster ${n}` })),
+    },
+    {
+      label: 'Added by hand',
+      testid: 'added',
+      options: [1, 2, 3, 4].map((n) => ({ value: `b${n}`, label: `Birch ${n}` })),
+    },
+  ];
+  const held = (modelValue: string, props: Record<string, unknown> = {}) => {
+    const wrapper = mount(SearchPicker, {
+      props: {
+        modelValue,
+        groups: CAPPED,
+        finds,
+        cap: 3,
+        label: 'Who sits here',
+        testid: 'who',
+        'onUpdate:modelValue': (value: string | string[]): Promise<void> =>
+          wrapper.setProps({ modelValue: one(value) }),
+        ...props,
+      },
+      attachTo: document.body,
+    });
+    return wrapper;
+  };
+  type Held = ReturnType<typeof held>;
+  const input = (wrapper: Held) => wrapper.get('[data-testid="who-input"]');
+  const activeRow = (wrapper: Held) => {
+    const id = input(wrapper).attributes('aria-activedescendant');
+    return id ? wrapper.get(`[id="${id}"]`).attributes('data-value') : undefined;
+  };
+
+  it('is drawn first, ticked, and the rest fill what the cap leaves', async () => {
+    const wrapper = held('b4');
+    await input(wrapper).trigger('click');
+
+    expect(shown(wrapper)).toEqual(['b4', 'a1', 'a2']);
+    expect(wrapper.get('[aria-selected="true"]').attributes('data-value')).toBe('b4');
+    expect(wrapper.get('[data-testid="who-more"]').text()).toBe('6 more, type to narrow');
+    wrapper.unmount();
+  });
+
+  it('is the active row, so Enter keeps it', async () => {
+    const wrapper = held('b4');
+    await input(wrapper).trigger('click');
+    expect(activeRow(wrapper)).toBe('b4');
+
+    await input(wrapper).trigger('keydown', { key: 'Enter' });
+    expect(wrapper.emitted('update:modelValue')?.every(([value]) => value === 'b4')).toBe(true);
+    expect(input(wrapper).attributes('aria-expanded')).toBe('false');
+    expect((input(wrapper).element as HTMLInputElement).value).toBe('Birch 4');
+    wrapper.unmount();
+  });
+
+  it('holding, leads what the words find too', async () => {
+    const wrapper = held('b4', { holdsChoice: true });
+    await input(wrapper).setValue('birch');
+
+    expect(shown(wrapper)).toEqual(['b4', 'b1', 'b2']);
+    wrapper.unmount();
+  });
+
+  it('let go by the first word, leads nothing', async () => {
+    const wrapper = held('b4');
+    await input(wrapper).setValue('r');
+
+    expect(chosen(wrapper)).toBe('');
+    expect(shown(wrapper)).toEqual(['a1', 'a2', 'a3']);
+    wrapper.unmount();
   });
 });

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { defineComponent, h, nextTick, ref } from 'vue';
 import { mount } from '@vue/test-utils';
 
+import draggable from 'vuedraggable';
 import FormBuilder from '@/components/application/FormBuilder.vue';
 import type { ApplicationForm, ExampleColumn, FormField } from '@/assets/types/datatypes';
 import { applicationFormError } from '@/utils/applicationForm';
@@ -243,6 +244,15 @@ describe('FormBuilder', () => {
     await label.setValue('Tampered');
 
     expect(form.value!.fields[0].label).toBe('Shop');
+  });
+
+  it('says "Add field" in sentence case, on its button and in the empty line', () => {
+    const { wrapper } = mountWithParent({ fields: [] });
+
+    expect(wrapper.get('[data-testid="form-builder-add-field-button"]').text()).toBe('Add field');
+    expect(wrapper.get('[data-testid="form-builder-empty"]').text()).toBe(
+      'No questions of your own yet. Add field adds one.',
+    );
   });
 });
 
@@ -891,5 +901,87 @@ describe('a question whose options fold past 20 (T223)', () => {
     await wrapper.get(FOLD).trigger('click');
     await wrapper.get(USE).trigger('click');
     expect(drawn(wrapper)).toEqual(named(30));
+  });
+
+  /** Two questions, each folded at 20 of its 25 options. */
+  const twoAsked = () => [
+    { ...asked(25), key: 'first', label: 'First', order: 0 },
+    { ...asked(25), key: 'second', label: 'Second', order: 1 },
+  ];
+  const folds = (wrapper: ReturnType<typeof mount>) =>
+    wrapper.findAll(FOLD).map((fold) => fold.text().replace(/ for .*$/, ''));
+
+  it('keeps a fold with its question when the question above it is removed', async () => {
+    const { wrapper, form } = mountWithParent({ fields: twoAsked() });
+
+    await wrapper.findAll(FOLD)[0].trigger('click');
+    expect(folds(wrapper)).toEqual(['Show fewer', 'Show all 25 options']);
+
+    await wrapper.findAll('[data-testid="form-builder-remove-field-button"]')[0].trigger('click');
+
+    expect(form.value!.fields.map((f) => f.key)).toEqual(['second']);
+    expect(folds(wrapper)).toEqual(['Show all 25 options']);
+    expect(drawn(wrapper)).toEqual(named(20));
+  });
+
+  it('keeps a fold with its question when the questions are dragged into a new order', async () => {
+    const { wrapper, form } = mountWithParent({ fields: twoAsked() });
+
+    await wrapper.findAll(FOLD)[0].trigger('click');
+    const list = wrapper.findComponent(draggable);
+    list.vm.$emit('update:modelValue', [...form.value!.fields].reverse());
+    list.vm.$emit('change', { moved: { oldIndex: 0, newIndex: 1 } });
+    await nextTick();
+
+    expect(form.value!.fields.map((f) => f.key)).toEqual(['second', 'first']);
+    expect(folds(wrapper)).toEqual(['Show all 25 options', 'Show fewer']);
+  });
+
+  it('keeps its question id off the form it hands back', async () => {
+    const { wrapper, form } = mountWithParent({ fields: twoAsked() });
+
+    await wrapper.findAll('[data-testid="form-field-label-input"]')[1].setValue('Second, renamed');
+    await wrapper.get('[data-testid="form-builder-add-field-button"]').trigger('click');
+
+    const keys = ['key', 'label', 'type', 'required', 'options', 'helpText', 'order'];
+    for (const field of form.value!.fields) {
+      expect(
+        Object.keys(field).every((key) => keys.includes(key)),
+        Object.keys(field).join(),
+      ).toBe(true);
+      expect(Object.getOwnPropertySymbols(field)).toEqual([]);
+    }
+  });
+
+  it('unfolds a question whose blank option past the fold is what Save refuses', () => {
+    const options = named(25);
+    options[22] = '';
+    const fields = [{ ...asked(25), options }];
+    const { wrapper } = mountWithParent({ fields });
+
+    expect(applicationFormError({ fields })).toBe('Field "What do you sell?" has a blank option.');
+    expect(drawn(wrapper)).toEqual(options);
+    expect(wrapper.get(FOLD).text()).toContain('Show fewer');
+  });
+
+  it('unfolds the next question Save refuses for a blank option, once the first is mended', async () => {
+    const [first, second] = twoAsked();
+    const firstOptions = named(25);
+    firstOptions[3] = '';
+    const secondOptions = named(25);
+    secondOptions[21] = '';
+    const { wrapper } = mountWithParent({
+      fields: [
+        { ...first, options: firstOptions },
+        { ...second, options: secondOptions },
+      ],
+    });
+    // The first one's blank row is above its fold, so nothing unfolds for it.
+    expect(folds(wrapper)).toEqual(['Show all 25 options', 'Show all 25 options']);
+
+    await wrapper.findAll(INPUT)[3].setValue('Answer 4');
+
+    expect(folds(wrapper)).toEqual(['Show all 25 options', 'Show fewer']);
+    expect(drawn(wrapper).slice(20)).toEqual(secondOptions);
   });
 });
