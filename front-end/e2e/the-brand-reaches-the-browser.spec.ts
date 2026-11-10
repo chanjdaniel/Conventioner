@@ -3,11 +3,11 @@ import { test, expect } from './fixtures';
 
 /**
  * The Conventioner mark reaches the browser (T212): the tab's icons, the phone's home screen icons
- * and the banner's logo all answer as the files they are.
+ * and the app bar's logo all answer as the files they are.
  *
  * A file missing from `public/` falls through to `index.html`, which answers 200 with `text/html`,
  * so a status alone would pass it: each icon must also carry an image content type, and the manifest
- * must parse. The banner renders on `/login`, so none of this needs a sign-in.
+ * must parse. The app bar renders on `/login`, so none of this needs a sign-in.
  */
 
 /** The head's links of each kind, as a browser would resolve them. */
@@ -27,7 +27,7 @@ async function expectAnImage(page: Page, href: string) {
   expect(response.headers()['content-type'], `${href} is an image`).toMatch(/^image\//);
 }
 
-test('every icon, the manifest and the banner logo reach a browser with no sign-in', async ({
+test('every icon, the manifest and the logo in the app bar reach a browser with no sign-in', async ({
   page,
 }) => {
   await page.goto('/login');

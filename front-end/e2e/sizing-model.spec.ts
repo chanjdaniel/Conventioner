@@ -147,18 +147,18 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await page.goto('/login');
 
-    const gapUnderBanner = async () =>
+    const gapUnderAppBar = async () =>
       page.evaluate(() => {
-        const banner = document.querySelector('.app-container > header') as HTMLElement;
+        const appBar = document.querySelector('.app-container > header') as HTMLElement;
         const title = document.querySelector('[data-testid="market-bar-title"]') as HTMLElement;
         const card = title.closest('[data-testid="market-frame-card"]') as HTMLElement;
-        return Math.round(card.getBoundingClientRect().top - banner.getBoundingClientRect().bottom);
+        return Math.round(card.getBoundingClientRect().top - appBar.getBoundingClientRect().bottom);
       });
 
     for (const tab of ['applications', 'setup', 'form', 'settings']) {
       await page.goto(marketSetupPath(draft.marketId, tab));
       await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
-      expect(await gapUnderBanner(), `the ${tab} tab is not at the top`).toBe(0);
+      expect(await gapUnderAppBar(), `the ${tab} tab is not at the top`).toBe(0);
     }
   });
 

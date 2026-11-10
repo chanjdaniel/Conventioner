@@ -539,7 +539,7 @@ export function detectLayout(opts: DetectOptions): Finding[] {
   return findings;
 }
 
-/** px, the most of a phone's window the banner and a market's pinned frame may take (T142). */
+/** px, the most of a phone's window the app bar and a market's pinned frame may take (T142). */
 export const PINNED_MAX = 150;
 
 /** The bottom of what stays pinned at the window's top, and the element whose bottom it is. */
