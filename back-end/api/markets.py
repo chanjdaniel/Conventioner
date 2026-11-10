@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import unicodedata
 import uuid
 from typing import Any, Callable, Dict, Iterable, List, Mapping, NamedTuple, Optional, Tuple
 from pymongo.errors import DuplicateKeyError
@@ -1328,7 +1329,7 @@ def create_market(market: Market, owner_email: str) -> tuple:
     market_dict["id"] = market_id
     market_dict = convert_keys_to_camel_case(market_dict)
     
-    refusal = public_address_refusal(market.name)
+    refusal = market_name_refusal(market.name) or public_address_refusal(market.name)
     if refusal:
         raise BadRequestError(refusal)
     
@@ -1356,6 +1357,30 @@ def _organization_default_rows(organization_id: Optional[str]) -> Dict[str, Dict
     organization = OrgsApi.get_organization(organization_id) if organization_id else None
     rows = Actions.organization_rows((organization or {}).get(OrgsApi.DEFAULT_PERMISSIONS))
     return {row_id: held.model_dump() for row_id, held in rows.items()}
+
+
+MARKET_NAME_MAX = 100
+
+
+def market_name_refusal(name: str) -> Optional[str]:
+    """Why no market may be called this, in words for the organizer, or None when it may (T273).
+
+    The name is the market's heading on every screen and its words in the vendor's sign-in code
+    mail, so it is something, at most ``MARKET_NAME_MAX`` characters (code points, as ``len``
+    counts; a browser's ``maxlength`` counts UTF-16 units, so it is never looser), and on one line.
+    Blank and the length are judged with the ends trimmed, as a rename stores it; a control
+    character (a line break, a tab) is refused anywhere in the name as sent, since a create stores
+    the name as given. Asked only by a create and a rename: a name stored before the rule still
+    loads, lists and is mailed, escaped and on one line (``utils.email.one_line``).
+    """
+    trimmed = (name or "").strip()
+    if not trimmed:
+        return "A market needs a name."
+    if any(unicodedata.category(character) == "Cc" for character in name):
+        return "A market's name must be on one line."
+    if len(trimmed) > MARKET_NAME_MAX:
+        return f"A market's name can be at most {MARKET_NAME_MAX} characters."
+    return None
 
 
 def public_address_refusal(name: str, market_id: Optional[str] = None) -> Optional[str]:
@@ -2562,9 +2587,10 @@ def rename_market(market_id: str, name: str, requesting_user: str) -> None:
     Its own write - the whole-market PUT that used to carry it is gone - carrying only the name, and
     held to the same public-address rule as creation. Asks ``Actions.CHANGE_SETUP``.
     """
-    name = (name or "").strip()
-    if not name:
-        raise BadRequestError("A market needs a name.")
+    refusal = market_name_refusal(name)
+    if refusal:
+        raise BadRequestError(refusal)
+    name = name.strip()
 
     market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_SETUP)
     if market.phase is not MarketPhase.DRAFT:
