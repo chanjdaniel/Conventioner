@@ -367,7 +367,7 @@ class TestAnAmountSetAsTheFreeWrites:
 
         def refused(query, update, upsert=False, **kwargs):
             day = {key: query[key] for key in ("market_id", "vendor_email", "date")}
-            if upsert and owed._find(query) is None and owed._find(day) is not None:
+            if upsert and owed._first(query) is None and owed._first(day) is not None:
                 raise DuplicateKeyError("E11000 duplicate key error", code=11000)
             return write(query, update, upsert=upsert, **kwargs)
 

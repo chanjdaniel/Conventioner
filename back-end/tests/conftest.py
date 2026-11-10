@@ -1179,6 +1179,10 @@ def market_records(monkeypatch):
         placement_history=FakeApplicationsCollection(), payments=FakeApplicationsCollection(),
         amounts_owed=FakeApplicationsCollection(), images=FakeGridFS(),
     )
+    # The boot builds these three's unique indexes (T270), so a test that runs app.py afresh
+    # builds against them: none stands yet.
+    for built_at_boot in (fakes.attendance, fakes.payments, fakes.amounts_owed):
+        built_at_boot.index_information = lambda: {}
     monkeypatch.setattr(GridfsService, "_fs", fakes.images)
     monkeypatch.setattr(Payments, "payments_collection", fakes.payments)
     monkeypatch.setattr(Payments, "amounts_owed_collection", fakes.amounts_owed)
@@ -1439,7 +1443,7 @@ if not STUBBED_MODULES:
 
     _attendance_fake = FakeApplicationsCollection()
     _attendance_fake.index_information = lambda: {}
-    _attendance_module.attendance_collection = _attendance_fake
+    _stand_in(_attendance_module, "attendance_collection", _attendance_fake)
 
     # And what vendors owe and paid, whose unique vendor-day and request-key indexes the boot
     # builds (T270).
@@ -1447,10 +1451,10 @@ if not STUBBED_MODULES:
 
     _amounts_owed_fake = FakeApplicationsCollection()
     _amounts_owed_fake.index_information = lambda: {}
-    _payments_module.amounts_owed_collection = _amounts_owed_fake
+    _stand_in(_payments_module, "amounts_owed_collection", _amounts_owed_fake)
     _payments_fake = FakeApplicationsCollection()
     _payments_fake.index_information = lambda: {}
-    _payments_module.payments_collection = _payments_fake
+    _stand_in(_payments_module, "payments_collection", _payments_fake)
 
 
 def a_solver_vendor(application_id: str = "app-1", **overrides):
