@@ -134,10 +134,11 @@ A payment's or a refund's body is `PaymentEntry` in [`back-end/datatypes.py`](..
 ### One vendor's day is one owed record, by the database
 
 The one `amounts_owed` document per vendor's day is the database's to hold, not the upserts' (T270).
-The freed line (`keep_freed_line`) and an amount set by hand (`set_amount_owed`) are each an upsert by market, vendor and date, and two that land at once on a day with no record can both insert: without the index an Admin setting the amount as an Editor freed the seat could leave two records, and whichever the server found first won, so the amount set did not stick or the freed line was lost.
+An amount set by hand (`set_amount_owed`) is an upsert by market, vendor and date, and so is the freed line (`keep_freed_line`) on a day with no record yet, and two that land at once on a day with no record can both insert: without the index an Admin setting the amount as an Editor freed the seat could leave two records, and whichever the server found first won, so the amount set did not stick or the freed line was lost.
 
 - `ensure_payment_indexes` builds `amounts_owed_vendor_day_unique`, unique on `(market_id, vendor_email, date)`, through [`unique_indexes.py`](../../../back-end/unique_indexes.py), and `app.py`'s `verify_payment_indexes` refuses to boot without it, naming any duplicates by market id, date and record id, never by address ([OPERATIONS.md](../../OPERATIONS.md#when-the-back-end-refuses-to-boot)).
-- Both upserts go through `_upsert_owed`, which runs once more on a `DuplicateKeyError` and so lands on the winner's record: the day holds what each wrote; a second refusal goes on as the error it is.
+- `set_amount_owed`'s upsert goes through `_upsert_owed`, which runs once more on a `DuplicateKeyError` and so lands on the winner's record: the day holds what each wrote; a second refusal goes on as the error it is.
+- A free's write, refused the same way, reads the day again and writes held to the amount by hand it now reads, as [freeing a table asks](#the-amount-owed-per-table-day) says, so the Admin's amount that won is kept as `replaced` or left standing; a second refusal goes on as the error it is too.
 - The index's prefix serves a vendor's days and a market's, so `amounts_owed` has no lookup index of its own; a database that already held the old `(market_id, vendor_email)` one keeps it, which is harmless.
 
 ### A payment is recorded once per press

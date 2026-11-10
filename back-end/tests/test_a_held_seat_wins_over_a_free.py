@@ -398,8 +398,9 @@ class TestAnAmountSetAsTheFreeWrites:
         PlacementsApi.write_placement(MARKET, seat(SUN), ADMIN)
         assert (line(SUN)["owedCents"], line(SUN)["owedSetBy"]) == (5000, ADMIN)
 
+    @pytest.mark.parametrize("deduct_owed", [False, True])
     def test_an_amount_that_keeps_changing_frees_nothing_and_says_so(
-            self, admin, stores, monkeypatch):  # noqa: F811
+            self, admin, stores, monkeypatch, deduct_owed):  # noqa: F811
         PaymentsApi.set_amount_owed(MARKET, ANA, SUN, {"cents": 4000}, ADMIN)
         recorded = entries(stores, "change-owed")
         read = stores.owed.find_one
@@ -413,7 +414,7 @@ class TestAnAmountSetAsTheFreeWrites:
         monkeypatch.setattr(stores.owed, "find_one", read_then_set, raising=False)
 
         with pytest.raises(ConflictError) as refused:
-            PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR, deduct_owed=True)
+            PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR, deduct_owed=deduct_owed)
 
         assert refused.value.message == PaymentsApi.OWED_CHANGED_UNDER_FREE
         monkeypatch.setattr(stores.owed, "find_one", read)
