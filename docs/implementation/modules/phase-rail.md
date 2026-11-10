@@ -5,7 +5,7 @@ describes:
   - front-end/src/components/PhaseRail.vue
   - front-end/src/components/market/OpenApplicationsDialog.vue
   - front-end/src/utils/phase.ts
-verified: 2026-11-06
+verified: 2026-11-10
 sources:
   - wayfinding/claims-and-room/07
   - wayfinding/readable-journey/01
@@ -35,6 +35,7 @@ sources:
   - T206
   - T217
   - T214
+  - T260
 ---
 
 # The phase rail
@@ -107,6 +108,7 @@ Without a complete record (`phaseRecordComplete: false`) the rail says only what
 
 **The addresses give way, and the rail's end travels as one piece.**
 On a desk an address chip is the one flexible part of the row: it drops the scheme every address shares and ellipses the rest, so the part naming the market shows, while the link, its hover text and Copy keep the whole address.
+Copy stands at the chip's end at every width (`margin-left: auto`), so a chip wider than its words, an 18rem floor round a short address or a phone's half row, leaves its room between the address and Copy; with a short address it stood mid-chip (T260), which `the-rail-addresses.spec.ts` holds at 1280 and 390.
 The addresses and the moves are one item of the row; where the row cannot hold them beside the spine, they take a second row together, addresses at its start and moves at its end, rather than leaving one button alone beside an empty band.
 When the address shows is [a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md) for the vendor page ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)).
 
