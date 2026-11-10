@@ -5,14 +5,16 @@ the HTTP status and the copy our code wrote. Copy is a literal, or a sentence ou
 values it chose (a field's label, a market's name, a phase); it is never ``str()`` of an exception,
 nor a library's message wrapped in our sentence.
 
-Anything else that escapes a route is the server's fault. It is logged once, with its traceback,
-and answered ``{"error": "Internal server error"}``, 500 - never its text, its type or where it was
-raised, because that is noise to an organizer.
+Anything else that escapes a route is the server's fault. It is logged once, by its type and its
+stack frames and those of each exception it was chained from, never a message, and answered
+``{"error": "Internal server error"}``, 500 - never its text, its type or where it was raised,
+because that is noise to an organizer.
 
 The rule, the types and what breaks it: docs/implementation/conventions/an-exception-never-reaches-a-client.md.
 """
 import logging
-from typing import Any, Dict, Tuple
+import traceback
+from typing import Any, Dict, List, Tuple
 
 from flask import Flask, Response, jsonify, request
 from pydantic import ValidationError
@@ -111,11 +113,53 @@ def answer_unexpected(error: Exception) -> HTTPException | Tuple[Response, int]:
         for name in _LOGGED_VIEW_ARGS
         if request.view_args and name in request.view_args
     )
-    logger.exception(
-        "Unexpected exception answering %s %s%s", request.method, request.endpoint, concerning,
-        exc_info=error,
+    logger.error(
+        "Unexpected exception answering %s %s%s\n%s", request.method, request.endpoint, concerning,
+        traceback_without_messages(error),
     )
     return jsonify({"error": INTERNAL_SERVER_ERROR}), 500
+
+
+_CAUSE = "\n\nThe above exception was the direct cause of the following exception:\n\n"
+_CONTEXT = "\n\nDuring handling of the above exception, another exception occurred:\n\n"
+
+
+def traceback_without_messages(error: BaseException) -> str:
+    """``error``'s traceback as Python prints it, its causes first, with each exception's qualified
+    type where Python prints the type and the message.
+
+    A message, a note (``add_note``) or ``args`` may quote what a library was given, an applicant's
+    address among it, so none is read. A frame's source line is our code, never a value.
+    """
+    parts: List[str] = []  # the newest exception first, reversed on the way out
+    seen = set()
+    current = error
+    while True:
+        seen.add(id(current))
+        parts.append(_traceback_block(current))
+        if current.__cause__ is not None:
+            link, older = _CAUSE, current.__cause__
+        elif current.__context__ is not None and not current.__suppress_context__:
+            link, older = _CONTEXT, current.__context__
+        else:
+            break
+        if id(older) in seen:
+            break
+        parts.append(link)
+        current = older
+    return "".join(reversed(parts))
+
+
+def _traceback_block(error: BaseException) -> str:
+    kind = type(error)
+    qualified = (
+        kind.__qualname__ if kind.__module__ in ("builtins", "__main__")
+        else f"{kind.__module__}.{kind.__qualname__}"
+    )
+    if error.__traceback__ is None:
+        return qualified
+    frames = "".join(traceback.extract_tb(error.__traceback__).format())
+    return f"Traceback (most recent call last):\n{frames}{qualified}"
 
 
 def install_error_answers(app: Flask) -> None:
