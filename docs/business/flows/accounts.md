@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-11-09
+verified: 2026-11-10
 sources:
   - E26/F01/S01
   - E32/F03/S04
@@ -20,6 +20,7 @@ sources:
   - T211
   - T251
   - E47/F02/S01
+  - T263
 ---
 
 # Accounts
@@ -33,7 +34,7 @@ An account is one email address: an address differing only in case or spacing is
 
 ## A1. Register and verify an organizer account
 
-**Status:** Works; a signed-out person sees the confirmation at step 4 since bug 22 was fixed (`auth.spec.ts`, `account-links.spec.ts`), and since E32/F03/S04 a double click or a race makes one account and one email (`a-signup-is-sent-once.spec.ts`).
+**Status:** Works; a signed-out person sees the confirmation at step 4 since bug 22 was fixed (`auth.spec.ts`, `account-links.spec.ts`), and since E32/F03/S04 a double click makes one account and one email, and two sign-ups racing for one address make one account (`a-signup-is-sent-once.spec.ts`).
 Steps 1 to 3 walked live as far as reCAPTCHA allows (the slot-1 stack has real keys and refuses automated browsers).
 **Task:** "Create an account for yourself."
 
@@ -44,6 +45,8 @@ Steps 1 to 3 walked live as far as reCAPTCHA allows (the slot-1 stack has real k
 5. Sign in (A2).
 
 Branches: mismatched passwords ("Passwords do not match"), short password, a password too long, an email already registered, an expired or reused link, asking too often.
+
+- An email already registered says what a new one says at step 3, after the same checks, and makes no account: the account's owner is emailed "You already have a Conventioner account", with a link to sign in and one to reset the password, and nothing about the account changes ([a sign-up answers alike](../../implementation/data/users-and-email.md#a-sign-up-answers-alike)).
 
 - A password longer than 72 bytes, which may be fewer than 72 characters since an accented letter or an emoji takes more than one, says "That password is too long. Use 72 characters or fewer; an accented letter or an emoji counts as more than one." and makes no account ([a password longer than 72 bytes](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
 

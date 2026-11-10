@@ -13,7 +13,9 @@ from utils.tokens import (
     generate_verification_token, generate_reset_token, generate_otp,
     get_token_expiry, get_otp_expiry, verify_token_expiry
 )
-from utils.email import send_verification_email, send_password_reset_email, send_otp_email
+from utils.email import (
+    send_account_exists_email, send_verification_email, send_password_reset_email, send_otp_email
+)
 from utils.captcha import verify_recaptcha
 from datetime import datetime, timedelta, timezone
 from pymongo import ReturnDocument
@@ -386,8 +388,30 @@ def get_user(email):
         return AuthUser(User(**user_doc))
     return None
 
-def _already_exists():
-    return jsonify({"msg": "User already exists"}), 400
+
+#: What a sign-up the checks pass answers, whether or not its address has an account.
+SIGNED_UP = "User registered successfully. Please check your email to verify your account."
+#: What a sign-up whose email was not sent answers, whether or not its address has an account.
+SIGN_UP_SEND_FAILED = ("Registration failed: Unable to send verification email. Please check your "
+                       "email configuration or contact support.")
+
+
+def _signed_up():
+    return jsonify({"msg": SIGNED_UP}), 201
+
+
+def _sign_up_send_failed():
+    return jsonify({"msg": SIGN_UP_SEND_FAILED, "error": "email_send_failed"}), 500
+
+
+def _answer_a_taken_address(email: str):
+    """A sign-up for an address that has an account: the account's owner is told by email.
+
+    It answers as a new address's sign-up does, sent or not, and changes nothing on the account.
+    """
+    if not send_account_exists_email(email):
+        return _sign_up_send_failed()
+    return _signed_up()
 
 
 def _insert_unless_taken(user_doc: dict):
@@ -443,7 +467,14 @@ def check_session(current_user):
 
 def register_user_with_captcha(bcrypt):
     """Register a new user with CAPTCHA verification, bounded per caller and per address
-    (``_Bounds``) before the captcha is checked, so a refused sign-up spends no check."""
+    (``_Bounds``) before the captcha is checked, so a refused sign-up spends no check.
+
+    A sign-up answers alike whether or not its address has an account: the address's format and
+    the password's rules are checked before the account is looked up, the password is hashed
+    either way, and the answer is the same. A new address is sent its verification link; an
+    address with an account, found by the lookup or by the unique index when a concurrent sign-up
+    took it, is sent one email saying so instead (``_answer_a_taken_address``).
+    """
     now = _limit_clock()
     refused = _SIGN_UP.caller_refusal(now)
     if refused:
@@ -470,11 +501,6 @@ def register_user_with_captcha(bcrypt):
     if not captcha_success:
         return jsonify({"msg": "CAPTCHA verification failed"}), 400
 
-    # Check if user already exists
-    existing_user = users_collection.find_one({"email": email})
-    if existing_user:
-        return _already_exists()
-
     # Validate email format
     if "@" not in email or "." not in email.split("@")[1]:
         return jsonify({"msg": "Invalid email format"}), 400
@@ -485,13 +511,15 @@ def register_user_with_captcha(bcrypt):
     if _longer_than_bcrypt_reads(password):
         return jsonify({"msg": PASSWORD_TOO_LONG}), 400
 
-    # Generate verification token
+    # Hashed before the lookup, so a taken address costs the work a new one does.
+    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+
+    if users_collection.find_one({"email": email}):
+        return _answer_a_taken_address(email)
+
     verification_token = generate_verification_token()
     verification_token_expires = get_token_expiry(hours=1)
 
-    # Hash password
-    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-    
     # Create user document
     user_doc = {
         "id": str(uuid.uuid4()),
@@ -510,22 +538,17 @@ def register_user_with_captcha(bcrypt):
     
     result = _insert_unless_taken(user_doc)
     if result is None:
-        return _already_exists()
-    
+        return _answer_a_taken_address(email)
+
     if result.inserted_id:
         # Send verification email
         email_sent = send_verification_email(email, verification_token)
         if not email_sent:
             # Email failed - rollback user creation to prevent orphaned unverified accounts
             users_collection.delete_one({"_id": result.inserted_id})
-            return jsonify({
-                "msg": "Registration failed: Unable to send verification email. Please check your email configuration or contact support.",
-                "error": "email_send_failed"
-            }), 500
-        
-        return jsonify({
-            "msg": "User registered successfully. Please check your email to verify your account."
-        }), 201
+            return _sign_up_send_failed()
+
+        return _signed_up()
     else:
         return jsonify({"msg": "Failed to register user"}), 500
 

@@ -1,5 +1,6 @@
 """
-Email service integration using Resend for sending verification emails, password reset emails, and OTP emails.
+Email service integration using Resend for sending verification emails, the email telling an
+account's owner that someone signed up with its address, password reset emails, and OTP emails.
 
 Every value this module needs is read from the environment when it is used, never captured into a
 module global on the way up. The key used to be read at import and the client initialized there, and
@@ -218,6 +219,57 @@ def send_verification_email(email: str, token: str) -> bool:
     """
     
     return _send("verification", email, "Verify your email address", html_content, text_content)
+
+
+def send_account_exists_email(email: str) -> bool:
+    """Tell an account's owner that someone signed up with its address, and how to get back in.
+
+    A sign-up for an address that has an account sends this in place of a verification link, and
+    answers as a new address's sign-up does, so the answer says nothing of which addresses have an
+    account. It carries no token: the links are the sign-in page and the page that asks for a reset
+    link, and nothing about the account changes.
+
+    Args:
+        email: The account's address
+
+    Returns:
+        True if email sent successfully, False otherwise
+    """
+    sign_in_url = f"{frontend_url()}/login"
+    reset_url = f"{frontend_url()}/reset-password-request"
+    subject = "You already have a Conventioner account"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{subject}</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #36826f;">{subject}</h1>
+        <p>Someone, maybe you, tried to create a Conventioner account with this email address. You already have one.</p>
+        <p>Sign in: <a href="{sign_in_url}" style="color: #36826f; word-break: break-all;">{sign_in_url}</a></p>
+        <p>Forgot your password? Reset it: <a href="{reset_url}" style="color: #36826f; word-break: break-all;">{reset_url}</a></p>
+        <p style="color: #777474; font-size: 12px; margin-top: 30px;">If this wasn't you, you can ignore this email: nothing about your account has changed.</p>
+    </body>
+    </html>
+    """
+
+    text_content = f"""
+    {subject}
+
+    Someone, maybe you, tried to create a Conventioner account with this email address. You already have one.
+
+    Sign in: {sign_in_url}
+
+    Forgot your password? Reset it: {reset_url}
+
+    If this wasn't you, you can ignore this email: nothing about your account has changed.
+    """
+
+    return _send("existing account", email, subject, html_content, text_content)
 
 
 def send_password_reset_email(email: str, token: str) -> bool:

@@ -637,11 +637,12 @@ def outbox(monkeypatch):
     """Every mail sent, by the address it went to."""
     sent = []
 
-    def sender(to, _secret):
+    def sender(to, *_secret):
         sent.append(to)
         return True
 
-    for name in ("send_otp_email", "send_password_reset_email", "send_verification_email"):
+    for name in ("send_otp_email", "send_password_reset_email", "send_verification_email",
+                 "send_account_exists_email"):
         monkeypatch.setattr(UsersApi, name, sender)
     return sent
 

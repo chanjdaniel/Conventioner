@@ -20,9 +20,11 @@ describes:
   - back-end/api/users.py#_sign_in
   - back-end/api/users.py#reset_password
   - back-end/app.py#verify_user_indexes
+  - back-end/utils/email.py#send_account_exists_email
   - back-end/migrations/migrate_user_emails.py
   - back-end/tests/test_the_remember_cookie.py
   - back-end/tests/test_the_organizer_sign_in_is_bounded.py
+  - back-end/tests/test_one_account_per_address.py
 verified: 2026-11-10
 sources:
   - E32/F03/S04
@@ -34,6 +36,7 @@ sources:
   - T204
   - T251
   - E47/F02/S01
+  - T263
 ---
 
 # Users, and the one spelling of an address
@@ -81,6 +84,23 @@ A password longer than bcrypt reads answers it too, checked against nothing ([th
 `SIGN_IN_WRONG_CODE` answers a wrong code and a code for an address with no account alike for each of the first four tries.
 An account's fifth wrong code discards its code and answers 429 "Too many wrong codes. You can ask for a new code in {wait}." ([a code's tries](#a-codes-tries-are-counted-in-one-update)), which an address with no account, having no code, never answers; the sign-in limits count both alike, and answering the fifth alike too is E47/F01/S01's.
 [`back-end/tests/test_the_sign_in_answers.py`](../../../back-end/tests/test_the_sign_in_answers.py) holds each, and that none says "log in".
+
+## A sign-up answers alike
+
+**A sign-up answers the same whether or not its address has an account** (`register_user_with_captcha`).
+Its checks run in one order, all before any account is looked up: the caller's bound, an address and a password, a captcha token, the address's bound ([the sign-in is bounded](#the-sign-in-is-bounded)), the captcha, the address's format, then the password's rules (at least 8 characters, at most 72 bytes).
+So a taken address with a password too short is refused as a new one is, in the same words.
+The password is hashed next, whether or not the address is taken, so both take about the same time; a taken address's hash is dropped.
+Both then answer 201 "User registered successfully. Please check your email to verify your account." (`SIGNED_UP`).
+
+- A new address is stored and sent its verification link; a failed send takes the account back out and answers 500 with `SIGN_UP_SEND_FAILED` and `"error": "email_send_failed"`.
+- An address with an account is sent one email in its place, and nothing on the account changes (`send_account_exists_email` in [`back-end/utils/email.py`](../../../back-end/utils/email.py)).
+  Its subject is "You already have a Conventioner account"; it says someone, maybe its owner, tried to create an account with the address, links the sign-in page (`/login`) and the page that asks for a reset link (`/reset-password-request`), and says nothing about the account has changed.
+  Its links carry no token, and a failed send answers the same 500.
+- A sign-up that a concurrent one beat to the address, refused by the unique index at the insert ([one address is one account](#one-address-is-one-account)), takes the taken address's path.
+
+The sign-up's per-address bound caps how many of these emails one address is sent: five in 15 minutes.
+[`back-end/tests/test_one_account_per_address.py`](../../../back-end/tests/test_one_account_per_address.py) holds each.
 
 ## The sign-in is bounded
 
@@ -152,7 +172,7 @@ Every writer and lookup of an address goes through it: an organizer's account (r
 Two spellings of one address used to be two accounts, and an account registered with a capital letter could sign in only spelled exactly so.
 
 **The database is the referee**: `ensure_user_indexes()` builds the unique index `user_email` on `users.email`, and [`app.py`](../../../back-end/app.py) refuses to start without it (`verify_user_indexes`).
-Register checks for the address and then inserts, two steps a double click fell between; a losing insert now meets the index and is answered as "User already exists".
+Register checks for the address and then inserts, two steps a double click fell between; a losing insert now meets the index and is answered as a taken address is ([a sign-up answers alike](#a-sign-up-answers-alike)).
 The index is unique over the stored form, so before building it the check refuses any account whose address is not stored lowercased, naming the accounts by id and [`migrations/migrate_user_emails.py`](../../../back-end/migrations/migrate_user_emails.py), which rewrites them.
 When two accounts would share an address, the migration writes nothing and names them by id: which account is kept is the organizer's call, not a migration's.
 Duplicates that stop the index build are named the same way.

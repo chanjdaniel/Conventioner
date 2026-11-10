@@ -9,6 +9,7 @@ so "Dan@example.com" and "dan@example.com" are one account, as `create_account.p
 """
 import os
 import sys
+from html.parser import HTMLParser
 from types import SimpleNamespace
 
 import pytest
@@ -30,6 +31,7 @@ class FakeUsers:
             self.indexes["email_1"] = {"key": [("email", 1)]}
         self.unique = unique
         self.inserted = []
+        self.deleted = []
         self.scanned = False
 
     def index_information(self):
@@ -63,7 +65,17 @@ class FakeUsers:
         return SimpleNamespace(inserted_id=len(self.docs))
 
     def delete_one(self, query):
+        self.deleted.append(query)
         return SimpleNamespace(deleted_count=0)
+
+
+def _words(html: str) -> list:
+    """The words an HTML email reads as, its tags left out."""
+    words = []
+    parser = HTMLParser()
+    parser.handle_data = lambda data: words.extend(data.split())
+    parser.feed(html)
+    return words
 
 
 @pytest.fixture
@@ -81,52 +93,191 @@ class TestAnAddressIsStoredOneWay:
         assert normalized_email(None) == ""
 
 
+#: What every sign-up the checks pass answers, whether or not the address has an account.
+SIGNED_UP = (201, {
+    "msg": "User registered successfully. Please check your email to verify your account."
+})
+
+
 class TestRegistering:
+    """A sign-up answers alike whether or not its address has an account.
+
+    The same checks run in the same order and the password is hashed either way; a new address is
+    sent its verification link, and an address with an account is sent one email saying it has one,
+    with nothing about that account changed.
+    """
+
     @pytest.fixture
     def register(self, monkeypatch):
-        sent = []
+        sent = SimpleNamespace(verification=[], account_exists=[])
+        hashed = []
         monkeypatch.setattr(UsersApi, "verify_recaptcha", lambda *_a: (True, 0.9))
-        monkeypatch.setattr(UsersApi, "send_verification_email", lambda email, _t: sent.append(email) or True)
-        bcrypt = SimpleNamespace(generate_password_hash=lambda p: b"hashed")
+        monkeypatch.setattr(UsersApi, "send_verification_email",
+                            lambda email, _t: sent.verification.append(email) or True)
+        monkeypatch.setattr(UsersApi, "send_account_exists_email",
+                            lambda email: sent.account_exists.append(email) or True)
+        bcrypt = SimpleNamespace(generate_password_hash=lambda p: hashed.append(p) or b"hashed")
 
-        def _register(email):
+        def _register(email, password="longenough"):
             from flask import Flask
             app = Flask(__name__)
             with app.test_request_context(
                 "/register", method="POST",
-                json={"email": email, "password": "longenough", "captcha_token": "t"},
+                json={"email": email, "password": password, "captcha_token": "t"},
             ):
                 response, status = UsersApi.register_user_with_captcha(bcrypt)
-                return response.get_json(), status
+                return status, response.get_json()
         _register.sent = sent
+        _register.hashed = hashed
         return _register
+
+    @pytest.fixture
+    def taken(self, users):
+        """An address with a verified account, every field an account holds set."""
+        collection = users("dan@example.com")
+        collection.docs[0].update({
+            "password": "the-accounts-own-hash", "email_verified": True, "organizations": ["org-1"],
+            "verification_token": None, "password_reset_token": None, "otp": None,
+            "login_id": "the-accounts-login-id",
+        })
+        collection.before = [dict(doc) for doc in collection.docs]
+        return collection
 
     def test_an_address_is_stored_lowercased(self, users, register):
         collection = users()
 
-        _body, status = register("  Dan@Example.com")
+        status, _body = register("  Dan@Example.com")
 
         assert status == 201
         assert collection.inserted[0]["email"] == "dan@example.com"
-        assert register.sent == ["dan@example.com"]
+        assert register.sent.verification == ["dan@example.com"]
 
-    def test_a_second_request_the_check_missed_is_refused_by_the_index(self, users, register, monkeypatch):
+    def test_a_taken_address_answers_as_a_new_one_does(self, users, taken, register):
+        assert register("dan@example.com") == SIGNED_UP
+        assert register("new@example.com") == SIGNED_UP
+
+    def test_a_taken_address_is_sent_one_email_saying_it_has_an_account(
+        self, taken, register,
+    ):
+        register("dan@example.com")
+
+        assert register.sent.account_exists == ["dan@example.com"]
+        assert register.sent.verification == []
+
+    def test_a_taken_address_changes_nothing_on_its_account(self, taken, register):
+        register("dan@example.com")
+
+        assert taken.docs == taken.before
+        assert taken.inserted == []
+        assert taken.deleted == []
+
+    def test_a_taken_address_hashes_the_password_as_a_new_one_does(
+        self, users, taken, register,
+    ):
+        register("dan@example.com")
+        register("new@example.com")
+
+        assert register.hashed == ["longenough", "longenough"]
+
+    def test_another_spelling_of_an_address_is_the_same_account(self, taken, register):
+        assert register("DAN@example.com") == SIGNED_UP
+        assert register.sent.account_exists == ["dan@example.com"]
+        assert taken.inserted == []
+
+    @pytest.mark.parametrize("password, refused", [
+        ("short", "Password must be at least 8 characters long"),
+        ("x" * 73, UsersApi.PASSWORD_TOO_LONG),
+    ], ids=["too-short", "too-long"])
+    def test_a_taken_address_with_a_refused_password_is_refused_as_a_new_one_is(
+        self, users, taken, register, password, refused,
+    ):
+        assert register("dan@example.com", password) == (400, {"msg": refused})
+        assert register("new@example.com", password) == (400, {"msg": refused})
+        assert (register.sent.account_exists, register.sent.verification) == ([], [])
+        assert register.hashed == []
+
+    def test_a_taken_address_with_a_malformed_spelling_is_refused_as_a_new_one_is(
+        self, users, register,
+    ):
+        users("dan@example")
+
+        assert register("dan@example") == (400, {"msg": "Invalid email format"})
+        assert register("new@example") == (400, {"msg": "Invalid email format"})
+        assert register.sent.account_exists == []
+
+    def test_a_failed_send_answers_alike_for_a_taken_address(
+        self, users, taken, register, monkeypatch,
+    ):
+        monkeypatch.setattr(UsersApi, "send_account_exists_email", lambda _email: False)
+        monkeypatch.setattr(UsersApi, "send_verification_email", lambda _email, _t: False)
+
+        taken_answer = register("dan@example.com")
+        new_answer = register("new@example.com")
+
+        assert taken_answer == new_answer
+        assert taken_answer[0] == 500
+        assert taken.docs[:1] == taken.before, "the account is left as it was"
+
+    def test_a_second_request_the_check_missed_answers_as_a_new_one_does(
+        self, users, taken, register, monkeypatch,
+    ):
         """The race: both requests read no account, and the index refuses the second insert."""
-        collection = users("dan@example.com")
-        monkeypatch.setattr(collection, "find_one", lambda _q: None)
+        monkeypatch.setattr(taken, "find_one", lambda _q: None)
 
-        body, status = register("dan@example.com")
+        assert register("dan@example.com") == SIGNED_UP
+        assert register.sent.account_exists == ["dan@example.com"]
+        assert register.sent.verification == []
+        assert taken.docs == taken.before
 
-        assert status == 400
-        assert body["msg"] == "User already exists"
-        assert register.sent == []
+    def test_a_failed_send_after_the_race_answers_as_a_new_one_does(
+        self, users, taken, register, monkeypatch,
+    ):
+        monkeypatch.setattr(taken, "find_one", lambda _q: None)
+        monkeypatch.setattr(UsersApi, "send_account_exists_email", lambda _email: False)
+        monkeypatch.setattr(UsersApi, "send_verification_email", lambda _email, _t: False)
 
-    def test_another_spelling_of_an_address_is_the_same_account(self, users, register):
-        users("dan@example.com")
+        raced = register("dan@example.com")
+        new = register("new@example.com")
 
-        body, status = register("DAN@example.com")
+        assert raced == new
+        assert raced[0] == 500
+        assert taken.docs[:1] == taken.before
 
-        assert (status, body["msg"]) == (400, "User already exists")
+
+class TestTheAccountExistsEmail:
+    """The one email a sign-up for a taken address sends: it has an account, and the way back in."""
+
+    @pytest.fixture
+    def sent(self, monkeypatch):
+        import utils.email as email_mod
+
+        sent = []
+        monkeypatch.setenv("FRONTEND_URL", "https://app.example.com")
+        monkeypatch.setattr(email_mod, "_send", lambda *args: sent.append(args) or True)
+        assert email_mod.send_account_exists_email("dan@example.com") is True
+        [message] = sent
+        return dict(zip(("kind", "to", "subject", "html", "text"), message))
+
+    def test_it_goes_to_the_address_with_its_subject(self, sent):
+        assert sent["to"] == "dan@example.com"
+        assert sent["subject"] == "You already have a Conventioner account"
+
+    @pytest.mark.parametrize("part", ["html", "text"])
+    def test_each_part_says_it_all_with_both_links(self, sent, part):
+        body = " ".join(_words(sent[part]) if part == "html" else sent[part].split())
+
+        for words in (
+            "Someone, maybe you, tried to create a Conventioner account with this email address.",
+            "You already have one.",
+            "Sign in: https://app.example.com/login",
+            "Forgot your password? Reset it: https://app.example.com/reset-password-request",
+            "If this wasn't you, you can ignore this email: nothing about your account has changed.",
+        ):
+            assert words in body
+
+    def test_its_links_are_the_sign_in_and_reset_pages(self, sent):
+        assert 'href="https://app.example.com/login"' in sent["html"]
+        assert 'href="https://app.example.com/reset-password-request"' in sent["html"]
 
 
 class TestTheIndexIsTheReferee:

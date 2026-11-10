@@ -1,9 +1,10 @@
 """What the account emails write to the log: what was sent, and never to whom.
 
-An account's verification link, password reset link and sign-in code each go to the address an
-organizer typed. The log needs to know what was sent and whether it went, not where, so it names the
-email's kind, an exception's type alone and the provider's status code, and never the address, an
-exception's text or the provider's response body, which can each carry the address back.
+An account's verification link, password reset link and sign-in code, and the email telling an
+account's owner that someone signed up with its address, each go to the address an organizer typed.
+The log needs to know what was sent and whether it went, not where, so it names the email's kind,
+an exception's type alone and the provider's status code, and never the address, an exception's
+text or the provider's response body, which can each carry the address back.
 """
 
 from types import SimpleNamespace
@@ -25,6 +26,7 @@ SENDS = [
     (email_mod.send_verification_email, "verification"),
     (email_mod.send_password_reset_email, "password reset"),
     (email_mod.send_otp_email, "sign-in code"),
+    (lambda email, _secret: email_mod.send_account_exists_email(email), "existing account"),
 ]
 
 
