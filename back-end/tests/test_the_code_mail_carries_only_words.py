@@ -25,9 +25,9 @@ import resend
 import utils.email as email_mod
 from market_documents import market_name_slug
 from test_applicant_auth import FakeDatabase, _published_market_doc
+from test_email import A_REAL_KEY
 from utils.email import MAIL_TIMEOUT_SECONDS, one_line
 
-A_REAL_KEY = "re_QYt3bK9wLm2ZpR7vX4nHs6Ja"
 VENDOR = "vendor-words@example.com"
 PHISHING_NAME = 'Spring <a href="https://phish.example">Fair</a>\nBcc: x@example.com'
 
