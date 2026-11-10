@@ -15,7 +15,7 @@ describes:
   - scripts/discord_rest_proof.py
   - front-end/src/utils/discordRoles.ts
   - back-end/datatypes.py#DiscordRoleRun
-verified: 2026-11-08
+verified: 2026-11-10
 sources:
   - T92
   - E46
@@ -29,6 +29,7 @@ sources:
   - T210
   - T217
   - T223
+  - T263
 ---
 
 # The Discord connection
@@ -147,13 +148,13 @@ The market's contract says the same (`DiscordConnectionContract` and `ServedDisc
 The answers are compared as the check matches them, tidied, so a change of case, spaces, a leading `@` or an old tag reads the same member and keeps the state; "No username" had nothing to read, so any username that tidies to something is new, while one that tidies to nothing (" @ ") keeps it (T156 review note 2); any other state an older build kept, without its `answer`, cannot tell, and reads as it was kept.
 The read lists the market's applications for it only once a check has run, and only each one's id and its answer to the username question (`list_applications_with_answers`), never its whole `form_data`.
 The vendor export reads them as the pages do, through `shown_vendors` over the applications it lists: a Discord state filter of all six and a "Discord state" column, beside the username, tidied as the check reads it and offered while the form still asks its question (`asked_username_question`), and the invite link ([export the vendors](../../business/flows/vendors.md#j15-export-the-vendors-to-a-csv), [`vendor_export.py`](../../../back-end/api/vendor_export.py)), each state in the page's words (`STATE_LABELS`, one for each of `SHOWN`).
-After a check the page reads the market again ([one market, from the server](../conventions/one-market-from-the-server.md)), and after a refusal too, since the card may have changed; a refusal is said under the button in the server's words.
+After a check the page reads the market again ([one market, from the server](../conventions/one-market-from-the-server.md)), and after a refusal too, since the card may have changed; a refusal is said on its own line under the row, in the server's words.
 
 ## Possible matches
 
 **A vendor "Not found" is offered the members whose name looks like the username on file** (E46/F01/S05), since a vendor often writes a display name, a real name or a shop's name where the form asks for a username (the 29 unmatched of the March 2025 market, T92).
 The check works them out as it reads the members (`_possible_matches`): a member is offered when their username, display name (Discord's `global_name`) or nickname in this server reads the same as the vendor's answer once both are tidied as a username is, folded (`NFKC`, then case) and kept to their letters and digits (`looks_alike`), so "Maple Crafts", "maple_crafts" and "@MAPLE-crafts" are alike; an answer with no letter or digit offers nobody.
-At most five are offered, in username order, each with the names that looked alike (`DiscordPossibleMatch`), and none that was declined for that vendor; how many more looked alike is kept beside them.
+At most five are offered, in username order, each with its username, display name and nickname (`DiscordPossibleMatch`), one of which looked alike, and none that was declined for that vendor; how many more looked alike is kept beside them.
 
 **An offer is never applied by the check** (Daniel, T92 Q19: never by a display name alone).
 In the vendor's drawer ([`VendorDiscordOffer.vue`](../../../front-end/src/components/VendorDiscordOffer.vue), [the vendor drawer](../../business/flows/vendor-drawer.md)) the lead says how many look alike, "A member whose name looks like it may be them." or "2 members whose names look like it may be them.", counting those past five, which it says are not listed, "And 3 more not shown."; each offered reads "Possible match: <name> @<username>":
@@ -217,7 +218,7 @@ The calls the Discord stories need, each from [Discord's guild resource](https:/
 | Call | What it needs | Used by |
 | --- | --- | --- |
 | Get Current User, `GET /users/@me` | the bot's token | the bot's own id, for its roles |
-| Get Guild Member, `GET /guilds/{guild.id}/members/{user.id}` | the bot in the server | the bot's roles, for the hint |
+| Get Guild Member, `GET /guilds/{guild.id}/members/{user.id}` | the bot in the server | the bot's roles, to mark each role above its highest (`below_bot`) |
 | Get Guild Roles, `GET /guilds/{guild.id}/roles` | the bot in the server | the card's roles |
 | List Guild Members, `GET /guilds/{guild.id}/members` | the `GUILD_MEMBERS` privileged intent | who is in the server (E46/F01/S03) |
 | Add Guild Member Role, `PUT /guilds/{guild.id}/members/{user.id}/roles/{role.id}` | `MANAGE_ROLES`, and a role below the bot's | giving the role (E46/F01/S04) |
@@ -243,7 +244,7 @@ A 403 or 404 from List Guild Members says "can no longer reach this server", as 
 **Declining a possible match is one entry** (`discord_match_declined`, under `update-vendor-info`), and confirming one is the update it is ([possible matches](#possible-matches)).
 **A check is one entry** (`discord_checked`), as an assignment run is, naming each vendor whose state it changed, with their states before and after and their address, each by application id, and how many it found in each; one that changed nobody still records who checked and when.
 **A "Give roles" run is one entry** (`discord_roles_given`), even one that gave nobody the role: the role by its name, the application ids it gave the role, each vendor it gave the role or whose state it changed, with their states before and after and their address, by application id, and how many assigned vendors ended in each outcome ([the market's history](../data/history.md)).
-The history says each in words, by the server's and the role's names and the question's label, never Discord's ids or the question's key (T127 review 6 note 30, [`marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts)).
+The history says each in words, by the server's and the role's names and the question's label, never Discord's ids or the question's key (T127 review 6 note 30, [`historyReaders/discord.ts`](../../../front-end/src/utils/historyReaders/discord.ts)).
 
 ## Why
 

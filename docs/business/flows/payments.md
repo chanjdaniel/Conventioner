@@ -6,10 +6,11 @@ describes:
   - front-end/src/utils/paymentsPage.ts
   - back-end/api/payments.py#market_payments
   - back-end/payments.py#market_summary
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - T92
   - E44/F02/S01
+  - T263
 ---
 
 # Payments
@@ -65,3 +66,5 @@ Covered by:
 - `lists-at-scale.spec.ts` (120 vendors who paid, at 1280 and 390)
 - `the-market-on-a-phone.spec.ts` (the page, its tables' headings and cells as a screen reader reads them, and the drawer of a vendor who owes, on a phone and at a desk)
 - `the-payments-page.spec.ts` (the totals against the sum of the vendors' Payment tabs, each filter and a reload, a vendor freed with the seat taken off what they owe in no filter, the sort in the address, a Viewer, a market with no prices and no filter, its payments reading "Paid $35.00" on the page and the Payment tab and its export offering no payment filter, then an amount set by hand reading "Paid $15.00 more than owed" with the filters back on the page and the export, and the market's money drawn with Paid more than owed $15.00 alone and the caption, which goes once every vendor who paid owes)
+
+Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

@@ -168,7 +168,7 @@ Asked by:
 
 ### Give verdicts and follow-ups (`give-verdicts`)
 
-Default: Editor, or a chosen reviewer the row below lets be chosen.
+Default: Editor, or a chosen reviewer [`review-when-chosen`](#be-chosen-as-a-reviewer-and-then-give-verdicts-and-follow-ups-review-when-chosen) lets be chosen.
 
 Asked by:
 - every review write through `_reviewer_on` (`verdict_refusal`):

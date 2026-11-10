@@ -5,9 +5,10 @@ describes:
   - docker-compose.yml
   - back-end/.env.example
   - front-end/.env.example
-verified: 2026-11-02
+verified: 2026-11-10
 sources:
   - T251
+  - T263
 ---
 
 # Conventioner - Development Startup Guide
@@ -541,11 +542,11 @@ The `docker-compose.yml` defines four services:
   - Credentials: `admin:secret`
 2. **backend**: Flask API server
   - Port: `5001` (HTTPS with adhoc certificate; not 5000, [why](TESTING.md#testing-gotchas))
-  - Hot-reload enabled via volume mount
+  - The code is mounted from `back-end/`, but `flask run` starts without `--debug`, so a back-end change takes a container restart
   - Sessions persisted in a volume
 3. **frontend**: Vue 3 development server
   - Port: `5173`
-  - Hot-reload enabled via volume mount
+  - The code is mounted from `back-end/`, but `flask run` starts without `--debug`, so a back-end change takes a container restart
   - Proxies `/api` requests to backend
 4. **mongo-express**: browser-based database viewer
   - Port: `8081`, basic auth `admin` / `admin`
@@ -559,7 +560,7 @@ Each service publishes its port on `127.0.0.1` only.
 
 **Backend** (set in docker-compose.yml):
 
-- `MONGODB_HOST`: MongoDB service name (default: `mongodb`)
+- `MONGODB_HOST`: MongoDB service name (`mongodb` in compose; the code's default is `127.0.0.1`)
 - `MONGODB_PORT`: MongoDB port (default: `27017`)
 - `MONGODB_USER`: MongoDB username (default: `admin`)
 - `MONGODB_PASSWORD`: MongoDB password (default: `secret`)
@@ -591,7 +592,7 @@ Without an application of your own, `DISCORD_FAKE=true` answers for Discord from
 ### Backend Structure
 
 - **API Routes**: Defined in `back-end/app.py`
-- **API Modules**: `back-end/api/` (users, markets, market_actions, organizations, permissions, applications, applicants, applicant_auth, added_vendors, attendance, door, placements, form_amendment, vendor_export, vendor_info, discord_connection, and the floorplan modules)
+- **API Modules**: `back-end/api/` (users, markets, market_actions, organizations, permissions, applications, applicants, applicant_auth, added_vendors, attendance, door, placements, payments, vendor_check_in, vendor_export, vendor_info, discord_connection, and the floorplan modules)
 - **Assignment Logic**: `back-end/assignment/assignment.py`
 - **Data Types**: `back-end/datatypes.py` (Pydantic models)
 - **Phase Guards**: `back-end/guards.py` (every precondition for every market phase transition)

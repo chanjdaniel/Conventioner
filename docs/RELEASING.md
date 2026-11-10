@@ -10,7 +10,7 @@ describes:
   - back-end/app.py#healthz
   - front-end/vite.config.ts#buildCommit
   - scripts/deploy_proof.py
-verified: 2026-11-09
+verified: 2026-11-10
 sources:
   - T74
   - T254
@@ -102,6 +102,7 @@ No checkout in them keeps git credentials (`persist-credentials: false`).
 
    Merging it changes only the changelog and the manifest, so it needs no deploy.
 6. **Merge `main` back into `dev`**: open a PR from `main` to `dev` and merge it once green.
+   Green there includes `agent-review`, which only the agent team's review sets ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)), and `--admin` cannot pass `dev`'s protection, so the PR waits for that review.
    The release commit exists only on `main`; until `dev` has it, the next promotion is not a fast-forward and is refused.
 
 ### How a deploy proves itself
@@ -156,7 +157,7 @@ Check, in this order:
 `dev` is the hotfix lane, because promotion is a fast-forward: a fix merged to `dev` and promoted ships exactly what CI tested, and nothing else, **as long as nothing else is waiting on `dev`**.
 
 - **When nothing unreleased waits on `dev`:** merge the `fix:` PR to `dev`, promote it as soon as its `dev` push is green, and run the Deploy workflow once its `main` run is green.
-- **When `dev` holds unreleased work:** branch `hotfix/<slug>` from `main`, PR it to `main`, run the Deploy workflow once it is merged and green, and merge `main` back into `dev` so the next promotion is still a fast-forward.
+- **When `dev` holds unreleased work:** branch `hotfix/<slug>` from `main`, PR it to `main`, run the Deploy workflow once it is merged and green, and merge `main` back into `dev` so the next promotion is still a fast-forward; that PR into `dev` needs the agent team's review to set `agent-review` ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)).
 - **Weigh a migration in a hotfix.**
   A migration is forward-only, so it makes the release behind it impossible to roll back to.
 
@@ -278,7 +279,7 @@ Migrations are never run automatically - rewriting stored documents is a deliber
 
 **A database created by `init_database.py` needs none of them**: it is born in the current shape and records the boot markers.
 Production was started that way on 2026-10-18, so the list below matters only for a database older than its code.
-Every script in `back-end/migrations/` is idempotent; the ones not described here (`migrate_roles`, `migrate_publishing_to_market_days`, `migrate_submitted_at_to_iso`, `migrate_tier_preference_per_date`, `migrate_table_code_separator`, `migrate_table_share_answer`) each say in their own docstring what they repair and when.
+Every script in `back-end/migrations/` is idempotent; the ones not described here (`migrate_roles`, `migrate_publishing_to_market_days`, `migrate_submitted_at_to_iso`, `migrate_tier_preference_per_date`, `migrate_table_code_separator`, `migrate_table_share_answer`, `migrate_to_uuid`, `add_email_verification`) each say in their own docstring what they repair and when; `cleanup_unverified_users` repairs nothing: it deletes every unverified account, and is a script never to run against production ([OPERATIONS.md](OPERATIONS.md#scripts-never-to-run-against-production)).
 
 Before a deploy reaches an older production database, run the pending migrations in `back-end/migrations/` against the production database (each is idempotent, and `--dry-run` previews the changes):
 

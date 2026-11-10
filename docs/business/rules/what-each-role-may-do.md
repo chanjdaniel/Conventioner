@@ -16,7 +16,7 @@ describes:
   - back-end/tests/test_a_chosen_reviewer_decides.py
   - back-end/tests/test_undoing_a_verdict.py
   - back-end/tests/test_the_market_list_shows_what_the_read_serves.py
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - brain-dump/2026-10-19#22
   - E26/F08/S01
@@ -99,6 +99,7 @@ Everything a Viewer may, and:
 - automatic rejections
 - giving verdicts on open applications and follow-ups and undoing their own within 2 minutes
 - marking and handing on follow-ups
+- adding a vendor who never applied
 - vendor notes
 - [updating a vendor's info](an-update-is-kept-beside-the-vendors-answer.md)
 - allocating tables and assigning, moving, swapping or freeing a seat

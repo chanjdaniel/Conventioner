@@ -3,7 +3,7 @@ layer: implementation
 kind: testing
 describes:
   - scripts/seed_fixture.sh
-verified: 2026-11-01
+verified: 2026-11-10
 sources:
   - E26
   - E41/F01/S01
@@ -86,11 +86,13 @@ The map keeps each flow and the gap worth a spec it still has.
 | [I Reviewing](../../business/flows/review.md) | I1 verdicts by keyboard (A and R; S and N are walked) |
 | [I7 and J1 to J5, J14](../../business/flows/assignment-and-result.md) | none noted |
 | [J6 to J10, J13, J19 Placing by hand](../../business/flows/placing-by-hand.md) | none noted |
-| [J11, J12, J15, J16, J18 Vendors](../../business/flows/vendors.md) | J16 and J18 against a real Discord server |
+| [J11, J12, J15, J16, J18, J20 Vendors](../../business/flows/vendors.md) | J16 and J18 against a real Discord server |
 | [The vendor drawer](../../business/flows/vendor-drawer.md) | none noted |
+| [J17 Payments](../../business/flows/payments.md) | none noted |
 | [K Publishing and market days](../../business/flows/market-day-door.md) | none noted |
 | [L Ending and managing](../../business/flows/ending-and-managing-a-market.md) | none noted |
 | [L6 Reading the market's history](../../business/flows/reading-the-markets-history.md) | none noted |
+| [N1 to N3 Statistics](../../business/flows/stats.md) | none noted |
 | Paths: [P1 and P2](../../business/flows/the-google-form-path.md), [P3](../../business/flows/the-online-path.md), [P4](../../business/flows/the-mixed-path.md) | **P1 and P2 whole, from creation to archive** |
 
 

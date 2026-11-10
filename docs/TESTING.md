@@ -98,7 +98,7 @@ either passes or it does not.
 
 `test_attendance_api.py` additionally pins the public slug lookup (queried via the
 stored `slug` field for an indexed, O(1) lookup rather than a collection scan), which
-decides whether a market's public check-in URL is live: it serves a market past `draft`
+decides whether the market's vendor page is live: it serves a market past `draft`
 and refuses a draft, on both a document that stores a `phase` and one written before the
 field existed (where the phase is derived from `isDraft`).
 
@@ -237,7 +237,7 @@ browsing with filtering (`tables.spec.ts`). The tier-2 suite (`tier2.spec.ts`)
 covers organization CRUD (create, add admin/member, remove member, rename,
 delete), market role management (add user with role, change role, remove user),
 assignment CSV export (download and verify columns), and publishing a market
-(verify the check-in URL is reachable). Tier-3 authentication and robustness
+(verify the market's vendor page, where its vendors check in, is reachable). Tier-3 authentication and robustness
 journeys (`auth.spec.ts`) cover new-user registration, the full password reset
 flow (including reading the real reset token from MongoDB), posting an assignment
 and login/OTP error states. The organization-required suite

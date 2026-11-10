@@ -44,7 +44,8 @@ describes:
   - front-end/src/components/application/LongQuestion.vue
   - front-end/src/components/PagedList.vue
   - front-end/src/utils/useGroupFolds.ts
-verified: 2026-11-09
+  - front-end/src/components/AuthCard.vue
+verified: 2026-11-10
 sources:
   - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01
@@ -215,7 +216,7 @@ The market screen's `height: 80%`, which pinned it to most of the window and hid
 
 **The organizer's screens are designed for 1920x1080**, and since T79 the [layout sweep](#what-keeps-this-true) also measures them at 1440x900; no other width is a layout requirement new work is held to (wayfinding/readable-journey/06), though the focus sweep walks every state at a phone's width but the floorplan beta's wizard steps ([what keeps this true](#what-keeps-this-true)).
 The vendor page, where vendors check in, is the carve-out: it is not an organizer screen, it is held in a hand at a door, and it works on a phone ([attendance and the door](implementation/modules/attendance-and-door.md#sharp-edges)).
-The [account pages](business/flows/accounts.md) are the way to it, so they work on a phone too: sign in with its tabs, both password-reset pages and email verification stand in one `AuthCard`, 600px wide at most, with a 16px page gutter at each side, and `sign-in-fits-a-phone.spec.ts` fails on any of them that scrolls sideways at 390px (T73).
+The [account pages](business/flows/accounts.md) are the way to it, so they work on a phone too: sign in with its tabs, both password-reset pages and email verification stand in one [`AuthCard`](../front-end/src/components/AuthCard.vue), 600px wide at most, with a 16px page gutter at each side, and `sign-in-fits-a-phone.spec.ts` fails on any of them that scrolls sideways at 390px (T73).
 `the-sign-in-fits-a-small-phone.spec.ts` holds the sign-in's tabs and fields inside their column and their boxes at 320px, at 390px and at a desk (T211).
 Some organizer places lift the desktop floor too, by `meta.fitsAPhone`, each with the dialogs, menus and drawers that open over it; listed in the router's order, one place a line:
 
@@ -311,6 +312,10 @@ On a phone nothing gives way: the spine scrolls sideways, each address is a one-
 Three equal tracks (`repeat(3, minmax(0, 1fr))`) made the Tier select 65px wide and unable to display any of the three values it offers, while giving Location Setup 1.7x what it needs.
 The assignment tab's `.plan-row--asymmetric` is `3fr 2fr` for the same reason.
 
+**A section that lists what happened unfolds in place; a section that changes something opens a dialog** (T263).
+In a window of sections, as Manage market and Manage organization are, a History section's heading opens and closes it where it stands ([`HistorySection.vue`](../front-end/src/components/HistorySection.vue)), since it only reads, while Permissions is a heading, one line and a Show button opening its rows in a dialog of their own ([`MarketPermissions.vue`](../front-end/src/components/MarketPermissions.vue)), since its owner sets them there.
+The next such section takes the side of what it does.
+
 ## Radius
 
 Extracted from the newer screens. Three values.
@@ -322,7 +327,7 @@ Extracted from the newer screens. Three values.
 | `--radius-pill` | 999px | Pills and fully-rounded badges |
 
 "Fully rounded" has one spelling, `--radius-pill`.
-It was spelled four ways (`999px`, `100px`, `30px`, `20px`); one `20px` is left, in the floorplan beta.
+It was spelled four ways (`999px`, `100px`, `30px`, `20px`); none is left, the floorplan beta's last `20px` having moved to `--radius-pill`.
 
 ## Elevation
 
@@ -387,7 +392,7 @@ Three of the reds being retired cannot carry white text at all: `#e74c3c` (3.82)
 
 ### The brand green is `--mm-green` (`#36826f`)
 
-The wordmark painted `#00DC82` while every primary button painted `#36826f`. `#00DC82` gives white text 1.7:1, so it can never be a button or a link - a brand colour the product would be forbidden from using on any control. The logo's mark is `--mm-green`; its wordmark is black ([brand files and icons](#brand-files-and-icons)).
+The wordmark painted `#00DC82` while every primary button painted `#36826f`. `#00DC82` gives white text 1.8:1, so it can never be a button or a link - a brand colour the product would be forbidden from using on any control. The logo's mark is `--mm-green`; its wordmark is black ([brand files and icons](#brand-files-and-icons)).
 
 ### Two grounds, not one
 
@@ -448,7 +453,7 @@ A choice among many, found by typing, is [`SearchPicker.vue`](../front-end/src/c
 In a short scroller that list can lie past the foot, so opening it and typing bring the list and the field into view, the field first where both do not fit, unless the caller gives `listOver`.
 Chips above them may then lie past the top.
 Reopened on a choice, it selects that choice's label, so typing replaces it and searches afresh rather than running on from the label; left untouched, the choice stays.
-A picker with no choices at all never opens its list, and "Nobody matches" (the caller's `noneWord` in place of "Nobody", where the choices are not people) shows only once words are typed, so the note the caller puts beside it says why there is nothing to choose.
+A picker with no choices at all never opens its list, so the note beside it says why there is nothing to choose; in a picker with choices, "Nobody matches" (the caller's `noneWord` in place of "Nobody", where the choices are not people) shows once the words find none.
 Given a `cap`, it draws at most that many matches, counted across the groups in order, over a line "N more, type to narrow" that stands under what scrolls and that the keys skip; a group the cap alone leaves out is not drawn, and a choice past the cap is named by the field, with no row active, so Enter keeps it.
 Without a `cap` it draws every match.
 The list is a frame holding a `ScrollBox` and that line, so the bottom shade lies above the line and never over it; the arrow keys bring the active row into view clear of a shade, by its `scroll-margin-block`, and a row under the pointer is not moved, or the pointer would be left on the next row in the shade's depth.
@@ -643,7 +648,7 @@ They were built in `E16/F04`, deliberately **after** `E16/F03` rewrote Market Se
 
 A convention nothing enforces is how the product got here. Six checks, the first three in `E16/F01` and `E16/F02`:
 
-1. **Stylelint** bans raw hex, raw `font-size`, raw `border-radius` and a raw `box-shadow` outside `base.css` and the primitive files.
+1. **Stylelint** bans raw hex, a raw `font-size` in `px`, `rem` or `em` (the door code's print rule sets its sizes in `pt`), raw `border-radius` and a raw `box-shadow` outside `base.css` and the primitive files.
    It holds every `margin*`, `padding*`, `gap`, `row-gap` and `column-gap` to the spacing scale with `declaration-property-value-allowed-list`, by the values the [Spacing](#spacing) section lists, and [`spacingScale.test.ts`](../front-end/src/__tests__/spacingScale.test.ts) runs the real config over what it allows and refuses.
    `npm run lint:css` is the design-language gate, and **every rule is an error in every file**, with `--max-warnings 0` on the script as well: a warning CI let pass reached `dev`, and then landed on whichever later change touched the file (T221).
    Only the floorplan GUI's own values, it being a beta whose nearest token would change what it draws, and a value that is not spacing carry a `stylelint-disable`, with its reason on that declaration ([Spacing](#spacing)).
@@ -686,7 +691,7 @@ A convention nothing enforces is how the product got here. Six checks, the first
    A menu's items are no Tab stop, so in every state it opens each menu with Enter on its button (`aria-haspopup="menu"`) and judges each item it reaches with the arrow keys; Enter, and each arrow key that moves to the next item, must land focus on a `[role='menuitem']` of the menu it opened, or the sweep names the menu, its button and where focus is, so a menu that keeps focus on its button cannot pass.
    [`e2e/focus-sweep-detectors.spec.ts`](../front-end/e2e/focus-sweep-detectors.spec.ts) proves them on fixtures: a halo at the edge of a box that holds it through each of `transform`, `filter`, `will-change: transform` and `contain: paint`, placed absolutely and fixed, is caught, as is one in a static box around a transformed box that holds it, and one in a static box is not; a menu whose arrows leave focus on its button is caught, and a working one passes; and a drop zone that shows no focus for its file input is caught, and one that wears the halo passes; and a button that wears the halo, draws its border outside its edge or over its words, draws the plain green on a green fill or its own green border, draws the deep green where the plain shows, or is resized by focus is caught, as is a text button whose border is cut off by a box or runs off the window, and a button, a text button clear of its words or a card around one drawing it rightly passes.
    [`e2e/a-focused-button-moves-nothing.spec.ts`](../front-end/e2e/a-focused-button-moves-nothing.spec.ts) reads each button and the boxes around it focused and at rest, on the library's primitives and on Markets, at a desk and on a phone.
-   It also proves that `alsoAt` adds its size to a copy of a screen's sizes, so a sweep's added size never reaches the sizes another sweep walks, which screens share.
+   `focus-sweep-detectors.spec.ts` also proves that `alsoAt` adds its size to a copy of a screen's sizes, so a sweep's added size never reaches the sizes another sweep walks, which screens share.
    It walks each state at a phone's width too, as well as at its first size: an organizer's screens ship at a desk, but a desk zoomed to 400% is that narrow, and there a table too wide for its box scrolls and becomes a keyboard stop of its own; the floorplan beta's wizard steps, which cannot be walked that narrow, are marked `deskOnly`.
    Each dialog window a state shows is focused as a keyboard user's would be and must draw no outline, a window behind another dialog on top aside, since it is inert (T148), and a test opens Manage market from the keyboard, where the window takes focus while the market loads (T140).
    Its phone walk found a dialog's buttons running out past the window's left edge where they were wider than it, and the actions row now wraps.

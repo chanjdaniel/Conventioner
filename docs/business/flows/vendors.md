@@ -10,7 +10,7 @@ describes:
   - front-end/src/components/DiscordRoleReport.vue
   - front-end/src/components/ExportVendorsForm.vue
   - front-end/src/components/ColumnChecklist.vue
-verified: 2026-11-08
+verified: 2026-11-10
 sources:
   - wayfinding/claims-and-room/04
   - wayfinding/rejection-visibility/02
@@ -40,6 +40,7 @@ sources:
   - T210
   - T217
   - T223
+  - T263
 ---
 
 # Vendors
@@ -155,7 +156,7 @@ Covered by:
 On a market connected to a Discord server with a username question chosen ([the Discord connection](../../implementation/modules/discord.md#who-is-in-the-server)), the organizer finds who has joined, so they can ask the rest, by email, to join or to correct their username (T92 Q10).
 
 1. "Check Discord", above the list, for an Admin or the owner (the table's "Connect Discord and give roles" row), reads the server's members and matches each vendor's username to theirs, by username alone, never a display name; it reads "Checking Discord…" while it runs.
-2. Each row then shows the vendor's state: "Has the role", "In the server", "Not found" (not joined yet, or the username is wrong, which cannot be told apart) or "No username"; and two that say more: "Possible match", a vendor not found who was offered a member whose name looks like their username ([J17](#j17-answer-a-possible-discord-match)), and "Check again", a vendor whose username was updated after the check, which their state was not read for; the server works both out, so the page, the drawer and the export agree.
+2. Each row then shows the vendor's state: "Has the role", "In the server", "Not found" (not joined yet, or the username is wrong, which cannot be told apart) or "No username"; and two that say more: "Possible match", a vendor not found who was offered a member whose name looks like their username ([J20](#j20-answer-a-possible-discord-match)), and "Check again", a vendor whose username was updated after the check, which their state was not read for; the server works both out, so the page, the drawer and the export agree.
 3. The "Discord" filter lists the vendors shown in one of those six, each with how many are in it; it stays in the address, so a link to "Not found" is the list of whom to email, and Export opens on it ([J15](#j15-export-the-vendors-to-a-csv)).
 4. "Checked 5 minutes ago" says when the states were read; they change only when someone checks again.
 
@@ -171,7 +172,7 @@ Covered by:
 - `who-is-in-the-discord-server.spec.ts`
 - `whoIsInTheDiscordServer.test.ts`
 
-## J17. Answer a possible Discord match
+## J20. Answer a possible Discord match
 
 **Status:** Works against the stack's fake Discord (E46/F01/S05, `possible-discord-matches.spec.ts`); not yet walked against a real server.
 A vendor often writes a display name, a real name or a shop's name where the form asks for a Discord username, and the check, which matches by username alone, does not find them ([J16](#j16-see-who-is-in-the-discord-server)).
@@ -202,7 +203,7 @@ The card points here: its "Giving roles" block says what is still missing, and o
    It asks Discord for under a minute: the vendors it had no time for are "Not given yet", and running it again gives them.
 4. Its report ([`DiscordRoleReport.vue`](../../../front-end/src/components/DiscordRoleReport.vue)) stays above the list for everyone who reads the page: "Vendor Nov 2026, last run 5 minutes ago", how many ended in each group ("2 given, 1 already had it, 1 not found, 1 no username"), and "Show who" opens a dialog, titled with that same line, of each group's vendors, a failure's reason, or why the rest are not given yet, said once for the vendors it held back, so a long list never pushes the table down.
    Past 12 vendors the dialog opens on "Find by name or address" and shows 50 at a time, "Show N more" drawing the next, each group's outcome, whole count and reason standing over its first vendor shown, so the organizer of a market of every vendor finds one in it rather than reading down (T223); at 12 or fewer it reads with no field.
-   A vendor the run did not find whom the check now offers a possible match ([J17](#j17-answer-a-possible-discord-match)) is counted beside "not found", as their row says it: "1 not found (1 possible match)", and the group says "1 has a possible match to confirm or decline."
+   A vendor the run did not find whom the check now offers a possible match ([J20](#j20-answer-a-possible-discord-match)) is counted beside "not found", as their row says it: "1 not found (1 possible match)", and the group says "1 has a possible match to confirm or decline."
 
 **A run only gives**: a vendor who has lost their seat keeps the role they have (Daniel, T92 Q19).
 A run that cannot start says why in the dialog: no role chosen, the username question gone, Discord out of reach, or the bot no longer in the server.

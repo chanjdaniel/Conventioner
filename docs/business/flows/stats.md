@@ -8,12 +8,13 @@ describes:
   - front-end/src/utils/marketStats.ts
   - back-end/market_stats.py
   - front-end/src/utils/statsHeadlines.ts
-verified: 2026-11-03
+verified: 2026-11-10
 sources:
   - E45/F01/S01
   - E45/F01/S02
   - E41/F01/S01
   - E45/F01/S03
+  - T263
 ---
 
 # The market's statistics
@@ -79,3 +80,5 @@ Covered by:
 ## The rules it obeys
 
 - [What each role may do](../rules/what-each-role-may-do.md): reading the market is all the page asks.
+
+Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
