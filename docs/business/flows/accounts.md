@@ -149,7 +149,9 @@ Covered by:
 2. Follow the emailed link to `/reset-password`, set a new password; every browser signed in to the account, remembered or not, is signed out.
 3. Sign in with the new password.
 
-Branches: asking for another link before an hour has passed since the last one expired ("Please wait before requesting another password reset"), asking too often, a new password too short or too long.
+Branches: asking for another link before an hour has passed since the last one expired ("You can ask for another reset link in N minutes."), asking too often, a new password too short or too long.
+
+- A link that could not be mailed says "Failed to send password reset email", and asking again sends one at once ([a failed send puts back what it replaced](../../implementation/data/users-and-email.md#a-failed-send-puts-back-what-it-replaced)).
 
 - A new password longer than 72 bytes says "That password is too long. Use 72 characters or fewer; an accented letter or an emoji counts as more than one.", as at sign-up (A1), and leaves the password and the link as they were.
 
