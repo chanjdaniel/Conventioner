@@ -19,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError, PyMongoError
 from utils.email_address import normalized_email
-from utils.request_body import flag_field, string_field
+from utils.request_body import flag_field, json_object, string_field
 import sign_in_limits
 
 db = get_database()
@@ -401,7 +401,7 @@ def _insert_unless_taken(user_doc: dict):
         return None
 
 
-def login(bcrypt, login_user, request):
+def login(bcrypt, login_user):
     """The password sign-in, bounded per caller and per address (``_Bounds``).
 
     A right password takes its try back, whether it signs in or answers that the address needs
@@ -412,7 +412,7 @@ def login(bcrypt, login_user, request):
     if refused:
         return refused
 
-    data = request.json
+    data = json_object(required=False)
     email = normalized_email(string_field(data, "email"))
     password = string_field(data, "password")
 
@@ -441,7 +441,7 @@ def check_session(current_user):
     return jsonify({"email": current_user.email}), 200
 
 
-def register_user_with_captcha(bcrypt, request):
+def register_user_with_captcha(bcrypt):
     """Register a new user with CAPTCHA verification, bounded per caller and per address
     (``_Bounds``) before the captcha is checked, so a refused sign-up spends no check."""
     now = _limit_clock()
@@ -449,7 +449,7 @@ def register_user_with_captcha(bcrypt, request):
     if refused:
         return refused
 
-    data = request.json
+    data = json_object(required=False)
     email = normalized_email(string_field(data, "email"))
     password = string_field(data, "password")
     captcha_token = string_field(data, "captcha_token")
@@ -530,9 +530,9 @@ def register_user_with_captcha(bcrypt, request):
         return jsonify({"msg": "Failed to register user"}), 500
 
 
-def verify_email(request):
+def verify_email():
     """Verify user's email with token."""
-    data = request.json
+    data = json_object(required=False)
     token = string_field(data, "token")
 
     if not token:
@@ -568,14 +568,14 @@ def verify_email(request):
     return jsonify({"msg": "Email verified successfully"}), 200
 
 
-def resend_verification_email(request):
+def resend_verification_email():
     """Resend verification email to user, bounded per caller and per address (``_Bounds``)."""
     now = _limit_clock()
     refused = _VERIFICATION_LINK.caller_refusal(now)
     if refused:
         return refused
 
-    data = request.json
+    data = json_object(required=False)
     email = normalized_email(string_field(data, "email"))
 
     if not email:
@@ -619,14 +619,14 @@ def resend_verification_email(request):
     return jsonify({"msg": "Verification email sent"}), 200
 
 
-def request_password_reset(request):
+def request_password_reset():
     """Request password reset link, bounded per caller and per address (``_Bounds``)."""
     now = _limit_clock()
     refused = _RESET_LINK.caller_refusal(now)
     if refused:
         return refused
 
-    data = request.json
+    data = json_object(required=False)
     email = normalized_email(string_field(data, "email"))
 
     if not email:
@@ -680,9 +680,9 @@ def request_password_reset(request):
     return jsonify({"msg": "If an account exists, a password reset email has been sent"}), 200
 
 
-def reset_password(bcrypt, request):
+def reset_password(bcrypt):
     """Reset password with reset token."""
-    data = request.json
+    data = json_object(required=False)
     token = string_field(data, "token")
     new_password = string_field(data, "new_password")
 
@@ -726,14 +726,14 @@ def reset_password(bcrypt, request):
     return jsonify({"msg": "Password reset successfully"}), 200
 
 
-def request_otp(request):
+def request_otp():
     """Request OTP for passwordless login, bounded per caller and per address (``_Bounds``)."""
     now = _limit_clock()
     refused = _CODE_REQUEST.caller_refusal(now)
     if refused:
         return refused
 
-    data = request.json
+    data = json_object(required=False)
     email = normalized_email(string_field(data, "email"))
 
     if not email:
@@ -785,7 +785,7 @@ def request_otp(request):
     return jsonify({"msg": "If an account exists for that address, a sign-in code has been sent to it."}), 200
 
 
-def login_with_otp(login_user, request):
+def login_with_otp(login_user):
     """The code sign-in, bounded per caller and per address (``_Bounds``) as the password is.
 
     A try is counted on the code in the same update that reads it, so no more than ``CODE_TRIES``
@@ -797,7 +797,7 @@ def login_with_otp(login_user, request):
     if refused:
         return refused
 
-    data = request.json
+    data = json_object(required=False)
     email = normalized_email(string_field(data, "email"))
     otp = string_field(data, "otp")
 
@@ -883,7 +883,7 @@ def get_user_raw(email: str) -> Optional[dict]:
     return None
 
 
-def delete_user(request, authenticated_email: str):
+def delete_user(authenticated_email: str):
     """Delete the authenticated user's own account.
 
     ``authenticated_email`` is the session's identity, supplied by the caller of this function and
@@ -899,7 +899,7 @@ def delete_user(request, authenticated_email: str):
     leaves the data consistent. An owner with nobody to transfer to is not trapped either: deleting
     the organization is something its owner may do, and then this succeeds.
     """
-    data = request.json or {}
+    data = json_object(required=False)
     email_to_delete = normalized_email(string_field(data, "email"))
 
     if not email_to_delete:

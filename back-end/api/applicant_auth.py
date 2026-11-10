@@ -254,7 +254,10 @@ def _send_code_email(
     False when it was not.
     """
     if _email_disabled():
-        logger.info("DISABLE_EMAIL is enabled - skipping applicant login code email to %s", email)
+        logger.info(
+            "DISABLE_EMAIL is enabled - skipping applicant login code email for market %s",
+            market_slug,
+        )
         return True
 
     if not ready_mailer():
@@ -310,12 +313,17 @@ def _send_code_email(
             "text": text_content,
         })
         if response and hasattr(response, "id"):
-            logger.info("Applicant login code sent to %s for market %s", email, market_slug)
+            logger.info("Applicant login code sent for market %s", market_slug)
             return True
-        logger.error("Applicant login code send returned unexpected response: %s", response)
+        logger.error(
+            "Applicant login code send for market %s returned no message id (%s)",
+            market_slug, type(response).__name__,
+        )
         return False
     except Exception as e:
-        logger.error("Error sending applicant login code to %s: %s - %s", email, type(e).__name__, e)
+        logger.error(
+            "Error sending applicant login code for market %s: %s", market_slug, type(e).__name__
+        )
         return False
 
 

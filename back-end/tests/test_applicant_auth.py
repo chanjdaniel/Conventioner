@@ -18,6 +18,11 @@ from conftest import mongo_matches, reject_malformed_update
 from datatypes import Application, ApplicationStatus, ApplicationType, MarketPhase
 from market_documents import market_name_slug
 
+def _refused_naming_to(payload):
+    """A provider's send that fails with the address it was sent to in its message."""
+    raise RuntimeError(f"provider refused {payload['to'][0]}")
+
+
 # ── Fake collections for testing ────────────────────────────────────
 
 
@@ -977,6 +982,30 @@ class TestTheCodeEmail:
             assert "Only the newest code works." in body
             assert "10 minutes" in body
             assert "only be used once" not in body
+
+    @pytest.mark.parametrize("send", [
+        "disabled", lambda payload: SimpleNamespace(id="m1"), lambda payload: None, _refused_naming_to,
+    ], ids=["email-disabled", "sent", "no-message-id", "send-raises"])
+    def test_a_code_send_logs_the_market_and_never_the_address(self, monkeypatch, caplog, send):
+        import resend
+        from api import applicant_auth as applicant_auth_module
+
+        address = "vendor-logged@example.com"
+        monkeypatch.setattr(applicant_auth_module, "_email_disabled", lambda: send == "disabled")
+        monkeypatch.setattr(applicant_auth_module, "ready_mailer", lambda: True)
+        monkeypatch.setattr(applicant_auth_module, "frontend_url", lambda: "https://app.test")
+        if send != "disabled":
+            monkeypatch.setattr(resend.Emails, "send", send)
+
+        with caplog.at_level("DEBUG"):
+            applicant_auth_module._send_code_email(
+                address, "583920", "Harbour Night Market", "harbour-night-market", 1
+            )
+
+        assert caplog.records
+        assert "harbour-night-market" in caplog.text
+        assert address not in caplog.text
+        assert "provider refused" not in caplog.text
 
     def test_asking_again_numbers_the_next_email(self, applicant_auth_module, monkeypatch):
         numbers = []

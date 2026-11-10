@@ -472,7 +472,7 @@ def get_user(sign_in: str) -> Any:
 
 @app.route('/login', methods=['POST'])
 def login() -> Response:
-    return UsersApi.login(bcrypt, login_user, request)
+    return UsersApi.login(bcrypt, login_user)
 
 @app.route('/logout', methods=['POST'])
 @login_required
@@ -486,31 +486,31 @@ def check_session() -> Response:
 
 @app.route('/register', methods=['POST'])
 def register() -> Response:
-    return UsersApi.register_user_with_captcha(bcrypt, request)
+    return UsersApi.register_user_with_captcha(bcrypt)
 
 @app.route('/verify-email', methods=['POST'])
 def verify_email() -> Response:
-    return UsersApi.verify_email(request)
+    return UsersApi.verify_email()
 
 @app.route('/resend-verification', methods=['POST'])
 def resend_verification() -> Response:
-    return UsersApi.resend_verification_email(request)
+    return UsersApi.resend_verification_email()
 
 @app.route('/request-password-reset', methods=['POST'])
 def request_password_reset() -> Response:
-    return UsersApi.request_password_reset(request)
+    return UsersApi.request_password_reset()
 
 @app.route('/reset-password', methods=['POST'])
 def reset_password() -> Response:
-    return UsersApi.reset_password(bcrypt, request)
+    return UsersApi.reset_password(bcrypt)
 
 @app.route('/request-otp', methods=['POST'])
 def request_otp() -> Response:
-    return UsersApi.request_otp(request)
+    return UsersApi.request_otp()
 
 @app.route('/login-otp', methods=['POST'])
 def login_otp() -> Response:
-    return UsersApi.login_with_otp(login_user, request)
+    return UsersApi.login_with_otp(login_user)
 
 @app.route('/delete-user', methods=['POST'])
 @login_required
@@ -525,7 +525,7 @@ def delete_user() -> Response:
     There is deliberately no anonymous cleanup path for unverified accounts any more. Cleaning up
     orphaned registrations is maintenance work, not something a stranger may ask for.
     """
-    return UsersApi.delete_user(request, current_user.email)
+    return UsersApi.delete_user(current_user.email)
 
 # organizations
 

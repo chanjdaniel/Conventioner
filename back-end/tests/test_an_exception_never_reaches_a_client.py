@@ -1395,9 +1395,9 @@ READS_NO_BODY = [
      [(ApplicantAuthApi, "sign_out", HANDED_ON)]),
     ("post", "/markets/<market_id>/door-code", [(DoorApi, "make_door_code", HANDED_ON)]),
 ]
-# Each write route in app.py with a body another module reads: the view hands `request` to the
-# account API in api/users.py, or the applicant sign-in in api/applicant_auth.py reads it for its
-# uniform answers. Each with the module and function its view hands the request to.
+# Each write route in app.py with a body another module reads: the account API in api/users.py
+# reads it with `json_object`, or the applicant sign-in in api/applicant_auth.py reads it for its
+# uniform answers. Each with the module and function its view hands on to.
 BODY_READ_ELSEWHERE = [
     ("post", "/login", UsersApi, "login"),
     ("post", "/register", UsersApi, "register_user_with_captcha"),
@@ -1420,6 +1420,17 @@ BODY_VIEW_ARGS = {
     "<date>": "2026-08-01", "<payment_id>": "payment-1",
 }
 NOT_OBJECTS = [["Autumn Market"], [], "Autumn Market", "", 7, 0, True, False]
+# The account routes in api/users.py, whose bodies that module reads.
+ACCOUNT_ROUTES = [
+    (method, rule) for method, rule, api, _function in BODY_READ_ELSEWHERE if api is UsersApi
+]
+# A request carrying no JSON: no body at all, a body of another type, and JSON that does not parse.
+NO_JSON_BODIES = [
+    {},
+    {"data": "email=owner@example.com", "content_type": "text/plain"},
+    {"data": "{not json", "content_type": "application/json"},
+]
+NO_JSON_BODY_IDS = ["none", "not-json", "broken-json"]
 
 
 def path_for(rule):
@@ -1431,7 +1442,8 @@ def path_for(rule):
 
 def body_reads(monkeypatch):
     """Every read of the request's body while a route answers: `get_json` (and `request.json`),
-    `get_data` (and `request.data`) and the form parser each record their name and raise."""
+    `get_data` (and `request.data`), the form parser (and `request.form`, `.values`, `.files`) and
+    `request.stream` each record their name and raise."""
     reads = []
 
     def reader(name):
@@ -1442,6 +1454,8 @@ def body_reads(monkeypatch):
 
     for name in ("get_json", "get_data", "_load_form_data"):
         monkeypatch.setattr(flask.Request, name, reader(name))
+    # Werkzeug's `stream` is a cached property, so it is replaced by a property that reads as a call.
+    monkeypatch.setattr(flask.Request, "stream", property(reader("stream")))
     return reads
 
 
@@ -1469,7 +1483,7 @@ class TestABodyThatIsNotAnObject:
     optional body in its view, as taking no body, or as having a body another module reads; each
     body route refuses a body that is not a JSON object in the same words, 400: never Werkzeug's
     HTML 415, a model's own words, or the generic 500 of an ``AttributeError``; and no other view
-    reads the body at all."""
+    reads the body on its way to its success answer."""
 
     def test_every_write_route_is_classified(self):
         groups = {
@@ -1491,6 +1505,19 @@ class TestABodyThatIsNotAnObject:
         }
 
         assert write_views == set().union(*groups.values())
+
+    @pytest.mark.parametrize("read", [
+        lambda r: r.get_json(), lambda r: r.json, lambda r: r.get_data(), lambda r: r.data,
+        lambda r: r.form, lambda r: r.values, lambda r: r.files, lambda r: r.stream.read(),
+    ], ids=["get_json", "json", "get_data", "data", "form", "values", "files", "stream"])
+    def test_the_guard_sees_every_way_to_read_the_body(self, monkeypatch, read):
+        with app_module.app.test_request_context("/login", method="POST", json={"a": "body"}):
+            reads = body_reads(monkeypatch)
+
+            with pytest.raises(RuntimeError):
+                read(flask.request)
+
+        assert reads
 
     @pytest.mark.parametrize("method, rule, stubs", READS_NO_BODY)
     def test_a_route_that_takes_no_body_reads_none(self, client, monkeypatch, method, rule, stubs):
@@ -1515,6 +1542,16 @@ class TestABodyThatIsNotAnObject:
 
         assert (response.status_code, response.get_json()) == (200, {"handed_on": True})
         assert reads == []
+
+    @pytest.mark.parametrize("no_body", NO_JSON_BODIES, ids=NO_JSON_BODY_IDS)
+    @pytest.mark.parametrize("method, rule", ACCOUNT_ROUTES)
+    def test_an_account_route_answers_a_body_that_is_not_json_in_json(
+        self, client, monkeypatch, method, rule, no_body,
+    ):
+        response = getattr(client, method)(rule, **no_body)
+
+        assert response.status_code == 400
+        assert response.is_json
 
     @pytest.mark.parametrize("not_an_object", NOT_OBJECTS)
     @pytest.mark.parametrize("method, rule, phase", REQUIRED_BODIES + OPTIONAL_BODIES)

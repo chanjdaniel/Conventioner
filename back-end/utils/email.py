@@ -13,6 +13,7 @@ to what it claims. ``utils.secret_key`` and ``utils.captcha`` read on call for t
 import os
 import logging
 import resend
+from resend.exceptions import ResendError
 
 from utils.configured_secret import configured_secret, is_published
 from utils.deployment import (
@@ -133,6 +134,43 @@ def _email_disabled() -> bool:
     return os.getenv("DISABLE_EMAIL", "").lower() in ("true", "1")
 
 
+def _send(kind: str, email: str, subject: str, html: str, text: str) -> bool:
+    """Send one account email; True when the provider accepted it (or email is disabled in dev).
+
+    The log names the email's ``kind`` and never the address, nor an exception's text or the
+    provider's response body, which can each carry the address back: a failed send logs the
+    exception's type and, for the provider's own refusal, its status code.
+    """
+    if _email_disabled():
+        logger.info("DISABLE_EMAIL is enabled - skipping %s email", kind)
+        return True
+
+    if not ready_mailer():
+        logger.error("Cannot send %s email: RESEND_API_KEY not set", kind)
+        return False
+
+    try:
+        response = resend.Emails.send({
+            "from": from_email(),
+            "to": [email],
+            "subject": subject,
+            "html": html,
+            "text": text,
+        })
+    except ResendError as e:
+        logger.error("Error sending %s email: %s, status %s", kind, type(e).__name__, e.code)
+        return False
+    except Exception as e:
+        logger.error("Error sending %s email: %s", kind, type(e).__name__)
+        return False
+
+    if response and hasattr(response, "id"):
+        logger.info("Sent the %s email, Resend ID: %s", kind, response.id)
+        return True
+    logger.error("The %s email send returned no message id (%s)", kind, type(response).__name__)
+    return False
+
+
 def send_verification_email(email: str, token: str) -> bool:
     """Send email verification link to user.
     
@@ -179,46 +217,7 @@ def send_verification_email(email: str, token: str) -> bool:
     If you didn't create an account, please ignore this email.
     """
     
-    if _email_disabled():
-        logger.info("DISABLE_EMAIL is enabled - skipping verification email")
-        return True
-
-    if not ready_mailer():
-        logger.error("Cannot send verification email: RESEND_API_KEY not set")
-        return False
-
-    try:
-        response = resend.Emails.send({
-            "from": from_email(),
-            "to": [email],
-            "subject": "Verify your email address",
-            "html": html_content,
-            "text": text_content,
-        })
-        
-        if response and hasattr(response, 'id'):
-            logger.info(f"Verification email sent successfully to {email}, Resend ID: {response.id}")
-            return True
-        else:
-            logger.error(f"Verification email send returned unexpected response: {response}")
-            return False
-            
-    except Exception as e:
-        error_type = type(e).__name__
-        error_msg = str(e)
-        logger.error(f"Error sending verification email to {email}: {error_type} - {error_msg}")
-        
-        # Log additional details if available
-        if hasattr(e, 'response'):
-            logger.error(f"API response: {e.response}")
-        if hasattr(e, 'status_code'):
-            logger.error(f"HTTP status code: {e.status_code}")
-        if hasattr(e, 'message'):
-            logger.error(f"Error message: {e.message}")
-            
-        # Log full exception traceback for debugging
-        logger.debug(f"Full exception details:", exc_info=True)
-        return False
+    return _send("verification", email, "Verify your email address", html_content, text_content)
 
 
 def send_password_reset_email(email: str, token: str) -> bool:
@@ -267,46 +266,7 @@ def send_password_reset_email(email: str, token: str) -> bool:
     If you didn't request a password reset, please ignore this email.
     """
     
-    if _email_disabled():
-        logger.info("DISABLE_EMAIL is enabled - skipping password reset email")
-        return True
-
-    if not ready_mailer():
-        logger.error("Cannot send password reset email: RESEND_API_KEY not set")
-        return False
-
-    try:
-        response = resend.Emails.send({
-            "from": from_email(),
-            "to": [email],
-            "subject": "Reset your password",
-            "html": html_content,
-            "text": text_content,
-        })
-        
-        if response and hasattr(response, 'id'):
-            logger.info(f"Password reset email sent successfully to {email}, Resend ID: {response.id}")
-            return True
-        else:
-            logger.error(f"Password reset email send returned unexpected response: {response}")
-            return False
-            
-    except Exception as e:
-        error_type = type(e).__name__
-        error_msg = str(e)
-        logger.error(f"Error sending password reset email to {email}: {error_type} - {error_msg}")
-        
-        # Log additional details if available
-        if hasattr(e, 'response'):
-            logger.error(f"API response: {e.response}")
-        if hasattr(e, 'status_code'):
-            logger.error(f"HTTP status code: {e.status_code}")
-        if hasattr(e, 'message'):
-            logger.error(f"Error message: {e.message}")
-            
-        # Log full exception traceback for debugging
-        logger.debug(f"Full exception details:", exc_info=True)
-        return False
+    return _send("password reset", email, "Reset your password", html_content, text_content)
 
 
 def send_otp_email(email: str, otp: str) -> bool:
@@ -351,43 +311,4 @@ def send_otp_email(email: str, otp: str) -> bool:
     If you didn't request this code, please ignore this email.
     """
     
-    if _email_disabled():
-        logger.info("DISABLE_EMAIL is enabled - skipping OTP email")
-        return True
-
-    if not ready_mailer():
-        logger.error("Cannot send OTP email: RESEND_API_KEY not set")
-        return False
-
-    try:
-        response = resend.Emails.send({
-            "from": from_email(),
-            "to": [email],
-            "subject": "Your sign-in code",
-            "html": html_content,
-            "text": text_content,
-        })
-        
-        if response and hasattr(response, 'id'):
-            logger.info(f"OTP email sent successfully to {email}, Resend ID: {response.id}")
-            return True
-        else:
-            logger.error(f"OTP email send returned unexpected response: {response}")
-            return False
-            
-    except Exception as e:
-        error_type = type(e).__name__
-        error_msg = str(e)
-        logger.error(f"Error sending OTP email to {email}: {error_type} - {error_msg}")
-        
-        # Log additional details if available
-        if hasattr(e, 'response'):
-            logger.error(f"API response: {e.response}")
-        if hasattr(e, 'status_code'):
-            logger.error(f"HTTP status code: {e.status_code}")
-        if hasattr(e, 'message'):
-            logger.error(f"Error message: {e.message}")
-            
-        # Log full exception traceback for debugging
-        logger.debug(f"Full exception details:", exc_info=True)
-        return False
+    return _send("sign-in code", email, "Your sign-in code", html_content, text_content)

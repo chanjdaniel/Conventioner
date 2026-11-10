@@ -96,7 +96,7 @@ class TestRegistering:
                 "/register", method="POST",
                 json={"email": email, "password": "longenough", "captcha_token": "t"},
             ):
-                response, status = UsersApi.register_user_with_captcha(bcrypt, __import__("flask").request)
+                response, status = UsersApi.register_user_with_captcha(bcrypt)
                 return response.get_json(), status
         _register.sent = sent
         return _register
