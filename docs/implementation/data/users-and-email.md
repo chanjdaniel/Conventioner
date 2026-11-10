@@ -23,7 +23,7 @@ describes:
   - back-end/migrations/migrate_user_emails.py
   - back-end/tests/test_the_remember_cookie.py
   - back-end/tests/test_the_organizer_sign_in_is_bounded.py
-verified: 2026-11-09
+verified: 2026-11-10
 sources:
   - E32/F03/S04
   - T85
