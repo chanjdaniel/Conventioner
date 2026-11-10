@@ -72,6 +72,13 @@ const props = defineProps<{
    * the market never moves over work the screen could not save (T271).
    */
   beforeTransition?: () => Promise<string | null | void> | string | null | void;
+  /**
+   * Asked when a move is pressed, before any dialog opens, and again before `beforeTransition`: a
+   * sentence answered stops the move, shown as the rail's error. For what the screen knows at
+   * once, without a request (questions not yet saved), so the organizer is never walked through a
+   * move's dialog for a move already refused (T271).
+   */
+  refuseMove?: () => string | null;
 }>();
 
 const marketStore = useMarketStore();
@@ -396,7 +403,7 @@ async function doTransition(toPhase: string): Promise<boolean> {
   transitionBlockers.value = [];
 
   try {
-    const refusal = await props.beforeTransition?.();
+    const refusal = props.refuseMove?.() ?? (await props.beforeTransition?.());
     if (typeof refusal === 'string') {
       transitionError.value = refusal;
       return false;
@@ -484,6 +491,12 @@ function handleTransitionClick(toPhase: string) {
   // to whatever held it as it opened.
   if (menuOpen.value) menuButton.value?.focus();
   menuOpen.value = false;
+  const refused = props.refuseMove?.() ?? null;
+  if (refused !== null) {
+    transitionError.value = refused;
+    transitionBlockers.value = [];
+    return;
+  }
   if (toPhase === MarketPhase.Applications && offersReviewers.value) {
     showingOpenApplications.value = true;
     return;

@@ -15,6 +15,7 @@ import MarketSetupView from '@/views/MarketSetupView.vue';
 import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
 import { marketRoute, marketRouter, serveMarket } from './support/marketScreen';
 import { answersRefusing } from './support/servedAnswers';
+import { MarketAction } from '@/utils/marketActions';
 import { useMarketStore } from '@/stores/market';
 import PhaseRail from '@/components/PhaseRail.vue';
 import MarketAssignmentTab from '@/components/market/MarketAssignmentTab.vue';
@@ -103,6 +104,13 @@ const OFFLINE = 'You seem to be offline. Check the connection and try again.';
 
 function shownDates(wrapper: Awaited<ReturnType<typeof mountPlan>>) {
   return wrapper.findComponent(ElementMarketDates).props('setupObject').marketDates;
+}
+
+/** Whether the browser would ask before a reload or a close, as the page answers it. */
+function asksBeforeUnload(): boolean {
+  const event = new Event('beforeunload', { cancelable: true });
+  window.dispatchEvent(event);
+  return event.defaultPrevented;
 }
 
 async function edit(
@@ -311,6 +319,54 @@ describe('a save that did not land', () => {
     expect(shownDates(wrapper)).toEqual(PLAN.marketDates);
   });
 
+  // An edit counted while the organizer could write, whose pause ended after a re-read said they no
+  // longer can (another person archived the market, or took their role), stayed unsaved for good:
+  // every later re-read was skipped and the browser asked at every reload (T271 review).
+  it('drops an edit the organizer may no longer save, and takes the market as the server holds it', async () => {
+    const first = { ...PLAN, marketDates: [{ date: '2026-08-01' }, { date: '2026-08-08' }] };
+    const second = {
+      ...PLAN,
+      marketDates: [{ date: '2026-08-01' }, { date: '2026-08-08' }, { date: '2026-08-15' }],
+    };
+    const answers: (() => void)[] = [];
+    api.put.mockImplementation(
+      () => new Promise((resolve) => answers.push(() => resolve({ data: {} }))),
+    );
+    const wrapper = await mountPlan();
+    await edit(wrapper, first);
+    await vi.advanceTimersByTimeAsync(600);
+    await edit(wrapper, second);
+    await vi.advanceTimersByTimeAsync(300);
+
+    // The first save lands; its re-read shows the market as another person left it.
+    serveMarket(api.get, {
+      id: 'market-1',
+      name: 'Riverside',
+      phase: 'draft',
+      setupObject: first,
+      actionRefusals: answersRefusing(MarketAction.ChangeSetup),
+    });
+    answers.shift()!();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(api.put).toHaveBeenCalledTimes(1);
+    expect(asksBeforeUnload()).toBe(false);
+    expect(shownDates(wrapper)).toEqual(first.marketDates);
+
+    // A later re-read reaches the screen.
+    const moved = { ...PLAN, marketDates: [{ date: '2026-09-05' }] };
+    serveMarket(api.get, {
+      id: 'market-1',
+      name: 'Riverside',
+      phase: 'draft',
+      setupObject: moved,
+      actionRefusals: answersRefusing(MarketAction.ChangeSetup),
+    });
+    await useMarketStore().refresh();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(shownDates(wrapper)).toEqual(moved.marketDates);
+  });
+
   it('lets later re-reads reach the screen after a refusal', async () => {
     api.put.mockRejectedValue(answered(400, 'The setup is settled.'));
     const wrapper = await mountPlan();
@@ -401,7 +457,10 @@ describe('a save that did not land', () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect(api.post).not.toHaveBeenCalled();
-    expect(wrapper.findComponent(MarketAssignmentTab).props('assignError')).toBe(OFFLINE);
+    // It says the tables were not allocated, and why, rather than the plan's line again.
+    expect(wrapper.findComponent(MarketAssignmentTab).props('assignError')).toBe(
+      `The tables were not allocated, because the plan did not save. ${OFFLINE}`,
+    );
   });
 
   it('keeps Start from a CSV on the page when the plan did not save', async () => {
@@ -432,13 +491,6 @@ describe('a save that did not land', () => {
 
 describe('leaving the page', () => {
   const ADDED = { ...PLAN, marketDates: [{ date: '2026-08-01' }, { date: '2026-08-08' }] };
-
-  /** Whether the browser would ask before a reload or a close, as the page answers it. */
-  function asksBeforeUnload(): boolean {
-    const event = new Event('beforeunload', { cancelable: true });
-    window.dispatchEvent(event);
-    return event.defaultPrevented;
-  }
 
   it('has the browser ask while an edit is unsaved, and not before or once it saved', async () => {
     const wrapper = await mountPlan();

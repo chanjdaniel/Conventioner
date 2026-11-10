@@ -249,6 +249,48 @@ describe('the autosave queue', () => {
     expect(await autosave.flush()).toBeNull();
     expect(writes.send).not.toHaveBeenCalled();
   });
+
+  // An edit that can never be sent was left unsaved for good: the screen skipped every later
+  // re-read and the browser asked at every reload (T271 review).
+  it('drops an edit whose pause ends after the person may no longer write', async () => {
+    let may = true;
+    const { writes, edit, autosave } = setUp({ may: () => may });
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(300);
+    may = false;
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(writes.send).not.toHaveBeenCalled();
+    expect(autosave.unsaved.value).toBe(false);
+  });
+
+  it('drops an edit waiting on a save out once the person may no longer write', async () => {
+    let may = true;
+    const { writes, edit, autosave } = setUp({ may: () => may });
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    edit('2026-08-02');
+    await vi.advanceTimersByTimeAsync(600);
+    may = false;
+    await writes.answer();
+
+    expect(writes.send).toHaveBeenCalledTimes(1);
+    expect(autosave.unsaved.value).toBe(false);
+  });
+
+  it('drops an edit a flush finds unsendable', async () => {
+    let may = true;
+    const { writes, edit, autosave } = setUp({ may: () => may });
+
+    edit('2026-08-01');
+    may = false;
+
+    expect(await autosave.flush()).toBeNull();
+    expect(writes.send).not.toHaveBeenCalled();
+    expect(autosave.unsaved.value).toBe(false);
+  });
 });
 
 describe('a refusal and a failure', () => {

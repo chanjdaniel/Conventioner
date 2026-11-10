@@ -187,7 +187,7 @@ Moving between the tab's steps never asks, since the steps are one working copy,
 Sign out never stops on it.
 Every screen that holds unsaved work asks the same way ([unsaved work asks before it is dropped](../../implementation/conventions/unsaved-work-asks-before-it-is-dropped.md)).
 
-A phase move refuses while the questions are unsaved, "Open applications" among them, and the [phase rail](../../implementation/modules/phase-rail.md) says "The market did not move: the form has changes that are not saved. Save Form first.", before any of the plan's pending edits are sent ([the plan's autosave](../../implementation/modules/plan-autosave.md)).
+A phase move refuses while the questions are unsaved, "Open applications" among them, and the [phase rail](../../implementation/modules/phase-rail.md) says "The market did not move: the form has changes that are not saved. Save Form first." as the move is pressed, before "Open applications" asks for the reviewers and before any of the plan's pending edits are sent ([the plan's autosave](../../implementation/modules/plan-autosave.md)).
 It used to open the form as last saved, so applicants got a form without its last questions.
 Covered by:
 

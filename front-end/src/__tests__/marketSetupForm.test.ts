@@ -245,7 +245,8 @@ describe('MarketSetupView application form', () => {
 
   /**
    * "Open applications" over unsaved questions opened the form as last saved, so applicants got a
-   * form without its last questions (T271): the move asks the screen first, and is refused.
+   * form without its last questions (T271): the move asks the screen as it is pressed, before any
+   * dialog of the move's, and is refused.
    */
   it('refuses a phase move while the form has questions not yet saved', async () => {
     const form = formWith('shop_name', 'Shop');
@@ -253,23 +254,21 @@ describe('MarketSetupView application form', () => {
     formApi.mockResolvedValue({ data: { application_form: form } });
     const wrapper = await mountOnFormTab();
     await flushPromises();
-    const beforeTransition = () =>
-      (wrapper.getComponent(MarketFrame).props('beforeTransition') as () => Promise<unknown>)();
+    const refuseMove = () =>
+      (wrapper.getComponent(MarketFrame).props('refuseMove') as () => string | null)();
 
-    expect(await beforeTransition()).toBeNull();
+    expect(refuseMove()).toBeNull();
 
     const added = { fields: [...form.fields, { ...form.fields[0], key: 'theme', order: 1 }] };
     builderOf(wrapper).vm.$emit('update:applicationForm', added);
     await flushPromises();
-    expect(await beforeTransition()).toBe(
+    expect(refuseMove()).toBe(
       'The market did not move: the form has changes that are not saved. Save Form first.',
     );
-    // Nothing of the plan is sent for a move that will not happen.
-    expect(api.put).not.toHaveBeenCalled();
 
     api.put.mockResolvedValue({ data: { application_form: added } });
     await wrapper.get('[data-testid="form-builder-save-button"]').trigger('click');
     await flushPromises();
-    expect(await beforeTransition()).toBeNull();
+    expect(refuseMove()).toBeNull();
   });
 });

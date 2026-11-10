@@ -104,7 +104,10 @@ export function useAutosave(options: AutosaveOptions) {
     // This save carries every edit so far, so no pause or wanted save is left to send them.
     stopPause();
     wanted = false;
-    if (!options.may()) return Promise.resolve(null);
+    if (!options.may()) {
+      dropUnsendable();
+      return Promise.resolve(null);
+    }
     const carrying = edits.value;
     outCarrying = carrying;
     if (savedShown !== null) clearTimeout(savedShown);
@@ -148,7 +151,11 @@ export function useAutosave(options: AutosaveOptions) {
   function sendWanted(): boolean {
     if (!wanted) return false;
     wanted = false;
-    if (edits.value === stored.value || !options.may()) return false;
+    if (edits.value === stored.value) return false;
+    if (!options.may()) {
+      dropUnsendable();
+      return false;
+    }
     if (held) {
       heldEdit = true;
       return false;
@@ -163,6 +170,20 @@ export function useAutosave(options: AutosaveOptions) {
     stopPause();
     wanted = false;
     heldEdit = false;
+  }
+
+  /**
+   * The person may no longer write (the market archived, their role gone, by another person's
+   * change): nothing made so far can ever be sent, so it is dropped as a refusal drops it, rather
+   * than left unsaved for good, which kept the screen off every later re-read and had the browser
+   * ask at every reload. The screen takes the server's copy back by its re-read.
+   */
+  function dropUnsendable() {
+    dropEdits();
+    if (status.value === 'failed') {
+      status.value = 'idle';
+      message.value = '';
+    }
   }
 
   function showSaved() {
@@ -209,7 +230,10 @@ export function useAutosave(options: AutosaveOptions) {
    * sent as kept: the working copy holds the value from before the text that is not one.
    */
   async function flush(): Promise<string | null> {
-    if (!options.may()) return null;
+    if (!options.may()) {
+      if (!out.value) dropUnsendable();
+      return null;
+    }
     stopPause();
     heldEdit = false;
     wanted = false;
@@ -219,7 +243,11 @@ export function useAutosave(options: AutosaveOptions) {
         if (stopped !== null) return stopped;
         continue;
       }
-      if (edits.value === stored.value || !options.may()) return null;
+      if (edits.value === stored.value) return null;
+      if (!options.may()) {
+        dropUnsendable();
+        return null;
+      }
       const failed = await save();
       if (failed !== null) return failed;
     }

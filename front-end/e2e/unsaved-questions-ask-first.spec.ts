@@ -183,13 +183,12 @@ test.describe('Unsaved questions ask before they are dropped', () => {
     const setup = new MarketSetupPage(page);
     await setup.clickTransition('applications');
     const error = page.getByTestId('phase-rail-error');
-    const opening = page.getByTestId('open-applications-submit-button');
-    await opening.or(error).first().waitFor();
-    if (await opening.isVisible()) await opening.click();
 
+    // Refused as it is pressed: the move's own dialog never opens for it.
     await expect(error).toHaveText(
       'The market did not move: the form has changes that are not saved. Save Form first.',
     );
+    await expect(page.getByTestId('open-applications-window')).toHaveCount(0);
     await expect(page.getByTestId('phase-rail-current')).toHaveText(/Draft/);
     expect(moves).toEqual([]);
     await expect(page.getByTestId('form-field-label-input').last()).toHaveValue(LABEL);

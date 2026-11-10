@@ -286,8 +286,11 @@ watch(
   (fresh) => {
     if (!fresh) return;
     const arrived = fresh.id !== planMarket?.id;
-    if (arrived || fresh.id === planMarket?.id) planMarket = fresh;
-    if (!arrived && planUnsaved.value) return;
+    planMarket = fresh;
+    // An unsaved edit keeps the working copy, unless the organizer may no longer save it (another
+    // person archived the market or took their role): the autosave drops it then, and the screen
+    // shows the plan as the server holds it.
+    if (!arrived && planUnsaved.value && mayTake(fresh, MarketAction.ChangeSetup)) return;
     adoptPlan(fresh);
   },
   { immediate: true },
@@ -340,18 +343,23 @@ function handleUpdateIntakeMode(mode: IntakeMode) {
 const formUnsaved = ref(false);
 
 /**
+ * Unsaved questions refuse a move as it is pressed, before any dialog of the move's opens:
+ * "Open applications" over them opened the form as last saved, so applicants got a form without its
+ * last questions (T271).
+ */
+function refuseMove(): string | null {
+  return formUnsaved.value
+    ? 'The market did not move: the form has changes that are not saved. Save Form first.'
+    : null;
+}
+
+/**
  * Every phase guard reads the market as the server holds it, so a transition fired while an edit
  * is still sitting in the pause would be judged against a plan the organizer has already changed -
  * refused by their own unsaved work. So the plan's edits land first, and a plan that did not land
  * stops the move, which would otherwise go ahead over a plan the organizer did not mean (T271).
- *
- * Unsaved questions stop it before that: "Open applications" over them opened the form as last
- * saved, so applicants got a form without its last questions (T271).
  */
 async function beforeTransition(): Promise<string | null> {
-  if (formUnsaved.value) {
-    return 'The market did not move: the form has changes that are not saved. Save Form first.';
-  }
   const why = await flushPlan();
   return why === null ? null : `The market did not move, because the plan did not save. ${why}`;
 }
@@ -412,7 +420,8 @@ const handleAssign = async () => {
     if (mayTake(market.value, MarketAction.ChangeSetup)) {
       const why = await flushPlan();
       if (why !== null) {
-        assignError.value = why;
+        // The plan's line says the same sentence: this one says what it stopped.
+        assignError.value = `The tables were not allocated, because the plan did not save. ${why}`;
         return;
       }
     }
@@ -462,7 +471,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
     <!-- The frame (E21/F04/S01): the market's bar and the whole phase rail stay put under the
          app bar while the page scrolls. Nothing about a market is kept in the browser, so until the
          server answers the frame paints the state of asking (E21/F02/S02). -->
-    <MarketFrame :market="market" :beforeTransition="beforeTransition">
+    <MarketFrame :market="market" :beforeTransition="beforeTransition" :refuseMove="refuseMove">
       <template v-if="market">
         <!-- What the start from a Google Form just did, said once above the Questions tab it lands
              on; here rather than in the tab's body, which owns the form. -->

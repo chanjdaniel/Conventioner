@@ -101,7 +101,7 @@ Covered by:
 
 **Status:** Works (re-walked live on 2026-10-03, with and without tiers; bug 23).
 "Allocate tables" lands on Assignments.
-A rule edit not yet saved is saved first, and one that did not save stops the run, its reason shown as the run's error, so the run never reads older rules ([the plan's autosave](../../implementation/modules/plan-autosave.md), T271).
+A rule edit not yet saved is saved first, and one that did not save stops the run, whose error says "The tables were not allocated, because the plan did not save. " and the reason, so the run never reads older rules ([the plan's autosave](../../implementation/modules/plan-autosave.md), T271).
 Dates fill one at a time, in the order the plan holds them, so later days can end up nearly empty; that is known behaviour, kept as it is (bug 39, [dates fill one at a time, in the plan's order](../rules/dates-fill-in-calendar-order.md)).
 An allocation that would break a vendor's answers or seat two vendors at one seat is never kept: the run is refused with the generic failure line, "Something went wrong on our side. Try again in a moment.", and the stored assignments stay as they were ([what a correct assignment is](../rules/what-a-correct-assignment-is.md#where-it-is-kept)).
 Covered by:

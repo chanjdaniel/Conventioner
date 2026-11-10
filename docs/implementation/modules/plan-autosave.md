@@ -48,6 +48,8 @@ A "Retry" button beside it (`market-setup-plan-retry-button`, `retry`) sends the
 A 401 also ends the session through the app's interceptor.
 
 **A person who may not write sends nothing, and their edits are not counted**, so nothing stays unsaved for them and the server's re-reads still reach their screen (bug 30: a plan that cannot change is never sent).
+An edit counted while they could write, which comes to be sent after a re-read says they no longer can (another person archived the market or took their role), is dropped as a refusal drops it, by the pause, the answer of the save out or a flush, and a failed line goes with it.
+The view's market watch takes such a re-read even with the edit unsaved, so the screen shows the plan as the server holds it; the edit used to stay unsaved for good, the page skipping every later re-read and the browser asking at every reload (T271 review).
 
 **The hold** (`hold`): the Pricing card holds the autosave while a price or the half table's share shows text that is not a value, or a group's name is missing or another's ([a price follows the table](../../business/rules/a-price-follows-the-table.md), E43/F01/S01), so "Plan saved" never stands beside text that was not kept.
 While held no pause runs; an edit made meanwhile, or a save wanted when an answer finds the plan held, waits, and is sent a pause after the hold ends.
@@ -55,8 +57,8 @@ While held no pause runs; an edit made meanwhile, or a save wanted when an answe
 **The flush** (`flush`) stops the pause, waits for a save out, and sends while anything is unsaved, a held edit as kept: the working copy holds the value from before the text that is not one.
 It answers null once the server holds the last edit, or the sentence of the failure or refusal that stopped it, a save out it waited for included (a refusal's own sentence, without "The plan is back as it was last saved."); with nothing unsaved it answers null at once, sending nothing.
 Market Setup flushes before a phase move (the frame's `beforeTransition`), before Allocate tables and before the start from a CSV, and each stops on a sentence:
-the move posts nothing and the [phase rail](phase-rail.md) says "The market did not move, because the plan did not save. " and the sentence; [Allocate tables](../../business/flows/assignment-and-result.md#j3-allocate-tables) posts no run and shows the sentence as its error; the start from a CSV stays on the plan, whose status line says why.
-Before the flush, a phase move refuses while the form tab reports questions not yet saved, and sends nothing of the plan ([building the application form](../../business/flows/form-tab.md#leaving-with-questions-not-yet-saved)).
+the move posts nothing and the [phase rail](phase-rail.md) says "The market did not move, because the plan did not save. " and the sentence; [Allocate tables](../../business/flows/assignment-and-result.md#j3-allocate-tables) posts no run, and its error says "The tables were not allocated, because the plan did not save. " and the sentence; the start from a CSV stays on the plan, whose status line says why.
+Before that, as it is pressed and before any of its dialogs opens, a phase move refuses while the form tab reports questions not yet saved (the frame's `refuseMove`), and sends nothing of the plan ([building the application form](../../business/flows/form-tab.md#leaving-with-questions-not-yet-saved)).
 The intake mode is saved at once, an edit and a flush, so it goes through the same queue.
 Allocate tables sends the plan only when an edit is unsaved: the server already holds the working copy otherwise.
 
@@ -78,7 +80,7 @@ Production calls `https://api.conventioner.io` from `https://conventioner.io`, s
 **The status line** is [`PlanSaveStatus.vue`](../../../front-end/src/components/market/PlanSaveStatus.vue), at the foot of the plan tab: "Saving…", "Plan saved", the failed line with Retry, or the refused line.
 On Settings, where the assignment rules ride in the plan, the failed and refused lines show too, through `MarketAssignmentTab`'s `planStatus` slot, above the allocation's own error, and in a row of their own when there is no allocation to offer.
 
-**The working copy** is `setupObject` and `planIntakeMode`, taken from the market when it arrives and again whenever a re-read lands while nothing is `unsaved` (`adoptPlan`).
+**The working copy** is `setupObject` and `planIntakeMode`, taken from the market when it arrives and again whenever a re-read lands while nothing is `unsaved`, or while the person may no longer change the plan (`adoptPlan`).
 
 **The echo rule** (`serverPlan`, bug 25): the plan cards deep-watch the working copy and report every change to it, the page's own adoption of a re-read included, so a report that leaves the plan as the server sent it, while nothing is unsaved, is not an edit.
 Without it one edit saved every 625 ms until the page was left (`plan-saves-once.spec.ts`).
