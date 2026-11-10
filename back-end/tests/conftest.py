@@ -11,10 +11,15 @@ port nothing can listen on, with a short server selection timeout: a test that r
 an unpatched collection fails loudly in a fraction of a second instead of silently
 reading or writing a developer's live local database.
 """
+import copy
+import functools
 import importlib.util
 import os
+import re
 import sys
 import types
+import uuid
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -202,33 +207,89 @@ from datatypes import AssignmentObject, Market, MarketPhase, MarketRole, market_
 
 
 def mongo_project(doc: dict, projection) -> dict:
-    """Apply a Mongo projection the way the server does, so a fake hands back what Mongo would.
+    """Apply a find projection as MongoDB does, or refuse it with ``UnmodelledQuery``, so a
+    fake hands back what the server would.
 
     A fake that ignores the projection hands the caller fields the real query never fetched, which
     is exactly how a read of a field nobody asked for passes here and reads ``None`` in production.
-    The exclusion form (every field 0, as the organization's history reads) drops the top-level
-    fields it names and keeps the rest.
+    It models inclusion and exclusion by ``1``, ``0``, ``True`` and ``False``, of top-level and
+    dotted paths: an inclusion keeps the ``_id`` unless told not to, keeps the document's own field
+    order, keeps an empty sub-document where a dotted path finds nothing in it, drops a scalar a
+    dotted path runs into, and through a list narrows each sub-document element and drops the
+    scalar ones; an exclusion drops each path it names, through a list from every sub-document
+    element. Anything else (``$slice``, ``$elemMatch``, a positional path, a literal or any other
+    value, inclusion beside exclusion, a path beside its parent) is refused, naming it.
+
+    ``tests/mongo_cases.py``'s ``PROJECTION_CASES`` hold the cases it is checked by, hermetically
+    and against the server; a change here comes with its cases there.
     """
     if not projection:
         return doc
-    if not any(projection.values()):
-        return {key: value for key, value in doc.items() if key not in projection}
-    kept: dict = {}
-    for path, wanted in projection.items():
-        if not wanted:
-            continue
-        head, _, rest = path.partition(".")
-        if head not in doc:
-            continue
-        if not rest:
-            kept[head] = doc[head]
-        elif isinstance(doc[head], dict):
-            # A dotted path keeps only that part of the sub-document, as Mongo does.
-            inner = mongo_project(doc[head], {rest: 1})
-            kept[head] = {**kept.get(head, {}), **inner}
-    if "_id" in doc and projection.get("_id", 1):
-        kept.setdefault("_id", doc["_id"])
-    return kept
+    if not isinstance(projection, dict):
+        _refuse(f"a projection that is not a document: {projection!r}")
+    wanted: dict = {}
+    for path, value in projection.items():
+        if isinstance(value, bool) or (_is_number(value) and value in (0, 1)):
+            wanted[path] = bool(value)
+        else:
+            _refuse(f"a projection of {path!r} by the value {value!r}")
+        if any(not part or part.startswith("$") for part in path.split(".")):
+            _refuse(f"the projection path {path!r}")
+    fields = {path: keep for path, keep in wanted.items() if path != "_id"}
+    including = any(fields.values()) if fields else wanted.get("_id", True)
+    for path, keep in fields.items():
+        if keep != including:
+            _refuse(f"{path!r}: an inclusion beside an exclusion (the server refuses it)")
+    if including and wanted.get("_id", True):
+        fields = {"_id": True, **fields}
+    elif not including and not wanted.get("_id", True):
+        fields = {"_id": False, **fields}
+    tree = _path_tree(fields)
+    return _include(doc, tree) if including else _exclude(doc, tree)
+
+
+def _path_tree(paths) -> dict:
+    """The paths as a tree of their parts, each leaf ``True``; a path beside its parent is
+    refused, as the server refuses it."""
+    tree: dict = {}
+    for path in sorted(paths, key=lambda path: path.count(".")):
+        *parents, last = path.split(".")
+        node = tree
+        for part in parents:
+            node = node.setdefault(part, {})
+            if node is True:
+                _refuse(f"{path!r} beside its parent (the server refuses the collision)")
+        if last in node:
+            _refuse(f"{path!r} beside its parent (the server refuses the collision)")
+        node[last] = True
+    return tree
+
+
+#: What an inclusion keeps of a scalar a dotted path runs into: nothing.
+_DROPPED = object()
+
+
+def _include(value, tree):
+    if isinstance(value, dict):
+        kept = {}
+        for key, item in value.items():
+            if key in tree:
+                part = copy.deepcopy(item) if tree[key] is True else _include(item, tree[key])
+                if part is not _DROPPED:
+                    kept[key] = part
+        return kept
+    if isinstance(value, list):
+        return [_include(item, tree) for item in value if isinstance(item, (dict, list))]
+    return _DROPPED
+
+
+def _exclude(value, tree):
+    if isinstance(value, dict):
+        return {key: (copy.deepcopy(item) if key not in tree else _exclude(item, tree[key]))
+                for key, item in value.items() if tree.get(key) is not True}
+    if isinstance(value, list):
+        return [_exclude(item, tree) for item in value]
+    return copy.deepcopy(value)
 
 
 def reject_malformed_update(update):
@@ -258,8 +319,38 @@ def reject_malformed_update(update):
             )
 
 
+def _update_first(docs: list, query, update) -> SimpleNamespace:
+    """``update_one`` over ``docs`` as MongoDB runs it, for the two markets fakes.
+
+    The first document ``query`` matches (by ``mongo_matches``) is replaced in ``docs`` by the
+    update applied to it (by ``mongo_update``), and the answer carries the server's counts:
+    matched and modified ``0`` when nothing matches, modified ``0`` when the update changed no
+    value. The filter and the update are read over ``{}`` first, so one the shared fakes do not
+    model is refused even when nothing is stored.
+    """
+    reject_malformed_update(update)
+    mongo_matches({}, query)
+    for index, doc in enumerate(docs):
+        if doc is not None and mongo_matches(doc, query):
+            after = mongo_update(doc, update)
+            docs[index] = after
+            return SimpleNamespace(matched_count=1, modified_count=int(not _identical(doc, after)),
+                                   upserted_id=None)
+    mongo_update({}, update)
+    return SimpleNamespace(matched_count=0, modified_count=0, upserted_id=None)
+
+
 class FakeMarketsCollection:
-    """Stand-in for the markets collection, holding one market document."""
+    """Stand-in for the markets collection, holding one market document, ``doc``.
+
+    ``update_one`` applies its filter and its update as MongoDB does (``_update_first``) and
+    answers the server's counts, so a write that holds what it read (the phase move's stored
+    phase, Publish results' phase) matches nothing over a market that no longer holds it, and a
+    test of that write fails when the server would refuse it. A write that lands replaces ``doc``
+    with the market after it, a new dict, so the document a test built the fake from is not the
+    store; ``last_update`` keeps the update document sent, matched or not, for a test asserting
+    what was written. ``find_one`` applies its filter and projection and hands back a copy.
+    """
 
     def __init__(self, doc):
         self.doc = doc
@@ -271,12 +362,14 @@ class FakeMarketsCollection:
         # address (`id: {$ne: ...}`), and a fake that ignored the filter would answer "yes, this one".
         if self.doc is None or not mongo_matches(self.doc, query):
             return None
-        return mongo_project(dict(self.doc), projection)
+        return mongo_project(copy.deepcopy(self.doc), projection)
 
-    def update_one(self, _filter, update):
-        reject_malformed_update(update)
+    def update_one(self, query, update):
         self.last_update = update
-        return SimpleNamespace(matched_count=1, modified_count=1, upserted_id=None)
+        docs = [self.doc]
+        result = _update_first(docs, query, update)
+        [self.doc] = docs
+        return result
 
     def insert_one(self, document):
         self.inserted = document
@@ -296,6 +389,8 @@ class FakeSlugMarketsCollection:
     one is a market Mongo would never return. It applies the projection for the same reason, one
     step on: the applicant endpoints fetch the fields they read and no others, and a fake that
     served the whole document would let a read of the rest pass here and find nothing in production.
+    ``update_one`` applies its filter and its update to the first market matched, as
+    ``FakeMarketsCollection``'s does and for the same reason, and keeps ``last_update``.
 
     It lives here, and not in the two suites that need it, because it did live in both of them: the
     same fake written twice is the same fix applied once.
@@ -311,70 +406,517 @@ class FakeSlugMarketsCollection:
 
     def find(self, query, projection=None):
         self.last_projection = projection
-        matched = [dict(d) for d in self.docs if mongo_matches(d, query)]
+        matched = [copy.deepcopy(d) for d in self.docs if mongo_matches(d, query)]
         return iter([mongo_project(d, projection) for d in matched])
 
-    def update_one(self, _filter, update):
-        reject_malformed_update(update)
+    def update_one(self, query, update):
         self.last_update = update
-        return SimpleNamespace(matched_count=1, modified_count=1, upserted_id=None)
+        return _update_first(self.docs, query, update)
 
     def insert_one(self, _document):
         return SimpleNamespace(inserted_id="fake-id")
 
 
-def mongo_matches(doc: dict, query: dict) -> bool:
-    """Evaluate a Mongo filter the way the server does.
+class UnmodelledQuery(AssertionError):
+    """A filter the shared fakes do not model, refused rather than answered.
 
-    The fakes that stand in for the markets collection share this, because a fake that ignores the
-    filter is a fake that passes a document Mongo would never have handed back - which is exactly
-    how a lookup querying a field no document carries would go unnoticed here and 404 in
-    production. ``$ne``, ``$exists``, ``$in`` and ``$nor`` are modelled because the public slug
-    lookup is built out of them, ``$gt`` because a deal's lease is, ``$lt`` because a sign-in
-    code's tries are, ``$type: object`` because the applications waiting to be dealt are read by
-    it, and a value matching a list that holds it because a vendor's history is. A dotted key
-    reaches into sub-documents, as an assignment's revision is read by every write of it.
+    A fake that reads an operator it does not know as met hands back every document, so a test of
+    a new filter through it is green whatever the filter says. Refusing it fails that test at once,
+    naming the operator, and the author either models it here, with its cases in
+    ``tests/mongo_cases.py``, or tests the filter against the real server (``tests/real_mongo/``).
+    A subclass of ``AssertionError``, so pytest reports a failed test, not an error in the code.
     """
-    for key, condition in (query or {}).items():
-        if key == "$nor":
-            if any(mongo_matches(doc, clause) for clause in condition):
-                return False
+
+
+#: A path that reaches no value, as distinct from a value that is null.
+_MISSING = object()
+
+_LOGICAL_OPERATORS = ("$and", "$or", "$nor")
+_RANGE_OPERATORS = {
+    "$gt": lambda value, bound: value > bound,
+    "$gte": lambda value, bound: value >= bound,
+    "$lt": lambda value, bound: value < bound,
+    "$lte": lambda value, bound: value <= bound,
+}
+
+
+def _refuse(what: str):
+    raise UnmodelledQuery(f"the shared matcher does not model {what}")
+
+
+def mongo_matches(doc: dict, query: dict) -> bool:
+    """Evaluate a Mongo filter as MongoDB does, or refuse it with ``UnmodelledQuery``.
+
+    Fakes filter through this, since a fake that ignores its filter passes a document the server
+    would never have handed back: in this file the applications, markets and organizations fakes
+    find documents through it, the attempts fake's ``update_one`` finds its document by ``_id``
+    and then holds its ``$inc`` on the whole filter through it, and the GridFS fake's ``find``
+    filters every stored file through it; many fakes of a single test file use it too. The
+    templates fake matches by plain equality, and the attempts and GridFS fakes' ``find_one`` by
+    key alone.
+
+    It models ``$eq``, ``$ne``, ``$gt``, ``$gte``, ``$lt``, ``$lte``, ``$in``, ``$nin``,
+    ``$exists``, ``$size``, ``$type: "object"``, ``$and``, ``$or`` and ``$nor``; dotted paths
+    through sub-documents and through lists, to any element and by a numeric index; a value,
+    ``$in``, ``$ne`` and ``$nin`` against a list field by its elements; null as matching a missing
+    field; a whole sub-document equal only in the same field order; and a range across two BSON
+    types as matching nothing.
+    Anything else (``$regex``, ``$elemMatch``, ``$not``, any other ``$type``, an operator it does
+    not know) raises ``UnmodelledQuery`` naming it, and so does a malformed filter the server
+    refuses. Every operator of the filter is read, so an unmodelled one is refused even where an
+    earlier term already decided the answer.
+
+    ``tests/mongo_cases.py`` holds the cases it is checked by: ``tests/test_the_shared_matcher.py``
+    runs them through this on every run, and ``tests/real_mongo/`` runs them through a real server.
+    A change here comes with its cases there.
+    """
+    if not isinstance(query, dict):
+        _refuse(f"a filter that is not a document: {query!r}")
+    answers = [_holds(doc, key, condition) for key, condition in query.items()]
+    return all(answers)
+
+
+def _holds(doc: dict, key: str, condition) -> bool:
+    if key in _LOGICAL_OPERATORS:
+        if not isinstance(condition, list) or not condition:
+            _refuse(f"{key!r} over anything but a non-empty list of filters")
+        answers = [mongo_matches(doc, clause) for clause in condition]
+        if key == "$and":
+            return all(answers)
+        if key == "$or":
+            return any(answers)
+        return not any(answers)
+    if key.startswith("$"):
+        _refuse(f"the query operator {key!r}")
+    leaves = _leaves(doc, key.split("."))
+    # A condition is operators when its first key is one, as the server reads it; any other
+    # document is a value to equal whole (a claim's holder, E34/F03/S02).
+    if isinstance(condition, dict) and condition and next(iter(condition)).startswith("$"):
+        answers = [_meets(leaves, operator, operand) for operator, operand in condition.items()]
+        return all(answers)
+    return _equals_any(leaves, condition)
+
+
+def _leaves(value, parts: list) -> list:
+    """What a dotted path reaches in ``value``: each value it lands on, or ``_MISSING`` where it
+    reads as absent.
+
+    Through a list it reaches every sub-document element and, for a numeric part, the element at
+    that index; a scalar element or a nested list is not followed by name, and an index past the
+    end reaches nothing, all as the server does.
+    """
+    if not parts:
+        return [value]
+    head, rest = parts[0], parts[1:]
+    if isinstance(value, dict):
+        return _leaves(value[head], rest) if head in value else [_MISSING]
+    if isinstance(value, list):
+        found = []
+        if head.isascii() and head.isdigit() and int(head) < len(value):
+            element = value[int(head)]
+            # An indexed scalar with more path to go reaches nothing, not a missing field.
+            if not rest or isinstance(element, (dict, list)):
+                found += _leaves(element, rest)
+        for element in value:
+            if isinstance(element, dict):
+                found += _leaves(element, parts)
+        return found
+    return [_MISSING]
+
+
+def _candidates(leaves: list):
+    """The values a condition is tried against: each leaf, and each element of a leaf that is a
+    list (not deeper)."""
+    for leaf in leaves:
+        if leaf is _MISSING:
             continue
-        if "." in key:
-            head, _, rest = key.partition(".")
-            inner = doc.get(head)
-            if not mongo_matches(inner if isinstance(inner, dict) else {}, {rest: condition}):
-                return False
+        yield leaf
+        if isinstance(leaf, list):
+            yield from leaf
+
+
+def _meets(leaves: list, operator: str, operand) -> bool:
+    if operator == "$eq":
+        return _equals_any(leaves, operand)
+    if operator == "$ne":
+        return not _equals_any(leaves, operand)
+    if operator in ("$in", "$nin"):
+        if not isinstance(operand, list):
+            _refuse(f"{operator!r} over anything but a list")
+        answers = [_equals_any(leaves, value) for value in operand]
+        return any(answers) if operator == "$in" else not any(answers)
+    if operator == "$exists":
+        return bool(operand) == any(leaf is not _MISSING for leaf in leaves)
+    if operator == "$size":
+        if not _is_number(operand) or operand != int(operand) or operand < 0:
+            _refuse(f"'$size' of {operand!r}")
+        return any(isinstance(leaf, list) and len(leaf) == operand for leaf in leaves)
+    if operator == "$type":
+        if operand != "object":
+            _refuse(f"'$type' other than \"object\": {operand!r}")
+        return any(isinstance(value, dict) for value in _candidates(leaves))
+    if operator in _RANGE_OPERATORS:
+        if operand is None:
+            # Null is its own type: $gte and $lte of it are equality with null, $gt and $lt nothing.
+            return operator in ("$gte", "$lte") and _equals_any(leaves, None)
+        bound_type = _comparable_type(operand)
+        if bound_type is None:
+            _refuse(f"{operator!r} of {operand!r}")
+        compare = _RANGE_OPERATORS[operator]
+        return any(_comparable_type(value) == bound_type
+                   and compare(_comparable(value), _comparable(operand))
+                   for value in _candidates(leaves))
+    if not operator.startswith("$"):
+        _refuse(f"the field {operator!r} beside operators in one condition (the server refuses it)")
+    _refuse(f"the query operator {operator!r}")
+
+
+def _equals_any(leaves: list, value) -> bool:
+    _refuse_unmodelled_value(value)
+    if value is None:
+        return any(leaf is _MISSING for leaf in leaves) or any(
+            candidate is None for candidate in _candidates(leaves))
+    return any(_bson_equal(candidate, value) for candidate in _candidates(leaves))
+
+
+def _refuse_unmodelled_value(value):
+    if isinstance(value, re.Pattern) or type(value).__name__ == "Regex":
+        _refuse(f"a regular expression as a value: {value!r}")
+
+
+def _is_number(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _utc(moment: datetime) -> datetime:
+    # The server keeps a date as UTC and hands it back naive, so a naive date is a UTC one.
+    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+
+def _bson_equal(stored, value) -> bool:
+    """Equality as the server compares two values: by type first (``True`` is not ``1``), numbers
+    across int and float, sub-documents field by field in order, lists element by element."""
+    if isinstance(stored, bool) or isinstance(value, bool):
+        return isinstance(stored, bool) and isinstance(value, bool) and stored == value
+    if _is_number(stored) and _is_number(value):
+        return stored == value
+    if isinstance(stored, dict) or isinstance(value, dict):
+        return (isinstance(stored, dict) and isinstance(value, dict)
+                and list(stored) == list(value)
+                and all(_bson_equal(stored[key], value[key]) for key in stored))
+    if isinstance(stored, list) or isinstance(value, list):
+        return (isinstance(stored, list) and isinstance(value, list) and len(stored) == len(value)
+                and all(_bson_equal(a, b) for a, b in zip(stored, value)))
+    if isinstance(stored, datetime) and isinstance(value, datetime):
+        return _utc(stored) == _utc(value)
+    if stored is None or value is None:
+        return stored is None and value is None
+    return stored == value
+
+
+def _comparable_type(value):
+    """The type a range compares within, or ``None`` for a value no modelled range compares."""
+    if isinstance(value, bool):
+        return bool
+    if _is_number(value):
+        return float
+    if isinstance(value, str):
+        return str
+    if isinstance(value, datetime):
+        return datetime
+    if type(value).__name__ == "ObjectId":
+        return "ObjectId"
+    return None
+
+
+def _comparable(value):
+    return _utc(value) if isinstance(value, datetime) else value
+
+
+def _identical(stored, value) -> bool:
+    """Whether the server would store ``value`` as the very same BSON as ``stored``: one type
+    (``1`` is not ``1.0``), one field order, one length. An update that leaves every value
+    identical modified nothing."""
+    if _bson_kind(stored) is not _bson_kind(value):
+        return False
+    if isinstance(value, dict):
+        return list(stored) == list(value) and all(
+            _identical(stored[key], value[key]) for key in stored)
+    if isinstance(value, list):
+        return len(stored) == len(value) and all(map(_identical, stored, value))
+    if isinstance(value, datetime):
+        return _utc(stored) == _utc(value)
+    return stored == value
+
+
+def _bson_kind(value):
+    """The BSON type a value is stored as; a subclass (a ``StrEnum`` phase) is its base's."""
+    for kind in (bool, int, float, str, dict, list, datetime):
+        if isinstance(value, kind):
+            return kind
+    return type(value)
+
+
+#: The update operators the shared fakes apply; any other is refused.
+_UPDATE_OPERATORS = ("$set", "$unset", "$inc", "$push", "$addToSet", "$pull", "$setOnInsert")
+
+
+def mongo_update(doc: dict, update: dict, inserting: bool = False) -> dict:
+    """The document MongoDB stores after applying ``update`` to ``doc``, or ``UnmodelledQuery``
+    where the server refuses the update or the fakes do not model it. ``doc`` is left as it was.
+
+    It applies ``$set``, ``$unset``, ``$inc``, ``$push`` (and its ``$each``), ``$addToSet`` (and
+    its ``$each``), ``$pull`` (of a value, or an equality condition on sub-document elements) and,
+    when ``inserting``, ``$setOnInsert``, each on dotted paths through sub-documents and list
+    indexes. As the server does, it applies the paths in the order of their names, so new fields
+    land in that order; pads a list with null to reach an index; refuses a field made under a
+    scalar or by name in a list, a path under two operators or beside its parent, and any change
+    of the ``_id``. Every other operator (``$rename``, ``$min``, ``$pullAll``, a positional path,
+    ``$push``'s ``$slice`` and ``$position``, ``$pull`` of an operator condition) is refused,
+    naming it.
+
+    The applications fake and the markets fakes write through this, so their update is the one
+    checked by ``tests/mongo_cases.py``'s ``UPDATE_CASES``, hermetically and against the server; a
+    change here comes with its cases there. The attempts and templates fakes apply their ``$inc``
+    or ``$set`` by hand, and the table does not check them.
+    """
+    reject_malformed_update(update)
+    if not any(key.startswith("$") for key in update):
+        raise ValueError("update only works with $ operators")
+    steps = []
+    for operator, fields in update.items():
+        if operator not in _UPDATE_OPERATORS:
+            _refuse(f"the update operator {operator!r}")
+        for path, argument in fields.items():
+            parts = path.split(".")
+            if any(not part for part in parts):
+                _refuse(f"the update path {path!r}, with an empty field name")
+            if any(part.startswith("$") for part in parts):
+                _refuse(f"the positional update path {path!r}")
+            steps.append((parts, operator, argument, path))
+    _refuse_conflicts([parts for parts, *_ in steps], [path for *_, path in steps])
+    after = copy.deepcopy(doc)
+    for parts, operator, argument, path in sorted(steps, key=lambda step: _path_order(step[0])):
+        if operator == "$setOnInsert" and not inserting:
             continue
-        present = key in doc
-        # Operators only when every key is one, as Mongo reads it; any other dict is a value to
-        # equal, a whole sub-document (a claim's holder, E34/F03/S02).
-        if isinstance(condition, dict) and condition and all(k.startswith("$") for k in condition):
-            if "$exists" in condition and present != condition["$exists"]:
-                return False
-            if "$ne" in condition and doc.get(key) == condition["$ne"]:
-                return False
-            if "$in" in condition and doc.get(key) not in condition["$in"]:
-                return False
-            if "$type" in condition and not (
-                    condition["$type"] == "object" and isinstance(doc.get(key), dict)):
-                return False
-            # Mongo compares a missing or null field as matching no range (a lease's end, say).
-            if "$gt" in condition and (doc.get(key) is None or not doc[key] > condition["$gt"]):
-                return False
-            if "$lt" in condition and (doc.get(key) is None or not doc[key] < condition["$lt"]):
-                return False
-        elif condition is None:
-            # A null matches a field that is null or absent.
-            if doc.get(key) is not None:
-                return False
-        elif present and isinstance(doc[key], list) and not isinstance(condition, list):
-            # A value matches a list holding it, as a vendor's entries are found by ``vendors``.
-            if condition not in doc[key]:
-                return False
-        elif not present or doc[key] != condition:
-            return False
-    return True
+        _apply_one(after, parts, operator, argument, path)
+    if "_id" in doc and not _identical(doc["_id"], after.get("_id")):
+        _refuse(f"a change of the immutable '_id' (the server refuses it): {update!r}")
+    return after
+
+
+def _path_order(parts):
+    """The order the server applies an update's paths in: by name, part by part, a numeric part
+    by its number."""
+    return [(0, int(part), "") if part.isdigit() else (1, 0, part) for part in parts]
+
+
+def _refuse_conflicts(paths, names):
+    for index, parts in enumerate(paths):
+        for other in paths[:index]:
+            if parts[:len(other)] == other or other[:len(parts)] == parts:
+                _refuse(f"the update path {names[index]!r}, which conflicts with "
+                        f"{'.'.join(other)!r} (the server refuses it)")
+
+
+def _apply_one(doc: dict, parts: list, operator: str, argument, path: str):
+    creating = operator not in ("$unset", "$pull")
+    parent = doc
+    for part in parts[:-1]:
+        parent = _step_into(parent, part, creating, path)
+        if parent is None:
+            return
+    last = parts[-1]
+    current = _child(parent, last)
+    if operator in ("$set", "$setOnInsert"):
+        _put(parent, last, copy.deepcopy(argument), path)
+    elif operator == "$unset":
+        if isinstance(parent, dict):
+            parent.pop(last, None)
+        elif last.isdigit() and int(last) < len(parent):
+            parent[int(last)] = None
+    elif operator == "$inc":
+        if not _is_number(argument):
+            _refuse(f"'$inc' of {path!r} by {argument!r}, not a number (the server refuses it)")
+        if current is _MISSING:
+            _put(parent, last, argument, path)
+        elif _is_number(current):
+            _put(parent, last, current + argument, path)
+        else:
+            _refuse(f"'$inc' of {path!r}, which holds {current!r} (the server refuses it)")
+    elif operator in ("$push", "$addToSet"):
+        values = _each(operator, argument)
+        if current is _MISSING:
+            current = []
+        elif not isinstance(current, list):
+            _refuse(f"{operator!r} onto {path!r}, which holds {current!r} (the server refuses it)")
+        else:
+            current = list(current)
+        for value in values:
+            if operator == "$push" or not any(_bson_equal(held, value) for held in current):
+                current.append(copy.deepcopy(value))
+        _put(parent, last, current, path)
+    elif operator == "$pull":
+        if current is _MISSING:
+            return
+        if not isinstance(current, list):
+            _refuse(f"'$pull' from {path!r}, which holds {current!r} (the server refuses it)")
+        _put(parent, last, [held for held in current if not _pulled(held, argument)], path)
+
+
+def _step_into(parent, part: str, creating: bool, path: str):
+    """The container ``part`` of a path reaches from ``parent``, made where ``creating`` and it is
+    missing, or ``None`` where it is missing and not to be made."""
+    child = _child(parent, part)
+    if isinstance(child, (dict, list)):
+        return child
+    if child is _MISSING and creating:
+        _put(parent, part, {}, path)
+        return _child(parent, part)
+    if child is _MISSING or not creating:
+        return None
+    _refuse(f"the update path {path!r}, which runs into {child!r} (the server refuses it)")
+
+
+def _child(parent, part: str):
+    if isinstance(parent, dict):
+        return parent.get(part, _MISSING)
+    if part.isdigit() and int(part) < len(parent):
+        return parent[int(part)]
+    return _MISSING
+
+
+def _put(parent, part: str, value, path: str):
+    if isinstance(parent, dict):
+        parent[part] = value
+        return
+    if not part.isdigit():
+        _refuse(f"the update path {path!r}, a field by name in a list (the server refuses it)")
+    index = int(part)
+    parent.extend([None] * (index + 1 - len(parent)))
+    parent[index] = value
+
+
+def _each(operator: str, argument) -> list:
+    """The values ``$push`` or ``$addToSet`` adds: the ``$each`` list, or the one value."""
+    if isinstance(argument, dict) and any(key.startswith("$") for key in argument):
+        modifiers = [key for key in argument if key != "$each"]
+        if modifiers:
+            _refuse(f"{operator!r} with the modifier {modifiers[0]!r}")
+        if not isinstance(argument["$each"], list):
+            _refuse(f"{operator!r} with an '$each' that is not a list")
+        return argument["$each"]
+    return [argument]
+
+
+def _pulled(held, argument) -> bool:
+    """Whether ``$pull`` of ``argument`` takes the element ``held``: an equal value, or, for a
+    condition without operators, a sub-document element meeting it."""
+    if isinstance(argument, dict) and argument:
+        first = next(iter(argument))
+        if first.startswith("$"):
+            _refuse(f"'$pull' of the operator condition {first!r}")
+        return isinstance(held, dict) and mongo_matches(held, argument)
+    return _bson_equal(held, argument)
+
+
+def mongo_upsert_document(query: dict, update: dict) -> dict:
+    """The document an upsert that matched nothing makes, as MongoDB makes it: the filter's
+    equality terms (plain values and ``$eq``, other operators dropped, a dotted path expanded into
+    its sub-document), then the update applied as an insert, ``$setOnInsert`` included, and an
+    ``ObjectId`` ``_id`` first when neither named one.
+
+    The server lays the filter's terms out in its query planner's order, which this does not model
+    (it keeps the filter's); a top-level ``$and``, ``$or`` or ``$nor`` and an ``$in`` (whose one
+    value the server takes as equality) are refused.
+    """
+    made: dict = {}
+    for key, condition in query.items():
+        if key.startswith("$"):
+            _refuse(f"an upsert whose filter holds {key!r}")
+        if isinstance(condition, dict) and condition and next(iter(condition)).startswith("$"):
+            if "$in" in condition:
+                _refuse(f"an upsert whose filter holds '$in' on {key!r}")
+            if "$eq" not in condition:
+                continue
+            condition = condition["$eq"]
+        made = mongo_update(made, {"$set": {key: condition}})
+    made = mongo_update(made, update, inserting=True)
+    if "_id" not in made:
+        made = {"_id": _new_object_id(), **made}
+    return made
+
+
+def _new_object_id():
+    """A fresh ``ObjectId``, or on the stubbed run, which has no ``bson``, a fresh string."""
+    if "bson" in STUBBED_MODULES:
+        return uuid.uuid4().hex[:24]
+    from bson import ObjectId
+
+    return ObjectId()
+
+
+#: The order the server sorts values of different types in, lowest first: null and a missing
+#: field alike, then numbers, strings, ``ObjectId``s, booleans, dates.
+_SORT_BRACKETS = (
+    (lambda value: value is None or value is _MISSING, 0),
+    (_is_number, 1),
+    (lambda value: isinstance(value, str), 2),
+    (lambda value: type(value).__name__ == "ObjectId", 7),
+    (lambda value: isinstance(value, bool), 8),
+    (lambda value: isinstance(value, datetime), 9),
+)
+
+
+def _sort_value(doc: dict, path: str):
+    """The value ``path`` sorts ``doc`` by, as ``(bracket, value)``; a list or a sub-document is
+    refused, since the server sorts those by rules the fakes do not model."""
+    value = doc
+    for part in path.split("."):
+        if isinstance(value, list):
+            _refuse(f"a sort by {path!r} through a list")
+        value = value.get(part, _MISSING) if isinstance(value, dict) else _MISSING
+    if isinstance(value, list):
+        _refuse(f"a sort by {path!r}, which holds a list")
+    if isinstance(value, dict):
+        _refuse(f"a sort by {path!r}, which holds a document")
+    for holds, bracket in _SORT_BRACKETS:
+        if holds(value):
+            if bracket == 0:
+                return (0, 0)
+            return (bracket, _utc(value) if isinstance(value, datetime) else value)
+    _refuse(f"a sort by {path!r}, which holds {value!r}")
+
+
+def _sort_spec(key_or_list, direction=None) -> list:
+    """A cursor's sort as ``[(path, direction)]``, from either form the driver takes."""
+    if isinstance(key_or_list, str):
+        keys = [(key_or_list, 1 if direction is None else direction)]
+    elif isinstance(key_or_list, (list, tuple)) and direction is None:
+        keys = [tuple(pair) for pair in key_or_list]
+    else:
+        _refuse(f"the sort {key_or_list!r}, {direction!r}")
+    for path, way in keys:
+        if isinstance(way, bool) or way not in (1, -1):
+            _refuse(f"the sort direction {way!r} of {path!r}")
+    return keys
+
+
+def mongo_sorted(docs: list, keys: list) -> list:
+    """``docs`` in the order a server's sort by ``keys`` (``[(path, 1 or -1)]``) hands them back:
+    null and missing first, then by type bracket, then by value. Ties keep their order, where the
+    server promises none, so a case asserting an order breaks every tie."""
+    def compare(left, right):
+        for path, direction in keys:
+            a, b = _sort_value(left, path), _sort_value(right, path)
+            if a != b:
+                return direction if a > b else -direction
+        return 0
+
+    for doc in docs:
+        for path, _direction in keys:
+            _sort_value(doc, path)
+    return sorted(docs, key=functools.cmp_to_key(compare))
 
 
 # A plan complete enough to leave draft (E31/F01/S01): a date still to come, a location, and tables
@@ -456,36 +998,58 @@ def client_market(**overrides) -> Market:
 
 
 class _SortableCursor:
-    """A list that exposes .sort() returning self, so a fake ``find`` can chain sort/limit."""
+    """A fake ``find``'s cursor: it sorts, limits and projects when it is read, as the driver's
+    does, whatever order ``sort`` and ``limit`` were called in, and hands back copies."""
 
-    def __init__(self, results):
-        self._results = results
+    def __init__(self, documents, projection=None):
+        self._documents = documents
+        self._projection = projection
+        self._keys = None
+        self._limit = 0
+        self._read = None
 
-    def sort(self, _key, _direction=None):
+    def sort(self, key_or_list, direction=None):
+        self._keys = _sort_spec(key_or_list, direction)
         return self
 
-    def limit(self, _n):
+    def limit(self, n):
+        if isinstance(n, bool) or not isinstance(n, int) or n < 0:
+            _refuse(f"the limit {n!r}")
+        self._limit = n
         return self
 
     def __iter__(self):
-        return iter(self._results)
+        return self
 
-    def __bool__(self):
-        return bool(self._results)
+    def __next__(self):
+        if self._read is None:
+            documents = self._documents
+            if self._keys:
+                documents = mongo_sorted(documents, self._keys)
+            if self._limit:
+                documents = documents[:self._limit]
+            self._read = iter([mongo_project(copy.deepcopy(document), self._projection)
+                               for document in documents])
+        return next(self._read)
 
 
 class FakeApplicationsCollection:
-    """Stand-in for the applications collection the D9 form lock counts.
+    """Stand-in for the applications collection, and for every record kept beside a market.
 
-    ``count_documents`` matches inserted documents against the filter the way Mongo does,
-    so a test can pin the persisted key contract by inserting a real ``Application`` dump.
-    Tests that only care that *some* applications exist can set ``count`` instead.
+    It writes, reads and projects as MongoDB does for what it models, and refuses the rest
+    with ``UnmodelledQuery``: filters through ``mongo_matches`` (refused even over no documents),
+    updates through ``mongo_update``, an upsert's new document through ``mongo_upsert_document``,
+    sorts through ``mongo_sorted`` and projections through ``mongo_project``. It answers the
+    server's ``matched_count`` and ``modified_count`` (modified only when a value changed),
+    stores a copy of what it is given and hands back copies, adds an ``ObjectId`` ``_id`` to an
+    inserted document as the driver does, and refuses a second document with one ``_id``. Each of
+    those is checked by ``tests/mongo_cases.py``'s tables, hermetically and against the server.
 
-    ``find_one_and_update`` is the upsert an application is created by, and it is modelled the way
-    Mongo builds one: the document an unmatched filter creates is the filter's equality terms plus
-    ``$setOnInsert``. The unique index that makes that upsert safe under concurrency is the
-    database's, so it has no analogue here -- what a test can do is raise ``DuplicateKeyError`` the
-    way the index does (see ``TestCreatingAnApplicationConcurrently``).
+    It has no unique index but the ``_id``'s and no TTL: ``create_index`` answers a name and does
+    nothing. A test of the create race raises ``DuplicateKeyError`` the way the index does (see
+    ``TestCreatingAnApplicationConcurrently``), or runs on the server in ``tests/real_mongo/``.
+    Tests that only care that *some* applications exist can set ``count`` instead; ``documents``
+    is the store itself, and an update changes a stored document in place.
     """
 
     def __init__(self, count: int = 0):
@@ -495,87 +1059,90 @@ class FakeApplicationsCollection:
     def create_index(self, *_args, **_kwargs):
         return "fake-index"
 
-    def _matches(self, doc, query):
-        return mongo_matches(doc, query)
+    def _matching(self, query) -> list:
+        query = {} if query is None else query
+        mongo_matches({}, query)  # an unmodelled filter is refused even when nothing is stored
+        return [doc for doc in self.documents if mongo_matches(doc, query)]
 
-    def _find(self, query):
-        for doc in self.documents:
-            if self._matches(doc, query):
-                return doc
-        return None
+    def _first(self, query, sort=None):
+        matching = self._matching(query)
+        if sort is not None:
+            matching = mongo_sorted(matching, _sort_spec(sort))
+        return matching[0] if matching else None
 
-    def find_one(self, query):
-        doc = self._find(query)
-        return dict(doc) if doc else None
+    def find_one(self, query=None, projection=None, sort=None):
+        doc = self._first(query, sort)
+        return None if doc is None else mongo_project(copy.deepcopy(doc), projection)
 
-    def find(self, query, projection=None):
-        results = []
-        for doc in self.documents:
-            if self._matches(doc, query):
-                results.append(mongo_project(dict(doc), projection))
-        return _SortableCursor(results)
+    def find(self, query=None, projection=None):
+        return _SortableCursor(self._matching(query), projection)
+
+    def _store(self, document: dict):
+        if "_id" in document and any(
+                "_id" in held and _bson_equal(held["_id"], document["_id"])
+                for held in self.documents):
+            from pymongo.errors import DuplicateKeyError
+
+            raise DuplicateKeyError(f"E11000 duplicate key error: _id {document['_id']!r}")
+        self.documents.append(copy.deepcopy(document))
 
     def insert_one(self, document):
-        self.documents.append(document)
-        return SimpleNamespace(inserted_id=str(len(self.documents)))
+        if "_id" not in document:
+            document["_id"] = _new_object_id()
+        self._store(document)
+        return SimpleNamespace(inserted_id=document["_id"], acknowledged=True)
 
-    def _apply(self, doc, update):
-        # A dotted path reaches into the sub-document, as Mongo's does.
-        for key, value in (update.get("$set") or {}).items():
-            *parents, last = key.split(".")
-            target = doc
-            for part in parents:
-                target = target.setdefault(part, {})
-            target[last] = value
-        for key in (update.get("$unset") or {}):
-            *parents, last = key.split(".")
-            target = doc
-            for part in parents:
-                target = target.get(part) if isinstance(target, dict) else None
-            if isinstance(target, dict):
-                target.pop(last, None)
-        for key, value in (update.get("$push") or {}).items():
-            doc.setdefault(key, []).append(value)
-        return doc
-
-    def update_one(self, query, update):
-        doc = self._find(query)
+    def _write(self, query, update, upsert, sort=None):
+        """Apply ``update`` to the first document ``query`` matches, or upsert one: the document
+        as it was (``None`` when made) and as it is, and whether one was made."""
+        doc = self._first(query, sort)
         if doc is None:
-            return SimpleNamespace(matched_count=0, modified_count=0, upserted_id=None)
-        self._apply(doc, update)
-        return SimpleNamespace(matched_count=1, modified_count=1, upserted_id=None)
-
-    def find_one_and_update(self, query, update, upsert=False, return_document=None):
-        from pymongo import ReturnDocument as RD
-
-        doc = self._find(query)
-        if doc is None:
+            mongo_update({}, update)  # a refused update is refused whether or not it upserts
             if not upsert:
-                return None
-            doc = dict(query or {})
-            doc.update(update.get("$setOnInsert") or {})
-            self.documents.append(doc)
-        before = dict(doc)
-        self._apply(doc, update)
-        if return_document is RD.AFTER:
-            return dict(doc)
-        return before
+                return None, None, False
+            made = mongo_upsert_document(query or {}, update)
+            self._store(made)
+            return None, made, True
+        after = mongo_update(doc, update)
+        before = copy.deepcopy(doc)
+        doc.clear()
+        doc.update(after)
+        return before, doc, False
+
+    def update_one(self, query, update, upsert=False):
+        before, after, made = self._write(query, update, upsert)
+        if made:
+            return SimpleNamespace(matched_count=0, modified_count=0, upserted_id=after["_id"])
+        if before is None:
+            return SimpleNamespace(matched_count=0, modified_count=0, upserted_id=None)
+        return SimpleNamespace(matched_count=1, modified_count=int(not _identical(before, after)),
+                               upserted_id=None)
+
+    def find_one_and_update(self, query, update, projection=None, sort=None, upsert=False,
+                            return_document=False):
+        """``return_document`` is the driver's ``ReturnDocument``: ``BEFORE`` is ``False`` and
+        ``AFTER`` is ``True``, on the real driver and the stub alike."""
+        before, after, _made = self._write(query, update, upsert, sort)
+        returned = after if return_document else before
+        return None if returned is None else mongo_project(copy.deepcopy(returned), projection)
+
+    def _remove(self, doomed: list):
+        # By identity and in place: two stored documents may be equal, and a test may hold the list.
+        self.documents[:] = [doc for doc in self.documents
+                             if all(doc is not gone for gone in doomed)]
 
     def delete_one(self, query):
-        doc = self._find(query)
-        if doc is not None:
-            self.documents.remove(doc)
+        doc = self._first(query)
+        self._remove([] if doc is None else [doc])
         return SimpleNamespace(deleted_count=0 if doc is None else 1)
 
     def delete_many(self, query):
-        doomed = [doc for doc in self.documents if self._matches(doc, query)]
-        for doc in doomed:
-            self.documents.remove(doc)
+        doomed = self._matching(query)
+        self._remove(doomed)
         return SimpleNamespace(deleted_count=len(doomed))
 
     def count_documents(self, query):
-        matched = sum(1 for doc in self.documents if self._matches(doc, query))
-        return self.count + matched
+        return self.count + len(self._matching(query))
 
 
 @pytest.fixture(autouse=True)
@@ -816,9 +1383,21 @@ class _IndexOnlyDatabase(dict):
         return self[name]
 
 
+# What this file puts in place of a back-end module's attribute at import, for every test, with the
+# attribute's own value: the real-MongoDB suite (``tests/real_mongo/``) puts each back before it binds
+# the handles to its database.
+IMPORT_TIME_STAND_INS: dict = {}
+
+
+def _stand_in(module, attribute: str, stand_in) -> None:
+    """Put ``stand_in`` where ``module.attribute`` is, keeping the value it replaces."""
+    IMPORT_TIME_STAND_INS.setdefault((module.__name__, attribute), getattr(module, attribute))
+    setattr(module, attribute, stand_in)
+
+
 import lookup_indexes
 
-lookup_indexes._boot_database = _IndexOnlyDatabase
+_stand_in(lookup_indexes, "_boot_database", _IndexOnlyDatabase)
 
 # app.py also refuses to boot unless it can build the unique index the application endpoint
 # rests on, and it builds it for real, against the collection the module holds. Here that
@@ -829,31 +1408,31 @@ lookup_indexes._boot_database = _IndexOnlyDatabase
 if not STUBBED_MODULES:
     import api.applications as _applications_module
 
-    _applications_module.applications_collection = FakeApplicationsCollection()
+    _stand_in(_applications_module, "applications_collection", FakeApplicationsCollection())
 
     # The applicant login challenge module also has a collection that the boot
     # check builds indexes against. Same treatment as applications above: install
     # a fake so the boot check passes without reaching a real database.
     import api.applicant_auth as _applicant_auth_module
 
-    _applicant_auth_module.challenges_collection = FakeApplicationsCollection()
+    _stand_in(_applicant_auth_module, "challenges_collection", FakeApplicationsCollection())
 
     # The sign-in rate limit counters, whose expiry index the same boot check builds (T12).
     import sign_in_limits as _sign_in_limits_module
 
-    _sign_in_limits_module.attempts_collection = FakeAttemptsCollection()
+    _stand_in(_sign_in_limits_module, "attempts_collection", FakeAttemptsCollection())
 
     # And the vendors' remembered sign-ins, whose expiry index the same boot check builds (T202).
     import remembered_sign_ins as _remembered_sign_ins_module
 
-    _remembered_sign_ins_module.remembered_collection = FakeApplicationsCollection()
+    _stand_in(_remembered_sign_ins_module, "remembered_collection", FakeApplicationsCollection())
 
     # And the users collection, whose unique address index the boot builds (E32/F03/S04).
     import api.users as _users_module
 
     _users_fake = FakeApplicationsCollection()
     _users_fake.index_information = lambda: {}
-    _users_module.users_collection = _users_fake
+    _stand_in(_users_module, "users_collection", _users_fake)
 
 
 def a_solver_vendor(application_id: str = "app-1", **overrides):
