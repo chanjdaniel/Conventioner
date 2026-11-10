@@ -36,7 +36,8 @@ MONGO_ENV_KEYS = (
     "MONGODB_AUTH_DB",
 )
 
-UNREACHABLE_MONGODB_URI = "mongodb://127.0.0.1:1/?serverSelectionTimeoutMS=100"
+# No timeout in it: `db_config` passes its bounds as keywords, which win over the URI's.
+UNREACHABLE_MONGODB_URI = "mongodb://127.0.0.1:1/"
 
 if not any(os.getenv(key) for key in MONGO_ENV_KEYS):
     os.environ["MONGODB_URI"] = UNREACHABLE_MONGODB_URI
