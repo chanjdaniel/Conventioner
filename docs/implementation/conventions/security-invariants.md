@@ -87,7 +87,7 @@ The hatch never excuses a published secret ([ADR 0010](../../adr/0010-no-secret-
 
 **A deployed host refuses every local switch.**
 A back end that sees a variable only the platform sets (`VERCEL`, `VERCEL_ENV`, `VERCEL_REGION` or `AWS_LAMBDA_FUNCTION_NAME`, by `deployed_host()`) refuses to boot with any of `LOCAL_SWITCHES` on: the hatch, `DISABLE_CAPTCHA`, `DISABLE_EMAIL` and `DISCORD_FAKE`, each read by the one `switch_on()`.
-The refusal is listed with every other problem the boot check finds, and it is the only one a deployment carrying the hatch meets, since the hatch passes the rest.
+The refusal is listed with every other problem the boot check finds, and is usually the only one a deployment carrying the hatch meets, since the hatch passes every check but the refusal of a published secret.
 A platform variable is used only to refuse, never to permit, so its absence turns nothing off; whether it is present is what `/healthz` reports as `deployed`, beside the hatch as `localDev`, and the Deploy workflow refuses a back end that does not answer `true` and `false` ([RELEASING.md](../../RELEASING.md#a-deployed-host-refuses-local-switches)).
 A test fails when the back end's source names a `DISABLE_*` or `*_FAKE` switch that is not in `LOCAL_SWITCHES`, so a new test switch cannot skip the refusal.
 
