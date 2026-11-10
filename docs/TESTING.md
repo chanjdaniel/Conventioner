@@ -427,8 +427,8 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   `pam_faillock` lockout. The machine's own package manager provides the system libraries;
   CI's workflow keeps `--with-deps`, which is right on GitHub's Ubuntu runners.
 - **`nm-test.sh` runs take turns for their E2E phase**: two `scripts/nm-test.sh` runs (without `--skip-e2e`) on one machine
-  run their unit suites side by side, but the second waits, saying `nm-test: waiting for the
-  end-to-end lock since ...` and naming the run it waits for, until the first's stack is down,
+  run their unit suites side by side, but the second waits, saying
+  `nm-test: waiting for the end-to-end lock since ...` and naming the run it waits for, until the first's stack is down,
   because a stack starting or stopping breaks another run's browser with
   `net::ERR_NETWORK_CHANGED`. `lsof ~/.local/state/conventioner/e2e.lock` lists the holder and
   every waiting run; [CI and the gate](implementation/testing/ci-and-the-gate.md#the-no-mistakes-gate)
@@ -469,8 +469,8 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   So a change to the source needs no build, `scripts/th-compose.sh up -d` builds an image only
   when none has its tag yet, and `scripts/th-compose.sh build` rebuilds one anyway (say for a
   newer base image). After the front end's dependencies change, a stack keeps its old
-  `node_modules` volume however its front end is recreated: `scripts/th-compose.sh rm -s -f -v
-  frontend` then `up -d` refills it from the new image (`up --renew-anon-volumes` would too, but
+  `node_modules` volume however its front end is recreated:
+  `scripts/th-compose.sh rm -s -f -v frontend` then `up -d` refills it from the new image (`up --renew-anon-volumes` would too, but
   leaves the old volume behind). The primary stack and CI build their own images from
   `docker-compose.yml`, as before.
 - **Driving the Konva floorplan canvas**: calibration is a real mouse drag, but section grouping

@@ -48,6 +48,7 @@ Covered by:
 3. The code arrives; they enter it under "Sign-in code" and choose "Sign in".
 4. The page reads "You have not applied to this market yet." with "Apply", which opens the form in its place, on the same page and address: "Apply", the essential questions, then "More questions" (the custom ones); "Save application" and "Cancel".
 5. Saved, the form closes on "Your answers" with "Edit", and the page reads "Submitted" (H3c).
+
 A save the server refuses says why above "Save application", and every answer typed stays; a required answer left blank is named under its question before anything is sent.
 A one-choice answer the form no longer offers counts as blank there, since its control shows nothing chosen.
 A question of more than 12 options is a field they type in to find an answer, one choice or several as chips; words they typed and did not choose clear when they leave the field ([the design language](../../design-system.md)).
