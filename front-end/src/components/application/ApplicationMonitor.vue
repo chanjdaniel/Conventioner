@@ -464,8 +464,6 @@ async function takeNext(after: string | null, want: string | null = null) {
     if (app) adopt(app);
     // Nothing handed out: read who holds what now, to say so.
     else await read();
-    // Its deal dealt others too: read them as dealt. A failed read leaves the list as it was.
-    if (app && dealtSinceRead) await read().catch(() => null);
     if (mine !== handing) return;
     handedNothing.value = !app;
     cursor.value = app
@@ -474,6 +472,15 @@ async function takeNext(after: string | null, want: string | null = null) {
           0,
         )
       : 0;
+    // Its deal dealt others too: with the card up, read them as dealt, and find the card again in
+    // the list read. A failed read leaves the list as it was; a later hand-out takes over.
+    if (app && dealtSinceRead) {
+      asking = null;
+      await read().catch(() => null);
+      if (mine !== handing) return;
+      const at = undecided.value.findIndex((a) => a.id === app.id);
+      if (at >= 0) cursor.value = at;
+    }
   } catch (err) {
     if (mine !== handing) return;
     errorMessage.value = getApiErrorMessage(err, 'Could not open the next application.');

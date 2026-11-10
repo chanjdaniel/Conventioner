@@ -358,6 +358,36 @@ describe('a next card whose deal moved others (T270)', () => {
     expect(fetchMarketApplications).toHaveBeenCalledTimes(2);
   });
 
+  it('puts the card handed out up before it reads the list again', async () => {
+    const wrapper = await monitor();
+    expect(shown(wrapper)).toBe('amy@vendor.test');
+    // The next card is cal, further down; its deal dealt another, and the list read it asks is
+    // held, so the card up meanwhile is whatever the screen chose before that read.
+    let letGo: () => void = () => undefined;
+    fetchMarketApplications.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          letGo = () => resolve(stored.map((app) => ({ ...app })));
+        }),
+    );
+    const handOut = api.post.getMockImplementation() as (
+      url: string,
+      body: Record<string, unknown>,
+    ) => Promise<{ data: Record<string, unknown> }>;
+    api.post.mockImplementation(async (url: string, body: Record<string, unknown>) => {
+      const answer = await handOut(url, body);
+      return url.endsWith('/review/next') ? { data: { ...answer.data, dealt: 1 } } : answer;
+    });
+
+    await approve(wrapper);
+
+    expect(fetchMarketApplications).toHaveBeenCalledTimes(2);
+    expect(shown(wrapper)).toBe('cal@vendor.test');
+    letGo();
+    await flushPromises();
+    expect(shown(wrapper)).toBe('cal@vendor.test');
+  });
+
   it('reads nothing more when the deal moved nothing', async () => {
     const wrapper = await monitor();
 
