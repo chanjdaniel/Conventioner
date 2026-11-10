@@ -63,6 +63,14 @@ def _parsed_floorplan(market_id: str, body: Dict[str, Any]) -> FloorplanObject:
     return floorplan
 
 
+def _tier_number(suffix: str) -> int:
+    """The tier id a typed tier's suffix names: its number when it is ASCII digits that fit a
+    signed 64-bit integer, else 0."""
+    if suffix and all("0" <= char <= "9" for char in suffix) and int(suffix) <= 2**63 - 1:
+        return int(suffix)
+    return 0
+
+
 def _sections_and_locations(
     floorplan: FloorplanObject,
 ) -> Tuple[List[SectionObject], List[LocationObject]]:
@@ -79,7 +87,7 @@ def _sections_and_locations(
             name=fp_section.name,
             location=LocationObject(name=location_name) if location_name else None,
             tier=TierObject(
-                id=int(tier_suffix) if tier_suffix.isdigit() else 0, name=tier_id,
+                id=_tier_number(tier_suffix), name=tier_id,
             ) if tier_id else None,
             count=len(fp_section.table_ids),
         ))

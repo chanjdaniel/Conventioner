@@ -175,7 +175,9 @@ class TestAMarketWithNoPlan:
 
 class TestASectionsTypedTier:
 
-    @pytest.mark.parametrize("tier_id", ["front_row", "vip_gold", "tier_"])
+    @pytest.mark.parametrize("tier_id", [
+        "front_row", "vip_gold", "tier_", "tier_²", "tier_99999999999999999999",
+    ])
     def test_a_tier_not_numbered_after_its_underscore_saves_as_tier_0_by_its_text(
         self, client, market, tier_id,
     ):
