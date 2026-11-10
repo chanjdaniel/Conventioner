@@ -187,6 +187,15 @@ class TestTheGuardStillGuards:
         assert result.passed is False
         assert "The application form asks nothing" in result.message
 
+    def test_the_refusal_says_when_it_holds_on_either_intake_path(self, monkeypatch):
+        """A Google Form market never opens applications here, so the words name the move it
+        holds back on both paths: leaving draft."""
+        result = self._evaluate(monkeypatch, EssentialFormOptions())
+
+        assert result.message.endswith(
+            "or add a custom field, before the market can leave draft."
+        )
+
     def test_a_market_with_dates_is_not_blocked(self, monkeypatch):
         result = self._evaluate(monkeypatch, EssentialFormOptions(dates=["2026-08-01"]))
 

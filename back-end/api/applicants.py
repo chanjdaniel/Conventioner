@@ -301,7 +301,7 @@ def get_public_application_form(
     Accessible without authentication. The form is returned for every market the applicant intake
     lookup serves - a form market, in every phase but draft (``APPLICANT_SURFACE_PHASES``) - alongside
     the phase and an ``is_open`` flag that says whether the market is still taking applications. It
-    is not gated on applications being open, on purpose: the applicant dashboard renders stored
+    is not gated on applications being open, on purpose: the market's vendor page renders stored
     answers against this field list, so a market that has closed still has to be able to hand it
     over (bug 20).
 
