@@ -87,9 +87,10 @@
  *   `''`, named by the field and ticked as any other, as "Ignore this column" needs.
  * - Given `leads`, those options are drawn first whatever the words, outside the cap and its count
  *   and ahead of `Use "<words>"`, as a way out that must stay in reach needs ("Ignore this value"):
- *   the line saying the words find nothing still shows under them. Opened with no words, the keys
- *   start on the first; words start them on what the words find, a lead among it only where the
- *   words find it too, so Enter never takes a way out for words that meant something else.
+ *   the line saying the words find nothing still shows under them. Opened on nothing held and no
+ *   words, the keys start on the first; words start them on what the words find, a lead among it
+ *   only where the words find it too, so Enter never takes a way out for words that meant something
+ *   else.
  * - Given `hideLabel`, its label is `.visually-hidden`: the screen's row says it, and the label stays
  *   for a reader.
  * - Given `invalid`, its field is `aria-invalid="true"` and ringed in red, as a field is on Pricing;
