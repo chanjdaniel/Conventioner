@@ -165,7 +165,13 @@ def assert_sender_configured() -> None:
                 f"a configured sender ({FROM_EMAIL_VAR}: mail goes from {DEFAULT_FROM_EMAIL})"
             )
         return
-    if "@" not in value:
+    if value and "@" not in value:
+        raise SenderNotConfiguredError(
+            f"{FROM_EMAIL_VAR} is {value!r}, which is not an address. It is the address every mail "
+            f"this product sends is from. Set it to an address on the domain verified in Resend "
+            f"(registration@conventioner.io in production)."
+        )
+    if not value:
         raise SenderNotConfiguredError(
             f"{FROM_EMAIL_VAR} is not set. It is the address every mail this product sends is "
             f"from. Unset, mail goes from Resend's shared {SHARED_SENDER}, which delivers only to "
@@ -237,9 +243,10 @@ def assert_mailer_configured() -> None:
         return
     raise MailerNotConfiguredError(
         f"{RESEND_API_KEY_VAR} is not set. It delivers every mail this product sends, and so every "
-        f"route by which an organizer account is reached (docs/RELEASING.md lists them). Without it, registration fails and rolls the account back, an unverified "
-        f"organizer can never log in, and reset and OTP answer 500: not a degraded deployment, one "
-        f"that cannot onboard anybody. Set {RESEND_API_KEY_VAR} (https://resend.com/api-keys), or "
+        f"route by which an organizer account is reached (docs/RELEASING.md lists them). Without "
+        f"it, registration fails and rolls the account back, an unverified organizer can never "
+        f"log in, and reset and OTP answer 500: not a degraded deployment, one that cannot onboard "
+        f"anybody. Set {RESEND_API_KEY_VAR} (https://resend.com/api-keys), or "
         f"set {INSECURE_LOCAL_DEV_VAR}=true if this really is a local development machine."
     )
 

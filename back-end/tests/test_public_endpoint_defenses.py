@@ -502,7 +502,7 @@ def test_an_https_origin_is_taken(configured, monkeypatch, value):
     assert app_module.check_public_endpoint_defenses().signing_secret == A_REAL_SECRET
 
 
-@pytest.mark.parametrize("value", [None, "", "  ", "registration"], ids=["absent", "empty", "spaces", "no-at"])
+@pytest.mark.parametrize("value", [None, "", "  "], ids=["absent", "empty", "spaces"])
 def test_a_deployment_with_no_sender_is_refused(configured, monkeypatch, value):
     if value is None:
         monkeypatch.delenv(FROM_EMAIL_VAR)
@@ -516,6 +516,20 @@ def test_a_deployment_with_no_sender_is_refused(configured, monkeypatch, value):
         "(registration@conventioner.io in production), or set ALLOW_INSECURE_LOCAL_DEV=true if this "
         "really is a local development machine."
     ) in _refusal()
+
+
+@pytest.mark.parametrize("value", ["registration", "Conventioner"])
+def test_a_sender_that_is_not_an_address_is_refused_as_set(configured, monkeypatch, value):
+    """An operator who set it is told what it holds, never sent looking for a missing variable."""
+    monkeypatch.setenv(FROM_EMAIL_VAR, f" {value} ")
+
+    refusal = _refusal()
+    assert (
+        f"FROM_EMAIL is {value!r}, which is not an address. It is the address every mail this "
+        "product sends is from. Set it to an address on the domain verified in Resend "
+        "(registration@conventioner.io in production)."
+    ) in refusal
+    assert "FROM_EMAIL is not set" not in refusal
 
 
 @pytest.mark.parametrize("value", ["onboarding@resend.dev", "Conventioner <Onboarding@Resend.dev>"])
