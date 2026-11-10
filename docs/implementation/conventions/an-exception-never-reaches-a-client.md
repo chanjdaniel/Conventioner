@@ -96,7 +96,7 @@ describes:
   - back-end/api/applicant_auth.py#_send_code_email
   - back-end/utils/email.py#_send
   - back-end/tests/test_account_emails_log_no_address.py
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - T74
   - E41/F01/S01

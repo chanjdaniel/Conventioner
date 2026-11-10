@@ -78,7 +78,7 @@ Its routes are in [`back-end/app.py`](../../../back-end/app.py).
    When it raises anything else, which may come after the store reached the database, the record goes back that way only while the stored assignment still seats the vendor that day; when that cannot be read, the line stays, since a held seat reads its own price over it.
 4. The freed entry is recorded, and with the deduction an "owed set" entry from what the line owed as the request read it, while the seat was held, to 0.
 
-So no stop after the seat leaves it free and its full amount owed, no seat write that landed before its error loses the day's line, and no seat write refused or failed with the seat still held leaves a freed record behind.
+So no stop after the seat leaves it free and its full amount owed, no seat write that landed before its error loses the day's line, and no seat write refused, or failed with the seat read as still held, leaves a freed record behind; one that failed with the seat unread leaves its line, read over by the held seat until the next write of the day forgets it.
 
 **Every write of the assignment hands `seated_again` the days it touched, after its store.**
 A placement hands its vendor's day, a swap its two vendors' day, and a run every day held in the assignment it read and every day held in the one it wrote.
