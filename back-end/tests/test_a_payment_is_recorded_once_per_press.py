@@ -234,3 +234,33 @@ class TestTheIndex:
         assert logged.getMessage().startswith(
             "Refusing to start: The unique index payments_request_key_unique on payments ")
         assert ANA not in caplog.text
+
+    def test_a_refusal_counts_no_entry_recorded_without_a_key(self, monkeypatch):
+        """Every entry recorded before the key existed has none, and the index does not cover
+        it: two of one market are not two presses, so the refusal must not tell an operator to
+        delete one of them."""
+        before = [{"_id": "pay-1", "market_id": MARKET, "vendor_email": ANA},
+                  {"_id": "pay-2", "market_id": MARKET, "vendor_email": ANA}]
+        monkeypatch.setattr(Payments, "payments_collection",
+                            VendorDays(name="payments", docs=before, build_fails=True))
+        monkeypatch.setattr(Payments, "amounts_owed_collection", VendorDays(name="amounts_owed"))
+
+        with pytest.raises(UniqueIndexes.UniqueIndexError) as refused:
+            app_module.verify_payment_indexes()
+
+        assert "by market_id and record id: none found." in str(refused.value)
+        assert "pay-1" not in str(refused.value)
+
+    def test_a_refusal_names_two_entries_sharing_a_key(self, monkeypatch):
+        twice = [{"_id": "pay-1", "market_id": MARKET, "vendor_email": ANA, "request_key": KEY},
+                 {"_id": "pay-2", "market_id": MARKET, "vendor_email": ANA, "request_key": KEY},
+                 {"_id": "pay-3", "market_id": MARKET, "vendor_email": ANA}]
+        monkeypatch.setattr(Payments, "payments_collection",
+                            VendorDays(name="payments", docs=twice, build_fails=True))
+        monkeypatch.setattr(Payments, "amounts_owed_collection", VendorDays(name="amounts_owed"))
+
+        with pytest.raises(UniqueIndexes.UniqueIndexError) as refused:
+            app_module.verify_payment_indexes()
+
+        assert f"by market_id and record id: market_id {MARKET}: pay-1, pay-2." in str(refused.value)
+        assert KEY not in str(refused.value)

@@ -62,11 +62,18 @@ class VendorDays:
         self.read = True
         if self.read_fails:
             raise PyMongoError("the read failed")
+        docs = self.docs
+        if "$match" in pipeline[0]:
+            # An index's partial filter, as a leading stage: only what the index covers groups.
+            [(field, condition)] = pipeline[0]["$match"].items()
+            assert condition == {"$type": "string"}
+            docs = [doc for doc in docs if isinstance(doc.get(field), str)]
+            pipeline = pipeline[1:]
         group, match, project = (stage for stage in pipeline)
         # Each key field as {"$ifNull": ["$<field>", None]}: a missing field groups as null.
         key_of = {name: ref["$ifNull"][0][1:] for name, ref in group["$group"]["_id"].items()}
         groups = {}
-        for doc in self.docs:
+        for doc in docs:
             key = tuple((name, doc.get(field)) for name, field in key_of.items())
             groups.setdefault(key, []).append(doc["_id"])
         assert match == {"$match": {"n": {"$gt": 1}}}

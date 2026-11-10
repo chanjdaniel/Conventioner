@@ -38,17 +38,22 @@ class UniqueIndexError(RuntimeError):
 
 def duplicate_groups(
     collection: Any, fields: Sequence[str], shown: Sequence[str],
+    partial: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
     """The records sharing one key, a group per key: the ``shown`` fields' values and the ``_id``
     of every record in it, and nothing else of the key.
 
     One aggregation, so the database does the grouping and only the groups come back. A missing
-    field is grouped as null, as the unique index keys it.
+    field is grouped as null, as the unique index keys it. With ``partial``, the index's partial
+    filter, only the records the index covers are grouped: a payment recorded before the request
+    key has none, and two of them are no duplicate.
     """
     hidden = [field for field in shown if field not in fields]
     if hidden:
         raise ValueError(f"A shown field must be one of the key's fields: {', '.join(hidden)}")
+    covered = [{"$match": partial}] if partial is not None else []
     return list(collection.aggregate([
+        *covered,
         {"$group": {
             "_id": {field: {"$ifNull": [f"${field}", None]} for field in fields},
             "n": {"$sum": 1},
@@ -87,7 +92,8 @@ def ensure_unique_index(
         collection.create_index([(field, 1) for field in fields], **options)
     except PyMongoError as exc:
         try:
-            groups = describe_groups(duplicate_groups(collection, fields, shown), shown)
+            groups = describe_groups(
+                duplicate_groups(collection, fields, shown, partial), shown)
         except PyMongoError as read_failure:
             groups = f"not read ({type(read_failure).__name__})"
         raise UniqueIndexError(

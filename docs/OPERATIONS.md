@@ -249,7 +249,7 @@ Then redeploy, or restart the local back end, and read the vendor's Payment tab 
 "None found" reads as for attendance, the index to drop being `db.amounts_owed.dropIndex('amounts_owed_vendor_day_unique')`.
 
 **"The unique index payments_request_key_unique on payments ... could not be built ... Records sharing one request key, by market_id and record id: ..."**.
-This is not duplicates: the request key is the press of Record payment an entry was recorded by ([payments](implementation/data/payments.md#a-payment-is-recorded-once-per-press)), and no entry recorded before the index has one, so the refusal reads "none found".
+This is not duplicates: the request key is the press of Record payment an entry was recorded by ([payments](implementation/data/payments.md#a-payment-is-recorded-once-per-press)), and the refusal groups only the entries the index covers, those with a key, which no entry recorded before the index has, so it reads "none found".
 Read the database's answer in the refusal, its type and code: code 85 or 86 is an index of that name with other options or keys, to drop (`db.payments.dropIndex('payments_request_key_unique')`) before redeploying; anything else is the database's own trouble (reachability, the user's rights, Atlas's status).
 The index only stops an entry recorded twice by one press, so dropping it loses nothing, and the next boot builds it again.
 
