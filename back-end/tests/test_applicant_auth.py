@@ -18,10 +18,6 @@ from conftest import mongo_matches, reject_malformed_update
 from datatypes import Application, ApplicationStatus, ApplicationType, MarketPhase
 from market_documents import market_name_slug
 
-def _refused_naming_to(payload):
-    """A provider's send that fails with the address it was sent to in its message."""
-    raise RuntimeError(f"provider refused {payload['to'][0]}")
-
 
 # ── Fake collections for testing ────────────────────────────────────
 
@@ -922,6 +918,11 @@ class TestTheCodeIsSentWithinTheRequest:
         while not call_recorded and time.time() < deadline:
             time.sleep(0.01)
         assert len(call_recorded) == 1, "the code was not sent to an address with no application"
+
+
+def _refused_naming_to(payload):
+    """A provider's send that fails with the address it was sent to in its message."""
+    raise RuntimeError(f"provider refused {payload['to'][0]}")
 
 
 class TestTheCodeEmail:
