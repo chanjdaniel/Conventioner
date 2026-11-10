@@ -402,7 +402,7 @@ def seated_again(
     recorded under the row the seating asked (``Actions.ASSIGN``), as the amount it took back and
     what the day owes now, read off the market as it stands."""
     held = {(normalized_email(address), date) for address, date in held_before}
-    for address, date, cents in Payments.clear_freed_lines(market_id, touched):
+    for address, date, cents in Payments.clear_freed_lines(market_id, touched, held_before):
         if (address, date) in held:
             continue
 

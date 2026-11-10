@@ -101,6 +101,25 @@ class TestAHeldSeatOwesItsPrice:
         assert (sunday["freed"], sunday["owedCents"], sunday["owedSetBy"]) == (False, 1000, ADMIN)
         assert sunday["owedByFree"] is False
 
+    def test_an_amount_an_admin_set_outlives_a_free_that_stopped_before_its_seat(
+            self, admin, stores):  # noqa: F811
+        PaymentsApi.set_amount_owed(MARKET, ANA, SUN, {"cents": 5000}, ADMIN)
+        set_at = line(SUN)["owedSetAt"]
+        a_stale_freed_record(SUN)
+
+        sunday = line(SUN)
+        assert (sunday["freed"], sunday["owedCents"], sunday["owedByFree"]) == (False, 5000, False)
+        assert (sunday["owedSetBy"], sunday["owedSetAt"]) == (ADMIN, set_at)
+
+        PlacementsApi.write_placement(MARKET, seat(SUN), ADMIN)
+
+        sunday = line(SUN)
+        assert (sunday["freed"], sunday["owedCents"], sunday["owedByFree"]) == (False, 5000, False)
+        assert (sunday["owedSetBy"], sunday["owedSetAt"]) == (ADMIN, set_at)
+        [record] = [doc for doc in stores.owed.documents if doc["date"] == SUN]
+        assert record["freed"] is None
+        assert taken_back(stores) == []
+
     def test_a_freed_day_still_reads_the_frees_zero(self, admin):
         PlacementsApi.remove_placement(MARKET, ANA, SUN, ADMIN, deduct_owed=True)
 

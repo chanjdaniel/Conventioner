@@ -239,6 +239,14 @@ def _free_deduction(by: str) -> Dict[str, Any]:
     return {"cents": 0, "by": by, "at": _now(), "by_free": True}
 
 
+def _hand_amount(doc: Optional[Mapping[str, Any]]) -> Optional[Dict[str, Any]]:
+    """The amount an Admin set by hand on a record, whether it stands or a free's $0 replaced it."""
+    by_hand = (doc or {}).get("set_by_hand")
+    if not by_hand:
+        return None
+    return by_hand.get("replaced") if by_hand.get("by_free") else by_hand
+
+
 def keep_freed_line(
     market_id: str, vendor_email: str, date: str, seat: Seat, by: str, deduct: bool = False,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
@@ -246,12 +254,17 @@ def keep_freed_line(
     with ``deduct`` the free's $0 too, in one write before the seat goes (T270).
 
     One write, so no stop between the seat and the deduction leaves the seat free and its full
-    amount owed. Returns what the record held of each field written before, and what was written,
+    amount owed. The $0 keeps an amount an Admin set by hand as ``replaced``: while the seat is
+    held, a free that stopped before its seat went leaves that amount what the day owes. Returns what the record held of each field written before, and what was written,
     so a free whose seat could not be freed puts both back (``restore_freed_line``).
     """
     written: Dict[str, Any] = {"freed": {**asdict(seat), "by": by, "at": _now()}}
     if deduct:
         written["set_by_hand"] = _free_deduction(by)
+        replaced = _hand_amount(amounts_owed_collection.find_one(
+            _owed_key(market_id, vendor_email, date)))
+        if replaced:
+            written["set_by_hand"]["replaced"] = replaced
     before = _upsert_owed(market_id, vendor_email, date, {"$set": written}) or {}
     return {field: before.get(field) for field in written}, written
 
@@ -280,18 +293,20 @@ def deduct_freed_day(market_id: str, vendor_email: str, date: str, by: str) -> b
 
 
 def clear_freed_lines(
-    market_id: str, seated: Iterable[Tuple[str, str]],
+    market_id: str, seated: Iterable[Tuple[str, str]], held_before: Iterable[Tuple[str, str]],
 ) -> List[Tuple[str, str, int]]:
     """Forget the freed record of each ``(vendor, date)`` a write of the assignment touched: a day
     seated again reads its new seat, and a freed record left behind would come back as the line
     if that seat went some other way than a free. A $0 the free's deduction set goes with it,
     since it was about the freed table; an amount an Admin set by hand stays, as it holds whatever
-    the seat does.
+    the seat does. On a day in ``held_before`` the free never landed, so an amount its $0
+    replaced is set by hand again.
 
     Returns each deduction cleared, ``(vendor, date, cents)``, for the history to record where the
     day really read as freed (``api.payments.seated_again``).
     """
     wanted = {(normalized_email(email), date) for email, date in seated}
+    held = {(normalized_email(email), date) for email, date in held_before}
     taken_back: List[Tuple[str, str, int]] = []
     if not wanted:
         return taken_back
@@ -302,7 +317,7 @@ def clear_freed_lines(
             cleared: Dict[str, Any] = {"freed": None}
             deduction = doc.get("set_by_hand") or {}
             if deduction.get("by_free"):
-                cleared["set_by_hand"] = None
+                cleared["set_by_hand"] = deduction.get("replaced") if key in held else None
                 taken_back.append((key[0], key[1], deduction.get("cents") or 0))
             amounts_owed_collection.update_one(_owed_key(market_id, *key), {"$set": cleared})
     return taken_back
@@ -348,7 +363,8 @@ def lines(
 
     A held seat always wins over a free (T270): on a day held, a freed record and a free's $0 are
     what a free left that the seat since outlived, a seating again that stopped before it forgot
-    them, or a free that stopped before its seat went, so the day owes its seat's price.
+    them, or a free that stopped before its seat went, so the day owes its seat's price, or the
+    amount an Admin set by hand that the free's $0 replaced.
     """
     found = []
     for date in sorted({*seats, *(day for day, doc in kept.items() if doc.get("freed"))}):
@@ -358,7 +374,7 @@ def lines(
                                for key in ("table_code", "tier", "table_choice", "cents", "group")})
         by_hand = (kept.get(date) or {}).get("set_by_hand")
         if held and by_hand and by_hand.get("by_free"):
-            by_hand = None
+            by_hand = by_hand.get("replaced")
         found.append({
             "date": date,
             "tableCode": seat.table_code,
