@@ -136,6 +136,21 @@ describe('who meets the dialog', () => {
     expect(ticked(wrapper)).toEqual([BEN]);
   });
 
+  it('a reviewer chosen before who can no longer review here is marked so on their chip', async () => {
+    const wrapper = await pressOpen(
+      draft({
+        reviewTeam: {
+          reviewers: [
+            { email: ANA, able: true },
+            { email: BEN, able: false },
+          ],
+        },
+      }),
+    );
+
+    expect(ticked(wrapper)).toEqual([ANA, `${BEN} (can no longer review here)`]);
+  });
+
   it('someone who may move the phase but not choose reviewers moves at once', async () => {
     const wrapper = await pressOpen(
       draft({ actionRefusals: answersRefusing(MarketAction.ChooseReviewers) }),

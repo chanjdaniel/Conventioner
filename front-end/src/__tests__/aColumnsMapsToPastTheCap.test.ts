@@ -140,7 +140,9 @@ describe('words typed in the list', () => {
     await openList(wrapper);
     await type(wrapper, 'nothing holds this');
     expect(rows(wrapper)).toHaveLength(0);
-    expect(list(wrapper).text()).toBe('Nothing matches "nothing holds this".');
+    // Under the listbox, which holds options and groups only, and once in the whole list.
+    expect(list(wrapper).text()).toBe('');
+    expect(wrapper.get('.search-picker-list').text()).toBe('Nothing matches "nothing holds this".');
     wrapper.unmount();
   });
 });

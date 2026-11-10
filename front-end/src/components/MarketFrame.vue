@@ -9,8 +9,9 @@
  * hid "where the market is"; floating the growth covered what it asked the organizer to fix; both
  * were tried and rejected.
  *
- * On a phone only the bar pins (T142): with the app bar, the whole block took 280 to 442px of a
- * 844px window, 409 at the door, so the check-in list scrolled in the lower half of the screen. The
+ * Up to 1023px only the bar pins, as on a phone (T142, T263): with the app bar, the whole block took
+ * 280 to 442px of a phone's 844px window, 409 at the door, so the check-in list scrolled in the lower
+ * half of the screen, and on a portrait tablet (720x900) it and Payments' toolbar took 459px. The
  * rail, the page row and the `pinned` slot stand at the top of the page and scroll away with it; the
  * bar's dot still says where the market is worked on, and the rail is one scroll up.
  *
@@ -97,8 +98,8 @@ function retry(): void {
 /*
  * The pinned block's height, measured rather than guessed, as `--market-frame-h` on the card: a
  * screen's own sticky column sits under the frame at `top: calc(var(--banner-h) +
- * var(--market-frame-h))`. The rail grows (blockers, errors), so a fixed number would be wrong. On a
- * phone the frame gives up its box and only the bar is pinned, so the bar's height is measured.
+ * var(--market-frame-h))`. The rail grows (blockers, errors), so a fixed number would be wrong. Up
+ * to 1023px the frame gives up its box and only the bar is pinned, so the bar's height is measured.
  */
 const card = ref<HTMLElement | null>(null);
 const frame = ref<HTMLElement | null>(null);
@@ -225,11 +226,12 @@ onBeforeUnmount(() => observer?.disconnect());
 }
 
 /*
- * On a phone only the bar pins (T142). A sticky element sticks only inside its parent, so the frame
- * gives up its box and the bar sticks against the card; the rail, the page row and the `pinned`
- * slot are the card's own children, in the page's flow, and scroll away with it.
+ * Up to 1023px only the bar pins (T142; a portrait tablet since T263). A sticky element sticks only
+ * inside its parent, so the frame gives up its box and the bar sticks against the card; the rail,
+ * the page row and the `pinned` slot are the card's own children, in the page's flow, and scroll
+ * away with it. The frame's own break: its other rules, and the pages', keep the phone's 640px.
  */
-@media (width <= 640px) {
+@media (width <= 1023px) {
   .market-frame {
     display: contents;
   }

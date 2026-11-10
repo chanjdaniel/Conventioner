@@ -129,6 +129,31 @@ describe('BlockerPanel', () => {
       expect(wrapper.find('[data-testid="blocker-resolution-link"]').exists()).toBe(false);
     });
 
+    /**
+     * One by one is the Applications page in a view of its own (`?view=one`): a link to
+     * `applications` lands on the same page, as the rail reads it (T206).
+     */
+    it('is not offered from a view of that page', async () => {
+      const wrapper = await mountPanelAt('/markets/m1/applications?view=one', [reviewBlocker]);
+
+      expect(wrapper.text()).toContain('still awaiting review');
+      expect(wrapper.find('[data-testid="blocker-resolution-link"]').exists()).toBe(false);
+    });
+
+    it('is still offered from another step of the page when the link names its step', async () => {
+      const wrapper = await mountPanelAt('/markets/m1/form', [
+        {
+          ...reviewBlocker,
+          resolutionLink: 'form?step=review',
+          resolutionAction: MarketAction.ChangeSetup,
+        },
+      ]);
+
+      expect(wrapper.get('[data-testid="blocker-resolution-link"]').attributes('href')).toBe(
+        '/markets/m1/form?step=review',
+      );
+    });
+
     it('is still offered from another page of the same market', async () => {
       const wrapper = await mountPanelAt('/markets/m1/setup', [reviewBlocker]);
 

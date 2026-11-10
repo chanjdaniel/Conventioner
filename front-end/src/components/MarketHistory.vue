@@ -19,6 +19,7 @@ import type { FormField, IntakeMode, RejectionQuestion } from '@/assets/types/da
 import ChoiceField from '@/components/ChoiceField.vue';
 import HistoryEntries from '@/components/HistoryEntries.vue';
 import PagedList from '@/components/PagedList.vue';
+import ReadFailed from '@/components/ReadFailed.vue';
 import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
 import { api } from '@/utils/api';
 import { marketPath } from '@/utils/market';
@@ -377,13 +378,12 @@ const emptyText = computed(() => {
     </div>
 
     <p v-if="loading" class="history-note">Loading…</p>
-    <p
+    <ReadFailed
       v-else-if="loadError && !entries.length"
-      class="form-error"
-      data-testid="market-history-error"
-    >
-      {{ loadError }}
-    </p>
+      name="market-history"
+      :message="loadError"
+      @retry="load"
+    />
     <p v-else-if="!entries.length" class="history-note" data-testid="market-history-empty">
       {{ emptyText }}
     </p>
@@ -469,11 +469,5 @@ const emptyText = computed(() => {
   margin: 0;
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
-}
-
-.form-error {
-  margin: 0;
-  color: var(--mm-red);
-  font-size: var(--text-xs);
 }
 </style>

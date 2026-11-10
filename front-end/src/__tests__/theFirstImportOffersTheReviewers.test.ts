@@ -151,6 +151,21 @@ describe('who meets the reviewers on the preview step', () => {
     expect(chips(wrapper)).toEqual([BEN]);
   });
 
+  it('marks a reviewer chosen before who can no longer review here on their chip', async () => {
+    const wrapper = await atPreview(
+      market({
+        reviewTeam: {
+          reviewers: [
+            { email: ANA, able: true },
+            { email: BEN, able: false },
+          ],
+        },
+      }),
+    );
+
+    expect(chips(wrapper)).toEqual([ANA, `${BEN} (can no longer review here)`]);
+  });
+
   it('a redo import shows no picker: the reviewers are the panel s', async () => {
     const wrapper = await atPreview(market({ phase: MarketPhase.Applications }));
 

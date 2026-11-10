@@ -12,7 +12,7 @@ describes:
   - back-end/api/markets.py#get_market_tables
   - front-end/src/components/elements/ElementPricing.vue
   - front-end/src/utils/pricing.ts
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - T92
   - E43/F01/S01
@@ -21,6 +21,7 @@ sources:
   - E43/F01/S03
   - T223
   - T217
+  - T263
 ---
 
 # A price follows the table
@@ -79,7 +80,7 @@ Changing the prices is part of "Change Market Setup", an Editor's ([what each ro
 - `Groups` in `back-end/pricing.py` prices one vendor's assignment from their answers (`price`) and names the broken groups (`broken`); the tables read (`get_market_tables`) reads the answers the groups ask (`vendor_answers`, through `vendor_answers_for_market` in [`back-end/api/applications.py`](../../../back-end/api/applications.py)) and carries each vendor's price on their table's row as `prices`, `{email, cents, group}`, empty where the table has none; `group` is the group's name, "Everyone else" on a card with groups, and null on a card without.
   The drawer's date cards read it there ("Gold, full table, Example College student + club member, $12.00", or "Gold, full table, $35.00" on a card with no groups; `priceLine` in [`front-end/src/utils/pricing.ts`](../../../front-end/src/utils/pricing.ts)).
 - What an assignment costs is what the vendor owes for that table-day by default, on the drawer's Payment tab, where a line follows its seat until someone sets the amount by hand, and a freed table's line stays owed ([payments, and what a vendor owes](../../implementation/data/payments.md)).
-- The card is [`ElementPricing.vue`](../../../front-end/src/components/elements/ElementPricing.vue), on [planning the market](../flows/planning.md#e9-pricing), its table in a sideways [`ScrollBox`](../../../front-end/src/components/ScrollBox.vue); a group's conditions are drawn by `ChoiceConditions.vue` (`front-end/src/components/application/`), checkboxes on a question of 12 answers or fewer and past that a field that finds them by typing, the chosen as chips ([automatic rejections](automatic-rejections.md#where-it-is-kept)), and a broken one is judged on the screen by `brokenCondition` (`front-end/src/utils/choiceConditions.ts`) as the server judges it.
+- The card is [`ElementPricing.vue`](../../../front-end/src/components/elements/ElementPricing.vue), on [planning the market](../flows/planning.md#e9-pricing), its table in a sideways [`ScrollBox`](../../../front-end/src/components/ScrollBox.vue) under a caption the table names as its description (`aria-describedby`), so the caption stays in view when the prices scroll; a group's conditions are drawn by `ChoiceConditions.vue` (`front-end/src/components/application/`), checkboxes on a question of 12 answers or fewer and past that a field that finds them by typing, the chosen as chips ([automatic rejections](automatic-rejections.md#where-it-is-kept)), and a broken one is judged on the screen by `brokenCondition` (`front-end/src/utils/choiceConditions.ts`) as the server judges it.
   A tier renamed in Tier Setup keeps its price in every row, and a removed tier's prices go with it (`pricingAfterTierChange`); a group with no name or another's holds the plan's autosave until it is fixed (`groupNameProblem`); a cell or the share holding text that is no value keeps the value from before it, no price for a cell that had none, and holds the plan's autosave (`held`, the [autosave](../../implementation/modules/plan-autosave.md)'s `hold`) until it is fixed.
   That text moves with its tier's rename and goes with its tier, and the share's goes with the last tier, so no hold outlives its field.
 - Each change of the card, its groups included, is one `pricing` entry in [the market's history](../../implementation/data/history.md), with who, when, and the fields before and after; it is about the market, not a vendor, so it names none.

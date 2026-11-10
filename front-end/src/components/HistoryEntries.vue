@@ -232,7 +232,9 @@ onUpdated(measureFields);
         <dl v-if="changesOf(entry).recorded.length" class="history-recorded">
           <template v-for="row in changesOf(entry).recorded" :key="row.field">
             <dt>{{ row.field }}</dt>
-            <dd>{{ row.value }}</dd>
+            <!-- A value may hold addresses, a selection's reviewers: each breaks, if at all, only
+                 before its "@" or a dot, as the table's do. -->
+            <dd><EmailAddress :words="row.value" /></dd>
           </template>
         </dl>
         <p
@@ -389,10 +391,13 @@ onUpdated(measureFields);
   color: var(--mm-text-muted);
 }
 
+/* A value keeps its line breaks, as the table's do: a kept answer of several lines, and what the
+   vendor wrote under it. */
 .history-recorded dd {
   margin: 0;
   color: var(--mm-black);
   overflow-wrap: anywhere;
+  white-space: pre-line;
 }
 
 .history-note {

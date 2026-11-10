@@ -59,7 +59,7 @@ A save the server takes, "Cancel", "Sign out" and another address signing in to 
 Once the market no longer takes applications, kept answers are dropped and the page reads as it would without them.
 A save that meets a sign-in that has ended, when the device cannot sign them straight back in, keeps the answers it sent in the tab, and the page asks for sign-in again, saying "Your session has expired. Sign in again, and your answers will be saved."
 Signed in again as the same address, the form opens on those answers and sends the save once by itself; a save the server takes closes the form as any save does, and a refusal says why above "Save application", every answer kept.
-A one-choice answer the form no longer offers counts as blank there, since its control shows nothing chosen.
+A one-choice answer the form no longer offers counts as blank there, since its control shows nothing chosen: a required one is named, and an optional one is sent unanswered (`answersToSend` in [`applicationForm.ts`](../../../front-end/src/utils/applicationForm.ts)), so the server does not refuse it with a list of every option.
 A question of more than 12 options is a field they type in to find an answer, one choice or several as chips; words they typed and did not choose clear when they leave the field ([the design language](../../design-system.md)).
 The vendor page reads the form and the saved application together before it draws; when either does not load within 15 seconds, or the request fails, it says "This page could not be loaded" with "Try again", never that the market is not open and never an endless "Loading..." (E06/F01/S01).
 Covered by:

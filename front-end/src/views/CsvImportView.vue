@@ -48,6 +48,7 @@ import ReviewerPicker from '@/components/market/ReviewerPicker.vue';
 import {
   chooseReviewers,
   reviewerAddresses,
+  unableReviewers,
   sameTeam,
   teamToChange,
   unansweredWrite,
@@ -170,6 +171,17 @@ const takingApplications = computed(() => Boolean(market.value) && !phaseRefusal
 const firstImport = computed(() => marketPhase.value === MarketPhase.Draft);
 /** The market entered Review with this import: the done step says where it now stands. */
 const enteredReview = ref(false);
+/**
+ * Whether the import just written was the market's first, as it was when it began: the import moves
+ * the market into Review, so `firstImport` reads false by the done step, which redid nothing.
+ */
+const importedFirst = ref(false);
+/** The page's heading: what this import is, or on the done step what it was. */
+const heading = computed(() =>
+  (step.value === 'done' ? importedFirst.value : firstImport.value)
+    ? 'Import responses'
+    : 'Redo import',
+);
 
 /**
  * The first import is where a Google Form market's review begins, so its preview step offers the
@@ -193,6 +205,14 @@ watch(
 const reviewersError = ref('');
 
 const step = ref<Step>('upload');
+/**
+ * The page says it is refused instead of offering a file: then it has no steps to take and nothing
+ * to cancel, so it draws neither the stepper nor the actions' footer with Cancel import, and "Back
+ * to the market" is the way out.
+ */
+const refused = computed(
+  () => step.value === 'upload' && Boolean(marketId.value) && !takingApplications.value,
+);
 
 /**
  * Leave the wizard for the market it belongs to. Nothing is written until the final confirm, so on
@@ -919,6 +939,7 @@ async function confirmImport() {
 
 async function runImport() {
   const left = leftSinceNow();
+  const first = firstImport.value;
   busy.value = true;
   error.value = '';
   reviewersError.value = '';
@@ -937,7 +958,8 @@ async function runImport() {
     rejectedByRules.value = data.rejectedByRules ?? 0;
     failures.value = data.failures ?? [];
     repeats.value = data.repeats ?? [];
-    enteredReview.value = firstImport.value && data.phase === MarketPhase.Applications;
+    importedFirst.value = first;
+    enteredReview.value = first && data.phase === MarketPhase.Applications;
     step.value = 'done';
   } catch (e) {
     if (!left()) error.value = getApiErrorMessage(e, 'The import could not be completed.');
@@ -977,12 +999,12 @@ watch(marketId, () => {
     <div class="import-view" data-testid="import-view">
       <header class="import-header">
         <div>
-          <h1>{{ firstImport ? 'Import responses' : 'Redo import' }}</h1>
+          <h1>{{ heading }}</h1>
           <p v-if="fileName" class="import-subtitle" data-testid="import-filename">
             {{ fileName }}
           </p>
         </div>
-        <ol class="import-steps">
+        <ol v-if="!refused" class="import-steps">
           <li :class="{ current: step === 'upload' }">1 Upload</li>
           <li :class="{ current: step === 'map' }">2 Map columns</li>
           <li :class="{ current: step === 'preview' }">3 Preview</li>
@@ -990,14 +1012,10 @@ watch(marketId, () => {
         </ol>
       </header>
 
-      <p v-if="error" class="import-error" data-testid="import-error">{{ error }}</p>
+      <p v-if="error" class="import-error" role="alert" data-testid="import-error">{{ error }}</p>
 
       <!-- Not taking applications: say so instead of offering a file picker. -->
-      <section
-        v-if="step === 'upload' && marketId && !takingApplications"
-        class="import-panel"
-        data-testid="import-wrong-phase"
-      >
+      <section v-if="refused" class="import-panel" data-testid="import-wrong-phase">
         <h2>
           {{
             roleRefusal
@@ -1517,6 +1535,7 @@ watch(marketId, () => {
             v-model="reviewers"
             :candidates="market?.reviewerCandidates ?? []"
             :current="reviewerAddresses(market)"
+            :unable="unableReviewers(market)"
             :disabled="busy"
           />
           <p
@@ -1564,7 +1583,7 @@ watch(marketId, () => {
         </div>
       </section>
 
-      <footer class="import-actions">
+      <footer v-if="!refused" class="import-actions">
         <!-- The way out. Upload, Map columns, Preview and the value reconciliation had none at all -
            no Cancel, no breadcrumb - so an organizer who opened this by mistake, or hit a file the
            product could not read, had the browser's back button and nothing else. Nothing is

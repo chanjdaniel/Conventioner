@@ -22,7 +22,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import type { FormField } from '@/assets/types/datatypes';
 import ApplicationFormFields from '@/components/application/ApplicationFormFields.vue';
 import EssentialApplicationFields from '@/components/application/EssentialApplicationFields.vue';
-import { formValidationErrors, sortedFormFields } from '@/utils/applicationForm';
+import { answersToSend, formValidationErrors, sortedFormFields } from '@/utils/applicationForm';
 import { essentialValidationErrors, planDerivedAskedKeys } from '@/utils/essentialFields';
 import { useApplicationStore } from '@/stores/application';
 
@@ -127,7 +127,7 @@ async function submitForm() {
   if (!validateAll()) return;
 
   saving.value = true;
-  const app = await store.saveApplication(formData.value);
+  const app = await store.saveApplication(answersToSend(sortedFields.value, formData.value));
   saving.value = false;
 
   if (app) {

@@ -27,8 +27,11 @@ export const CHANGED_SINCE = 'Their answer changed since your update.';
 /** Said under that line in Update info: saving keeps the update over what they wrote now. */
 export const KEEPS_ON_SAVE = 'Save keeps your update.';
 
-/** Said instead where what they wrote now is the update itself: Save takes the update away. */
-export const MATCHES_ON_SAVE = 'Their answer now matches your update. Save takes the update away.';
+/** Said instead where what they wrote now is the update itself, in the drawer as in Update info. */
+export const NOW_MATCHES = 'Their answer now matches your update.';
+
+/** Said in Update info where what they wrote now is the update itself: Save takes the update away. */
+export const MATCHES_ON_SAVE = `${NOW_MATCHES} Save takes the update away.`;
 
 /** "Updated by alex@market.test, Oct 19, 2026 at 5:04 PM": who updated an answer, and when. */
 export function updatedByLine(update: AnswerUpdate): string {

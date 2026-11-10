@@ -769,6 +769,65 @@ describe('applying and editing on the page', () => {
     );
   });
 
+  describe('a one-choice answer the form no longer offers', () => {
+    const sells = (required: boolean) => ({
+      key: 'sells',
+      label: 'What do you sell?',
+      type: 'select',
+      required,
+      options: ['Prints', 'Stickers'],
+      order: 1,
+    });
+    async function editWithAStaleAnswer(required: boolean) {
+      fetchPublicApplicationForm.mockResolvedValue({
+        marketName: 'Spring Market',
+        fields: [BUSINESS_NAME, sells(required)],
+        essentialOptions: EMPTY_ESSENTIAL_OPTIONS,
+        phaseLabel: 'Applications',
+        isOpen: true,
+        failed: false,
+        notFound: false,
+      });
+      fetchVendorPage.mockResolvedValue(pageOf());
+      fetchApplicantApplication.mockResolvedValue(
+        application({
+          formData: {
+            essential_full_name: 'Riley Fixture',
+            business_name: 'Fixture Ceramics',
+            sells: 'Candles',
+          },
+        }),
+      );
+      saveApplicantApplication.mockImplementation(
+        async (_slug: string, _token: string, formData: Record<string, unknown>) =>
+          application({ formData }),
+      );
+      const wrapper = await mountPage();
+      await wrapper.get('[data-testid="vendor-page-edit-btn"]').trigger('click');
+      await wrapper.get('[data-testid="apply-form"]').trigger('submit');
+      await flushPromises();
+      return wrapper;
+    }
+
+    it('is sent unanswered on an optional question, so the server takes the rest', async () => {
+      await editWithAStaleAnswer(false);
+
+      expect(saveApplicantApplication).toHaveBeenCalledTimes(1);
+      const sent = saveApplicantApplication.mock.calls[0][2] as Record<string, unknown>;
+      expect(sent.sells).toBe('');
+      expect(sent.business_name).toBe('Fixture Ceramics');
+    });
+
+    it('is still refused on a required question, which says so', async () => {
+      const wrapper = await editWithAStaleAnswer(true);
+
+      expect(saveApplicantApplication).not.toHaveBeenCalled();
+      expect(wrapper.get('[data-testid="apply-form"]').text()).toContain(
+        '"What do you sell?" is required.',
+      );
+    });
+  });
+
   it('leaves the saved answers as they were on Cancel', async () => {
     fetchVendorPage.mockResolvedValue(pageOf());
     fetchApplicantApplication.mockResolvedValue(

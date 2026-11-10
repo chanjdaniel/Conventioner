@@ -167,6 +167,7 @@ async function decline(match: DiscordPossibleMatch): Promise<void> {
         testid="discord-match-confirm"
         :confirm-label="busy ? 'Saving…' : 'Save update'"
         :confirm-disabled="busy"
+        :close-disabled="busy"
         :error="confirmError"
         @close="confirming = null"
         @submit="save"

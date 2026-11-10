@@ -79,30 +79,51 @@ export function applicationFormHint(form: ApplicationForm | null): string | null
  * {@link applicationFormHint}.
  */
 export function applicationFormError(form: ApplicationForm | null): string | null {
+  return applicationFormRefusal(form)?.message ?? null;
+}
+
+/** What Save refuses, and for a blank option where it stands: its question's and its own place. */
+export interface ApplicationFormRefusal {
+  message: string;
+  blankOption?: { field: number; option: number };
+}
+
+/** {@link applicationFormError}, with the place of a blank option, which the form builder unfolds. */
+export function applicationFormRefusal(
+  form: ApplicationForm | null,
+): ApplicationFormRefusal | null {
   const fields = form?.fields ?? [];
 
   const seen = new Set<string>();
-  for (const field of fields) {
+  for (const [at, field] of fields.entries()) {
     if (isUntouchedField(field)) continue;
 
     const key = (field.key ?? '').trim();
-    if (!field.label?.trim()) return `Field "${key}" needs a label.`;
-    if (!key) return `Field "${field.label}" needs a key.`;
+    const refused = (message: string) => ({ message });
+    if (!field.label?.trim()) return refused(`Field "${key}" needs a label.`);
+    if (!key) return refused(`Field "${field.label}" needs a key.`);
     const keyRefusal = fieldKeyError(key);
-    if (keyRefusal) return keyRefusal;
-    if (seen.has(key)) return `Duplicate field key "${key}". Keys must be unique.`;
+    if (keyRefusal) return refused(keyRefusal);
+    if (seen.has(key)) return refused(`Duplicate field key "${key}". Keys must be unique.`);
     seen.add(key);
 
     if (field.type === 'select' || field.type === 'multi_select') {
       if (field.options.length === 0) {
-        return `Field "${field.label}" is a ${field.type} and needs at least one option.`;
+        return refused(`Field "${field.label}" is a ${field.type} and needs at least one option.`);
       }
       const seenOptions = new Set<string>();
-      for (const option of field.options) {
-        const value = option.trim();
-        if (!value) return `Field "${field.label}" has a blank option.`;
+      for (const [option, words] of field.options.entries()) {
+        const value = words.trim();
+        if (!value) {
+          return {
+            message: `Field "${field.label}" has a blank option.`,
+            blankOption: { field: at, option },
+          };
+        }
         if (seenOptions.has(value)) {
-          return `Field "${field.label}" repeats the option "${value}". Options must be unique.`;
+          return refused(
+            `Field "${field.label}" repeats the option "${value}". Options must be unique.`,
+          );
         }
         seenOptions.add(value);
       }
@@ -137,6 +158,29 @@ export function sortedFormFields(fields: FormField[]): FormField[] {
   return [...fields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
+/** Whether a one-choice question's answer is among the options it offers now. */
+function offered(field: FormField, value: unknown): boolean {
+  return field.type !== 'select' || field.options.includes(String(value).trim());
+}
+
+/**
+ * The answers as the form sends them: an answer to a one-choice question that it no longer offers
+ * goes as unanswered, as its control shows it. Sent as it was stored, it was refused with a list of
+ * every option on a question the vendor may leave blank; a required one never reaches the send, as
+ * {@link formValidationErrors} refuses it first.
+ */
+export function answersToSend(
+  fields: FormField[],
+  formData: Record<string, unknown>,
+): Record<string, unknown> {
+  const sent = { ...formData };
+  for (const field of fields) {
+    const value = sent[field.key];
+    if (isFieldAnswered(value, field.type) && !offered(field, value)) sent[field.key] = '';
+  }
+  return sent;
+}
+
 /**
  * Client-side validation of an applicant's answers against the market's field definitions.
  * Returns an empty record when every required field has been answered.
@@ -154,8 +198,7 @@ export function formValidationErrors(
   for (const field of fields) {
     if (!field.required) continue;
     const value = formData[field.key];
-    const offered = field.type !== 'select' || field.options.includes(String(value).trim());
-    if (!isFieldAnswered(value, field.type) || !offered) {
+    if (!isFieldAnswered(value, field.type) || !offered(field, value)) {
       errors[field.key] = requiredFieldError(field);
     }
   }

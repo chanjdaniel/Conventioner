@@ -201,6 +201,27 @@ watch(
   },
   { immediate: true },
 );
+
+/**
+ * Focus comes back inside when a hold ends. A save in flight disables what held the focus (the
+ * confirm, Cancel), so the browser drops it to `<body>`; a refusal ends the hold with the dialog
+ * still open, and focus would stay outside it, where no Tab reaches the dialog. Focus left inside
+ * stays where it is, and so does focus in another dialog, one opened over this.
+ */
+watch(
+  () => props.closeDisabled,
+  async (held, wasHeld) => {
+    if (held || !wasHeld || !props.open) return;
+    await nextTick();
+    if (!props.open) return;
+    const active = document.activeElement;
+    const kept =
+      active &&
+      active !== document.body &&
+      (windowEl.value?.contains(active) || active.closest('[role="dialog"]'));
+    if (!kept) await focusInside();
+  },
+);
 </script>
 
 <template>
@@ -284,7 +305,9 @@ watch(
               </div>
             </template>
 
-            <p v-if="error" class="dialog-error" :data-testid="`${testid}-error`">{{ error }}</p>
+            <p v-if="error" class="dialog-error" role="alert" :data-testid="`${testid}-error`">
+              {{ error }}
+            </p>
 
             <footer v-if="confirmLabel || $slots.actions" class="dialog-actions">
               <slot name="actions">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick } from 'vue';
+import { computed, nextTick, watch } from 'vue';
 import { type ExampleColumn, type FormField } from '@/assets/types/datatypes';
 import IconAddRound from '@/components/icons/IconAddRound.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
@@ -36,8 +36,10 @@ const props = withDefaults(
     /** The column of the example file this question was made from, on a market started from one
      *  (E38/F02/S02): a Select or Multi-Select takes its options from it. */
     column?: ExampleColumn | null;
+    /** The place of the blank option Save refuses, when it is this question's. */
+    blankOption?: number | null;
   }>(),
-  { readonly: false, keyTouched: false, forApplicants: true, column: null },
+  { readonly: false, keyTouched: false, forApplicants: true, column: null, blankOption: null },
 );
 
 const emit = defineEmits<{
@@ -58,6 +60,18 @@ const {
 } = useFold(
   () => local.value.options,
   () => FIRST_OPTIONS,
+);
+
+/**
+ * Save's refusal of a blank option behind the fold unfolds the options, so the row it means shows.
+ * Only as it comes to name this question: a fold the reader makes after it stays theirs.
+ */
+watch(
+  () => props.blankOption,
+  (at) => {
+    if (at !== null && at >= FIRST_OPTIONS) optionsUnfolded.value = true;
+  },
+  { immediate: true },
 );
 
 function slugify(text: string): string {

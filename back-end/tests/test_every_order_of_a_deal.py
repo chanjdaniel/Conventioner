@@ -13,7 +13,7 @@ from contextlib import contextmanager
 import pytest
 
 from test_choosing_reviewers_deals_the_open_applications import (  # noqa: F401  (the fixture)
-    ANA, BEN, CAT, OPEN, _application, _choose, world,
+    ANA, BEN, CAT, MARKET, OPEN, _application, _choose, world,
 )
 
 import api.applications as ApplicationsApi
@@ -67,19 +67,33 @@ class Counted:
         return step
 
 
+def _market(world):
+    """The market as stored now. Every read and write of the world here is a collection's own
+    call, so the same cases run over the real collections (``real_mongo/``)."""
+    return world.markets.find_one({"id": MARKET})
+
+
 def _dealt_seven(world):
     """Ana, Ben and Cat chosen over the seven open applications: 3, 2 and 2, the turn at 7."""
     world.market()
-    world.applications.documents = [_application(v, int(v[1:])) for v in OPEN]
-    world.history.documents.clear()
+    world.applications.delete_many({})
+    for v in OPEN:
+        world.applications.insert_one(_application(v, int(v[1:])))
+    world.history.delete_many({})
     assert _choose([ANA, BEN, CAT]).status_code == 200
+
+
+def _held_by(world, deal, until):
+    """Another deal's lease on the market, as ``_hold`` stores one."""
+    world.markets.update_one(
+        {"id": MARKET}, {"$set": {"reviewTeam.dealing": {"by": deal, "until": until}}})
 
 
 def _arrive(world, name, day):
     """An application arrives open and is dealt, as an applicant's save deals it."""
-    world.applications.documents.append(_application(name, day))
+    world.applications.insert_one(_application(name, day))
     ReviewTeam.deal_arrivals(
-        MarketsApi.market_from_document(world.markets.doc), f"{name}@vendor.test", History.APPLY,
+        MarketsApi.market_from_document(_market(world)), f"{name}@vendor.test", History.APPLY,
         only=f"app-{name}")
 
 
@@ -109,12 +123,12 @@ def _steps_of(world, run):
 
 def _reviewer_of(world):
     return {doc["id"][len("app-"):]: (doc.get("reviewer") or {}).get("email")
-            for doc in world.applications.documents}
+            for doc in world.applications.find({})}
 
 
 def _nothing_left_waiting_or_held(world):
-    assert not any(doc.get(ApplicationsApi.ARRIVING_FIELD) for doc in world.applications.documents)
-    assert "dealing" not in (world.markets.doc.get("reviewTeam") or {})
+    assert not any(doc.get(ApplicationsApi.ARRIVING_FIELD) for doc in world.applications.find({}))
+    assert "dealing" not in (_market(world).get("reviewTeam") or {})
 
 
 def _assert_even_and_next(world, names, team, turn):
@@ -125,14 +139,14 @@ def _assert_even_and_next(world, names, team, turn):
     assert sorted(counts.values(), reverse=True) == [
         len(names) // len(team) + (1 if i < len(names) % len(team) else 0)
         for i in range(len(team))], dealt
-    assert world.markets.doc["reviewTeam"]["turn"] == turn
+    assert _market(world)["reviewTeam"]["turn"] == turn
     _arrive(world, "next", 40)
     assert _reviewer_of(world)["next"] == team[turn % len(team)]
-    assert world.markets.doc["reviewTeam"]["turn"] == turn + 1
+    assert _market(world)["reviewTeam"]["turn"] == turn + 1
 
 
 def _last_deal_of(world, name):
-    return [e for e in world.history.documents if e["kind"] == History.DEALT
+    return [e for e in world.history.find({}) if e["kind"] == History.DEALT
             and f"app-{name}" in e["subject"]["application_ids"]][-1]
 
 
@@ -162,7 +176,7 @@ class TestAnArrivalAtEveryStepOfAChange:
         def check(world, land_at):
             _nothing_left_waiting_or_held(world)
             assert set(_reviewer_of(world).values()) == {None}, land_at
-            assert world.markets.doc["reviewTeam"]["reviewers"] == []
+            assert _market(world)["reviewTeam"]["reviewers"] == []
 
         self._land_at_each_step(world, [], check)
 
@@ -211,8 +225,7 @@ class TestTwoArrivalsAtOnce:
 class TestTheMarketsHold:
     def test_one_left_by_a_deal_that_stopped_lets_the_next_in(self, world):
         _dealt_seven(world)
-        world.markets.doc["reviewTeam"]["dealing"] = {
-            "by": "a-deal-that-stopped", "until": "2026-01-01T00:00:00+00:00"}
+        _held_by(world, "a-deal-that-stopped", "2026-01-01T00:00:00+00:00")
 
         _arrive(world, "x", 21)
 
@@ -222,8 +235,7 @@ class TestTheMarketsHold:
     def test_while_another_deal_holds_it_a_change_is_refused_in_words(self, world, monkeypatch):
         _dealt_seven(world)
         monkeypatch.setattr(ReviewTeam, "CHOICE_WAITS", 0)
-        world.markets.doc["reviewTeam"]["dealing"] = {
-            "by": "another", "until": "2999-01-01T00:00:00+00:00"}
+        _held_by(world, "another", "2999-01-01T00:00:00+00:00")
 
         response = _choose([BEN, CAT])
 
@@ -232,12 +244,11 @@ class TestTheMarketsHold:
 
     def test_an_arrival_that_finds_it_held_waits_for_whoever_holds_it_next(self, world):
         _dealt_seven(world)
-        world.markets.doc["reviewTeam"]["dealing"] = {
-            "by": "another", "until": "2999-01-01T00:00:00+00:00"}
+        _held_by(world, "another", "2999-01-01T00:00:00+00:00")
         _arrive(world, "x", 21)
         assert _reviewer_of(world)["x"] is None
 
-        del world.markets.doc["reviewTeam"]["dealing"]
+        world.markets.update_one({"id": MARKET}, {"$unset": {"reviewTeam.dealing": ""}})
         _arrive(world, "y", 22)
 
         dealt = _reviewer_of(world)
@@ -281,9 +292,9 @@ class TestEveryLetGoLooksAgain:
 
         monkeypatch.setattr(ApplicationsApi, "deal", an_arrival_lands_then_the_change_fails)
         with pytest.raises(RuntimeError):
-            ReviewTeam.choose(MarketsApi.market_from_document(world.markets.doc), None,
+            ReviewTeam.choose(MarketsApi.market_from_document(_market(world)), None,
                               [person for person in ReviewTeam.team_of(
-                                  MarketsApi.market_from_document(world.markets.doc)).reviewers
+                                  MarketsApi.market_from_document(_market(world))).reviewers
                                if person.email != ANA], ANA)
         monkeypatch.setattr(ApplicationsApi, "deal", real)
 

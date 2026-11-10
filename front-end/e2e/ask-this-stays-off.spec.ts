@@ -48,7 +48,7 @@ test('"Ask this" stays off after a custom field is added and the form saved', as
   await expect(page.getByText('Saved')).toBeVisible();
 
   await page.getByTestId('form-step-questions').click();
-  await page.getByRole('button', { name: 'Add Field' }).click();
+  await page.getByRole('button', { name: 'Add field' }).click();
   await page.getByTestId('form-field-label-input').first().fill('Product category');
   await page.getByTestId('form-field-required-checkbox').first().check();
   await page.getByRole('button', { name: 'Save Form', exact: true }).click();

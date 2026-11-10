@@ -442,8 +442,4 @@ function toggle(label: string) {
   box-shadow: var(--shadow-card);
   font-size: var(--text-sm);
 }
-
-.library-card strong {
-  font-weight: 600;
-}
 </style>

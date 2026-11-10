@@ -391,7 +391,7 @@ const shrinking = computed(() => applications.slice(0, shrinkingCount.value));
 
   <LibrarySection
     title="AnswerValue"
-    about="Used on: the review card's answers, the vendor drawer, the applicant's dashboard, the Discord offer"
+    about="Used on: the review card's answers, the vendor drawer, a market's vendor page, the Discord offer"
   >
     <LibraryPanel label="Plain text">
       <p class="library-text"><AnswerValue :value="first.sells" /></p>

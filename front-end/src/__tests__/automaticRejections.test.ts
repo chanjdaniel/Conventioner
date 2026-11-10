@@ -6,7 +6,7 @@
  * is the whole list, written at once; once the review is closed the rules are shown, fixed, with
  * the server's reason.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 
 import AutomaticRejections from '@/components/application/AutomaticRejections.vue';
@@ -209,27 +209,69 @@ describe('a rule on a question of many answers', () => {
     expect(lastWrite(wrapper)).toEqual([other, { key: 'selling', answers: [] }]);
   });
 
-  it('shown fixed, its chips still read and nothing can be taken', () => {
+  it('shown fixed, its answers read as chips with nothing to remove them and no field', () => {
     const wrapper = mountLong(
-      [{ key: 'selling', answers: ['Answer 3'] }],
+      [{ key: 'selling', answers: ['Answer 3', 'Answer 13'] }],
       'The automatic rejections closed when results were published.',
     );
 
-    expect(picked(wrapper)[0]).toContain('Answer 3');
-    expect(wrapper.get(`${PICKER} input`).attributes()).toHaveProperty('disabled');
+    expect(picked(wrapper)).toEqual(['Answer 3', 'Answer 13']);
     expect(
-      wrapper.get('[data-testid="rejection-answers-selling-chip-remove"]').attributes(),
-    ).toHaveProperty('disabled');
+      wrapper.get('[data-testid="rejection-answers-selling-chips"]').attributes('aria-label'),
+    ).toBe('Answers to What you sell, chosen');
+    expect(wrapper.find(`${PICKER} input`).exists()).toBe(false);
+    expect(wrapper.find(`${PICKER} button`).exists()).toBe(false);
+    expect(wrapper.find('[data-testid="rejection-answers-selling-chip-remove"]').exists()).toBe(
+      false,
+    );
     expect(wrapper.find('.conditions-empty').exists()).toBe(false);
   });
 
-  it('fixed with no answer chosen, its field says so rather than offering to find one', () => {
+  it('shown fixed, two chosen answers that read alike are two chips, each keyed by its value', async () => {
+    // An answer valued "ceramics" reads "Ceramics", and a gone answer is spelt "Ceramics" too.
+    const question: RejectionQuestion = {
+      key: 'selling',
+      label: 'What you sell',
+      answers: [
+        { value: 'ceramics', label: 'Ceramics' },
+        ...answers(12).map((answer) => ({ ...answer, value: answer.value.toLowerCase() })),
+      ],
+    };
+    const lockReason = 'The automatic rejections closed when results were published.';
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const wrapper = mount(AutomaticRejections, {
+        props: {
+          questions: [question],
+          rules: [{ key: 'selling', answers: ['answer 1', 'answer 2'] }],
+          lockReason,
+        },
+        attachTo: document.body,
+      });
+      // Vue checks a list's keys as it patches it, so the chips are drawn again, all new.
+      await wrapper.setProps({
+        rules: [{ key: 'selling', answers: ['answer 3', 'ceramics', 'Ceramics', 'answer 4'] }],
+      });
+
+      expect(picked(wrapper)).toEqual(['Answer 3', 'Ceramics', 'Ceramics', 'Answer 4']);
+      expect(warn.mock.calls.flat().join(' ')).not.toContain('Duplicate keys');
+      wrapper.unmount();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('fixed with no answer chosen, says so in words and draws no field', () => {
     const wrapper = mountLong(
       [{ key: 'selling', answers: [] }],
       'The automatic rejections closed when results were published.',
     );
 
-    expect(wrapper.get(`${PICKER} input`).attributes('placeholder')).toBe('No answer chosen');
+    expect(wrapper.get('[data-testid="rejection-answers-selling-none"]').text()).toBe(
+      'No answer chosen',
+    );
+    expect(wrapper.find(`${PICKER} input`).exists()).toBe(false);
+    expect(picked(wrapper)).toEqual([]);
   });
 
   it('an answer the form no longer offers is a chip of its own words, and the line names it', async () => {
