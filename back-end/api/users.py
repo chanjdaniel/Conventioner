@@ -69,7 +69,8 @@ def ensure_user_indexes() -> None:
                 users_collection.drop_index(name)
         users_collection.create_index([("email", 1)], unique=True, name=USER_EMAIL_INDEX)
     except PyMongoError as exc:
-        # The driver's message is not repeated: a duplicate key error quotes the address.
+        # The driver's message is not repeated, nor kept as the cause: a duplicate key error
+        # quotes the address.
         by_address: dict = {}
         for uid, email in stored:
             by_address.setdefault(email, []).append(str(uid))
@@ -79,7 +80,7 @@ def ensure_user_indexes() -> None:
             f"({type(exc).__name__}, code {getattr(exc, 'code', None)}). Accounts sharing an "
             f"address: {'; '.join(', '.join(ids) for ids in shared) or 'none found'}. Keep one "
             f"account per address, then restart."
-        ) from exc
+        ) from None
 
 
 #: How long a sign-in without "Remember me" lasts (E38/F14/S01): a market day. Its session cookie

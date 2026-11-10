@@ -9,6 +9,7 @@ so "Dan@example.com" and "dan@example.com" are one account, as `create_account.p
 """
 import os
 import sys
+import traceback
 from html.parser import HTMLParser
 from types import SimpleNamespace
 
@@ -299,6 +300,8 @@ class TestTheIndexIsTheReferee:
 
         assert "id-0, id-1" in str(refused.value)
         assert "a@example.com" not in str(refused.value), "ids, never addresses, reach the logs"
+        printed = "".join(traceback.format_exception(refused.value))
+        assert "a@example.com" not in printed, "nor through the driver's error as its cause"
 
     def test_a_boot_after_the_index_stands_reads_no_account(self, users):
         """Every cold start on a serverless host is a boot; the index is the referee by then."""

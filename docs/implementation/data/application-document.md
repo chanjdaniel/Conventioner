@@ -27,6 +27,7 @@ sources:
   - E38/F07/S03
   - E41/F01/S02
   - E46/F01/S05
+  - T263
 ---
 
 # The application document
@@ -122,7 +123,7 @@ A rule's verdict is not an entry of its own: the write that judged counts it in 
 **`(market_id, applicant_email, application_type)` identifies an application, and the database enforces it:** the unique index `market_applicant_type_unique`, built by `ensure_application_indexes()`.
 Creating one is a read-then-insert on a public endpoint, so two concurrent saves for a new address would otherwise both insert, leaving an orphan that sits on the organizer's list and double-counts through review, assignment and the form lock.
 `find_or_create_application()` is one conditional upsert against that index, and returns the winner's document when it loses the race; an applicant's first valid save creates theirs through it ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md)), and so does an import row.
-`app.py` builds the index at boot and refuses to start when it cannot (`verify_application_indexes`); the likeliest cause is duplicates already stored, which have to be merged by hand ([Operations](../../OPERATIONS.md#when-the-back-end-refuses-to-boot)).
+`app.py` builds the index at boot and refuses to start when it cannot (`verify_application_indexes`); the likeliest cause is duplicates already stored, which the refusal names by application id, never by address, and which have to be merged by hand ([Operations](../../OPERATIONS.md#when-the-back-end-refuses-to-boot)).
 The index's `market_id` prefix serves every read of a market's applications; `id` is a [lookup index](lookup-indexes.md).
 
 [`migrations/create_applications_collection.py`](../../../back-end/migrations/create_applications_collection.py) creates the collection, a `market_id` index and the identity index on an older deployed database, and with `--dry-run` names any applicant holding two applications.

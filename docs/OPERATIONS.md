@@ -19,6 +19,7 @@ sources:
   - decision/2026-10-20
   - E40/F01/S01
   - T254
+  - T263
 ---
 
 # Operations
@@ -212,8 +213,9 @@ When it names accounts that would share an address, it writes nothing: decide wi
 **"Could not build the unique index 'user_email' on users.email ... Accounts sharing an address: ..."**.
 Two accounts already hold one address; keep one per address as above, then redeploy.
 
-**"The unique index market_applicant_type_unique ... could not be built"**.
+**"The unique index market_applicant_type_unique ... could not be built ... Applications sharing an identity: ..."**.
 Some applicant holds two applications of one type at one market, which the index exists to forbid ([the application document](implementation/data/application-document.md#indexes)).
+The refusal names each such group by application id, and names Mongo's error by its type and code only, since Mongo's own words quote the address.
 `MONGODB_URI='<URI>' .venv/bin/python migrations/create_applications_collection.py --dry-run` ([`create_applications_collection.py`](../back-end/migrations/create_applications_collection.py)) lists each such applicant with their application ids; it prints their addresses, so keep its output off anything shared.
 Which document is the applicant's is the organizer's call: merge each pair by hand in `mongosh`, then redeploy.
 
