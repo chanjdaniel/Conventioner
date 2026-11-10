@@ -20,8 +20,8 @@ It writes through the same judgements as the plan's and the form's own writes
 (``prepared_plan``, ``prepared_application_form``) - the form lock above all - and asks the rows
 the plan write does: the import's row lets the start in, and a plan whose assignment rules differ
 from the market's asks the Assign row too (``Actions.ask_assign_if_the_rules_change``). It then
-writes as one ``$set``, conditioned on the market still being a draft whose form has no questions of its own, so a
-confirm either writes all of it or none of it.
+writes as one ``$set``, conditioned on the market still being a draft whose form has no questions
+of its own, so a confirm either writes all of it or none of it.
 
 The file is sent again rather than kept between the proposal and the confirm: the server never
 stores it, only the readings above, and re-reading it is how confirm knows the columns without
