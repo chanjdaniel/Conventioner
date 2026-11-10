@@ -13,6 +13,7 @@ sources:
   - bug/36
   - E06/F01/S01
   - T202
+  - T271
 ---
 
 # Applying online
@@ -31,6 +32,7 @@ Each case below is one of its branches.
 Covered by:
 
 - `a-first-time-vendor-applies.spec.ts`
+- `a-vendors-answers-survive.spec.ts`
 - `applicant.spec.ts`
 - `essential-fields.spec.ts`
 - `intake-mode.spec.ts`
@@ -51,12 +53,17 @@ Covered by:
 5. Saved, the form closes on "Your answers" with "Edit", and the page reads "Submitted" (H3c).
 
 A save the server refuses says why above "Save application", and every answer typed stays; a required answer left blank is named under its question before anything is sent.
+Every answer typed and not yet saved is kept in the tab as it is typed, as the sign-in is, so nothing of it outlives the tab (T271).
+A reload, or a phone discarding the tab, opens the form again by itself on those answers, with "Your unsaved answers are back. They reach the market when you save." above the first question.
+A save the server takes, "Cancel", "Sign out" and another address signing in to the market on that tab drop them; answers kept for one address never open for another.
+Once the market no longer takes applications, kept answers are dropped and the page reads as it would without them.
 A one-choice answer the form no longer offers counts as blank there, since its control shows nothing chosen.
 A question of more than 12 options is a field they type in to find an answer, one choice or several as chips; words they typed and did not choose clear when they leave the field ([the design language](../../design-system.md)).
 The vendor page reads the form and the saved application together before it draws; when either does not load within 15 seconds, or the request fails, it says "This page could not be loaded" with "Try again", never that the market is not open and never an endless "Loading..." (E06/F01/S01).
 Covered by:
 
 - `a-first-time-vendor-applies.spec.ts`
+- `a-vendors-answers-survive.spec.ts`
 - `choices-at-scale.spec.ts`
 - `essential-fields.spec.ts`
 
@@ -65,10 +72,12 @@ Covered by:
 **Status:** Works (re-walked live on 2026-10-03; the form on the vendor page itself read from the code as of T202), while applications are open.
 Sign in as H3a steps 1 to 3 with an address that already has an application; the vendor page shows "Your answers" with "Edit".
 "Edit" opens the form in their place, "Edit your answers", filled with their saved answers (bug 21); they change what they need and "Save application", and the form closes on the answers as saved; "Cancel" closes it and changes nothing.
+A change typed and not saved is kept in the tab as in H3a, so a reload opens "Edit your answers" again on it, over the rest as saved.
 A reload or a direct link in the same tab keeps them signed in; a new tab asks them to sign in again (bug 36).
 The first applicant save of any kind freezes the essential questions' offering ([F1](form-tab.md#f1-the-essential-questions)).
 Covered by:
 
+- `a-vendors-answers-survive.spec.ts`
 - `returning-vendors-edit-their-answers.spec.ts`
 
 ### H3c. A vendor checks their application

@@ -6,6 +6,10 @@
  * while it still takes them and read-only after; and with none once it no longer does, the
  * sentence that says so. Apply and Edit open the form here, in place of what they replace, and a
  * save or Cancel closes it again.
+ *
+ * Answers the vendor typed and did not save, kept in this tab (T271), open the form by themselves
+ * on the page's read, while the section offers Apply or Edit. Once it offers neither, they are
+ * dropped, and the section reads as it would without them: the market would refuse the save.
  */
 import { computed, ref } from 'vue';
 import { useApplicationStore } from '@/stores/application';
@@ -25,6 +29,12 @@ const editing = ref(false);
 const formOpen = computed(
   () => editing.value && (section.value === 'apply' || section.value === 'edit'),
 );
+
+const kept = store.marketSlug ? store.draftFor(store.marketSlug, store.applicantEmail) : null;
+if (kept) {
+  if (section.value === 'apply' || section.value === 'edit') editing.value = true;
+  else store.dropDraft();
+}
 
 function openForm() {
   store.error = null;

@@ -861,6 +861,283 @@ describe('applying and editing on the page', () => {
   });
 });
 
+const DRAFT_KEY = 'conventioner.applicationDraft';
+const RESTORED = 'Your unsaved answers are back. They reach the market when you save.';
+
+/** The answers kept in this tab, as the page would find them after a reload. */
+function keptDraft(): Record<string, unknown> | null {
+  return JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? 'null') as Record<string, unknown> | null;
+}
+
+function keepDraftFor(
+  formData: Record<string, unknown>,
+  { marketSlug = 'spring-market', applicantEmail = 'vendor@example.com' } = {},
+) {
+  sessionStorage.setItem(
+    DRAFT_KEY,
+    JSON.stringify({ marketSlug, applicantEmail, formData, saveAfterSignIn: false }),
+  );
+}
+
+const valueOf = (wrapper: Awaited<ReturnType<typeof mountPage>>, testid: string) =>
+  wrapper.get<HTMLInputElement>(`[data-testid="${testid}"]`).element.value;
+
+describe('answers typed and not saved survive a reload (T271)', () => {
+  beforeEach(signIn);
+
+  it('keeps them in the tab as they are typed, and lets them go when they match again', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(null);
+    const wrapper = await mountPage();
+
+    await wrapper.get('[data-testid="vendor-page-apply-btn"]').trigger('click');
+    expect(keptDraft()).toBeNull();
+
+    await wrapper.get('[data-testid="apply-essential-full-name-input"]').setValue('Ada Newcomer');
+    await wrapper.get('[data-testid="apply-input-business_name"]').setValue('Newcomer Prints');
+    await flushPromises();
+    expect(keptDraft()).toEqual({
+      marketSlug: 'spring-market',
+      applicantEmail: 'vendor@example.com',
+      formData: expect.objectContaining({
+        essential_full_name: 'Ada Newcomer',
+        business_name: 'Newcomer Prints',
+      }),
+      saveAfterSignIn: false,
+    });
+
+    await wrapper.get('[data-testid="apply-essential-full-name-input"]').setValue('');
+    await wrapper.get('[data-testid="apply-input-business_name"]').setValue('');
+    await flushPromises();
+    expect(keptDraft()).toBeNull();
+  });
+
+  it('reopens Apply by itself on them after a reload, saying they are back', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(null);
+    const first = await mountPage();
+    await first.get('[data-testid="vendor-page-apply-btn"]').trigger('click');
+    await first.get('[data-testid="apply-essential-full-name-input"]').setValue('Ada Newcomer');
+    await first.get('[data-testid="apply-input-business_name"]').setValue('Newcomer Prints');
+    await flushPromises();
+    first.unmount();
+
+    const wrapper = await mountPage();
+
+    expect(has(wrapper, 'apply-form')).toBe(true);
+    expect(has(wrapper, 'vendor-page-info')).toBe(false);
+    expect(valueOf(wrapper, 'apply-essential-full-name-input')).toBe('Ada Newcomer');
+    expect(valueOf(wrapper, 'apply-input-business_name')).toBe('Newcomer Prints');
+    expect(wrapper.get('[data-testid="apply-draft-restored"]').text()).toBe(RESTORED);
+  });
+
+  it('reopens Edit on the change over the saved answers, the rest as saved', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(
+      application({
+        formData: { essential_full_name: 'Riley Fixture', business_name: 'Fixture Ceramics' },
+      }),
+    );
+    keepDraftFor({ essential_full_name: 'Riley Fixture', business_name: 'Fixture Pottery' });
+
+    const wrapper = await mountPage();
+
+    expect(wrapper.get('[data-testid="vendor-page-form"] h2').text()).toBe('Edit your answers');
+    expect(valueOf(wrapper, 'apply-input-business_name')).toBe('Fixture Pottery');
+    expect(valueOf(wrapper, 'apply-essential-full-name-input')).toBe('Riley Fixture');
+    expect(wrapper.get('[data-testid="apply-draft-restored"]').text()).toBe(RESTORED);
+  });
+
+  it('never shows the note on a form opened with nothing kept', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(null);
+    const wrapper = await mountPage();
+
+    await wrapper.get('[data-testid="vendor-page-apply-btn"]').trigger('click');
+
+    expect(has(wrapper, 'apply-form')).toBe(true);
+    expect(has(wrapper, 'apply-draft-restored')).toBe(false);
+  });
+
+  it('lets them go once the server takes the save', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(null);
+    saveApplicantApplication.mockImplementation(
+      async (_slug: string, _token: string, formData: Record<string, unknown>) =>
+        application({ formData }),
+    );
+    keepDraftFor({ essential_full_name: 'Ada Newcomer', business_name: 'Newcomer Prints' });
+    const wrapper = await mountPage();
+
+    await wrapper.get('[data-testid="apply-form"]').trigger('submit');
+    await flushPromises();
+
+    expect(has(wrapper, 'apply-form')).toBe(false);
+    expect(keptDraft()).toBeNull();
+  });
+
+  it('keeps them through a save the server refuses', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(null);
+    saveApplicantApplication.mockRejectedValue(refusal(409, ''));
+    keepDraftFor({ essential_full_name: 'Ada Newcomer', business_name: 'Newcomer Prints' });
+    const wrapper = await mountPage();
+
+    await wrapper.get('[data-testid="apply-form"]').trigger('submit');
+    await flushPromises();
+
+    expect(has(wrapper, 'apply-error')).toBe(true);
+    expect(keptDraft()).not.toBeNull();
+  });
+
+  it('lets them go on Cancel, and Apply opens empty', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(null);
+    keepDraftFor({ essential_full_name: 'Ada Newcomer' });
+    const wrapper = await mountPage();
+
+    await wrapper.get('[data-testid="apply-cancel-button"]').trigger('click');
+    expect(keptDraft()).toBeNull();
+    expect(has(wrapper, 'apply-form')).toBe(false);
+
+    await wrapper.get('[data-testid="vendor-page-apply-btn"]').trigger('click');
+    expect(valueOf(wrapper, 'apply-essential-full-name-input')).toBe('');
+    expect(has(wrapper, 'apply-draft-restored')).toBe(false);
+  });
+
+  it('lets them go on Sign out before its request, even one that never answers', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(null);
+    keepDraftFor({ essential_full_name: 'Ada Newcomer' });
+    let draftAtRequest: unknown = 'not asked';
+    endRememberedSignIn.mockImplementation(async () => {
+      draftAtRequest = keptDraft();
+      throw new Error('Network Error');
+    });
+    const wrapper = await mountPage();
+
+    await wrapper.get('[data-testid="vendor-page-sign-out-btn"]').trigger('click');
+    await flushPromises();
+
+    expect(draftAtRequest).toBeNull();
+    expect(keptDraft()).toBeNull();
+    expect(has(wrapper, 'vendor-page-sign-out-error')).toBe(true);
+  });
+
+  it('lets them go when the same tab signs in to their market as another address', async () => {
+    sessionStorage.removeItem(SESSION_KEY);
+    keepDraftFor({ essential_full_name: 'Someone Else' }, { applicantEmail: 'other@example.com' });
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(null);
+    requestLoginCode.mockResolvedValue({ message: "We've sent a code to this address." });
+    verifyLoginCode.mockResolvedValue({
+      success: true,
+      marketId: 'market-1',
+      applicantEmail: 'vendor@example.com',
+      token: 'a-token',
+    });
+    const wrapper = await mountPage();
+
+    await wrapper.get('[data-testid="vendor-sign-in-email-input"]').setValue('vendor@example.com');
+    await wrapper.get('[data-testid="vendor-sign-in-email-step"]').trigger('submit');
+    await flushPromises();
+    await wrapper.get('[data-testid="vendor-sign-in-code-input"]').setValue('123456');
+    await wrapper.get('[data-testid="vendor-sign-in-code-step"]').trigger('submit');
+    await flushPromises();
+
+    expect(keptDraft()).toBeNull();
+    expect(has(wrapper, 'apply-form')).toBe(false);
+    expect(wrapper.get('[data-testid="vendor-page-info"]').text()).toContain(
+      'You have not applied to this market yet.',
+    );
+  });
+
+  it('opens them when the same address signs in again on the tab', async () => {
+    sessionStorage.removeItem(SESSION_KEY);
+    keepDraftFor({ essential_full_name: 'Ada Newcomer' });
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(null);
+    resumeSignIn.mockResolvedValue({
+      success: true,
+      marketId: 'market-1',
+      applicantEmail: 'vendor@example.com',
+      token: 'a-token',
+    });
+    const wrapper = await mountPage();
+
+    expect(valueOf(wrapper, 'apply-essential-full-name-input')).toBe('Ada Newcomer');
+    expect(has(wrapper, 'apply-draft-restored')).toBe(true);
+  });
+
+  it("never opens another address's on this tab's sign-in", async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(null);
+    keepDraftFor({ essential_full_name: 'Someone Else' }, { applicantEmail: 'other@example.com' });
+    const wrapper = await mountPage();
+
+    expect(has(wrapper, 'apply-form')).toBe(false);
+    await wrapper.get('[data-testid="vendor-page-apply-btn"]').trigger('click');
+    expect(valueOf(wrapper, 'apply-essential-full-name-input')).toBe('');
+    expect(has(wrapper, 'apply-draft-restored')).toBe(false);
+  });
+
+  it("never opens another market's, and leaves it kept", async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(null);
+    keepDraftFor({ essential_full_name: 'Ada Elsewhere' }, { marketSlug: 'autumn-market' });
+    const wrapper = await mountPage();
+
+    expect(has(wrapper, 'apply-form')).toBe(false);
+    expect(has(wrapper, 'vendor-page-apply-btn')).toBe(true);
+
+    await wrapper.get('[data-testid="vendor-page-apply-btn"]').trigger('click');
+    await wrapper.get('[data-testid="apply-cancel-button"]').trigger('click');
+    expect(keptDraft()).toMatchObject({ marketSlug: 'autumn-market' });
+  });
+
+  it('lets them go once the market no longer takes applications, which the section says', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf({ takesApplications: false }));
+    fetchApplicantApplication.mockResolvedValue(null);
+    keepDraftFor({ essential_full_name: 'Ada Newcomer' });
+    const wrapper = await mountPage();
+
+    expect(has(wrapper, 'apply-form')).toBe(false);
+    expect(wrapper.get('[data-testid="vendor-page-info"]').text()).toBe(NO_APPLICATION_CLOSED);
+    expect(keptDraft()).toBeNull();
+  });
+
+  it('lets them go for a vendor whose answers now read only', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf({ takesApplications: false }));
+    fetchApplicantApplication.mockResolvedValue(application());
+    keepDraftFor({ essential_full_name: 'Riley Changed' });
+    const wrapper = await mountPage();
+
+    expect(has(wrapper, 'apply-form')).toBe(false);
+    expect(has(wrapper, 'vendor-page-answers')).toBe(true);
+    expect(has(wrapper, 'vendor-page-edit-btn')).toBe(false);
+    expect(keptDraft()).toBeNull();
+  });
+
+  it('keeps the form working, for the page, when the tab cannot store anything', async () => {
+    fetchVendorPage.mockResolvedValue(pageOf());
+    fetchApplicantApplication.mockResolvedValue(null);
+    const wrapper = await mountPage();
+    const setItem = vi.spyOn(sessionStorage, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError');
+    });
+    try {
+      await wrapper.get('[data-testid="vendor-page-apply-btn"]').trigger('click');
+      await wrapper.get('[data-testid="apply-essential-full-name-input"]').setValue('Ada Newcomer');
+      await flushPromises();
+
+      expect(valueOf(wrapper, 'apply-essential-full-name-input')).toBe('Ada Newcomer');
+      expect(keptDraft()).toBeNull();
+    } finally {
+      setItem.mockRestore();
+    }
+  });
+});
+
 describe('Remember me on this device (ADR 0022)', () => {
   const SIGNED_IN = {
     success: true,
