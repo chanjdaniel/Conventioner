@@ -34,4 +34,4 @@ One line per node, sorted by file name.
 - [The mixed path](the-mixed-path.md) - P4: an online form plus imported stragglers, not offered
 - [The online path](the-online-path.md) - P3: a market whose vendors apply on its own page, from creation to the end
 - [The vendor drawer](vendor-drawer.md) - one vendor's notes, application, assignments, payment and history, from wherever they appear
-- [Vendors](vendors.md) - J11, J12, J15, J16: every applicant by vendor, adding one who never applied, why a date was not given, exporting them to a CSV, and who is in the Discord server
+- [Vendors](vendors.md) - J11, J12, J15, J16, J18, J20: every applicant by vendor, adding one who never applied, why a date was not given, exporting them to a CSV, who is in the Discord server, giving the market's role and answering a possible match

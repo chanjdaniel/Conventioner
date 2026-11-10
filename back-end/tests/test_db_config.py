@@ -80,8 +80,6 @@ class TestAFixtureScriptReachesOnlyTheDatabaseItIsTold:
             monkeypatch.setenv(name, value)
 
     def test_nothing_named_is_refused(self, monkeypatch):
-        import pytest
-
         self._environment(monkeypatch)
         with pytest.raises(SystemExit) as refused:
             db_config.require_named_database()
@@ -97,8 +95,6 @@ class TestAFixtureScriptReachesOnlyTheDatabaseItIsTold:
         {"MONGODB_URI": "mongodb://localhost/conventioner"},
     ], ids=["loopback", "loopback-27017", "localhost", "localhost-27017", "ipv6-loopback", "uri-27017", "uri-default-port"])
     def test_the_primary_stack_s_mongodb_is_refused(self, monkeypatch, values):
-        import pytest
-
         self._environment(monkeypatch, **values)
         with pytest.raises(SystemExit) as refused:
             db_config.require_named_database()

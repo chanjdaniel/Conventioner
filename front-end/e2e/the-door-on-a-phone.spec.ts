@@ -138,14 +138,14 @@ for (const size of PHONE_AND_DESK) {
         expect((await edgesOf(door)).top, 'the door starts within 340px').toBeLessThanOrEqual(340);
       }
 
-      // Scrolled, the bar stays under the banner: alone on a phone, with the whole rail at a desk.
+      // Scrolled, the market bar stays under the app bar: alone on a phone, with the whole rail at a desk.
       await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
       await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
-      const banner = await edgesOf(page.locator('.app-container > header'));
+      const appBar = await edgesOf(page.locator('.app-container > header'));
       const bar = await edgesOf(page.getByTestId('market-bar'));
       const rail = await edgesOf(page.getByTestId('phase-rail'));
       const pinned = await page.evaluate(pinnedBottom);
-      expect(bar.top, 'the bar stays under the banner').toBe(banner.bottom);
+      expect(bar.top, 'the market bar stays under the app bar').toBe(appBar.bottom);
       if (size.phone) {
         expect(rail.bottom, 'the rail went with the page').toBeLessThanOrEqual(bar.top);
         expect(pinned.bottom, `pinned to the bottom of ${pinned.el}`).toBe(bar.bottom);

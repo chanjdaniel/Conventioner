@@ -133,8 +133,8 @@ def listing(monkeypatch):
     monkeypatch.setattr(MarketsApi, "markets_collection", markets)
     monkeypatch.setattr(UsersApi, "get_user_by_id", lambda uid: SimpleNamespace(id=uid, email=uid))
     monkeypatch.setattr(
-        OrgsApi, "get_organizations_for_user",
-        lambda email: [org] if email in (ORG_OWNER, ORG_ADMIN, ORG_MEMBER) else [],
+        OrgsApi, "organization_documents_of",
+        lambda user_id: [org] if user_id in (ORG_OWNER, ORG_ADMIN, ORG_MEMBER) else [],
     )
     monkeypatch.setattr(
         OrgsApi, "get_organization",
@@ -145,7 +145,7 @@ def listing(monkeypatch):
         roles = {MARKET_OWNER: "owner", **(roles or {})}
         docs[:] = [{**stored_market(organizationId=ORG_ID, roles=roles), "_id": "mongo-market-123"}]
         (entry,) = MarketsApi.get_markets_for_user(who)
-        return entry["user_role"]
+        return entry["actionRefusals"]
 
     listed.markets = markets
     listed.organization_reads = organization_reads
@@ -161,9 +161,12 @@ def listing(monkeypatch):
     (MARKET_OWNER, None, "owner"),
     (OUTSIDER, {OUTSIDER: "editor"}, "editor"),
 ])
-def test_the_markets_list_names_the_role_the_market_itself_serves(listing, who, roles, held):
-    """The card offers Manage to an admin; it must not call an organization admin a viewer."""
-    assert listing(who, roles) == held
+def test_the_markets_list_answers_as_the_role_the_market_itself_serves(listing, who, roles, held):
+    """The card offers Manage to an admin; it must not answer an organization admin as a viewer."""
+    listed = market(roles)
+
+    assert listing(who, roles) == MarketsApi.role_action_refusals(
+        MarketRole(held), listed.phase, listed.permissions)
 
 
 @pytest.mark.parametrize("who,roles", [

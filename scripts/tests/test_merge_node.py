@@ -267,6 +267,23 @@ def test_a_merge_that_cannot_run_is_a_failure_with_ours_untouched(tmp_path, monk
     assert (work / "a").read_bytes().decode("utf-8") == ours
 
 
+def test_a_merge_git_cannot_make_is_a_failure_with_ours_untouched(tmp_path, monkeypatch):
+    driver = load_driver()
+
+    def merge_file_fails(args, *_, **__):
+        return subprocess.CompletedProcess(args, 255, b"", b"error")
+
+    ours = node(sources=("E31/F01", "E41/F01/S02"))
+    work = write_versions(tmp_path, node(), ours, node(sources=("E31/F01", "E40/F01/S03")))
+    monkeypatch.chdir(work)
+    monkeypatch.setattr(driver.subprocess, "run", merge_file_fails)
+
+    status = driver.main(driver_args())
+
+    assert status == 255
+    assert (work / "a").read_bytes().decode("utf-8") == ours
+
+
 def test_a_driver_called_with_the_wrong_arguments_is_a_failure_with_ours_untouched(tmp_path):
     ours = node(sources=("E31/F01", "E41/F01/S02"))
     work = write_versions(tmp_path, node(), ours, node(sources=("E31/F01", "E40/F01/S03")))

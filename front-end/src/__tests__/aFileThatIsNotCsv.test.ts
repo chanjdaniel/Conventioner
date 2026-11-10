@@ -44,7 +44,7 @@ function fileOf(content: BlobPart, name = 'responses.csv'): File {
 }
 
 /** An invented binary: a few format magic bytes, then every byte value once. */
-function generatedBinary(): Uint8Array {
+function generatedBinary(): Uint8Array<ArrayBuffer> {
   const bytes = new Uint8Array(4 + 256);
   bytes.set([0x89, 0x50, 0x4e, 0x47]);
   for (let value = 0; value < 256; value += 1) bytes[4 + value] = value;

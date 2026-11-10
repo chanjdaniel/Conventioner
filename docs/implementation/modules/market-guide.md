@@ -43,19 +43,20 @@ A CSV market's vendors apply on the organizer's own Google Form, so nothing it s
 - **The action a step takes** (`NextStep.action`): the row of [the market's actions](market-actions.md) table the step's work takes, so [the phase rail](phase-rail.md) links the sentence only for someone who may take it ([what each role may do](../../business/rules/what-each-role-may-do.md)).
   A step read off a blocker takes the blocker's `resolutionAction`, served by [the guards](guards.md); a step read off the guide's row takes the row's `action`:
 
-  | Phase, standing | Page | Action |
-  | - | - | - |
-  | draft | setup | `change-setup` |
-  | applications | applications | `give-verdicts` |
-  | assignment, not assigned | settings | `assign` |
-  | assignment, assigned, results not published | assignments | `assign` |
-  | assignment, results published | assignments | `move-phase` |
-  | offers | assignments or settings | `assign` |
-  | market days, a date to come | attendance | `check-in` |
-  | market days, every date over | attendance | `move-phase` |
-  | archived | none | none: the sentence leads nowhere |
+  | Phase, standing                             | Page                    | Action                           |
+  | ------------------------------------------- | ----------------------- | -------------------------------- |
+  | draft                                       | setup                   | `change-setup`                   |
+  | applications                                | applications            | `give-verdicts`                  |
+  | assignment, not assigned                    | settings                | `assign`                         |
+  | assignment, assigned, results not published | assignments             | `assign`                         |
+  | assignment, results published               | assignments             | `move-phase`                     |
+  | offers                                      | assignments or settings | `assign`                         |
+  | market days, a date to come                 | attendance              | `check-in`                       |
+  | market days, every date over                | attendance              | `move-phase`                     |
+  | archived                                    | none                    | none: the sentence leads nowhere |
 
   A row with no action is one whose sentence links nowhere; a blocker with none, as from an older server, gives the step none.
+
 - **What someone the step's action refuses is told instead** (`GuideRow.onlooker`), where the row's sentence would tell them to do it: what they may do there, a step taking `read` that leads to the row's page (E38/F15/S04).
   It never says what they may not, which [the market frame](market-frame.md)'s read-only line says once; the rail had told a Viewer "Check vendors in at the door." just above it, and on every other row a step that was not theirs either.
   The step is a standing blocker's remedy, else the row's own action, and the server serves a move's blockers to everyone: so a blocker reads only to someone who may take its remedy, as T142 decided for them, and anyone else reads the onlooker sentence.

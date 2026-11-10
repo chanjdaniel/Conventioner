@@ -18,6 +18,7 @@ sources:
 # Review waits on the review setup
 
 A draft does not enter Review until its organizer has taken Review setup's two decisions:
+
 - what a reviewer reads first: marked at least one answer that leads the card, or chosen "Nothing leads the card";
 - the automatic rejections: added a rule that rejects at least one answer, or chosen "No automatic rejections".
 

@@ -44,9 +44,7 @@ test.describe('The phase rail', () => {
   });
 
   async function openMarket(page: import('@playwright/test').Page, path: string) {
-    const res = await page.request.get(`${APP_API}/markets/${seed.marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const res = await page.request.get(`${APP_API}/markets/${seed.marketId}`);
     const { market } = (await res.json()) as { market: Record<string, unknown> };
     await page.evaluate((m) => {
       const copy = { ...(m as Record<string, unknown>) };
@@ -80,7 +78,7 @@ test.describe('The phase rail', () => {
 
     await publishResults(page.request, APP_API, TEST_USER.email, seed.marketId);
     await page.request.post(`${APP_API}/markets/${seed.marketId}/transition`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: { toPhase: 'market_days' },
     });
 
@@ -151,7 +149,7 @@ test.describe('The phase rail', () => {
     );
     await savePlan(page.request, APP_API, TEST_USER.email, formMarket.marketId, PLAN, 'form');
     const opened = await page.request.post(`${APP_API}/markets/${formMarket.marketId}/transition`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: { toPhase: 'applications' },
     });
     expect(opened.ok(), await opened.text()).toBeTruthy();
@@ -167,7 +165,7 @@ test.describe('The phase rail', () => {
 
   test('archiving states in words that the market is over', async ({ authenticatedPage: page }) => {
     await page.request.post(`${APP_API}/markets/${seed.marketId}/transition`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: { toPhase: 'archived' },
     });
     await openMarket(page, marketSetupPath(seed.marketId, 'setup'));
@@ -335,7 +333,7 @@ test.describe("The rail's end wraps only when it must", () => {
     openSeed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
     await savePlan(request, BACKEND_URL, TEST_USER.email, openSeed.marketId, PLAN, 'form');
     const opened = await request.post(`${BACKEND_URL}/markets/${openSeed.marketId}/transition`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: { toPhase: 'applications' },
     });
     expect(opened.ok(), await opened.text()).toBeTruthy();
@@ -356,7 +354,7 @@ test.describe("The rail's end wraps only when it must", () => {
     const reviewing = await request.post(
       `${BACKEND_URL}/markets/${reviewSeed.marketId}/transition`,
       {
-        headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+        headers: { 'Content-Type': 'application/json' },
         data: { toPhase: 'applications' },
       },
     );

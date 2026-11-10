@@ -71,6 +71,12 @@ export const VUEDRAGGABLE_SOURCE = {
   replacement: 'vuedraggable/src/vuedraggable.js',
 };
 
+/** A module of Vue (its `@vue/` packages included), the router or Pinia, by its id. */
+const VUE_RUNTIME = /[\\/]node_modules[\\/](@vue|vue|vue-router|pinia)[\\/]/;
+
+/** The id `@vitejs/plugin-vue` gives the helper it imports into every single-file component. */
+const VUE_SFC_HELPER = '\0plugin-vue:export-helper';
+
 /**
  * `src/dev/` spelled as Vite spells a module id, so they compare: its real path, since Vite resolves
  * every id through symbolic links, and with `/` for a separator, as Vite writes ids on Windows too.
@@ -171,6 +177,13 @@ export default defineConfig(({ command, mode }) => {
           // Lucide icons carry ISC's notice as a `/*! @license */` comment, and that licence (like
           // the MIT notices of the libraries bundled here) asks for it in all copies.
           comments: { legal: true, annotation: false, jsdoc: false },
+          // Vue, its router and Pinia, which every page runs, as a chunk named for them. Left to
+          // itself the build named that shared chunk `_plugin-vue_export-helper`, after the helper
+          // the Vue plugin adds to every single-file component, which read as one helper rather
+          // than the runtime; the helper goes in with them, so it is no chunk of its own either.
+          codeSplitting: {
+            groups: [{ name: 'vue', test: (id) => VUE_RUNTIME.test(id) || id === VUE_SFC_HELPER }],
+          },
         },
       },
     },

@@ -332,7 +332,7 @@ describe('text that ends as no value keeps the value from before (review note 2)
 
     expect(wrapper.kept()?.halfTablePercent).toBe(50);
     expect((share.element as HTMLInputElement).value).toBe('150');
-    expect(wrapper.get('[data-testid="pricing-share-error"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="pricing-share-error"]').exists()).toBe(true);
     expect(wrapper.held.at(-1)).toBe(true);
 
     await share.setValue('60');

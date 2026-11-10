@@ -22,7 +22,9 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional
 
 import api.permissions as PermissionsApi
-from datatypes import Market, MarketPermission, MarketRole, Organization
+from assignment.made_from import assignment_rules
+from client_errors import ForbiddenError
+from datatypes import Market, MarketPermission, MarketRole, Organization, SetupObject
 from utils.email_address import normalized_email
 
 
@@ -371,6 +373,24 @@ def may(
 ) -> bool:
     """Whether this person may take this action on this market."""
     return refusal(row, user_email, market, organization) is None
+
+
+def ask_assign_if_the_rules_change(
+    market: Market, plan: SetupObject, user_email: str, organization: Optional[Organization],
+) -> None:
+    """Raise ``ASSIGN``'s refusal when ``plan`` changes ``market``'s assignment rules.
+
+    The rules ride in the plan and are the Assign row's, so every write of a plan asks it of a
+    change: the plan write (``api.markets.save_plan``) and the start from a CSV
+    (``csv_start.confirm``), each on top of its own row. Restating the stored rules is no change,
+    and a market with no plan yet holds the rules a new plan starts with
+    (``made_from.assignment_rules``).
+    """
+    if assignment_rules(plan) == assignment_rules(market.setup_object):
+        return
+    refused = refusal(ASSIGN, user_email, market, organization)
+    if refused:
+        raise ForbiddenError(refused)
 
 
 def roles_row(role: MarketRole) -> Action:

@@ -8,12 +8,13 @@ describes:
   - back-end/assignment/assignment.py#MarketAssignment.get_valid_vendors
   - back-end/assignment/assignment.py#MarketAssignment.assign_table
   - back-end/datatypes.py#AssignmentOptionObject
-verified: 2026-11-09
+verified: 2026-11-10
 sources:
   - wayfinding/november-2026-dry-run/08
   - E27
   - E27/F01/S02
   - T253
+  - T263
 ---
 
 # The half-table share

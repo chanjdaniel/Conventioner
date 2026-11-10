@@ -23,6 +23,7 @@ import {
   type PlacementContext,
 } from '@/utils/placementChange';
 import type { MarketTableRow } from '@/utils/resultFilters';
+import { ApplicationStatus } from '@/assets/types/datatypes';
 
 const DATE = '2026-08-01';
 const OTHER_DATE = '2026-08-02';
@@ -259,7 +260,7 @@ describe('placing someone who is not approved (E36/F02/S02)', () => {
   const byAlex = vendor({
     email: 'dev@kiln.test',
     notApproved: {
-      status: 'reviewer_rejected',
+      status: ApplicationStatus.ReviewerRejected,
       verdictBy: { kind: 'person', userId: 'u-1', email: 'alex@market.test', rule: null },
       verdictAt: '2026-10-19T10:00:00',
       verdictReason: null,
@@ -268,7 +269,7 @@ describe('placing someone who is not approved (E36/F02/S02)', () => {
   const byRule = vendor({
     email: 'ines@loom.test',
     notApproved: {
-      status: 'reviewer_rejected',
+      status: ApplicationStatus.ReviewerRejected,
       verdictBy: { kind: 'rule', userId: null, email: null, rule: 'Affiliation' },
       verdictAt: '2026-10-19T10:00:00',
       verdictReason: 'Not an Example College student, staff or alumnus',
@@ -290,7 +291,7 @@ describe('placing someone who is not approved (E36/F02/S02)', () => {
   it('says only the status when nobody is recorded as giving it', () => {
     const undated = vendor({
       notApproved: {
-        status: 'reviewer_rejected',
+        status: ApplicationStatus.ReviewerRejected,
         verdictBy: null,
         verdictAt: null,
         verdictReason: null,

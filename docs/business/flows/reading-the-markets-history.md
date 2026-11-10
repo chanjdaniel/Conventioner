@@ -35,6 +35,7 @@ sources:
   - T181
   - T223
   - T224
+  - T263
 ---
 
 # Reading the market's history
@@ -86,6 +87,7 @@ An organizer reads it to investigate a problem or a mistake, which is why it liv
    - Both "applied" and an update of the info open to each answer under its question as the form asks it, in the form's order (the essential questions first, then the organizer's own), each read as the Application tab reads it, dates and tiers in words, the table-share question as one answer in the vendor's words, and an answer that reads the same on both sides left out.
 
    A change the screen has no sentence for yet reads through the deliberate fallback "made a change: <row label>, about <vendor>"; one whose action no row of the table names reads "made a change", never the action's id.
+
 3. A vendor named in a change is a link to the market's Vendors page with their drawer open (`?vendor=`, [the vendor drawer](vendor-drawer.md)); the dialog closes as the page changes.
 4. "Before and after" under a change opens a table of each field it changed, as it was and as it is, and what else it recorded (a count, a date, where it was made); a phase reads as that market's other screens name it, a status and a role as the screens name them, an essential question's answer as the review card shows it, under the question's label; the table-share answer reads as one row, in the vendor's own words ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)), and where a permission row came from as "Built in", "The organization's default" or "This market"; a reset of the whole table opens to each row it returned, and a copy of the organization's defaults to each row it changed, by its label, as its role and where it came from ("Admin, This market" to "Editor, Built in").
    The Field column is one width down the whole list, as wide as the widest name of any table open, the column, its padding and border included, at most a third of the table (a longer name wraps), so Before and After, halves of the rest, line up from one change to the next; a change whose every Before is "none" draws one column instead, "Answer" for an applicant's own answers and "After" for anything else, an arrival's reviewer included; an address breaks, where a column is too narrow for it, before its "@" or a dot, in the Field column as in the values, and a part still wider than the column then inside a word, never just after a hyphen and never running over the next column (T137 review note 7, T181); every address of the history is drawn by [`EmailAddress.vue`](../../../front-end/src/components/EmailAddress.vue) from [`addressParts.ts`](../../../front-end/src/utils/addressParts.ts)'s parts, so its accessible name keeps it one word ([`an-address-breaks-only-before-its-at.spec.ts`](../../../front-end/e2e/an-address-breaks-only-before-its-at.spec.ts)), and the review's warnings and reviewer lines ([dividing the review](review.md#dividing-the-review)) and Manage organization's rows ([its people](organizations.md#b2-add-an-admin-or-a-member)) draw theirs with it; a team of reviewers reads one address a line.
@@ -132,6 +134,7 @@ A vendor's name leads to the Vendors page with their drawer open, as in Manage m
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md): it still reads.
 
 Covered by:
+
 - `a-verdict-names-whom-it-was-dealt-to.spec.ts`
 - `assignmentHistory.test.ts` for the Assignment history's filters, the paging and the words
 - `manageMarketHistory.test.ts` for the filters, the paging and the words

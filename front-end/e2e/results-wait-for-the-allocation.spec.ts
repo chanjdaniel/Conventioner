@@ -16,7 +16,7 @@ const DATE = '2099-08-01';
 
 async function post(request: APIRequestContext, path: string, data: object = {}) {
   const res = await request.post(`${BACKEND_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+    headers: { 'Content-Type': 'application/json' },
     data,
   });
   expect(res.ok(), `${path}: ${await res.text()}`).toBeTruthy();
@@ -85,12 +85,10 @@ test('publishing waits for a run, then says who will read what before it tells t
   // Seats still change by hand: freed, and given back.
   const seat = { email: 'seated@example.com', date: DATE };
   const freed = await request.delete(`${BACKEND_URL}/markets/${market.marketId}/placements`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
     data: seat,
   });
   expect(freed.ok(), await freed.text()).toBeTruthy();
   const placed = await request.put(`${BACKEND_URL}/markets/${market.marketId}/placements`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
     data: { ...seat, table_code: 'Main Hall 1', table_choice: 'Full Table' },
   });
   expect(placed.ok(), await placed.text()).toBeTruthy();

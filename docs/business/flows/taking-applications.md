@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-11-06
+verified: 2026-11-10
 sources:
   - wayfinding/the-order-of-the-work/11
   - E18/F02/S03
@@ -21,6 +21,7 @@ sources:
   - T207
   - T204
   - T260
+  - T263
 ---
 
 # Taking applications
@@ -55,6 +56,7 @@ A verdict can be given from the first application ([review](review.md)); Begin a
 5. The rail says "Applications are open on your vendor page: review them as they arrive. Every application is decided: Begin assignment.", or, while one is undecided, "… Finish deciding: …".
 
 Covered by:
+
 - `every-move-lands.spec.ts`
 - `market-journey.spec.ts`
 - `open-applications-offers-the-reviewers.spec.ts`
@@ -70,16 +72,18 @@ Covered by:
 The guard still stands on the move out of Draft: with no custom field, and a plan offering no dates, no tiers and fewer than 2 sections, the move is refused with "The application form asks nothing. …".
 Leaving Draft now needs market dates first, and a plan with dates always asks the available-dates question, so a plan that offers nothing is refused by the setup's first blocker instead: the rail reads "To open applications: This market has no market dates. Pick them on Market Setup's calendar."
 Covered by:
+
 - `phase-state-machine.spec.ts` ("a market whose plan offers nothing is blocked, and told to add dates")
 
 ## H4. Stop taking applications
 
 **Status:** Works (read from the code as of E38/F04/S02: `back-end/api/applicants.py`, `front-end/src/components/PhaseRail.vue`; `taking-applications-stops-and-resumes.spec.ts`).
 In Applications, More…, "Stop taking applications": a fact about the form, not a move, so the market stays in Applications and reviewing goes on.
-The application page refuses a new application, or a change to one, in the words a closed market used ("Applications are not currently open for this market. The market is in the Applications Closed phase."), though each vendor can still sign in and read their application ([H3c](applying-online.md#h3c-a-vendor-checks-their-application)).
+The vendor page refuses a new application, or a change to one, in the words a closed market uses ("Applications are no longer open for this market. The market is in the Applications Closed phase."), though each vendor can still sign in and read their application ([H3c](applying-online.md#h3c-a-vendor-checks-their-application)).
 The rail says "Your vendor page is not taking applications. …", and the page "This market is not taking applications. No new ones will arrive."
 The stop is recorded in [the market's history](../../implementation/data/history.md) under the organizer who made it, as taking applications again is.
 Covered by:
+
 - `returning-vendors-edit-their-answers.spec.ts`
 - `taking-applications-stops-and-resumes.spec.ts`
 - `vendors-see-their-application-after-close.spec.ts`
@@ -87,11 +91,12 @@ Covered by:
 ## H5. Take applications again
 
 **Status:** Works (read from the code as of T207; `taking-applications-stops-and-resumes.spec.ts`, `back-to-review.spec.ts`).
-In Applications, while stopped, More…, "Take applications again": the application page takes them again, and nothing else changes.
+In Applications, while stopped, More…, "Take applications again": the vendor page takes them again, and nothing else changes.
 Begin assignment closes the form whether or not it was stopped.
 Back to review, from Assignment until results are published, returns the market to Applications with the form stopped, so it takes no application until the organizer chooses "Take applications again" ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)).
 A stop belongs to its stay in Applications: Reopen for editing clears it, so Open applications afterwards opens the form.
 Covered by:
+
 - `back-to-review.spec.ts`
 - `taking-applications-stops-and-resumes.spec.ts`
 

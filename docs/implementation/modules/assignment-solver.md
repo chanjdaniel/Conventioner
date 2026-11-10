@@ -21,6 +21,7 @@ sources:
   - E41/F01/S02
   - T139
   - T253
+  - T263
 ---
 
 # The assignment solver
@@ -71,7 +72,7 @@ Which questions count as asked is `asked_essential_keys()` in [essential fields]
 It was table-driven: each table asked which vendor it should take, which made a vendor's own section ranking unable to influence anything, and stopped a date at the first table nobody could fill ([tier filters, section prefers](../../business/rules/tier-filters-section-prefers.md)).
 Who fills the other half of a table is `get_valid_vendors`: a whole-table vendor takes both halves, a table-share partner takes the other ([table-share pairing](../../business/rules/table-share-pairing.md)), an Either chooser takes a whole table once the section's half-table share is reached ([the half-table share](../../business/rules/half-table-share.md)), and otherwise the next vendor who accepts a half.
 A vendor nobody may share with holds the whole table, both seats, as a Full chooser does, so nobody is put on its other half (`assign_table`).
-A vendor stops being offered dates at the lower of the market's ceiling and their own answer ([the ceiling on dates per vendor](../../business/rules/max-assignments-ceiling.md)).
+A vendor stops being offered dates at the lower of the market's ceiling and their answer as the organizer reads it ([the ceiling on dates per vendor](../../business/rules/max-assignments-ceiling.md)).
 
 **Every table allocation is checked before it is returned.**
 `assign_market` calls `require_sound_allocation` with the run's plan, vendors, the pins it started from and the pins it orphaned, so an allocation that breaks a rule is never stored, never shown and never published (T253).
@@ -89,7 +90,7 @@ The rules, in the order the breaches are reported:
 9. "a tier they did not choose that day": the vendor accepts the table's tier on that date.
 10. "a half for a vendor who asked for a whole table": a Full chooser's solver rows are all "Full Table".
 11. "two assignments for one vendor on one day": no vendor holds two rows on one date where one is a solver row.
-12. "more days than their limit": a vendor with a solver row holds no more of the plan's dates, pins and orphaned pins counted as the solver counts them, than the lower of the market's ceiling and their own answer.
+12. "more days than their limit": a vendor with a solver row holds no more of the plan's dates, pins and orphaned pins counted as the solver counts them, than the lower of the market's ceiling and their answer as the organizer reads it.
 13. "a seat taken twice": "Full Table" holds both seats and a half one, and no seat is held twice where one holder is a solver row, an orphaned pin holding no seat.
 
 It does not judge the organizer's own decisions: pins among themselves, or a pin against its vendor's answers, since the placement write refuses a pin on a taken seat and [a pin that overrides an answer stands, and is marked](placements.md#pins).

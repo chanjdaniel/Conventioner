@@ -186,7 +186,10 @@ describe('changing it', () => {
     const change = wrapper
       .get(DIALOG)
       .findAllComponents(RouterLinkStub)
-      .find((link) => link.attributes('data-testid') === 'open-applications-change-review-setup');
+      .find(
+        (link: VueWrapper) =>
+          link.attributes('data-testid') === 'open-applications-change-review-setup',
+      );
 
     expect(change?.text()).toBe('Change the review setup');
     expect(change?.props('to')).toBe('/markets/market-1/form?step=review');

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Application, ApplicationForm } from '@/assets/types/datatypes';
+import {
+  ApplicationStatus,
+  ApplicationType,
+  type Application,
+  type ApplicationForm,
+} from '@/assets/types/datatypes';
 import { asksNothingDistinguishing, inArrivalOrder, reviewAnswers } from '@/utils/reviewQueue';
 
 function application(formData: Record<string, unknown>): Application {
@@ -9,10 +14,10 @@ function application(formData: Record<string, unknown>): Application {
     marketId: 'market-1',
     applicantEmail: 'vendor@example.com',
     formData,
-    status: 'submitted',
-    applicationType: 'main',
+    status: ApplicationStatus.Open,
+    applicationType: ApplicationType.Main,
     updatedAt: '2026-01-01T00:00:00Z',
-  } as Application;
+  };
 }
 
 function form(fields: Array<{ key: string; label: string }>): ApplicationForm {

@@ -75,6 +75,7 @@ An applicant who chose several answers is placed by their best; one who answered
 Rules apply in order; "×" (a button named "Remove rule N") removes one.
 The full order of turns is [priority and tie-breaks](../rules/priority-and-tie-breaks.md).
 Covered by:
+
 - `market-pipeline.spec.ts`
 - `the-assignment-tabs-pages.spec.ts`
 - `the-rules-table-lines-up.spec.ts`
@@ -85,6 +86,7 @@ Covered by:
 Under "Assignment Options", "Max assignments per vendor" ("The most dates any one vendor can be given. Leave blank for no ceiling.", at most the number of market dates) and "Max half table proportion per section (%)" (0 to 100; "Leave blank for 30%, the default.").
 "Allocate tables" stays disabled only while a value is out of range: "Correct the assignment rules above to allocate tables."
 Covered by:
+
 - `assignment-options.spec.ts`
 
 ### J2a. No ceiling on dates
@@ -92,6 +94,7 @@ Covered by:
 **Status:** Works (re-walked live on 2026-10-03; bug 7).
 Leave "Max assignments per vendor" blank ("No ceiling") and run with no limit ([the ceiling on dates per vendor](../rules/max-assignments-ceiling.md)).
 Covered by:
+
 - `assignment-options.spec.ts`
 
 ## J3. Allocate tables
@@ -101,6 +104,7 @@ Covered by:
 Dates fill one at a time, in the order the plan holds them, so later days can end up nearly empty; that is known behaviour, kept as it is (bug 39, [dates fill one at a time, in the plan's order](../rules/dates-fill-in-calendar-order.md)).
 An allocation that would break a vendor's answers or seat two vendors at one seat is never kept: the run is refused with the generic failure line, "Something went wrong on our side. Try again in a moment.", and the stored assignments stay as they were ([what a correct assignment is](../rules/what-a-correct-assignment-is.md#where-it-is-kept)).
 Covered by:
+
 - `market-pipeline.spec.ts`
 - `the-result-page.spec.ts`
 - `untiered-plans-assign.spec.ts`
@@ -111,6 +115,7 @@ Covered by:
 The whole run is refused: "N approved applications cannot be assigned until their answers are complete:", naming each applicant, each name a link to their application ([an incomplete application refuses the run](../rules/an-incomplete-application-refuses-the-run.md)).
 Only the run is: an assignment already stored still shows on Assignments, its summary and grid, and each vendor's drawer, and before one exists the drawer reads nobody placed (T139).
 Covered by:
+
 - `a-refused-run-says-who-and-where.spec.ts`
 - `a-stored-assignment-reads-with-an-answer-missing.spec.ts`
 
@@ -136,6 +141,7 @@ The button is disabled with the reason; the server refuses too, in every phase b
    A fold stays through a placement, a swap, a re-read and a filter, and lasts until the page is left, and a re-read leaves the tables up until the new ones come, so a placement keeps the page where it was, and until they come a seat's press opens nothing; a filter that leaves a section 20 tables or fewer shows every match and no button.
 
 Covered by:
+
 - `a-search-on-the-results.spec.ts`
 - `lists-at-scale.spec.ts`, sections of 31 and 28 tables at 1280, 390 and 320
 - `tables.spec.ts`
@@ -151,6 +157,7 @@ The plan settles on leaving Draft and the verdicts on entering Assignment, so in
 The approved applications change after a run when the organizer goes Back to review and changes a verdict; going back says so in a sentence of its own, "The review was reopened after tables were allocated.", whether or not a verdict changed, and results and going live wait for tables allocated again ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)).
 The note shows only in Assignment, where running again is possible.
 Covered by:
+
 - `a-reopened-review-waits-for-a-new-run.spec.ts`
 - `the-result-knows-what-it-was-made-from.spec.ts`
 
@@ -162,6 +169,7 @@ A person who may change nothing reads the rules read only too, with no Assign, a
 Changing the rules asks both the Market Setup row and the Assignment row, since they ride in the plan, and Allocate tables asks the Assignment row alone, so on a market whose owner set the two apart a person may be offered Allocate tables with the rules read only (E39/F01/S03).
 Pressing it writes a pending plan edit first only for someone who may change the plan; to anyone else the rules are read only and nothing of theirs is waiting, so the press goes straight to the run, which the plan's write would otherwise refuse.
 Covered by:
+
 - `the-assignment-rules-close.spec.ts`
 
 ## I7. Publish results
@@ -179,6 +187,7 @@ On both paths, from the Applications page, above both of the review's views ([`P
 The Applications page fits a phone, so on one the button is a 44px target and its dialog opens inside the window (T180).
 
 Covered by:
+
 - `a-google-form-markets-vendor-page.spec.ts`, on a Google Form market
 - `results-wait-for-the-allocation.spec.ts`
 - `the-market-on-a-phone.spec.ts`

@@ -35,6 +35,7 @@ sources:
   - E38/F15/S02
   - T205
   - T223
+  - T263
 ---
 
 # The CSV import
@@ -46,11 +47,11 @@ The form is not the product's, so nothing is matched by header name: the organiz
 
 Three endpoints in [`back-end/app.py`](../../../back-end/app.py), each asking the table's import row (Admin by default) and each through `_import_context`:
 
-| Endpoint | What it does |
-| --- | --- |
-| `POST /markets/:id/applications/import/inspect` | the file's headers, a few sample values, the targets a column can map to, a suggested mapping, and the previous import's mapping restored onto this file (`inspect`); writes nothing |
-| `POST .../import/preview` | every cell value that names nothing the market offers, once per distinct value with how many rows it affects, and the rows that would be refused (`preview_values`); once every value is settled, the first rows that will import and no rule rejects (`samples`), and every row the import's judging will newly reject, with the rule and the reason (`rejected`); writes nothing |
-| `POST .../import` | the rows written as applications awaiting review, the mapping saved, and a count of what was created, updated, unchanged, skipped, repeated and sent back to review (`import_applications`) |
+| Endpoint                                        | What it does                                                                                                                                                                                                                                                                                                                                                                       |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /markets/:id/applications/import/inspect` | the file's headers, a few sample values, the targets a column can map to, a suggested mapping, and the previous import's mapping restored onto this file (`inspect`); writes nothing                                                                                                                                                                                               |
+| `POST .../import/preview`                       | every cell value that names nothing the market offers, once per distinct value with how many rows it affects, and the rows that would be refused (`preview_values`); once every value is settled, the first rows that will import and no rule rejects (`samples`), and every row the import's judging will newly reject, with the rule and the reason (`rejected`); writes nothing |
+| `POST .../import`                               | the rows written as applications awaiting review, the mapping saved, and a count of what was created, updated, unchanged, skipped, repeated and sent back to review (`import_applications`)                                                                                                                                                                                        |
 
 ## Sharp edges
 
@@ -70,6 +71,7 @@ In a draft it also refuses with every one of `first_import_blockers`, the move i
 **The first import takes the market into Review** once its rows are written: `enter_review` moves it through `take_move` under the importer, and the result says the phase it is in (`phase`).
 A first import that wrote nothing, or a move refused by a setup changed under it, leaves the market a draft.
 `_import_context` asks it on every endpoint, so a hidden button is never the rule; `_importing_market_document` asks the row Import applications, and start a market from a CSV ([the market's actions](market-actions.md)) then refuses an archived market whoever may.
+It returns the stored document beside the organization that check read (`ImportingMarket`), so the start from a CSV asks the Assign row of the same organization when its plan changes the assignment rules ([the CSV proposal and start](csv-proposal-and-start.md#sharp-edges)).
 The three endpoints catch nothing: their refusals are the literal answers above, and anything else is the generic 500 ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
 
 **Every row goes through `record_application_answers(imported=True)`**, the applicant's own write ([`back-end/application_write.py`](../../../back-end/application_write.py)), so an imported application and a submitted one are the same kind of thing by construction; `imported=True` is the import's only difference ([what an import may leave unasked](../../business/rules/what-an-import-may-leave-unasked.md)).

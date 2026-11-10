@@ -3,7 +3,11 @@ import { mount } from '@vue/test-utils';
 import FilterToggles from '@/components/FilterToggles.vue';
 
 /** The row as a screen mounts it, holding its value as `v-model` would. */
-function mountRow(props: { multiple?: boolean; modelValue: string | string[]; rest?: string }) {
+function mountRow(
+  props:
+    | { multiple?: false; modelValue: string; rest?: string }
+    | { multiple: true; modelValue: string[] },
+) {
   const options = [
     { id: 'open', label: 'Open', count: 110 },
     { id: 'approved', label: 'Approved', count: 160 },
@@ -15,8 +19,9 @@ function mountRow(props: { multiple?: boolean; modelValue: string | string[]; re
       label: 'Show applications',
       testid: 'statuses',
       ...props,
-      'onUpdate:modelValue': (value: string | string[]) => wrapper.setProps({ modelValue: value }),
-    } as never,
+      'onUpdate:modelValue': (value: string | string[]): Promise<void> =>
+        wrapper.setProps(Array.isArray(value) ? { modelValue: value } : { modelValue: value }),
+    },
   });
   const toggle = (id: string) => wrapper.get(`[data-testid="statuses-${id}"]`);
   const pressed = () =>

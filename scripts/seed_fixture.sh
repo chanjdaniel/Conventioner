@@ -130,14 +130,12 @@ echo "  User ID: $USER_ID"
 # ── 3b. Create test organization ──
 echo "[3b/4] Setting up test organization..."
 ORG_CHECK=$(curl -k -s -b "$COOKIE_JAR" \
-  -X GET "$BACKEND_URL/organizations" \
-  -H "X-Owner-Email: $TEST_EMAIL")
+  -X GET "$BACKEND_URL/organizations")
 ORG_COUNT=$(echo "$ORG_CHECK" | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('organizations', [])))" 2>/dev/null || echo "0")
 if [ "$ORG_COUNT" -eq 0 ]; then
   ORG_RESPONSE=$(curl -k -s -b "$COOKIE_JAR" \
     -X POST "$BACKEND_URL/organizations" \
     -H "Content-Type: application/json" \
-    -H "X-Owner-Email: $TEST_EMAIL" \
     -d "{\"name\": \"Seed Test Org\"}")
   echo "  $ORG_RESPONSE"
   ORG_ID=$(echo "$ORG_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['organization_id'])" 2>/dev/null || echo "")
@@ -162,7 +160,6 @@ MARKET_NAME="Seed Market $(date +%H%M%S)"
 CREATE_RESPONSE=$(curl -k -s -b "$COOKIE_JAR" \
   -X POST "$BACKEND_URL/markets" \
   -H "Content-Type: application/json" \
-  -H "X-Owner-Email: $TEST_EMAIL" \
   -d "{
     \"name\": \"$MARKET_NAME\",
     \"creationDate\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",

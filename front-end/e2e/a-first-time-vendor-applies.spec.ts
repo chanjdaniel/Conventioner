@@ -78,7 +78,6 @@ test('a vendor a rule rejects as they apply reads "Submitted", as anyone would',
     { setupObject: planSetupObject([DATE]) },
   );
   const rule = await request.put(`${BACKEND_URL}/markets/${market.marketId}/rejection-rules`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
     data: { rules: [{ key: 'essential_table_choice', answers: ['full'] }] },
   });
   expect(rule.ok(), await rule.text()).toBeTruthy();

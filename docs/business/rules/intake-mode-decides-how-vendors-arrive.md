@@ -5,7 +5,7 @@ describes:
   - back-end/api/markets.py#save_plan
   - back-end/market_documents.py#market_serves_applicants
   - front-end/src/components/elements/ElementIntakeMode.vue
-verified: 2026-11-04
+verified: 2026-11-10
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/06
@@ -19,6 +19,7 @@ sources:
   - E32/F02
   - E03
   - T202
+  - T263
 ---
 
 # Intake mode decides how vendors arrive
@@ -51,7 +52,7 @@ Check-in must stay open to every market that runs: how a vendor entered has no b
 
 Whoever creates a market picks its path in the create dialog (`NewMarketOverlay.vue` sends `intakeMode` with `POST /markets`).
 The dialog chooses nothing for them, so no new market relies on the server's default; the default stays for any market without an answer ([ADR 0006](../../adr/0006-intake-mode-fails-closed.md)).
-After that an Editor changes it on Market Setup while the market is a draft, through the plan write; importing and Publish results are Admin's ([what each role may do](what-each-role-may-do.md)).
+After that whoever the Market Setup row lets in, an Editor and above by default, changes it on Market Setup while the market is a draft, through the plan write; importing and Publish results are Admin's by default ([what each role may do](what-each-role-may-do.md)).
 
 ## Where it is kept
 

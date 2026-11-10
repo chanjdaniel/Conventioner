@@ -265,15 +265,15 @@ What breaks it: a route `except` that answers what it caught, a library's messag
 The client half: the generic 500 body is for the log and for support, and never reaches a screen (E38/F11/S01).
 Each kind of failure reads one way, chosen in one place, `getApiErrorMessage(err, fallback)` in [`front-end/src/utils/api.ts`](../../../front-end/src/utils/api.ts), which the organizer's screens call with a fallback of their own; a line that says something narrower, such as a refresh that keeps the list it had, words itself.
 
-| The failure | What the screen says |
-| --- | --- |
-| No answer at all (no connection, a dropped request, a timeout) | "You seem to be offline. Check the connection and try again." |
-| A 500, whatever its body | "Something went wrong on our side. Try again in a moment." |
-| Another 5xx with no sentence of the back end's (a proxy's 502 or 504) | The same |
-| Another 5xx with a sentence (Discord's `DiscordNotSetUp` 503 and `DiscordUnavailable` 502) | That sentence |
-| A 401 with no sentence (Flask-Login's) | "Your session has ended. Sign in again." |
-| Any other refusal, a 401 with a sentence included (the applicant's code check) | Its `error`, else its `message` |
-| A refusal with neither, or a failure that is not a request's | The screen's fallback |
+| The failure                                                                                | What the screen says                                          |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| No answer at all (no connection, a dropped request, a timeout)                             | "You seem to be offline. Check the connection and try again." |
+| A 500, whatever its body                                                                   | "Something went wrong on our side. Try again in a moment."    |
+| Another 5xx with no sentence of the back end's (a proxy's 502 or 504)                      | The same                                                      |
+| Another 5xx with a sentence (Discord's `DiscordNotSetUp` 503 and `DiscordUnavailable` 502) | That sentence                                                 |
+| A 401 with no sentence (Flask-Login's)                                                     | "Your session has ended. Sign in again."                      |
+| Any other refusal, a 401 with a sentence included (the applicant's code check)             | Its `error`, else its `message`                               |
+| A refusal with neither, or a failure that is not a request's                               | The screen's fallback                                         |
 
 A fallback says what did not happen ("The verdict was not saved.", "The applications could not be loaded."), never "Failed to ...".
 A download asks for a blob, so `downloadErrorMessage` in [`front-end/src/utils/download.ts`](../../../front-end/src/utils/download.ts) reads a refusal's sentence out of it and then answers the same way, through `answerMessage`.

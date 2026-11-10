@@ -2319,7 +2319,7 @@ class TestWhatThePageShows:
                      discord={**_kept({"applicationId": "app-fern", "state": "not_found",
                                        "answer": "Fern Studio"}),
                               "declinedMatches": {"app-fern": ["fern_studio_42"]}})
-        world.patch.setattr(OrgsApi, "get_organizations_for_user", lambda _email: [])
+        world.patch.setattr(OrgsApi, "organization_documents_of", lambda _user_id: [])
         world.applicant("fern@example.com", "Fern Studio")
 
         read = client.get(f"/markets/{MARKET}").get_json()["market"]

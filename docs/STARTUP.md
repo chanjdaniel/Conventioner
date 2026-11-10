@@ -5,9 +5,10 @@ describes:
   - docker-compose.yml
   - back-end/.env.example
   - front-end/.env.example
-verified: 2026-11-02
+verified: 2026-11-10
 sources:
   - T251
+  - T263
 ---
 
 # Conventioner - Development Startup Guide
@@ -56,42 +57,45 @@ A treehouse worktree gets it from `scripts/treehouse-setup.sh`.
 The easiest way to get started is using Docker Compose:
 
 1. **Start all services**:
-  ```bash
+   ```bash
    docker compose up
-  ```
+   ```
 2. **Access the application**:
-  - Frontend: [http://127.0.0.1:5173](http://127.0.0.1:5173)
-  - Backend API: [https://127.0.0.1:5001](https://127.0.0.1:5001)
-  - MongoDB: 127.0.0.1:27017
-  - mongo-express (database browser): [http://127.0.0.1:8081](http://127.0.0.1:8081), `admin` / `admin`
+   - Frontend: [http://127.0.0.1:5173](http://127.0.0.1:5173)
+   - Backend API: [https://127.0.0.1:5001](https://127.0.0.1:5001)
+   - MongoDB: 127.0.0.1:27017
+   - mongo-express (database browser): [http://127.0.0.1:8081](http://127.0.0.1:8081), `admin` / `admin`
 
-  Every port is published on `127.0.0.1` only, so the stack is reachable from this machine and
-  not from the local network (it runs with fixed development credentials).
-  Open it at `127.0.0.1`, not `localhost`, which is tried as `::1` first (see
-  [`docs/TESTING.md`](TESTING.md#testing-gotchas)).
-  The back end is on 5001, not Flask's default 5000 ([why](TESTING.md#testing-gotchas)).
-  To reach it from another device, such as a phone, publish the port you need in an override
-  file of your own, for example a `docker-compose.override.yml` beside `docker-compose.yml`
-  (git-ignored; plain `docker compose` reads it):
-  ```yaml
-  services:
-    frontend:
-      ports: !override
-        - "5173:5173"
-  ```
-  The front end proxies `/api` to the back end inside Docker, so the front end's port is enough.
+   Every port is published on `127.0.0.1` only, so the stack is reachable from this machine and
+   not from the local network (it runs with fixed development credentials).
+   Open it at `127.0.0.1`, not `localhost`, which is tried as `::1` first (see
+   [`docs/TESTING.md`](TESTING.md#testing-gotchas)).
+   The back end is on 5001, not Flask's default 5000 ([why](TESTING.md#testing-gotchas)).
+   To reach it from another device, such as a phone, publish the port you need in an override
+   file of your own, for example a `docker-compose.override.yml` beside `docker-compose.yml`
+   (git-ignored; plain `docker compose` reads it):
+
+   ```yaml
+   services:
+     frontend:
+       ports: !override
+         - '5173:5173'
+   ```
+
+   The front end proxies `/api` to the back end inside Docker, so the front end's port is enough.
+
 3. **Stop all services**:
-  ```bash
+   ```bash
    docker compose down
-  ```
+   ```
 4. **View logs**:
-  ```bash
+   ```bash
    docker compose logs -f [service_name]  # e.g., backend, frontend, mongodb
-  ```
+   ```
 5. **Rebuild after code changes**:
-  ```bash
+   ```bash
    docker compose up --build
-  ```
+   ```
 
 That is genuinely it, on a fresh clone: **no `.env` file to copy**.
 The back end refuses to boot without six variables it has no default for, and `docker-compose.yml`
@@ -145,7 +149,7 @@ The application requires MongoDB to be running. The backend connects to:
 ### Option A: Local MongoDB Installation
 
 1. Install MongoDB Community Edition:
-  ```bash
+   ```bash
    # Ubuntu/Debian: the `mongodb` apt package was removed years ago. Use MongoDB's own
    # repository, per https://www.mongodb.com/docs/manual/administration/install-on-linux/
 
@@ -154,9 +158,9 @@ The application requires MongoDB to be running. The backend connects to:
    brew install mongodb-community
 
    # Or download from https://www.mongodb.com/try/download/community
-  ```
+   ```
 2. Start MongoDB:
-  ```bash
+   ```bash
    # Linux
    sudo systemctl start mongod
 
@@ -165,9 +169,9 @@ The application requires MongoDB to be running. The backend connects to:
 
    # Or manually
    mongod --dbpath /path/to/data/directory
-  ```
+   ```
 3. Create admin user (if not already created):
-  ```bash
+   ```bash
    mongosh
    use admin
    db.createUser({
@@ -175,7 +179,7 @@ The application requires MongoDB to be running. The backend connects to:
      pwd: "secret",
      roles: [ { role: "root", db: "admin" } ]
    })
-  ```
+   ```
 
 ### Option B: Docker MongoDB (Quick Setup)
 
@@ -191,37 +195,37 @@ docker run -d \
 ## Step 2: Backend Setup
 
 1. Navigate to the backend directory:
-  ```bash
+   ```bash
    cd back-end
-  ```
+   ```
 2. Create a Python virtual environment (recommended):
-  ```bash
+   ```bash
    python3 -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
-  ```
+   ```
 3. Install Python dependencies:
-  ```bash
+   ```bash
    pip install -r requirements.txt
-  ```
+   ```
    Install the file, not a hand-listed subset: `app.py` imports the floorplan and email modules on the way up, and `python-dotenv` is what reads the `.env` you write in step 5.
 4. Create the session directory:
-  ```bash
+   ```bash
    mkdir -p flask_session
-  ```
+   ```
    This is where `SESSION_TYPE=filesystem` keeps the organizer's session.
 5. Create the environment file:
-  ```bash
+   ```bash
    cp .env.example .env
-  ```
+   ```
    The template boots as it stands - no keys to go and fetch, no accounts to sign up for.
    `app.py` loads `back-end/.env` on the first line it runs (`back-end/utils/env_file.py`), and anything already set in the environment wins over the file, so a variable you export by hand is never shadowed by it.
    The template works because it sets `ALLOW_INSECURE_LOCAL_DEV=true`, which is what lets a process start without the six variables a deployment must set (`SECRET_KEY`, `RECAPTCHA_SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY`, `SESSION_TYPE`, `TRUSTED_PROXY_HOPS`), and which names in the log everything it turns off.
    Sessions are then signed with a random per-process key, so restarting the back end logs you out; set `SECRET_KEY` to a generated value if that gets annoying.
    Never set `ALLOW_INSECURE_LOCAL_DEV` on a deployed environment - see [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment).
 6. Initialize the database:
-  ```bash
+   ```bash
    python init_database.py
-  ```
+   ```
    This creates the collections and records the market-document migration markers.
    The back end refuses to boot without every marker (see Troubleshooting below), and a MongoDB you started yourself has never run `back-end/mongo-init.js`, which is what records them for the Docker stack.
    Re-running it is harmless.
@@ -229,17 +233,17 @@ docker run -d \
 ## Step 3: Frontend Setup
 
 1. Navigate to the frontend directory:
-  ```bash
+   ```bash
    cd front-end
-  ```
+   ```
 2. Install Node.js dependencies, exactly as the lockfile has them:
-  ```bash
+   ```bash
    npm ci
-  ```
+   ```
 3. Create the environment file:
-  ```bash
+   ```bash
    cp .env.example .env
-  ```
+   ```
    The template builds as it stands, and without it `npm run build` refuses: `vite build` will not produce a bundle with no `VITE_RECAPTCHA_SITE_KEY`, because such a bundle sends a placeholder captcha token that a deployed back end verifies against Google and Google rejects - every organizer signup a 400, on a front end that looks fine.
    The template works because it sets `VITE_ALLOW_INSECURE_LOCAL_DEV=true`, the front-end half of the back end's `ALLOW_INSECURE_LOCAL_DEV`, and each build it lets through says so in a warning.
    A bundle built that way only works against a back end that has also been told it is a local development one (`DISABLE_CAPTCHA=true`); never deploy one.
@@ -402,7 +406,7 @@ docker compose up
 **Backend crash-loops with "`SECRET_KEY` / `RESEND_API_KEY` / `RECAPTCHA_SECRET_KEY` is set to a placeholder this repository has printed"**:
 
 An `.env` you already have was copied from an older template that printed `SECRET_KEY=your-secret-key-here-change-in-production`, `RESEND_API_KEY=re_xxxxxxxx...` and `RECAPTCHA_SECRET_KEY=6Lcxxxxx...` as if they were fill-in values.
-They never worked - Resend rejects that key, Google never issued that secret, and the signing key is one `git log` away from anybody - but they are *truthy*, so the app took them for configured secrets and the failure landed at request time (a 500 per signup, a captcha verified against a key that cannot verify anything) or, for the signing key, never at all.
+They never worked - Resend rejects that key, Google never issued that secret, and the signing key is one `git log` away from anybody - but they are _truthy_, so the app took them for configured secrets and the failure landed at request time (a 500 per signup, a captcha verified against a key that cannot verify anything) or, for the signing key, never at all.
 They are refused by name at boot now, on a laptop as on a deployment, escape hatch or not, so the failure lands where it can be read.
 
 **Two files can carry them, and the message does not say which one it read.** Check both:
@@ -536,22 +540,22 @@ mkdir -p flask_session
 The `docker-compose.yml` defines four services:
 
 1. **mongodb**: MongoDB database
-  - Port: `27017`
-  - Data persisted in Docker volume `mongodb_data`
-  - Credentials: `admin:secret`
+   - Port: `27017`
+   - Data persisted in Docker volume `mongodb_data`
+   - Credentials: `admin:secret`
 2. **backend**: Flask API server
-  - Port: `5001` (HTTPS with adhoc certificate; not 5000, [why](TESTING.md#testing-gotchas))
-  - Hot-reload enabled via volume mount
-  - Sessions persisted in a volume
+   - Port: `5001` (HTTPS with adhoc certificate; not 5000, [why](TESTING.md#testing-gotchas))
+   - The code is mounted from `back-end/`, but `flask run` starts without `--debug`, so a back-end change takes a container restart
+   - Sessions persisted in a volume
 3. **frontend**: Vue 3 development server
-  - Port: `5173`
-  - Hot-reload enabled via volume mount
-  - Proxies `/api` requests to backend
+   - Port: `5173`
+   - The code is mounted from `front-end/`, and the Vite dev server picks up a change as it is saved
+   - Proxies `/api` requests to backend
 4. **mongo-express**: browser-based database viewer
-  - Port: `8081`, basic auth `admin` / `admin`
-  - Convenient for reading market and application documents by hand
-  - A worktree's stack starts without it: `scripts/th-compose.sh --profile tools up -d mongo-express`
-    ([the treehouse runbook](../scripts/README-treehouse.md))
+   - Port: `8081`, basic auth `admin` / `admin`
+   - Convenient for reading market and application documents by hand
+   - A worktree's stack starts without it: `scripts/th-compose.sh --profile tools up -d mongo-express`
+     ([the treehouse runbook](../scripts/README-treehouse.md))
 
 Each service publishes its port on `127.0.0.1` only.
 
@@ -559,7 +563,7 @@ Each service publishes its port on `127.0.0.1` only.
 
 **Backend** (set in docker-compose.yml):
 
-- `MONGODB_HOST`: MongoDB service name (default: `mongodb`)
+- `MONGODB_HOST`: MongoDB service name (`mongodb` in compose; the code's default is `127.0.0.1`)
 - `MONGODB_PORT`: MongoDB port (default: `27017`)
 - `MONGODB_USER`: MongoDB username (default: `admin`)
 - `MONGODB_PASSWORD`: MongoDB password (default: `secret`)
@@ -591,7 +595,7 @@ Without an application of your own, `DISCORD_FAKE=true` answers for Discord from
 ### Backend Structure
 
 - **API Routes**: Defined in `back-end/app.py`
-- **API Modules**: `back-end/api/` (users, markets, market_actions, organizations, permissions, applications, applicants, applicant_auth, added_vendors, attendance, door, placements, form_amendment, vendor_export, vendor_info, discord_connection, and the floorplan modules)
+- **API Modules**: `back-end/api/` (users, markets, market_actions, organizations, permissions, applications, applicants, applicant_auth, added_vendors, attendance, door, placements, payments, vendor_check_in, vendor_export, vendor_info, discord_connection, and the floorplan modules)
 - **Assignment Logic**: `back-end/assignment/assignment.py`
 - **Data Types**: `back-end/datatypes.py` (Pydantic models)
 - **Phase Guards**: `back-end/guards.py` (every precondition for every market phase transition)
@@ -625,12 +629,12 @@ Without an application of your own, `DISCORD_FAKE=true` answers for Discord from
 Use the schema utility to regenerate the backend/frontend contract declaration directly from backend Pydantic contract types.
 
 1. Run from the repository root:
-  ```bash
+   ```bash
    python back-end/generate_market_schema.py \
      --output docs/schema.d.ts
-  ```
+   ```
 2. The generated contract will be written to:
-  - `docs/schema.d.ts`
+   - `docs/schema.d.ts`
 
 ## Next Steps
 

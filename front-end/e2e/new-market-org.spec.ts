@@ -24,9 +24,7 @@ test.describe('New market - organization is required', () => {
   test('API enforces organization at market creation', async ({ request }) => {
     await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
 
-    const orgsRes = await request.get(`${BACKEND_URL}/organizations`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const orgsRes = await request.get(`${BACKEND_URL}/organizations`);
     expect(orgsRes.ok()).toBe(true);
     const orgs = (await orgsRes.json()).organizations as { id: string; name: string }[];
     expect(orgs.length).toBeGreaterThan(0);
@@ -37,7 +35,6 @@ test.describe('New market - organization is required', () => {
     const noOrgRes = await request.post(`${BACKEND_URL}/markets`, {
       headers: {
         'Content-Type': 'application/json',
-        'X-Owner-Email': TEST_USER.email,
       },
       data: {
         name: `No Org E2E ${Date.now()}`,
@@ -56,7 +53,6 @@ test.describe('New market - organization is required', () => {
     const createRes = await request.post(`${BACKEND_URL}/markets`, {
       headers: {
         'Content-Type': 'application/json',
-        'X-Owner-Email': TEST_USER.email,
       },
       data: {
         name: marketName,
@@ -71,9 +67,7 @@ test.describe('New market - organization is required', () => {
     const { market_id: marketId } = (await createRes.json()) as { market_id: string };
 
     // The persisted market carries the organizationId that was submitted.
-    const marketRes = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const marketRes = await request.get(`${BACKEND_URL}/markets/${marketId}`);
     expect(marketRes.ok()).toBe(true);
     const { market } = (await marketRes.json()) as { market: { organizationId: string } };
     expect(market.organizationId).toBe(orgId);
@@ -88,9 +82,7 @@ test.describe('New market - organization is required', () => {
       data: { email: NO_ORG_USER.email, password: NO_ORG_USER.password },
     });
 
-    const orgsRes = await api.get('/organizations', {
-      headers: { 'X-Owner-Email': NO_ORG_USER.email },
-    });
+    const orgsRes = await api.get('/organizations');
     expect(orgsRes.ok()).toBe(true);
     const orgs = (await orgsRes.json()).organizations as { id: string }[];
     expect(orgs.length).toBe(0);

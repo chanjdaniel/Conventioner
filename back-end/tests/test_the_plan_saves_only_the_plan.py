@@ -11,7 +11,7 @@ from conftest import FakeMarketsCollection, stored_market
 
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
-from client_errors import BadRequestError
+from client_errors import BadRequestError, ForbiddenError
 from datatypes import IntakeMode, MarketPhase, MarketRole
 
 PLAN = {
@@ -208,3 +208,64 @@ def test_up_to_and_including_the_assignment_the_rules_save(market, phase):
     MarketsApi.save_plan("market-123", {"setupObject": changed}, "user-1")
 
     assert collection.last_update["$set"]["setupObject"]["priority"] == []
+
+
+class TestTheAssignmentRowIsAskedOnlyOfAChange:
+    """The rules ride in the plan and are the Assignment row's (E39/F01/S01). A market with no
+    setup yet holds the default rules, so a first plan that keeps them asks only Market Setup."""
+
+    #: The rules a new plan starts with, as Market Setup's first save carries them.
+    DEFAULT_RULES = {
+        "priority": [],
+        "assignmentOptions": {"maxAssignmentsPerVendor": None, "maxHalfTableProportionPerSection": None},
+    }
+
+    @pytest.fixture
+    def an_editor_the_assignment_row_refuses(self, monkeypatch):
+        """A market whose Assign row asks an Admin, read by an Editor, whom Market Setup lets in.
+        Returns the markets collection and every organization read."""
+        reads = []
+
+        def organization(org_id):
+            reads.append(org_id)
+            return None
+
+        monkeypatch.setattr(
+            PermissionsApi, "get_user_market_role", lambda *_a, **_k: MarketRole.EDITOR)
+        monkeypatch.setattr(MarketsApi.OrgsApi, "get_organization", organization)
+
+        def at(**stored):
+            fake = FakeMarketsCollection(stored_market(
+                organizationId="org-1",
+                permissions={"assign": {"role": "admin", "source": "market"}}, **stored))
+            monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+            return fake
+
+        at.organization_reads = reads
+        return at
+
+    def test_a_first_plan_keeping_the_default_rules_saves(self, an_editor_the_assignment_row_refuses):
+        collection = an_editor_the_assignment_row_refuses()
+
+        MarketsApi.save_plan("market-123", {"setupObject": {**PLAN, **self.DEFAULT_RULES}}, "user-1")
+
+        assert collection.last_update["$set"]["setupObject"]["marketDates"] == [{"date": "2026-08-01"}]
+
+    def test_a_first_plan_changing_the_default_rules_is_refused(
+            self, an_editor_the_assignment_row_refuses):
+        collection = an_editor_the_assignment_row_refuses()
+
+        with pytest.raises(ForbiddenError, match="allocate this market's tables"):
+            MarketsApi.save_plan("market-123", {"setupObject": PLAN}, "user-1")
+
+        assert collection.last_update is None
+
+    def test_a_plan_changing_the_rules_reads_the_organization_once(
+            self, an_editor_the_assignment_row_refuses):
+        an_editor_the_assignment_row_refuses(setupObject=STORED_RULES)
+
+        with pytest.raises(ForbiddenError):
+            MarketsApi.save_plan(
+                "market-123", {"setupObject": {**STORED_RULES, "priority": []}}, "user-1")
+
+        assert an_editor_the_assignment_row_refuses.organization_reads == ["org-1"]

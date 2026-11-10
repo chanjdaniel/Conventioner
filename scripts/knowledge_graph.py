@@ -523,9 +523,10 @@ def check_schema(repo, doc, report):
 
 
 def check_covered_by(doc, report):
-    """A flow's every `Covered by:` ends its line, and a list follows, one test a line, each item opening
-    with the test's file name as a code span (or a link whose text is one), sorted by that name ignoring
-    case: a new spec is then one line in its sorted place, apart from another lane's."""
+    """A flow's every `Covered by:` ends its line, and a list follows, after at most one blank line (as
+    Prettier writes it), one test a line, each item opening with the test's file name as a code span (or
+    a link whose text is one), sorted by that name ignoring case: a new spec is then one line in its
+    sorted place, apart from another lane's."""
     if doc.kind != "flow":
         return
     lines = doc.text.split("\n")
@@ -535,7 +536,10 @@ def check_covered_by(doc, report):
         if lines[index].rstrip() != COVERED_BY:
             return index
         names = []
-        for number in range(index + 1, len(lines)):
+        first = index + 1
+        if first < len(lines) and not lines[first].strip():
+            first += 1  # Prettier's one blank line between a paragraph and its list
+        for number in range(first, len(lines)):
             item = lines[number]
             if item.startswith("  ") and names:
                 continue  # an item's note, carried on to the next line

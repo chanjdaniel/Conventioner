@@ -612,9 +612,6 @@ class MarketAssignment:
                 return vendor
         return None
 
-    # return with a valid pair of vendors for a given table
-    # [Vendor A, Vendor A] <-- one vendor, full table
-    # [Vendor A, Vendor B] <-- two vendors, half tables
     def get_valid_vendors(self, market_date: MarketDateObject, table, next_vendor):
         """Who occupies ``table``, given that ``next_vendor`` is being placed at it.
 

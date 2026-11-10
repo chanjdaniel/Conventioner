@@ -1,6 +1,8 @@
 name: Release Please
 
-on:
+# No concurrency limit: a release run cancelled part-way could leave a release half made, and main
+# moves only by hand (a promotion or the Release PR's merge), so runs do not pile up.
+on: # zizmor: ignore[concurrency-limits] a release run is never cancelled part-way
   push:
     branches:
       - main
@@ -9,6 +11,7 @@ permissions: {}
 
 jobs:
   release-please:
+    name: release-please
     runs-on: ubuntu-latest
     permissions:
       contents: write # the release commit and its tag

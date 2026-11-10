@@ -41,9 +41,7 @@ async function seedPlannedMarket(request: APIRequestContext) {
 }
 
 async function phaseOf(request: APIRequestContext, marketId: string): Promise<string> {
-  const res = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
+  const res = await request.get(`${BACKEND_URL}/markets/${marketId}`);
   return ((await res.json()) as { market: { phase: string } }).market.phase;
 }
 
@@ -52,9 +50,7 @@ async function openImport(
   request: APIRequestContext,
   marketId: string,
 ): Promise<void> {
-  const res = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
+  const res = await request.get(`${BACKEND_URL}/markets/${marketId}`);
   const { market } = (await res.json()) as { market: Record<string, unknown> };
   await importPage.open(market);
 }
@@ -177,7 +173,6 @@ test.describe('Fixing the form from inside the import', () => {
     const seed = await seedPlannedMarket(request);
     seedApplication(seed.marketId, 'already@applied.test', { essential_full_name: 'Alva Reidy' });
     const moved = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
       data: { toPhase: 'applications' },
     });
     expect(moved.ok(), await moved.text()).toBeTruthy();

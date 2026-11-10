@@ -26,7 +26,7 @@ describes:
   - front-end/src/components/ScrollBox.vue
   - front-end/src/__tests__/scrollBox.test.ts
   - front-end/e2e/the-long-dialogs-scroll-their-body.spec.ts
-verified: 2026-11-08
+verified: 2026-11-10
 sources:
   - wayfinding/the-order-of-the-work/08
   - wayfinding/the-order-of-the-work/map
@@ -52,6 +52,7 @@ sources:
   - T224
   - T223
   - T228
+  - T263
 ---
 
 # Dialogs
@@ -61,7 +62,7 @@ It owns the scrim, the window, the close control, Escape and backdrop dismissal,
 A new dialog is built on it, never hand-rolled; a panel that slides in from a side is [`SidePanel`](../../design-system.md#the-primitive-layer), through the same composables.
 Not every modal is a dialog on it.
 Three take the shell's parts rather than copying them: the [vendor drawer](../../business/flows/vendor-drawer.md), a panel beside the page; the door code's full screen ([`DoorCodeScreen.vue`](../../../front-end/src/components/DoorCodeScreen.vue), [attendance and the door](../modules/attendance-and-door.md)), which fills the window at the entrance where a dialog is a small window over the page; and [the app bar's sheet](../modules/app-bar.md#the-sheet-on-a-phone), a list of places hanging from the bar, which holds no form, title or actions for the shell to own and keeps the same contract with `useInertBehind`, `useEscapeToClose` and `useFocusGoesBack`.
-The floorplan's [`SaveFlow.vue`](../../../front-end/src/components/floorplan/SaveFlow.vue) and [`SectionGrouping.vue`](../../../front-end/src/components/floorplan/SectionGrouping.vue) are hand-rolled, with their own scrim and window and, of the shell's parts, only `useModalRoot`, each scrolling in a `ScrollBox` of its own.
+The floorplan's [`SaveFlow.vue`](../../../front-end/src/components/floorplan/SaveFlow.vue) and [`SectionGrouping.vue`](../../../front-end/src/components/floorplan/SectionGrouping.vue) are hand-rolled, with their own scrim and window and, of the shell's parts, only `useModalRoot`, and `useFocusGoesBack` in the save dialog, each scrolling in a `ScrollBox` of its own.
 The door code's screen declares `role="dialog"` and `aria-modal` itself, and makes it true with `useModalRoot`, `useEscapeToClose` and `useFocusGoesBack`, so the page behind is inert, Escape closes it while it is on top, and focus opens on its Close and goes back to "Door code"; its one confirmation, New code, is an `AppDialog`, teleported beside it as a sibling.
 
 ## The rules
@@ -69,7 +70,7 @@ The door code's screen declares `role="dialog"` and `aria-modal` itself, and mak
 **The form is the Enter contract.**
 Enter in a field runs the same handler as the confirm button, so it inherits that handler's guard, and a disabled submit makes Enter inert with no key handler anywhere.
 Do not add `@keydown.enter`: five views each invented their own answer, and one of them, the vendor's sign-in, bypassed its own resend cooldown by doing so.
-One exception is a picker's open list ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): while its list is open, Enter takes the highlighted choice, or closes the list when none is highlighted, and is kept from the form (with `multiple` the list stays open after a choice, so the next Enter is the list's too), and Escape closes the list and is kept from the dialog; once the list is closed both keys are the dialog's again, so Enter submits through the form's guard and Escape closes.
+One exception is a picker's open list ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): while its list is open, Enter takes the highlighted choice, or closes the list when none is highlighted, and is kept from the form (with `multiple` the list stays open after a choice, so the next Enter is the list's too), and Escape closes the list and is kept from the dialog; once the list is closed both keys are the dialog's again, so Enter submits through the form's guard and Escape closes, except that under `holdsChoice`, while words cover the choice, the first Escape names the choice again and stays at the field.
 The list stays through a press past it, until the press ends, so the click lands on the Save below it, which closing it as the focus goes would move away.
 The other is a field that only narrows what is shown, as a [`ListFrame.vue`](../../../front-end/src/components/ListFrame.vue)'s find field and Export vendors' filters ([`ExportVendorsForm.vue`](../../../front-end/src/components/ExportVendorsForm.vue)) and column list ([`ColumnChecklist.vue`](../../../front-end/src/components/ColumnChecklist.vue)) have, in which Enter does nothing: it narrows the rows as it is typed in or ticked, so Enter there would only save what the person was looking through.
 Export vendors holds it once on what wraps its filters, for an `input` of any kind, a tick and a combobox's closed field among them, and for a closed `select`, whose Enter, by the browsers' source, submits the form on a Mac, and leaves a button its key, so Enter still presses a toggle or a chip's Remove; and once on its column list, which holds only a find field and ticks.
@@ -168,7 +169,7 @@ Asserting this needs a control the page holds: the view container is an ancestor
 
 Creating a market is a dialog, not the first section of Market Setup, because a market must not exist until the organizer commits to one: creating in place would leave an empty draft behind every abandoned attempt.
 It asks only what a market cannot exist without, its organization, its name and how vendors will apply, and lands on the page where everything else is decided.
-With exactly one organization it names it rather than offering a select with one answer; with none it says how to make one (`new-market-org.spec.ts`).
+With exactly one organization it names it rather than offering a select with one answer (`dialog-idiom.spec.ts`); with none it says how to make one (`new-market-org.spec.ts`).
 
 **What Enter does outside a dialog is not decided**: a multi-line text field types a newline and must not submit, and a row editor might reasonably add a row; neither is a dialog.
 

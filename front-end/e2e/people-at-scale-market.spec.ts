@@ -305,9 +305,10 @@ for (const size of PHONE_AND_DESK) {
         Promise.all(
           others.map((item) =>
             item.evaluate((element) => {
-              const scroller = element.closest('[data-testid="manage-market-window"]');
+              // Manage market scrolls only its body, so a place in it is the body's scroll too.
+              const scroller = element.closest('[data-testid="manage-market-body"]')!;
               const { x, y } = element.getBoundingClientRect();
-              return { x, y: y + (scroller?.scrollTop ?? 0) };
+              return { x, y: y + scroller.scrollTop };
             }),
           ),
         );

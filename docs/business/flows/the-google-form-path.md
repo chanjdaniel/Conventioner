@@ -45,19 +45,19 @@ On the re-walk the plan's sections had no tier and the file had no "how many day
 277 of the file's 294 rows imported: ten repeat submissions folded into each applicant's latest row, and seven blank rows were skipped as blank; all 277 approved vendors were placed.
 Every column but Timestamp and Email Address was mapped by hand ([H2a](import.md#h2a-first-import-everything-maps)).
 
-| Step | Flows |
-| --- | --- |
-| Account and organization | [A2](accounts.md#a2-sign-in-and-sign-out), [B1](organizations.md#b1-create-an-organization) |
-| Create the market, choosing "On my own Google Form", and cancel its upload step to build the form by hand | [D1](creating-a-market.md#d1-create-a-market-from-scratch), [G6](starting-from-a-google-form.md#g6-cancel) |
-| Plan it by hand (or from a floorplan, [E6](planning.md#e6-sections-from-a-floorplan)) | [E1 to E4](planning.md) |
-| Write the questions, and set up the review | [F1](form-tab.md#f1-the-essential-questions), [F2](form-tab.md#f2-custom-questions), [F3](form-tab.md#f3-what-a-reviewer-reads-first) |
-| "Import responses", which opens the import; fix the mapping and the values as needed, and confirm: the market enters Review | [H2a to H2j](import.md) |
-| Go to the review, and review | [I4](review.md#i4-enter-the-review), [I1](review.md#i1-work-through-the-queue), [I2](review.md#i2-change-a-decision) |
-| Begin assignment | [I5](review.md#i5-begin-assignment) |
-| Assign and adjust | [J1 to J5](assignment-and-result.md), [J6 to J10, J13 and J19](placing-by-hand.md), [J11 and J12](vendors.md) |
-| Publish results, and share the vendor page's address | [I7](assignment-and-result.md#i7-publish-results), then P3 |
-| Publish the market and run market day | [K1 to K5](market-day-door.md) |
-| End the market | [L1](ending-and-managing-a-market.md#l1-archive-after-market-days) |
+| Step                                                                                                                        | Flows                                                                                                                                 |
+| --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Account and organization                                                                                                    | [A2](accounts.md#a2-sign-in-and-sign-out), [B1](organizations.md#b1-create-an-organization)                                           |
+| Create the market, choosing "On my own Google Form", and cancel its upload step to build the form by hand                   | [D1](creating-a-market.md#d1-create-a-market-from-scratch), [G6](starting-from-a-google-form.md#g6-cancel)                            |
+| Plan it by hand (or from a floorplan, [E6](planning.md#e6-sections-from-a-floorplan))                                       | [E1 to E4](planning.md)                                                                                                               |
+| Write the questions, and set up the review                                                                                  | [F1](form-tab.md#f1-the-essential-questions), [F2](form-tab.md#f2-custom-questions), [F3](form-tab.md#f3-what-a-reviewer-reads-first) |
+| "Import responses", which opens the import; fix the mapping and the values as needed, and confirm: the market enters Review | [H2a to H2j](import.md)                                                                                                               |
+| Go to the review, and review                                                                                                | [I4](review.md#i4-enter-the-review), [I1](review.md#i1-work-through-the-queue), [I2](review.md#i2-change-a-decision)                  |
+| Begin assignment                                                                                                            | [I5](review.md#i5-begin-assignment)                                                                                                   |
+| Assign and adjust                                                                                                           | [J1 to J5](assignment-and-result.md), [J6 to J10, J13 and J19](placing-by-hand.md), [J11 and J12](vendors.md)                         |
+| Publish results, and share the vendor page's address                                                                        | [I7](assignment-and-result.md#i7-publish-results), then P3                                                                            |
+| Publish the market and run market day                                                                                       | [K1 to K5](market-day-door.md)                                                                                                        |
+| End the market                                                                                                              | [L1](ending-and-managing-a-market.md#l1-archive-after-market-days)                                                                    |
 
 ## P2. CSV intake, started from last year's Google Form
 
@@ -72,16 +72,17 @@ Since E33/F02 the proposal marks no question required, so such an applicant is i
 Since E30/F02/S01 the first import says its mapping is the start's: "Mapped when your form was started from this file."
 The other four exports were not re-walked live; synthetic files of their shapes are held to a hand-written answer key in [`back-end/tests/test_csv_proposal.py`](../../../back-end/tests/test_csv_proposal.py).
 
-| Step | Flows |
-| --- | --- |
-| Create the market, choosing "On my own Google Form", which lands on the upload | [D2](creating-a-market.md#d2-create-a-market-that-starts-from-a-google-form), then [G3 to G5](starting-from-a-google-form.md) (or [G2](starting-from-a-google-form.md#g2-from-an-existing-draft) from an existing draft) |
-| Finish the plan the file cannot describe: locations, sections, table counts | [E3](planning.md#e3-locations), [E4](planning.md#e4-sections) |
-| Adjust the generated questions, and set up the review | [F2](form-tab.md#f2-custom-questions), [F3](form-tab.md#f3-what-a-reviewer-reads-first) |
-| "Import responses", and import this year's export: the mapping is the start's, so it should need no decisions | [H2a](import.md#h2a-first-import-everything-maps), [H2h](import.md#h2h-import-a-later-export) for later exports |
-| Everything after | as P1 from "Go to the review" |
+| Step                                                                                                          | Flows                                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Create the market, choosing "On my own Google Form", which lands on the upload                                | [D2](creating-a-market.md#d2-create-a-market-that-starts-from-a-google-form), then [G3 to G5](starting-from-a-google-form.md) (or [G2](starting-from-a-google-form.md#g2-from-an-existing-draft) from an existing draft) |
+| Finish the plan the file cannot describe: locations, sections, table counts                                   | [E3](planning.md#e3-locations), [E4](planning.md#e4-sections)                                                                                                                                                            |
+| Adjust the generated questions, and set up the review                                                         | [F2](form-tab.md#f2-custom-questions), [F3](form-tab.md#f3-what-a-reviewer-reads-first)                                                                                                                                  |
+| "Import responses", and import this year's export: the mapping is the start's, so it should need no decisions | [H2a](import.md#h2a-first-import-everything-maps), [H2h](import.md#h2h-import-a-later-export) for later exports                                                                                                          |
+| Everything after                                                                                              | as P1 from "Go to the review"                                                                                                                                                                                            |
 
 Intended at the import: every row that answers the required questions imports, "Full table" and "Half table" match the table choices, and ticked certification boxes read as ticked.
 Covered by:
+
 - `start-from-csv.spec.ts`, which walks P2's seam from the confirm to the first import
 
 ## P3. An imported vendor reads their table
@@ -97,6 +98,7 @@ Covered by:
 4. An address the market has no vendor for reads "There's no application from this address at <market>. Use the address you gave on the market's form, or ask the organizer."
 
 Covered by:
+
 - `a-google-form-markets-vendor-page.spec.ts`, at 1280 and 390
 
 ## The rules it obeys

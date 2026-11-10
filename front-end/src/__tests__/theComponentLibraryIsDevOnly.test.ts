@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fitsAPhone } from '@/utils/fitsAPhone';
+import { loadedRoute } from './support/loadedRoute';
 
 /**
  * The component library (`src/dev/library/`) is a page of a development build only: its two
@@ -21,7 +22,7 @@ describe('in a development build', () => {
   it.each(['/dev/components', '/dev/components/primitives'])(
     '%s is a library page, public and fitting a phone',
     async (path) => {
-      const route = (await freshRouter()).resolve(path);
+      const route = loadedRoute(await freshRouter(), path);
       expect(route.name).toMatch(/^component-library/);
       expect(route.matched.every((record) => record.meta.public === true)).toBe(true);
       expect(fitsAPhone(route)).toBe(true);

@@ -152,8 +152,9 @@ def _reason_for(
 
     The limits come before the tables because they are what the solver stopped at: a vendor with
     every date they asked for is left off the rest however many tables are free, and calling one of
-    those dates FREE invited the organizer to break the limit (bug 33). Their own answer is named
-    when it is the lower of the two, since it is the one they gave.
+    those dates FREE invited the organizer to break the limit (bug 33). The vendor's answer as the
+    organizer reads it (their own, or an organizer's update in its place) is named when it is the
+    lower of the two, since it is the vendor's limit rather than the market's.
     """
     if date not in vendor.available_dates:
         return PlacementReason.NOT_AVAILABLE
@@ -190,7 +191,8 @@ def _reason_for(
 
 
 class PlacementOverride(str, Enum):
-    """What one hand placement overrides about the vendor's own answer.
+    """What one hand placement overrides about the vendor's answer as the organizer reads it (their
+    own, or an organizer's update in its place).
 
     A pin that breaks a filter stands - a sponsor, a late deal, an accessibility need, and
     admins edit without restriction - but it must never stand *silently*. Tier sets the price,
@@ -250,7 +252,8 @@ def overridden_placements(
     vendors: Iterable[SolverVendor], placements: Sequence[Any],
     not_approved: Iterable[SolverVendor] = (),
 ) -> List[OverriddenPlacement]:
-    """Every hand placement that contradicts the vendor's own answer.
+    """Every hand placement that contradicts the vendor's answer as the organizer reads it (their
+    own, or an organizer's update in its place).
 
     Only hand placements: the solver never contradicts an answer, so a solver row that appeared
     here would be a bug in the solver rather than a decision anyone made. A pin for a vendor this

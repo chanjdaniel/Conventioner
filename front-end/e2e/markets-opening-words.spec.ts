@@ -53,7 +53,7 @@ async function organizerWith(page: Page, request: APIRequestContext, names: stri
   ensureVerifiedUser(email, PASSWORD);
   await loginViaApi(request, BACKEND_URL, email, PASSWORD);
   const res = await request.post(`${BACKEND_URL}/organizations`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+    headers: { 'Content-Type': 'application/json' },
     data: { name: `Org ${run}` },
   });
   expect(res.ok(), await res.text()).toBe(true);
@@ -127,6 +127,22 @@ for (const size of WINDOWS) {
       await page.goto('/markets');
 
       await line(page).focus();
+      await page.keyboard.press('Enter');
+
+      await expect(page).toHaveURL(new RegExp(`/markets/${markets[1].id}`));
+    });
+
+    test("Enter on a market card's name opens the market", async ({ page, request }) => {
+      // A card opens by the button its name slot holds (T75), which nothing but this presses.
+      const { markets } = await organizerWith(page, request, ['Riverside Market', 'Harbour Fair']);
+      await page.goto('/markets');
+
+      const card = cards(page).filter({ hasText: markets[1].name });
+      const open = card.getByTestId('market-card-name').getByRole('button', {
+        name: markets[1].name,
+      });
+      await open.focus();
+      await expect(open).toBeFocused();
       await page.keyboard.press('Enter');
 
       await expect(page).toHaveURL(new RegExp(`/markets/${markets[1].id}`));

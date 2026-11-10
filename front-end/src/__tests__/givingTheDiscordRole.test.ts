@@ -8,7 +8,7 @@ import { mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 
 import VendorsView from '@/views/VendorsView.vue';
-import type { Market } from '@/assets/types/datatypes';
+import type { Market, ServedDiscordVendor } from '@/assets/types/datatypes';
 import { MarketAction } from '@/utils/marketActions';
 import {
   giveRolesQuestion,
@@ -463,11 +463,12 @@ describe('the Vendors page', () => {
         { applicationId: 'app-cy', outcome: 'not_found', reason: null },
       ],
     };
-    const shown = (applicationId: string, what: string) => ({
+    const shown = (applicationId: string, what: string): ServedDiscordVendor => ({
       applicationId,
       state: what === 'in_server' ? 'in_server' : 'not_found',
       shown: what,
       possibleMatches: [],
+      moreMatches: 0,
     });
     const wrapper = await mounted(
       market({

@@ -28,6 +28,7 @@ sources:
   - E03/F03
   - bug/20
   - T202
+  - T263
 ---
 
 # A gated market answers as absent
@@ -47,7 +48,7 @@ A gated market is invisible to every vendor request, check-in included; a market
 **A market's bare address, `/<slug>`, is its vendor page** ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)) and answers the same way: a gated market's is "page not found", and a form market's names the market and asks for an email address and the code sent to it ([`VendorPage.vue`](../../../front-end/src/views/VendorPage.vue)).
 There is no public landing page for a market beyond that.
 
-**The two applicant-login endpoints keep their *uniform* response rather than gaining a 404 of their own**: requesting a code always answers the same 200, and every failed verification the same 401.
+**The two applicant-login endpoints keep their _uniform_ response rather than gaining a 404 of their own**: requesting a code always answers the same 200, and every failed verification the same 401.
 A 404 there would be an oracle saying "this slug is a gated market" where every other answer says nothing.
 The vendor page reads `GET /public/markets/<slug>/vendor-page` first, which answers a gated or unknown slug with the same 404, so there it says the page does not exist and never takes an address (E32/F03/S01); a sign-in page once drew its form and answered "sent" for a code it never sent.
 Until the market answers, the page says it is loading and draws neither; a request that fails in transit is not an answer, and the page says it could not be loaded, with Try again.

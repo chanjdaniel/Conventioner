@@ -3,16 +3,24 @@ import { mount } from '@vue/test-utils';
 import { defineComponent, h, nextTick, ref } from 'vue';
 import RowGroup from '@/components/RowGroup.vue';
 
-const seats = (count: number) =>
+interface Seat {
+  id: string;
+  name: string;
+}
+
+/** The group, over seats: a screen's template names its rows' type, as a mount cannot. */
+const SeatGroup = RowGroup<Seat>;
+
+const seats = (count: number): Seat[] =>
   Array.from({ length: count }, (_, at) => ({ id: `seat-${at + 1}`, name: `Seat ${at + 1}` }));
 
 function mountGroup(count: number, props: { fold?: number; level?: 2 | 3 | 4 | 5 | 6 } = {}) {
-  return mount(RowGroup, {
+  return mount(SeatGroup, {
     attachTo: document.body,
     props: {
       heading: 'North Wing',
       items: seats(count),
-      itemKey: (item: { id: string }) => item.id,
+      itemKey: (item: Seat) => item.id,
       testid: 'group',
       ...props,
     },
@@ -124,12 +132,12 @@ describe('RowGroup', () => {
   });
 
   it('draws the heading slot in the heading, and the button still says the heading it was given', () => {
-    const wrapper = mount(RowGroup, {
+    const wrapper = mount(SeatGroup, {
       attachTo: document.body,
       props: {
         heading: 'North Wing',
         items: seats(31),
-        itemKey: (item: { id: string }) => item.id,
+        itemKey: (item: Seat) => item.id,
         testid: 'group',
       },
       slots: { heading: '<span data-testid="name">North Wing</span> <span>Indoors</span>' },
@@ -154,7 +162,7 @@ describe('RowGroup', () => {
                   {
                     heading: 'North Wing',
                     items: seats(count),
-                    itemKey: (item: { id: string }) => item.id,
+                    itemKey: (item: Seat) => item.id,
                     testid: 'group',
                     unfolded: unfolded.value,
                     'onUpdate:unfolded': (value: boolean) => (unfolded.value = value),

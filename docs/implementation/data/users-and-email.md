@@ -49,17 +49,17 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 
 ## The fields that matter
 
-| Field | What it is |
-| --- | --- |
-| `id` | a UUID, the primary key, and what every role and membership names |
-| `email` | the sign-in, stored lowercased and trimmed, unique |
-| `password` | a bcrypt hash |
-| `organizations` | the ids of the organizations the person is in ([the organization document](organization-document.md)); empty at registration, whatever the body sends, and written only by a membership change |
-| `email_verified` | false until the emailed link is followed; an unverified account cannot sign in |
-| `verification_token`, `verification_token_expires` | the email-verification link, valid an hour |
-| `password_reset_token`, `password_reset_token_expires` | the password-reset link, valid an hour |
-| `otp`, `otp_expires`, `otp_attempts` | a sign-in code, valid five minutes; its tries are counted in the update that reads it, and the fifth wrong one discards the code and keeps `otp_expires`, which holds back the next code until an hour after it |
-| `login_id` | the account a session or remember-me cookie names, in its sign-in id: a random value, made at the first sign-in and replaced by a password reset |
+| Field                                                  | What it is                                                                                                                                                                                                      |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                                   | a UUID, the primary key, and what every role and membership names                                                                                                                                               |
+| `email`                                                | the sign-in, stored lowercased and trimmed, unique                                                                                                                                                              |
+| `password`                                             | a bcrypt hash                                                                                                                                                                                                   |
+| `organizations`                                        | the ids of the organizations the person is in ([the organization document](organization-document.md)); empty at registration, whatever the body sends, and written only by a membership change                  |
+| `email_verified`                                       | false until the emailed link is followed; an unverified account cannot sign in                                                                                                                                  |
+| `verification_token`, `verification_token_expires`     | the email-verification link, valid an hour                                                                                                                                                                      |
+| `password_reset_token`, `password_reset_token_expires` | the password-reset link, valid an hour                                                                                                                                                                          |
+| `otp`, `otp_expires`, `otp_attempts`                   | a sign-in code, valid five minutes; its tries are counted in the update that reads it, and the fifth wrong one discards the code and keeps `otp_expires`, which holds back the next code until an hour after it |
+| `login_id`                                             | the account a session or remember-me cookie names, in its sign-in id: a random value, made at the first sign-in and replaced by a password reset                                                                |
 
 ## The session names the account by its login id
 
@@ -105,20 +105,20 @@ The sign-up's per-address bound caps how many of these emails one address is sen
 
 **The organizer's password and code sign-ins, and the requests that mail an organizer a code or a link, are counted as the applicant's sign-in is**, in the one list of limits, `LIMITS` in [`back-end/sign_in_limits.py`](../../../back-end/sign_in_limits.py): per address and per caller, in fixed 15-minute windows, in `sign_in_attempts`, whose counters name nobody ([sign-in is bounded](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)).
 
-| Limit | Name | Tries in 15 minutes |
-| --- | --- | --- |
-| `PASSWORD_PER_ADDRESS` | `password:address` | 10 for one address |
-| `PASSWORD_PER_CALLER` | `password:caller` | 50 from one caller |
-| `ORGANIZER_CODE_PER_ADDRESS` | `organizer-code:address` | 10 for one address |
-| `ORGANIZER_CODE_PER_CALLER` | `organizer-code:caller` | 60 from one caller |
-| `ORGANIZER_CODE_REQUEST_PER_ADDRESS` | `organizer-code-request:address` | 5 `/request-otp` for one address |
-| `ORGANIZER_CODE_REQUEST_PER_CALLER` | `organizer-code-request:caller` | 30 `/request-otp` from one caller |
-| `RESET_LINK_PER_ADDRESS` | `reset-link:address` | 5 `/request-password-reset` for one address |
-| `RESET_LINK_PER_CALLER` | `reset-link:caller` | 30 `/request-password-reset` from one caller |
-| `VERIFICATION_LINK_PER_ADDRESS` | `verification-link:address` | 5 `/resend-verification` for one address |
-| `VERIFICATION_LINK_PER_CALLER` | `verification-link:caller` | 30 `/resend-verification` from one caller |
-| `SIGN_UP_PER_ADDRESS` | `sign-up:address` | 5 `/register` for one address |
-| `SIGN_UP_PER_CALLER` | `sign-up:caller` | 30 `/register` from one caller |
+| Limit                                | Name                             | Tries in 15 minutes                          |
+| ------------------------------------ | -------------------------------- | -------------------------------------------- |
+| `PASSWORD_PER_ADDRESS`               | `password:address`               | 10 for one address                           |
+| `PASSWORD_PER_CALLER`                | `password:caller`                | 50 from one caller                           |
+| `ORGANIZER_CODE_PER_ADDRESS`         | `organizer-code:address`         | 10 for one address                           |
+| `ORGANIZER_CODE_PER_CALLER`          | `organizer-code:caller`          | 60 from one caller                           |
+| `ORGANIZER_CODE_REQUEST_PER_ADDRESS` | `organizer-code-request:address` | 5 `/request-otp` for one address             |
+| `ORGANIZER_CODE_REQUEST_PER_CALLER`  | `organizer-code-request:caller`  | 30 `/request-otp` from one caller            |
+| `RESET_LINK_PER_ADDRESS`             | `reset-link:address`             | 5 `/request-password-reset` for one address  |
+| `RESET_LINK_PER_CALLER`              | `reset-link:caller`              | 30 `/request-password-reset` from one caller |
+| `VERIFICATION_LINK_PER_ADDRESS`      | `verification-link:address`      | 5 `/resend-verification` for one address     |
+| `VERIFICATION_LINK_PER_CALLER`       | `verification-link:caller`       | 30 `/resend-verification` from one caller    |
+| `SIGN_UP_PER_ADDRESS`                | `sign-up:address`                | 5 `/register` for one address                |
+| `SIGN_UP_PER_CALLER`                 | `sign-up:caller`                 | 30 `/register` from one caller               |
 
 Each request has its own pair, so one request's use holds back no other.
 

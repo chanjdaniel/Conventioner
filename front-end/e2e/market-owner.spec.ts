@@ -12,7 +12,7 @@ test('the signed-in creator is the market owner, whatever roles the body names',
   request,
 }) => {
   const creatorId = await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-  const orgId = await ensureTestOrgAuthenticated(request, BACKEND_URL, TEST_USER.email);
+  const orgId = await ensureTestOrgAuthenticated(request, BACKEND_URL);
 
   for (const roles of [{ 'someone-else': 'owner' }, { undefined: 'owner' }, {}]) {
     const created = await request.post(`${BACKEND_URL}/markets`, {

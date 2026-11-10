@@ -28,6 +28,7 @@ sources:
   - T205
   - T221
   - T217
+  - T263
 ---
 
 # Floorplan placement
@@ -58,16 +59,16 @@ The roles are [what each role may do](../../business/rules/what-each-role-may-do
 They answer in save's order: no market named 400, unknown market 404, unreadable market data 400, a person the row refuses 403 with its sentence, and, for a route that changes the floorplan (`edits`), an archived market 403.
 A route checks access right after it has read the id it is checked by, before the rest of its body, its key check or its image read.
 
-| Route | Needs | Archived market |
-| --- | --- | --- |
-| `POST /floorplans/upload` | Change Market Setup (EDITOR) on the `market_id` sent | refused |
-| `POST /floorplans/place-tables` | Change Market Setup (EDITOR) on the `market_id` sent | refused |
-| `DELETE /floorplans/<id>` | Change Market Setup (EDITOR) on the image's market | refused |
-| `POST /floorplans/analyze` | Change Market Setup (EDITOR) on the image's market | refused |
-| `POST /floorplans/calibrate` ([`floorplans_calibrate.py`](../../../back-end/api/floorplans_calibrate.py)) | Change Market Setup (EDITOR) on the image's market | refused |
-| `POST /floorplans/export` ([`floorplans_export.py`](../../../back-end/api/floorplans_export.py)) | the Read row (any role) on the image's market, signed in | allowed |
-| `GET /floorplans/<id>` | nothing: public by opaque id | allowed |
-| `POST /floorplans/save-to-market` | Change Market Setup (EDITOR), and a setup that has not settled (409) | refused |
+| Route                                                                                                     | Needs                                                                | Archived market |
+| --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------- |
+| `POST /floorplans/upload`                                                                                 | Change Market Setup (EDITOR) on the `market_id` sent                 | refused         |
+| `POST /floorplans/place-tables`                                                                           | Change Market Setup (EDITOR) on the `market_id` sent                 | refused         |
+| `DELETE /floorplans/<id>`                                                                                 | Change Market Setup (EDITOR) on the image's market                   | refused         |
+| `POST /floorplans/analyze`                                                                                | Change Market Setup (EDITOR) on the image's market                   | refused         |
+| `POST /floorplans/calibrate` ([`floorplans_calibrate.py`](../../../back-end/api/floorplans_calibrate.py)) | Change Market Setup (EDITOR) on the image's market                   | refused         |
+| `POST /floorplans/export` ([`floorplans_export.py`](../../../back-end/api/floorplans_export.py))          | the Read row (any role) on the image's market, signed in             | allowed         |
+| `GET /floorplans/<id>`                                                                                    | nothing: public by opaque id                                         | allowed         |
+| `POST /floorplans/save-to-market`                                                                         | Change Market Setup (EDITOR), and a setup that has not settled (409) | refused         |
 
 The wizard's steps are an editor's work on a market that can still change, which is when the front end offers the wizard at all.
 **The export's audience is the people on the market**: it is a read of the plan, a rendering of the hall with its table codes, so it needs a sign-in and any role, and an archived market still exports.
@@ -85,6 +86,7 @@ An image previews as the file chosen; a PDF previews as the page the server drew
 When that first page cannot be fetched, the zone comes back with "The floorplan was uploaded, but its page could not be shown. Choose the file again.", and any upload that does not end on a shown PDF page forgets the earlier PDF's pages, so no picker offers them under an image.
 The server draws each page at 200 dpi with pypdfium2 ([`pdf_converter.py`](../../../back-end/utils/pdf_converter.py)), whose `manylinux_2_17` wheel carries PDFium, so it needs no system package on Vercel, Docker or CI (T205).
 Images uploaded before images named a market have no `marketId`; the wizard never reopens a saved floorplan's image, so they are read only by the public `GET /floorplans/<id>`, and no migration gives them one.
+Deleting a market deletes every image whose `metadata.marketId` names it, with its other records ([market deletion](market-deletion.md)); an image with no `marketId` names no market, so no deletion takes it.
 
 **A template is its creator's, and one filed under an organization is filed by someone in it.**
 [`back-end/api/floorplans_templates.py`](../../../back-end/api/floorplans_templates.py) reads a create's or an update's `organizationId` with `string_field()`: null or absent files it under none, another type answers 400, an organization nobody has 404, and one the caller is not in (as owner, admin or member) 403, the test listing an organization's templates applies.

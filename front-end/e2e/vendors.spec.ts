@@ -20,9 +20,7 @@ test.describe('Vendor browsing and search', () => {
       TEST_USER.password,
     );
 
-    const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`);
     expect(marketRes.ok()).toBeTruthy();
     const { market: marketData } = (await marketRes.json()) as { market: Record<string, unknown> };
 
@@ -177,9 +175,7 @@ test.describe('Vendor browsing and search', () => {
       TEST_USER.password,
     );
 
-    const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`);
     const { market: marketData } = (await marketRes.json()) as { market: Record<string, unknown> };
     await page.evaluate((data) => {
       const m = { ...(data as Record<string, unknown>) };

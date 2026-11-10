@@ -74,9 +74,7 @@ async function openImport(
   request: APIRequestContext,
   marketId: string,
 ): Promise<void> {
-  const res = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
+  const res = await request.get(`${BACKEND_URL}/markets/${marketId}`);
   const { market } = (await res.json()) as { market: Record<string, unknown> };
   await importPage.open(market);
 }
@@ -99,9 +97,7 @@ async function listApplications(
   request: APIRequestContext,
   marketId: string,
 ): Promise<ApplicationRow[]> {
-  const res = await request.get(`${BACKEND_URL}/markets/${marketId}/applications`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
+  const res = await request.get(`${BACKEND_URL}/markets/${marketId}/applications`);
   return ((await res.json()) as { applications: ApplicationRow[] }).applications;
 }
 
@@ -621,7 +617,7 @@ test.describe('CSV vendor import', () => {
     )!;
     const reviewRes = await request.put(
       `${BACKEND_URL}/markets/${seed.marketId}/applications/${imported.id}/review`,
-      { headers: { 'X-Owner-Email': TEST_USER.email }, data: { status: 'reviewer_approved' } },
+      { data: { status: 'reviewer_approved' } },
     );
     expect(reviewRes.ok()).toBeTruthy();
 
@@ -657,7 +653,6 @@ test.describe('CSV vendor import', () => {
     const importPage = new CsvImportPage(page);
     const transition = async (toPhase: string) => {
       const res = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
-        headers: { 'X-Owner-Email': TEST_USER.email },
         data: { toPhase },
       });
       expect(res.ok(), `transition to ${toPhase}: ${await res.text()}`).toBeTruthy();
@@ -673,7 +668,7 @@ test.describe('CSV vendor import', () => {
     // Server-side, not merely a hidden button: the endpoint refuses directly.
     const direct = await request.post(
       `${BACKEND_URL}/markets/${seed.marketId}/applications/import/inspect`,
-      { headers: { 'X-Owner-Email': TEST_USER.email }, data: { csvContent: CSV } },
+      { data: { csvContent: CSV } },
     );
     expect(direct.status()).toBe(409);
     expect(await direct.text()).toContain('no more applications');
@@ -805,7 +800,6 @@ test.describe('CSV vendor import', () => {
 
       seedApplicationWithStatus(seed.marketId, 'reviewer_approved', 'imported@example.com');
       const moved = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
-        headers: { 'X-Owner-Email': TEST_USER.email },
         data: { toPhase: 'applications' },
       });
       expect(moved.ok(), await moved.text()).toBeTruthy();
@@ -1052,7 +1046,7 @@ test.describe('CSV vendor import', () => {
     for (const application of applications) {
       const res = await request.put(
         `${BACKEND_URL}/markets/${seed.marketId}/applications/${application.id}/review`,
-        { headers: { 'X-Owner-Email': TEST_USER.email }, data: { status: 'reviewer_approved' } },
+        { data: { status: 'reviewer_approved' } },
       );
       expect(res.ok()).toBeTruthy();
     }

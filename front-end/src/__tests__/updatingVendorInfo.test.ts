@@ -21,6 +21,7 @@ import {
   type AnswerUpdate,
   type Application,
   type ApplicationForm,
+  type EssentialFormOptions,
 } from '@/assets/types/datatypes';
 import {
   AVAILABLE_DATES_KEY,
@@ -91,7 +92,12 @@ function application(overrides: Partial<Application> = {}): Application {
 
 const THU = '2026-11-19';
 const FRI = '2026-11-20';
-const OPTIONS = { dates: [THU, FRI], tiers: ['Gold', 'Silver'], sections: [], tableTypes: [] };
+const OPTIONS: EssentialFormOptions = {
+  dates: [THU, FRI],
+  tiers: ['Gold', 'Silver'],
+  sections: [],
+  tableTypes: [],
+};
 const ONLY_AN_ADMIN =
   "Only an Admin or the owner may update the answers this market's assignment or prices read.";
 

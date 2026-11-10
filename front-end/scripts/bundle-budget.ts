@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
 /**
- * Measured at 102220 B when T76 moved Konva out, and at 85740 B when T84 resolved vuedraggable to its
+ * Measured at 101831 B when T76 moved Konva out, and at 85740 B when T84 resolved vuedraggable to its
  * ES source, dropping the second Vue and the core-js its UMD build carried; the rest is headroom.
  * Raised from 89000 B at 89427 B by T161 (+1281 B over `dev`'s 88146 B): the request's failure
  * kinds, the 401 interceptor that ends a session, the sign-in guard's `next` and the shell's notice

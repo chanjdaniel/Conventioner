@@ -6,13 +6,14 @@ import {
   standsApart,
   vendorPageAnswered,
 } from '@/utils/currentPlace';
+import { loadedRoute } from './support/loadedRoute';
 
 /**
  * Which of the bar's two places a route stands in, read off the router's own routes, so a market
  * screen added tomorrow is covered by its `marketId` and nobody has to list it here.
  */
 describe('which place is current', () => {
-  const place = (path: string) => currentPlace(router.resolve(path));
+  const place = (path: string) => currentPlace(loadedRoute(router, path));
 
   it('is Markets on the list', () => {
     expect(place('/markets')).toBe('markets');

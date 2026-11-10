@@ -8,7 +8,6 @@ describes:
   - back-end/tests/test_every_check_names_an_action.py
   - back-end/api/markets.py#role_action_refusals
   - back-end/api/markets.py#ARCHIVED_STILL_TAKES
-  - back-end/api/markets.py#deprecated_screen_reasons
   - back-end/tests/test_every_screen_asks_the_table.py
   - back-end/api/markets.py#set_permission
   - back-end/api/markets.py#reset_permission
@@ -20,7 +19,7 @@ describes:
   - back-end/api/permissions.py#market_role_of
   - back-end/tests/test_a_chosen_reviewer_decides.py
   - back-end/api/markets.py#read_refused
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - E39
   - E39/F01/S01
@@ -47,6 +46,7 @@ sources:
   - T181
   - T224
   - T217
+  - T263
 ---
 
 # The market's actions
@@ -69,7 +69,7 @@ The person's role is the one `get_user_market_role` resolves (the market's own a
 Both ask the read row the same way, through `read_refused` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), so the list leaves out every market the read answers as absent ([the organization document](../data/organization-document.md#what-a-person-may-do-on-a-market)).
 
 **Being chosen as a reviewer passes the giving row** (E38/F07/S03, [ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)): `refusal` and `role_refusal` answer None for `give-verdicts` to someone its role refuses when they are a chosen reviewer and their role reaches `review-when-chosen`.
-`refusal` reads it off the market's team by address (`is_chosen`); `role_refusal` takes it as `chosen`, which the market read passes once (the markets list passes none, since no card asks the giving row).
+`refusal` reads it off the market's team by address (`is_chosen`); `role_refusal` takes it as `chosen`, which the market read passes once and the markets list once for each entry (`_listed`), both from the reader's address, so a card answers the giving row as the market's page does.
 A row on top of the giving row asks it with the same `chosen`, so a chosen Viewer is refused a change of verdict in the change row's own words.
 [`back-end/tests/test_a_chosen_reviewer_decides.py`](../../../back-end/tests/test_a_chosen_reviewer_decides.py) pins every review write for each role, chosen and not, and the row raised.
 `may_be_chosen(user_id, market, organization)` asks `review-when-chosen` of someone known by id, their role resolved by `market_role_of` in [`back-end/api/permissions.py`](../../../back-end/api/permissions.py) with the organization already loaded: whom the chooser is offered (`reviewer_candidate_ids`, `reviewerCandidates`) and which chosen reviewers are still able (`review_team.eligible`).
@@ -95,7 +95,11 @@ Each check keeps the order it had, so every route answers each person as it did 
 
 **Taking a role asks both roles rows first**: `DELETE /markets/:id/roles/<user_id>` (`remove_market_role`) asks the Editor-and-Viewer row and the Admin row before it looks at the person, so someone both refuse reads the Editor-and-Viewer row's refusal whoever the person is; then it answers someone holding no role as gone, refuses taking the only owner, and asks the row of the role taken.
 
-**The plan write asks two rows**: Market Setup always, and the Assignment row too when the body changes the assignment rules, which ride in the plan; restating them asks only Market Setup.
+**A write of the plan asks two rows**: its own row always, and the Assignment row too when the plan changes the assignment rules, which ride in it; restating them asks only its own row.
+The plan write's own row is Market Setup, and the start from a CSV's is the import's.
+A market with no setup yet holds the rules a new plan starts with (`assignment_rules` in [what an assignment was made from](made-from.md)), so a first plan that keeps them asks only the write's own row.
+Both ask the Assignment row through one function, `ask_assign_if_the_rules_change`, which takes the market, the plan `prepared_plan` parsed, the requester and the organization, and raises the row's refusal as a 403.
+`save_plan` passes the organization its load read to ask Market Setup (`_load_market_and_organization_to_change`), and the start's confirm the one `_importing_market_document` read to ask the import's row ([the CSV proposal and start](csv-proposal-and-start.md#sharp-edges)).
 
 One block per row, in the `ACTIONS` order: a new action is a block in its place in that order, and a new route or caller one line in its action's "Asked by" list ([two features never share a line](../conventions/two-features-never-share-a-line.md#the-markets-actions)).
 
@@ -104,6 +108,7 @@ One block per row, in the `ACTIONS` order: a new action is a block in its place 
 Default: Viewer, fixed.
 
 Asked by:
+
 - `GET /markets/:id` (`get_market_for_user`)
 - the applications list
 - the assignment
@@ -122,6 +127,7 @@ Asked by:
 Default: Viewer.
 
 Asked by:
+
 - `GET /markets/:id/history` (Manage market's History section, a vendor's drawer's History tab with `?vendor=`, and Assignment history with `?group=Assignment`)
 - `GET /markets/:id/permission-history` (the changes to the market's table)
 
@@ -130,6 +136,7 @@ Asked by:
 Default: Viewer.
 
 Asked by:
+
 - `GET /markets/:id/assignment-csv`
 - `POST /markets/:id/vendor-export` and its `/preview`
 
@@ -138,6 +145,7 @@ Asked by:
 Default: Editor.
 
 Asked by:
+
 - `PUT /markets/:id/name`
 - `PUT /markets/:id/plan`
 - `POST /floorplans/upload`
@@ -152,6 +160,7 @@ Asked by:
 Default: Editor.
 
 Asked by:
+
 - `PUT /markets/:id/application-form`
 - `PUT /markets/:id/rejection-rules`
 - `PUT /markets/:id/review-highlights`
@@ -161,14 +170,16 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - the three `/markets/:id/applications/import` routes (`_importing_market_document`)
 - the two `/markets/:id/csv-proposal` routes (`_importing_market_document`)
 
 ### Give verdicts and follow-ups (`give-verdicts`)
 
-Default: Editor, or a chosen reviewer the row below lets be chosen.
+Default: Editor, or a chosen reviewer [`review-when-chosen`](#be-chosen-as-a-reviewer-and-then-give-verdicts-and-follow-ups-review-when-chosen) lets be chosen.
 
 Asked by:
+
 - every review write through `_reviewer_on` (`verdict_refusal`):
   - a verdict
   - a selection's verdicts
@@ -184,6 +195,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - on top of the row above, `PUT .../review` and `POST .../verdicts` of each application already approved or rejected (`_change_refused`, then `review_application` and `review_selection`)
 - whether a write that judges the automatic rejections again returns a rule's rejection to open (`may_overturn`: the rules save, the form save, updating a vendor's info, an import)
 - on screen, One by one's "Approve instead" and "Reject instead" and a decided card's verdicts, and the All view's tick, Select all and drawer verdicts on a decided row, show by its answer
@@ -194,6 +206,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - `PUT /markets/:id/reviewers` (`choose_reviewers`, E38/F07/S02)
 - whom the market read offers as `reviewerCandidates` while the review is open
 - on screen, the Reviewers panel's Choose or Change reviewers shows by its answer ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md))
@@ -203,6 +216,7 @@ Asked by:
 Default: Viewer.
 
 Asked by:
+
 - under the giving row's checks, for a chosen reviewer (`refusal`, `role_refusal`)
 - `may_be_chosen`:
   - whom `PUT /markets/:id/reviewers` takes and the market read offers as `reviewerCandidates`
@@ -215,6 +229,7 @@ Nothing is recorded under it, so the history's kind filter leaves it out (`histo
 Default: Admin.
 
 Asked by:
+
 - `POST /markets/:id/transition`
 - the seeder's move
 
@@ -223,6 +238,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - `POST /markets/:id/applications-stopped` (E38/F04/S02)
 
 ### Publish results (`publish-results`)
@@ -230,6 +246,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - `POST /markets/:id/publish-results`
 - on screen, the Applications page draws Publish results by its answer
 
@@ -238,6 +255,7 @@ Asked by:
 Default: Editor.
 
 Asked by:
+
 - `POST /markets/:id/vendors`
 
 ### Write vendor notes (`write-vendor-notes`)
@@ -245,6 +263,7 @@ Asked by:
 Default: Editor.
 
 Asked by:
+
 - `PUT /markets/:id/vendor-notes/<email>` and its `request-handled`
 
 ### Update a vendor's info (`update-vendor-info`)
@@ -252,6 +271,7 @@ Asked by:
 Default: Editor.
 
 Asked by:
+
 - `PUT /markets/:id/applications/:app_id/answers` ([`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py)), in any phase
 - declining a possible Discord match, `POST /markets/:id/discord/possible-matches/:application_id/declined` (E46/F01/S05)
 
@@ -260,6 +280,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - the same write, asked after `update-vendor-info` when an answer it updates is one the solver reads (`SOLVER_RELEVANT_KEYS`) or one of the form's own questions a price group reads (`Groups.keys` in `back-end/pricing.py`, served as `priceReads`), before the answer is judged
 - on screen, the Update info dialog shows those answers read-only to whoever it refuses, with its sentence
 
@@ -270,15 +291,18 @@ It records no entry of its own, the write's is `update-vendor-info`'s.
 Default: Editor.
 
 Asked by:
+
 - `POST /markets/:id/assignment`
 - the three `/markets/:id/placements` writes
 - a plan write that changes the assignment rules
+- a start from a CSV whose plan changes the assignment rules (`POST /markets/:id/csv-proposal/confirm`)
 
 ### Record a payment (`record-payment`)
 
 Default: Editor.
 
 Asked by:
+
 - `POST /markets/:id/payments/<email>` ([payments](../data/payments.md))
 
 ### Change the amount owed (`change-owed`)
@@ -286,6 +310,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - `PUT` and `DELETE /markets/:id/payments/<email>/owed/<date>`
 - a free that takes the seat off what the vendor owes (`DELETE /markets/:id/placements` with `deductOwed`, which asks the Assignment row too)
 
@@ -294,6 +319,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - `POST /markets/:id/payments/<email>/refunds`
 - `PUT` and `DELETE /markets/:id/payment-entries/<id>`
 
@@ -302,6 +328,7 @@ Asked by:
 Default: Editor.
 
 Asked by:
+
 - `POST` and `DELETE /markets/:id/attendance`
 
 ### Connect Discord and give roles (`connect-discord`)
@@ -309,6 +336,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - the Discord card's routes ([the Discord connection](discord.md)):
   - `POST /markets/:id/discord/authorization`
   - `POST` and `DELETE /markets/:id/discord/connection`
@@ -322,6 +350,7 @@ Asked by:
 Default: Admin.
 
 Asked by:
+
 - `/markets/:id/roles` writes on an Editor or a Viewer
 - taking any role, an Admin's or the owner's too, first, beside the Admin row
 - whom the market read names the organization's people to in `peopleWithAccess`, beside the organization's own people (E38/F12/S01)
@@ -331,6 +360,7 @@ Asked by:
 Default: Owner, fixed.
 
 Asked by:
+
 - `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given)
 - taking any role, an Editor's or a Viewer's too, first, beside the Editor-and-Viewer row
 
@@ -339,6 +369,7 @@ Asked by:
 Default: Owner, fixed.
 
 Asked by:
+
 - `DELETE /markets/:id`
 
 ### Change this table (`change-the-table`)
@@ -346,6 +377,7 @@ Asked by:
 Default: Owner, fixed.
 
 Asked by:
+
 - `PUT` and `DELETE /markets/:id/permissions/<action>` (`set_permission`, `reset_permission`)
 - `DELETE /markets/:id/permissions` (`reset_permissions`)
 
@@ -390,13 +422,13 @@ It sets and unsets exactly the rows that change, so a row this build cannot read
 `get_market_for_user` resolves the person's role once, as `refusal` resolves it, and asks each row `role_refusal` of it, so the answer is the writes' and the role is resolved once rather than once per row; where the archived rule refuses the row's writes its words come first, as the screens always said them, so the yes and no are the writes' and only who is told which reason first differs.
 `ARCHIVED_STILL_TAKES` lists the rows an archived market still takes: reading it and its history and exporting it, giving and taking roles, and deleting it; every other row, one added later included, is refused on an archived market.
 `TestEveryRowOfTheTable` in [`back-end/tests/test_an_archive_is_read_only.py`](../../../back-end/tests/test_an_archive_is_read_only.py) sends one write of every row to an archived market, and fails when a row outside the set is not refused in the archived rule's words or a row inside it is; the phase move is refused there by the transition table, since no move leaves `archived`.
-The markets list serves the same answers, through the same function, for each entry's role, so a card offers Manage to whoever may read the market, where everyone reads the table (E39/F01/S04); it does not ask whether the person is a chosen reviewer, so a chosen Viewer's card says the giving row refuses them, which no card reads.
+The markets list serves the same answers, through the same function, for each entry's role and whether the reader is chosen, so a card offers Manage to whoever may read the market, where everyone reads the table (E39/F01/S04), and answers the giving row as the market's page does.
 
 **`readOnlyReason` is set when the market is archived, or none of the table's changing rows is the person's** (`read_only_reason`; reading, reading the history and exporting change nothing, `READING_ROWS`, and neither does `review-when-chosen` by itself, `CHANGING_NOTHING`; a chosen reviewer's giving row does), in the words "You can view this market but not change it."; [the market frame](market-frame.md) says it once on every page.
 
 **The rules of a market's life the rows carried are served on their own**: `verdictsSettledReason` (why the review has closed, and what to do instead), `addingVendorsReason` (a vendor is added from the assignment on) and `publishWaitsReason` (results wait for the allocation); a screen offers the action when neither its row nor its rule refuses.
-The role-shaped reasons the screens read before (`adminActionsReason`, `verdictLockReason`, `addVendorReason`, `publishResultsReason`) and the person's `user_role` are deprecated: no screen reads them, but the back end deploys before the front end and a tab keeps its bundle until it reloads, and an old bundle takes a missing reason for "allowed".
-So the read serves them for one more release, each its row's answer and then the rule it carried (`deprecated_screen_reasons`; `adminActionsReason` is the Import applications row's, since the old bundle says its words only on the import screens), and the next release removes them; `change_refusal`, `admin_actions_refusal` and `add_vendor_refusal` are gone.
+The role-shaped reasons the screens read before (`adminActionsReason`, `verdictLockReason`, `addVendorReason`, `publishResultsReason`) and the person's `user_role` are gone from the read and the markets list: release 1.1.0 served them for a tab still on an older bundle, which took a missing reason for "allowed", and the release after it serves none of them; `change_refusal`, `admin_actions_refusal` and `add_vendor_refusal` are gone too.
+`test_the_read_serves_no_old_reason_and_no_role` in [`back-end/tests/test_every_screen_asks_the_table.py`](../../../back-end/tests/test_every_screen_asks_the_table.py) fails when the read serves one again.
 `role_emails`, the addresses of the market's own roles, is deprecated the same way: no screen reads it now, but an old bundle's Manage market lists the market's roles by it, so the read serves it one more release and the next removes it (E38/F12/S01).
 
 **A screen asks through [`front-end/src/utils/marketActions.ts`](../../../front-end/src/utils/marketActions.ts)**: `MarketAction` names every row by its id, `actionRefusal(market, action)` is the answer and `mayTake(market, action)` the same as a bool, and a missing answer refuses, so a read that predates a row offers nothing.

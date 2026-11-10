@@ -225,7 +225,7 @@ async function createMarket(
   intakeMode: 'csv' | 'form' = 'form',
   organizationId?: string,
 ): Promise<SeededMarket> {
-  const orgId = organizationId ?? (await ensureTestOrgAuthenticated(api, backend, email));
+  const orgId = organizationId ?? (await ensureTestOrgAuthenticated(api, backend));
   const res = await api.post(`${backend}/markets`, {
     headers: { 'Content-Type': 'application/json' },
     data: {

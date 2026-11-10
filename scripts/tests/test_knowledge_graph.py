@@ -509,18 +509,30 @@ def test_a_covered_by_listed_one_test_a_line_in_order_passes(repo, capsys):
     assert (code, lines) == (0, [])
 
 
+def test_a_covered_by_with_prettiers_blank_line_before_its_list_passes(repo, capsys):
+    """Prettier writes one blank line between a paragraph's last line and the list after it."""
+    commit(repo, with_a_node("flow", SORTED_COVERED_BY.replace("Covered by:\n", "Covered by:\n\n")))
+    code, lines = errors(capsys, "check")
+    assert (code, lines) == (0, [])
+
+
 @pytest.mark.parametrize(
     "body, line",
     [
         (INLINE_COVERED_BY, 8),
         ("Covered by:\n- `the-judge.spec.ts`\n- `a-move-is-judged.spec.ts`\n", 10),
         ("Covered by:\n- `the-judge.spec.ts`\n- the sweeps at 390px\n", 10),
-        ("Covered by:\n\n- `the-judge.spec.ts`\n", 8),
+        ("Covered by:\n\n- `the-judge.spec.ts`\n- `a-move-is-judged.spec.ts`\n", 11),
+        ("Covered by:\n\n\n- `the-judge.spec.ts`\n", 8),
         ("Covered by:\nThe judge's spec.\n", 8),
+        ("Covered by:\n\nThe judge's spec.\n", 8),
+        ("Covered by:\n\n", 8),
         ("Covered by:\n- `the-judge.spec.ts`\nThe rule it obeys.\n", 10),
+        ("Covered by:\n\n- `the-judge.spec.ts`\nThe rule it obeys.\n", 11),
     ],
-    ids=["inline", "unsorted", "an item with no code span", "a blank line before the list", "no list",
-         "a line run on to the last item"],
+    ids=["inline", "unsorted", "an item with no code span", "unsorted after a blank line",
+         "two blank lines before the list", "no list", "a blank line and no list", "a blank line ending the file",
+         "a line run on to the last item", "a line run on after a blank line"],
 )
 def test_a_covered_by_written_another_way_is_refused(repo, capsys, body, line):
     commit(repo, with_a_node("flow", body))

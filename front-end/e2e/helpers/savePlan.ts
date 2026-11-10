@@ -16,7 +16,7 @@ export async function savePlan(
   intakeMode?: 'csv' | 'form',
 ): Promise<void> {
   const res = await request.put(`${baseURL}/markets/${encodeURIComponent(marketId)}/plan`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+    headers: { 'Content-Type': 'application/json' },
     data: intakeMode ? { setupObject, intakeMode } : { setupObject },
   });
   if (!res.ok()) {

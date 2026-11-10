@@ -15,7 +15,7 @@ import { seedAssignedMarket } from './helpers/seedAssignedMarket';
  */
 async function archive(request: APIRequestContext, marketId: string) {
   const res = await request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+    headers: { 'Content-Type': 'application/json' },
     data: { toPhase: 'archived' },
   });
   expect(res.ok(), await res.text()).toBeTruthy();

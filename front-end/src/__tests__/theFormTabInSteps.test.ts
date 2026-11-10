@@ -12,6 +12,9 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router';
 import { defineComponent, h } from 'vue';
 
 import MarketFormTab from '@/components/market/MarketFormTab.vue';
+import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
+import FormBuilder from '@/components/application/FormBuilder.vue';
+import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
 import type { ApplicationForm, Market, SetupObject } from '@/assets/types/datatypes';
 import { answersRefusing, VIEWER_ANSWERS } from './support/servedAnswers';
 
@@ -168,7 +171,7 @@ describe('the form tab is a sequence of steps', () => {
     await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
 
     const edited = { fields: [{ ...FORM.fields[0], label: 'Stall name' }] };
-    wrapper.getComponent('[data-testid="stub-builder"]').vm.$emit('update:applicationForm', edited);
+    wrapper.getComponent(FormBuilder).vm.$emit('update:applicationForm', edited);
     await wrapper.get('[data-testid="form-step-preview"]').trigger('click');
     expect(wrapper.get('[data-testid="stub-preview"]').text()).toBe('Stall name');
     await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
@@ -185,7 +188,7 @@ describe('a save on any step says so', () => {
     expect(shown(wrapper, 'form-builder-save-button')).toBe(false);
 
     wrapper
-      .getComponent('[data-testid="stub-essentials"]')
+      .getComponent(EssentialFieldsPanel)
       .vm.$emit('toggleUnasked', 'essential_section_ranking', true);
     await flushPromises();
 
@@ -208,7 +211,7 @@ describe("a Google Form market's steps (E33/F01/S02)", () => {
     const wrapper = await mountTab({ intakeMode: 'csv' } as Partial<Market>);
     await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
 
-    expect(wrapper.getComponent('[data-testid="stub-builder"]').props('forApplicants')).toBe(false);
+    expect(wrapper.getComponent(FormBuilder).props('forApplicants')).toBe(false);
   });
 
   it("leaves a form market's four steps as they were", async () => {
@@ -216,7 +219,7 @@ describe("a Google Form market's steps (E33/F01/S02)", () => {
 
     expect(wrapper.findAll('[data-testid="form-steps"] li')).toHaveLength(4);
     await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
-    expect(wrapper.getComponent('[data-testid="stub-builder"]').props('forApplicants')).toBe(true);
+    expect(wrapper.getComponent(FormBuilder).props('forApplicants')).toBe(true);
   });
 });
 
@@ -254,7 +257,7 @@ describe('a locked form opens on the review setup (E33/F01/S03)', () => {
 
     await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
     expect(wrapper.get('[data-testid="form-builder-lock-banner"]').text()).toBe(LOCKED);
-    expect(wrapper.getComponent('[data-testid="stub-builder"]').props('readonly')).toBe(true);
+    expect(wrapper.getComponent(FormBuilder).props('readonly')).toBe(true);
     expect(shown(wrapper, 'form-builder-save-button')).toBe(false);
   });
 
@@ -279,7 +282,7 @@ describe('a person who may only read (E33/F01/S03, review)', () => {
 
     expect(currentStep(wrapper)).toContain('Review setup');
     expect(shown(wrapper, 'form-builder-lock-banner')).toBe(false);
-    expect(wrapper.getComponent('[data-testid="stub-highlights"]').props('disabled')).toBe(true);
+    expect(wrapper.getComponent(ReviewHighlights).props('disabled')).toBe(true);
   });
 
   it("reads the questions as read-only, and is told only the form's own lock", async () => {
@@ -288,7 +291,7 @@ describe('a person who may only read (E33/F01/S03, review)', () => {
     await open.get('[data-testid="form-step-questions"]').trigger('click');
 
     expect(shown(open, 'form-builder-lock-banner')).toBe(false);
-    expect(open.getComponent('[data-testid="stub-builder"]').props('readonly')).toBe(true);
+    expect(open.getComponent(FormBuilder).props('readonly')).toBe(true);
 
     const locked = await mountTab({
       applicationFormLockReason: LOCKED,
@@ -302,7 +305,7 @@ describe('a person who may only read (E33/F01/S03, review)', () => {
   it('leaves Review setup live for someone who may change the market', async () => {
     const wrapper = await mountTab({ applicationFormLockReason: 'Locked.' });
 
-    expect(wrapper.getComponent('[data-testid="stub-highlights"]').props('disabled')).toBe(false);
+    expect(wrapper.getComponent(ReviewHighlights).props('disabled')).toBe(false);
   });
 });
 

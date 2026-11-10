@@ -116,9 +116,7 @@ test('a settled market reads its rules as a record, one answer to a line', async
   request,
 }) => {
   const seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-  const market = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
+  const market = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`);
   const { market: stored } = (await market.json()) as {
     market: { setupObject: Record<string, unknown> };
   };
@@ -134,13 +132,10 @@ test('a settled market reads its rules as a record, one answer to a line', async
     ],
   });
   // Run on these rules, so the run is current, and tell the vendors before going live (ADR 0022).
-  const ran = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/assignment`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
+  const ran = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/assignment`);
   expect(ran.ok(), await ran.text()).toBeTruthy();
   await publishResults(request, BACKEND_URL, TEST_USER.email, seed.marketId);
   const published = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
     data: { toPhase: 'market_days' },
   });
   expect(published.ok(), await published.text()).toBeTruthy();

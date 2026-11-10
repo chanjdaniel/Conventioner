@@ -47,7 +47,7 @@ async function seedMarketWithAForm(
 ): Promise<{ marketId: string; market: unknown }> {
   await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
   const orgId = await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-  const headers = { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email };
+  const headers = { 'Content-Type': 'application/json' };
 
   const created = await request.post(`${BACKEND_URL}/markets`, {
     headers,
@@ -142,9 +142,7 @@ test.describe('What a reviewer reads first', () => {
     }
 
     // It saved, rather than only ticking a box: the market itself carries it now.
-    const response = await page.request.get(`${APP_API}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const response = await page.request.get(`${APP_API}/markets/${marketId}`);
     const body = (await response.json()) as { market: { reviewHighlights?: string[] } };
     expect(body.market.reviewHighlights).toEqual(['what_you_sell', 'essential_full_name']);
 

@@ -5,9 +5,9 @@
  *
  * Each of those pages drew its own card at a fixed `width: 600px`, centred in a column with no
  * gutter. On a 390px phone the page scrolled sideways by 98px, and the card's left edge, where
- * every field and tab starts, sat 112px off-screen, where no scrolling reaches. The door on market day is sometimes a phone, and its attendance page is
- * behind sign-in, so the way in has to fit one too. Owning the card here means the next account
- * page cannot choose a width of its own.
+ * every field and tab starts, sat 112px off-screen, where no scrolling reaches. The door on market
+ * day is sometimes a phone, and its attendance page is behind sign-in, so the way in has to fit
+ * one too. Owning the card here means the next account page cannot choose a width of its own.
  */
 </script>
 

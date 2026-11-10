@@ -14,6 +14,7 @@ sources:
   - E34/F05/S01
   - E27/F01/S01
   - T207
+  - T263
 ---
 
 # What an assignment was made from
@@ -31,7 +32,8 @@ Since T207 a run also records the review it stands on, so Back to review makes t
   The review is the count itself, as a string: how many times the market's [phase record](phase-record.md) has entered the review stage.
 - `changed_since_run(market)`: the groups that differ now from `assignmentObject.madeFrom`, in `GROUPS` order.
 - `review_reopened_since_run(market)`: whether the `review` group alone differs; the go-live guard `assignment_after_review` asks it ([the guards](guards.md)).
-- `assignment_rules(plan)`: the rules in one comparable shape, which the plan write also reads to tell a change to settled rules from a restatement ([the assignment rules close with the assignment](../../business/rules/the-assignment-rules-close-with-the-assignment.md)).
+- `assignment_rules(plan)`: the rules in one comparable shape, which the plan write also reads to tell a change to the rules from a restatement: to settled rules, which it refuses ([the assignment rules close with the assignment](../../business/rules/the-assignment-rules-close-with-the-assignment.md)), and to any rules, which asks the Assignment row ([the market's actions](market-actions.md)).
+  A market with no plan yet holds the rules a new plan starts with, no priority and `AssignmentOptionObject`'s defaults, so a first plan that keeps them changes no rule; no run is made without a plan, so no stored fingerprint read the old shape.
 
 ## Sharp edges
 
