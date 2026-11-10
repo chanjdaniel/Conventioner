@@ -10,7 +10,7 @@ describes:
   - back-end/app.py#transition_market
   - front-end/src/components/BlockerPanel.vue
   - front-end/src/utils/blockerLink.ts
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - wayfinding/readable-journey/01
   - E03/F03
