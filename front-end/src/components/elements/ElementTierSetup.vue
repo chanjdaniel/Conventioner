@@ -110,7 +110,6 @@ const dragOptions = computed(() => ({
   chosenClass: 'sortable-ghost',
   dragClass: 'sortable-ghost',
   handle: '.drag-item',
-  // filter: '.click-item',
   forceFallback: false,
   fallbackOnBody: false,
 }));
@@ -255,20 +254,6 @@ h3 {
   visibility: hidden;
 }
 
-/* .row-item {
-    display: flex;
-    flex-direction: row;
-
-    padding-left: 5px;
-    padding-right: 5px;
-    justify-content: space-between;
-    align-items: center;
-
-    position: relative;
-
-    border-right: 1px solid var(--mm-border);
-} */
-
 /* A warning, not a failure: amber on the market's own beige, at the size of a note rather than
    an error. An organizer mid-build has one constantly. */
 .tier-no-tables {
@@ -316,14 +301,6 @@ h3 {
   align-items: center;
 
   gap: var(--space-2);
-}
-
-.click-item {
-  cursor: pointer;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
 }
 
 .text-item {

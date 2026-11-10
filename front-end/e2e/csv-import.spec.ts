@@ -117,6 +117,8 @@ test.describe('CSV vendor import', () => {
 
     // An import writes applications into one market, and the page used to name none of them.
     await expect(importPage.targetMarket).toContainText(seed.marketName);
+    // Its name is bold: a bare `strong` is 600, not the reset's 400 (T200).
+    await expect(importPage.targetMarket.locator('strong')).toHaveCSS('font-weight', '600');
     await expect(importPage.dropZone).toBeVisible();
 
     await importPage.chooseFile(CSV);

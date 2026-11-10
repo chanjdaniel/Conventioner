@@ -292,10 +292,6 @@ function toggle(condition: AnswerCondition, answer: string, meets: boolean) {
   color: var(--mm-black);
 }
 
-.condition-question strong {
-  font-weight: 600;
-}
-
 .condition-head .btn {
   margin-left: auto;
 }

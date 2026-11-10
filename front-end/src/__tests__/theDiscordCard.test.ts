@@ -349,6 +349,8 @@ describe('a market connected, for an Admin', () => {
     expect(find(wrapper, 'discord-save-error').text()).toBe(
       'That role is not one Conventioner can give.',
     );
+    // Announced, as the invite link's refusal is: the choice it answers is still in focus (T210).
+    expect(find(wrapper, 'discord-save-error').attributes('role')).toBe('alert');
     expect(find(wrapper, 'discord-invite-error').exists()).toBe(false);
     expect(wrapper.emitted('changed')).toBeUndefined();
   });

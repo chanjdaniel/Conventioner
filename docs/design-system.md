@@ -171,6 +171,7 @@ No `font-size` in `front-end/src` is smaller.
 
 **Weight does not inherit here.**
 The global reset in `base.css` gives every element `font-weight: 400`, so a span inside a 600 cell is 400 until it says otherwise.
+The one exception is bold text: `base.css` gives `strong` and `b` 600 after the reset, so a bare `<strong>` is bold without a rule of its own.
 
 ## Spacing
 
@@ -350,6 +351,10 @@ On the dark ground, where a dark shade is lost, it is `--edge-shade-on-dark`, wh
 `base.css` remains the owner and its existing comments remain authoritative: **a token whose name says it carries text must reach WCAG AA (4.5:1) on the grounds it appears on**, and `src/__tests__/contrast.test.ts` asserts it.
 WCAG AA is the product's stated standard, held over the whole palette rather than the colours someone happened to measure; raising the muted grey changed the texture of every screen, and that was accepted (wayfinding/readable-journey/map).
 The product has one theme, light: nothing in `front-end/src` answers `prefers-color-scheme`, so a pair is held on the grounds it is drawn on, white and the beige of a hovered row among them, and a dark theme, when there is one, is a palette of its own to check.
+
+**A refusal reads in red (`--mm-red`), whatever the card.**
+A line saying why something was not done, a save the server refused or a check that failed, takes the red the Vendors row's refusal reads in; yellow is a warning, as the Discord card's role above the bot's is, and never a refusal (T263).
+`aRefusalReadsRed.test.ts` holds the Discord card's refusals and Market Setup's failed plan save to the Vendors row's red.
 
 ### The contrast contract
 

@@ -213,7 +213,6 @@ const NOBODY: Record<string, string> = {
 
 .stats-headline strong {
   font-size: var(--text-lg);
-  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -253,7 +252,6 @@ const NOBODY: Record<string, string> = {
 
 .stats-total strong {
   font-size: var(--text-lg);
-  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 

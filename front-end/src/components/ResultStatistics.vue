@@ -66,7 +66,6 @@ const groups = computed(() =>
 
 .result-statistics-total strong {
   font-size: var(--text-lg);
-  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 

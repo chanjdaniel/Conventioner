@@ -185,11 +185,7 @@ function onTabKey(event: KeyboardEvent) {
   void nextTick(() => tabButtons.value[held.indexOf(next)]?.focus());
 }
 
-// While "Update info" is open, Escape is the dialog's: one press closes one thing.
-useEscapeToClose(
-  () => open.value && !updating.value,
-  () => emit('close'),
-);
+useEscapeToClose(open, () => emit('close'));
 
 /**
  * The drawer is modal, so the rest of the page is out of play while it is open - to the keyboard as
@@ -470,7 +466,10 @@ watch(
   position: fixed;
   top: 0;
   right: 0;
+  /* `dvh`, since a phone's browser bar would otherwise cover the panel's foot; `vh` first for a
+     browser that has no `dvh`. */
   height: 100vh;
+  height: 100dvh;
   width: min(480px, 92vw);
   background: white;
   box-shadow: var(--shadow-card);

@@ -186,10 +186,6 @@ defineProps<{
   font-size: var(--text-xs);
 }
 
-.import-row-reason strong {
-  font-weight: 600;
-}
-
 /* A phone has no room to indent the answers under the name: they take the row's width. */
 @media (width <= 640px) {
   .import-row-body {

@@ -68,6 +68,16 @@ describe('the card', () => {
     ]);
   });
 
+  it('is described by its caption, drawn above the scroller so it stays in view (T217)', () => {
+    const wrapper = card(plan());
+
+    const id = wrapper.get('[data-testid="pricing-table"]').attributes('aria-describedby')!;
+    const caption = document.getElementById(id);
+    expect(caption?.textContent?.trim()).toBe('A full table for one market day, in CAD');
+    expect(caption?.closest('[data-testid="pricing-frame"]')).toBeNull();
+    wrapper.unmount();
+  });
+
   it('says to add a tier when the plan has none', () => {
     const wrapper = card(plan(null, []));
 
