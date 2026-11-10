@@ -84,6 +84,7 @@ def update_vendor_info(
     updates: Dict[str, AnswerUpdate] = {}
     cleared = []
     kept: Dict[str, Any] = {}
+    kept_over: Dict[str, Any] = {}
     matched: Dict[str, Any] = {}
     for key, value in values.items():
         if value == before.get(key):
@@ -98,6 +99,7 @@ def update_vendor_info(
                     cleared.append(key)
                 else:
                     kept[key] = value
+                    kept_over[key] = theirs.get(key)
                     updates[key] = AnswerUpdate(
                         value=value, by=updater, at=now, over=theirs.get(key))
             continue
@@ -127,7 +129,7 @@ def update_vendor_info(
         detail=lambda: _with_rules(
             History.changes({key: before.get(key) for key in moved},
                             {key: after.get(key) for key in moved}),
-            kept, matched, verdicts),
+            kept, kept_over, matched, verdicts),
     )
     # One the rules returned to open is an arrival, dealt to the next reviewer (E38/F07/S03).
     dealt = ReviewTeam.deal_arrivals(market, updater.email, Actions.UPDATE_VENDOR_INFO) \
@@ -162,15 +164,18 @@ def _over(update: Any) -> Any:
 
 
 def _with_rules(
-    changed, kept: Dict[str, Any], matched: Dict[str, Any], verdicts: RejectionRules.Judged,
+    changed, kept: Dict[str, Any], kept_over: Dict[str, Any], matched: Dict[str, Any],
+    verdicts: RejectionRules.Judged,
 ):
-    """The answers that changed, the updates kept over what the vendor wrote since, the updates
-    taken away because what they wrote since matches them, and whether the rules rejected the
-    application, or returned it to undecided, as they landed; a save that did none of these records
-    nothing."""
+    """The answers that changed, the updates kept over what the vendor wrote since, and what they
+    wrote that each was kept over (a map of its own, so an entry from before it still reads), the
+    updates taken away because what they wrote since matches them, and whether the rules rejected
+    the application, or returned it to undecided, as they landed; a save that did none of these
+    records nothing."""
     if not changed and not kept and not matched:
         return None
-    return {**(changed or {}), **({"kept": kept} if kept else {}),
+    return {**(changed or {}),
+            **({"kept": kept, "kept_over": kept_over} if kept else {}),
             **({"matched": matched} if matched else {}),
             "rejected_by_rules": bool(verdicts.rejected),
             "returned_by_rules": bool(verdicts.returned)}

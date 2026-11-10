@@ -12,6 +12,7 @@ import {
   CHANGED_SINCE,
   KEEPS_ON_SAVE,
   MATCHES_ON_SAVE,
+  NOW_MATCHES,
   sameAnswer,
   updatedLine,
 } from '@/utils/answerUpdates';
@@ -562,6 +563,19 @@ describe('the words beside an updated answer', () => {
 
   it('say when their answer changed since', () => {
     expect(CHANGED_SINCE).toBe('Their answer changed since your update.');
+  });
+
+  it('say when their answer changed to the update itself, as the dialog does', () => {
+    const note = mount(AnswerUpdateNote, {
+      props: {
+        update: { ...UPDATE, theyWrote: 'Ember Ceramics ', changedSince: true },
+        testid: 'note',
+      },
+    });
+
+    expect(note.get(testid('note-changed')).text()).toBe('Their answer now matches your update.');
+    expect(MATCHES_ON_SAVE.startsWith(`${NOW_MATCHES} `)).toBe(true);
+    expect(NOW_MATCHES).toBe('Their answer now matches your update.');
   });
 });
 
