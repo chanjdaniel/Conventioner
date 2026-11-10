@@ -66,6 +66,7 @@ The commit message format is:
 
 Release management is handled by [release-please](https://github.com/googleapis/release-please) (GitHub Action `googleapis/release-please-action`, v5) via `.github/workflows/release-please.yml`.
 That workflow grants no permissions at its top level; its one job gets `contents: write` (the release commit and its tag), `pull-requests: write` (the Release PR) and `issues: write` (the Release PR's labels), and uses the job's own token, the action's default.
+It sets no concurrency limit, so a release run is never cancelled part-way; `main` moves only by hand, so its runs do not pile up.
 
 The release and deploy workflows reference each action by its full commit SHA with the version in a comment beside it (`@<sha> # v7.0.1`), so a moved tag cannot change what they run; Dependabot's `github-actions` updater bumps the SHA and the comment together.
 No checkout in them keeps git credentials (`persist-credentials: false`).

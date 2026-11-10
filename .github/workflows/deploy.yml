@@ -40,6 +40,7 @@ env:
 
 jobs:
   deploy:
+    name: deploy
     # Only `main` is production; a run started from any other branch deploys nothing.
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest

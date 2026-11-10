@@ -9,6 +9,13 @@ on:
 permissions:
   contents: read
 
+# A push to a pull request's branch makes the run of its earlier head moot, so that run is
+# cancelled. A push to dev or main never cancels one: each commit there keeps the checks a
+# promotion reads, so its group is its own commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # The one place zizmor's version and checksum live, for both zizmor jobs: a bump moves them together.
 # actionlint's sit beside them, so a bump of either is one place too.
 env:
@@ -17,8 +24,11 @@ env:
   ACTIONLINT_VERSION: 1.7.12
   ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
 
+# Each job's `name:` is its check's name, which branch protection requires a check by: renaming a
+# required job drops its check from the required list.
 jobs:
   backend:
+    name: backend
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -45,6 +55,7 @@ jobs:
   # The docs are a graph of nodes that describe the code (scripts/knowledge_graph.py). This job
   # checks the graph itself and is a required check on dev.
   knowledge-graph:
+    name: knowledge-graph
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -69,6 +80,7 @@ jobs:
   # the next 10 PRs from 2026-10-22 a finding shows red without blocking the merge, then it is
   # re-judged.
   knowledge-graph-drift:
+    name: knowledge-graph-drift
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -89,6 +101,7 @@ jobs:
   # anything leaves the PC (docs/implementation/conventions/security-invariants.md). This job only
   # keeps a PR that got past them from merging.
   real-data:
+    name: real-data
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     env:
@@ -117,6 +130,7 @@ jobs:
   # fails the job; an accepted one is ignored on the line zizmor reports, with its audit and the
   # reason after it.
   zizmor:
+    name: zizmor
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -137,6 +151,7 @@ jobs:
   # limit or an outage there must not block a merge. Pull requests only, with the run's read-only
   # token.
   zizmor-online:
+    name: zizmor-online
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -161,6 +176,7 @@ jobs:
   # through the shellcheck the runner has: what zizmor, which audits for security, does not read.
   # Every finding fails the job.
   actionlint:
+    name: actionlint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -177,6 +193,7 @@ jobs:
       - run: actionlint .github/workflows/*.yml
 
   frontend-unit:
+    name: frontend-unit
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -194,6 +211,7 @@ jobs:
       - run: npm run test:unit
 
   frontend-lint-and-types:
+    name: frontend-lint-and-types
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -245,6 +263,7 @@ jobs:
         run: npm run no-eval
 
   docker-build:
+    name: docker-build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -357,6 +376,7 @@ jobs:
   # The one check to require: it passes only when every shard did, so branch protection names a
   # single job whatever the shard count becomes.
   e2e:
+    name: e2e
     if: always()
     needs: e2e-shard
     runs-on: ubuntu-latest

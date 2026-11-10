@@ -41,6 +41,8 @@ What each suite covers is [TESTING.md](../../TESTING.md); how a commit reaches p
 [`.github/workflows/test.yml`](../../../.github/workflows/test.yml) runs on pushes and pull requests to `dev` and `main`.
 Its token is read-only (`permissions: contents: read`), every action is pinned by its full commit SHA with the version in a comment beside it, which [Dependabot](#dependabot) bumps together, and no checkout keeps its git credentials (`persist-credentials: false`), since no job pushes.
 No `${{ }}` expression is written inside a `run:` script: a value reaches the shell through the step's `env:` and is read as a variable.
+A push to a pull request's branch cancels the run of its earlier head (`concurrency`); a push to `dev` or `main` never cancels one, since each commit there keeps the checks a promotion reads.
+Every job but `e2e-shard` (whose checks are `e2e shard <n>/6`) sets `name:` to its id, the name branch protection requires its check by, so renaming a job drops a required check.
 
 | Job | Runs |
 | --- | --- |
