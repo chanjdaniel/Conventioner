@@ -7,6 +7,8 @@ describes:
   - release-please-config.json
   - back-end/app.py#check_public_endpoint_defenses
   - front-end/vite.config.ts#assertCaptchaSiteKey
+  - front-end/vite.config.ts#assertApiHost
+  - front-end/vite.config.ts#assertNoLocalHatchOnVercel
   - back-end/app.py#healthz
   - front-end/vite.config.ts#buildCommit
   - scripts/deploy_proof.py
@@ -249,20 +251,22 @@ Vercel exposes `VERCEL` and `VERCEL_ENV` to the runtime only while the back-end 
 Organizer signup passes it to reCAPTCHA as the `remoteip` hint, which only started mattering when `RECAPTCHA_SECRET_KEY` became a boot requirement: before, a deployment without a secret took the dev-bypass path and no token ever reached Google.
 The applicant's and the organizer's sign-in rate limits (`back-end/sign_in_limits.py`) count each caller by it, so a wrong hop count would put every applicant, and every organizer, behind one caller's limit.
 
-### The front end has one requirement too, and it is the other half of the reCAPTCHA pair
+### The front end has two requirements: the back end's address, and the other half of the reCAPTCHA pair
 
 | Variable                  | Where it is set                                                                                                                                                                                                                                                                          | What an unset value would do                                                                                                                                                                                                                                                                               |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VITE_FLASK_HOST`         | The **front end's build environment** (Vercel: the front-end project's environment variables). The back end's address, `https://api.conventioner.io` in production.                                                                                                                      | Every API request would go to the front end's own origin, whose rewrite answers every path with `index.html` and 200, so nothing works on a deployment that looks healthy.                                                                                                                                 |
 | `VITE_RECAPTCHA_SITE_KEY` | The **front end's build environment** (Vercel: the front-end project's environment variables). The site key of the _same_ reCAPTCHA property as the back end's `RECAPTCHA_SECRET_KEY` - the two are a matched pair, and a key from another property fails exactly as an absent one does. | The bundle would carry no site key, so it has no captcha to solve and sends a placeholder token instead. The back end verifies that token against Google, Google never issued it, and `POST /register` answers 400 - every organizer signup, on a deployment that looks healthy and logs nothing about it. |
 
 Making `RECAPTCHA_SECRET_KEY` a boot requirement is what makes this one load-bearing.
 Before, a back end with no secret took its dev-bypass path and waved the placeholder token through, so a front end with no site key worked.
 It cannot now: the back end refuses to boot without a real secret, and a real secret rejects a token Google did not issue.
 
-It is a **build-time** variable, not a runtime one - Vite bakes it into the bundle - so setting it after the fact does nothing until the front end is rebuilt.
-`vite build` refuses to produce a bundle without it (`assertCaptchaSiteKey` in [`front-end/vite.config.ts`](../front-end/vite.config.ts)), for the same reason the back end refuses to boot without its half: the alternative is a deployment that ships, looks fine, and cannot register a single organizer.
+Both are **build-time** variables, not runtime ones - Vite bakes them into the bundle - so setting one after the fact does nothing until the front end is rebuilt.
+`vite build` refuses to produce a bundle without either (`assertCaptchaSiteKey` and `assertApiHost` in [`front-end/vite.config.ts`](../front-end/vite.config.ts)), for the same reason the back end refuses to boot without its half: the alternative is a deployment that ships, looks fine, and cannot register a single organizer, or cannot reach its back end at all.
 The one exemption is `VITE_ALLOW_INSECURE_LOCAL_DEV=true`, which `front-end/.env.example` and `docker-compose.yml` set and which warns on every build it lets through.
-It must never be set on a deployed build.
+It must never be set on a deployed build, and a Vercel build refuses it outright (`assertNoLocalHatchOnVercel`): when Vercel's own `VERCEL` is set in the build's environment and the hatch is `true`, `vite build` fails, whatever else is set.
+Vercel sets `VERCEL` in a build only while the front-end project's "Enable access to System Environment Variables" setting is ticked (vercel.com/docs/environment-variables/system-environment-variables, read 2026-11-10), so the refusal is armed only with that box ticked.
 
 ### Optional: hosted TypeSafe
 

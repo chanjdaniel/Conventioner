@@ -20,6 +20,7 @@ describes:
   - back-end/tests/test_the_request_origin_check.py
   - back-end/tests/test_security_headers.py
   - front-end/vite.config.ts#assertCaptchaSiteKey
+  - front-end/vite.config.ts#assertNoLocalHatchOnVercel
   - front-end/vite.config.ts#deployedHeaders
   - front-end/vercel.json
   - front-end/src/__tests__/securityHeaders.test.ts
@@ -127,6 +128,9 @@ A placeholder that is truthy is worse than a blank, because a check that asks on
 A bundle with no site key sends a placeholder token ([`front-end/src/utils/captcha.ts`](../../../front-end/src/utils/captcha.ts)), which a back end with a real secret hands to Google, who never issued it, so every signup answers 400 on a deployment that looks healthy.
 So `vite build` refuses a bundle without it ([`assertCaptchaSiteKey`](../../../front-end/vite.config.ts)), with the escape hatch of the same name, `VITE_ALLOW_INSECURE_LOCAL_DEV`, under which the bundle warns and sends the placeholder, which only a back end with `DISABLE_CAPTCHA` accepts.
 A keyless bundle built without the hatch throws rather than sending it.
+**A Vercel build refuses the hatch outright** ([`assertNoLocalHatchOnVercel`](../../../front-end/vite.config.ts)): when Vercel's `VERCEL` is set non-blank in the build's process environment and `VITE_ALLOW_INSECURE_LOCAL_DEV` is `true`, `vite build` fails, whatever else is set, since the hatch also lets a bundle build with no API address ([`docs/RELEASING.md`](../../RELEASING.md#the-front-end-has-two-requirements-the-back-ends-address-and-the-other-half-of-the-recaptcha-pair)).
+`VERCEL` is read from the process, not through `loadEnv`, so no `.env` file can set it; the dev server never checks it.
+Vercel sets it in a build only while the project's "Enable access to System Environment Variables" setting is ticked, as the back end's [deployed-host signals](#the-one-escape-hatch) need at runtime, so the front end's refusal is armed only with that box ticked on the front-end project.
 A defense on only one side of the wire is not one.
 Vite's `loadEnv` reads `front-end/.env` and never `.env.example`, so `cp .env.example .env` is a step in `front-end/` too; [STARTUP.md](../../STARTUP.md) names both copies.
 

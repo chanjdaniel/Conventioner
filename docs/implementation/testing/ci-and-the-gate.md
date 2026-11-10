@@ -28,6 +28,7 @@ sources:
   - T234
   - T254
   - T263
+  - T273
 ---
 
 # CI and the gate
@@ -98,7 +99,7 @@ The first timings came from run 42493172818's list-reporter times, before the re
 **CI fails a pull request whose entry JavaScript grows past a set gzipped size.**
 The entry JavaScript is what a first visit downloads before any page paints: the module script `dist/index.html` loads and every chunk it preloads, not a route's lazily loaded chunk.
 [`front-end/scripts/bundle-budget.ts`](../../../front-end/scripts/bundle-budget.ts) (`npm run bundle-budget`, after `npm run build-only`) gzips each at level 9, prints every chunk's size and the total against the limit on every run, and exits non-zero above it.
-It runs in the required `frontend-lint-and-types` job and in `nm-test.sh`, both on a build made with `VITE_ALLOW_INSECURE_LOCAL_DEV=true`, since the bundle is measured and never deployed.
+It runs in the required `frontend-lint-and-types` job and in `nm-test.sh`, both on a build made with `VITE_ALLOW_INSECURE_LOCAL_DEV=true`, since the bundle is measured and never deployed; CI's sets no site key and no `VITE_FLASK_HOST`, and builds by the hatch's two warnings.
 Vue, its router and Pinia are the entry's chunk named `vue` ([`vite.config.ts`](../../../front-end/vite.config.ts)); before T263 the build named that chunk `_plugin-vue_export-helper`, after the Vue plugin's component helper it held.
 
 The limit is `LIMIT_GZIP_BYTES` in that script, set a few KB above the total measured when it landed (101831 B against 105000 B, T76), lowered when the total fell (85740 B against 89000 B, T84, when vuedraggable stopped bringing a second Vue), and raised when growth was meant (89427 B against 92000 B, T161, the request's failure kinds, the 401 interceptor, the sign-in guard's `next` and the shell's notice for a page that could not be opened, which run before any route renders; 92032 B against 95000 B, T200, `AppDialog`'s widths, scrolling body, edge shades and tray).
