@@ -1,11 +1,12 @@
 """The real-MongoDB suite's harness, without a server (``tests/real_mongo/harness.py``).
 
 Which server it runs on and which it refuses, before any connection; the walk that binds every
-back-end handle to a test's database; the boot's index list against ``app.py``; and the two ways
+back-end handle to a test's database; the boot's index list against ``app.py``'s boot; and the two ways
 it makes requests meet.
 """
-import ast
+import functools
 import os
+import runpy
 import subprocess
 import sys
 import threading
@@ -233,36 +234,41 @@ class TestTheHandleWalk:
                                  modules=[module])
 
 
-def _calls_in_the_boot():
-    """Every ``ensure_*`` function ``app.py`` calls at module level or in its boot checks, as
-    ``(module, function)``, the module resolved through ``app.py``'s imports."""
-    tree = ast.parse(open(os.path.join(BACK_END_DIR, "app.py")).read())
-    modules = {}
-    for node in tree.body:
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                modules[alias.asname or alias.name] = alias.name
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            for alias in node.names:
-                modules[alias.asname or alias.name] = (node.module, alias.name)
-    calls = set()
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        func = node.func
-        if isinstance(func, ast.Attribute) and func.attr.startswith("ensure_"):
-            if isinstance(func.value, ast.Name):
-                calls.add((modules.get(func.value.id, func.value.id), func.attr))
-        elif isinstance(func, ast.Name) and func.id.startswith("ensure_"):
-            imported = modules.get(func.id)
-            calls.add(imported if isinstance(imported, tuple) else ("app", func.id))
-    return calls
+def _ensures_the_boot_calls(monkeypatch):
+    """Every ``ensure_*`` function ``app.py``'s boot calls itself, as ``(module, function)`` of its
+    definition: ``app.py`` run afresh, on the suite's fakes, with every back-end module's
+    ``ensure_*`` wrapped to record a call no other recorded call made."""
+    import app  # noqa: F401
+
+    called, depth = set(), []
+
+    def recorder(function):
+        @functools.wraps(function)
+        def recorded(*args, **kwargs):
+            if not depth:
+                called.add((function.__module__, function.__name__))
+            depth.append(function)
+            try:
+                return function(*args, **kwargs)
+            finally:
+                depth.pop()
+        return recorded
+
+    recorders = {}
+    for module in harness.back_end_modules():
+        for attribute, value in list(vars(module).items()):
+            if attribute.startswith("ensure_") and isinstance(value, types.FunctionType):
+                if value not in recorders:
+                    recorders[value] = recorder(value)
+                monkeypatch.setattr(module, attribute, recorders[value])
+    runpy.run_path(os.path.join(BACK_END_DIR, "app.py"), run_name="app_boot_probe")
+    return called
 
 
 class TestTheBootsIndexes:
-    def test_the_list_holds_every_ensure_the_boot_calls(self):
-        calls = _calls_in_the_boot()
-        assert calls, "app.py's boot calls no ensure_* function, so this test reads nothing"
+    def test_the_list_holds_every_ensure_the_boot_calls(self, monkeypatch):
+        calls = _ensures_the_boot_calls(monkeypatch)
+        assert calls, "app.py's boot called no ensure_* function, so this test saw nothing"
         assert calls <= set(harness.BOOT_INDEX_BUILDS), (
             f"app.py's boot calls {sorted(calls - set(harness.BOOT_INDEX_BUILDS))}, which "
             "tests/real_mongo/harness.py's BOOT_INDEX_BUILDS lacks")

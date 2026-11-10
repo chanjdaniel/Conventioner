@@ -211,7 +211,7 @@ def bind_handles(db, monkeypatch, stand_ins: Optional[Dict[Tuple[str, str], Any]
 # --- The boot's indexes --------------------------------------------------------------------------
 
 #: Every ``ensure_*`` function ``app.py``'s boot calls, as ``(module, function)``. A hermetic test
-#: reads ``app.py`` and fails when the boot calls one this lacks.
+#: runs the boot on the fakes and fails when it calls one this lacks.
 BOOT_INDEX_BUILDS: Tuple[Tuple[str, str], ...] = (
     ("api.applications", "ensure_application_indexes"),
     ("api.applicant_auth", "ensure_applicant_login_indexes"),
