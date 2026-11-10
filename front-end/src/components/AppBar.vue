@@ -4,8 +4,9 @@
  * The market bar under it is the market's own navigation; this one is the organizer's.
  *
  * The bar reads the route and the signed-in organizer itself, so the shell only places it. One rule
- * says who sees what: a known signed-in organizer gets all of it, on every route, and nobody else
- * gets more than the logo, with no per-role or per-screen list. At 640px and below, the market
+ * says who sees what: a known signed-in organizer gets all of it, on every route but a vendor's page,
+ * and nobody else gets more than the logo, with no per-role list. A vendor's page (`vendorFacing`)
+ * is the vendors', so it shows the logo alone to everyone, the organizer who opens it too (T260). At 640px and below, the market
  * frame's break, the menu button stands for the links and the account menu, in CSS, so the two
  * layouts never disagree with the frame's.
  *
@@ -20,7 +21,7 @@ import ScrollBox from '@/components/ScrollBox.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 import IconExpandDown from '@/components/icons/IconExpandDown.vue';
 import IconMenu from '@/components/icons/IconMenu.vue';
-import { currentPlace, type AppPlace } from '@/utils/currentPlace';
+import { currentPlace, isVendorFacing, type AppPlace } from '@/utils/currentPlace';
 import { signOut } from '@/utils/sessionEnded';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import { useFocusGoesBack } from '@/utils/useFocusGoesBack';
@@ -41,6 +42,8 @@ const router = useRouter();
 const user = inject<Ref<string | null>>('user', ref(null));
 
 const here = computed(() => currentPlace(route));
+/** The organizer the bar is for: none on a vendor's page, which stands apart from the app. */
+const organizer = computed(() => (isVendorFacing(route) ? null : user.value));
 
 function leave() {
   closeSheet();
@@ -79,7 +82,7 @@ useEscapeToClose(sheetOpen, closeSheet);
 useFocusGoesBack(() => sheetOpen.value);
 watch(() => route.fullPath, closeSheet);
 // A session ended in another tab takes the button with it, and the row naming the account changes.
-watch(user, closeSheet);
+watch(organizer, closeSheet);
 
 /** Past the break the button is gone, and nothing would be left to close the sheet with. */
 let phoneWindow: MediaQueryList | null = null;
@@ -102,7 +105,7 @@ onUnmounted(stopWatchingTheWindow);
 <template>
   <div class="app-bar" data-testid="app-bar">
     <div class="app-bar-row">
-      <template v-if="user">
+      <template v-if="organizer">
         <RouterLink to="/markets" class="app-bar-logo-link" aria-current-value="false">
           <img
             class="app-bar-logo"
@@ -131,7 +134,7 @@ onUnmounted(stopWatchingTheWindow);
           @select="chooseFromAccount"
         >
           <template #trigger>
-            <span class="app-bar-address" :title="user">{{ user }}</span>
+            <span class="app-bar-address" :title="organizer">{{ organizer }}</span>
             <IconExpandDown class="app-bar-chevron" aria-hidden="true" />
           </template>
         </RowMenu>
@@ -175,8 +178,8 @@ onUnmounted(stopWatchingTheWindow);
                 {{ label }}
               </RouterLink>
             </nav>
-            <p class="app-bar-sheet-row app-bar-sheet-address" :title="user ?? undefined">
-              {{ user }}
+            <p class="app-bar-sheet-row app-bar-sheet-address" :title="organizer ?? undefined">
+              {{ organizer }}
             </p>
             <RouterLink
               :to="CHANGE_PASSWORD"

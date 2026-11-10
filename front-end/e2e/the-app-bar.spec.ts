@@ -804,28 +804,33 @@ for (const size of SIZES) {
       }
     });
 
-    test('signed in, a public page and Page not found show the full bar with nothing current', async ({
-      authenticatedPage: page,
-    }) => {
-      for (const path of [`/${marketSlug}`, '/no/such/page']) {
-        await page.goto(path);
-        await expectFullBar(page);
-        await withPlacesOpen(page, async () => {
-          await expect(place(page, 'Markets')).not.toHaveAttribute('aria-current');
-          await expect(place(page, 'Organizations')).not.toHaveAttribute('aria-current');
-        });
-        if (size.phone) await page.keyboard.press('Escape');
-      }
+    // The vendor page is the vendor's (T260): an organizer opening their own market's page reads it
+    // as a vendor would, with none of the organizer app's way about.
+    test('signed in, the vendor page shows the logo alone', async ({ authenticatedPage: page }) => {
+      await page.goto(`/${marketSlug}`);
+      await expect(page.locator('main')).not.toBeEmpty();
+      await expectLogoAlone(page);
     });
 
-    test("signed in on a public page, the bar's logo and links work", async ({
+    test('signed in, Page not found shows the full bar with nothing current', async ({
       authenticatedPage: page,
     }) => {
-      await page.goto(`/${marketSlug}`);
+      await page.goto('/no/such/page');
+      await expectFullBar(page);
+      await withPlacesOpen(page, async () => {
+        await expect(place(page, 'Markets')).not.toHaveAttribute('aria-current');
+        await expect(place(page, 'Organizations')).not.toHaveAttribute('aria-current');
+      });
+    });
+
+    test("signed in on Page not found, the bar's logo and links work", async ({
+      authenticatedPage: page,
+    }) => {
+      await page.goto('/no/such/page');
       await press(logoLink(page));
       await page.waitForURL(/\/markets$/);
 
-      await page.goto(`/${marketSlug}`);
+      await page.goto('/no/such/page');
       await withPlacesOpen(page, () => press(place(page, 'Organizations')));
       await page.waitForURL(/\/organizations$/);
 
@@ -834,10 +839,10 @@ for (const size of SIZES) {
       await page.waitForURL(/\/markets$/);
     });
 
-    test('Sign out from a public page leaves sign-in with the logo alone, with no reload', async ({
+    test('Sign out from Page not found leaves sign-in with the logo alone, with no reload', async ({
       authenticatedPage: page,
     }) => {
-      await page.goto(`/${marketSlug}`);
+      await page.goto('/no/such/page');
       await expectFullBar(page);
       await markTheDocument(page);
 
@@ -932,14 +937,14 @@ for (const size of SIZES) {
       await expectSameDocument(page);
     });
 
-    test('a stale stored user on a public page shows the full bar, and its links lead to sign-in', async ({
+    test('a stale stored user on Page not found shows the full bar, and its links lead to sign-in', async ({
       authenticatedPage: page,
     }) => {
       // A read still in flight when the cookies go answers 401, which ends the session in the
       // browser too, and then the stored user this test is about is gone.
       await page.waitForLoadState('networkidle');
       await page.context().clearCookies();
-      await page.goto(`/${marketSlug}`);
+      await page.goto('/no/such/page');
       await expect(logoLink(page)).toBeVisible();
 
       await withPlacesOpen(page, () => press(place(page, 'Markets')));

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import router from '@/router';
-import { currentPlace } from '@/utils/currentPlace';
+import { currentPlace, isVendorFacing } from '@/utils/currentPlace';
 
 /**
  * Which of the bar's two places a route stands in, read off the router's own routes, so a market
@@ -41,4 +41,22 @@ describe('which place is current', () => {
       expect(place(path)).toBeNull();
     },
   );
+});
+
+/** The vendor page stands apart from the organizer app (T260), and it alone: "Page not found" does not. */
+describe("which page is a vendor's", () => {
+  it('is the vendor page', () => {
+    expect(isVendorFacing(router.resolve('/some-market'))).toBe(true);
+  });
+
+  it.each([
+    '/markets',
+    '/organizations',
+    '/markets/m1/setup',
+    '/login',
+    '/reset-password-request',
+    '/no/such/page',
+  ])('is not %s', (path) => {
+    expect(isVendorFacing(router.resolve(path))).toBe(false);
+  });
 });

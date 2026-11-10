@@ -182,12 +182,13 @@ const router = createRouter({
       component: () => import('@/views/FloorplanEditorView.vue'),
     },
     // A market's vendor page (ADR 0022): sign-in, status, the application and the result, at the
-    // market's own address.
+    // market's own address. It is the vendors', so the app bar holds none of the organizer app's way
+    // about on it, even for an organizer who opens it (T260).
     {
       path: '/:marketSlug',
       name: 'vendor-page',
       component: () => import('@/views/VendorPage.vue'),
-      meta: { public: true },
+      meta: { public: true, vendorFacing: true },
     },
     // Anything deeper than one segment matched no route at all, so the app rendered a blank
     // page. `/:marketSlug` catches single-segment addresses and answers for itself.
