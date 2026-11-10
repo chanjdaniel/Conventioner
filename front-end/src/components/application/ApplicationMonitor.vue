@@ -130,7 +130,7 @@ const REVIEWED_NOUN = { one: 'application', many: 'applications' };
  * The dialog's order, taken as it opens: each row's place, by id, until it closes (T262). A verdict
  * changed in it is the newest, and would take its row to the head, the reviewer losing their place
  * and the row they were on; it stays where it was, and leads the list at the next opening. A row new
- * to the list while it is open, a re-read's, has no place: it goes first, as the newest verdict.
+ * to the list while it is open, a re-read's, has no place: it goes ahead of those it opened on.
  */
 const reviewedPlaces = shallowRef<Map<string, number> | null>(null);
 watch(
