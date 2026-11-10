@@ -3,12 +3,13 @@
  * The app bar: the way between the organizer's places, always in sight and always the same (T209).
  * The market bar under it is the market's own navigation; this one is the organizer's.
  *
- * The bar reads the route and the signed-in organizer itself, so the shell only places it. One rule
- * says who sees what: a known signed-in organizer gets all of it, on every route but a vendor's page,
- * and nobody else gets more than the logo, with no per-role list. A vendor's page (`vendorFacing`)
- * is the vendors', so it shows the logo alone to everyone, the organizer who opens it too (T260). At 640px and below, the market
- * frame's break, the menu button stands for the links and the account menu, in CSS, so the two
- * layouts never disagree with the frame's.
+ * The bar reads the route and the signed-in organizer itself, so the shell only places it. One
+ * rule says who sees what: a known signed-in organizer gets all of it, on every route but a
+ * vendor's page, and nobody else gets more than the logo, with no per-role list. A vendor's page
+ * (`vendorFacing`) is the vendors', so it shows the logo alone to everyone, the organizer who opens
+ * it too (T260), unless it answered "Page not found". At 640px and below, the market frame's
+ * break, the menu button stands for the links and the account menu, in CSS, so the two layouts
+ * never disagree with the frame's.
  *
  * The button opens a sheet under the bar. A list of places and not a form in a window, so it is not
  * an `AppDialog`, but it keeps a modal's contract: the page behind is inert, focus moves in, and
@@ -21,7 +22,7 @@ import ScrollBox from '@/components/ScrollBox.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 import IconExpandDown from '@/components/icons/IconExpandDown.vue';
 import IconMenu from '@/components/icons/IconMenu.vue';
-import { currentPlace, isVendorFacing, type AppPlace } from '@/utils/currentPlace';
+import { currentPlace, standsApart, type AppPlace } from '@/utils/currentPlace';
 import { signOut } from '@/utils/sessionEnded';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import { useFocusGoesBack } from '@/utils/useFocusGoesBack';
@@ -43,7 +44,7 @@ const user = inject<Ref<string | null>>('user', ref(null));
 
 const here = computed(() => currentPlace(route));
 /** The organizer the bar is for: none on a vendor's page, which stands apart from the app. */
-const organizer = computed(() => (isVendorFacing(route) ? null : user.value));
+const organizer = computed(() => (standsApart(route) ? null : user.value));
 
 function leave() {
   closeSheet();

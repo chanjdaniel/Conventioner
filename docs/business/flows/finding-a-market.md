@@ -108,7 +108,7 @@ Covered by:
 At a desk [the app bar](../../implementation/modules/app-bar.md) holds Markets and Organizations as links, the current one marked, and an account menu showing the address and holding Change password ([A4a](accounts.md#a4a-change-a-password-while-signed-in)) and Sign out.
 At 640px and below the bar is the logo and a menu button at its right, which opens a sheet under the bar holding Markets and Organizations, the current one marked, the address, Change password and Sign out; choosing a row, Escape or a press outside it closes it.
 Every organizer account has the same bar, whatever their role and on every page, "Page not found" included; someone not signed in sees the logo alone.
-A market's vendor page is the vendors', so it shows the logo alone, with no link, to an organizer who opens it too (T260).
+A market's vendor page is the vendors', so it shows the logo alone, with no link, to an organizer who opens it too (T260); a one-segment address that answers "Page not found", a draft's page among them, keeps the organizer's full bar.
 Covered by:
 - `the-app-bar.spec.ts`
 - `the-way-in-lines-up.spec.ts`

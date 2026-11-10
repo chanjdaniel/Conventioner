@@ -23,9 +23,10 @@
  * and taken off the address at once, so it is never left in the history or a shared link; it waits
  * through the sign-in, and the check-in section uses it once, for today.
  */
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useApplicationStore } from '@/stores/application';
+import { vendorPageAnswered } from '@/utils/currentPlace';
 import PageNotFound from '@/components/PageNotFound.vue';
 import VendorSignIn from '@/components/vendorPage/VendorSignIn.vue';
 import VendorStatus from '@/components/vendorPage/VendorStatus.vue';
@@ -40,6 +41,10 @@ const marketSlug = computed(() => String(route.params.marketSlug ?? ''));
 
 type State = 'loading' | 'not-found' | 'failed' | 'ready';
 const state = ref<State>('loading');
+
+// A "Page not found" here is no vendor's page, so the app bar keeps an organizer's way about on it.
+watch(state, (now) => vendorPageAnswered(marketSlug.value, now === 'not-found'));
+onUnmounted(() => vendorPageAnswered(marketSlug.value, false));
 
 const signedIn = computed(() => store.isAuthenticatedFor(marketSlug.value));
 const vendorName = computed(() => store.application?.vendorName || '');

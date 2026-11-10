@@ -182,8 +182,9 @@ const router = createRouter({
       component: () => import('@/views/FloorplanEditorView.vue'),
     },
     // A market's vendor page (ADR 0022): sign-in, status, the application and the result, at the
-    // market's own address. It is the vendors', so the app bar holds none of the organizer app's way
-    // about on it, even for an organizer who opens it (T260).
+    // market's own address. It is the vendors', so the app bar holds none of the organizer app's
+    // way about on it, even for an organizer who opens it (T260), unless it answers "Page not
+    // found", as it does for a slug naming no market and a gated market's.
     {
       path: '/:marketSlug',
       name: 'vendor-page',

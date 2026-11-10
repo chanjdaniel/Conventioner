@@ -6,7 +6,7 @@ import { grantMarketRole } from './helpers/grantMarketRole';
 import { marketScreenPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
 import { seedApplicantMarket } from './helpers/seedApplicantMarket';
-import { ensureTestOrg, seedMarketWithVendors } from './helpers/seeds';
+import { ensureTestOrg, marketNameToSlug, seedMarketWithVendors } from './helpers/seeds';
 import { settle } from './helpers/settle';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 
@@ -693,6 +693,7 @@ for (const size of SIZES) {
 
     let marketId: string;
     let marketSlug: string;
+    let draftSlug: string;
 
     /** A person's press: a thumb's on a phone. */
     const press = (locator: Locator) => (size.phone ? locator.tap() : locator.click());
@@ -792,6 +793,13 @@ for (const size of SIZES) {
       marketSlug = applying.marketSlug;
       // The seed leaves the owner's session on `request`.
       await grantMarketRole(request, marketId, VIEWER, 'viewer');
+      const draft = await seedMarketWithVendors(
+        request,
+        BACKEND_URL,
+        TEST_USER.email,
+        TEST_USER.password,
+      );
+      draftSlug = marketNameToSlug(draft.marketName);
     });
 
     test('signed out, sign-in, a password page, a public page and Page not found show the logo alone', async ({
@@ -821,6 +829,19 @@ for (const size of SIZES) {
         await expect(place(page, 'Markets')).not.toHaveAttribute('aria-current');
         await expect(place(page, 'Organizations')).not.toHaveAttribute('aria-current');
       });
+    });
+
+    // A one-segment address is the vendor page's route, which answers "Page not found" itself for a
+    // slug naming no market and for a gated market, a draft's even to its own organizer. That is no
+    // vendor's page, so the organizer keeps the full bar there, as at a deeper address.
+    test("signed in, a one-segment Page not found and a draft's page keep the full bar", async ({
+      authenticatedPage: page,
+    }) => {
+      for (const path of ['/no-such-market-zz', `/${draftSlug}`]) {
+        await page.goto(path);
+        await expect(page.getByTestId('vendor-page-not-found')).toBeVisible();
+        await expectFullBar(page);
+      }
     });
 
     test("signed in on Page not found, the bar's logo and links work", async ({
