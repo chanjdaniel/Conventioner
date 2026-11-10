@@ -9,7 +9,7 @@ describes:
   - back-end/guards.py#SetupHasALocationGuard
   - back-end/guards.py#EveryTierHasTablesGuard
   - back-end/guards.py#_earliest_calendar_day
-verified: 2026-10-31
+verified: 2026-11-10
 sources:
   - wayfinding/the-order-of-the-work/03
   - wayfinding/the-order-of-the-work/map
@@ -21,6 +21,7 @@ sources:
   - E31/F01/S02
   - E18
   - E43/F01/S01
+  - T263
 ---
 
 # The setup settles on leaving draft

@@ -25,6 +25,7 @@ sources:
   - E38/F15/S02
   - T213
   - bug/40
+  - T263
 ---
 
 # The CSV proposal and start
@@ -59,7 +60,7 @@ Every column's "answered by N of M", its first answers and the share of the resp
 **The proposal writes nothing; confirm writes in ONE conditioned update, or nothing.**
 A request confirm cannot write is a `ConfirmRefused`, a 409 [client error](../conventions/an-exception-never-reaches-a-client.md) saying why.
 `confirm` catches nothing: a `ConfirmRefused`, a locked form (409) and a plan or a form its writers refuse (400) reach the handler as raised, and none of the three routes catches anything.
-Confirm judges the plan and the form through the plan's and the form's own writes (`prepared_plan`, `prepared_application_form`, so [the form lock](../../business/rules/the-form-locks-at-the-first-application.md) above all), then writes them as one `$set` filtered on the market as it was read: its phase as stored and its form still without questions (`still_startable`).
+Confirm judges the plan and the form through the plan's and the form's own writes (`prepared_plan`, whose `$set` it takes, and `prepared_application_form`, so [the form lock](../../business/rules/the-form-locks-at-the-first-application.md) above all), then writes them as one `$set` filtered on the market as it was read: its phase as stored and its form still without questions (`still_startable`).
 A market that changed since is written nothing, and told to start again.
 **The plan's own values win**: the file's dates (in the year the organizer confirms) and tiers fill a plan that has none, and its ceiling a plan with none set.
 

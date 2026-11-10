@@ -48,6 +48,7 @@ sources:
   - T204
   - T224
   - T217
+  - T263
 ---
 
 # The organization document, and roles
@@ -152,8 +153,8 @@ Every market check asks a row there, and the market read serves every row's answ
 The Markets list (`get_markets_for_user`) is every market with the person's role on it, then every market of their organizations, each kept only where the market's own read would serve it to them (T181).
 It reads each document as the read does (`_readable_market`), resolves the person's role by the read's rule (`_summary_role`, through `market_role_of`, with the organization parsed as the read parses it, from the list's memo, so an organization whose document fails validation grants nothing through it here either) and asks the read's question of that role (`read_refused`).
 A document the model refuses is logged by `_log_unreadable_market` and left out with the rest still listed, and a market whose read row refuses the person is left out too, so no card opens onto "not found".
-The entry's `actionRefusals` are asked of the same role, so each control the card and Manage market offer is offered to exactly the people the market lets take it.
-[`back-end/tests/test_the_market_list_shows_what_the_read_serves.py`](../../../back-end/tests/test_the_market_list_shows_what_the_read_serves.py) pins it at the Flask client: every listed market opens for its reader, and an unknown role in a roles map or an organization that does not parse leaves the market out of the list as it leaves it out of the read.
+The entry's `actionRefusals` are asked of the same role, and of whether the reader is a chosen reviewer (`is_chosen`, by their address, as the read asks it), so each control the card and Manage market offer is offered to exactly the people the market lets take it.
+[`back-end/tests/test_the_market_list_shows_what_the_read_serves.py`](../../../back-end/tests/test_the_market_list_shows_what_the_read_serves.py) pins it at the Flask client: every listed market opens for its reader, and an unknown role in a roles map or an organization that does not parse leaves the market out of the list as it leaves it out of the read, and a chosen Viewer's entry answers every row as their read does.
 
 ## A market's organization
 

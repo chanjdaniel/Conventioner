@@ -4,12 +4,13 @@ kind: rule
 describes:
   - back-end/api/markets.py#assignment_rules_lock_reason
   - back-end/assignment/made_from.py#assignment_rules
-verified: 2026-10-30
+verified: 2026-11-10
 sources:
   - E22/F02
   - E22/F02/S01
   - E22/F02/S02
   - E36/F04/S02
+  - T263
 ---
 
 # The assignment rules close with the assignment
@@ -33,7 +34,8 @@ Today that closes the rules in `offers`, `market_days` and `archived`; an archiv
 
 ## Who may
 
-An EDITOR, while the rules are open.
+Whoever the market's Assignment row lets in, an Editor and above unless its owner changed the row ([what each role may do](what-each-role-may-do.md)), while the rules are open.
+A plan write that leaves the rules as they are asks only Market Setup's row, and a market with no plan yet holds the rules a new plan starts with, so its first plan changes no rule unless it sets one.
 
 ## Where it is kept
 
