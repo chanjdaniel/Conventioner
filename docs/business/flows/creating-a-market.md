@@ -3,13 +3,14 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/NewMarketOverlay.vue
-verified: 2026-11-01
+verified: 2026-11-10
 sources:
   - E24/F03
   - E26/F08
   - E31/F03/S01
   - bug/42
   - bug/46
+  - T273
 ---
 
 # Creating a market
@@ -79,5 +80,16 @@ The name becomes the public URL slug, so a name whose slug is taken is refused, 
 Covered by:
 
 - `public-address.spec.ts`
+
+## D6. A name of at most 100 characters, on one line
+
+**Status:** Works (T273; walked on a worktree stack).
+"Market name" takes at most 100 characters: typing past them adds nothing.
+The server holds the same rule whatever a client sends, counting the name without the spaces at its ends, and answers in the dialog under the name: "A market's name can be at most 100 characters.", "A market's name must be on one line." for a line break, a tab or any other control character, and "A market needs a name." for a blank one.
+The name is stored as typed.
+The rule is asked before the address rule (D5); a market named before it, longer or on two lines, still opens and lists, its card ending the name in an ellipsis.
+Covered by:
+
+- `a-market-name-fits-one-line.spec.ts`
 
 Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
