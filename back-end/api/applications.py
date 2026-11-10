@@ -335,17 +335,20 @@ def write_answer_updates(
     app_id: str, updates: Dict[str, AnswerUpdate], cleared: Iterable[str],
 ) -> bool:
     """Store these updates of an application's answers, and take the ``cleared`` ones away, each by
-    its own question's path, so two organizers updating different answers at once both land."""
+    its own question's path, so two organizers updating different answers at once both land.
+
+    Either moves ``updated_at``, the answers' version, in the same update: what every reader reads
+    as the answers changed, so a verdict on a card opened before is refused (T270). With nothing to
+    store or take away it writes nothing."""
     ensure_application_indexes()
-    update: Dict[str, Any] = {}
-    if updates:
-        update["$set"] = {
-            f"{ANSWER_UPDATES_FIELD}.{key}": value.model_dump() for key, value in updates.items()}
+    stored = {f"{ANSWER_UPDATES_FIELD}.{key}": value.model_dump() for key, value in updates.items()}
     gone = {f"{ANSWER_UPDATES_FIELD}.{key}": "" for key in cleared}
+    if not stored and not gone:
+        return True
+    version = datetime.now(timezone.utc).isoformat()
+    update: Dict[str, Any] = {"$set": {**stored, "updated_at": version}}
     if gone:
         update["$unset"] = gone
-    if not update:
-        return True
     return applications_collection.update_one({"id": app_id}, update).matched_count > 0
 
 
@@ -451,8 +454,8 @@ def update_application_status(
 
     ``if_unchanged_since`` is the application as the caller read it: the write lands only if its
     status, its verdict's time and its answers' time (``updated_at``) are still those, so neither a
-    verdict given in between nor answers changed in between - an applicant's edit, a re-import - is
-    written over (E33/F03/S02, E34/F03/S01).
+    verdict given in between nor answers changed in between - an applicant's edit, a re-import, an
+    organizer's update (T270) - is written over (E33/F03/S02, E34/F03/S01).
 
     A follow-up is marked like a verdict, by someone, and has an ``owner``: the marker unless named
     (E34/F01/S02). Any other status clears the owner.

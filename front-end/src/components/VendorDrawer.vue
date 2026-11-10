@@ -60,8 +60,12 @@ const emit = defineEmits<{
   'update:tab': [tab: VendorTab];
   /** Their notes were written: a screen that shows notes reads them again. */
   notesChanged: [];
-  /** Their answers were updated (E41/F01/S01): a screen that shows answers reads them again. */
-  infoUpdated: [];
+  /**
+   * Their answers were updated (E41/F01/S01), with the application as the organizer now reads it:
+   * a screen that shows answers takes it at once, since a verdict carries the answers' version, and
+   * reads them again.
+   */
+  infoUpdated: [application: Application];
   /** Their payments or what they owe changed (E44/F02/S01): the Payments page reads it again. */
   paymentChanged: [];
 }>();
@@ -113,7 +117,8 @@ function notesChanged() {
 
 /**
  * Updating their info (E41/F01/S01): one button, offered on the table's row, opening a dialog of
- * their answers. The drawer's answers are read again once it saves, and the screen is told.
+ * their answers. Once it saves, the screen is told at once, with the application as saved, and the
+ * drawer's answers are read again.
  */
 const updatesInfo = computed(() => mayTake(props.market, MarketAction.UpdateVendorInfo));
 const updating = ref(false);
@@ -126,13 +131,13 @@ watch(
   () => (updating.value = false),
 );
 
-async function infoSaved(): Promise<void> {
+async function infoSaved(saved: Application): Promise<void> {
   updating.value = false;
+  emit('infoUpdated', saved);
   // The market read says what the last Discord check now shows of this vendor ("Check again" once
   // their username changed), so it is read again too where a check has run (E46/F01/S05).
   if (props.market?.discordVendors?.length) void useMarketStore().refresh();
   await props.details.load();
-  emit('infoUpdated');
 }
 
 /**

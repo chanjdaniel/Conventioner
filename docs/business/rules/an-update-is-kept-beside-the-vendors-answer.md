@@ -7,12 +7,13 @@ describes:
   - front-end/src/components/UpdateInfoTheirs.vue
   - front-end/src/components/AnswerUpdateNote.vue
   - front-end/src/utils/answerUpdates.ts
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - E41/F01/S01
   - E41/F01/S02
   - E38/F06/S01
   - E43/F01/S03
+  - T270
 ---
 
 # An update is kept beside the vendor's answer
@@ -54,10 +55,12 @@ The names and the request are [essential questions](../concepts/essential-questi
   From assignment on, the rules have settled with the verdicts ([verdicts settle on entering assignment](verdicts-settle-on-entering-assignment.md)), so an update stands and the verdict stays.
 - The drawer and the review card say "Updated by <address>, <when>; they wrote <their answer>" under an updated answer ([`AnswerUpdateNote.vue`](../../../front-end/src/components/AnswerUpdateNote.vue)).
 - A [re-import](../../implementation/modules/csv-import.md) writes the file's answers as the vendor's own and leaves every update standing.
+- An update, and taking one away, changes the answers a reviewer decides on, so it moves the answers' version a verdict is conditioned on (T270): a reviewer's verdict on a card opened before it is refused, "Its answers changed since you opened it.", and the card shows the answers as they stand ([the review](../flows/review.md)).
+  The All view's drawer takes the application as saved at once, so an organizer who updates an answer there and then gives their own verdict is not refused.
 
 ## Where it is kept
 
 The write is [`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py), sent by the drawer through `updateVendorInfo` in [`answerUpdates.ts`](../../../front-end/src/utils/answerUpdates.ts), which also holds the words above.
 How an update is stored and the one reader of the answers: [the application document](../../implementation/data/application-document.md#an-organizers-update-of-an-answer).
 What it records: [the market's history](../../implementation/data/history.md#what-each-write-records).
-`back-end/tests/test_updating_vendor_info.py`, `back-end/tests/test_updating_answers_the_assignment_reads.py`, `back-end/tests/test_the_price_answers.py`, `front-end/src/__tests__/updatingVendorInfo.test.ts`, `front-end/e2e/updating-vendor-info.spec.ts`, `front-end/e2e/updating-answers-the-assignment-reads.spec.ts` and `front-end/e2e/the-price-answers.spec.ts` pin it.
+`back-end/tests/test_updating_vendor_info.py`, `back-end/tests/test_updating_answers_the_assignment_reads.py`, `back-end/tests/test_the_price_answers.py`, `front-end/src/__tests__/updatingVendorInfo.test.ts`, `front-end/src/__tests__/aVerdictAfterAnUpdateInTheDrawer.test.ts`, `front-end/e2e/updating-vendor-info.spec.ts`, `front-end/e2e/an-answer-update-moves-the-answers-version.spec.ts`, `front-end/e2e/updating-answers-the-assignment-reads.spec.ts` and `front-end/e2e/the-price-answers.spec.ts` pin it.

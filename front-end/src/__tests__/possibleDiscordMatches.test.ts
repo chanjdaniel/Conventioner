@@ -239,7 +239,8 @@ describe('the drawer’s offer', () => {
     expect(api.put).toHaveBeenCalledWith('/markets/market-1/applications/app-fern/answers', {
       answers: { [QUESTION]: 'fern_studio_42' },
     });
-    expect(wrapper.emitted('confirmed')).toHaveLength(1);
+    // With the application as saved, so the screen decides on the answers' new version (T270).
+    expect(wrapper.emitted('confirmed')).toEqual([[APPS[0]]]);
   });
 
   it('cancelling the dialog saves nothing', async () => {
