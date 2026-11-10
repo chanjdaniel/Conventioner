@@ -207,7 +207,7 @@ from datatypes import AssignmentObject, Market, MarketPhase, MarketRole, market_
 
 
 def mongo_project(doc: dict, projection) -> dict:
-    """Apply a find projection as MongoDB 8.0 does, or refuse it with ``UnmodelledQuery``, so a
+    """Apply a find projection as MongoDB does, or refuse it with ``UnmodelledQuery``, so a
     fake hands back what the server would.
 
     A fake that ignores the projection hands the caller fields the real query never fetched, which
@@ -445,7 +445,7 @@ def _refuse(what: str):
 
 
 def mongo_matches(doc: dict, query: dict) -> bool:
-    """Evaluate a Mongo filter as MongoDB 8.0 does, or refuse it with ``UnmodelledQuery``.
+    """Evaluate a Mongo filter as MongoDB does, or refuse it with ``UnmodelledQuery``.
 
     The applications fake, the markets fakes and the organizations fake find documents through
     this, since a fake that ignores its filter passes a document the server would never have
@@ -657,7 +657,7 @@ _UPDATE_OPERATORS = ("$set", "$unset", "$inc", "$push", "$addToSet", "$pull", "$
 
 
 def mongo_update(doc: dict, update: dict, inserting: bool = False) -> dict:
-    """The document MongoDB 8.0 stores after applying ``update`` to ``doc``, or ``UnmodelledQuery``
+    """The document MongoDB stores after applying ``update`` to ``doc``, or ``UnmodelledQuery``
     where the server refuses the update or the fakes do not model it. ``doc`` is left as it was.
 
     It applies ``$set``, ``$unset``, ``$inc``, ``$push`` (and its ``$each``), ``$addToSet`` (and
@@ -816,7 +816,7 @@ def _pulled(held, argument) -> bool:
 
 
 def mongo_upsert_document(query: dict, update: dict) -> dict:
-    """The document an upsert that matched nothing makes, as MongoDB 8.0 makes it: the filter's
+    """The document an upsert that matched nothing makes, as MongoDB makes it: the filter's
     equality terms (plain values and ``$eq``, other operators dropped, a dotted path expanded into
     its sub-document), then the update applied as an insert, ``$setOnInsert`` included, and an
     ``ObjectId`` ``_id`` first when neither named one.
@@ -1031,7 +1031,7 @@ class _SortableCursor:
 class FakeApplicationsCollection:
     """Stand-in for the applications collection, and for every record kept beside a market.
 
-    It writes, reads and projects as MongoDB 8.0 does for what it models, and refuses the rest
+    It writes, reads and projects as MongoDB does for what it models, and refuses the rest
     with ``UnmodelledQuery``: filters through ``mongo_matches`` (refused even over no documents),
     updates through ``mongo_update``, an upsert's new document through ``mongo_upsert_document``,
     sorts through ``mongo_sorted`` and projections through ``mongo_project``. It answers the

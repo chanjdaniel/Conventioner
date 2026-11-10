@@ -1,5 +1,6 @@
 """The cases that check the shared fakes against MongoDB: each a document, an operation, and the
-answer MongoDB 8.0 gives, written down here.
+answer MongoDB gives, written down here. MongoDB 7.0 and 8.0 give the same answer to every case
+(7.0.45 and 8.0.34, on 2026-11-10); CI checks them on the version the compose file runs.
 
 Four tables: ``FILTER_CASES`` (``mongo_matches``), ``UPDATE_CASES`` (``mongo_update``, through
 the fakes' writes), ``READ_CASES`` (``find`` with ``sort`` and ``limit``) and ``PROJECTION_CASES``

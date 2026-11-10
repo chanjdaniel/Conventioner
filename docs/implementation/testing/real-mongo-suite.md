@@ -41,7 +41,7 @@ The server is `REAL_MONGODB_URI`, a full connection string.
 
 ## In CI, at the gate and locally
 
-- **CI**: the `backend` job runs a `mongo:8.0` service, its port 27017 published on the runner as 27117, with a `mongosh` ping as its health check and no credentials, and sets `REAL_MONGODB_URI=mongodb://127.0.0.1:27117/?serverSelectionTimeoutMS=5000` and `REAL_MONGODB_REQUIRED=true` for the job ([CI and the gate](ci-and-the-gate.md#ci)).
+- **CI**: the `backend` job runs a `mongo:7` service ([the MongoDB version](#the-mongodb-version)), its port 27017 published on the runner as 27117, with a `mongosh` ping as its health check and no credentials, and sets `REAL_MONGODB_URI=mongodb://127.0.0.1:27117/?serverSelectionTimeoutMS=5000` and `REAL_MONGODB_REQUIRED=true` for the job ([CI and the gate](ci-and-the-gate.md#ci)).
   The job keeps its name, so the required check is unchanged.
 - **The gate**: `scripts/nm-test.sh` runs the ordinary suite with the variable unset, so the package skips there and runs in CI, as Playwright does.
 - **Locally**: run it against a worktree stack's MongoDB, which listens on `127.0.0.1:$TH_MONGO_PORT` with the stack's fixed development credentials.
@@ -80,7 +80,7 @@ The server is `REAL_MONGODB_URI`, a full connection string.
 
 ## The differential cases
 
-[`back-end/tests/mongo_cases.py`](../../../back-end/tests/mongo_cases.py) holds the cases that check the shared fakes of [`tests/conftest.py`](../../../back-end/tests/conftest.py) against the server: each a document, an operation and the answer MongoDB 8.0 gives, written in the table.
+[`back-end/tests/mongo_cases.py`](../../../back-end/tests/mongo_cases.py) holds the cases that check the shared fakes of [`tests/conftest.py`](../../../back-end/tests/conftest.py) against the server: each a document, an operation and the answer MongoDB gives, written in the table.
 Each table is read twice.
 [`test_the_shared_matcher.py`](../../../back-end/tests/test_the_shared_matcher.py) (the filters), [`test_the_shared_applications_fake.py`](../../../back-end/tests/test_the_shared_applications_fake.py) (the updates, reads and projections) and [`test_the_shared_markets_fakes.py`](../../../back-end/tests/test_the_shared_markets_fakes.py) (the updates but the upserts, through both markets fakes) run every case through the fakes on every run, without a server, so the gate checks the fakes; [`real_mongo/test_the_filter_cases_on_the_server.py`](../../../back-end/tests/real_mongo/test_the_filter_cases_on_the_server.py) and [`real_mongo/test_the_collection_cases_on_the_server.py`](../../../back-end/tests/real_mongo/test_the_collection_cases_on_the_server.py) run every case through the server, so CI checks the tables.
 A case the fakes do not model names what they refuse (`fake_refuses`); the hermetic test asserts that refusal and the server test still asserts the server's answer.
@@ -140,16 +140,17 @@ The lease tests set `review_team`'s clock rather than wait for a lease to run ou
 [`real_mongo/test_every_order_of_a_deal_on_the_server.py`](../../../back-end/tests/real_mongo/test_every_order_of_a_deal_on_the_server.py) imports the cases of [`test_every_order_of_a_deal.py`](../../../back-end/tests/test_every_order_of_a_deal.py) ([ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)), every order of a change of reviewers against an arrival and of two arrivals, and runs them over a world whose markets, applications and history are the real collections, so its `Counted` wrapper steps over the server's own calls.
 Those cases read and write their world through collection calls alone (`find_one`, `find`, `insert_one`, `update_one`, `delete_many`), which is what lets one set of cases run over the fakes and over the server.
 
-## MongoDB 8.0
+## The MongoDB version
 
-CI's service and the local stack's `mongodb` service ([`docker-compose.yml`](../../../docker-compose.yml)) run `mongo:8.0`, the major version production's Atlas cluster runs ([`OPERATIONS.md`](../../OPERATIONS.md)).
-mongod 8.0 refuses to start on Linux kernel 6.19 and newer (MongoDB SERVER-121912).
-So CI's `backend` job and `e2e` shards run on `ubuntu-24.04` until MongoDB fixes it.
-A local stack on a machine with kernel 6.19 or newer fails the same way, its `mongodb` container never becoming healthy, until the fix ships.
-A stack volume MongoDB 7 wrote opens on 8.0 unchanged: its feature compatibility version stays `7.0`, so no volume is deleted.
-On 2026-11-10 a worktree stack seeded on `mongo:7` came up healthy on 8.0.34 with its data and feature compatibility version `7.0`, and its E2E seed ran.
+CI's service and the local stack's `mongodb` service ([`docker-compose.yml`](../../../docker-compose.yml)) run `mongo:7`, while production's Atlas cluster runs 8.0 ([`OPERATIONS.md`](../../OPERATIONS.md)).
+mongod 8.0 refuses to start on Linux kernel 6.19 and newer (MongoDB SERVER-121912), and GitHub's `ubuntu-latest` and `ubuntu-24.04` runners both boot one now, so the move to 8.0 waits for MongoDB's fix.
+A local stack on 8.0 fails the same way on a machine with kernel 6.19 or newer, its `mongodb` container never becoming healthy.
+The move is one line in each place: the compose file's `image` and the `backend` job's service `image` in [`test.yml`](../../../.github/workflows/test.yml).
+The tables hold on both versions: on 2026-11-10 the whole back-end suite, every case of every table included, passed on a worktree stack on 8.0.34 and again on 7.0.45.
+
+A stack volume MongoDB 7 wrote opens on 8.0 unchanged, since its feature compatibility version stays `7.0`: on 2026-11-10 a worktree stack seeded on `mongo:7` came up healthy on 8.0.34 with its data, its E2E seed ran, and it opened on 7.0.45 again.
 The other way does not hold: a volume 8.0 makes has feature compatibility version `8.0`, and MongoDB 7 refuses to start on one, as MongoDB allows a binary downgrade only once the version has been set back.
-So a branch cut from `dev` before the move to 8.0 still names `mongo:7`, and its stack on a slot whose volume 8.0 made restarts its `mongodb` over and over.
+So once the move lands, a branch cut before it still names `mongo:7`, and its stack on a slot whose volume 8.0 made restarts its `mongodb` over and over.
 Merge `dev` into that branch, or, when the stack's data can go, bring the stack down with its volume (`scripts/th-compose.sh down -v`) so 7 makes a new one.
 
 Both allow `mongod` 64000 open files, the number MongoDB asks for, where Docker's default soft limit is 1024.

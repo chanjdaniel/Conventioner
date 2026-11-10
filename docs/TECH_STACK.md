@@ -55,9 +55,9 @@ How each part of the code works is in the implementation layer of the [knowledge
 
 ### Database
 
-- **MongoDB 8.0** - NoSQL document database
+- **MongoDB 8.0 in production, 7 locally and in CI** - NoSQL document database
   - Primary data storage
-  - Production's Atlas cluster, the local stack (`mongo:8.0`) and CI's real-MongoDB service all run 8.0 ([the real-MongoDB suite](implementation/testing/real-mongo-suite.md#mongodb-80))
+  - Production's Atlas cluster runs 8.0; the local stack and CI's real-MongoDB service run `mongo:7`, since mongod 8.0 refuses to start on Linux kernel 6.19 and newer (MongoDB SERVER-121912), which GitHub's runners now boot ([the MongoDB version](implementation/testing/real-mongo-suite.md#the-mongodb-version))
   - Collections: `users`, `organizations`, `markets`, `applications`, `attendance`, `history`, `vendor_notes`, `deletion_trail`, `applicant_login_challenges`, `vendor_remembered_sign_ins`, `floorplan_templates`, `schema_migrations`, and the GridFS bucket `floorplan_images` for floorplan uploads
   - Connection via PyMongo 4.18, to `MONGODB_URI` when it is set (production's Atlas cluster), otherwise to `MONGODB_HOST` and its siblings
   - Database name: `conventioner`
@@ -117,7 +117,7 @@ How each part of the code works is in the implementation layer of the [knowledge
   - Runs the back-end test suite (`python -m pytest tests/`), from `back-end/requirements-dev.txt`
   - Configured via `back-end/pytest.ini`
   - `tests/conftest.py` points PyMongo at a port nothing listens on and the tests use in-memory fakes, so no database connection is required
-  - The exception is [the real-MongoDB suite](implementation/testing/real-mongo-suite.md), `tests/real_mongo/`, which runs on a MongoDB 8.0 server in CI's `backend` job and skips where `REAL_MONGODB_URI` is unset
+  - The exception is [the real-MongoDB suite](implementation/testing/real-mongo-suite.md), `tests/real_mongo/`, which runs on a MongoDB server in CI's `backend` job and skips where `REAL_MONGODB_URI` is unset
 
 ## Frontend
 
@@ -242,7 +242,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 `--profile tools` ([the treehouse runbook](../scripts/README-treehouse.md)).
 
 1. **MongoDB** - Database service
-   - `mongo:8.0`, port 27017
+   - `mongo:7`, port 27017
    - Persistent data volumes
    - Health checks configured
 
@@ -452,7 +452,7 @@ Conventioner/
 
 - **Python**: 3.12 (`back-end/.python-version`; Docker, CI and Vercel all run it)
 - **Node.js**: 24.22.1, with npm 11.19.1 (`.nvmrc`; machines, CI and the front-end Dockerfile all run it, and Vercel the latest 24.x: [Node and npm are pinned](#node-and-npm-are-pinned))
-- **MongoDB**: 8.0 (mongod 8.0 refuses to start on Linux kernel 6.19 and newer, so CI's `backend` job and `e2e` shards run on `ubuntu-24.04`; [the real-MongoDB suite](implementation/testing/real-mongo-suite.md#mongodb-80))
+- **MongoDB**: 8.0 in production; 7 locally and in CI until mongod 8.0 starts on Linux kernel 6.19 and newer ([the MongoDB version](implementation/testing/real-mongo-suite.md#the-mongodb-version))
 - **Docker**: Latest stable version
 
 ## Additional Resources

@@ -311,7 +311,7 @@ def test_the_primary_stack_names_its_own_images():
     assert result.returncode == 0, result.stderr
 
     assert set(result.stdout.split()) == {
-        "mongo:8.0",
+        "mongo:7",
         "conventioner-backend",
         "conventioner-frontend",
         "mongo-express:latest",
