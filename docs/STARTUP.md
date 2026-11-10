@@ -98,7 +98,7 @@ The easiest way to get started is using Docker Compose:
    ```
 
 That is genuinely it, on a fresh clone: **no `.env` file to copy**.
-The back end refuses to boot without six variables it has no default for, and `docker-compose.yml`
+The back end refuses to boot without eight variables it has no default for, and `docker-compose.yml`
 sets the local-development escape hatch (`ALLOW_INSECURE_LOCAL_DEV`) and its front-end half
 (`VITE_ALLOW_INSECURE_LOCAL_DEV`) inline, which is what lets the stack start without them.
 It says so in the log on every boot.
@@ -219,9 +219,9 @@ docker run -d \
    ```
    The template boots as it stands - no keys to go and fetch, no accounts to sign up for.
    `app.py` loads `back-end/.env` on the first line it runs (`back-end/utils/env_file.py`), and anything already set in the environment wins over the file, so a variable you export by hand is never shadowed by it.
-   The template works because it sets `ALLOW_INSECURE_LOCAL_DEV=true`, which is what lets a process start without the six variables a deployment must set (`SECRET_KEY`, `RECAPTCHA_SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY`, `SESSION_TYPE`, `TRUSTED_PROXY_HOPS`), and which names in the log everything it turns off.
+   The template works because it sets `ALLOW_INSECURE_LOCAL_DEV=true`, which is what lets a process start without the eight variables a deployment must set (`SECRET_KEY`, `RECAPTCHA_SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY`, `FRONTEND_URL`, `FROM_EMAIL`, `SESSION_TYPE`, `TRUSTED_PROXY_HOPS`), and which names in the log everything it turns off.
    Sessions are then signed with a random per-process key, so restarting the back end logs you out; set `SECRET_KEY` to a generated value if that gets annoying.
-   Never set `ALLOW_INSECURE_LOCAL_DEV` on a deployed environment - see [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment).
+   Never set `ALLOW_INSECURE_LOCAL_DEV` on a deployed environment, where the back end refuses to boot with it - see [RELEASING.md](./RELEASING.md#a-deployed-host-refuses-local-switches).
 6. Initialize the database:
    ```bash
    python init_database.py
@@ -430,9 +430,9 @@ Under `docker compose` you do not need it: `docker-compose.yml` sets it for the 
 Both templates now ship exactly that shape, so `cp .env.example .env` - at the root, in `back-end/`, or both - is the other way out.
 A blank secret plus the escape hatch is what boots; a placeholder where a secret goes is what passes a check that asks only whether the variable is set, and then fails later, naming none of it.
 
-**Backend exits at startup with "Refusing to start: ... are not configured" (naming `SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `SESSION_TYPE`, ...)**:
+**Backend exits at startup with "Refusing to start: ... are not as a deployment needs them" (naming `SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `SESSION_TYPE`, ...)**:
 
-The six variables the refusal names are boot-time requirements, and nothing in this repository supplies a default for them - a security control keyed on a variable whose default is the insecure value is not a control (see [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment)).
+The eight variables the refusal names are boot-time requirements, and nothing in this repository supplies a default for them - a security control keyed on a variable whose default is the insecure value is not a control (see [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment)).
 Running under `docker-compose`, that is already handled: the compose file sets `ALLOW_INSECURE_LOCAL_DEV=true`.
 Running the back end directly, it means the process has no `.env` to read: do step 5 of Backend Setup (`cd back-end && cp .env.example .env`), which sets the same escape hatch.
 
