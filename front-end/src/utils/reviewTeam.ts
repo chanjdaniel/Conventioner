@@ -26,6 +26,17 @@ export function reviewerAddresses(market: Pick<Market, 'reviewTeam'> | null | un
 }
 
 /**
+ * Those of them who can no longer review here, in the same order: marked so wherever the reviewers
+ * are drawn, the Reviewers panel, Open applications and the first import, so the one who must remove
+ * them can tell which they are.
+ */
+export function unableReviewers(market: Pick<Market, 'reviewTeam'> | null | undefined): string[] {
+  return (market?.reviewTeam?.reviewers ?? [])
+    .filter((reviewer) => !reviewer.able)
+    .map((reviewer) => reviewer.email);
+}
+
+/**
  * The team last written over each market object. A read that fails or is overtaken leaves that market
  * held, and starting from what it says would offer the team before the write, which saving writes
  * back and deals again. Every read that lands is a new object, so an entry ends by itself; it is here

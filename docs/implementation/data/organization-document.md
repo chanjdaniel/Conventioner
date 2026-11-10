@@ -32,7 +32,7 @@ describes:
   - back-end/api/markets.py#add_market_role
   - back-end/api/markets.py#remove_market_role
   - back-end/api/markets.py#update_market_role
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - E20/F04/S01
   - E21/F03/S01
@@ -65,7 +65,7 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 | Field                 | What it is                                                                                                                                                       |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `id`                  | a UUID, the primary key; the name is a display field                                                                                                             |
-| `name`                | unique among organizations: creating a second of one name is refused                                                                                             |
+| `name`                | creating one with a name another organization has is refused ("Organization already exists"); a rename is not checked, and no index holds the name unique        |
 | `owner`               | the user id of its one owner                                                                                                                                     |
 | `admins`, `members`   | user ids; the owner is in neither (`validate_owner_not_in_other_roles`); an admin cannot be added as a member, but a member made an admin stays in `members` too |
 | `markets`             | the ids of its markets, added when a market is created and pulled when one is deleted                                                                            |
@@ -115,6 +115,7 @@ Creating the organization and deleting it record nothing here: its history start
 **Its owner, its admins and its members read it**, in Manage organization's History section ([`ManageOrgOverlay.vue`](../../../front-end/src/views/ManageOrgOverlay.vue), with its entries drawn by [`OrganizationHistory.vue`](../../../front-end/src/components/OrganizationHistory.vue)), through `get_history` (`GET /organizations/:id/history`), 25 at a time as the end of its box scrolls into view ([`PagedList`](../../../front-end/src/components/PagedList.vue)); anyone else is refused, 403.
 So every one of its people has "Manage" on the organization's card; a member's dialog holds the owner, the default permissions (read-only) and the History, and none of the other people or controls the owner and the admins manage.
 A change made in the dialog shows in its History as it lands: the section reads its first page again after each.
+A first page that fails says so in its place, "The history could not be loaded." unless the failure says more, with "Try again", which reads it again ([`ReadFailed`](../../../front-end/src/components/ReadFailed.vue)), as the market's history does.
 **The organization itself is its people's too**: `GET /organizations/:id` (`read_organization`) answers its owner, admins and members, and anyone else 403, an organization nobody has 404, as its other routes do; it answered anyone signed in who had its id, its people's ids among it.
 The screens read an organization only through the list, `get_organizations_for_user`, which was always scoped.
 The first page also names every row of the market's table by its label, for the changes to its default table, recorded under `change-the-default`.

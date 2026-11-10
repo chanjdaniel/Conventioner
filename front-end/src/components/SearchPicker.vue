@@ -32,8 +32,10 @@
  *   order, then a line saying how many more there are and to type to narrow them. The line is not
  *   a choice, so the keys never land on it; it stands under what scrolls, since a list cut
  *   short says so where it is read. A group the cap alone leaves out is not drawn, as it has matches
- *   and so "None match" would be false. A choice made past the cap is not drawn either: the field
- *   names it, no row is active, and Enter keeps it rather than taking the first row.
+ *   and so "None match" would be false. One choice held when the matches pass the cap is drawn first,
+ *   as several are, and is the active row, so Enter keeps it rather than taking the first match.
+ *   Who leads is settled as the list opens and as the words change; the first word that lets the
+ *   choice go leaves nothing to lead.
  * - Given `multiple`, it holds several choices, `modelValue` is their values, and the field holds
  *   only words to search by. Each choice shows as a chip above the field with its own remove button,
  *   and Backspace in the empty field removes the last; a held Backspace takes none, so clearing the
@@ -53,9 +55,9 @@
  * - Given `acceptsTyped`, words that are no option's label, capitals aside, are offered as a choice
  *   of their own: `Use "<words>"` leads the list, ahead of what they find and outside the cap, so the
  *   keys reach it first, and choosing it makes the trimmed words the value. The field then shows
- *   them, or a chip does; reopened on them, as on a choice past the cap, no row is active and Enter
- *   keeps them. Words that differ from an option only in capitals take that option, the one spelt
- *   exactly so if two differ only in capitals, so "stickers" never stands beside "Stickers": it is
+ *   them, or a chip does; reopened on them, no row is active and Enter keeps them. Words that
+ *   differ from an option only in capitals take that option, the one spelt exactly so if two
+ *   differ only in capitals, so "stickers" never stands beside "Stickers": it is
  *   the active row ahead of others they find, drawn first if the cap would leave it out. Among
  *   several, words a typed chip holds in other capitals are that chip, so they make no second one.
  *   The list opens for words even with no options at all.
@@ -83,6 +85,12 @@
  *   can place the caret. A row or `Use "<words>"` is taken as with `acceptsTyped` alone.
  * - An option whose value is `''` is a real row under `holdsChoice`: chosen while `modelValue` is
  *   `''`, named by the field and ticked as any other, as "Ignore this column" needs.
+ * - Given `leads`, those options are drawn first whatever the words, outside the cap and its count
+ *   and ahead of `Use "<words>"`, as a way out that must stay in reach needs ("Ignore this value"):
+ *   the line saying the words find nothing still shows under them. Opened on nothing held and no
+ *   words, the keys start on the first; words start them on what the words find, a lead among it
+ *   only where the words find it too, so Enter never takes a way out for words that meant something
+ *   else.
  * - Given `hideLabel`, its label is `.visually-hidden`: the screen's row says it, and the label stays
  *   for a reader.
  * - Given `invalid`, its field is `aria-invalid="true"` and ringed in red, as a field is on Pricing;
@@ -163,6 +171,8 @@ const props = defineProps<
     fieldId?: string;
     /** A group the words emptied is not drawn: its heading says nothing of what they did find. */
     hidesEmptiedGroups?: boolean;
+    /** Drawn first whatever the words, outside the cap: a way out, such as "Ignore this value". */
+    leads?: PickerOption[];
   } & (
     | { multiple?: false; modelValue: string }
     /** Several choices, shown as chips above the field. */
@@ -178,7 +188,11 @@ const listId = `${id}-list`;
 const optionId = (index: number) => `${id}-option-${index}`;
 const moreId = `${id}-more`;
 
-const allOptions = computed(() => props.groups.flatMap((group) => group.options));
+const leads = computed(() => props.leads ?? []);
+const allOptions = computed(() => [
+  ...leads.value,
+  ...props.groups.flatMap((group) => group.options),
+]);
 /** Whether the picker has any option at all. */
 const hasChoices = computed(() => allOptions.value.length > 0);
 /** The one choice made; several are `chosenValues`. */
@@ -269,8 +283,13 @@ const namedOption = computed(() => {
 });
 /** The choices that lead a capped list, as they stood when it opened or the words last changed. */
 const pinned = ref<ReadonlySet<string>>(new Set());
-function pinTheChosen(): void {
-  pinned.value = new Set(chosenValues.value);
+/** `lettingGo`: the words being typed let the one choice go, so it leads nothing. */
+function pinTheChosen(lettingGo = false): void {
+  if (props.multiple) pinned.value = new Set(chosenValues.value);
+  else {
+    const held = lettingGo ? undefined : chosenOption.value;
+    pinned.value = new Set(held ? [held.value] : []);
+  }
 }
 /** What a list past its cap draws first: the choices made, and the option the words name. */
 const leadRows = computed(() => {
@@ -305,16 +324,30 @@ const leadGroup = (options: PickerOption[], testid?: string): ShownGroup => ({
   matched: options,
   shown: options,
 });
-/** Everything drawn, in order: the words as a choice, outside the cap, then the rows that lead. */
+/**
+ * Everything drawn, in order: the caller's leads and the words as a choice, outside the cap, then the
+ * rows that lead it.
+ */
 const shownGroups = computed(() => {
   const option = typedOption.value;
   return [
+    ...(leads.value.length ? [leadGroup(leads.value, `${props.testid}-leads`)] : []),
     ...(option ? [leadGroup([option], `${props.testid}-typed`)] : []),
     ...(leadRows.value.length ? [leadGroup(leadRows.value)] : []),
     ...cappedGroups.value,
   ];
 });
 const shownOptions = computed(() => shownGroups.value.flatMap((group) => group.shown));
+/**
+ * Words find nothing to choose past the leads, and there is no group to say so in: the list says it
+ * under its rows.
+ */
+const nothingShown = computed(
+  () =>
+    Boolean(words.value) &&
+    shownOptions.value.length === leads.value.length &&
+    cappedGroups.value.length <= 1,
+);
 /** How many matches the cap leaves undrawn. */
 const moreCount = computed(
   () =>
@@ -330,11 +363,19 @@ function rowFrom(from: number, step: 1 | -1): number {
   }
   return from;
 }
-/** With nothing chosen, the row the keys start on; words that name an option lead to it. */
+/**
+ * With nothing chosen, the row the keys start on; words that name an option lead to it. Words pass
+ * the caller's leads by unless they find one, so Enter takes what they found; none found, no row.
+ */
 const firstRow = computed(() => {
   const named = namedOption.value?.disabled ? undefined : namedOption.value;
   const at = named ? shownOptions.value.indexOf(named) : -1;
-  return at >= 0 ? at : rowFrom(-1, 1);
+  if (at >= 0) return at;
+  if (!words.value || !leads.value.length) return rowFrom(-1, 1);
+  return shownOptions.value.findIndex(
+    (option, index) =>
+      !option.disabled && (index >= leads.value.length || props.finds(option, words.value)),
+  );
 });
 /** Whether there is anything to list: an option, or words to use. */
 const hasRows = computed(() => hasChoices.value || Boolean(typedOption.value));
@@ -400,8 +441,8 @@ function openList(): void {
     (option) => option.value === props.modelValue && !option.disabled,
   );
   const heldUndrawn = chosenOption.value || keptWords.value;
-  // A choice the cap leaves undrawn, or that no option offers, makes no row active, so Enter keeps
-  // it.
+  // A choice that may not be taken, or that no option offers, makes no row active, so Enter keeps
+  // it. One the cap would leave out leads the list, so it is the row found above.
   active.value = chosenAt >= 0 ? chosenAt : heldUndrawn ? -1 : firstRow.value;
   // Reopened on a choice, its label is selected, so what is typed next replaces it and searches
   // by itself, rather than running on from the label; left untouched, the choice stays.
@@ -446,7 +487,7 @@ function choose(option: PickerOption): void {
 }
 
 function typed(): void {
-  pinTheChosen();
+  pinTheChosen(!props.multiple && !holds.value);
   searching.value = true;
   open.value = hasRows.value;
   active.value = firstRow.value;
@@ -654,7 +695,10 @@ function onFocus(): void {
         :shade-testid="`${testid}-list`"
         :listbox="{ id: listId, label, multiple }"
       >
-        <div class="search-picker-rows" :class="{ 'search-picker-rows--capped': moreCount > 0 }">
+        <div
+          class="search-picker-rows"
+          :class="{ 'search-picker-rows--line-under': moreCount > 0 || nothingShown }"
+        >
           <div
             v-for="(group, g) in shownGroups"
             :key="group.label ?? g"
@@ -705,15 +749,12 @@ function onFocus(): void {
               None match "{{ words }}".
             </p>
           </div>
-          <p
-            v-if="!shownOptions.length && cappedGroups.length <= 1"
-            class="search-picker-none"
-            :data-testid="`${testid}-none`"
-          >
-            {{ noneWord ?? 'Nobody' }} matches "{{ words }}".
-          </p>
         </div>
       </ScrollBox>
+      <!-- Beside the listbox, not in it: a listbox holds options and groups only. -->
+      <p v-if="nothingShown" class="search-picker-none" :data-testid="`${testid}-none`">
+        {{ noneWord ?? 'Nobody' }} matches "{{ words }}".
+      </p>
       <p
         v-if="moreCount > 0"
         :id="moreId"
@@ -819,7 +860,8 @@ function onFocus(): void {
   padding: var(--space-1) 0;
 }
 
-.search-picker-rows--capped {
+/* A line stands under the rows, "N more" or "Nothing matches", and keeps their bottom space. */
+.search-picker-rows--line-under {
   padding-bottom: 0;
 }
 
@@ -892,6 +934,13 @@ function onFocus(): void {
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
+
+/* Under the rows, which keep no space under them for it: it takes their bottom space as its own. */
+.search-picker-list > .search-picker-none {
+  flex: none;
+  padding-bottom: var(--space-3);
+}
+
 .search-picker-more {
   display: flex;
   flex: none;

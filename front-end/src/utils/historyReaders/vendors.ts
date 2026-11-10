@@ -30,7 +30,8 @@ export const readers: HistoryReaders = {
   // A vendor added by hand: their name and status, then the answers the price groups read, each
   // question as the form asks it (E43/F01/S03).
   'add-vendor/*': {
-    changes(entry, { path, fields }) {
+    changes(entry, context) {
+      const { path, fields } = context;
       const detail = asDetail(entry.detail);
       const before = asDetail(detail.before);
       const after = asDetail(detail.after);
@@ -50,7 +51,7 @@ export const readers: HistoryReaders = {
           ),
           ...answers,
         ],
-        recorded: recordedFields(entry, detail, path, true),
+        recorded: recordedFields(entry, detail, context, true),
       };
     },
   },

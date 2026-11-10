@@ -192,6 +192,20 @@ test.describe('the Pricing card', () => {
 
     await frame.evaluate((el) => el.scrollTo({ left: el.scrollWidth }));
     await expect(right).toHaveCount(0);
+
+    // The caption says what every price is, so it stays in the card when the prices scroll: as the
+    // table's own caption, it left with the first column (T217).
+    const caption = card.getByText('A full table for one market day, in CAD');
+    await expect(caption).toBeInViewport({ ratio: 1 });
+    const cardBox = await card.boundingBox();
+    const captionBox = await caption.boundingBox();
+    expect(cardBox && captionBox, 'the card and its caption are drawn').toBeTruthy();
+    if (cardBox && captionBox) {
+      expect(captionBox.x, 'the caption starts inside the card').toBeGreaterThanOrEqual(cardBox.x);
+      expect(captionBox.x + captionBox.width, 'and ends inside it').toBeLessThanOrEqual(
+        cardBox.x + cardBox.width,
+      );
+    }
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
       'the page stays',

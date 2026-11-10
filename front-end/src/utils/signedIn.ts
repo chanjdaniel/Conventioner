@@ -2,8 +2,9 @@
  * The address the organizer signed in with, as the shell keeps it in `localStorage` (`user`), or
  * null when nobody is signed in or the stored value is not an address. Who they are is the
  * server's to know (the session); this is only for showing them themselves - the app bar and what
- * it offers, "(you)" beside their name in a list, Mine in the review's All view, and whether a card
- * someone holds is their own. Nothing is decided by it: every write is judged on the session.
+ * it offers, "(you)" beside their name in a list, Mine in the review's All view, whether a card
+ * someone holds is their own, and which page the router's guard opens. Nothing is decided by it:
+ * every request is judged on the session.
  *
  * The app stores a string; a test's fixture stores an object with an `email`, and both read here.
  */

@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { ApplicationStatus } from '@/assets/types/datatypes';
-import { verdictGiverLine } from '@/utils/verdicts';
+import { statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
 
 const ALEX = { kind: 'person' as const, userId: 'user-alex', email: 'alex@market.test' };
 
@@ -41,5 +41,25 @@ describe('who gave a verdict', () => {
         verdictReason: 'Did not tick “I understand that no-shows”',
       }),
     ).toBe('Rejected automatically: Did not tick “I understand that no-shows”');
+  });
+});
+
+describe('what a status reads', () => {
+  it('reads an old under_review row as Open, in the open tone, as the Open filter lists it', () => {
+    expect(statusLabel(ApplicationStatus.UnderReview)).toBe('Open');
+    expect(statusChip(ApplicationStatus.UnderReview)).toBe(statusChip(ApplicationStatus.Open));
+    expect(statusChip(ApplicationStatus.UnderReview)).toBe('chip chip--informational');
+  });
+
+  it('writes every label in sentence case', () => {
+    expect(statusLabel(ApplicationStatus.AssignmentSent)).toBe('Assignment sent');
+    for (const status of Object.values(ApplicationStatus)) {
+      const [first, ...rest] = statusLabel(status).split(' ');
+      expect(
+        rest.every((word) => word === word.toLowerCase()),
+        statusLabel(status),
+      ).toBe(true);
+      expect(first[0]).toBe(first[0].toUpperCase());
+    }
   });
 });

@@ -20,6 +20,7 @@ sources:
   - T209
   - T214
   - T260
+  - T263
 ---
 
 # The app bar
@@ -71,13 +72,14 @@ The session probe corrects the stored address when it answers, and `user` is pro
 So the bar stands before the probe answers, with the account menu in it from the first paint.
 A person can then sign out under the probe, so its answer counts only if the stored user is still the one it asked about: a late answer brings back neither the bar nor a note that the session ended.
 That guard reads this tab's copy of what is stored, which can lag a sign-out in another tab, so the probe writes only a correction: an answer repeating the stored user writes nothing, and cannot put back a user that sign-out took away.
+The router's `requireSignIn` and the Assignments page read the stored user through `signedInEmail` as well, so to them too a stored value that is not an address is nobody signed in, and the guard never throws on one.
 
 **The shell makes no probe on a public page**, so a stale stored user on "Page not found" or a password page shows a full bar.
 That says nothing about any market, and its links lead to sign-in, since the first read of the page they open answers 401 ([a session that ends mid-work](../conventions/an-exception-never-reaches-a-client.md)).
 
 **["Page not found"](../../../front-end/src/components/PageNotFound.vue) offers Markets to a signed-in organizer and Sign in to anyone else.**
 It decides on the person alone, never on the address, so a gated market and a missing one read identically to each ([a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md)).
-On a phone its words stand at the phone's 16px gutter, on the logo's left edge.
+Its words stand at the bar's own 16px inset, on the logo's left edge, at a desk as on a phone.
 
 ## The sheet, on a phone
 

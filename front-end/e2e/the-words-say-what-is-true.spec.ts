@@ -71,9 +71,11 @@ test('an open market says where its applications come from', async ({
   authenticatedPage: page,
   request,
 }) => {
-  for (const [intakeMode, says] of [
-    ['form', 'New ones keep arriving here.'],
-    ['csv', 'Every response you imported from your Google Form is here.'],
+  // The page's line says it on a market's own form; on a Google Form market the rail's sentence
+  // says it, just above, and the page says it no second time (T96).
+  for (const [intakeMode, says, railSays] of [
+    ['form', 'New ones keep arriving here.', null],
+    ['csv', null, 'Every imported response is here.'],
   ] as const) {
     const { marketId } = await seedApplicantMarket(
       request,
@@ -88,7 +90,10 @@ test('an open market says where its applications come from', async ({
       await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
     }
     await page.goto(marketSetupPath(marketId, 'applications'));
-    await expect(page.getByTestId('market-setup-applications-condition')).toContainText(says);
+    const condition = page.getByTestId('market-setup-applications-condition');
+    if (railSays) await expect(page.getByTestId('phase-rail-next')).toContainText(railSays);
+    if (says) await expect(condition).toContainText(says);
+    else await expect(condition).toHaveCount(0);
   }
 });
 

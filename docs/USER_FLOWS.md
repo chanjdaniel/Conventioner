@@ -92,7 +92,7 @@ Today nothing writes those statuses, so "Send offers" is always refused while an
 #### M2. Send offers
 
 **Status:** Planned; the button exists.
-More…, "Send offers" in Assignment would move applications to Assignment Sent and the market to Offers.
+More…, "Send offers" in Assignment would move applications to Assignment sent and the market to Offers.
 
 #### M3. A vendor accepts or refuses
 

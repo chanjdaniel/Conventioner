@@ -9,8 +9,9 @@
 export type AddressPart =
   { kind: 'text'; text: string } | { kind: 'address'; local: string; domain: string };
 
-/** An address, its domain ending on a letter or digit, so a sentence's full stop stays words. */
-const ADDRESS = /[^\s@,;()]+@[^\s@,;()]+\.[^\s@,;()]*[^\s@,;().]/g;
+/** An address, its domain ending on a letter or digit, so a sentence's full stop stays words, and
+ * never holding a colon, so the one after a vendor in a list of their reviewers does too. */
+const ADDRESS = /[^\s@,;():]+@[^\s@,;():]+\.[^\s@,;():]*[^\s@,;():.]/g;
 
 /**
  * Words' pieces, each address apart, so the screen keeps the part before the "@" and the part from

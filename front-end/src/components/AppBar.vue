@@ -368,7 +368,8 @@ onUnmounted(stopWatchingTheWindow);
   margin: 0;
   padding: 0 var(--space-4);
   border: none;
-  /* A filled row the whole width is the target, as a menu's item is, so its halo runs its width. */
+  /* A filled row the whole width is the target, as a menu's item is, so its focus mark runs its
+     width. */
   background: white;
   color: var(--mm-black);
   cursor: pointer;

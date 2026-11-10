@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/market/MarketPlanTab.vue
   - front-end/src/components/elements/ElementPricing.vue
-verified: 2026-11-04
+verified: 2026-11-10
 sources:
   - wayfinding/the-order-of-the-work/02
   - wayfinding/the-order-of-the-work/03
@@ -29,6 +29,7 @@ sources:
   - E43/F01/S02
   - T205
   - T217
+  - T263
 ---
 
 # Planning the market
@@ -176,7 +177,7 @@ Optional: a market with no prices shows no price anywhere ([a price follows the 
    A vendor pays the cheapest group they are in at their table's tier, and "Everyone else" when they are in none ([a price follows the table](../rules/a-price-follows-the-table.md#price-groups)).
    A condition on a question the form no longer asks, or an answer it no longer offers, is drawn red with what is missing, headed "A question no longer on the form" where the question is gone, and until it is fixed Open applications waits, the rail naming the group, and from another page of the market the rail offers "Fix the price groups".
    A form that asks no question with answers to choose offers no group: the card says every vendor pays "Everyone else".
-   A table of many tiers too wide for the card scrolls inside it, a shade at the end with more beyond it.
+   A table of many tiers too wide for the card scrolls inside it, a shade at the end with more beyond it, under its caption ("A full table for one market day, in CAD"), which stays in view.
 2. "Half table costs [50] % of a full table" sets a half table's share, a whole number from 0 to 100.
 3. "Currency" is the market's one currency, "CAD - Canadian dollars" until another is picked.
 4. Expect "Plan saved"; a cell shows what is typed until it is left, then the price as kept in the market's currency ("35.5" becomes "$35.50", "US$35.50" in US dollars, and a currency picked re-reads every cell); focused again, it gives the plain number, "35.50" ([an amount reads to the cent](../rules/an-amount-reads-to-the-cent.md#an-amount-field)).
