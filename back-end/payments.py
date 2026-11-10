@@ -31,8 +31,11 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
+from pymongo.errors import DuplicateKeyError
+
 from datatypes import PaymentEntry
 from db_config import get_database
+from unique_indexes import ensure_vendor_day_index
 from utils.email_address import normalized_email
 
 PAYMENTS_COLLECTION = "payments"
@@ -43,6 +46,18 @@ VENDOR_EMAIL_FIELD = "vendor_email"
 db = get_database()
 payments_collection = db[PAYMENTS_COLLECTION]
 amounts_owed_collection = db[AMOUNTS_OWED_COLLECTION]
+
+
+def ensure_payment_indexes() -> None:
+    """One owed record per vendor's day, held by the database (T270).
+
+    The freed line and an amount set by hand are each written by an upsert by market, vendor and
+    date, and two that land at once - an Admin setting the amount as an Editor frees the seat -
+    both match nothing and both insert, so only a unique index keeps the day one record: with two,
+    whichever the server found first won, and the amount set did not stick or the freed line was
+    lost. ``app.py`` builds it at boot and refuses to start without it (``unique_indexes``).
+    """
+    ensure_vendor_day_index(amounts_owed_collection, AMOUNTS_OWED_COLLECTION)
 
 
 @dataclass(frozen=True)
@@ -164,6 +179,24 @@ def _owed_key(market_id: str, vendor_email: str, date: str) -> Dict[str, str]:
     return {**_vendor(market_id, vendor_email), "date": date}
 
 
+def _upsert_owed(
+    market_id: str, vendor_email: str, date: str, update: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """Write one vendor's day's owed record, creating it if there is none; returns what it held
+    before, if anything.
+
+    Two writes of a day with no record yet both match nothing and both insert, and the unique
+    index refuses the second (``ensure_payment_indexes``). The one refused runs once more, which
+    lands on the winner's record, so the day holds what each wrote; a second refusal is not this
+    race, and goes on as the error it is.
+    """
+    key = _owed_key(market_id, vendor_email, date)
+    try:
+        return amounts_owed_collection.find_one_and_update(key, update, upsert=True)
+    except DuplicateKeyError:
+        return amounts_owed_collection.find_one_and_update(key, update, upsert=True)
+
+
 def keep_freed_line(
     market_id: str, vendor_email: str, date: str, seat: Seat, by: str,
 ) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
@@ -173,11 +206,7 @@ def keep_freed_line(
     then refused can put the line back (``restore_freed_line``).
     """
     written = {**asdict(seat), "by": by, "at": _now()}
-    before = amounts_owed_collection.find_one_and_update(
-        _owed_key(market_id, vendor_email, date),
-        {"$set": {"freed": written}},
-        upsert=True,
-    )
+    before = _upsert_owed(market_id, vendor_email, date, {"$set": {"freed": written}})
     return (before or {}).get("freed"), written
 
 
@@ -208,9 +237,10 @@ def clear_freed_lines(
     taken_back: List[Tuple[str, str, int]] = []
     if not wanted:
         return taken_back
-    for doc in amounts_owed_collection.find({MARKET_ID_FIELD: market_id}):
+    for doc in amounts_owed_collection.find({MARKET_ID_FIELD: market_id,
+                                             "freed": {"$type": "object"}}):
         key = (doc.get(VENDOR_EMAIL_FIELD), doc.get("date"))
-        if doc.get("freed") and key in wanted:
+        if key in wanted:
             cleared: Dict[str, Any] = {"freed": None}
             deduction = doc.get("set_by_hand") or {}
             if deduction.get("by_free"):
@@ -228,10 +258,7 @@ def set_amount_owed(
     set_by_hand: Dict[str, Any] = {"cents": cents, "by": by, "at": _now()}
     if by_free:
         set_by_hand["by_free"] = True
-    amounts_owed_collection.find_one_and_update(
-        _owed_key(market_id, vendor_email, date), {"$set": {"set_by_hand": set_by_hand}},
-        upsert=True,
-    )
+    _upsert_owed(market_id, vendor_email, date, {"$set": {"set_by_hand": set_by_hand}})
 
 
 def use_calculated_price(market_id: str, vendor_email: str, date: str) -> None:

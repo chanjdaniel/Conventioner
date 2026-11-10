@@ -7,6 +7,7 @@ refund is given back, an Admin records it, and the account squares. Each change 
 and is recorded in the market's history.
 """
 import pytest
+from pymongo.errors import DuplicateKeyError
 
 import api.markets as MarketsApi
 import api.payments as PaymentsApi
@@ -179,6 +180,95 @@ class TestFreeingATableAsks:
 
         assert len(market.doc["assignmentObject"]["vendorAssignments"]) == 2
         assert stores.owed.documents == []
+
+
+class TestAnAmountSetAsTheSeatIsFreed:
+    """An Admin setting what a vendor owes for a day at the moment an Editor frees that vendor's
+    seat that day (T270).
+
+    Both write the day's owed record by an upsert, and two that land at once both match nothing
+    and both insert; the unique index on the vendor's day refuses the second with a duplicate key
+    error. The write that lost runs its upsert again, which lands on the winner's record, so the
+    day is one record holding both: the amount set sticks, and the freed line stays.
+    """
+
+    @staticmethod
+    def _the_other_lands_first(monkeypatch, stores, other):  # noqa: F811
+        """This request's upsert matches nothing; ``other`` inserts the day's record before this
+        one's insert, which the unique index then refuses."""
+        the_upsert = stores.owed.find_one_and_update
+
+        def raced(*_args, **_kwargs):
+            monkeypatch.setattr(stores.owed, "find_one_and_update", the_upsert)
+            other()
+            raise DuplicateKeyError("E11000 duplicate key error")
+
+        monkeypatch.setattr(stores.owed, "find_one_and_update", raced)
+
+    def test_the_amount_set_lands_on_the_freed_record(self, admin, stores, monkeypatch):  # noqa: F811
+        self._the_other_lands_first(
+            monkeypatch, stores, lambda: PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR))
+
+        PaymentsApi.set_amount_owed(MARKET, ANA, SUN, {"cents": 1000}, ADMIN)
+
+        [record] = stores.owed.documents
+        assert record["freed"]["table_code"] == "North Wing 1"
+        assert record["set_by_hand"]["cents"] == 1000
+        sunday = line(SUN)
+        assert (sunday["freed"], sunday["owedCents"], sunday["owedSetBy"]) == (True, 1000, ADMIN)
+
+    def test_the_freed_line_lands_on_the_record_of_the_amount_set(self, admin, stores,  # noqa: F811
+                                                                    monkeypatch):
+        self._the_other_lands_first(
+            monkeypatch, stores,
+            lambda: PaymentsApi.set_amount_owed(MARKET, ANA, SUN, {"cents": 1000}, ADMIN))
+
+        assert PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR) == ({"removed": 1}, 200)
+
+        [record] = stores.owed.documents
+        assert record["freed"]["table_code"] == "North Wing 1"
+        assert record["set_by_hand"]["cents"] == 1000
+        sunday = line(SUN)
+        assert (sunday["freed"], sunday["owedCents"], sunday["owedSetBy"]) == (True, 1000, ADMIN)
+
+    @pytest.mark.parametrize("write", ["set", "free"])
+    def test_a_second_refusal_is_the_error_it_is(self, admin, stores, monkeypatch,  # noqa: F811
+                                                 write):
+        def refused(*_args, **_kwargs):
+            raise DuplicateKeyError("E11000 duplicate key error")
+
+        monkeypatch.setattr(stores.owed, "find_one_and_update", refused)
+
+        with pytest.raises(DuplicateKeyError):
+            if write == "set":
+                PaymentsApi.set_amount_owed(MARKET, ANA, SUN, {"cents": 1000}, ADMIN)
+            else:
+                PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR)
+        assert line(SUN)["freed"] is False
+        assert entries(stores, "change-owed") == []
+
+    def test_seating_again_reads_only_the_records_holding_a_freed_line(self, admin, stores,  # noqa: F811
+                                                                       monkeypatch):
+        """A market's owed records are mostly amounts set by hand; seating a day again looks only
+        for the freed lines it forgets."""
+        PaymentsApi.set_amount_owed(MARKET, ANA, SAT, {"cents": 2000}, ADMIN)
+        PlacementsApi.remove_placement(MARKET, ANA, SUN, ADMIN)
+        the_find = stores.owed.find
+        read = []
+
+        def counted(query, *args, **kwargs):
+            found = list(the_find(query, *args, **kwargs))
+            read.extend(found)
+            return iter(found)
+
+        monkeypatch.setattr(stores.owed, "find", counted)
+
+        PlacementsApi.write_placement(MARKET, {"email": ANA, "date": SUN, "table_code": "Landing 1",
+                                               "table_choice": "Full Table"}, ADMIN)
+
+        assert [doc["date"] for doc in read] == [SUN]
+        assert line(SUN)["freed"] is False
+        assert line(SAT)["owedCents"] == 2000
 
 
 class TestAdjustingTheAmountPaid:

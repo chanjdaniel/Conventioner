@@ -312,7 +312,7 @@ The back end builds a UNIQUE index on the stored, lowercased address at boot (`a
 Register used to check for an address and then insert it, so a double click could make two accounts; which one an organizer keeps is theirs to decide, so the migration names a clash and writes nothing.
 
 `check_vendor_day_duplicates.py` **must** be run, and exit 0, before promoting the release carrying T270, the first whose boot can refuse on a vendor's day held by two records.
-That release builds a UNIQUE index on `attendance`'s `(market_id, vendor_email, date)` at boot (`api.attendance.ensure_attendance_indexes`), and refuses to boot while any vendor's day there has two records, which two check-ins at the same moment could store before.
+That release builds a UNIQUE index on `(market_id, vendor_email, date)` at boot on `attendance` (`api.attendance.ensure_attendance_indexes`) and on `amounts_owed` (`payments.ensure_payment_indexes`), and refuses to boot while any vendor's day in either has two records, which two check-ins, or an amount set as the seat was freed, at the same moment could store before.
 The script reads every collection in `unique_indexes.VENDOR_DAY_INDEXES`, each of which its owner builds such an index on at boot.
 The script writes nothing: it prints each such vendor's day by market id, date and record id, never by address, and exits 1 when there is any; resolving one is [OPERATIONS.md's](OPERATIONS.md#when-the-back-end-refuses-to-boot).
 Daniel runs it through an ops session, with the production address passed inline: `MONGODB_URI='<URI>' .venv/bin/python migrations/check_vendor_day_duplicates.py`.

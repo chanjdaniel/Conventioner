@@ -862,6 +862,13 @@ if not STUBBED_MODULES:
     _attendance_fake.index_information = lambda: {}
     _attendance_module.attendance_collection = _attendance_fake
 
+    # And what vendors owe, whose unique vendor-day index the boot builds (T270).
+    import payments as _payments_module
+
+    _amounts_owed_fake = FakeApplicationsCollection()
+    _amounts_owed_fake.index_information = lambda: {}
+    _payments_module.amounts_owed_collection = _amounts_owed_fake
+
 
 def a_solver_vendor(application_id: str = "app-1", **overrides):
     """One vendor as the solver reads them, for a test that stubs the solver's input.

@@ -18,7 +18,8 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from pymongo.errors import PyMongoError
 
-#: One vendor's day: what an attendance record is kept by, one per market, vendor and date.
+#: One vendor's day: what an attendance record and an owed record are each kept by, one per
+#: market, vendor and date.
 VENDOR_DAY_FIELDS = ("market_id", "vendor_email", "date")
 #: What a refusal or the duplicate check may print of a vendor's day: never the address.
 VENDOR_DAY_SHOWN = ("market_id", "date")
@@ -27,6 +28,7 @@ VENDOR_DAY_SHOWN = ("market_id", "date")
 #: ``migrations/check_vendor_day_duplicates.py`` reads every one before a release is promoted.
 VENDOR_DAY_INDEXES: Dict[str, str] = {
     "attendance": "attendance_vendor_day_unique",
+    "amounts_owed": "amounts_owed_vendor_day_unique",
 }
 
 

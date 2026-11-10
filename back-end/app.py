@@ -21,6 +21,7 @@ import csv_start as CsvStart
 import typesafe_client as TypeSafe
 import market_stats as MarketStats
 import api.attendance as AttendanceApi
+import payments as Payments
 import api.door as DoorApi
 import api.vendor_check_in as VendorCheckInApi
 import api.applications as ApplicationsApi
@@ -217,6 +218,25 @@ def verify_attendance_indexes() -> None:
 
 
 verify_attendance_indexes()
+
+
+def verify_payment_indexes() -> None:
+    """Refuse to boot unless one vendor's day can be only one owed record (T270).
+
+    The freed line and an amount set by hand are each an upsert by market, vendor and date, and
+    an Admin's set as an Editor freed the seat could store two records, so whichever the server
+    found first won. The unique index is the referee, built here; a process that cannot hold it
+    says so, naming the duplicates by market, date and record id, before it takes a request
+    (``unique_indexes``).
+    """
+    try:
+        Payments.ensure_payment_indexes()
+    except UniqueIndexError as e:
+        logger.critical("Refusing to start: %s", e)
+        raise
+
+
+verify_payment_indexes()
 
 
 def build_lookup_indexes() -> None:

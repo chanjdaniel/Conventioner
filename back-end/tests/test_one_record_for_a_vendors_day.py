@@ -1,9 +1,11 @@
 """One vendor's day is one record, held by a unique index the back end will not boot without (T270).
 
-Attendance was kept by an upsert on (market, vendor, date) with no unique index behind it, so two
-check-ins landing at once - two organizers at the door, or a tap and the vendor's own door-code
-check-in - could store two records: one Undo then left the vendor reading as here, and the history
-held two arrivals. The index is the referee now. These tests cover what the fakes can: the
+Attendance and what a vendor owes were each kept by an upsert on (market, vendor, date) with no
+unique index behind it, so two writes landing at once could store two records. Two check-ins - two
+organizers at the door, or a tap and the vendor's own door-code check-in - left two attendance
+records: one Undo then left the vendor reading as here, and the history held two arrivals. An
+Admin's amount set while an Editor freed the seat left two owed records, and whichever the server
+found first won. The index is the referee now. These tests cover what the fakes can: the
 helper that builds it and names the duplicates that stop it, the boot's refusal, and the
 read-only check run before a release is promoted. That the database itself refuses a second
 record is the E2E spec's, on the stack's real MongoDB (``one-record-for-a-vendors-day.spec.ts``).
@@ -21,6 +23,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 import api.attendance as AttendanceApi  # noqa: E402
 import app as app_module  # noqa: E402
 import check_vendor_day_duplicates as Check  # noqa: E402
+import payments as Payments  # noqa: E402
 import unique_indexes as UniqueIndexes  # noqa: E402
 
 MARKET = "market-123"
@@ -168,25 +171,41 @@ class TestTheUniqueIndexHelper:
             UniqueIndexes.duplicate_groups(VendorDays(), ("market_id",), ("vendor_email",))
 
 
+#: Each vendor-day collection the boot builds an index on: its owner module, the attribute holding
+#: the collection, the boot step that builds it, and the index's name.
+BOOTED = [
+    pytest.param(AttendanceApi, "attendance_collection", "attendance",
+                 lambda: app_module.verify_attendance_indexes(), "attendance_vendor_day_unique",
+                 id="attendance"),
+    pytest.param(Payments, "amounts_owed_collection", "amounts_owed",
+                 lambda: app_module.verify_payment_indexes(), "amounts_owed_vendor_day_unique",
+                 id="amounts_owed"),
+]
+
+
 class TestTheBoot:
-    def test_the_boot_builds_the_attendance_index(self, monkeypatch):
-        collection = VendorDays()
-        monkeypatch.setattr(AttendanceApi, "attendance_collection", collection)
+    @pytest.mark.parametrize("owner, attribute, name, boot, index", BOOTED)
+    def test_the_boot_builds_the_index(self, monkeypatch, owner, attribute, name, boot, index):
+        collection = VendorDays(name=name)
+        monkeypatch.setattr(owner, attribute, collection)
 
-        app_module.verify_attendance_indexes()
+        boot()
 
-        assert "attendance_vendor_day_unique" in collection.indexes
+        [(keys, options)] = collection.built
+        assert keys == [("market_id", 1), ("vendor_email", 1), ("date", 1)]
+        assert options == {"unique": True, "name": index}
 
-    def test_the_boot_refuses_naming_the_duplicates_and_no_address(self, monkeypatch, caplog):
-        monkeypatch.setattr(AttendanceApi, "attendance_collection",
-                            VendorDays(docs=TWICE, build_fails=True))
+    @pytest.mark.parametrize("owner, attribute, name, boot, index", BOOTED)
+    def test_the_boot_refuses_naming_the_duplicates_and_no_address(
+            self, monkeypatch, caplog, owner, attribute, name, boot, index):
+        monkeypatch.setattr(owner, attribute, VendorDays(name=name, docs=TWICE, build_fails=True))
 
         with caplog.at_level(logging.CRITICAL), pytest.raises(UniqueIndexes.UniqueIndexError):
-            app_module.verify_attendance_indexes()
+            boot()
 
         [logged] = [r for r in caplog.records if r.levelno == logging.CRITICAL]
-        assert logged.getMessage().startswith("Refusing to start: The unique index "
-                                              "attendance_vendor_day_unique")
+        assert logged.getMessage().startswith(
+            f"Refusing to start: The unique index {index} on {name} ")
         assert "rec-1, rec-2" in logged.getMessage()
         assert ANA not in caplog.text and BEN not in caplog.text
 
@@ -196,22 +215,26 @@ class TestTheCheckBeforeARelease:
     promoting the release whose boot refuses on a duplicate."""
 
     def test_none_found_exits_0(self, capsys):
-        database = {"attendance": VendorDays(docs=TWICE[2:])}
+        database = {"attendance": VendorDays(docs=TWICE[2:]),
+                    "amounts_owed": VendorDays(name="amounts_owed", docs=TWICE[2:])}
 
         assert Check.check(database) == 0
 
         out = capsys.readouterr().out
         assert "attendance: no vendor's day has more than one record." in out
+        assert "amounts_owed: no vendor's day has more than one record." in out
 
     def test_duplicates_exit_1_named_without_an_address(self, capsys):
-        database = {"attendance": VendorDays(docs=TWICE)}
+        database = {"attendance": VendorDays(docs=TWICE[2:]),
+                    "amounts_owed": VendorDays(name="amounts_owed", docs=TWICE)}
 
         assert Check.check(database) == 1
 
         out = capsys.readouterr().out
-        assert "attendance: 1 vendor's day has more than one record" in out
+        assert "attendance: no vendor's day has more than one record." in out
+        assert "amounts_owed: 1 vendor's day has more than one record" in out
         assert f"market_id {MARKET}, date {DAY}: rec-1, rec-2" in out
         assert ANA not in out and BEN not in out
 
-    def test_it_checks_every_vendor_day_collection(self):
-        assert set(Check.CHECKED) == set(UniqueIndexes.VENDOR_DAY_INDEXES)
+    def test_it_checks_attendance_and_amounts_owed(self):
+        assert set(Check.CHECKED) == {"attendance", "amounts_owed"}

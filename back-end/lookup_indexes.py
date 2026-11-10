@@ -10,8 +10,8 @@ holding 25,000 applications, a 314-row import scanned them all twice per row and
 Declared here once, and built at boot. These are lookups only. Where a collection's correctness
 rests on a UNIQUE index, the module that relies on it builds that index and refuses to serve
 without it (``api.applications``, ``market_documents``, ``api.applicant_auth``, and each new one
-through ``unique_indexes``, as ``api.attendance`` does): a unique index that will not build is a
-decision about data, and it belongs with the guarantee, not with a speed-up.
+through ``unique_indexes``, as ``api.attendance`` and ``payments`` do): a unique index that will
+not build is a decision about data, and it belongs with the guarantee, not with a speed-up.
 """
 import logging
 from typing import Any, Dict, List, Optional, Tuple
@@ -21,7 +21,7 @@ from api.applications import APPLICATIONS_COLLECTION
 from deletion_trail import DELETION_TRAIL_COLLECTION
 from history import HISTORY_COLLECTION
 from market_documents import MARKETS_COLLECTION, market_doc_key
-from payments import AMOUNTS_OWED_COLLECTION, PAYMENTS_COLLECTION
+from payments import PAYMENTS_COLLECTION
 from vendor_notes import VENDOR_NOTES_COLLECTION
 
 logger = logging.getLogger(__name__)
@@ -75,14 +75,13 @@ LOOKUP_INDEXES: Dict[str, List[Tuple[str, ...]]] = {
     VENDOR_NOTES_COLLECTION: [
         ("market_id", "vendor_email"),
     ],
-    # A vendor's payments and what is kept of their table-days, read one vendor at a time by the
-    # drawer's Payment tab and deleted with the market.
+    # A vendor's payments, read one vendor at a time by the drawer's Payment tab and deleted with
+    # the market.
     PAYMENTS_COLLECTION: [
         ("market_id", "vendor_email"),
     ],
-    AMOUNTS_OWED_COLLECTION: [
-        ("market_id", "vendor_email"),
-    ],
+    # What is kept of a vendor's table-days is not here: `payments.ensure_payment_indexes` builds
+    # (market_id, vendor_email, date) UNIQUE (T270), and its prefix serves a vendor's days.
     DELETION_TRAIL_COLLECTION: [
         ("organization_id",),
     ],
