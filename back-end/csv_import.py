@@ -44,6 +44,7 @@ from datatypes import (
     phase_from_market_document,
 )
 from market_documents import market_doc_field, market_doc_key, market_from_document
+from market_write import write_market
 import vendor_notes as VendorNotes
 
 logger = logging.getLogger(__name__)
@@ -1736,6 +1737,12 @@ def import_applications(
         market_id, applicants, failures, _existing_by_email(market_id), market_doc,
     )["absentApplications"]
 
+    # Remember how this file was read, so the next import opens ready to confirm rather than
+    # asking the organizer to rebuild a dozen decisions they have already made. Written before any
+    # row, holding the market as it was read: an import that met a market moved, or another
+    # import's mapping saved since, writes no row at all.
+    save_mapping(market_doc, headers, resolved, resolutions)
+
     for row_number, email, submitted_at, form_data, _ignored in applicants:
         if row_number in refused:
             continue
@@ -1786,10 +1793,6 @@ def import_applications(
             email for line, email, *_rest in applicants if line not in refused
         })
 
-    # Remember how this file was read, so the next import opens ready to confirm rather than
-    # asking the organizer to rebuild a dozen decisions they have already made.
-    save_mapping(markets_collection, market_id, headers, resolved, resolutions)
-
     # The rules judge what this import wrote - after any approval it sent back to review - and
     # anything else still undecided (E33/F03/S02), returning a rule's rejection to open only for an
     # importer who may overturn one (E38/F06/S01).
@@ -1837,17 +1840,20 @@ def _replace_sheet_notes(
 
 
 def save_mapping(
-    markets_collection: Any,
-    market_id: str,
+    market_doc: Dict[str, Any],
     headers: Sequence[str],
     resolved: Dict[str, List[int]],
     resolutions: Dict[str, Dict[str, Optional[str]]],
 ) -> None:
-    """Store the mapping by header text, for the next import to restore."""
-    markets_collection.update_one(
-        {"id": market_id},
-        {"$set": {market_doc_key("import_mapping"): mapping_payload(headers, resolved, resolutions)}},
-    )
+    """Store the mapping by header text, for the next import to restore, on the market as
+    ``market_doc`` read it: its phase, and the mapping it held.
+
+    Raises:
+        MarketChanged: the market moved, or another mapping was saved, since it was read.
+    """
+    key = market_doc_key("import_mapping")
+    write_market(market_doc, {"$set": {key: mapping_payload(headers, resolved, resolutions)}},
+                 holds=(key,))
 
 
 def mapping_payload(

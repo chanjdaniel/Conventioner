@@ -20,8 +20,9 @@ It writes through the same judgements as the plan's and the form's own writes
 (``prepared_plan``, ``prepared_application_form``) - the form lock above all - and asks the rows
 the plan write does: the import's row lets the start in, and a plan whose assignment rules differ
 from the market's asks the Assign row too (``Actions.ask_assign_if_the_rules_change``). It then
-writes as one ``$set``, conditioned on the market still being a draft whose form has no questions
-of its own, so a confirm either writes all of it or none of it.
+writes as one ``$set`` through ``write_market``, holding the market's phase and its form as it was
+read (a draft whose form had no questions of its own), so a confirm either writes all of it or none
+of it.
 
 The file is sent again rather than kept between the proposal and the confirm: the server never
 stores it, only the readings above, and re-reading it is how confirm knows the columns without
@@ -39,9 +40,8 @@ import essential_fields as EssentialFields
 import history as History
 from client_errors import ConflictError
 from datatypes import Market, MappingAuthor, Organization, SetupObject
-from market_documents import (
-    market_doc_field, market_doc_filter, market_doc_key, market_from_document,
-)
+from market_documents import market_doc_field, market_doc_key, market_from_document
+from market_write import write_market
 
 # The browser's "ignore this value", stored as None in a mapping's resolutions.
 IGNORE_VALUE = "__ignore__"
@@ -344,21 +344,6 @@ def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
     )
 
 
-def still_startable(market_doc: Dict[str, Any]) -> Dict[str, Any]:
-    """The filter a confirm writes under: the market as it was read - its id, and its phase as
-    stored, so a legacy draft with no phase field is matched as the refusal judged it - and its form
-    still without questions of its own. A market that changed since is written nothing."""
-    phase = market_doc_key("phase")
-    fields = f"{market_doc_key('application_form')}.fields"
-    stored_phase = market_doc_field(market_doc, "phase")
-    return {
-        **market_doc_filter("id", market_doc["id"]),
-        **({phase: stored_phase} if stored_phase is not None else {phase: {"$exists": False}}),
-        "$and": [{"$or": [{fields: {"$exists": False}}, {fields: {"$size": 0}},
-                          {market_doc_key("application_form"): None}]}],
-    }
-
-
 def confirm(
     market_doc: Dict[str, Any], body: Dict[str, Any], by: str,
     organization: Optional[Organization],
@@ -368,18 +353,18 @@ def confirm(
 
     What ``confirmed_update`` refuses it raises as a client error, answered as raised: a
     ``ConfirmRefused`` or a locked form 409, a plan or a form the writers refuse 400; and a plan
-    changing the assignment rules of someone the Assign row refuses, 403.
+    changing the assignment rules of someone the Assign row refuses, 403. A market that moved, or
+    whose form changed, since it was read raises ``MarketChanged``, and nothing is written.
     """
     if not isinstance(body.get("csvContent"), str):
         return {"error": "csvContent is required"}, 400
     confirmed = confirmed_update(market_doc, body["csvContent"], body)
     Actions.ask_assign_if_the_rules_change(confirmed.market, confirmed.plan, by, organization)
 
-    result = MarketsApi.markets_collection.update_one(still_startable(market_doc),
-                                                      {"$set": confirmed.update})
-    if not result.matched_count:
-        return {"error": "This market changed since its file was read, so nothing was written. "
-                         "Start again from its Market Setup."}, 409
+    # Holding the form as read, which the refusal judged had no questions of its own: a form that
+    # gained one, or another start, refuses this one whole.
+    write_market(market_doc, {"$set": confirmed.update},
+                 holds=(market_doc_key("application_form"),))
     # One entry for the start, with its counts, as an import is one: what it was made from and what
     # it made, not the plan and the form it wrote whole.
     History.record(market_doc["id"], by, Actions.IMPORT_APPLICATIONS, kind=History.STARTED,

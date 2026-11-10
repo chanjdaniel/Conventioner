@@ -189,13 +189,12 @@ class TestTheyApplyWhen:
 
         assert stored[0]["status"] == ApplicationStatus.REVIEWER_REJECTED.value
 
-    def test_an_import_writes_its_rows(self, applications):
+    def test_an_import_writes_its_rows(self, monkeypatch, applications):
         import csv_import as CsvImport
         import essential_fields as EssentialFields
-        from conftest import FakeMarketsCollection
-        from test_csv_import import GOOD_ROW, MAPPING, _csv, _market_doc
+        from test_csv_import import GOOD_ROW, MAPPING, _csv, _market_doc, bound_markets
 
-        markets = FakeMarketsCollection(_market_doc(rejectionRules=[
+        markets = bound_markets(monkeypatch, _market_doc(rejectionRules=[
             {"key": EssentialFields.TABLE_CHOICE_KEY, "answers": ["half"]}]))
 
         body, status = CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
@@ -270,11 +269,14 @@ class TestThePreviewSaysWhoTheyWillReject:
         assert status == 200, body
         return body
 
-    @staticmethod
-    def _markets(rules):
-        from conftest import FakeMarketsCollection
-        from test_csv_import import _market_doc
-        return FakeMarketsCollection(_market_doc(rejectionRules=rules))
+    @pytest.fixture(autouse=True)
+    def _writes_through(self, monkeypatch):
+        """Each test's markets fake is the one ``market_write`` writes the saved mapping to."""
+        self._monkeypatch = monkeypatch
+
+    def _markets(self, rules):
+        from test_csv_import import _market_doc, bound_markets
+        return bound_markets(self._monkeypatch, _market_doc(rejectionRules=rules))
 
     def test_every_row_a_rule_rejects_is_listed_with_its_reason_and_nothing_is_written(
         self, applications,

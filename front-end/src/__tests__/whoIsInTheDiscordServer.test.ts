@@ -21,6 +21,7 @@ import {
 } from '@/utils/discordCheck';
 import { answersRefusing } from './support/servedAnswers';
 import { MARKET_ID, serveMarket } from './support/marketScreen';
+import { MARKET_CHANGED_CODE } from '@/utils/api';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() }));
 const route = vi.hoisted(() => ({
@@ -58,6 +59,9 @@ vi.mock('@/utils/applicantApi', async (importOriginal) => {
 vi.mock('@/utils/signedIn', () => ({ signedInEmail: () => 'owner@market.test' }));
 
 const CHECKED_AT = '2026-10-31T12:00:00+00:00';
+const MARKET_CHANGED =
+  'This market changed while you were working on it, so your change was not saved. ' +
+  'Reload to see the latest, then make your change again.';
 
 function market(overrides: Partial<Market> = {}, refusal: string | null = null): Market {
   return {
@@ -250,7 +254,7 @@ describe('the Vendors page', () => {
       isAxiosError: true,
       response: {
         status: 409,
-        data: { error: 'The Discord card changed while Discord was being checked.' },
+        data: { error: MARKET_CHANGED, code: MARKET_CHANGED_CODE },
       },
     });
     const reads = api.get.mock.calls.filter(([url]) => url === `/markets/${MARKET_ID}`).length;
@@ -262,9 +266,7 @@ describe('the Vendors page', () => {
         reads + 1,
       );
     });
-    expect(wrapper.find('[data-testid="vendors-discord-error"]').text()).toBe(
-      'The Discord card changed while Discord was being checked.',
-    );
+    expect(wrapper.find('[data-testid="vendors-discord-error"]').text()).toBe(MARKET_CHANGED);
   });
 
   it('offers no check to someone the row refuses', async () => {

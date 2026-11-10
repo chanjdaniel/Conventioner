@@ -105,24 +105,22 @@ def test_a_stop_is_taken_on_a_market_still_stored_under_an_old_name(monkeypatch)
     from conftest import FakeSlugMarketsCollection
     import db_config
 
-    markets = FakeSlugMarketsCollection(_old("applications_open", "form"))
-    filters = []
-    update_one = markets.update_one
+    import market_write as MarketWrite
 
-    def recording(query, update):
-        filters.append(query)
-        return update_one(query, update)
-    markets.update_one = recording
+    markets = FakeSlugMarketsCollection(_old("applications_open", "form"))
 
     class _Db(dict):
         def __getitem__(self, _name):
             return markets
     monkeypatch.setattr(db_config, "get_database", lambda *_a, **_kw: _Db())
+    monkeypatch.setattr(MarketWrite, "markets_collection", markets)
 
     body, status = ApplicantsApi.set_applications_stopped("market-123", True, "owner@example.com")
 
+    # The write holds the phase as it is stored, the old name, so it lands.
     assert status == 200, body
-    assert "applications_open" in filters[-1]["phase"]["$in"]
+    [stored] = markets.docs
+    assert (stored["phase"], stored["applicationsStopped"]) == ("applications_open", True)
 
 
 def test_a_history_naming_the_old_phases_reads_as_having_entered_the_stage():

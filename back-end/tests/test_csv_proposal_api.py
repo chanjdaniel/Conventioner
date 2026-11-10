@@ -18,6 +18,7 @@ skip_without_real_dependencies()
 import app as app_module
 import api.markets as MarketsApi
 import api.users as UsersApi
+import market_write as MarketWrite
 from datatypes import MarketRole
 
 OWNER_EMAIL = "owner@example.com"
@@ -77,6 +78,12 @@ class FakeMarketsCollection:
         self.doc.update(update.get("$set", {}))
         return SimpleNamespace(matched_count=1, modified_count=1)
 
+    def find_one_and_update(self, query, update, projection=None, return_document=False):
+        """``update_one``, answering the market after it as ``market_write`` asks."""
+        if not self.update_one(query, update).matched_count:
+            return None
+        return dict(self.doc)
+
     def replace_one(self, *args, **kwargs):
         self.writes.append(args)
 
@@ -114,6 +121,7 @@ def markets(monkeypatch):
     def _install(doc):
         collection = FakeMarketsCollection(doc)
         monkeypatch.setattr(MarketsApi, "markets_collection", collection)
+        monkeypatch.setattr(MarketWrite, "markets_collection", collection)
         return collection
     return _install
 
@@ -176,16 +184,22 @@ def test_confirm_that_loses_a_race_writes_nothing(client, markets, monkeypatch):
     nothing, and the organizer is told."""
     collection = markets(_market())
     real_find = collection.find_one
+    reads = []
 
     def find_then_publish(query):
         found = real_find(query)
-        collection.doc["phase"] = "applications"
+        reads.append(query)
+        # The route reads the market twice, to ask the row and then for the document it judges:
+        # the move lands after the second.
+        if len(reads) == 2:
+            collection.doc["phase"] = "applications"
         return found
 
     monkeypatch.setattr(collection, "find_one", find_then_publish)
     response = client.post("/markets/market-1/csv-proposal/confirm",
                            json={"csvContent": CSV, "year": 2026})
     assert response.status_code == 409
+    assert response.get_json() == {"error": MarketWrite.MARKET_CHANGED, "code": "market_changed"}
     assert "importMapping" not in collection.doc
 
 

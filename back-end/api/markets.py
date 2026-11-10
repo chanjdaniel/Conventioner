@@ -65,7 +65,7 @@ from market_documents import (
     market_from_document,
     leave_out_what_no_read_serves,
 )
-from market_write import MarketNotFoundError, write_market
+from market_write import MarketNotFoundError, document_as_read, write_market
 import api.market_actions as Actions
 import api.permissions as PermissionsApi
 import market_deletion as MarketDeletion
@@ -2350,9 +2350,9 @@ def set_permission(
     key = market_doc_key('permissions')
     # Mongo cannot set a key inside a stored null or string, so a field that is not a map, which
     # the read already takes as no rows held, is replaced by one holding this row.
-    write = ({f"{key}.{row.id}": after.model_dump()} if _stored_rows_are_a_map(market_id)
+    write = ({f"{key}.{row.id}": after.model_dump()} if _stored_rows_are_a_map(market)
              else {key: {row.id: after.model_dump()}})
-    markets_collection.update_one(market_doc_filter("id", market_id), {"$set": write})
+    write_market(market, {"$set": write}, holds=_rows_held(market, [row]))
     _record_permission(market_id, requesting_user, History.PERMISSION_SET, row, before, after)
     market.permissions[row.id] = after
     return Actions.table(market)
@@ -2370,9 +2370,8 @@ def reset_permission(market_id: str, action_id: Any, requesting_user: str) -> Li
     before = Actions.held_row(row, market.permissions)
     if before is None:
         return Actions.table(market)
-    markets_collection.update_one(market_doc_filter("id", market_id), {"$unset": {
-        f"{market_doc_key('permissions')}.{row.id}": "",
-    }})
+    write_market(market, {"$unset": {f"{market_doc_key('permissions')}.{row.id}": ""}},
+                 holds=_rows_held(market, [row]))
     _record_permission(market_id, requesting_user, History.PERMISSION_RESET, row, before, None)
     market.permissions.pop(row.id, None)
     return Actions.table(market)
@@ -2397,9 +2396,8 @@ def reset_permissions(market_id: str, requesting_user: str) -> List[Dict[str, An
     # Exactly the rows it returns: a row this build cannot read (a later build's, a malformed one)
     # is left as the per-row reset leaves it, and is not in the entry.
     key = market_doc_key('permissions')
-    markets_collection.update_one(market_doc_filter("id", market_id), {"$unset": {
-        f"{key}.{row.id}": "" for row, _ in held_rows
-    }})
+    write_market(market, {"$unset": {f"{key}.{row.id}": "" for row, _ in held_rows}},
+                 holds=_rows_held(market, [row for row, _ in held_rows]))
     History.record(
         market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=History.PERMISSION_TABLE_RESET,
         detail=lambda: {
@@ -2442,7 +2440,7 @@ def copy_organization_default(market_id: str, requesting_user: str) -> List[Dict
         return Actions.table(market)
 
     key = market_doc_key('permissions')
-    if _stored_rows_are_a_map(market_id):
+    if _stored_rows_are_a_map(market):
         # Row by row, so a row this build cannot read stays, as a reset leaves it.
         update: Dict[str, Any] = {}
         sets = {f"{key}.{row.id}": after.model_dump() for row, _, after in changed if after}
@@ -2453,7 +2451,7 @@ def copy_organization_default(market_id: str, requesting_user: str) -> List[Dict
             update["$unset"] = unsets
     else:
         update = {"$set": {key: {row_id: held.model_dump() for row_id, held in copied.items()}}}
-    markets_collection.update_one(market_doc_filter("id", market_id), update)
+    write_market(market, update, holds=_rows_held(market, [row for row, _, _ in changed]))
     History.record(
         market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=History.PERMISSION_TABLE_COPIED,
         detail=lambda: {
@@ -2469,11 +2467,20 @@ def copy_organization_default(market_id: str, requesting_user: str) -> List[Dict
     return Actions.table(market)
 
 
-def _stored_rows_are_a_map(market_id: str) -> bool:
-    """Whether the market's stored ``permissions`` is a map or absent, as Mongo can set a key in."""
+def _stored_rows_are_a_map(market: Market) -> bool:
+    """Whether the market's ``permissions``, as it was read, is a map or absent, as Mongo can set
+    a key in."""
+    return isinstance(document_as_read(market).get(market_doc_key('permissions'), {}), dict)
+
+
+def _rows_held(market: Market, rows: List[Actions.Action]) -> Tuple[str, ...]:
+    """What a write to ``rows`` of the market's table holds as it was read: each row it changes,
+    so a row changed meanwhile in another tab is not overwritten, or the whole ``permissions``
+    where the stored rows are not a map, since the write then replaces it whole."""
     key = market_doc_key('permissions')
-    stored = markets_collection.find_one(market_doc_filter("id", market_id), {key: 1}) or {}
-    return isinstance(stored.get(key, {}), dict)
+    if not _stored_rows_are_a_map(market):
+        return (key,)
+    return tuple(f"{key}.{row.id}" for row in rows)
 
 
 def get_permission_history(market_id: str, requesting_user: str) -> List[Dict[str, Any]]:

@@ -13,6 +13,7 @@ import pytest
 
 from datatypes import MarketPhase, VendorAssignmentResult
 from market_documents import MARKETS_COLLECTION
+from market_write import MarketChanged
 
 import api.applicants as ApplicantsApi
 import api.markets as MarketsApi
@@ -160,8 +161,7 @@ class TestBackToReviewAgainstPublishResults:
             assert not (stored["phase"] == MarketPhase.APPLICATIONS.value
                         and stored.get("resultsPublished")), stored
             if moved is None:
-                assert published == ({"error": "This market moved while the request was in "
-                                               "flight. Reload it and try again."}, 409)
+                assert isinstance(published, MarketChanged), published
                 assert stored["phase"] == MarketPhase.APPLICATIONS.value
                 assert stored.get("resultsPublished") is not True
                 assert first in (None, "back")

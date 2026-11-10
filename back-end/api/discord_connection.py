@@ -62,12 +62,13 @@ import discord_client as Discord
 import history as History
 import result_outcome as ResultOutcome
 from assignment.utils import convert_keys_to_camel_case
-from client_errors import BadRequestError, ConflictError
+from client_errors import BadRequestError
 from datatypes import (
     ApplicationType, DiscordConnection, DiscordPossibleMatch, DiscordRoleOutcome, DiscordRoleRun,
     DiscordVendorState, Market,
 )
-from market_documents import market_doc_filter, market_doc_key
+from market_documents import market_doc_key
+from market_write import MarketChanged, write_market
 from utils.email import frontend_url
 from utils.email_address import normalized_email
 from utils.request_body import string_field
@@ -116,15 +117,25 @@ RECORDED_FIELDS = ("guild_id", "guild_name", "role_id", "role_name", "invite_lin
 #: What a check's states are read against: a card that changes any of them while the members are
 #: read refuses the check's write rather than be undone by it, or carry states read for another.
 CHECKED_AGAINST = ("guild_id", "role_id", "username_question")
-CHANGED_WHILE_CHECKING = (
-    "The Discord card changed, or roles were given, while Discord was being checked. "
-    "Check Discord again."
-)
-
+#: A run's refusal when the market changed while it asked Discord: unlike every other refused
+#: write, the run's grants were made in Discord whatever the market took, so it does not say its
+#: change was not saved.
 CHANGED_WHILE_GIVING = (
     "The Discord card changed while roles were being given. The roles given are in the market's "
     "history; check Discord again."
 )
+
+
+class RolesGivenOnAChangedMarket(MarketChanged):
+    """A run whose market changed while it asked Discord: ``MarketChanged``, which the front end
+    re-reads the market on, in the run's own words, since the roles it gave stay given."""
+
+    def __init__(self, latest: Dict[str, Any]):
+        super().__init__(latest)
+        self.message = CHANGED_WHILE_GIVING
+
+    def body(self) -> Dict[str, Any]:
+        return {**super().body(), "error": CHANGED_WHILE_GIVING}
 NO_ROLE = "Choose the role to give on the Discord card first, on the market's Tools tab."
 
 #: How long a run may ask Discord, from the route's start. The back end runs as a Vercel function
@@ -164,9 +175,6 @@ SHOWN = (HAS_ROLE, IN_SERVER, POSSIBLE_MATCH, NOT_FOUND, NO_USERNAME, CHECK_AGAI
 POSSIBLE_MATCHES_OFFERED = 5
 NOT_OFFERED = (
     "That member is not offered as a possible match for this vendor. Check Discord again."
-)
-CHANGED_WHILE_DECLINING = (
-    "The market's Discord connection changed. Check Discord again, then answer its offers."
 )
 
 #: Each of ``SHOWN`` as the Vendors page says it (`discordCheck.ts`), and the export writes it.
@@ -329,9 +337,8 @@ def check(market_id: str, requesting_user: str) -> Dict[str, Any]:
     # A run or another check that wrote since this one began read the members later, and a run's
     # grants are newer than any list read before them: this check's states are not put back over
     # theirs.
-    if not _write_found(market, before, after, ("checked_at", "vendor_states"),
-                        unchanged=CHECKED_AGAINST + ("checked_at",)):
-        raise ConflictError(CHANGED_WHILE_CHECKING)
+    _write_found(market, before, after, ("checked_at", "vendor_states"),
+                 unchanged=CHECKED_AGAINST + ("checked_at",))
 
     counts = _counts(STATES, (vendor.state for vendor in states))
     changed = _changed_states(before, states, vendors)
@@ -423,7 +430,12 @@ def give_roles(market_id: str, requesting_user: str) -> Dict[str, Any]:
         "checked_at": ran_at, "vendor_states": found,
         "role_run": DiscordRoleRun(ran_at=ran_at, role_name=role_name or None, outcomes=outcomes),
     })
-    written = _write_found(market, before, after, ("checked_at", "vendor_states", "role_run"))
+    try:
+        _write_found(market, before, after, ("checked_at", "vendor_states", "role_run"))
+        refused: Optional[MarketChanged] = None
+    except MarketChanged as changed:
+        refused = changed
+    written = refused is None
     # The roles are given in Discord whether or not the market could be written: the history says
     # so either way, and the states only when they were kept.
     changed = _changed_states(before, found, vendors) if written else []
@@ -435,8 +447,8 @@ def give_roles(market_id: str, requesting_user: str) -> Dict[str, Any]:
         subject={"application_ids": [app_id for app_id, _ in named_vendors]},
         detail={"role_name": role_name, "given": given,
                 **_state_detail(before, found, named_vendors, counts)})
-    if not written:
-        raise ConflictError(CHANGED_WHILE_GIVING)
+    if refused is not None:
+        raise RolesGivenOnAChangedMarket(refused.latest)
     return {"counts": counts, "ranAt": ran_at}
 
 
@@ -482,23 +494,29 @@ def _states(vendors: List[tuple], members: List[Discord.Member],
 
 
 def _write_found(market: Market, before: DiscordConnection, after: DiscordConnection,
-                 fields: tuple, unchanged: tuple = CHECKED_AGAINST) -> bool:
-    """Write ``fields`` of ``after``, and only while the connection's ``unchanged`` fields are as
-    ``before`` read them: by default the server, the role and the username question the members
-    were read against, since the members take seconds to read and a card saved meanwhile is not
-    undone. A vendor's state leaves out what it does not have: no answer, no offer. Whether it was
-    written."""
-    discord = market_doc_key("discord")
+                 fields: tuple, unchanged: tuple = CHECKED_AGAINST) -> None:
+    """Write ``fields`` of ``after``, and only while the market is as it was loaded: its phase,
+    and the connection's ``unchanged`` fields, by default the server, the role and the username
+    question the members were read against, since the members take seconds to read and a card
+    saved meanwhile is not undone. A vendor's state leaves out what it does not have: no answer,
+    no offer.
+
+    Raises:
+        MarketChanged: any of those moved since the market was loaded; nothing was written.
+    """
     stored = convert_keys_to_camel_case(after.model_dump(include=set(fields) - {"vendor_states"}))
     if "vendor_states" in fields:
         stored["vendorStates"] = [convert_keys_to_camel_case(vendor.model_dump(exclude_none=True))
                                   for vendor in after.vendor_states or []]
-    as_read = {f"{discord}.{market_doc_key(field)}": getattr(before, field)
-               for field in unchanged}
-    written = MarketsApi.markets_collection.update_one(
-        {**market_doc_filter("id", market.id), **as_read},
-        {"$set": {f"{discord}.{key}": value for key, value in stored.items()}})
-    return written.matched_count > 0
+    write_market(
+        market, {"$set": {_discord_key(key, camel=True): value for key, value in stored.items()}},
+        holds=tuple(_discord_key(field) for field in unchanged))
+
+
+def _discord_key(field: str, camel: bool = False) -> str:
+    """The stored key of a connection's field, ``discord.<field>``: ``field`` is the model's
+    name, or with ``camel`` the stored one already."""
+    return f"{market_doc_key('discord')}.{field if camel else market_doc_key(field)}"
 
 
 def _counts(kinds: tuple, found: Any) -> Dict[str, int]:
@@ -687,12 +705,7 @@ def decline_match(
 
     # By the application's id as a check stored it, so the key is one of the market's own.
     key = f"{market_doc_key('discord')}.{market_doc_key('declined_matches')}.{vendor.application_id}"
-    written = MarketsApi.markets_collection.update_one(
-        {**market_doc_filter("id", market.id),
-         f"{market_doc_key('discord')}.{market_doc_key('guild_id')}": connection.guild_id},
-        {"$addToSet": {key: offered.username}})
-    if written.matched_count == 0:
-        raise ConflictError(CHANGED_WHILE_DECLINING)
+    write_market(market, {"$addToSet": {key: offered.username}}, holds=(_discord_key("guild_id"),))
 
     application = ApplicationsApi.find_application_by_id(vendor.application_id) or {}
     email = str(application.get(ApplicationsApi.APPLICANT_EMAIL_FIELD) or "").strip().lower()
@@ -807,10 +820,20 @@ def _write(
     market: Market, before: DiscordConnection, after: DiscordConnection, kind: str,
     requesting_user: str,
 ) -> None:
+    """Write the card's change, holding each field it changes as the market was loaded with it, so
+    a change another tab saved to the same field meanwhile is not undone; a field it does not
+    change, saved meanwhile, stands beside it.
+
+    Raises:
+        MarketChanged: the market moved, or a field this changes was changed, since it was
+            loaded; nothing was written.
+    """
     # A change of server forgets what was about the old one, and a change of the username question
     # what the check and the last run read against the old one (``CHECK_FIELDS``), whatever
     # ``before`` read of them: a check or a run may have written its fields after ``before`` was
-    # loaded.
+    # loaded, so what is forgotten is not held.
+    chosen = before.model_dump()
+    changed = tuple(field for field, value in after.model_dump().items() if value != chosen[field])
     if after.guild_id != before.guild_id:
         forgotten: tuple = SERVER_CHOICES
     elif after.username_question != before.username_question:
@@ -820,24 +843,24 @@ def _write(
     after = after.model_copy(update={field: None for field in forgotten})
     if market.discord is None:
         # A market the product creates stores ``discord: null``, and Mongo cannot create a field
-        # under an explicit null parent: the first connection writes the whole sub-document.
+        # under an explicit null parent: the first connection writes the whole sub-document,
+        # holding the none it read.
         stored = convert_keys_to_camel_case(after.model_dump(exclude_none=True))
         update = ({"$set": {market_doc_key("discord"): stored}} if stored
                   else {"$unset": {market_doc_key("discord"): ""}})
-        MarketsApi.markets_collection.update_one(market_doc_filter("id", market.id), update)
+        write_market(market, update, holds=(market_doc_key("discord"),))
     else:
-        before_fields = before.model_dump()
         update: Dict[str, Any] = {}
         for field, value in after.model_dump().items():
-            if value == before_fields[field] and field not in forgotten:
+            if value == chosen[field] and field not in forgotten:
                 continue
-            key = f"{market_doc_key('discord')}.{market_doc_key(field)}"
             if value is None:
-                update.setdefault("$unset", {})[key] = ""
+                update.setdefault("$unset", {})[_discord_key(field)] = ""
             else:
-                update.setdefault("$set", {})[key] = convert_keys_to_camel_case(value)
+                update.setdefault("$set", {})[_discord_key(field)] = (
+                    convert_keys_to_camel_case(value))
         if update:
-            MarketsApi.markets_collection.update_one(market_doc_filter("id", market.id), update)
+            write_market(market, update, holds=tuple(_discord_key(field) for field in changed))
     History.record(market.id, requesting_user, Actions.CONNECT_DISCORD, kind=kind,
                    detail=lambda: History.changes(_recorded(market, before),
                                                   _recorded(market, after)))

@@ -512,12 +512,11 @@ class TestAnImport:
     @pytest.fixture
     def imported(self, applications, monkeypatch):
         import csv_import as CsvImport
-        from conftest import FakeMarketsCollection
-        from test_csv_import import GOOD_ROW, MAPPING, _csv, _market_doc
+        from test_csv_import import GOOD_ROW, MAPPING, _csv, _market_doc, bound_markets
 
         applications.documents = [{**_application("ruled-out", REJECTED, by=RULE),
                                    "market_id": "market-123"}]
-        markets = FakeMarketsCollection(_market_doc())
+        markets = bound_markets(monkeypatch, _market_doc())
         asked = []
 
         def run(may):

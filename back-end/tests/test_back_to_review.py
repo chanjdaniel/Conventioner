@@ -70,10 +70,9 @@ class Markets:
         return SimpleNamespace(matched_count=1, modified_count=1, upserted_id=None)
 
     def find_one_and_update(self, query, update, **kwargs):
-        before = self.find_one(query)
-        if before is None:
+        """``update_one``, the other request's write landing first, answering the market after."""
+        if not self.update_one(query, update).matched_count:
             return None
-        self.update_one(query, update)
         return dict(self.doc)
 
 
@@ -263,8 +262,8 @@ class TestTheWayBackAndPublishingNeverCross:
         response = world.client.post(f"/markets/{MARKET}/publish-results")
 
         assert response.status_code == 409, response.get_json()
-        assert response.get_json()["error"] == (
-            "This market moved while the request was in flight. Reload it and try again.")
+        assert response.get_json() == {"error": MarketWrite.MARKET_CHANGED,
+                                       "code": "market_changed"}
         assert markets.doc.get("resultsPublished") is not True
 
     def test_a_second_publish_in_flight_writes_nothing(self, world, runs, market_records):

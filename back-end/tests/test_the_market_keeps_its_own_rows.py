@@ -21,6 +21,7 @@ import app as app_module
 import api.door as DoorApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
+import market_write as MarketWrite
 import api.organizations as OrgsApi
 import api.users as UsersApi
 import history as History
@@ -78,6 +79,16 @@ class FakeMarkets:
                 return SimpleNamespace(matched_count=1, modified_count=1)
         return SimpleNamespace(matched_count=0, modified_count=0)
 
+    def find_one_and_update(self, query, update, projection=None, return_document=False):
+        """``update_one``, answering the market before it, or after it when ``return_document`` is
+        the driver's ``ReturnDocument.AFTER`` (``True``), as ``market_write`` asks."""
+        found = next((doc for doc in self.docs if mongo_matches(doc, query)), None)
+        if found is None:
+            return None
+        before = copy.deepcopy(found)
+        self.update_one(query, update)
+        return mongo_project(copy.deepcopy(found if return_document else before), projection)
+
     def doc(self, market_id="market-123"):
         return next(doc for doc in self.docs if doc["id"] == market_id)
 
@@ -99,6 +110,7 @@ def world(monkeypatch):
     markets = FakeMarkets(market_doc("market-123"), market_doc("market-456"))
     history = FakeHistoryCollection()
     monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+    monkeypatch.setattr(MarketWrite, "markets_collection", MarketsApi.markets_collection)
     monkeypatch.setattr(History, "history_collection", history)
     monkeypatch.setattr(History, "legacy_placement_collection", FakeHistoryCollection())
     monkeypatch.setattr(UsersApi, "get_user", lambda email: SimpleNamespace(
@@ -156,6 +168,7 @@ class TestANewMarket:
     def test_starts_at_the_built_in_table_whatever_its_create_body_carried(self, monkeypatch):
         fake = FakeMarketsCollection(None)
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(MarketWrite, "markets_collection", MarketsApi.markets_collection)
 
         MarketsApi.create_market(client_market(permissions={
             "check-in": {"role": "viewer", "source": "organization"},

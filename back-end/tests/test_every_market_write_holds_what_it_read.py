@@ -62,18 +62,6 @@ EXCEPTIONS: Dict[Tuple[str, str], str] = {
         "the fake Discord's own servers, not the markets collection; the walk cannot name a "
         "receiver made by a call"),
     # Not yet moved onto write_market.
-    ("api.applicants", "set_applications_stopped"): "moves in ticket 08",
-    ("api.applicants", "publish_results"): "moves in ticket 08",
-    ("api.door", "make_door_code"): "moves in ticket 08",
-    ("api.discord_connection", "_write_found"): "moves in ticket 08",
-    ("api.discord_connection", "decline_match"): "moves in ticket 08",
-    ("api.discord_connection", "_write"): "moves in ticket 08",
-    ("csv_import", "save_mapping"): "moves in ticket 08",
-    ("csv_start", "confirm"): "moves in ticket 08",
-    ("api.markets", "set_permission"): "moves in ticket 08",
-    ("api.markets", "reset_permission"): "moves in ticket 08",
-    ("api.markets", "reset_permissions"): "moves in ticket 08",
-    ("api.markets", "copy_organization_default"): "moves in ticket 08",
     ("api.markets", "add_market_role"): "moves in ticket 09",
     ("api.markets", "remove_market_role"): "moves in ticket 09",
     ("api.markets", "update_market_role"): "moves in ticket 09",

@@ -11,6 +11,7 @@ from conftest import FakeSlugMarketsCollection
 
 import api.applicants as ApplicantsApi
 import db_config as test_db_config
+import market_write as MarketWrite
 import test_essential_fields as Essential
 from datatypes import MarketPhase
 from market_documents import market_from_document
@@ -30,6 +31,7 @@ def _install(monkeypatch, doc):
             return markets
 
     monkeypatch.setattr(test_db_config, "get_database", lambda *_a, **_kw: _Db())
+    monkeypatch.setattr(MarketWrite, "markets_collection", markets)
     return markets
 
 

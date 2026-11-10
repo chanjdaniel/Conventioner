@@ -90,7 +90,7 @@ def write_market(
         MarketNotFoundError: the market is gone.
         RuntimeError: ``as_read`` is a ``Market`` built in code, with no stored document to hold.
     """
-    document = _document_as_read(as_read)
+    document = document_as_read(as_read)
     revisions = dict(revisions or {})
     market_id = document["id"]
 
@@ -122,7 +122,10 @@ def write_market(
     return Written({key: _value_at(after, key) for key in counted})
 
 
-def _document_as_read(as_read: Market | Mapping[str, Any]) -> Mapping[str, Any]:
+def document_as_read(as_read: Market | Mapping[str, Any]) -> Mapping[str, Any]:
+    """The stored document a write holds: a raw document as given, or the one a loader parsed a
+    ``Market`` from, for a caller that judges what the write holds by what was stored (whether the
+    stored rows are a map Mongo can set a key in). Never mutate it."""
     if not isinstance(as_read, Market):
         return as_read
     stored = as_read._stored_document

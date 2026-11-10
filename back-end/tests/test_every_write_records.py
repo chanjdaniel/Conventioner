@@ -109,9 +109,11 @@ class LiveMarkets:
         self.doc: Optional[Dict[str, Any]] = None
 
     def find_one(self, query, projection=None):
+        """A copy of the market, nested documents and all, as the server hands a reader its own:
+        a write after the read never changes what was read."""
         if self.doc is None or not _matches(self.doc, query):
             return None
-        return mongo_project(dict(self.doc), projection)
+        return mongo_project(copy.deepcopy(self.doc), projection)
 
     def find(self, query, projection=None):
         found = self.find_one(query, projection)

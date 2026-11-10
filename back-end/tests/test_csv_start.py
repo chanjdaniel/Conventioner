@@ -238,11 +238,25 @@ def test_an_unsettled_day_the_plan_lacks_is_left_for_the_import_to_ask():
     assert days["Wednesday, October 22"] == ["2025-10-20", "2025-10-21"]
 
 
-def test_a_legacy_draft_with_no_phase_is_written_under_its_own_shape():
+def test_a_legacy_draft_with_no_phase_is_written_under_its_own_shape(monkeypatch):
+    """A draft stored before markets had a phase is started as the refusal judged it: the write
+    holds the phase as absent, as it was read, and lands."""
+    import market_write as MarketWrite
+    from conftest import FakeMarketsCollection
+
     doc = _draft()
     del doc["phase"]
-    condition = CsvStart.still_startable(doc)
-    assert condition["phase"] == {"$exists": False} and condition["id"] == "market-1"
+    markets = FakeMarketsCollection(copy.deepcopy(doc))
+    monkeypatch.setattr(MarketWrite, "markets_collection", markets)
+    csv_text = _csv("five-day-grid")
+
+    body, status = CsvStart.confirm(
+        doc, {"csvContent": csv_text, "year": YEARS["five-day-grid"]}, "owner@example.com", None)
+
+    assert (body, status) == ({"written": True}, 200)
+    assert "phase" not in markets.doc
+    assert markets.doc["importMapping"]["madeBy"] == "start"
+    assert markets.doc["applicationForm"]["fields"]
 
 
 SELLING = "What do you plan to sell at the fair?"
