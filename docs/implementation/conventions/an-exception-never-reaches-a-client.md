@@ -94,7 +94,7 @@ describes:
   - back-end/app.py#vendor_check_in
   - back-end/app.py#vendor_undo_check_in
   - back-end/api/applicant_auth.py#_send_code_email
-  - back-end/utils/email.py#_send
+  - back-end/utils/email.py#send_mail
   - back-end/tests/test_account_emails_log_no_address.py
 verified: 2026-11-10
 sources:
@@ -216,8 +216,8 @@ None catches anything, and each keeps its literal answers: the applicant's expir
 A status a request names is read by `_named_status`, which names none for anything but a status's own string, as `_named_phase` does for a phase.
 A follow-up owner the market does not offer answers its `BadRequestError`, 400; `confirm` in [`back-end/csv_start.py`](../../../back-end/csv_start.py) lets a `ConfirmRefused`, a locked form and a refused plan or form reach the handler as raised; a door write on a market that does not exist, is archived or cannot be read answers what the change loader raises.
 Two lines these routes reach are kept free of an applicant's address for the 500 log: an application that keeps losing its upsert race (`find_or_create_application` in [`back-end/api/applications.py`](../../../back-end/api/applications.py)) is named by its market, and an application document that cannot be parsed (`list_market_applications` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py)) logs `parse_failure_detail`, never its answers.
-A mail that carries a sign-in or an account link is logged by what it is, never by whom it went to: the applicant sign-in code (`_send_code_email` in [`back-end/api/applicant_auth.py`](../../../back-end/api/applicant_auth.py)) names the market's slug, and the verification, existing account, password reset and sign-in code emails (`_send` in [`back-end/utils/email.py`](../../../back-end/utils/email.py)) name their kind.
-A failed send logs the exception's type and never its text, and an account email adds the provider's status code but never its response body, since each can carry the address back.
+A mail that carries a sign-in or an account link is logged by what it is, never by whom it went to: all five, the verification, existing account, password reset and sign-in code emails and the applicant sign-in code (`_send_code_email` in [`back-end/api/applicant_auth.py`](../../../back-end/api/applicant_auth.py)), go through `send_mail` in [`back-end/utils/email.py`](../../../back-end/utils/email.py), which names their kind, and `request_login_code` names the market's slug when the applicant's code was not sent.
+A failed send logs the exception's type and never its text, and the provider's status code when the failure is a `ResendError`, but never its response body, since each can carry the address back.
 
 No route in `app.py` answers what it caught: `healthz` alone catches, to answer 503 with `"status": "unavailable"` and its build's commit, when the database does not answer, and the floorplan blueprints keep their own catches, which answer the generic 500 and log, until they are rewritten.
 
@@ -254,7 +254,7 @@ Before that it refuses a database the environment does not name, or the primary 
   Each refusal of the modules above, raised for real where a route reaches it and spied on as it passes, is answered with exactly its own status and `body()`.
   Each refused parse above answers its own copy with nothing of the parser's message or the input in it, and its log holds the field but not the input; so does a stored organization that cannot be read.
   An unknown URL, a wrong method and a signed-out call still answer Flask's 404, 405 and Flask-Login's 401.
-- `test_a_code_send_logs_the_market_and_never_the_address` in [`test_applicant_auth.py`](../../../back-end/tests/test_applicant_auth.py) and [`test_account_emails_log_no_address.py`](../../../back-end/tests/test_account_emails_log_no_address.py) send each mail with email disabled, accepted, answered with no message id and refused by an error whose message holds the address, and find the address, the error's text and the provider's response body in no log record.
+- [`test_account_emails_log_no_address.py`](../../../back-end/tests/test_account_emails_log_no_address.py) sends each of the five mails with email disabled, accepted, answered with no message id and refused by an error whose message holds the address, and finds the address, the error's text and the provider's response body in no log record.
 - CodeQL's `py/stack-trace-exposure` is the automated backstop: it is in the default suite GitHub's default setup runs on every pull request and weekly on `dev` ([CI and the gate](../testing/ci-and-the-gate.md#codeql)), and it flags a route that catches an exception and answers its text.
   It stops following a flow at a `raise`, so the client copy rule and these route tests hold the rest: a library's message carried into a client error's copy is invisible to it.
 

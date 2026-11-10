@@ -15,6 +15,8 @@ describes:
   - back-end/utils/proxy.py
   - back-end/utils/captcha.py
   - back-end/utils/email.py
+  - back-end/api/applicant_auth.py#_send_code_email
+  - back-end/tests/test_the_code_mail_carries_only_words.py
   - back-end/tests/test_public_endpoint_defenses.py
   - back-end/tests/test_the_remember_cookie.py
   - back-end/tests/test_the_request_origin_check.py
@@ -289,11 +291,23 @@ The API answers JSON, a CSV export and floorplan images, never a page, so it sen
 It is installed after the [error answers](an-exception-never-reaches-a-client.md), outside `configure_public_endpoint_defenses()`, because it depends on no configuration; it only adds headers, so it leaves the order of the defenses above, flask-cors's `after_request` among them, as it was.
 [`test_security_headers.py`](../../../back-end/tests/test_security_headers.py) reads both on a JSON answer, a 401, a 404 and a preflight that CORS still answers; the Deploy workflow checks `/healthz` for both on the staged back end before it is promoted, and on `api.conventioner.io` once it serves the new commit.
 
+## A mail carries a stranger's words only as words
+
+**Every mail goes through `send_mail`** in [`back-end/utils/email.py`](../../../back-end/utils/email.py): the four account mails and the vendor's sign-in code (`_send_code_email` in [`back-end/api/applicant_auth.py`](../../../back-end/api/applicant_auth.py)).
+So the disabled path, the missing key, the log that names a mail's kind and never its address, and the timeout are one code path.
+Resend's client gives up after `MAIL_TIMEOUT_SECONDS`, 10, set once at import as `resend.default_http_client`, in place of the library's 30; a send that times out returns False like any other failed send.
+
+**A value someone other than the server made is escaped in a mail's HTML and put on one line in its subject and text.**
+The one such value today is the market's name in the vendor's code mail ([a vendor signs in before they have applied](../../business/rules/a-vendor-signs-in-before-applying.md)): anyone can register, name a market, and ask for a code to any address, so an unescaped name holding a link sent that link, in a stranger's words, from the product's own sender.
+The HTML holds `html.escape(name, quote=True)` and the subject and text `one_line(name)`, which reads each run of whitespace or control characters as one space and trims the ends.
+The other four mails carry only the server's own values: a token, a code and the configured `FRONTEND_URL`.
+
 ## How it is enforced
 
 - One test module per requirement (`test_secret_key.py`, `test_cors.py`, `test_captcha.py`, `test_email.py`, `test_session_storage.py`, `test_proxy.py`), and `test_public_endpoint_defenses.py` for the refusal itself: it names every missing variable, `ALLOW_INSECURE_LOCAL_DEV` is the only waiver, a deployed host refuses each local switch, and the template boots.
 - [`test_the_remember_cookie.py`](../../../back-end/tests/test_the_remember_cookie.py) signs in through `/login` and `/login-otp`, reads both cookies' `Set-Cookie` settings and expiry, moves the server's clock past each length, sends a cookie and sessions of the shape before, and sends one request from another browser or without its User-Agent, which is refused while the browser that signed in stays signed in: in the store on disk too, with nobody reading the answer, and for a session made permanent.
 - [`test_the_request_origin_check.py`](../../../back-end/tests/test_the_request_origin_check.py) tables the decision for a production-shaped list and the loopback pattern, and sends publish-results, sign-out and a floorplan upload from another site (refused, nothing done) and from the app (done).
+- [`test_the_code_mail_carries_only_words.py`](../../../back-end/tests/test_the_code_mail_carries_only_words.py) asks for a code on a market whose name holds a link and a `Bcc:` line, and finds the name escaped in the HTML and on one line in the subject and text; it proves the send asks `requests` for a 10-second timeout where the library sends, and that a send that times out returns False and logs its kind and the exception's type alone.
 - `test_configured_secret.py` and `test_env_file.py` pin the machinery underneath; [TESTING.md](../../TESTING.md#back-end-tests) lists them.
 - `scripts/tests/test_real_data_check.py` runs the checker, the hooks in a scratch repository with its bare remote, the setup step and CI's command on fake exports only: a `gmail.com` address, a real-shaped phone and an Atlas host fail, a fixture one passes, an exact value of a fake export fails, as do eight words of its header's question in order, a link or a handle from it, in a line, a message, a cell and the tree, while seven words, an answer and the exempt files pass, a workbook or OpenDocument sheet is read and an unreadable spreadsheet refused, the synthetic corpus passes, a refusal sends a fixture to the generator, and no value is printed in full; `tree` fails a planted row in a committed CSV, workbook or zip and a name listed after its file was committed, and passes a clean tree and the exempt files; CI's tree step fails real data already on the base branch; `test_nm_test.py` fails a gate run on a finding in the branch's commits or in the tree, before anything else.
 - What breaks it: a default for any of the eight, a test switch read outside `switch_on()`, a check that installs something, a secret read at import, a template that prints a value, or a hatch that excuses a published key.

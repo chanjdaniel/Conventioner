@@ -7,9 +7,10 @@ describes:
   - back-end/api/applicant_auth.py#verify_login_code
   - back-end/api/applicant_auth.py#resume_sign_in
   - back-end/api/applicant_auth.py#sign_out
+  - back-end/api/applicant_auth.py#_send_code_email
   - back-end/api/applicants.py#save_applicant_application
   - back-end/sign_in_limits.py
-verified: 2026-11-09
+verified: 2026-11-10
 sources:
   - E26/F07/S01
   - E32/F03/S02
@@ -17,6 +18,7 @@ sources:
   - E38/F07/S03
   - T202
   - T251
+  - T273
 ---
 
 # A vendor signs in before they have applied
@@ -38,13 +40,15 @@ Telling the person who just read the code whether they have applied leaks nothin
 
 - **The sign-in is the vendor page's**, at the market's own address `/<slug>`, and the code email links there, calling it "your page for <market>" ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)).
 - **Requesting a code** (`request_login_code` in [`back-end/api/applicant_auth.py`](../../../back-end/api/applicant_auth.py)) stores a challenge for every address at a market whose vendor page [the gate](a-gated-market-answers-as-absent.md) serves (`vendor_page_market_by_slug`) and sends it before the response goes out (E32/F03/S02): on serverless hosting a process may be frozen the moment its response is out, and no code sent from a thread afterwards was ever seen to arrive.
-  A failed send is logged and answered as a sent one.
+  A failed send, a send Resend has not answered within 10 seconds among them, is logged and answered as a sent one.
   The code is six digits, kept hashed in `applicant_login_challenges` keyed by market and address, and lasts ten minutes.
   Asking again replaces it, so only the newest code works, and its count of tries starts again.
 - **Each code email's subject carries its own number**, "Your sign-in code for <market> (#<n>)", and never the code; its body says only the newest code works.
   With one subject for all, a mail client threaded the emails and buried the newest code under an older one, which a vendor then typed (T191 F22).
   The number is the challenge's `sequence`, counted by the request's upsert; it starts again once the TTL index removes an expired challenge.
   The request's answer never carries it, since that would say how often someone asked for that address.
+- **The market's name reaches the code email only as words**: its HTML holds the name escaped wherever it appears, and its subject and text hold it on one line, each run of whitespace or control characters read as one space.
+  Anyone can name a market and ask for a code to any address, so a name holding a link or a header line would otherwise reach a stranger's inbox in its author's words from the product's own sender ([a mail carries a stranger's words only as words](../../implementation/conventions/security-invariants.md#a-mail-carries-a-strangers-words-only-as-words)).
 - **Verifying a code** (`verify_login_code`) takes up to five tries at it (`MAX_CODE_ATTEMPTS`), counted on the challenge as `attempts` by one atomic conditional update that matches only an unconsumed, unexpired code with tries left; the code is then compared in constant time.
   A right code marks the challenge consumed with a write conditional on it being unconsumed still, so two right tries at once sign in once; the fifth wrong try marks it consumed too.
   It replaced "one code, one attempt", which burnt a code on one slip while the page went on offering "Sign in" for it ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)).
