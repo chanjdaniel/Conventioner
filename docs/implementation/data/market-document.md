@@ -23,7 +23,7 @@ describes:
   - back-end/migrations/migrate_is_draft_consistency.py
   - back-end/migrations/migrate_publishing_to_market_days.py
   - docs/schema.d.ts
-verified: 2026-11-03
+verified: 2026-11-10
 sources:
   - E02
   - E03/F03
@@ -43,6 +43,7 @@ sources:
   - T206
   - T213
   - T263
+  - T270
 ---
 
 # The market document
@@ -98,6 +99,10 @@ Each field's own rules are with the module that writes it; this node is the docu
 **The prices are `setupObject.pricing`**, null on a market never priced: `currency` (`CAD` unless the organizer picked another of `PRICING_CURRENCIES`), `halfTablePercent` (a whole number from 0 to 100, 50 unless changed), `groups`, the organizer's price groups, each `{name, conditions: [{key, answers}], prices}` with `prices` shaped as `everyoneElse` (absent on a card saved before there were groups, which has none), and `everyoneElse`, a list of `{tier, cents}`, each a full table's price for one day in whole cents.
 A list rather than a map keyed by tier name, because every write camel-cases the document's keys and a tier's name is the organizer's text; a half price rounds half up to the cent.
 What they mean and how an assignment is priced is [a price follows the table](../../business/rules/a-price-follows-the-table.md).
+
+**A change of reviewers is unfinished while `reviewTeam.unfinishedChoice` stands** (T270): its team write sets it to `{removed: [address]}`, the reviewers the change removed, and its last write, the turn's, unsets it, so the same choice again finishes a change that stopped between them and hands on those reviewers' follow-ups too ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)).
+Like `dealing`, it is beside the team on the document and not on the `ReviewTeam` model, and the read never serves it.
+Every write a deal makes to the market under `dealing` names the lease and reads whether it matched, so one whose lease ran out is refused or logged, never written as if it held the market ([ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)).
 
 <a id="the-discord-connection-is-discord"></a>
 **The Discord connection is `discord`**; absent is not connected.

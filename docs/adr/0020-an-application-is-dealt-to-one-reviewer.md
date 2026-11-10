@@ -5,7 +5,7 @@ describes:
   - back-end/review_team.py
   - back-end/datatypes.py#ReviewTeam
   - back-end/api/applications.py#deal
-verified: 2026-10-31
+verified: 2026-11-10
 sources:
   - E38/F07
   - E38/F07/S01

@@ -20,7 +20,9 @@ arrival never waits for the market: it marks its application as arriving
 (``ApplicationsApi.mark_arriving``) and deals every application so marked if it can hold the
 market; if it cannot, the deal holding it deals them when it lets go (``_settle``), since an
 application is marked before its arrival tries to hold, and every holder looks for marked ones
-after letting go.
+after letting go. Every write a deal makes to the market names its lease and reads whether it
+matched: one that did not finds another deal holding the market, its own lease lapsed, so a change
+of reviewers is refused (``DEALING_BUSY``) and a deal of arrivals says so in the log.
 """
 import logging
 import time
@@ -53,6 +55,11 @@ _REVIEWERS = f"{market_doc_key('review_team')}.reviewers"
 _DEALING = f"{market_doc_key('review_team')}.dealing"
 _DEALING_BY = f"{_DEALING}.by"
 _DEALING_UNTIL = f"{_DEALING}.until"
+#: A change of reviewers is unfinished from its team write to its last write: beside the team on
+#: the stored document, never on the model, as ``dealing`` is. It holds the addresses of the
+#: reviewers the change removed, so the change that finishes it hands on their follow-ups too.
+_UNFINISHED = f"{market_doc_key('review_team')}.unfinishedChoice"
+_UNFINISHED_FIELD = "unfinishedChoice"
 
 #: How long a deal holds the market at most: far longer than any deal takes, so a deal that stopped
 #: half way (a crashed worker) lets the next one in.
@@ -123,12 +130,22 @@ def choose(
 
     Each write is conditioned on the application still being as the pool read it (open and dealt
     as it was, or the follow-up still owned by the removed reviewer), so a verdict or a hand-on
-    landing mid-deal is never written over. An unchanged set writes and records nothing. With none
-    chosen, every open application goes back to first come, first served, and every follow-up stays
-    with its owner. Refused with ``ConflictError`` when another deal holds the market for longer
-    than a choice waits.
+    landing mid-deal is never written over. With none chosen, every open application goes back to
+    first come, first served, and every follow-up stays with its owner.
+
+    The team write marks the change unfinished (``reviewTeam.unfinishedChoice``) and its last write,
+    the turn's, takes the mark away, so a change that stopped between them is finished by the same
+    choice again: an unchanged set writes and records nothing only when no change is unfinished;
+    otherwise it deals the pool as the change would have, with no second "reviewers changed" entry.
+
+    Refused with ``ConflictError`` when another deal holds the market for longer than a choice
+    waits, and when the change finds another deal holding it at its team write (it then deals
+    nothing) or at its last write (it then stays unfinished, for the same choice to finish).
     """
-    if _addresses(in_deal_order(reviewers)) == _addresses(team_of(market).reviewers):
+    # A market never given a team has had no team write, so no change of it can be unfinished.
+    if (_addresses(in_deal_order(reviewers)) == _addresses(team_of(market).reviewers)
+            and (market.review_team is None
+                 or _unfinished_choice(markets_collection.find_one({"id": market.id})) is None)):
         return Chosen(team_of(market), 0)
     deal = str(uuid.uuid4())
     if not _hold(market.id, deal, waits=CHOICE_WAITS):
@@ -147,27 +164,40 @@ def _choose_holding(
     deal: str,
 ) -> Chosen:
     """``choose``'s writes, made while it holds the market: the team as it stands now is read
-    again, since another choice may have landed between the request's read and the hold."""
-    before = _stored_team(market.id)
-    chosen = in_deal_order(reviewers)
-    if _addresses(chosen) == _addresses(before.reviewers):
-        return Chosen(before, 0)
+    again, since another choice may have landed between the request's read and the hold.
 
-    markets_collection.update_one({"id": market.id, _DEALING_BY: deal}, {"$set": {
-        _REVIEWERS: [convert_keys_to_camel_case(person.model_dump()) for person in chosen],
-        _TURN: 0,
-    }})
-    History.record(
-        market.id, by, Actions.CHOOSE_REVIEWERS, kind=History.REVIEWERS,
-        detail=lambda: History.changes(
-            {"reviewers": _addresses(before.reviewers)}, {"reviewers": _addresses(chosen)}))
+    A change writes the team, marked unfinished, and records it; finishing one (the same set over
+    a marked team) writes neither. Both then deal the pool from turn 0, record the deal, and end in
+    the last write, the turn with the mark taken away."""
+    stored = markets_collection.find_one({"id": market.id}) or {}
+    before = _team_of_document(stored)
+    unfinished = _unfinished_choice(stored)
+    chosen = in_deal_order(reviewers)
+    kept = set(_addresses(chosen))
+    # Whom a change removed, and whom an unfinished change before it removed and is not chosen now:
+    # their follow-ups are handed on. With none chosen, every follow-up stays with its owner.
+    removed = ((set(_addresses(before.reviewers)) | set(unfinished or ())) - kept
+               if chosen else set())
+    if _addresses(chosen) == _addresses(before.reviewers):
+        if unfinished is None:
+            return Chosen(before, 0)
+    else:
+        _write_holding(market.id, deal, {"$set": {
+            _REVIEWERS: [convert_keys_to_camel_case(person.model_dump()) for person in chosen],
+            _TURN: 0,
+            _UNFINISHED: {"removed": sorted(removed)},
+        }})
+        History.record(
+            market.id, by, Actions.CHOOSE_REVIEWERS, kind=History.REVIEWERS,
+            detail=lambda: History.changes(
+                {"reviewers": _addresses(before.reviewers)}, {"reviewers": _addresses(chosen)}))
 
     team = ReviewTeam(reviewers=chosen, turn=0)
     able = eligible(market.model_copy(update={"review_team": team}), organization)
-    removed = set(_addresses(before.reviewers)) - set(_addresses(chosen)) if chosen else set()
     pool = ApplicationsApi.undecided_in_arrival_order(market.id, follow_ups_of=removed)
     if chosen and not able:
         # Nobody chosen may review here: nothing is dealt until someone who can is chosen.
+        _finish(market.id, deal, 0)
         return Chosen(team, 0)
 
     moved = []
@@ -183,10 +213,7 @@ def _choose_holding(
             continue
         if ApplicationsApi.deal(doc["id"], to, was):
             moved.append((doc, was, to, None))
-    if able and pool:
-        markets_collection.update_one(
-            {"id": market.id, _DEALING_BY: deal}, {"$set": {_TURN: len(pool)}})
-        team = team.model_copy(update={"turn": len(pool)})
+    turn = len(pool) if able else 0
 
     if moved:
         History.record(
@@ -200,7 +227,30 @@ def _choose_holding(
                                             to.model_dump() if owner else None)
                           for doc, _was, to, owner in moved},
             })
-    return Chosen(team, len(moved))
+    _finish(market.id, deal, turn)
+    return Chosen(team.model_copy(update={"turn": turn}), len(moved))
+
+
+def _finish(market_id: str, deal: str, turn: int) -> None:
+    """A change's last write: the turn, so the next arrival goes to the reviewer after the last one
+    dealt, with the change's mark taken away."""
+    _write_holding(market_id, deal, {"$set": {_TURN: turn}, "$unset": {_UNFINISHED: ""}})
+
+
+def _write_holding(market_id: str, deal: str, update: Dict[str, Any]) -> None:
+    """A change's write to the market under its lease; refused with ``ConflictError`` when another
+    deal holds the market now, as one does once this one's lease lapsed."""
+    if markets_collection.update_one({"id": market_id, _DEALING_BY: deal}, update).matched_count == 0:
+        raise ConflictError(DEALING_BUSY)
+
+
+def _unfinished_choice(stored: Optional[Dict[str, Any]]) -> Optional[List[str]]:
+    """The reviewers an unfinished change of reviewers removed; None when no change is
+    unfinished."""
+    team = market_doc_field(stored or {}, "review_team") or {}
+    if _UNFINISHED_FIELD not in team:
+        return None
+    return list((team[_UNFINISHED_FIELD] or {}).get("removed") or [])
 
 
 def _share(reviewer: Optional[Dict[str, Any]], owner: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -283,9 +333,13 @@ def _deal_arriving(market: Market, organization: Optional[Organization], deal: s
         if ApplicationsApi.deal_arrival(doc["id"], to):
             dealt.append((doc, to))
             turn += 1
-    if dealt:
-        markets_collection.update_one(
-            {"id": market.id, _DEALING_BY: deal}, {"$set": {_TURN: turn}})
+    if dealt and markets_collection.update_one(
+            {"id": market.id, _DEALING_BY: deal}, {"$set": {_TURN: turn}}).matched_count == 0:
+        # Its lease lapsed and another deal holds the market: the applications are dealt, and the
+        # next deal reads a turn that has not moved on, so one turn of fairness is lost.
+        logger.warning(
+            "A deal of arrivals on market %s lost its hold before writing the turn; it dealt "
+            "%d application(s), and the turn did not move on.", market.id, len(dealt))
     by_write: Dict[Tuple[Optional[str], str], List[Tuple[Dict[str, Any], MarketPerson]]] = {}
     for doc, to in dealt:
         arrived = doc.get(ApplicationsApi.ARRIVING_FIELD) or {}
@@ -305,10 +359,6 @@ def _deal_arriving(market: Market, organization: Optional[Organization], deal: s
 
 def _team_of_document(stored: Dict[str, Any]) -> ReviewTeam:
     return ReviewTeam(**convert_keys_to_snake_case(market_doc_field(stored, "review_team") or {}))
-
-
-def _stored_team(market_id: str) -> ReviewTeam:
-    return _team_of_document(markets_collection.find_one({"id": market_id}) or {})
 
 
 def _hold(market_id: str, deal: str, waits: int = 0) -> bool:
