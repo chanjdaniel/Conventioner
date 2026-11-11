@@ -5,7 +5,7 @@ describes:
   - front-end/src/utils/market.ts#parseMarketFromApi
   - front-end/src/__tests__/noMarketInTheBrowser.test.ts
   - back-end/api/markets.py#get_market_for_user
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - wayfinding/the-market-frame/map
   - wayfinding/the-market-frame/02
@@ -58,6 +58,7 @@ Every answer a column of `exampleColumns` keeps (`answers`) is served only on th
 **`parseMarketFromApi` carries every field the server sends.**
 [`parseMarketFromApi`](../../../front-end/src/utils/market.ts) spreads the payload, and the plan inside it, first, and normalises only the fields it names over them.
 It once rebuilt `setupObject` from a fixed key list and dropped `floorplans`; once screens read the parsed market, the plan's autosave erased the floorplan.
+The plan write now keeps the stored layouts and table types whatever its body carries (T257, [floorplan placement](../modules/floorplan-placement.md#sharp-edges)), so a dropped key can no longer erase a layout, but a screen reading `floorplans` or `tableTypes` still reads them from here.
 Each field the server added and the old list missed (`intakeMode`, `transitionBlockers`, `setupLockReason`) was silently dropped until a screen behaved as though the server had never said it.
 A field added to the read now reaches every screen without touching the parser.
 
