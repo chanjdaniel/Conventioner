@@ -133,7 +133,7 @@ function use() {
 }
 
 .saved-choice input {
-  margin-top: 0.2em;
+  margin-top: var(--space-1);
 }
 
 .saved-text {
