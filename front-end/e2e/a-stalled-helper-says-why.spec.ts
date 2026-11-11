@@ -38,5 +38,8 @@ test('the wait for quiet fails naming each API request still open, and its age',
   const stalled = requestsWhile(page, {}, async () => {
     await page.reload();
   });
-  await expect(stalled).rejects.toThrow(/still open: GET \/api\/markets for \d+ms/);
+  // The reads still open are named in the order they were sent, and other reads may be open
+  // beside the held one (the page's organizations read, sent before the reload), so any may
+  // come first; the markets read must still be named, with its age.
+  await expect(stalled).rejects.toThrow(/still open: (?:.+; )?GET \/api\/markets for \d+ms/);
 });
