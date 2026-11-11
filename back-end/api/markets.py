@@ -693,13 +693,6 @@ def _application_form_dump(market: Market) -> Optional[Dict[str, Any]]:
     return market.application_form.model_dump() if market.application_form else None
 
 
-def _strip_persisted_assignment_statistics(market_dict: Dict[str, Any]) -> None:
-    """Keep assignment statistics derived at read-time only, never persisted."""
-    assignment_object = market_dict.get("assignment_object")
-    if isinstance(assignment_object, dict):
-        assignment_object.pop("assignment_statistics", None)
-
-
 def assignment_to_show(market: Market, vendors=None) -> Market:
     """The assignment every read-only view should describe: the stored one, and only that.
 
@@ -1286,34 +1279,42 @@ def _convert_roles_keys_to_user_ids(roles: Dict[str, str]) -> Dict[str, str]:
     return result
 
 
+#: What a person chooses when they create a market: every other field of a new market starts at its
+#: default, or is the server's to write (``new_market``). As the plan write reads only the plan
+#: (``PLAN_WRITE_FIELDS``), so a field added to ``Market`` is the server's until it is listed here.
+MARKET_CREATE_FIELDS = (
+    "name", "creation_date", "organization_id", "intake_mode", "setup_object", "application_form",
+)
+
+
+def new_market(body: Dict[str, Any], roles: Dict[str, Any]) -> Market:
+    """A new market of ``body``'s chosen fields and ``roles``, every other field at its default.
+
+    A key outside ``MARKET_CREATE_FIELDS`` is dropped, not refused: a tab still open on the build
+    before sends the whole new-market object, and nothing else in it is the creator's to decide.
+    Raises pydantic's ``ValidationError`` when a chosen field cannot be read.
+    """
+    chosen = {field: body[field] for field in MARKET_CREATE_FIELDS if field in body}
+    return Market.model_validate(
+        {**chosen, "roles": roles, "modification_list": [], "assignment_object": {}})
+
+
 def create_market(market: Market, owner_email: str) -> tuple:
-    """Create a new market.
+    """Create a new market of ``market``'s chosen fields (``new_market``).
 
     A create body may carry an application form, so it passes through the same validation and
     normalization as ``save_application_form``: one contract for every writer of the form.
     """
+    market = new_market(market.model_dump(), market.roles)
     market_dict = market.model_dump()
-    _strip_persisted_assignment_statistics(market_dict)
-    market_dict["phase"] = MarketPhase.DRAFT.value
-    market_dict["is_draft"] = True  # phase is always DRAFT at creation; kept in sync as the phase fallback
-    # Server-owned, like the phase: whatever a create body carried is replaced by the one entry
-    # every market starts with (E26/F06/S03).
+    # Server-owned: the one entry every market starts with (E26/F06/S03).
     market_dict["phase_history"] = [
         PhaseRecord.phase_entry(MarketPhase.DRAFT.value, owner_email).model_dump()
     ]
-    # Server-owned too: the import mapping is the import's and the start's to write, and what the
-    # start kept of its file the start's alone (E38/F02), so a new market carries neither.
-    market_dict["import_mapping"] = None
-    market_dict["example_columns"] = None
     # Server-owned too: a new market starts with its organization's default rows, each marked as
-    # copied from it, whatever the body carried; a market of no organization, or of one that sets
-    # none, starts at the built-in table (E39/F02/S01). A copy, not a link.
+    # copied from it; a market of no organization, or of one that sets none, starts at the built-in
+    # table (E39/F02/S01). A copy, not a link.
     market_dict["permissions"] = _organization_default_rows(market.organization_id)
-    # And the reviewers: chosen on the market once it exists, by their own write (E38/F07/S02).
-    market_dict["review_team"] = None
-    # And the review setup's two "none"s, each decided by its list's own write (T206).
-    market_dict["nothing_leads_the_card"] = False
-    market_dict["no_automatic_rejections"] = False
     market_dict["application_form"] = (
         _normalized_application_form(market.application_form).model_dump()
         if market.application_form
@@ -1431,7 +1432,7 @@ def create_owned_market(owner: User, data: Dict[str, Any]) -> str:
     Raises a ``BadRequestError``, in words for the organizer, when the market may not be made.
     """
     try:
-        market = Market.model_validate({**data, "roles": {owner.id: MarketRole.OWNER.value}})
+        market = new_market(data, {owner.id: MarketRole.OWNER.value})
     except ValidationError as e:
         logger.warning("Refused a new market: %s", parse_failure_detail(e))
         raise BadRequestError(field_named_copy("Invalid market", e)) from e

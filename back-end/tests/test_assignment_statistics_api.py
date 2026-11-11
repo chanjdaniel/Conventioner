@@ -46,20 +46,6 @@ def _sample_market_doc_with_setup():
     return market
 
 
-def test_strip_persisted_assignment_statistics_removes_stats_field():
-    market_dict = {
-        "assignment_object": {
-            "assignment_date": "",
-            "vendor_assignments": [],
-            "assignment_statistics": {"total_vendors": 10},
-        }
-    }
-
-    MarketsApi._strip_persisted_assignment_statistics(market_dict)
-
-    assert "assignment_statistics" not in market_dict["assignment_object"]
-
-
 def test_get_assignment_statistics_returns_404_when_market_missing(monkeypatch):
     monkeypatch.setattr(MarketsApi.markets_collection, "find_one", lambda query: None)
 

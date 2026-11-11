@@ -24,6 +24,9 @@ import { useRouter } from 'vue-router';
 import { IntakeMode, type Market } from '@/assets/types/datatypes.ts';
 import { api, getApiErrorMessage } from '@/utils/api';
 
+/** The create body: the fields this dialog asks for, of those the server reads. */
+type NewMarket = Pick<Market, 'name' | 'creationDate' | 'organizationId' | 'intakeMode'>;
+
 const props = defineProps<{
   newOpen: boolean;
 }>();
@@ -78,22 +81,14 @@ const handleSubmit = async () => {
   creating.value = true;
 
   try {
-    // No roles: whoever creates a market owns it, and the server says so (bug 46).
-    const newMarket: Omit<Market, 'id' | 'roles'> = {
+    // What a person chooses here, and nothing else: the server starts every other field of a new
+    // market itself, and reads only these (`MARKET_CREATE_FIELDS`). No roles: whoever creates a
+    // market owns it, and the server says so (bug 46).
+    const newMarket: NewMarket = {
       name: marketName.value,
       creationDate: new Date().toISOString(),
-      isDraft: true,
       organizationId: selectedOrgId.value,
-      setupObject: null,
       intakeMode: path.value as IntakeMode,
-      modificationList: [],
-      assignmentObject: {
-        vendorAssignments: [],
-        assignmentDate: '',
-        totalVendorsAssigned: 0,
-        totalTablesAssigned: 0,
-        assignmentStatistics: null,
-      },
     };
 
     const createResponse = await api.post('/markets', newMarket);
