@@ -20,6 +20,7 @@ describes:
   - back-end/api/users.py#get_users_by_ids
   - back-end/api/users.py#_sign_in
   - back-end/api/users.py#reset_password
+  - back-end/api/users.py#delete_user
   - back-end/app.py#verify_user_indexes
   - back-end/utils/email.py#send_account_exists_email
   - back-end/migrations/migrate_user_emails.py
@@ -27,7 +28,8 @@ describes:
   - back-end/tests/test_the_organizer_sign_in_is_bounded.py
   - back-end/tests/test_one_account_per_address.py
   - back-end/tests/test_a_failed_mail_leaves_no_wait_armed.py
-verified: 2026-11-10
+  - back-end/tests/test_delete_user_authorization.py
+verified: 2026-11-11
 sources:
   - E32/F03/S04
   - T85
@@ -40,6 +42,7 @@ sources:
   - E47/F02/S01
   - T263
   - T273
+  - T283
 ---
 
 # Users, and the one spelling of an address
@@ -196,7 +199,11 @@ The fix for each refusal is in [Operations](../../OPERATIONS.md#when-the-back-en
 
 ## Deleting an account
 
-A person deletes only their own account, and not while they own an organization: they transfer it first.
+A person deletes only their own account, and not while they own an organization or a market, so every organization and every market keeps an owner whose account exists.
+`delete_user` reads the organizations whose people name them `owner` and the markets whose `roles.<id>` is `"owner"` (projecting `id` and `name`, served by the `roles.$**` [lookup index](lookup-indexes.md)), and while either finds one it answers 409 and deletes nothing.
+The body's `msg` is one sentence for each, space-joined: "Transfer ownership of <organization names> before deleting this account." and "Hand on or delete <market names> before deleting this account.", the names comma-joined; `ownedOrganizations` and `ownedMarkets` list the names, each present only when it is not empty.
+A role below Owner on a market is not ownership, and the deletion goes ahead ([what each role may do](../../business/rules/what-each-role-may-do.md#a-chosen-reviewer-and-where-a-role-comes-from)).
+[`test_delete_user_authorization.py`](../../../back-end/tests/test_delete_user_authorization.py) pins that only the session's own account is deleted, each refusal alone and both together, and an Admin, Editor or Viewer of a market deleted.
 Deleting it takes their place in every organization's people, the map and its `admins` and `members` mirror alike ([the organization's people](../modules/organization-people.md)); a role entry naming them on a market stays in that market's `roles`.
 
 What an organizer does with their account, from registering to resetting a password, is [the accounts flows](../../business/flows/accounts.md).

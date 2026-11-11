@@ -138,6 +138,7 @@ They change no verdict already given (the change row stays on top of the giving 
 A Viewer who is not chosen reads the review and decides nothing.
 
 Whoever creates a market is its owner, and a market has exactly one.
+**An account that owns a market is not deleted** (T283): the deletion is refused, naming the market, until its owner deletes it, so every market keeps an owner whose account exists ([deleting an account](../../implementation/data/users-and-email.md#deleting-an-account)); an account that is an Admin, Editor or Viewer of a market is deleted, its role entry left in the market's roles.
 **An organization's owner and admins are Admin on every market it holds, and a member is Viewer.**
 Each person holds one place in an organization; one stored before its people were one map, its owner also listed among its admins or members, is read with the owner winning, so it grants its people their roles as any other does ([one map of people](../../implementation/data/organization-document.md#one-map-of-people), T283).
 **Only the organization's owner changes someone's place in it**: from their row in Manage organization, after a confirmation, an admin is made a member, who then reads its markets instead of running them, and a member an admin; the owner's own place changes only when the organization is handed on, to one of its admins or members, the old owner staying on as an admin ([B3a](../flows/organizations.md#b3a-make-an-admin-a-member-or-a-member-an-admin), [B6](../flows/organizations.md#b6-transfer-ownership)).

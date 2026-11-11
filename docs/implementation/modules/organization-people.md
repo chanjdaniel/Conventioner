@@ -38,6 +38,7 @@ It also builds the one filter that finds the organizations a person is in, `of_p
   An owner is matched by neither: `delete_user` refuses an owner before it deletes the account.
   That leaves one window, accepted: `delete_user` reads that the account owns no organization and only then deletes it, so a transfer to that account landing in between leaves an organization owned by an account that is gone, which `forget` does not match and nobody can hand on.
   It needs the person deleting their account and someone handing them an organization in the same moment, no screen deletes an account, and closing it needs a transaction across the users and organizations collections.
+  A market has the same window: `delete_user` reads that the account owns no market and only then deletes it, so a market the same person creates in another tab in between is left owned by an account that is gone; it is accepted for the same reasons, a transaction across the users and markets collections closing it.
 - `next_people(people, event, requester_id, target_id)`: the map a change leaves, or the client error it answers, with no database; the writer and the tests both call it.
 - `OrganizationChanged`, a `ConflictError`: 409, body `{"error": ORGANIZATION_CHANGED, "code": "organization_changed"}`.
 
