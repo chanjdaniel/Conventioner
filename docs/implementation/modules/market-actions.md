@@ -122,6 +122,7 @@ Asked by:
 - the Payments page (`GET /markets/:id/payments`, `get_market_payments`)
 - a vendor's payments (`GET /markets/:id/payments/<email>`)
 - `POST /floorplans/export`
+- `GET /floorplans/<id>`
 
 ### Read the market's history (`read-history`)
 
@@ -151,7 +152,6 @@ Asked by:
 - `PUT /markets/:id/plan`
 - `POST /floorplans/upload`
 - `DELETE /floorplans/<id>`
-- `POST /floorplans/analyze`
 - `POST /floorplans/calibrate`
 - `POST /floorplans/save-to-market`
 - `POST /floorplans/place-tables`

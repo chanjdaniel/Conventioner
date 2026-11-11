@@ -18,11 +18,12 @@ import api.vendor_info as VendorInfo
 import csv_import as CsvImport
 import essential_fields as EF
 from client_errors import BadRequestError, ForbiddenError, NotFoundError
-from datatypes import MarketPerson, MarketPhase, MarketRole
+from datatypes import ApplicationStatus, MarketPerson, MarketPhase, MarketRole, VerdictGiver
 from test_csv_import import GOOD_ROW, MAPPING, _csv, _market_doc, bound_markets
 
 MARKET = "market-123"
 EDITOR = MarketPerson(user_id="user-editor", email="editor@market.test")
+REVIEWER = VerdictGiver(kind="person", user_id="user-ana", email="ana@market.test")
 VENDOR = "vendor@example.com"
 FIELDS = [
     {"key": "shop", "label": "Shop name", "type": "text", "required": True, "options": [],
@@ -81,15 +82,6 @@ class TestAnUpdateIsKeptBesideTheirAnswer:
         assert stored["answer_updates"]["student"]["value"] == "Yes"
         assert result["application"]["formData"]["shop"] == "Ember Ceramics"
 
-    def test_an_update_does_not_move_when_their_answers_last_changed(self, market):
-        """A verdict is conditioned on ``updated_at``, the vendor's answers' time; an organizer's
-        update is not the vendor changing their answers."""
-        applications = market()
-
-        _update({"shop": "Ember Ceramics"})
-
-        assert _stored(applications)["updated_at"] == "2026-05-02T09:14:03+00:00"
-
     def test_an_answer_is_stored_as_the_form_stores_it(self, market):
         applications = market()
 
@@ -115,6 +107,69 @@ class TestAnUpdateIsKeptBesideTheirAnswer:
         _update({"shop": "Ember Ceramics"}, by=MarketPerson(user_id="u2", email="sam@market.test"))
 
         assert _stored(applications)["answer_updates"]["shop"] == first
+
+
+class TestAnUpdateMovesTheAnswersVersion:
+    """A verdict is written only on the answers its giver saw, by ``updated_at``, the answers'
+    version (E34/F03/S01); an organizer's update changes what every reader reads as the answers, so
+    it moves that version too, and a verdict on a card opened before it is refused (T270)."""
+
+    def _seen(self, application):
+        """What a reviewer's card sends with a verdict, from the application on the wire."""
+        return ApplicantsApi.seen_from({
+            "status": application["status"], "verdictAt": application["verdictAt"],
+            "updatedAt": application["updatedAt"]})
+
+    def _approve(self, seen):
+        return ApplicantsApi.review_application(
+            MARKET, "app-1", ApplicationStatus.REVIEWER_APPROVED, by=REVIEWER, seen=seen)
+
+    def test_a_verdict_on_a_card_opened_before_an_update_is_refused(self, market):
+        applications = market()
+        opened = self._seen(ApplicantsApi.organizer_view(_stored(applications)))
+
+        _update({"shop": "Ember Ceramics"})
+        body, status = self._approve(opened)
+
+        assert status == 409
+        assert body["error"] == "Its answers changed since you opened it."
+        # As it stands, so the reviewer decides on the answers that are really stored.
+        assert body["application"]["formData"]["shop"] == "Ember Ceramics"
+        assert body["application"]["status"] == "open"
+        assert _stored(applications)["status"] == "open"
+
+    def test_a_verdict_on_the_version_the_update_answered_lands(self, market):
+        applications = market()
+
+        result, _ = _update({"shop": "Ember Ceramics"})
+        _, status = self._approve(self._seen(result["application"]))
+
+        assert status == 200
+        assert _stored(applications)["status"] == "reviewer_approved"
+
+    def test_taking_an_update_away_moves_the_version_too(self, market):
+        market()
+        result, _ = _update({"shop": "Ember Ceramics"})
+        opened = self._seen(result["application"])
+
+        _update({"shop": "Ember Ceramcs"})
+        body, status = self._approve(opened)
+
+        assert status == 409
+        assert body["error"] == "Its answers changed since you opened it."
+        assert body["application"]["formData"]["shop"] == "Ember Ceramcs"
+
+    def test_an_update_that_changes_nothing_leaves_the_version(self, market):
+        applications = market()
+        result, _ = _update({"shop": "Ember Ceramics"})
+        version = _stored(applications)["updated_at"]
+
+        _update({"shop": "Ember Ceramics"})
+        _update({"student": "No"})
+
+        assert _stored(applications)["updated_at"] == version
+        _, status = self._approve(self._seen(result["application"]))
+        assert status == 200
 
 
 class TestTheUpdateReadsInItsPlace:
@@ -434,6 +489,16 @@ class TestKeepingAnUpdateTheirAnswerChangedUnder:
         assert entry["vendors"] == [VENDOR]
         assert entry["detail"]["kept"] == {"shop": "Ember Ceramics"}
         assert "before" not in entry["detail"]
+
+    def test_a_kept_entry_says_what_they_wrote_that_it_was_kept_over(self, market, market_records):
+        """Beside the update, in a map of its own, so an entry from before it still reads."""
+        self._changed_under(market)
+
+        _update({"shop": "Ember Ceramics"})
+
+        entry = market_records.history.documents[-1]
+        assert entry["detail"]["kept"] == {"shop": "Ember Ceramics"}
+        assert entry["detail"]["kept_over"] == {"shop": "Ember Pottery"}
 
     def test_kept_beside_another_change_is_one_entry_saying_both(self, market, market_records):
         self._changed_under(market)

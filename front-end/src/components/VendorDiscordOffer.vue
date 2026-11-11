@@ -31,7 +31,8 @@ const props = defineProps<{
    *  answer a price reads where a price group reads the username question. */
   canAnswer: boolean;
 }>();
-const emit = defineEmits<{ confirmed: [] }>();
+/** The update saved, with the application as the organizer now reads it. */
+const emit = defineEmits<{ confirmed: [application: Application] }>();
 
 const question = computed(() => props.market?.discord?.usernameQuestion ?? '');
 const serverName = computed(() => props.market?.discord?.guildName || 'the Discord server');
@@ -72,11 +73,11 @@ async function save(): Promise<void> {
   busy.value = true;
   confirmError.value = '';
   try {
-    await updateVendorInfo(props.market.id, props.application.id, {
+    const saved = await updateVendorInfo(props.market.id, props.application.id, {
       [question.value]: match.username,
     });
     confirming.value = null;
-    emit('confirmed');
+    emit('confirmed', saved);
   } catch (err) {
     confirmError.value = getApiErrorMessage(err, 'The update could not be saved. Try again.');
   } finally {
@@ -167,6 +168,7 @@ async function decline(match: DiscordPossibleMatch): Promise<void> {
         testid="discord-match-confirm"
         :confirm-label="busy ? 'Saving…' : 'Save update'"
         :confirm-disabled="busy"
+        :close-disabled="busy"
         :error="confirmError"
         @close="confirming = null"
         @submit="save"

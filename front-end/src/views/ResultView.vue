@@ -12,8 +12,9 @@ import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
-import { api, getApiErrorMessage, isMarketChanged } from '@/utils/api';
+import { api, getApiErrorMessage, getApiErrorStatus, isMarketChanged } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
+import { signedInEmail } from '@/utils/signedIn';
 import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 import { formatPrice } from '@/utils/pricing';
 import { loadAccount } from '@/utils/payments';
@@ -222,8 +223,7 @@ async function loadTables(): Promise<void> {
     errorMessage.value = 'Missing market id.';
     return;
   }
-  const userEmail = JSON.parse(localStorage.getItem('user') || 'null');
-  if (!userEmail) {
+  if (!signedInEmail()) {
     errorMessage.value = 'You must be signed in to view tables.';
     return;
   }
@@ -376,10 +376,14 @@ async function runPlacementChange(change: () => Promise<unknown>): Promise<void>
     await Promise.all([rereadTheTables(), refreshMarket()]);
   } catch (err: unknown) {
     placementError.value = getApiErrorMessage(err, 'That change could not be saved.');
-    // Another change to the market landed first, so this one stored nothing (ADR 0024): the grid
-    // is read again as after a success, and the sentence stays in the seat's dialog, which now
-    // shows who sits where. The store's market is read again by the market-changed interceptor.
-    if (isMarketChanged(err)) await rereadTheTables();
+    // A conflict says the page held tables the server no longer does: a seat taken meanwhile, or
+    // another change to the market landed first and this one stored nothing (ADR 0024). The dialog
+    // stays open on its refusal, and the tables are read again, so it shows who sits where now and
+    // offers only the seats that are free now. The store's market is read again too, by the
+    // market-changed interceptor when that is the refusal.
+    if (getApiErrorStatus(err) === 409) {
+      await Promise.all([rereadTheTables(), isMarketChanged(err) ? null : refreshMarket()]);
+    }
   } finally {
     placementBusy.value = false;
   }

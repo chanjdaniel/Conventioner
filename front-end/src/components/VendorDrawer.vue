@@ -31,6 +31,7 @@ import { useFocusGoesBack } from '@/utils/useFocusGoesBack';
 import { useInertBehind } from '@/utils/useInertBehind';
 import AnswerUpdateNote from '@/components/AnswerUpdateNote.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
+import EmailAddress from '@/components/EmailAddress.vue';
 import MarketHistory from '@/components/MarketHistory.vue';
 import ScrollBox from '@/components/ScrollBox.vue';
 import TableShareNotice from '@/components/TableShareNotice.vue';
@@ -60,8 +61,12 @@ const emit = defineEmits<{
   'update:tab': [tab: VendorTab];
   /** Their notes were written: a screen that shows notes reads them again. */
   notesChanged: [];
-  /** Their answers were updated (E41/F01/S01): a screen that shows answers reads them again. */
-  infoUpdated: [];
+  /**
+   * Their answers were updated (E41/F01/S01), with the application as the organizer now reads it:
+   * a screen that shows answers takes it at once, since a verdict carries the answers' version, and
+   * reads them again.
+   */
+  infoUpdated: [application: Application];
   /** Their payments or what they owe changed (E44/F02/S01): the Payments page reads it again. */
   paymentChanged: [];
 }>();
@@ -113,7 +118,8 @@ function notesChanged() {
 
 /**
  * Updating their info (E41/F01/S01): one button, offered on the table's row, opening a dialog of
- * their answers. The drawer's answers are read again once it saves, and the screen is told.
+ * their answers. Once it saves, the screen is told at once, with the application as saved, and the
+ * drawer's answers are read again.
  */
 const updatesInfo = computed(() => mayTake(props.market, MarketAction.UpdateVendorInfo));
 const updating = ref(false);
@@ -126,13 +132,13 @@ watch(
   () => (updating.value = false),
 );
 
-async function infoSaved(): Promise<void> {
+async function infoSaved(saved: Application): Promise<void> {
   updating.value = false;
+  emit('infoUpdated', saved);
   // The market read says what the last Discord check now shows of this vendor ("Check again" once
   // their username changed), so it is read again too where a check has run (E46/F01/S05).
   if (props.market?.discordVendors?.length) void useMarketStore().refresh();
   await props.details.load();
-  emit('infoUpdated');
 }
 
 /**
@@ -184,11 +190,7 @@ function onTabKey(event: KeyboardEvent) {
   void nextTick(() => tabButtons.value[held.indexOf(next)]?.focus());
 }
 
-// While "Update info" is open, Escape is the dialog's: one press closes one thing.
-useEscapeToClose(
-  () => open.value && !updating.value,
-  () => emit('close'),
-);
+useEscapeToClose(open, () => emit('close'));
 
 /**
  * The drawer is modal, so the rest of the page is out of play while it is open - to the keyboard as
@@ -260,7 +262,7 @@ watch(
             {{ vendor?.displayEmail ?? email }}
           </p>
           <p v-if="vendor?.verdict" class="detail-subtitle" data-testid="vendors-detail-giver">
-            {{ vendor.verdict }}
+            <EmailAddress :words="vendor.verdict" />
           </p>
         </div>
         <button
@@ -469,7 +471,10 @@ watch(
   position: fixed;
   top: 0;
   right: 0;
+  /* `dvh`, since a phone's browser bar would otherwise cover the panel's foot; `vh` first for a
+     browser that has no `dvh`. */
   height: 100vh;
+  height: 100dvh;
   width: min(480px, 92vw);
   background: white;
   box-shadow: var(--shadow-card);

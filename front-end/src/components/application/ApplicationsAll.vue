@@ -172,6 +172,17 @@ const verdicts = useVerdictActions(
   applications,
 );
 const { me, people, writesNotes } = verdicts;
+
+/**
+ * The drawer saved an update of their answers: the row takes the application as saved at once, so
+ * a verdict given before the list is read again carries the answers' version the update moved, and
+ * is not refused as answers changed since (T270); then the list is read again.
+ */
+function infoUpdated(saved: Application) {
+  verdicts.adopt(saved);
+  void load();
+}
+
 /**
  * The undo of the verdict just given (E38/F10/S01): a row's, said in its drawer while it is open and
  * over the list once it is closed, or a selection's, on its done line.
@@ -798,8 +809,8 @@ async function decideSelection() {
                   v-if="verdictGiverLine(app)"
                   class="all-meta"
                   data-testid="applications-all-giver"
-                  >{{ verdictGiverLine(app) }}</span
-                >
+                  ><EmailAddress :words="verdictGiverLine(app) ?? ''"
+                /></span>
                 <span
                   v-if="reviewerOf(app)"
                   class="all-meta"
@@ -807,11 +818,11 @@ async function decideSelection() {
                   ><EmailAddress :words="reviewerOf(app) ?? []"
                 /></span>
                 <span v-if="app.followUpOwner" class="all-meta" data-testid="applications-all-owner"
-                  >Followed up by {{ app.followUpOwner.email }}</span
-                >
-                <span v-if="holderOf(app)" class="all-meta" data-testid="applications-all-holder">{{
-                  holderOf(app)
-                }}</span>
+                  >Followed up by <EmailAddress :words="app.followUpOwner.email"
+                /></span>
+                <span v-if="holderOf(app)" class="all-meta" data-testid="applications-all-holder"
+                  ><EmailAddress :words="holderOf(app) ?? ''"
+                /></span>
               </span>
             </button>
           </li>
@@ -827,15 +838,18 @@ async function decideSelection() {
       :tab="drawer.tab.value"
       @close="drawer.close()"
       @update:tab="drawer.setTab"
-      @infoUpdated="load"
+      @infoUpdated="infoUpdated"
     >
       <template v-if="opened" #actions>
         <div class="drawer-verdict" data-testid="applications-all-drawer-verdict">
           <p class="drawer-status">
             <span :class="statusChip(opened.status)">{{ statusLabel(opened.status) }}</span>
-            <span v-if="verdictGiverLine(opened)" class="all-meta">{{
-              verdictGiverLine(opened)
-            }}</span>
+            <span
+              v-if="verdictGiverLine(opened)"
+              class="all-meta"
+              data-testid="applications-all-drawer-giver"
+              ><EmailAddress :words="verdictGiverLine(opened) ?? ''"
+            /></span>
             <span
               v-if="reviewerOf(opened)"
               class="all-meta"
@@ -846,8 +860,8 @@ async function decideSelection() {
               v-if="holderOf(opened)"
               class="all-meta"
               data-testid="applications-all-drawer-holder"
-              >{{ holderOf(opened) }}</span
-            >
+              ><EmailAddress :words="holderOf(opened) ?? ''"
+            /></span>
           </p>
           <p
             v-if="verdictMessage"

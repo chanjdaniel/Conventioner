@@ -103,6 +103,35 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
+describe('the links under the forms', () => {
+  // A link is a link: it can be opened in a new tab, and its address is read out (t181 p3-4a).
+  it('makes "Forgot password?" a link to the reset page', async () => {
+    const wrapper = await atLogin();
+
+    const forgot = byTestId(wrapper, 'login-forgot-password-link');
+    expect(forgot.element.tagName).toBe('A');
+    expect(forgot.attributes('href')).toBe('/reset-password-request');
+  });
+
+  // It changes the form and goes nowhere, so it is a button; the address field it gives back
+  // takes the focus, since the button itself goes.
+  it('makes "Use a different email" a button that gives the focus to the address', async () => {
+    post.mockResolvedValueOnce({ status: 200, data: { msg: CODE_SENT } });
+    const wrapper = await atLogin();
+    await askForACode(wrapper);
+
+    const different = byTestId(wrapper, 'login-otp-different-email-button');
+    expect(different.element.tagName).toBe('BUTTON');
+    expect(different.attributes('type')).toBe('button');
+    expect(different.attributes('href')).toBeUndefined();
+
+    await different.trigger('click');
+    await flushPromises();
+
+    expect(document.activeElement).toBe(byTestId(wrapper, 'login-otp-email-input').element);
+  });
+});
+
 describe('a refused password', () => {
   it('says the email and password do not match, with "Forgot password?" in the message', async () => {
     post.mockRejectedValueOnce(refused(401, { message: DO_NOT_MATCH }));
@@ -231,6 +260,52 @@ describe('an address that needs verifying', () => {
     expect(byTestId(wrapper, 'login-resend-verification-button').exists()).toBe(true);
   });
 
+  // The button goes once the link is on its way, so the focus on it would fall to the page: it
+  // moves to the line saying what happened, as the verification page keeps a keyboard in place.
+  it('moves the focus to the line that says the link is on its way', async () => {
+    post.mockRejectedValueOnce(refused(403, { message: VERIFY_FIRST }));
+    const wrapper = await atLogin();
+    await signInByPassword(wrapper);
+
+    post.mockResolvedValueOnce({ status: 200, data: {} });
+    const button = wrapper.get('[data-testid="login-resend-verification-button"]');
+    (button.element as HTMLElement).focus();
+    await button.trigger('click');
+    await flushPromises();
+
+    expect(document.activeElement).toBe(byTestId(wrapper, 'login-success-message').element);
+  });
+
+  it('moves the focus to the line that says to wait, when the button goes with it', async () => {
+    post.mockRejectedValueOnce(refused(403, { message: VERIFY_FIRST }));
+    const wrapper = await atLogin();
+    await signInByPassword(wrapper);
+
+    post.mockRejectedValueOnce(refused(429, { msg: ASKED_TOO_OFTEN }));
+    const button = wrapper.get('[data-testid="login-resend-verification-button"]');
+    (button.element as HTMLElement).focus();
+    await button.trigger('click');
+    await flushPromises();
+
+    expect(document.activeElement).toBe(byTestId(wrapper, 'login-error-message').element);
+  });
+
+  it('keeps the focus on the button when it is offered again', async () => {
+    post.mockRejectedValueOnce(refused(403, { message: VERIFY_FIRST }));
+    const wrapper = await atLogin();
+    await signInByPassword(wrapper);
+
+    post.mockRejectedValueOnce(refused(null));
+    const button = wrapper.get('[data-testid="login-resend-verification-button"]');
+    (button.element as HTMLElement).focus();
+    await button.trigger('click');
+    await flushPromises();
+
+    expect(document.activeElement).toBe(
+      byTestId(wrapper, 'login-resend-verification-button').element,
+    );
+  });
+
   it('sends one link for a double click', async () => {
     post.mockRejectedValueOnce(refused(403, { message: VERIFY_FIRST }));
     const wrapper = await atLogin();
@@ -300,7 +375,7 @@ describe('the code sign-in', () => {
     post.mockRejectedValueOnce(refused(401, { msg: WRONG_CODE }));
     await sendACode(wrapper, '000000');
 
-    await wrapper.get('[data-testid="login-otp-different-email-link"]').trigger('click');
+    await wrapper.get('[data-testid="login-otp-different-email-button"]').trigger('click');
     await flushPromises();
 
     expect(shown(wrapper, 'login-otp-error-message')).toBe(false);

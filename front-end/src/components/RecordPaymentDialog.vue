@@ -5,12 +5,19 @@
  *
  * The same fields record a refund once the money is given back, and edit an entry already there
  * (E44/F01/S02, an Admin's): Save is the confirmation, the dialog saying what it will do.
+ *
+ * Each opening to record is one entry, however often Record is pressed (T270): it makes a request
+ * key as it opens and sends it on every press, so pressing again after an answer that never came
+ * records nothing new. A press that differs from the entry already recorded with the key is
+ * refused with the account as it stands, which the dialog hands on (`refreshed`) and keeps its
+ * error shown, so the entry appears behind it.
  */
 import { computed, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
 import { getApiErrorMessage } from '@/utils/api';
 import {
   PAYMENT_METHODS,
+  alreadyRecordedAccount,
   editPayment,
   recordPayment,
   recordRefund,
@@ -35,7 +42,12 @@ const props = defineProps<{
   mode?: 'payment' | 'refund' | 'edit';
   entry?: Payment | null;
 }>();
-const emit = defineEmits<{ close: []; saved: [account: VendorAccount] }>();
+const emit = defineEmits<{
+  close: [];
+  saved: [account: VendorAccount];
+  /** A press refused as already recorded: the account as it stands, with the dialog still open. */
+  refreshed: [account: VendorAccount];
+}>();
 
 const amount = ref('');
 const method = ref<PaymentMethod>('e-transfer');
@@ -43,6 +55,8 @@ const paidOn = ref(today());
 const note = ref('');
 const error = ref('');
 const busy = ref(false);
+/** This opening's one press of Record, made as it opens; an edit sends none. */
+let requestKey = '';
 
 const account = computed(() => ({ currency: props.currency ?? null }));
 
@@ -71,6 +85,7 @@ watch(
     paidOn.value = entry?.paidOn ?? today();
     note.value = entry?.note ?? '';
     error.value = '';
+    requestKey = props.mode === 'edit' ? '' : crypto.randomUUID();
   },
   { immediate: true },
 );
@@ -90,8 +105,8 @@ function send(fields: NewPayment): Promise<VendorAccount> {
     return editPayment(props.marketId, props.entry.id, fields);
   }
   return isRefund.value
-    ? recordRefund(props.marketId, props.email, fields)
-    : recordPayment(props.marketId, props.email, fields);
+    ? recordRefund(props.marketId, props.email, fields, requestKey)
+    : recordPayment(props.marketId, props.email, fields, requestKey);
 }
 
 async function save(): Promise<void> {
@@ -109,6 +124,8 @@ async function save(): Promise<void> {
       }),
     );
   } catch (err: unknown) {
+    const standing = alreadyRecordedAccount(err);
+    if (standing) emit('refreshed', standing);
     error.value = getApiErrorMessage(
       err,
       props.mode === 'edit' ? 'The change could not be saved.' : 'It could not be recorded.',

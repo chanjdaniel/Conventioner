@@ -9,6 +9,7 @@
 import { computed, ref, watch } from 'vue';
 import HistoryEntries from '@/components/HistoryEntries.vue';
 import PagedList from '@/components/PagedList.vue';
+import ReadFailed from '@/components/ReadFailed.vue';
 import { api } from '@/utils/api';
 import type { HistoryContext } from '@/utils/marketHistory';
 import { useHistoryPages, type HistoryPage } from '@/utils/useHistoryPages';
@@ -55,9 +56,12 @@ watch(() => props.changesMade, load);
 <template>
   <div class="org-history" data-testid="org-history">
     <p v-if="loading" class="history-note">Loading…</p>
-    <p v-else-if="loadError && !entries.length" class="form-error" data-testid="org-history-error">
-      {{ loadError }}
-    </p>
+    <ReadFailed
+      v-else-if="loadError && !entries.length"
+      name="org-history"
+      :message="loadError"
+      @retry="load"
+    />
     <p v-else-if="!entries.length" class="history-note" data-testid="org-history-empty">
       Nothing has changed on this organization yet.
     </p>
@@ -88,11 +92,5 @@ watch(() => props.changesMade, load);
   margin: 0;
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
-}
-
-.form-error {
-  margin: 0;
-  color: var(--mm-red);
-  font-size: var(--text-xs);
 }
 </style>

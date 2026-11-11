@@ -368,6 +368,29 @@ describe('the History section of Manage organization', () => {
     wrapper.unmount();
   });
 
+  it('says so when the first page fails, and Try again reads it again', async () => {
+    api.get
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ data: { entries: [renamed('e1', 1, 'One')], next: null } });
+    const wrapper = mountDialog();
+    await flushPromises();
+    byTestId('manage-org-history-toggle')!.click();
+    await flushPromises();
+
+    expect(byTestId('org-history-read-failed')?.textContent).toContain(
+      'The history could not be loaded.',
+    );
+    expect(sentences()).toEqual([]);
+
+    byTestId('org-history-retry')!.click();
+    await flushPromises();
+
+    expect(api.get).toHaveBeenCalledTimes(2);
+    expect(byTestId('org-history-read-failed')).toBeNull();
+    expect(sentences()).toHaveLength(1);
+    wrapper.unmount();
+  });
+
   it('drops a later page answered after a change read the first page again', async () => {
     const observer = installIntersectionObserver();
     let answerLate: (value: unknown) => void = () => {};

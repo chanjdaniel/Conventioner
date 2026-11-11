@@ -9,6 +9,7 @@ describes:
   - back-end/application_write.py#_asks_nothing
   - back-end/guards.py#FormHasFieldsGuard
   - front-end/src/utils/applicationForm.ts#applicationFormError
+  - front-end/src/utils/applicationForm.ts#applicationFormRefusal
 verified: 2026-10-31
 sources:
   - wayfinding/readable-journey/02
@@ -55,7 +56,8 @@ The import lists its targets in that order and the CSV proposal its unanswered q
   A question whose stored answers meet `SOLVER_RELEVANT_KEYS` also asks the row "Update info the assignment or price reads", an Admin's by default; the solver and the other readers read the update through `effective_answers`.
   The dialog asks them with the applicant's own component ([`EssentialApplicationFields.vue`](../../../front-end/src/components/application/EssentialApplicationFields.vue), its `locked` questions read-only and its `after` slot under each), on the offering `marketEssentialOptions` in `essentialFields.ts` mirrors from `effective_essential_options_for_market`.
   A `locked` question is drawn in the `.field` primitive's one disabled state, as the dialog draws the market's own locked questions: its choice rows and its ranking ([`RankedChoiceInput.vue`](../../../front-end/src/components/application/RankedChoiceInput.vue)'s `locked`) beige with muted ink and a `not-allowed` cursor, the chosen row and the ranks marked by a line rather than the applicant's mint and green.
-  `disabled`, which the Form preview passes, takes every input away and keeps the applicant's look, since the preview shows what a vendor sees; only `locked` changes the look ([`aLockedEssentialLooksLocked.test.ts`](../../../front-end/src/__tests__/aLockedEssentialLooksLocked.test.ts)).
+  A locked ranking draws no arrows, so it has no "Use the arrows ..." line above it either.
+  `disabled`, which the Form preview passes, takes every input away and keeps the applicant's look and words, the arrows' line included, since the preview shows what a vendor sees; only `locked` changes the look ([`aLockedEssentialLooksLocked.test.ts`](../../../front-end/src/__tests__/aLockedEssentialLooksLocked.test.ts)).
 - **Switched off** is `unaskedEssentials` on the form: a market may declare the two rankings and the request unasked (`UNASKABLE_ESSENTIAL_KEYS`), and nothing else, since only a ranking is a preference the solver never filters on, and a default for a date, a tier or a table choice would answer for the vendor.
 
 **Table type is stubbed to one type** (`STUB_TABLE_TYPE`, "Standard") in every market, whatever floorplans it carries, so the table-type ranking is never asked.
@@ -96,7 +98,7 @@ The applicant's form reads its front-end mirror, `planDerivedAskedKeys`, so a ma
 ## The reserved prefix
 
 **A custom field's key may not start with `essential_`**: the essential answers live beside the custom ones in `form_data`, and a custom field that shadowed one would corrupt what the solver reads.
-The server refuses it in `_normalized_application_form` ([`back-end/api/markets.py`](../../../back-end/api/markets.py)), and the form builder says so first in `applicationFormError` ([`front-end/src/utils/applicationForm.ts`](../../../front-end/src/utils/applicationForm.ts)), through `fieldKeyError`, which the amendment's dialog asks too.
+The server refuses it in `_normalized_application_form` ([`back-end/api/markets.py`](../../../back-end/api/markets.py)), and the form builder says so first in `applicationFormError`, by `applicationFormRefusal` ([`front-end/src/utils/applicationForm.ts`](../../../front-end/src/utils/applicationForm.ts)), through `fieldKeyError`, which the amendment's dialog asks too.
 The same check refuses the import's own targets as keys (`applicant_email`, `submitted_at`, `sheet_note`), each named with what the import reads it as ([the market document](../data/market-document.md#the-fields-that-matter)).
 
 ## The generated schema

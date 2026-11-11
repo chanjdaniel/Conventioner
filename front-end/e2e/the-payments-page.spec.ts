@@ -7,6 +7,7 @@ import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 import { marketScreenPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
+import { pinnedBottom } from './helpers/layoutDetectors';
 import { VendorsPage } from './pages/VendorsPage';
 import { VendorExportDialog } from './pages/VendorExportDialog';
 
@@ -502,5 +503,84 @@ test.describe('the Payments page', () => {
         32,
       );
     });
+  });
+
+  /**
+   * What stays pinned as the page scrolls, in px from the window's top: the app bar's bottom, the
+   * market bar's top and bottom, the rail's bottom, the toolbar's top and bottom, the frame's
+   * measured `--market-frame-h` and how far the page scrolled.
+   */
+  async function pinnedParts(page: Page) {
+    return page.evaluate(() => {
+      const edges = (selector: string) => {
+        const r = document.querySelector(selector)!.getBoundingClientRect();
+        // `|| 0`: a box scrolled up by a fraction rounds to -0, which `toBe` tells from 0.
+        return { top: Math.round(r.top) || 0, bottom: Math.round(r.bottom) || 0 };
+      };
+      const card = document.querySelector('[data-testid="market-frame-card"]') as HTMLElement;
+      return {
+        appBar: edges('.app-container > header').bottom,
+        bar: edges('[data-testid="market-bar"]'),
+        rail: edges('[data-testid="phase-rail"]').bottom,
+        toolbar: edges('.payments-toolbar'),
+        frameHeight: parseFloat(card.style.getPropertyValue('--market-frame-h')),
+        scrolled: Math.round(window.scrollY),
+      };
+    });
+  }
+
+  test('up to 1023px only the market bar pins, as on a phone; from 1024px the whole frame does', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // A portrait tablet (T263, from T180's check): at 720x900 the whole frame and Payments' toolbar
+    // pinned 459px, half the window, as the phone's did before T142.
+    const marketId = await threeVendorsPaying(request);
+    // Whether the page is long enough at that size to scroll the rail and the toolbar wholly out of
+    // view: a wider window lays the tables out shorter.
+    for (const [width, height, barAlone, scrollsOut] of [
+      [390, 844, true, true],
+      [720, 900, true, true],
+      [1023, 900, true, false],
+      [1024, 900, false, false],
+      [1280, 900, false, false],
+    ] as const) {
+      const at = `${width}x${height}`;
+      await page.setViewportSize({ width, height });
+      await paymentsPage(page, marketId);
+      const top = await pinnedParts(page);
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await expect.poll(() => page.evaluate(() => window.scrollY), at).toBeGreaterThan(0);
+      const parts = await pinnedParts(page);
+      const pinned = await page.evaluate(pinnedBottom);
+
+      expect(parts.bar.top, `${at}: the market bar stays under the app bar`).toBe(parts.appBar);
+      if (barAlone) {
+        expect(parts.rail, `${at}: the rail went with the page`).toBe(top.rail - parts.scrolled);
+        expect(parts.toolbar.top, `${at}: the toolbar went too`).toBe(
+          top.toolbar.top - parts.scrolled,
+        );
+        if (scrollsOut) {
+          expect(parts.rail, `${at}: the rail is out of view`).toBeLessThanOrEqual(parts.bar.top);
+          expect(parts.toolbar.bottom, `${at}: the toolbar is out of view`).toBeLessThanOrEqual(
+            parts.bar.top,
+          );
+        }
+        expect(pinned.bottom, `${at}: pinned to the bottom of ${pinned.el}`).toBe(parts.bar.bottom);
+        expect(parts.frameHeight, `${at}: the measured frame is the bar`).toBe(
+          parts.bar.bottom - parts.bar.top,
+        );
+      } else {
+        expect(parts.rail, `${at}: the rail stays`).toBe(top.rail);
+        expect(parts.toolbar, `${at}: the toolbar stays, under the rail`).toEqual(top.toolbar);
+        expect(parts.toolbar.top).toBeGreaterThanOrEqual(parts.rail);
+        expect(pinned.bottom, `${at}: pinned to the bottom of ${pinned.el}`).toBe(
+          parts.toolbar.bottom,
+        );
+        expect(parts.frameHeight, `${at}: the measured frame is the whole block`).toBe(
+          parts.toolbar.bottom - parts.appBar,
+        );
+      }
+    }
   });
 });

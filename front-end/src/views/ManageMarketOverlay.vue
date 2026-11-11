@@ -668,6 +668,7 @@ async function closeAddUser() {
             name="name"
             autocomplete="off"
             class="field"
+            maxlength="100"
             aria-label="Market name"
             data-testid="manage-market-rename-input"
           />

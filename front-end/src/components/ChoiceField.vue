@@ -39,8 +39,12 @@ export const labelHolds = (option: PickerOption, words: string) =>
  *   writes nothing, and only another choice replaces this one. Without it, as on a form that acts on
  *   Save, the first word lets the choice go.
  * - `noneRow` is a choice that may go back to none: past 12, while one holds, these words are the
- *   list's first row, whose value is `''`, as the select's empty row is at 12 or fewer. It counts
- *   toward neither the threshold nor `wholeCount`.
+ *   list's first row, whose value is `''`, as the select's empty row is at 12 or fewer. It is the
+ *   picker's first lead, so it stands above the choice held and is drawn whatever the words. It
+ *   counts toward neither the threshold nor `wholeCount`.
+ * - `leads` are choices always in reach, as "Ignore this value" is: past 12 the picker's `leads`, drawn
+ *   first whatever the words and outside the cap; at 12 or fewer the select's first rows after its
+ *   empty one. They count toward neither the threshold nor `wholeCount`.
  * - `listInFlow` draws a field's list in the page's flow instead of over what follows, for a host
  *   that scrolls or clips, where a list lying over would be cut off.
  * - `adds` says each choice is added elsewhere, as a ranked list's next answer: the value stays `''`,
@@ -84,6 +88,8 @@ const props = defineProps<{
   fieldId?: string;
   /** Past 12, while a choice holds, the words of a first row that lets it go. */
   noneRow?: string;
+  /** Choices always in reach: drawn first, whatever the words, and outside the cap. */
+  leads?: PickerOption[];
   /** Past 12, the list pushes what follows down rather than lying over it. */
   listInFlow?: boolean;
 }>();
@@ -96,12 +102,11 @@ const isField = computed(
     COMBOBOX_PAST,
 );
 
-/** The field's rows: the way back to none first, so the cap never hides it. */
-const fieldGroups = computed<PickerGroup[]>(() =>
-  props.noneRow && props.modelValue
-    ? [{ options: [{ value: '', label: props.noneRow }] }, ...props.groups]
-    : props.groups,
-);
+/** The field's leads: the way back to none first, so neither the cap nor the words hide it. */
+const fieldLeads = computed<PickerOption[]>(() => [
+  ...(props.noneRow && props.modelValue ? [{ value: '', label: props.noneRow }] : []),
+  ...(props.leads ?? []),
+]);
 
 /** A select's row has one line, so its detail stands on it. */
 const rowWords = (option: PickerOption) =>
@@ -146,7 +151,8 @@ defineExpose({ open, showHeld });
     ref="picker"
     class="choice-field-picker"
     :model-value="modelValue"
-    :groups="fieldGroups"
+    :groups="groups"
+    :leads="fieldLeads"
     :finds="finds ?? labelHolds"
     :label="label"
     :placeholder="placeholder"
@@ -179,6 +185,14 @@ defineExpose({ open, showHeld });
       @change="selected"
     >
       <option v-if="placeholder !== undefined" value="">{{ placeholder }}</option>
+      <option
+        v-for="option in leads"
+        :key="option.value"
+        :value="option.value"
+        :disabled="option.disabled"
+      >
+        {{ rowWords(option) }}
+      </option>
       <template v-for="(group, at) in groups" :key="group.label ?? at">
         <optgroup v-if="group.label && group.options.length" :label="group.label">
           <option

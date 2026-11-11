@@ -28,7 +28,6 @@ import api.applicants as ApplicantsApi  # noqa: E402
 import api.attendance as AttendanceApi  # noqa: E402
 import api.floorplans as FloorplansApi  # noqa: E402
 import api.floorplans_access as FloorplansAccess  # noqa: E402
-import api.floorplans_save as FloorplansSave  # noqa: E402
 import api.market_actions as Actions  # noqa: E402
 import api.markets as MarketsApi  # noqa: E402
 import market_write as MarketWrite  # noqa: E402
@@ -191,7 +190,7 @@ def _account(email: str) -> SimpleNamespace:
 @pytest.fixture
 def world(monkeypatch, applications, market_records):
     markets = LiveMarkets()
-    for module in (MarketsApi, MarketWrite, AttendanceApi, FloorplansSave, ReviewTeam):
+    for module in (MarketsApi, MarketWrite, AttendanceApi, ReviewTeam):
         monkeypatch.setattr(module, "markets_collection", markets)
     monkeypatch.setattr(db_config, "get_database", lambda *_a, **_k: {"markets": markets})
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
@@ -871,7 +870,6 @@ NOT_A_CHANGE = {
     ("POST", "/floorplans/upload"):
         "stores an image the market uses only once a floorplan is saved, which records",
     ("POST", "/floorplans/calibrate"): "measures an image and keeps nothing",
-    ("POST", "/floorplans/analyze"): "reads an image and keeps nothing",
     ("POST", "/floorplans/place-tables"): "proposes table positions and keeps nothing",
     ("POST", "/floorplans/export"): "a read",
     ("POST", f"{M}/discord/authorization"):

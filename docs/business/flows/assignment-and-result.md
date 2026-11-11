@@ -6,7 +6,7 @@ describes:
   - front-end/src/components/ResultSummary.vue
   - front-end/src/components/application/PublishResults.vue
   - front-end/src/utils/download.ts
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - brain-dump/2026-10-19#16
   - brain-dump/2026-10-19#18
@@ -43,6 +43,7 @@ sources:
   - T221
   - T224
   - T253
+  - T263
 ---
 
 # The assignment and its result

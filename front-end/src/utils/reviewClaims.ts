@@ -22,8 +22,12 @@ export const IDLE_AFTER_MS = 5 * 60_000;
  * overtook holds nothing and is not put up (the Next race, E38/F07/S04). Its card was claimed on
  * the server all the same, so it is let go once the newest hand-out has answered, unless that is
  * the card now held: letting go before then could release the very card the newest hands over.
+ *
+ * A hand-out first deals what a stopped deal left waiting (T270), and may deal more than the card it
+ * hands over: `onDealt` is told whenever an answer says it dealt any, overtaken or not, so the
+ * screen reads its list again.
  */
-export function useReviewClaims(marketId: Ref<string>) {
+export function useReviewClaims(marketId: Ref<string>, { onDealt }: { onDealt?: () => void } = {}) {
   const held = ref<string | null>(null);
   let renewal: ReturnType<typeof setInterval> | null = null;
   let lastActive = Date.now();
@@ -92,6 +96,7 @@ export function useReviewClaims(marketId: Ref<string>) {
       throw err;
     }
     const app = (data?.application ?? null) as Application | null;
+    if (typeof data?.dealt === 'number' && data.dealt > 0) onDealt?.();
     if (mine !== asked) {
       // Claimed on the server for nobody's open card: let it go now if the reviewer has left or
       // the newest hand-out has answered with another, else once that one answers.

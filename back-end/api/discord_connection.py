@@ -200,7 +200,7 @@ _OLD_TAG = re.compile(r"#\d{4}$")
 
 
 def redirect_uri() -> str:
-    return frontend_url().rstrip("/") + REDIRECT_PATH
+    return frontend_url() + REDIRECT_PATH
 
 
 def _now() -> float:

@@ -846,6 +846,17 @@ describe('how a before and after is drawn', () => {
     expect(partsText(addressParts(words))).toBe(words);
   });
 
+  it('leaves the colon after a vendor in a list of their reviewers to the words', () => {
+    // A selection's `dealt_to` reads "vendor: reviewer" (`eachDealtTo`).
+    const words = 'ana@ember.test: rv-sam@ember.test';
+    expect(addressParts(words)).toEqual([
+      { kind: 'address', local: 'ana', domain: '@ember.test' },
+      { kind: 'text', text: ': ' },
+      { kind: 'address', local: 'rv-sam', domain: '@ember.test' },
+    ]);
+    expect(partsText(addressParts(words))).toBe(words);
+  });
+
   it('holds each hyphen to the character after it, so no line ends at one', () => {
     expect(hyphenRuns('e2e-screens--reviewer-')).toEqual([
       { text: 'e2e', held: false },
@@ -1298,6 +1309,81 @@ describe('what an entry opens to', () => {
     ]);
   });
 
+  it('opens a kept update to its custom question by the form’s label', () => {
+    const fields = [{ key: 'student', label: 'Are you a student?' }] as unknown as FormField[];
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: 'kept',
+          detail: { kept: { student: 'Yes' }, rejected_by_rules: false, returned_by_rules: false },
+        }),
+        { fields },
+      ).recorded[0],
+    ).toEqual({ field: 'Kept: Are you a student?', value: 'Yes' });
+  });
+
+  it('lists kept answers in the form’s order, each read as the Application tab reads it', () => {
+    const fields = [
+      { key: 'student', label: 'Are you a student?' },
+      { key: 'crafts', label: 'What do you make?' },
+    ] as unknown as FormField[];
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: 'kept',
+          detail: {
+            kept: { crafts: ['Pins', 'Prints'], student: 'Yes' },
+            kept_over: { crafts: ['Cards'], student: '' },
+            rejected_by_rules: false,
+            returned_by_rules: false,
+          },
+        }),
+        { fields },
+      ).recorded.slice(0, 4),
+    ).toEqual([
+      { field: 'Kept: Are you a student?', value: 'Yes' },
+      { field: 'They wrote: Are you a student?', value: 'left it blank' },
+      { field: 'Kept: What do you make?', value: 'Pins · Prints' },
+      { field: 'They wrote: What do you make?', value: 'Cards' },
+    ]);
+  });
+
+  it('says under each kept answer what the vendor wrote that it was kept over', () => {
+    const fields = [{ key: 'student', label: 'Are you a student?' }] as unknown as FormField[];
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: 'kept',
+          detail: {
+            kept: {
+              essential_table_share_email: 'ana@example.com',
+              essential_table_share_also: [],
+              essential_table_share_answer: 'Seat me with Ana, ana@example.com',
+              student: 'Yes',
+            },
+            kept_over: {
+              essential_table_share_email: 'bea@example.com',
+              essential_table_share_also: [],
+              essential_table_share_answer: 'Seat me with Bea, bea@example.com',
+              student: null,
+            },
+            rejected_by_rules: false,
+            returned_by_rules: false,
+          },
+        }),
+        { fields },
+      ).recorded.slice(0, 4),
+    ).toEqual([
+      { field: 'Kept: Table-share partner', value: 'Seat me with Ana, ana@example.com' },
+      { field: 'They wrote: Table-share partner', value: 'Seat me with Bea, bea@example.com' },
+      { field: 'Kept: Are you a student?', value: 'Yes' },
+      { field: 'They wrote: Are you a student?', value: 'left it blank' },
+    ]);
+  });
+
   it('shows a phase before and after as the market’s path names it', () => {
     const move = entry({
       action: 'move-phase',
@@ -1581,6 +1667,29 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
     expect(fields([a, b, c], [a, group('X', []), c])).toEqual(['Group “X”', 'Group “B”']);
     // A taken away and X added last: no move either.
     expect(fields([a, b, c], [b, c, group('X', [])])).toEqual(['Group “X”', 'Group “A”']);
+  });
+
+  it('judges each added group by its own place', () => {
+    const [a, b, c] = [group('A', []), group('B', []), group('C', [])];
+    const fields = (before: unknown[], after: unknown[]) =>
+      priced({ before: { groups: before }, after: { groups: after } }).map((row) => row.field);
+
+    // A renamed X where A stood, B taken away and Y added last: nothing moved.
+    expect(fields([a, b, c], [group('X', []), c, group('Y', [])])).not.toContain(
+      'Order of the groups',
+    );
+  });
+
+  it('says where the groups went when two or more were renamed in one place', () => {
+    // A and B renamed D and C, or swapped as they were renamed: the history cannot tell which.
+    const [a, b] = [group('A', []), group('B', [])];
+
+    expect(
+      priced({
+        before: { groups: [a, b] },
+        after: { groups: [group('D', []), group('C', [])] },
+      }).at(-1),
+    ).toEqual({ field: 'Order of the groups', before: 'A\nB', after: 'D\nC' });
   });
 
   it('still says where a renamed group went when it moved too', () => {
@@ -2007,5 +2116,69 @@ describe('the Discord card and its check, in words (E46/F01/S02, S03)', () => {
         { field: 'No username', value: '0' },
       ],
     });
+  });
+});
+
+describe('a floorplan save opens to what its floorplan holds, and whether its layout moved (T272)', () => {
+  /** A floorplan save's entry as the back end records it: the plan's fields that changed, and the
+   * saved floorplan's counts and layout digest, never the floorplan itself. */
+  const saved = (before: Record<string, unknown>, after: Record<string, unknown>) =>
+    entryChanges(
+      entry({
+        action: 'change-setup',
+        kind: 'floorplan',
+        vendors: [],
+        subject: { floorplan_id: '6f1c2d4e-8a9b-4c3d-9e2f-1a2b3c4d5e6f' },
+        detail: { before, after },
+      }),
+    );
+
+  it('says the layout changed when only a table moved', () => {
+    expect(
+      saved({ layout_digest: '3f9a0c41d2b7e655' }, { layout_digest: '8be17d0a5c2f9e31' }),
+    ).toEqual({
+      changed: [{ field: 'Layout', before: 'as saved before', after: 'changed' }],
+      recorded: [],
+    });
+  });
+
+  it('counts what the floorplan holds on each side, in the wizard’s words', () => {
+    expect(
+      saved(
+        { tables: 2, walls: 1, no_go_zones: 0, table_types: 1, layout_digest: '3f9a0c41d2b7e655' },
+        { tables: 3, walls: 4, no_go_zones: 2, table_types: 2, layout_digest: '8be17d0a5c2f9e31' },
+      ).changed,
+    ).toEqual([
+      { field: 'Tables', before: '2', after: '3' },
+      { field: 'Walls', before: '1', after: '4' },
+      { field: 'Obstacle zones', before: '0', after: '2' },
+      { field: 'Table types', before: '1', after: '2' },
+      { field: 'Layout', before: 'as saved before', after: 'changed' },
+    ]);
+  });
+
+  it('reads a floorplan saved for the first time as drawn, beside the plan’s own rows', () => {
+    const { changed } = saved(
+      {
+        floorplan_ids: [],
+        tables: null,
+        walls: null,
+        no_go_zones: null,
+        table_types: null,
+        layout_digest: null,
+      },
+      {
+        floorplan_ids: ['6f1c2d4e-8a9b-4c3d-9e2f-1a2b3c4d5e6f'],
+        tables: 4,
+        walls: 0,
+        no_go_zones: 0,
+        table_types: 1,
+        layout_digest: '8be17d0a5c2f9e31',
+      },
+    );
+    expect(changed).toContainEqual({ field: 'Tables', before: 'none', after: '4' });
+    expect(changed).toContainEqual({ field: 'Layout', before: 'none', after: 'drawn' });
+    expect(changed.map((row) => row.field)).toContain('Floorplan ids');
+    expect(changed.every((row) => row.before !== row.after)).toBe(true);
   });
 });

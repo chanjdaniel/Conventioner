@@ -23,6 +23,8 @@ describes:
   - back-end/migrations/migrate_is_draft_consistency.py
   - back-end/migrations/migrate_publishing_to_market_days.py
   - docs/schema.d.ts
+  - back-end/db_config.py#get_mongodb_client
+  - back-end/tests/test_db_config.py
 verified: 2026-11-11
 sources:
   - E02
@@ -44,6 +46,8 @@ sources:
   - T213
   - T263
   - T274
+  - T270
+  - T273
 ---
 
 # The market document
@@ -71,7 +75,7 @@ The other collections differ: applications and the placement trail are stored sn
 | Field (stored)                                 | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `id`                                           | a UUID, the primary key; the name is a mutable display field                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `name`                                         | the market's name; it decides the slug, so it may change only while the market is a draft                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `name`                                         | the market's name; it decides the slug, so it may change only while the market is a draft; a create and a rename refuse one over `MARKET_NAME_MAX` (100) characters or holding a control character or a line or paragraph separator (`market_name_refusal`, [D6](../../business/flows/creating-a-market.md#d6-a-name-of-at-most-100-characters-on-one-line)), and a name stored before that rule is read as it is                                                                                                                                                                                                                                                                                                                                                                 |
 | `slug`                                         | derived from the name, persisted and uniquely indexed (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `organizationId`                               | the one organization the market belongs to, fixed at creation; see [the organization document](organization-document.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `roles`                                        | a map from user id to `owner`, `admin`, `editor` or `viewer`, with exactly one `owner`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -100,6 +104,11 @@ Each field's own rules are with the module that writes it; this node is the docu
 **The prices are `setupObject.pricing`**, null on a market never priced: `currency` (`CAD` unless the organizer picked another of `PRICING_CURRENCIES`), `halfTablePercent` (a whole number from 0 to 100, 50 unless changed), `groups`, the organizer's price groups, each `{name, conditions: [{key, answers}], prices}` with `prices` shaped as `everyoneElse` (absent on a card saved before there were groups, which has none), and `everyoneElse`, a list of `{tier, cents}`, each a full table's price for one day in whole cents.
 A list rather than a map keyed by tier name, because every write camel-cases the document's keys and a tier's name is the organizer's text; a half price rounds half up to the cent.
 What they mean and how an assignment is priced is [a price follows the table](../../business/rules/a-price-follows-the-table.md).
+
+**A change of reviewers is unfinished while `reviewTeam.unfinishedChoice` stands** (T270): its team write sets it to `{removed: [address]}`, the reviewers the change removed, and its last write, the turn's, unsets it, so the same choice again finishes a change that stopped between them and hands on those reviewers' follow-ups too, and a different choice over it counts them removed beside those it removes itself, unless it chooses them ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)).
+Like `dealing`, it is beside the team on the document and not on the `ReviewTeam` model, and the read never serves it.
+Every write a deal makes to the market under `dealing` names the lease and reads whether it matched, so one whose lease ran out is refused or logged, never written as if it held the market ([ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)).
+A lease nobody let go, from a deal the host ended, runs out on its own, and the applications still marked `arriving` are dealt by the next deal, which a reviewer's next card starts (`deal_waiting`).
 
 <a id="the-discord-connection-is-discord"></a>
 **The Discord connection is `discord`**; absent is not connected.
@@ -212,7 +221,7 @@ It is the document itself, not a copy, so a caller never changes a document a lo
 ## The boot refusal and the migration
 
 **The back end refuses to boot** unless [`back-end/migrations/migrate_market_keys.py`](../../../back-end/migrations/migrate_market_keys.py) has recorded every marker in `MARKET_MIGRATION_IDS` (`market_document_keys`, `market_slugs`, `market_slugs_unique`) in the `schema_migrations` collection (`assert_market_key_migration_recorded`, run from `app.py` at import).
-Each marker is one document read by `_id`, with an `appliedAt` time, through a connection whose server selection gives up after three seconds (`MIGRATION_PROBE_TIMEOUT_MS` in [`back-end/db_config.py`](../../../back-end/db_config.py)), so a database blip cannot hang the boot.
+Each marker is one document read by `_id`, with an `appliedAt` time, through a connection whose server selection gives up after three seconds (`MIGRATION_PROBE_TIMEOUT_MS` in [`back-end/db_config.py`](../../../back-end/db_config.py)), so a database blip cannot hang the boot; it keeps every other bound below.
 The migration establishes a market document's canonical form: camelCase keys (no legacy snake_case, the camelCase value winning where a document has both), a stored slug derived from the name, and a UNIQUE slug index.
 There are several markers because the canonical form grew; one run records them all, and the refusal names every missing one at once, so the operator never discovers them one restart at a time.
 A database migrated by an older build carries only the earlier markers, which is the state the check exists to catch.
@@ -233,6 +242,28 @@ The other market migrations carry no boot marker, because what they repair fails
   Every repair is a conditioned `$set` whose filter Mongo re-checks as it writes, so a market the live app moves mid-run is not written back to its old state.
 - [`migrate_publishing_to_market_days.py`](../../../back-end/migrations/migrate_publishing_to_market_days.py) moves markets published by the old `draft -> archived` path on to `market_days`, telling published from abandoned by whether an assignment is stored; run it after `migrate_phase.py`.
 - `migrate_table_code_separator.py`, `migrate_roles.py` and `migrate_to_uuid.py` brought older documents to today's table codes, roles map and UUID ids.
+
+## The database client's bounds
+
+Every client the back end builds, through `get_mongodb_client` in [`back-end/db_config.py`](../../../back-end/db_config.py), carries five bounds, module constants with one comment saying why each value:
+
+| Option                     | Value                          | Why                                                                                                                                                                                         |
+| -------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `serverSelectionTimeoutMS` | 5 seconds (the boot probe's 3) | finds a healthy Atlas server many times over and fails a blip fast, where the driver's default held a request 30 seconds on a database that is not there                                    |
+| `connectTimeoutMS`         | 5 seconds                      | a new connection's handshake, not the driver's default 20                                                                                                                                   |
+| `socketTimeoutMS`          | 30 seconds                     | any one wait on the server's reply (a find, a batch of an import's bulk write, an index build at boot), far above what any takes on today's sizes and far below the host's 300-second limit |
+| `maxPoolSize`              | 20                             | well above one instance's concurrent use, and bounds the Flex cluster's 500 connections at about 19 saturated instances rather than the default 100's five                                  |
+| `maxIdleTimeMS`            | 60 seconds                     | an instance a burst grew gives its connections back                                                                                                                                         |
+
+They are passed as keywords, which PyMongo lets win over the same option in `MONGODB_URI`, so the code is the one place they are set: a URI carrying `maxPoolSize=100` still gets 20.
+
+**There is no client-wide `timeoutMS`, and `None` is passed for it, turning off one a URI carries.**
+In PyMongo 4.18 that operation timeout replaces `serverSelectionTimeoutMS`, so server selection waits out whatever is left of it: with `timeoutMS=30000`, a find at a closed port failed after 30.1 seconds, and the boot probe too, rather than after 5 and 3 (T273).
+So a hung reply fails after 30 seconds, but a whole operation of several round trips has no overall deadline.
+A caller that needs one wraps its operations in `pymongo.timeout`, as `/healthz` does: its ping runs inside `pymongo.timeout(5)`, so a server that is found but does not answer fails the check within about 5 seconds too.
+A timed-out operation raises a `PyMongoError`, which a route answers as any other failure ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
+
+[`test_db_config.py`](../../../back-end/tests/test_db_config.py) reads the bounds from the real driver's `options` and times a find at a closed loopback port; [`test_healthz.py`](../../../back-end/tests/test_healthz.py) times `/healthz` there and reads the ping's deadline.
 
 ## The schema contract
 

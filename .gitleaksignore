@@ -1,0 +1,8 @@
+# Fixture request keys (UUIDs) in the T270 payment-once-per-press test. They are not secrets;
+# gitleaks' generic-api-key rule flags any KEY-named assignment of a UUID literal.
+8c43ad5661aad16b7edf1edeabbd8d2e57c3c2a0:back-end/tests/test_a_payment_is_recorded_once_per_press.py:generic-api-key:27
+8c43ad5661aad16b7edf1edeabbd8d2e57c3c2a0:back-end/tests/test_a_payment_is_recorded_once_per_press.py:generic-api-key:28
+
+# The fake mail key back-end/tests/test_email.py holds (A_REAL_KEY), which this one commit wrote
+# again in a new test before that test imported it; it is no secret, and only this finding is let by.
+b2da9299e0d4f1cc71318435aad3f9d5b9556124:back-end/tests/test_the_code_mail_carries_only_words.py:generic-api-key:30

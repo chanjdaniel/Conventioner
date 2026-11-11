@@ -3,13 +3,15 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/NewMarketOverlay.vue
-verified: 2026-11-01
+verified: 2026-11-10
 sources:
   - E24/F03
   - E26/F08
   - E31/F03/S01
   - bug/42
   - bug/46
+  - T273
+  - T263
 ---
 
 # Creating a market
@@ -57,10 +59,12 @@ Covered by:
 
 **Status:** Works (walked live).
 With more than one organization the Organization field is a dropdown starting on "Select organization", and "Create market" stays disabled until one is chosen; with exactly one it is plain text.
+"Organization" names the dropdown by `aria-labelledby` and is no `label`, since with one organization there is no control for a label to point to (T263).
 Covered by:
 
 - `dialog-idiom.spec.ts` ("with exactly one organization")
 - `new-market-org.spec.ts`
+- `newMarketNamesItsOrganization.test.ts`: every `label[for]` in the dialog points at an element, with one organization and with several
 
 ## D4. Create a market with no organization yet
 
@@ -79,5 +83,16 @@ The name becomes the public URL slug, so a name whose slug is taken is refused, 
 Covered by:
 
 - `public-address.spec.ts`
+
+## D6. A name of at most 100 characters, on one line
+
+**Status:** Works (T273; walked on a worktree stack).
+"Market name" takes at most 100 characters: typing past them adds nothing.
+The server holds the same rule whatever a client sends, counting the name without the spaces at its ends, and answers in the dialog under the name: "A market's name can be at most 100 characters.", "A market's name must be on one line." for a line break, a tab, any other control character or a Unicode line or paragraph separator, and "A market needs a name." for a blank one.
+The name is stored as typed.
+The rule is asked before the address rule (D5); a market named before it, longer or on two lines, still opens and lists, its card ending the name in an ellipsis.
+Covered by:
+
+- `a-market-name-fits-one-line.spec.ts`
 
 Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

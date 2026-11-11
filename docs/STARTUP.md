@@ -9,6 +9,7 @@ verified: 2026-11-10
 sources:
   - T251
   - T263
+  - T273
 ---
 
 # Conventioner - Development Startup Guide
@@ -98,7 +99,7 @@ The easiest way to get started is using Docker Compose:
    ```
 
 That is genuinely it, on a fresh clone: **no `.env` file to copy**.
-The back end refuses to boot without six variables it has no default for, and `docker-compose.yml`
+The back end refuses to boot without eight variables it has no default for, and `docker-compose.yml`
 sets the local-development escape hatch (`ALLOW_INSECURE_LOCAL_DEV`) and its front-end half
 (`VITE_ALLOW_INSECURE_LOCAL_DEV`) inline, which is what lets the stack start without them.
 It says so in the log on every boot.
@@ -222,9 +223,9 @@ docker run -d \
    ```
    The template boots as it stands - no keys to go and fetch, no accounts to sign up for.
    `app.py` loads `back-end/.env` on the first line it runs (`back-end/utils/env_file.py`), and anything already set in the environment wins over the file, so a variable you export by hand is never shadowed by it.
-   The template works because it sets `ALLOW_INSECURE_LOCAL_DEV=true`, which is what lets a process start without the six variables a deployment must set (`SECRET_KEY`, `RECAPTCHA_SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY`, `SESSION_TYPE`, `TRUSTED_PROXY_HOPS`), and which names in the log everything it turns off.
+   The template works because it sets `ALLOW_INSECURE_LOCAL_DEV=true`, which is what lets a process start without the eight variables a deployment must set (`SECRET_KEY`, `RECAPTCHA_SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY`, `FRONTEND_URL`, `FROM_EMAIL`, `SESSION_TYPE`, `TRUSTED_PROXY_HOPS`), and which names in the log everything it turns off.
    Sessions are then signed with a random per-process key, so restarting the back end logs you out; set `SECRET_KEY` to a generated value if that gets annoying.
-   Never set `ALLOW_INSECURE_LOCAL_DEV` on a deployed environment - see [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment).
+   Never set `ALLOW_INSECURE_LOCAL_DEV` on a deployed environment, where the back end refuses to boot with it - see [RELEASING.md](./RELEASING.md#a-deployed-host-refuses-local-switches).
 6. Initialize the database:
    ```bash
    python init_database.py
@@ -247,8 +248,8 @@ docker run -d \
    ```bash
    cp .env.example .env
    ```
-   The template builds as it stands, and without it `npm run build` refuses: `vite build` will not produce a bundle with no `VITE_RECAPTCHA_SITE_KEY`, because such a bundle sends a placeholder captcha token that a deployed back end verifies against Google and Google rejects - every organizer signup a 400, on a front end that looks fine.
-   The template works because it sets `VITE_ALLOW_INSECURE_LOCAL_DEV=true`, the front-end half of the back end's `ALLOW_INSECURE_LOCAL_DEV`, and each build it lets through says so in a warning.
+   The template builds as it stands, and without it `npm run build` refuses: `vite build` will not produce a bundle with no `VITE_FLASK_HOST`, which would call its own origin, or with no `VITE_RECAPTCHA_SITE_KEY`, because such a bundle sends a placeholder captcha token that a deployed back end verifies against Google and Google rejects - every organizer signup a 400, on a front end that looks fine.
+   The template sets `VITE_FLASK_HOST=/api`, and works with no site key because it sets `VITE_ALLOW_INSECURE_LOCAL_DEV=true`, the front-end half of the back end's `ALLOW_INSECURE_LOCAL_DEV`, and each build it lets through says so in a warning.
    A bundle built that way only works against a back end that has also been told it is a local development one (`DISABLE_CAPTCHA=true`); never deploy one.
    Vite reads `front-end/.env` only - it never reads `.env.example` - so a checkout that has not copied it has nothing set.
    Note: The frontend uses Vite's proxy to forward `/api` requests to the backend.
@@ -433,9 +434,9 @@ Under `docker compose` you do not need it: `docker-compose.yml` sets it for the 
 Both templates now ship exactly that shape, so `cp .env.example .env` - at the root, in `back-end/`, or both - is the other way out.
 A blank secret plus the escape hatch is what boots; a placeholder where a secret goes is what passes a check that asks only whether the variable is set, and then fails later, naming none of it.
 
-**Backend exits at startup with "Refusing to start: ... are not configured" (naming `SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `SESSION_TYPE`, ...)**:
+**Backend exits at startup with "Refusing to start: ... are not as a deployment needs them" (naming `SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `SESSION_TYPE`, ...)**:
 
-The six variables the refusal names are boot-time requirements, and nothing in this repository supplies a default for them - a security control keyed on a variable whose default is the insecure value is not a control (see [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment)).
+The eight variables the refusal names are boot-time requirements, and nothing in this repository supplies a default for them - a security control keyed on a variable whose default is the insecure value is not a control (see [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment)).
 Running under `docker-compose`, that is already handled: the compose file sets `ALLOW_INSECURE_LOCAL_DEV=true`.
 Running the back end directly, it means the process has no `.env` to read: do step 5 of Backend Setup (`cd back-end && cp .env.example .env`), which sets the same escape hatch.
 
@@ -573,19 +574,8 @@ Each service publishes its port on `127.0.0.1` only.
 
 **Frontend** (set in docker-compose.yml):
 
-- `VITE_FLASK_HOST`: API base path (default: `/api`)
+- `VITE_FLASK_HOST`: API base path (`/api`; no default, and a build refuses without it)
 - `VITE_BACKEND_URL`: Backend URL for Vite proxy (default: `https://127.0.0.1:5001`; the compose file sets `https://backend:5001`)
-
-### Vision AI Setup (Optional)
-
-The back end has a vision endpoint, `POST /floorplans/analyze`, that reads walls and tables from a floorplan image with Gemini or OpenAI.
-It is **optional**, and nothing in the product calls it: the floorplan wizard draws walls by hand and places tables with a geometry solver, with or without these keys.
-
-1. **Gemini API Key**: Visit [aistudio.google.com/apikey](https://aistudio.google.com/apikey), sign in with your Google account, and click **Create API Key**. Copy the key and set `GEMINI_API_KEY` in your `.env`.
-2. **OpenAI API Key**: Visit [platform.openai.com/api-keys](https://platform.openai.com/api-keys), sign in, and click **Create new secret key**. Copy the key and set `OPENAI_API_KEY` in your `.env`.
-
-Both keys are configured in `.env` and forwarded to the backend via `docker-compose.yml`.
-If neither key is set, the endpoint answers with an error and nothing else changes.
 
 ### Discord Setup (Optional)
 

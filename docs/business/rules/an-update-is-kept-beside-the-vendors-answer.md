@@ -7,12 +7,14 @@ describes:
   - front-end/src/components/UpdateInfoTheirs.vue
   - front-end/src/components/AnswerUpdateNote.vue
   - front-end/src/utils/answerUpdates.ts
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - E41/F01/S01
   - E41/F01/S02
   - E38/F06/S01
   - E43/F01/S03
+  - T270
+  - T263
 ---
 
 # An update is kept beside the vendor's answer
@@ -26,7 +28,7 @@ An organizer may update a vendor's answer, and the update is kept beside what th
 A vendor's answer can be misspelt, wrong or out of date, and the organizer is who finds out, often from the vendor by email.
 An answer written over would last only until the next re-import, which writes the file's answers again (Daniel, T92 Q12: "fixes method should be generalized for any kind of info correction").
 Kept beside it, the update stands, and when what the vendor wrote changes under it the organizer is told ("Their answer changed since your update."), with what they wrote now, and decides again (Q13).
-They decide in Update info: "Use their answer" takes the update away, a new answer replaces it, and Save with the update left as it stands keeps it over what they wrote now ("Save keeps your update."), which clears the line and is recorded as kept (Daniel, on T111's review note 2).
+They decide in Update info: "Use their answer" takes the update away, a new answer replaces it, and Save with the update left as it stands keeps it over what they wrote now ("Save keeps your update."), which clears the line and is recorded as kept, with what they wrote that it was kept over (Daniel, on T111's review note 2).
 Where what they wrote now is the update itself (a re-import carrying the correction), Save takes the update away instead ("Their answer now matches your update. Save takes the update away."), as setting an answer back to theirs does.
 Every update is confirmed before it is kept (Q13: "confirmation required for all edits too"): the dialog shows what the vendor wrote beside each answer changed, and Save is that confirmation (Q26).
 
@@ -52,12 +54,14 @@ The names and the request are [essential questions](../concepts/essential-questi
 - The price groups read them as updated as well, so a vendor's price follows an update of the answers it is set by.
 - While the review is open, the [automatic rejections](automatic-rejections.md) judge the answers as updated, as they judge a vendor's own save: an update past a rule returns the application to undecided, but only for someone who may overturn an automatic rejection (an Admin or the owner by default, E38/F06/S01; for anyone else the rejection stands), and one that meets a rule rejects it.
   From assignment on, the rules have settled with the verdicts ([verdicts settle on entering assignment](verdicts-settle-on-entering-assignment.md)), so an update stands and the verdict stays.
-- The drawer and the review card say "Updated by <address>, <when>; they wrote <their answer>" under an updated answer ([`AnswerUpdateNote.vue`](../../../front-end/src/components/AnswerUpdateNote.vue)).
+- The drawer and the review card say "Updated by <address>, <when>; they wrote <their answer>" under an updated answer ([`AnswerUpdateNote.vue`](../../../front-end/src/components/AnswerUpdateNote.vue)), and under it, once what they wrote changed since, "Their answer changed since your update.", or "Their answer now matches your update." where what they wrote now is the update itself, the first sentence of Update info's own line.
 - A [re-import](../../implementation/modules/csv-import.md) writes the file's answers as the vendor's own and leaves every update standing.
+- An update, and taking one away, changes the answers a reviewer decides on, so it moves the answers' version a verdict is conditioned on (T270): a reviewer's verdict on a card opened before it is refused, "Its answers changed since you opened it.", and the card shows the answers as they stand ([the review](../flows/review.md)).
+  The All view's drawer takes the application as saved at once, so an organizer who updates an answer there and then gives their own verdict is not refused.
 
 ## Where it is kept
 
 The write is [`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py), sent by the drawer through `updateVendorInfo` in [`answerUpdates.ts`](../../../front-end/src/utils/answerUpdates.ts), which also holds the words above.
 How an update is stored and the one reader of the answers: [the application document](../../implementation/data/application-document.md#an-organizers-update-of-an-answer).
 What it records: [the market's history](../../implementation/data/history.md#what-each-write-records).
-`back-end/tests/test_updating_vendor_info.py`, `back-end/tests/test_updating_answers_the_assignment_reads.py`, `back-end/tests/test_the_price_answers.py`, `front-end/src/__tests__/updatingVendorInfo.test.ts`, `front-end/e2e/updating-vendor-info.spec.ts`, `front-end/e2e/updating-answers-the-assignment-reads.spec.ts` and `front-end/e2e/the-price-answers.spec.ts` pin it.
+`back-end/tests/test_updating_vendor_info.py`, `back-end/tests/test_updating_answers_the_assignment_reads.py`, `back-end/tests/test_the_price_answers.py`, `front-end/src/__tests__/updatingVendorInfo.test.ts`, `front-end/src/__tests__/aVerdictAfterAnUpdateInTheDrawer.test.ts`, `front-end/e2e/updating-vendor-info.spec.ts`, `front-end/e2e/an-answer-update-moves-the-answers-version.spec.ts`, `front-end/e2e/updating-answers-the-assignment-reads.spec.ts` and `front-end/e2e/the-price-answers.spec.ts` pin it.

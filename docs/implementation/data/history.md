@@ -39,6 +39,7 @@ sources:
   - T206
   - T224
   - T217
+  - T263
 ---
 
 # The market's history
@@ -51,7 +52,7 @@ It began as the placement history, because a placement that differs from what th
 The placement history kept placements only, on the view that a narrow trail that gets read beats a general one that gets ignored.
 Daniel widened it (T92, Q23: "yes every change is logged"): an organizer investigating a problem or a mistake asks who did what on the market, whatever it was, and one history answers that where several partial records would each answer part of it.
 The decision, and what stays state and what stays apart, is [ADR 0017](../../adr/0017-one-history-for-every-change.md).
-Every write that changes a market, its applications or its vendors records one entry into it (E40/F01/S02), once its change has landed, under the E39 action its check asked; [what each write records](#what-each-write-records) lists them.
+Every write that changes a market, its applications or its vendors records its entry into it (E40/F01/S02), once its change has landed, under the E39 action its check asked; [what each write records](#what-each-write-records) lists them.
 
 The glossary concepts: [Assignment](../../business/concepts/assignment.md) and [Placement and pin](../../business/concepts/placement-and-pin.md).
 
@@ -97,7 +98,7 @@ One block per action, in the order of [the actions table](../modules/market-acti
   - Detail: whichever of `currency`, `half_table_percent`, `groups` (each `{name, conditions, prices}`, the whole list) and `everyone_else` (each tier's `{tier, cents}`) changed; a market never priced is the card's defaults before (CAD, 50, no group, no price), so its first price records only the prices typed
 - `floorplan`: saving a floorplan to the market
   - Subject: `floorplan_id`
-  - Detail: whichever of `sections`, `locations` and `floorplan_ids` changed
+  - Detail: whichever of `sections`, `locations` and `floorplan_ids` changed, and of the saved floorplan's summary: `tables`, `walls`, `no_go_zones` and `table_types` counted, and `layout_digest`, a digest of all but its id and sections, so a moved table changes it; each null on the side where the market held no floorplan of that id, and never the floorplan itself
 - `floorplan_image_deleted`: deleting a floorplan image
   - Subject: `image_id`
   - Detail: `image_id`, then null
@@ -160,7 +161,7 @@ One block per action, in the order of [the actions table](../modules/market-acti
 
 **`apply`, `import-applications`, `change-form`, `update-vendor-info`**
 
-- `dealt`: the arrivals a write dealt, after that write's own entry, one entry per write and only when it dealt any: an applicant's save (the applicant its actor, their own application alone), an import, and saving the rules or the form, or updating a vendor's info, when the rules returned an application to open
+- `dealt`: the arrivals a write dealt, after that write's own entry, one entry for each actor and action a round of dealing dealt for, and only when it dealt any: an applicant's save (the applicant its actor, their own application alone), an import, and saving the rules or the form, or updating a vendor's info, when the rules returned an application to open
   - Vendors: each applicant dealt, in the order of `application_ids`
   - Subject: `application_ids`
   - Detail: `cause: arrived`; by application id, its `reviewer` before (null) and after
@@ -201,7 +202,7 @@ One block per action, in the order of [the actions table](../modules/market-acti
 - null, or `kept` when the save only kept updates: [updating a vendor's info](../../business/rules/an-update-is-kept-beside-the-vendors-answer.md), one entry however many answers
   - Vendors: the vendor
   - Subject: `application_id`
-  - Detail: the answers it changed by form field key, an essential one by its stored key (the table-share answer's words and the addresses read out of them), as the organizer read them before and after; `kept`, the updates saved as they stood over an answer the vendor changed since, by key with their value; `matched`, the updates taken away because the answer the vendor changed to is the update itself, by key with that value; and `rejected_by_rules`, `returned_by_rules`, as for `apply`
+  - Detail: the answers it changed by form field key, an essential one by its stored key (the table-share answer's words and the addresses read out of them), as the organizer read them before and after; `kept`, the updates saved as they stood over an answer the vendor changed since, by key with their value, and `kept_over` beside it, what the vendor wrote that each was kept over, by the same keys (a map of its own, so an entry from before it still reads, with the kept rows alone); `matched`, the updates taken away because the answer the vendor changed to is the update itself, by key with that value; and `rejected_by_rules`, `returned_by_rules`, as for `apply`
 - `discord_match_declined`: ["Not them"](../modules/discord.md#possible-matches): a member a check offered as a vendor's possible match, said not to be them; confirming one is the update of their answer, recorded as above
   - Vendors: the vendor
   - Subject: `application_id`
@@ -224,7 +225,7 @@ One block per action, in the order of [the actions table](../modules/market-acti
 
 - null: [recording a vendor's payment](payments.md)
   - Vendors: the vendor
-  - Subject: `payment_id`, `payment_kind` (`payment`), and the market's `currency` (null on a market never priced), which its money reads in
+  - Subject: `payment_id`, `payment_kind` (`payment`), and the market's `currency` (the default, CAD, on a market never priced), which its money reads in
   - Detail: `cents`, `method`, `paid_on` and `note` (when there is one), null before
 
 **`change-owed`**
@@ -292,7 +293,7 @@ A `dealt` entry is worded by its kind, whichever action dealt it (an applicant's
 
 ### What an organization records
 
-An organization's own changes are entries keyed by `organization_id` (E40/F02/S01), written by `record_for_organization`, which [`back-end/api/organizations.py`](../../../back-end/api/organizations.py), market creation and [`back-end/api/floorplans_templates.py`](../../../back-end/api/floorplans_templates.py) call once the change has landed, under the same guard as `record`.
+An organization's own changes are entries keyed by `organization_id` (E40/F02/S01), written by `record_for_organization`, which [`back-end/api/organizations.py`](../../../back-end/api/organizations.py), market creation and deletion and [`back-end/api/floorplans_templates.py`](../../../back-end/api/floorplans_templates.py) call once the change has landed, under the same guard as `record`.
 An organization has no table of its own, so its actions are the history's own verbs, constants in `history.py`, but for a market deleted from it, which is the table's own row `delete-market`, the verb its check asked; the kinds and details are a market's where the change is the same.
 None names a vendor.
 
@@ -352,6 +353,7 @@ One block per action, in the order its constants stand in `history.py`; a new ki
 No rule is a person, so a rule's verdict is never an entry of its own: the write that judged counts what the rules did in its own entry, as the form, the rules, an applicant's save and an import (`rejected_by_rules`, `returned_by_rules`) do, and a move counts the offers it swept.
 
 Not recorded, each for its reason in `NOT_A_CHANGE` and `NOT_RECORDED` of [`back-end/tests/test_every_write_records.py`](../../../back-end/tests/test_every_write_records.py): a review claim ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)), which is who holds a card open and not a change; reads and exports; a vendor signing in or out; a market's creation, whose own history starts empty and which [its organization's history](#what-an-organization-records) records; its deletion, which takes the history with it while its organization's history keeps that it went (the [deletion trail](../modules/market-deletion.md) records a market only when its organization is deleted); the floorplan routes that keep nothing, or an upload the market uses only once a floorplan is saved; and starting Discord's approval screen, which keeps a state in the person's session and nothing on the market.
+Two rows record nothing of their own: "Update info the assignment or price reads", asked beside "Update a vendor's info" by the same write, which records it under that row, and who may be chosen as a reviewer, which changes nothing itself.
 That test sends every write route as the screen sends it and asserts its one entry; it fails on a market write route, or a row of the table, that records nothing without saying why there, and on an entry Mongo could not store.
 
 **Entries are stored structured, never as a sentence**: the wording belongs to the surface showing it, [`front-end/src/utils/marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts), which composes each area's words from its own file under [`historyReaders/`](../../../front-end/src/utils/historyReaders/) ([two features never share a line](../conventions/two-features-never-share-a-line.md#the-historys-words)), a placement's among them, and must be changeable without a migration.
@@ -373,7 +375,7 @@ That was weighed and accepted for the placements when the trail was decided, and
 Entries are ordered by `at`, then `id`, both descending, so a page boundary between two entries of one instant neither loses nor repeats either, and the [lookup index](lookup-indexes.md) on (`market_id`, `at`, `id`) is that order read backwards: the first page of a market with thousands of entries is one query that walks a page of index keys and stops (`TestThousandsOfEntries` in [`back-end/tests/test_reading_the_history.py`](../../../back-end/tests/test_reading_the_history.py) seeds 5,000).
 It narrows by `?actor=`, `?group=` (a group of the table's rows, its actions' ids; an applicant's own `apply` is an Applications change, a free's $0 taken back (`assign`, `owed_taken_back`) is a Payments change too, beside the `change-owed` it undoes (`_HISTORY_GROUP_ALSO_READS`), and the Reading group is never one), `?vendor=`, `?since=` and `?until=` (ISO instants of when the change was made, the first kept and the second not), and `?day=` (a market day, `YYYY-MM-DD`: the entries whose `subject.date` is that day and the entries about no one day, a run and the rules, which have none); a filter it cannot read answers 400, a `day` that is not a calendar day in that spelling with "The history's dates could not be read."
 A filter on anything but the market and the time is applied as Mongo walks the index, so a narrow filter on a long history reads further than one page, and `day` has no index of its own for that reason, as `actor` and `group` have none; it asks Mongo for one entry past the page, to know whether another follows, and answers no more than `PAGE_SIZE`.
-The first page also answers what the filters may offer: `actors`, everyone who changed something as an organizer, the unmoved placements' organizers too (an applicant's own change is found by the vendor it names, and a check-in from the public page names nobody), and `groups`, the table's groups with their rows' ids and labels, but for the row nothing is recorded under, who may be chosen as a reviewer (`review-when-chosen`, `history_groups`).
+The first page also answers what the filters may offer: `actors`, everyone who changed something as an organizer, the unmoved placements' organizers too (an applicant's own change is found by the vendor it names, and a check-in from the public page names nobody), and `groups`, the table's groups with their rows' ids and labels, but for who may be chosen as a reviewer (`review-when-chosen`, `history_groups`), a row nothing is recorded under; `delete-market` and `update-assignment-or-price-info`, which no market entry is recorded under either, are still offered.
 Only an entry's own fields are recased to camelCase; its `subject` and `detail` are served as stored, since their keys are data (a question's key, an application's id).
 Until a database has run the migration, its unmoved placements are read beside the history here too, each given `action: assign` and its subject, merged by the same order, and an entry in both read once; having no stored subject, they are narrowed to a market day by their `detail.date`.
 A list that shows the market day above each sentence sets `dayLeads` in its `HistoryContext`, so `sentence()`'s `onDay` says no day and `entryDay` in [`marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts) draws it, "Every market day" for an entry with no `subject.date`; Assignment history is the one that does.
@@ -383,7 +385,7 @@ There was a second read of the placements, `GET /markets/:id/placement-history`,
 
 **Every reader of the history is one of the market's readers**, behind its history's row, never a vendor's own: an entry names a vendor in `vendors` whether or not it is one they may see (a verdict before results are published, the organizer's note, a follow-up's owner), so reading by vendor is the organizer's view of that vendor, and no applicant endpoint reads the history.
 
-`GET /markets/:id/permission-history` (`get_permission_history`) serves `permission_entries`: the history narrowed to the changes to the market's table ([what each role may do](../../business/rules/what-each-role-may-do.md)), newest first, each with `id`, `market_id`, `actor`, `at`, `action`, `kind`, `subject` and `detail`; it asks the same row, the history's, and Manage market's Permissions dialog words it ([`front-end/src/utils/permissionTable.ts`](../../../front-end/src/utils/permissionTable.ts)).
+`GET /markets/:id/permission-history` (`get_permission_history`) serves `permission_entries`: the history narrowed to the changes to the market's table ([what each role may do](../../business/rules/what-each-role-may-do.md)), newest first, each with `id`, `marketId`, `actor`, `at`, `action`, `kind`, `subject` and `detail`, the whole entry camelCased, its subject and detail too; it asks the same row, the history's, and Manage market's Permissions dialog words it ([`front-end/src/utils/permissionTable.ts`](../../../front-end/src/utils/permissionTable.ts)).
 
 An organization's own history is read the same way, a page at a time, newest first, by `organization_entries_page` on the [lookup index](lookup-indexes.md) (`organization_id`, `at`, `id`), served by `GET /organizations/:id/history` to the organization's owner, admins and members ([the organization document](organization-document.md#the-organizations-history)); Manage organization's History section words it with the same `marketHistory.ts`.
 `GET /organizations/:id/default-permission-history` (`get_default_permission_history`) serves `default_permission_entries`, the organization's history narrowed to `change-the-default`, newest first, to the same people, for the default table's own changes in Manage organization.

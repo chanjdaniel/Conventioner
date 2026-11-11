@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import draggable from 'vuedraggable';
 import { type ApplicationForm, type ExampleColumn, type FormField } from '@/assets/types/datatypes';
+import { applicationFormRefusal } from '@/utils/applicationForm';
 import { columnOf, columnsToAdd, questionFrom } from '@/utils/exampleColumns';
 import ChoiceField from '@/components/ChoiceField.vue';
 import type { PickerGroup } from '@/components/SearchPicker.vue';
@@ -35,9 +36,8 @@ const emit = defineEmits<{
 }>();
 
 /**
- * The parent owns the form; this component holds no copy of it. `order` is normalised to
- * the array index on every write so it stays a stable, unique list key regardless of how
- * fields were added, removed, or dragged.
+ * The parent owns the form; this component holds no copy of it. `order` is normalised to the
+ * array index on every write, so the saved form numbers its questions as they stand.
  */
 const fields = computed<FormField[]>({
   get: () => props.applicationForm?.fields ?? [],
@@ -53,6 +53,43 @@ const fields = computed<FormField[]>({
   },
 });
 
+/**
+ * Each question's list key: an id of this component's own, held beside the questions in their
+ * order and never written to the form. Keyed by `order`, a question's editor, and the fold of its
+ * options with it, stayed at its place when a question above it was removed or dragged, and so
+ * passed to its neighbour.
+ *
+ * Adding, removing and dragging a question move the ids with the questions. A form whose count
+ * changes any other way, read again from the server, takes new ones. A save hands back the same
+ * questions in the same order, so it keeps them, and every fold with them.
+ */
+let lastId = 0;
+const ids = ref<number[]>([]);
+const newId = () => ++lastId;
+watch(
+  () => fields.value.length,
+  (count) => {
+    if (ids.value.length !== count) ids.value = Array.from({ length: count }, newId);
+  },
+  { immediate: true },
+);
+function questionId(field: FormField): number | string {
+  const at = fields.value.indexOf(field);
+  return ids.value[at] ?? `at-${at}`;
+}
+
+/**
+ * What Save refuses, when it is a blank option: that question's options unfold, or the row it
+ * means could stand behind the fold, where nobody sees it.
+ */
+const blankOption = computed(() =>
+  props.readonly ? null : (applicationFormRefusal(props.applicationForm)?.blankOption ?? null),
+);
+
+function blankOptionOf(index: number): number | null {
+  return blankOption.value?.field === index ? blankOption.value.option : null;
+}
+
 function addField() {
   if (props.readonly) return;
   const newField: FormField = {
@@ -65,6 +102,7 @@ function addField() {
     order: fields.value.length,
   };
   emit('update:keyTouched', [...props.keyTouched, false]);
+  ids.value = [...ids.value, newId()];
   fields.value = [...fields.value, newField];
 }
 
@@ -78,6 +116,7 @@ const discordOffered = computed(() => !fields.value.some(asksForDiscord));
 function addDiscordUsername() {
   if (props.readonly || !discordOffered.value) return;
   emit('update:keyTouched', [...props.keyTouched, false]);
+  ids.value = [...ids.value, newId()];
   fields.value = [...fields.value, discordUsernameQuestion(fields.value)];
 }
 
@@ -95,6 +134,7 @@ function addFromFile(key: string) {
   const column = columnsOffered.value.find((c) => c.key === key);
   if (props.readonly || !column) return;
   emit('update:keyTouched', [...props.keyTouched, true]);
+  ids.value = [...ids.value, newId()];
   fields.value = [...fields.value, questionFrom(column, fields.value.length)];
 }
 
@@ -104,6 +144,7 @@ function removeField(index: number) {
     'update:keyTouched',
     props.keyTouched.filter((_, i) => i !== index),
   );
+  ids.value = ids.value.filter((_, i) => i !== index);
   fields.value = fields.value.filter((_, i) => i !== index);
 }
 
@@ -121,10 +162,15 @@ function updateKeyTouched(index: number, touched: boolean) {
 
 function onDragChange(event: { moved?: { oldIndex: number; newIndex: number } }) {
   if (!event.moved) return;
+  const { oldIndex, newIndex } = event.moved;
   const next = [...props.keyTouched];
-  const [moved] = next.splice(event.moved.oldIndex, 1);
-  next.splice(event.moved.newIndex, 0, moved ?? false);
+  const [moved] = next.splice(oldIndex, 1);
+  next.splice(newIndex, 0, moved ?? false);
   emit('update:keyTouched', next);
+  const nextIds = [...ids.value];
+  const [movedId] = nextIds.splice(oldIndex, 1);
+  nextIds.splice(newIndex, 0, movedId ?? newId());
+  ids.value = nextIds;
 }
 
 const fieldCount = computed(() => fields.value.length);
@@ -161,20 +207,20 @@ const fieldCount = computed(() => fields.value.length);
           Add Discord username
         </button>
         <button class="add-field-btn" @click="addField" data-testid="form-builder-add-field-button">
-          <IconAddRound /> Add Field
+          <IconAddRound /> Add field
         </button>
       </div>
     </div>
 
     <div v-if="fields.length === 0" class="empty-state" data-testid="form-builder-empty">
       <p v-if="readonly">This market has no questions of its own.</p>
-      <p v-else>No questions of your own yet. Add Field adds one.</p>
+      <p v-else>No questions of your own yet. Add field adds one.</p>
     </div>
 
     <draggable
       v-else
       v-model="fields"
-      item-key="order"
+      :item-key="questionId"
       handle=".drag-handle"
       ghost-class="drag-ghost"
       :disabled="readonly"
@@ -208,6 +254,7 @@ const fieldCount = computed(() => fields.value.length);
               :forApplicants="forApplicants"
               :keyTouched="keyTouched[index] ?? false"
               :column="columnOf(element, exampleColumns)"
+              :blankOption="blankOptionOf(index)"
               @update:field="(f: FormField) => updateField(index, f)"
               @update:keyTouched="(touched: boolean) => updateKeyTouched(index, touched)"
             />

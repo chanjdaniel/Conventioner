@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/market/MarketPlanTab.vue
   - front-end/src/components/elements/ElementPricing.vue
-verified: 2026-11-04
+verified: 2026-11-10
 sources:
   - wayfinding/the-order-of-the-work/02
   - wayfinding/the-order-of-the-work/03
@@ -29,6 +29,7 @@ sources:
   - E43/F01/S02
   - T205
   - T217
+  - T263
 ---
 
 # Planning the market
@@ -122,15 +123,17 @@ Offered as "Set up sections from a floorplan instead" on Section Setup while the
 2. `/markets/<id>/floorplan`, a five-step wizard with "← Back" and "Next →":
    1. **Upload:** "Drop a floorplan image or PDF here, or choose a file", the app's one drop zone (PNG, JPG, WebP or PDF; a PDF of more than one page asks which page).
    2. **Calibrate:** drag a reference line starting on the image, "Enter Reference Length" with a unit, "Calibrate", "Done" (or "Redraw").
-   3. **Place Tables:** define "Table Types" (name, width, height, unit, max capacity), optionally "Save as Template" / "Load Template", then "Auto-Place Tables", which asks how many of each type to place and says how many fitted.
-   4. **Edit Layout:** draw walls and no-go zones with the "Wall Editor" toggle, move tables, "Group Sections" by lasso and "Assign Section" (name, location, optional tier), "Export PNG" with or without table codes and sections; "Next" stays disabled until sections are grouped.
+   3. **Place Tables:** define "Table Types" (name, width, height, unit, max capacity), optionally "Save as Template" / "Load Template", then "Auto-Place Tables", which asks how many of each type to place and says how many fitted, and when fewer did, whether the room had no space for the rest or Auto-Place ran out of time before them.
+   4. **Edit Layout:** draw walls and obstacle zones with the "Wall Editor" toggle, move tables, "Group Sections" by lasso and "Assign Section" (name, location, optional tier), "Export PNG" with or without table codes and sections; "Next" stays disabled until sections are grouped.
    5. **Save:** "Review & Save Floorplan" lists totals, sections and locations with editable names; "Save & Continue" writes the sections to the plan.
+      The market opens afterwards with the floorplan's sections and locations and the rest of its plan as it was, or an empty plan when none had been saved, and saving again replaces the floorplan rather than adding a copy.
 
 The wizard makes no AI calls; placement is a geometry solver ([floorplan placement](../../implementation/modules/floorplan-placement.md)).
 Only one table type is used by assignment in this release ([F6](form-tab.md#f6-table-type-preference)), and the path's card says so.
 Past Draft the flow says the setup is settled and offers nothing to draw (`what-to-show-and-when.spec.ts`).
 Covered by:
 
+- `a-floorplan-save-keeps-the-market-readable.spec.ts`
 - `floorplan.spec.ts` (grouping and editing are driven through store state, not real gestures)
 - `the-floorplan-beta-places-tables.spec.ts`
 
@@ -174,7 +177,7 @@ Optional: a market with no prices shows no price anywhere ([a price follows the 
    A vendor pays the cheapest group they are in at their table's tier, and "Everyone else" when they are in none ([a price follows the table](../rules/a-price-follows-the-table.md#price-groups)).
    A condition on a question the form no longer asks, or an answer it no longer offers, is drawn red with what is missing, headed "A question no longer on the form" where the question is gone, and until it is fixed Open applications waits, the rail naming the group, and from another page of the market the rail offers "Fix the price groups".
    A form that asks no question with answers to choose offers no group: the card says every vendor pays "Everyone else".
-   A table of many tiers too wide for the card scrolls inside it, a shade at the end with more beyond it.
+   A table of many tiers too wide for the card scrolls inside it, a shade at the end with more beyond it, under its caption ("A full table for one market day, in CAD"), which stays in view.
 2. "Half table costs [50] % of a full table" sets a half table's share, a whole number from 0 to 100.
 3. "Currency" is the market's one currency, "CAD - Canadian dollars" until another is picked.
 4. Expect "Plan saved"; a cell shows what is typed until it is left, then the price as kept in the market's currency ("35.5" becomes "$35.50", "US$35.50" in US dollars, and a currency picked re-reads every cell); focused again, it gives the plain number, "35.50" ([an amount reads to the cent](../rules/an-amount-reads-to-the-cent.md#an-amount-field)).

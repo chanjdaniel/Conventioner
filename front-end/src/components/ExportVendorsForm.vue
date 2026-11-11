@@ -174,6 +174,7 @@ watch(
     anchored
     :confirm-label="busy ? 'Downloading…' : 'Download CSV'"
     :confirm-disabled="busy || !offered || !order.length"
+    :close-disabled="busy"
     :error="error"
     @close="emit('close')"
     @submit="emit('download')"

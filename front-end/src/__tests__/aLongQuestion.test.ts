@@ -18,7 +18,7 @@ import {
   type ApplicationForm,
   type FormField,
 } from '@/assets/types/datatypes';
-import { formValidationErrors } from '@/utils/applicationForm';
+import { answersToSend, formValidationErrors } from '@/utils/applicationForm';
 
 const sent: { url: string; body: unknown }[] = [];
 
@@ -110,6 +110,24 @@ describe('the question against the threshold', () => {
     expect(wrapper.find(testid('apply-input-selling-Answer 001')).exists()).toBe(true);
     expect(wrapper.get('[role="group"]').attributes('aria-labelledby')).toBe('apply-selling-label');
     expect(wrapper.find('[role="combobox"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  /** A group of checkboxes is no control a label can point to, so its words are no label. */
+  it("names the checkboxes' group by its words, with no label tied to nothing", () => {
+    const { wrapper } = form(question('multi_select', 12), []);
+
+    const words = wrapper.get('#apply-selling-label');
+    expect(words.element.tagName).toBe('SPAN');
+    expect(words.text()).toBe('What do you sell? *');
+    expect(words.attributes('aria-hidden')).toBeUndefined();
+    expect(wrapper.findAll('label.form-label')).toHaveLength(0);
+    // Each checkbox's own label wraps it; no other label stands without a `for`.
+    const loose = wrapper
+      .findAll('label')
+      .filter((label) => !label.attributes('for') && !label.find('input').exists());
+    expect(loose).toHaveLength(0);
+    expect(wrapper.get('[role="group"]').attributes('aria-labelledby')).toBe('apply-selling-label');
     wrapper.unmount();
   });
 
@@ -302,12 +320,14 @@ describe('an answer no option offers', () => {
     });
   }
 
-  it('leaves an optional question to the server, as it was', () => {
-    expect(
-      formValidationErrors([question('select', 60, { required: false })], {
-        selling: 'Gone by now',
-      }),
-    ).toEqual({});
+  it('refuses nothing on an optional question, and goes as unanswered', () => {
+    const optional = [question('select', 60, { required: false })];
+    expect(formValidationErrors(optional, { selling: 'Gone by now' })).toEqual({});
+    expect(answersToSend(optional, { selling: 'Gone by now', other: 'kept' })).toEqual({
+      selling: '',
+      other: 'kept',
+    });
+    expect(answersToSend(optional, { selling: 'Answer 007' })).toEqual({ selling: 'Answer 007' });
   });
 
   it('takes an offered answer as an answer', () => {
