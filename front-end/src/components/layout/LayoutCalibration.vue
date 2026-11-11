@@ -101,7 +101,6 @@ function onPress(event: PointerEvent) {
   line.value = { start: point, end: [...point] };
   dragging.value = 1;
   svg.value?.setPointerCapture?.(event.pointerId);
-  error.value = '';
 }
 
 function grab(end: 0 | 1, event: PointerEvent) {
@@ -122,6 +121,9 @@ function onRelease(event: PointerEvent) {
   dragging.value = null;
   svg.value?.releasePointerCapture?.(event.pointerId);
   if (line.value && pixelLength(line.value.start, line.value.end) >= MIN_LINE_PX) {
+    // The error above the image goes once the line is drawn, never at the press: the image would
+    // move up under the pointer as it went, and the line's end with it.
+    error.value = '';
     announced.value = 'Line drawn. Type its length.';
   }
 }
@@ -329,7 +331,10 @@ const ends = computed<Point[]>(() => (line.value ? [line.value.start, line.value
   display: block;
   width: 100%;
   height: auto;
-  max-height: 70vh;
+  /* The window less what stands above the image (the app bar, the market's bar and rail, the
+     layout's head, the hint and the length's row) and a margin under it, so the whole floorplan
+     is in view to draw across, as the editor's stage is held. */
+  max-height: max(20rem, calc(100vh - 25rem));
   background: var(--layout-floor);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-card);

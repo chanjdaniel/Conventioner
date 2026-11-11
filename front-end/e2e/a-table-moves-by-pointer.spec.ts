@@ -221,6 +221,52 @@ test.describe('A table moves by pointer', () => {
     await expect(layout.table(GOLD_1)).toHaveAttribute('transform', /rotate\(225\)/);
   });
 
+  test('the handle of a table in a column of turned ones stands clear of its neighbours, and turns it', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Four tables turned a quarter, end to end down the west wall: above and below the third
+    // stand the second and the fourth.
+    const column: SeedTable[] = [0, 1, 2, 3].map((i) => ({
+      section: 'sec-gold',
+      at: [2000, 4000 + i * 1830],
+      rotation: 90,
+    }));
+    const { layout, seeded } = await open(page, request, column);
+    await layout.clickAt([2000, 4000 + 2 * 1830]);
+    await expect(layout.table('Gold row 3, Standard 6 ft')).toHaveAttribute('aria-pressed', 'true');
+    await expect(layout.turnKnob).toBeVisible();
+
+    const knob = (await layout.turnKnob.boundingBox())!;
+    for (const name of ['Gold row 2, Standard 6 ft', 'Gold row 4, Standard 6 ft']) {
+      const other = (await layout.tableTop(name).boundingBox())!;
+      const apart =
+        knob.x + knob.width <= other.x ||
+        other.x + other.width <= knob.x ||
+        knob.y + knob.height <= other.y ||
+        other.y + other.height <= knob.y;
+      expect(apart, `the knob covers ${name}`).toBe(true);
+    }
+
+    // Dragged 40° round the table's centre, wherever it stands, it turns the table to 135°.
+    const centre = await layout.onScreen([2000, 4000 + 2 * 1830]);
+    const from = { x: knob.x + knob.width / 2, y: knob.y + knob.height / 2 };
+    const start = Math.atan2(from.y - centre.y, from.x - centre.x);
+    const reach = Math.hypot(from.x - centre.x, from.y - centre.y);
+    const at = (degrees: number) => {
+      const angle = start + (degrees * Math.PI) / 180;
+      return { x: centre.x + reach * Math.cos(angle), y: centre.y + reach * Math.sin(angle) };
+    };
+    await layout.saved(async () => {
+      await page.mouse.move(from.x, from.y);
+      await page.mouse.down();
+      await page.mouse.move(at(20).x, at(20).y, { steps: 3 });
+      await page.mouse.move(at(40).x, at(40).y, { steps: 3 });
+      await page.mouse.up();
+    });
+    expect((await gold(request, seeded.marketId, 3)).rotation).toBe(135);
+  });
+
   test('removing Gold row 2 of 4 makes 3 and 4 into 2 and 3, and Section Setup reads 3', async ({
     authenticatedPage: page,
     request,

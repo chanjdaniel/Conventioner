@@ -9,7 +9,7 @@
  * selection, snapping to the edges and centres of the tables that stand still within 8 px, with a
  * guide drawn, and freely with Alt; a press on the floor selects nothing, and a drag on it draws a
  * box that selects every table whose centre is in it (with Shift or Ctrl, beside those selected
- * already). Ctrl+A selects every table and Escape none. The handle over the selection turns it
+ * already). Ctrl+A selects every table and Escape none. The handle beside the selection turns it
  * about its middle in 15° steps (Alt: freely); R turns it a quarter. A section's name is dragged
  * to where it should stand. Add table: a click places a table of the options strip's section and
  * type at the point, and the tool stays on. A drag or a turn is one change, and Escape puts it
@@ -335,7 +335,7 @@ const hint = computed(() => {
   return tool.value === 'add'
     ? 'Click the floor to place a table. Ctrl and the wheel zoom, and Space and a drag move the view.'
     : 'Drag a table to move it; Alt places it freely. Drag on the floor, or Shift and click, ' +
-        'to select several. Drag the handle over the selection, or press R, to turn it.';
+        "to select several. Drag the selection's handle, or press R, to turn it.";
 });
 
 /** The map's description, for a screen reader that reads a group's: its keys, as the tool on has
@@ -376,15 +376,28 @@ function fit() {
   if (size.value) camera.value = fitCamera(wholeBox(), size.value.width, size.value.height);
 }
 
+/** Whether the camera shows the floorplan as Fit does at a stage of this size. */
+function atItsFit(cam: Camera, at: { width: number; height: number }): boolean {
+  const fitted = fitCamera(wholeBox(), at.width, at.height);
+  return (
+    Math.abs(cam.xMm - fitted.xMm) < 0.5 &&
+    Math.abs(cam.yMm - fitted.yMm) < 0.5 &&
+    Math.abs(cam.pxPerMm - fitted.pxPerMm) <= fitted.pxPerMm * 1e-6
+  );
+}
+
 function measure() {
   const el = stage.value;
   if (!el) return;
   const { width, height } = el.getBoundingClientRect();
   if (width <= 0 || height <= 0) return;
-  // The stage's first size fits the floorplan; a later one keeps the view's middle and zoom.
-  const first = !size.value;
+  // The stage's first size fits the floorplan, and so does a later one while the view was the
+  // floorplan fitted, as when a tool's options strip takes room from the map or gives it back;
+  // a view the organizer zoomed or moved keeps its middle and zoom, and so does any view under a
+  // gesture in hand, which a frame of the drag would otherwise read in another place.
+  const was = size.value;
   size.value = { width, height };
-  if (first || !camera.value) fit();
+  if (!was || !camera.value || (!gesture && atItsFit(camera.value, was))) fit();
 }
 
 const view = computed<MapView | null>(() => {
@@ -1809,11 +1822,51 @@ watch([canUndo, canRedo], async ([undoable, redoable]) => {
 
 // ── The turn handle ──────────────────────────────────────────────────────────
 
-/** Where the handle stands: over the middle of the selection's box. */
+/** How far out from the selection's box the handle reaches, and how wide it stands, in screen
+ *  pixels: its stem from 5 px, its knob 24 px out with a thumb's reach of 14 px round it. */
+const HANDLE_REACH_PX = 38;
+const HANDLE_WIDTH_PX = 28;
+
+/**
+ * Where the handle stands: on the middle of an edge of the selection's box (`xMm`, `yMm`) and
+ * pointing out of it (`dx`, `dy`). Over the box where that covers no other table, as on a table
+ * standing alone; else under it, then right of it, then left, the first side that covers none,
+ * so it never hides a neighbour's number; over it when every side covers one.
+ */
 const handle = computed(() => {
   if (tool.value !== 'select') return null;
   const box = selectionBounds(layout.value, selection.value, props.tableTypes);
-  return box ? { xMm: (box.left + box.right) / 2, yMm: box.top } : null;
+  const cam = camera.value;
+  if (!box) return null;
+  const middle = { xMm: (box.left + box.right) / 2, yMm: (box.top + box.bottom) / 2 };
+  const sides = [
+    { xMm: middle.xMm, yMm: box.top, dx: 0, dy: -1 },
+    { xMm: middle.xMm, yMm: box.bottom, dx: 0, dy: 1 },
+    { xMm: box.right, yMm: middle.yMm, dx: 1, dy: 0 },
+    { xMm: box.left, yMm: middle.yMm, dx: -1, dy: 0 },
+  ];
+  if (!cam) return sides[0];
+  const reach = HANDLE_REACH_PX / cam.pxPerMm;
+  const half = HANDLE_WIDTH_PX / 2 / cam.pxPerMm;
+  const chosen = new Set(selection.value);
+  const others = layout.value.tables.filter((table) => !chosen.has(table.id)).map(boundsOf);
+  const clear = (side: (typeof sides)[number]) => {
+    const far = { xMm: side.xMm + side.dx * reach, yMm: side.yMm + side.dy * reach };
+    const room: Bounds = {
+      left: Math.min(side.xMm, far.xMm) - (side.dy ? half : 0),
+      right: Math.max(side.xMm, far.xMm) + (side.dy ? half : 0),
+      top: Math.min(side.yMm, far.yMm) - (side.dx ? half : 0),
+      bottom: Math.max(side.yMm, far.yMm) + (side.dx ? half : 0),
+    };
+    return !others.some(
+      (other) =>
+        other.left < room.right &&
+        other.right > room.left &&
+        other.top < room.bottom &&
+        other.bottom > room.top,
+    );
+  };
+  return sides.find(clear) ?? sides[0];
 });
 
 onMounted(() => {
@@ -2193,24 +2246,24 @@ watch(
             aria-hidden="true"
           >
             <line
-              :x1="handle.xMm"
-              :y1="handle.yMm - 5 * mmPerPx"
-              :x2="handle.xMm"
-              :y2="handle.yMm - 17 * mmPerPx"
+              :x1="handle.xMm + handle.dx * 5 * mmPerPx"
+              :y1="handle.yMm + handle.dy * 5 * mmPerPx"
+              :x2="handle.xMm + handle.dx * 17 * mmPerPx"
+              :y2="handle.yMm + handle.dy * 17 * mmPerPx"
               stroke="var(--mm-black)"
               stroke-width="1.5"
               vector-effect="non-scaling-stroke"
             />
             <!-- A thumb's reach round a 14 px knob. -->
             <circle
-              :cx="handle.xMm"
-              :cy="handle.yMm - 24 * mmPerPx"
+              :cx="handle.xMm + handle.dx * 24 * mmPerPx"
+              :cy="handle.yMm + handle.dy * 24 * mmPerPx"
               :r="14 * mmPerPx"
               fill="transparent"
             />
             <circle
-              :cx="handle.xMm"
-              :cy="handle.yMm - 24 * mmPerPx"
+              :cx="handle.xMm + handle.dx * 24 * mmPerPx"
+              :cy="handle.yMm + handle.dy * 24 * mmPerPx"
               :r="7 * mmPerPx"
               fill="white"
               stroke="var(--mm-black)"

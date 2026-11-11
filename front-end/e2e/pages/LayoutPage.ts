@@ -320,13 +320,27 @@ export class LayoutPage {
    * with the pointer, as a person does.
    */
   async drawLine(from: [number, number], to: [number, number]): Promise<void> {
-    const box = await this.calibrationMap.boundingBox();
-    if (!box) throw new Error('The calibration map is not drawn');
-    const [width, height] = await this.calibrationMap.evaluate((svg) => {
-      const view = (svg as SVGSVGElement).viewBox.baseVal;
-      return [view.width, view.height];
-    });
-    // The image is drawn whole in the box, centred (`xMidYMid meet`).
+    const border = await this.calibrationMap.boundingBox();
+    if (!border) throw new Error('The calibration map is not drawn');
+    const [width, height, edgeX, edgeY, innerWidth, innerHeight] =
+      await this.calibrationMap.evaluate((svg) => {
+        const view = (svg as SVGSVGElement).viewBox.baseVal;
+        return [
+          view.width,
+          view.height,
+          svg.clientLeft,
+          svg.clientTop,
+          svg.clientWidth,
+          svg.clientHeight,
+        ];
+      });
+    // The image is drawn whole in the box inside the map's border, centred (`xMidYMid meet`).
+    const box = {
+      x: border.x + edgeX,
+      y: border.y + edgeY,
+      width: innerWidth,
+      height: innerHeight,
+    };
     const scale = Math.min(box.width / width, box.height / height);
     const left = box.x + (box.width - width * scale) / 2;
     const top = box.y + (box.height - height * scale) / 2;
@@ -439,6 +453,14 @@ export class LayoutPage {
    * and zoom.
    */
   async onScreen(mm: [number, number]): Promise<{ x: number; y: number; scale: number }> {
+    // Two frames, so a view fitted again as a tool's options strip took or gave room (a resize the
+    // editor hears a frame after it) is the one read.
+    await this.page.evaluate(
+      () =>
+        new Promise<void>((done) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => done())),
+        ),
+    );
     const box = await this.map.boundingBox();
     if (!box) throw new Error('The map is not drawn');
     const view = await this.map.evaluate((svg) => {

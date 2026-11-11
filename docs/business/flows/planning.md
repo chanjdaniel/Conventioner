@@ -143,7 +143,7 @@ Opening one saves the plan's pending edits first, then goes to `/markets/<id>/la
      Tables put in another section are numbered after its own, so 3 of Gold row's 9 put in Silver aisle (of 18) become Silver aisle 19 to 21, and Gold row closes to 1 to 6.
    - "Duplicate" puts a copy of each selected table beside it, numbered on, and the Align menu lines several up by an edge or a centre, or spaces them evenly across or down.
    - A drag moves the selection; near another table's edge or centre it snaps, with a guide line, and Alt places it freely; a table's centre never leaves the floorplan.
-   - The handle over a selected table turns it in 15° steps (Alt: freely), and R or "Turn 90°" by a quarter; its number turns with it.
+   - The handle above a selected table (beside it, where a neighbour stands above) turns it in 15° steps (Alt: freely), and R or "Turn 90°" by a quarter; its number turns with it.
    - "Remove" takes the selection away with no question, since Undo brings it back; in Draft the section's later tables close the gap, so removing "Gold row 2" of 4 leaves 1 to 3.
    - Undo and Redo, by their buttons or Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y, take back and bring back each change, across saves.
    - The wheel or two fingers move the view, Ctrl and the wheel or a pinch zoom it, and Space and a drag pan.

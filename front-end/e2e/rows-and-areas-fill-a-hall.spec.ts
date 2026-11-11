@@ -86,6 +86,45 @@ const steps = (tables: StoredLayoutTable[]) =>
     .map((table, i) => Math.hypot(table.xMm - tables[i].xMm, table.yMm - tables[i].yMm));
 
 test.describe('Rows fill a hall', () => {
+  test('a hall shown whole is fitted again when the options strip takes room from the map, and a view zoomed is kept', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Two tables at the hall's top-left and bottom-right corners; open() turns Row of tables on.
+    const corners: SeedTable[] = [
+      { section: 'sec-gold', at: [1500, 500] },
+      { section: 'sec-gold', at: [28_500, 22_000] },
+    ];
+    const { layout } = await open(page, request, corners);
+    const whole = async () => {
+      const stage = (await layout.stage.boundingBox())!;
+      for (const name of ['Gold row 1, Standard 6 ft', 'Gold row 2, Standard 6 ft']) {
+        const table = (await layout.tableTop(name).boundingBox())!;
+        if (
+          table.x < stage.x ||
+          table.y < stage.y ||
+          table.x + table.width > stage.x + stage.width ||
+          table.y + table.height > stage.y + stage.height
+        ) {
+          return false;
+        }
+      }
+      return true;
+    };
+    await expect(layout.rowGap).toBeVisible();
+    await expect.poll(whole).toBe(true);
+    await layout.toolSelect.click();
+    await expect(layout.rowGap).toBeHidden();
+    await expect.poll(whole).toBe(true);
+
+    // Zoomed in, the view is the organizer's: the strip coming back keeps its zoom.
+    await layout.zoomIn.click();
+    const zoomed = await layout.zoom.textContent();
+    await layout.toolRow.click();
+    await expect(layout.rowGap).toBeVisible();
+    await expect(layout.zoom).toHaveText(zoomed!);
+  });
+
   test('a straight drag of 20 m places ten tables touching, and nine with a gap of 30 cm, the count following the drag', async ({
     authenticatedPage: page,
     request,
@@ -796,14 +835,17 @@ test.describe('A row is drawn by hand', () => {
     return sent;
   };
 
-  test('a drag bowed 8 px over 400 px is still a straight row, placed on release', async ({
+  test('a drag bowed 8 px over about 400 px is still a straight row, placed on release', async ({
     authenticatedPage: page,
     request,
   }) => {
     const { layout, seeded } = await open(page, request);
     const { scale } = await layout.onScreen([0, 0]);
-    // 400 px along the hall from (4, 6) m, bowed 8 px to the south at its middle.
-    const chord = 400 / scale;
+    // About 400 px along the hall from (4, 6) m, and no further than 12 tables' width so it ends
+    // inside the 30 m hall at any zoom; half a table past a whole number of them, so a pixel
+    // either way holds the count; bowed 8 px to the south at its middle.
+    const tablesLong = Math.min(Math.floor(400 / scale / SIX_FOOT.widthMm), 12);
+    const chord = (tablesLong + 0.5) * SIX_FOOT.widthMm;
     const bow = 8 / scale;
     const places = Array.from({ length: 41 }, (_, i): [number, number] => {
       const t = i / 40;
