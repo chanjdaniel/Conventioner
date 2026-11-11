@@ -44,6 +44,7 @@ sources:
   - T251
   - T260
   - T263
+  - T257
 ---
 
 # E2E patterns
@@ -55,6 +56,8 @@ How to run the suite is [TESTING.md](../../TESTING.md#end-to-end-e2e-tests); the
 
 **Every selector is a `data-testid`, named `viewname-element`** (`login-email-input`, `markets-create-button`), so a spec never depends on a CSS class or on the words on screen.
 Adding a `data-testid` changes no behaviour; a view gains them as specs need them.
+**The one exception is a location's layout** (T257): its map's tables are found by their accessible names ("Gold row 5, Standard 6 ft"), and its toolbar's tools, its menus' items, its location links and its sections' swatches by role and name ([`LayoutPage.ts`](../../../front-end/e2e/pages/LayoutPage.ts)), since what its specs prove is what a screen reader hears: a table's code and type are read back from its name, as the spec of the layout asks.
+Everything else on the page is found by its `data-testid`.
 
 **A page object wraps one screen** ([`front-end/e2e/pages/`](../../../front-end/e2e/pages/)): it holds `getByTestId()` locators and exposes action methods, and a spec calls those methods rather than reaching for locators of its own.
 `LoginPage.login` opens a bare `/login` first; `signIn` signs in on the page as it stands, so a spec about where signing in returns to keeps the address's `next`.

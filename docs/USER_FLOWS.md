@@ -120,7 +120,7 @@ No bug blocks a flow any more: the fourteen rows that once stood here for bugs w
 | [A5](business/flows/accounts.md#a5-delete-my-account) Delete my account              | No screen | API only              | A screen                                                 |
 | [B6](business/flows/organizations.md#b6-transfer-ownership) Transfer an organization | No screen | API only              | A screen                                                 |
 | [F6](business/flows/form-tab.md#f6-table-type-preference) Table type preference      | Stubbed   | One table type in MVP | Assignment that uses several table types                 |
-| [E6](business/flows/planning.md#e6-a-locations-layout) A location's layout           | Begun     | T257 in progress      | Placing tables (T257); several table types in assignment |
+| [E6](business/flows/planning.md#e6-a-locations-layout) A location's layout           | Begun     | T257 in progress      | The rest of T257; then several table types in assignment |
 | M1 to M4 Offers and outcome mail                                                     | Planned   | E05                   | The epic                                                 |
 | M5 Public market page                                                                | Stubbed   | E05                   | The epic                                                 |
 

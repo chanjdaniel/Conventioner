@@ -7,7 +7,7 @@ describes:
   - back-end/api/markets.py#_load_market_to_change
   - back-end/api/markets.py#_load_market_and_organization_to_change
   - back-end/tests/test_an_archive_is_read_only.py
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - E26/F06/S01
   - bug/30
@@ -16,6 +16,7 @@ sources:
   - E40/F01/S03
   - E44/F01/S01
   - T263
+  - T257
 ---
 
 # An archived market is read-only

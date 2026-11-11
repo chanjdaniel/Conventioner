@@ -6,7 +6,7 @@ describes:
   - front-end/e2e/helpers/accessibleNames.ts
   - front-end/src/components/AnswerValue.vue
   - front-end/src/utils/answerLinks.ts
-verified: 2026-11-05
+verified: 2026-11-11
 sources:
   - E26/F10/S03
   - bug/44
@@ -18,6 +18,7 @@ sources:
   - T181
   - T214
   - T217
+  - T257
 ---
 
 # Every control is named

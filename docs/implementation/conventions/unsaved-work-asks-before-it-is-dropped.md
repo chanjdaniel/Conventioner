@@ -13,6 +13,7 @@ verified: 2026-11-11
 sources:
   - T271
   - T244
+  - T257
 ---
 
 # Unsaved work asks before it is dropped
@@ -45,6 +46,7 @@ Focus, the page held inert and focus given back to the control that started the 
 | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
 | The form builder ([`MarketFormTab.vue`](../../../front-end/src/components/market/MarketFormTab.vue))              | the working copy's fields differ from the fields as last taken from the server     | true    | "Your changes to the form's questions are not saved. Leaving drops them."                                          |
 | Market Setup's plan ([`MarketSetupView.vue`](../../../front-end/src/views/MarketSetupView.vue))                   | the plan's autosave holds an edit the server does not, or a save is out            | false   | none: the browser asks in its own words                                                                            |
+| A location's layout ([`LayoutView.vue`](../../../front-end/src/components/layout/LayoutView.vue))                 | the layout's working copy holds a change no save has stored                        | true    | "This layout's last changes are not saved. Leaving drops them."                                                    |
 | The CSV import ([`CsvImportView.vue`](../../../front-end/src/views/CsvImportView.vue))                            | the step is Map columns, or Preview with no import running                         | true    | "Nothing from this file is imported yet. Leaving drops the column mapping and every value you settled."            |
 | The floorplan beta ([`FloorplanWorkflow.vue`](../../../front-end/src/components/floorplan/FloorplanWorkflow.vue)) | a floorplan uploaded in this visit of the wizard and not saved to the market since | true    | "This floorplan is not saved to the market yet. Leaving drops the upload, the scale, the tables and the sections." |
 
@@ -54,7 +56,7 @@ It also reports the flag to Market Setup, whose phase move refuses while it hold
 The CSV import's rule is its own ([importing a Google Form's responses](../../business/flows/import.md#h2a-first-import-everything-maps)): a file read and nothing of it written; Upload holds no file, the done step has written it, and an import running is not stopped by leaving, so none of those asks.
 "Cancel import" leaves by the router, so it asks through the same guard.
 
-The floorplan's rule is its own ([floorplan placement](../modules/floorplan-placement.md#sharp-edges)): the upload, the scale, the tables and the sections live in the page until the save, so before an upload nothing asks, and from it on every step does.
+The floorplan beta's rule is its own, though nothing reaches its wizard since T257 ([floorplan placement](../modules/floorplan-placement.md#sharp-edges)): the upload, the scale, the tables and the sections live in the page until the save, so before an upload nothing asks, and from it on every step does.
 The wizard marks the floorplan saved before it hands the save on, so the save's own move back to Market Setup never asks.
 The wizard's own Back and Next stay on the route, so they never ask either.
 
