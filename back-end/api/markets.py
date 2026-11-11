@@ -2820,25 +2820,6 @@ class PreparedPlan(NamedTuple):
     plan: SetupObject
     update: Dict[str, Any]
     removed_floorplans: List[FloorplanObject] = []
-    #: The filter holding the market's table types as this write read them (`table_types_as_read`):
-    #: a write of the whole plan puts in its filter, so types written in between are never put back.
-    held: Dict[str, Any] = {}
-
-
-def table_types_as_read(stored: Optional[SetupObject]) -> Dict[str, Any]:
-    """The filter that matches only while the market holds the table types ``stored`` holds, each
-    at its place by its id, name and sides, and none after them; by value, never by a stored
-    document's key order."""
-    key = f"{market_doc_key('setup_object')}.tableTypes"
-    types = stored.table_types if stored else []
-    held: Dict[str, Any] = {}
-    for index, table_type in enumerate(types):
-        held[f"{key}.{index}.id"] = table_type.id
-        held[f"{key}.{index}.name"] = table_type.name
-        held[f"{key}.{index}.widthMm"] = table_type.width_mm
-        held[f"{key}.{index}.depthMm"] = table_type.depth_mm
-    held[f"{key}.{len(types)}"] = {"$exists": False}
-    return held
 
 
 def _with_the_layouts(
@@ -2957,7 +2938,7 @@ def prepared_plan(
     settled = assignment_rules_lock_reason(market)
     if settled and assignment_rules(plan) != assignment_rules(market.setup_object):
         raise BadRequestError(settled)
-    return PreparedPlan(plan, update, removed_floorplans, table_types_as_read(market.setup_object))
+    return PreparedPlan(plan, update, removed_floorplans)
 
 
 #: Why "Nothing leads the card" is refused beside a marked answer (T206): it would read as decided

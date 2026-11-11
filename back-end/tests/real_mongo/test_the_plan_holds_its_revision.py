@@ -5,12 +5,14 @@ the assignment rules on Publish results), and then writes the plan whole. Each t
 change between that read and the write (``interleave``): Open applications, Publish results, or
 another save of the plan. Each asserts what a person and a later reader see: the 409 and its
 sentence, and the stored plan as the other change left it. The other writers of the plan, the CSV
-start and the floorplan save, count the revision, so a Market Setup page read before them is
-refused. The last tests run the other way round: a plan save landing inside Open applications'
+start, a location's layout save and the table types write, count the revision, so a Market Setup
+page read before them is refused, and each holds the revision it read, so none puts back what
+another wrote between its read and its write. The last tests run the other way round: a plan save landing inside Open applications'
 window refuses the move.
 """
 import copy
 
+import api.floorplans_save as FloorplansSave
 import api.markets as MarketsApi
 from datatypes import MarketPhase
 from market_write import MARKET_CHANGED
@@ -46,6 +48,36 @@ def _with_a_renamed_section():
     plan = _plan()
     plan["sections"][1]["name"] = "Fixture Courtyard"
     return plan
+
+
+#: Two halls, each with its id: the fixture's sections stand in Main Hall, Lower Hall has none.
+MAIN = {"id": "loc-main", "name": "Main Hall"}
+LOWER = {"id": "loc-lower", "name": "Lower Hall"}
+SIX_FOOT = {"id": "tt-six", "name": "Standard 6 ft", "widthMm": 1830, "depthMm": 760}
+SQUARE = {"id": "tt-square", "name": "Square 4 ft", "widthMm": 1220, "depthMm": 1220}
+
+
+def _two_halls(floorplans=(), **changes):
+    """The fixture's plan in two halls, with one table type, holding ``floorplans``."""
+    plan = _plan(**changes)
+    plan["locations"] = [dict(MAIN), dict(LOWER)]
+    for section in plan["sections"]:
+        section["location"] = dict(MAIN)
+    plan["tableTypes"] = [dict(SIX_FOOT)]
+    plan["floorplans"] = [copy.deepcopy(floorplan) for floorplan in floorplans]
+    return plan
+
+
+def _layout(floorplan_id, location_id, **changes):
+    """A location's layout as the editor sends it: a floorplan 8 m across, no image, no table."""
+    return {"id": floorplan_id, "locationId": location_id, "revision": 1, "imageWidth": 800,
+            "imageHeight": 600, "scalePxPerUnit": 0.1, "tables": [], "zones": [],
+            "sectionStyles": [], "startingCounts": [], **changes}
+
+
+def _save_layout(client, market, layout, revision):
+    return client.post("/floorplans/save-to-market", json={
+        "market_id": market["id"], "floorplan": layout, "revision": revision})
 
 
 def _days(document):
@@ -183,41 +215,103 @@ class TestTheOtherWritersOfThePlan:
         assert stored["planRevision"] == 1
         assert [entry["kind"] for entry in _history(market_records, market)] == ["plan"]
 
-    def test_the_floorplan_save_counts_the_revision_so_a_setup_page_open_from_before_is_refused(
+    def test_the_layout_save_counts_the_revision_so_a_setup_page_open_from_before_is_refused(
             self, signed_in, market_in, real_db):
         client = signed_in(ORGANIZER)
-        market = market_in(MarketPhase.DRAFT)
+        market = market_in(MarketPhase.DRAFT, setupObject=_two_halls())
         read = _served_revision(client, market)
 
-        floorplan = client.post("/floorplans/save-to-market", json={
-            "market_id": market["id"], "floorplan": {"id": "fixture-floorplan"}})
-        saved = _save(client, market, _with_another_day(), planRevision=read)
+        layout = _save_layout(client, market, _layout("fp-main", "loc-main"), revision=0)
+        saved = _save(client, market, _two_halls(marketDates=[
+            {"date": FIRST_DAY}, {"date": ANOTHER_DAY}]), planRevision=read)
 
-        assert floorplan.status_code == 200, floorplan.get_json()
+        assert layout.status_code == 200, layout.get_json()
         assert saved.status_code == 409, saved.get_json()
         assert saved.get_json() == CHANGED
         stored = _stored(real_db, market)
         assert ANOTHER_DAY not in _days(stored)
-        assert [plan["id"] for plan in stored["setupObject"]["floorplans"]] == ["fixture-floorplan"]
+        assert [plan["id"] for plan in stored["setupObject"]["floorplans"]] == ["fp-main"]
         assert _served_revision(client, market) == read + 1
 
-    def test_the_floorplan_save_is_refused_over_a_plan_saved_while_it_built_its_plan(
+    def test_the_layout_save_is_refused_over_a_plan_that_dropped_its_location_meanwhile(
             self, signed_in, market_in, interleave, real_db, market_records):
-        """The floorplan save builds the plan from the one it read, so it holds that revision."""
+        """The layout save builds the plan from the one it read: a plan saved meanwhile that took
+        Lower Hall away, and its layout with it, would be written back over, the location and a
+        layout naming an image already deleted. It holds the plan's revision as read instead."""
         client = signed_in(ORGANIZER)
-        market = market_in(MarketPhase.DRAFT)
+        market = market_in(MarketPhase.DRAFT,
+                           setupObject=_two_halls(floorplans=[_layout("fp-lower", "loc-lower")]))
+        main_only = _two_halls()
+        main_only["locations"] = [MAIN]
         interleave("api.floorplans_save._parsed_floorplan", lambda: MarketsApi.save_plan(
-            market["id"], {"setupObject": _with_another_day(), "planRevision": 0}, ORGANIZER))
+            market["id"], {"setupObject": main_only, "planRevision": 0}, ORGANIZER))
 
-        floorplan = client.post("/floorplans/save-to-market", json={
-            "market_id": market["id"], "floorplan": {"id": "fixture-floorplan"}})
+        layout = _save_layout(
+            client, market, _layout("fp-lower", "loc-lower", imageWidth=900), revision=1)
 
-        assert floorplan.status_code == 409, floorplan.get_json()
-        assert floorplan.get_json() == CHANGED
+        assert layout.status_code == 409, layout.get_json()
+        assert layout.get_json() == {"error": FloorplansSave.STALE_LAYOUT}
         stored = _stored(real_db, market)
-        assert _days(stored) == [FIRST_DAY, ANOTHER_DAY]
+        assert [place["name"] for place in stored["setupObject"]["locations"]] == ["Main Hall"]
         assert stored["setupObject"]["floorplans"] == []
-        assert [entry["kind"] for entry in _history(market_records, market)] == ["plan"]
+        assert stored["planRevision"] == 1
+        assert "floorplan" not in [entry["kind"] for entry in _history(market_records, market)]
+
+    def test_the_csv_start_is_refused_over_a_layout_saved_while_it_read_its_file(
+            self, signed_in, market_in, interleave, real_db):
+        """The start writes the whole plan from the one it read, the layouts with it: a layout
+        saved meanwhile would be put back, so the start holds the plan's revision as read."""
+        client = signed_in(ORGANIZER)
+        market = market_in(MarketPhase.DRAFT, applicationForm={"fields": []},
+                           setupObject=_two_halls())
+        interleave("csv_start.confirmed_update", lambda: _save_layout(
+            client, market, _layout("fp-main", "loc-main"), revision=0))
+
+        started = client.post(f"/markets/{market['id']}/csv-proposal/confirm",
+                              json={"csvContent": START_CSV, "year": 2026})
+
+        assert started.status_code == 409, started.get_json()
+        assert started.get_json() == CHANGED
+        stored = _stored(real_db, market)
+        assert [plan["id"] for plan in stored["setupObject"]["floorplans"]] == ["fp-main"]
+        assert stored["planRevision"] == 1
+
+    def test_the_csv_start_is_refused_over_table_types_written_while_it_read_its_file(
+            self, signed_in, market_in, interleave, real_db):
+        """The table types have a write of their own, which counts the plan's revision as every
+        writer of the plan does, so a start that read the types before it is refused."""
+        client = signed_in(ORGANIZER)
+        market = market_in(MarketPhase.DRAFT, applicationForm={"fields": []},
+                           setupObject=_two_halls())
+        interleave("csv_start.confirmed_update", lambda: client.put(
+            f"/markets/{market['id']}/table-types", json={"tableTypes": [SIX_FOOT, SQUARE]}))
+
+        started = client.post(f"/markets/{market['id']}/csv-proposal/confirm",
+                              json={"csvContent": START_CSV, "year": 2026})
+
+        assert started.status_code == 409, started.get_json()
+        assert started.get_json() == CHANGED
+        stored = _stored(real_db, market)
+        assert [one["id"] for one in stored["setupObject"]["tableTypes"]] == ["tt-six", "tt-square"]
+        assert stored["planRevision"] == 1
+
+    def test_the_table_types_write_counts_the_revision_so_a_setup_page_open_from_before_is_refused(
+            self, signed_in, market_in, real_db):
+        client = signed_in(ORGANIZER)
+        market = market_in(MarketPhase.DRAFT, setupObject=_two_halls())
+        read = _served_revision(client, market)
+
+        types = client.put(f"/markets/{market['id']}/table-types",
+                           json={"tableTypes": [SIX_FOOT, SQUARE]})
+        saved = _save(client, market, _two_halls(marketDates=[
+            {"date": FIRST_DAY}, {"date": ANOTHER_DAY}]), planRevision=read)
+
+        assert types.status_code == 200, types.get_json()
+        assert saved.status_code == 409, saved.get_json()
+        assert saved.get_json() == CHANGED
+        stored = _stored(real_db, market)
+        assert [one["id"] for one in stored["setupObject"]["tableTypes"]] == ["tt-six", "tt-square"]
+        assert _served_revision(client, market) == read + 1
 
 
 class TestWhatDoesNotCountTheRevision:

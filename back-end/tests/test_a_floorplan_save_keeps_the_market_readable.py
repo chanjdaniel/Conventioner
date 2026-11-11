@@ -210,8 +210,9 @@ class TestAMarketWithAPlan:
 
         _save(client, _floorplan())
 
-        assert set(market.last_update) == {"$set"}
         assert set(market.last_update["$set"]) == {"setupObject"}
+        # And counts the plan's revision, as every write of the plan does (T274).
+        assert market.last_update["$inc"] == {"planRevision": 1}
 
     def test_a_floorplan_saved_again_replaces_itself_in_place(self, client, market, market_records):
         _with_plan(market, floorplans=[_floorplan("fp-0", location="loc-old", tables=[]),
@@ -388,6 +389,12 @@ def _refused_as_stale(response, market, market_records):
     assert _floorplan_entries(market_records) == []
 
 
+def _counts_the_plans_revision(market):
+    """What every writer of the plan does as it lands, a layout save, a types write or a plan
+    write: count the plan's revision (T274), which a save that read before it holds."""
+    market.doc["planRevision"] = (market.doc.get("planRevision") or 0) + 1
+
+
 class TestARevisionGuardsEachSave:
     """A save names the revision of the layout it read, 0 for a new one; the stored one moves by
     one on every write, so a save from a tab that read an older layout is refused, never written
@@ -437,13 +444,15 @@ class TestARevisionGuardsEachSave:
     def test_a_save_that_lands_after_another_between_its_read_and_its_write_is_refused(
         self, client, market, market_records, monkeypatch,
     ):
-        """The revision is held by the write itself, so two saves read together cannot both land."""
+        """The plan's revision is held by the write itself, so two saves read together cannot both
+        land."""
         _with_plan(market, floorplans=[_floorplan(revision=4)])
         read = MarketsApi.load_market_context
 
         def read_then_another_save_lands(market_id):
             context = read(market_id)
             market.doc["setupObject"]["floorplans"][0]["revision"] = 5
+            _counts_the_plans_revision(market)
             return context
 
         monkeypatch.setattr(MarketsApi, "load_market_context", read_then_another_save_lands)
@@ -467,18 +476,23 @@ class TestARevisionGuardsEachSave:
 
 class TestTypesWrittenBetweenTheReadAndTheWrite:
     """A layout's save writes the plan whole, the table types with it: types written by their own
-    write between its read and its write refuse it rather than being put back (review of ticket
-    10)."""
+    write between its read and its write count the plan's revision, which the save holds, so they
+    refuse it rather than being put back (review of ticket 10, T274)."""
 
     def test_the_save_is_refused_and_the_types_kept(self, client, market, market_records,
                                                      monkeypatch):
         _with_plan(market, floorplans=[_floorplan(revision=1)])
         read = market.find_one
+        landed = []
 
         def read_then_types_land(query, projection=None):
             found = read(query, projection)
+            if landed:
+                return found
+            landed.append(True)
             market.doc["setupObject"]["tableTypes"].append(
                 {"id": "tt-2", "name": "Square 4 ft", "widthMm": 1220, "depthMm": 1220})
+            _counts_the_plans_revision(market)
             return found
 
         monkeypatch.setattr(market, "find_one", read_then_types_land)
@@ -509,6 +523,7 @@ class TestALocationHasOneLayout:
         def read_then_another_start_lands(market_id):
             context = read(market_id)
             market.doc["setupObject"]["floorplans"] = [_floorplan("fp-other")]
+            _counts_the_plans_revision(market)
             return context
 
         monkeypatch.setattr(MarketsApi, "load_market_context", read_then_another_start_lands)

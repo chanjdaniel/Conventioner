@@ -9,8 +9,10 @@ The write asks what a layout's save asks, in its order: the body, the market, it
 Setup row (``Actions.CHANGE_SETUP``), the archived rule, the settled setup (409: the types settle on
 leaving draft with the seats), then the types' parse and bounds (``floorplan_limits``), then that no
 type a table uses is taken away. The plan's own writer (``prepared_plan``) judges the plan it would
-make, and only ``setupObject.tableTypes`` is written, held to the layouts as it read them, so a
-layout saved in between is never put back and never left naming a type that is gone.
+make, and only ``setupObject.tableTypes`` is written, through ``write_market``, held at the plan's
+revision as read and counting it, as every write of the plan is (T274), so a layout, the plan or
+other types saved in between refuse it rather than being put back or left naming a type that is
+gone.
 """
 
 import copy
@@ -23,7 +25,8 @@ from pydantic import ValidationError
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from client_errors import BadRequestError, ConflictError, parse_failure_detail
 from datatypes import AssignmentOptionObject, Market, SetupObject, TableTypeObject
-from market_documents import market_doc_filter, market_doc_key
+from market_documents import market_doc_key
+from market_write import write_market
 
 import api.market_actions as Actions
 import api.markets as MarketsApi
@@ -40,8 +43,6 @@ NO_NAME = "Each table type needs a name."
 SAME_ID = "Each table type needs its own id."
 #: Why a type tables use is not taken away: "12 tables are Square 4 ft. Change them first."
 TYPE_IN_USE_TEMPLATE = "{count} {name}. Change {them} first."
-#: Why the write is refused when a layout was saved between its read and its write.
-LAYOUTS_CHANGED = "A layout changed while the table types were saved. Reload and try again."
 
 
 def _same_name_refusal(name: str) -> str:
@@ -140,30 +141,14 @@ def _empty_plan() -> SetupObject:
     )
 
 
-def _layouts_as_read(plan: Optional[SetupObject]) -> Dict[str, Any]:
-    """The filter holding the market's layouts as the write read them: each at its place, of its
-    id and its revision, and none after them, so a layout saved or started in between makes the
-    write match nothing."""
-    floorplans = f"{market_doc_key('setup_object')}.floorplans"
-    held: Dict[str, Any] = {}
-    read = (plan.floorplans if plan else None) or []
-    for index, floorplan in enumerate(read):
-        held[f"{floorplans}.{index}.id"] = floorplan.id
-        # A layout stored before revisions were written has none, which reads as 0.
-        held[f"{floorplans}.{index}.revision"] = (
-            {"$in": [0, None]} if floorplan.revision == 0 else floorplan.revision)
-    held[f"{floorplans}.{len(read)}"] = {"$exists": False}
-    return held
-
-
 def save_table_types(market_id: str, body: Dict[str, Any], requesting_user: str) -> List[Dict[str, Any]]:
     """Replace the market's table types, and answer them as stored, camelCase.
 
     Refused 400 for a body that is not ``{tableTypes: [...]}``, for a type that does not parse,
     has no name or shares one, for more types than a market keeps or a side out of range, and for
     taking away a type tables use; 403 for someone who may not change the setup or an archived
-    market; 404 for no such market; 409 once the setup has settled, and when a layout was saved
-    between the read and the write. Records ``table_types`` when the types changed.
+    market; 404 for no such market; 409 once the setup has settled, and when the plan, a layout or
+    the types were written between the read and the write (``MarketChanged``). Records ``table_types`` when the types changed.
     """
     extra = sorted(set(body) - set(TABLE_TYPES_WRITE_FIELDS))
     if extra:
@@ -195,19 +180,14 @@ def save_table_types(market_id: str, body: Dict[str, Any], requesting_user: str)
         table_types=table_types)
     plan_key = market_doc_key("setup_object")
     written_plan = prepared.update[plan_key]
-    if stored is None:
-        # A market whose plan was never saved gains the whole plan, which reads.
-        update = {plan_key: written_plan}
-        # Null, as a new market stores it, or absent: equality with null matches both.
-        held = {plan_key: None}
-    else:
-        update = {f"{plan_key}.tableTypes": written_plan["tableTypes"]}
-        # The layouts as read, and the types as read, so two writes of the types never cross.
-        held = {**_layouts_as_read(stored), **prepared.held}
-    written = MarketsApi.markets_collection.update_one(
-        {**market_doc_filter("id", market_id), **held}, {"$set": update})
-    if written.matched_count == 0:
-        raise ConflictError(LAYOUTS_CHANGED)
+    # A market whose plan was never saved gains the whole plan, which reads; else the types alone.
+    update = ({plan_key: written_plan} if stored is None
+              else {f"{plan_key}.tableTypes": written_plan["tableTypes"]})
+    # Built on the plan as read, so held at its revision as read and counted, as every write of the
+    # plan is (T274): a layout, a plan or other types saved in between refuse this write
+    # (``MarketChanged``) rather than being put back or left naming a type that is gone.
+    write_market(market, {"$set": update},
+                 revisions={MarketsApi.PLAN_REVISION_KEY: market.plan_revision})
 
     before = _in_words(stored.table_types if stored else [])
     after = _in_words(prepared.plan.table_types)

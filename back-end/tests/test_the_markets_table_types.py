@@ -30,7 +30,8 @@ import api.markets as MarketsApi
 import api.users as UsersApi
 import floorplan_limits as FloorplanLimits
 import history as History
-from api.layouts import LAYOUTS_CHANGED, TYPE_IN_USE_TEMPLATE, size_in_words
+import market_write as MarketWrite
+from api.layouts import TYPE_IN_USE_TEMPLATE, size_in_words
 from datatypes import MarketPhase
 from market_documents import market_from_document
 from utils.request_body import NOT_AN_OBJECT
@@ -98,6 +99,7 @@ def market(monkeypatch):
     markets = FakeMarketsCollection(
         stored_market(MarketPhase.DRAFT, roles=dict(ROLES), setupObject=_plan()))
     monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+    monkeypatch.setattr(MarketWrite, "markets_collection", markets)
     return markets
 
 
@@ -202,6 +204,8 @@ class TestTheTypesAreReplaced:
             floorplan = market.doc["setupObject"]["floorplans"][0]
             floorplan["revision"] = 4
             floorplan["tables"][0]["tableTypeId"] = "tt-six"
+            # As every write of the plan does, it counts the plan's revision (T274).
+            market.doc["planRevision"] = (market.doc.get("planRevision") or 0) + 1
             return found
 
         monkeypatch.setattr(market, "find_one", read_then_a_layout_save_lands)
@@ -209,7 +213,8 @@ class TestTheTypesAreReplaced:
         response = _put(client, [SIX_FOOT, {**SQUARE, "name": "Square"}])
 
         assert response.status_code == 409
-        assert response.get_json() == {"error": LAYOUTS_CHANGED}
+        assert response.get_json() == {"error": MarketWrite.MARKET_CHANGED,
+                                       "code": "market_changed"}
         assert market.doc["setupObject"]["tableTypes"][1]["name"] == "Square 4 ft"
 
     @pytest.mark.parametrize("unsaved", ["absent", "null"])
@@ -228,8 +233,8 @@ class TestTheTypesAreReplaced:
 
 
 class TestAWriteLandingBetweenTheReadAndTheWrite:
-    """The types write holds the layouts as it read them: a layout saved or started between its
-    read and its write refuses it (review of ticket 10)."""
+    """The types write holds the plan's revision as it read it: a layout saved or started between
+    its read and its write counts it, and refuses the types write (review of ticket 10, T274)."""
 
     def _after_the_read(self, market, monkeypatch, land):
         read = MarketsApi.markets_collection.find_one
@@ -237,6 +242,8 @@ class TestAWriteLandingBetweenTheReadAndTheWrite:
         def read_then_land(query, projection=None):
             found = read(query, projection)
             land(market.doc["setupObject"])
+            # A layout save counts the plan's revision, as every write of the plan does (T274).
+            market.doc["planRevision"] = (market.doc.get("planRevision") or 0) + 1
             return found
 
         monkeypatch.setattr(market, "find_one", read_then_land)

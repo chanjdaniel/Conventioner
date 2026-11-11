@@ -52,6 +52,9 @@ EXCEPTIONS: Dict[Tuple[str, str], str] = {
         "the essential offering's freeze: the first writer wins, held by no snapshot stored yet"),
     ("market_documents", "apply_market_key_migration"): (
         "a one-time migration an operator runs outside any request, rewriting every market whole"),
+    ("migrations.migrate_layouts", "migrate"): (
+        "a one-time migration an operator runs outside any request, holding in its own filter the "
+        "plan it read, so a market that changed under it is counted and left for the next run"),
     ("migrations.migrate_publishing_to_market_days", "migrate"): _A_MIGRATION,
     ("migrations.migrate_roles", "migrate_market_roles"): _A_MIGRATION,
     ("migrations.migrate_to_one_stage", "migrate"): _A_MIGRATION,

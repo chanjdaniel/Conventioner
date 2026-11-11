@@ -97,37 +97,21 @@ def _revision(data: Dict[str, Any]) -> Optional[int]:
 
 def _stored_layout(
     stored: Optional[SetupObject], floorplan: FloorplanObject, revision: int,
-) -> Tuple[Optional[int], Optional[FloorplanObject]]:
-    """The place and the floorplan the save replaces, ``(None, None)`` for a location's first
-    layout; ``StaleLayout`` when the caller read another revision of it, or a new layout's location
-    already has one."""
+) -> Optional[FloorplanObject]:
+    """The floorplan the save replaces, None for a location's first layout; ``StaleLayout`` when
+    the caller read another revision of it, or a new layout's location already has one."""
     floorplans = (stored.floorplans if stored else None) or []
-    for index, held in enumerate(floorplans):
+    for held in floorplans:
         if held.id == floorplan.id:
             if held.revision != revision:
                 raise StaleLayout()
-            return index, held
+            return held
     if revision != 0:
         raise StaleLayout()
     if floorplan.location_id is not None and any(
             held.location_id == floorplan.location_id for held in floorplans):
         raise StaleLayout()
-    return None, None
-
-
-def _still_as_read(
-    index: Optional[int], held: Optional[FloorplanObject], floorplan: FloorplanObject,
-) -> Dict[str, Any]:
-    """The filter holding what ``_stored_layout`` read, so a save that lands between this save's
-    read and its write makes this one match nothing: the replaced layout still at its place and
-    revision, or, for a new one, no layout of its id or its location."""
-    floorplans = f"{market_doc_key('setup_object')}.floorplans"
-    if held is None:
-        return {f"{floorplans}.id": {"$ne": floorplan.id},
-                f"{floorplans}.locationId": {"$ne": floorplan.location_id}}
-    # A layout stored before revisions were written has none, which reads as 0.
-    revision = {"$in": [0, None]} if held.revision == 0 else held.revision
-    return {f"{floorplans}.{index}.id": held.id, f"{floorplans}.{index}.revision": revision}
+    return None
 
 
 def _started(plan: SetupObject, floorplan: FloorplanObject) -> FloorplanObject:
@@ -231,7 +215,7 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
 
     # ── 4. The layout it replaces, or starts ───────────────────────────
     try:
-        index, held = _stored_layout(stored, floorplan, revision)
+        held = _stored_layout(stored, floorplan, revision)
     except StaleLayout:
         return jsonify({"error": STALE_LAYOUT}), 409
     table_types = None
