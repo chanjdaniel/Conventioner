@@ -173,7 +173,6 @@ function card(props: Partial<InstanceType<typeof LayoutPanelTypes>['$props']> = 
         ['tt-six', 4],
         ['tt-square', 12],
       ]),
-      editable: true,
       ...props,
     },
   });
@@ -213,12 +212,6 @@ describe('the Table types card', () => {
       '4 tables',
       '12 tables',
     ]);
-  });
-
-  it('offers a reader no control', () => {
-    card({ editable: false });
-    expect(byTestId('layout-types-add')).toBeNull();
-    expect(byTestId('layout-type-menu-tt-six-button')).toBeNull();
   });
 
   it('adds a type, written with the others, and says so', async () => {

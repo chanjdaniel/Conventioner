@@ -18,8 +18,8 @@ export const SIDE_UNITS: { unit: LengthUnit; label: string }[] = [
 ].map(({ unit, label }) => ({ unit, label }));
 
 /** The shortest and longest side a type may have, as the server holds them. */
-export const MIN_SIDE_MM = 100;
-export const MAX_SIDE_MM = 20_000;
+const MIN_SIDE_MM = 100;
+const MAX_SIDE_MM = 20_000;
 /** How many types a market keeps. */
 export const MAX_TABLE_TYPES = 50;
 

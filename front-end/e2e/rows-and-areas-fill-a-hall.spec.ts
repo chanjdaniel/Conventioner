@@ -902,6 +902,53 @@ test.describe('A row is drawn by hand', () => {
     expect(await stored(request, seeded.marketId)).toHaveLength(0);
   });
 
+  test('a line being drawn by hand is dropped when another tool is chosen under it, and the zoom keys hold still under the drag', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout, seeded } = await open(page, request);
+    const sent = saves(page);
+    const zoom = await layout.zoom.textContent();
+
+    // A press and a curved drag, the button still down.
+    const from = await layout.onScreen([4000, 6000]);
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    for (const [x, y] of [
+      [7000, 9000],
+      [11_000, 11_000],
+      [15_000, 11_000],
+    ] as const) {
+      const at = await layout.onScreen([x, y]);
+      await page.mouse.move(at.x, at.y, { steps: 4 });
+    }
+    await expect(layout.rowTables.first()).toBeVisible();
+
+    // The view holds still under the drag in hand.
+    await page.keyboard.press('+');
+    await page.keyboard.press('0');
+    await expect(layout.zoom).toHaveText(zoom!);
+
+    // Select chosen by keys under it: the line goes with Row of tables, and the rest of the drag
+    // and its release draw and place nothing.
+    await layout.toolSelect.focus();
+    await page.keyboard.press('Enter');
+    await expect(layout.toolSelect).toHaveAttribute('aria-pressed', 'true');
+    const later = await layout.onScreen([19_000, 9000]);
+    await page.mouse.move(later.x, later.y, { steps: 4 });
+    await page.mouse.up();
+    await expect(layout.rowTables).toHaveCount(0);
+
+    // Back on Row of tables nothing of it is pending, and nothing was placed or sent.
+    await layout.toolRow.click();
+    await layout.hoverAt([22_000, 16_000]);
+    await expect(layout.rowPoints).toHaveCount(0);
+    await expect(layout.rowTables).toHaveCount(0);
+    await expect(layout.tables).toHaveCount(0);
+    expect(sent).toEqual([]);
+    expect(await stored(request, seeded.marketId)).toHaveLength(0);
+  });
+
   test('a drawn path is adjusted by its points alone: a point dragged moves the row, the floor adds nothing, Backspace takes its last point, and at one point it is a clicked path again; Escape drops it', async ({
     authenticatedPage: page,
     request,

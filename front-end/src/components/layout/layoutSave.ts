@@ -2,11 +2,11 @@
  * A location's layout, written (T257): `POST /floorplans/save-to-market` with the revision the
  * editor read, and what its answer means to the page.
  *
- * The answer is the layout and the plan's sections as stored, so the page adopts the new revision
- * at once; the market is then re-read through the one store, as every write is followed
- * (`docs/implementation/conventions/one-market-from-the-server.md`).
+ * The answer is the layout as stored, so the page adopts the new revision at once; the market is
+ * then re-read through the one store, as every write is followed, which brings the sections the
+ * answer also carries (`docs/implementation/conventions/one-market-from-the-server.md`).
  */
-import type { FloorplanObject, SectionObject } from '@/assets/types/datatypes';
+import type { FloorplanObject } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
 
 /** The server's sentence for a save over a layout another tab or person saved in between. */
@@ -23,9 +23,9 @@ export type UploadedFloorplan = {
   page?: number;
 };
 
+/** What of a save's answer the page reads: the layout as stored. */
 export interface SavedLayout {
   floorplan: FloorplanObject;
-  sections: SectionObject[];
 }
 
 export async function saveLayout(

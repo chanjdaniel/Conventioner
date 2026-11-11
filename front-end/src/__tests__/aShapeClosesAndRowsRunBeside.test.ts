@@ -9,7 +9,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   measureRun,
-  offsetRun,
   offsetRuns,
   placeAlongRuns,
   placeRows,
@@ -388,23 +387,24 @@ describe('a run offset to one side', () => {
   const quarter = arcOf(5000, 90);
 
   it('is the same arc on a smaller circle to its right, a larger to its left', () => {
-    const inside = offsetRun(quarter, 1000);
+    const [inside, ...more] = offsetRuns([quarter], 1000);
+    expect(more).toEqual([]);
     expect(inside.length).toBeGreaterThan(8);
     for (const point of inside) expect(Math.abs(radiusOf(point) - 4000)).toBeLessThan(0.05);
-    const outside = offsetRun(quarter, -1000);
+    const [outside] = offsetRuns([quarter], -1000);
     for (const point of outside) expect(Math.abs(radiusOf(point) - 6000)).toBeLessThan(0.05);
     // Each end stands square off the wall's last stretch, 4 mm past the quarter.
     expect(Math.abs(measureRun(inside).length - (Math.PI / 2) * 4000)).toBeLessThan(10);
   });
 
   it('is nothing past the middle of the bend', () => {
-    expect(offsetRun(quarter, 6000)).toEqual([]);
+    expect(offsetRuns([quarter], 6000)).toEqual([]);
   });
 
   it('is a straight run moved sideways by exactly the distance', () => {
-    expect(offsetRun([p(0, 0), p(10_000, 0)], 1960)).toEqual([p(0, 1960), p(10_000, 1960)]);
-    expect(offsetRun([p(0, 0), p(10_000, 0)], -1960)).toEqual([p(0, -1960), p(10_000, -1960)]);
-    expect(offsetRun([p(0, 0), p(10_000, 0)], 0)).toEqual([p(0, 0), p(10_000, 0)]);
+    expect(offsetRuns([[p(0, 0), p(10_000, 0)]], 1960)).toEqual([[p(0, 1960), p(10_000, 1960)]]);
+    expect(offsetRuns([[p(0, 0), p(10_000, 0)]], -1960)).toEqual([[p(0, -1960), p(10_000, -1960)]]);
+    expect(offsetRuns([[p(0, 0), p(10_000, 0)]], 0)).toEqual([[p(0, 0), p(10_000, 0)]]);
   });
 
   it('stops short of the other wall inside a corner, and reaches its own end outside one', () => {

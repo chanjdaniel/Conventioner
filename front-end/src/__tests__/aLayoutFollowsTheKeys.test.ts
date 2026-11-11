@@ -14,6 +14,9 @@ import {
   saidPutBack,
   saidRemoved,
   saidTurned,
+  saidArranged,
+  saidSectioned,
+  saidRetyped,
   useAnnouncements,
 } from '@/components/layout/layoutAnnouncements';
 import { layoutSections } from '@/components/layout/layoutDrawing';
@@ -142,6 +145,19 @@ describe('what the live region says', () => {
     { locationId: UPPER.id, tables: [five, six, loose], sectionStyles: [] },
     SECTIONS,
   );
+
+  it("says what the selection's card did to the tables it lined up, put in a section or retyped", () => {
+    expect(saidArranged([five, six], 'left')).toBe('Aligned 2 tables left');
+    expect(saidArranged([five, six], 'middle')).toBe('Aligned 2 tables middle');
+    expect(saidArranged([five, six, loose], 'across')).toBe('Spaced 3 tables evenly across');
+    expect(saidArranged([five, six, loose], 'down')).toBe('Spaced 3 tables evenly down');
+    expect(saidSectioned([five], 'Silver aisle', sections)).toBe('Put Gold row 5 in Silver aisle');
+    expect(saidSectioned([five, loose], null, sections)).toBe('Put 2 tables in no section');
+    expect(saidRetyped([loose], 'Square 4 ft', sections)).toBe(
+      'Made a table in no section Square 4 ft',
+    );
+    expect(saidRetyped([five, six], 'Square 4 ft', sections)).toBe('Made 2 tables Square 4 ft');
+  });
 
   it('names one table by its code and its place in metres to one decimal', () => {
     expect(saidMoved([five], five, sections)).toBe('Gold row 5 moved to 12.4 m, 6.1 m');

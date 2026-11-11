@@ -9,7 +9,7 @@
  * size at any zoom, and `view` is the part of the hall shown (the whole hall when not given). What
  * the eye reads in pixels holds its size at every zoom: edges and outlines by
  * `vector-effect: non-scaling-stroke`, and names, numbers, gaps and the hatch by the scale the map
- * measures itself at (`pxPerMm` says it instead where nothing can be measured, as in print).
+ * measures itself at.
  *
  * Modes: `read` and `edit` make the map a group named "Upper Hall layout, 49 tables" and each
  * table a button named "Gold row 5, Standard 6 ft", one Tab stop among them (the table focused
@@ -78,8 +78,6 @@ const props = withDefaults(
     guides?: readonly MapGuide[];
     /** The ids of the tables picked up by keyboard, drawn lifted in `edit`. */
     carried?: readonly string[];
-    /** Screen pixels per millimetre, where the map cannot measure itself (print). */
-    pxPerMm?: number;
   }>(),
   {
     imageUrl: '',
@@ -149,10 +147,9 @@ onMounted(() => {
 });
 onBeforeUnmount(() => resize?.disconnect());
 
-/** Screen pixels per millimetre: given, else measured (the view drawn whole in the box, as
+/** Screen pixels per millimetre: measured (the view drawn whole in the box, as
  *  `preserveAspectRatio` fits it), else as if the view were 1,000 px across. */
 const scale = computed(() => {
-  if (props.pxPerMm) return props.pxPerMm;
   const view = shown.value;
   if (box.value) return Math.min(box.value.width / view.widthMm, box.value.height / view.heightMm);
   return 1000 / view.widthMm;

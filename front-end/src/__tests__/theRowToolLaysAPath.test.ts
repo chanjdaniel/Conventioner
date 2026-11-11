@@ -453,3 +453,50 @@ describe('"Row of N…" in the selection card', () => {
     expect(get(wrapper, 'layout-selection-row').attributes('aria-expanded')).toBe('false');
   });
 });
+
+describe('a row placed beside a no-table zone (the first review)', () => {
+  const zone = { id: 'z', label: 'Stage', xMm: 14_000, yMm: 10_000, widthMm: 2000, depthMm: 2000 };
+
+  /** How many tables the row showed, each placed where it was shown. */
+  function placedAsShown(lay: (row: ReturnType<typeof aTool>['row']) => void): number {
+    const { row, tables } = aTool([], [zone]);
+    lay(row);
+    const shown = row.poses.value.map((pose) => ({ ...pose }));
+    if (!shown.length) return 0;
+    row.place();
+    const placed = tables();
+    expect(placed).toHaveLength(shown.length);
+    placed.forEach((table, i) => {
+      expect(Math.abs(table.xMm - shown[i].xMm)).toBeLessThanOrEqual(0.01);
+      expect(Math.abs(table.yMm - shown[i].yMm)).toBeLessThanOrEqual(0.01);
+    });
+    return shown.length;
+  }
+
+  it('is placed where it was shown when its line crosses the zone', () => {
+    const shown = placedAsShown((row) => {
+      row.addPoint(p(2000, 11_000));
+      row.addPoint(p(28_000, 11_000));
+    });
+    expect(shown).toBeGreaterThan(0);
+  });
+
+  it('is placed where it was shown as a ring that runs close round the zone', () => {
+    let rings = 0;
+    for (const side of ['left', 'right'] as const) {
+      for (const radius of [1600, 1800, 2000, 2200, 2500, 3000]) {
+        rowChoices.side = side;
+        rings += placedAsShown((row) => {
+          for (let i = 0; i < 8; i += 1) {
+            const turn = (i * Math.PI) / 4;
+            row.addPoint(p(15_000 + radius * Math.cos(turn), 11_000 + radius * Math.sin(turn)));
+          }
+          row.close();
+        })
+          ? 1
+          : 0;
+      }
+    }
+    expect(rings).toBeGreaterThan(6);
+  });
+});

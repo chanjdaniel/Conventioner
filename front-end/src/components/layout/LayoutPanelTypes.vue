@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
  * The layout page's "Table types" card (T257): the market's types, each with its size and how many
- * of the market's tables are of it. For someone editing the layout, "Add a type" and each type's
- * Edit open a dialog of its name, width and depth (`LayoutTypeDialog.vue`); Remove takes a type no
+ * of the market's tables are of it, shown to someone editing the layout. "Add a type" and each
+ * type's Edit open a dialog of its name, width and depth (`LayoutTypeDialog.vue`); Remove takes a type no
  * table uses, and says how many use one it will not take; "Use saved types" adds a saved set's
  * types the market lacks by name, and "Save these types" saves them under a name.
  *
@@ -31,7 +31,6 @@ const props = withDefaults(
     tableTypes: readonly TableTypeObject[];
     /** How many of the market's tables are of each type, by its id. */
     counts: ReadonlyMap<string, number>;
-    editable?: boolean;
     /** Write the market's types, all of them. */
     save?: (types: TableTypeObject[]) => Promise<void>;
     /** The saved sets of types this person may use. */
@@ -40,7 +39,6 @@ const props = withDefaults(
     saveAs?: (name: string) => Promise<void>;
   }>(),
   {
-    editable: false,
     save: async () => {},
     listSaved: async () => [],
     saveAs: async () => {},
@@ -174,7 +172,6 @@ function onMenu(type: TableTypeObject, item: string) {
           {{ plural(countOf(type), 'table', 'tables') }}
         </span>
         <RowMenu
-          v-if="editable"
           :label="`Edit or remove ${type.name}`"
           :items="MENU"
           :testid="`layout-type-menu-${type.id}`"
@@ -191,7 +188,7 @@ function onMenu(type: TableTypeObject, item: string) {
     >
       {{ said.words }}
     </p>
-    <div v-if="editable" class="types-actions">
+    <div class="types-actions">
       <!-- Adding stands alone; the two ways of saved types share the line under it. -->
       <button
         type="button"

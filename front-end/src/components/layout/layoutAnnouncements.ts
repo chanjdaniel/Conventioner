@@ -8,7 +8,7 @@ import { ref, type Ref } from 'vue';
 import type { FloorplanTable } from '@/assets/types/datatypes';
 import { plural } from '@/utils/historyReaders/shared';
 import { metres, placeInMetres, tableCode, type LayoutSection } from './layoutDrawing';
-import type { Bounds, PointMm } from './layoutGeometry';
+import type { Alignment, Bounds, PointMm } from './layoutGeometry';
 
 /** A table's code among the sections the map draws; null for a table in no section. */
 function codeOf(table: FloorplanTable, sections: readonly LayoutSection[]): string | null {
@@ -109,6 +109,37 @@ export function saidRemoved(
   sections: readonly LayoutSection[],
 ): string {
   return `Removed ${object(tables, sections)}`;
+}
+
+/** The selection's card lined tables up or spaced them evenly: "Aligned 3 tables left",
+ *  "Spaced 3 tables evenly across". */
+export function saidArranged(
+  tables: readonly FloorplanTable[],
+  how: Alignment | 'across' | 'down',
+): string {
+  const count = plural(tables.length, 'table', 'tables');
+  return how === 'across' || how === 'down'
+    ? `Spaced ${count} evenly ${how}`
+    : `Aligned ${count} ${how}`;
+}
+
+/** The selection's card put tables in a section, by their codes before: "Put Gold row 5 in
+ *  Silver aisle", "Put 3 tables in no section". */
+export function saidSectioned(
+  tables: readonly FloorplanTable[],
+  sectionName: string | null,
+  sections: readonly LayoutSection[],
+): string {
+  return `Put ${object(tables, sections)} in ${sectionName ?? 'no section'}`;
+}
+
+/** The selection's card gave tables another type: "Made Gold row 5 Square 4 ft". */
+export function saidRetyped(
+  tables: readonly FloorplanTable[],
+  typeName: string,
+  sections: readonly LayoutSection[],
+): string {
+  return `Made ${object(tables, sections)} ${typeName}`;
 }
 
 /**

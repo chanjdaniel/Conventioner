@@ -209,9 +209,8 @@ describe('two shapes', () => {
 });
 
 describe('the order Renumber by position reads a section in', () => {
-  const sized = (table: ReturnType<typeof at>) => tableBounds(table, SIX_FOOT);
   const order = (tables: ReturnType<typeof at>[]) =>
-    readingOrder(tables, sized).map((table) => table.id);
+    readingOrder(tables, () => SIX_FOOT.depthMm).map((table) => table.id);
 
   it('is rows from the top, each from the left', () => {
     expect(
@@ -232,11 +231,12 @@ describe('the order Renumber by position reads a section in', () => {
     ).toEqual(['a', 'b', 'c', 'd']);
   });
 
-  it('reads a turned table by the box it stands in: a column of them is one table a row', () => {
-    // Turned a quarter, each stands 1,830 mm tall: 800 mm apart they are still one row.
+  it("bands a turned table by half its type's depth, not by the box it stands in", () => {
+    // Turned a quarter, each stands 1,830 mm tall, but bands 380 mm either way, as its type is
+    // 760 mm deep: 400 mm apart, each is a row of its own.
     expect(
       order([at('b', 5000, 2800, 90), at('a', 2000, 2000, 90), at('c', 8000, 2400, 90)]),
-    ).toEqual(['a', 'b', 'c']);
+    ).toEqual(['a', 'c', 'b']);
   });
 
   it('keeps the order given between two tables on one spot', () => {

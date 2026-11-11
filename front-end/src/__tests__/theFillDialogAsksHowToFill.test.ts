@@ -136,6 +136,27 @@ describe("Fill an area's dialog", () => {
     expect((at('layout-fill-submit-button').element as HTMLButtonElement).disabled).toBe(false);
   });
 
+  it('an aisle that is no length from 0 to 1,000 cm is said under the field, and Fill waits for one', async () => {
+    open();
+
+    for (const typed of ['', '-5', 'wide', '1001']) {
+      await at('layout-fill-aisle').setValue(typed);
+      expect(at('layout-fill-aisle-error').text()).toBe(
+        "Type the aisle's width in centimetres, 0 to 1,000.",
+      );
+      expect(at('layout-fill-aisle').attributes('aria-invalid')).toBe('true');
+      expect((at('layout-fill-submit-button').element as HTMLButtonElement).disabled).toBe(true);
+      await submit();
+    }
+    expect(wrapper.emitted('fill')).toBeUndefined();
+
+    await at('layout-fill-aisle').setValue('0');
+    expect(wrapper.find('[data-testid="layout-fill-aisle-error"]').exists()).toBe(false);
+    await at('layout-fill-aisle').setValue('1000');
+    await submit();
+    expect(wrapper.emitted('fill')![0][0]).toMatchObject({ aisleMm: 10_000 });
+  });
+
   it("the section and the type chosen are the strip's", async () => {
     open();
 

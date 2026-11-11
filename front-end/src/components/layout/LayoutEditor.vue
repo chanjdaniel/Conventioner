@@ -1303,7 +1303,7 @@ function onWindowKeydown(event: KeyboardEvent) {
     // The selection's copy, in place of the browser's bookmark.
     event.preventDefault();
     if (!gesture && !event.repeat) duplicateByKey();
-  } else if (plain && key === 'r' && !event.repeat) {
+  } else if (plain && key === 'r' && !event.repeat && mapHasTheKeys()) {
     // Not under a drag or a turn in hand, whose next frame would draw over it.
     if (!targets().length || gesture) return;
     event.preventDefault();

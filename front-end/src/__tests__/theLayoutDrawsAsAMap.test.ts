@@ -3,7 +3,8 @@
  * its tables, each table's place, turn and colour, the sections' names, the zones, and what a press
  * does in each mode.
  */
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { nextTick } from 'vue';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import type {
   FloorplanObject,
@@ -72,12 +73,28 @@ let wrapper: VueWrapper | null = null;
 afterEach(() => {
   wrapper?.unmount();
   wrapper = null;
+  vi.restoreAllMocks();
 });
 
+/**
+ * Draw the map, its own box measured as `pxPerMm` screen pixels to the millimetre of the view it
+ * shows (1 px to 25 mm, 100% zoom, unless told), since a test's DOM measures nothing.
+ */
 function draw(
   props: Partial<InstanceType<typeof LayoutMap>['$props']> = {},
   floorplan = layout(),
+  pxPerMm = 0.04,
 ): VueWrapper {
+  const measured = Element.prototype.getBoundingClientRect;
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    if (this.getAttribute('data-testid') !== 'layout-map') return measured.call(this);
+    const [, , widthMm, heightMm] = (this.getAttribute('viewBox') ?? '0 0 0 0')
+      .split(' ')
+      .map(Number);
+    const width = widthMm * pxPerMm;
+    const height = heightMm * pxPerMm;
+    return { x: 0, y: 0, top: 0, left: 0, right: width, bottom: height, width, height } as DOMRect;
+  });
   wrapper = mount(LayoutMap, {
     attachTo: document.body,
     props: {
@@ -87,8 +104,6 @@ function draw(
       tableTypes: TYPES,
       mode: 'read',
       imageUrl: 'blob:fixture',
-      // 1 px to 25 mm, 100% zoom, since a test's DOM measures nothing.
-      pxPerMm: 0.04,
       ...props,
     },
   });
@@ -267,9 +282,10 @@ describe('how the map is painted', () => {
     expect(tableById(map, 'g2').get('[data-testid="layout-table-number"]').text()).toBe('2');
   });
 
-  it('holds a number at 14 px on the screen at any zoom that has room for it', () => {
+  it('holds a number at 14 px on the screen at any zoom that has room for it', async () => {
     for (const pxPerMm of [0.04, 0.32]) {
-      const map = draw({ pxPerMm });
+      const map = draw({}, layout(), pxPerMm);
+      await nextTick();
       const size = Number(
         tableById(map, 'g1').get('[data-testid="layout-table-number"]').attributes('font-size'),
       );
@@ -278,14 +294,16 @@ describe('how the map is painted', () => {
     }
   });
 
-  it('leaves the numbers out where a table is too small to carry one', () => {
-    const map = draw({ pxPerMm: 0.004 });
+  it('leaves the numbers out where a table is too small to carry one', async () => {
+    const map = draw({}, layout(), 0.004);
+    await nextTick();
     expect(map.findAll('[data-testid="layout-table-number"]')).toHaveLength(0);
     expect(tables(map)).toHaveLength(6);
   });
 
-  it("writes each section's name in a pill edged in its colour, beside its tables", () => {
+  it("writes each section's name in a pill edged in its colour, beside its tables", async () => {
     const map = draw();
+    await nextTick();
     const labels = map.findAll('[data-testid="layout-map-label"]');
     expect(labels.map((label) => label.text())).toEqual(['Gold row', 'Silver aisle']);
     const pill = labels[0].get('rect');
@@ -313,8 +331,9 @@ describe('how the map is painted', () => {
     );
   });
 
-  it('draws no shape with a negative corner, however far out', () => {
-    const map = draw({ pxPerMm: 0.004 });
+  it('draws no shape with a negative corner, however far out', async () => {
+    const map = draw({}, layout(), 0.004);
+    await nextTick();
     for (const shape of map.findAll('rect[rx]')) {
       expect(Number(shape.attributes('rx'))).toBeGreaterThanOrEqual(0);
     }
@@ -419,10 +438,11 @@ describe('a press, by mode', () => {
     expect(guide.attributes('stroke-dasharray')).toBe('4 4');
   });
 
-  it('draws a table picked up by keyboard lifted in edit mode: a shadow straight down the screen, its outline dashed', () => {
+  it('draws a table picked up by keyboard lifted in edit mode: a shadow straight down the screen, its outline dashed', async () => {
     // s1 is turned a quarter, so 3 px down the screen (75 mm at this scale) is along its own
     // width, toward its left end.
     const map = draw({ mode: 'edit', selection: ['g2', 's1'], carried: ['g2', 's1'] });
+    await nextTick();
     expect(map.findAll('[data-carried]').map((t) => t.attributes('data-table-id'))).toEqual([
       'g2',
       's1',

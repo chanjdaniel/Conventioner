@@ -26,13 +26,12 @@ import {
   hallOf,
   polygonIsSimple,
   readingOrder,
-  tableBounds,
   tableCorners,
   type Bounds,
   type PointMm,
   type SizeMm,
 } from './layoutGeometry';
-import { MAX_LAYOUT_TABLES, gapMmOf } from './layoutRow';
+import { MAX_LAYOUT_TABLES } from './layoutRow';
 import type { LayoutEditor, NewTable } from './useLayoutEditor';
 
 /** The most tables one fill asks for: the server's `MAX_TABLES_TO_PLACE` (`floorplan_limits.py`). */
@@ -94,7 +93,7 @@ export interface FillAnswer {
 /** Said when a shape of fewer than three corners is asked to close. */
 export const AREA_NEEDS_THREE = 'An area takes three corners or more.';
 /** The most corners an area is drawn with: the server's `MAX_AREA_CORNERS`. */
-export const MAX_AREA_CORNERS = 50;
+const MAX_AREA_CORNERS = 50;
 /** Said when a shape of more corners than that is asked to close. */
 export const AREA_HAS_TOO_MANY = `An area takes ${MAX_AREA_CORNERS} corners at most. Take some back.`;
 /** A box is an area once it is this wide and this deep, in millimetres. */
@@ -121,7 +120,17 @@ export function countOf(typed: string): number | null {
 }
 
 /** The aisle typed in centimetres, in millimetres: nothing for a field that holds no length. */
-export const aisleMmOf = gapMmOf;
+/** The widest aisle the placement takes, in centimetres: the server's 10,000 mm. */
+export const MAX_FILL_AISLE_CM = 1000;
+
+/** The aisle typed, in millimetres: a number of centimetres from 0 to 1,000, a comma for the
+ *  point taken; null for anything else, which the dialog says rather than reading as no aisle. */
+export function aisleMmOf(typed: string): number | null {
+  const text = String(typed).trim().replace(',', '.');
+  if (!/^\d+(\.\d+)?$/.test(text)) return null;
+  const cm = Number(text);
+  return cm <= MAX_FILL_AISLE_CM ? Math.round(cm * 10) : null;
+}
 
 const pair = (point: PointMm): Pair => [point.xMm, point.yMm];
 
@@ -321,7 +330,7 @@ export function useFillTool(options: FillToolOptions): FillTool {
     clear();
     if (!placed.length) return [];
     // Numbered as read: in rows from the top of the page, each from the left.
-    const ordered = readingOrder(placed, (table) => tableBounds(table, size));
+    const ordered = readingOrder(placed, () => size.depthMm);
     const ids = new Set(options.editor.addTables(ordered));
     options.editor.select([...ids]);
     return (options.editor.layout.value?.tables ?? []).filter((table) => ids.has(table.id));

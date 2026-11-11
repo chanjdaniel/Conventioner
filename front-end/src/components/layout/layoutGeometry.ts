@@ -292,7 +292,7 @@ export function zoomPercent(pxPerMm: number): number {
 /** A table's number is never drawn larger than this, in screen pixels (`--text-sm`). */
 export const MAX_NUMBER_PX = 14;
 /** Nor smaller than this: a number that cannot fit its table at this size is left out. */
-export const MIN_NUMBER_PX = 6;
+const MIN_NUMBER_PX = 6;
 
 /**
  * The size a table's number is drawn at, in screen pixels: `MAX_NUMBER_PX` wherever the table has
@@ -583,7 +583,7 @@ export interface Camera {
   pxPerMm: number;
 }
 
-export function clampZoom(pxPerMm: number): number {
+function clampZoom(pxPerMm: number): number {
   return Math.min(Math.max(pxPerMm, MIN_ZOOM_PX_PER_MM), MAX_ZOOM_PX_PER_MM);
 }
 
@@ -616,7 +616,7 @@ export function zoomedAbout(
 }
 
 /** The next zoom a button steps to: the next of the round percentages above or below. */
-export const ZOOM_STEPS = [10, 25, 50, 75, 100, 150, 200, 300, 400, 600, 800];
+const ZOOM_STEPS = [10, 25, 50, 75, 100, 150, 200, 300, 400, 600, 800];
 
 export function steppedZoom(pxPerMm: number, direction: 1 | -1): number {
   const percent = (pxPerMm / PX_PER_MM_AT_100) * 100;
@@ -717,8 +717,13 @@ export function spreadMoves(boxes: readonly Bounds[], axis: 'across' | 'down'): 
 }
 
 /** Whether two convex shapes, each its corners in order, share any floor; shapes that only touch
- *  do not. Turned tables are judged as they stand, not by the boxes round them. */
-export function shapesOverlap(a: readonly PointMm[], b: readonly PointMm[]): boolean {
+ *  do not, nor do shapes that meet no deeper than `slackMm`. Turned tables are judged as they
+ *  stand, not by the boxes round them. */
+export function shapesOverlap(
+  a: readonly PointMm[],
+  b: readonly PointMm[],
+  slackMm = 1e-3,
+): boolean {
   for (const shape of [a, b]) {
     for (let i = 0; i < shape.length; i += 1) {
       const from = shape[i];
@@ -734,7 +739,7 @@ export function shapesOverlap(a: readonly PointMm[], b: readonly PointMm[]): boo
       const [aNear, aFar] = shadow(a);
       const [bNear, bFar] = shadow(b);
       // A thousandth of a millimetre of float error is touching, not sharing.
-      if (aFar <= bNear + 1e-3 || bFar <= aNear + 1e-3) return false;
+      if (aFar <= bNear + slackMm || bFar <= aNear + slackMm) return false;
     }
   }
   return true;
@@ -816,12 +821,12 @@ export function duplicateOffset(
 /**
  * Tables in reading order, as Renumber by position numbers a section: in rows from the top of the
  * page, each row from the left. A row is the tables whose centres stand within half a table's
- * depth of the row's first, the highest not yet in a row, so a ragged row is still one row; a
- * turned table's depth is that of the box it stands in. Two on one spot keep the order given.
+ * depth of the row's first, the highest not yet in a row, so a ragged row is still one row; the
+ * depth is its type's, however the table is turned. Two on one spot keep the order given.
  */
 export function readingOrder<T extends PointMm>(
   tables: readonly T[],
-  boundsOf: (table: T) => Bounds,
+  depthOf: (table: T) => number,
 ): T[] {
   const left = tables
     .map((table, index) => ({ table, index }))
@@ -829,8 +834,7 @@ export function readingOrder<T extends PointMm>(
   const ordered: T[] = [];
   while (left.length) {
     const first = left[0];
-    const box = boundsOf(first.table);
-    const reach = (box.bottom - box.top) / 2;
+    const reach = depthOf(first.table) / 2;
     const row = left.filter(({ table }) => table.yMm - first.table.yMm <= reach);
     left.splice(0, row.length);
     row.sort((a, b) => a.table.xMm - b.table.xMm || a.index - b.index);
@@ -1973,15 +1977,6 @@ export function offsetRuns(runs: readonly Run[], distanceMm: number): Run[] {
   return out.map((run) => run.map(pointOf));
 }
 
-/**
- * One run moved sideways by a distance, toward the right of the direction drawn where it is
- * positive; the stretches the offset swallows are dropped, and what is left is one run in the
- * order drawn. Nothing where all of it is swallowed. `offsetRuns` keeps the stretches apart.
- */
-export function offsetRun(run: Run, distanceMm: number): Run {
-  return offsetRuns([run], distanceMm).flat();
-}
-
 /** How near the aisle asked two rows must stand, table to table, to be an aisle apart. */
 const AISLE_WITHIN_MM = 0.5;
 /** By how much a row's offset is widened over what its aisle is short of. */
@@ -2180,8 +2175,6 @@ const MEND_TURN_DEG = 30;
 const CLOSED_START = 8;
 /** The most points a fit answers. */
 const MOST_POINTS = 48;
-/** The most rounds of adding points: a guard, never met by a stroke of `MOST_POINTS`. */
-const FIT_ROUNDS = 400;
 
 const wrapped = (i: number, n: number) => ((i % n) + n) % n;
 
@@ -2441,7 +2434,8 @@ function chosenPoints(
     chosen = [0, n - 1];
   }
   let now = judged(chosen);
-  for (let round = 0; round < FIT_ROUNDS && chosen.length < MOST_POINTS; round += 1) {
+  // Each round adds a point or ends the loop, so `MOST_POINTS` bounds it.
+  while (chosen.length < MOST_POINTS) {
     const add: number[] = [];
     for (const c of now.sharp) {
       const at = chosen[c];
@@ -2576,6 +2570,11 @@ export function zoneBounds(
 /** How far past a zone's edge a table is pushed, so the rounding of its place never takes it back
  *  over the edge. */
 const PAST_THE_EDGE_MM = 0.05;
+/** How deep a table may stand into a zone and still be touching it, to the push: the march of a
+ *  row takes a table that far over what stands (`MARCH_EXACT_MM`), and a place kept to a hundredth
+ *  of a millimetre and a turn to a thousandth of a degree add as much again, so a row the march
+ *  laid clear is never pushed off a zone it only touches. */
+const TOUCHING_A_ZONE_MM = 0.03;
 /** How many places are tried before a push gives up, leaving the tables where they are. */
 const PUSH_TRIES = 400;
 /** How many table-and-zone pairs a push may look at before it gives up: a drag asks it every
@@ -2587,7 +2586,7 @@ const PUSH_PAIRS = 60_000;
  * clear of all of them with every centre inside the hall; no move when they stand clear, or when
  * no such place is found. Tried nearest first: from where they stand, each zone a table meets
  * offers four ways off it (past each of its edges), and a way that lands on another zone offers
- * that zone's ways in turn. Touching a zone is clear of it. It looks at no more than `PUSH_PAIRS`
+ * that zone's ways in turn. Touching a zone, to within `TOUCHING_A_ZONE_MM`, is clear of it. It looks at no more than `PUSH_PAIRS`
  * table and zone pairs, only the zones the tables' whole box meets at each place tried, and gives up
  * past that.
  */
@@ -2644,7 +2643,7 @@ export function offZones(
           xMm: corner.xMm + by.dxMm,
           yMm: corner.yMm + by.dyMm,
         }));
-        if (shapesOverlap(moved, zoneShapes[j])) met.push([i, j]);
+        if (shapesOverlap(moved, zoneShapes[j], TOUCHING_A_ZONE_MM)) met.push([i, j]);
       });
     });
     return met;

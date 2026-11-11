@@ -14,6 +14,7 @@ import { computed } from 'vue';
 import type { SectionObject, TableTypeObject } from '@/assets/types/datatypes';
 import AppDialog from '@/components/AppDialog.vue';
 import {
+  MAX_FILL_AISLE_CM,
   MAX_FILL_TABLES,
   aisleMmOf,
   areaSaid,
@@ -50,16 +51,22 @@ const countError = computed(() =>
     ? `Type a whole number of tables, 1 to ${MAX_FILL_TABLES}.`
     : '',
 );
+const aisleMm = computed(() => aisleMmOf(fillChoices.aisleCm));
+const aisleError = computed(() =>
+  aisleMm.value === null
+    ? `Type the aisle's width in centimetres, 0 to ${MAX_FILL_AISLE_CM.toLocaleString('en')}.`
+    : '',
+);
 const areaText = computed(() =>
   inView.value || !props.area ? 'What is in view' : areaSaid(props.area),
 );
 
 function fill() {
-  if (props.busy || countError.value) return;
+  if (props.busy || countError.value || aisleMm.value === null) return;
   emit('fill', {
     count: fillChoices.howMany === 'fit' ? null : count.value,
     direction: fillChoices.direction,
-    aisleMm: aisleMmOf(fillChoices.aisleCm),
+    aisleMm: aisleMm.value,
   });
 }
 </script>
@@ -70,7 +77,7 @@ function fill() {
     title="Fill an area"
     testid="layout-fill"
     :confirm-label="busy ? 'Placing…' : 'Fill'"
-    :confirm-disabled="busy || !!countError"
+    :confirm-disabled="busy || !!countError || !!aisleError"
     :close-disabled="busy"
     :error="error"
     @close="emit('close')"
@@ -172,8 +179,18 @@ function fill() {
             inputmode="decimal"
             autocomplete="off"
             :disabled="busy"
+            :aria-invalid="!!aisleError"
+            :aria-describedby="aisleError ? 'layout-fill-aisle-error' : undefined"
             data-testid="layout-fill-aisle"
           />
+          <span
+            v-if="aisleError"
+            id="layout-fill-aisle-error"
+            class="fill-error"
+            role="alert"
+            data-testid="layout-fill-aisle-error"
+            >{{ aisleError }}</span
+          >
         </label>
       </div>
       <label class="fill-choice">

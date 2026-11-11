@@ -215,7 +215,7 @@ describe('a no-table zone in the model', () => {
     const editor = useLayoutEditor({
       save: (layout) =>
         new Promise((resolve) => {
-          answer = () => resolve({ floorplan: { ...layout, revision: 4 }, sections: [] });
+          answer = () => resolve({ floorplan: { ...layout, revision: 4 } });
         }),
       newId: () => 'zone-new',
     });

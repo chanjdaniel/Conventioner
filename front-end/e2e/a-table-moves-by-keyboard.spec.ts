@@ -174,6 +174,26 @@ test.describe('A table moves by keyboard', () => {
     expect((await stored(request, seeded.marketId))[0].at).toEqual([5000, 5000, 0]);
   });
 
+  test('R turns the selection only while the map has the keys, never from a control beside it', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout, seeded } = await open(page, request, HALL);
+    await layout.table(GOLD_1).click();
+    await expect(layout.table(GOLD_1)).toHaveAttribute('aria-pressed', 'true');
+
+    await layout.backToSetup.focus();
+    await page.keyboard.press('r');
+    await layout.table(GOLD_1).focus();
+    await layout.saved(async () => {
+      await page.keyboard.press('r');
+      await expect(layout.announcement).toHaveText('Gold row 1 turned to 90°');
+    });
+
+    // One turn: the R pressed on "Back to Market Setup" turned nothing.
+    expect((await stored(request, seeded.marketId))[0].at).toEqual([5000, 5000, 90]);
+  });
+
   test('Escape puts a picked-up table back where it was, a wall stops it, and nothing of it is saved', async ({
     authenticatedPage: page,
     request,

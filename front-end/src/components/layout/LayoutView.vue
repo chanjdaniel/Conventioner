@@ -54,6 +54,9 @@ import { metresAcross, pxPerMm, type Point } from './calibration';
 import {
   NO_TABLE_FITS,
   saidAdded,
+  saidArranged,
+  saidRetyped,
+  saidSectioned,
   saidRemoved,
   saidRowAdded,
   saidTurned,
@@ -346,6 +349,21 @@ function turnTheSelection() {
 function arrangeSelection(how: Arrangement) {
   if (how === 'across' || how === 'down') editor.distribute(editor.selection.value, how);
   else editor.align(editor.selection.value, how);
+  say(saidArranged(tablesOf(editor.selection.value), how));
+}
+
+function sectionSelection(sectionId: string | null) {
+  const before = tablesOf(editor.selection.value);
+  editor.setSection(editor.selection.value, sectionId);
+  const section = market.value?.setupObject?.sections.find((one) => one.id === sectionId);
+  say(saidSectioned(before, section?.name ?? null, sections.value));
+}
+
+function typeSelection(tableTypeId: string) {
+  const before = tablesOf(editor.selection.value);
+  editor.setType(editor.selection.value, tableTypeId);
+  const type = tableTypes.value.find((one) => one.id === tableTypeId);
+  if (type) say(saidRetyped(before, type.name, sections.value));
 }
 
 function removeSelection() {
@@ -774,8 +792,8 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
               @remove="removeSelection"
               @duplicate="duplicateSelection"
               @arrange="arrangeSelection"
-              @section="editor.setSection(editor.selection.value, $event)"
-              @type="editor.setType(editor.selection.value, $event)"
+              @section="sectionSelection"
+              @type="typeSelection"
               @row="rowOnFromTheSelection"
             />
             <LayoutPanelSections
@@ -794,7 +812,6 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
               class="layout-card"
               :tableTypes="tableTypes"
               :counts="typeCounts"
-              :editable="editing"
               :save="writeTableTypes"
               :listSaved="listSaved"
               :saveAs="saveTheseTypes"

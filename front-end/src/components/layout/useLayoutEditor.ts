@@ -65,11 +65,11 @@ import { SAVE_FAILED, STALE_LAYOUT, type SavedLayout } from './layoutSave';
 import { MAX_LAYOUT_TABLES } from './layoutRow';
 
 /** How many steps undo holds. */
-export const UNDO_STEPS = 200;
+const UNDO_STEPS = 200;
 /** How many no-table zones a layout holds, as the server bounds them. */
 export const MAX_ZONES = 100;
 /** The smallest side a no-table zone is drawn with: smaller is a slip of the pointer. */
-export const MIN_ZONE_SIDE_MM = 100;
+const MIN_ZONE_SIDE_MM = 100;
 /**
  * How the layout's saves stand: `idle` with nothing to say, `saving` while a change waits or a
  * write is out, `saved` just after one landed, `failed` when one did not (Retry), `stale` when the
@@ -640,7 +640,7 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
   function renumber(sectionId: string) {
     change((tables) => {
       const own = tables.filter((table) => table.sectionId === sectionId);
-      const order = readingOrder(own, (table) => tableBounds(table, sizeOf(table)));
+      const order = readingOrder(own, (table) => sizeOf(table).depthMm);
       const numbers = new Map(order.map((table, index) => [table.id, index + 1]));
       if (own.every((table) => table.number === numbers.get(table.id))) return tables;
       return tables.map((table) => {

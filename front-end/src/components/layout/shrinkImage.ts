@@ -11,7 +11,7 @@
 /** The upload's limit, the server's `MAX_UPLOAD_BYTES`. */
 export const MAX_UPLOAD_BYTES = 4_000_000;
 /** The longest side a shrunk image keeps; a floorplan needs no more to be drawn sharp. */
-export const MAX_SIDE_PX = 8_000;
+const MAX_SIDE_PX = 8_000;
 /** Below this the plan could no longer be read, so the image is refused instead. */
 const MIN_SIDE_PX = 500;
 const QUALITIES = [0.9, 0.8];
@@ -32,7 +32,7 @@ export type ImageCodec = (file: Blob) => Promise<OpenedImage>;
 export class ImageTooLarge extends Error {}
 
 /** The browser's own codec: a bitmap drawn on a canvas, encoded by `toBlob`. */
-export const browserCodec: ImageCodec = async (file) => {
+const browserCodec: ImageCodec = async (file) => {
   const bitmap = await createImageBitmap(file);
   return {
     width: bitmap.width,
