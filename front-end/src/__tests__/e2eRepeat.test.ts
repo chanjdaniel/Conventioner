@@ -4,11 +4,17 @@
  * spec files the PR changed, never a helper or a deleted file, and run them as often as fits a
  * budget of time without dropping below two runs.
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
   changedSpecFiles,
   duration,
+  estimateSeconds,
+  firstRunArgs,
+  firstRunOutcome,
   MAX_REPEATS,
   MIN_REPEATS,
   REPEAT_BUDGET_SECONDS,
@@ -16,6 +22,7 @@ import {
   repeatsAfter,
   repeatsFor,
 } from '../../scripts/e2e-repeat';
+import { defaultSeconds, type Timings } from '../../scripts/e2e-shards';
 
 const LISTED = ['a.spec.ts', 'b.spec.ts', 'floorplan/c.spec.ts', 'the-tables.spec.ts'];
 
@@ -96,13 +103,60 @@ describe('repeatsAfter', () => {
   });
 
   it('runs files heavier than the budget once more, so they run twice in all', () => {
-    expect(repeatsAfter(REPEAT_BUDGET_SECONDS * 1.5)).toBe(MIN_REPEATS - 1);
+    expect(repeatsAfter(REPEAT_BUDGET_SECONDS + 1)).toBe(MIN_REPEATS - 1);
     expect(repeatsAfter(REPEAT_LIMIT_SECONDS)).toBe(MIN_REPEATS - 1);
   });
 
   it('runs no more once the first run took past the limit', () => {
     expect(repeatsAfter(REPEAT_LIMIT_SECONDS + 1)).toBe(0);
     expect(repeatsAfter(REPEAT_LIMIT_SECONDS * 4)).toBe(0);
+  });
+});
+
+describe('the first run', () => {
+  const timings = JSON.parse(
+    readFileSync(resolve(process.cwd(), 'scripts', 'e2e-shard-timings.json'), 'utf8'),
+  ) as Timings;
+  const heaviest = Object.entries(timings)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 10);
+
+  it('is estimated by the timings, a renamed file weighing the median, so moved heavy files pass the check', () => {
+    const fallback = defaultSeconds(Object.keys(timings), timings);
+    const renamed = heaviest.map(([file]) => `moved/${file}`);
+    const real = heaviest.reduce((sum, [, seconds]) => sum + seconds, 0);
+    expect(estimateSeconds(renamed, timings, fallback)).toBeCloseTo(10 * fallback);
+    expect(estimateSeconds(renamed, timings, fallback)).toBeLessThan(REPEAT_LIMIT_SECONDS);
+    expect(real).toBeGreaterThan(2 * REPEAT_LIMIT_SECONDS);
+  });
+
+  it('is cut at the limit, whatever the estimate said', () => {
+    expect(firstRunArgs(['a.spec.ts'], [])).toContain(
+      `--global-timeout=${REPEAT_LIMIT_SECONDS * 1000}`,
+    );
+    expect(firstRunArgs(['a.spec.ts'], [])).toContain('--repeat-each=1');
+  });
+
+  const timedOut = { errors: [{ message: 'Timed out waiting 900s for the test suite to run' }] };
+
+  it('passes when every test passed', () => {
+    expect(firstRunOutcome(0, { stats: { unexpected: 0, flaky: 0 }, errors: [] })).toBe('passed');
+  });
+
+  it('reads a run cut at the limit with no failed test as timed out', () => {
+    expect(firstRunOutcome(1, { stats: { unexpected: 0, flaky: 0 }, ...timedOut })).toBe(
+      'timed out',
+    );
+  });
+
+  it('fails a run cut at the limit after a test failed', () => {
+    expect(firstRunOutcome(1, { stats: { unexpected: 1, flaky: 0 }, ...timedOut })).toBe('failed');
+  });
+
+  it('fails a run that failed with no timeout, or left no report', () => {
+    expect(firstRunOutcome(1, { stats: { unexpected: 1, flaky: 0 }, errors: [] })).toBe('failed');
+    expect(firstRunOutcome(1, { stats: { unexpected: 0, flaky: 0 }, errors: [] })).toBe('failed');
+    expect(firstRunOutcome(1, undefined)).toBe('failed');
   });
 });
 

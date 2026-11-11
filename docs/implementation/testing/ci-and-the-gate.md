@@ -136,8 +136,9 @@ The `e2e-repeat` job runs [`front-end/scripts/e2e-repeat.ts`](../../../front-end
 The checkout fetches two commits of history for that parent.
 Every file runs the same number of times (`--repeat-each`), with `--retries=0` and `--trace=retain-on-failure`, on one stack, so any failed run fails the job: as many times as fit 10 minutes of tests, at least 2 and at most 5; five runs catch a spec failing one run in three 87% of the time.
 **The files run once first, and that run's time decides how many more follow**, so a new file, which has no timing yet, is bounded by what it really takes rather than by a guess: a first run of 3 minutes gets two more, one past 5 minutes one more, one past 15 minutes none.
-Before anything runs, [the timings](#the-e2e-shards) (a new file weighing their median) decide only whether the files are too many to run at all: past 15 minutes a run, as on a change that sweeps through the suite, none runs and the job passes with a warning annotation, since its shards have still run each file once.
-So the tests take at most twice 15 minutes, and the job's `timeout-minutes: 40` covers that and its setup; a first run past the limit passes with the same warning, as its shards have run it once too.
+Before anything runs, [the timings](#the-e2e-shards) (a file with no timing, new or renamed, weighing their median) decide only whether the files are too many to run at all: past 15 minutes a run, as on a change that sweeps through the suite, none runs and the job passes with a warning annotation, since its shards have still run each file once.
+**The first run is cut at 15 minutes** (Playwright's `--global-timeout`), so files the timings misjudge, such as heavy spec files a pull request moves, never hold the runner past it: a run cut there with no test failed passes with the same warning, read from its JSON report, and one with a failed test fails the job.
+So the tests take at most twice 15 minutes, and the job's `timeout-minutes: 40` covers that and its setup.
 
 ## The bundle budget
 
