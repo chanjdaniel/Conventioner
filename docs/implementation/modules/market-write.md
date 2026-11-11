@@ -172,7 +172,7 @@ Every other write to the markets collection is a permanent exception, listed in 
 
 ## The guard
 
-[`back-end/tests/test_every_market_write_holds_what_it_read.py`](../../../back-end/tests/test_every_market_write_holds_what_it_read.py) walks every `.py` file under `back-end/` by AST, but `tests/`, hidden directories and installed packages (a virtual environment kept there).
+[`back-end/tests/test_every_market_write_holds_what_it_read.py`](../../../back-end/tests/test_every_market_write_holds_what_it_read.py) walks every `.py` file under `back-end/` by AST, skipping `tests/`, hidden directories and installed packages (a virtual environment kept there).
 It finds each call of `insert_one`, `insert_many`, `update_one`, `update_many`, `replace_one`, `find_one_and_update`, `find_one_and_replace`, `delete_one`, `delete_many` or `bulk_write` whose receiver is the markets collection: a name or attribute ending in `markets_collection` or `markets`, or a subscript of `"markets"` or `MARKETS_COLLECTION`.
 Each must be in `market_write.py` or in `EXCEPTIONS`, keyed by module and function.
 A receiver the walk cannot name (a call's result, a subscript of a variable) may be the markets collection too, so it fails naming its file and line until it is listed the same way.
