@@ -317,13 +317,10 @@ const ends = computed<Point[]>(() => (line.value ? [line.value.start, line.value
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-card);
   cursor: crosshair;
+  /* A drag on it draws the line, never scrolls the page. Its focus is the app's soft halo, as any
+     keyboard stop's that is no button (primitives.css). */
   touch-action: none;
   user-select: none;
-}
-
-.calibration-map:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
 }
 
 .calibration-map--busy {
