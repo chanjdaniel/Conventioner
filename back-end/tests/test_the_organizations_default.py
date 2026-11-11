@@ -51,10 +51,8 @@ class FakeOrganizations:
         return mongo_project(copy.deepcopy(self.doc), projection)
 
     def find(self, query):
-        """The organizations list's ``$or`` of owner, admins and members, the one ``find`` sent."""
-        user_id = query["$or"][0]["owner"]
-        people = [self.doc["owner"], *self.doc["admins"], *self.doc["members"]]
-        return [copy.deepcopy(self.doc)] if user_id in people else []
+        """The organizations list's filter, answered as the server does."""
+        return [copy.deepcopy(self.doc)] if mongo_matches(self.doc, query) else []
 
     def update_one(self, query, update):
         if not mongo_matches(self.doc, query):
@@ -177,8 +175,11 @@ class TestTheOrganizationsDefault:
 
     def test_the_organizations_list_carries_its_default_table(self, world):
         OrgsApi.set_default_permission(ORG_ID, "check-in", "admin", ORG_ADMIN)
+        # The list finds a person's organizations by a dotted path of their id, which never holds
+        # a dot as these addresses do: a reader whose id has none.
+        world.organizations.doc["members"].append("a-member")
 
-        [listed] = OrgsApi.get_organizations_for_user(ORG_MEMBER)
+        [listed] = OrgsApi.get_organizations_for_user("a-member")
 
         assert row(listed["defaultPermissionTable"], "check-in")["role"] == "admin"
 

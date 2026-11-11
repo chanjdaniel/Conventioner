@@ -11,8 +11,10 @@ from client_errors import BadRequestError, ConflictError, ForbiddenError, NotFou
 from datatypes import (
     MarketPhase,
     MarketRole,
+    OrganizationRole,
     intake_mode_from_market_document,
     market_name_slug,
+    organization_people_of,
     phase_from_market_document,
     phase_label,
 )
@@ -21,6 +23,7 @@ from market_documents import market_doc_field, market_doc_filter, market_doc_key
 import deletion_trail as DeletionTrail
 import history as History
 import market_deletion as MarketDeletion
+import organization_people as OrganizationPeople
 import phase_record as PhaseRecord
 import api.attendance as AttendanceApi
 import api.users as UsersApi
@@ -48,6 +51,8 @@ def create_organization(owner_email: str, name: str) -> str:
     org_dict = {
         "id": org_id,
         "name": name,
+        # Its people as one map (T283, ADR 0025), the lists beside it its mirror for one release.
+        "people": {owner_id: OrganizationRole.OWNER.value},
         "owner": owner_id,
         "admins": [],
         "members": [],
@@ -89,7 +94,8 @@ def _what_removing_takes(org: Dict[str, Any]) -> Dict[str, Any]:
     held = Counter(
         user_id for document in documents for user_id in (market_doc_field(document, "roles") or {})
     )
-    people = [*org.get("admins", []), *org.get("members", [])]
+    people = [user_id for user_id, place in organization_people_of(org).items()
+              if place != OrganizationRole.OWNER]
     return {
         "marketCount": len(documents),
         "marketsWithOwnRole": {user_id: held[user_id] for user_id in people if held[user_id]},
@@ -111,16 +117,15 @@ def organization_documents_of(user_id: str) -> List[Dict[str, Any]]:
     The Markets list reads these alone: it needs an organization's id, name, people and rows, never
     the people's addresses or what removing them takes, which ``get_organizations_for_user`` adds.
     """
-    orgs = list(organizations_collection.find({
-        "$or": [
-            {"owner": user_id},
-            {"admins": user_id},
-            {"members": user_id}
-        ]
-    }))
+    orgs = list(organizations_collection.find(OrganizationPeople.of_person(user_id)))
     for org in orgs:
         org['_id'] = str(org['_id'])
     return orgs
+
+
+def _placed(people: Dict[str, Any], place: OrganizationRole) -> List[str]:
+    """The ids holding ``place`` in the map, in the map's order."""
+    return [user_id for user_id, held in people.items() if held == place]
 
 
 def get_organizations_for_user(user_email: str) -> List[Dict[str, Any]]:
@@ -128,21 +133,26 @@ def get_organizations_for_user(user_email: str) -> List[Dict[str, Any]]:
 
     Every owner, admin and member of all of them is read in one ``get_users_by_ids`` (T204), never
     one account at a time: the Organizations page and Manage organization make this read on open.
+
+    Each is served with ``owner``, ``admins`` and ``members`` derived from its people map, in the
+    map's order, whatever its stored lists hold (T283): a member made an admin is listed once.
     """
     user = UsersApi.get_user(user_email)
     if not user:
         return []
     user_id = user.id
     orgs = organization_documents_of(user_id)
+    people_of = {org["id"]: organization_people_of(org) for org in orgs}
     accounts = UsersApi.get_users_by_ids(
-        person_id
-        for org in orgs
-        for person_id in [org.get("owner"), *org.get("admins", []), *org.get("members", [])]
-        if person_id
-    )
+        person_id for people in people_of.values() for person_id in people)
 
     result = []
     for org in orgs:
+        people = people_of[org["id"]]
+        owners = _placed(people, OrganizationRole.OWNER)
+        org["owner"] = owners[0] if owners else None
+        org["admins"] = _placed(people, OrganizationRole.ADMIN)
+        org["members"] = _placed(people, OrganizationRole.MEMBER)
         owner = accounts.get(org.get("owner"))
         if owner:
             org["ownerEmail"] = owner.email
@@ -157,15 +167,7 @@ def get_organizations_for_user(user_email: str) -> List[Dict[str, Any]]:
         org["defaultPermissionTable"] = Actions.default_table(org.get(DEFAULT_PERMISSIONS))
         org.update(_what_removing_takes(org))
         # Add user's role so frontend can show Manage button for owner/admin
-        if org.get("owner") == user_id:
-            org["userRole"] = "owner"
-            org["user_role"] = "owner"
-        elif user_id in org.get("admins", []):
-            org["userRole"] = "admin"
-            org["user_role"] = "admin"
-        else:
-            org["userRole"] = "member"
-            org["user_role"] = "member"
+        org["userRole"] = org["user_role"] = _role_in(org, user_id) or "member"
         result.append(org)
     
     return result
@@ -184,7 +186,7 @@ def update_organization(org_id: str, requesting_user_email: str, name: str) -> U
     requesting_user = UsersApi.get_user(requesting_user_email)
     if not requesting_user:
         raise ForbiddenError("User not found")
-    if org.get("owner") != requesting_user.id:
+    if _role_in(org, requesting_user.id) != OrganizationRole.OWNER:
         raise ForbiddenError("Only organization owner can update organization")
     
     result = organizations_collection.update_one(
@@ -202,17 +204,11 @@ def update_organization(org_id: str, requesting_user_email: str, name: str) -> U
 
 
 def _role_in(org: Dict[str, Any], user_id: str) -> Optional[str]:
-    """The person's place in the organization: ``owner``, ``admin``, ``member``, or None.
-
-    An admin made from a member stays in ``members`` too, so ``admins`` is asked first.
-    """
-    if org.get("owner") == user_id:
-        return "owner"
-    if user_id in org.get("admins", []):
-        return "admin"
-    if user_id in org.get("members", []):
-        return "member"
-    return None
+    """The person's place in the organization: ``owner``, ``admin``, ``member``, or None, read
+    from its people map, or its old lists folded when it has none (T283)."""
+    place = organization_people_of(org).get(user_id)
+    return place if place in (OrganizationRole.OWNER, OrganizationRole.ADMIN,
+                              OrganizationRole.MEMBER) else None
 
 
 def _record_role(
@@ -476,7 +472,7 @@ def organization_deletion_preview(org_id: str, requesting_user_email: str) -> Di
     requesting_user = UsersApi.get_user(requesting_user_email)
     if not requesting_user:
         raise ForbiddenError("User not found")
-    if org.get("owner") != requesting_user.id:
+    if _role_in(org, requesting_user.id) != OrganizationRole.OWNER:
         raise ForbiddenError("Only organization owner can delete organization")
 
     summaries = [
@@ -554,6 +550,24 @@ def delete_organization(org_id: str, requesting_user_email: str) -> DeleteResult
     return organizations_collection.delete_one({"id": org_id})
 
 
+def _keep_the_map_in_step(org: Dict[str, Any], places: Dict[str, Optional[str]]) -> None:
+    """Write these places, user id to place or None for none, into the organization's people map
+    when it has one, after a write of its lists: the map is what every reader reads (T283).
+
+    A stopgap, until ``organization_people`` writes the map and its mirror of lists in one write
+    holding what it judged (T283's ticket 02). An organization stored before the map has none to
+    keep, and is read from its lists.
+    """
+    if "people" not in org:
+        return
+    set_places = {OrganizationPeople.people_key(user_id): place
+                  for user_id, place in places.items() if place}
+    unset_places = {OrganizationPeople.people_key(user_id): ""
+                    for user_id, place in places.items() if not place}
+    update = {key: value for key, value in (("$set", set_places), ("$unset", unset_places)) if value}
+    organizations_collection.update_one({"id": org["id"], "people": {"$exists": True}}, update)
+
+
 def add_org_admin(org_id: str, user_email: str, requesting_user_email: str) -> bool:
     """Add a user as admin to organization. Only owner can add admins."""
     org = organizations_collection.find_one({"id": org_id})
@@ -577,7 +591,8 @@ def add_org_admin(org_id: str, user_email: str, requesting_user_email: str) -> b
         {"id": org_id},
         {"$addToSet": {"admins": user.id}}
     )
-    
+    _keep_the_map_in_step(org, {user.id: OrganizationRole.ADMIN.value})
+
     users_collection.update_one(
         {"id": user.id},
         {"$addToSet": {"organizations": org_id}}
@@ -617,7 +632,8 @@ def add_org_member(org_id: str, user_email: str, requesting_user_email: str) -> 
         {"id": org_id},
         {"$addToSet": {"members": user.id}}
     )
-    
+    _keep_the_map_in_step(org, {user.id: OrganizationRole.MEMBER.value})
+
     users_collection.update_one(
         {"id": user.id},
         {"$addToSet": {"organizations": org_id}}
@@ -674,6 +690,7 @@ def remove_org_user(org_id: str, user_id: str, requesting_user_email: str) -> No
     # Nothing pulled: someone else removed them between the read and these writes.
     if not removed:
         raise NotFoundError(NO_LONGER_IN_THE_ORGANIZATION)
+    _keep_the_map_in_step(org, {user_id: None})
 
     users_collection.update_one(
         {"id": user_id},
@@ -723,7 +740,9 @@ def transfer_org_ownership(org_id: str, current_owner_email: str, new_owner_emai
         {"id": org_id},
         {"$set": {"owner": new_owner.id}}
     )
-    
+    _keep_the_map_in_step(org, {
+        new_owner.id: OrganizationRole.OWNER.value, current_owner.id: OrganizationRole.ADMIN.value})
+
     users_collection.update_one(
         {"id": new_owner.id},
         {"$addToSet": {"organizations": org_id}}

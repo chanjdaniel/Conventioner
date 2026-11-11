@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import sessions_load_through_get_user, skip_without_real_dependencies
+from conftest import mongo_matches, sessions_load_through_get_user, skip_without_real_dependencies
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -51,18 +51,22 @@ class FakeOrganizationsCollection:
         self.updates = []
 
     def find(self, query):
-        owner = query.get("owner")
-        return [dict(doc) for doc in self.docs if doc.get("owner") == owner]
+        return [dict(doc) for doc in self.docs if mongo_matches(doc, query)]
 
     def update_many(self, query, update):
         self.updates.append((query, update))
         return SimpleNamespace(modified_count=0)
 
 
+def _id_of(email):
+    """An account's id, which never holds a dot, as an id read by a dotted path may not."""
+    return f"id-{email.split('@')[0]}"
+
+
 def _user(email, verified=True, user_id=None):
     return {
         "email": email,
-        "id": user_id or f"id-{email}",
+        "id": user_id or _id_of(email),
         "email_verified": verified,
         "organizations": [],
     }
@@ -100,7 +104,7 @@ def client(monkeypatch, organizations):
     monkeypatch.setattr(
         UsersApi, "get_user",
         lambda email: SimpleNamespace(
-            id=f"id-{email}", email=email, is_active=True, is_authenticated=True,
+            id=_id_of(email), email=email, is_active=True, is_authenticated=True,
             is_anonymous=False, get_id=lambda: email,
         ),
     )
