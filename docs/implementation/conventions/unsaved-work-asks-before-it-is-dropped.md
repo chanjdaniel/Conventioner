@@ -9,8 +9,7 @@ describes:
   - front-end/src/__tests__/theImportAsksBeforeItDropsAMapping.test.ts
   - front-end/e2e/the-import-asks-before-it-drops-a-mapping.spec.ts
   - front-end/src/__tests__/theFloorplanAsksBeforeItDropsADrawing.test.ts
-  - front-end/e2e/the-floorplan-asks-before-it-drops-a-drawing.spec.ts
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - T271
   - T244
@@ -68,7 +67,7 @@ Market Setup's plan asks on unload alone ([the plan's autosave](../modules/plan-
 - [`theImportAsksBeforeItDropsAMapping.test.ts`](../../../front-end/src/__tests__/theImportAsksBeforeItDropsAMapping.test.ts) reads the import's guards and `beforeunload` at each step: none on Upload, on the done step, while an import runs or after the import's own Back; the question on Map columns, on Preview, after a failed import and on a jump to another market's import; none on a move to `login`.
   [`the-import-asks-before-it-drops-a-mapping.spec.ts`](../../../front-end/e2e/the-import-asks-before-it-drops-a-mapping.spec.ts) walks it in a browser: a tab, "Cancel import", Back and the app bar asking, Stay keeping the mapping and the values settled, Leave going and writing nothing, the browser's question on a reload, and Upload, an import running and the done step leaving without a question.
 - [`theFloorplanAsksBeforeItDropsADrawing.test.ts`](../../../front-end/src/__tests__/theFloorplanAsksBeforeItDropsADrawing.test.ts) reads the wizard's guards and `beforeunload`: none before an upload, the question in the floorplan's words from the upload to the save step, none once saved or once the wizard is gone.
-  [`the-floorplan-asks-before-it-drops-a-drawing.spec.ts`](../../../front-end/e2e/the-floorplan-asks-before-it-drops-a-drawing.spec.ts) walks it in a browser: a market tab leaving freely before an upload and asking after one, Stay keeping the upload, Back and the app bar asking on a later step while the wizard's own Back does not, Leave going with nothing saved, the browser's question on a reload after an upload and none before, and the save going to Market Setup with no question.
+  No spec walks it in a browser any more: the wizard's address lands on a location's layout page (T257), so nothing reaches the wizard until it is removed.
 - [`unsaved-questions-ask-first.spec.ts`](../../../front-end/e2e/unsaved-questions-ask-first.spec.ts) walks the form builder in a browser: the question on a tab with focus on Stay and `expectAccessible`, each way of staying and Leave, the steps and a saved form asking nothing, Back asking, the browser's own question on a reload, Sign out never stopping on it, the move refused, and "Ask this" saving only its choice.
 
 ## What breaks it

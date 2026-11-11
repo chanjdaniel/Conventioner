@@ -451,9 +451,10 @@ const handleAssign = async () => {
 };
 
 /** A location's layout, opened from Section Setup (T257): the plan's pending edits land first, so a
- * location just added or renamed is the server's when its layout starts. */
+ * location just added or renamed is the server's when its layout starts. One that did not land
+ * keeps the organizer here, where the status line says why. */
 async function openLayout(locationId: string): Promise<void> {
-  await flushPlanSave();
+  if ((await flushPlan()) !== null) return;
   void router.push(layoutPath(marketId.value, locationId));
 }
 </script>
