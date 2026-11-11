@@ -275,7 +275,7 @@ def _rename(client, world):
 def _plan(changes: Dict[str, Any], intake: Optional[str] = None):
     def send(client, world):
         world.market(MarketPhase.DRAFT, setupObject=COMPLETE_PLAN, intakeMode="csv")
-        body = {"setupObject": {**COMPLETE_PLAN, **changes}}
+        body = {"planRevision": 0, "setupObject": {**COMPLETE_PLAN, **changes}}
         if intake:
             body["intakeMode"] = intake
         return client.put(f"/markets/{MARKET}/plan", json=body)

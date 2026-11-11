@@ -149,12 +149,14 @@ def seed_test_market(test_market: TestMarket, organization_id: str, owner: User,
     if not Actions.may(Actions.MOVE_PHASE, owner.email, context.market, context.organization):
         raise SeedError(f"{owner.email} may not move {test_market.name!r}.")
 
+    # Each from the revision the market was read at, as Market Setup and the form tab save (T274):
+    # a draft seeded before has its plan and its questions written once more, never over a save
+    # made since.
     MarketsApi.save_plan(market_id, {
         "setupObject": test_plan(today),
         "intakeMode": test_market.intake_mode.value,
+        "planRevision": context.market.plan_revision,
     }, owner.email)
-    # From the revision the market was read at, as the form tab saves (T274): a draft seeded before
-    # keeps its questions written once more, never over a save made since.
     MarketsApi.save_application_form(market_id, {
         "fields": TEST_FORM_FIELDS, "form_revision": context.market.form_revision,
     }, owner.email)

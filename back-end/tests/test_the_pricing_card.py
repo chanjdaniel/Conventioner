@@ -17,6 +17,7 @@ import history as History
 import pricing as Pricing
 from client_errors import BadRequestError
 from datatypes import MarketPhase, MarketTableRow, PricingObject
+import market_write as MarketWrite
 
 GOLD_AND_SILVER = {
     **COMPLETE_PLAN,
@@ -94,6 +95,7 @@ def market(monkeypatch):
             plan["pricing"] = copy.deepcopy(pricing)
         fake = FakeMarketsCollection(stored_market(phase=phase, setupObject=plan))
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(MarketWrite, "markets_collection", fake)
         return fake
 
     return at
@@ -102,7 +104,7 @@ def market(monkeypatch):
 def _with(pricing):
     plan = copy.deepcopy(GOLD_AND_SILVER)
     plan["pricing"] = pricing
-    return {"setupObject": plan}
+    return {"planRevision": 0, "setupObject": plan}
 
 
 class TestThePlanWrite:
@@ -116,7 +118,7 @@ class TestThePlanWrite:
     def test_a_plan_without_pricing_stays_without(self, market):
         collection = market()
 
-        MarketsApi.save_plan("market-123", {"setupObject": GOLD_AND_SILVER}, "user-1")
+        MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": GOLD_AND_SILVER}, "user-1")
 
         assert collection.last_update["$set"]["setupObject"]["pricing"] is None
 

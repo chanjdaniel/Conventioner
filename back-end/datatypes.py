@@ -633,6 +633,11 @@ class Market(BaseModel):
     # replace each other's questions (``write_application_form``). Server-owned: counted by the form
     # write and the CSV start, never taken from a body. Absent reads as 0.
     form_revision: int = 0
+    # How many times the plan was written (T274): a plan save carries the revision its copy was read
+    # at and is refused when the stored one moved, so two people planning one market never erase
+    # each other's edits (``save_plan``). Server-owned: counted by every writer of ``setup_object``
+    # (the plan write, the CSV start, the floorplan save), never taken from a body. Absent reads as 0.
+    plan_revision: int = 0
     # Who reviews this market's applications, and whose turn the next arrival is (E38/F07/S02,
     # ADR 0020). Server-owned: only ``review_team.py`` writes it, never a market update body. Absent
     # is no reviewers chosen: first come, first served, as before it existed.
@@ -1373,6 +1378,7 @@ class DiscordConnectionContract(ContractModel):
 class MarketSchemaContract(ContractModel):
     application_form: Optional[ApplicationFormContract] = None
     form_revision: Optional[int] = None
+    plan_revision: Optional[int] = None
     discord: Optional[DiscordConnectionContract] = None
     discord_vendors: Optional[List[ServedDiscordVendorContract]] = None
     example_columns: Optional[List[ExampleColumnContract]] = None

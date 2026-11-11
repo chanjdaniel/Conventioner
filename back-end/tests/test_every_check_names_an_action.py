@@ -153,7 +153,7 @@ class TestARefusalIsASentence:
 EACH_LOAD_ASKS = [
     (lambda: MarketsApi.rename_market("market-123", "Spring Market", "u@x.test"),
      Actions.CHANGE_SETUP),
-    (lambda: MarketsApi.save_plan("market-123", {"setupObject": {}}, "u@x.test"),
+    (lambda: MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": {}}, "u@x.test"),
      Actions.CHANGE_SETUP),
     (lambda: MarketsApi.save_application_form("market-123", {}, "u@x.test"), Actions.CHANGE_FORM),
     (lambda: MarketsApi.save_review_highlights("market-123", [], "u@x.test"), Actions.CHANGE_FORM),
@@ -261,15 +261,16 @@ class TestThePlanWrite:
         stored = stored_market(MarketPhase.DRAFT, setupObject=COMPLETE_PLAN)
         monkeypatch.setattr(MarketsApi, "_load_market_and_organization_to_change", lambda *_a: (
             MarketsApi.LoadedMarket(MarketsApi.market_from_document(stored), None)))
-        monkeypatch.setattr(
-            MarketsApi, "markets_collection", SimpleNamespace(update_one=lambda *_a, **_k: None))
+        # No markets collection here, so the write itself is stubbed: what is asked is the test.
+        monkeypatch.setattr(MarketsApi, "write_market",
+                            lambda *_a, **_k: MarketWrite.Written({"planRevision": 1}))
         monkeypatch.setattr(Actions, "refusal", lambda action, *_a: rows.append(action))
         return stored, rows
 
     def test_restating_the_rules_does_not_ask_the_assignment_row(self, asked):
         stored, rows = asked
 
-        MarketsApi.save_plan("market-123", {"setupObject": stored["setupObject"]}, "u@x.test")
+        MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": stored["setupObject"]}, "u@x.test")
 
         assert rows == []
 
@@ -278,7 +279,7 @@ class TestThePlanWrite:
         plan = {**stored["setupObject"], "assignmentOptions": {
             "maxAssignmentsPerVendor": 1, "maxHalfTableProportionPerSection": None}}
 
-        MarketsApi.save_plan("market-123", {"setupObject": plan}, "u@x.test")
+        MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": plan}, "u@x.test")
 
         assert rows == [Actions.ASSIGN]
 

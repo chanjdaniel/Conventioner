@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import sessions_load_through_get_user, skip_without_real_dependencies
+from conftest import mongo_matches, sessions_load_through_get_user, skip_without_real_dependencies
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -29,51 +29,17 @@ CSV = "Timestamp,Email Address,Full Name\n" + "".join(
     f"1/{day}/2026 9:00:00,p{day}@mail.test,Wren Okafor{day}\n" for day in range(1, 6))
 
 
-def _field(doc, dotted):
-    for part in dotted.split("."):
-        if not isinstance(doc, dict) or part not in doc:
-            return _MISSING
-        doc = doc[part]
-    return doc
-
-
-_MISSING = object()
-
-
-def _matches(doc, query):
-    """The Mongo filter operators the proposal's routes use: equality, $or, $exists, $size."""
-    for key, expected in query.items():
-        if key == "$or":
-            if not any(_matches(doc, branch) for branch in expected):
-                return False
-            continue
-        if key == "$and":
-            if not all(_matches(doc, branch) for branch in expected):
-                return False
-            continue
-        value = _field(doc, key)
-        if isinstance(expected, dict) and "$exists" in expected:
-            if (value is not _MISSING) != expected["$exists"]:
-                return False
-        elif isinstance(expected, dict) and "$size" in expected:
-            if not isinstance(value, list) or len(value) != expected["$size"]:
-                return False
-        elif (None if value is _MISSING else value) != expected:
-            return False
-    return True
-
-
 class FakeMarketsCollection:
     def __init__(self, doc):
         self.doc = doc
         self.writes = []
 
     def find_one(self, query):
-        return dict(self.doc) if _matches(self.doc, query) else None
+        return dict(self.doc) if mongo_matches(self.doc, query) else None
 
     def update_one(self, query, update, **kwargs):
         self.writes.append((query, update))
-        if not _matches(self.doc, query):
+        if not mongo_matches(self.doc, query):
             return SimpleNamespace(matched_count=0, modified_count=0)
         self.doc.update(update.get("$set", {}))
         return SimpleNamespace(matched_count=1, modified_count=1)

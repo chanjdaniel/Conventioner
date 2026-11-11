@@ -105,6 +105,7 @@ export interface MarketSchema {
     source: string;
   }>;
   phase?: string;
+  planRevision?: number;
   rejectionRules?: {
     answers?: string[];
     key: string;

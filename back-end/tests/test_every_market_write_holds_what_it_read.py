@@ -61,9 +61,6 @@ EXCEPTIONS: Dict[Tuple[str, str], str] = {
     ("discord_fake", "_give"): _PERMANENT + (
         "the fake Discord's own servers, not the markets collection; the walk cannot name a "
         "receiver made by a call"),
-    # Not yet moved onto write_market.
-    ("api.markets", "save_plan"): "moves in ticket 12",
-    ("api.floorplans_save", "save_floorplan_to_market"): "moves in ticket 12",
 }
 
 _MOVES_IN = re.compile(r"moves in ticket (\d\d)")

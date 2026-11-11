@@ -972,6 +972,9 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict.update(price_facts(market))
     # And the setup's (E31/F01/S02), for Market Setup to read as settled rather than as editable.
     market_dict['setupLockReason'] = setup_lock_reason(market)
+    # And the plan's revision, which Market Setup sends back with every save (T274): a market that
+    # never stored one reads as 0, as the model does.
+    market_dict[PLAN_REVISION_KEY] = market.plan_revision
     # And why this market cannot be started from a Google Form's CSV (E24/F03): the flow and the
     # Market Setup action mirror the proposal's own refusal rather than deciding it for themselves.
     market_dict['csvStartRefusal'] = CsvProposal.refusal(market_dict)
@@ -1312,8 +1315,9 @@ def create_market(market: Market, owner_email: str) -> tuple:
     # And the review setup's two "none"s, each decided by its list's own write (T206).
     market_dict["nothing_leads_the_card"] = False
     market_dict["no_automatic_rejections"] = False
-    # And the form's revision, counted by its own writes alone.
+    # And the form's and the plan's revisions, each counted by its own writes alone.
     market_dict["form_revision"] = 0
+    market_dict["plan_revision"] = 0
     market_dict["application_form"] = (
         _normalized_application_form(market.application_form).model_dump()
         if market.application_form
@@ -2073,14 +2077,15 @@ def _what_the_move_stood_on(from_phase: str, to_phase: str) -> Tuple[str, ...]:
     requests in flight together never leave a market in the review with its results published.
     Publish results' write holds the phase the same way (``publish_results``).
 
-    Open applications judges the form as read and stamps it published, so it holds the form's
-    revision: a form save landing in its window refuses the move rather than opening a form its
-    guards never read. The move does not count the revision, since it changes no question.
+    Open applications judges the form and the plan as read and stamps the form published, so it
+    holds both revisions: a form or a plan save landing in its window refuses the move rather than
+    opening a form or a setup its guards never read, after which the setup is settled. The move
+    counts neither revision, since it changes no question and no part of the plan.
     """
     if (from_phase, to_phase) == (MarketPhase.ASSIGNMENT.value, MarketPhase.APPLICATIONS.value):
         return (market_doc_key("results_published"),)
     if (from_phase, to_phase) == (MarketPhase.DRAFT.value, MarketPhase.APPLICATIONS.value):
-        return (FORM_REVISION_KEY,)
+        return (FORM_REVISION_KEY, PLAN_REVISION_KEY)
     return ()
 
 
@@ -2664,11 +2669,17 @@ def rename_market(market_id: str, name: str, requesting_user: str) -> None:
                    detail=lambda: History.changes({"name": market.name}, {"name": name}))
 
 
-PLAN_WRITE_FIELDS = ("setupObject", "intakeMode")
+#: The stored count of the plan's writes (``Market.plan_revision``), which a plan save holds at
+#: the revision its copy was read at and counts up, and every other writer of the plan counts.
+PLAN_REVISION_KEY = market_doc_key("plan_revision")
+#: What a plan save's body that names a revision not a count is told.
+PLAN_REVISION_NOT_A_COUNT = "planRevision must be a whole number."
+PLAN_WRITE_FIELDS = ("setupObject", "intakeMode", PLAN_REVISION_KEY)
 
 
-def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> None:
-    """Write the market plan and, while the market is a draft, how vendors reach it (E21/F03/S02).
+def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> int:
+    """Write the market plan and, while the market is a draft, how vendors reach it (E21/F03/S02),
+    and answer the plan's revision now stored, for the next save.
 
     The plan's own write. It used to travel inside a PUT of the whole market, which stored the
     client's entire copy and stayed safe only by re-applying every field the server owns - added
@@ -2683,6 +2694,16 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
     not a change. Asks ``Actions.CHANGE_SETUP``, and ``Actions.ASSIGN`` too when it changes the
     assignment rules, which are that row's though they ride in the plan (E39/F01/S01,
     ``Actions.ask_assign_if_the_rules_change``).
+
+    The body carries ``planRevision``, the revision the page's copy of the plan was read at, since
+    the plan is sent whole: a copy older than the stored plan would put back whatever was saved
+    since (ADR 0024). The write holds it, the phase and ``resultsPublished`` (the rules' lock reads
+    it) as the judgment read them, so a save from an older copy, one crossing a phase move and one
+    crossing Publish results are each refused instead of stored.
+
+    Raises:
+        MarketChanged: the body names no revision, or the market changed since its copy was read.
+        BadRequestError: the plan is refused, or the revision is not a count.
     """
     extra = sorted(set(body) - set(PLAN_WRITE_FIELDS))
     if extra:
@@ -2692,10 +2713,16 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
 
     market, organization = _load_market_and_organization_to_change(
         market_id, requesting_user, Actions.CHANGE_SETUP)
+    plan_revision = _revision_in(body, PLAN_REVISION_KEY, PLAN_REVISION_NOT_A_COUNT)
     plan, update = prepared_plan(market, body)
     Actions.ask_assign_if_the_rules_change(market, plan, requesting_user, organization)
-    markets_collection.update_one(market_doc_filter("id", market_id), {"$set": update})
+    if plan_revision is _NO_REVISION:
+        raise MarketChanged(dict(document_as_read(market)))
+    written = write_market(market, {"$set": update},
+                           holds=(market_doc_key("results_published"),),
+                           revisions={PLAN_REVISION_KEY: plan_revision})
     _record_plan(market, plan, update, requesting_user)
+    return written.revisions[PLAN_REVISION_KEY]
 
 
 #: The plan's fields that are Market Setup's; the rest, ``assignment_rules``, are the Assignment row's.
@@ -3018,7 +3045,8 @@ def save_application_form(market_id: str, application_form_data: dict, requestin
     market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_FORM)
     form_data = {key: value for key, value in application_form_data.items() if key != "form_revision"}
     written = write_application_form(
-        market, form_data, _form_revision_in(application_form_data),
+        market, form_data,
+        _revision_in(application_form_data, "form_revision", FORM_REVISION_NOT_A_COUNT),
         overturns=may_overturn(requesting_user, market))
     History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.FORM,
                    detail=lambda: _with_counts(form_changes(market, written.form), written.verdicts))
@@ -3030,15 +3058,15 @@ def save_application_form(market_id: str, application_form_data: dict, requestin
 _NO_REVISION = object()
 
 
-def _form_revision_in(body: Mapping[str, Any]) -> Any:
-    """The revision a form save's body says its copy was read at, ``_NO_REVISION`` when it names
-    none (the page from before the revision existed), or a ``BadRequestError`` for one that is not
-    a count; ``True`` is refused, though Python counts it as 1."""
-    if "form_revision" not in body:
+def _revision_in(body: Mapping[str, Any], key: str, not_a_count: str) -> Any:
+    """The revision a save's body says its copy was read at, under ``key``: ``_NO_REVISION`` when
+    it names none (the page from before the revision existed), or a ``BadRequestError`` saying
+    ``not_a_count`` for one that is not a count; ``True`` is refused, though Python counts it as 1."""
+    if key not in body:
         return _NO_REVISION
-    revision = body["form_revision"]
+    revision = body[key]
     if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
-        raise BadRequestError(FORM_REVISION_NOT_A_COUNT)
+        raise BadRequestError(not_a_count)
     return revision
 
 

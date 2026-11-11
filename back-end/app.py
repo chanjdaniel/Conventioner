@@ -893,12 +893,15 @@ def rename_market(market_id: str) -> Response:
 def save_plan(market_id: str) -> Response:
     """Write the market plan, and while it is a draft how vendors reach it (E21/F03/S02).
 
-    Body: { "setupObject": {...}, "intakeMode": "csv" | "form" }. Anything else is refused by
-    name: the plan's autosave sends what the plan owns, not the whole market.
+    Body: { "setupObject": {...}, "intakeMode": "csv" | "form", "planRevision": <int> }. Anything
+    else is refused by name: the plan's autosave sends what the plan owns, not the whole market.
+    ``planRevision`` is the revision the page's copy of the plan was read at (the market read
+    serves it); a copy older than the stored plan, or a body naming none, is refused with the 409
+    ``MarketChanged``. The answer carries the revision now stored, for the next save.
     """
     data = json_object(required=True)
-    MarketsApi.save_plan(market_id, data, authenticated_email())
-    return jsonify({"message": "Plan saved"}), 200
+    revision = MarketsApi.save_plan(market_id, data, authenticated_email())
+    return jsonify({"message": "Plan saved", "planRevision": revision}), 200
 
 
 @app.route('/markets/<market_id>/discord/authorization', methods=['POST'])

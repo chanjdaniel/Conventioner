@@ -378,6 +378,12 @@ class TestCreateMarketWritesTheFormThroughTheSameContract:
 
         assert created.inserted["formRevision"] == 0
 
+    def test_a_create_body_never_sets_the_plans_revision(self, created, applications):
+        """Nor the plan's, which counts the plan's writes (T274)."""
+        MarketsApi.create_market(client_market(plan_revision=7), "user-1@example.com")
+
+        assert created.inserted["planRevision"] == 0
+
 
 class TestGetApplicationForm:
     def test_returns_camel_case_form_and_editable_state(self, markets, applications):
