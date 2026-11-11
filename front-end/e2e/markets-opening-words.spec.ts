@@ -1,5 +1,6 @@
 import type { APIRequestContext, Locator, Page, Route } from '@playwright/test';
 import { test, expect, BACKEND_URL, LoginPage, ManageMarketPage } from './fixtures';
+import { mongoEval } from './helpers/mongo';
 import { loginViaApi } from './helpers/seeds';
 import { marketSetupPath } from './helpers/marketScreens';
 import { widths } from './helpers/phoneWindow';
@@ -33,7 +34,11 @@ const WINDOWS = [
 ] as const;
 
 const PASSWORD = 'OpeningWords123!';
-/** Longer than the line holds at either window. */
+/**
+ * Longer than the line holds at either window, and longer than the 100 characters a market's name
+ * may now be: a name stored before that rule still lists, and no name within it is sure to be cut
+ * at a desk, so the test writes it onto the market as such a name is stored.
+ */
 const LONG_NAME =
   'The Riverside Spring Handmade and Vintage Market of Unusually Many Words, Held Every Year on the Old Harbour Front by the Friends of the Riverside Makers and Their Many Neighbours';
 
@@ -152,7 +157,11 @@ for (const size of WINDOWS) {
       page,
       request,
     }) => {
-      const { markets } = await organizerWith(page, request, [LONG_NAME, 'Harbour Fair']);
+      const { markets } = await organizerWith(page, request, ['Riverside Spring', 'Harbour Fair']);
+      markets[0].name = `${LONG_NAME} ${markets[0].name}`;
+      mongoEval(
+        `db.markets.updateOne({ id: ${JSON.stringify(markets[0].id)} }, { $set: { name: ${JSON.stringify(markets[0].name)} } })`,
+      );
       await remember(page, markets[0].id);
       await page.goto('/markets');
 

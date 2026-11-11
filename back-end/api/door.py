@@ -70,7 +70,7 @@ def new_door_code() -> str:
 
 def door_url(slug: str, code: str) -> str:
     """The vendor page with the code, which the QR code opens: ``<app>/<slug>?door=<code>``."""
-    return f"{frontend_url().rstrip('/')}/{quote(slug, safe='')}?door={quote(code, safe='')}"
+    return f"{frontend_url()}/{quote(slug, safe='')}?door={quote(code, safe='')}"
 
 
 def normalized_door_code(typed: str) -> str:

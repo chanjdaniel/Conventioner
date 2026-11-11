@@ -141,3 +141,24 @@ class TestALocalLinkPointsAt127001:
     def test_a_deployment_s_own_is_kept(self, monkeypatch):
         monkeypatch.setenv("FRONTEND_URL", "https://conventioner.io")
         assert frontend_url() == "https://conventioner.io"
+
+    @pytest.mark.parametrize("set_to", ["https://conventioner.io/", "  https://conventioner.io/  "])
+    def test_one_trailing_slash_makes_no_doubled_slash_in_a_mailed_link(self, monkeypatch, set_to):
+        """`https://conventioner.io/` is a natural way to write the origin, and the boot check takes it."""
+        import resend
+        from types import SimpleNamespace
+
+        sent = []
+        monkeypatch.setenv("FRONTEND_URL", set_to)
+        monkeypatch.setenv(RESEND_API_KEY_VAR, A_REAL_KEY)
+        monkeypatch.setattr(email_mod, "_email_disabled", lambda: False)
+        monkeypatch.setattr(
+            resend.Emails, "send", lambda payload: sent.append(payload) or SimpleNamespace(id="m1")
+        )
+
+        assert email_mod.send_password_reset_email("organizer@example.com", "a-token")
+
+        [mail] = sent
+        for part in (mail["html"], mail["text"]):
+            assert "https://conventioner.io/reset-password?token=a-token" in part
+            assert "//reset-password" not in part

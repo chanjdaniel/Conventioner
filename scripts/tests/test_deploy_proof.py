@@ -164,8 +164,13 @@ def never_leaks(output):
         assert secret not in output
 
 
-def healthz(commit=SHA, status=200, state="ok", headers=BACKEND_HEADERS):
-    return (status, {"Content-Type": "application/json", **headers}, json.dumps({"commit": commit, "status": state}))
+#: What a deployed back end with its hatch off says of itself on /healthz.
+DEPLOYED = {"deployed": True, "localDev": False}
+
+
+def healthz(commit=SHA, status=200, state="ok", headers=BACKEND_HEADERS, seen=DEPLOYED):
+    body = {"commit": commit, "status": state, **seen}
+    return (status, {"Content-Type": "application/json", **headers}, json.dumps(body))
 
 
 def version(commit=SHA):
@@ -420,7 +425,7 @@ def test_a_staged_back_end_that_keeps_failing_names_its_last_answer(stub, env):
     assert code == 1
     assert errors(output) == [
         f"::error::The staged back end at {STAGED} did not serve within 0.4s;"
-        f' last answer: 503: {{"commit": "{SHA}", "status": "unavailable"}}.'
+        f' last answer: 503: {{"commit": "{SHA}", "status": "unavailable", "deployed": true, "localDev": false}}.'
     ]
 
 
@@ -433,6 +438,39 @@ def test_a_staged_back_end_missing_a_header_is_refused_by_name(stub, env, missin
 
     assert code == 1
     assert errors(output) == [f"::error::{STAGED_HOST} sends no {missing.lower()}"]
+
+
+HATCH_ON = "runs with ALLOW_INSECURE_LOCAL_DEV on (/healthz says localDev is {value})."
+NOT_DEPLOYED = (
+    "does not see that it is deployed (/healthz says deployed is {value}), so its refusal of "
+    "local-development switches is not armed. Tick \"Enable access to System Environment "
+    "Variables\" in the back-end project's Environment Variables settings on Vercel, then deploy again."
+)
+
+
+@pytest.mark.parametrize(("seen", "said"), [
+    ({"deployed": True, "localDev": True}, [HATCH_ON.format(value="true")]),
+    ({"deployed": True, "localDev": "false"}, [HATCH_ON.format(value='"false"')]),
+    ({"deployed": True, "localDev": None}, [HATCH_ON.format(value="null")]),
+    ({"deployed": True, "localDev": 0}, [HATCH_ON.format(value="0")]),
+    ({"deployed": True}, [HATCH_ON.format(value="absent")]),
+    ({"deployed": False, "localDev": False}, [NOT_DEPLOYED.format(value="false")]),
+    ({"deployed": 1, "localDev": False}, [NOT_DEPLOYED.format(value="1")]),
+    ({"localDev": False}, [NOT_DEPLOYED.format(value="absent")]),
+    ({}, [HATCH_ON.format(value="absent"), NOT_DEPLOYED.format(value="absent")]),
+    ({"deployed": False, "localDev": True}, [HATCH_ON.format(value="true"), NOT_DEPLOYED.format(value="false")]),
+])
+def test_a_staged_back_end_not_deployed_with_its_hatch_off_is_refused(stub, env, seen, said):
+    """The boot refuses local switches only where it sees a platform variable, so the proof reads
+    both: the hatch must be off, and the back end must see that it is deployed."""
+    stub.serve("/healthz", healthz(seen=seen))
+
+    code, output = prove_own(env)
+
+    assert code == 1
+    assert errors(output) == [f"::error::{STAGED_HOST} {sentence}" for sentence in said]
+    assert stub.count("/healthz") == 1
+    never_leaks(output)
 
 
 @pytest.mark.parametrize(
@@ -574,6 +612,24 @@ def test_a_domain_is_waited_for_until_it_serves_this_commit(stub, env, npx_log):
     assert waiting == [f"{stub.host} serves {OLD}, waiting for {SHORT}"] * 3
     assert f"{stub.host} serves {SHORT} and its checks passed" in output
     assert not npx_log.exists()
+
+
+def test_a_domain_whose_back_end_has_its_hatch_on_is_refused(stub, env):
+    stub.serve("/healthz", healthz(seen={"deployed": True, "localDev": True}))
+
+    code, output = prove_domain(stub, env)
+
+    assert code == 1
+    assert errors(output) == [f"::error::{stub.host} {HATCH_ON.format(value='true')}"]
+
+
+def test_a_domain_whose_back_end_does_not_see_it_is_deployed_is_refused(stub, env):
+    stub.serve("/healthz", healthz(seen={"deployed": False, "localDev": False}))
+
+    code, output = prove_domain(stub, env)
+
+    assert code == 1
+    assert errors(output) == [f"::error::{stub.host} {NOT_DEPLOYED.format(value='false')}"]
 
 
 def test_a_domain_that_keeps_the_old_commit_times_out_naming_it(stub, env, npx_log):

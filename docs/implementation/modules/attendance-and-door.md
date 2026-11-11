@@ -3,8 +3,6 @@ layer: implementation
 kind: module
 describes:
   - back-end/api/attendance.py
-  - back-end/app.py#verify_attendance_indexes
-  - front-end/e2e/one-record-for-a-vendors-day.spec.ts
   - back-end/api/door.py
   - back-end/api/vendor_check_in.py
   - back-end/app.py#vendor_check_in
@@ -22,6 +20,8 @@ describes:
   - front-end/src/components/vendorPage/VendorCheckIn.vue
   - front-end/src/App.vue#fitsAPhone
   - front-end/src/utils/fitsAPhone.ts
+  - back-end/app.py#verify_attendance_indexes
+  - front-end/e2e/one-record-for-a-vendors-day.spec.ts
 verified: 2026-11-10
 sources:
   - wayfinding/real-market-readiness/map

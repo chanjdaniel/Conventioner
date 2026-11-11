@@ -14,6 +14,7 @@ sources:
   - T254
   - T251
   - T263
+  - T273
 ---
 
 # Technology Stack
@@ -326,13 +327,13 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 ### Backend
 
 - `RESEND_API_KEY` - Resend email service API key. **Required**: the app refuses to boot without it (see [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment))
-- `FRONTEND_URL` - The address organizers sign in at: email links, and Discord's OAuth2 redirect (this plus `/discord/connected`) (e.g., `http://127.0.0.1:5173`). Has no say in CORS
-- `FROM_EMAIL` - Email address to send from (default: `onboarding@resend.dev`)
+- `FRONTEND_URL` - The address organizers sign in at: email links, and Discord's OAuth2 redirect (this plus `/discord/connected`) (e.g., `http://127.0.0.1:5173`). Has no say in CORS. **Required**: outside the hatch the app refuses to boot unless it is an `https://` origin with no path
+- `FROM_EMAIL` - Email address to send from. **Required**: outside the hatch the app refuses to boot without it or with Resend's shared `onboarding@resend.dev`, the default under the hatch
 - `RECAPTCHA_SECRET_KEY` - Google reCAPTCHA v3 secret key. **Required**: the app refuses to boot without it
 - `CORS_ALLOWED_ORIGINS` - Comma-separated browser origins allowed to make credentialed requests (e.g., `https://app.example.com`). **Required**: the app refuses to boot without it, and `*` is refused
 - `SECRET_KEY` - Signs the Flask session cookie. **Required**: there is no fallback, and the app refuses to boot without it. Must be at least 32 characters, and every value this repository has published (the old `TEMP_KEY_CHANGE_IN_PRODUCTION` fallback, the env-template and deploy-guide placeholders) is refused by name - it is readable by anyone who can read the repo. Rotating it ends every session signed with the old key
 - `TRUSTED_PROXY_HOPS` - How many proxies of this deployment's own a request passes through before it reaches Flask (Vercel: `1`; Flask exposed directly: `0`). **Required**: there is no default, because unset is not zero but unknown. It decides whose address organizer signup reports to reCAPTCHA, which scores on it - behind an unnamed ingress that is the ingress's address, for every caller in the world
-- `ALLOW_INSECURE_LOCAL_DEV` - Local-development escape hatch for the six required variables above (default OFF; set `true`/`1`). Never set it on a deployment
+- `ALLOW_INSECURE_LOCAL_DEV` - Local-development escape hatch for the eight required variables (default OFF; set `true`/`1`). Never set it on a deployment: a back end that sees a platform variable (`VERCEL`, `VERCEL_ENV`, `VERCEL_REGION`, `AWS_LAMBDA_FUNCTION_NAME`) refuses to boot with it, or with any of the three test flags below, on
 - `DISABLE_CAPTCHA` - Test-only flag to skip reCAPTCHA verification (default OFF; set `true`/`1`). Honored only when `ALLOW_INSECURE_LOCAL_DEV` is also set
 - `DISABLE_EMAIL` - Test-only flag to skip sending verification, password reset, and OTP emails via Resend, treating them as sent (default OFF; set `true`/`1`). Honored only when `ALLOW_INSECURE_LOCAL_DEV` is also set
 - `DISCORD_FAKE` - Test-only flag to answer the Discord bot's requests from the fake servers in the database instead of Discord (`back-end/discord_fake.py`; default OFF; set `true`/`1`). Honored only when `ALLOW_INSECURE_LOCAL_DEV` is also set
@@ -347,10 +348,10 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 
 ### Frontend
 
-- `VITE_FLASK_HOST` - API base path (`/api` in the template and the compose file; no default)
+- `VITE_FLASK_HOST` - API base path (`/api` in the template and the compose file, `https://api.conventioner.io` in production; no default). **Required to build**: with none, every API request goes to the front end's own origin, so `vite build` refuses without it
 - `VITE_BACKEND_URL` - Backend URL for Vite proxy (default: `https://127.0.0.1:5001`; the compose file sets `https://backend:5001`)
 - `VITE_RECAPTCHA_SITE_KEY` - Google reCAPTCHA v3 site key, from the same reCAPTCHA property as the back end's `RECAPTCHA_SECRET_KEY`. **Required to build**: it is baked into the bundle, and without it the front end sends a placeholder token that the back end hands to Google, who never issued it - so every organizer signup is rejected. `vite build` refuses without it
-- `VITE_ALLOW_INSECURE_LOCAL_DEV` - the only thing that lets a bundle be built with no site key above (local development and E2E, where the back end runs with `DISABLE_CAPTCHA`, and the bundle budget's build in CI and `nm-test.sh`, which is measured and never deployed). Opt-in, warns on every build it allows, and must never be set on a deployed build
+- `VITE_ALLOW_INSECURE_LOCAL_DEV` - the only thing that lets a bundle be built with no site key or no `VITE_FLASK_HOST` above (local development and E2E, where the back end runs with `DISABLE_CAPTCHA`, and the bundle budget's build in CI and `nm-test.sh`, which is measured and never deployed). Opt-in, warns on every build it allows, and must never be set on a deployed build: a build with Vercel's `VERCEL` set refuses it outright
 - `BUILD_COMMIT` - The commit the build was made from, which the build writes to `/version.json` (`null` when unset or blank). Read from the build's process environment, not through `loadEnv` and not a `VITE_` variable, so no `.env` file sets it and the bundle never holds it. Set by the Deploy workflow (`vercel deploy --build-env`), never by hand
 
 ## Project Structure
