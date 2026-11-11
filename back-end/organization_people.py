@@ -335,6 +335,21 @@ def folding_write(org: Dict[str, Any],
     return query, {"$set": {"people": people, **_mirror(people)}}
 
 
+def reconciling_write(org: Dict[str, Any],
+                      people: Dict[str, str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """The filter and update that rebuild a folded organization's ``people``, read as ``org``, from
+    the lists the release before the map wrote while it ran after a rollback: held on the map and
+    the three lists equal to what was read (a map equal only in the same key order, as read),
+    setting the map whole beside the lists as its mirror. Only the migration's ``--reconcile``
+    writes it, after a roll forward over such a rollback."""
+    for user_id in people:
+        _checked(user_id)
+    query = {"id": org["id"], "people": org.get("people"),
+             "owner": org.get("owner"), "admins": org.get("admins"),
+             "members": org.get("members")}
+    return query, {"$set": {"people": people, **_mirror(people)}}
+
+
 def _met_a_change(org_id: str, event: Event, target_id: str) -> ClientError:
     """What a write that matched nothing answers, from one more read: the organization gone, a
     removed person already gone (which Manage organization reads as done), else the 409."""

@@ -239,3 +239,71 @@ def test_the_migrations_write_leaves_alone_a_change_landing_during_it(
 
     assert again["already_folded"] == 1 and again["changed"] == 0
     assert real_db["organizations"].find_one({"id": ORG}, {"_id": 0}) == stored
+
+
+def test_the_reconcile_rebuilds_each_change_the_release_before_made_on_the_server(real_db):
+    # The reconcile's write holds the map whole as read, which the server matches only in the
+    # same key order: each change the release before makes, replayed by its own writes on the
+    # server, is rebuilt from the lists, and a second run changes nothing.
+    from migrate_organization_people import migrate
+    from test_a_roll_forward_rebuilds_the_people_from_the_lists import WHILE_ROLLED_BACK, _folded
+
+    changes = list(WHILE_ROLLED_BACK.items())
+    real_db["organizations"].insert_many(
+        [_folded(f"org-{i}") for i in range(len(changes))] + [_folded("org-in-step")])
+    for i, (_change, (updates, _people)) in enumerate(changes):
+        for update in updates:
+            real_db["organizations"].update_one({"id": f"org-{i}"}, update)
+
+    counts = migrate(real_db, reconcile=True)
+
+    assert counts["rebuilt"] == len(changes) and counts["changed"] == 0
+    assert counts["already_folded"] == 1
+    stored = _stored_organizations(real_db)
+    for i, (change, (_updates, people)) in enumerate(changes):
+        assert stored[f"org-{i}"]["people"] == people, change
+        assert_one_map(stored[f"org-{i}"])
+
+    again = migrate(real_db, reconcile=True)
+
+    assert _stored_organizations(real_db) == stored
+    assert again["rebuilt"] == 0 and again["already_folded"] == len(changes) + 1
+
+
+def test_the_reconciles_write_leaves_alone_a_change_landing_during_it(
+        real_db, people, monkeypatch):
+    # After a roll forward the reconcile reads a folded organization whose admin the release before
+    # removed; before its write, the owner adds NEW as an admin through the map's own writer. The
+    # reconcile's write, held on the map as read, matches nothing and leaves the owner's change
+    # whole; a second run rebuilds the map from the lists with NEW in it and the admin gone.
+    import migrate_organization_people as Migration
+
+    real_db["organizations"].insert_one(
+        {"id": ORG, "name": "Race Markets", "owner": people[OWNER], "admins": [people[ADMIN]],
+         "members": [people[MEMBER]], "markets": [], "theme": None,
+         "people": {people[OWNER]: "owner", people[ADMIN]: "admin", people[MEMBER]: "member"}})
+    real_db["organizations"].update_one({"id": ORG}, {"$pull": {"admins": people[ADMIN]}})
+    planned = Migration.reconciling_write
+
+    def owner_adds_an_admin_meanwhile(org, rebuilt):
+        write = planned(org, rebuilt)
+        OrganizationPeople.add_admin(ORG, NEW, OWNER)
+        return write
+
+    monkeypatch.setattr(Migration, "reconciling_write", owner_adds_an_admin_meanwhile)
+
+    counts = Migration.migrate(real_db, reconcile=True)
+
+    assert counts["changed"] == 1 and counts["rebuilt"] == 0
+    stored = real_db["organizations"].find_one({"id": ORG}, {"_id": 0})
+    assert stored["people"][people[NEW]] == "admin"
+    assert stored["people"][people[ADMIN]] == "admin"
+
+    monkeypatch.setattr(Migration, "reconciling_write", planned)
+    again = Migration.migrate(real_db, reconcile=True)
+
+    assert again["rebuilt"] == 1 and again["changed"] == 0
+    stored = real_db["organizations"].find_one({"id": ORG}, {"_id": 0})
+    assert list(stored["people"].items()) == [
+        (people[OWNER], "owner"), (people[MEMBER], "member"), (people[NEW], "admin")]
+    assert_one_map(stored)

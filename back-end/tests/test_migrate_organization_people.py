@@ -139,7 +139,8 @@ def test_the_dry_run_writes_nothing_and_prints_each_organization_and_the_counts(
     assert ("Skipped 1: 1 with no owner, 0 holding an id that cannot be a key, "
             "0 changed during the run.") in out
     assert counts == {"folded": 7, "already_folded": 1, "does_not_parse": 2,
-                      "admin_also_member": 1, "no_owner": 1, "not_a_key": 0, "changed": 0}
+                      "admin_also_member": 1, "no_owner": 1, "not_a_key": 0, "changed": 0,
+                      "rebuilt": 0}
 
 
 def test_a_dry_run_then_the_run_count_alike():

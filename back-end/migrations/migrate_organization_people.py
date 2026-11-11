@@ -30,9 +30,21 @@ Run it after the deploy that ships the map, whenever the operator likes, never b
 before changes only the lists, so a map written earlier goes stale under its writes, and the build
 after reads the map over the lists. That build reads both shapes, so the boot does not wait for it.
 
+``--reconcile`` is for a roll forward over a rollback past the map's release: while the release
+before ran again, it wrote only the lists, so each folded organization's map went stale, and the
+map's release reads the map over the lists. Run right after such a roll forward, it folds as above
+and also rebuilds each folded organization's map from its lists wherever the two disagree (the
+fold of the lists, each person still in it at their position in the map, those new to it after
+them), in one update held on the map and the three lists as read
+(``organization_people.reconciling_write``), setting the lists as the new map's mirror. Never run
+it otherwise: on the map's release the map is the truth, and its own writes keep the lists in step.
+With ``--dry-run`` it prints each organization it would rebuild and whose place would change.
+
 Usage, from ``back-end/`` (the production database address passed inline, never from ``.env``):
     MONGODB_URI='<production URI>' python migrations/migrate_organization_people.py --dry-run
     MONGODB_URI='<production URI>' python migrations/migrate_organization_people.py
+    MONGODB_URI='<production URI>' python migrations/migrate_organization_people.py --reconcile --dry-run
+    MONGODB_URI='<production URI>' python migrations/migrate_organization_people.py --reconcile
 """
 import argparse
 import os
@@ -42,7 +54,7 @@ from typing import Any, Dict, List
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from datatypes import OrganizationRole, people_from_lists  # noqa: E402
-from organization_people import folding_write  # noqa: E402
+from organization_people import folding_write, reconciling_write  # noqa: E402
 
 
 def _ids(value: Any) -> List[Any]:
@@ -66,16 +78,81 @@ def _holds(people: Dict[str, str]) -> str:
             f"{places.count(OrganizationRole.MEMBER.value)} member(s)")
 
 
-def migrate(db, dry_run: bool = False) -> Dict[str, int]:
-    """Fold every organization, or say what would be folded. Returns the counts it printed."""
+def rebuilt_from_lists(doc: Dict[str, Any]) -> Dict[str, str]:
+    """The map a folded organization's lists say: the fold of its lists, each person still in it at
+    their position in the stored map, and those new to it after them, in the fold's order."""
+    folded = people_from_lists(doc.get("owner"), doc.get("admins"), doc.get("members"))
+    stored = doc.get("people") if isinstance(doc.get("people"), dict) else {}
+    kept = {user_id: folded[user_id] for user_id in stored if user_id in folded}
+    return {**kept, **{user_id: place for user_id, place in folded.items() if user_id not in kept}}
+
+
+def in_step(doc: Dict[str, Any], people: Dict[str, str]) -> bool:
+    """Whether a folded organization's map holds ``people`` (in any order) and its lists are an
+    exact mirror of it: the owner, and each list with every id of its place once."""
+    if not isinstance(doc.get("people"), dict) or doc["people"] != people:
+        return False
+    owners = [user_id for user_id, place in people.items()
+              if place == OrganizationRole.OWNER.value]
+    if doc.get("owner") != (owners[0] if owners else None):
+        return False
+    for field, place in (("admins", OrganizationRole.ADMIN.value),
+                         ("members", OrganizationRole.MEMBER.value)):
+        ids = _ids(doc.get(field))
+        if len(ids) != len(set(ids)) or set(ids) != {u for u, p in people.items() if p == place}:
+            return False
+    return True
+
+
+def _moves(stored: Any, people: Dict[str, str]) -> str:
+    """Whose place the rebuild changes, as ``id: before -> after``, in the stored map's order."""
+    stored = stored if isinstance(stored, dict) else {}
+    moves = [f"{user_id}: {stored.get(user_id, 'none')} -> {people.get(user_id, 'none')}"
+             for user_id in {**stored, **people}
+             if stored.get(user_id) != people.get(user_id)]
+    return "; ".join(moves) or "its lists are not an exact mirror"
+
+
+def _reconcile(organizations, doc: Dict[str, Any], name: str, counts: Dict[str, int],
+               dry_run: bool) -> None:
+    """Rebuild one folded organization's map from its lists where the two disagree."""
+    if not doc.get("owner"):
+        counts["no_owner"] += 1
+        print(f"  ! {name}: has no owner; left as it is")
+        return
+    people = rebuilt_from_lists(doc)
+    if in_step(doc, people):
+        counts["already_folded"] += 1
+        return
+    try:
+        query, update = reconciling_write(doc, people)
+    except RuntimeError:
+        counts["not_a_key"] += 1
+        print(f"  ! {name}: holds an id that cannot be a key of its people; left as it is")
+        return
+    print(f"  ~ {name}: its people differ from its lists ({_moves(doc.get('people'), people)})")
+    if dry_run or organizations.update_one(query, update).matched_count:
+        counts["rebuilt"] += 1
+    else:
+        counts["changed"] += 1
+        print(f"  ! {name}: changed during the run; run again")
+
+
+def migrate(db, dry_run: bool = False, reconcile: bool = False) -> Dict[str, int]:
+    """Fold every organization, or say what would be folded; with ``reconcile``, also rebuild each
+    folded organization's map from its lists where the two disagree. Returns the counts it
+    printed."""
     organizations = db.organizations
     counts = {"folded": 0, "already_folded": 0, "does_not_parse": 0, "admin_also_member": 0,
-              "no_owner": 0, "not_a_key": 0, "changed": 0}
+              "no_owner": 0, "not_a_key": 0, "changed": 0, "rebuilt": 0}
     for doc in organizations.find({}):
-        if "people" in doc:
-            counts["already_folded"] += 1
-            continue
         name = f"{doc.get('id')} {doc.get('name')!r}"
+        if "people" in doc:
+            if reconcile:
+                _reconcile(organizations, doc, name, counts, dry_run)
+            else:
+                counts["already_folded"] += 1
+            continue
         people = people_from_lists(doc.get("owner"), doc.get("admins"), doc.get("members"))
         if not doc.get("owner"):
             counts["no_owner"] += 1
@@ -105,9 +182,12 @@ def migrate(db, dry_run: bool = False) -> Dict[str, int]:
           f"their map of people; {counts['already_folded']} already folded.")
     print(f"Of those to fold, {counts['does_not_parse']} do not parse today (an owner also an "
           f"admin or a member) and {counts['admin_also_member']} list an admin also as a member.")
+    if reconcile:
+        print(f"{'Would rebuild' if dry_run else 'Rebuilt'} {counts['rebuilt']} organization(s) "
+              f"from their lists; {counts['already_folded']} in step.")
     print(f"Skipped {skipped}: {counts['no_owner']} with no owner, {counts['not_a_key']} holding "
           f"an id that cannot be a key, {counts['changed']} changed during the run.")
-    if not counts["folded"] and not skipped:
+    if not counts["folded"] and not counts["rebuilt"] and not skipped:
         print("Nothing to fold: the migration has already run.")
     return counts
 
@@ -115,11 +195,14 @@ def migrate(db, dry_run: bool = False) -> Dict[str, int]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--dry-run", action="store_true", help="Say what would be folded; write nothing")
+    parser.add_argument("--reconcile", action="store_true",
+                        help="Also rebuild each folded map from its lists where they disagree: only "
+                             "after a roll forward over a rollback past the map's release")
     args = parser.parse_args()
 
     from db_config import get_database
 
-    migrate(get_database(), dry_run=args.dry_run)
+    migrate(get_database(), dry_run=args.dry_run, reconcile=args.reconcile)
 
 
 if __name__ == "__main__":
