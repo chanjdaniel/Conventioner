@@ -784,6 +784,17 @@ for (const size of PHONE_AND_DESK) {
       for (const section of STATS_SECTIONS) {
         await expectAcross(page.getByTestId(section), section);
       }
+      // On a phone every card spans the column, How full's too, though its table is narrower.
+      if (size.phone) {
+        const edges = (locator: Locator) =>
+          locator.evaluate((element) => {
+            const { left, right } = element.getBoundingClientRect();
+            return [Math.round(left), Math.round(right)];
+          });
+        expect(await edges(stats.fillCard), 'How full spans the column').toEqual(
+          await edges(page.getByTestId('stats-money-card')),
+        );
+      }
       await expectTargets(stats.money.getByRole('link'), 'still owed');
       await expectTargets(stats.checkIn.getByRole('link'), 'who is not yet in');
 

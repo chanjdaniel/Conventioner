@@ -34,7 +34,7 @@
  * money, check-in, then what they answered.
  * Their cards stand two to a row while the page's content is 48rem wide or more, one below it; a
  * chart that reads as one line of a whole, over time or across the review, spans the row, and the
- * How full card spans it up to its table's width.
+ * How full card spans it up to its table's width, the whole column in one.
  */
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter, type LocationQuery } from 'vue-router';
@@ -283,6 +283,7 @@ const NOBODY: Record<string, string> = {
       >
         <h2 id="stats-fill-title" class="stats-title">How full</h2>
         <FillGrid
+          class="stats-fill-card"
           title="Tables used of each section's tables, each day"
           :grid="fill"
           testid="stats-fill"
@@ -526,6 +527,18 @@ const NOBODY: Record<string, string> = {
 /* A chart of one whole, over time or across the review, spans the row. */
 .stats-wide {
   grid-column: 1 / -1;
+}
+
+/* How full: in one column it spans the column, as every card does; in two, it ends at its table,
+   so a few days leave no empty band beside them. */
+.stats .stats-fill-card {
+  width: 100%;
+}
+
+@container stats (width >= 48rem) {
+  .stats .stats-fill-card {
+    width: fit-content;
+  }
 }
 
 /* A card of rows, in the charts' look: white, bordered, its title small over them. */

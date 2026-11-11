@@ -115,7 +115,9 @@ defineProps<{
 
 /* Cells set apart by white gaps, as the split bar's parts are, so neighbouring shades need no
    contrast with each other. */
+/* Filling a card wider than it, as a phone's column is, so the cells end at the card's edge. */
 .fill-grid-table {
+  min-width: 100%;
   border-collapse: separate;
   border-spacing: var(--space-hairline);
   font-size: var(--text-sm);
