@@ -304,7 +304,7 @@ describe("a section's colour and label", () => {
   it("keeps a label's place with the colour the section was drawn in", () => {
     const { editor } = anEditor(row('gold', 1, 2000));
     // Silver aisle, the second section, is drawn in the second colour until one is chosen.
-    editor.setSectionStyle('silver', { labelAt: { xMm: 4000.04, yMm: 3000 } });
+    editor.setSectionStyle('silver', { labelAt: { xMm: 4000.004, yMm: 3000 } });
     expect(editor.layout.value!.sectionStyles).toEqual([
       { sectionId: 'silver', color: 2, labelAt: { xMm: 4000, yMm: 3000 } },
     ]);

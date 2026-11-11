@@ -238,8 +238,9 @@ const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
  * scale not yet set, calibrating; and the laid-out seed's Upper Hall, drawn as its map, 20 tables
  * over the faded floorplan with the panel's list of sections: the editor at a desk and the map read
  * on a phone, then, at a desk, with a table selected, with every table selected, with a section's
- * colours open, with Add table's options open, with a table picked up by keyboard and with the
- * panel's list of keys open. Nothing is saved, so each walk finds them as seeded.
+ * colours open, with Add table's options open, with a table picked up by keyboard, with the
+ * panel's list of keys open and with a row being drawn by the crosshair. Nothing is saved, so each
+ * walk finds them as seeded.
  */
 function layoutAt(
   stage:
@@ -251,7 +252,8 @@ function layoutAt(
     | 'colours'
     | 'adding'
     | 'pickedUp'
-    | 'keys',
+    | 'keys'
+    | 'row',
 ) {
   return async (page: Page, seed: TheScreensSeed) => {
     const layout = new LayoutPage(page);
@@ -295,6 +297,19 @@ function layoutAt(
         await layout.tabToTheMap();
         await page.keyboard.press('Enter');
         await expect(layout.hint).toContainText('Picked up');
+      }
+      if (stage === 'row') {
+        // Row of tables on, its options strip open, and a path of three points laid by the
+        // crosshair round a corner: the row it would place drawn dashed, with its count.
+        await layout.toolRow.click();
+        await layout.tabToTheMap();
+        await page.keyboard.press('Enter');
+        for (let press = 0; press < 5; press += 1) await page.keyboard.press('Shift+ArrowRight');
+        await page.keyboard.press('Enter');
+        for (let press = 0; press < 5; press += 1) await page.keyboard.press('Shift+ArrowDown');
+        await page.keyboard.press('Enter');
+        await expect(layout.rowCount).toBeVisible();
+        await expect(layout.rowTables.first()).toBeVisible();
       }
       if (stage === 'keys') {
         await layout.keyboardSummary.click();
@@ -1317,6 +1332,14 @@ export const SCREENS: Screen[] = [
     sizes: ORGANIZER,
     deskOnly: true,
     open: layoutAt('keys'),
+  },
+  // A row along a drawn path (T257): the options strip, the pending path and the crosshair.
+  {
+    name: 'the layout, a row being drawn',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('row'),
   },
   {
     name: 'market days, the plan',

@@ -5,9 +5,11 @@
  * several, how many and their codes, the first ten of them. Its fields put the selection in a
  * section or give it a table type, each reading "Mixed" while the selected tables differ; its
  * buttons turn the selection a quarter, duplicate it, line it up or space it evenly (the Align
- * menu) and remove it, with no question asked first, since Undo takes a removal back.
+ * menu) and remove it, with no question asked first, since Undo takes a removal back. For one
+ * table, "Row of N…" opens a count to type and "Add row", which asks for that many more tables
+ * going on along the table's line: the quick straight row, with no path to draw.
  */
-import { computed, useId } from 'vue';
+import { computed, ref, useId, watch } from 'vue';
 import type { FloorplanTable, TableTypeObject } from '@/assets/types/datatypes';
 import RowMenu from '@/components/RowMenu.vue';
 import IconExpandDown from '@/components/icons/IconExpandDown.vue';
@@ -34,11 +36,38 @@ const emit = defineEmits<{
   /** The section chosen for the selection; null is no section. */
   section: [sectionId: string | null];
   type: [tableTypeId: string];
+  /** That many more tables, going on along the one selected table's line. */
+  row: [count: number];
 }>();
 
 const titleId = useId();
 const sectionFieldId = useId();
 const typeFieldId = useId();
+const rowFormId = useId();
+const rowCountId = useId();
+
+/** The most tables one "Add row" asks for. */
+const MOST_IN_A_ROW = 100;
+/** Whether the count of "Row of N…" is open, and what is typed in it. */
+const rowOpen = ref(false);
+const rowCount = ref('5');
+/** The count typed, as a whole number from 1; null while it is none. */
+const rowAsked = computed(() => {
+  const count = Number(rowCount.value);
+  return Number.isInteger(count) && count >= 1 && count <= MOST_IN_A_ROW ? count : null;
+});
+
+function addRow() {
+  if (rowAsked.value !== null) emit('row', rowAsked.value);
+}
+
+// The count is one table's: it closes when the selection is no longer the one table.
+watch(
+  () => props.tables.length === 1,
+  (one) => {
+    if (!one) rowOpen.value = false;
+  },
+);
 
 const NO_SECTION = 'Table in no section';
 /** How many codes the card names before it counts the rest. */
@@ -179,6 +208,17 @@ const ARRANGEMENTS: readonly { id: Arrangement; label: string }[] = [
           </template>
         </RowMenu>
         <button
+          v-if="one"
+          type="button"
+          class="btn btn--secondary"
+          :aria-expanded="rowOpen"
+          :aria-controls="rowFormId"
+          data-testid="layout-selection-row"
+          @click="rowOpen = !rowOpen"
+        >
+          Row of N…
+        </button>
+        <button
           type="button"
           class="btn btn--secondary btn--destructive"
           data-testid="layout-selection-remove"
@@ -187,6 +227,36 @@ const ARRANGEMENTS: readonly { id: Arrangement; label: string }[] = [
           Remove
         </button>
       </div>
+      <form
+        v-if="one"
+        v-show="rowOpen"
+        :id="rowFormId"
+        class="selection-row"
+        data-testid="layout-selection-row-form"
+        @submit.prevent="addRow"
+      >
+        <label class="selection-field-name" :for="rowCountId">Tables to add</label>
+        <input
+          :id="rowCountId"
+          v-model="rowCount"
+          class="field selection-row-count"
+          type="text"
+          inputmode="numeric"
+          autocomplete="off"
+          data-testid="layout-selection-row-count"
+        />
+        <button
+          type="submit"
+          class="btn btn--secondary"
+          :disabled="rowAsked === null"
+          data-testid="layout-selection-row-add"
+        >
+          Add row
+        </button>
+        <p class="selection-row-note">
+          They go on along {{ one.code }}'s line, with the gap of Row of tables.
+        </p>
+      </form>
     </template>
   </section>
 </template>
@@ -229,6 +299,27 @@ const ARRANGEMENTS: readonly { id: Arrangement; label: string }[] = [
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+}
+
+/* "Row of N…": the count beside its name and its button, the note under them. */
+.selection-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  width: 100%;
+  font-size: var(--text-sm);
+}
+
+.selection-row-count {
+  width: 4.5rem;
+}
+
+.selection-row-note {
+  flex: 1 0 100%;
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
 }
 
 /* The menu's button stands in the row of buttons as one of them: the secondary button's edge and

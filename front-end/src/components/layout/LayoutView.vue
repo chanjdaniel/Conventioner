@@ -29,7 +29,7 @@
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router';
-import type { FloorplanObject, LocationObject } from '@/assets/types/datatypes';
+import type { FloorplanObject, FloorplanTable, LocationObject } from '@/assets/types/datatypes';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
 import { useUnsavedWork } from '@/utils/useUnsavedWork';
@@ -43,8 +43,17 @@ import LayoutPanelKeyboard from './LayoutPanelKeyboard.vue';
 import LayoutPanelSections from './LayoutPanelSections.vue';
 import LayoutPanelSelection, { type Arrangement } from './LayoutPanelSelection.vue';
 import { metresAcross, pxPerMm, type Point } from './calibration';
-import { saidAdded, saidRemoved, saidTurned, useAnnouncements } from './layoutAnnouncements';
+import {
+  NO_TABLE_FITS,
+  saidAdded,
+  saidRemoved,
+  saidRowAdded,
+  saidTurned,
+  useAnnouncements,
+} from './layoutAnnouncements';
 import { layoutSections } from './layoutDrawing';
+import { STANDARD_TABLE, hallOf } from './layoutGeometry';
+import { MAX_LAYOUT_TABLES, gapMmOf, rowChoices, rowOnFrom, standingShapes } from './layoutRow';
 import { saveLayout, saveLayoutOnUnload, type UploadedFloorplan } from './layoutSave';
 import { turnSelection } from './layoutSelection';
 import { useLayoutEditor } from './useLayoutEditor';
@@ -168,6 +177,35 @@ function duplicateSelection() {
   if (!copies.length) return;
   editor.select(copies);
   say(saidAdded(tablesOf(copies), sections.value));
+}
+
+/**
+ * "Row of N…": that many more tables of the one selected table's section and type, going on along
+ * its line from its end, the gap of Row of tables apart, past what stands in the way and no
+ * further than the floorplan. The table stays selected, so "Add row" again goes on from the row's
+ * end.
+ */
+function rowOnFromTheSelection(count: number) {
+  const [table] = tablesOf(editor.selection.value);
+  const layout = floorplan.value;
+  if (!table || !layout || editor.selection.value.length !== 1) return;
+  const sizeOf = (one: FloorplanTable) =>
+    tableTypes.value.find((type) => type.id === one.tableTypeId) ?? STANDARD_TABLE;
+  const poses = rowOnFrom(table, sizeOf(table), count, {
+    gapMm: gapMmOf(rowChoices.gapCm),
+    obstacles: standingShapes(layout, sizeOf),
+    hall: hallOf(layout),
+  }).slice(0, Math.max(0, MAX_LAYOUT_TABLES - layout.tables.length));
+  const ids = editor.addTables(
+    poses.map((pose) => ({
+      sectionId: table.number === null ? null : table.sectionId,
+      tableTypeId: table.tableTypeId,
+      xMm: pose.xMm,
+      yMm: pose.yMm,
+      rotation: pose.rotation,
+    })),
+  );
+  say(ids.length ? saidRowAdded(tablesOf(ids), sections.value) : NO_TABLE_FITS);
 }
 
 function turnTheSelection() {
@@ -460,6 +498,7 @@ const tableTypes = computed(() => market.value?.setupObject?.tableTypes ?? []);
               @arrange="arrangeSelection"
               @section="editor.setSection(editor.selection.value, $event)"
               @type="editor.setType(editor.selection.value, $event)"
+              @row="rowOnFromTheSelection"
             />
             <LayoutPanelSections
               class="layout-card"

@@ -33,6 +33,17 @@ const GROUPS: readonly { title: string; keys: readonly (readonly [string[], stri
     ],
   },
   {
+    title: 'With Row of tables on',
+    keys: [
+      [['Arrow keys'], 'Move the crosshair 10 cm, or 1 m with Shift'],
+      [['Enter'], 'Lay a point of the row at the crosshair'],
+      [['Backspace'], 'Take the last point back'],
+      [['F'], 'Swap the side of the line the tables stand on'],
+      [['Ctrl+Enter'], 'Place the row'],
+      [['Escape'], 'Drop the row'],
+    ],
+  },
+  {
     title: 'Adding, undo and the view',
     keys: [
       [['Enter'], 'With Add table on, place a table at the middle of the view'],

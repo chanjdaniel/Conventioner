@@ -121,11 +121,11 @@ describe('adding tables', () => {
   it('places a table at the point given, of the type given, inside the floorplan', () => {
     const { editor, tablesNow } = anEditor();
     editor.addTables([
-      { sectionId: 'gold', tableTypeId: 'square', xMm: 1234.56, yMm: 40_000, rotation: 15 },
+      { sectionId: 'gold', tableTypeId: 'square', xMm: 1234.567, yMm: 40_000, rotation: 15 },
     ]);
     expect(tablesNow()[0]).toMatchObject({
       tableTypeId: 'square',
-      xMm: 1234.6,
+      xMm: 1234.57,
       yMm: 22_500,
       rotation: 15,
     });
@@ -136,7 +136,7 @@ describe('moving tables', () => {
   it('moves the tables named and no other', () => {
     const { editor, tablesNow } = anEditor([table('a', 'gold', 1), table('b', 'gold', 2)]);
     const other = tablesNow()[1];
-    editor.moveTables(['a'], 250.04, -100);
+    editor.moveTables(['a'], 250.004, -100);
     expect(tablesNow()[0]).toMatchObject({ xMm: 5250, yMm: 4900, number: 1 });
     expect(tablesNow()[1]).toBe(other);
   });

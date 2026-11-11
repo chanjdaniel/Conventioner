@@ -15,6 +15,15 @@
  * type at the point, and the tool stays on. A drag or a turn is one change, and Escape puts it
  * back.
  *
+ * Row of tables (`layoutRow.ts`): a press and a drag place a straight row, the count following the
+ * drag; clicks instead lay the points of a path, the row following a smooth curve through them (a
+ * sharp turn is a corner), shown as it would be placed with its count at the pointer, and a click
+ * on the last point (so a double-click) or Enter places it. A point laid can be dragged, Backspace
+ * or Ctrl+Z takes the last one back, F swaps the side of the line the tables stand on, and Escape,
+ * another tool or another location drops the path: nothing of it is ever in the layout. Points
+ * snap to the corners of the tables near them and the lines of their edges, and freely with Alt.
+ * Backspace is the path's key alone while the tool is on, never the selection's.
+ *
  * The view: the wheel or two fingers pan, Ctrl and the wheel or a pinch zoom about the pointer,
  * 10% to 800%; Space and a drag, or the middle button, pan; the buttons step the zoom and Fit shows
  * the whole floorplan. Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y undo and redo from anywhere on the page but
@@ -29,29 +38,40 @@
  * Delete or Backspace removes the selection, Ctrl+D duplicates it, + and - zoom and 0 fits the
  * floorplan; R, Delete and Ctrl+D act on the focused table where nothing is selected. With Add
  * table on, Enter places a table at the middle of the view, beside what stands there. No key is
- * taken from a field or a select. Each move, turn, placement and removal is said (`announce`) for
+ * taken from a field or a select. With Row of tables on, the arrow keys move a crosshair instead, 10
+ * cm or 1 m with Shift, Enter lays a point at it, Backspace takes one back, F swaps the side, Ctrl
+ * and Enter places the row and Escape drops it. Each move, turn, placement and removal is said (`announce`) for
  * the page's live region.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useId, watch } from 'vue';
 import type { FloorplanTable, SectionObject, TableTypeObject } from '@/assets/types/datatypes';
 import LayoutMap, { type MapView } from './LayoutMap.vue';
+import LayoutRowPreview from './LayoutRowPreview.vue';
 import {
   AT_THE_EDGE,
+  NO_TABLE_FITS,
+  ROW_DROPPED,
   saidAdded,
+  saidCrosshair,
   saidDropped,
   saidMoved,
   saidPickedUp,
+  saidPoint,
+  saidPointTaken,
   saidPutBack,
   saidRemoved,
+  saidRowAdded,
+  saidSide,
   saidTurned,
 } from './layoutAnnouncements';
 import { plural } from '@/utils/historyReaders/shared';
-import { layoutSections } from './layoutDrawing';
+import { NO_SECTION_PAINT, layoutSections } from './layoutDrawing';
 import {
   STANDARD_TABLE,
   angleFrom,
   boxBetween,
   cameraShowing,
+  clampToHall,
   clearPlace,
   cornersOf,
   fitCamera,
@@ -71,6 +91,7 @@ import {
   type Guide,
   type PointMm,
 } from './layoutGeometry';
+import { rowChoices, useRowTool } from './layoutRow';
 import { centreOf, selectionBounds, turnSelection } from './layoutSelection';
 import type { LayoutEditor } from './useLayoutEditor';
 
@@ -111,7 +132,7 @@ const tableOf = (id: string | null) =>
 
 // ── The tools ────────────────────────────────────────────────────────────────
 
-type Tool = 'select' | 'add';
+type Tool = 'select' | 'add' | 'row';
 const tool = ref<Tool>('select');
 
 /** The location's sections as the map draws them, by which a table is named when it is said. */
@@ -136,6 +157,29 @@ watch(
 /** Whether the keys are on the map: the focus is in it, and came by keyboard. */
 const keysOnMap = ref(false);
 
+/** The Row of tables tool: the path being drawn and the row it would place. */
+const row = useRowTool({
+  editor: props.editor,
+  tableTypes: () => props.tableTypes,
+  sectionId: () => addSectionId.value || null,
+  tableTypeId: () => addTypeId.value || (props.tableTypes[0]?.id ?? ''),
+});
+/** The colours a row is shown in before it is placed: its section's. */
+const rowPaint = computed(
+  () =>
+    drawnSections.value.find(({ section }) => section.id === addSectionId.value)?.paint ??
+    NO_SECTION_PAINT,
+);
+/** The crosshair is the keys': shown while they are on the map with Row of tables on. */
+const crosshair = computed(() =>
+  tool.value === 'row' && keysOnMap.value ? row.crosshair.value : null,
+);
+
+// A path belongs to the tool that drew it: another tool drops it.
+watch(tool, () => {
+  row.drop();
+});
+
 /** The hint under the map: what the keys do while they are on it, else what the pointer does. */
 const hint = computed(() => {
   if (pickedUp.value.length) {
@@ -146,10 +190,23 @@ const hint = computed(() => {
     );
   }
   if (keysOnMap.value) {
+    if (tool.value === 'row') {
+      return (
+        'The arrow keys move the crosshair 10 cm, or 1 m with Shift. Enter lays a point, ' +
+        'Backspace takes one back, F swaps the side, Ctrl and Enter places the row and Escape ' +
+        'drops it.'
+      );
+    }
     return tool.value === 'add'
       ? 'Enter places a table at the middle of the view. The arrow keys move between tables.'
       : 'The arrow keys move between tables. Enter picks a table up to move it, ' +
           'Shift and Enter selects it, and Delete removes the selection.';
+  }
+  if (tool.value === 'row') {
+    return (
+      'Click along a wall. A sharp turn makes a corner. Double-click or press Enter to place ' +
+      'the row, or drag for a straight one.'
+    );
   }
   return tool.value === 'add'
     ? 'Click the floor to place a table. Ctrl and the wheel zoom, and Space and a drag move the view.'
@@ -161,10 +218,14 @@ const hint = computed(() => {
  *  them. */
 const keysId = useId();
 const mapKeys = computed(() =>
-  tool.value === 'add'
-    ? 'The arrow keys move between tables. Enter places a table at the middle of the view.'
-    : 'The arrow keys move between tables. Enter picks a table up; then the arrow keys move it, ' +
-      'R turns it, Enter drops it and Escape puts it back.',
+  tool.value === 'row'
+    ? 'The arrow keys move a crosshair. Enter lays a point of the row at it, Backspace takes one ' +
+      'back, F swaps the side the tables stand on, Control and Enter places the row and Escape ' +
+      'drops it.'
+    : tool.value === 'add'
+      ? 'The arrow keys move between tables. Enter places a table at the middle of the view.'
+      : 'The arrow keys move between tables. Enter picks a table up; then the arrow keys move it, ' +
+        'R turns it, Enter drops it and Escape puts it back.',
 );
 
 // ── The stage and its camera ─────────────────────────────────────────────────
@@ -241,6 +302,20 @@ function show(tables: readonly FloorplanTable[]) {
   camera.value = cameraShowing(cam, size.value.width, size.value.height, box, SHOWN_MARGIN_PX);
 }
 
+/** Bring a place of the hall into view, with room round it for a table. */
+function showPlace(at: PointMm) {
+  const cam = camera.value;
+  if (!cam || !size.value) return;
+  const room = row.size.value.widthMm;
+  const box = {
+    left: at.xMm - room,
+    right: at.xMm + room,
+    top: at.yMm - room,
+    bottom: at.yMm + room,
+  };
+  camera.value = cameraShowing(cam, size.value.width, size.value.height, box, SHOWN_MARGIN_PX);
+}
+
 /** The most one wheel event zooms by, in the pixels it says it scrolled. */
 const WHEEL_ZOOM_PX = 25;
 
@@ -275,10 +350,21 @@ const SNAP_PX = 8;
 /** How far along the line they would share a still table may stand and still be snapped to. */
 const SNAP_REACH_MM = 5000;
 const TURN_STEP = 15;
+/** How near a point of a pending path a press is a press on it, in screen pixels. */
+const ROW_POINT_PX = 12;
 
 type Gesture =
   | { kind: 'pan'; from: { x: number; y: number }; camera: Camera }
   | { kind: 'add'; from: { x: number; y: number } }
+  | {
+      kind: 'row';
+      from: { x: number; y: number };
+      /** Where the press was, snapped as a point of the path is. */
+      fromMm: PointMm;
+      /** The point of the pending path that was pressed, which a drag moves. */
+      point: number | null;
+      begun: boolean;
+    }
   | {
       kind: 'floor';
       from: { x: number; y: number };
@@ -358,6 +444,35 @@ function select(id: string, toggle: boolean) {
   props.editor.select(now.includes(id) ? now.filter((one) => one !== id) : [...now, id]);
 }
 
+/** Where a point of a row's path goes for a pointer: snapped to the tables near it, freely with
+ *  Alt. */
+function rowPointAt(event: PointerEvent): PointMm {
+  const at = toMm(event);
+  return event.altKey ? at : row.snapped(at, SNAP_PX / camera.value!.pxPerMm, SNAP_REACH_MM);
+}
+
+/** The pointer over the map with Row of tables on: the path is shown through where it is, and
+ *  as it would be placed where it rests on the last point, which a click there places. */
+function hoverRow(event: PointerEvent) {
+  // While the keys have the path it is the points laid, wherever the pointer passes.
+  if (keysOnMap.value) return;
+  const points = row.points.value;
+  const on = row.pointNear(toMm(event), ROW_POINT_PX / camera.value!.pxPerMm);
+  row.hoverAt(points.length > 1 && on === points.length - 1 ? null : rowPointAt(event));
+}
+
+/** Place the pending row, and say what was added. Placed by keys, the focus goes to its first
+ *  table and the view shows the row: a map that had no table loses its own stop once it has one. */
+function placeRow() {
+  if (!row.pending.value) return;
+  const byKeys = keysOnMap.value && Boolean(stage.value?.contains(document.activeElement));
+  const added = row.place();
+  say(added.length ? saidRowAdded(added, drawnSections.value) : NO_TABLE_FITS);
+  if (!byKeys || !added.length) return;
+  void focusTable(added[0].id);
+  show(added);
+}
+
 function pinchOf(): { distance: number; middle: { xPx: number; yPx: number } } | null {
   const [a, b] = [...touches.values()];
   if (!a || !b) return null;
@@ -379,6 +494,10 @@ function onPointerDown(event: PointerEvent) {
       // A second finger makes whatever the first began a pinch.
       if (gesture && 'begun' in gesture && gesture.begun) props.editor.cancel();
       if (gesture?.kind === 'floor' && gesture.begun) props.editor.select(gesture.base);
+      if (gesture?.kind === 'row') {
+        row.dragTo(null);
+        row.hoverAt(null);
+      }
       guides.value = [];
       selectBox.value = null;
       gesture = { kind: 'pinch', ...pinch, camera: cam };
@@ -388,6 +507,8 @@ function onPointerDown(event: PointerEvent) {
     }
   }
   if (gesture) return;
+  // A press on the map with Row of tables on gives the path to the pointer: the crosshair goes.
+  if (tool.value === 'row') keysOnMap.value = false;
 
   if (event.button === 1 || (event.button === 0 && spaceHeld.value)) {
     event.preventDefault();
@@ -410,6 +531,14 @@ function onPointerDown(event: PointerEvent) {
     };
   } else if (tool.value === 'add') {
     gesture = { kind: 'add', from };
+  } else if (tool.value === 'row') {
+    gesture = {
+      kind: 'row',
+      from,
+      fromMm: rowPointAt(event),
+      point: row.pointNear(toMm(event), ROW_POINT_PX / cam.pxPerMm),
+      begun: false,
+    };
   } else {
     const id = tableAt(event);
     const label = id ? null : labelAt(event);
@@ -451,13 +580,18 @@ function onPointerMove(event: PointerEvent) {
     touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
   }
   const cam = camera.value;
-  if (!gesture || !cam) return;
+  if (!cam) return;
+  if (!gesture) {
+    if (tool.value === 'row' && event.pointerType !== 'touch') hoverRow(event);
+    return;
+  }
   if (gesture.kind !== 'pinch') {
     // Another pointer (a palm, a mouse passing over a finger's drag) is none of this gesture's.
     if (event.pointerId !== gesturePointer) return;
     // A mouse moving with no button down lost its release, to a menu say: the gesture ends here.
     if (event.pointerType === 'mouse' && event.buttons === 0) {
-      endGesture(event, false);
+      // Of a row, nothing is placed or laid where the pointer happens to come back.
+      endGesture(event, gesture.kind === 'row');
       return;
     }
   }
@@ -505,6 +639,15 @@ function onPointerMove(event: PointerEvent) {
       guides.value = snap.guides;
     }
     props.editor.moveTables(gesture.ids, dxMm, dyMm);
+  } else if (gesture.kind === 'row') {
+    if (!gesture.begun && Math.hypot(dx, dy) < DRAG_PX) return;
+    gesture.begun = true;
+    const to = rowPointAt(event);
+    // A drag moves the point pressed; with no path yet it draws a straight row; else it carries
+    // the next point, laid where it is let go.
+    if (gesture.point !== null) row.movePoint(gesture.point, to);
+    else if (!row.points.value.length) row.dragTo([gesture.fromMm, to]);
+    else row.hoverAt(to);
   } else if (gesture.kind === 'floor') {
     if (!gesture.begun && Math.hypot(dx, dy) < DRAG_PX) return;
     gesture.begun = true;
@@ -584,6 +727,27 @@ function endGesture(event: PointerEvent, cancelled: boolean) {
     else if (!done.begun && !cancelled && !done.keep) props.editor.select([]);
     return;
   }
+  if (done.kind === 'row') {
+    if (cancelled) {
+      row.dragTo(null);
+      return;
+    }
+    const points = row.points.value;
+    if (done.point !== null) {
+      // A press on the last point that was no drag places the row: so a double-click does, its
+      // first click laying the point its second is on.
+      if (!done.begun && points.length > 1 && done.point === points.length - 1) {
+        row.hoverAt(null);
+        placeRow();
+      }
+    } else if (done.begun && !points.length) {
+      row.dragTo([done.fromMm, rowPointAt(event)]);
+      placeRow();
+    } else {
+      row.addPoint(done.begun ? rowPointAt(event) : done.fromMm);
+    }
+    return;
+  }
   if (cancelled) return;
   if (
     done.kind === 'add' &&
@@ -615,6 +779,11 @@ function abandon() {
   guides.value = [];
   selectBox.value = null;
   dragging.value = false;
+  if (done?.kind === 'row') {
+    // A straight drag is dropped; a point that was being moved stays where it was let go.
+    row.dragTo(null);
+    return;
+  }
   if (!done || !('begun' in done) || !done.begun) return;
   if (done.kind === 'floor') props.editor.select(done.base);
   else props.editor.cancel();
@@ -701,6 +870,10 @@ function onWindowKeydown(event: KeyboardEvent) {
     if (command && !event.altKey && ['a', 'd', 'z', 'y'].includes(key)) event.preventDefault();
     return;
   }
+  if (tool.value === 'row' && rowKey(event, false)) {
+    event.preventDefault();
+    return;
+  }
   if (event.key === 'Escape' && gesture) {
     event.preventDefault();
     abandon();
@@ -763,6 +936,105 @@ function onWindowKeydown(event: KeyboardEvent) {
   }
 }
 
+/**
+ * A key with Row of tables on; true when it was the row's. `onStage` is a key heard on the map
+ * itself. There, once the keys are the map's, the arrow keys move the crosshair and Enter lays a
+ * point at it; for a pointer, Enter places the path as it is shown. Ctrl+Enter places it either
+ * way. Backspace, and Ctrl+Z while a path is pending, take the last point back, leaving the
+ * layout's own undo alone; Escape drops the path; F swaps the side the tables stand on.
+ */
+function rowKey(event: KeyboardEvent, onStage: boolean): boolean {
+  if (event.altKey) return false;
+  const command = event.ctrlKey || event.metaKey;
+  const key = event.key.toLowerCase();
+  const ours = onStage || mapHasTheKeys();
+  if (command) {
+    if (key === 'z' && !event.shiftKey && row.pending.value) {
+      // Not under a press, whose release reckons with the points as it found them.
+      if (!gesture) takeRowPoint();
+      return true;
+    }
+    if (key === 'enter' && ours && row.pending.value) {
+      if (!event.repeat && !gesture) placeRow();
+      return true;
+    }
+    return false;
+  }
+  const nudge = NUDGES[event.key];
+  if (nudge && onStage) {
+    const step = event.shiftKey ? LONG_NUDGE_MM : NUDGE_MM;
+    const from = row.crosshair.value ?? crosshairStart();
+    const to = clampToHall(
+      { xMm: from.xMm + nudge[0] * step, yMm: from.yMm + nudge[1] * step },
+      hall.value,
+    );
+    keysOnMap.value = true;
+    row.moveCrosshair(to);
+    showPlace(to);
+    // A key held down says where the crosshair is once, when it is let go (`onStageKeyup`).
+    if (event.repeat) unsaidMove = true;
+    else say(to.xMm === from.xMm && to.yMm === from.yMm ? AT_THE_EDGE : saidCrosshair(to));
+    return true;
+  }
+  if (event.shiftKey) return false;
+  if (key === 'enter' && ours) {
+    if (event.repeat || gesture) return true;
+    if (onStage && keysOnMap.value) {
+      const at = row.crosshair.value ?? crosshairStart();
+      const last = row.points.value.at(-1);
+      row.moveCrosshair(at);
+      // Enter again where a point was just laid lays no second one there: the point is said.
+      if (!last || last.xMm !== at.xMm || last.yMm !== at.yMm) row.addPoint(at);
+      say(saidPoint(row.points.value.length, at, row.poses.value.length));
+      return true;
+    }
+    if (!row.pending.value) return false;
+    placeRow();
+    return true;
+  }
+  if (key === 'backspace' && ours) {
+    // The path's key while this tool is on, even with no point left to take: never the
+    // selection's, which a row just placed is.
+    if (!gesture && row.pending.value) takeRowPoint();
+    return true;
+  }
+  if (key === 'escape' && !gesture && row.pending.value) {
+    row.drop();
+    say(ROW_DROPPED);
+    return true;
+  }
+  if (key === 'f') {
+    if (!event.repeat) flipRow();
+    return true;
+  }
+  return false;
+}
+
+/** Where the crosshair begins: the middle of the view, on the 10 cm steps the keys move it by. */
+function crosshairStart(): PointMm {
+  const cam = camera.value;
+  const at = cam ? { xMm: cam.xMm, yMm: cam.yMm } : { xMm: 0, yMm: 0 };
+  return clampToHall(
+    {
+      xMm: Math.round(at.xMm / NUDGE_MM) * NUDGE_MM,
+      yMm: Math.round(at.yMm / NUDGE_MM) * NUDGE_MM,
+    },
+    hall.value,
+  );
+}
+
+function takeRowPoint() {
+  const number = row.points.value.length;
+  if (row.takePoint()) say(saidPointTaken(number, row.poses.value.length));
+}
+
+/** Swap the side of the line a row's tables stand on; nothing while they are centred on it. */
+function flipRow() {
+  if (rowChoices.centred) return;
+  row.flip();
+  say(saidSide(rowChoices.side, row.pending.value ? row.poses.value.length : null));
+}
+
 /** Zoom a step about the middle of the view, keeping the table the keys are on in it. */
 function zoomByKey(direction: 1 | -1) {
   stepZoom(direction);
@@ -772,6 +1044,12 @@ function zoomByKey(direction: 1 | -1) {
 
 function onWindowKeyup(event: KeyboardEvent) {
   if (event.key === ' ') spaceHeld.value = false;
+}
+
+/** The pointer left the map: a pending row is shown through its points alone. */
+function onPointerLeave() {
+  hovering.value = false;
+  row.hoverAt(null);
 }
 
 /** The window lost the keys with Space down, so its release will not be heard. */
@@ -801,6 +1079,14 @@ function onStageKeydown(event: KeyboardEvent) {
   const id = tableAt(event);
   if (pickedUp.value.length) {
     carriedKey(event, id);
+    return;
+  }
+  if (tool.value === 'row') {
+    // The row's keys, before the map hears them; no table is picked up while it is on.
+    if (rowKey(event, true)) event.preventDefault();
+    else if (event.key === 'Enter' || (event.key === ' ' && keysOnMap.value)) {
+      event.preventDefault();
+    }
     return;
   }
   if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -873,6 +1159,10 @@ let unsaidMove = false;
 function onStageKeyup(event: KeyboardEvent) {
   if (!unsaidMove || !NUDGES[event.key]) return;
   unsaidMove = false;
+  if (tool.value === 'row') {
+    if (row.crosshair.value) say(saidCrosshair(row.crosshair.value));
+    return;
+  }
   const tables = tablesOf(pickedUp.value);
   const lead = tableOf(tableAt(event)) ?? tables[0];
   if (lead) say(saidMoved(tables, lead, drawnSections.value));
@@ -930,7 +1220,11 @@ function placeAtTheMiddle() {
 function onStageFocusIn(event: FocusEvent) {
   const target = event.target instanceof Element ? event.target : null;
   keysOnMap.value = Boolean(target?.matches(':focus-visible'));
-  const table = keysOnMap.value ? tableOf(tableAt(event)) : null;
+  // The crosshair stands at the middle of the view when the keys first come to the map.
+  if (keysOnMap.value && tool.value === 'row' && !row.crosshair.value) {
+    row.moveCrosshair(crosshairStart());
+  }
+  const table = keysOnMap.value && tool.value !== 'row' ? tableOf(tableAt(event)) : null;
   if (table) show([table]);
 }
 
@@ -1070,6 +1364,7 @@ watch(
   () => {
     props.editor.putBack();
     abandon();
+    row.reset();
     fit();
   },
 );
@@ -1107,6 +1402,17 @@ watch(
         @click="tool = 'add'"
       >
         Add table
+      </button>
+      <button
+        type="button"
+        class="btn btn--secondary btn--compact"
+        data-tool="row"
+        data-testid="layout-tool-row"
+        :aria-pressed="tool === 'row'"
+        :tabindex="effectiveStop === 'row' ? 0 : -1"
+        @click="tool = 'row'"
+      >
+        Row of tables
       </button>
       <span class="layout-toolbar__rule" role="separator" aria-orientation="vertical" />
       <button
@@ -1167,7 +1473,12 @@ watch(
       </span>
     </div>
 
-    <div v-if="tool === 'add'" class="layout-options" data-testid="layout-add-options">
+    <div
+      v-if="tool !== 'select'"
+      class="layout-options"
+      :class="{ 'layout-options--row': tool === 'row' }"
+      data-testid="layout-add-options"
+    >
       <label class="layout-option">
         <span class="layout-option__name">Section</span>
         <select
@@ -1193,13 +1504,47 @@ watch(
           </option>
         </select>
       </label>
+      <template v-if="tool === 'row'">
+        <label class="layout-option">
+          <span class="layout-option__name">Gap (cm)</span>
+          <input
+            v-model="rowChoices.gapCm"
+            class="field layout-option__field layout-option__field--number"
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            data-testid="layout-row-gap"
+          />
+        </label>
+        <label class="layout-option">
+          <span class="layout-option__name">Tables</span>
+          <select
+            v-model="rowChoices.centred"
+            class="field field--select layout-option__field"
+            data-testid="layout-row-stand"
+          >
+            <option :value="false">Beside the line</option>
+            <option :value="true">Centred on the line</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          class="btn btn--secondary btn--compact"
+          :disabled="rowChoices.centred"
+          data-testid="layout-row-flip"
+          @click="flipRow"
+        >
+          Flip side
+        </button>
+      </template>
     </div>
 
     <div
       ref="stage"
       class="layout-stage"
       :class="{
-        'layout-stage--add': tool === 'add',
+        'layout-stage--drawing': tool !== 'select',
+        'layout-stage--row': tool === 'row',
         'layout-stage--hand': spaceHeld,
         'layout-stage--dragging': dragging,
       }"
@@ -1210,7 +1555,7 @@ watch(
       @pointerup="endGesture($event, false)"
       @pointercancel="endGesture($event, true)"
       @pointerenter="hovering = true"
-      @pointerleave="hovering = false"
+      @pointerleave="onPointerLeave"
       @keydown.capture="onStageKeydown"
       @keyup="onStageKeyup"
       @focusin="onStageFocusIn"
@@ -1245,6 +1590,17 @@ watch(
             vector-effect="non-scaling-stroke"
             aria-hidden="true"
             data-testid="layout-select-box"
+          />
+          <LayoutRowPreview
+            v-if="tool === 'row' && (row.pending.value || crosshair)"
+            :runs="row.runs.value"
+            :poses="row.poses.value"
+            :size="row.size.value"
+            :points="row.points.value"
+            :countAt="row.pending.value ? (crosshair ?? row.countAt.value) : null"
+            :crosshair="crosshair"
+            :paint="rowPaint"
+            :mmPerPx="mmPerPx"
           />
           <g
             v-if="handle"
@@ -1340,6 +1696,17 @@ watch(
   max-width: 100%;
 }
 
+/* A row's strip holds five controls: its fields are narrower, so they stand on one line beside
+   the panel. */
+.layout-options--row .layout-option__field {
+  width: 10.5rem;
+}
+
+.layout-options--row .layout-option__field--number,
+.layout-option__field--number {
+  width: 4.5rem;
+}
+
 /* The stage is a window onto the hall, at the floorplan's shape and never taller than leaves the
    toolbar and the hint on the screen with it (the bars, the head row and the toolbar above it and
    the hint under it take 23.5rem between them): the hall is moved inside it, so nothing is cut off
@@ -1361,8 +1728,15 @@ watch(
    ends reads at any pan and zoom, whatever the venue's image shows of its own edge. */
 /* With a tool's options strip above it the stage gives up the strip's height, so the hint stays on
    the screen. */
-.layout-stage--add {
+.layout-stage--drawing {
   max-height: max(20rem, calc(100vh - 26.5rem));
+}
+
+/* Under 1400px a row's strip, of five controls, takes a second line. */
+@media (max-width: 1400px) {
+  .layout-stage--row {
+    max-height: max(20rem, calc(100vh - 29.5rem));
+  }
 }
 
 .layout-stage :deep(.layout-map) {
@@ -1395,9 +1769,9 @@ watch(
   pointer-events: none;
 }
 
-.layout-stage--add,
-.layout-stage--add :deep(.layout-table--button),
-.layout-stage--add :deep(.layout-map__label) {
+.layout-stage--drawing,
+.layout-stage--drawing :deep(.layout-table--button),
+.layout-stage--drawing :deep(.layout-map__label) {
   cursor: crosshair;
 }
 

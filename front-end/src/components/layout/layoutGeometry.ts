@@ -318,14 +318,18 @@ export function readsUpsideDown(rotation: number): boolean {
 
 // ── Rounding ─────────────────────────────────────────────────────────────────
 
-/** A length as the editor keeps it: to a tenth of a millimetre. */
+/**
+ * A length as the editor keeps it: to a hundredth of a millimetre. Tables that touch along a curve
+ * are each turned to their own angle, so a coarser length would lay one a hair over the next.
+ */
 export function roundMm(value: number): number {
-  return Math.round(value * 10) / 10;
+  return Math.round(value * 100) / 100;
 }
 
-/** A turn as the editor keeps it: 0 up to 360, to a hundredth of a degree. */
+/** A turn as the editor keeps it: 0 up to 360, to a thousandth of a degree, which is a hundredth
+ *  of a millimetre at the end of a table. */
 export function roundTurn(degrees: number): number {
-  const turn = Math.round((((degrees % 360) + 360) % 360) * 100) / 100;
+  const turn = Math.round((((degrees % 360) + 360) % 360) * 1000) / 1000;
   return turn === 360 ? 0 : turn;
 }
 
@@ -910,4 +914,607 @@ export function nearestTo<T extends PointMm>(point: PointMm, tables: readonly T[
     }
   }
   return best;
+}
+
+// ── Along a drawn path ───────────────────────────────────────────────────────
+//
+// A row of tables follows a path drawn through clicked points. The path is flattened to runs, each
+// a polyline with no corner inside it, and everything after works on a run: a straight drag, a
+// curve, and the two walls of a corner are one code path.
+
+/** A polyline with no corner inside it: a stretch of a path between two of its corners. */
+export type Run = PointMm[];
+
+/** Where a row's tables stand: to the right or the left of the direction drawn, as seen on the
+ *  screen, or with the path through their centres. */
+export type RowSide = 'right' | 'left' | 'centre';
+
+/** A run with the length along it up to each of its points. */
+export interface MeasuredRun {
+  points: PointMm[];
+  cumulative: number[];
+  length: number;
+}
+
+/** Where a table of a row stands, and the stretch of its run its back edge spans. */
+export interface PathPose {
+  xMm: number;
+  yMm: number;
+  /** Degrees clockwise, in (-90, 90], so a number never reads upside down. */
+  rotation: number;
+  startS: number;
+  endS: number;
+}
+
+export interface RowOptions {
+  widthMm: number;
+  depthMm: number;
+  gapMm: number;
+  side: RowSide;
+  /** What a table of the row never overlaps: each a convex shape by its corners, as the tables
+   *  that stand already and the no-table zones. */
+  obstacles?: readonly (readonly PointMm[])[];
+  /** The floorplan: a table whose centre would stand outside it is left out. */
+  extent?: SizeMm;
+  maxCount?: number;
+}
+
+type Vec = readonly [number, number];
+const vec = (point: PointMm): Vec => [point.xMm, point.yMm];
+const pointOf = (v: Vec): PointMm => ({ xMm: v[0], yMm: v[1] });
+const minus = (a: Vec, b: Vec): Vec => [a[0] - b[0], a[1] - b[1]];
+const plus = (a: Vec, b: Vec): Vec => [a[0] + b[0], a[1] + b[1]];
+const times = (a: Vec, k: number): Vec => [a[0] * k, a[1] * k];
+const dot = (a: Vec, b: Vec) => a[0] * b[0] + a[1] * b[1];
+const cross = (a: Vec, b: Vec) => a[0] * b[1] - a[1] * b[0];
+const between = (a: Vec, b: Vec) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+const mix = (a: Vec, b: Vec, t: number): Vec => [
+  a[0] + (b[0] - a[0]) * t,
+  a[1] + (b[1] - a[1]) * t,
+];
+
+/** How far a middle point may stand off the line through its neighbours and still be on it. */
+const STRAIGHT_WITHIN_MM = 0.5;
+/** Points nearer each other than this are one point. */
+const SAME_POINT_MM = 1;
+
+interface Circle {
+  centre: Vec;
+  radius: number;
+  /** +1 where the angle grows from a to c, clockwise on the screen. */
+  way: number;
+}
+
+/** The circle through three points; null where they stand in a line. */
+function circleThrough(a: Vec, b: Vec, c: Vec): Circle | null {
+  const chord = between(a, c);
+  const sagitta = Math.abs(cross(minus(c, a), minus(b, a))) / (chord || 1);
+  if (chord === 0 || sagitta < STRAIGHT_WITHIN_MM) return null;
+  const d = 2 * (a[0] * (b[1] - c[1]) + b[0] * (c[1] - a[1]) + c[0] * (a[1] - b[1]));
+  const a2 = dot(a, a);
+  const b2 = dot(b, b);
+  const c2 = dot(c, c);
+  const centre: Vec = [
+    (a2 * (b[1] - c[1]) + b2 * (c[1] - a[1]) + c2 * (a[1] - b[1])) / d,
+    (a2 * (c[0] - b[0]) + b2 * (a[0] - c[0]) + c2 * (b[0] - a[0])) / d,
+  ];
+  return { centre, radius: between(centre, a), way: Math.sign(cross(minus(b, a), minus(c, b))) };
+}
+
+/** The angle a circle's arc sweeps from p to q, the way the circle was drawn; 0 exclusive to a
+ *  whole turn. */
+function sweepOn(circle: Circle, p: Vec, q: Vec): number {
+  const from = Math.atan2(p[1] - circle.centre[1], p[0] - circle.centre[0]);
+  const to = Math.atan2(q[1] - circle.centre[1], q[0] - circle.centre[0]);
+  let sweep = (to - from) * circle.way;
+  while (sweep <= 0) sweep += 2 * Math.PI;
+  while (sweep > 2 * Math.PI) sweep -= 2 * Math.PI;
+  return sweep;
+}
+
+/** The arc of a circle from p to q, as a place for each t from 0 to 1. */
+function arcOn(circle: Circle, p: Vec, q: Vec): (t: number) => Vec {
+  const from = Math.atan2(p[1] - circle.centre[1], p[0] - circle.centre[0]);
+  const sweep = sweepOn(circle, p, q);
+  return (t) => {
+    const angle = from + circle.way * sweep * t;
+    return [
+      circle.centre[0] + circle.radius * Math.cos(angle),
+      circle.centre[1] + circle.radius * Math.sin(angle),
+    ];
+  };
+}
+
+/** A curve from t 0 to 1 as a polyline no further than `toleranceMm` off it, by halving. */
+function flattened(curve: (t: number) => Vec, toleranceMm: number): Vec[] {
+  const out: Vec[] = [curve(0)];
+  const halve = (t0: number, p0: Vec, t1: number, p1: Vec, depth: number) => {
+    const tm = (t0 + t1) / 2;
+    const pm = curve(tm);
+    const chord = between(p0, p1);
+    const off =
+      chord === 0 ? between(pm, p0) : Math.abs(cross(minus(p1, p0), minus(pm, p0))) / chord;
+    if (depth < 12 && (off > toleranceMm || depth < 2)) {
+      halve(t0, p0, tm, pm, depth + 1);
+      halve(tm, pm, t1, p1, depth + 1);
+    } else {
+      out.push(p1);
+    }
+  };
+  halve(0, out[0], 1, curve(1), 0);
+  return out;
+}
+
+/**
+ * The smooth path through clicked points, as runs split at its corners. Each span between two
+ * points blends the circle through the point before it with the circle through the point after
+ * (a circle-blend spline), so points clicked along a circular wall give back the circle exactly,
+ * however many or unevenly they are. A point is a corner where either span beside it would sweep
+ * more than `cornerDeg` on the circle through it and its two neighbours, or where the path turns
+ * straight back: an L-shaped wall is two straight runs, with no bulge. A point in a line with its
+ * neighbours carries that line on, so a span from a straight wall into a curve leaves the wall
+ * along it and bends toward the curve. Two points are one straight run, and fewer are no path. A
+ * span with no curve in it is its two ends alone.
+ */
+export function smoothRuns(
+  points: readonly PointMm[],
+  options: { toleranceMm?: number; cornerDeg?: number } = {},
+): Run[] {
+  const tolerance = options.toleranceMm ?? 2;
+  const limit = ((options.cornerDeg ?? 70) * Math.PI) / 180;
+  const at: Vec[] = [];
+  for (const point of points) {
+    const next = vec(point);
+    if (!at.length || between(at[at.length - 1], next) >= SAME_POINT_MM) at.push(next);
+  }
+  if (at.length < 2) return [];
+
+  /** The circle at point i; 'corner' where the path turns too sharply there; 'straight' where its
+   *  neighbours stand in a line with it; null at an end, which has one neighbour. */
+  const turnAt = (i: number): Circle | 'corner' | 'straight' | null => {
+    if (i <= 0 || i >= at.length - 1) return null;
+    const [a, b, c] = [at[i - 1], at[i], at[i + 1]];
+    const circle = circleThrough(a, b, c);
+    if (!circle) return dot(minus(b, a), minus(c, b)) < 0 ? 'corner' : 'straight';
+    return Math.max(sweepOn(circle, a, b), sweepOn(circle, b, c)) > limit ? 'corner' : circle;
+  };
+  const turns = at.map((_, i) => turnAt(i));
+
+  const runs: Vec[][] = [];
+  let run: Vec[] = [];
+  for (let i = 0; i < at.length - 1; i += 1) {
+    const [p, q] = [at[i], at[i + 1]];
+    const before = turns[i];
+    const after = turns[i + 1];
+    if (before === 'corner' && run.length) {
+      runs.push(run);
+      run = [];
+    }
+    const line = (t: number) => mix(p, q, t);
+    /** How the path leaves or reaches a point: on its circle, along its line, or (null) however
+     *  the span's other end has it. */
+    const way = (turn: Circle | 'corner' | 'straight' | null) =>
+      turn === 'straight' ? line : turn && turn !== 'corner' ? arcOn(turn, p, q) : null;
+    const first = way(before);
+    const second = way(after);
+    const curved = (first && first !== line) || (second && second !== line);
+    const span: Vec[] = !curved
+      ? [p, q]
+      : first && second
+        ? flattened((t) => mix(first(t), second(t), t), tolerance)
+        : flattened((first ?? second)!, tolerance);
+    // The clicked points themselves, not where a cosine put them.
+    span[0] = p;
+    span[span.length - 1] = q;
+    run = run.length ? run.concat(span.slice(1)) : span;
+  }
+  runs.push(run);
+  return runs.map((one) => one.map(pointOf));
+}
+
+/** A run with the length along it up to each point. */
+export function measureRun(run: Run): MeasuredRun {
+  const cumulative = [0];
+  for (let i = 1; i < run.length; i += 1) {
+    cumulative.push(cumulative[i - 1] + between(vec(run[i - 1]), vec(run[i])));
+  }
+  return { points: run, cumulative, length: cumulative[cumulative.length - 1] ?? 0 };
+}
+
+/** The segment of a run that holds the length `s` along it, by its first point's index. */
+function segmentAt(run: MeasuredRun, s: number): number {
+  let low = 0;
+  let high = run.cumulative.length - 1;
+  while (high - low > 1) {
+    const middle = (low + high) >> 1;
+    if (run.cumulative[middle] <= s) low = middle;
+    else high = middle;
+  }
+  return low;
+}
+
+function vecAtLength(run: MeasuredRun, s: number): Vec {
+  const { points, cumulative } = run;
+  if (s <= 0) return vec(points[0]);
+  if (s >= run.length) return vec(points[points.length - 1]);
+  const i = segmentAt(run, s);
+  const span = cumulative[i + 1] - cumulative[i] || 1;
+  return mix(vec(points[i]), vec(points[i + 1]), (s - cumulative[i]) / span);
+}
+
+/** The point of a run at a length along it, held to the run's ends. */
+export function pointAtLength(run: MeasuredRun, s: number): PointMm {
+  return pointOf(vecAtLength(run, s));
+}
+
+/**
+ * How far along a run the first point after `fromS` stands that is `chordMm` from the point at
+ * `fromS` in a straight line: where the far end of a table's back edge meets the path. Null where
+ * the run ends first.
+ */
+export function chordEnd(run: MeasuredRun, fromS: number, chordMm: number): number | null {
+  const a = vecAtLength(run, fromS);
+  for (let i = segmentAt(run, fromS); i < run.points.length - 1; i += 1) {
+    const p = vec(run.points[i]);
+    const q = vec(run.points[i + 1]);
+    if (between(q, a) < chordMm) continue;
+    // Where on p to q the distance from a is the chord: the further of the two answers.
+    const along = minus(q, p);
+    const from = minus(p, a);
+    const A = dot(along, along);
+    const B = 2 * dot(from, along);
+    const C = dot(from, from) - chordMm * chordMm;
+    const root = Math.sqrt(Math.max(0, B * B - 4 * A * C));
+    const t = Math.min(1, Math.max(0, (-B + root) / (2 * A)));
+    const s = run.cumulative[i] + t * (run.cumulative[i + 1] - run.cumulative[i]);
+    if (s > fromS) return s;
+  }
+  return null;
+}
+
+function toSegment(point: Vec, a: Vec, b: Vec): number {
+  const along = minus(b, a);
+  const t = Math.max(0, Math.min(1, dot(minus(point, a), along) / (dot(along, along) || 1)));
+  return between(point, plus(a, times(along, t)));
+}
+
+function separationOf(a: readonly Vec[], b: readonly Vec[]): number {
+  let best = -Infinity;
+  for (const [shape, other] of [
+    [a, b],
+    [b, a],
+  ] as const) {
+    for (let i = 0; i < shape.length; i += 1) {
+      const edge = minus(shape[(i + 1) % shape.length], shape[i]);
+      const length = Math.hypot(edge[0], edge[1]);
+      if (length === 0) continue;
+      const axis: Vec = [edge[1] / length, -edge[0] / length];
+      let near = Infinity;
+      let far = -Infinity;
+      for (const corner of shape) {
+        const along = dot(corner, axis);
+        near = Math.min(near, along);
+        far = Math.max(far, along);
+      }
+      let otherNear = Infinity;
+      let otherFar = -Infinity;
+      for (const corner of other) {
+        const along = dot(corner, axis);
+        otherNear = Math.min(otherNear, along);
+        otherFar = Math.max(otherFar, along);
+      }
+      best = Math.max(best, otherNear - far, near - otherFar);
+    }
+  }
+  if (best <= 0) return best;
+  let least = Infinity;
+  for (const [shape, other] of [
+    [a, b],
+    [b, a],
+  ] as const) {
+    for (const corner of shape) {
+      for (let j = 0; j < other.length; j += 1) {
+        least = Math.min(least, toSegment(corner, other[j], other[(j + 1) % other.length]));
+      }
+    }
+  }
+  return least;
+}
+
+/**
+ * How far apart two convex shapes stand, each its corners in order: the distance between them
+ * where they are apart, 0 where they touch, and less than nothing, by how deep one is in the
+ * other, where they overlap.
+ */
+export function separation(a: readonly PointMm[], b: readonly PointMm[]): number {
+  return separationOf(a.map(vec), b.map(vec));
+}
+
+interface Pose {
+  centre: Vec;
+  rotation: number;
+  startS: number;
+  endS: number;
+}
+
+function poseAt(
+  run: MeasuredRun,
+  startS: number,
+  widthMm: number,
+  depthMm: number,
+  side: RowSide,
+): Pose | null {
+  const endS = chordEnd(run, startS, widthMm);
+  if (endS === null) return null;
+  const a = vecAtLength(run, startS);
+  const b = vecAtLength(run, endS);
+  const length = between(a, b) || 1;
+  const along: Vec = [(b[0] - a[0]) / length, (b[1] - a[1]) / length];
+  const right: Vec = [-along[1], along[0]];
+  const middle = mix(a, b, 0.5);
+  // How far the path bows off the chord between the table's ends, to its right and to its left.
+  let most = 0;
+  let least = 0;
+  for (
+    let i = segmentAt(run, startS) + 1;
+    i < run.points.length && run.cumulative[i] < endS;
+    i += 1
+  ) {
+    const off = dot(minus(vec(run.points[i]), middle), right);
+    most = Math.max(most, off);
+    least = Math.min(least, off);
+  }
+  const off =
+    side === 'centre'
+      ? (most + least) / 2
+      : side === 'right'
+        ? most + depthMm / 2
+        : least - depthMm / 2;
+  let rotation = (Math.atan2(along[1], along[0]) * 180) / Math.PI;
+  if (rotation > 90) rotation -= 180;
+  else if (rotation <= -90) rotation += 180;
+  return { centre: plus(middle, times(right, off)), rotation, startS, endS };
+}
+
+const shown = (pose: Pose): PathPose => ({
+  xMm: pose.centre[0],
+  yMm: pose.centre[1],
+  rotation: pose.rotation,
+  startS: pose.startS,
+  endS: pose.endS,
+});
+
+/**
+ * Where one table of a row stands, its back edge beginning `startS` along the run: the edge is a
+ * chord of the path, as long as the table is wide, and the table stands off it to the side asked,
+ * never across the path. Inside a bend its two back corners touch the path; outside one, the
+ * middle of its back edge does. `centre` puts the path through the table's middle instead. Null
+ * where the table does not fit before the run ends.
+ */
+export function poseOnPath(
+  run: MeasuredRun,
+  startS: number,
+  widthMm: number,
+  depthMm: number,
+  side: RowSide,
+): PathPose | null {
+  const pose = poseAt(run, startS, widthMm, depthMm, side);
+  return pose && shown(pose);
+}
+
+function cornersAt(centre: Vec, rotation: number, widthMm: number, depthMm: number): Vec[] {
+  const turn = (rotation * Math.PI) / 180;
+  const half = times([Math.cos(turn), Math.sin(turn)], widthMm / 2);
+  const deep = times([-Math.sin(turn), Math.cos(turn)], depthMm / 2);
+  return [
+    minus(minus(centre, half), deep),
+    minus(plus(centre, half), deep),
+    plus(plus(centre, half), deep),
+    plus(minus(centre, half), deep),
+  ];
+}
+
+/** How near a place found by halving is to the first clear one, along the run. */
+const MARCH_WITHIN_MM = 0.05;
+/** How far off the gap asked a table's first try may stand and be taken as it is. */
+const MARCH_EXACT_MM = 0.01;
+
+interface Standing {
+  centre: Vec;
+  /** As far as any of its corners stands from its centre. */
+  reach: number;
+  corners: Vec[];
+}
+
+/**
+ * A row of tables along runs, in the order drawn: each table goes at the first place along its run
+ * where it stands exactly `gapMm` clear of every table before it (further on inside a bend than
+ * where the last one's edge ended, nearer outside one), so no two overlap at any radius and the
+ * gap asked holds where they are nearest. On a straight run that is `floor((length + gap) /
+ * (width + gap))` tables, a table's width and the gap apart. A table is placed only while its
+ * whole back edge fits before its run ends. A place that would overlap one of `obstacles` is
+ * passed over for the next clear one; a table whose centre would stand outside `extent` is left
+ * out, the row going on as if it stood there; and no more than `maxCount` are placed.
+ * `placedBefore` are tables of the same size the row keeps its gap from, as an earlier row of the
+ * same gesture.
+ */
+export function placeAlongRuns(
+  runs: readonly Run[],
+  options: RowOptions,
+  placedBefore: readonly PathPose[] = [],
+): PathPose[] {
+  const { widthMm, depthMm, gapMm, side, extent } = options;
+  const maxCount = options.maxCount ?? Infinity;
+  const half = Math.hypot(widthMm, depthMm) / 2;
+  const standing = (centre: Vec, rotation: number): Standing => ({
+    centre,
+    reach: half,
+    corners: cornersAt(centre, rotation, widthMm, depthMm),
+  });
+  /** The tables of the row so far, with those before it. */
+  const placed: Standing[] = placedBefore.map((pose) =>
+    standing([pose.xMm, pose.yMm], pose.rotation),
+  );
+  // Only what stands near the path can be in a table's way: the rest is left out once, here,
+  // rather than asked about at every place tried.
+  const box = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
+  for (const run of runs) {
+    for (const point of run) {
+      box.left = Math.min(box.left, point.xMm);
+      box.right = Math.max(box.right, point.xMm);
+      box.top = Math.min(box.top, point.yMm);
+      box.bottom = Math.max(box.bottom, point.yMm);
+    }
+  }
+  const near = half * 2 + 1;
+  const obstacles: Standing[] = [];
+  for (const shape of options.obstacles ?? []) {
+    const corners = shape.map(vec);
+    const centre = times(
+      corners.reduce<Vec>((sum, corner) => plus(sum, corner), [0, 0]),
+      1 / (corners.length || 1),
+    );
+    const reach = Math.max(0, ...corners.map((c) => between(c, centre)));
+    if (
+      centre[0] + reach < box.left - near ||
+      centre[0] - reach > box.right + near ||
+      centre[1] + reach < box.top - near ||
+      centre[1] - reach > box.bottom + near
+    ) {
+      continue;
+    }
+    obstacles.push({ centre, corners, reach });
+  }
+  const out: PathPose[] = [];
+
+  /** How clear a pose stands of everything, less the gap from the row's own: 0 or more is clear. */
+  const slack = (pose: Pose): number => {
+    const corners = cornersAt(pose.centre, pose.rotation, widthMm, depthMm);
+    let best = Infinity;
+    for (let i = placed.length - 1; i >= 0; i -= 1) {
+      const other = placed[i];
+      if (between(pose.centre, other.centre) > half + other.reach + gapMm + 1) continue;
+      best = Math.min(best, separationOf(corners, other.corners) - gapMm);
+      // Too near one is too near: how much nearer another stands changes nothing.
+      if (best < -MARCH_EXACT_MM) return best;
+    }
+    for (const other of obstacles) {
+      if (between(pose.centre, other.centre) > half + other.reach + 1) continue;
+      best = Math.min(best, separationOf(corners, other.corners));
+      if (best < -MARCH_EXACT_MM) return best;
+    }
+    return best;
+  };
+
+  for (const points of runs) {
+    if (points.length < 2) continue;
+    const run = measureRun(points);
+    const at = (s: number) => poseAt(run, s, widthMm, depthMm, side);
+    /** The first clear place between one that is not and one that is, by halving. */
+    const firstClear = (blocked: number, clear: number): Pose => {
+      let low = blocked;
+      let high = clear;
+      while (high - low > MARCH_WITHIN_MM) {
+        const middle = (low + high) / 2;
+        const pose = at(middle);
+        if (pose && slack(pose) >= 0) high = middle;
+        else low = middle;
+      }
+      return at(high)!;
+    };
+    const step = widthMm / 16;
+    let s = 0;
+    let lastS = -Infinity;
+    while (out.length < maxCount) {
+      let pose = at(s);
+      if (!pose) break;
+      const clear = slack(pose);
+      if (clear < -MARCH_EXACT_MM) {
+        // Too near: on to the first clear place.
+        let blocked = s;
+        let found: number | null = null;
+        for (let next = s + step; ; next += step) {
+          const there = at(next);
+          if (!there) break;
+          if (slack(there) >= 0) {
+            found = next;
+            break;
+          }
+          blocked = next;
+        }
+        if (found === null) break;
+        pose = firstClear(blocked, found);
+      } else if (clear > MARCH_EXACT_MM) {
+        // Looser than asked, as outside a bend: back to the first clear place.
+        let found = s;
+        let blocked: number | null = null;
+        for (let next = s - step; next > lastS && next >= 0; next -= step) {
+          const there = at(next);
+          if (!there || slack(there) < 0) {
+            blocked = next;
+            break;
+          }
+          found = next;
+        }
+        if (blocked !== null) pose = firstClear(blocked, found);
+        else pose = at(found)!;
+      }
+      placed.push(standing(pose.centre, pose.rotation));
+      const inside =
+        !extent ||
+        (pose.centre[0] >= 0 &&
+          pose.centre[0] <= extent.widthMm &&
+          pose.centre[1] >= 0 &&
+          pose.centre[1] <= extent.depthMm);
+      if (inside) out.push(shown(pose));
+      lastS = pose.startS;
+      s = pose.endS + gapMm;
+    }
+  }
+  return out;
+}
+
+/**
+ * Where a point of a path being drawn snaps: to the nearest corner of a table within `withinMm`,
+ * else to the nearest of the lines the tables' edges lie on within it, on the edge or up to
+ * `reachMm` past its end, else nowhere. So a row begun on the end corner of another goes on from
+ * it, touching, and one begun further along lines up with it. `shapes` are the tables as they
+ * stand turned.
+ */
+export function snapPoint(
+  point: PointMm,
+  shapes: readonly (readonly PointMm[])[],
+  withinMm: number,
+  reachMm = 0,
+): PointMm {
+  const from = vec(point);
+  let corner: Vec | null = null;
+  let onEdge: Vec | null = null;
+  let cornerAway = withinMm;
+  let edgeAway = withinMm;
+  for (const shape of shapes) {
+    for (let i = 0; i < shape.length; i += 1) {
+      const a = vec(shape[i]);
+      const b = vec(shape[(i + 1) % shape.length]);
+      const away = between(from, a);
+      if (away <= cornerAway) {
+        corner = a;
+        cornerAway = away;
+      }
+      const along = minus(b, a);
+      const length = Math.hypot(along[0], along[1]);
+      if (length === 0) continue;
+      const past = reachMm / length;
+      const t = dot(minus(from, a), along) / (length * length);
+      if (t < -past || t > 1 + past) continue;
+      const foot = plus(a, times(along, t));
+      const off = between(from, foot);
+      if (off <= edgeAway) {
+        onEdge = foot;
+        edgeAway = off;
+      }
+    }
+  }
+  const to = corner ?? onEdge;
+  return to ? pointOf(to) : point;
 }

@@ -37,6 +37,7 @@ export class LayoutPage {
   readonly toolbar: Locator;
   readonly toolSelect: Locator;
   readonly toolAdd: Locator;
+  readonly toolRow: Locator;
   readonly undo: Locator;
   readonly redo: Locator;
   readonly zoomOut: Locator;
@@ -45,6 +46,15 @@ export class LayoutPage {
   readonly zoom: Locator;
   readonly addSection: Locator;
   readonly addType: Locator;
+  readonly rowGap: Locator;
+  readonly rowStand: Locator;
+  readonly rowFlip: Locator;
+  readonly rowPreview: Locator;
+  readonly rowCount: Locator;
+  readonly rowPoints: Locator;
+  readonly rowTables: Locator;
+  readonly rowLines: Locator;
+  readonly rowCrosshair: Locator;
   readonly guides: Locator;
   readonly turnKnob: Locator;
   readonly hint: Locator;
@@ -58,6 +68,9 @@ export class LayoutPage {
   readonly selectionRemove: Locator;
   readonly selectionDuplicate: Locator;
   readonly selectionAlign: Locator;
+  readonly selectionRow: Locator;
+  readonly selectionRowCount: Locator;
+  readonly selectionRowAdd: Locator;
   readonly selectBox: Locator;
   readonly noSection: Locator;
   readonly selectNoSection: Locator;
@@ -100,6 +113,7 @@ export class LayoutPage {
     this.toolbar = page.getByRole('toolbar', { name: 'Layout tools' });
     this.toolSelect = this.toolbar.getByRole('button', { name: 'Select', exact: true });
     this.toolAdd = this.toolbar.getByRole('button', { name: 'Add table', exact: true });
+    this.toolRow = this.toolbar.getByRole('button', { name: 'Row of tables', exact: true });
     this.undo = this.toolbar.getByRole('button', { name: 'Undo', exact: true });
     this.redo = this.toolbar.getByRole('button', { name: 'Redo', exact: true });
     this.zoomOut = this.toolbar.getByRole('button', { name: 'Zoom out', exact: true });
@@ -108,6 +122,15 @@ export class LayoutPage {
     this.zoom = page.getByTestId('layout-zoom');
     this.addSection = page.getByTestId('layout-add-section');
     this.addType = page.getByTestId('layout-add-type');
+    this.rowGap = page.getByTestId('layout-row-gap');
+    this.rowStand = page.getByTestId('layout-row-stand');
+    this.rowFlip = page.getByTestId('layout-row-flip');
+    this.rowPreview = this.map.getByTestId('layout-row-preview');
+    this.rowCount = this.map.getByTestId('layout-row-count');
+    this.rowPoints = this.map.getByTestId('layout-row-point');
+    this.rowTables = this.map.getByTestId('layout-row-table');
+    this.rowLines = this.map.getByTestId('layout-row-line');
+    this.rowCrosshair = this.map.getByTestId('layout-row-crosshair');
     this.guides = this.map.getByTestId('layout-map-guide');
     this.turnKnob = this.map.getByTestId('layout-turn-knob');
     this.hint = page.getByTestId('layout-hint');
@@ -121,6 +144,9 @@ export class LayoutPage {
     this.selectionRemove = page.getByTestId('layout-selection-remove');
     this.selectionDuplicate = page.getByTestId('layout-selection-duplicate');
     this.selectionAlign = page.getByTestId('layout-selection-align-button');
+    this.selectionRow = page.getByTestId('layout-selection-row');
+    this.selectionRowCount = page.getByTestId('layout-selection-row-count');
+    this.selectionRowAdd = page.getByTestId('layout-selection-row-add');
     this.selectBox = this.map.getByTestId('layout-select-box');
     this.noSection = page.getByTestId('layout-panel-no-section');
     this.selectNoSection = page.getByTestId('layout-panel-select-no-section');
@@ -173,13 +199,28 @@ export class LayoutPage {
 
   /**
    * Put the focus on the map by keyboard, as a person does from the toolbar: on the table Tab
-   * stops on, or on the map itself while it has no table. With Add table on, the options strip's
-   * two fields stand between the toolbar and the map.
+   * stops on, or on the map itself while it has no table. With a drawing tool on, the fields of
+   * its options strip stand between the toolbar and the map, and Tab passes each.
    */
   async tabToTheMap(): Promise<void> {
-    const fields = (await this.addSection.isVisible()) ? 2 : 0;
     await this.toolbar.locator('[tabindex="0"]').focus();
-    for (let press = 0; press <= fields; press += 1) await this.page.keyboard.press('Tab');
+    for (let press = 0; press < 8; press += 1) {
+      await this.page.keyboard.press('Tab');
+      if (await this.stage.locator(':focus').count()) return;
+    }
+    throw new Error('Tab did not reach the map from the toolbar');
+  }
+
+  /** Move the pointer to a point of the hall, in millimetres, with no button down. */
+  async hoverAt(mm: [number, number]): Promise<void> {
+    const at = await this.onScreen(mm);
+    await this.page.mouse.move(at.x, at.y, { steps: 3 });
+  }
+
+  /** Double-click the floor at a point of the hall, in millimetres. */
+  async doubleClickAt(mm: [number, number]): Promise<void> {
+    const at = await this.onScreen(mm);
+    await this.page.mouse.dblclick(at.x, at.y);
   }
 
   /** A table's top, the shape drawn at its size and turn, and its number. */

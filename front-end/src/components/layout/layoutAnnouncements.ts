@@ -8,6 +8,7 @@ import { ref, type Ref } from 'vue';
 import type { FloorplanTable } from '@/assets/types/datatypes';
 import { plural } from '@/utils/historyReaders/shared';
 import { placeInMetres, tableCode, type LayoutSection } from './layoutDrawing';
+import type { PointMm } from './layoutGeometry';
 
 /** A table's code among the sections the map draws; null for a table in no section. */
 function codeOf(table: FloorplanTable, sections: readonly LayoutSection[]): string | null {
@@ -109,6 +110,54 @@ export function saidRemoved(
 ): string {
   return `Removed ${object(tables, sections)}`;
 }
+
+/**
+ * A row placed along a path, by its section's numbers in the order drawn: "Added Gold row 10 to
+ * 23."; one table, "Added Gold row 10."; in no section, "Added 14 tables in no section."
+ */
+export function saidRowAdded(
+  tables: readonly FloorplanTable[],
+  sections: readonly LayoutSection[],
+): string {
+  if (tables.length === 1) return `${saidAdded(tables, sections)}.`;
+  const first = codeOf(tables[0], sections);
+  const last = tables[tables.length - 1];
+  if (!first || last.number === null) {
+    return `Added ${plural(tables.length, 'table', 'tables')} in no section.`;
+  }
+  return `Added ${first} to ${last.number}.`;
+}
+
+/** How many tables the path holds, as a sentence: "14 tables.", "No tables yet." */
+const held = (count: number) => (count ? `${plural(count, 'table', 'tables')}.` : 'No tables yet.');
+
+/** A point laid by the crosshair, and what the path now holds: "Point 3 at 12.4 m, 6.1 m. 14
+ *  tables." */
+export function saidPoint(number: number, at: PointMm, count: number): string {
+  return `Point ${number} at ${placeInMetres(at)}. ${held(count)}`;
+}
+
+/** "Point 3 taken back. 9 tables."; the first, "Point 1 taken back. No points left." */
+export function saidPointTaken(number: number, count: number): string {
+  return `Point ${number} taken back. ${number === 1 ? 'No points left.' : held(count)}`;
+}
+
+/** Where the crosshair stands: "Crosshair at 12.4 m, 6.1 m". */
+export function saidCrosshair(at: PointMm): string {
+  return `Crosshair at ${placeInMetres(at)}`;
+}
+
+/** The side a row's tables stand on, and what the path holds there: "Tables on the left of the
+ *  line. 12 tables."; with no path, the side alone. */
+export function saidSide(side: 'right' | 'left', count: number | null): string {
+  const said = `Tables on the ${side} of the line.`;
+  return count === null ? said : `${said} ${held(count)}`;
+}
+
+/** Said when a path is dropped unplaced. */
+export const ROW_DROPPED = 'Row dropped. No table was added.';
+/** Said when a path is placed that no table fits along. */
+export const NO_TABLE_FITS = 'No table fits along that line.';
 
 /** Said when a key would carry a table past the floorplan's edge, where it stays. */
 export const AT_THE_EDGE = 'At the edge of the floorplan';

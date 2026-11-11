@@ -198,11 +198,11 @@ describe('turning', () => {
     expect(angleFrom({ xMm: 0, yMm: 0 }, { xMm: -10, yMm: 0 })).toBeCloseTo(180);
   });
 
-  it('keeps a length to a tenth of a millimetre and a turn to a hundredth of a degree', () => {
-    expect(roundMm(1234.5678)).toBe(1234.6);
+  it('keeps a length to a hundredth of a millimetre and a turn to a thousandth of a degree', () => {
+    expect(roundMm(1234.5678)).toBe(1234.57);
     expect(roundTurn(-90)).toBe(270);
-    expect(roundTurn(359.999)).toBe(0);
-    expect(roundTurn(44.996)).toBe(45);
+    expect(roundTurn(359.9996)).toBe(0);
+    expect(roundTurn(44.9996)).toBe(45);
   });
 });
 
