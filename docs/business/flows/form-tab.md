@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/market/MarketFormTab.vue
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - brain-dump/2026-10-19#5
   - brain-dump/2026-10-19#6
@@ -27,6 +27,7 @@ sources:
   - T206
   - T213
   - T223
+  - T271
 ---
 
 # Building the application form
@@ -63,6 +64,7 @@ On the Google Form path the essential questions are the answers each import read
 3. A question with nothing to offer is hidden from applicants and says why ("No market dates yet - this question is hidden from applicants until you add dates under Market Setup.").
 4. Untick "Ask this" under Section preference to stop asking it; every applicant is then treated equally on sections.
    It saves at once, stays off through later form edits, and the applicant form then asks no ranking (bugs 29 and 45).
+   It saves only that choice, with the questions as last saved: a question still being written stays unsaved and unsent, and is saved only by "Save Form", through its checks (T271).
    "Ask this" under "Anything else you need from us?" stops asking for a vendor's request the same way.
 
 What the questions offer follows the plan until the first applicant answers, and is frozen from then on ([essential fields](../../implementation/modules/essential-fields.md)).
@@ -176,6 +178,24 @@ Covered by:
 **Status:** Stubbed.
 The question exists but is hidden while every table is one type: "Every table is the same type for now, so no vendor ranks them. This question appears once a floorplan gives your market more than one table type."
 Assignment uses one type in this release, so even a floorplan with several types does not turn it on in practice.
+
+## Leaving with questions not yet saved
+
+**Status:** Works (T271; `unsaved-questions-ask-first.spec.ts`).
+The questions are unsaved while they differ from the questions as last saved; opening a step without an edit is not, nor is a form just saved, nor an "Ask this" choice, which saves itself.
+With questions unsaved, a tab of the market bar, a link or Back opens "Leave without saving?": "Your changes to the form's questions are not saved. Leaving drops them.", with "Stay" and "Leave".
+Stay, Escape, the close and a click beside the dialog keep the organizer on the form with every question as it was; Leave drops them and goes where they asked.
+Moving between the tab's steps never asks, since the steps are one working copy, and a reload or closing the tab is asked by the browser in its own words.
+Sign out never stops on it.
+Every screen that holds unsaved work asks the same way ([unsaved work asks before it is dropped](../../implementation/conventions/unsaved-work-asks-before-it-is-dropped.md)).
+
+A phase move refuses while the questions are unsaved, "Open applications" among them, and the [phase rail](../../implementation/modules/phase-rail.md) says "The market did not move: the form has changes that are not saved. Save Form first." as the move is pressed, before "Open applications" asks for the reviewers and before any of the plan's pending edits are sent ([the plan's autosave](../../implementation/modules/plan-autosave.md)).
+It used to open the form as last saved, so applicants got a form without its last questions.
+Covered by:
+
+- `marketSetupForm.test.ts`
+- `theFormTabInSteps.test.ts`
+- `unsaved-questions-ask-first.spec.ts`
 
 ## The rules it obeys
 

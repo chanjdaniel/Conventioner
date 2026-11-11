@@ -18,6 +18,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 import { useOpenMarket } from '@/utils/openMarket';
+import { useUnsavedWork } from '@/utils/useUnsavedWork';
 import MarketFrame from '@/components/MarketFrame.vue';
 import FileDropZone from '@/components/FileDropZone.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
@@ -213,12 +214,29 @@ const refused = computed(
   () => step.value === 'upload' && Boolean(marketId.value) && !takingApplications.value,
 );
 
-/** Leave the wizard for the market it belongs to. Nothing is written until the final confirm. */
+/**
+ * Leave the wizard for the market it belongs to. Nothing is written until the final confirm, so on
+ * Map columns and Preview the move asks first, through the route guard below.
+ */
 function leaveImport() {
   if (market.value?.id) router.push(marketPath(market.value.id, 'applications'));
   else router.push('/markets');
 }
 const busy = ref(false);
+/**
+ * A file read and nothing of it written: on Map columns and Preview the mapping and every value
+ * settled live in this page alone until the final confirm, so leaving asks first (T271). Upload
+ * holds no file and the done step has written it; nor does an import already running ask, since
+ * leaving does not stop it.
+ */
+const holdsAMapping = computed(
+  () => step.value === 'map' || (step.value === 'preview' && !busy.value),
+);
+useUnsavedWork({
+  unsaved: () => holdsAMapping.value,
+  sentence:
+    'Nothing from this file is imported yet. Leaving drops the column mapping and every value you settled.',
+});
 const error = ref('');
 const fileName = ref('');
 const csvContent = ref('');
@@ -1569,7 +1587,8 @@ watch(marketId, () => {
         <!-- The way out. Upload, Map columns, Preview and the value reconciliation had none at all -
            no Cancel, no breadcrumb - so an organizer who opened this by mistake, or hit a file the
            product could not read, had the browser's back button and nothing else. Nothing is
-           written until the final confirm, so leaving costs only the mapping. -->
+           written until the final confirm, so leaving costs only the mapping, and asks before it drops
+           one. -->
         <button
           v-if="step !== 'done'"
           class="button-secondary"

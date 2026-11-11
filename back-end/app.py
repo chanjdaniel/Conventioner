@@ -21,6 +21,7 @@ import csv_start as CsvStart
 import typesafe_client as TypeSafe
 import market_stats as MarketStats
 import api.attendance as AttendanceApi
+import payments as Payments
 import api.door as DoorApi
 import api.vendor_check_in as VendorCheckInApi
 import api.applications as ApplicationsApi
@@ -57,6 +58,7 @@ from market_documents import (
 import db_config
 import pymongo
 from lookup_indexes import ensure_lookup_indexes
+from unique_indexes import UniqueIndexError
 import json
 import os
 import glob
@@ -210,10 +212,47 @@ def verify_user_indexes() -> None:
 verify_user_indexes()
 
 
+def verify_attendance_indexes() -> None:
+    """Refuse to boot unless one vendor's day can be only one attendance record (T270).
+
+    A check-in is an upsert by market, vendor and date, and two at once could store two records,
+    so one Undo left the vendor reading as here. The unique index is the referee, built here; a
+    process that cannot hold it - the collection already holding such duplicates - says so, naming
+    them by market, date and record id, before it takes a request (``unique_indexes``).
+    """
+    try:
+        AttendanceApi.ensure_attendance_indexes()
+    except UniqueIndexError as e:
+        logger.critical("Refusing to start: %s", e)
+        raise
+
+
+verify_attendance_indexes()
+
+
+def verify_payment_indexes() -> None:
+    """Refuse to boot unless one vendor's day can be only one owed record (T270).
+
+    The freed line and an amount set by hand are each an upsert by market, vendor and date, and
+    an Admin's set as an Editor freed the seat could store two records, so whichever the server
+    found first won. The unique index is the referee, built here; a process that cannot hold it
+    says so, naming the duplicates by market, date and record id, before it takes a request
+    (``unique_indexes``).
+    """
+    try:
+        Payments.ensure_payment_indexes()
+    except UniqueIndexError as e:
+        logger.critical("Refusing to start: %s", e)
+        raise
+
+
+verify_payment_indexes()
+
+
 def build_lookup_indexes() -> None:
     """Index every field a document is looked up by (``lookup_indexes``), once, at boot.
 
-    Not a refusal like the two above: these carry no guarantee, only speed. A database that cannot
+    Not a refusal like the ones above: these carry no guarantee, only speed. A database that cannot
     build one cannot serve a request either, so its error is left to stop the boot as it is.
     """
     ensure_lookup_indexes()
@@ -994,7 +1033,8 @@ def record_payment(market_id: str, vendor_email: str) -> Response:
     """Record one payment a vendor made, and answer their account. Asks
     ``Actions.RECORD_PAYMENT``.
 
-    Body: { "cents": 3500, "method": "e-transfer", "paidOn": "2026-11-01", "note": "" }
+    Body: { "cents": 3500, "method": "e-transfer", "paidOn": "2026-11-01", "note": "",
+    "requestKey": "<the press's UUID>" }; a repeat of the key records nothing new (T270).
     """
     data = json_object(required=True)
     return jsonify(PaymentsApi.record_payment(
@@ -1799,17 +1839,22 @@ def next_for_review(market_id: str) -> Response:
     A chosen reviewer is handed their own share first, and with ``mineOnly`` nothing else
     (E38/F07/S04); for anyone else ``mineOnly`` is ignored.
     Answers { "application": ... } or { "application": null } when every one left is held by
-    someone else, or under ``mineOnly`` when their share has nothing left to hand out.
+    someone else, or under ``mineOnly`` when their share has nothing left to hand out, with
+    ``dealt``, how many applications the deal before it dealt, so a screen reads its list again.
     """
     person, context, refused = _reviewer_on(market_id)
     if refused:
         return refused
     data = json_object(required=False)
+    # Applications a deal the host ended left waiting are dealt first, so a chosen reviewer's
+    # share holds them; each deal is recorded under the write it arrived by.
+    dealt = ReviewTeam.deal_waiting(context.market, context.organization)
     doc = ApplicationsApi.claim_next_for_review(
         market_id, person, data.get('after'), bool(data.get('includeFollowUps')),
         want=data.get('want'), chosen=Actions.is_chosen(person.email, context.market),
         mine_only=data.get('mineOnly') is True)
-    return jsonify({"application": ApplicantsApi.organizer_view(doc) if doc else None}), 200
+    return jsonify({"application": ApplicantsApi.organizer_view(doc) if doc else None,
+                    "dealt": dealt}), 200
 
 
 @app.route('/markets/<market_id>/applications/<application_id>/claim', methods=['PUT', 'DELETE'])

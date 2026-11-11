@@ -135,6 +135,9 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
       >
         Correct the assignment rules above to allocate tables.
       </p>
+      <!-- A rule edit is a save of the plan, so a save that did not land says so here, above the
+           allocation's own error (T271). -->
+      <slot name="planStatus" />
       <div v-if="assignError" class="assign-error-banner" data-testid="market-setup-assign-error">
         <!-- A refusal that names applicants hands the organizer to each one: their name with
              nothing to follow left them to go and find it (bug 42). -->
@@ -162,6 +165,11 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
         </template>
         <span v-else>{{ assignError }}</span>
       </div>
+    </div>
+    <!-- With no allocation to offer (the rules settled, perhaps by the refusal itself), the plan's
+         save still says how it went. -->
+    <div v-else-if="$slots.planStatus" class="assign-actions">
+      <slot name="planStatus" />
     </div>
   </div>
 </template>

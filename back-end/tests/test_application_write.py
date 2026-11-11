@@ -14,7 +14,9 @@ import pytest
 from conftest import FakeMarketsCollection, stored_market
 
 import essential_fields as EssentialFields
-from application_write import record_application_answers, validate_application_answers
+from application_write import (
+    ANSWERS_MOVED, record_application_answers, validate_application_answers,
+)
 from datatypes import ApplicationStatus
 
 
@@ -132,6 +134,22 @@ class TestRecordApplicationAnswers:
         )
 
         stored = applications.find_one({"id": "app-1"})
+        assert stored["status"] == ApplicationStatus.REVIEWER_APPROVED.value
+
+    def test_a_held_write_on_a_verdict_given_since_writes_nothing(self, markets, applications):
+        """T270: the re-import holds its write to the application as it read it."""
+        applications.insert_one(_app_doc(status=ApplicationStatus.REVIEWER_APPROVED.value,
+                                         verdict_at="2026-07-01T10:00:00+00:00"))
+
+        error, app = record_application_answers(
+            markets, markets.doc, _app_doc(status=ApplicationStatus.OPEN.value), ANSWERS,
+            imported=True, held=_app_doc(status=ApplicationStatus.OPEN.value),
+            back_to_review=True,
+        )
+
+        assert (error, app) == (ANSWERS_MOVED, None)
+        stored = applications.find_one({"id": "app-1"})
+        assert stored["form_data"] == {}
         assert stored["status"] == ApplicationStatus.REVIEWER_APPROVED.value
 
     def test_the_offering_is_frozen_before_the_answers_are_written(self, markets, applications):
