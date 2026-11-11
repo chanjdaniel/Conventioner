@@ -103,7 +103,7 @@ describe('who applied', () => {
     const cancelled = odd.byStatus.find((r) => r.label === 'Cancelled')!;
     expect(cancelled.count).toBe(1);
     expect(cancelled.to).toBeUndefined();
-    expect(cancelled.fill).toBe('--mm-text-muted');
+    expect(cancelled.fill).toBe('--mm-chart-grey');
     expect(odd.byStatus.reduce((sum, r) => sum + r.count, 0)).toBe(odd.total);
   });
 

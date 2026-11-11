@@ -44,7 +44,7 @@ const FILLS: Record<Exclude<AllViewFilter, 'all'>, string> = {
   reviewer_rejected: '--mm-red',
 };
 /** A status no filter lists, such as `cancelled`: grey, a part of the whole and of no filter. */
-const OTHER_FILL = '--mm-text-muted';
+const OTHER_FILL = '--mm-chart-grey';
 
 export function applicantStats(counts: ApplicantCounts, marketId: string): ApplicantStats {
   const { total, addedByHand } = counts;

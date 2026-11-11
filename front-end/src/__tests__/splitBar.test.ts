@@ -21,7 +21,7 @@ const PARTS: SplitPart[] = [
   },
   { label: 'Approved', value: 'reviewer_approved', count: 20, fill: '--mm-green', to: to('a') },
   { label: 'Rejected', value: 'reviewer_rejected', count: 4, fill: '--mm-red', to: to('r') },
-  { label: 'Cancelled', value: 'cancelled', count: 4, fill: '--mm-text-muted' },
+  { label: 'Cancelled', value: 'cancelled', count: 4, fill: '--mm-chart-grey' },
 ];
 
 function mountBar(parts = PARTS) {
@@ -46,7 +46,7 @@ describe('SplitBar', () => {
       'flex-grow: 12; background: var(--mm-blue);',
       'flex-grow: 20; background: var(--mm-green);',
       'flex-grow: 4; background: var(--mm-red);',
-      'flex-grow: 4; background: var(--mm-text-muted);',
+      'flex-grow: 4; background: var(--mm-chart-grey);',
     ]);
   });
 

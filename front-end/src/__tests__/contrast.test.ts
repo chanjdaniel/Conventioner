@@ -311,7 +311,7 @@ describe('the palette carries a contrast contract', () => {
     '--mm-blue',
     '--mm-green',
     '--mm-red',
-    '--mm-text-muted',
+    '--mm-chart-grey',
   ];
 
   for (const mark of CHART_MARKS) {

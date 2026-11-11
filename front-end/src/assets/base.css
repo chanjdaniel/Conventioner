@@ -76,8 +76,10 @@
   /* ---- A chart's marks (T201): fills that carry no text, each held to the 3:1 a graphic needs on
      white. The split bar's parts are --mm-blue, --mm-green, --mm-red and this yellow, set apart by
      white gaps so no two fills need contrast with each other. --mm-yellow is 2.15 on white, too
-     faint for a mark, so a chart's yellow is its own: darker, and never under text. ---- */
+     faint for a mark, so a chart's yellow is its own: darker, and never under text. A status no
+     filter lists is a grey part, the look of --mm-text-muted on white, a fill of its own. ---- */
   --mm-chart-yellow: #bd8619; /* on white: 3.19 */
+  --mm-chart-grey: #777474; /* on white: 4.63 */
 
   /* ---- How full a table's cell is (T201): --mm-green laid over white at 14%, 32%, 52% and 75%,
      a step darker each step, every one a fill under --mm-black figures. An empty cell keeps the
