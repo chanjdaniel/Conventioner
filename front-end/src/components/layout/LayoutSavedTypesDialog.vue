@@ -3,7 +3,8 @@
  * "Use saved types" (T257): the sets of table types the person saved, and their organization's,
  * one to choose; "Use these types" adds each of its types the market has none of by that name.
  * It lists them itself when it opens (`list`), and says so while they are on their way, when there
- * are none, and when they could not be had.
+ * are none, and when they could not be had. The list grows with every set saved, so only its body
+ * scrolls, the title and the actions pinned.
  */
 import { computed, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
@@ -64,6 +65,7 @@ function use() {
     title="Use saved types"
     testid="layout-saved-types"
     size="wide"
+    scroll="body"
     :confirm-label="busy ? 'Adding…' : 'Use these types'"
     :confirm-disabled="busy || !choice"
     :close-disabled="busy"

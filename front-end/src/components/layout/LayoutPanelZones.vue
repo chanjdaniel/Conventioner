@@ -80,7 +80,7 @@ defineExpose({ focusZone });
         </div>
         <button
           type="button"
-          class="btn btn--secondary btn--compact"
+          class="btn btn--secondary"
           :aria-label="`Remove ${nameOf(zone, index)}`"
           data-testid="layout-zone-remove"
           @click="remove(zone, index, zones)"

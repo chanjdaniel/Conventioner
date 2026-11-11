@@ -192,6 +192,7 @@ function onMenu(type: TableTypeObject, item: string) {
       {{ said.words }}
     </p>
     <div v-if="editable" class="types-actions">
+      <!-- Adding stands alone; the two ways of saved types share the line under it. -->
       <button
         type="button"
         class="btn btn--secondary btn--compact"
@@ -201,24 +202,26 @@ function onMenu(type: TableTypeObject, item: string) {
       >
         Add a type
       </button>
-      <button
-        type="button"
-        class="btn btn--secondary btn--compact"
-        :disabled="busy || full"
-        data-testid="layout-types-use-saved"
-        @click="open('saved')"
-      >
-        Use saved types
-      </button>
-      <button
-        type="button"
-        class="btn btn--secondary btn--compact"
-        :disabled="busy || !tableTypes.length"
-        data-testid="layout-types-save"
-        @click="open('save')"
-      >
-        Save these types
-      </button>
+      <div class="types-saved">
+        <button
+          type="button"
+          class="btn btn--secondary btn--compact"
+          :disabled="busy || full"
+          data-testid="layout-types-use-saved"
+          @click="open('saved')"
+        >
+          Use saved types
+        </button>
+        <button
+          type="button"
+          class="btn btn--secondary btn--compact"
+          :disabled="busy || !tableTypes.length"
+          data-testid="layout-types-save"
+          @click="open('save')"
+        >
+          Save these types
+        </button>
+      </div>
     </div>
 
     <LayoutTypeDialog
@@ -307,6 +310,13 @@ function onMenu(type: TableTypeObject, item: string) {
 }
 
 .types-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.types-saved {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
