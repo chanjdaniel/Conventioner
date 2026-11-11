@@ -24,9 +24,10 @@ describes:
   - back-end/create_test_user.py
   - front-end/e2e/helpers/exampleCollegeMarket.ts
   - front-end/e2e/helpers/decideReviewSetup.ts
+  - front-end/e2e/helpers/saveApplicationForm.ts
   - front-end/e2e/helpers/seedPeopleAtScale.ts
   - front-end/e2e/helpers/seedMarketAtScale.ts
-verified: 2026-11-09
+verified: 2026-11-11
 sources:
   - E02
   - E11/F01/S01
@@ -49,6 +50,7 @@ sources:
   - T234
   - T251
   - T263
+  - T274
 ---
 
 # E2E seeds
@@ -107,6 +109,13 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - every seed here that leaves a draft ready for Review calls it, `seedDraftMarket()` alone excepted
   - a spec that takes a draft of its own making into Review by its own request calls it first
   - a spec about the decisions asks its seed for `reviewSetupUndecided: true` instead
+
+**`saveApplicationForm()`** ([file](../../../front-end/e2e/helpers/saveApplicationForm.ts))
+
+- Leaves: a market's form written through the form's own write, as the form tab saves it
+- Notes:
+  - reads the form's revision first and saves from it, since a save naming none or an older one is refused ([the form's revision](../modules/market-write.md#the-forms-revision))
+  - every seed and spec that writes the form by request calls it; it throws with the server's words on a refusal, so a spec about a refusal expects that throw
 
 **`seedMarketAtScale()`** ([file](../../../front-end/e2e/helpers/seedMarketAtScale.ts))
 

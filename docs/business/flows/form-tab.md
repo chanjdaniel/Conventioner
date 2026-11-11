@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/market/MarketFormTab.vue
-verified: 2026-11-05
+verified: 2026-11-11
 sources:
   - brain-dump/2026-10-19#5
   - brain-dump/2026-10-19#6
@@ -27,6 +27,7 @@ sources:
   - T206
   - T213
   - T223
+  - T274
 ---
 
 # Building the application form
@@ -80,6 +81,13 @@ Covered by:
 1. On "Your questions", "Add Field"; set Label (the Key is derived), Type (Text, Number, Select, Multi-Select, Checkbox, Date, Email), Required, Options for Select and Multi-Select ("Add option"), Help text.
 2. Drag to reorder; "Remove" deletes.
 3. "Save Form"; expect "Saved".
+
+When someone else saved the form since this tab read it, another person or the same organizer in another tab, "Save Form" stores nothing and says "This market changed while you were working on it, so your change was not saved. Reload to see the latest, then make your change again." where "Saved" would show, and the tab shows the questions as they were saved, so neither save replaces the other's questions ([the form's revision](../../implementation/modules/market-write.md#the-forms-revision)).
+"Ask this" is refused the same way.
+Covered by:
+
+- `aFormSaveThatMetAChangedMarket.test.ts`
+- `application-form.spec.ts`
 
 "Add Discord username", beside "Add Field" ([`FormBuilder.vue`](../../../front-end/src/components/application/FormBuilder.vue)), adds an optional Text question "Discord username" in one click, for a market that gives its vendors a role on Discord; the Discord card picks it up as the question that holds each vendor's username when the market connects ([the Discord connection](../../implementation/modules/discord.md#the-discord-card)).
 It is not offered once the form has a Text question whose label names Discord.

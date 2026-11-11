@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/CsvImportView.vue
-verified: 2026-11-06
+verified: 2026-11-11
 sources:
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/04
@@ -41,6 +41,7 @@ sources:
   - T205
   - T204
   - T223
+  - T274
 ---
 
 # Importing a Google Form's responses
@@ -141,6 +142,7 @@ A custom question can be made optional on Market Setup's form while the market i
 3. Save: the form is written, as Market Setup would write it, and the market stays a draft; "Your upload and your mapping stay exactly as they are."
 
 Refused when it would leave the form asking nothing, which could not enter Review.
+Refused, too, when the form was saved elsewhere since the dialog read it: the dialog stays open on "This market changed while you were working on it, so your change was not saved. Reload to see the latest, then make your change again." and shows the questions as they now stand.
 Once anything is imported the questions are fixed, and the dead end says so in the lock's own words ("The questions are fixed: …") instead of offering the dialog.
 How it works is [the form amendment](../../implementation/modules/form-amendment.md).
 Covered by:
