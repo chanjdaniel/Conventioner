@@ -47,6 +47,7 @@ import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import csv_start as CsvStart
 import db_config
+import market_write as MarketWrite
 import rejection_rules as RejectionRules
 import services.placement_service as PlacementService
 from client_errors import (
@@ -1834,6 +1835,7 @@ PARSER_DETAIL = ("errors.pydantic.dev", "input_value", "input_type", "int_parsin
 def use_market(monkeypatch, doc):
     collection = FakeMarketsCollection(doc)
     monkeypatch.setattr(MarketsApi, "markets_collection", collection)
+    monkeypatch.setattr(MarketWrite, "markets_collection", collection)
     return collection
 
 

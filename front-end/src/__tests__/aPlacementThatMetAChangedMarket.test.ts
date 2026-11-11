@@ -158,16 +158,34 @@ describe('a placement refused because the market changed', () => {
   });
 });
 
-describe('a placement refused for another reason', () => {
-  it('reads nothing again', async () => {
+describe('a placement refused because the seat was taken meanwhile', () => {
+  it('reads the tables and the market again, and keeps the refusal in the seat dialog', async () => {
     const taken = `${BEN} already holds Main Hall 1 (Full Table) on ${DATE}.`;
     api.put.mockImplementation(refusedWith({ error: taken }));
 
     const wrapper = await placeAnaInTheEmptyTable();
 
-    expect(tablesReads()).toBe(1);
-    expect(details.load).not.toHaveBeenCalled();
+    expect(tablesReads()).toBe(2);
+    expect(refreshMarket).toHaveBeenCalledTimes(1);
     expect(wrapper.findComponent(PlacementDialog).props('errorMessage')).toBe(taken);
+  });
+});
+
+describe('a placement refused for another reason', () => {
+  it('reads nothing again', async () => {
+    const unknown = 'That seat is not on this market’s plan.';
+    api.put.mockImplementation(() => {
+      throw Object.assign(new AxiosError('refused'), {
+        response: { status: 400, data: { error: unknown } },
+      });
+    });
+
+    const wrapper = await placeAnaInTheEmptyTable();
+
+    expect(tablesReads()).toBe(1);
+    expect(refreshMarket).not.toHaveBeenCalled();
+    expect(details.load).not.toHaveBeenCalled();
+    expect(wrapper.findComponent(PlacementDialog).props('errorMessage')).toBe(unknown);
   });
 });
 

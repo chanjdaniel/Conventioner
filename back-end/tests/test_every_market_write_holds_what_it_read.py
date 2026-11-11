@@ -39,7 +39,7 @@ EXCEPTIONS: Dict[Tuple[str, str], str] = {
     ("market_deletion", "delete_market_and_records"): _PERMANENT + (
         "the market's deletion keeps no rule beyond the right to delete, and deletes the market "
         "and its records in its own order"),
-    ("review_team", "_choose_holding"): _PERMANENT + (
+    ("review_team", "_write_holding"): _PERMANENT + (
         "the dealing lease (ADR 0020): a protocol of its own, each write held on the lease"),
     ("review_team", "_deal_arriving"): _PERMANENT + (
         "the dealing lease (ADR 0020): a protocol of its own, each write held on the lease"),
