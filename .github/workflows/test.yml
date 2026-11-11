@@ -313,16 +313,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: front-end/package-lock.json
-      # Before the stack starts: the action says why.
-      - name: Install front-end dependencies
-        working-directory: front-end
-        run: npm ci
       # Shard 1 alone saves what it built, so ten shards never race to write one key.
+      - uses: ./.github/actions/front-end-deps # zizmor: ignore[self-repository] actionlint 1.7.12, the latest, refuses the $/ form
+        with:
+          save-cache: ${{ matrix.shard == 1 }}
       - uses: ./.github/actions/e2e-stack # zizmor: ignore[self-repository] actionlint 1.7.12, the latest, refuses the $/ form
         with:
           save-caches: ${{ matrix.shard == 1 }}
@@ -400,14 +394,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 2
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: front-end/package-lock.json
-      - name: Install front-end dependencies
-        working-directory: front-end
-        run: npm ci
+      - uses: ./.github/actions/front-end-deps # zizmor: ignore[self-repository] actionlint 1.7.12, the latest, refuses the $/ form
       - name: The spec files this pull request changes
         id: changed
         working-directory: front-end
