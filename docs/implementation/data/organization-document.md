@@ -8,6 +8,7 @@ describes:
   - back-end/organization_people.py#of_person
   - back-end/migrations/migrate_organization_people.py
   - back-end/tests/test_migrate_organization_people.py
+  - back-end/tests/test_a_roll_forward_rebuilds_the_people_from_the_lists.py
   - back-end/tests/test_a_persons_organizations_in_either_shape.py
   - back-end/datatypes.py#OrganizationRole
   - back-end/datatypes.py#MarketRole
@@ -204,3 +205,6 @@ It skips and lists an organization with no owner, one holding an id that cannot 
 Its `--dry-run` writes nothing and prints each organization it would fold, what it holds, and whether it does not parse on the release before (its owner also an admin or a member) or lists an admin also as a member, then the counts.
 Nothing waits on it, since every reader reads both shapes: it runs after the deploy, whenever ([RELEASING.md](../../RELEASING.md#pre-deploy-database-migrations)).
 [`test_migrate_organization_people.py`](../../../back-end/tests/test_migrate_organization_people.py) folds each stored shape, and pins the dry run, a second run and a change landing during the run; [`test_an_organizations_people_on_the_server.py`](../../../back-end/tests/real_mongo/test_an_organizations_people_on_the_server.py) runs the same on a server.
+Its `--reconcile` is for a roll forward over a rollback past the map's release, and only then: the release before writes only the lists, so the maps it left are stale, and every reader prefers the map ([Rolling back](../../RELEASING.md#rolling-back)).
+It folds as above, and rebuilds each folded organization's map from its lists wherever the two disagree, each person still in it keeping their position, in one write held on the map and the three lists as read (`organization_people.reconciling_write`) that sets the lists as the new map's mirror.
+[`test_a_roll_forward_rebuilds_the_people_from_the_lists.py`](../../../back-end/tests/test_a_roll_forward_rebuilds_the_people_from_the_lists.py) replays each change the release before makes by its own writes and reads the organization as the market read does once reconciled, and pins an organization in step never written, the dry run, a second run and a change landing during the run; the real-MongoDB file above runs the rebuild and that change on a server.
