@@ -84,7 +84,8 @@ export function getDateRange(dates: readonly string[] | undefined | null): strin
   return pair(first, last, '-', ' - ') + extra;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+/** A day's milliseconds, for UTC day arithmetic. */
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 function consecutive(day: Date, next: Date): boolean {
   return next.getTime() - day.getTime() === DAY_MS;

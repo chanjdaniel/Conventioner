@@ -56,6 +56,26 @@ describe('applications over time', () => {
     ]);
   });
 
+  it('runs to today in a market sent back to applications after they closed', () => {
+    const chart = appliedOverTime(
+      times({
+        openedAt: '2026-10-01T09:00:00',
+        closedAt: '2026-10-10T18:00:00',
+        submittedAt: ['2026-10-02T10:00:00', '2026-10-14T10:00:00'],
+      }),
+      MarketPhase.Applications,
+      '2026-10-20',
+    );
+
+    const buckets = chart!.buckets;
+    expect(buckets[0]!.start).toBe('2026-10-01');
+    expect(buckets[buckets.length - 1]!.start).toBe('2026-10-20');
+    expect(buckets.filter((bucket) => bucket.count).map((bucket) => bucket.start)).toEqual([
+      '2026-10-02',
+      '2026-10-14',
+    ]);
+  });
+
   it('starts at the first response when a Google Form took responses before the market opened', () => {
     const chart = appliedOverTime(
       times({

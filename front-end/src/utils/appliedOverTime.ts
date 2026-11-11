@@ -4,17 +4,19 @@
  * stands out.
  *
  * The window runs from the day applications opened (`openedAt`, the phase record's first entry into
- * them), or the first response if that came earlier, as a Google Form's can, to the day they closed
- * (`closedAt`), or to today while the market takes them. A market out of applications whose record
- * holds no close ends at its last response, so a market that predates the record does not run on to
- * today. A response after the close still shows: the window never cuts one off.
+ * them), or the first response if that came earlier, as a Google Form's can, to today while the
+ * market takes them, a market sent back to them included, or else to the day they closed
+ * (`closedAt`). A market out of applications whose record holds no close ends at its last response,
+ * so a market that predates the record does not run on to today. A response after the close still
+ * shows: the window never cuts one off.
  *
  * A day is the reader's calendar day, as every "today" in the app is (`calendarToday`): the server
  * keeps no time zone for a market, so it sends times and the page makes them days. The days are
  * then carried as `YYYY-MM-DD` strings with UTC arithmetic, so no instant can shift them again.
  */
 import { MarketPhase } from '@/assets/types/datatypes';
-import { MONTH_NAMES, dayParts, isoDay } from '@/utils/calendarMonth';
+import { MONTH_NAMES, WEEKDAY_SHORT, dayParts, isoDay } from '@/utils/calendarMonth';
+import { DAY_MS } from '@/utils/utils';
 import { calendarToday } from '@/utils/marketGuide';
 
 /** What the server sends of when they applied (`back-end/market_stats.py`). */
@@ -47,10 +49,8 @@ export interface AppliedOverTime {
 }
 
 /** Past this many days a column is a week, so the columns stay readable on a phone. */
-export const MOST_DAYS = 42;
+const MOST_DAYS = 42;
 
-const DAY_MS = 86_400_000;
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /** A time as a day in the reader's calendar, or null when it is not a time. */
 function readersDay(time: string | null | undefined): string | null {
@@ -99,13 +99,16 @@ function span(start: string, end: string, withYear: boolean): string {
 }
 
 function dayName(day: string): string {
-  return `${WEEKDAYS[new Date(utc(day)).getUTCDay()]}, ${monthDay(day)}, ${year(day)}`;
+  return `${WEEKDAY_SHORT[new Date(utc(day)).getUTCDay()]}, ${monthDay(day)}, ${year(day)}`;
 }
 
-/** The last day of the window: the close, today while open, else the last response. */
+/**
+ * The last day of the window: today while the market takes applications, a market sent back to
+ * them included, so the quiet days since show; else the close, else the last response.
+ */
 function lastDay(times: IntakeTimes, phase: string, today: string, lastResponse: string): string {
-  const closed = readersDay(times.closedAt);
-  const end = closed ?? (phase === MarketPhase.Applications ? today : lastResponse);
+  const end =
+    phase === MarketPhase.Applications ? today : (readersDay(times.closedAt) ?? lastResponse);
   return end < lastResponse ? lastResponse : end;
 }
 
