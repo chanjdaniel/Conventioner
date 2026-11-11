@@ -91,13 +91,23 @@ export interface TierObject {
 }
 
 export interface LocationObject {
+  /** Stable across renames, since a layout names its location by it (T257); minted by Location
+   *  Setup as it adds the row. Absent only on a market stored before ids that neither the migration
+   *  nor a write has reached yet, whose location offers no layout until it is written. */
+  id?: string;
   name: string;
 }
 
 export interface SectionObject {
+  /** Stable across renames, since a layout's table names its section by it (T257); minted by
+   *  Section Setup as it adds the row, and absent only as `LocationObject.id` can be. Every other
+   *  reader still matches a section by its name. */
+  id?: string;
   name: string;
   location: LocationObject | null;
   tier: TierObject | null;
+  /** On a laid-out location, the number of its layout's tables in the section, which the server
+   *  derives on every write; elsewhere the count typed on Section Setup. */
   count: number;
 }
 
@@ -145,9 +155,14 @@ export interface SetupObject {
   locations: LocationObject[];
   sections: SectionObject[];
   assignmentOptions: AssignmentOptionObject;
+  /** One layout per location (T257), written only by the layout's own save: the plan write keeps
+   *  the stored ones whatever its body carries. */
   floorplans?: FloorplanObject[];
   /** Null or absent on a market never priced, which shows no price anywhere. */
   pricing?: PricingObject | null;
+  /** The market's table types, which size a layout's tables (T257); kept by the plan write like
+   *  `floorplans`. Absent on a market stored before them, which has none. */
+  tableTypes?: TableTypeObject[];
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -720,7 +735,18 @@ export interface User {
   organizations?: string[]; // Organization ids
 }
 
+/** One of the market's table types (`setupObject.tableTypes`, T257). It has no colour: the
+ *  section colours a table, the type sizes it. */
 export interface TableTypeObject {
+  id: string;
+  name: string;
+  widthMm: number;
+  depthMm: number;
+}
+
+/** The floorplan beta's table type, which its wizard, Auto-Place's request and a floorplan
+ *  template still carry; it goes with the beta. */
+export interface BetaTableType {
   id: string;
   name: string;
   widthMm: number;
@@ -743,7 +769,8 @@ export interface ObstacleZone {
   type: 'pillar' | 'stage' | 'no_table_zone' | 'custom';
 }
 
-export interface PlacedTableObject {
+/** A table of the floorplan beta's wizard; it goes with the beta. */
+export interface BetaPlacedTable {
   id: string;
   tableTypeId: string;
   x: number;
@@ -754,7 +781,8 @@ export interface PlacedTableObject {
   tableCode?: string;
 }
 
-export interface FloorplanSectionObject {
+/** A section the floorplan beta's wizard grouped; it goes with the beta. */
+export interface BetaFloorplanSection {
   id: string;
   name: string;
   locationName: string;
@@ -768,7 +796,9 @@ export interface AisleConfigObject {
   walkwayWidthMm: number;
 }
 
-export interface FloorplanObject {
+/** The floor plan the beta's wizard edits and sends; the server keeps none of its own fields,
+ *  and it goes with the beta. */
+export interface BetaFloorplan {
   id: string;
   imageGridfsId?: string;
   scalePxPerUnit?: number;
@@ -776,13 +806,73 @@ export interface FloorplanObject {
   referenceLineStart?: [number, number];
   referenceLineEnd?: [number, number];
   referenceLineLengthMm?: number;
-  tableTypes: TableTypeObject[];
+  tableTypes: BetaTableType[];
   walls: WallSegment[];
   obstacles: ObstacleZone[];
-  placedTables: PlacedTableObject[];
-  sections: FloorplanSectionObject[];
+  placedTables: BetaPlacedTable[];
+  sections: BetaFloorplanSection[];
   imageWidth?: number;
   imageHeight?: number;
+}
+
+/** One table of a layout: a real table of the plan, of a section and a type, with its number
+ *  (the server's `table_code_for(section.name, number)` names it). `xMm` and `yMm` are its centre from the
+ *  floorplan image's top-left corner; `rotation` is degrees clockwise. `sectionId` and `number`
+ *  are null on a table in no section. */
+export interface FloorplanTable {
+  id: string;
+  sectionId: string | null;
+  number: number | null;
+  tableTypeId: string;
+  xMm: number;
+  yMm: number;
+  rotation: number;
+}
+
+/** A no-table zone of a layout: a rectangle from its top-left corner, in millimetres. */
+export interface FloorplanZone {
+  id: string;
+  label: string;
+  xMm: number;
+  yMm: number;
+  widthMm: number;
+  depthMm: number;
+}
+
+/** How a section is drawn on a layout: `color` indexes the section palette, 1 to 8, and
+ *  `labelAt` is null where the drawing places the label itself. */
+export interface SectionStyle {
+  sectionId: string;
+  color: number;
+  labelAt: { xMm: number; yMm: number } | null;
+}
+
+/** What Section Setup had typed for a section when its location's layout began. */
+export interface StartingCount {
+  sectionId: string;
+  count: number;
+}
+
+/** A location's layout (T257): its floorplan image, its scale and the tables placed over it.
+ *  `locationId` is null on a floorplan the beta saved, which is shown nowhere. */
+export interface FloorplanObject {
+  id: string;
+  locationId: string | null;
+  /** One more on every write; a write names the one it read. */
+  revision: number;
+  imageGridfsId?: string | null;
+  imageWidth?: number | null;
+  imageHeight?: number | null;
+  pdfPage?: number | null;
+  /** Image pixels per millimetre. */
+  scalePxPerUnit?: number | null;
+  referenceLineStart?: [number, number] | null;
+  referenceLineEnd?: [number, number] | null;
+  referenceLineLengthMm?: number | null;
+  tables: FloorplanTable[];
+  zones: FloorplanZone[];
+  sectionStyles: SectionStyle[];
+  startingCounts: StartingCount[];
 }
 
 export interface FloorplanTemplate {
@@ -790,7 +880,7 @@ export interface FloorplanTemplate {
   name: string;
   ownerUserId?: string;
   organizationId?: string;
-  tableTypes: TableTypeObject[];
+  tableTypes: BetaTableType[];
   aisles: AisleConfigObject;
   createdAt: string;
   updatedAt: string;

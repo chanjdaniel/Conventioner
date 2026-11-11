@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import { MARKET_SETUP_URL, marketScreenPath } from '../helpers/marketScreens';
+import { marketScreenPath } from '../helpers/marketScreens';
 
 /** Minimal shape of a placed table as stored in the Pinia floorplan store. */
 interface PlacedTable {
@@ -85,7 +85,6 @@ export class FloorplanWorkflowPage {
   readonly saveOpenBtn: Locator;
   readonly saveDialog: Locator;
   readonly saveCancelBtn: Locator;
-  readonly saveConfirmBtn: Locator;
   readonly saveSuccess: Locator;
   readonly saveError: Locator;
 
@@ -96,9 +95,6 @@ export class FloorplanWorkflowPage {
   readonly templateNameInput: Locator;
   readonly templateSaveSubmitBtn: Locator;
   readonly templateLoadWindow: Locator;
-
-  // Path choice (in MarketSetupView)
-  readonly choosePathFloorplanCard: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -157,7 +153,6 @@ export class FloorplanWorkflowPage {
     this.saveOpenBtn = page.getByTestId('floorplan-save-open-btn');
     this.saveDialog = page.getByTestId('floorplan-save-dialog');
     this.saveCancelBtn = page.getByTestId('floorplan-save-cancel-btn');
-    this.saveConfirmBtn = page.getByTestId('floorplan-save-confirm-btn');
     this.saveSuccess = page.getByTestId('floorplan-save-success');
     this.saveError = page.getByTestId('floorplan-save-error');
 
@@ -168,9 +163,6 @@ export class FloorplanWorkflowPage {
     this.templateNameInput = page.getByLabel('Template name');
     this.templateSaveSubmitBtn = page.getByTestId('floorplan-template-save-submit-button');
     this.templateLoadWindow = page.getByTestId('floorplan-template-load-window');
-
-    // Path choice
-    this.choosePathFloorplanCard = page.getByTestId('choose-path-floorplan');
   }
 
   /** Navigate to the floorplan editor for a given market. */
@@ -203,18 +195,6 @@ export class FloorplanWorkflowPage {
       },
       { timeout: 30000 },
     );
-  }
-
-  // ─── Path Choice (in MarketSetupView context) ───────────────────
-
-  /** Select the floorplan path from the ChoosePathOverlay. */
-  async selectFloorplanPath(): Promise<void> {
-    // The choice is offered from the Section Setup card now, not opened over the page
-    // (E10/F02/S01).
-    await this.page.getByTestId('market-setup-choose-path-button').click();
-    await this.choosePathFloorplanCard.click();
-    // Expect navigation to the market's floorplan editor
-    await this.page.waitForURL(/\/markets\/[^/]+\/floorplan$/, { timeout: 10000 });
   }
 
   // ─── Step 0: Upload ─────────────────────────────────────────────
@@ -391,16 +371,6 @@ export class FloorplanWorkflowPage {
     await this.saveDialog.waitFor({ state: 'visible', timeout: 5000 });
   }
 
-  /** Click the Save Floorplan button in the dialog. */
-  async confirmSave(): Promise<void> {
-    await this.saveConfirmBtn.click();
-  }
-
-  /** Wait for redirect back to the market's setup screen after a successful save. */
-  async waitForSaveComplete(): Promise<void> {
-    await this.page.waitForURL(MARKET_SETUP_URL, { timeout: 15000 });
-  }
-
   // ─── Helpers ────────────────────────────────────────────────────
 
   /** From the wizard's first step to its table types: upload the plan and calibrate it. */
@@ -450,34 +420,5 @@ export class FloorplanWorkflowPage {
     await this.clickNext();
 
     await this.saveOpenBtn.waitFor({ state: 'visible', timeout: 10000 });
-  }
-
-  /**
-   * Full floorplan workflow: upload, calibrate, add table type,
-   * auto-place, group sections, and save.
-   *
-   * Returns once the save has completed and navigated back to the market's setup screen.
-   */
-  async completeFloorplanWorkflow(
-    fixturePath: string,
-    tableTypeName: string = '6ft Table',
-    tableWidth: string = '1800',
-    tableHeight: string = '900',
-    sectionName: string = 'Main',
-    sectionLocation: string = 'Main Hall',
-  ): Promise<void> {
-    await this.reachSaveStep(
-      fixturePath,
-      tableTypeName,
-      tableWidth,
-      tableHeight,
-      sectionName,
-      sectionLocation,
-    );
-
-    // Step 4: Save
-    await this.openSaveDialog();
-    await this.confirmSave();
-    await this.waitForSaveComplete();
   }
 }

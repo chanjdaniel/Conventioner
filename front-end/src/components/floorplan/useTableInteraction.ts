@@ -1,7 +1,7 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import type { Ref } from 'vue';
 import Konva from 'konva';
-import type { PlacedTableObject } from '@/assets/types/datatypes';
+import type { BetaPlacedTable } from '@/assets/types/datatypes';
 import { useFloorplanStore } from '@/stores/floorplan';
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -269,7 +269,7 @@ export function useTableInteraction(
    * lines.
    */
   function onTableDragBoundFunc(
-    table: PlacedTableObject,
+    table: BetaPlacedTable,
   ): (pos: { x: number; y: number }) => { x: number; y: number } {
     return (pos: { x: number; y: number }): { x: number; y: number } => {
       const stage = getStage();
@@ -317,7 +317,7 @@ export function useTableInteraction(
   // ── Drag lifecycle ──────────────────────────────────────────────────
 
   /** Push a JSON snapshot for undo before the drag starts. */
-  function onTableDragStart(_table: PlacedTableObject) {
+  function onTableDragStart(_table: BetaPlacedTable) {
     void _table;
     const stage = getStage();
     if (stage) store.pushHistory(stage.toJSON());
@@ -328,7 +328,7 @@ export function useTableInteraction(
    * Persist the final (potentially snapped) position to the store and
    * clear any remaining guide lines.
    */
-  function onTableDragEnd(table: PlacedTableObject) {
+  function onTableDragEnd(table: BetaPlacedTable) {
     const stage = getStage();
     if (!stage) return;
 
@@ -361,7 +361,7 @@ export function useTableInteraction(
    * | Shift        | Add this table to the selection (never remove)    |
    */
   function onTableClick(
-    table: PlacedTableObject,
+    table: BetaPlacedTable,
     e: { evt?: { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean } },
   ) {
     const stage = getStage();
@@ -417,13 +417,13 @@ export function useTableInteraction(
   // ── Add table ──────────────────────────────────────────────────────
 
   /**
-   * Create a new `PlacedTableObject` and append it to the store.
+   * Create a new `BetaPlacedTable` and append it to the store.
    *
    * When called without arguments the table is placed at the **centre
    * of the current viewport**.  Pass `pos` (in stage-container pixel
    * coordinates) to place the table at a specific click location.
    *
-   * The first available `TableTypeObject` is used as the new table's
+   * The first available `BetaTableType` is used as the new table's
    * type.
    */
   function addTableAtPosition(pos?: { x: number; y: number }) {
@@ -451,7 +451,7 @@ export function useTableInteraction(
     const mmX = layerX / store.scalePxPerMm;
     const mmY = layerY / store.scalePxPerMm;
 
-    const newTable: PlacedTableObject = {
+    const newTable: BetaPlacedTable = {
       id: crypto.randomUUID(),
       tableTypeId: tableType.id,
       x: mmX,

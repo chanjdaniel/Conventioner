@@ -27,6 +27,8 @@ const hoverIndex = ref<number | null>(null);
 
 const addRow = () => {
   const newLocation: LocationObject = {
+    // Stable across renames: a location's layout names it by it (T257).
+    id: crypto.randomUUID(),
     name: '',
   };
   locationObjects.value.push(newLocation);

@@ -35,6 +35,8 @@ const handleCountInput = (index: number, value: number) => {
 
 const addRow = () => {
   const newSection: SectionObject = {
+    // Stable across renames: a layout's table names its section by it (T257).
+    id: crypto.randomUUID(),
     name: '',
     location: null,
     tier: null,

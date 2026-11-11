@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue';
 import { useFloorplanStore } from '@/stores/floorplan';
-import type { TableTypeObject } from '@/assets/types/datatypes';
+import type { BetaTableType } from '@/assets/types/datatypes';
 import IconPencil from '@/components/icons/IconPencil.vue';
 import IconTrash from '@/components/icons/IconTrash.vue';
 import AppDialog from '@/components/AppDialog.vue';
@@ -134,7 +134,7 @@ function saveType() {
   const widthMm = width * factor;
   const heightMm = height * factor;
 
-  const tt: TableTypeObject = {
+  const tt: BetaTableType = {
     id: crypto.randomUUID(),
     name: form.name.trim(),
     widthMm,
@@ -181,7 +181,7 @@ function typeEditHeight(text: string) {
   editHeightMm.value = value === null ? null : value * UNIT_TO_MM[editUnit.value];
 }
 
-function editType(tt: TableTypeObject) {
+function editType(tt: BetaTableType) {
   editingId.value = tt.id;
   editUnit.value = 'mm';
   editForm.name = tt.name;
@@ -241,7 +241,7 @@ watch(editUnit, (unit) => {
 });
 
 // ── Delete ─────────────────────────────────────────────────────────
-function deleteType(tt: TableTypeObject) {
+function deleteType(tt: BetaTableType) {
   store.removeTableType(tt.id);
   emit('types-changed');
 }

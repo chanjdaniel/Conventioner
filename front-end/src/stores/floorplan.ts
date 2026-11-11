@@ -1,22 +1,22 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type {
-  FloorplanObject,
-  TableTypeObject,
+  BetaFloorplan,
+  BetaTableType,
   WallSegment,
   ObstacleZone,
-  PlacedTableObject,
-  FloorplanSectionObject,
+  BetaPlacedTable,
+  BetaFloorplanSection,
 } from '@/assets/types/datatypes';
 
 export const useFloorplanStore = defineStore('floorplan', () => {
   // ── Core data ──────────────────────────────────────────────────────
-  const floorplan = ref<FloorplanObject | null>(null);
-  const tableTypes = ref<TableTypeObject[]>([]);
+  const floorplan = ref<BetaFloorplan | null>(null);
+  const tableTypes = ref<BetaTableType[]>([]);
   const walls = ref<WallSegment[]>([]);
   const obstacles = ref<ObstacleZone[]>([]);
-  const placedTables = ref<PlacedTableObject[]>([]);
-  const sections = ref<FloorplanSectionObject[]>([]);
+  const placedTables = ref<BetaPlacedTable[]>([]);
+  const sections = ref<BetaFloorplanSection[]>([]);
 
   // ── UI state ───────────────────────────────────────────────────────
   const selectedTableIds = ref<string[]>([]);
@@ -45,7 +45,7 @@ export const useFloorplanStore = defineStore('floorplan', () => {
   const tableCount = computed(() => placedTables.value.length);
 
   /** Full floorplan snapshot suitable for saving to the API. */
-  const currentFloorplan = computed<FloorplanObject | null>(() => {
+  const currentFloorplan = computed<BetaFloorplan | null>(() => {
     if (!floorplan.value) return null;
     return {
       ...floorplan.value,
@@ -85,7 +85,7 @@ export const useFloorplanStore = defineStore('floorplan', () => {
   }
 
   /** Create a brand-new floorplan from a partial definition. */
-  function initFloorplan(data: Partial<FloorplanObject>) {
+  function initFloorplan(data: Partial<BetaFloorplan>) {
     floorplan.value = {
       id: storedFloorplanId.value ?? crypto.randomUUID(),
       scaleUnit: 'mm',
@@ -107,7 +107,7 @@ export const useFloorplanStore = defineStore('floorplan', () => {
   }
 
   /** Take the image size a floorplan carries, keeping the one already known when it has none. */
-  function adoptImageSize(fp: Partial<FloorplanObject>) {
+  function adoptImageSize(fp: Partial<BetaFloorplan>) {
     if (fp.imageWidth && fp.imageHeight) {
       imageSizePx.value = { width: fp.imageWidth, height: fp.imageHeight };
     }
@@ -118,7 +118,7 @@ export const useFloorplanStore = defineStore('floorplan', () => {
   }
 
   /** Hydrate the store from an existing floorplan object (e.g. from the API). */
-  function setFloorplan(fp: FloorplanObject) {
+  function setFloorplan(fp: BetaFloorplan) {
     floorplan.value = fp;
     tableTypes.value = fp.tableTypes ?? [];
     walls.value = fp.walls ?? [];
@@ -131,7 +131,7 @@ export const useFloorplanStore = defineStore('floorplan', () => {
   }
 
   // ── Table-type management ──────────────────────────────────────────
-  function addTableType(tt: TableTypeObject) {
+  function addTableType(tt: BetaTableType) {
     tableTypes.value.push(tt);
     markDirty();
   }
@@ -164,7 +164,7 @@ export const useFloorplanStore = defineStore('floorplan', () => {
   }
 
   // ── Table placement ────────────────────────────────────────────────
-  function setPlacedTables(tables: PlacedTableObject[]) {
+  function setPlacedTables(tables: BetaPlacedTable[]) {
     placedTables.value = tables;
     markDirty();
   }
@@ -179,7 +179,7 @@ export const useFloorplanStore = defineStore('floorplan', () => {
     }
   }
 
-  function addPlacedTable(table: PlacedTableObject) {
+  function addPlacedTable(table: BetaPlacedTable) {
     placedTables.value.push(table);
     markDirty();
   }
@@ -214,7 +214,7 @@ export const useFloorplanStore = defineStore('floorplan', () => {
   }
 
   // ── Sections ───────────────────────────────────────────────────────
-  function setSections(secs: FloorplanSectionObject[]) {
+  function setSections(secs: BetaFloorplanSection[]) {
     sections.value = secs;
     markDirty();
   }
