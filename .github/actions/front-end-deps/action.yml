@@ -1,0 +1,39 @@
+name: Install the front end's dependencies
+description: >-
+  Sets up the Node .nvmrc pins and fills front-end/node_modules, from GitHub's cache when an earlier
+  run left it, keyed on .nvmrc and front-end/package-lock.json, else with `npm ci`. For a job that
+  runs Playwright: the e2e stack action needs front-end/node_modules on the host before the stack
+  starts, since otherwise Docker (as root) creates the anonymous volume's mountpoint there
+  root-owned and a later `npm ci` fails with EACCES.
+
+inputs:
+  save-cache:
+    description: >-
+      "true" to save front-end/node_modules to the cache when it was not restored. Only one job of
+      a run saves, so the others do not race to write the same key.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version-file: .nvmrc
+    - name: Restore front-end/node_modules
+      id: modules
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: front-end/node_modules
+        key: front-end-node-modules-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.nvmrc', 'front-end/package-lock.json') }}
+    - name: Install with npm ci
+      if: steps.modules.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: front-end
+      run: npm ci
+    - name: Save front-end/node_modules
+      if: inputs.save-cache == 'true' && steps.modules.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: front-end/node_modules
+        key: ${{ steps.modules.outputs.cache-primary-key }}

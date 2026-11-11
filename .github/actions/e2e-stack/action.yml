@@ -1,10 +1,9 @@
 name: Start the e2e stack
 description: >-
   Installs Playwright's Chromium, builds or restores the stack's images, starts the stack and seeds
-  it, for a job that runs Playwright on one runner. The job checks the repository out, sets up the
-  Node .nvmrc pins and runs `npm ci` in front-end/ first: with no front-end/node_modules on the host,
-  Docker (as root) creates the anonymous volume's mountpoint there root-owned, and a later `npm ci`
-  fails with EACCES. Browsers and images come from GitHub's cache when an earlier run left them,
+  it, for a job that runs Playwright on one runner. The job checks the repository out and runs the
+  front-end-deps action first, which says why front-end/node_modules must be there before the stack
+  starts. Browsers and images come from GitHub's cache when an earlier run left them,
   keyed on what decides them: the Playwright version for the browsers, scripts/image-tags.sh's tags
   (a hash of the files each image is built from) for the images. The source is not in the key: it
   reaches the containers through the compose file's bind mounts.
