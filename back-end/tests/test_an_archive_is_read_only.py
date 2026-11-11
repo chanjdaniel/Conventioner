@@ -100,7 +100,8 @@ class TestTheRoutesThatLoadTheirOwnMarket:
         ("post", "/markets/market-123/publish-results", {}),
         ("post", "/markets/market-123/applications/import", {"csvContent": "a,b\n1,2"}),
         ("post", "/markets/market-123/csv-proposal/confirm", {"csvContent": "a,b\n1,2"}),
-        ("post", "/floorplans/save-to-market", {"market_id": "market-123", "floorplan": {"a": 1}}),
+        ("post", "/floorplans/save-to-market", {"market_id": "market-123", "floorplan": {"a": 1},
+                                                 "revision": 0}),
     ])
     def test_it_is_refused_with_the_same_words(self, client, archived, method, path, body):
         response = getattr(client, method)(path, json=body)

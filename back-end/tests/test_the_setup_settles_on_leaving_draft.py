@@ -143,7 +143,8 @@ def test_a_floorplan_cannot_rewrite_the_sections_after_draft(market, monkeypatch
         session["_fresh"] = True
 
     response = client.post("/floorplans/save-to-market",
-                           json={"market_id": "market-123", "floorplan": {"sections": []}})
+                           json={"market_id": "market-123", "floorplan": {"sections": []},
+                                 "revision": 0})
 
     assert response.status_code == 409
     assert "settled" in response.get_json()["error"]

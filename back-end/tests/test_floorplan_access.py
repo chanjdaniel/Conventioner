@@ -25,6 +25,8 @@ skip_without_real_dependencies()
 
 import app as app_module
 import api.floorplans as FloorplansApi
+import floorplan_limits as Limits
+import utils.pdf_converter as PdfConverter
 import api.floorplans_placement as FloorplansPlacementApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
@@ -104,15 +106,23 @@ def _upload(client, *, market_id=MARKET_ID, file=None, headers=None):
 
 def _one_page_pdf() -> bytes:
     """A real one-page PDF, a plan's outline drawn as one rectangle, built here so the suite holds
-    no binary fixture. Its cross-reference table is written with each object's true offset, so a
-    strict reader takes it as it is."""
+    no binary fixture."""
+    return _pdf(pages=1)
+
+
+def _pdf(*, pages: int) -> bytes:
+    """A real PDF of ``pages`` pages, each a plan's outline drawn as one rectangle. Its
+    cross-reference table is written with each object's true offset, so a strict reader takes it
+    as it is."""
     content = b"4 w 72 72 451 698 re S"
+    kids = b" ".join(b"%d 0 R" % (4 + page) for page in range(pages))
     objects = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << >> >>",
+        b"<< /Type /Pages /Kids [%s] /Count %d >>" % (kids, pages),
         b"<< /Length %d >>\nstream\n%s\nendstream" % (len(content), content),
-    ]
+    ] + [
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 3 0 R /Resources << >> >>"
+    ] * pages
     pdf = b"%PDF-1.4\n"
     offsets = []
     for number, body in enumerate(objects, start=1):
@@ -139,7 +149,7 @@ class TestUploadingAnImage:
     def test_each_page_of_a_pdf_is_stored_for_its_market(
         self, sign_in, market, images, monkeypatch,
     ):
-        monkeypatch.setattr(FloorplansApi, "pdf_to_images", lambda _pdf: [PNG, PNG, PNG])
+        monkeypatch.setattr(FloorplansApi, "pdf_to_images", lambda _pdf, **_k: [PNG, PNG, PNG])
 
         response = _upload(
             sign_in("owner@example.com"),
@@ -227,6 +237,108 @@ class TestUploadingAnImage:
 
         assert response.status_code == 401
         assert images.files == {}
+
+
+class TestAnUploadIsHeldToItsLimits:
+    """An upload larger than production's functions take, a PDF of too many pages, and a PDF that
+    cannot be read are each refused with a sentence the organizer can act on (T257), never a 500."""
+
+    def test_a_file_larger_than_the_limit_is_refused_by_its_length_before_it_is_read(
+        self, sign_in, market, images, monkeypatch,
+    ):
+        read = []
+        monkeypatch.setattr(FloorplansApi, "market_refusal", lambda *a, **k: read.append(1))
+        big = b"\x89PNG\r\n\x1a\n" + b"\0" * (
+            Limits.MAX_UPLOAD_BYTES + Limits.UPLOAD_FORM_ALLOWANCE_BYTES)
+
+        response = _upload(
+            sign_in("owner@example.com"), file=(io.BytesIO(big), "hall.png", "image/png"),
+        )
+
+        assert response.status_code == 413
+        assert response.get_json() == {"error": "This file is larger than 4 MB."}
+        assert read == [], "the body was read, the market asked, before the length refused it"
+        assert images.files == {}
+
+    def test_a_file_just_over_the_limit_is_refused_once_read(self, sign_in, market, images):
+        """Within the form's allowance the length cannot tell the file's bytes from the form's, so
+        the file's own length refuses it."""
+        over = b"\x89PNG\r\n\x1a\n" + b"\0" * (Limits.MAX_UPLOAD_BYTES - 7)
+
+        response = _upload(
+            sign_in("owner@example.com"), file=(io.BytesIO(over), "hall.png", "image/png"),
+        )
+
+        assert response.status_code == 413
+        assert response.get_json() == {"error": "This file is larger than 4 MB."}
+        assert images.files == {}
+
+    def test_a_file_at_the_limit_is_taken(self, sign_in, market, images):
+        """The limit is the file's: the form's own bytes around it are not held against it."""
+        exact = b"\x89PNG\r\n\x1a\n" + b"\0" * (Limits.MAX_UPLOAD_BYTES - 8)
+
+        response = _upload(
+            sign_in("owner@example.com"), file=(io.BytesIO(exact), "hall.png", "image/png"),
+        )
+
+        assert response.status_code == 201
+
+    def test_a_pdf_of_more_pages_than_the_limit_is_refused(self, sign_in, market, images):
+        response = _upload(
+            sign_in("owner@example.com"),
+            file=(io.BytesIO(_pdf(pages=Limits.MAX_PDF_PAGES + 1)), "hall.pdf", "application/pdf"),
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {
+            "error": "This PDF has more than 20 pages. Send the page with the plan on it.",
+        }
+        assert images.files == {}
+
+    def test_a_pdf_of_the_limit_is_taken(self, sign_in, market, images, monkeypatch):
+        monkeypatch.setattr(FloorplansApi, "pdf_to_images", lambda _pdf, **_k: [PNG])
+
+        response = _upload(
+            sign_in("owner@example.com"),
+            file=(io.BytesIO(_pdf(pages=Limits.MAX_PDF_PAGES)), "hall.pdf", "application/pdf"),
+        )
+
+        assert response.status_code == 201
+
+    @pytest.mark.parametrize("damaged", [
+        b"%PDF-1.4\nthis is no PDF at all",
+        b" ",
+        b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog",
+    ])
+    def test_a_damaged_pdf_is_refused_naming_the_file(self, sign_in, market, images, damaged):
+        response = _upload(
+            sign_in("owner@example.com"),
+            file=(io.BytesIO(damaged), "Venue plan.pdf", "application/pdf"),
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "Venue plan.pdf could not be read as a PDF."}
+        assert images.files == {}
+
+
+class TestThePdfConverter:
+    """The converter says why a PDF gave no pages rather than answering an empty list, which the
+    route could only read as a server error."""
+
+    def test_a_pdf_it_cannot_open_raises(self):
+        with pytest.raises(PdfConverter.UnreadablePdf):
+            PdfConverter.pdf_to_images(b"%PDF-1.4 broken")
+
+    def test_empty_bytes_raise(self):
+        with pytest.raises(PdfConverter.UnreadablePdf):
+            PdfConverter.pdf_to_images(b"")
+
+    def test_a_pdf_of_more_pages_than_asked_raises(self):
+        with pytest.raises(PdfConverter.TooManyPages):
+            PdfConverter.pdf_to_images(_pdf(pages=3), max_pages=2)
+
+    def test_each_page_is_drawn(self):
+        assert len(PdfConverter.pdf_to_images(_pdf(pages=2), max_pages=2)) == 2
 
 
 class TestAnImagesMarket:

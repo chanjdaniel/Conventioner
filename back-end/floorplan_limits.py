@@ -34,9 +34,11 @@ MAX_PLACED_TABLES = 1_000
 MAX_SECTIONS = 200
 MAX_TEXT_LENGTH = 200
 MAX_MAGNITUDE = 10_000_000
-#: Vercel's functions refuse a request body over 4.5 MB before Flask sees it, so an upload is held
-#: under that, with room for the form's own bytes.
+#: Vercel's functions refuse a request body over 4.5 MB, multipart overhead included, before Flask
+#: sees it (https://vercel.com/docs/functions/limitations), so an uploaded file is held under that,
+#: and the request around it may carry the form's own bytes beyond the file's.
 MAX_UPLOAD_BYTES = 4_000_000
+UPLOAD_FORM_ALLOWANCE_BYTES = 64_000
 MAX_PDF_PAGES = 20
 
 MAX_TABLES_TO_PLACE = 500
@@ -56,6 +58,11 @@ UPLOAD_TOO_LARGE = f"This file is larger than {MAX_UPLOAD_BYTES // 1_000_000} MB
 TOO_MANY_PDF_PAGES = (
     f"This PDF has more than {MAX_PDF_PAGES} pages. Send the page with the plan on it."
 )
+
+
+def unreadable_pdf(filename: str) -> str:
+    """The sentence a PDF PDFium cannot open is refused with, naming the file."""
+    return f"{filename} could not be read as a PDF."
 TEXT_TOO_LONG = f"A floorplan's names and ids are at most {MAX_TEXT_LENGTH:,} characters."
 UNBOUNDED_MEASUREMENT = (
     f"A floorplan's measurements must be finite numbers no larger than {MAX_MAGNITUDE:,}."

@@ -130,6 +130,7 @@ DEFAULT_BODY = {
     "market_id": MARKET_ID,
     "gridfs_id": str(IMAGE_ID),
     "floorplan": {"sections": []},
+    "revision": 0,
     "name": "n",
     "organizationId": ORG_ID,
     "user_email": OWNER,

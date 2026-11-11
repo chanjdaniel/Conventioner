@@ -44,6 +44,7 @@ ACCOUNTS = {
     "owner@example.com": "user-owner",
     "editor@example.com": "user-editor",
     "viewer@example.com": "user-viewer",
+    "outsider@example.com": "user-outsider",
 }
 ROLES = {"user-owner": "owner", "user-editor": "editor", "user-viewer": "viewer"}
 
@@ -114,7 +115,23 @@ def market(monkeypatch):
     test gives it a plan with ``_with_plan``."""
     markets = FakeMarketsCollection(stored_market(MarketPhase.DRAFT, roles=dict(ROLES)))
     monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+    monkeypatch.setitem(_THE_MARKET, "markets", markets)
     return markets
+
+
+#: The market fixture's collection, so a save can name the revision it read by default.
+_THE_MARKET: dict = {}
+
+
+def _stored_revision(floorplan_id):
+    """The revision the market holds of the floorplan of this id, 0 for one it does not hold: what
+    an editor that just read the market sends."""
+    markets = _THE_MARKET.get("markets")
+    plan = (markets.doc or {}).get("setupObject") if markets else None
+    for floorplan in (plan or {}).get("floorplans") or []:
+        if floorplan.get("id") == floorplan_id:
+            return floorplan.get("revision", 0)
+    return 0
 
 
 @pytest.fixture
@@ -134,9 +151,16 @@ def _signed_in(email):
     return client
 
 
-def _save(client, floorplan, market_id=MARKET_ID):
+#: A save naming the revision the market holds, as an editor that read it does.
+AS_STORED = object()
+
+
+def _save(client, floorplan, market_id=MARKET_ID, revision=AS_STORED):
+    if revision is AS_STORED:
+        revision = _stored_revision(floorplan.get("id") if isinstance(floorplan, dict) else None)
     return client.post("/floorplans/save-to-market",
-                       json={"market_id": market_id, "floorplan": floorplan})
+                       json={"market_id": market_id, "floorplan": floorplan,
+                             "revision": revision})
 
 
 def _saved_plan(market):
@@ -199,8 +223,7 @@ class TestAMarketWithAPlan:
         assert [table.id for table in plan.floorplans[1].tables] == ["t-1"]
         assert plan.sections[0].count == 1
         (entry,) = _floorplan_entries(market_records)
-        assert "floorplan_ids" not in entry["detail"]["after"]
-        assert (entry["detail"]["before"]["tables"], entry["detail"]["after"]["tables"]) == (2, 1)
+        assert entry["detail"] == {"removed": {"Hall A": 1}}
 
     def test_a_floorplan_of_a_new_id_is_added(self, client, market, market_records):
         _with_plan(market, floorplans=[_floorplan("fp-0", location="loc-old", tables=[])])
@@ -210,8 +233,7 @@ class TestAMarketWithAPlan:
         assert response.status_code == 200, response.get_json()
         assert [floorplan.id for floorplan in _saved_plan(market).floorplans] == ["fp-0", "fp-1"]
         (entry,) = _floorplan_entries(market_records)
-        assert entry["detail"]["before"]["floorplan_ids"] == ["fp-0"]
-        assert entry["detail"]["after"]["floorplan_ids"] == ["fp-0", "fp-1"]
+        assert entry["detail"]["started"] is True
 
     def test_a_refusal_of_the_plans_own_writer_answers_its_own_sentence(self, client, market):
         """A rule of the plan write holds here too, and answers as the plan write does: a stored
@@ -266,6 +288,8 @@ class TestTheLayoutsOwnRules:
 
 
 class TestTheSaveIsRecorded:
+    """One ``floorplan`` entry a save, its subject the layout and its location's name, its detail
+    what ``layout.describe_change`` says the save changed (T257)."""
 
     def test_one_floorplan_entry_and_no_plan_entry(self, client, market, market_records):
         _with_plan(market)
@@ -274,18 +298,19 @@ class TestTheSaveIsRecorded:
 
         (entry,) = _floorplan_entries(market_records)
         assert entry["action"] == Actions.CHANGE_SETUP.id
-        assert entry["subject"] == {"floorplan_id": "fp-1"}
-        assert entry["detail"]["before"]["floorplan_ids"] == []
-        assert entry["detail"]["after"]["floorplan_ids"] == ["fp-1"]
-        assert "locations" not in entry["detail"]["after"]
-        assert [s["count"] for s in entry["detail"]["after"]["sections"]] == [2, 6]
+        assert entry["subject"] == {"floorplan_id": "fp-1", "location": "Main Hall"}
         assert not [e for e in market_records.history.documents if e.get("kind") == History.PLAN]
 
-    def test_a_floorplan_saved_again_with_only_its_layout_changed_is_recorded(
-        self, client, market, market_records,
-    ):
-        """Saving again replaces the floorplan of its id, so a save that moved a table, and kept
-        the sections, locations and ids, still changed the market, and its history says so."""
+    def test_a_layouts_first_save_is_its_start(self, client, market, market_records):
+        _with_plan(market)
+
+        _save(client, _floorplan())
+
+        (entry,) = _floorplan_entries(market_records)
+        assert entry["detail"] == {"started": True, "added": {"Hall A": 2}, "scale": {
+            "before": None, "after": 8.0}, "colours": ["Hall A"]}
+
+    def test_a_save_that_moved_a_table_says_so(self, client, market, market_records):
         _with_plan(market)
         _save(client, _floorplan("fp-1"))
         market_records.history.documents.clear()
@@ -296,16 +321,20 @@ class TestTheSaveIsRecorded:
 
         assert response.status_code == 200, response.get_json()
         (entry,) = _floorplan_entries(market_records)
-        assert entry["subject"] == {"floorplan_id": "fp-1"}
-        # The same counts on both sides, so only the layout's digest says what changed.
-        assert set(entry["detail"]["after"]) == {"layout_digest"}
-        assert entry["detail"]["before"]["layout_digest"] != entry["detail"]["after"]["layout_digest"]
+        assert entry["detail"] == {"moved": 1}
 
-    def test_the_entry_summarises_the_floorplan_and_never_carries_it_whole(
-        self, client, market, market_records,
-    ):
-        """An entry is fetched with the market's history, so it records the floorplan's counts and
-        a digest of its layout, never its tables and zones themselves."""
+    def test_a_recalibration_records_the_metres_across(self, client, market, market_records):
+        _with_plan(market)
+        _save(client, _floorplan("fp-1"))
+        market_records.history.documents.clear()
+
+        _save(client, _floorplan("fp-1", scalePxPerUnit=0.02))
+
+        (entry,) = _floorplan_entries(market_records)
+        assert entry["detail"]["scale"] == {"before": 8.0, "after": 40.0}
+
+    def test_the_entry_never_carries_a_table(self, client, market, market_records):
+        """An entry is fetched with the market's history, so it counts tables, never holds one."""
         _with_plan(market)
         _save(client, _floorplan("fp-1"))
         market_records.history.documents.clear()
@@ -315,22 +344,9 @@ class TestTheSaveIsRecorded:
         _save(client, grown)
 
         (entry,) = _floorplan_entries(market_records)
-        before, after = entry["detail"]["before"], entry["detail"]["after"]
-        assert (before["tables"], after["tables"]) == (2, 3)
-        assert (before["no_go_zones"], after["no_go_zones"]) == (0, 3)
-        assert before["layout_digest"] != after["layout_digest"]
+        assert entry["detail"] == {"added": {"Hall A": 1},
+                                   "zones": {"added": 3, "changed": 0, "removed": 0}}
         assert "t-3" not in json.dumps(entry["detail"])
-
-    def test_a_new_floorplan_is_summarised_from_none(self, client, market, market_records):
-        _with_plan(market)
-
-        _save(client, _floorplan("fp-1"))
-
-        (entry,) = _floorplan_entries(market_records)
-        before, after = entry["detail"]["before"], entry["detail"]["after"]
-        assert (before["tables"], before["layout_digest"]) == (None, None)
-        assert (after["tables"], after["no_go_zones"]) == (2, 0)
-        assert after["layout_digest"]
 
     def test_a_floorplan_restated_unchanged_records_nothing(self, client, market, market_records):
         _with_plan(market)
@@ -341,6 +357,240 @@ class TestTheSaveIsRecorded:
 
         assert response.status_code == 200, response.get_json()
         assert _floorplan_entries(market_records) == []
+
+
+STALE = "This layout changed elsewhere. Reload to see the latest."
+
+
+def _refused_as_stale(response, market, market_records):
+    assert response.status_code == 409, response.get_json()
+    assert response.get_json() == {"error": STALE}
+    assert _floorplan_entries(market_records) == []
+
+
+class TestARevisionGuardsEachSave:
+    """A save names the revision of the layout it read, 0 for a new one; the stored one moves by
+    one on every write, so a save from a tab that read an older layout is refused, never written
+    over the newer one (T257)."""
+
+    def test_a_new_layout_is_stored_at_revision_one(self, client, market):
+        _with_plan(market)
+
+        response = _save(client, _floorplan(revision=7), revision=0)
+
+        assert response.status_code == 200, response.get_json()
+        assert _saved_plan(market).floorplans[0].revision == 1
+        assert response.get_json()["floorplan"]["revision"] == 1
+
+    def test_each_save_moves_it_by_one(self, client, market):
+        _with_plan(market)
+        _save(client, _floorplan(), revision=0)
+
+        response = _save(client, _floorplan(), revision=1)
+
+        assert response.status_code == 200, response.get_json()
+        assert _saved_plan(market).floorplans[0].revision == 2
+
+    def test_a_save_naming_an_older_revision_is_refused(self, client, market, market_records):
+        _with_plan(market)
+        _save(client, _floorplan(), revision=0)
+        _save(client, _floorplan(), revision=1)
+        market_records.history.documents.clear()
+        written = copy.deepcopy(market.doc)
+
+        response = _save(client, _floorplan(tables=[]), revision=1)
+
+        _refused_as_stale(response, market, market_records)
+        assert market.doc == written
+
+    def test_a_save_of_a_layout_the_market_does_not_hold_naming_a_revision_is_refused(
+        self, client, market, market_records,
+    ):
+        """It was read, and is gone: the tab is stale, and saving would start it again."""
+        _with_plan(market)
+
+        response = _save(client, _floorplan(), revision=3)
+
+        _refused_as_stale(response, market, market_records)
+        assert market.last_update is None
+
+    def test_a_save_that_lands_after_another_between_its_read_and_its_write_is_refused(
+        self, client, market, market_records, monkeypatch,
+    ):
+        """The revision is held by the write itself, so two saves read together cannot both land."""
+        _with_plan(market, floorplans=[_floorplan(revision=4)])
+        read = MarketsApi.load_market_context
+
+        def read_then_another_save_lands(market_id):
+            context = read(market_id)
+            market.doc["setupObject"]["floorplans"][0]["revision"] = 5
+            return context
+
+        monkeypatch.setattr(MarketsApi, "load_market_context", read_then_another_save_lands)
+
+        response = _save(client, _floorplan(tables=[]), revision=4)
+
+        _refused_as_stale(response, market, market_records)
+        assert [t["id"] for t in market.doc["setupObject"]["floorplans"][0]["tables"]] == [
+            "t-1", "t-2"]
+
+    @pytest.mark.parametrize("revision", [None, "1", True, -1, 1.5])
+    def test_a_save_with_no_revision_is_refused(self, client, market, revision):
+        _with_plan(market)
+
+        response = _save(client, _floorplan(), revision=revision)
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "revision is required"}
+        assert market.last_update is None
+
+
+class TestALocationHasOneLayout:
+
+    def test_a_second_layout_for_a_location_is_refused(self, client, market, market_records):
+        """Two tabs that each started the same hall's layout: the second is the stale one."""
+        _with_plan(market, floorplans=[_floorplan("fp-1")])
+
+        response = _save(client, _floorplan("fp-2"), revision=0)
+
+        _refused_as_stale(response, market, market_records)
+        assert market.last_update is None
+
+    def test_a_second_layout_landing_between_the_read_and_the_write_is_refused(
+        self, client, market, market_records, monkeypatch,
+    ):
+        _with_plan(market)
+        read = MarketsApi.load_market_context
+
+        def read_then_another_start_lands(market_id):
+            context = read(market_id)
+            market.doc["setupObject"]["floorplans"] = [_floorplan("fp-other")]
+            return context
+
+        monkeypatch.setattr(MarketsApi, "load_market_context", read_then_another_start_lands)
+
+        response = _save(client, _floorplan("fp-2"), revision=0)
+
+        _refused_as_stale(response, market, market_records)
+        assert [f["id"] for f in market.doc["setupObject"]["floorplans"]] == ["fp-other"]
+
+    def test_a_save_never_moves_a_layout_to_another_location(self, client, market):
+        _with_plan(market, floorplans=[_floorplan("fp-1", tables=[])])
+
+        response = _save(client, _floorplan("fp-1", location="loc-old", tables=[]))
+
+        assert response.status_code == 200, response.get_json()
+        assert _saved_plan(market).floorplans[0].location_id == "loc-main"
+
+
+STANDARD = {"name": "Standard 6 ft", "width_mm": 1830, "depth_mm": 760}
+
+
+class TestALayoutsStart:
+    """The first save of a location's layout gives a market with no table type "Standard 6 ft", and
+    records what Section Setup had for each of the location's sections (T257)."""
+
+    def test_a_market_with_no_type_gains_the_standard_one(self, client, market):
+        _with_plan(market, tableTypes=[])
+
+        response = _save(client, _floorplan(tables=[]))
+
+        assert response.status_code == 200, response.get_json()
+        (table_type,) = _saved_plan(market).table_types
+        assert table_type.model_dump(exclude={"id"}) == STANDARD
+        assert table_type.id
+
+    def test_a_market_with_types_keeps_them(self, client, market):
+        _with_plan(market)
+
+        _save(client, _floorplan(tables=[]))
+
+        assert [t.id for t in _saved_plan(market).table_types] == ["tt-1"]
+
+    def test_a_later_save_adds_no_type(self, client, market):
+        _with_plan(market, tableTypes=[], floorplans=[_floorplan(tables=[])])
+
+        response = _save(client, _floorplan(tables=[]))
+
+        assert response.status_code == 200, response.get_json()
+        assert _saved_plan(market).table_types == []
+
+    def test_the_starting_counts_are_section_setups_for_the_location(self, client, market):
+        _with_plan(market)
+
+        _save(client, _floorplan(startingCounts=[{"sectionId": "sec-old", "count": 40}]))
+
+        (floorplan,) = _saved_plan(market).floorplans
+        assert [(c.section_id, c.count) for c in floorplan.starting_counts] == [("sec-a", 9)]
+
+    def test_a_location_of_more_sections_than_a_layout_counts_is_refused(
+        self, client, market, market_records,
+    ):
+        """The starting counts the save records are held to their bound like any list of it."""
+        many = [{"id": f"sec-{i}", "name": f"Row {i}", "count": 1, "location": dict(MAIN_HALL),
+                 "tier": {"id": 0, "name": "Gold"}} for i in range(201)]
+        _with_plan(market, sections=many)
+
+        response = _save(client, _floorplan(tables=[], sectionStyles=[]))
+
+        _refused_and_unwritten(response, "A floorplan holds at most 200 starting counts.",
+                               market, market_records)
+
+    def test_a_later_save_keeps_the_starting_counts_it_began_with(self, client, market):
+        _with_plan(market)
+        _save(client, _floorplan())
+
+        _save(client, _floorplan(startingCounts=[]))
+
+        (floorplan,) = _saved_plan(market).floorplans
+        assert [(c.section_id, c.count) for c in floorplan.starting_counts] == [("sec-a", 9)]
+
+
+class TestTheAnswer:
+
+    def test_it_is_the_layout_as_stored_and_the_sections_counting_it(self, client, market):
+        _with_plan(market)
+
+        response = _save(client, _floorplan())
+
+        assert response.status_code == 200
+        body = response.get_json()
+        assert set(body) == {"floorplan", "sections"}
+        stored = market.doc["setupObject"]
+        assert body["floorplan"] == stored["floorplans"][0]
+        assert body["sections"] == stored["sections"]
+        assert [(s["id"], s["count"]) for s in body["sections"]] == [("sec-a", 2), ("sec-old", 6)]
+
+
+class TestAReplacedImage:
+
+    def test_the_image_it_replaced_is_deleted(self, client, market, market_records):
+        _with_plan(market)
+        first = str(market_records.images.put(b"png", metadata={"marketId": MARKET_ID}))
+        second = str(market_records.images.put(b"png", metadata={"marketId": MARKET_ID}))
+        _save(client, _floorplan(imageGridfsId=first))
+        market_records.history.documents.clear()
+
+        response = _save(client, _floorplan(imageGridfsId=second))
+
+        assert response.status_code == 200, response.get_json()
+        from bson import ObjectId
+        assert ObjectId(first) not in market_records.images.files
+        assert ObjectId(second) in market_records.images.files
+        (entry,) = _floorplan_entries(market_records)
+        assert entry["detail"] == {"image": "replaced"}
+
+    def test_a_refused_save_deletes_no_image(self, client, market, market_records):
+        _with_plan(market)
+        first = str(market_records.images.put(b"png", metadata={"marketId": MARKET_ID}))
+        second = str(market_records.images.put(b"png", metadata={"marketId": MARKET_ID}))
+        _save(client, _floorplan(imageGridfsId=first))
+
+        response = _save(client, _floorplan(imageGridfsId=second), revision=0)
+
+        assert response.status_code == 409
+        from bson import ObjectId
+        assert ObjectId(first) in market_records.images.files
 
 
 class TestAFloorplanThatDoesNotParse:
@@ -437,6 +687,23 @@ class TestTheAnswersBeforeTheParseKeepTheirOrder:
         assert response.status_code == 400
         assert response.get_json() == {"error": "Invalid market data"}
 
+    def test_a_save_without_a_session_is_asked_to_sign_in(self, client, market):
+        response = app_module.app.test_client().post(
+            "/floorplans/save-to-market",
+            json={"market_id": MARKET_ID, "floorplan": _floorplan(), "revision": 0})
+
+        assert response.status_code == 401
+        assert market.last_update is None
+
+    def test_an_account_with_no_role_on_the_market_is_refused(self, client, market):
+        _with_plan(market)
+
+        response = _save(_signed_in("outsider@example.com"), _floorplan())
+
+        assert response.status_code == 403
+        assert response.get_json() == {"error": Actions.refusal_sentence(Actions.CHANGE_SETUP)}
+        assert market.last_update is None
+
     def test_a_viewer_is_refused_before_the_floorplan_is_read(self, client, market):
         response = _save(_signed_in("viewer@example.com"), _floorplan(tables="not a list"))
 
@@ -485,20 +752,14 @@ def _styles(n):
     return [{"sectionId": f"sec-{i}", "color": 1 + i % 8} for i in range(n)]
 
 
-def _starting(n):
-    return [{"sectionId": f"sec-{i}", "count": 3} for i in range(n)]
-
-
 #: Each list bound: the overrides holding ``n`` of the thing, the bound, and its sentence.
 LIST_BOUNDS = [
     (lambda n: {"tables": _tables(n)}, 1000, "A floorplan holds at most 1,000 tables."),
     (lambda n: {"zones": _zones(n)}, 100, "A floorplan holds at most 100 no-table zones."),
     (lambda n: {"sectionStyles": _styles(n)}, 200,
      "A floorplan holds at most 200 section styles."),
-    (lambda n: {"startingCounts": _starting(n)}, 200,
-     "A floorplan holds at most 200 starting counts."),
 ]
-LIST_BOUND_IDS = ["tables", "zones", "section-styles", "starting-counts"]
+LIST_BOUND_IDS = ["tables", "zones", "section-styles"]
 
 MEASUREMENT = "A floorplan's measurements must be finite numbers no larger than 10,000,000."
 TEXT = "A floorplan's names and ids are at most 200 characters."
@@ -513,7 +774,8 @@ def _save_raw(client, text):
 
 def _with_token(floorplan, token):
     """The save body as JSON text, with every ``"@@"`` in ``floorplan`` written as ``token``."""
-    return json.dumps({"market_id": MARKET_ID, "floorplan": floorplan}).replace('"@@"', token)
+    return json.dumps({"market_id": MARKET_ID, "floorplan": floorplan, "revision": 0}).replace(
+        '"@@"', token)
 
 
 def _refused_and_unwritten(response, sentence, market, market_records):

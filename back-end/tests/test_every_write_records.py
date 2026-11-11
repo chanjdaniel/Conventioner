@@ -38,6 +38,7 @@ import csv_import as CsvImport  # noqa: E402
 import discord_client as Discord  # noqa: E402
 import db_config  # noqa: E402
 import history as History  # noqa: E402
+import layout as Layout  # noqa: E402
 import payments as Payments  # noqa: E402
 import review_team as ReviewTeam  # noqa: E402
 from bson.errors import InvalidDocument  # noqa: E402
@@ -269,7 +270,7 @@ def _save_floorplan(client, world):
     (main_hall,) = fill_plan_ids(COMPLETE_PLAN)["locations"]
     return client.post("/floorplans/save-to-market", json={"market_id": MARKET, "floorplan": {
         "id": "fp-1", "locationId": main_hall["id"],
-    }})
+    }, "revision": 0})
 
 
 def _delete_floorplan_image(client, world):
@@ -697,7 +698,9 @@ WRITES = [
     Write("the assignment rules", "PUT", f"{M}/plan", Actions.ASSIGN, History.RULES,
           _plan({"assignmentOptions": {"maxAssignmentsPerVendor": 1}})),
     Write("a floorplan", "POST", "/floorplans/save-to-market", Actions.CHANGE_SETUP,
-          History.FLOORPLAN, _save_floorplan, subject={"floorplan_id": "fp-1"}),
+          History.FLOORPLAN, _save_floorplan,
+          subject={"floorplan_id": "fp-1", "location": "Main Hall"}, before_after=False,
+          detail_keys=("started",)),
     Write("a floorplan image deleted", "DELETE", "/floorplans/<gridfs_id>", Actions.CHANGE_SETUP,
           History.FLOORPLAN_IMAGE_DELETED, _delete_floorplan_image, subject={"image_id": "img-1"}),
     Write("the form", "PUT", f"{M}/application-form", Actions.CHANGE_FORM, History.FORM,
@@ -932,6 +935,7 @@ def test_a_write_records_one_entry(write, client, world):
 DETAIL_BUILDERS = [
     (History, "changes"), (History, "placement_subject"), (MarketsApi, "form_changes"),
     (CsvImport, "import_counts"), (ApplicantsApi, "_verdict_state"), (UsersApi, "get_user_by_id"),
+    (Layout, "describe_change"),
 ]
 
 

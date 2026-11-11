@@ -3,15 +3,15 @@ Floorplan save-to-market endpoint.
 Bridge between floorplan visual placement and the assignment engine.
 
 POST /api/floorplans/save-to-market
-  Accepts market_id + FloorplanObject JSON: a location's layout (T257).
-  Puts the floorplan in ``setupObject.floorplans`` in the place of the one of its id, or adds it,
-  and writes the plan through the plan's own writer, which derives the sections' counts from it.
-  Sections and locations are Market Setup's: the save never writes them.
+  Accepts market_id, a FloorplanObject (a location's layout, T257) and the revision of it the
+  caller read. Puts the floorplan in ``setupObject.floorplans`` in the place of the one of its id,
+  or adds it as the location's first, and writes the plan through the plan's own writer, which
+  derives the sections' counts from it. Sections and locations are Market Setup's: the save never
+  writes them.
 """
 
-import hashlib
-import json
 import logging
+import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
 from flask import Blueprint, request, jsonify
@@ -20,9 +20,12 @@ from pydantic import ValidationError
 
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from client_errors import BadRequestError, field_named_copy, parse_failure_detail
-from datatypes import AssignmentOptionObject, FloorplanObject, SetupObject
+from datatypes import (
+    AssignmentOptionObject, FloorplanObject, SetupObject, StartingCount, TableTypeObject,
+)
 import layout as Layout
-from market_documents import market_doc_filter
+from market_documents import market_doc_filter, market_doc_key
+from services.gridfs_service import delete_image
 from utils.identity import authenticated_email
 from utils.request_body import NOT_AN_OBJECT, string_field
 
@@ -72,41 +75,69 @@ def _with_floorplan(
     return kept + [floorplan]
 
 
-#: A floorplan's parts that are not its layout, which ``layout_digest`` stands for: its id, and its
-#: revision, which every write moves.
-_NOT_LAYOUT = {"id", "revision"}
+#: Why a save is refused when the layout it read is no longer the stored one: another tab or
+#: another organizer saved it, or started this location's layout, in between.
+STALE_LAYOUT = "This layout changed elsewhere. Reload to see the latest."
+
+#: The table type a market with none gains as its first layout starts: a 6 ft trestle table.
+STANDARD_TABLE_TYPE = {"name": "Standard 6 ft", "width_mm": 1830, "depth_mm": 760}
 
 
-def _floorplan_summary(floorplan: Optional[FloorplanObject]) -> Dict[str, Any]:
-    """A floorplan as its history entry records it: what it holds, counted, and a digest of its
-    layout, which differs whenever a table, a zone, a style, the scale or the image does. Never the
-    floorplan itself, which an entry fetched with the market's history would carry whole (up to
-    1,000 tables) on every save."""
-    if floorplan is None:
-        return {"tables": None, "no_go_zones": None, "layout_digest": None}
-    layout = json.dumps(floorplan.model_dump(exclude=_NOT_LAYOUT), sort_keys=True, default=str)
-    return {
-        "tables": len(floorplan.tables),
-        "no_go_zones": len(floorplan.zones),
-        "layout_digest": hashlib.sha256(layout.encode()).hexdigest()[:16],
-    }
+class StaleLayout(Exception):
+    """The layout the save read is not the one stored: answered 409 with ``STALE_LAYOUT``."""
 
 
-def _floorplan_change(plan: Optional[SetupObject], floorplan_id: str) -> Dict[str, Any]:
-    """What a floorplan save changes of a plan, as its history entry records it: the plan's
-    sections, locations and floorplan ids, and the summary of the floorplan of the saved id, so a
-    save that replaced it with only its layout changed is recorded too."""
-    floorplans = (plan.floorplans if plan else None) or []
-    saved = next((floorplan for floorplan in floorplans if floorplan.id == floorplan_id), None)
-    if plan is None:
-        return {"sections": None, "locations": None, "floorplan_ids": [],
-                **_floorplan_summary(None)}
-    return {
-        "sections": [section.model_dump() for section in plan.sections],
-        "locations": [location.model_dump() for location in plan.locations],
-        "floorplan_ids": [floorplan.id for floorplan in floorplans],
-        **_floorplan_summary(saved),
-    }
+def _revision(data: Dict[str, Any]) -> Optional[int]:
+    """The revision of the layout the caller read, 0 for a new one; None when it names none."""
+    revision = data.get("revision")
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+        return None
+    return revision
+
+
+def _stored_layout(
+    stored: Optional[SetupObject], floorplan: FloorplanObject, revision: int,
+) -> Tuple[Optional[int], Optional[FloorplanObject]]:
+    """The place and the floorplan the save replaces, ``(None, None)`` for a location's first
+    layout; ``StaleLayout`` when the caller read another revision of it, or a new layout's location
+    already has one."""
+    floorplans = (stored.floorplans if stored else None) or []
+    for index, held in enumerate(floorplans):
+        if held.id == floorplan.id:
+            if held.revision != revision:
+                raise StaleLayout()
+            return index, held
+    if revision != 0:
+        raise StaleLayout()
+    if floorplan.location_id is not None and any(
+            held.location_id == floorplan.location_id for held in floorplans):
+        raise StaleLayout()
+    return None, None
+
+
+def _still_as_read(
+    index: Optional[int], held: Optional[FloorplanObject], floorplan: FloorplanObject,
+) -> Dict[str, Any]:
+    """The filter holding what ``_stored_layout`` read, so a save that lands between this save's
+    read and its write makes this one match nothing: the replaced layout still at its place and
+    revision, or, for a new one, no layout of its id or its location."""
+    floorplans = f"{market_doc_key('setup_object')}.floorplans"
+    if held is None:
+        return {f"{floorplans}.id": {"$ne": floorplan.id},
+                f"{floorplans}.locationId": {"$ne": floorplan.location_id}}
+    # A layout stored before revisions were written has none, which reads as 0.
+    revision = {"$in": [0, None]} if held.revision == 0 else held.revision
+    return {f"{floorplans}.{index}.id": held.id, f"{floorplans}.{index}.revision": revision}
+
+
+def _started(plan: SetupObject, floorplan: FloorplanObject) -> FloorplanObject:
+    """A location's first layout, holding what Section Setup had for each of its sections."""
+    counts = [
+        StartingCount(section_id=section.id, count=section.count)
+        for section in plan.sections
+        if section.location is not None and section.location.id == floorplan.location_id
+    ]
+    return floorplan.model_copy(update={"starting_counts": counts})
 
 
 # ── POST /save-to-market ──────────────────────────────────────────────────────
@@ -120,8 +151,11 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
 
         {
             "market_id": "uuid-string",
-            "floorplan": { ... FloorplanObject fields, its own id among them ... }
+            "floorplan": { ... FloorplanObject fields, its own id among them ... },
+            "revision": 3
         }
+
+    ``revision`` is the stored revision of the layout the caller read, 0 for a new one.
 
     Algorithm:
       1. Look up the Market document by ``market_id`` (404 if not found, 400 if it does not parse).
@@ -129,25 +163,25 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
          (``Actions.CHANGE_SETUP``; 403 if not), then the archived rule (403) and the settled
          setup (409).
       3. Parse the floorplan (400 naming the field, or when it carries no id of its own).
-      4. Build the plan: the stored one, or the empty plan Market Setup starts from, with the
-         floorplan in ``floorplans`` in the place of the one of its id, or added. Everything else
-         is as stored.
+      4. Find the layout it replaces, by id: 409 ``STALE_LAYOUT`` when the stored one is of another
+         revision, or, for a new id, when ``revision`` is not 0 or the location has a layout
+         already. A layout keeps its location, its starting counts and moves its revision by one;
+         a new one records Section Setup's counts for its location's sections, starts at revision
+         1, and gives a market with no table type "Standard 6 ft".
       5. Write it through ``MarketsApi.prepared_plan`` with those floorplans, the plan write's own
          judge, so what is stored is a plan that reads, its sections counting the layout's tables,
          held to every rule a plan write is: among them the floorplan's bounds
          (``floorplan_limits``) and its image, which must be one uploaded for this market (400
          with the sentence for each); then the layout's own rules (``layout.layout_refusal``: its
          location one of the plan's, each section's tables numbered 1 to N, every type the
-         market's, every table inside the floorplan; 400 with the sentence).
+         market's, every table inside the floorplan; 400 with the sentence). The write holds what
+         step 4 read, so a save landing in between makes it 409 ``STALE_LAYOUT`` too. An image the
+         layout no longer names is deleted.
 
-    **Returns**::
+    **Returns** the layout and the plan's sections as stored, so the editor adopts the revision and
+    the counts::
 
-        {
-            "success": true,
-            "market_id": "<uuid>",
-            "sections_count": 3,
-            "locations_count": 2
-        }
+        {"floorplan": { ... }, "sections": [ ... ]}
     """
     data = request.get_json(silent=True)
     if not data:
@@ -160,6 +194,9 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
         return jsonify({"error": "market_id is required"}), 400
     if not isinstance(data.get("floorplan"), dict):
         return jsonify({"error": "floorplan is required"}), 400
+    revision = _revision(data)
+    if revision is None:
+        return jsonify({"error": "revision is required"}), 400
 
     # ── 1. Find the market ─────────────────────────────────────────────
     context = MarketsApi.load_market_context(market_id)
@@ -187,32 +224,51 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
     floorplan = _parsed_floorplan(market_id, data)
 
     stored = market.setup_object
-
-    # ── 4. The plan it makes ───────────────────────────────────────────
     proposed = stored or _empty_plan()
+
+    # ── 4. The layout it replaces, or starts ───────────────────────────
+    try:
+        index, held = _stored_layout(stored, floorplan, revision)
+    except StaleLayout:
+        return jsonify({"error": STALE_LAYOUT}), 409
+    table_types = None
+    if held is None:
+        floorplan = _started(proposed, floorplan)
+        if not proposed.table_types:
+            table_types = [TableTypeObject(id=str(uuid.uuid4()), **STANDARD_TABLE_TYPE)]
+    else:
+        floorplan = floorplan.model_copy(update={
+            "location_id": held.location_id, "starting_counts": held.starting_counts})
+    floorplan = floorplan.model_copy(update={"revision": revision + 1})
     floorplans = _with_floorplan(stored.floorplans if stored else None, floorplan)
 
     # ── 5. Write it through the plan's own writer ──────────────────────
     prepared = MarketsApi.prepared_plan(
         market, {"setupObject": convert_keys_to_camel_case(proposed.model_dump())},
-        floorplans=floorplans)
+        floorplans=floorplans, table_types=table_types)
     plan = prepared.plan
     refused = Layout.layout_refusal(floorplan, plan)
     if refused:
         raise BadRequestError(refused)
-    MarketsApi.markets_collection.update_one(
-        market_doc_filter("id", market_id), {"$set": prepared.update})
+    written = MarketsApi.markets_collection.update_one(
+        {**market_doc_filter("id", market_id), **_still_as_read(index, held, floorplan)},
+        {"$set": prepared.update})
+    if written.matched_count == 0:
+        return jsonify({"error": STALE_LAYOUT}), 409
     MarketsApi.release_removed_floorplans(market, prepared.removed_floorplans, user_email)
+    if held is not None and held.image_gridfs_id \
+            and held.image_gridfs_id != floorplan.image_gridfs_id:
+        delete_image(held.image_gridfs_id)
+    location = next(
+        (place.name for place in plan.locations if place.id == floorplan.location_id), None)
     History.record(
         market_id, user_email, Actions.CHANGE_SETUP, kind=History.FLOORPLAN,
-        subject={"floorplan_id": floorplan.id},
-        detail=lambda: History.changes(
-            _floorplan_change(stored, floorplan.id), _floorplan_change(plan, floorplan.id)),
+        subject={"floorplan_id": floorplan.id, "location": location},
+        detail=lambda: Layout.describe_change(held, floorplan, plan) or None,
     )
 
+    saved = convert_keys_to_camel_case(plan.model_dump())
     return jsonify({
-        "success": True,
-        "market_id": market_id,
-        "sections_count": len(plan.sections),
-        "locations_count": len(plan.locations),
+        "floorplan": next(f for f in saved["floorplans"] if f["id"] == floorplan.id),
+        "sections": saved["sections"],
     }), 200

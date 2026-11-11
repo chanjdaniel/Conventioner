@@ -1,6 +1,7 @@
 """
 PDF-to-image conversion utility using pypdfium2.
-Renders each PDF page as a PNG byte string.
+Renders each PDF page as a PNG byte string, and says why a PDF gave none: it could not be opened,
+or it has more pages than the caller takes.
 
 pypdfium2's wheel carries PDFium itself, so a PDF is drawn with no system package. Production's
 Vercel function installs only the Python requirements, which is why pdf2image cannot be used here:
@@ -10,7 +11,7 @@ it runs poppler's programs, and nothing installs poppler there.
 import io
 import logging
 import threading
-from typing import List
+from typing import List, Optional
 
 import pypdfium2 as pdfium
 
@@ -22,40 +23,55 @@ _PDFIUM_LOCK = threading.Lock()
 _POINTS_PER_INCH = 72
 
 
-def pdf_to_images(pdf_bytes: bytes, dpi: int = 200) -> List[bytes]:
+class UnreadablePdf(Exception):
+    """The bytes are not a PDF PDFium can open, or it drew none of its pages."""
+
+
+class TooManyPages(Exception):
+    """The PDF has more pages than the caller takes; none was drawn."""
+
+
+def pdf_to_images(
+    pdf_bytes: bytes, dpi: int = 200, *, max_pages: Optional[int] = None,
+) -> List[bytes]:
     """Convert PDF bytes to a list of PNG image bytes (one per page).
 
     Args:
         pdf_bytes: Raw PDF file content as bytes.
         dpi: Output image DPI (default: 200). Higher values yield larger, sharper images.
+        max_pages: The most pages taken; a longer PDF raises ``TooManyPages`` before any page is
+            drawn, so its size costs nothing.
 
     Returns:
-        List of PNG bytes, one element per page. Returns an empty list if
-        conversion fails (graceful degradation).
+        List of PNG bytes, one element per page.
+
+    Raises:
+        UnreadablePdf: PDFium cannot open the bytes, or no page could be drawn. It used to answer
+            an empty list, which the route could read only as a server error (T257).
+        TooManyPages: the PDF has more than ``max_pages`` pages.
     """
     if not pdf_bytes:
-        logger.warning("pdf_to_images called with empty bytes")
-        return []
-
-    try:
-        result = _render_pages_as_png(pdf_bytes, dpi / _POINTS_PER_INCH)
-    except Exception as e:
-        logger.error(f"Failed to convert PDF to images: {e}")
-        return []
-
+        raise UnreadablePdf("no bytes")
+    result = _render_pages_as_png(pdf_bytes, dpi / _POINTS_PER_INCH, max_pages)
     if not result:
-        logger.warning("pdf_to_images produced zero valid page images")
-
+        raise UnreadablePdf("no page could be drawn")
     return result
 
 
-def _render_pages_as_png(pdf_bytes: bytes, scale: float) -> List[bytes]:
+def _render_pages_as_png(
+    pdf_bytes: bytes, scale: float, max_pages: Optional[int],
+) -> List[bytes]:
     """Each page drawn on white at ``scale`` pixels per point, encoded as PNG while its bitmap is
     still open, since the PIL image shares the bitmap's memory. A page that will not encode is
     skipped, so the pages that do are kept."""
     with _PDFIUM_LOCK:
-        document = pdfium.PdfDocument(pdf_bytes)
         try:
+            document = pdfium.PdfDocument(pdf_bytes)
+        except pdfium.PdfiumError as e:
+            raise UnreadablePdf(str(e)) from e
+        try:
+            if max_pages is not None and len(document) > max_pages:
+                raise TooManyPages(f"{len(document)} pages")
             result: List[bytes] = []
             for index in range(len(document)):
                 page = document[index]
