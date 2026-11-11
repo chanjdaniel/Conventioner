@@ -11,8 +11,8 @@ import copy
 
 import pytest
 
-from conftest import stored_market
-from test_a_vendors_payments import PLAN, LiveMarket
+from conftest import FakeMarketsCollection, stored_market
+from test_a_vendors_payments import PLAN
 from test_the_payments_page import ANA, BEN, CY, EDITOR, MARKET, SAT, SEATS, SUN
 
 import api.applications as ApplicationsApi
@@ -23,6 +23,7 @@ import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
 import market_stats as MarketStats
 from datatypes import MarketPhase
+import market_write as MarketWrite
 
 #: A record whole from its creation, so it is taken at its word.
 REACHED_MARKET_DAYS = ["draft", "applications", "assignment", "market_days"]
@@ -38,10 +39,10 @@ def seated(monkeypatch, applications, market_records):
     """Ana on both days, Ben on Saturday and Cy on Sunday, on a market in the phase asked."""
     def on(phase=MarketPhase.MARKET_DAYS, reached=REACHED_MARKET_DAYS):
         # Seated while the market may still be changed, then moved to the phase asked.
-        live = LiveMarket(stored_market(
+        live = FakeMarketsCollection(stored_market(
             phase=MarketPhase.MARKET_DAYS, setupObject=copy.deepcopy(PLAN),
             phaseHistory=_record(reached)))
-        for module in (MarketsApi, AttendanceApi):
+        for module in (MarketsApi, AttendanceApi, MarketWrite):
             monkeypatch.setattr(module, "markets_collection", live)
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
         for email in (ANA, BEN, CY):

@@ -688,14 +688,11 @@ test('a question of more than eight answers folds past eight, most chosen first,
     TEST_USER.password,
     { intakeMode: 'form' },
   );
-  const form = await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
-    data: {
-      fields: [
-        { key: 'goods', label: GOODS_QUESTION, type: 'multi_select', options: GOODS, order: 0 },
-      ],
-    },
+  await saveApplicationForm(request, BACKEND_URL, marketId, {
+    fields: [
+      { key: 'goods', label: GOODS_QUESTION, type: 'multi_select', options: GOODS, order: 0 },
+    ],
   });
-  expect(form.ok(), await form.text()).toBeTruthy();
   await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
   // The nth applicant ticks the last n goods, so each good is chosen as often as its place.
   insertApplications(
