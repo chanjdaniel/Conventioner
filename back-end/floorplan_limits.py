@@ -1,8 +1,9 @@
-"""Every bound a floorplan is held to when it is written, and an Auto-Place request when it is
-asked, in one place (T272).
+"""Every bound a floorplan and the market's table types are held to when they are written, and an
+Auto-Place request when it is asked, in one place (T272, extended by T257).
 
-A floorplan reaches a market by two writes, the wizard's save and the plan write, which carries the
-stored floorplans back as Market Setup read them; both judge it here, through ``prepared_plan``.
+A floorplan reaches a market only by its own save (``POST /floorplans/save-to-market``), which judges
+it here through ``prepared_plan``; the plan write keeps the stored floorplans and table types
+whatever its body carries, so it has none to judge.
 
 The bounds are the request's, never the stored model's: ``FloorplanObject`` and its parts in
 ``datatypes.py`` stay as loose as they were, since a constraint there would make a market already
@@ -20,7 +21,9 @@ is, how large the room and its aisles, and how much geometry, whose wall orderin
 import math
 from typing import Any, Iterator, List, Mapping, Optional
 
-from datatypes import AisleConfigObject, FloorplanObject, ObstacleZone, TableTypeObject, WallSegment
+from datatypes import (
+    AisleConfigObject, BetaTableType, FloorplanObject, ObstacleZone, TableTypeObject, WallSegment,
+)
 
 MAX_FLOORPLANS_PER_MARKET = 20
 MAX_WALLS = 100
@@ -29,9 +32,12 @@ MAX_POLYGON_POINTS = 100
 MAX_TABLE_TYPES = 50
 MAX_PLACED_TABLES = 1_000
 MAX_SECTIONS = 200
-MAX_TABLES_PER_SECTION = 1_000
 MAX_TEXT_LENGTH = 200
 MAX_MAGNITUDE = 10_000_000
+#: Vercel's functions refuse a request body over 4.5 MB before Flask sees it, so an upload is held
+#: under that, with room for the form's own bytes.
+MAX_UPLOAD_BYTES = 4_000_000
+MAX_PDF_PAGES = 20
 
 MAX_TABLES_TO_PLACE = 500
 MIN_TABLE_SIDE_MM = 100
@@ -40,6 +46,16 @@ MAX_ROOM_SIDE_MM = 500_000
 MAX_AISLE_MM = 10_000
 
 TOO_MANY_FLOORPLANS = f"A market keeps at most {MAX_FLOORPLANS_PER_MARKET:,} floorplans."
+TOO_MANY_TABLE_TYPES = f"A market keeps at most {MAX_TABLE_TYPES:,} table types."
+TABLE_TYPE_SIDES_OUT_OF_RANGE = (
+    f"A table type's width and depth must be between {MIN_TABLE_SIDE_MM:,} mm and "
+    f"{MAX_TABLE_SIDE_MM:,} mm."
+)
+TABLE_TYPE_TEXT_TOO_LONG = f"A table type's name and id are at most {MAX_TEXT_LENGTH:,} characters."
+UPLOAD_TOO_LARGE = f"This file is larger than {MAX_UPLOAD_BYTES // 1_000_000} MB."
+TOO_MANY_PDF_PAGES = (
+    f"This PDF has more than {MAX_PDF_PAGES} pages. Send the page with the plan on it."
+)
 TEXT_TOO_LONG = f"A floorplan's names and ids are at most {MAX_TEXT_LENGTH:,} characters."
 UNBOUNDED_MEASUREMENT = (
     f"A floorplan's measurements must be finite numbers no larger than {MAX_MAGNITUDE:,}."
@@ -97,15 +113,10 @@ def measurement_refusal(dumped: Any) -> Optional[str]:
 def floorplan_refusal(floorplan: FloorplanObject) -> Optional[str]:
     """The sentence a floorplan over a bound is refused with, or None when it is within all."""
     counts = (
-        (len(floorplan.walls), MAX_WALLS, "walls"),
-        (len(floorplan.obstacles), MAX_OBSTACLES, "obstacle zones"),
-        (max((len(zone.polygon) for zone in floorplan.obstacles), default=0),
-         MAX_POLYGON_POINTS, "points in an obstacle zone"),
-        (len(floorplan.table_types), MAX_TABLE_TYPES, "table types"),
-        (len(floorplan.placed_tables), MAX_PLACED_TABLES, "tables"),
-        (len(floorplan.sections), MAX_SECTIONS, "sections"),
-        (max((len(section.table_ids) for section in floorplan.sections), default=0),
-         MAX_TABLES_PER_SECTION, "tables in a section"),
+        (len(floorplan.tables), MAX_PLACED_TABLES, "tables"),
+        (len(floorplan.zones), MAX_OBSTACLES, "no-table zones"),
+        (len(floorplan.section_styles), MAX_SECTIONS, "section styles"),
+        (len(floorplan.starting_counts), MAX_SECTIONS, "starting counts"),
     )
     for count, bound, what in counts:
         if count > bound:
@@ -144,7 +155,26 @@ def floorplans_refusal(
     return None
 
 
-def tables_to_place(table_types: List[TableTypeObject], counts: Mapping[str, int]) -> int:
+def table_types_refusal(table_types: List[TableTypeObject]) -> Optional[str]:
+    """The sentence the market's table types are refused with, or None when they are within all:
+    how many, each side's length, and every string and number by the same walk as a floorplan's."""
+    if len(table_types) > MAX_TABLE_TYPES:
+        return TOO_MANY_TABLE_TYPES
+    dumped = [table_type.model_dump() for table_type in table_types]
+    refused = measurement_refusal(dumped)
+    if refused:
+        return refused
+    if any(isinstance(leaf, str) and len(leaf) > MAX_TEXT_LENGTH for leaf in _leaves(dumped)):
+        return TABLE_TYPE_TEXT_TOO_LONG
+    if any(
+        not MIN_TABLE_SIDE_MM <= side <= MAX_TABLE_SIDE_MM
+        for table_type in table_types for side in (table_type.width_mm, table_type.depth_mm)
+    ):
+        return TABLE_TYPE_SIDES_OUT_OF_RANGE
+    return None
+
+
+def tables_to_place(table_types: List[BetaTableType], counts: Mapping[str, int]) -> int:
     """How many tables Auto-Place is asked for: each type's count, and one of a type it names none
     for, as the placement service reads them; a count for a type not listed places nothing."""
     return sum(counts.get(table_type.id, 1) for table_type in table_types)
@@ -154,7 +184,7 @@ def placement_refusal(
     *,
     walls: List[WallSegment],
     obstacles: List[ObstacleZone],
-    table_types: List[TableTypeObject],
+    table_types: List[BetaTableType],
     counts: Mapping[str, int],
     room_mm: Optional[Mapping[str, float]],
     aisle: Optional[AisleConfigObject],

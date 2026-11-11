@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from api.floorplans_access import market_refusal
 import api.market_actions as Actions
 from client_errors import BadRequestError, field_named_copy, parse_failure_detail
-from datatypes import AisleConfigContract, ObstacleZone, TableTypeObject, WallSegment
+from datatypes import AisleConfigContract, BetaTableType, ObstacleZone, WallSegment
 from floorplan_limits import placement_refusal
 from services.placement_service import auto_place_tables
 from utils.request_body import string_field
@@ -57,7 +57,7 @@ class PlaceTablesRequest(BaseModel):
 
     walls: List[WallSegment]
     obstacles: List[ObstacleZone]
-    table_types: List[TableTypeObject]
+    table_types: List[BetaTableType]
     counts: Dict[str, Annotated[int, Field(strict=True, ge=0)]]
     scale_px_per_mm: _Measure
     room_mm: Optional[RoomSize] = None

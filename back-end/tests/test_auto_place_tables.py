@@ -171,7 +171,7 @@ def test_the_solver_stops_at_its_own_time_limit(monkeypatch):
 
     Placement._pyckingsolver_place(
         Placement._compute_placement_zone(box(0, 0, 40000, 30000), [], 1500),
-        [Placement.TableTypeObject(**SIX_FOOT)], {"six": 200}, 1200,
+        [Placement.BetaTableType(**SIX_FOOT)], {"six": 200}, 1200,
         time_limit_s=Placement.SOLVER_TIME_LIMIT_S,
     )
 

@@ -67,6 +67,10 @@ PLAN = "plan"
 PRICING = "pricing"
 FLOORPLAN = "floorplan"
 FLOORPLAN_IMAGE_DELETED = "floorplan_image_deleted"
+#: A layout taken with its location by the plan write (T257).
+FLOORPLAN_REMOVED = "floorplan_removed"
+#: The market's table types replaced (T257).
+TABLE_TYPES = "table_types"
 FORM = "form"
 REVIEW_HIGHLIGHTS = "review_highlights"
 REJECTION_RULES = "rejection_rules"

@@ -21,7 +21,7 @@ from floorplan_limits import MAX_ROOM_SIDE_MM, ROOM_TOO_LARGE
 from datatypes import (
     WallSegment,
     ObstacleZone,
-    TableTypeObject,
+    BetaTableType,
     AisleConfigObject,
 )
 
@@ -222,7 +222,7 @@ SOLVER_TIME_LIMIT_S = 10.0
 
 def _pyckingsolver_place(
     zone: Polygon,
-    tables: List[TableTypeObject],
+    tables: List[BetaTableType],
     counts: Dict[str, int],
     spacing_mm: float,
     time_limit_s: float = SOLVER_TIME_LIMIT_S,
@@ -301,7 +301,7 @@ GRID_TIME_LIMIT_S = 10.0
 
 def _grid_place(
     zone: Polygon,
-    tables: List[TableTypeObject],
+    tables: List[BetaTableType],
     counts: Dict[str, int],
     spacing_mm: float,
     time_limit_s: float = GRID_TIME_LIMIT_S,
@@ -322,7 +322,7 @@ def _grid_place(
     deadline = time.monotonic() + time_limit_s
 
     # Build flat list of table instances sorted by area (largest first)
-    table_entries: List[TableTypeObject] = []
+    table_entries: List[BetaTableType] = []
     for tt in tables:
         count = counts.get(tt.id, 1)
         for _ in range(count):
@@ -450,7 +450,7 @@ def auto_place_tables(
         (see :class:`ObstacleZone`).
     table_types:
         List of table-type dicts with keys ``id``, ``width_mm``, ``height_mm``
-        (see :class:`TableTypeObject`).
+        (see :class:`BetaTableType`).
     counts:
         Mapping ``table_type_id → quantity``.
     scale_px_per_mm:
@@ -473,7 +473,7 @@ def auto_place_tables(
     # ── build domain objects ──────────────────────────────────────────────
     wall_objects = [WallSegment(**w) for w in walls]
     obstacle_objects = [ObstacleZone(**o) for o in obstacles]
-    table_objects = [TableTypeObject(**t) for t in table_types]
+    table_objects = [BetaTableType(**t) for t in table_types]
 
     # ── aisle config defaults ─────────────────────────────────────────────
     if aisle_config:

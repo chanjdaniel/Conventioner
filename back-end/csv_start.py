@@ -38,7 +38,7 @@ import csv_proposal as CsvProposal
 import essential_fields as EssentialFields
 import history as History
 from client_errors import ConflictError
-from datatypes import Market, MappingAuthor, Organization, SetupObject
+from datatypes import FloorplanObject, Market, MappingAuthor, Organization, SetupObject
 from market_documents import (
     market_doc_field, market_doc_filter, market_doc_key, market_from_document,
 )
@@ -266,6 +266,8 @@ class Confirmed(NamedTuple):
     counts: Dict[str, int]
     market: Market
     plan: SetupObject
+    #: The layouts the plan drops with their locations, released once the write lands (T257).
+    removed_floorplans: List[FloorplanObject]
 
 
 def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
@@ -341,6 +343,7 @@ def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
         },
         market=market,
         plan=prepared.plan,
+        removed_floorplans=prepared.removed_floorplans,
     )
 
 
@@ -384,4 +387,5 @@ def confirm(
     # it made, not the plan and the form it wrote whole.
     History.record(market_doc["id"], by, Actions.IMPORT_APPLICATIONS, kind=History.STARTED,
                    detail=confirmed.counts)
+    MarketsApi.release_removed_floorplans(confirmed.market, confirmed.removed_floorplans, by)
     return {"written": True}, 200

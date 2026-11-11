@@ -60,9 +60,9 @@ The import lists its targets in that order and the CSV proposal its unanswered q
   `disabled`, which the Form preview passes, takes every input away and keeps the applicant's look and words, the arrows' line included, since the preview shows what a vendor sees; only `locked` changes the look ([`aLockedEssentialLooksLocked.test.ts`](../../../front-end/src/__tests__/aLockedEssentialLooksLocked.test.ts)).
 - **Switched off** is `unaskedEssentials` on the form: a market may declare the two rankings and the request unasked (`UNASKABLE_ESSENTIAL_KEYS`), and nothing else, since only a ranking is a preference the solver never filters on, and a default for a date, a tier or a table choice would answer for the vendor.
 
-**Table type is stubbed to one type** (`STUB_TABLE_TYPE`, "Standard") in every market, whatever floorplans it carries, so the table-type ranking is never asked.
-A table's type belongs to the table, not its section, and only a floorplan could describe it.
-The stub is a decision, not a gap: the key, its validation and its mirror stay, only a real offering is missing, and the plan has no table-type card.
+**Table type is stubbed to one type** (`STUB_TABLE_TYPE`, "Standard") in every market, whatever its `setupObject.tableTypes`, so the table-type ranking is never asked.
+A table's type belongs to the table, not its section, so only a layout can describe it: the market's types now live in `setupObject.tableTypes` and each layout's table names one ([the layout](floorplan-placement.md)), but the form and the solver do not read them yet, and a follow-up makes them.
+The stub is a decision, not a gap: the key, its validation and its mirror stay, only a real offering is missing.
 
 **Dates and tiers are stored in one shape** however the form asked: `reconciled_dates_and_tiers` turns a per-date grid (the dates named are the dates available) or one flat list of tiers (those tiers on every available date) into a per-date tier answer and a list of dates.
 It is the one statement of that conversion, read by the applicant form and the import alike (`csv_import.py` calls it rather than widening rows itself).

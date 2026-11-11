@@ -314,15 +314,97 @@ class TierObject(BaseModel):
     name: str
 
 
+def new_id() -> str:
+    """A new random id, as every stored row's ``id`` default is minted."""
+    return str(uuid.uuid4())
+
+
 class LocationObject(BaseModel):
+    #: Stable across renames, since a layout names its location by it (T257); a stored location
+    #: written before ids is given one by ``fill_plan_ids`` as its plan is read.
+    id: str = Field(default_factory=new_id)
     name: str
 
 
 class SectionObject(BaseModel):
+    #: Stable across renames, since a layout's table names its section by it (T257). Every other
+    #: reader, the solver and the form's offering among them, still matches sections by name.
+    id: str = Field(default_factory=new_id)
     name: str
     location: Optional[LocationObject] = None
     tier: Optional[TierObject] = None
     count: int
+
+
+#: The namespace ``fill_plan_ids`` derives a missing id in: fixed, so a stored row written before
+#: ids reads with the same id on every read until a write stores it (T257).
+PLAN_ID_NAMESPACE = uuid.UUID("6f1c2e0a-5b7d-4c39-9a8e-2d4b1f3c7e65")
+
+
+def _derived_id(*parts: str) -> str:
+    return str(uuid.uuid5(PLAN_ID_NAMESPACE, "\x1f".join(parts)))
+
+
+def _has_id(row: Dict[str, Any]) -> bool:
+    return isinstance(row.get("id"), str) and bool(row["id"].strip())
+
+
+def fill_plan_ids(setup: Dict[str, Any]) -> Dict[str, Any]:
+    """The plan with an id on every location and section that has none, and each section's copy of
+    its location carrying that location's id (T257).
+
+    A missing id is derived from the row's names and its place among rows of the same names, never
+    drawn at random: a market stored before ids is parsed on every read, and a random id would
+    differ from one read to the next, so the plan a Market Setup tab read and writes back would
+    never equal the stored one and a settled setup would refuse every autosave. A stored id is
+    kept. ``migrations/migrate_layouts.py`` stores what this gives, so a tab open across the
+    migration keeps writing the same ids.
+
+    Works on the plan's dict, snake or camel-cased alike (its keys here are single words), and
+    returns a copy; anything that is not the expected shape is left for the model to refuse.
+    """
+    if not isinstance(setup, dict):
+        return setup
+    filled = dict(setup)
+    seen: Dict[Tuple[str, ...], int] = {}
+
+    def _with_id(row: Any, *names: str) -> Any:
+        if not isinstance(row, dict) or not all(isinstance(name, str) for name in names):
+            return row
+        place = seen.get(names, 0)
+        seen[names] = place + 1
+        if _has_id(row):
+            return row
+        return {**row, "id": _derived_id(*names, str(place))}
+
+    location_ids: Dict[str, str] = {}
+    if isinstance(setup.get("locations"), list):
+        filled["locations"] = [
+            _with_id(location, "location", location.get("name") if isinstance(location, dict) else None)
+            for location in setup["locations"]
+        ]
+        for location in filled["locations"]:
+            if isinstance(location, dict) and isinstance(location.get("name"), str):
+                location_ids.setdefault(location["name"], location.get("id"))
+    if isinstance(setup.get("sections"), list):
+        sections = []
+        for section in setup["sections"]:
+            if not isinstance(section, dict):
+                sections.append(section)
+                continue
+            location = section.get("location")
+            location_name = location.get("name") if isinstance(location, dict) else None
+            section = _with_id(
+                section, "section", location_name if isinstance(location_name, str) else "",
+                section.get("name"))
+            if isinstance(location_name, str):
+                location_id = location_ids.get(location_name) or (
+                    location.get("id") if _has_id(location) else _derived_id(
+                        "location", location_name, "0"))
+                section = {**section, "location": {**location, "id": location_id}}
+            sections.append(section)
+        filled["sections"] = sections
+    return filled
 
 
 def table_code_for(section_name: str, index: int) -> str:
@@ -463,9 +545,19 @@ class SetupObject(BaseModel):
     locations: List[LocationObject]
     sections: List[SectionObject]
     assignment_options: AssignmentOptionObject
+    #: One per location that has a layout (T257), written only by ``POST /floorplans/save-to-market``;
+    #: the plan write keeps the stored ones whatever its body carries.
     floorplans: Optional[List["FloorplanObject"]] = None
     #: Null on a market that was never priced, which shows no price anywhere.
     pricing: Optional[PricingObject] = None
+    #: The market's table types, which a layout's tables are sized by (T257); written only by the
+    #: layout's own routes, kept by the plan write like ``floorplans``.
+    table_types: List["TableTypeObject"] = []
+
+    @model_validator(mode="before")
+    @classmethod
+    def _every_row_has_an_id(cls, data: Any) -> Any:
+        return fill_plan_ids(data)
 
 
 class ModificationObject(BaseModel):
@@ -1090,11 +1182,13 @@ class TierContract(ContractModel):
 
 
 class LocationContract(ContractModel):
+    id: str
     name: str
 
 
 class SectionContract(ContractModel):
     count: int
+    id: str
     location: LocationContract
     name: str
     tier: TierContract
@@ -1136,6 +1230,7 @@ class SetupObjectContract(ContractModel):
     tiers: List[TierContract]
     floorplans: Optional[List["FloorplanObjectContract"]] = None
     pricing: Optional[PricingContract] = None
+    table_types: List["TableTypeContract"] = []
 
 
 class AssignmentStatisticsContract(ContractModel):
@@ -1172,7 +1267,29 @@ class VendorAttendanceContract(ContractModel):
 
 
 class TableTypeObject(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    """One of the market's table types (``setupObject.tableTypes``, T257): what sizes a layout's
+    tables. A type has no colour, since the section colours a table.
+
+    The application form and the solver do not read these yet: they keep the one stubbed type
+    (``essential_fields.STUB_TABLE_TYPE``) until a follow-up makes types real. Stored keys this
+    model no longer reads (the beta's ``height_mm``, ``max_capacity`` and ``color``) are dropped as
+    it parses.
+    """
+
+    id: str = Field(default_factory=new_id)
+    name: str
+    width_mm: float
+    depth_mm: float
+
+
+class BetaTableType(BaseModel):
+    """The floorplan beta's table type, which an Auto-Place request and a floorplan template still
+    carry, in the shape the beta's wizard sends: a width, a height and a capacity.
+
+    Never the market's types (``TableTypeObject``); it goes with the beta.
+    """
+
+    id: str = Field(default_factory=new_id)
     name: str
     width_mm: float
     height_mm: float
@@ -1181,7 +1298,9 @@ class TableTypeObject(BaseModel):
 
 
 class WallSegment(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    """A wall of an Auto-Place request; a floorplan stores none (T257)."""
+
+    id: str = Field(default_factory=new_id)
     start: Tuple[float, float]
     end: Tuple[float, float]
     thickness_mm: float
@@ -1189,28 +1308,11 @@ class WallSegment(BaseModel):
 
 
 class ObstacleZone(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    """An obstacle of an Auto-Place request; a floorplan stores its zones as ``FloorplanZone``."""
+
+    id: str = Field(default_factory=new_id)
     polygon: List[Tuple[float, float]]
     type: str  # "pillar", "stage", "no_table_zone", "custom"
-
-
-class PlacedTableObject(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    table_type_id: str
-    x: float
-    y: float
-    rotation: float = 0.0  # 0 or 90
-    width_mm: float
-    height_mm: float
-    table_code: Optional[str] = None
-
-
-class FloorplanSectionObject(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    location_name: str
-    table_ids: List[str] = []
-    tier_id: Optional[str] = None
 
 
 class AisleConfigObject(BaseModel):
@@ -1219,29 +1321,90 @@ class AisleConfigObject(BaseModel):
     walkway_width_mm: float = 2000.0
 
 
+class FloorplanTable(BaseModel):
+    """One table of a layout (T257): a real table of the plan, of a section and a type, numbered.
+
+    ``x_mm`` and ``y_mm`` are its centre, from the floorplan image's top-left corner at the
+    floorplan's scale; ``rotation`` is in degrees clockwise. ``section_id`` and ``number`` are null
+    on a table in no section. Its name is ``table_code_for(section.name, number)``.
+    """
+
+    id: str = Field(default_factory=new_id)
+    section_id: Optional[str] = None
+    number: Optional[int] = None
+    table_type_id: str
+    x_mm: float
+    y_mm: float
+    rotation: float = 0.0
+
+
+class FloorplanZone(BaseModel):
+    """A no-table zone of a layout: a rectangle from its top-left corner, in millimetres."""
+
+    id: str = Field(default_factory=new_id)
+    label: str = ""
+    x_mm: float
+    y_mm: float
+    width_mm: float
+    depth_mm: float
+
+
+class LabelPoint(BaseModel):
+    x_mm: float
+    y_mm: float
+
+
+class SectionStyle(BaseModel):
+    """How a section is drawn on a layout: its colour, an index 1 to 8 of the section palette, and
+    where its label stands (null: the drawing places it)."""
+
+    section_id: str
+    color: int
+    label_at: Optional[LabelPoint] = None
+
+
+class StartingCount(BaseModel):
+    """What Section Setup had typed for a section when its location's layout began."""
+
+    section_id: str
+    count: int
+
+
 class FloorplanObject(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    """A location's layout (T257): the venue's floorplan image, its scale, and the tables over it.
+
+    Reshaped additively and leniently, as stored models are (T272): every field has a default, and
+    the beta's fields this model no longer reads (``walls``, ``obstacles``, ``placed_tables``,
+    ``sections``, ``table_types``, ``scale_unit``) are dropped as a stored one parses, so a floorplan
+    the beta saved reads as one of no location (``location_id`` None), shown nowhere and counted by
+    no section, until ``migrations/migrate_layouts.py`` removes it.
+    """
+
+    id: str = Field(default_factory=new_id)
+    location_id: Optional[str] = None
+    #: One more on every write; a write names the one it read.
+    revision: int = 0
     image_gridfs_id: Optional[str] = None
+    image_width: Optional[int] = None
+    image_height: Optional[int] = None
+    pdf_page: Optional[int] = None
+    #: Image pixels per millimetre.
     scale_px_per_unit: Optional[float] = None
-    scale_unit: str = "mm"
     reference_line_start: Optional[Tuple[float, float]] = None
     reference_line_end: Optional[Tuple[float, float]] = None
     reference_line_length_mm: Optional[float] = None
-    table_types: List[TableTypeObject] = []
-    walls: List[WallSegment] = []
-    obstacles: List[ObstacleZone] = []
-    placed_tables: List[PlacedTableObject] = []
-    sections: List[FloorplanSectionObject] = []
-    image_width: Optional[int] = None
-    image_height: Optional[int] = None
+    tables: List[FloorplanTable] = []
+    zones: List[FloorplanZone] = []
+    section_styles: List[SectionStyle] = []
+    starting_counts: List[StartingCount] = []
 
 
 class FloorplanTemplate(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    id: str = Field(default_factory=new_id)
     name: str
     owner_user_id: Optional[str] = None
     organization_id: Optional[str] = None
-    table_types: List[TableTypeObject] = []
+    table_types: List[BetaTableType] = []
     aisles: AisleConfigObject = Field(default_factory=AisleConfigObject)
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now().isoformat())
@@ -1251,19 +1414,23 @@ class TableTypeContract(TableTypeObject, ContractModel):
     pass
 
 
-class WallSegmentContract(WallSegment, ContractModel):
+class FloorplanTableContract(FloorplanTable, ContractModel):
     pass
 
 
-class ObstacleZoneContract(ObstacleZone, ContractModel):
+class FloorplanZoneContract(FloorplanZone, ContractModel):
     pass
 
 
-class PlacedTableContract(PlacedTableObject, ContractModel):
+class LabelPointContract(LabelPoint, ContractModel):
     pass
 
 
-class FloorplanSectionContract(FloorplanSectionObject, ContractModel):
+class SectionStyleContract(SectionStyle, ContractModel):
+    label_at: Optional[LabelPointContract] = None
+
+
+class StartingCountContract(StartingCount, ContractModel):
     pass
 
 
@@ -1272,7 +1439,10 @@ class AisleConfigContract(AisleConfigObject, ContractModel):
 
 
 class FloorplanObjectContract(FloorplanObject, ContractModel):
-    pass
+    tables: List[FloorplanTableContract] = []
+    zones: List[FloorplanZoneContract] = []
+    section_styles: List[SectionStyleContract] = []
+    starting_counts: List[StartingCountContract] = []
 
 
 class FloorplanTemplateContract(FloorplanTemplate, ContractModel):

@@ -42,7 +42,7 @@ import payments as Payments  # noqa: E402
 import review_team as ReviewTeam  # noqa: E402
 from bson.errors import InvalidDocument  # noqa: E402
 from utils.application_token import generate_application_token  # noqa: E402
-from datatypes import MarketPerson, MarketPhase, PaymentEntry  # noqa: E402
+from datatypes import MarketPerson, MarketPhase, PaymentEntry, fill_plan_ids  # noqa: E402
 from test_csv_import import MAPPING, _csv, _market_doc  # noqa: E402
 from test_csv_proposal_api import CSV as A_GOOGLE_FORM_EXPORT  # noqa: E402
 from test_essential_fields import VALID_ANSWERS, _applicant_market_doc  # noqa: E402
@@ -266,10 +266,9 @@ def _plan(changes: Dict[str, Any], intake: Optional[str] = None):
 
 def _save_floorplan(client, world):
     world.market(MarketPhase.DRAFT, setupObject=COMPLETE_PLAN)
+    (main_hall,) = fill_plan_ids(COMPLETE_PLAN)["locations"]
     return client.post("/floorplans/save-to-market", json={"market_id": MARKET, "floorplan": {
-        "id": "fp-1",
-        "sections": [{"name": "Hall A", "locationName": "Main Hall", "tierId": "tier_0",
-                      "tableIds": ["t1", "t2"]}],
+        "id": "fp-1", "locationId": main_hall["id"],
     }})
 
 
