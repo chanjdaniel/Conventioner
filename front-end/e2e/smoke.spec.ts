@@ -21,3 +21,4 @@ test.describe('Conventioner smoke test', () => {
     await markets.narrowTo('Seed Market');
   });
 });
+// The e2e repeat's timed trial.
