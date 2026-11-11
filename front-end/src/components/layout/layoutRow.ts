@@ -80,6 +80,34 @@ export const STROKE_PX = {
  *  them twice as far apart from there on. */
 export const MAX_STROKE_SAMPLES = 2000;
 
+/** The places a drag has kept of the line it is drawing: the press first; where on the screen
+ *  the last was kept, and how far from it, in pixels, the next is kept. */
+export interface KeptStroke {
+  kept: PointMm[];
+  keptAt: { x: number; y: number };
+  keepPx: number;
+}
+
+/** A stroke as its press begins it. */
+export const strokeFrom = (press: PointMm, at: { x: number; y: number }): KeptStroke => ({
+  kept: [press],
+  keptAt: at,
+  keepPx: STROKE_PX.keep,
+});
+
+/** A move of the pointer drawing a stroke: its place is kept when it is `keepPx` or more from
+ *  the last kept on the screen. At `MAX_STROKE_SAMPLES` kept, every second one is dropped, the
+ *  press staying, and they are kept twice as far apart from there on. */
+export function keepSample(stroke: KeptStroke, place: PointMm, at: { x: number; y: number }) {
+  if (Math.hypot(at.x - stroke.keptAt.x, at.y - stroke.keptAt.y) < stroke.keepPx) return;
+  stroke.kept.push(place);
+  stroke.keptAt = at;
+  if (stroke.kept.length >= MAX_STROKE_SAMPLES) {
+    stroke.kept = stroke.kept.filter((_, index) => index % 2 === 0);
+    stroke.keepPx *= 2;
+  }
+}
+
 /** `STROKE_PX` in the map's millimetres at a zoom; `straight` is Shift held. */
 export function strokeOptions(pxPerMm: number, straight: boolean): StrokeOptions {
   const mm = (px: number) => px / pxPerMm;
@@ -454,9 +482,11 @@ export function useRowTool(options: RowToolOptions): RowTool {
         return 'straight';
       }
       const fit = fitStroke(held.samples, held.options);
-      if (fit.points.length < 2) return 'none';
+      const loop = fit.closed && fit.points.length >= 3;
+      // Points that make no path are no curve to wait on.
+      if (!smoothRuns(fit.points, { closed: loop }).length) return 'none';
       points.value = fit.points;
-      closed.value = fit.closed && fit.points.length >= 3;
+      closed.value = loop;
       drawn.value = true;
       return 'curve';
     },

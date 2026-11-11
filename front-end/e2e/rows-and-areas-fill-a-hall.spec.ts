@@ -939,6 +939,22 @@ test.describe('A row is drawn by hand', () => {
     expect(await tablesShown()).not.toEqual(before);
     await expect(layout.rowTables.first()).toBeVisible();
 
+    // Its first point wears the ring under the pointer, since a click there would close the
+    // path; dragged, it is a point being moved, and the path is shown open as it is.
+    const first = (await layout.rowPoints.first().boundingBox())!;
+    const press = { x: first.x + first.width / 2, y: first.y + first.height / 2 };
+    await page.mouse.move(press.x + 3, press.y, { steps: 2 });
+    await page.mouse.move(press.x, press.y);
+    await expect(layout.rowClose).toBeVisible();
+    await page.mouse.down();
+    await page.mouse.move(press.x + 10, press.y - 10);
+    await page.mouse.move(press.x + 20, press.y - 20);
+    await expect(layout.rowClose).toHaveCount(0);
+    await page.mouse.up();
+    await expect(layout.rowPoints).toHaveCount(3);
+    await layout.hoverAt([22_000, 5000]);
+    await expect(layout.rowClose).toHaveCount(0);
+
     // Backspace takes its last point, and the next: the layout's own undo is left alone.
     await page.keyboard.press('Backspace');
     await expect(layout.rowPoints).toHaveCount(2);

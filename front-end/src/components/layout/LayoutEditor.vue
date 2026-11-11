@@ -131,7 +131,14 @@ import {
   type FillChoice,
   type FillRequest,
 } from './layoutFill';
-import { MAX_STROKE_SAMPLES, STROKE_PX, rowChoices, strokeOptions, useRowTool } from './layoutRow';
+import {
+  keepSample,
+  rowChoices,
+  strokeFrom,
+  strokeOptions,
+  useRowTool,
+  type KeptStroke,
+} from './layoutRow';
 import { centreOf, selectionBounds, turnSelection } from './layoutSelection';
 import { MAX_ZONES, type LayoutEditor } from './useLayoutEditor';
 
@@ -251,8 +258,10 @@ const pointTool = computed(() =>
   tool.value === 'row' ? row : tool.value === 'fill' ? fillTool : null,
 );
 
-// A path or an area belongs to the tool that drew it: another tool drops it.
+// A path or an area belongs to the tool that drew it: another tool drops it, with whatever a
+// pointer still down was doing, so a line being drawn cannot come back under the next tool.
 watch(tool, () => {
+  abandon();
   row.drop();
   fillTool.drop();
 });
@@ -483,18 +492,10 @@ type Gesture =
       /** The point of the pending path that was pressed, which a drag moves. */
       point: number | null;
       begun: boolean;
-      /**
-       * The line this drag is drawing by hand, where it began with no path pending: the places
-       * kept so far, the press first; the pointer's place now, snapped as a point is, which
-       * stands last among the samples; where on the screen the last place was kept, and how far
-       * from it the next is kept.
-       */
-      stroke: {
-        kept: PointMm[];
-        pointer: PointMm;
-        keptAt: { x: number; y: number };
-        keepPx: number;
-      } | null;
+      /** The line this drag is drawing by hand, where it began with no path pending: the places
+       *  kept so far, and the pointer's place now, snapped as a point is, which stands last
+       *  among the samples. */
+      stroke: (KeptStroke & { pointer: PointMm }) | null;
     }
   | {
       kind: 'fill';
@@ -627,15 +628,7 @@ function showStroke(straight: boolean) {
 function drawStroke(event: PointerEvent) {
   if (gesture?.kind !== 'row' || !gesture.stroke) return;
   const stroke = gesture.stroke;
-  const away = Math.hypot(event.clientX - stroke.keptAt.x, event.clientY - stroke.keptAt.y);
-  if (away >= stroke.keepPx) {
-    stroke.kept.push(toMm(event));
-    stroke.keptAt = { x: event.clientX, y: event.clientY };
-    if (stroke.kept.length >= MAX_STROKE_SAMPLES) {
-      stroke.kept = stroke.kept.filter((_, index) => index % 2 === 0);
-      stroke.keepPx *= 2;
-    }
-  }
+  keepSample(stroke, toMm(event), { x: event.clientX, y: event.clientY });
   stroke.pointer = rowPointAt(event);
   showStroke(event.shiftKey);
 }
@@ -942,18 +935,16 @@ function onPointerMove(event: PointerEvent) {
       gesture.begun = true;
       // With no path yet, the drag draws the row's line by hand, from the press.
       if (gesture.point === null && !row.points.value.length) {
-        gesture.stroke = {
-          kept: [gesture.fromMm],
-          pointer: gesture.fromMm,
-          keptAt: gesture.from,
-          keepPx: STROKE_PX.keep,
-        };
+        gesture.stroke = { ...strokeFrom(gesture.fromMm, gesture.from), pointer: gesture.fromMm };
       }
     }
     // A drag moves the point pressed, or draws the row's line; else it carries the next point,
     // laid where it is let go, which a path drawn by hand does not take.
-    if (gesture.point !== null) row.movePoint(gesture.point, rowPointAt(event));
-    else if (gesture.stroke) drawStroke(event);
+    if (gesture.point !== null) {
+      // The point is being moved, not pressed to close the path: the path is shown as it is.
+      row.hoverClose(false);
+      row.movePoint(gesture.point, rowPointAt(event));
+    } else if (gesture.stroke) drawStroke(event);
     else row.hoverAt(rowPointAt(event));
   } else if (gesture.kind === 'fill') {
     if (!gesture.begun && Math.hypot(dx, dy) < DRAG_PX) return;
@@ -1320,13 +1311,14 @@ function onWindowKeydown(event: KeyboardEvent) {
     if (!event.repeat) removeByKey();
   } else if (plain && (event.key === '+' || event.key === '=') && mapHasTheKeys()) {
     event.preventDefault();
-    zoomByKey(1);
+    // The view holds still under a drag in hand, as it does for the wheel.
+    if (!gesture) zoomByKey(1);
   } else if (plain && (event.key === '-' || event.key === '_') && mapHasTheKeys()) {
     event.preventDefault();
-    zoomByKey(-1);
+    if (!gesture) zoomByKey(-1);
   } else if (plain && !event.shiftKey && event.key === '0' && mapHasTheKeys()) {
     event.preventDefault();
-    fit();
+    if (!gesture) fit();
   } else if (event.key === ' ' && hovering.value) {
     // Space held over the map is the hand that pans it, not a press of what has the focus: a
     // table of the map included, which a press on it leaves the focus on.

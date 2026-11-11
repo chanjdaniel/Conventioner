@@ -12,13 +12,15 @@ import {
   MAX_STROKE_SAMPLES,
   ROW_CHOICES_AT_FIRST,
   STROKE_PX,
+  keepSample,
   rowChoices,
+  strokeFrom,
   strokeOptions,
   useRowTool,
 } from '@/components/layout/layoutRow';
 import type { SavedLayout } from '@/components/layout/layoutSave';
 import { useLayoutEditor } from '@/components/layout/useLayoutEditor';
-import { SHAPES, hand, p, sampled, truth } from './helpers/drawnByHand';
+import { SHAPES, hand, p, ringOf, sampled, truth } from './helpers/drawnByHand';
 
 const SIX_FOOT = { id: 'six-foot', name: 'Standard 6 ft', widthMm: 1830, depthMm: 760 };
 const TYPES = [SIX_FOOT];
@@ -110,6 +112,39 @@ describe("a stroke's numbers", () => {
     });
     // Zoomed in four times, a quarter of the millimetres; Shift is the straight row.
     expect(strokeOptions(0.16, true)).toMatchObject({ toleranceMm: 75, straight: true });
+  });
+});
+
+describe('the places a drag keeps of its line', () => {
+  it('keeps a move 2 px or more from the last kept, the press first', () => {
+    const stroke = strokeFrom(p(0, 0), { x: 100, y: 100 });
+    keepSample(stroke, p(25, 0), { x: 101, y: 100 });
+    expect(stroke.kept).toEqual([p(0, 0)]);
+    keepSample(stroke, p(50, 0), { x: 102, y: 100 });
+    keepSample(stroke, p(75, 0), { x: 103, y: 100 });
+    keepSample(stroke, p(100, 0), { x: 104, y: 100 });
+    expect(stroke.kept).toEqual([p(0, 0), p(50, 0), p(100, 0)]);
+    expect(stroke.keptAt).toEqual({ x: 104, y: 100 });
+  });
+
+  it('drops every second place at 2,000 kept, and keeps them twice as far apart from there on', () => {
+    const stroke = strokeFrom(p(0, 0), { x: 0, y: 0 });
+    for (let x = 2; x <= 2 * 1999; x += 2) keepSample(stroke, p(x * 25, 0), { x, y: 0 });
+    // The 2,000th kept thinned them: every second, the press still first.
+    expect(stroke.kept).toHaveLength(1000);
+    expect(stroke.kept[0]).toEqual(p(0, 0));
+    expect(stroke.kept[1]).toEqual(p(100, 0));
+    expect(stroke.kept.at(-1)).toEqual(p(3996 * 25, 0));
+    expect(stroke.keepPx).toBe(4);
+    // A move 2 px on is no longer kept; one 4 px on is.
+    keepSample(stroke, p(4000 * 25, 0), { x: 4000, y: 0 });
+    expect(stroke.kept).toHaveLength(1000);
+    keepSample(stroke, p(4002 * 25, 0), { x: 4002, y: 0 });
+    expect(stroke.kept).toHaveLength(1001);
+    // And however long the drag, never more than 2,000.
+    for (let x = 4004; x < 40_000; x += 2) keepSample(stroke, p(x * 25, 0), { x, y: 0 });
+    expect(stroke.kept.length).toBeLessThan(MAX_STROKE_SAMPLES);
+    expect(stroke.keepPx).toBeGreaterThanOrEqual(8);
   });
 });
 
@@ -375,6 +410,25 @@ describe('a curved stroke let go', () => {
     row.hoverAt(null);
     expect(row.closeAt.value).toBeNull();
     expect(row.poses.value).toHaveLength(open);
+  });
+});
+
+describe('a small loop let go on the very place it was pressed', () => {
+  // 4.4 m across at 100 mm to the pixel: 44 px, too small to close, its ends one place.
+  const loop = [...sampled(ringOf(2200, 0), 100).map((q) => p(q.xMm + 12_000, q.yMm + 8000))];
+  loop[loop.length - 1] = loop[0];
+  const zoomedOut = strokeOptions(0.01, false);
+
+  it('waits as a path with a line and tables, as it was shown while the button was down', () => {
+    const { row } = aTool();
+    row.strokeTo(loop, zoomedOut);
+    expect(row.poses.value.length).toBeGreaterThan(0);
+    expect(row.endStroke()).toBe('curve');
+    expect(row.drawn.value).toBe(true);
+    expect(row.closed.value).toBe(false);
+    expect(row.points.value.length).toBeGreaterThan(2);
+    expect(row.runs.value.length).toBeGreaterThan(0);
+    expect(row.poses.value.length).toBeGreaterThan(0);
   });
 });
 

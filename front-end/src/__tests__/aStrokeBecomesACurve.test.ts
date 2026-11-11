@@ -392,6 +392,18 @@ describe('fitting anything a hand can do', () => {
     expect(fit.closed).toBe(false);
   });
 
+  it('fits a loop too small to close, let go on the very place it was pressed, to a path', () => {
+    // 4.4 m across at 100 mm to the pixel: its two ends are one place, and no path of themselves.
+    const loop = sampled(ringOf(2200, 0), 100);
+    loop[loop.length - 1] = loop[0];
+    const options = optionsAt(100);
+    expect(readStroke(loop, options).kind).toBe('open');
+    const fit = fitStroke(loop, options);
+    expect(fit.closed).toBe(false);
+    expect(fit.points.length).toBeGreaterThan(2);
+    expect(smoothRuns(fit.points).length).toBeGreaterThan(0);
+  });
+
   it('answers what it can of numbers no view gives', () => {
     const ring = sampled(SHAPES.stageRing, 250);
     // A gap wider than the whole stroke leaves a closed line no point to begin on.

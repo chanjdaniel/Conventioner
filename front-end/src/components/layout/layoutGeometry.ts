@@ -2433,6 +2433,10 @@ function chosenPoints(
   if (closed) {
     const first = Math.min(CLOSED_START, Math.floor(n / gap));
     chosen = [...new Set(Array.from({ length: first }, (_, i) => Math.round((i * n) / first)))];
+  } else if (n >= 3 && between(line[0], line[n - 1]) < SAME_POINT_MM) {
+    // Let go on the very place it was pressed, too small a loop to close: its two ends are one
+    // place and no path, so it begins on its middle too.
+    chosen = [0, Math.floor((n - 1) / 2), n - 1];
   } else {
     chosen = [0, n - 1];
   }
