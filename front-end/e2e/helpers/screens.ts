@@ -1480,6 +1480,10 @@ export const SCREENS: Screen[] = [
       await several.click();
       await page.getByTestId('apply-input-long_several-option').first().click();
       await visible(page, 'apply-input-long_several-chip');
+      // The answers typed here are kept in this tab (T271), and the tab is shared by the next size,
+      // which would reopen the form on them with no Edit to click. Only the draft goes: the tab's
+      // sign-in is kept there too.
+      await page.evaluate(() => sessionStorage.removeItem('conventioner.applicationDraft'));
     },
   },
   {

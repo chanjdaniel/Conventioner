@@ -8,6 +8,8 @@ the record says which (``checked_in_by``, ``checked_in_via``).
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from pymongo.errors import DuplicateKeyError
+
 import api.applications as ApplicationsApi
 import api.market_actions as Actions
 import history as History
@@ -15,10 +17,13 @@ import phase_record as PhaseRecord
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from datatypes import MarketPhase, phase_from_market_document, table_code_sort_key
 from db_config import get_database
+from unique_indexes import ensure_vendor_day_index
 from utils.email_address import normalized_email
 
+ATTENDANCE_COLLECTION = "attendance"
+
 db = get_database()
-attendance_collection = db["attendance"]
+attendance_collection = db[ATTENDANCE_COLLECTION]
 markets_collection = db["markets"]
 
 ENDED_REFUSAL = "This market has ended, so check-in is closed."
@@ -27,6 +32,17 @@ ENDED_REFUSAL = "This market has ended, so check-in is closed."
 VIA_DOOR_CODE = "door_code"
 #: The ``via`` of a vendor's own undo, on their vendor page, which takes no door code.
 VIA_VENDOR_PAGE = "vendor_page"
+
+
+def ensure_attendance_indexes() -> None:
+    """One attendance record per vendor's day, held by the database (T270).
+
+    A check-in is an upsert by market, vendor and date, and two that land at once both match
+    nothing and both insert, so only a unique index keeps the day one record: with two, one Undo
+    left the vendor reading as here, and the history held two arrivals. ``app.py`` builds it at
+    boot and refuses to start without it (``unique_indexes``).
+    """
+    ensure_vendor_day_index(attendance_collection, ATTENDANCE_COLLECTION)
 
 
 def _stored_assignment_rows(market_doc: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -119,6 +135,10 @@ def record_attendance(
     None when the vendor did it themselves, when ``via`` says how (``VIA_DOOR_CODE``). Both are
     written either way, so a vendor checking in again after an organizer did is not still credited
     to the organizer, nor an organizer's check-in after a scan to the door code.
+
+    Two check-ins of one vendor's day at once leave one record and one "checked in" entry: the
+    unique index refuses the second insert (``ensure_attendance_indexes``), the loser lands on the
+    winner's record, and only the call that inserted the record writes the entry.
     """
     if not isinstance(market_id, str) or not market_id.strip():
         return {"error": "market_id is required"}, 400
@@ -137,24 +157,20 @@ def record_attendance(
         return {"error": "No assignment found for this vendor on this date"}, 404
 
     checked_in_at = datetime.now(timezone.utc).isoformat()
-    written = attendance_collection.update_one(
-        {
-            "market_id": market_id,
-            "vendor_email": target_email,
-            "date": target_date,
-        },
-        {
-            "$set": {
-                "market_id": market_id,
-                "vendor_email": target_email,
-                "date": target_date,
-                "checked_in_at": checked_in_at,
-                "checked_in_by": checked_in_by,
-                "checked_in_via": via,
-            }
-        },
-        upsert=True,
-    )
+    vendor_day = {"market_id": market_id, "vendor_email": target_email, "date": target_date}
+    check_in = {"$set": {
+        **vendor_day,
+        "checked_in_at": checked_in_at,
+        "checked_in_by": checked_in_by,
+        "checked_in_via": via,
+    }}
+    try:
+        written = attendance_collection.update_one(vendor_day, check_in, upsert=True)
+    except DuplicateKeyError:
+        # Another check-in of this vendor's day inserted between this upsert's match and its
+        # insert, and the unique index refused the second record. Run once more, which lands on
+        # the winner's record; a second refusal is not this race, and goes on as the error it is.
+        written = attendance_collection.update_one(vendor_day, check_in, upsert=True)
 
     # Only a vendor not yet here is a change: checking in again is a new time, not a new arrival.
     if written.upserted_id is not None:

@@ -9,10 +9,6 @@ describes:
   - back-end/api/floorplans_save.py
   - back-end/floorplan_limits.py
   - back-end/api/markets.py#_floorplans_refusal
-  - back-end/api/markets.py#_with_the_layouts
-  - back-end/api/markets.py#release_removed_floorplans
-  - back-end/layout.py
-  - back-end/migrations/migrate_layouts.py
   - back-end/api/floorplans_calibrate.py
   - back-end/api/floorplans_export.py
   - back-end/api/floorplans.py
@@ -20,6 +16,16 @@ describes:
   - back-end/api/floorplans_templates.py
   - back-end/services/gridfs_service.py
   - back-end/utils/pdf_converter.py
+  - front-end/src/components/floorplan/FloorplanWorkflow.vue
+  - front-end/src/views/FloorplanEditorView.vue
+  - front-end/src/stores/floorplan.ts
+  - front-end/src/utils/canvasColor.ts
+  - front-end/src/components/floorplan/AutoPlaceButton.vue
+  - front-end/src/components/floorplan/FloorplanEditor.vue#loadBackgroundImage
+  - back-end/api/markets.py#_with_the_layouts
+  - back-end/api/markets.py#release_removed_floorplans
+  - back-end/layout.py
+  - back-end/migrations/migrate_layouts.py
   - front-end/src/components/layout/FloorplanUploader.vue
   - front-end/src/components/layout/LayoutView.vue
   - front-end/src/components/layout/LayoutCalibration.vue
@@ -32,12 +38,6 @@ describes:
   - front-end/src/components/layout/layoutSave.ts
   - front-end/src/components/layout/shrinkImage.ts
   - front-end/src/components/layout/useFloorplanImage.ts
-  - front-end/src/components/floorplan/FloorplanWorkflow.vue
-  - front-end/src/views/FloorplanEditorView.vue
-  - front-end/src/stores/floorplan.ts
-  - front-end/src/utils/canvasColor.ts
-  - front-end/src/components/floorplan/AutoPlaceButton.vue
-  - front-end/src/components/floorplan/FloorplanEditor.vue#loadBackgroundImage
 verified: 2026-11-11
 sources:
   - bug/38
@@ -49,6 +49,7 @@ sources:
   - T263
   - T272
   - T257
+  - T271
 ---
 
 # Floorplan placement
@@ -194,6 +195,12 @@ On the grid alone it also places a real hall's 59 tables in time, keeps the spac
 **Konva cannot read a CSS variable.**
 Handed `var(--mm-red)`, a canvas keeps painting with whatever colour it last had, silently.
 Pass a canvas colour through `canvasColor()` ([`front-end/src/utils/canvasColor.ts`](../../../front-end/src/utils/canvasColor.ts)), which resolves a `var(--name)` to the stylesheet's value at the moment of drawing and passes anything else, or a token the stylesheet lacks, through unchanged.
+
+**Nothing of the wizard reaches the market until the save, so leaving before it asks** (T271).
+The upload, the scale, the table types, the tables and the sections live in the page and the floorplan store until "Save & Continue", so a link, a market tab, Back or a reload dropped all of it with no word.
+[`FloorplanWorkflow.vue`](../../../front-end/src/components/floorplan/FloorplanWorkflow.vue)'s `holdsAFloorplan` is true from an upload in this visit of the wizard until the floorplan is saved to the market, and is handed to `useUnsavedWork` ([unsaved work asks before it is dropped](../conventions/unsaved-work-asks-before-it-is-dropped.md)), so a move off the wizard asks "Leave without saving?" and a reload is asked by the browser.
+The wizard sets `savedToMarket` before it emits `saved`, so the move back to Market Setup that follows never asks.
+The rule is the wizard's, not the store's: the store keeps its data across a visit, but a new visit opens on Upload with nothing uploaded, so it asks nothing until a new upload.
 
 **A floorplan is a location's layout, and a save writes only it** (T257).
 `POST /floorplans/save-to-market` ([`back-end/api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)) takes `{market_id, floorplan, revision}`, refuses a body that is not a JSON object (400), a `floorplan` that is not one ("floorplan is required") and a `revision` that is not a whole number from 0 ("revision is required"), needs EDITOR, refuses an archived market (403) and a setup that has settled (409, [the setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md)), then parses the floorplan as `FloorplanObject`: a field that does not parse answers 400 "Invalid floorplan: ..." naming it, a floorplan with no id of its own answers "A floorplan needs its id.", and an unknown key is dropped, the beta's `walls`, `placedTables` and `sections` among them.

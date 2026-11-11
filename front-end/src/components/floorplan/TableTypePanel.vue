@@ -219,7 +219,6 @@ function saveEdit() {
       heightMm: editHeightMm.value,
       maxCapacity: editForm.maxCapacity,
     };
-    store.markDirty();
   }
 
   emit('types-changed');

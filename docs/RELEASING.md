@@ -19,6 +19,7 @@ sources:
   - T251
   - T263
   - T273
+  - T270
 ---
 
 # Release Process
@@ -308,6 +309,7 @@ python migrations/migrate_market_keys.py              # rewrites market document
 python migrations/migrate_is_draft_consistency.py     # makes `isDraft` agree with `phase` on markets that have one
 python migrations/create_applications_collection.py   # creates the applications collection and its indexes
 python migrations/migrate_user_emails.py              # stores every account address lowercased; stops and names (by id) accounts that share one
+python migrations/check_vendor_day_duplicates.py      # reads only: names (by market, date and record id) any vendor's day held by two records
 python migrations/migrate_placement_history.py        # AFTER the deploy, whenever: moves the placement history into the market's history
 python migrations/migrate_to_one_stage.py             # AFTER the deploy, whenever: moves the three old stage phases into `applications`
 python migrations/migrate_layouts.py                  # AFTER the deploy, whenever: ids on every section and location, the beta's floorplans and their images removed
@@ -333,6 +335,13 @@ It is idempotent: a second run changes nothing, and a run that found a market ch
 `migrate_user_emails.py` **must** be run before the code that holds one account per address (E32/F03/S04).
 The back end builds a UNIQUE index on the stored, lowercased address at boot (`api.users.ensure_user_indexes`) and refuses to boot while any address is stored with capitals, naming this script, or while two accounts share an address, naming them by id.
 Register used to check for an address and then insert it, so a double click could make two accounts; which one an organizer keeps is theirs to decide, so the migration names a clash and writes nothing.
+
+`check_vendor_day_duplicates.py` **must** be run, and exit 0, before promoting the release carrying T270, the first whose boot can refuse on a vendor's day held by two records.
+That release builds a UNIQUE index on `(market_id, vendor_email, date)` at boot on `attendance` (`api.attendance.ensure_attendance_indexes`) and on `amounts_owed` (`payments.ensure_payment_indexes`), and refuses to boot while any vendor's day in either has two records, which two check-ins, or an amount set as the seat was freed, at the same moment could store before.
+The script reads every collection in `unique_indexes.VENDOR_DAY_INDEXES`, each of which its owner builds such an index on at boot.
+The script writes nothing: it prints each such vendor's day by market id, date and record id, never by address, and exits 1 when there is any; resolving one is [OPERATIONS.md's](OPERATIONS.md#when-the-back-end-refuses-to-boot).
+Daniel runs it through an ops session, with the production address passed inline: `MONGODB_URI='<URI>' .venv/bin/python migrations/check_vendor_day_duplicates.py`.
+The merge does not wait on it; the promotion does.
 
 `create_applications_collection.py` creates the applications collection and builds both its indexes: `market_id` (the lookup the D9 lock counts on) and the unique compound index on `(market_id, applicant_email, application_type)` that enforces one applicant per market.
 The uniqueness is the database's, not the application code's - the write that creates an application is an atomic upsert (`find_or_create_application` in `api/applications.py`), and the unique index is what makes it safe under concurrency.

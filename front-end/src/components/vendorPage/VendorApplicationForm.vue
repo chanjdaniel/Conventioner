@@ -8,8 +8,17 @@
  * plan's order - fill only what they never answered. A save the server refuses says why here and
  * keeps every answer typed; a save it takes is the vendor's application, and the section closes
  * the form on it.
+ *
+ * Every answer typed is kept in this tab as it changes, while the answers differ from what the
+ * form opened on (T271), so a reload, or a phone discarding the tab, reopens it on them, saying
+ * they are back and not yet sent. A save the server takes and Cancel drop them.
+ *
+ * A save that meets an ended sign-in (a 401 the device could not renew) keeps the answers it sent
+ * in the tab too, and the page asks for sign-in again, saying they will be saved. Signed in again
+ * as the same address, the form opens on them and sends the save once by itself; a refusal then
+ * says why here, as any refused save does, with every answer kept.
  */
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import type { FormField } from '@/assets/types/datatypes';
 import ApplicationFormFields from '@/components/application/ApplicationFormFields.vue';
 import EssentialApplicationFields from '@/components/application/EssentialApplicationFields.vue';
@@ -26,9 +35,66 @@ const validationErrors = ref<Record<string, string>>({});
 const saving = ref(false);
 const applied = computed(() => store.application !== null);
 
+/** The answers this vendor kept in the tab and has not saved, which the form opens on. */
+function ownDraft() {
+  return store.marketSlug ? store.draftFor(store.marketSlug, store.applicantEmail) : null;
+}
+const restored = ownDraft();
+/** Opened on kept answers: the note above the first question says so, while the form is open. */
+const draftRestored = restored !== null;
+
+/**
+ * The answers compared as answers: in any key order, and an empty one the same as none, so that
+ * a name typed and cleared again reads as the answers the form opened on.
+ */
+function answersKey(data: Record<string, unknown>): string {
+  const isEmpty = (value: unknown) =>
+    value === undefined ||
+    value === null ||
+    value === '' ||
+    (Array.isArray(value) && value.length === 0);
+  const kept = Object.keys(data)
+    .filter((key) => !isEmpty(data[key]))
+    .sort()
+    .map((key) => [key, data[key]]);
+  return JSON.stringify(kept);
+}
+
+/**
+ * What the form opened on: the application's answers with the form's own defaults, which the
+ * essential questions seed as they set up. Taken once the form is mounted, after that seed; kept
+ * answers are put in only then, so they are compared with the application's, not with themselves.
+ */
+let opened: string | null = null;
+
 /** Apply or Edit, the button pressed, is gone with the form open: focus lands on its heading. */
 const heading = ref<HTMLElement | null>(null);
-onMounted(() => heading.value?.focus());
+onMounted(async () => {
+  opened = answersKey(formData.value);
+  if (restored) formData.value = { ...formData.value, ...restored.formData };
+  heading.value?.focus();
+  // The save that met an ended sign-in, sent now that they are signed in again, once.
+  if (store.takeSaveAfterSignIn()) {
+    await nextTick();
+    await submitForm();
+  }
+});
+
+/** Keep the answers in the tab while they differ from what the form opened on, and not after. */
+watch(
+  formData,
+  (now) => {
+    if (opened === null) return;
+    const key = answersKey(now);
+    const held = ownDraft();
+    if (key === opened) {
+      if (held) store.dropDraft();
+    } else if (!held || answersKey(held.formData) !== key) {
+      store.holdDraft(now);
+    }
+  },
+  { deep: true },
+);
 
 const sortedFields = computed(() => sortedFormFields(store.formFields));
 /**
@@ -64,11 +130,15 @@ async function submitForm() {
   const app = await store.saveApplication(answersToSend(sortedFields.value, formData.value));
   saving.value = false;
 
-  if (app) emit('saved');
+  if (app) {
+    if (ownDraft()) store.dropDraft();
+    emit('saved');
+  }
 }
 
 function cancel() {
   store.error = null;
+  if (ownDraft()) store.dropDraft();
   emit('cancel');
 }
 </script>
@@ -94,6 +164,10 @@ function cancel() {
     </template>
 
     <form v-else class="vendor-form-body" data-testid="apply-form" @submit.prevent="submitForm">
+      <p v-if="draftRestored" class="vendor-form-restored" data-testid="apply-draft-restored">
+        Your unsaved answers are back. They reach the market when you save.
+      </p>
+
       <EssentialApplicationFields
         v-model="formData"
         :options="store.essentialOptions"
@@ -187,6 +261,18 @@ function cancel() {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
+}
+
+/* The page's informational note, as "You have not applied" reads (`vendor-info`). */
+.vendor-form-restored {
+  margin: 0;
+  background: var(--mm-chip-informational);
+  border: 1px solid var(--mm-blue);
+  border-radius: var(--radius-control);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--mm-blue);
 }
 
 .vendor-form-error {

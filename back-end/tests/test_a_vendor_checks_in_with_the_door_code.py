@@ -13,6 +13,7 @@ from types import SimpleNamespace
 
 import jwt
 import pytest
+from pymongo.errors import DuplicateKeyError
 
 import api.attendance as AttendanceApi
 import api.markets as MarketsApi
@@ -138,6 +139,45 @@ class TestARightCodeChecksThemIn:
         roster = AttendanceApi.attendance_roster(world.markets.doc)["roster"]
         assert roster[0]["checkedInVia"] == "door_code"
         assert roster[0]["checkedInBy"] is None
+
+
+class TestACheckInRacingAnother:
+    """The vendor's own check-in landing at the same moment as an organizer's tap (T270).
+
+    Both upserts match nothing and both insert; the unique index on the vendor's day refuses the
+    second with a duplicate key error. The check-in that lost runs its upsert again, which lands on
+    the winner's record, so the day holds one record and the history one arrival.
+    """
+
+    def test_the_one_that_loses_lands_on_the_winners_record(self, client, world, monkeypatch):
+        the_upsert = world.attendance.update_one
+
+        def an_organizer_taps_first(*_args, **_kwargs):
+            # The organizer's tap inserts between this check-in's read and its insert.
+            monkeypatch.setattr(world.attendance, "update_one", the_upsert)
+            AttendanceApi.record_attendance(MARKET, VENDOR, TODAY, "door@example.com")
+            raise DuplicateKeyError("E11000 duplicate key error")
+
+        monkeypatch.setattr(world.attendance, "update_one", an_organizer_taps_first)
+
+        response = check_in(client)
+
+        assert response.status_code == 200, response.get_json()
+        [record] = world.attendance.documents
+        # The vendor's own check-in is the last word, as when one follows the other.
+        assert record["checked_in_via"] == "door_code"
+        assert record["checked_in_by"] is None
+        assert [entry["kind"] for entry in world.history.documents] == [History.CHECKED_IN]
+
+    def test_a_second_refusal_is_the_error_it_is(self, client, world, monkeypatch):
+        def refused(*_args, **_kwargs):
+            raise DuplicateKeyError("E11000 duplicate key error")
+
+        monkeypatch.setattr(world.attendance, "update_one", refused)
+
+        with pytest.raises(DuplicateKeyError):
+            AttendanceApi.record_attendance(MARKET, VENDOR, TODAY)
+        assert world.history.documents == []
 
 
 class TestEveryOtherWayWritesNothing:

@@ -95,6 +95,13 @@ function saved(updated: VendorAccount): void {
   emit('changed');
 }
 
+/** A press refused as already recorded answered the account as it stands: shown behind the dialog,
+ * which stays open with its refusal, since the entry recorded by the first press moved it. */
+function refreshed(updated: VendorAccount): void {
+  account.value = updated;
+  emit('changed');
+}
+
 const entryDialog = computed(() => {
   const dialog = open.value;
   if (dialog?.kind === 'payment' || dialog?.kind === 'refund')
@@ -352,6 +359,7 @@ defineExpose({ reload: load });
       :entry="entryDialog?.entry"
       @close="open = null"
       @saved="saved"
+      @refreshed="refreshed"
     />
     <ChangeOwedDialog
       :open="!!owedLine"

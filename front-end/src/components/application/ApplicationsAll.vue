@@ -172,6 +172,17 @@ const verdicts = useVerdictActions(
   applications,
 );
 const { me, people, writesNotes } = verdicts;
+
+/**
+ * The drawer saved an update of their answers: the row takes the application as saved at once, so
+ * a verdict given before the list is read again carries the answers' version the update moved, and
+ * is not refused as answers changed since (T270); then the list is read again.
+ */
+function infoUpdated(saved: Application) {
+  verdicts.adopt(saved);
+  void load();
+}
+
 /**
  * The undo of the verdict just given (E38/F10/S01): a row's, said in its drawer while it is open and
  * over the list once it is closed, or a selection's, on its done line.
@@ -827,7 +838,7 @@ async function decideSelection() {
       :tab="drawer.tab.value"
       @close="drawer.close()"
       @update:tab="drawer.setTab"
-      @infoUpdated="load"
+      @infoUpdated="infoUpdated"
     >
       <template v-if="opened" #actions>
         <div class="drawer-verdict" data-testid="applications-all-drawer-verdict">

@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia';
 
 import MarketSetupView from '@/views/MarketSetupView.vue';
 import MarketFormTab from '@/components/market/MarketFormTab.vue';
+import MarketFrame from '@/components/MarketFrame.vue';
 import FormBuilder from '@/components/application/FormBuilder.vue';
 import type { ApplicationForm } from '@/assets/types/datatypes';
 import { MARKET_ID, marketRoute, marketRouter, serveMarket } from './support/marketScreen';
@@ -21,6 +22,9 @@ vi.mock('vue-router', () => ({
   useRouter: () => marketRouter(),
   // The market's id and its page both live in the URL (E21/F02/S02, E22/F04/S02).
   useRoute: () => marketRoute('form'),
+  // The form tab asks before unsaved questions are dropped, through the router's guards (T271).
+  onBeforeRouteLeave: vi.fn(),
+  onBeforeRouteUpdate: vi.fn(),
 }));
 
 vi.mock('@/utils/api', async (importOriginal) => {
@@ -237,5 +241,34 @@ describe('MarketSetupView application form', () => {
     await flushPromises();
 
     expect(builderOf(wrapper).props('keyTouched')).toEqual([true]);
+  });
+
+  /**
+   * "Open applications" over unsaved questions opened the form as last saved, so applicants got a
+   * form without its last questions (T271): the move asks the screen as it is pressed, before any
+   * dialog of the move's, and is refused.
+   */
+  it('refuses a phase move while the form has questions not yet saved', async () => {
+    const form = formWith('shop_name', 'Shop');
+    storeMarket(form);
+    formApi.mockResolvedValue({ data: { application_form: form } });
+    const wrapper = await mountOnFormTab();
+    await flushPromises();
+    const refuseMove = () =>
+      (wrapper.getComponent(MarketFrame).props('refuseMove') as () => string | null)();
+
+    expect(refuseMove()).toBeNull();
+
+    const added = { fields: [...form.fields, { ...form.fields[0], key: 'theme', order: 1 }] };
+    builderOf(wrapper).vm.$emit('update:applicationForm', added);
+    await flushPromises();
+    expect(refuseMove()).toBe(
+      'The market did not move: the form has changes that are not saved. Save Form first.',
+    );
+
+    api.put.mockResolvedValue({ data: { application_form: added } });
+    await wrapper.get('[data-testid="form-builder-save-button"]').trigger('click');
+    await flushPromises();
+    expect(refuseMove()).toBeNull();
   });
 });

@@ -12,7 +12,8 @@ describes:
   - front-end/src/utils/reviewTeam.ts
   - front-end/src/utils/reviewers.ts
   - front-end/src/components/market/ReviewerName.vue
-verified: 2026-11-06
+  - back-end/review_team.py#deal_waiting
+verified: 2026-11-11
 sources:
   - E38/F07
   - E38/F07/S01
@@ -21,6 +22,7 @@ sources:
   - T180
   - T181
   - T204
+  - T270
   - T263
 ---
 
@@ -44,12 +46,18 @@ Seven open applications among three reviewers deal three, two and two, the extra
 An application a rule rejects as it arrives is decided, so it is not dealt until the rules return it to open.
 The turn carries on from the last deal, so after seven applications among three reviewers the eighth goes to the second reviewer; however a change of reviewers and arrivals interleave, each is dealt in turn and no reviewer is skipped, since every deal holds the market while it reads and writes the turn.
 An applicant's own save deals their application and nobody else's, so the history never names a vendor as dealing another's.
+**A reviewer's next card deals what a stopped deal left waiting** (T270): an application that arrived while another deal held the market waits for that deal to deal it as it lets go, and a deal the host ended never lets go, so every card One by one asks for, whoever asks, first deals each application so left, and a chosen reviewer on their share alone is handed the last arrivals before a quiet spell.
+Each is recorded as dealt by the write it arrived by, never by the reviewer who asked; while a live deal holds the market, the card is handed out at once and that deal deals them; the All view's list deals nothing, since a read changes nothing.
+The card's answer says how many the deal dealt, and when it dealt any, One by one reads its list again once the card is up, so an application dealt beside the card reads as dealt, and a share holding two counts both.
 
 **Any change of reviewers deals every open application again**, so a newcomer gets an even share and nothing is stranded with someone removed.
 A decided application stays with whoever had it, as the record of whose share it was, and so does a follow-up, unless its owner is a reviewer removed by the change.
 **A removed reviewer's follow-ups go back into the pool**, dealt in arrival order with the open applications: each keeps its status and is handed to the reviewer it is dealt to, as its owner and its reviewer, so someone still reaches out, and the history says who held it before.
 A follow-up handed to someone who was never a reviewer stays theirs.
-Saving the same people again changes nothing and records nothing; choosing no one returns every open application to first come, first served, and leaves every follow-up with its owner.
+Saving the same people again, once the last change finished, changes nothing and records nothing; choosing no one returns every open application to first come, first served, and leaves every follow-up with its owner.
+**Saving the same people again finishes a change that stopped half way** (T270): a change whose request failed or was ended while it dealt has stored its reviewers and dealt part of the pool, so the same choice deals what it left, the follow-ups of the reviewers it removed included, records that deal, and records no second change of reviewers.
+Choosing different people over a change that stopped is a change of its own, and it hands on the follow-ups of the reviewers the stopped change removed too, unless they are chosen again.
+A change that finds another deal holding the market at its first or last write, as one whose hold ran out does, is refused with "The reviewers are being dealt applications right now. Try again in a moment."; refused at its first write it deals nothing, and refused at its last, the same choice again finishes it.
 
 **A chosen reviewer who no longer holds a role on the market can no longer review here**: their role taken in Manage market, or their place in the organization gone, or their role one the table's row "Be chosen as a reviewer, and then give verdicts and follow-ups" no longer reaches.
 Every deal skips them, the panel marks them "Can no longer review here" and never folds them out of sight, naming them first in its one line and saying how many more of them are folded, the dialog that changes the reviewers marks them on their chips, as Open applications and the first import do (`unableReviewers`), and their share stays theirs until an Admin removes them, which deals it again as any removal does; nothing removes them silently.

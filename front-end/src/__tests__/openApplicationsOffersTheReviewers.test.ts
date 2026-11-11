@@ -63,9 +63,12 @@ function draft(market: Partial<Market> = {}): Market {
 
 const DIALOG = '[data-testid="open-applications-window"]';
 
-async function pressOpen(market: Market): Promise<VueWrapper> {
+async function pressOpen(
+  market: Market,
+  screen: { refuseMove?: () => string | null; beforeTransition?: () => null } = {},
+): Promise<VueWrapper> {
   const wrapper = mount(PhaseRail, {
-    props: { market },
+    props: { market, ...screen },
     global: { stubs: { Teleport: true, BlockerPanel: true } },
   });
   await wrapper.get('[data-testid="phase-transition-applications"]').trigger('click');
@@ -95,6 +98,22 @@ function ticked(wrapper: VueWrapper): string[] {
 }
 
 describe('who meets the dialog', () => {
+  // Over questions not yet saved the move used to open this dialog, and refuse only once the
+  // organizer had worked through it and confirmed (T271 review).
+  it("a screen's refusal stops the move before the dialog opens", async () => {
+    const UNSAVED =
+      'The market did not move: the form has changes that are not saved. Save Form first.';
+    // Nothing of the plan is sent for a move that will not happen.
+    const beforeTransition = vi.fn(() => null);
+    const wrapper = await pressOpen(draft(), { refuseMove: () => UNSAVED, beforeTransition });
+
+    expect(wrapper.find(DIALOG).exists()).toBe(false);
+    expect(wrapper.get('[data-testid="phase-rail-error"]').text()).toBe(UNSAVED);
+    expect(beforeTransition).not.toHaveBeenCalled();
+    expect(api.post).not.toHaveBeenCalled();
+    expect(api.put).not.toHaveBeenCalled();
+  });
+
   it('someone who may choose reviewers meets the picker, with no one ticked', async () => {
     const wrapper = await pressOpen(draft());
 

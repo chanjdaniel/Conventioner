@@ -2,10 +2,11 @@
 layer: implementation
 kind: testing
 describes:
+  - front-end/e2e/fixtures/test-floorplan.png
   - front-end/e2e/the-layout-takes-the-same-zone.spec.ts
   - front-end/e2e/the-layout-draws-as-a-map.spec.ts
   - front-end/e2e/pages/LayoutPage.ts
-  - front-end/e2e/fixtures/test-floorplan.png
+  - front-end/e2e/the-floorplan-asks-before-it-drops-a-drawing.spec.ts
 verified: 2026-11-11
 sources:
   - bug/38
@@ -19,6 +20,7 @@ sources:
   - T263
   - T272
   - T257
+  - T271
 ---
 
 # Floorplan E2E
@@ -34,6 +36,8 @@ A spec gets its market from `seedLayout()` ([E2E seeds](e2e-seeds.md)): a draft 
 - [`the-layout-draws-as-a-map.spec.ts`](../../../front-end/e2e/the-layout-draws-as-a-map.spec.ts) opens the seeded Upper Hall, 30 m by 22.5 m with 20 tables, and reads the drawing from the screen: the map's name and count; a turned table's and an unturned one's box where the layout's millimetres put them, at their size; each section's fill and edge as the browser computes them, and a table in no section grey with no number; each section's name covering no table, 22 px tall, and the panel's list of sections with their counts and colours; the image the hall wide at half strength and grey, with no "Show the floorplan" tick yet; the stage hatched where it stands; Tab reaching the map once and leaving it at the next press, the arrow keys moving between tables, and the stop following the focus; and the whole hall fitting a phone with nothing scrolling sideways.
 - No spec drives the floorplan beta's wizard any more: its address lands on the layout page, so the specs that walked it (`the-floorplan-beta-places-tables`, `-shades-its-scrollers`, `-draws-as-its-tokens-say`) went, with their page object, `FloorplanWorkflowPage`, and `seedFloorplanTemplate()`; [`dialog-idiom.spec.ts`](../../../front-end/e2e/dialog-idiom.spec.ts) dropped its Edit Table Type and template dialog cases, [`every-control-is-named.spec.ts`](../../../front-end/e2e/every-control-is-named.spec.ts) walks the layout's upload and calibration instead, and [`every-select-draws-one-chevron.spec.ts`](../../../front-end/e2e/every-select-draws-one-chevron.spec.ts) measures the calibration's Unit beside its Length.
   The layout's own dialogs, its drawing and its editor gain their cases as T257's later tickets build them.
+- [`the-floorplan-asks-before-it-drops-a-drawing.spec.ts`](../../../front-end/e2e/the-floorplan-asks-before-it-drops-a-drawing.spec.ts) pins the question before a floorplan not yet saved is dropped (T271): none before an upload, the leave question on a market tab, Back and the app bar after one, Stay keeping the upload or the step, the browser's own question on a reload, and the save going back to Market Setup unasked.
+  A spec that leaves the wizard after an upload, other than by its save, meets that question and answers it.
 
 [`LayoutPage`](../../../front-end/e2e/pages/LayoutPage.ts) is their page object.
 Its `drawLine()` drags with `page.mouse` between two points given in the image's pixels, placed on the SVG's box as the SVG draws its image (whole and centred), so the calibration is a real gesture; the line, the scale and the image are read back from the page and the stored layout, never from a store.

@@ -22,14 +22,14 @@ describes:
   - back-end/migrations/migrate_phase.py
   - back-end/migrations/migrate_is_draft_consistency.py
   - back-end/migrations/migrate_publishing_to_market_days.py
+  - docs/schema.d.ts
+  - back-end/db_config.py#get_mongodb_client
+  - back-end/tests/test_db_config.py
   - back-end/migrations/migrate_layouts.py
   - back-end/datatypes.py#fill_plan_ids
   - back-end/datatypes.py#SetupObject
   - back-end/datatypes.py#FloorplanObject
   - back-end/datatypes.py#TableTypeObject
-  - docs/schema.d.ts
-  - back-end/db_config.py#get_mongodb_client
-  - back-end/tests/test_db_config.py
 verified: 2026-11-11
 sources:
   - E02
@@ -52,6 +52,7 @@ sources:
   - T263
   - T273
   - T257
+  - T270
 ---
 
 # The market document
@@ -126,6 +127,11 @@ Lengths are millimetres, angles degrees clockwise, positions from the floorplan 
 The model reads leniently, as stored models do: every new field has a default, and the floorplan beta's fields (`walls`, `obstacles`, `placedTables`, `sections`, a floorplan's own `tableTypes`, `scaleUnit`) are dropped as a stored one parses, so a floorplan the beta saved reads as one of no location (`locationId` null), shown nowhere and counted by no section.
 The market read serves the stored document, so such a floorplan's stored keys, and a stored row with no id, reach the front end as stored until a write or the migration rewrites them.
 A laid-out location's sections store the count of their layout's tables, derived on every write, and only the layout's own writes change `floorplans` and `tableTypes`; how is [floorplan placement](../modules/floorplan-placement.md#sharp-edges).
+
+**A change of reviewers is unfinished while `reviewTeam.unfinishedChoice` stands** (T270): its team write sets it to `{removed: [address]}`, the reviewers the change removed, and its last write, the turn's, unsets it, so the same choice again finishes a change that stopped between them and hands on those reviewers' follow-ups too, and a different choice over it counts them removed beside those it removes itself, unless it chooses them ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)).
+Like `dealing`, it is beside the team on the document and not on the `ReviewTeam` model, and the read never serves it.
+Every write a deal makes to the market under `dealing` names the lease and reads whether it matched, so one whose lease ran out is refused or logged, never written as if it held the market ([ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)).
+A lease nobody let go, from a deal the host ended, runs out on its own, and the applications still marked `arriving` are dealt by the next deal, which a reviewer's next card starts (`deal_waiting`).
 
 <a id="the-discord-connection-is-discord"></a>
 **The Discord connection is `discord`**; absent is not connected.
