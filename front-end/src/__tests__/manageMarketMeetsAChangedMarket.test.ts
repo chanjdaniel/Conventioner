@@ -330,17 +330,24 @@ describe('Manage market meets a market that changed under a change to the table'
     api.delete.mockImplementation(refusedOver(withTable(MarketRole.Editor)));
     await open();
     await openPermissions();
+    // Opened from the keyboard, so Reset is what focus goes back to.
+    byTestId('manage-market-permissions-reset')!.focus();
     byTestId('manage-market-permissions-reset')!.click();
     await flushPromises();
+    const confirm = byTestId('manage-market-permissions-reset-confirm-submit-button')!;
+    confirm.focus();
 
-    byTestId('manage-market-permissions-reset-confirm-submit-button')!.dispatchEvent(
-      new Event('submit', { bubbles: true }),
-    );
+    confirm.dispatchEvent(new Event('submit', { bubbles: true }));
     await flushPromises();
 
     expect(byTestId('manage-market-permissions-reset-confirm-window')).toBeNull();
     expect(byTestId('manage-market-permissions-error')!.textContent?.trim()).toBe(SENTENCE);
     expect(shownRole()).toBe(MarketRole.Editor);
+    // Reset, which opened the confirmation, is disabled now, so focus is kept in Permissions.
+    expect(byTestId('manage-market-permissions-reset')!.hasAttribute('disabled')).toBe(true);
+    expect(byTestId('manage-market-permissions-window')!.contains(document.activeElement)).toBe(
+      true,
+    );
 
     // The next change asked for ends the sentence.
     const select = byTestId('manage-market-permission-select') as HTMLSelectElement;

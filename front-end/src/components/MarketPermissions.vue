@@ -9,7 +9,7 @@
  * reads it, with the owner-only line. The words are `utils/permissionTable.ts`'s, and the rows and
  * changes `PermissionRows`' and `PermissionChanges`'.
  */
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import {
   type Market,
   MarketPhase,
@@ -119,17 +119,23 @@ watch(table, (rows) => {
   const pending = pendingChange.value;
   if (pending) {
     const now = rows.find((row) => row.id === pending.row.id);
-    if (!now || now.role === pending.role) closeWithNothingToChange();
+    if (!now || now.role === pending.role) void closeWithNothingToChange();
     else if (now.role !== pending.row.role) pendingChange.value = { ...pending, row: now };
   }
-  if (resetConfirming.value && !resetChanges.value.length) closeWithNothingToChange();
+  if (resetConfirming.value && !resetChanges.value.length) void closeWithNothingToChange();
 });
 
-function closeWithNothingToChange() {
+async function closeWithNothingToChange() {
   tableError.value = writeError.value;
   writeError.value = '';
   pendingChange.value = null;
   resetConfirming.value = false;
+  // Focus goes back to what opened the confirmation, but Reset is disabled now that nothing is held,
+  // and a row gone takes its select with it: focusing either does nothing, and focus would fall to
+  // `<body>`, outside the dialog still open. So the dialog takes it in again, as after a reset.
+  await nextTick();
+  await nextTick();
+  if (open.value && document.activeElement === document.body) await dialog.value?.focusInside();
 }
 
 function askReset() {
