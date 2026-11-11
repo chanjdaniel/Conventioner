@@ -7,7 +7,7 @@ from typing import Any, Dict, Iterable, Optional, Tuple
 from flask import current_app, request, jsonify, session
 from flask_login import UserMixin
 from flask_login.config import COOKIE_NAME
-from datatypes import OrganizationRole, User, organization_people_of
+from datatypes import MarketRole, OrganizationRole, User, organization_people_of
 from db_config import get_database
 from utils.tokens import (
     generate_verification_token, generate_reset_token, generate_otp,
@@ -932,6 +932,12 @@ def delete_user(authenticated_email: str):
     (``POST /organizations/<id>/transfer-ownership``), so refusing here keeps the only ordering that
     leaves the data consistent. An owner with nobody to transfer to is not trapped either: deleting
     the organization is something its owner may do, and then this succeeds.
+
+    The Owner of a market is refused for the same reason, beside the organization refusal (T283): a
+    market's Owner is the only person who may delete it, manage its admins and change who may do
+    what on it, so every market keeps an Owner whose account exists. Deleting the market is
+    something its Owner may do, and then this succeeds. A role below Owner on a market is not
+    ownership, and the deletion goes ahead.
     """
     data = json_object(required=False)
     email_to_delete = normalized_email(string_field(data, "email"))
@@ -950,6 +956,8 @@ def delete_user(authenticated_email: str):
         return jsonify({"msg": "User not found"}), 404
 
     from api.organizations import organizations_collection
+    import api.markets as MarketsApi
+    from market_documents import market_doc_field, market_doc_key, market_doc_projection
     import organization_people as OrganizationPeople
 
     user_id_to_delete = user_to_delete.get("id")
@@ -959,15 +967,25 @@ def delete_user(authenticated_email: str):
         org for org in organizations_collection.find(OrganizationPeople.of_person(user_id_to_delete))
         if organization_people_of(org).get(user_id_to_delete) == OrganizationRole.OWNER
     ] if user_id_to_delete else []
-    if owned_orgs:
+    # The markets they are the Owner of, served by the `roles.$**` index (T283).
+    owned_markets = list(MarketsApi.markets_collection.find(
+        {f"{market_doc_key('roles')}.{user_id_to_delete}": MarketRole.OWNER.value},
+        {"_id": 0, **market_doc_projection(["id", "name"])},
+    )) if user_id_to_delete else []
+    if owned_orgs or owned_markets:
         org_names = [org.get("name") for org in owned_orgs]
-        return jsonify({
-            "msg": (
-                "Transfer ownership of "
-                f"{', '.join(org_names)} before deleting this account."
-            ),
-            "ownedOrganizations": org_names,
-        }), 409
+        market_names = [market_doc_field(market, "name") for market in owned_markets]
+        sentences = []
+        refusal: Dict[str, Any] = {}
+        if org_names:
+            sentences.append(
+                f"Transfer ownership of {', '.join(org_names)} before deleting this account.")
+            refusal["ownedOrganizations"] = org_names
+        if market_names:
+            sentences.append(
+                f"Hand on or delete {', '.join(market_names)} before deleting this account.")
+            refusal["ownedMarkets"] = market_names
+        return jsonify({"msg": " ".join(sentences), **refusal}), 409
 
     result = users_collection.delete_one({"email": email_to_delete})
 
