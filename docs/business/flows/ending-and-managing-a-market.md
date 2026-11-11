@@ -42,6 +42,7 @@ sources:
   - T204
   - T224
   - T263
+  - T273
 ---
 
 # Ending and managing a market
@@ -180,8 +181,10 @@ Covered by:
 
 **Status:** Works (walked live in Draft).
 "Rename market", with the name and "Save", in Draft only; afterwards "This market's public web address comes from its name, and it has already been shared, so its name can no longer change.", and an archived market says it is archived.
+The new name is stored without the spaces at its ends, and holds the rule a new market's does ([D6](creating-a-market.md#d6-a-name-of-at-most-100-characters-on-one-line)): the field takes at most 100 characters, and the server's refusal ("A market's name can be at most 100 characters.", "A market's name must be on one line.", "A market needs a name.") shows under it.
 Covered by:
 
+- `a-market-name-fits-one-line.spec.ts`
 - `public-address.spec.ts`
 
 ## L5. Delete a market

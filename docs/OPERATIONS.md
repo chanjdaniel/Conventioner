@@ -48,7 +48,7 @@ The domains are DNS records at a third-party registrar pointing at Vercel.
 ## Health at a glance
 
 ```bash
-curl https://api.conventioner.io/healthz        # {"commit":"<sha>","status":"ok"}: booted, configured, migrated, database answers
+curl https://api.conventioner.io/healthz        # {"commit":"<sha>","deployed":true,"localDev":false,"status":"ok"}: booted, configured, migrated, database answers
 curl https://conventioner.io/version.json       # {"commit":"<sha>"}: the commit the front end was built from
 curl -o /dev/null -w '%{http_code}\n' https://conventioner.io/markets   # 200: the front end and its deep links
 ```
@@ -77,6 +77,9 @@ Values are never committed, and the app refuses to boot on a blank, a placeholde
 | `VITE_RECAPTCHA_SITE_KEY`                                                  | front end, **build time**                | the same reCAPTCHA property's site key                                                                                                                       |
 | `VERCEL_TOKEN`                                                             | GitHub, environment `production`, secret | vercel.com/account/tokens, scoped to the team                                                                                                                |
 | `VERCEL_ORG_ID`, `VERCEL_BACKEND_PROJECT_ID`, `VERCEL_FRONTEND_PROJECT_ID` | GitHub, repository variables             | the ids in the table above                                                                                                                                   |
+
+In the back-end project's Environment Variables settings, **"Enable access to System Environment Variables" stays ticked**: it is how the back end's runtime sees `VERCEL` and `VERCEL_ENV`, and so knows it is deployed and refuses the local-development switches ([RELEASING.md](RELEASING.md#a-deployed-host-refuses-local-switches)).
+The Deploy workflow refuses a back end that does not see it, before anything is promoted.
 
 **Changing a variable does nothing until the next deploy**, and a `VITE_` one is baked into the front-end bundle when it is built.
 After changing one, redeploy without a code change: GitHub, Actions, **Deploy**, Run workflow, from `main`.
@@ -156,6 +159,8 @@ Network access is open to `0.0.0.0/0`, because Vercel's functions have no fixed 
 That user currently has the `atlasAdmin` role, which is more than the app needs: a least-privilege user (`readWrite` on `conventioner`, which also covers the collections and indexes `init_database.py` creates) would limit what a leaked URI could do.
 Recommended: create one, move `MONGODB_URI` to it, redeploy, and keep the admin user for operators only.
 
+The client's timeouts and pool size are set in code and win over the same option in `MONGODB_URI`, so changing them means changing [`db_config.py`](../back-end/db_config.py), not the URI ([the database client's bounds](implementation/data/market-document.md#the-database-clients-bounds)).
+
 ### Backups and restoring
 
 Atlas snapshots the Flex cluster **once a day and keeps the last 8**; restore one from the cluster's Backup page in Atlas.
@@ -224,8 +229,8 @@ The log names Mongo's error by its type and code only, never its words, since a 
 These are applicants' sign-in codes, used once and expiring within ten minutes, and the sign-in rate-limit counters, which last fifteen, so nothing lasting is lost by clearing them: drop a conflicting index of the same name (`db.applicant_login_challenges.dropIndex('<name>')`, `db.sign_in_attempts.dropIndex('<name>')`), or remove duplicate challenges (`db.applicant_login_challenges.deleteMany({})`), then redeploy.
 The third holds vendors' remembered sign-ins ("Remember me" on the vendor page); its one index is the TTL index `remembered_sign_in_ttl`, so drop a conflicting index of that name (`db.vendor_remembered_sign_ins.dropIndex('<name>')`) and keep the documents, whose loss only makes each remembered vendor enter a code once more.
 
-**"Refusing to start: ... are not configured"**, naming variables.
-A configuration refusal, not a database one: set each variable it names ([RELEASING.md](RELEASING.md#pre-deploy-required-production-environment)) and redeploy.
+**"Refusing to start: ... are not as a deployment needs them"**, naming variables.
+A configuration refusal, not a database one: set each variable it names ([RELEASING.md](RELEASING.md#pre-deploy-required-production-environment)), remove each local-development switch it names ([a deployed host refuses local switches](RELEASING.md#a-deployed-host-refuses-local-switches)), and redeploy.
 
 ### Scripts never to run against production
 
