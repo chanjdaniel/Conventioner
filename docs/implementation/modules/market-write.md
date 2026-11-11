@@ -14,6 +14,8 @@ describes:
   - back-end/api/markets.py#add_market_role
   - back-end/api/markets.py#remove_market_role
   - back-end/api/markets.py#update_market_role
+  - back-end/api/markets.py#apply_phase_transition
+  - back-end/api/placements.py#_store_vendor_assignments
   - back-end/api/applicants.py#publish_results
   - back-end/api/applicants.py#set_applications_stopped
   - back-end/api/door.py#make_door_code
@@ -26,12 +28,15 @@ describes:
   - back-end/tests/real_mongo/test_a_judged_write_lands_only_on_the_market_it_judged.py
   - back-end/tests/real_mongo/test_every_held_write_is_refused_on_a_changed_market.py
   - back-end/tests/real_mongo/test_roles_written_per_person.py
+  - back-end/tests/real_mongo/test_an_assignment_write_holds_the_market_it_read.py
   - front-end/src/utils/api.ts#isMarketChanged
   - front-end/src/utils/api.ts#onMarketChanged
   - front-end/src/stores/market.ts#installMarketChanged
   - front-end/src/utils/savedOnTheMarket.ts#useSavedOnTheMarket
   - front-end/src/__tests__/aMarketThatChangedUnderAWrite.test.ts
   - front-end/src/__tests__/manageMarketMeetsAChangedMarket.test.ts
+  - front-end/src/views/ResultView.vue#runPlacementChange
+  - front-end/src/__tests__/aPlacementThatMetAChangedMarket.test.ts
 verified: 2026-11-11
 sources:
   - T244
@@ -106,6 +111,8 @@ In [`back-end/api/markets.py`](../../../back-end/api/markets.py):
 - The three role writes (`add_market_role`, `update_market_role`, `remove_market_role`), each setting or unsetting one person's key, `roles.<user id>`, never the whole map, and holding, beside the phase, that person's role and the requester's as read (absent when the requester's right comes through the organization), so an admin taking someone's access while another gives a third person access both land, and a role taken never comes back.
   A decision that counted the owners (giving or changing to Owner, taking an Owner) holds `roles` whole; no route reaches such a write today, since the market model refuses a market with no owner or two, and the Admin row and "Market already has an owner" refuse every give of Owner.
   A take refused because the person's role is already gone answers the 404 "They no longer have a role on this market.", which Manage market reads as done.
+- The phase move (`apply_phase_transition`), holding the facts its guards passed on that another write changes without moving the phase (`_what_the_move_stood_on`: `resultsPublished` for Back to review).
+  The rail shows a refused move as a blocker beside the phase the market is in, so the move answers `MarketChanged` in those terms, read from its `latest`: `PhaseChangedUnderRequest` when the phase moved, `MoveBlockedUnderRequest` with the blockers the move meets now when it did not ([the guards](guards.md)).
 
 Elsewhere:
 
@@ -116,6 +123,8 @@ Elsewhere:
   The run gives its roles in Discord before it writes, so its refusal, `RolesGivenOnAChangedMarket`, is a `MarketChanged` in its own words: "The Discord card changed while roles were being given. The roles given are in the market's history; check Discord again."
 - The import's saved mapping (`save_mapping` in [`back-end/csv_import.py`](../../../back-end/csv_import.py)), holding `importMapping`, written before any row, so an import meeting a market that moved, or another import's mapping saved since, writes no application ([the CSV import](csv-import.md)).
 - The start from a CSV (`confirm` in [`back-end/csv_start.py`](../../../back-end/csv_start.py)), holding `applicationForm` as read, which the start judged had no questions of its own ([the CSV proposal and start](csv-proposal-and-start.md)).
+- Every write of the assignment, a run, a placement, a free and a swap (`_store_vendor_assignments` in [`back-end/api/placements.py`](../../../back-end/api/placements.py)), counting `assignmentObject.revision` from the one read; a run also holds `resultsPublished`, so an allocation never lands after Publish results, and no placement lands on a market archived a moment before ([placements](placements.md#the-four-doors)).
+  The Tables page reads its grid again on the refusal and says the sentence in the seat's dialog.
 
 Every other write to the markets collection is listed in the guard below, each either a permanent exception with its reason or "moves in ticket NN", a later ticket of the task that moves it onto `write_market`.
 
@@ -145,6 +154,8 @@ A migration that reaches the markets collection by a name the walk does not read
 `onMarketChanged(handler)` is a response interceptor beside `onSessionEnded`: the request still fails, so the screen's own catch runs and shows the server's sentence through `getApiErrorMessage`.
 `installMarketChanged()` in [`front-end/src/stores/market.ts`](../../../front-end/src/stores/market.ts), installed from `main.ts` beside the session's interceptor, re-reads the open market through the store's `refresh`, so every screen reading [the market store](market-store.md) follows.
 
+The Tables page reads the market from the store, but its grid and an open vendor's details are reads of their own, so on that refusal from a placement it reads those again, as after a success, and the sentence stands in the seat dialog's error line (`runPlacementChange` in [`front-end/src/views/ResultView.vue`](../../../front-end/src/views/ResultView.vue)).
+
 Manage market keeps a copy of the market of its own, so on that refusal from adding, changing or taking a role it re-reads that copy, and the sentence stands where that action's refusal always has: under the add form, in the removal's confirmation, under the person's row.
 
 A list saved on the market a click at a time (`useSavedOnTheMarket` in [`front-end/src/utils/savedOnTheMarket.ts`](../../../front-end/src/utils/savedOnTheMarket.ts), the highlights and the automatic rejections) takes the store's list back on that refusal, not the list from before the click: the re-read may land before the refusal reaches the screen, while the write still counts as in flight and the list's watch skips it.
@@ -155,9 +166,12 @@ A list saved on the market a click at a time (`useSavedOnTheMarket` in [`front-e
 - [`tests/real_mongo/test_a_judged_write_lands_only_on_the_market_it_judged.py`](../../../back-end/tests/real_mongo/test_a_judged_write_lands_only_on_the_market_it_judged.py), through the routes on the server: a rename crossing Open applications, a rules save crossing the review's close and a highlights save crossing an archive, each landed between the read and the write by `interleave`, answer the 409 with the sentence, store nothing and record nothing.
 - [`tests/real_mongo/test_every_held_write_is_refused_on_a_changed_market.py`](../../../back-end/tests/real_mongo/test_every_held_write_is_refused_on_a_changed_market.py), the same way for Publish results crossing a new allocation, Stop and the door code crossing an archive, each Discord write, the import crossing another import, the start crossing another start, and each permission-row write crossing the same row set in another tab: each refused write leaves the market as the other change left it, with only that change's history; a card save and a row set beside another field or row changed meanwhile still land.
 - [`tests/real_mongo/test_roles_written_per_person.py`](../../../back-end/tests/real_mongo/test_roles_written_per_person.py): a take, an add and a change each landing after another role change it did not read, through the routes: both land, the person taken stays without access, the one added keeps it, and the history replayed over the starting roles gives the roles stored; a second take of one person answers the 404, and a change after a take, or an add after the requester's own role changed, is refused.
+- [`tests/real_mongo/test_an_assignment_write_holds_the_market_it_read.py`](../../../back-end/tests/real_mongo/test_an_assignment_write_holds_the_market_it_read.py), through the routes: Allocate tables with Publish results landing after its solver ran, and a placement, a free and a swap with the market archived after their read, each answer the 409 with the sentence and leave the stored assignment and its revision as they were, with only the other change's history.
+  The phase move's two answers over a changed market are [`test_the_market_side_races.py`](../../../back-end/tests/real_mongo/test_the_market_side_races.py)'s, and two assignment writes from one revision land one there, the other a `MarketChanged`.
 - [`tests/test_the_market_write.py`](../../../back-end/tests/test_the_market_write.py), without a server: the stored document a `Market` keeps and `model_copy` carries, the `RuntimeError`s, and the 409's body.
 - [`src/__tests__/aMarketThatChangedUnderAWrite.test.ts`](../../../front-end/src/__tests__/aMarketThatChangedUnderAWrite.test.ts): `isMarketChanged`, the interceptor, the store's re-read, and a refused rules save putting the server's rules on screen with the sentence, the re-read landing before the refusal and after it.
 - [`src/__tests__/manageMarketMeetsAChangedMarket.test.ts`](../../../front-end/src/__tests__/manageMarketMeetsAChangedMarket.test.ts): Manage market re-reading its own copy of the market after a refused add, take and change, each with the sentence where that action's refusal stands, and reading nothing again after an add refused for another reason.
+- [`src/__tests__/aPlacementThatMetAChangedMarket.test.ts`](../../../front-end/src/__tests__/aPlacementThatMetAChangedMarket.test.ts): the Tables page, after a refused placement, reading the tables and an open vendor's details again with the sentence in the seat's dialog, leaving the market to the interceptor, and reading nothing again after a placement refused for another reason.
 
 ## Why
 
