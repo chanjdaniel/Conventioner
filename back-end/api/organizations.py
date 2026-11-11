@@ -211,25 +211,6 @@ def _role_in(org: Dict[str, Any], user_id: str) -> Optional[str]:
                               OrganizationRole.MEMBER) else None
 
 
-def _record_role(
-    org_id: str, requesting_user_email: str, kind: str, user_id: str,
-    before: Optional[str], after: Optional[str],
-) -> None:
-    """A person given, changed or taken a place in the organization, under the admins' action
-    when an admin is either side of it, as the market's role changes are recorded."""
-    action = (History.MANAGE_ORGANIZATION_ADMINS if "admin" in (before, after)
-              else History.MANAGE_ORGANIZATION_MEMBERS)
-
-    def person() -> Dict[str, Any]:
-        user = UsersApi.get_user_by_id(user_id)
-        return {"user_id": user_id, "email": user.email if user else None}
-
-    History.record_for_organization(
-        org_id, requesting_user_email, action, kind=kind, subject=person,
-        detail=lambda: History.changes({"role": before}, {"role": after}),
-    )
-
-
 def _readable(org_id: str, requesting_user_email: str) -> Dict[str, Any]:
     """The organization, when the person asking is its owner, one of its admins or one of its
     members: 404 for one nobody has, 403 for one they are not in, as its other routes answer."""
@@ -551,154 +532,38 @@ def delete_organization(org_id: str, requesting_user_email: str) -> DeleteResult
 
 
 def _keep_the_map_in_step(org: Dict[str, Any], places: Dict[str, Optional[str]]) -> None:
-    """Write these places, user id to place or None for none, into the organization's people map
-    when it has one, after a write of its lists: the map is what every reader reads (T283).
+    """Write these places, user id to place, into the organization's people map when it has one,
+    after the transfer's writes of its lists: the map is what every reader reads (T283).
 
-    A stopgap, until ``organization_people`` writes the map and its mirror of lists in one write
-    holding what it judged (T283's ticket 02). An organization stored before the map has none to
-    keep, and is read from its lists.
+    A stopgap for the transfer alone, until ``organization_people`` hands an organization on in
+    one write holding what it judged (T283's ticket 04). An organization stored before the map has
+    none to keep, and is read from its lists.
     """
     if "people" not in org:
         return
-    set_places = {OrganizationPeople.people_key(user_id): place
-                  for user_id, place in places.items() if place}
-    unset_places = {OrganizationPeople.people_key(user_id): ""
-                    for user_id, place in places.items() if not place}
-    update = {key: value for key, value in (("$set", set_places), ("$unset", unset_places)) if value}
-    organizations_collection.update_one({"id": org["id"], "people": {"$exists": True}}, update)
-
-
-def add_org_admin(org_id: str, user_email: str, requesting_user_email: str) -> bool:
-    """Add a user as admin to organization. Only owner can add admins."""
-    org = organizations_collection.find_one({"id": org_id})
-    if not org:
-        raise NotFoundError("Organization not found")
-    
-    requesting_user = UsersApi.get_user(requesting_user_email)
-    if not requesting_user:
-        raise ForbiddenError("User not found")
-    if org.get("owner") != requesting_user.id:
-        raise ForbiddenError("Only organization owner can add admins")
-    
-    user = UsersApi.get_user(user_email)
-    if not user:
-        raise BadRequestError("User not found")
-    
-    if org.get("owner") == user.id:
-        raise BadRequestError("Owner cannot be added as admin")
-    
-    result = organizations_collection.update_one(
-        {"id": org_id},
-        {"$addToSet": {"admins": user.id}}
+    organizations_collection.update_one(
+        {"id": org["id"], "people": {"$exists": True}},
+        {"$set": {OrganizationPeople.people_key(user_id): place
+                  for user_id, place in places.items()}},
     )
-    _keep_the_map_in_step(org, {user.id: OrganizationRole.ADMIN.value})
-
-    users_collection.update_one(
-        {"id": user.id},
-        {"$addToSet": {"organizations": org_id}}
-    )
-    
-    if result.modified_count > 0:
-        before = _role_in(org, user.id)
-        _record_role(org_id, requesting_user_email,
-                     History.ROLE_CHANGED if before else History.ROLE_GIVEN, user.id, before,
-                     "admin")
-    return result.modified_count > 0
 
 
-def add_org_member(org_id: str, user_email: str, requesting_user_email: str) -> bool:
-    """Add a user as member to organization. Owner or admin can add members."""
-    org = organizations_collection.find_one({"id": org_id})
-    if not org:
-        raise NotFoundError("Organization not found")
-    
-    requesting_user = UsersApi.get_user(requesting_user_email)
-    if not requesting_user:
-        raise ForbiddenError("User not found")
-    if (org.get("owner") != requesting_user.id and
-            requesting_user.id not in org.get("admins", [])):
-        raise ForbiddenError("Only organization owner or admin can add members")
-    
-    user = UsersApi.get_user(user_email)
-    if not user:
-        raise BadRequestError("User not found")
-    
-    if org.get("owner") == user.id:
-        raise BadRequestError("Owner cannot be added as member")
-    if user.id in org.get("admins", []):
-        raise BadRequestError("Admin cannot be added as member")
-    
-    result = organizations_collection.update_one(
-        {"id": org_id},
-        {"$addToSet": {"members": user.id}}
-    )
-    _keep_the_map_in_step(org, {user.id: OrganizationRole.MEMBER.value})
-
-    users_collection.update_one(
-        {"id": user.id},
-        {"$addToSet": {"organizations": org_id}}
-    )
-    
-    if result.modified_count > 0:
-        _record_role(org_id, requesting_user_email, History.ROLE_GIVEN, user.id, None, "member")
-    return result.modified_count > 0
+def add_org_admin(org_id: str, user_email: str, requesting_user_email: str) -> None:
+    """Make someone an admin of the organization, as its owner (``organization_people``)."""
+    OrganizationPeople.add_admin(org_id, user_email, requesting_user_email)
 
 
-NO_LONGER_IN_THE_ORGANIZATION = "They are no longer in this organization."
+def add_org_member(org_id: str, user_email: str, requesting_user_email: str) -> None:
+    """Make someone a member of the organization, as its owner or an admin
+    (``organization_people``)."""
+    OrganizationPeople.add_member(org_id, user_email, requesting_user_email)
 
 
 def remove_org_user(org_id: str, user_id: str, requesting_user_email: str) -> None:
-    """Remove a user from organization. Owner can remove anyone, admin can remove members.
-
-    Removing someone neither an admin nor a member, another organizer having removed them first,
-    is a 404 saying so, written and recorded as nothing, and Manage organization reads it as done.
-    """
-    org = organizations_collection.find_one({"id": org_id})
-    if not org:
-        raise NotFoundError("Organization not found")
-    
-    requesting_user = UsersApi.get_user(requesting_user_email)
-    if not requesting_user:
-        raise ForbiddenError("User not found")
-    is_owner = org.get("owner") == requesting_user.id
-    is_admin = requesting_user.id in org.get("admins", [])
-    
-    if not is_owner and not is_admin:
-        raise ForbiddenError("Only organization owner or admin can remove users")
-    
-    if org.get("owner") == user_id:
-        raise BadRequestError("Cannot remove organization owner. Transfer ownership first.")
-    if user_id not in org.get("admins", []) and user_id not in org.get("members", []):
-        raise NotFoundError(NO_LONGER_IN_THE_ORGANIZATION)
-
-    removed = False
-    if user_id in org.get("admins", []):
-        if not is_owner:
-            raise ForbiddenError("Only owner can remove admins")
-        result = organizations_collection.update_one(
-            {"id": org_id},
-            {"$pull": {"admins": user_id}}
-        )
-        removed = result.modified_count > 0
-    
-    if user_id in org.get("members", []):
-        result = organizations_collection.update_one(
-            {"id": org_id},
-            {"$pull": {"members": user_id}}
-        )
-        removed = removed or result.modified_count > 0
-    # Nothing pulled: someone else removed them between the read and these writes.
-    if not removed:
-        raise NotFoundError(NO_LONGER_IN_THE_ORGANIZATION)
-    _keep_the_map_in_step(org, {user_id: None})
-
-    users_collection.update_one(
-        {"id": user_id},
-        {"$pull": {"organizations": org_id}}
-    )
-
-    _record_role(org_id, requesting_user_email, History.ROLE_TAKEN, user_id,
-                 _role_in(org, user_id), None)
+    """Take someone's place in the organization: the owner removes anyone but themselves, an
+    admin a member (``organization_people``). Someone already gone is a 404 saying so, which
+    Manage organization reads as done."""
+    OrganizationPeople.remove(org_id, user_id, requesting_user_email)
 
 
 def transfer_org_ownership(org_id: str, current_owner_email: str, new_owner_email: str) -> bool:

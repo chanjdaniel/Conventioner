@@ -70,6 +70,25 @@ export function getApiErrorStatus(err: unknown): number | null {
   return axios.isAxiosError(err) ? (err.response?.status ?? null) : null;
 }
 
+/** The `code` of the back end's one 409 for a change to an organization's people that met another. */
+export const ORGANIZATION_CHANGED_CODE = 'organization_changed';
+
+/**
+ * Whether a failed request is a change to an organization's people that the server refused because
+ * someone else changed the same people since it was read (`back-end/organization_people.py`): a
+ * 409 whose body's `code` is `organization_changed`. It stored nothing; its sentence is the
+ * server's, which `getApiErrorMessage` reads as it reads any refusal.
+ */
+export function isOrganizationChanged(err: unknown): boolean {
+  if (!axios.isAxiosError(err) || err.response?.status !== 409) return false;
+  const data: unknown = err.response.data;
+  return (
+    !!data &&
+    typeof data === 'object' &&
+    (data as { code?: unknown }).code === ORGANIZATION_CHANGED_CODE
+  );
+}
+
 /**
  * The requests whose 401 is not a session that ended: signing in, whose 401 is a wrong password or
  * code; the shell's session probe, which answers for itself; and every applicant and door request

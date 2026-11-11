@@ -9,7 +9,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import mongo_matches, skip_without_real_dependencies, sessions_load_through_get_user
+from conftest import (
+    FakeOrganizations,
+    install_organizations,
+    sessions_load_through_get_user,
+    skip_without_real_dependencies,
+)
 from test_reading_the_history import PagedHistory, _matches
 
 import api.market_actions as Actions
@@ -26,39 +31,6 @@ MEMBER = SimpleNamespace(id="user-member", email="member@example.com")
 NEWCOMER = SimpleNamespace(id="user-new", email="new@example.com")
 OUTSIDER = SimpleNamespace(id="user-out", email="outsider@example.com")
 PEOPLE = (OWNER, ADMIN, MEMBER, NEWCOMER, OUTSIDER)
-
-
-class Organizations:
-    """The ``organizations`` collection: one document, written by Mongo's set operators."""
-
-    def __init__(self, doc):
-        self.doc = doc
-
-    def find_one(self, query, projection=None):
-        if self.doc is None or not mongo_matches(self.doc, query):
-            return None
-        return {key: list(value) if isinstance(value, list) else value
-                for key, value in self.doc.items()}
-
-    def update_one(self, _query, update):
-        modified = 0
-        for key, value in (update.get("$set") or {}).items():
-            modified += self.doc.get(key) != value
-            self.doc[key] = value
-        for key, value in (update.get("$addToSet") or {}).items():
-            if value not in self.doc.setdefault(key, []):
-                self.doc[key].append(value)
-                modified = 1
-        for key, value in (update.get("$pull") or {}).items():
-            if value in self.doc.get(key, []):
-                self.doc[key].remove(value)
-                modified = 1
-        return SimpleNamespace(matched_count=1, modified_count=1 if modified else 0)
-
-    def delete_one(self, _query):
-        gone = self.doc is not None
-        self.doc = None
-        return SimpleNamespace(deleted_count=1 if gone else 0)
 
 
 class History_(PagedHistory):
@@ -79,14 +51,10 @@ def history(monkeypatch):
 
 @pytest.fixture
 def org(monkeypatch, history):
-    organizations = Organizations({
+    organizations = install_organizations(monkeypatch, FakeOrganizations({
         "id": ORG, "name": "Ember Markets", "owner": OWNER.id, "admins": [ADMIN.id],
         "members": [MEMBER.id], "markets": [], "theme": None,
-    })
-    monkeypatch.setattr(OrgsApi, "organizations_collection", organizations)
-    monkeypatch.setattr(
-        OrgsApi, "users_collection",
-        SimpleNamespace(update_one=lambda *_a, **_k: None, update_many=lambda *_a, **_k: None))
+    }))
     by_email = {person.email: person for person in PEOPLE}
     by_id = {person.id: person for person in PEOPLE}
     monkeypatch.setattr(OrgsApi.UsersApi, "get_user", lambda email: by_email.get(email))
@@ -147,9 +115,13 @@ class TestWhatIsRecorded:
         assert entry["kind"] == History.ROLE_CHANGED
         assert entry["detail"] == {"before": {"role": "member"}, "after": {"role": "admin"}}
 
-    def test_an_admin_added_again_records_nothing(self, org, history):
-        OrgsApi.add_org_admin(ORG, ADMIN.email, OWNER.email)
+    def test_an_admin_added_again_is_refused_and_records_nothing(self, org, history):
+        from client_errors import BadRequestError
 
+        with pytest.raises(BadRequestError) as refused:
+            OrgsApi.add_org_admin(ORG, ADMIN.email, OWNER.email)
+
+        assert refused.value.message == "They are already an admin of this organization."
         assert entries(history) == []
 
     def test_a_member_added_is_a_role_given(self, org, history):

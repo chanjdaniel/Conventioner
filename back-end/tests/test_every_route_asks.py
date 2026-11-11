@@ -26,6 +26,7 @@ from conftest import (
     FakeMarketsCollection,
     FakeOrganizations,
     FakeTemplates,
+    install_organizations,
     sessions_load_through_get_user,
     skip_without_real_dependencies,
     stored_market,
@@ -331,7 +332,8 @@ def walked(monkeypatch):
         "_id": "mongo-org-1", "id": ORG_ID, "name": "Org", "owner": "user-owner", "admins": [],
         "members": [], "markets": [MARKET_ID],
     })
-    for module in (OrgsApi, PermissionsApi, TemplatesApi):
+    install_organizations(monkeypatch, organizations)
+    for module in (PermissionsApi, TemplatesApi):
         monkeypatch.setattr(module, "organizations_collection", organizations)
 
     images = FakeGridFS()

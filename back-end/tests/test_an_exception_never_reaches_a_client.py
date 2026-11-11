@@ -19,7 +19,9 @@ import pytest
 from conftest import (
     COMPLETE_PLAN,
     FakeMarketsCollection,
+    FakeOrganizations,
     FakeSlugMarketsCollection,
+    install_organizations,
     sessions_load_through_get_user,
     skip_without_real_dependencies,
     stored_market,
@@ -37,6 +39,7 @@ import api.discord_connection as DiscordConnectionApi
 import api.door as DoorApi
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
+import organization_people as OrganizationPeople
 import api.payments as PaymentsApi
 import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
@@ -149,6 +152,7 @@ class TestTheTypes:
         (AddedVendorsApi.AddVendorInvalid, BadRequestError),
         (CsvStart.ConfirmRefused, ConflictError),
         (OrgsApi.OrganizationHasLiveMarkets, ConflictError),
+        (OrganizationPeople.OrganizationChanged, ConflictError),
     ])
     def test_the_domain_refusals_are_client_errors_and_nothing_else(self, refusal, client_error):
         assert issubclass(refusal, client_error)
@@ -178,16 +182,6 @@ ORG_ID = "org-1"
 ORG_NAME = "Night Market Society"
 
 
-class FakeOrganizations:
-    def __init__(self, *docs):
-        self.docs = list(docs)
-
-    def find_one(self, query):
-        return next(
-            (dict(d) for d in self.docs if all(d.get(k) == v for k, v in query.items())), None,
-        )
-
-
 class FakeOrganizationMarkets:
     def __init__(self, *docs):
         self.docs = list(docs)
@@ -200,7 +194,7 @@ class FakeOrganizationMarkets:
 def organization(monkeypatch):
     """One organization, owned by whoever ``owner`` names, holding the markets given."""
     def install(owner=OWNER_ID, markets=()):
-        monkeypatch.setattr(OrgsApi, "organizations_collection", FakeOrganizations({
+        install_organizations(monkeypatch, FakeOrganizations({
             "_id": "org-object-id", "id": ORG_ID, "name": ORG_NAME, "owner": owner,
             "admins": [], "members": [],
         }))
@@ -467,6 +461,27 @@ class TestTheOrganizationAndRoleRoutes:
 
         assert response.status_code == 404
         assert response.get_json() == {"error": "Organization not found"}
+
+    def test_a_change_that_met_another_is_the_organizations_409(
+        self, client, monkeypatch, organization,
+    ):
+        organization()
+        owner = UsersApi.get_user
+        monkeypatch.setattr(UsersApi, "get_user", lambda email: SimpleNamespace(
+            id="user-member", email=email) if email == "member@example.com" else owner(email))
+        stored = OrgsApi.organizations_collection
+        # The owner's own place changes between the read and the write.
+        stored.before_write = lambda: stored.doc.update(owner="someone-else")
+        raised = refusals_raised_by(monkeypatch, OrgsApi, "add_org_member")
+
+        response = client.post(
+            f"/organizations/{ORG_ID}/members", json={"user_email": "member@example.com"},
+        )
+
+        assert_answered_as_raised(response, raised)
+        assert response.status_code == 409
+        assert response.get_json() == {
+            "error": OrganizationPeople.ORGANIZATION_CHANGED, "code": "organization_changed"}
 
     def test_the_owner_cannot_be_added_as_a_member(self, client, organization):
         organization()
@@ -1472,7 +1487,7 @@ def send_body(client, monkeypatch, method, rule, phase, **kwargs):
     """``kwargs`` sent to the route at ``rule``, on a market in ``phase``, by an applicant signed in
     where the route is theirs; an organization's route finds no organization, nor a vendor's own
     check-in its vendor page."""
-    monkeypatch.setattr(OrgsApi, "organizations_collection", FakeOrganizations())
+    install_organizations(monkeypatch, FakeOrganizations())
     use_market(monkeypatch, stored_market(
         phase=phase or MarketPhase.APPLICATIONS, setupObject=COMPLETE_PLAN,
     ))

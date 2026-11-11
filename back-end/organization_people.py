@@ -1,4 +1,4 @@
-"""An organization's people, one map from user id to place (T283, ADR 0025).
+"""An organization's people, one map from user id to place (T283, ADR 0025), and its one writer.
 
 An organization keeps its people as ``people``, ``{user_id: "owner" | "admin" | "member"}``, with
 exactly one ``"owner"``, so a person has one place by construction. Until every stored organization
@@ -9,8 +9,57 @@ winning.
 This module builds the one filter that finds the organizations a person is in, ``of_person``, in
 either shape; nothing else spells that query. ``people_key`` is the one spelling of a person's path
 in the map.
+
+It is also the only writer of a person's place. ``TABLE`` says what each change does to the
+target's place as read, ``AUTHORITY`` who may ask for it, and ``next_people`` answers the map a
+change leaves, or its refusal, without a database. Each change is then one conditional write
+(``_write``) that lands only on the places it judged: on an organization with a map, the
+requester's and the target's keys as read; on one stored before the map, its three lists as read,
+the write folding the map in. Every write keeps ``owner``, ``admins`` and ``members`` an exact
+mirror of the map, for a rollback to the release before it. A write that meets a change answers 404
+when the organization or the removed person is gone, else ``OrganizationChanged``, a 409; the person
+decides again on what is true, as for a market (ADR 0024), and nothing is retried here.
 """
-from typing import Any, Dict
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Dict, FrozenSet, Optional, Tuple, Type, Union
+
+import api.users as UsersApi
+from client_errors import (
+    BadRequestError, ClientError, ConflictError, ForbiddenError, NotFoundError,
+)
+from datatypes import OrganizationRole, organization_people_of
+from db_config import get_database
+
+db = get_database()
+organizations_collection = db["organizations"]
+users_collection = db["users"]
+
+OWNER = OrganizationRole.OWNER.value
+ADMIN = OrganizationRole.ADMIN.value
+MEMBER = OrganizationRole.MEMBER.value
+
+#: The list each place below the owner is mirrored in.
+_LIST_OF = {ADMIN: "admins", MEMBER: "members"}
+
+NO_LONGER_IN_THE_ORGANIZATION = "They are no longer in this organization."
+ORGANIZATION_CHANGED = (
+    "This organization changed while you were working on it, so your change was not saved. "
+    "Check its people as they are now, then make your change again."
+)
+ALREADY_AN_ADMIN = "They are already an admin of this organization."
+ALREADY_A_MEMBER = "They are already a member of this organization."
+
+
+class OrganizationChanged(ConflictError):
+    """A change met another change to the same organization since it was read, and stored nothing:
+    a 409, whose ``code`` the front end tells this refusal apart by, to re-read the organization."""
+
+    def __init__(self):
+        super().__init__(ORGANIZATION_CHANGED)
+
+    def body(self) -> Dict[str, Any]:
+        return {"error": ORGANIZATION_CHANGED, "code": "organization_changed"}
 
 
 def _checked(user_id: Any) -> str:
@@ -42,3 +91,281 @@ def of_person(user_id: str) -> Dict[str, Any]:
         {**unfolded, "admins": user_id},
         {**unfolded, "members": user_id},
     ]}
+
+
+# ── The table ────────────────────────────────────────────────────────────────────────────────
+
+
+class Event(str, Enum):
+    """A change to one person's place."""
+    ADD_ADMIN = "add admin"
+    ADD_MEMBER = "add member"
+    REMOVE = "remove"
+    FORGET = "forget"  # their account deleted
+
+
+@dataclass(frozen=True)
+class Refusal:
+    """A change the table does not allow: the client error it answers, in these words."""
+    error: Type[ClientError]
+    sentence: str
+
+    def refuse(self) -> None:
+        raise self.error(self.sentence)
+
+
+@dataclass(frozen=True)
+class Move:
+    """A change the table allows: the target's place after it (``None``, no place), and, when
+    ``only_by`` is set, the requester's places it is allowed for, ``otherwise`` refusing the
+    rest."""
+    to: Optional[str]
+    only_by: FrozenSet[str] = frozenset()
+    otherwise: Optional[Refusal] = None
+
+
+#: An account deletion never reaches an owner: ``delete_user`` refuses one before it forgets them.
+NEVER_REACHED = "never reached"
+
+#: Who may ask for each change, by their place as read, and the refusal for anyone else. Checked
+#: before the target's place. Forgetting is the account deletion's, with no requester.
+AUTHORITY: Dict[Event, Tuple[FrozenSet[str], Refusal]] = {
+    Event.ADD_ADMIN: (frozenset({OWNER}),
+                      Refusal(ForbiddenError, "Only organization owner can add admins")),
+    Event.ADD_MEMBER: (frozenset({OWNER, ADMIN}),
+                       Refusal(ForbiddenError, "Only organization owner or admin can add members")),
+    Event.REMOVE: (frozenset({OWNER, ADMIN}),
+                   Refusal(ForbiddenError, "Only organization owner or admin can remove users")),
+}
+
+#: What each change does, by the target's place as read (``None``, no place). "Add admin" of a
+#: member makes them an admin, as Manage organization's "Add admin" field always has.
+TABLE: Dict[Tuple[Event, Optional[str]], Union[Move, Refusal, str]] = {
+    (Event.ADD_ADMIN, None): Move(ADMIN),
+    (Event.ADD_ADMIN, MEMBER): Move(ADMIN),
+    (Event.ADD_ADMIN, ADMIN): Refusal(BadRequestError, ALREADY_AN_ADMIN),
+    (Event.ADD_ADMIN, OWNER): Refusal(BadRequestError, "Owner cannot be added as admin"),
+
+    (Event.ADD_MEMBER, None): Move(MEMBER),
+    (Event.ADD_MEMBER, MEMBER): Refusal(BadRequestError, ALREADY_A_MEMBER),
+    (Event.ADD_MEMBER, ADMIN): Refusal(BadRequestError, "Admin cannot be added as member"),
+    (Event.ADD_MEMBER, OWNER): Refusal(BadRequestError, "Owner cannot be added as member"),
+
+    (Event.REMOVE, None): Refusal(NotFoundError, NO_LONGER_IN_THE_ORGANIZATION),
+    (Event.REMOVE, MEMBER): Move(None),
+    (Event.REMOVE, ADMIN): Move(None, only_by=frozenset({OWNER}),
+                                otherwise=Refusal(ForbiddenError, "Only owner can remove admins")),
+    (Event.REMOVE, OWNER): Refusal(
+        BadRequestError, "Cannot remove organization owner. Transfer ownership first."),
+
+    (Event.FORGET, None): Move(None),
+    (Event.FORGET, MEMBER): Move(None),
+    (Event.FORGET, ADMIN): Move(None),
+    (Event.FORGET, OWNER): NEVER_REACHED,
+}
+
+
+def may(people: Dict[str, str], event: Event, requester_id: Optional[str]) -> None:
+    """Refuse the requester when their place as read does not allow ``event``."""
+    if event is Event.FORGET:
+        return
+    allowed, refusal = AUTHORITY[event]
+    if people.get(requester_id) not in allowed:
+        refusal.refuse()
+
+
+def next_people(
+    people: Dict[str, str], event: Event, requester_id: Optional[str], target_id: str,
+) -> Dict[str, str]:
+    """The map ``event`` leaves, by ``requester_id`` on ``target_id``, or the client error the
+    table answers. ``people`` is left as it was; a change that changes nothing answers it equal.
+
+    The target keeps their position in the map's order when their place changes, and joins at its
+    end when they had none.
+    """
+    may(people, event, requester_id)
+    place = people.get(target_id)
+    cell = TABLE.get((event, place))
+    if cell is None or cell == NEVER_REACHED:
+        raise RuntimeError(f"No change {event.value!r} of a person whose place is {place!r}")
+    if isinstance(cell, Refusal):
+        cell.refuse()
+    if cell.only_by and people.get(requester_id) not in cell.only_by:
+        cell.otherwise.refuse()
+    after = dict(people)
+    if cell.to is None:
+        after.pop(target_id, None)
+    else:
+        after[target_id] = cell.to
+    return after
+
+
+# ── The writes ───────────────────────────────────────────────────────────────────────────────
+
+
+def _mirror(people: Dict[str, str]) -> Dict[str, Any]:
+    """The old lists as an exact mirror of ``people``, in its order: written whole when the write
+    folds the map in. An organization with no owner keeps the ``owner`` it holds."""
+    lists: Dict[str, Any] = {
+        "admins": [user_id for user_id, place in people.items() if place == ADMIN],
+        "members": [user_id for user_id, place in people.items() if place == MEMBER],
+    }
+    owners = [user_id for user_id, place in people.items() if place == OWNER]
+    if owners:
+        lists["owner"] = owners[0]
+    return lists
+
+
+def _moved(user_id: str, before: Optional[str], after: Optional[str]) -> Dict[str, Dict[str, Any]]:
+    """The update that moves one person from ``before`` to ``after`` (``None``, no place) on a
+    folded organization: their key set or unset, and the lists kept in step, no path touched twice.
+    The owner's place is the transfer's, never moved here."""
+    key = people_key(user_id)
+    if OWNER in (before, after):
+        raise RuntimeError("The owner's place moves only when the organization is handed on")
+    if after is None:
+        return {"$unset": {key: ""}, "$pull": {"admins": user_id, "members": user_id}}
+    update: Dict[str, Dict[str, Any]] = {"$set": {key: after},
+                                         "$addToSet": {_LIST_OF[after]: user_id}}
+    if before is not None:
+        update["$pull"] = {_LIST_OF[before]: user_id}
+    return update
+
+
+def _write(org: Dict[str, Any], people: Dict[str, str], after: Dict[str, str],
+           requester_id: Optional[str], target_id: str) -> bool:
+    """One conditional write of ``after`` over the organization read as ``org`` (its map as read,
+    ``people``), landing only while the places it judged still hold. Answers whether it landed.
+
+    With a map: the requester's and the target's keys as read are held, ``{"$exists": False}``
+    where they had none. Stored before the map: ``people`` is held absent and the three lists
+    equal to what was read, and the write sets the map whole beside the lists as its mirror, so
+    the first change to such an organization also folds it.
+    """
+    if "people" in org:
+        held = {people_key(user_id): people.get(user_id) or {"$exists": False}
+                for user_id in (requester_id, target_id) if user_id is not None}
+        query = {"id": org["id"], **held}
+        update = _moved(target_id, people.get(target_id), after.get(target_id))
+    else:
+        for user_id in after:
+            _checked(user_id)
+        query = {"id": org["id"], "people": {"$exists": False},
+                 "owner": org.get("owner"), "admins": org.get("admins"),
+                 "members": org.get("members")}
+        update = {"$set": {"people": after, **_mirror(after)}}
+    return organizations_collection.update_one(query, update).matched_count > 0
+
+
+def _met_a_change(org_id: str, event: Event, target_id: str) -> ClientError:
+    """What a write that matched nothing answers, from one more read: the organization gone, a
+    removed person already gone (which Manage organization reads as done), else the 409."""
+    now = organizations_collection.find_one({"id": org_id})
+    if not now:
+        return NotFoundError("Organization not found")
+    if event is Event.REMOVE and organization_people_of(now).get(target_id) is None:
+        return NotFoundError(NO_LONGER_IN_THE_ORGANIZATION)
+    return OrganizationChanged()
+
+
+def _record_role(
+    org_id: str, requesting_user_email: str, user_id: str,
+    before: Optional[str], after: Optional[str],
+) -> None:
+    """A person given, changed or taken a place in the organization, under the admins' action
+    when an admin is either side of it, as the market's role changes are recorded."""
+    # Imported here: ``history`` reads ``api.market_actions``, which reads ``api.permissions``,
+    # which reads this module's ``of_person``, so a module-level import is a cycle at boot.
+    import history as History
+
+    kind = (History.ROLE_GIVEN if before is None
+            else History.ROLE_TAKEN if after is None else History.ROLE_CHANGED)
+    action = (History.MANAGE_ORGANIZATION_ADMINS if ADMIN in (before, after)
+              else History.MANAGE_ORGANIZATION_MEMBERS)
+
+    def person() -> Dict[str, Any]:
+        user = UsersApi.get_user_by_id(user_id)
+        return {"user_id": user_id, "email": user.email if user else None}
+
+    History.record_for_organization(
+        org_id, requesting_user_email, action, kind=kind, subject=person,
+        detail=lambda: History.changes({"role": before}, {"role": after}),
+    )
+
+
+def _requester(org_id: str, requesting_user_email: str) -> Tuple[Dict[str, Any], Any]:
+    """The organization as read and the account asking: 404 for an organization nobody has, 403
+    for an address with no account."""
+    org = organizations_collection.find_one({"id": org_id})
+    if not org:
+        raise NotFoundError("Organization not found")
+    requester = UsersApi.get_user(requesting_user_email)
+    if not requester:
+        raise ForbiddenError("User not found")
+    return org, requester
+
+
+def _change(org: Dict[str, Any], event: Event, requester: Any, target_id: str,
+            requesting_user_email: str) -> None:
+    """Judge ``event`` on the organization as read and write it, then keep the account's copy of
+    its organizations and record it. A change that changes nothing writes and records nothing."""
+    people = organization_people_of(org)
+    after = next_people(people, event, requester.id, target_id)
+    before_place, after_place = people.get(target_id), after.get(target_id)
+    if before_place == after_place:
+        return
+    if not _write(org, people, after, requester.id, target_id):
+        raise _met_a_change(org["id"], event, target_id)
+    # The account's own copy, best effort after the organization's write: no check reads it.
+    users_collection.update_one(
+        {"id": target_id},
+        {"$pull" if after_place is None else "$addToSet": {"organizations": org["id"]}},
+    )
+    _record_role(org["id"], requesting_user_email, target_id, before_place, after_place)
+
+
+def _add(org_id: str, email: str, requesting_user_email: str, event: Event) -> None:
+    org, requester = _requester(org_id, requesting_user_email)
+    may(organization_people_of(org), event, requester.id)
+    user = UsersApi.get_user(email)
+    if not user:
+        raise BadRequestError("User not found")
+    _change(org, event, requester, user.id, requesting_user_email)
+
+
+def add_admin(org_id: str, email: str, requesting_user_email: str) -> None:
+    """Make the account at ``email`` an admin of the organization: the owner's to do. A member is
+    made an admin; an admin, the owner, or an address with no account is refused."""
+    _add(org_id, email, requesting_user_email, Event.ADD_ADMIN)
+
+
+def add_member(org_id: str, email: str, requesting_user_email: str) -> None:
+    """Make the account at ``email`` a member of the organization: its owner's or an admin's to
+    do. A member, an admin, the owner, or an address with no account is refused."""
+    _add(org_id, email, requesting_user_email, Event.ADD_MEMBER)
+
+
+def remove(org_id: str, user_id: str, requesting_user_email: str) -> None:
+    """Take this person's one place in the organization: the owner removes an admin or a member,
+    an admin a member. Someone with no place in it, another organizer having removed them first,
+    is a 404 saying so, written and recorded as nothing.
+
+    ``user_id`` is the request's text: it reaches a path only once the stored map holds it.
+    """
+    org, requester = _requester(org_id, requesting_user_email)
+    _change(org, Event.REMOVE, requester, user_id, requesting_user_email)
+
+
+def forget(user_id: str) -> None:
+    """Take a deleted account's place in every organization it was an admin or a member of.
+
+    Called after the account is deleted, which ``delete_user`` refuses an owner; an owner is
+    matched by neither write, should one have become an owner in between.
+    """
+    key = people_key(user_id)
+    lists = {"admins": user_id, "members": user_id}
+    organizations_collection.update_many(
+        {key: {"$in": [ADMIN, MEMBER]}}, {"$unset": {key: ""}, "$pull": lists})
+    organizations_collection.update_many(
+        {"people": {"$exists": False}, "$or": [{"admins": user_id}, {"members": user_id}]},
+        {"$pull": lists})

@@ -696,8 +696,7 @@ def add_org_admin(org_id: str) -> Response:
     if not user_email:
         return jsonify({"error": "user_email required"}), 400
 
-    if not OrgsApi.add_org_admin(org_id, user_email, authenticated_email()):
-        return jsonify({"error": "Failed to add admin"}), 400
+    OrgsApi.add_org_admin(org_id, user_email, authenticated_email())
     return jsonify({"message": "Admin added successfully"}), 200
 
 @app.route('/organizations/<org_id>/members', methods=['POST'])
@@ -710,8 +709,7 @@ def add_org_member(org_id: str) -> Response:
     if not user_email:
         return jsonify({"error": "user_email required"}), 400
 
-    if not OrgsApi.add_org_member(org_id, user_email, authenticated_email()):
-        return jsonify({"error": "Failed to add member"}), 400
+    OrgsApi.add_org_member(org_id, user_email, authenticated_email())
     return jsonify({"message": "Member added successfully"}), 200
 
 @app.route('/organizations/<org_id>/users/<user_id>', methods=['DELETE'])

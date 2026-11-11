@@ -30,7 +30,7 @@ import {
   type OrganizationRoleType,
   type PermissionTableRow,
 } from '@/assets/types/datatypes';
-import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
+import { api, getApiErrorMessage, getApiErrorStatus, isOrganizationChanged } from '@/utils/api';
 import { fetchOrganizations, organizationRemoval } from '@/utils/organizations';
 import AppDialog from '@/components/AppDialog.vue';
 import DeleteOrgDialog from '@/components/DeleteOrgDialog.vue';
@@ -151,6 +151,16 @@ async function saved(): Promise<void> {
 }
 
 /**
+ * A change that met someone else's change to the same people (the server's 409
+ * `organization_changed`) stored nothing, and its sentence asks the person to check the people as
+ * they are now: so the organization is read again behind the sentence, as after a save, and the
+ * list behind and the History read the change that did land.
+ */
+async function readAgainIfChanged(err: unknown): Promise<void> {
+  if (isOrganizationChanged(err)) await saved();
+}
+
+/**
  * "Add admin" and "Add member" open the row they add, and the row carries its own Cancel, as
  * Manage market's "Add user" does: the opening button used to turn into a Cancel of its own, left
  * above the row it cancelled (bug 43, fixed there first).
@@ -249,6 +259,7 @@ async function handleAddAdmin() {
     findAdded(adminWords, orgData.value?.adminPeople ?? [], email);
   } catch (err) {
     addAdminError.value = getApiErrorMessage(err, 'The admin was not added.');
+    await readAgainIfChanged(err);
     await showRefusal(addAdminErrorLine);
   }
 }
@@ -266,6 +277,7 @@ async function handleAddMember() {
     findAdded(memberWords, orgData.value?.memberPeople ?? [], email);
   } catch (err) {
     addMemberError.value = getApiErrorMessage(err, 'The member was not added.');
+    await readAgainIfChanged(err);
     await showRefusal(addMemberErrorLine);
   }
 }
@@ -291,7 +303,8 @@ function cancelRemove() {
  * Confirmed: removed, and the list re-read in place with Manage organization still open. The row,
  * and with it the Remove that opened the confirmation, is gone, so focus goes to the list it was in.
  * A 404 is someone another admin removed first: what was asked for is true, so it is read as done.
- * Any other refusal stays in the confirmation, which said what was about to happen.
+ * Any other refusal stays in the confirmation, which said what was about to happen; one that met
+ * another change to the same people is read again behind it.
  */
 async function handleRemoveUser() {
   const target = removing.value;
@@ -305,6 +318,7 @@ async function handleRemoveUser() {
   } catch (err) {
     if (getApiErrorStatus(err) !== 404) {
       removeError.value = getApiErrorMessage(err, 'The person was not removed.');
+      await readAgainIfChanged(err);
       removeBusy.value = false;
       return;
     }

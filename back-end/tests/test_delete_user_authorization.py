@@ -17,7 +17,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import mongo_matches, sessions_load_through_get_user, skip_without_real_dependencies
+from conftest import (
+    FakeOrganizations,
+    install_organizations,
+    sessions_load_through_get_user,
+    skip_without_real_dependencies,
+)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -43,19 +48,6 @@ class FakeUsersCollection:
     def delete_one(self, query):
         removed = self.docs.pop(query.get("email"), None)
         return SimpleNamespace(deleted_count=1 if removed else 0)
-
-
-class FakeOrganizationsCollection:
-    def __init__(self, docs=()):
-        self.docs = [dict(doc) for doc in docs]
-        self.updates = []
-
-    def find(self, query):
-        return [dict(doc) for doc in self.docs if mongo_matches(doc, query)]
-
-    def update_many(self, query, update):
-        self.updates.append((query, update))
-        return SimpleNamespace(modified_count=0)
 
 
 def _id_of(email):
@@ -84,9 +76,7 @@ def users(monkeypatch):
 @pytest.fixture
 def organizations(monkeypatch):
     def _install(*docs):
-        collection = FakeOrganizationsCollection(docs)
-        monkeypatch.setattr(OrgsApi, "organizations_collection", collection)
-        return collection
+        return install_organizations(monkeypatch, FakeOrganizations(*docs))
     return _install
 
 
@@ -248,3 +238,49 @@ class TestOwningAnOrganization:
 
         assert response.status_code == 200
         assert ATTACKER not in collection.docs
+
+
+class TestTheDeletedAccountsPlaces:
+    """Their one place in every organization they were an admin or a member of goes with the
+    account (T283), in an organization folded into the people map and in one stored before it,
+    and every other person's place stays."""
+
+    FOLDED = {
+        "id": "org-folded", "name": "Folded", "owner": "id-owner", "admins": ["id-attacker"],
+        "members": ["id-other"],
+        "people": {"id-owner": "owner", "id-attacker": "admin", "id-other": "member"},
+    }
+    UNFOLDED = {
+        "id": "org-unfolded", "name": "Unfolded", "owner": "id-owner", "admins": ["id-other"],
+        "members": ["id-attacker"],
+    }
+
+    def test_their_places_go_from_a_folded_and_an_unfolded_organization(
+        self, client, users, organizations
+    ):
+        users(_user(ATTACKER))
+        stored = organizations(self.FOLDED, self.UNFOLDED)
+        _signed_in_as(client, ATTACKER)
+
+        response = _delete(client, ATTACKER)
+
+        assert response.status_code == 200
+        folded, unfolded = stored.docs
+        assert folded["people"] == {"id-owner": "owner", "id-other": "member"}
+        assert (folded["admins"], folded["members"]) == ([], ["id-other"])
+        assert "people" not in unfolded
+        assert (unfolded["owner"], unfolded["admins"], unfolded["members"]) == (
+            "id-owner", ["id-other"], [])
+
+    def test_an_organization_they_were_never_in_is_left_alone(
+        self, client, users, organizations
+    ):
+        users(_user(ATTACKER))
+        stranger = {**self.FOLDED, "admins": [],
+                    "people": {"id-owner": "owner", "id-other": "member"}}
+        stored = organizations(stranger)
+        _signed_in_as(client, ATTACKER)
+
+        _delete(client, ATTACKER)
+
+        assert stored.docs == [stranger]

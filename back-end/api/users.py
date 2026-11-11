@@ -972,18 +972,10 @@ def delete_user(authenticated_email: str):
     result = users_collection.delete_one({"email": email_to_delete})
 
     if result.deleted_count > 0:
-        # Membership elsewhere is not ownership, so it is safe to drop on the way out.
+        # Membership elsewhere is not ownership, so it is safe to drop on the way out: their one
+        # place in every organization they were an admin or a member of (T283).
         if user_id_to_delete:
-            organizations_collection.update_many(
-                {},
-                {"$pull": {"members": user_id_to_delete, "admins": user_id_to_delete}}
-            )
-            # And their place in every people map (T283), never an owner's: owners were refused.
-            key = OrganizationPeople.people_key(user_id_to_delete)
-            organizations_collection.update_many(
-                {key: {"$in": [OrganizationRole.ADMIN.value, OrganizationRole.MEMBER.value]}},
-                {"$unset": {key: ""}},
-            )
+            OrganizationPeople.forget(user_id_to_delete)
         return jsonify({"msg": "User deleted successfully"}), 200
 
     return jsonify({"msg": "Failed to delete user"}), 500
