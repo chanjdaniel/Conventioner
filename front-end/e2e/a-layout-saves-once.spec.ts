@@ -44,7 +44,7 @@ test.describe('A layout saves once', () => {
     // The second tab, which read the layout before that, adds a table: its save is refused.
     await second.toolAdd.click();
     await second.clickAt([20_000, 6000]);
-    await expect(second.saveState).toHaveText(new RegExp(STALE.replace(/[.]/g, '\\.')));
+    await expect(second.saveState).toContainText(STALE);
     await expect(second.saveReload).toBeVisible();
     await expect(second.saveRetry).toHaveCount(0);
     // Nothing is lost from what the tab shows: its new table still stands, the first where it was.
