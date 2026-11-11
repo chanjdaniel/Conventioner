@@ -1827,11 +1827,15 @@ watch([canUndo, canRedo], async ([undoable, redoable]) => {
 const HANDLE_REACH_PX = 38;
 const HANDLE_WIDTH_PX = 28;
 
+/** The map, for where it draws each section's name. */
+const map = ref<InstanceType<typeof LayoutMap> | null>(null);
+
 /**
  * Where the handle stands: on the middle of an edge of the selection's box (`xMm`, `yMm`) and
- * pointing out of it (`dx`, `dy`). Over the box where that covers no other table, as on a table
- * standing alone; else under it, then right of it, then left, the first side that covers none,
- * so it never hides a neighbour's number; over it when every side covers one.
+ * pointing out of it (`dx`, `dy`). Over the box where that covers no other table and no section's
+ * name, as on a table standing alone; else under it, then right of it, then left, the first side
+ * that covers none, so it never hides a neighbour's number or a name; over it when every side
+ * covers one.
  */
 const handle = computed(() => {
   if (tool.value !== 'select') return null;
@@ -1849,7 +1853,10 @@ const handle = computed(() => {
   const reach = HANDLE_REACH_PX / cam.pxPerMm;
   const half = HANDLE_WIDTH_PX / 2 / cam.pxPerMm;
   const chosen = new Set(selection.value);
-  const others = layout.value.tables.filter((table) => !chosen.has(table.id)).map(boundsOf);
+  const others = [
+    ...layout.value.tables.filter((table) => !chosen.has(table.id)).map(boundsOf),
+    ...(map.value?.labelBounds ?? []),
+  ];
   const clear = (side: (typeof sides)[number]) => {
     const far = { xMm: side.xMm + side.dx * reach, yMm: side.yMm + side.dy * reach };
     const room: Bounds = {
@@ -2168,6 +2175,7 @@ watch(
       @focusout="onStageFocusOut"
     >
       <LayoutMap
+        ref="map"
         :layout="layout"
         :locationName="locationName"
         :sections="sections"

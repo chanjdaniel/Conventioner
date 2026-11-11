@@ -272,6 +272,18 @@ const labels = computed<DrawnLabel[]>(() => {
   return drawn;
 });
 
+/** Where each section's name stands, in millimetres, for what the editor draws over the map
+ *  (its turn handle) to keep off. */
+const labelBounds = computed<Bounds[]>(() =>
+  labels.value.map((label) => ({
+    left: label.x,
+    top: label.y,
+    right: label.x + label.width,
+    bottom: label.y + label.height,
+  })),
+);
+defineExpose({ labelBounds });
+
 // ── The no-table zones ───────────────────────────────────────────────────────
 
 const ZONE_TEXT_PX = 14;
