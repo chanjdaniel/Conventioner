@@ -273,6 +273,12 @@ def _save_floorplan(client, world):
     }, "revision": 0})
 
 
+def _save_table_types(client, world):
+    world.market(MarketPhase.DRAFT, setupObject=COMPLETE_PLAN)
+    return client.put(f"/markets/{MARKET}/table-types", json={"tableTypes": [
+        {"id": "tt-square", "name": "Square 4 ft", "widthMm": 1220, "depthMm": 1220}]})
+
+
 def _delete_floorplan_image(client, world):
     world.market(MarketPhase.DRAFT, setupObject=COMPLETE_PLAN)
     for module in (FloorplansAccess, FloorplansApi):
@@ -701,6 +707,8 @@ WRITES = [
           History.FLOORPLAN, _save_floorplan,
           subject={"floorplan_id": "fp-1", "location": "Main Hall"}, before_after=False,
           detail_keys=("started",)),
+    Write("the table types", "PUT", f"{M}/table-types", Actions.CHANGE_SETUP,
+          History.TABLE_TYPES, _save_table_types),
     Write("a floorplan image deleted", "DELETE", "/floorplans/<gridfs_id>", Actions.CHANGE_SETUP,
           History.FLOORPLAN_IMAGE_DELETED, _delete_floorplan_image, subject={"image_id": "img-1"}),
     Write("the form", "PUT", f"{M}/application-form", Actions.CHANGE_FORM, History.FORM,

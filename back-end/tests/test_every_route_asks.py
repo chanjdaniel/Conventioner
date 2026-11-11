@@ -154,6 +154,7 @@ def _png():
 BODIES = {
     ("POST", "/markets/<market_id>/applications-stopped"): {"json": {"stopped": True}},
     ("PUT", "/markets/<market_id>/plan"): {"json": {"setupObject": {}}},
+    ("PUT", "/markets/<market_id>/table-types"): {"json": {"tableTypes": []}},
     ("PUT", "/markets/<market_id>/rejection-rules"): {"json": {"rules": []}},
     ("PUT", "/markets/<market_id>/review-highlights"): {"json": {"keys": []}},
     ("PUT", "/markets/<market_id>/reviewers"): {"json": {"reviewers": []}},
