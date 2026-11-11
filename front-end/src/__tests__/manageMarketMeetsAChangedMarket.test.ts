@@ -271,6 +271,35 @@ describe('Manage market meets a market that changed under a change to the table'
     expect(byTestId('manage-market-permission-confirm-error')!.textContent?.trim()).toBe(SENTENCE);
     expect(marketReads()).toBe(readsBefore + 1);
     expect(shownRole()).toBe(MarketRole.Viewer);
+    // The confirmation asks about the row as it now stands, never the one first read.
+    expect(byTestId('manage-market-permission-confirm-change')!.textContent).toContain(
+      'Check vendors in: Viewer and above to Owner only.',
+    );
+
+    byTestId('manage-market-permission-confirm-cancel-button')!.click();
+    await flushPromises();
+    expect(byTestId('manage-market-permission-confirm-window')).toBeNull();
+    expect(shownRole()).toBe(MarketRole.Viewer);
+  });
+
+  it("closes a refused row's change the market now holds, and says the sentence in Permissions", async () => {
+    api.put.mockImplementation(refusedOver(withTable(MarketRole.Owner)));
+    await open();
+    await openPermissions();
+    const select = byTestId('manage-market-permission-select') as HTMLSelectElement;
+    select.focus();
+    select.value = MarketRole.Owner;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await flushPromises();
+
+    byTestId('manage-market-permission-confirm-submit-button')!.dispatchEvent(
+      new Event('submit', { bubbles: true }),
+    );
+    await flushPromises();
+
+    expect(byTestId('manage-market-permission-confirm-window')).toBeNull();
+    expect(byTestId('manage-market-permissions-error')!.textContent?.trim()).toBe(SENTENCE);
+    expect(shownRole()).toBe(MarketRole.Owner);
   });
 
   it('re-reads the market after a refused reset, and says the sentence in its confirmation', async () => {
@@ -291,6 +320,35 @@ describe('Manage market meets a market that changed under a change to the table'
     );
     expect(marketReads()).toBe(readsBefore + 1);
     expect(shownRole()).toBe(MarketRole.Viewer);
+    // It lists what a reset would return as the rows now stand.
+    expect(byTestId('manage-market-permissions-reset-changes')!.textContent?.trim()).toBe(
+      'Check vendors in: Viewer and above to Editor and above',
+    );
+  });
+
+  it('closes a refused reset with nothing left to reset, and says the sentence in Permissions', async () => {
+    api.delete.mockImplementation(refusedOver(withTable(MarketRole.Editor)));
+    await open();
+    await openPermissions();
+    byTestId('manage-market-permissions-reset')!.click();
+    await flushPromises();
+
+    byTestId('manage-market-permissions-reset-confirm-submit-button')!.dispatchEvent(
+      new Event('submit', { bubbles: true }),
+    );
+    await flushPromises();
+
+    expect(byTestId('manage-market-permissions-reset-confirm-window')).toBeNull();
+    expect(byTestId('manage-market-permissions-error')!.textContent?.trim()).toBe(SENTENCE);
+    expect(shownRole()).toBe(MarketRole.Editor);
+
+    // The next change asked for ends the sentence.
+    const select = byTestId('manage-market-permission-select') as HTMLSelectElement;
+    select.focus();
+    select.value = MarketRole.Admin;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await flushPromises();
+    expect(byTestId('manage-market-permissions-error')).toBeNull();
   });
 
   it("re-reads the market after a refused copy of the organization's defaults", async () => {

@@ -9,7 +9,7 @@
  * reads it, with the owner-only line. The words are `utils/permissionTable.ts`'s, and the rows and
  * changes `PermissionRows`' and `PermissionChanges`'.
  */
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
   type Market,
   MarketPhase,
@@ -59,6 +59,11 @@ const resetConfirming = ref(false);
 const copyConfirming = ref(false);
 /** A refused change to the table, said in the confirmation that sent it. */
 const writeError = ref('');
+/**
+ * A refusal said in the Permissions dialog itself: the confirmation that met it closed, since the
+ * market read again left it nothing to change. The next change asked for ends it.
+ */
+const tableError = ref('');
 
 const table = computed(() => props.market.permissionTable ?? []);
 const held = computed(() => heldRows(table.value));
@@ -104,10 +109,44 @@ const mayCopy = computed(() => mayChange.value && !!props.market.organizationId)
 
 const marketPath = () => `/markets/${encodeURIComponent(props.market.id)}`;
 
+/**
+ * An open confirmation follows the table as it is read again, after a write refused because the
+ * market changed (ADR 0024): a row's change asks about the row as it now stands, so its words and
+ * Cancel never speak of a role it no longer holds, and the reset lists the rows it would return
+ * now. One left with nothing to change closes, and its sentence goes to the dialog behind it.
+ */
+watch(table, (rows) => {
+  const pending = pendingChange.value;
+  if (pending) {
+    const now = rows.find((row) => row.id === pending.row.id);
+    if (!now || now.role === pending.role) closeWithNothingToChange();
+    else if (now.role !== pending.row.role) pendingChange.value = { ...pending, row: now };
+  }
+  if (resetConfirming.value && !resetChanges.value.length) closeWithNothingToChange();
+});
+
+function closeWithNothingToChange() {
+  tableError.value = writeError.value;
+  writeError.value = '';
+  pendingChange.value = null;
+  resetConfirming.value = false;
+}
+
+function askReset() {
+  tableError.value = '';
+  resetConfirming.value = true;
+}
+
+function askCopy() {
+  tableError.value = '';
+  copyConfirming.value = true;
+}
+
 async function openDialog() {
   // Read afresh, so a second opening is the first: changes already drawn would put their box's Tab
   // stop in the dialog as it places its focus, and a reader, with no select, would open on it.
   history.value = [];
+  tableError.value = '';
   open.value = true;
   await fetchHistory();
 }
@@ -128,6 +167,7 @@ async function fetchHistory() {
 /** A choice is asked about before it is sent. */
 function askChange(row: PermissionTableRow, role: MarketRole, select: HTMLSelectElement) {
   writeError.value = '';
+  tableError.value = '';
   pendingChange.value = { row, role, select };
 }
 
@@ -239,6 +279,7 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
       testid="manage-market-permissions"
       size="wide"
       scroll="body"
+      :error="tableError"
       @close="open = false"
     >
       <!-- One box, or the body's gap would come between each group as well as its own margins. -->
@@ -267,7 +308,7 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
           class="btn btn--secondary"
           :disabled="!resetChanges.length"
           data-testid="manage-market-permissions-reset"
-          @click="resetConfirming = true"
+          @click="askReset"
         >
           Reset to built-in defaults
         </button>
@@ -276,7 +317,7 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
           type="button"
           class="btn btn--secondary"
           data-testid="manage-market-permissions-copy"
-          @click="copyConfirming = true"
+          @click="askCopy"
         >
           Copy the organization's defaults again
         </button>
