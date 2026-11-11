@@ -145,7 +145,7 @@ defineProps<{
   text-align: left;
   padding: var(--space-1) var(--space-3) var(--space-1) 0;
   background: white;
-  /* stylelint-disable declaration-property-value-disallowed-list -- a ground over the border spacing at each side, not elevation: the cells scroll under it unseen */
+  /* stylelint-disable declaration-property-value-disallowed-list -- a ground over the border spacing at each side, not elevation: the cells scroll under it unseen; a block, as the rule reports on the value's own lines, which Prettier puts one shadow to a line */
   box-shadow:
     calc(-1 * var(--space-hairline)) 0 0 white,
     var(--space-hairline) 0 0 white;
@@ -179,8 +179,8 @@ thead .fill-grid-section {
 
 /* An empty cell keeps the card's white, its edge drawn so it still reads as a cell. */
 .fill-grid-cell--none {
-  /* stylelint-disable-next-line declaration-property-value-disallowed-list -- the cell's 1px edge drawn inside it, a line and not elevation, so the cell keeps its size */
-  box-shadow: inset 0 0 0 1px var(--mm-border);
+  outline: 1px solid var(--mm-border);
+  outline-offset: -1px;
 }
 
 .fill-grid-cell--third {

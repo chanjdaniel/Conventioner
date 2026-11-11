@@ -163,8 +163,8 @@ const past = computed(() => value.value - within.value);
   top: 0;
   bottom: 0;
   width: var(--space-hairline);
-  /* stylelint-disable-next-line declaration-property-value-allowed-list -- half the mark's width, not spacing: the line is centred on its point */
-  margin-left: calc(var(--space-hairline) / -2);
+  /* Centred on its point. */
+  transform: translateX(-50%);
   background: var(--mm-black);
 }
 </style>
