@@ -14,7 +14,10 @@ from types import SimpleNamespace
 import pytest
 
 import api.markets as MarketsApi
-from conftest import FakeOrganizations
+import api.users as UsersApi
+import history as History
+import organization_people as OrganizationPeople
+from conftest import FakeOrganizations, install_organizations
 from migrate_organization_people import migrate
 from test_an_organizations_people_stay_one_map import assert_one_map
 
@@ -238,3 +241,26 @@ def test_without_reconcile_a_folded_organization_is_never_rebuilt():
     assert len(db.organizations.writes) == written
     assert _read(db)[ADMIN] == "admin"
     assert counts["rebuilt"] == 0
+
+
+def test_a_change_judged_on_the_stale_map_before_the_reconcile_outlives_it(monkeypatch):
+    """Why the reconcile is the first thing done after the roll forward (RELEASING.md "Rolling
+    back", ADR 0025): until it runs, the map's release judges and writes on the stale map, and a
+    write it lets through is kept by the reconcile. Here the release before handed the organization
+    to ADMIN; the stale map still says OWNER owns it, so OWNER hands it to MEMBER, and once
+    reconciled MEMBER owns it and ADMIN, its owner while rolled back, has no place in it."""
+    accounts = {user_id: SimpleNamespace(id=user_id, email=f"{user_id}@example.com")
+                for user_id in (OWNER, ADMIN, MEMBER)}
+    monkeypatch.setattr(UsersApi, "get_user",
+                        lambda email: next((a for a in accounts.values() if a.email == email), None))
+    monkeypatch.setattr(UsersApi, "get_user_by_id", accounts.get)
+    monkeypatch.setattr(History, "record_for_organization", lambda *args, **kwargs: None)
+    db = _db(_folded())
+    install_organizations(monkeypatch, db.organizations)
+    _the_release_before(db, *WHILE_ROLLED_BACK["hands it to an admin"][0])
+
+    OrganizationPeople.transfer("org-1", accounts[OWNER].email, accounts[MEMBER].email)
+    migrate(db, reconcile=True)
+
+    assert _read(db) == {OWNER: "admin", MEMBER: "owner"}
+    assert_one_map(_stored(db))
