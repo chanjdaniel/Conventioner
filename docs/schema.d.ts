@@ -83,6 +83,7 @@ export interface MarketSchema {
     question?: boolean;
     type: string;
   }[];
+  formRevision?: number;
   id: string;
   importMapping?: {
     headers?: string[];

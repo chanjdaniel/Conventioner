@@ -48,7 +48,7 @@ from assignment.assignment import (
     vendors_to_show,
 )
 from assignment.vendor_input import SolverVendor, outside_solver_vendors
-from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case
+from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case, snake_to_camel
 import api.applications as ApplicationsApi
 import api.applicants as ApplicantsApi
 import result_outcome as ResultOutcome
@@ -64,7 +64,9 @@ from market_documents import (
     market_from_document,
     leave_out_what_no_read_serves,
 )
-from market_write import MarketChanged, MarketNotFoundError, document_as_read, write_market
+from market_write import (
+    MARKET_CHANGED, MarketChanged, MarketNotFoundError, document_as_read, write_market,
+)
 import api.market_actions as Actions
 import api.permissions as PermissionsApi
 import market_deletion as MarketDeletion
@@ -1306,6 +1308,8 @@ def create_market(market: Market, owner_email: str) -> tuple:
     # And the review setup's two "none"s, each decided by its list's own write (T206).
     market_dict["nothing_leads_the_card"] = False
     market_dict["no_automatic_rejections"] = False
+    # And the form's revision, counted by its own writes alone.
+    market_dict["form_revision"] = 0
     market_dict["application_form"] = (
         _normalized_application_form(market.application_form).model_dump()
         if market.application_form
@@ -2020,8 +2024,7 @@ class MoveBlockedUnderRequest(ConflictError):
         self.current_phase = current_phase
         self.target_phase = target_phase
         self.blockers = blockers
-        super().__init__(blockers[0].message if blockers else (
-            "This market changed while the request was in flight. Reload it and try again."))
+        super().__init__(blockers[0].message)
 
     def body(self) -> Dict[str, Any]:
         return convert_keys_to_camel_case({
@@ -2040,10 +2043,24 @@ def _what_the_move_stood_on(from_phase: str, to_phase: str) -> Tuple[str, ...]:
     flag without moving the phase, so the move's write holds the flag as its guard read it: two
     requests in flight together never leave a market in the review with its results published.
     Publish results' write holds the phase the same way (``publish_results``).
+
+    Open applications judges the form as read and stamps it published, so it holds the form's
+    revision: a form save landing in its window refuses the move rather than opening a form its
+    guards never read. The move does not count the revision, since it changes no question.
     """
     if (from_phase, to_phase) == (MarketPhase.ASSIGNMENT.value, MarketPhase.APPLICATIONS.value):
         return (market_doc_key("results_published"),)
+    if (from_phase, to_phase) == (MarketPhase.DRAFT.value, MarketPhase.APPLICATIONS.value):
+        return (FORM_REVISION_KEY,)
     return ()
+
+
+def _what_changed_under_the_move(latest: Dict[str, Any], to_phase: str) -> List[PreconditionResult]:
+    """The blockers a move meets on the market as it now stands, its phase unmoved: what its guards
+    say now, or, when they pass, that the market changed under it, so the rail still says why the
+    move was not taken and to reload."""
+    blockers = evaluate_transition(market_from_document(latest), to_phase, db)
+    return blockers or [PreconditionResult(id="market_changed", passed=False, message=MARKET_CHANGED)]
 
 
 def apply_phase_transition(
@@ -2090,8 +2107,7 @@ def apply_phase_transition(
         actual_phase = phase_from_market_document(latest).value
         if actual_phase == from_phase and latest.get(phase_key) == document.get(phase_key):
             raise MoveBlockedUnderRequest(
-                from_phase, to_phase, evaluate_transition(market_from_document(latest), to_phase, db)
-            ) from None
+                from_phase, to_phase, _what_changed_under_the_move(latest, to_phase)) from None
         raise PhaseChangedUnderRequest(actual_phase, from_phase, to_phase) from None
 
 
@@ -2917,28 +2933,56 @@ def save_rejection_rules(
     return {"rejectionRules": prepared, "noAutomaticRejections": no_automatic_rejections}
 
 
+#: The stored count of the form's question writes (``Market.form_revision``), which a form save
+#: holds at the revision its copy was read at and counts up.
+FORM_REVISION_KEY = market_doc_key("form_revision")
+#: What a form save's body that names a revision not a count is told.
+FORM_REVISION_NOT_A_COUNT = "formRevision must be a whole number."
+
+
 def save_application_form(market_id: str, application_form_data: dict, requesting_user: str) -> dict:
     """Save or update the application form for a market.
 
     The only writer of ``Market.application_form`` on an existing market - the whole-market PUT
     that once carried one is gone (E21/F03/S06) - so every write passes the lock below.
+    ``application_form_data`` is the form, beside the ``form_revision`` the page's copy of it was
+    read at, which the write holds (``write_application_form``).
 
-    Returns the saved ``ApplicationForm`` as a camelCase dict on success.
+    Returns the saved ``ApplicationForm`` as a camelCase dict, under ``application_form``, and the
+    revision now stored, under ``formRevision``, as the form read answers them.
 
     Raises:
         MarketNotFoundError: no such market
-        BadRequestError: validation failure
+        BadRequestError: validation failure, or a revision that is not a count
         ForbiddenError: ``Actions.CHANGE_FORM`` refuses the user
         ApplicationFormLockedError: phase gate or D9 lock prevents editing
+        MarketChanged: the body names no revision, or the market changed since its copy was read
     """
     market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_FORM)
-    form_dict, verdicts = write_application_form(
-        market, application_form_data, overturns=may_overturn(requesting_user, market))
+    form_data = {key: value for key, value in application_form_data.items() if key != "form_revision"}
+    written = write_application_form(
+        market, form_data, _form_revision_in(application_form_data),
+        overturns=may_overturn(requesting_user, market))
     History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.FORM,
-                   detail=lambda: _with_counts(form_changes(market, form_dict), verdicts))
-    if verdicts.returned:
+                   detail=lambda: _with_counts(form_changes(market, written.form), written.verdicts))
+    if written.verdicts.returned:
         ReviewTeam.deal_arrivals(market, requesting_user, Actions.CHANGE_FORM)
-    return form_dict
+    return {"application_form": written.form, "formRevision": written.revision}
+
+
+_NO_REVISION = object()
+
+
+def _form_revision_in(body: Mapping[str, Any]) -> Any:
+    """The revision a form save's body says its copy was read at, ``_NO_REVISION`` when it names
+    none (the page from before the revision existed), or a ``BadRequestError`` for one that is not
+    a count; ``True`` is refused, though Python counts it as 1."""
+    if "form_revision" not in body:
+        return _NO_REVISION
+    revision = body["form_revision"]
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+        raise BadRequestError(FORM_REVISION_NOT_A_COUNT)
+    return revision
 
 
 def _with_counts(
@@ -2949,25 +2993,57 @@ def _with_counts(
     return {**detail, **verdicts.counts()} if detail else None
 
 
+class FormWritten(NamedTuple):
+    """What a form write stored: the form as stored, what the rules decided against it, and the
+    form's revision now."""
+    form: Dict[str, Any]
+    verdicts: RejectionRules.Judged
+    revision: int
+
+
 def write_application_form(
-    market: Market, application_form_data: dict, overturns: bool = True,
-) -> Tuple[dict, RejectionRules.Judged]:
+    market: Market, application_form_data: dict, form_revision: Any, overturns: bool = True,
+) -> FormWritten:
     """Judge and store the form on ``market``, loaded and asked by the caller, and return it as
-    stored with what the rules decided against it; the caller records it, as the action it was -
-    the form write, or an amendment. ``overturns`` is whether the writer may overturn an automatic
-    rejection, as ``RejectionRules.judge`` takes it."""
+    stored with what the rules decided against it; the caller records it. ``form_revision`` is the
+    revision the writer's copy was read at (``_NO_REVISION`` when it named none), and
+    ``overturns`` whether the writer may overturn an automatic rejection, as
+    ``RejectionRules.judge`` takes it.
+
+    The write sets the questions and the unasked essentials alone, never the published stamp or the
+    frozen offering, which Open applications and the first application write while the market is
+    being edited; it holds the phase, the offering as read (the first application's freeze lands
+    there before any answer does) and the revision, so a save from an older copy, or one crossing
+    either of those, is refused instead of erasing them. A market with no form yet gets it whole,
+    held absent as read.
+
+    Raises:
+        MarketChanged: no revision named, or the market changed since it was read.
+    """
     form_dict = prepared_application_form(market, application_form_data)
-    markets_collection.update_one(
-        {"id": market.id},
-        {"$set": {"applicationForm": form_dict}}
-    )
+    if form_revision is _NO_REVISION:
+        raise MarketChanged(dict(document_as_read(market)))
+    form_key = market_doc_key("application_form")
+    # A stored form that is not a form fails the market's parse, so the model has one exactly when
+    # the stored document does.
+    if market.application_form is not None:
+        fields_key, unasked_key = snake_to_camel("fields"), snake_to_camel("unasked_essentials")
+        update = {"$set": {f"{form_key}.{fields_key}": form_dict[fields_key],
+                           f"{form_key}.{unasked_key}": form_dict[unasked_key]}}
+        holds: Tuple[str, ...] = (f"{form_key}.{snake_to_camel('essential_options')}",)
+    else:
+        update = {"$set": {form_key: {**form_dict, snake_to_camel("published_at"): None,
+                                      snake_to_camel("essential_options"): None}}}
+        holds = (form_key,)
+    written = write_market(market, update, holds=holds, revisions={FORM_REVISION_KEY: form_revision})
+    revision = written.revisions[FORM_REVISION_KEY]
     # The rules stand against the form as it now is (E33/F03/S02): a question taken away judges
     # nobody, and what it rejected is judged again.
     rewritten = load_market_context(market.id)
     if rewritten is not None and rewritten.market is not None:
-        return form_dict, RejectionRules.judge(
-            RejectionRules.Rulebook(rewritten.market), market.id, overturns=overturns)
-    return form_dict, RejectionRules.Judged()
+        return FormWritten(form_dict, RejectionRules.judge(
+            RejectionRules.Rulebook(rewritten.market), market.id, overturns=overturns), revision)
+    return FormWritten(form_dict, RejectionRules.Judged(), revision)
 
 
 def form_changes(market: Market, saved: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -3052,6 +3128,8 @@ def get_application_form(market_id: str, requesting_user: str) -> dict:
         ),
         "editable": lock_reason is None,
         "lock_reason": lock_reason,
+        # The revision a save of this copy carries, so one from an older copy is refused.
+        "formRevision": market.form_revision,
     }
 
 

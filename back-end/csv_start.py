@@ -362,9 +362,11 @@ def confirm(
     Actions.ask_assign_if_the_rules_change(confirmed.market, confirmed.plan, by, organization)
 
     # Holding the form as read, which the refusal judged had no questions of its own: a form that
-    # gained one, or another start, refuses this one whole.
+    # gained one, or another start, refuses this one whole. It writes the questions, so it counts
+    # the form's revision, which no page sent: a form tab open from before is told it changed.
     write_market(market_doc, {"$set": confirmed.update},
-                 holds=(market_doc_key("application_form"),))
+                 holds=(market_doc_key("application_form"),),
+                 counts=(MarketsApi.FORM_REVISION_KEY,))
     # One entry for the start, with its counts, as an import is one: what it was made from and what
     # it made, not the plan and the form it wrote whole.
     History.record(market_doc["id"], by, Actions.IMPORT_APPLICATIONS, kind=History.STARTED,

@@ -14,10 +14,20 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import api.applicants as ApplicantsApi  # noqa: E402
 import api.applications as ApplicationsApi  # noqa: E402
+import market_write as MarketWrite  # noqa: E402
 import rejection_rules as Rules  # noqa: E402
 from conftest import FakeApplicationsCollection, client_market, complete_setup  # noqa: E402
 from datatypes import (  # noqa: E402
     Application, ApplicationForm, ApplicationStatus, MarketPhase, RejectionRule, VerdictGiver)
+
+#: The form a stubbed form write prepares, and what the stubbed write answers: these tests read
+#: what the rules decide as a form lands; the write itself is tested on a real server.
+EMPTY_FORM = {"fields": [], "unaskedEssentials": []}
+
+
+def _form_written(*_a, **_kw):
+    return MarketWrite.Written({"formRevision": 1})
+
 
 OUTSIDER = "No, I am not an Example College student"
 FIELDS = [
@@ -236,14 +246,15 @@ class TestTheyApplyWhen:
         without_it = _market(NO_SHOW_RULE).model_copy(update={"application_form": ApplicationForm(
             fields=[f for f in FIELDS if f["key"] != "no_shows"])})
         monkeypatch.setattr(MarketsApi, "_load_market_to_change", lambda *_a: without_it)
-        monkeypatch.setattr(MarketsApi, "prepared_application_form", lambda *_a: {})
-        monkeypatch.setattr(MarketsApi.markets_collection, "update_one", lambda *_a: None)
+        monkeypatch.setattr(MarketsApi, "prepared_application_form", lambda *_a: EMPTY_FORM)
+        monkeypatch.setattr(MarketsApi, "write_market", _form_written)
         monkeypatch.setattr(MarketsApi, "load_market_context",
                             lambda _id: MarketsApi.MarketContext({}, without_it, None, None))
         # The owner, who may overturn an automatic rejection (E38/F06/S01).
         monkeypatch.setattr(MarketsApi, "may_overturn", lambda *_a: True)
 
-        MarketsApi.save_application_form("market-123", {"fields": []}, "owner@x.test")
+        MarketsApi.save_application_form("market-123", {"fields": [], "form_revision": 0},
+                                         "owner@x.test")
 
         assert stored[0]["status"] == ApplicationStatus.OPEN.value
 

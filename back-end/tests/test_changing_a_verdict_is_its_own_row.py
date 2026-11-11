@@ -27,6 +27,15 @@ from conftest import client_market, complete_setup, sessions_load_through_get_us
 from datatypes import (  # noqa: E402
     ApplicationForm, ApplicationStatus, MarketPhase, MarketRole, RejectionRule, VerdictGiver)
 
+#: The form a stubbed form write prepares, and what the stubbed write answers: these tests read
+#: what the rules decide as a form lands; the write itself is tested on a real server.
+EMPTY_FORM = {"fields": [], "unaskedEssentials": []}
+
+
+def _form_written(*_a, **_kw):
+    return MarketWrite.Written({"formRevision": 1})
+
+
 PEOPLE = {
     "owner@market.test": "user-owner",
     "admin@market.test": "user-admin",
@@ -391,7 +400,6 @@ class TestAWriteThatJudgesAgain:
     def market(self, monkeypatch):
         monkeypatch.setattr(MarketsApi, "_load_market_to_change",
                             lambda *_a: _rules_market(NO_SHOW_RULE))
-        monkeypatch.setattr(MarketsApi.markets_collection, "update_one", lambda *_a: None)
         # The rules' own write: a market built here has no stored document to hold.
         monkeypatch.setattr(MarketsApi, "write_market", lambda *_a, **_k: None)
 
@@ -409,12 +417,14 @@ class TestAWriteThatJudgesAgain:
         without_it = _rules_market(NO_SHOW_RULE).model_copy(
             update={"application_form": ApplicationForm(fields=[])})
         monkeypatch.setattr(MarketsApi, "_load_market_to_change", lambda *_a: without_it)
-        monkeypatch.setattr(MarketsApi, "prepared_application_form", lambda *_a: {})
+        monkeypatch.setattr(MarketsApi, "prepared_application_form", lambda *_a: EMPTY_FORM)
+        monkeypatch.setattr(MarketsApi, "write_market", _form_written)
         monkeypatch.setattr(MarketsApi, "load_market_context",
                             lambda _id: MarketsApi.MarketContext({}, without_it, None, None))
         holding(role)
 
-        MarketsApi.save_application_form("market-1", {"fields": []}, "someone@market.test")
+        MarketsApi.save_application_form("market-1", {"fields": [], "form_revision": 0},
+                                           "someone@market.test")
 
         assert ruled_out["status"] == status.value
 
@@ -449,10 +459,12 @@ class TestAWriteThatJudgesAgain:
         elif write == "form":
             without_it = market.model_copy(update={"application_form": ApplicationForm(fields=[])})
             monkeypatch.setattr(MarketsApi, "_load_market_to_change", lambda *_a: without_it)
-            monkeypatch.setattr(MarketsApi, "prepared_application_form", lambda *_a: {})
+            monkeypatch.setattr(MarketsApi, "prepared_application_form", lambda *_a: EMPTY_FORM)
+            monkeypatch.setattr(MarketsApi, "write_market", _form_written)
             monkeypatch.setattr(MarketsApi, "load_market_context",
                                 lambda _id: MarketsApi.MarketContext({}, without_it, None, None))
-            MarketsApi.save_application_form("market-1", {"fields": []}, "someone@market.test")
+            MarketsApi.save_application_form("market-1", {"fields": [], "form_revision": 0},
+                                           "someone@market.test")
         elif write == "vendor-info":
             import api.vendor_info as VendorInfoApi
             from datatypes import MarketPerson

@@ -9,6 +9,7 @@ from conftest import FakeMarketsCollection, client_market, stored_market
 
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
+import market_write as MarketWrite
 from client_errors import BadRequestError, ForbiddenError
 from datatypes import (
     Application, ApplicationForm, ApplicationStatus, FormField, MarketPhase,
@@ -20,26 +21,30 @@ VALID_FORM = {
         {"key": "business_name", "label": "Business Name", "type": "text", "required": True,
          "help_text": "As it appears on your permit", "order": 0},
         {"key": "size", "label": "Booth Size", "type": "select", "options": ["S", "M"], "order": 1},
-    ]
+    ],
+    # The revision the page's copy was read at, as every save carries it (T274).
+    "form_revision": 0,
 }
 
 STORED_FORM = {"fields": [{"key": "shop_name", "label": "Shop name", "type": "text"}]}
 
 
-@pytest.fixture
-def markets(monkeypatch):
-    fake = FakeMarketsCollection(stored_market())
+def _bound(monkeypatch, fake):
+    """``fake`` as the markets collection the form is read from and written to."""
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    monkeypatch.setattr(MarketWrite, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)
     return fake
+
+
+@pytest.fixture
+def markets(monkeypatch):
+    return _bound(monkeypatch, FakeMarketsCollection(stored_market()))
 
 
 @pytest.fixture
 def markets_with_stored_form(monkeypatch):
-    fake = FakeMarketsCollection(stored_market(applicationForm=STORED_FORM))
-    monkeypatch.setattr(MarketsApi, "markets_collection", fake)
-    monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)
-    return fake
+    return _bound(monkeypatch, FakeMarketsCollection(stored_market(applicationForm=STORED_FORM)))
 
 
 def _submitted_application(market_id: str) -> dict:
@@ -56,7 +61,7 @@ class TestSaveApplicationForm:
     def test_saves_form_to_market_in_camel_case(self, markets, applications):
         MarketsApi.save_application_form("market-123", VALID_FORM, "user-1")
 
-        written = markets.last_update["$set"]["applicationForm"]
+        written = markets.doc["applicationForm"]
         assert written["fields"][0]["key"] == "business_name"
         assert written["fields"][0]["helpText"] == "As it appears on your permit"
         assert "help_text" not in written["fields"][0]
@@ -65,10 +70,12 @@ class TestSaveApplicationForm:
     def test_returns_camel_case_matching_the_front_end_contract(self, markets, applications):
         result = MarketsApi.save_application_form("market-123", VALID_FORM, "user-1")
 
-        assert result["fields"][0]["helpText"] == "As it appears on your permit"
-        assert "publishedAt" in result
-        assert "help_text" not in result["fields"][0]
-        assert "published_at" not in result
+        form = result["application_form"]
+        assert form["fields"][0]["helpText"] == "As it appears on your permit"
+        assert "publishedAt" in form
+        assert "help_text" not in form["fields"][0]
+        assert "published_at" not in form
+        assert result["formRevision"] == 1
 
     def test_missing_market_raises_not_found(self, monkeypatch, applications):
         monkeypatch.setattr(MarketsApi, "markets_collection", FakeMarketsCollection(None))
@@ -155,7 +162,8 @@ class TestD9Lock:
 
 class TestFieldValidation:
     def _save(self, fields):
-        return MarketsApi.save_application_form("market-123", {"fields": fields}, "user-1")
+        return MarketsApi.save_application_form(
+            "market-123", {"fields": fields, "form_revision": 0}, "user-1")["application_form"]
 
     def test_a_form_with_no_custom_fields_is_accepted(self, markets, applications):
         """A form is its custom fields PLUS the essential questions the plan asks (AGENTS.md).
@@ -209,7 +217,7 @@ class TestFieldValidation:
         ]
         self._save(fields)
 
-        assert len(markets.last_update["$set"]["applicationForm"]["fields"]) == 7
+        assert len(markets.doc["applicationForm"]["fields"]) == 7
 
     def test_duplicate_keys_are_refused(self, markets, applications):
         """Duplicate keys would collide in Application.form_data and lose an answer."""
@@ -246,8 +254,9 @@ class TestNormalization:
     """Validation runs on the normalized value, so the persisted value must be that same one."""
 
     def _saved_fields(self, markets, fields):
-        MarketsApi.save_application_form("market-123", {"fields": fields}, "user-1")
-        return markets.last_update["$set"]["applicationForm"]["fields"]
+        MarketsApi.save_application_form(
+            "market-123", {"fields": fields, "form_revision": 0}, "user-1")
+        return markets.doc["applicationForm"]["fields"]
 
     def test_keys_and_labels_are_persisted_stripped(self, markets, applications):
         fields = self._saved_fields(
@@ -291,22 +300,21 @@ class TestPublishedAtIsServerOwned:
             "market-123", {**VALID_FORM, "published_at": "2026-01-01T00:00:00Z"}, "user-1"
         )
 
-        assert markets.last_update["$set"]["applicationForm"]["publishedAt"] is None
+        assert markets.doc["applicationForm"]["publishedAt"] is None
 
     def test_the_stored_published_at_survives_a_save(self, monkeypatch, applications):
-        fake = FakeMarketsCollection(
+        fake = _bound(monkeypatch, FakeMarketsCollection(
             stored_market(
                 applicationForm={**STORED_FORM, "publishedAt": "2026-02-02T00:00:00Z"}
             )
-        )
-        monkeypatch.setattr(MarketsApi, "markets_collection", fake)
-        monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)
+        ))
 
-        MarketsApi.save_application_form(
+        saved = MarketsApi.save_application_form(
             "market-123", {**VALID_FORM, "published_at": None}, "user-1"
         )
 
-        assert fake.last_update["$set"]["applicationForm"]["publishedAt"] == "2026-02-02T00:00:00Z"
+        assert fake.doc["applicationForm"]["publishedAt"] == "2026-02-02T00:00:00Z"
+        assert saved["application_form"]["publishedAt"] == "2026-02-02T00:00:00Z"
 
 
 class TestCreateMarketWritesTheFormThroughTheSameContract:
@@ -364,19 +372,23 @@ class TestCreateMarketWritesTheFormThroughTheSameContract:
 
         assert created.inserted["applicationForm"] is None
 
+    def test_a_create_body_never_sets_the_forms_revision(self, created, applications):
+        """The revision counts the form's own writes, so a new market starts at none."""
+        MarketsApi.create_market(client_market(form_revision=7), "user-1@example.com")
+
+        assert created.inserted["formRevision"] == 0
+
 
 class TestGetApplicationForm:
     def test_returns_camel_case_form_and_editable_state(self, markets, applications):
         MarketsApi.save_application_form("market-123", VALID_FORM, "user-1")
-        markets.doc = stored_market(
-            applicationForm=markets.last_update["$set"]["applicationForm"]
-        )
 
         result = MarketsApi.get_application_form("market-123", "user-1")
 
         assert result["application_form"]["fields"][0]["helpText"] == "As it appears on your permit"
         assert result["editable"] is True
         assert result["lock_reason"] is None
+        assert result["formRevision"] == 1
 
     def test_reports_no_form(self, markets, applications):
         result = MarketsApi.get_application_form("market-123", "user-1")

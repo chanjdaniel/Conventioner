@@ -152,6 +152,13 @@ class LiveMarkets:
             held = target.setdefault(last, [])
             if value not in held:
                 held.append(value)
+        # A count a write keeps (the form's revision), from 0 when it has none, as the server counts.
+        for key, value in (update.get("$inc") or {}).items():
+            *parents, last = key.split(".")
+            target = self.doc
+            for part in parents:
+                target = target.setdefault(part, {})
+            target[last] = (target.get(last) or 0) + value
         return SimpleNamespace(matched_count=1, modified_count=1, upserted_id=None)
 
     def find_one_and_update(self, query, update, projection=None, return_document=False):
@@ -297,7 +304,8 @@ def _delete_floorplan_image(client, world):
 
 def _save_form(client, world):
     world.market(MarketPhase.DRAFT, setupObject=COMPLETE_PLAN)
-    return client.put(f"/markets/{MARKET}/application-form", json={"fields": [QUESTION]})
+    return client.put(f"/markets/{MARKET}/application-form",
+                      json={"fields": [QUESTION], "formRevision": 0})
 
 
 def _review_highlights(client, world):
@@ -1029,7 +1037,7 @@ class TestWhatAnEntryHolds:
                      applicationForm=FORM_WITH_A_FIELD)
 
         client.put(f"/markets/{MARKET}/application-form",
-                   json={"fields": [*FORM_WITH_A_FIELD["fields"], QUESTION]})
+                   json={"fields": [*FORM_WITH_A_FIELD["fields"], QUESTION], "formRevision": 0})
 
         [entry] = world.history.documents
         assert entry["detail"]["before"]["questions"] == {"shop": None}

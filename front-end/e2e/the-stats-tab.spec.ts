@@ -9,6 +9,7 @@ import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
 import { StatsPage } from './pages/StatsPage';
+import { saveApplicationForm } from './helpers/saveApplicationForm';
 
 /**
  * The Stats tab (E45/F01/S01): the last tab on the market bar, open in every phase and to anyone who
@@ -231,28 +232,25 @@ test('a chart per choice question counts each option, groups "Other", and narrow
     TEST_USER.password,
     { intakeMode: 'form' },
   );
-  const form = await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
-    data: {
-      fields: [
-        { key: 'business', label: 'Business name', type: 'text', options: [], order: 0 },
-        {
-          key: 'selling',
-          label: SELLING,
-          type: 'multi_select',
-          options: ['Prints', 'Stickers', 'Jewelry', 'Ceramics'],
-          order: 1,
-        },
-        {
-          key: 'first_market',
-          label: 'Is this your first market with us?',
-          type: 'select',
-          options: ['Yes', 'No'],
-          order: 2,
-        },
-      ],
-    },
+  await saveApplicationForm(request, BACKEND_URL, marketId, {
+    fields: [
+      { key: 'business', label: 'Business name', type: 'text', options: [], order: 0 },
+      {
+        key: 'selling',
+        label: SELLING,
+        type: 'multi_select',
+        options: ['Prints', 'Stickers', 'Jewelry', 'Ceramics'],
+        order: 1,
+      },
+      {
+        key: 'first_market',
+        label: 'Is this your first market with us?',
+        type: 'select',
+        options: ['Yes', 'No'],
+        order: 2,
+      },
+    ],
   });
-  expect(form.ok(), await form.text()).toBeTruthy();
   await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
 
   // Each answered on a Google Form, where "Other" is written in by hand.

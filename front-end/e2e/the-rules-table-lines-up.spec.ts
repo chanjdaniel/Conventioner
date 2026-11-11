@@ -5,6 +5,7 @@ import { savePlan } from './helpers/savePlan';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { publishResults } from './helpers/seeds';
 import { ChoiceField } from './pages/ChoiceField';
+import { saveApplicationForm } from './helpers/saveApplicationForm';
 
 /**
  * The priority rules table is drawn from the primitives (E28/F03/S01).
@@ -38,14 +39,11 @@ test('the answers line up, the row grows, and dragging still reorders', async ({
     TEST_USER.email,
     TEST_USER.password,
   );
-  const form = await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
-    data: {
-      fields: [
-        { key: 'craft', label: 'Craft', type: 'select', required: true, order: 0, options: CRAFTS },
-      ],
-    },
+  await saveApplicationForm(request, BACKEND_URL, marketId, {
+    fields: [
+      { key: 'craft', label: 'Craft', type: 'select', required: true, order: 0, options: CRAFTS },
+    ],
   });
-  expect(form.ok(), await form.text()).toBeTruthy();
   await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, {
     priority: [
       { id: 1, target: 'craft', ordering: CRAFTS, direction: null },
@@ -182,34 +180,31 @@ test("a rule's question stays in its column, however long the form's other quest
     TEST_USER.email,
     TEST_USER.password,
   );
-  const form = await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
-    data: {
-      fields: [
-        {
-          key: 'student',
-          label: 'Are you an Example College student or alumni?',
-          type: 'select',
-          required: true,
-          order: 0,
-          options: [
-            'Yes, I am a CURRENT Example College student',
-            'Yes, I am Example College alumni/staff',
-            'No',
-          ],
-        },
-        {
-          key: 'returning',
-          label:
-            'Have you vended with us before, at any of our markets in the last three years, under this or any other business name?',
-          type: 'select',
-          required: true,
-          order: 1,
-          options: ['Yes', 'No'],
-        },
-      ],
-    },
+  await saveApplicationForm(request, BACKEND_URL, marketId, {
+    fields: [
+      {
+        key: 'student',
+        label: 'Are you an Example College student or alumni?',
+        type: 'select',
+        required: true,
+        order: 0,
+        options: [
+          'Yes, I am a CURRENT Example College student',
+          'Yes, I am Example College alumni/staff',
+          'No',
+        ],
+      },
+      {
+        key: 'returning',
+        label:
+          'Have you vended with us before, at any of our markets in the last three years, under this or any other business name?',
+        type: 'select',
+        required: true,
+        order: 1,
+        options: ['Yes', 'No'],
+      },
+    ],
   });
-  expect(form.ok(), await form.text()).toBeTruthy();
   await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, {
     priority: [
       {

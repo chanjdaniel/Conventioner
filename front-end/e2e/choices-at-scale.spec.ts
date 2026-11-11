@@ -34,6 +34,7 @@ import {
 } from './helpers/layoutDetectors';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import { VendorPage } from './pages/VendorPage';
+import { saveApplicationForm } from './helpers/saveApplicationForm';
 
 /**
  * The app's choices at a real market's size (T223), on the committed synthetic exports: a choice
@@ -452,10 +453,7 @@ test.describe('an automatic rejection, on the question of 129 answers', () => {
       options: ['Yes', 'No'],
       order,
     }));
-    const form = await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
-      data: { fields },
-    });
-    expect(form.ok(), await form.text()).toBeTruthy();
+    await saveApplicationForm(request, BACKEND_URL, marketId, { fields });
 
     await openReviewSetup(page, marketId);
     const question = new ChoiceField(page, 'rejection-rule-question');
@@ -604,10 +602,7 @@ test('a price group\'s "Add a condition on" past 12 questions shows its whole li
     options: ['Yes', 'No'],
     order,
   }));
-  const form = await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
-    data: { fields },
-  });
-  expect(form.ok(), await form.text()).toBeTruthy();
+  await saveApplicationForm(request, BACKEND_URL, marketId, { fields });
 
   await page.goto(marketSetupPath(marketId, 'setup'));
   const card = page.getByTestId('plan-card-pricing');

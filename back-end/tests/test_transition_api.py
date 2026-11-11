@@ -235,7 +235,8 @@ class TestTransitionSuccess:
         assert response.status_code == 200
         assert response.get_json() == {"phase": "applications"}
         assert collection.doc["phase"] == "applications"
-        assert collection.updates[0][0] == {"id": "market-1", "phase": {"$exists": False}}
+        assert collection.updates[0][0] == {"id": "market-1", "phase": {"$exists": False},
+                                            "formRevision": {"$exists": False}}
 
     def test_draft_to_archived_publishes_without_form(self, client, markets):
         """CSV publish path: no form guard needed for draft -> archived."""
