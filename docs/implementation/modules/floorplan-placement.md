@@ -414,6 +414,8 @@ Every write of the plan runs `layout.derive_counts`, so a section of a laid-out 
 A floorplan whose location is no longer one of the plan's goes with it: the write drops it, and `release_removed_floorplans` deletes its image by id once the write has landed and records `floorplan_removed`; the CSV start does the same after its write.
 A floorplan of no location, which only the beta saved, is kept and ignored by every reader until [`migrations/migrate_layouts.py`](../../../back-end/migrations/migrate_layouts.py) removes it.
 What of a layout settles on leaving draft is its seats and the market's table types (`layout.settled_part`), never where a table stands.
+Today a layout's save is refused once the market has left draft (`setup_lock_reason` in [`api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)) and the page reads only.
+`layout.settled_layout_refusal` states what a following change will let through past draft: a table moved or turned, never a seat or a table type.
 Every writer of the plan, the plan write, a layout's save, the table types write and the CSV start, holds the plan's revision as read and counts it ([the plan's revision](market-write.md#the-plans-revision)), so none puts back what another wrote between its read and its write: a layout's save then answers 409 `STALE_LAYOUT`, and the others the one 409 "market changed".
 
 **A floorplan is held to its bounds wherever it is written.**

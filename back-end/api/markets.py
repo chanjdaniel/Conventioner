@@ -534,8 +534,11 @@ def setup_part(plan: Optional[SetupObject]) -> Dict[str, Any]:
 
     Everything on Market Setup: the dates, tiers, locations, sections and their tables, the
     prices (E43/F01/S01), and of the layouts what settles (T257): each floorplan's seats and the
-    market's table types (``layout.settled_part``), never where a table stands, which stays
-    editable until the market is archived. Not the assignment rules
+    market's table types (``layout.settled_part``), never where a table stands. Today a layout's
+    save is refused once the market has left draft (``setup_lock_reason`` in
+    ``api/floorplans_save.py``) and the page reads only; ``layout.settled_layout_refusal`` states
+    what a following change will let through past draft, a table moved or turned, never a seat or
+    a table type. Not the assignment rules
     (``made_from.assignment_rules``), which ride in the same object and keep a lock of their own.
     """
     if plan is None:

@@ -13,7 +13,10 @@ its number. The word "layout" is what an organizer reads; the code and the route
 - ``layout_refusal``: the rules a saved layout keeps (its location, its tables' ids, its numbering,
   its types, its tables inside the floorplan).
 - ``layout_seats`` and ``settled_layout_refusal``: what of a layout settles on leaving draft, the
-  seats and the types, while where a table stands stays editable until the market is archived.
+  seats and the types. Today a layout's save is refused once the market has left draft
+  (``setup_lock_reason`` in ``api/floorplans_save.py``) and the page reads only;
+  ``settled_layout_refusal`` states what a following change will let through past draft, a table
+  moved or turned, never a seat or a table type.
 - ``describe_change``: what a save changed, as the ``floorplan`` history entry records it.
 
 Matched by id throughout: a table names its section and a floorplan its location by id, because
@@ -169,7 +172,9 @@ def layout_seats(floorplan: FloorplanObject) -> Tuple[Optional[str], Tuple[Seat,
 
     Each table's id, section, number and type, in one order whatever the tables' and every one
     kept, so a table repeated under an id is a seat more; never where it stands or how it is
-    turned, which stay editable until the market is archived.
+    turned. Today a layout's save is refused once the market has left draft (``setup_lock_reason``
+    in ``api/floorplans_save.py``) and the page reads only; a following change lets a table moved
+    or turned through past draft, through ``settled_layout_refusal``.
     """
     return floorplan.location_id, tuple(sorted(
         ((table.id, table.section_id, table.number, table.table_type_id)
@@ -194,7 +199,13 @@ def settled_layout_refusal(
     stored: Optional[SetupObject], proposed: SetupObject, settled: str,
 ) -> Optional[str]:
     """``settled``, the setup-settled sentence, when the proposed plan changes a seat, a table type
-    or the set of layouts the stored one holds; else None, so a table moved or turned saves."""
+    or the set of layouts the stored one holds; else None, so a table moved or turned would save.
+
+    No save calls it yet: today a layout's save is refused once the market has left draft
+    (``setup_lock_reason`` in ``api/floorplans_save.py``) and the page reads only. It states what a
+    following change will let through past draft: a table moved or turned, never a seat or a table
+    type.
+    """
     if settled_part(stored) != settled_part(proposed):
         return settled
     return None
